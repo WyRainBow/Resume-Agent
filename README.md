@@ -38,8 +38,6 @@ cd Resume-Agent
 
 2. **配置环境变量**
 ```bash
-# 复制 .env.example 到 .env（如果存在）
-# 或直接创建 .env 文件，添加以下内容：
 ZHIPU_API_KEY=your_zhipu_api_key
 GEMINI_API_KEY=your_gemini_api_key
 ZHIPU_MODEL=glm-4.5v
@@ -47,9 +45,8 @@ ZHIPU_MODEL=glm-4.5v
 
 3. **安装后端依赖**
 ```bash
-# 使用 pip 或 uv
 pip install -r backend/requirements.txt
-# 或
+
 uv pip install -r backend/requirements.txt
 ```
 
@@ -113,27 +110,7 @@ npm run dev
 - **PDF 生成**：XeLaTeX + LaTeX 模板
 - **字体支持**：PingFang SC（中文）+ TeXGyreTermes（英文）
 
-## 📁 项目结构
 
-```
-Resume-Agent/
-├── backend/              # 后端代码
-│   ├── main.py          # FastAPI 主入口
-│   ├── latex_generator.py  # LaTeX 生成器
-│   └── requirements.txt  # Python 依赖
-├── frontend/            # 前端代码
-│   ├── src/
-│   │   ├── components/  # React 组件
-│   │   ├── services/    # API 服务
-│   │   └── types/       # TypeScript 类型
-│   └── package.json     # Node 依赖
-├── Latex 简历演示/       # LaTeX 模板和字体
-│   ├── resume.cls       # 简历模板类
-│   ├── fonts/           # 字体文件
-│   └── README.md       # 详细文档
-├── simple.py            # AI API 调用封装
-├── test_resume_demo.json  # Demo 简历数据
-└── README.md            # 本文件
 ```
 
 ## 🎯 核心特性
@@ -142,11 +119,27 @@ Resume-Agent/
 - ✅ **LaTeX 排版**：专业级 PDF 生成、确保排版质量
 - ✅ **字体支持**：完整支持中文字体渲染、解决 PDF.js 字体显示问题
 - ✅ **实时预览**：前端即时显示生成的 PDF
-- ✅ **Demo 模式**：快速加载预设模板，无需 AI 调用
+- ✅ **Demo 模式**：快速加载预设模板、无需 AI 调用
 
-## 📸 截图
+## 📸 功能截图
 
-详细的功能截图和说明请查看：[Latex 简历演示/README.md](Latex%20%E7%AE%80%E5%8E%86%E6%BC%94%E7%A4%BA/README.md)
+### 1. 初始界面
+
+用户在左侧面板输入一句话描述，包含岗位/职位、工作年限、技术栈、个人亮点等信息。
+
+![初始界面](Latex%20%E7%AE%80%E5%8E%86%E6%BC%94%E7%A4%BA/1-初始界面.png)
+
+### 2. PDF 预览
+
+系统生成简历后，在右侧面板实时预览 PDF，支持翻页和缩放，字体完整渲染。
+
+![PDF预览](Latex%20%E7%AE%80%E5%8E%86%E6%BC%94%E7%A4%BA/2-PDF预览完整.png)
+
+### 3. AI 生成简历
+
+点击"生成简历"按钮后，AI 模型将自然语言描述转换为结构化简历数据，并自动生成 PDF。
+
+![AI生成简历](Latex%20%E7%AE%80%E5%8E%86%E6%BC%94%E7%A4%BA/3-AI生成简历.png)
 
 ## 🔧 开发
 
@@ -185,5 +178,5 @@ MIT License
 
 ---
 
-**注意**：使用前请确保已配置正确的 API 密钥。`.env` 文件不会被推送到仓库，请自行创建并配置。
+**注意**：使用前请确保已配置正确的 API 密钥。`.env` 文件不会被推送到仓库、请自行创建并配置。
 
