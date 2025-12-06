@@ -110,29 +110,6 @@ npm run dev
 - **PDF 生成**：XeLaTeX + LaTeX 模板
 - **字体支持**：PingFang SC（中文）+ TeXGyreTermes（英文）
 
-## 📁 项目结构
-
-```
-Resume-Agent/
-├── backend/              # 后端代码
-│   ├── main.py          # FastAPI 主入口
-│   ├── latex_generator.py  # LaTeX 生成器
-│   └── requirements.txt  # Python 依赖
-├── frontend/            # 前端代码
-│   ├── src/
-│   │   ├── components/  # React 组件
-│   │   ├── services/    # API 服务
-│   │   └── types/       # TypeScript 类型
-│   └── package.json     # Node 依赖
-├── Latex 简历演示/       # LaTeX 模板和字体
-│   ├── resume.cls       # 简历模板类
-│   ├── fonts/           # 字体文件
-│   └── README.md       # 详细文档
-├── simple.py            # AI API 调用封装
-├── test_resume_demo.json  # Demo 简历数据
-└── README.md            # 本文件
-```
-
 ## 🎯 核心特性
 
 - ✅ **AI 驱动**：使用大语言模型理解用户意图、自动生成结构化内容
