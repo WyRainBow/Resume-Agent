@@ -110,7 +110,27 @@ npm run dev
 - **PDF 生成**：XeLaTeX + LaTeX 模板
 - **字体支持**：PingFang SC（中文）+ TeXGyreTermes（英文）
 
+## 📁 项目结构
 
+```
+Resume-Agent/
+├── backend/              # 后端代码
+│   ├── main.py          # FastAPI 主入口
+│   ├── latex_generator.py  # LaTeX 生成器
+│   └── requirements.txt  # Python 依赖
+├── frontend/            # 前端代码
+│   ├── src/
+│   │   ├── components/  # React 组件
+│   │   ├── services/    # API 服务
+│   │   └── types/       # TypeScript 类型
+│   └── package.json     # Node 依赖
+├── Latex 简历演示/       # LaTeX 模板和字体
+│   ├── resume.cls       # 简历模板类
+│   ├── fonts/           # 字体文件
+│   └── README.md       # 详细文档
+├── simple.py            # AI API 调用封装
+├── test_resume_demo.json  # Demo 简历数据
+└── README.md            # 本文件
 ```
 
 ## 🎯 核心特性
@@ -131,13 +151,13 @@ npm run dev
 
 ### 2. PDF 预览
 
-系统生成简历后，在右侧面板实时预览 PDF，支持翻页和缩放，字体完整渲染。
+系统生成简历后，在右侧面板实时预览 PDF、支持翻页和缩放、字体完整渲染。
 
 ![PDF预览](Latex%20%E7%AE%80%E5%8E%86%E6%BC%94%E7%A4%BA/2-PDF预览完整.png)
 
 ### 3. AI 生成简历
 
-点击"生成简历"按钮后，AI 模型将自然语言描述转换为结构化简历数据，并自动生成 PDF。
+点击"生成简历"按钮后，AI 模型将自然语言描述转换为结构化简历数据、并自动生成 PDF。
 
 ![AI生成简历](Latex%20%E7%AE%80%E5%8E%86%E6%BC%94%E7%A4%BA/3-AI生成简历.png)
 
