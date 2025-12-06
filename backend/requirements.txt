@@ -1,0 +1,8 @@
+fastapi==0.115.5
+uvicorn[standard]==0.32.0
+pydantic==2.9.2
+python-dotenv==1.0.1
+requests==2.32.3
+reportlab==4.2.5
+zai-sdk==0.0.4.3
+

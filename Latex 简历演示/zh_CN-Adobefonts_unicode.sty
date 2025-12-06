@@ -1,0 +1,50 @@
+\NeedsTeXFormat{LaTeX2e}[1994/06/01]
+\ProvidesPackage{zh_CN-Adobefonts_unicode}[2024/12/07 zh_CN-Adobefonts with Unicode support]
+
+\RequirePackage{fontspec}
+\RequirePackage{xeCJK}
+
+"""使用系统字体或支持 Unicode 的字体，确保 PDF.js 能正确渲染"""
+
+"""尝试使用系统字体，如果不存在则回退到 Adobe 字体"""
+\IfFontExistsTF{STSong}{%
+    \setCJKmainfont{STSong}[
+        BoldFont=STHeiti,
+        ItalicFont=STKaiti
+    ]
+    \setCJKsansfont{STHeiti}
+    \setCJKmonofont{STFangsong}
+}{%
+    \IfFontExistsTF{SimSun}{%
+        \setCJKmainfont{SimSun}[
+            BoldFont=SimHei,
+            ItalicFont=KaiTi
+        ]
+        \setCJKsansfont{SimHei}
+        \setCJKmonofont{FangSong}
+    }{%
+        """回退到 Adobe 字体，但尝试强制 Unicode"""
+        \defaultfontfeatures{Path = fonts/zh_CN-Adobe/, Mapping=tex-text}
+        \setCJKmainfont[
+            BoldFont=AdobeHeitiStd-Regular.otf,
+            ItalicFont=AdobeKaitiStd-Regular.otf,
+            SmallCapsFont=AdobeHeitiStd-Regular.otf,
+            UprightFont=AdobeSongStd-Light.otf
+        ]{AdobeSongStd-Light.otf}
+        \setCJKsansfont{AdobeHeitiStd-Regular.otf}
+        \setCJKmonofont{AdobeFangsongStd-Regular.otf}
+    }
+}
+
+\setCJKfamilyfont{zhsong}{\CJK@mainfont}
+\setCJKfamilyfont{zhhei}{\CJK@sansfont}
+\setCJKfamilyfont{zhkai}{\CJK@itfont}
+\setCJKfamilyfont{zhfs}{\CJK@monofont}
+
+\newcommand*{\songti}{\CJKfamily{zhsong}}
+\newcommand*{\heiti}{\CJKfamily{zhhei}}
+\newcommand*{\kaishu}{\CJKfamily{zhkai}}
+\newcommand*{\fangsong}{\CJKfamily{zhfs}}
+
+\endinput
+

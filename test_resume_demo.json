@@ -1,0 +1,43 @@
+{
+  "name": "张明",
+  "contact": {
+    "email": "zhangming@example.com",
+    "phone": "13800138000",
+    "location": "北京市"
+  },
+  "summary": "3年Java/Go后端开发经验，专注高并发系统设计与微服务架构优化，具备千万级流量系统调优能力。熟悉分布式系统、消息队列、缓存等技术栈。",
+  "experience": [
+    {
+      "company": "XX科技有限公司",
+      "position": "高级后端工程师",
+      "duration": "2020.07 - 2023.06",
+      "location": "北京",
+      "achievements": [
+        "优化支付系统接口性能，响应时间从200ms降低至50ms，QPS提升300%",
+        "设计微服务架构重构订单模块，支持10+服务实例，系统可用性提升至99.95%",
+        "实现分布式缓存方案，缓存命中率达到98.5%，减少数据库压力60%"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "电商平台核心系统",
+      "role": "核心开发者",
+      "stack": ["Java", "Spring Boot", "Redis", "Kafka"],
+      "highlights": [
+        "实现秒杀场景下的高并发订单处理，峰值QPS达5000+",
+        "设计分布式锁机制，解决超卖问题，准确率达到99.9%"
+      ]
+    }
+  ],
+  "skills": ["Java", "Go", "Spring Boot", "Spring Cloud", "Redis", "MySQL", "Kafka", "Docker", "Kubernetes"],
+  "education": [
+    {
+      "school": "某大学",
+      "degree": "本科",
+      "major": "计算机科学与技术",
+      "duration": "2016.09 - 2020.06"
+    }
+  ]
+}
+
