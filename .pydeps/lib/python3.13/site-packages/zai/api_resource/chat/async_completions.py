@@ -1,0 +1,145 @@
+from __future__ import annotations
+
+import logging
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
+
+import httpx
+from typing_extensions import Literal
+
+from zai.core import (
+	NOT_GIVEN,
+	BaseAPI,
+	Body,
+	Headers,
+	NotGiven,
+	drop_prefix_image_data,
+	make_request_options,
+	maybe_transform,
+)
+from zai.types.chat.async_chat_completion import AsyncCompletion, AsyncTaskStatus
+from zai.types.chat.code_geex import code_geex_params
+from zai.types.sensitive_word_check import SensitiveWordCheckRequest
+
+logger = logging.getLogger(__name__)
+
+if TYPE_CHECKING:
+	from zai._client import ZaiClient
+
+
+class AsyncCompletions(BaseAPI):
+	"""
+	Asynchronous chat completions API resource
+
+	Provides access to asynchronous chat completion operations.
+	"""
+
+	def __init__(self, client: 'ZaiClient') -> None:
+		super().__init__(client)
+
+	def create(
+		self,
+		*,
+		model: str,
+		request_id: Optional[str] | NotGiven = NOT_GIVEN,
+		user_id: Optional[str] | NotGiven = NOT_GIVEN,
+		do_sample: Optional[Literal[False]] | Literal[True] | NotGiven = NOT_GIVEN,
+		temperature: Optional[float] | NotGiven = NOT_GIVEN,
+		top_p: Optional[float] | NotGiven = NOT_GIVEN,
+		max_tokens: int | NotGiven = NOT_GIVEN,
+		seed: int | NotGiven = NOT_GIVEN,
+		messages: Union[str, List[str], List[int], List[List[int]], None],
+		stop: Optional[Union[str, List[str], None]] | NotGiven = NOT_GIVEN,
+		sensitive_word_check: Optional[SensitiveWordCheckRequest] | NotGiven = NOT_GIVEN,
+		tools: Optional[object] | NotGiven = NOT_GIVEN,
+		tool_choice: str | NotGiven = NOT_GIVEN,
+		meta: Optional[Dict[str, str]] | NotGiven = NOT_GIVEN,
+		extra: Optional[code_geex_params.CodeGeexExtra] | NotGiven = NOT_GIVEN,
+		extra_headers: Headers | None = None,
+		extra_body: Body | None = None,
+		timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+		response_format: object | None = None,
+		thinking: object | None = None,
+		watermark_enabled: Optional[bool] | NotGiven = NOT_GIVEN,
+	) -> AsyncTaskStatus:
+		"""
+		Create an asynchronous chat completion task
+
+		Arguments:
+			model (str): Model name to use for completion
+			request_id (Optional[str]): Request identifier
+			user_id (Optional[str]): User identifier
+			do_sample (Optional[bool]): Whether to use sampling
+			temperature (Optional[float]): Sampling temperature (0.0, 1.0)
+			top_p (Optional[float]): Top-p sampling parameter (0.0, 1.0)
+			max_tokens (int): Maximum number of tokens to generate
+			seed (int): Random seed for reproducible results
+			messages (Union[str, List[str], List[int], List[List[int]], None]): Input messages
+			stop (Optional[Union[str, List[str], None]]): Stop sequences
+			sensitive_word_check (Optional[SensitiveWordCheckRequest]): Sensitive word checking configuration
+			tools (Optional[object]): Tools available to the model
+			tool_choice (str): Tool choice strategy
+			meta (Optional[Dict[str, str]]): Additional metadata
+			extra (Optional[CodeGeexExtra]): Extra parameters for CodeGeex models
+			extra_headers (Headers): Additional HTTP headers
+			extra_body (Body): Additional request body parameters
+			timeout (float | httpx.Timeout): Request timeout
+			response_format (Optional[object]): Response format specification
+			thinking (Optional[object]): Configuration parameters for model reasoning
+			watermark_enabled (Optional[bool]): Whether to enable watermark on generated audio
+		"""
+		_cast_type = AsyncTaskStatus
+		if isinstance(messages, List):
+			for item in messages:
+				if item.get('content'):
+					item['content'] = drop_prefix_image_data(item['content'])
+
+		body = {
+			'model': model,
+			'request_id': request_id,
+			'user_id': user_id,
+			'temperature': temperature,
+			'top_p': top_p,
+			'do_sample': do_sample,
+			'max_tokens': max_tokens,
+			'seed': seed,
+			'messages': messages,
+			'stop': stop,
+			'sensitive_word_check': sensitive_word_check,
+			'tools': tools,
+			'tool_choice': tool_choice,
+			'meta': meta,
+			'extra': maybe_transform(extra, code_geex_params.CodeGeexExtra),
+			'response_format': response_format,
+			'thinking': thinking,
+			'watermark_enabled': watermark_enabled,
+		}
+		return self._post(
+			'/async/chat/completions',
+			body=body,
+			options=make_request_options(extra_headers=extra_headers, extra_body=extra_body, timeout=timeout),
+			cast_type=_cast_type,
+			stream=False,
+		)
+
+	def retrieve_completion_result(
+		self,
+		id: str,
+		extra_headers: Headers | None = None,
+		extra_body: Body | None = None,
+		timeout: float | httpx.Timeout | None | NotGiven = NOT_GIVEN,
+	) -> Union[AsyncCompletion, AsyncTaskStatus]:
+		"""
+		Retrieve the result of an asynchronous chat completion task
+
+		Arguments:
+			id (str): The task ID to retrieve results for
+			extra_headers (Headers): Additional HTTP headers
+			extra_body (Body): Additional request body parameters
+			timeout (float | httpx.Timeout): Request timeout
+		"""
+		_cast_type = Union[AsyncCompletion, AsyncTaskStatus]
+		return self._get(
+			path=f'/async-result/{id}',
+			cast_type=_cast_type,
+			options=make_request_options(extra_headers=extra_headers, extra_body=extra_body, timeout=timeout),
+		)
