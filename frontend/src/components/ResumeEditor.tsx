@@ -89,32 +89,29 @@ function SortableSection({
           ? '0 20px 40px rgba(0, 0, 0, 0.3)' 
           : '0 4px 15px rgba(0, 0, 0, 0.1)',
       }}>
-        {/* 标题栏 */}
+        {/* 标题栏 - 整个区域可拖拽 */}
         <div 
+          {...attributes}
+          {...listeners}
           style={{
             display: 'flex',
             alignItems: 'center',
             padding: '16px 20px',
-            cursor: 'pointer',
+            cursor: 'grab',
             userSelect: 'none',
           }}
         >
-          {/* 拖拽手柄 */}
+          {/* 拖拽手柄图标（视觉提示） */}
           <div
-            {...attributes}
-            {...listeners}
             style={{
               display: 'flex',
               flexDirection: 'column',
               gap: '2px',
               padding: '8px',
               marginRight: '12px',
-              cursor: 'grab',
               opacity: 0.5,
               transition: 'opacity 0.2s',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-            onMouseLeave={(e) => e.currentTarget.style.opacity = '0.5'}
           >
             <div style={{ display: 'flex', gap: '2px' }}>
               <div style={{ width: 4, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.6)' }} />
@@ -130,14 +127,19 @@ function SortableSection({
             </div>
           </div>
 
-          {/* 图标和标题 */}
+          {/* 图标和标题 - 点击展开，阻止拖拽 */}
           <div 
-            onClick={onToggle}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggle()
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
             style={{ 
               flex: 1, 
               display: 'flex', 
               alignItems: 'center', 
-              gap: '12px' 
+              gap: '12px',
+              cursor: 'pointer',
             }}
           >
             <span style={{ fontSize: '20px' }}>{section.icon}</span>
@@ -150,9 +152,13 @@ function SortableSection({
             </span>
           </div>
 
-          {/* 展开/收起箭头 */}
+          {/* 展开/收起箭头 - 点击展开，阻止拖拽 */}
           <div 
-            onClick={onToggle}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggle()
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
             style={{
               color: 'rgba(255,255,255,0.6)',
               fontSize: '14px',
