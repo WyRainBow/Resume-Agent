@@ -141,8 +141,8 @@ def call_llm(provider: str, prompt: str) -> str:
 """
 
 def build_resume_prompt(instruction: str, locale: str = "zh") -> str:
-    """构建简历生成提示词，优化为更简洁快速"""
     """
+    构建简历生成提示词，优化为更简洁快速
     根据用户的一句话指令，构造严格的 JSON 输出提示词
     优化：要求更简洁的输出，减少不必要的描述
     """
@@ -164,7 +164,7 @@ def build_resume_prompt(instruction: str, locale: str = "zh") -> str:
         "{\n    \"school\": \"学校\", \n    \"degree\": \"学位\", \n    \"major\": \"专业\", \n    \"duration\": \"起止时间\"\n  }"
         "] ,"
         "\n  \"awards\": ["
-        "{\n    \"title\": \"奖项\", \n    \"issuer\": \"颁发方\", \n    \"date\": \"日期\"\n  }"
+        "{\n    \"title\": \"奖项\", \"issuer\": \"颁发方\", \"date\": \"日期\"\n  }"
         "]\n}"
     )
 
@@ -176,6 +176,17 @@ def build_resume_prompt(instruction: str, locale: str = "zh") -> str:
 
 请基于招聘 ATS 最佳实践（动词开头、含量化指标、突出影响），返回以下 JSON 结构：
 {schema}
+
+重要提示：
+1. 必须根据用户输入的具体信息生成，不要使用固定模板
+2. 姓名、公司、项目名称等必须多样化，不要总是使用“张明”、“XX科技”等固定名称
+3. 技能栈必须与用户输入的技术栏一致（如用户提到 Go，就要包含 Go）
+4. experience 字段必须包含，至少1条工作经历
+5. projects 字段必须包含，至少1个项目
+6. skills 字段必须是字符串数组，如 ["Java", "Python", "MySQL"]
+7. 所有量化成果必须包含具体数字
+8. 严格按照上述 JSON 格式输出，不要添加任何其他字段
+9. 每次生成的内容应该不同，不要重复之前的结果
 """
     return prompt
 
@@ -430,6 +441,18 @@ async def generate_resume(body: ResumeGenerateRequest):
     cleaned = re.sub(r'<\|end_of_box\|>', '', cleaned)
     cleaned = cleaned.strip()
     
+    """修复常见的 JSON 格式错误"""
+    """修复 ]} , 这种错误格式，应该是 ]}}"""
+    cleaned = re.sub(r'\]\}\s*,\s*"', ']}}, "', cleaned)
+    """修复数组后多余的逗号：]} , 应该是 ]}"""
+    cleaned = re.sub(r'\]\}\s*,\s*(["\}])', r']} \1', cleaned)
+    """修复数组结尾多余逗号：] , 应该是 ]"""
+    cleaned = re.sub(r'\]\s*,\s*(["\}])', r'] \1', cleaned)
+    """修复缺少逗号的错误"""
+    cleaned = re.sub(r'\]\s+""([a-zA-Z_]+)"', r'], "\1"', cleaned)
+    cleaned = re.sub(r'\]\s+"([a-zA-Z_]+)"\s*:', r'], "\1":', cleaned)
+    cleaned = re.sub(r'\]\}\s+"([a-zA-Z_]+)"\s*:', r']}, "\1":', cleaned)
+    
     """尝试解析 JSON"""
     data = None
     try:
@@ -513,6 +536,143 @@ async def generate_resume(body: ResumeGenerateRequest):
                     )
 
     return ResumeGenerateResponse(resume=data, provider=body.provider)
+
+
+class FormatTextRequest(BaseModel):
+    """格式化文本请求"""
+    text: str = Field(..., description="简历文本内容")
+    provider: Literal['zhipu', 'gemini'] = Field(default='zhipu', description="AI 提供商")
+    use_ai: bool = Field(default=True, description="是否允许使用 AI（最后一层）")
+
+
+class FormatTextResponse(BaseModel):
+    """格式化文本响应"""
+    success: bool
+    data: Optional[Dict[str, Any]]
+    method: str  # "json-repair", "regex", "smart", "ai"
+    error: Optional[str]
+
+
+@app.post("/api/resume/format", response_model=FormatTextResponse)
+async def format_resume_text_api(body: FormatTextRequest):
+    """
+    多层降级的简历文本格式化
+    
+    策略：
+    1. json-repair 快速修复（0.1秒）
+    2. 正则提取 JSON（0.1秒）
+    3. 智能解析（0.1秒）
+    4. AI 解析（3-5秒，最后手段）
+    """
+    from backend.format_helper import format_resume_text
+    
+    """定义 AI 回调函数（支持分块处理）"""
+    def ai_callback(text: str) -> Dict:
+        """
+        使用分块处理 + AI 解析
+        对于长文本，分块后分别调用 AI，最后合并
+        """
+        from backend.chunk_processor import split_resume_text, merge_resume_chunks
+        import re
+        import json as _json
+        
+        """
+        判断是否需要分块（超过 300 字符）
+        分块越小，每块处理越快
+        """
+        if len(text) > 300:
+            print(f"[分块处理] 文本长度 {len(text)}，开始分块...")
+            chunks = split_resume_text(text, max_chunk_size=250)
+            print(f"[分块处理] 分为 {len(chunks)} 块")
+            
+            chunks_results = []
+            for i, chunk in enumerate(chunks):
+                print(f"[分块处理] 处理第 {i+1}/{len(chunks)} 块: {chunk['section']}")
+                
+                """
+                为每个分块构造 Prompt
+                """
+                chunk_prompt = f"""提取以下简历段落为JSON。只提取原文。
+
+段落：{chunk['section']}
+
+{chunk['content']}"""
+                
+                try:
+                    raw = call_llm(body.provider, chunk_prompt)
+                    
+                    """
+                    清理和解析
+                    """
+                    cleaned = re.sub(r'<\|begin_of_box\|>', '', raw)
+                    cleaned = re.sub(r'<\|end_of_box\|>', '', cleaned)
+                    cleaned = cleaned.strip()
+                    
+                    try:
+                        chunk_data = _json.loads(cleaned)
+                    except:
+                        start = cleaned.find('{')
+                        end = cleaned.rfind('}')
+                        if start != -1 and end != -1:
+                            chunk_data = _json.loads(cleaned[start:end+1])
+                        else:
+                            print(f"[分块处理] 第 {i+1} 块解析失败")
+                            continue
+                    
+                    chunks_results.append(chunk_data)
+                    print(f"[分块处理] 第 {i+1} 块完成")
+                    
+                except Exception as e:
+                    print(f"[分块处理] 第 {i+1} 块失败: {e}")
+                    continue
+            
+            """
+            合并所有分块结果
+            """
+            merged_data = merge_resume_chunks(chunks_results)
+            print(f"[分块处理] 合并完成，字段: {list(merged_data.keys())}")
+            return merged_data
+        
+        """
+        短文本：直接处理
+        """
+        print(f"[直接处理] 文本长度 {len(text)}")
+        prompt = f"""提取简历信息JSON。规则：只提取原文，不添加，灵活识别字段。
+
+{text}"""
+        
+        raw = call_llm(body.provider, prompt)
+        
+        """
+        清理和解析 JSON
+        """
+        cleaned = re.sub(r'<\|begin_of_box\|>', '', raw)
+        cleaned = re.sub(r'<\|end_of_box\|>', '', cleaned)
+        cleaned = cleaned.strip()
+        
+        """
+        尝试直接解析
+        """
+        try:
+            data = _json.loads(cleaned)
+            return data
+        except:
+            """提取 JSON 部分"""
+            start = cleaned.find('{')
+            end = cleaned.rfind('}')
+            if start != -1 and end != -1:
+                data = _json.loads(cleaned[start:end+1])
+                return data
+            raise ValueError("无法解析 AI 返回的 JSON")
+    
+    """执行多层格式化"""
+    result = format_resume_text(
+        text=body.text,
+        use_ai=body.use_ai,
+        ai_callback=ai_callback if body.use_ai else None
+    )
+    
+    return FormatTextResponse(**result)
 
 
 @app.post("/api/pdf/render")

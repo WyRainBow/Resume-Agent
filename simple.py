@@ -21,8 +21,14 @@ except Exception:
     pass
 
 ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY", "")
-"""默认使用 GLM-4.5V，可通过环境变量 ZHIPU_MODEL 修改"""
-ZHIPU_MODEL = os.getenv("ZHIPU_MODEL", "glm-4.5v")
+"""
+默认使用 GLM-4-Flash（更快），可通过环境变量 ZHIPU_MODEL 修改
+模型选择：
+- glm-4-flash: 最快，适合简单任务
+- glm-4-air: 平衡速度和质量
+- glm-4.5v: 最强，但较慢
+"""
+ZHIPU_MODEL = os.getenv("ZHIPU_MODEL", "glm-4-flash")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
 GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "https://api.chataiapi.com/v1")
@@ -60,8 +66,10 @@ import urllib3
 """禁用 SSL 警告（仅在临时禁用验证时）"""
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
+from backend.llm_utils import retry_with_backoff
 
-def call_zhipu_api(prompt, model=None):
+@retry_with_backoff(max_retries=3, initial_delay=1.0)
+def call_zhipu_api(prompt: str, model: str = None) -> str:
     """
     调用智谱 API 的简单示例
     
@@ -110,7 +118,8 @@ def call_zhipu_api(prompt, model=None):
     return result
 
 
-def call_gemini_api(prompt, model=None, max_retries=3):
+@retry_with_backoff(max_retries=3, initial_delay=1.0)
+def call_gemini_api(prompt: str, model: str = None, max_retries: int = 3) -> str:
     """
     调用 Gemini API 的简单示例（带重试机制）
     

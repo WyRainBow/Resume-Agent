@@ -27,3 +27,9 @@ export async function rewriteResume(provider: 'zhipu' | 'gemini', resume: Resume
   return data as { resume: Resume }
 }
 
+export async function formatResumeText(provider: 'zhipu' | 'gemini', text: string, useAi: boolean = true) {
+  const url = `${API_BASE}/api/resume/format`
+  const { data } = await axios.post(url, { text, provider, use_ai: useAi })
+  return data as { success: boolean; data: Resume | null; method: string; error: string | null }
+}
+
