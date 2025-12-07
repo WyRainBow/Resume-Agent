@@ -625,11 +625,41 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
               }
             }
           case 'education':
-            return { ...section, data: resumeData.education || [] }
+            // 确保字段正确映射到前端格式
+            const eduData = resumeData.education || []
+            return { 
+              ...section, 
+              data: eduData.map((item: any) => ({
+                title: item.title || item.school || '',
+                subtitle: item.subtitle || item.degree || '',
+                date: item.date || item.duration || '',
+                details: item.details || []
+              }))
+            }
           case 'experience':
-            return { ...section, data: resumeData.internships || resumeData.experience || [] }
+            // 确保字段正确映射到前端格式
+            const expData = resumeData.internships || resumeData.experience || []
+            return { 
+              ...section, 
+              data: expData.map((item: any) => ({
+                title: item.title || item.company || '',
+                subtitle: item.subtitle || item.position || '',
+                date: item.date || item.duration || '',
+                details: item.details || item.highlights || item.achievements || []
+              }))
+            }
           case 'projects':
-            return { ...section, data: resumeData.projects || [] }
+            // 确保字段正确映射到前端格式
+            const projData = resumeData.projects || []
+            return { 
+              ...section, 
+              data: projData.map((item: any) => ({
+                title: item.title || item.name || '',
+                subtitle: item.subtitle || item.role || '',
+                date: item.date || '',
+                details: item.details || item.highlights || []
+              }))
+            }
           case 'skills':
             return { ...section, data: resumeData.skills || [] }
           case 'awards':
@@ -665,12 +695,37 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
           const awardsSection = newItems.find(s => s.type === 'awards')
           const summarySection = newItems.find(s => s.type === 'summary')
           
-          const convertToBackendFormat = (items: any[]) => {
+          // 转换教育经历格式
+          const convertEducationFormat = (items: any[]) => {
+            return items.map(item => ({
+              school: item.title || item.school || '',
+              degree: item.subtitle || item.degree || '',
+              major: item.major || '',
+              duration: item.date || item.duration || '',
+              title: item.title || '',
+              date: item.date || '',
+            }))
+          }
+          
+          // 转换工作经历格式
+          const convertExperienceFormat = (items: any[]) => {
             return items.map(item => ({
               title: item.title || '',
               subtitle: item.subtitle || '',
               date: item.date || '',
-              highlights: Array.isArray(item.details) ? item.details : [],
+              highlights: Array.isArray(item.details) ? item.details : (item.highlights || []),
+            }))
+          }
+          
+          // 转换项目经历格式
+          const convertProjectsFormat = (items: any[]) => {
+            return items.map(item => ({
+              title: item.title || '',
+              name: item.title || '',
+              role: item.subtitle || '',
+              subtitle: item.subtitle || '',
+              date: item.date || '',
+              highlights: Array.isArray(item.details) ? item.details : (item.highlights || []),
             }))
           }
           
@@ -681,9 +736,9 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
               email: contactSection?.data?.email || '',
             },
             objective: contactSection?.data?.objective || '',
-            education: educationSection?.data || [],
-            internships: convertToBackendFormat(experienceSection?.data || []),
-            projects: convertToBackendFormat(projectsSection?.data || []),
+            education: convertEducationFormat(educationSection?.data || []),
+            internships: convertExperienceFormat(experienceSection?.data || []),
+            projects: convertProjectsFormat(projectsSection?.data || []),
             skills: skillsSection?.data || [],
             awards: awardsSection?.data || [],
             summary: summarySection?.data || '',
@@ -717,13 +772,38 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
     const awardsSection = sections.find(s => s.type === 'awards')
     const summarySection = sections.find(s => s.type === 'summary')
 
-    // 转换项目经历格式：details -> highlights (后端期望的格式)
-    const convertToBackendFormat = (items: any[]) => {
+    // 转换教育经历格式：前端字段 → 后端字段
+    const convertEducationFormat = (items: any[]) => {
+      return items.map(item => ({
+        school: item.title || item.school || '',      // title → school
+        degree: item.subtitle || item.degree || '',   // subtitle → degree
+        major: item.major || '',
+        duration: item.date || item.duration || '',   // date → duration
+        // 同时保留原字段以兼容
+        title: item.title || '',
+        date: item.date || '',
+      }))
+    }
+
+    // 转换工作经历格式：details -> highlights
+    const convertExperienceFormat = (items: any[]) => {
       return items.map(item => ({
         title: item.title || '',
         subtitle: item.subtitle || '',
         date: item.date || '',
-        highlights: Array.isArray(item.details) ? item.details : [],
+        highlights: Array.isArray(item.details) ? item.details : (item.highlights || []),
+      }))
+    }
+
+    // 转换项目经历格式：subtitle → role, details → highlights
+    const convertProjectsFormat = (items: any[]) => {
+      return items.map(item => ({
+        title: item.title || '',
+        name: item.title || '',                       // title 也作为 name
+        role: item.subtitle || '',                    // subtitle → role
+        subtitle: item.subtitle || '',                // 保留 subtitle
+        date: item.date || '',
+        highlights: Array.isArray(item.details) ? item.details : (item.highlights || []),
       }))
     }
 
@@ -734,9 +814,9 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
         email: contactSection?.data?.email || '',
       },
       objective: contactSection?.data?.objective || '',
-      education: educationSection?.data || [],
-      internships: convertToBackendFormat(experienceSection?.data || []),
-      projects: convertToBackendFormat(projectsSection?.data || []),
+      education: convertEducationFormat(educationSection?.data || []),
+      internships: convertExperienceFormat(experienceSection?.data || []),
+      projects: convertProjectsFormat(projectsSection?.data || []),
       skills: skillsSection?.data || [],
       awards: awardsSection?.data || [],
       summary: summarySection?.data || '',
@@ -834,7 +914,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
             transition: 'all 0.3s ease',
           }}
         >
-          {saving ? '保存中...' : '💾 保存并更新 PDF'}
+          {saving ? '保存中...' : '💾 保存并更新'}
         </button>
       </div>
     </div>

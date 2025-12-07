@@ -248,10 +248,20 @@ def generate_section_projects(resume_data: Dict[str, Any]) -> List[str]:
     if isinstance(projects, list) and projects:
         content.append(r"\section{项目经历}")
         for p in projects:
-            title = p.get('title') or " - ".join([v for v in [p.get('name'), p.get('role')] if v])
-            if title:
-                escaped_title = escape_latex(title)
-                content.append(f"\\datedsubsection{{\\textbf{{{escaped_title}}}}}{{}}")
+            # 兼容多种字段名
+            title = p.get('title') or p.get('name') or ''
+            role = p.get('role') or p.get('subtitle') or ''
+            date = escape_latex(p.get('date') or '')
+            
+            # 构建标题：项目名 - 角色
+            if role:
+                full_title = f"{title} - {role}"
+            else:
+                full_title = title
+            
+            if full_title:
+                escaped_title = escape_latex(full_title)
+                content.append(f"\\datedsubsection{{\\textbf{{{escaped_title}}}}}{{{date}}}")
                 content.append(r"\begin{itemize}[parsep=0.2ex]")
                 if isinstance(p.get('items'), list) and p['items']:
                     for sub in p['items']:
@@ -309,24 +319,24 @@ def generate_section_education(resume_data: Dict[str, Any]) -> List[str]:
     if isinstance(edu, list) and edu:
         content.append(r"\section{教育经历}")
         for ed in edu:
-            title = ed.get('title')
-            if title:
-                date = escape_latex(ed.get('date') or '')
-                escaped_title = escape_latex(title)
-                content.append(f"\\datedsubsection{{\\textbf{{{escaped_title}}}}}{{{date}}}")
+            # 兼容多种字段名
+            school = escape_latex(ed.get('school') or ed.get('title') or '')
+            degree = escape_latex(ed.get('degree') or ed.get('subtitle') or '')
+            major = escape_latex(ed.get('major') or '')
+            duration = escape_latex(ed.get('duration') or ed.get('date') or '')
+            
+            # 构建标题
+            parts = [s for s in [school, degree, major] if s]
+            title_str = " - ".join(parts) if parts else school
+            
+            if title_str:
+                content.append(f"\\datedsubsection{{\\textbf{{{title_str}}}}}{{{duration}}}")
+                
+                # 荣誉信息
                 honors = ed.get('honors')
                 if honors:
                     escaped_honors = escape_latex(honors)
                     content.append(f" \\textbf{{荣誉:}} {escaped_honors}")
-            else:
-                school = escape_latex(ed.get('school') or '')
-                degree = escape_latex(ed.get('degree') or '')
-                major = escape_latex(ed.get('major') or '')
-                duration = escape_latex(ed.get('duration') or '')
-                parts = [s for s in [school, degree, major] if s]
-                title_str = " - ".join(parts) if parts else school or degree or major
-                if title_str:
-                    content.append(f"\\datedsubsection{{\\textbf{{{title_str}}} -  \\textit{{本科}}}}{{{duration}}}")
             content.append("")
     return content
 
