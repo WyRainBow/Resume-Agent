@@ -120,7 +120,7 @@ function App() {
           overflowX: 'hidden'
         }}
       >
-        <ChatPanel onResume={handleResumeChange} onLoadDemo={handleLoadDemo} />
+        <ChatPanel onResume={handleResumeChange} onLoadDemo={handleLoadDemo} pdfBlob={pdfBlob} />
       </div>
       <div 
         className="right-panel"

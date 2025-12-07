@@ -355,6 +355,82 @@ async def health():
     return {"status": "ok"}
 
 
+"""
+API Key 配置接口
+"""
+class SaveKeysRequest(BaseModel):
+    zhipu_key: Optional[str] = None
+    gemini_key: Optional[str] = None
+
+
+@app.get("/api/config/keys")
+async def get_keys_status():
+    """
+    获取 API Key 配置状态（不返回完整 Key，只返回是否已配置）
+    """
+    zhipu_key = os.getenv("ZHIPU_API_KEY", "")
+    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    
+    return {
+        "zhipu": {
+            "configured": bool(zhipu_key and len(zhipu_key) > 10),
+            "preview": f"{zhipu_key[:8]}..." if zhipu_key and len(zhipu_key) > 10 else ""
+        },
+        "gemini": {
+            "configured": bool(gemini_key and len(gemini_key) > 10),
+            "preview": f"{gemini_key[:8]}..." if gemini_key and len(gemini_key) > 10 else ""
+        }
+    }
+
+
+@app.post("/api/config/keys")
+async def save_keys(body: SaveKeysRequest):
+    """
+    保存 API Key 到 .env 文件
+    """
+    try:
+        env_path = ROOT_DIR / ".env"
+        
+        """读取现有 .env 内容"""
+        existing_lines = []
+        if env_path.exists():
+            with open(env_path, "r", encoding="utf-8") as f:
+                existing_lines = f.readlines()
+        
+        """更新或添加 Key"""
+        new_lines = []
+        zhipu_found = False
+        gemini_found = False
+        
+        for line in existing_lines:
+            if line.startswith("ZHIPU_API_KEY=") and body.zhipu_key:
+                new_lines.append(f"ZHIPU_API_KEY={body.zhipu_key}\n")
+                zhipu_found = True
+            elif line.startswith("GEMINI_API_KEY=") and body.gemini_key:
+                new_lines.append(f"GEMINI_API_KEY={body.gemini_key}\n")
+                gemini_found = True
+            else:
+                new_lines.append(line)
+        
+        """如果没有找到，追加到末尾"""
+        if body.zhipu_key and not zhipu_found:
+            new_lines.append(f"ZHIPU_API_KEY={body.zhipu_key}\n")
+        if body.gemini_key and not gemini_found:
+            new_lines.append(f"GEMINI_API_KEY={body.gemini_key}\n")
+        
+        """写入文件"""
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(new_lines)
+        
+        """重新加载环境变量"""
+        load_dotenv(dotenv_path=str(env_path), override=True)
+        
+        return {"success": True, "message": "API Key 已保存"}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
+
+
 @app.post("/api/ai/test")
 async def ai_test(body: AITestRequest):
     """
