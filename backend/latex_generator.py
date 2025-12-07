@@ -551,9 +551,22 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path) -> BytesIO:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
+# PDF 缓存（内存缓存，最多保留 50 个）
+_pdf_cache: Dict[str, bytes] = {}
+_pdf_cache_order: List[str] = []
+_PDF_CACHE_MAX_SIZE = 50
+
+def _get_cache_key(resume_data: Dict[str, Any], section_order: List[str] = None) -> str:
+    """生成缓存键"""
+    import hashlib
+    import json
+    content = json.dumps(resume_data, sort_keys=True, ensure_ascii=False) + str(section_order or [])
+    return hashlib.md5(content.encode()).hexdigest()
+
 def render_pdf_from_resume_latex(resume_data: Dict[str, Any], section_order: List[str] = None) -> BytesIO:
     """
     将简历 JSON 渲染为 PDF（使用 LaTeX）
+    支持内容缓存，相同内容直接返回缓存
     
     参数:
         resume_data: 简历数据字典
@@ -562,6 +575,16 @@ def render_pdf_from_resume_latex(resume_data: Dict[str, Any], section_order: Lis
     返回:
         PDF 文件的 BytesIO 对象
     """
+    import time
+    total_start = time.time()
+    
+    # 检查缓存
+    cache_key = _get_cache_key(resume_data, section_order)
+    if cache_key in _pdf_cache:
+        cache_time = time.time() - total_start
+        print(f"[性能] 缓存命中! 耗时: {cache_time*1000:.0f}ms")
+        return BytesIO(_pdf_cache[cache_key])
+    
     """获取模板目录"""
     current_dir = Path(__file__).resolve().parent
     root_dir = current_dir.parent
@@ -571,10 +594,29 @@ def render_pdf_from_resume_latex(resume_data: Dict[str, Any], section_order: Lis
         raise RuntimeError(f"LaTeX 模板目录不存在: {template_dir}")
     
     """转换为 LaTeX"""
+    latex_start = time.time()
     latex_content = json_to_latex(resume_data, section_order)
+    latex_time = time.time() - latex_start
+    print(f"[性能] JSON 转 LaTeX: {latex_time*1000:.0f}ms")
     
     """编译为 PDF"""
+    compile_start = time.time()
     pdf_io = compile_latex_to_pdf(latex_content, template_dir)
+    compile_time = time.time() - compile_start
+    print(f"[性能] LaTeX 编译 PDF: {compile_time*1000:.0f}ms")
+    
+    # 写入缓存
+    pdf_bytes = pdf_io.getvalue()
+    if len(_pdf_cache) >= _PDF_CACHE_MAX_SIZE:
+        # 删除最旧的缓存
+        oldest_key = _pdf_cache_order.pop(0)
+        _pdf_cache.pop(oldest_key, None)
+    _pdf_cache[cache_key] = pdf_bytes
+    _pdf_cache_order.append(cache_key)
+    print(f"[性能] 已缓存 PDF (缓存数: {len(_pdf_cache)})")
+    
+    total_time = time.time() - total_start
+    print(f"[性能] PDF 生成总耗时: {total_time*1000:.0f}ms")
     
     return pdf_io
 

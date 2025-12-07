@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -594,6 +594,7 @@ function SectionEditor({ section, onUpdate }: { section: ResumeSection, onUpdate
 export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
   const [sections, setSections] = useState<ResumeSection[]>(defaultSections)
   const [expandedId, setExpandedId] = useState<string | null>('contact')
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -650,8 +651,11 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
         const newIndex = items.findIndex((i) => i.id === over.id)
         const newItems = arrayMove(items, oldIndex, newIndex)
         
-        // 拖拽后自动保存并更新 PDF
-        setTimeout(() => {
+        // 拖拽后防抖保存（500ms 内连续拖拽只触发一次）
+        if (saveTimerRef.current) {
+          clearTimeout(saveTimerRef.current)
+        }
+        saveTimerRef.current = setTimeout(() => {
           // 使用新顺序构建数据并保存
           const contactSection = newItems.find(s => s.type === 'contact')
           const educationSection = newItems.find(s => s.type === 'education')
@@ -690,7 +694,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
             .map(s => s.type)
           
           onSave(newResumeData, sectionOrder)
-        }, 0)
+        }, 500) // 防抖 500ms
         
         return newItems
       })
