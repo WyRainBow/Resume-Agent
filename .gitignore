@@ -38,6 +38,7 @@ Thumbs.db
 /tmp/
 *.pdf
 !Latex\ 简历演示/*.pdf
+!存放\ PDF/*.pdf
 
 # LaTeX
 *.aux

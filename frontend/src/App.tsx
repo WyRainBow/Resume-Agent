@@ -6,7 +6,6 @@ import { renderPDF } from './services/api';
 
 function App() {
   const [resume, setResume] = useState<Resume | null>(null)
-  const [useDemo, setUseDemo] = useState(true)  // 默认使用 demo 模式;
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null);
   const [loadingPdf, setLoadingPdf] = useState(false);
 
@@ -14,7 +13,8 @@ function App() {
     setResume(newResume);
     setLoadingPdf(true);
     try {
-      const blob = await renderPDF(newResume, useDemo);
+      /* AI 生成的简历，使用 demo=false，确保使用 AI 返回的数据 */
+      const blob = await renderPDF(newResume, false);
       setPdfBlob(blob);
     } catch (error) {
       console.error('Failed to render PDF:', error);
@@ -22,11 +22,10 @@ function App() {
     } finally {
       setLoadingPdf(false);
     }
-  }, [useDemo]);
+  }, []);
 
-  // 加载 demo 模板
+  /* 加载 demo 模板，使用 demo=true，使用固定的 test_resume_demo.json */
   const handleLoadDemo = useCallback(async () => {
-    setUseDemo(true);
     setLoadingPdf(true);
     try {
       const blob = await renderPDF({} as Resume, true);
