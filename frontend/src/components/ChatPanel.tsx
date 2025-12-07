@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react'
 import { aiTest, generateResume, formatResumeText } from '@/services/api'
 import type { Resume } from '@/types/resume'
-import OnboardingGuide from './OnboardingGuide'
 
 type Props = {
   onResume: (resume: Resume) => void
   onLoadDemo?: () => void
   pdfBlob?: Blob | null
+  initialInstruction?: string | null
+  onGoHome?: () => void
 }
 
-export default function ChatPanel({ onResume, onLoadDemo, pdfBlob }: Props) {
+export default function ChatPanel({ onResume, onLoadDemo, pdfBlob, initialInstruction, onGoHome }: Props) {
   const [provider, setProvider] = useState<'zhipu' | 'gemini'>('zhipu')
-  const [instruction, setInstruction] = useState('3年后端，Java/Go，投递后端工程师，擅长高并发与微服务')
   const [logs, setLogs] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [aiGenerating, setAiGenerating] = useState(false)
@@ -20,17 +20,37 @@ export default function ChatPanel({ onResume, onLoadDemo, pdfBlob }: Props) {
   const [jsonError, setJsonError] = useState<string>('')
   const [resumeText, setResumeText] = useState<string>('')
   const [formatting, setFormatting] = useState(false)
-  const [showGuide, setShowGuide] = useState(false)
+  const [currentInstruction, setCurrentInstruction] = useState<string>('')
 
   /**
-   * 首次访问时自动显示新手引导
+   * 从首页传入指令时，自动触发 AI 生成
    */
   useEffect(() => {
-    const completed = localStorage.getItem('onboarding_completed')
-    if (!completed) {
-      setShowGuide(true)
+    if (initialInstruction) {
+      setCurrentInstruction(initialInstruction)
+      // 自动触发生成
+      handleAutoGenerate(initialInstruction)
     }
-  }, [])
+  }, [initialInstruction])
+
+  async function handleAutoGenerate(instruction: string) {
+    setAiGenerating(true)
+    setJsonError('')
+    setLogs(prev => `${prev}\n[自动生成] 正在根据首页输入生成简历...`)
+    try {
+      const r = await generateResume(provider, instruction, 'zh')
+      const jsonStr = JSON.stringify(r.resume, null, 2)
+      setResumeJson(jsonStr)
+      setLogs(prev => `${prev}\n[AI 生成成功:${r.provider}]\n已生成 JSON 数据`)
+      // 自动触发 PDF 生成
+      onResume(r.resume)
+    } catch (e: any) {
+      const errorDetail = e?.response?.data ? JSON.stringify(e.response.data, null, 2) : formatAxiosError(e)
+      setLogs(prev => `${prev}\n[AI 生成错误]\n${errorDetail}`)
+    } finally {
+      setAiGenerating(false)
+    }
+  }
 
   function formatAxiosError(err: any) {
     const detail = err?.response?.data?.detail
@@ -53,28 +73,6 @@ export default function ChatPanel({ onResume, onLoadDemo, pdfBlob }: Props) {
     }
   }
 
-  /* AI 生成 JSON */
-  async function handleAIGenerate() {
-    if (!instruction.trim()) {
-      alert('请输入简历描述')
-      return
-    }
-    
-    setAiGenerating(true)
-    setJsonError('')
-    try {
-      const r = await generateResume(provider, instruction, 'zh')
-      const jsonStr = JSON.stringify(r.resume, null, 2)
-      setResumeJson(jsonStr)
-      setLogs(prev => `${prev}\n[AI 生成成功:${r.provider}]\n已生成 JSON 数据`)
-    } catch (e: any) {
-      const errorDetail = e?.response?.data ? JSON.stringify(e.response.data, null, 2) : formatAxiosError(e)
-      setLogs(prev => `${prev}\n[AI 生成错误]\n${errorDetail}`)
-      alert('AI 生成失败，请查看日志')
-    } finally {
-      setAiGenerating(false)
-    }
-  }
 
   /* 格式化文本为 JSON（多层降级） */
   async function handleFormatText() {
@@ -149,68 +147,6 @@ export default function ChatPanel({ onResume, onLoadDemo, pdfBlob }: Props) {
       boxSizing: 'border-box',
       minHeight: 0
     }}>
-      {/* 新手引导弹窗 */}
-      <OnboardingGuide 
-        visible={showGuide} 
-        onClose={() => setShowGuide(false)}
-        onLoadDemo={onLoadDemo}
-        pdfBlob={pdfBlob}
-      />
-
-      <div style={{ 
-        marginBottom: 'clamp(16px, 3vw, 24px)', 
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '12px'
-      }}>
-        <div style={{
-          fontWeight: 700, 
-          fontSize: 'clamp(16px, 2.5vw, 20px)',
-          background: 'linear-gradient(135deg, #a78bfa 0%, #ec4899 100%)',
-          WebkitBackgroundClip: 'text',
-          WebkitTextFillColor: 'transparent',
-          backgroundClip: 'text',
-          textShadow: '0 2px 10px rgba(167, 139, 250, 0.3)',
-          whiteSpace: 'nowrap'
-        }}>
-          AI 对话 / 生成区
-        </div>
-        
-        {/* 新手引导按钮 */}
-        <button
-          onClick={() => setShowGuide(true)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            padding: '8px 14px',
-            background: 'rgba(167, 139, 250, 0.2)',
-            border: '1px solid rgba(167, 139, 250, 0.4)',
-            borderRadius: '20px',
-            color: '#c4b5fd',
-            fontSize: '13px',
-            fontWeight: 500,
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            whiteSpace: 'nowrap'
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(167, 139, 250, 0.3)'
-            e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
-            e.currentTarget.style.transform = 'translateY(-1px)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(167, 139, 250, 0.2)'
-            e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.4)'
-            e.currentTarget.style.transform = 'translateY(0)'
-          }}
-        >
-          <span style={{ fontSize: '14px' }}>💡</span>
-          <span>新手引导</span>
-        </button>
-      </div>
-
       <label style={{ 
         fontSize: 'clamp(12px, 1.5vw, 13px)', 
         color: 'rgba(255, 255, 255, 0.9)', 
@@ -253,82 +189,39 @@ export default function ChatPanel({ onResume, onLoadDemo, pdfBlob }: Props) {
         <option value="gemini" style={{ background: '#764ba2', color: 'white' }}>Gemini</option>
       </select>
 
-      <label style={{ 
-        fontSize: 'clamp(12px, 1.5vw, 13px)', 
-        color: 'rgba(255, 255, 255, 0.9)', 
-        marginBottom: 8,
-        fontWeight: 500
-      }}>
-        一句话说明（岗位/年限/技术栈/亮点）
-      </label>
-      <textarea
-        value={instruction}
-        onChange={e => setInstruction(e.target.value)}
-        placeholder="例如：4年前端，React/TS/Node，有B端大屏经验，投递前端工程师"
-        style={{ 
-          width: '100%', 
-          height: 'clamp(100px, 15vh, 120px)', 
-          padding: 'clamp(12px, 2vw, 16px)', 
-          marginBottom: 'clamp(16px, 2.5vw, 20px)',
-          background: 'rgba(255, 255, 255, 0.15)',
-          backdropFilter: 'blur(10px)',
-          border: '1px solid rgba(255, 255, 255, 0.3)',
-          borderRadius: 'clamp(8px, 1.5vw, 12px)',
-          color: 'white',
-          fontSize: 'clamp(13px, 1.75vw, 14px)',
-          resize: 'none',
-          outline: 'none',
-          transition: 'all 0.3s ease',
-          fontFamily: 'inherit'
-        }}
-        onFocus={(e) => {
-          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.25)'
-          e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
-          e.currentTarget.style.boxShadow = '0 0 0 3px rgba(167, 139, 250, 0.2)'
-        }}
-        onBlur={(e) => {
-          e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'
-          e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)'
-          e.currentTarget.style.boxShadow = 'none'
-        }}
-      />
+      {/* 当前指令显示 */}
+      {currentInstruction && (
+        <div style={{
+          padding: '12px 16px',
+          background: 'rgba(167, 139, 250, 0.15)',
+          border: '1px solid rgba(167, 139, 250, 0.3)',
+          borderRadius: '12px',
+          marginBottom: '16px',
+          fontSize: '14px',
+          color: '#c4b5fd'
+        }}>
+          <span style={{ opacity: 0.7 }}>当前生成指令：</span>
+          <span style={{ fontWeight: 500 }}>{currentInstruction}</span>
+        </div>
+      )}
+
+      {/* AI 生成状态 */}
+      {aiGenerating && (
+        <div style={{
+          padding: '16px',
+          background: 'rgba(236, 72, 153, 0.15)',
+          border: '1px solid rgba(236, 72, 153, 0.3)',
+          borderRadius: '12px',
+          marginBottom: '16px',
+          textAlign: 'center',
+          color: '#f472b6'
+        }}>
+          <div style={{ fontSize: '20px', marginBottom: '8px' }}>✨</div>
+          <div>AI 正在生成简历...</div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 'clamp(8px, 1.5vw, 12px)', marginBottom: 'clamp(16px, 2.5vw, 20px)', flexWrap: 'wrap' }}>
-        <button 
-          onClick={handleAIGenerate} 
-          disabled={aiGenerating || !instruction.trim()} 
-          style={{ 
-            flex: '1 1 auto',
-            minWidth: '120px',
-            padding: 'clamp(12px, 2vw, 14px) clamp(16px, 2.5vw, 20px)', 
-            fontWeight: 600,
-            fontSize: 'clamp(12px, 1.75vw, 14px)',
-            background: (aiGenerating || !instruction.trim()) 
-              ? 'rgba(255, 255, 255, 0.1)' 
-              : 'linear-gradient(135deg, #ec4899 0%, #f093fb 100%)',
-            border: 'none',
-            borderRadius: 'clamp(8px, 1.5vw, 12px)',
-            color: 'white',
-            cursor: (aiGenerating || !instruction.trim()) ? 'not-allowed' : 'pointer',
-            transition: 'all 0.3s ease',
-            boxShadow: '0 4px 15px rgba(236, 72, 153, 0.4)',
-            opacity: (aiGenerating || !instruction.trim()) ? 0.6 : 1
-          }}
-          onMouseEnter={(e) => {
-            if (!aiGenerating && instruction.trim()) {
-              e.currentTarget.style.transform = 'translateY(-2px)'
-              e.currentTarget.style.boxShadow = '0 6px 20px rgba(236, 72, 153, 0.6)'
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!aiGenerating && instruction.trim()) {
-              e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.boxShadow = '0 4px 15px rgba(236, 72, 153, 0.4)'
-            }
-          }}
-        >
-          {aiGenerating ? 'AI 生成中...' : 'AI 生成'}
-        </button>
         <button 
           onClick={handleGeneratePDF} 
           disabled={pdfGenerating || !resumeJson.trim()} 
