@@ -9,9 +9,10 @@ import type { Resume } from '../types/resume'
 interface Props {
   resume: Resume | null
   sectionOrder?: string[]
+  scale?: number
 }
 
-export default function ResumePreview({ resume, sectionOrder }: Props) {
+export default function ResumePreview({ resume, sectionOrder, scale = 1 }: Props) {
   if (!resume) {
     return (
       <div style={styles.placeholder}>
@@ -42,7 +43,11 @@ export default function ResumePreview({ resume, sectionOrder }: Props) {
           }
         }
       `}</style>
-      <div id="resume-preview" style={styles.paper}>
+      <div id="resume-preview" style={{
+        ...styles.paper,
+        transform: `scale(${scale})`,
+        transformOrigin: 'top center',
+      }}>
         {/* 头部：姓名和联系方式 */}
         <div style={styles.header}>
           <div style={styles.name}>{resume.name || '姓名'}</div>
@@ -208,16 +213,18 @@ const styles: Record<string, React.CSSProperties> = {
     width: '100%',
     height: '100%',
     overflow: 'auto',
-    backgroundColor: '#525659',
-    padding: '20px',
+    // backgroundColor: '#525659', // 移除深色背景，由父容器控制
+    padding: '32px', // 增加内边距，让纸张悬浮感更强
+    display: 'flex',
+    justifyContent: 'center',
   },
   paper: {
     width: '210mm',
     minHeight: '297mm',
-    margin: '0 auto',
+    // margin: '0 auto', // 由 flex 居中
     backgroundColor: 'white',
     padding: '40px 50px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2), 0 0 1px rgba(0, 0, 0, 0.1)', // 增强阴影以适应深色背景
     fontFamily: '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
     fontSize: '10pt',
     lineHeight: 1.4,
