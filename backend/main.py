@@ -101,6 +101,7 @@ class RenderPDFRequest(BaseModel):
     resume: Dict[str, Any]
     demo: Optional[bool] = False
     section_order: Optional[List[str]] = None  # 自定义 section 顺序
+    engine: Optional[str] = "latex"  # 渲染引擎: "latex" (保持原样式)
 
 """
 LLM 调用统一封装
@@ -798,33 +799,49 @@ async def render_pdf(body: RenderPDFRequest):
     将简历 JSON 渲染为 PDF 并返回（使用 LaTeX）
     支持 demo 模式：如果 body.demo 为 True，使用固定的 demo 模板
     """
-    try:
-        """导入 LaTeX 生成器"""
-        from backend.latex_generator import render_pdf_from_resume_latex
-        import json
-        from pathlib import Path
-        
-        """如果请求 demo 模式，使用固定模板"""
-        resume_data = body.resume
-        if hasattr(body, 'demo') and getattr(body, 'demo', False):
-            demo_file = Path(__file__).parent.parent / 'test_resume_demo.json'
-            if demo_file.exists():
-                with open(demo_file, 'r', encoding='utf-8') as f:
-                    resume_data = json.load(f)
-        
-        pdf_io = render_pdf_from_resume_latex(resume_data, body.section_order)
-        return StreamingResponse(pdf_io, media_type='application/pdf', headers={
-            'Content-Disposition': 'inline; filename="resume.pdf"'
-        })
-    except Exception as e:
-        """如果 LaTeX 编译失败，回退到 ReportLab"""
+    import json
+    from pathlib import Path
+    
+    """如果请求 demo 模式，使用固定模板"""
+    resume_data = body.resume
+    if hasattr(body, 'demo') and getattr(body, 'demo', False):
+        demo_file = Path(__file__).parent.parent / 'test_resume_demo.json'
+        if demo_file.exists():
+            with open(demo_file, 'r', encoding='utf-8') as f:
+                resume_data = json.load(f)
+    
+    engine = getattr(body, 'engine', 'playwright') or 'playwright'
+    
+    # 根据引擎选择渲染方式
+    if engine == 'playwright':
         try:
-            pdf_io = render_pdf_from_resume(body.resume)
+            from backend.playwright_renderer import render_pdf_playwright_async
+            pdf_io = await render_pdf_playwright_async(resume_data, body.section_order)
             return StreamingResponse(pdf_io, media_type='application/pdf', headers={
                 'Content-Disposition': 'inline; filename="resume.pdf"'
             })
-        except Exception as fallback_error:
-            raise HTTPException(status_code=500, detail=f"PDF 渲染失败: LaTeX 错误 - {e}, ReportLab 错误 - {fallback_error}")
+        except Exception as e:
+            print(f"[警告] Playwright 渲染失败，回退到 LaTeX: {e}")
+            engine = 'latex'  # 回退到 LaTeX
+    
+    if engine == 'latex':
+        try:
+            from backend.latex_generator import render_pdf_from_resume_latex
+            pdf_io = render_pdf_from_resume_latex(resume_data, body.section_order)
+            return StreamingResponse(pdf_io, media_type='application/pdf', headers={
+                'Content-Disposition': 'inline; filename="resume.pdf"'
+            })
+        except Exception as e:
+            # 回退到 ReportLab
+            try:
+                pdf_io = render_pdf_from_resume(body.resume)
+                return StreamingResponse(pdf_io, media_type='application/pdf', headers={
+                    'Content-Disposition': 'inline; filename="resume.pdf"'
+                })
+            except Exception as fallback_error:
+                raise HTTPException(status_code=500, detail=f"PDF 渲染失败: {e}")
+    
+    raise HTTPException(status_code=400, detail=f"不支持的渲染引擎: {engine}")
 
 
 """

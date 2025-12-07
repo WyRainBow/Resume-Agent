@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import ChatPanel from '../components/ChatPanel'
 import PDFPane from '../components/PDFPane'
 import ResumeEditor from '../components/ResumeEditor'
+import ResumePreview from '../components/ResumePreview'
 import OnboardingGuide from '../components/OnboardingGuide'
 import type { Resume } from '../types/resume'
 import { renderPDF, getDefaultTemplate } from '../services/api'
@@ -14,6 +15,8 @@ export default function WorkspacePage() {
   const [loadingPdf, setLoadingPdf] = useState(false)
   const [showEditor, setShowEditor] = useState(true) // 默认显示可视化编辑器
   const [showGuide, setShowGuide] = useState(false)
+  const [previewMode, setPreviewMode] = useState<'live' | 'pdf'>('live') // 预览模式：live=实时预览，pdf=PDF预览
+  const [currentSectionOrder, setCurrentSectionOrder] = useState<string[]>([]) // 当前模块顺序
   
   /**
    * 从首页传递过来的指令
@@ -137,13 +140,26 @@ export default function WorkspacePage() {
   }, [])
 
   /**
-   * 从编辑器保存简历
+   * 从编辑器保存简历（实时预览模式下只更新状态，不触发 PDF 渲染）
    */
   const handleEditorSave = useCallback(async (newResume: Resume, sectionOrder?: string[]) => {
     setResume(newResume)
+    if (sectionOrder) {
+      setCurrentSectionOrder(sectionOrder)
+    }
+    // 实时预览模式下不触发 PDF 渲染，只更新预览
+    // PDF 在用户切换到 PDF 模式或下载时生成
+  }, [])
+  
+  /**
+   * 生成 PDF（用于下载或查看最终效果）
+   */
+  const generatePDF = useCallback(async () => {
+    if (!resume) return
     setLoadingPdf(true)
+    setPreviewMode('pdf')
     try {
-      const blob = await renderPDF(newResume, false, sectionOrder)
+      const blob = await renderPDF(resume, false, currentSectionOrder.length > 0 ? currentSectionOrder : undefined)
       setPdfBlob(blob)
     } catch (error) {
       console.error('Failed to render PDF:', error)
@@ -151,7 +167,7 @@ export default function WorkspacePage() {
     } finally {
       setLoadingPdf(false)
     }
-  }, [])
+  }, [resume, currentSectionOrder])
 
   const handleLoadDemo = useCallback(async () => {
     setLoadingPdf(true)
@@ -429,47 +445,123 @@ export default function WorkspacePage() {
           backdropFilter: 'blur(10px)',
           background: 'rgba(255, 255, 255, 0.05)',
           boxShadow: 'inset 0 0 50px rgba(0, 0, 0, 0.1)',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column'
         }}
       >
-        {loadingPdf && (
+        {/* 预览工具栏 */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 16px',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          background: 'rgba(0, 0, 0, 0.2)',
+        }}>
           <div style={{
-            position: 'absolute', 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            bottom: 0, 
-            background: 'rgba(102, 126, 234, 0.8)', 
-            backdropFilter: 'blur(5px)',
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            zIndex: 10,
-            color: 'white',
-            fontSize: '18px',
-            fontWeight: 600
+            display: 'flex',
+            background: 'rgba(0, 0, 0, 0.3)',
+            borderRadius: '6px',
+            padding: '2px',
           }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ 
-                width: '50px', 
-                height: '50px', 
-                border: '4px solid rgba(255, 255, 255, 0.3)',
-                borderTop: '4px solid white',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite',
-                margin: '0 auto 16px'
-              }} />
-              <style>{`
-                @keyframes spin {
-                  0% { transform: rotate(0deg); }
-                  100% { transform: rotate(360deg); }
-                }
-              `}</style>
-              正在生成 PDF...
-            </div>
+            <button
+              onClick={() => setPreviewMode('live')}
+              style={{
+                padding: '6px 12px',
+                background: previewMode === 'live' ? 'rgba(34, 197, 94, 0.4)' : 'transparent',
+                border: 'none',
+                borderRadius: '4px',
+                color: previewMode === 'live' ? '#4ade80' : 'rgba(255, 255, 255, 0.6)',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              ⚡ 实时预览
+            </button>
+            <button
+              onClick={() => {
+                setPreviewMode('pdf')
+                if (!pdfBlob) generatePDF()
+              }}
+              style={{
+                padding: '6px 12px',
+                background: previewMode === 'pdf' ? 'rgba(167, 139, 250, 0.4)' : 'transparent',
+                border: 'none',
+                borderRadius: '4px',
+                color: previewMode === 'pdf' ? '#a78bfa' : 'rgba(255, 255, 255, 0.6)',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              📄 PDF 预览
+            </button>
           </div>
-        )}
-        <PDFPane pdfBlob={pdfBlob} />
+          
+          <button
+            onClick={generatePDF}
+            disabled={loadingPdf || !resume}
+            style={{
+              padding: '6px 14px',
+              background: 'rgba(34, 197, 94, 0.2)',
+              border: '1px solid rgba(34, 197, 94, 0.4)',
+              borderRadius: '6px',
+              color: '#4ade80',
+              fontSize: '12px',
+              cursor: (loadingPdf || !resume) ? 'not-allowed' : 'pointer',
+              opacity: (loadingPdf || !resume) ? 0.5 : 1,
+            }}
+          >
+            {loadingPdf ? '生成中...' : '🔄 生成 PDF'}
+          </button>
+        </div>
+        
+        {/* 预览内容 */}
+        <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+          {loadingPdf && previewMode === 'pdf' && (
+            <div style={{
+              position: 'absolute', 
+              top: 0, 
+              left: 0, 
+              right: 0, 
+              bottom: 0, 
+              background: 'rgba(102, 126, 234, 0.8)', 
+              backdropFilter: 'blur(5px)',
+              display: 'flex', 
+              justifyContent: 'center', 
+              alignItems: 'center', 
+              zIndex: 10,
+              color: 'white',
+              fontSize: '18px',
+              fontWeight: 600
+            }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ 
+                  width: '50px', 
+                  height: '50px', 
+                  border: '4px solid rgba(255, 255, 255, 0.3)',
+                  borderTop: '4px solid white',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  margin: '0 auto 16px'
+                }} />
+                <style>{`
+                  @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                  }
+                `}</style>
+                正在生成 PDF...
+              </div>
+            </div>
+          )}
+          
+          {previewMode === 'live' ? (
+            <ResumePreview resume={resume} sectionOrder={currentSectionOrder} />
+          ) : (
+            <PDFPane pdfBlob={pdfBlob} />
+          )}
+        </div>
       </div>
     </div>
   )
