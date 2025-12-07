@@ -15,13 +15,13 @@ def try_json_repair(text: str) -> Tuple[Optional[Dict], Optional[str]]:
         from json_repair import repair_json
         cleaned = text.strip()
         
-        # 直接解析
+        """直接解析"""
         try:
             return json.loads(cleaned), None
         except:
             pass
         
-        # json-repair 修复
+        """json-repair 修复"""
         try:
             repaired = repair_json(cleaned)
             return json.loads(repaired), None

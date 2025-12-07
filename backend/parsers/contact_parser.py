@@ -13,7 +13,7 @@ def parse_name(lines: List[str]) -> Optional[str]:
     for line in lines:
         line = line.strip()
         if line and not any(kw in line for kw in keywords):
-            # 排除看起来像联系方式的行
+            """排除看起来像联系方式的行"""
             if '@' not in line and not re.match(r'^\d{3}', line):
                 return line
     
@@ -31,7 +31,7 @@ def parse_contact(text: str) -> Dict[str, str]:
     """
     contact = {}
     
-    # 电话
+    """电话"""
     phone_patterns = [
         r'(?:联系方式|电话|手机)[：:]\s*(\d{3}[-\s]?\d{4}[-\s]?\d{4})',
         r'(\d{3}[-\s]?\d{4}[-\s]?\d{4})',
@@ -42,7 +42,7 @@ def parse_contact(text: str) -> Dict[str, str]:
             contact['phone'] = match.group(1).replace(' ', '').replace('-', '-')
             break
     
-    # 邮箱
+    """邮箱"""
     email_patterns = [
         r'(?:邮箱|Email)[：:]\s*([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',
         r'([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})',
@@ -53,7 +53,7 @@ def parse_contact(text: str) -> Dict[str, str]:
             contact['email'] = match.group(1)
             break
     
-    # 求职方向
+    """求职方向"""
     role_match = re.search(r'求职方向[：:]\s*(.+?)(?:\n|$)', text)
     if role_match:
         contact['role'] = role_match.group(1).strip()
