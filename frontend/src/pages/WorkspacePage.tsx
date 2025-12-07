@@ -137,11 +137,11 @@ export default function WorkspacePage() {
   /**
    * 从编辑器保存简历
    */
-  const handleEditorSave = useCallback(async (newResume: Resume) => {
+  const handleEditorSave = useCallback(async (newResume: Resume, sectionOrder?: string[]) => {
     setResume(newResume)
     setLoadingPdf(true)
     try {
-      const blob = await renderPDF(newResume, false)
+      const blob = await renderPDF(newResume, false, sectionOrder)
       setPdfBlob(blob)
     } catch (error) {
       console.error('Failed to render PDF:', error)

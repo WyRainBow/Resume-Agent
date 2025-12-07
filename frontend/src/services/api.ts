@@ -15,9 +15,9 @@ export async function generateResume(provider: 'zhipu' | 'gemini' | 'mock', inst
   return data as { provider: string; resume: Resume }
 }
 
-export async function renderPDF(resume: Resume, useDemo: boolean = false): Promise<Blob> {
+export async function renderPDF(resume: Resume, useDemo: boolean = false, sectionOrder?: string[]): Promise<Blob> {
   const url = `${API_BASE}/api/pdf/render`
-  const { data } = await axios.post(url, { resume, demo: useDemo }, { responseType: 'blob' })
+  const { data } = await axios.post(url, { resume, demo: useDemo, section_order: sectionOrder }, { responseType: 'blob' })
   return data as Blob
 }
 

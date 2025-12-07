@@ -179,13 +179,232 @@ def normalize_item(item: Dict[str, Any], field_mapping: Dict[str, str]) -> Dict[
     return normalized_item
 
 
-def json_to_latex(resume_data: Dict[str, Any]) -> str:
+def generate_section_summary(resume_data: Dict[str, Any]) -> List[str]:
+    """生成个人简介"""
+    content = []
+    summary = resume_data.get('summary')
+    if isinstance(summary, str) and summary.strip():
+        content.append(r"\section{个人简介}")
+        content.append(escape_latex(summary.strip()))
+        content.append("")
+    return content
+
+def generate_section_internships(resume_data: Dict[str, Any]) -> List[str]:
+    """生成实习经历"""
+    content = []
+    internships = resume_data.get('internships') or []
+    if isinstance(internships, list) and internships:
+        content.append(r"\section{实习经历}")
+        for it in internships:
+            title = escape_latex(it.get('title') or '')
+            subtitle = escape_latex(it.get('subtitle') or '')
+            date = escape_latex(it.get('date') or '')
+            if subtitle:
+                subsection_title = f"\\textbf{{{title}}} - {subtitle}"
+            else:
+                subsection_title = f"\\textbf{{{title}}}"
+            content.append(f"\\datedsubsection{{{subsection_title}}}{{{date}}}")
+            highlights = it.get('highlights') or it.get('details') or []
+            if isinstance(highlights, list) and highlights:
+                content.append(r"\begin{itemize}[parsep=0.2ex]")
+                for h in highlights:
+                    if isinstance(h, str) and h.strip():
+                        content.append(f"  \\item {escape_latex(h.strip())}")
+                content.append(r"\end{itemize}")
+            content.append("")
+    return content
+
+def generate_section_experience(resume_data: Dict[str, Any]) -> List[str]:
+    """生成工作经历"""
+    content = []
+    exp = resume_data.get('experience') or []
+    if isinstance(exp, list) and exp:
+        content.append(r"\section{工作经历}")
+        for e in exp:
+            company = escape_latex(e.get('company') or '')
+            position = escape_latex(e.get('position') or '')
+            duration = escape_latex(e.get('duration') or '')
+            if position and company:
+                subsection_title = f"\\textbf{{{position}}} - {company}"
+            elif company:
+                subsection_title = f"\\textbf{{{company}}}"
+            else:
+                subsection_title = position or company
+            content.append(f"\\datedsubsection{{{subsection_title}}}{{{duration}}}")
+            achievements = e.get('achievements') or []
+            if isinstance(achievements, list) and achievements:
+                content.append(r"\begin{itemize}[parsep=0.2ex]")
+                for ach in achievements:
+                    if isinstance(ach, str) and ach.strip():
+                        content.append(f"  \\item {escape_latex(ach.strip())}")
+                content.append(r"\end{itemize}")
+            content.append("")
+    return content
+
+def generate_section_projects(resume_data: Dict[str, Any]) -> List[str]:
+    """生成项目经历"""
+    content = []
+    projects = resume_data.get('projects') or []
+    if isinstance(projects, list) and projects:
+        content.append(r"\section{项目经验}")
+        for p in projects:
+            title = p.get('title') or " - ".join([v for v in [p.get('name'), p.get('role')] if v])
+            if title:
+                escaped_title = escape_latex(title)
+                content.append(f"\\datedsubsection{{\\textbf{{{escaped_title}}}}}{{}}")
+                content.append(r"\begin{itemize}[parsep=0.2ex]")
+                if isinstance(p.get('items'), list) and p['items']:
+                    for sub in p['items']:
+                        sub_title = sub.get('title')
+                        if sub_title:
+                            escaped_sub_title = escape_latex(sub_title)
+                            content.append(f"  \\item \\textbf{{{escaped_sub_title}}}")
+                            details = sub.get('details') or []
+                            if isinstance(details, list) and details:
+                                content.append(r"    \begin{itemize}[label=\textbf{·},parsep=0.2ex]")
+                                for detail in details:
+                                    if isinstance(detail, str) and detail.strip():
+                                        content.append(f"      \\item {escape_latex(detail.strip())}")
+                                content.append(r"    \end{itemize}")
+                if not (isinstance(p.get('items'), list) and p['items']):
+                    highlights = p.get('highlights') or []
+                    if isinstance(highlights, list) and highlights:
+                        for h in highlights:
+                            if isinstance(h, str) and h.strip():
+                                content.append(f"  \\item {escape_latex(h.strip())}")
+                content.append(r"\end{itemize}")
+                content.append("")
+    return content
+
+def generate_section_skills(resume_data: Dict[str, Any]) -> List[str]:
+    """生成专业技能"""
+    content = []
+    skills = resume_data.get('skills') or []
+    if skills:
+        content.append(r"\section{专业技能}")
+        content.append(r"\begin{itemize}[parsep=0.2ex]")
+        if all(isinstance(s, str) for s in skills):
+            for s in skills:
+                if s.strip():
+                    content.append(f"  \\item {escape_latex(s.strip())}")
+        else:
+            for s in skills:
+                if isinstance(s, dict):
+                    category = escape_latex(s.get('category') or '')
+                    details = escape_latex(s.get('details') or '')
+                    if category and details:
+                        content.append(f"  \\item \\textbf{{{category}}}: {details}")
+                    elif category:
+                        content.append(f"  \\item \\textbf{{{category}}}")
+                    elif details:
+                        content.append(f"  \\item {details}")
+        content.append(r"\end{itemize}")
+        content.append("")
+    return content
+
+def generate_section_education(resume_data: Dict[str, Any]) -> List[str]:
+    """生成教育经历"""
+    content = []
+    edu = resume_data.get('education') or []
+    if isinstance(edu, list) and edu:
+        content.append(r"\section{教育经历}")
+        for ed in edu:
+            title = ed.get('title')
+            if title:
+                date = escape_latex(ed.get('date') or '')
+                escaped_title = escape_latex(title)
+                content.append(f"\\datedsubsection{{\\textbf{{{escaped_title}}}}}{{{date}}}")
+                honors = ed.get('honors')
+                if honors:
+                    escaped_honors = escape_latex(honors)
+                    content.append(f" \\textbf{{荣誉:}} {escaped_honors}")
+            else:
+                school = escape_latex(ed.get('school') or '')
+                degree = escape_latex(ed.get('degree') or '')
+                major = escape_latex(ed.get('major') or '')
+                duration = escape_latex(ed.get('duration') or '')
+                parts = [s for s in [school, degree, major] if s]
+                title_str = " - ".join(parts) if parts else school or degree or major
+                if title_str:
+                    content.append(f"\\datedsubsection{{\\textbf{{{title_str}}} -  \\textit{{本科}}}}{{{duration}}}")
+            content.append("")
+    return content
+
+def generate_section_awards(resume_data: Dict[str, Any]) -> List[str]:
+    """生成奖项"""
+    content = []
+    awards = resume_data.get('awards') or []
+    if isinstance(awards, list) and awards:
+        content.append(r"\section{奖项}")
+        content.append(r"\begin{itemize}[parsep=0.2ex]")
+        for a in awards:
+            if isinstance(a, str):
+                if a.strip():
+                    content.append(f"  \\item {escape_latex(a.strip())}")
+                continue
+            title = escape_latex(a.get('title') or '')
+            issuer = escape_latex(a.get('issuer') or '')
+            date = escape_latex(a.get('date') or '')
+            parts = [s for s in [title, issuer] if s]
+            subsection_title = " - ".join(parts) if parts else title or issuer
+            if subsection_title:
+                content.append(f"  \\item {subsection_title}" + (f" ({date})" if date else ""))
+        content.append(r"\end{itemize}")
+        content.append("")
+    return content
+
+def generate_section_opensource(resume_data: Dict[str, Any]) -> List[str]:
+    """生成开源经历"""
+    content = []
+    open_source = resume_data.get('openSource') or []
+    if isinstance(open_source, list) and open_source:
+        content.append(r"\section{开源经历}")
+        for os_item in open_source:
+            title = escape_latex(os_item.get('title') or '')
+            subtitle = escape_latex(os_item.get('subtitle') or '')
+            if subtitle:
+                subsection_title = f"\\textbf{{{title}}}"
+                content.append(f"\\datedsubsection{{{subsection_title}}}{{{subtitle}}}")
+            else:
+                content.append(f"\\datedsubsection{{\\textbf{{{title}}}}}{{}}")
+            items = os_item.get('items') or []
+            if isinstance(items, list) and items:
+                content.append(r"\begin{itemize}[parsep=0.2ex]")
+                for item in items:
+                    if isinstance(item, str) and item.strip():
+                        content.append(f"  \\item {escape_latex(item.strip())}")
+                content.append(r"\end{itemize}")
+            content.append("")
+    return content
+
+# Section 生成器映射
+SECTION_GENERATORS = {
+    'contact': None,  # 联系信息在头部特殊处理
+    'summary': generate_section_summary,
+    'education': generate_section_education,
+    'experience': generate_section_experience,
+    'internships': generate_section_internships,
+    'projects': generate_section_projects,
+    'skills': generate_section_skills,
+    'awards': generate_section_awards,
+    'opensource': generate_section_opensource,
+}
+
+# 默认 section 顺序
+DEFAULT_SECTION_ORDER = [
+    'summary', 'internships', 'experience', 'projects', 
+    'opensource', 'skills', 'education', 'awards'
+]
+
+
+def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) -> str:
     """
     将简历 JSON 转换为 LaTeX 代码
-    支持中文和英文字段名
+    支持中文和英文字段名，支持自定义 section 顺序
     
     参数:
         resume_data: 简历数据字典（中文或英文字段名）
+        section_order: 自定义 section 顺序列表
     
     返回:
         LaTeX 代码字符串
@@ -244,208 +463,12 @@ def json_to_latex(resume_data: Dict[str, Any]) -> str:
     latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{location}}}{{{role}}}")
     latex_content.append("")
     
-    """个人简介"""
-    summary = resume_data.get('summary')
-    if isinstance(summary, str) and summary.strip():
-        latex_content.append(r"\section{个人简介}")
-        latex_content.append(escape_latex(summary.strip()))
-        latex_content.append("")
-    
-    """实习经历"""
-    internships = resume_data.get('internships') or []
-    if isinstance(internships, list) and internships:
-        latex_content.append(r"\section{实习经历}")
-        for it in internships:
-            title = escape_latex(it.get('title') or '')
-            subtitle = escape_latex(it.get('subtitle') or '')
-            date = escape_latex(it.get('date') or '')
-            
-            if subtitle:
-                subsection_title = f"\\textbf{{{title}}} - {subtitle}"
-            else:
-                subsection_title = f"\\textbf{{{title}}}"
-            
-            latex_content.append(f"\\datedsubsection{{{subsection_title}}}{{{date}}}")
-            
-            """处理详情 highlights"""
-            highlights = it.get('highlights') or it.get('details') or []
-            if isinstance(highlights, list) and highlights:
-                latex_content.append(r"\begin{itemize}[parsep=0.2ex]")
-                for h in highlights:
-                    if isinstance(h, str) and h.strip():
-                        latex_content.append(f"  \\item {escape_latex(h.strip())}")
-                latex_content.append(r"\end{itemize}")
-            latex_content.append("")
-    
-    """工作经历"""
-    exp = resume_data.get('experience') or []
-    if isinstance(exp, list) and exp:
-        latex_content.append(r"\section{工作经历}")
-        for e in exp:
-            company = escape_latex(e.get('company') or '')
-            position = escape_latex(e.get('position') or '')
-            duration = escape_latex(e.get('duration') or '')
-            location = escape_latex(e.get('location') or '')
-            
-            if position and company:
-                subsection_title = f"\\textbf{{{position}}} - {company}"
-            elif company:
-                subsection_title = f"\\textbf{{{company}}}"
-            else:
-                subsection_title = position or company
-            
-            latex_content.append(f"\\datedsubsection{{{subsection_title}}}{{{duration}}}")
-            
-            """成就列表"""
-            achievements = e.get('achievements') or []
-            if isinstance(achievements, list) and achievements:
-                latex_content.append(r"\begin{itemize}[parsep=0.2ex]")
-                for ach in achievements:
-                    if isinstance(ach, str) and ach.strip():
-                        latex_content.append(f"  \\item {escape_latex(ach.strip())}")
-                latex_content.append(r"\end{itemize}")
-            latex_content.append("")
-    
-    """项目经历"""
-    projects = resume_data.get('projects') or []
-    if isinstance(projects, list) and projects:
-        latex_content.append(r"\section{项目经验}")
-        for p in projects:
-            """新结构优先"""
-            title = p.get('title') or " - ".join([v for v in [p.get('name'), p.get('role')] if v])
-            if title:
-                escaped_title = escape_latex(title)
-                latex_content.append(f"\\datedsubsection{{\\textbf{{{escaped_title}}}}}{{}}")
-                latex_content.append(r"\begin{itemize}[parsep=0.2ex]")
-                
-                """处理新结构: items"""
-                if isinstance(p.get('items'), list) and p['items']:
-                    for sub in p['items']:
-                        sub_title = sub.get('title')
-                        if sub_title:
-                            escaped_sub_title = escape_latex(sub_title)
-                            latex_content.append(f"  \\item \\textbf{{{escaped_sub_title}}}")
-                            details = sub.get('details') or []
-                            if isinstance(details, list) and details:
-                                latex_content.append(r"    \begin{itemize}[label=\textbf{·},parsep=0.2ex]")
-                                for detail in details:
-                                    if isinstance(detail, str) and detail.strip():
-                                        latex_content.append(f"      \\item {escape_latex(detail.strip())}")
-                                latex_content.append(r"    \end{itemize}")
-                
-                """处理旧结构: highlights"""
-                if not (isinstance(p.get('items'), list) and p['items']):
-                    highlights = p.get('highlights') or []
-                    if isinstance(highlights, list) and highlights:
-                        for h in highlights:
-                            if isinstance(h, str) and h.strip():
-                                latex_content.append(f"  \\item {escape_latex(h.strip())}")
-                
-                latex_content.append(r"\end{itemize}")
-                latex_content.append("")
-    
-    """开源经历"""
-    open_source = resume_data.get('openSource') or []
-    if isinstance(open_source, list) and open_source:
-        latex_content.append(r"\section{开源经历}")
-        for os_item in open_source:
-            title = escape_latex(os_item.get('title') or '')
-            subtitle = escape_latex(os_item.get('subtitle') or '')
-            
-            if subtitle:
-                subsection_title = f"\\textbf{{{title}}}"
-                latex_content.append(f"\\datedsubsection{{{subsection_title}}}{{{subtitle}}}")
-            else:
-                latex_content.append(f"\\datedsubsection{{\\textbf{{{title}}}}}{{}}")
-            
-            items = os_item.get('items') or []
-            if isinstance(items, list) and items:
-                latex_content.append(r"\begin{itemize}[parsep=0.2ex]")
-                for item in items:
-                    if isinstance(item, str) and item.strip():
-                        latex_content.append(f"  \\item {escape_latex(item.strip())}")
-                latex_content.append(r"\end{itemize}")
-            latex_content.append("")
-    
-    """专业技能"""
-    skills = resume_data.get('skills') or []
-    if skills:
-        latex_content.append(r"\section{专业技能}")
-        latex_content.append(r"\begin{itemize}[parsep=0.2ex]")
-        
-        """旧结构: 字符串列表"""
-        if all(isinstance(s, str) for s in skills):
-            for s in skills:
-                if s.strip():
-                    latex_content.append(f"  \\item {escape_latex(s.strip())}")
-        
-        """新结构: 对象列表"""
-        if not all(isinstance(s, str) for s in skills):
-            for s in skills:
-                if isinstance(s, dict):
-                    category = escape_latex(s.get('category') or '')
-                    details = escape_latex(s.get('details') or '')
-                    if category and details:
-                        latex_content.append(f"  \\item \\textbf{{{category}}}: {details}")
-                    elif category:
-                        latex_content.append(f"  \\item \\textbf{{{category}}}")
-                    elif details:
-                        latex_content.append(f"  \\item {details}")
-        
-        latex_content.append(r"\end{itemize}")
-        latex_content.append("")
-    
-    """教育经历"""
-    edu = resume_data.get('education') or []
-    if isinstance(edu, list) and edu:
-        latex_content.append(r"\section{教育经历}")
-        for ed in edu:
-            """新结构优先"""
-            title = ed.get('title')
-            if title:
-                date = escape_latex(ed.get('date') or '')
-                escaped_title = escape_latex(title)
-                latex_content.append(f"\\datedsubsection{{\\textbf{{{escaped_title}}}}}{{{date}}}")
-                honors = ed.get('honors')
-                if honors:
-                    escaped_honors = escape_latex(honors)
-                    latex_content.append(f" \\textbf{{荣誉:}} {escaped_honors}")
-            else:
-                """旧结构"""
-                school = escape_latex(ed.get('school') or '')
-                degree = escape_latex(ed.get('degree') or '')
-                major = escape_latex(ed.get('major') or '')
-                duration = escape_latex(ed.get('duration') or '')
-                
-                parts = [s for s in [school, degree, major] if s]
-                title_str = " - ".join(parts) if parts else school or degree or major
-                if title_str:
-                    latex_content.append(f"\\datedsubsection{{\\textbf{{{title_str}}} -  \\textit{{本科}}}}{{{duration}}}")
-            
-            latex_content.append("")
-    
-    """奖项"""
-    awards = resume_data.get('awards') or []
-    if isinstance(awards, list) and awards:
-        latex_content.append(r"\section{奖项}")
-        latex_content.append(r"\begin{itemize}[parsep=0.2ex]")
-        for a in awards:
-            """支持字符串列表"""
-            if isinstance(a, str):
-                if a.strip():
-                    latex_content.append(f"  \\item {escape_latex(a.strip())}")
-                continue
-            """支持对象列表"""
-            title = escape_latex(a.get('title') or '')
-            issuer = escape_latex(a.get('issuer') or '')
-            date = escape_latex(a.get('date') or '')
-            
-            parts = [s for s in [title, issuer] if s]
-            subsection_title = " - ".join(parts) if parts else title or issuer
-            if subsection_title:
-                latex_content.append(f"  \\item {subsection_title}" + (f" ({date})" if date else ""))
-        latex_content.append(r"\end{itemize}")
-        latex_content.append("")
+    """按顺序生成各 section"""
+    order = section_order if section_order else DEFAULT_SECTION_ORDER
+    for section_id in order:
+        generator = SECTION_GENERATORS.get(section_id)
+        if generator:
+            latex_content.extend(generator(resume_data))
     
     """文档结尾"""
     latex_content.append(r"\end{document}")
@@ -527,12 +550,13 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path) -> BytesIO:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-def render_pdf_from_resume_latex(resume_data: Dict[str, Any]) -> BytesIO:
+def render_pdf_from_resume_latex(resume_data: Dict[str, Any], section_order: List[str] = None) -> BytesIO:
     """
     将简历 JSON 渲染为 PDF（使用 LaTeX）
     
     参数:
         resume_data: 简历数据字典
+        section_order: 自定义 section 顺序列表
     
     返回:
         PDF 文件的 BytesIO 对象
@@ -546,7 +570,7 @@ def render_pdf_from_resume_latex(resume_data: Dict[str, Any]) -> BytesIO:
         raise RuntimeError(f"LaTeX 模板目录不存在: {template_dir}")
     
     """转换为 LaTeX"""
-    latex_content = json_to_latex(resume_data)
+    latex_content = json_to_latex(resume_data, section_order)
     
     """编译为 PDF"""
     pdf_io = compile_latex_to_pdf(latex_content, template_dir)

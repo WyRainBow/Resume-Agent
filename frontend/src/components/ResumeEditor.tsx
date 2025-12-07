@@ -27,7 +27,7 @@ type ResumeSection = {
 
 type Props = {
   resumeData: any
-  onSave: (data: any) => void
+  onSave: (data: any, sectionOrder?: string[]) => void
   saving?: boolean
 }
 
@@ -127,13 +127,12 @@ function SortableSection({
             </div>
           </div>
 
-          {/* 图标和标题 - 点击展开，阻止拖拽 */}
+          {/* 图标和标题 - 点击展开 */}
           <div 
             onClick={(e) => {
               e.stopPropagation()
               onToggle()
             }}
-            onPointerDown={(e) => e.stopPropagation()}
             style={{ 
               flex: 1, 
               display: 'flex', 
@@ -152,13 +151,12 @@ function SortableSection({
             </span>
           </div>
 
-          {/* 展开/收起箭头 - 点击展开，阻止拖拽 */}
+          {/* 展开/收起箭头 - 点击展开 */}
           <div 
             onClick={(e) => {
               e.stopPropagation()
               onToggle()
             }}
-            onPointerDown={(e) => e.stopPropagation()}
             style={{
               color: 'rgba(255,255,255,0.6)',
               fontSize: '14px',
@@ -598,7 +596,11 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
   const [expandedId, setExpandedId] = useState<string | null>('contact')
 
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 拖动 8px 后才激活拖拽
+      },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -646,7 +648,51 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
       setSections((items) => {
         const oldIndex = items.findIndex((i) => i.id === active.id)
         const newIndex = items.findIndex((i) => i.id === over.id)
-        return arrayMove(items, oldIndex, newIndex)
+        const newItems = arrayMove(items, oldIndex, newIndex)
+        
+        // 拖拽后自动保存并更新 PDF
+        setTimeout(() => {
+          // 使用新顺序构建数据并保存
+          const contactSection = newItems.find(s => s.type === 'contact')
+          const educationSection = newItems.find(s => s.type === 'education')
+          const experienceSection = newItems.find(s => s.type === 'experience')
+          const projectsSection = newItems.find(s => s.type === 'projects')
+          const skillsSection = newItems.find(s => s.type === 'skills')
+          const awardsSection = newItems.find(s => s.type === 'awards')
+          const summarySection = newItems.find(s => s.type === 'summary')
+          
+          const convertToBackendFormat = (items: any[]) => {
+            return items.map(item => ({
+              title: item.title || '',
+              subtitle: item.subtitle || '',
+              date: item.date || '',
+              highlights: Array.isArray(item.details) ? item.details : [],
+            }))
+          }
+          
+          const newResumeData = {
+            name: contactSection?.data?.name || '',
+            contact: {
+              phone: contactSection?.data?.phone || '',
+              email: contactSection?.data?.email || '',
+            },
+            objective: contactSection?.data?.objective || '',
+            education: educationSection?.data || [],
+            internships: convertToBackendFormat(experienceSection?.data || []),
+            projects: convertToBackendFormat(projectsSection?.data || []),
+            skills: skillsSection?.data || [],
+            awards: awardsSection?.data || [],
+            summary: summarySection?.data || '',
+          }
+          
+          const sectionOrder = newItems
+            .filter(s => s.type !== 'contact')
+            .map(s => s.type)
+          
+          onSave(newResumeData, sectionOrder)
+        }, 0)
+        
+        return newItems
       })
     }
   }
@@ -692,7 +738,12 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
       summary: summarySection?.data || '',
     }
 
-    onSave(newResumeData)
+    // 获取当前 section 顺序（排除 contact，因为它总是在头部）
+    const sectionOrder = sections
+      .filter(s => s.type !== 'contact')
+      .map(s => s.type)
+
+    onSave(newResumeData, sectionOrder)
   }
 
   return (
