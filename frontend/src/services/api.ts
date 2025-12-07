@@ -33,3 +33,27 @@ export async function formatResumeText(provider: 'zhipu' | 'gemini', text: strin
   return data as { success: boolean; data: Resume | null; method: string; error: string | null }
 }
 
+/**
+ * 获取 API Key 配置状态
+ */
+export async function getKeysStatus() {
+  const url = `${API_BASE}/api/config/keys`
+  const { data } = await axios.get(url)
+  return data as {
+    zhipu: { configured: boolean; preview: string }
+    gemini: { configured: boolean; preview: string }
+  }
+}
+
+/**
+ * 保存 API Key
+ */
+export async function saveKeys(zhipuKey?: string, geminiKey?: string) {
+  const url = `${API_BASE}/api/config/keys`
+  const { data } = await axios.post(url, { 
+    zhipu_key: zhipuKey, 
+    gemini_key: geminiKey 
+  })
+  return data as { success: boolean; message: string }
+}
+

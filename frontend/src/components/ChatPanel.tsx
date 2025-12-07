@@ -1,13 +1,15 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { aiTest, generateResume, formatResumeText } from '@/services/api'
 import type { Resume } from '@/types/resume'
+import OnboardingGuide from './OnboardingGuide'
 
 type Props = {
   onResume: (resume: Resume) => void
   onLoadDemo?: () => void
+  pdfBlob?: Blob | null
 }
 
-export default function ChatPanel({ onResume, onLoadDemo }: Props) {
+export default function ChatPanel({ onResume, onLoadDemo, pdfBlob }: Props) {
   const [provider, setProvider] = useState<'zhipu' | 'gemini'>('zhipu')
   const [instruction, setInstruction] = useState('3年后端，Java/Go，投递后端工程师，擅长高并发与微服务')
   const [logs, setLogs] = useState<string>('')
@@ -18,6 +20,17 @@ export default function ChatPanel({ onResume, onLoadDemo }: Props) {
   const [jsonError, setJsonError] = useState<string>('')
   const [resumeText, setResumeText] = useState<string>('')
   const [formatting, setFormatting] = useState(false)
+  const [showGuide, setShowGuide] = useState(false)
+
+  /**
+   * 首次访问时自动显示新手引导
+   */
+  useEffect(() => {
+    const completed = localStorage.getItem('onboarding_completed')
+    if (!completed) {
+      setShowGuide(true)
+    }
+  }, [])
 
   function formatAxiosError(err: any) {
     const detail = err?.response?.data?.detail
@@ -136,18 +149,66 @@ export default function ChatPanel({ onResume, onLoadDemo }: Props) {
       boxSizing: 'border-box',
       minHeight: 0
     }}>
+      {/* 新手引导弹窗 */}
+      <OnboardingGuide 
+        visible={showGuide} 
+        onClose={() => setShowGuide(false)}
+        onLoadDemo={onLoadDemo}
+        pdfBlob={pdfBlob}
+      />
+
       <div style={{ 
         marginBottom: 'clamp(16px, 3vw, 24px)', 
-        fontWeight: 700, 
-        fontSize: 'clamp(16px, 2.5vw, 20px)',
-        background: 'linear-gradient(135deg, #a78bfa 0%, #ec4899 100%)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        backgroundClip: 'text',
-        textShadow: '0 2px 10px rgba(167, 139, 250, 0.3)',
-        whiteSpace: 'nowrap'
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px'
       }}>
-        AI 对话 / 生成区
+        <div style={{
+          fontWeight: 700, 
+          fontSize: 'clamp(16px, 2.5vw, 20px)',
+          background: 'linear-gradient(135deg, #a78bfa 0%, #ec4899 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+          textShadow: '0 2px 10px rgba(167, 139, 250, 0.3)',
+          whiteSpace: 'nowrap'
+        }}>
+          AI 对话 / 生成区
+        </div>
+        
+        {/* 新手引导按钮 */}
+        <button
+          onClick={() => setShowGuide(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            padding: '8px 14px',
+            background: 'rgba(167, 139, 250, 0.2)',
+            border: '1px solid rgba(167, 139, 250, 0.4)',
+            borderRadius: '20px',
+            color: '#c4b5fd',
+            fontSize: '13px',
+            fontWeight: 500,
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            whiteSpace: 'nowrap'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(167, 139, 250, 0.3)'
+            e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
+            e.currentTarget.style.transform = 'translateY(-1px)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(167, 139, 250, 0.2)'
+            e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.4)'
+            e.currentTarget.style.transform = 'translateY(0)'
+          }}
+        >
+          <span style={{ fontSize: '14px' }}>💡</span>
+          <span>新手引导</span>
+        </button>
       </div>
 
       <label style={{ 
@@ -233,76 +294,6 @@ export default function ChatPanel({ onResume, onLoadDemo }: Props) {
       />
 
       <div style={{ display: 'flex', gap: 'clamp(8px, 1.5vw, 12px)', marginBottom: 'clamp(16px, 2.5vw, 20px)', flexWrap: 'wrap' }}>
-        {onLoadDemo && (
-          <button
-            onClick={onLoadDemo}
-            disabled={loading}
-            style={{
-              flex: '1 1 auto',
-              minWidth: '120px',
-              padding: 'clamp(12px, 2vw, 14px) clamp(16px, 2.5vw, 20px)',
-              fontWeight: 600,
-              fontSize: 'clamp(12px, 1.75vw, 14px)',
-              background: loading
-                ? 'rgba(255, 255, 255, 0.1)'
-                : 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
-              border: 'none',
-              borderRadius: 'clamp(8px, 1.5vw, 12px)',
-              color: 'white',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'all 0.3s ease',
-              boxShadow: '0 4px 15px rgba(139, 92, 246, 0.4)',
-              opacity: loading ? 0.6 : 1
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) {
-                e.currentTarget.style.transform = 'translateY(-2px)'
-                e.currentTarget.style.boxShadow = '0 6px 20px rgba(139, 92, 246, 0.6)'
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.boxShadow = '0 4px 15px rgba(139, 92, 246, 0.4)'
-            }}
-          >
-            {loading ? '加载中...' : '加载 Demo 模板'}
-          </button>
-        )}
-        <button 
-          onClick={handleTest} 
-          disabled={loading} 
-          style={{ 
-            flex: '1 1 auto',
-            minWidth: '120px',
-            padding: 'clamp(12px, 2vw, 14px) clamp(16px, 2.5vw, 20px)', 
-            fontWeight: 600,
-            fontSize: 'clamp(12px, 1.75vw, 14px)',
-            background: loading 
-              ? 'rgba(255, 255, 255, 0.1)' 
-              : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            border: 'none',
-            borderRadius: '12px',
-            color: 'white',
-            cursor: loading ? 'not-allowed' : 'pointer',
-            transition: 'all 0.3s ease',
-            boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
-            opacity: loading ? 0.6 : 1
-          }}
-          onMouseEnter={(e) => {
-            if (!loading) {
-              e.currentTarget.style.transform = 'translateY(-2px)'
-              e.currentTarget.style.boxShadow = '0 6px 20px rgba(102, 126, 234, 0.6)'
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!loading) {
-              e.currentTarget.style.transform = 'translateY(0)'
-              e.currentTarget.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)'
-            }
-          }}
-        >
-          {loading ? '测试中...' : 'AI 联通测试'}
-        </button>
         <button 
           onClick={handleAIGenerate} 
           disabled={aiGenerating || !instruction.trim()} 
@@ -389,7 +380,7 @@ export default function ChatPanel({ onResume, onLoadDemo }: Props) {
           marginBottom: 8,
           fontWeight: 500
         }}>
-          或者，输入完整简历内容（纯文本）
+          输入完整简历内容（纯文本）
         </div>
         <textarea
           value={resumeText}
