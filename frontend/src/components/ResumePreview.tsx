@@ -21,11 +21,28 @@ export default function ResumePreview({ resume, sectionOrder }: Props) {
   }
 
   const defaultOrder = ['education', 'experience', 'projects', 'skills', 'awards', 'summary']
-  const order = sectionOrder || defaultOrder
+  // 如果 sectionOrder 是空数组或 undefined，使用默认顺序
+  const order = (sectionOrder && sectionOrder.length > 0) ? sectionOrder : defaultOrder
 
   return (
     <div style={styles.container}>
-      <div style={styles.paper}>
+      {/* 打印样式：只打印简历内容 */}
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #resume-preview, #resume-preview * { visibility: visible; }
+          #resume-preview {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 210mm;
+            margin: 0;
+            padding: 15mm 20mm;
+            box-shadow: none;
+          }
+        }
+      `}</style>
+      <div id="resume-preview" style={styles.paper}>
         {/* 头部：姓名和联系方式 */}
         <div style={styles.header}>
           <div style={styles.name}>{resume.name || '姓名'}</div>

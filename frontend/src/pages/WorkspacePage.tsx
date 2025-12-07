@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react'
+import html2pdf from 'html2pdf.js'
 import { useNavigate } from 'react-router-dom'
 import ChatPanel from '../components/ChatPanel'
 import PDFPane from '../components/PDFPane'
@@ -24,91 +25,31 @@ export default function WorkspacePage() {
   const [initialInstruction, setInitialInstruction] = useState<string | null>(null)
 
   /**
-   * 前端默认模板（fallback）
-   */
-  const defaultTemplate = {
-    name: '张三',
-    contact: {
-      phone: '13800138000',
-      email: 'zhangsan@example.com',
-      wechat: 'zhangsan_dev',
-      github: 'github.com/zhangsan',
-      blog: 'zhangsan.dev'
-    },
-    objective: '资深前端工程师',
-    education: [{
-      title: '科技大学 - 计算机科学与技术',
-      date: '2018.09 - 2022.06',
-      city: '北京'
-    }],
-    internships: [{
-      title: '某知名互联网公司',
-      subtitle: '前端开发实习生',
-      date: '2021.06 - 2021.09',
-      city: '北京',
-      highlights: [
-        '负责公司核心业务系统的模块开发与维护，使用 React + TypeScript 技术栈。',
-        '参与前端性能优化专项，通过代码分割和资源预加载，将首屏加载时间降低 30%。',
-        '协助团队建立组件库文档，提升开发效率。'
-      ]
-    }],
-    projects: [{
-      title: '企业级数据可视化平台',
-      date: '2021.10 - 2022.03',
-      highlights: [
-        '基于 D3.js 和 ECharts 开发的高性能数据可视化平台，支持千万级数据实时渲染。',
-        '设计并实现自定义大屏编辑器，支持拖拽布局和动态配置，大幅降低交付成本。',
-        '技术栈：React, Redux, D3.js, Webpack。'
-      ]
-    }],
-    skills: [
-      '熟练掌握 HTML5, CSS3, JavaScript (ES6+), TypeScript。',
-      '深入理解 React 原理，熟悉 Vue3 及其生态。',
-      '熟悉前端工程化，掌握 Webpack, Vite 等构建工具配置。',
-      '了解 Node.js 后端开发，熟悉 Koa/Express 框架。'
-    ],
-    awards: [
-      '2020-2021学年 国家奖学金',
-      '第十二届蓝桥杯全国软件和信息技术专业人才大赛 省赛一等奖'
-    ],
-    summary: '热爱编程，对新技术保持敏锐的嗅觉。具备扎实的前端基础和良好的代码规范。善于沟通与协作，能够快速融入团队并解决问题。',
-    openSource: []
-  } as unknown as Resume
-
-  /**
-   * 加载默认模板并渲染 PDF
+   * 加载默认模板（从后端 test_resume_demo.json 加载）
+   * 1. 先加载数据 → 立即显示实时预览
+   * 2. 异步后台生成 PDF（不阻塞用户）
    */
   const loadDefaultTemplate = useCallback(async () => {
-    setLoadingPdf(true)
-    let template = defaultTemplate
-    
-    // 尝试从后端加载模板
     try {
-      template = await getDefaultTemplate() as unknown as Resume
+      // 1. 加载模板数据
+      const template = await getDefaultTemplate() as unknown as Resume
+      setResume(template)
+      setShowEditor(true)
+      setPreviewMode('live') // 默认显示实时预览
+      
+      // 设置默认 section 顺序
+      const defaultSectionOrder = ['education', 'experience', 'projects', 'skills', 'awards', 'summary']
+      setCurrentSectionOrder(defaultSectionOrder)
+      
+      // 2. 异步后台生成 PDF（不阻塞实时预览）
+      renderPDF(template, false, defaultSectionOrder)
+        .then(blob => setPdfBlob(blob))
+        .catch(err => console.log('PDF 后台生成失败:', err))
+        
     } catch (error) {
-      console.log('Using frontend default template')
+      console.error('Failed to load template:', error)
+      alert('加载模板失败，请检查后端服务是否正常。')
     }
-    
-    setResume(template)
-    setShowEditor(true)
-    
-    // 渲染 PDF（优先用模板数据，失败则用 demo）
-    // 使用前端默认的 section 顺序
-    const defaultSectionOrder = ['education', 'experience', 'projects', 'skills', 'awards', 'summary']
-    try {
-      const blob = await renderPDF(template, false, defaultSectionOrder)
-      setPdfBlob(blob)
-    } catch (e) {
-      console.log('Fallback to demo PDF')
-      try {
-        const blob = await renderPDF({} as Resume, true)
-        setPdfBlob(blob)
-      } catch (e2) {
-        console.error('Failed to render PDF:', e2)
-      }
-    }
-    
-    setLoadingPdf(false)
   }, [])
 
   useEffect(() => {
@@ -140,16 +81,31 @@ export default function WorkspacePage() {
   }, [])
 
   /**
-   * 从编辑器保存简历（实时预览模式下只更新状态，不触发 PDF 渲染）
+   * 从编辑器保存简历
+   * - 实时预览模式：只更新状态（立即刷新预览）
+   * - PDF 预览模式：更新状态并重新生成 PDF
    */
   const handleEditorSave = useCallback(async (newResume: Resume, sectionOrder?: string[]) => {
     setResume(newResume)
+    const newOrder = sectionOrder || currentSectionOrder
     if (sectionOrder) {
       setCurrentSectionOrder(sectionOrder)
     }
-    // 实时预览模式下不触发 PDF 渲染，只更新预览
-    // PDF 在用户切换到 PDF 模式或下载时生成
-  }, [])
+    
+    // PDF 预览模式下，点击保存也要更新 PDF
+    if (previewMode === 'pdf') {
+      setLoadingPdf(true)
+      try {
+        const blob = await renderPDF(newResume, false, newOrder.length > 0 ? newOrder : undefined)
+        setPdfBlob(blob)
+      } catch (error) {
+        console.error('Failed to render PDF:', error)
+        alert('PDF 渲染失败，请检查后端服务是否正常。')
+      } finally {
+        setLoadingPdf(false)
+      }
+    }
+  }, [previewMode, currentSectionOrder])
   
   /**
    * 生成 PDF（用于下载或查看最终效果）
@@ -450,7 +406,7 @@ export default function WorkspacePage() {
           flexDirection: 'column'
         }}
       >
-        {/* 预览工具栏 */}
+        {/* 预览工具栏 - 两种模板切换 */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -459,6 +415,7 @@ export default function WorkspacePage() {
           borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
           background: 'rgba(0, 0, 0, 0.2)',
         }}>
+          {/* 模板切换按钮 */}
           <div style={{
             display: 'flex',
             background: 'rgba(0, 0, 0, 0.3)',
@@ -477,13 +434,15 @@ export default function WorkspacePage() {
                 cursor: 'pointer',
               }}
             >
-              ⚡ 实时预览
+              🌐 HTML 版本
             </button>
             <button
               onClick={() => {
                 setPreviewMode('pdf')
-                if (!pdfBlob) generatePDF()
+                // 切换到 LaTeX 版本时生成 PDF
+                generatePDF()
               }}
+              disabled={loadingPdf}
               style={{
                 padding: '6px 12px',
                 background: previewMode === 'pdf' ? 'rgba(167, 139, 250, 0.4)' : 'transparent',
@@ -491,28 +450,56 @@ export default function WorkspacePage() {
                 borderRadius: '4px',
                 color: previewMode === 'pdf' ? '#a78bfa' : 'rgba(255, 255, 255, 0.6)',
                 fontSize: '12px',
-                cursor: 'pointer',
+                cursor: loadingPdf ? 'not-allowed' : 'pointer',
+                opacity: loadingPdf ? 0.7 : 1,
               }}
             >
-              📄 PDF 预览
+              {loadingPdf && previewMode === 'pdf' ? '生成中...' : '📄 LaTeX 版本'}
             </button>
           </div>
           
+          {/* 下载 PDF 按钮 */}
           <button
-            onClick={generatePDF}
-            disabled={loadingPdf || !resume}
+            onClick={() => {
+              if (previewMode === 'live') {
+                // HTML 版本：使用 html2pdf 直接生成并下载
+                const element = document.getElementById('resume-preview')
+                if (element) {
+                  const opt = {
+                    margin: [10, 10, 10, 10] as [number, number, number, number],
+                    filename: `resume_html_${new Date().toISOString().split('T')[0]}.pdf`,
+                    image: { type: 'jpeg' as const, quality: 0.98 },
+                    html2canvas: { scale: 2, useCORS: true },
+                    jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
+                  }
+                  html2pdf().set(opt).from(element).save()
+                }
+              } else if (pdfBlob) {
+                // LaTeX 版本：下载已生成的 PDF
+                const url = URL.createObjectURL(pdfBlob)
+                const link = document.createElement('a')
+                link.href = url
+                link.download = `resume_latex_${new Date().toISOString().split('T')[0]}.pdf`
+                link.click()
+                URL.revokeObjectURL(url)
+              }
+            }}
+            disabled={previewMode === 'pdf' && !pdfBlob}
             style={{
               padding: '6px 14px',
-              background: 'rgba(34, 197, 94, 0.2)',
-              border: '1px solid rgba(34, 197, 94, 0.4)',
+              background: 'rgba(59, 130, 246, 0.2)',
+              border: '1px solid rgba(59, 130, 246, 0.4)',
               borderRadius: '6px',
-              color: '#4ade80',
+              color: '#60a5fa',
               fontSize: '12px',
-              cursor: (loadingPdf || !resume) ? 'not-allowed' : 'pointer',
-              opacity: (loadingPdf || !resume) ? 0.5 : 1,
+              cursor: (previewMode === 'pdf' && !pdfBlob) ? 'not-allowed' : 'pointer',
+              opacity: (previewMode === 'pdf' && !pdfBlob) ? 0.5 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
             }}
           >
-            {loadingPdf ? '生成中...' : '🔄 生成 PDF'}
+            ⬇️ 下载 PDF
           </button>
         </div>
         
