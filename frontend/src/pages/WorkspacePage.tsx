@@ -90,8 +90,10 @@ export default function WorkspacePage() {
     setShowEditor(true)
     
     // 渲染 PDF（优先用模板数据，失败则用 demo）
+    // 使用前端默认的 section 顺序
+    const defaultSectionOrder = ['education', 'experience', 'projects', 'skills', 'awards', 'summary']
     try {
-      const blob = await renderPDF(template, false)
+      const blob = await renderPDF(template, false, defaultSectionOrder)
       setPdfBlob(blob)
     } catch (e) {
       console.log('Fallback to demo PDF')

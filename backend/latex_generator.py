@@ -180,11 +180,11 @@ def normalize_item(item: Dict[str, Any], field_mapping: Dict[str, str]) -> Dict[
 
 
 def generate_section_summary(resume_data: Dict[str, Any]) -> List[str]:
-    """生成个人简介"""
+    """生成个人总结"""
     content = []
     summary = resume_data.get('summary')
     if isinstance(summary, str) and summary.strip():
-        content.append(r"\section{个人简介}")
+        content.append(r"\section{个人总结}")
         content.append(escape_latex(summary.strip()))
         content.append("")
     return content
@@ -246,7 +246,7 @@ def generate_section_projects(resume_data: Dict[str, Any]) -> List[str]:
     content = []
     projects = resume_data.get('projects') or []
     if isinstance(projects, list) and projects:
-        content.append(r"\section{项目经验}")
+        content.append(r"\section{项目经历}")
         for p in projects:
             title = p.get('title') or " - ".join([v for v in [p.get('name'), p.get('role')] if v])
             if title:
@@ -390,10 +390,11 @@ SECTION_GENERATORS = {
     'opensource': generate_section_opensource,
 }
 
-# 默认 section 顺序
+# 默认 section 顺序（与前端可视化编辑器一致）
+# 前端顺序: contact → education → experience → projects → skills → awards → summary
 DEFAULT_SECTION_ORDER = [
-    'summary', 'internships', 'experience', 'projects', 
-    'opensource', 'skills', 'education', 'awards'
+    'education', 'experience', 'internships', 'projects', 
+    'skills', 'awards', 'summary', 'opensource'
 ]
 
 
