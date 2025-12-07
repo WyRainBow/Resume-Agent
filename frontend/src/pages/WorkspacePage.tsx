@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useRef } from 'react'
 import html2pdf from 'html2pdf.js'
 import { useNavigate } from 'react-router-dom'
 import ChatPanel from '../components/ChatPanel'
@@ -18,6 +18,10 @@ export default function WorkspacePage() {
   const [showGuide, setShowGuide] = useState(false)
   const [previewMode, setPreviewMode] = useState<'live' | 'pdf'>('live') // 预览模式：live=实时预览，pdf=PDF预览
   const [currentSectionOrder, setCurrentSectionOrder] = useState<string[]>([]) // 当前模块顺序
+  const [leftPanelWidth, setLeftPanelWidth] = useState(380) // 左侧面板宽度
+  const [isDragging, setIsDragging] = useState(false) // 是否正在拖拽分割条
+  const [previewScale, setPreviewScale] = useState(1.0) // 预览缩放比例，公共状态
+  const containerRef = useRef<HTMLDivElement>(null)
   
   /**
    * 从首页传递过来的指令
@@ -51,6 +55,41 @@ export default function WorkspacePage() {
       alert('加载模板失败，请检查后端服务是否正常。')
     }
   }, [])
+
+  // 分割条拖拽处理
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    setIsDragging(true)
+  }, [])
+
+  const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging || !containerRef.current) return
+    const containerRect = containerRef.current.getBoundingClientRect()
+    const newWidth = e.clientX - containerRect.left
+    // 限制宽度范围：280px ~ 50%
+    const maxWidth = containerRect.width * 0.5
+    setLeftPanelWidth(Math.max(280, Math.min(newWidth, maxWidth)))
+  }, [isDragging])
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false)
+  }, [])
+
+  // 监听全局鼠标事件
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove)
+      document.addEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = 'col-resize'
+      document.body.style.userSelect = 'none'
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp])
 
   useEffect(() => {
     // 检查是否有从首页传递过来的指令
@@ -140,6 +179,7 @@ export default function WorkspacePage() {
 
   return (
     <div 
+      ref={containerRef}
       className="main-container"
       style={{ 
         display: 'flex', 
@@ -215,14 +255,13 @@ export default function WorkspacePage() {
       <div 
         className="left-panel"
         style={{ 
-          width: '40%', 
-          minWidth: '380px',
-          maxWidth: '550px',
+          width: `${leftPanelWidth}px`,
+          minWidth: '280px',
+          flexShrink: 0,
           position: 'relative',
           zIndex: 1,
           backdropFilter: 'blur(10px)',
           background: 'rgba(255, 255, 255, 0.1)',
-          borderRight: '1px solid rgba(255, 255, 255, 0.2)',
           boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
           overflow: 'hidden',
           display: 'flex',
@@ -391,6 +430,45 @@ export default function WorkspacePage() {
           )}
         </div>
       </div>
+      
+      {/* 可拖拽分割条 */}
+      <div
+        onMouseDown={handleMouseDown}
+        style={{
+          width: '6px',
+          cursor: 'col-resize',
+          background: isDragging 
+            ? 'rgba(167, 139, 250, 0.6)' 
+            : 'rgba(255, 255, 255, 0.1)',
+          transition: isDragging ? 'none' : 'background 0.2s',
+          position: 'relative',
+          zIndex: 10,
+          flexShrink: 0,
+        }}
+        onMouseEnter={(e) => {
+          if (!isDragging) {
+            e.currentTarget.style.background = 'rgba(167, 139, 250, 0.4)'
+          }
+        }}
+        onMouseLeave={(e) => {
+          if (!isDragging) {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'
+          }
+        }}
+      >
+        {/* 分割条中间的拖拽提示 */}
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: '4px',
+          height: '40px',
+          borderRadius: '2px',
+          background: 'rgba(255, 255, 255, 0.3)',
+        }} />
+      </div>
+      
       <div 
         className="right-panel"
         style={{ 
@@ -398,9 +476,9 @@ export default function WorkspacePage() {
           minWidth: 0,
           position: 'relative',
           zIndex: 1,
+          // background: '#f3f4f6', // 移除浅灰背景
+          background: 'rgba(255, 255, 255, 0.05)', // 改为半透明，透出底层的渐变紫
           backdropFilter: 'blur(10px)',
-          background: 'rgba(255, 255, 255, 0.05)',
-          boxShadow: 'inset 0 0 50px rgba(0, 0, 0, 0.1)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column'
@@ -544,10 +622,70 @@ export default function WorkspacePage() {
           )}
           
           {previewMode === 'live' ? (
-            <ResumePreview resume={resume} sectionOrder={currentSectionOrder} />
+            <ResumePreview resume={resume} sectionOrder={currentSectionOrder} scale={previewScale} />
           ) : (
-            <PDFPane pdfBlob={pdfBlob} />
+            <PDFPane pdfBlob={pdfBlob} scale={previewScale} onScaleChange={setPreviewScale} />
           )}
+          
+          {/* 公共缩放控制条 */}
+          <div style={{
+            position: 'absolute',
+            bottom: '24px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '8px 16px',
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '24px',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
+            zIndex: 20,
+            border: '1px solid rgba(0, 0, 0, 0.05)',
+          }}>
+            <button
+              onClick={() => setPreviewScale(prev => Math.max(0.5, +(prev - 0.1).toFixed(1)))}
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                background: '#f3f4f6',
+                border: 'none',
+                color: '#666',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '16px',
+                fontWeight: 'bold',
+              }}
+            >
+              -
+            </button>
+            <span style={{ fontSize: '14px', color: '#333', minWidth: '50px', textAlign: 'center', fontWeight: 500 }}>
+              {Math.round(previewScale * 100)}%
+            </span>
+            <button
+              onClick={() => setPreviewScale(prev => Math.min(2, +(prev + 0.1).toFixed(1)))}
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '50%',
+                background: '#f3f4f6',
+                border: 'none',
+                color: '#666',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '16px',
+                fontWeight: 'bold',
+              }}
+            >
+              +
+            </button>
+          </div>
         </div>
       </div>
     </div>
