@@ -9,10 +9,14 @@
     "preview": "vite preview --port 5174"
   },
   "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
     "axios": "^1.6.8",
+    "pdfjs-dist": "^4.8.69",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "pdfjs-dist": "^4.8.69"
+    "react-router-dom": "^7.10.1"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",
@@ -22,4 +26,3 @@
     "vite": "^5.4.10"
   }
 }
-

@@ -60,10 +60,16 @@ export default function OnboardingGuide({ onClose, visible, onLoadDemo, pdfBlob 
   async function loadKeysStatus() {
     try {
       const status = await getKeysStatus()
-      setKeysConfigured({
+      const configured = {
         zhipu: status.zhipu.configured,
         gemini: status.gemini.configured
-      })
+      }
+      setKeysConfigured(configured)
+      
+      // 如果本地已配置 Key，自动跳过第一步
+      if (configured.zhipu || configured.gemini) {
+        setKeySuccess('✅ 检测到本地已配置 API Key，可直接继续')
+      }
     } catch (e) {
       console.error('Failed to load keys status:', e)
     }
@@ -188,7 +194,7 @@ export default function OnboardingGuide({ onClose, visible, onLoadDemo, pdfBlob 
         return (
           <div>
             <p style={{ color: 'rgba(255,255,255,0.9)', marginBottom: 16, lineHeight: 1.6 }}>
-              请输入你的 AI API Key，至少配置一个即可：
+              请输入你的 AI API Key：至少配置一个即可：
             </p>
             
             {/* 当前状态 */}

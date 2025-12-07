@@ -57,3 +57,11 @@ export async function saveKeys(zhipuKey?: string, geminiKey?: string) {
   return data as { success: boolean; message: string }
 }
 
+/**
+ * 获取默认简历模板
+ */
+export async function getDefaultTemplate() {
+  const url = `${API_BASE}/api/resume/template`
+  const { data } = await axios.get(url)
+  return data as Resume
+}

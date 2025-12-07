@@ -266,6 +266,15 @@ def json_to_latex(resume_data: Dict[str, Any]) -> str:
                 subsection_title = f"\\textbf{{{title}}}"
             
             latex_content.append(f"\\datedsubsection{{{subsection_title}}}{{{date}}}")
+            
+            """处理详情 highlights"""
+            highlights = it.get('highlights') or it.get('details') or []
+            if isinstance(highlights, list) and highlights:
+                latex_content.append(r"\begin{itemize}[parsep=0.2ex]")
+                for h in highlights:
+                    if isinstance(h, str) and h.strip():
+                        latex_content.append(f"  \\item {escape_latex(h.strip())}")
+                latex_content.append(r"\end{itemize}")
             latex_content.append("")
     
     """工作经历"""

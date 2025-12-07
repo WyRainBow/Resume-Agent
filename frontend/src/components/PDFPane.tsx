@@ -12,7 +12,6 @@ interface Props {
 }
 
 export default function PDFPane({ pdfBlob }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -50,120 +49,73 @@ export default function PDFPane({ pdfBlob }: Props) {
       setError(null)
       
       try {
-        // 将 Blob 转换为 ArrayBuffer
         const arrayBuffer = await pdfBlob.arrayBuffer()
-        console.log('PDF Blob 大小:', arrayBuffer.byteLength, 'bytes')
         
-        // 加载 PDF 文档
         const loadingTask = pdfjsLib.getDocument({ 
           data: arrayBuffer,
-          verbosity: 0  // 减少日志输出
+          verbosity: 0
         })
         const pdf = await loadingTask.promise
-        console.log('PDF 加载成功，总页数:', pdf.numPages)
         
         setNumPages(pdf.numPages)
         
-        // 渲染第一页
-        console.log(`开始获取第 ${pageNum} 页...`)
         const page = await pdf.getPage(pageNum)
-        console.log('页面获取成功')
         
-        const canvas = canvasRef.current
-        if (!canvas) {
-          console.error('Canvas 元素不存在')
+        const container = containerRef.current
+        if (!container) {
           setLoading(false)
           return
         }
         
+        // 创建新 canvas 避免冲突
+        const canvas = document.createElement('canvas')
         const context = canvas.getContext('2d')
         if (!context) {
-          console.error('无法获取 Canvas 2D 上下文')
           setLoading(false)
           return
         }
         
-        // 获取设备像素比（Retina 屏幕通常是 2 或 3）
         const dpr = window.devicePixelRatio || 1
-        console.log(`设备像素比 (DPR): ${dpr}`)
-        
-        // 计算视口尺寸
         const viewport = page.getViewport({ scale })
-        console.log(`视口尺寸: ${viewport.width} x ${viewport.height}`)
         
-        // 设置 Canvas 的物理尺寸（乘以 DPR 提高分辨率）
         canvas.width = Math.floor(viewport.width * dpr)
         canvas.height = Math.floor(viewport.height * dpr)
-        
-        // 设置 Canvas 的 CSS 显示尺寸（保持原始大小）
         canvas.style.width = `${Math.floor(viewport.width)}px`
         canvas.style.height = `${Math.floor(viewport.height)}px`
+        canvas.style.maxWidth = '100%'
+        canvas.style.height = 'auto'
+        canvas.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)'
         
-        console.log(`Canvas 物理尺寸: ${canvas.width} x ${canvas.height}`)
-        console.log(`Canvas 显示尺寸: ${canvas.style.width} x ${canvas.style.height}`)
-        
-        // 缩放绘图上下文，确保内容清晰
         context.scale(dpr, dpr)
         
-        // 渲染 PDF 页面，启用文本层以正确显示字体
         const renderContext = {
           canvasContext: context,
           viewport: viewport,
-          enableWebGL: false,  // 禁用 WebGL，使用 Canvas 2D 确保字体正确渲染
+          enableWebGL: false,
           renderInteractiveForms: false
         }
         
-        console.log('开始渲染 PDF 页面到 Canvas...')
-        const renderTask = page.render(renderContext)
+        await page.render(renderContext).promise
         
-        // 添加超时处理
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('PDF 渲染超时（10秒）')), 10000)
-        })
-        
-        try {
-          await Promise.race([renderTask.promise, timeoutPromise])
-          console.log('PDF 页面渲染完成')
-        } catch (renderErr) {
-          console.error('PDF 渲染过程出错:', renderErr)
-          throw renderErr
+        // 清除旧内容，添加新 canvas
+        const canvasContainer = container.querySelector('.pdf-canvas-container')
+        if (canvasContainer) {
+          canvasContainer.innerHTML = ''
+          canvasContainer.appendChild(canvas)
         }
         
         setLoading(false)
-        console.log('PDF 渲染状态已更新为完成')
       } catch (err) {
-        console.error('PDF 渲染错误:', err)
-        console.error('错误详情:', err)
         const errorMsg = err instanceof Error ? err.message : String(err)
-        setError(`PDF 渲染失败: ${errorMsg}`)
+        // 忽略取消错误
+        if (!errorMsg.includes('cancelled') && !errorMsg.includes('cancel')) {
+          setError(`PDF 渲染失败: ${errorMsg}`)
+        }
         setLoading(false)
       }
     }
 
-    // 使用 requestAnimationFrame 确保 DOM 已更新
-    requestAnimationFrame(() => {
-      // 再次检查 canvas 是否存在
-      if (!canvasRef.current) {
-        console.log('等待 Canvas 元素挂载...')
-        const checkInterval = setInterval(() => {
-          if (canvasRef.current) {
-            clearInterval(checkInterval)
-            renderPDF()
-          }
-        }, 50)
-        // 最多等待 5 秒
-        setTimeout(() => {
-          clearInterval(checkInterval)
-          if (!canvasRef.current) {
-            console.error('Canvas 元素在 5 秒内未挂载')
-            setError('Canvas 元素未找到，无法渲染 PDF')
-            setLoading(false)
-          }
-        }, 5000)
-        return
-      }
-      renderPDF()
-    })
+    renderPDF()
   }, [pdfBlob, pageNum, scale])
 
   return (
@@ -381,14 +333,12 @@ export default function PDFPane({ pdfBlob }: Props) {
               </div>
             )}
             
-            {/* Canvas 始终渲染，但可能隐藏 */}
-            <canvas
-              ref={canvasRef}
+            {/* Canvas 容器 - 动态添加 canvas 元素 */}
+            <div 
+              className="pdf-canvas-container"
               style={{
-                display: (loading || error || !pdfBlob) ? 'none' : 'block',
-                maxWidth: '100%',
-                height: 'auto',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
+                display: (loading || error) ? 'none' : 'flex',
+                justifyContent: 'center'
               }}
             />
           </div>

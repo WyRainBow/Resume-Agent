@@ -1,6 +1,6 @@
 # Resume-Agent - AI 简历生成系统
 
-> 一句话描述，AI 自动生成专业 PDF 简历
+> 一句话描述。AI 自动生成专业 PDF 简历
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -81,7 +81,7 @@ npm run dev
 
 1. 在左侧输入框输入一句话描述，例如：
    ```
-   3年后端，Java/Go，投递后端工程师，擅长高并发与微服务
+   3年后端、Java/Go、投递后端工程师、擅长高并发与微服务
    ```
 2. 选择 AI 模型（智谱或 Gemini）
 3. 点击"生成简历"按钮
