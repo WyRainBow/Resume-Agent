@@ -100,6 +100,7 @@ class ResumeJSON(BaseModel):
 class RenderPDFRequest(BaseModel):
     resume: Dict[str, Any]
     demo: Optional[bool] = False
+    section_order: Optional[List[str]] = None  # 自定义 section 顺序
 
 """
 LLM 调用统一封装
@@ -811,7 +812,7 @@ async def render_pdf(body: RenderPDFRequest):
                 with open(demo_file, 'r', encoding='utf-8') as f:
                     resume_data = json.load(f)
         
-        pdf_io = render_pdf_from_resume_latex(resume_data)
+        pdf_io = render_pdf_from_resume_latex(resume_data, body.section_order)
         return StreamingResponse(pdf_io, media_type='application/pdf', headers={
             'Content-Disposition': 'inline; filename="resume.pdf"'
         })
