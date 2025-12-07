@@ -428,7 +428,14 @@ def json_to_latex(resume_data: Dict[str, Any]) -> str:
     awards = resume_data.get('awards') or []
     if isinstance(awards, list) and awards:
         latex_content.append(r"\section{奖项}")
+        latex_content.append(r"\begin{itemize}[parsep=0.2ex]")
         for a in awards:
+            """支持字符串列表"""
+            if isinstance(a, str):
+                if a.strip():
+                    latex_content.append(f"  \\item {escape_latex(a.strip())}")
+                continue
+            """支持对象列表"""
             title = escape_latex(a.get('title') or '')
             issuer = escape_latex(a.get('issuer') or '')
             date = escape_latex(a.get('date') or '')
@@ -436,7 +443,8 @@ def json_to_latex(resume_data: Dict[str, Any]) -> str:
             parts = [s for s in [title, issuer] if s]
             subsection_title = " - ".join(parts) if parts else title or issuer
             if subsection_title:
-                latex_content.append(f"\\datedsubsection{{\\textbf{{{subsection_title}}}}}{{{date}}}")
+                latex_content.append(f"  \\item {subsection_title}" + (f" ({date})" if date else ""))
+        latex_content.append(r"\end{itemize}")
         latex_content.append("")
     
     """文档结尾"""
