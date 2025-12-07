@@ -16,7 +16,7 @@
 
 from typing import Dict, Any, Optional, Tuple
 
-# 导入各个解析器
+"""导入各个解析器"""
 from backend.parsers import (
     try_json_repair,
     try_regex_extract,
@@ -46,50 +46,50 @@ def try_smart_parse(text: str) -> Tuple[Optional[Dict], Optional[str]]:
         if not any(clean_lines):
             return None, "文本为空"
         
-        # 1. 解析姓名
+        """1. 解析姓名"""
         name = parse_name(clean_lines)
         if name:
             result['name'] = name
         
-        # 2. 解析联系方式
+        """2. 解析联系方式"""
         contact = parse_contact(text)
         if contact:
             result['contact'] = contact
         
-        # 3. 按段落解析
+        """3. 按段落解析"""
         i = 0
         while i < len(clean_lines):
             line = clean_lines[i]
             
-            # 实习经历
+            """实习经历"""
             if '实习经历' in line and not any(c in line for c in ['一', '二', '三', '四', '五']):
                 internships, i = parse_internships(clean_lines, i + 1)
                 if internships:
                     result['internships'] = internships
                 continue
             
-            # 项目经验
+            """项目经验"""
             if '项目经验' in line or '项目经历' in line:
                 projects, i = parse_projects(clean_lines, i + 1)
                 if projects:
                     result['projects'] = projects
                 continue
             
-            # 开源经历
+            """开源经历"""
             if '开源经历' in line or '开源贡献' in line:
                 opensource, i = parse_opensource(clean_lines, i + 1)
                 if opensource:
                     result['openSource'] = opensource
                 continue
             
-            # 专业技能
+            """专业技能"""
             if '专业技能' in line:
                 skills, i = parse_skills(clean_lines, i + 1)
                 if skills:
                     result['skills'] = skills
                 continue
             
-            # 教育经历
+            """教育经历"""
             if '教育经历' in line or '教育背景' in line:
                 education, i = parse_education(clean_lines, i + 1)
                 if education:
@@ -129,23 +129,23 @@ def format_resume_text(text: str, use_ai: bool = True, ai_callback=None) -> Dict
     4. ai: 调用 AI 解析（慢，最后手段）
     """
     
-    # 第1层：json-repair
+    """第1层：json-repair"""
     data, error = try_json_repair(text)
     if data:
         return {"success": True, "data": data, "method": "json-repair", "error": None}
     
-    # 第2层：正则提取
+    """第2层：正则提取"""
     data, error = try_regex_extract(text)
     if data:
         return {"success": True, "data": data, "method": "regex", "error": None}
     
-    # 第3层：智能解析（快速路径）
+    """第3层：智能解析（快速路径）"""
     smart_data, error = try_smart_parse(text)
     
     if smart_data and _is_result_complete(smart_data):
         return {"success": True, "data": smart_data, "method": "smart", "error": None}
     
-    # 第4层：AI 解析（仅在 smart 失败时）
+    """第4层：AI 解析（仅在 smart 失败时）"""
     if use_ai and ai_callback:
         try:
             ai_data = ai_callback(text)
@@ -160,7 +160,7 @@ def format_resume_text(text: str, use_ai: bool = True, ai_callback=None) -> Dict
                 return {"success": True, "data": smart_data, "method": "smart", "error": f"AI 失败: {str(e)}"}
             return {"success": False, "data": None, "method": "ai", "error": f"AI 失败: {str(e)}"}
     
-    # 降级返回
+    """降级返回"""
     if smart_data:
         return {"success": True, "data": smart_data, "method": "smart", "error": "结果可能不完整"}
     

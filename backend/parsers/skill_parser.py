@@ -24,29 +24,29 @@ def parse_skills(lines: List[str], start_idx: int) -> Tuple[List[Union[str, Dict
     skills = []
     i = start_idx
     
-    # 结束关键词
+    """结束关键词"""
     end_keywords = ['教育经历', '教育背景', '荣誉', '奖项', '证书', '项目', '工作', '实习']
     
     while i < len(lines):
         line = lines[i].strip()
         
-        # 遇到其他部分时停止
+        """遇到其他部分时停止"""
         if any(kw in line for kw in end_keywords):
             break
         
-        # 跳过空行
+        """跳过空行"""
         if not line:
             i += 1
             continue
         
-        # 解析分类格式：类别：描述
+        """解析分类格式：类别：描述"""
         if '：' in line or ':' in line:
             sep = '：' if '：' in line else ':'
             parts = line.split(sep, 1)
             if len(parts) == 2:
                 category = parts[0].strip()
                 details = parts[1].strip()
-                # 过滤掉不像技能的行（如仓库链接）
+                """过滤掉不像技能的行（如仓库链接）"""
                 if category and details and 'http' not in line and '仓库' not in line:
                     skills.append({
                         'category': category,
@@ -64,7 +64,7 @@ def parse_skills_simple(text: str) -> List[str]:
     """
     skills = []
     
-    # 查找技能关键词后的内容
+    """查找技能关键词后的内容"""
     patterns = [
         r'(?:技能|技术栈|专业技能)[：:]\s*(.+)',
     ]
@@ -73,7 +73,7 @@ def parse_skills_simple(text: str) -> List[str]:
         match = re.search(pattern, text, re.IGNORECASE)
         if match:
             skill_text = match.group(1).strip()
-            # 分割（支持多种分隔符）
+            """分割（支持多种分隔符）"""
             items = re.split(r'[、,，;；/|]', skill_text)
             skills.extend([s.strip() for s in items if s.strip()])
             break
