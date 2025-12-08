@@ -59,13 +59,17 @@ export interface Education {
 export interface Resume {
   name: string;
   contact: {
-    phone: string;
-    email: string;
-    role: string;
+    phone?: string;
+    email?: string;
+    role?: string;
+    location?: string;
   };
-  internships: DatedEntry[];
-  projects: Project[];
-  openSource: OpenSourceContribution[];
-  skills: Skill[];
-  education: Education[];
+  objective?: string;
+  internships?: DatedEntry[];
+  projects?: Project[];
+  openSource?: OpenSourceContribution[];
+  skills?: (Skill | string)[];
+  education?: Education[];
+  awards?: string[];
+  summary?: string;
 }

@@ -19,7 +19,6 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [pageNum, setPageNum] = useState(1)
   const [numPages, setNumPages] = useState(0)
-  const [autoFitDone, setAutoFitDone] = useState(false)
 
   /* 下载 PDF 功能 */
   const handleDownload = () => {
@@ -45,13 +44,6 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
 
   // 记录上次渲染的 blob，避免重复渲染
   const lastRenderedBlob = useRef<Blob | null>(null)
-
-  // PDF 变化时重置自动适应状态
-  useEffect(() => {
-    if (pdfBlob !== lastRenderedBlob.current) {
-      setAutoFitDone(false)
-    }
-  }, [pdfBlob])
 
   const renderPDF = async (forceLoading = false) => {
     if (!pdfBlob) return
@@ -85,18 +77,9 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
         return
       }
       
-      // 自动适应容器宽度（仅首次加载时）
-      let currentScale = scale
-      if (isNewFile && !autoFitDone) {
-        const defaultViewport = page.getViewport({ scale: 1 })
-        const containerWidth = container.clientWidth - 64 // 减去 padding
-        const fitScale = containerWidth / defaultViewport.width
-        // 限制在 0.8 ~ 1.2 之间，保持适中大小
-        currentScale = Math.min(1.2, Math.max(0.8, fitScale))
-        currentScale = Math.round(currentScale * 10) / 10 // 保留一位小数
-        onScaleChange(currentScale)
-        setAutoFitDone(true)
-      }
+      // PDF 实际渲染比例 = 用户设置的 scale * 1.2
+      // 这样按钮 100% 时，PDF 视觉大小等于之前 120% 的效果
+      const renderScale = scale * 1.2
       
       // 创建新 canvas 避免冲突
       const canvas = document.createElement('canvas')
@@ -107,7 +90,7 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
       }
       
       const dpr = window.devicePixelRatio || 1
-      const viewport = page.getViewport({ scale: currentScale })
+      const viewport = page.getViewport({ scale: renderScale })
       
       canvas.width = Math.floor(viewport.width * dpr)
       canvas.height = Math.floor(viewport.height * dpr)

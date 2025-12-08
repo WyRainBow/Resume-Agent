@@ -236,42 +236,51 @@ function SectionEditor({ section, onUpdate }: { section: ResumeSection, onUpdate
               e.currentTarget.style.boxShadow = 'none'
             }}
           />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-            <div>
-              <label style={labelStyle}>电话</label>
-              <input
-                style={inputStyle}
-                value={section.data?.phone || ''}
-                onChange={(e) => onUpdate({ ...section.data, phone: e.target.value })}
-                placeholder="请输入电话"
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
-                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(167, 139, 250, 0.2)'
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
-                  e.currentTarget.style.boxShadow = 'none'
-                }}
-              />
-            </div>
-            <div>
-              <label style={labelStyle}>邮箱</label>
-              <input
-                style={inputStyle}
-                value={section.data?.email || ''}
-                onChange={(e) => onUpdate({ ...section.data, email: e.target.value })}
-                placeholder="请输入邮箱"
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
-                  e.currentTarget.style.boxShadow = '0 0 0 3px rgba(167, 139, 250, 0.2)'
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
-                  e.currentTarget.style.boxShadow = 'none'
-                }}
-              />
-            </div>
-          </div>
+          <label style={labelStyle}>电话</label>
+          <input
+            style={inputStyle}
+            value={section.data?.phone || ''}
+            onChange={(e) => onUpdate({ ...section.data, phone: e.target.value })}
+            placeholder="请输入电话"
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(167, 139, 250, 0.2)'
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+          />
+          <label style={labelStyle}>邮箱</label>
+          <input
+            style={inputStyle}
+            value={section.data?.email || ''}
+            onChange={(e) => onUpdate({ ...section.data, email: e.target.value })}
+            placeholder="请输入邮箱"
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(167, 139, 250, 0.2)'
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+          />
+          <label style={labelStyle}>地区</label>
+          <input
+            style={inputStyle}
+            value={section.data?.location || ''}
+            onChange={(e) => onUpdate({ ...section.data, location: e.target.value })}
+            placeholder="请输入所在地区（如：北京市）"
+            onFocus={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
+              e.currentTarget.style.boxShadow = '0 0 0 3px rgba(167, 139, 250, 0.2)'
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+          />
           <label style={labelStyle}>求职意向</label>
           <input
             style={inputStyle}
@@ -621,7 +630,8 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
                 name: resumeData.name || '',
                 phone: resumeData.contact?.phone || resumeData.phone || '',
                 email: resumeData.contact?.email || resumeData.email || '',
-                objective: resumeData.objective || resumeData.求职意向 || '',
+                location: resumeData.contact?.location || resumeData.location || '',
+                objective: resumeData.objective || resumeData.contact?.role || resumeData.求职意向 || '',
               }
             }
           case 'education':
@@ -734,6 +744,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
             contact: {
               phone: contactSection?.data?.phone || '',
               email: contactSection?.data?.email || '',
+              location: contactSection?.data?.location || '',
             },
             objective: contactSection?.data?.objective || '',
             education: convertEducationFormat(educationSection?.data || []),
@@ -812,6 +823,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
       contact: {
         phone: contactSection?.data?.phone || '',
         email: contactSection?.data?.email || '',
+        location: contactSection?.data?.location || '',
       },
       objective: contactSection?.data?.objective || '',
       education: convertEducationFormat(educationSection?.data || []),

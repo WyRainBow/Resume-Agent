@@ -52,10 +52,13 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1 }: Props
         <div style={styles.header}>
           <div style={styles.name}>{resume.name || '姓名'}</div>
           <div style={styles.contact}>
-            <span>{resume.contact?.phone}</span>
+            {resume.contact?.phone && <span>{resume.contact.phone}</span>}
             {resume.contact?.phone && resume.contact?.email && <span> · </span>}
-            <span>{resume.contact?.email}</span>
-            {(resume.contact?.phone || resume.contact?.email) && <span> · 北京市</span>}
+            {resume.contact?.email && <span>{resume.contact.email}</span>}
+            {resume.contact?.location && (resume.contact?.phone || resume.contact?.email) && <span> · </span>}
+            {resume.contact?.location && <span>{resume.contact.location}</span>}
+            {resume.objective && (resume.contact?.phone || resume.contact?.email || resume.contact?.location) && <span> · </span>}
+            {resume.objective && <span>{resume.objective}</span>}
           </div>
         </div>
 
@@ -172,9 +175,10 @@ function renderSkills(resume: Resume) {
     <div key="skills" style={styles.section}>
       <div style={styles.sectionTitle}>专业技能</div>
       <div style={styles.skillsList}>
-        {skills.map((skill: string, idx: number) => (
-          <span key={idx} style={styles.skillItem}>{skill}</span>
-        ))}
+        {skills.map((skill, idx: number) => {
+          const skillText = typeof skill === 'string' ? skill : skill.details || skill.category
+          return <span key={idx} style={styles.skillItem}>{skillText}</span>
+        })}
       </div>
     </div>
   )
