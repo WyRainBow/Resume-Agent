@@ -27,6 +27,37 @@
 - Python 3.8+
 - Node.js 16+
 - XeLaTeX（用于 PDF 编译）
+- 中文字体（见下方字体安装说明）
+
+### 字体安装
+
+PDF 生成需要中文字体支持，系统会自动检测并使用以下字体（按优先级）：
+
+**macOS（无需额外安装）**
+- PingFang SC（苹方）- 系统自带
+- STSong（华文宋体）- 系统自带
+
+**Linux（Ubuntu/Debian）**
+```bash
+# 安装 Noto CJK 字体
+sudo apt install fonts-noto-cjk fonts-noto-cjk-extra
+
+# 安装 XeLaTeX
+sudo apt install texlive-xetex texlive-fonts-recommended texlive-lang-chinese
+```
+
+**Linux（CentOS/RHEL）**
+```bash
+# 安装 Noto CJK 字体
+sudo yum install google-noto-sans-cjk-fonts google-noto-serif-cjk-fonts
+
+# 安装 XeLaTeX
+sudo yum install texlive-xetex texlive-collection-langchinese
+```
+
+**Windows**
+- 系统自带中文字体通常可用
+- 也可安装 [Noto CJK 字体](https://github.com/googlefonts/noto-cjk/releases)
 
 ### 安装步骤
 
@@ -162,6 +193,53 @@ npm run dev
 4. JSON 格式不准确：结构不规范（如联系信息嵌套、数组/对象混用）。
 5. JSON 与 LaTeX 不匹配：字段名/结构与模板期望不一致，导致渲染缺失。
 6. AI 调用超时：包含 AI 解析文本、解析 JSON、生成简历渲染等环节。
+
+## ❓ 常见问题
+
+### PDF 渲染失败，提示字体找不到
+
+**问题原因**：系统缺少中文字体或 XeLaTeX 未安装。
+
+**解决方案**：
+
+1. 检查 XeLaTeX 是否安装：
+```bash
+which xelatex
+```
+
+2. 安装中文字体（根据系统选择）：
+
+**Ubuntu/Debian:**
+```bash
+sudo apt install fonts-noto-cjk texlive-xetex texlive-lang-chinese
+```
+
+**CentOS/RHEL:**
+```bash
+sudo yum install google-noto-sans-cjk-fonts texlive-xetex
+```
+
+3. 验证字体安装：
+```bash
+fc-list :lang=zh family | head -5
+```
+
+### LaTeX 编译报错 "STSong not found"
+
+**问题原因**：在 Linux 系统上缺少 macOS 专用字体。
+
+**解决方案**：安装 Noto CJK 字体，系统会自动回退使用：
+```bash
+sudo apt install fonts-noto-cjk fonts-noto-cjk-extra
+```
+
+### PDF 中文显示为方块或乱码
+
+**问题原因**：字体未正确嵌入 PDF。
+
+**解决方案**：
+1. 确保安装了完整的中文字体包
+2. 重启后端服务使配置生效
 
 ## 🔧 开发
 

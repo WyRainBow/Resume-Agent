@@ -8,9 +8,14 @@
 % ctex-xecjk-adobefonts.def: Adobe 的 xeCJK 字体设置，为 Adobe 的四套字体
 % vim:ft=tex
 
-% 尝试使用系统字体（支持 Unicode），如果不存在则回退到 Adobe 字体
+% 多平台字体回退机制：Mac → Linux → Adobe 字体
+% 1. PingFang SC (macOS)
+% 2. STSong (macOS)
+% 3. Noto CJK (Linux)
+% 4. Adobe 字体 (通用回退)
+
 \IfFontExistsTF{PingFang SC}{%
-    % 使用 PingFang SC（苹果系统字体，支持 Unicode）
+    % macOS: 使用 PingFang SC（苹果系统字体）
     \setCJKmainfont{PingFang SC}[
         BoldFont=PingFang SC Medium,
         ItalicFont=Kaiti SC
@@ -19,7 +24,7 @@
     \setCJKmonofont{STFangsong}
 }{%
     \IfFontExistsTF{STSong}{%
-        % 使用 STSong（支持 Unicode）
+        % macOS: 使用 STSong
         \setCJKmainfont{STSong}[
             BoldFont=STHeiti,
             ItalicFont=STKaiti
@@ -27,23 +32,43 @@
         \setCJKsansfont{STHeiti}
         \setCJKmonofont{STFangsong}
     }{%
-        % 回退到 Adobe 字体
-        \defaultfontfeatures{Path = fonts/zh_CN-Adobe/, Mapping=tex-text}
-        \setCJKmainfont[
-            BoldFont=AdobeHeitiStd-Regular.otf,
-            ItalicFont=AdobeKaitiStd-Regular.otf,
-            SmallCapsFont=AdobeHeitiStd-Regular.otf,
-            UprightFont=AdobeSongStd-Light.otf
-        ]{AdobeSongStd-Light.otf}
-        \setCJKsansfont{AdobeHeitiStd-Regular.otf}
-        \setCJKmonofont{AdobeFangsongStd-Regular.otf}
+        \IfFontExistsTF{Noto Serif CJK SC}{%
+            % Linux: 使用 Noto CJK 字体
+            \setCJKmainfont{Noto Serif CJK SC}[
+                BoldFont=Noto Sans CJK SC Bold,
+                ItalicFont=Noto Serif CJK SC
+            ]
+            \setCJKsansfont{Noto Sans CJK SC}
+            \setCJKmonofont{Noto Sans CJK SC}
+        }{%
+            % 通用回退: Adobe 字体
+            \defaultfontfeatures{Path = fonts/zh_CN-Adobe/, Mapping=tex-text}
+            \setCJKmainfont[
+                BoldFont=AdobeHeitiStd-Regular.otf,
+                ItalicFont=AdobeKaitiStd-Regular.otf,
+                SmallCapsFont=AdobeHeitiStd-Regular.otf,
+                UprightFont=AdobeSongStd-Light.otf
+            ]{AdobeSongStd-Light.otf}
+            \setCJKsansfont{AdobeHeitiStd-Regular.otf}
+            \setCJKmonofont{AdobeFangsongStd-Regular.otf}
+        }
     }
 }
 
-\setCJKfamilyfont{zhsong}{AdobeSongStd-Light.otf}
-\setCJKfamilyfont{zhhei}{AdobeHeitiStd-Regular.otf}
-\setCJKfamilyfont{zhfs}{AdobeFangsongStd-Regular.otf}
-\setCJKfamilyfont{zhkai}{AdobeKaitiStd-Regular.otf}
+% 字体族定义（兼容多平台）
+\IfFontExistsTF{Noto Serif CJK SC}{%
+    % Linux
+    \setCJKfamilyfont{zhsong}{Noto Serif CJK SC}
+    \setCJKfamilyfont{zhhei}{Noto Sans CJK SC}
+    \setCJKfamilyfont{zhfs}{Noto Serif CJK SC}
+    \setCJKfamilyfont{zhkai}{Noto Serif CJK SC}
+}{%
+    % macOS / Adobe
+    \setCJKfamilyfont{zhsong}{AdobeSongStd-Light.otf}
+    \setCJKfamilyfont{zhhei}{AdobeHeitiStd-Regular.otf}
+    \setCJKfamilyfont{zhfs}{AdobeFangsongStd-Regular.otf}
+    \setCJKfamilyfont{zhkai}{AdobeKaitiStd-Regular.otf}
+}
 
 \newcommand*{\songti}{\CJKfamily{zhsong}} % 宋体
 \newcommand*{\heiti}{\CJKfamily{zhhei}}   % 黑体
