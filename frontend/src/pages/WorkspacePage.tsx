@@ -613,7 +613,12 @@ export default function WorkspacePage() {
           )}
           
           {previewMode === 'live' ? (
-            <ResumePreview resume={resume} sectionOrder={currentSectionOrder} scale={previewScale} />
+            <ResumePreview 
+              resume={resume} 
+              sectionOrder={currentSectionOrder} 
+              scale={previewScale}
+              onUpdate={(updatedResume) => setResume(updatedResume)}
+            />
           ) : (
             <PDFPane pdfBlob={pdfBlob} scale={previewScale} onScaleChange={setPreviewScale} />
           )}
