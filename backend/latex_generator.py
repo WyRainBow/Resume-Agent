@@ -332,7 +332,17 @@ def generate_section_education(resume_data: Dict[str, Any]) -> List[str]:
             if title_str:
                 content.append(f"\\datedsubsection{{\\textbf{{{title_str}}}}}{{{duration}}}")
                 
-                # 荣誉信息
+                # 描述信息（GPA、排名等）
+                details = ed.get('details') or []
+                description = ed.get('description') or ''
+                if isinstance(details, list) and details:
+                    desc_text = '；'.join([escape_latex(d) for d in details if d])
+                    if desc_text:
+                        content.append(f"{desc_text}")
+                elif description:
+                    content.append(f"{escape_latex(description)}")
+                
+                # 荣誉信息（兼容旧格式）
                 honors = ed.get('honors')
                 if honors:
                     escaped_honors = escape_latex(honors)

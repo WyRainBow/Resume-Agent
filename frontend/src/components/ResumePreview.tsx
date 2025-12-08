@@ -99,6 +99,8 @@ function renderEducation(resume: Resume) {
         const degree = edu.degree || edu.subtitle || ''
         const major = edu.major || ''
         const date = edu.date || edu.duration || ''
+        const details = edu.details || []
+        const description = edu.description || ''
         
         if (!school && !degree) return null
         
@@ -116,6 +118,13 @@ function renderEducation(resume: Resume) {
               </div>
               {date && <span style={styles.entryDate}>{date}</span>}
             </div>
+            {(details.length > 0 || description) && (
+              <div style={{ fontSize: '10pt', color: '#666', marginTop: '4px' }}>
+                {Array.isArray(details) && details.length > 0 
+                  ? details.join('；') 
+                  : description}
+              </div>
+            )}
           </div>
         )
       })}

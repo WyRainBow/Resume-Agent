@@ -96,9 +96,9 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
       canvas.height = Math.floor(viewport.height * dpr)
       canvas.style.width = `${Math.floor(viewport.width)}px`
       canvas.style.height = `${Math.floor(viewport.height)}px`
-      canvas.style.maxWidth = '100%'
-      canvas.style.height = 'auto'
       canvas.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)'
+      canvas.style.display = 'block'
+      canvas.style.margin = '0 auto'
       
       context.scale(dpr, dpr)
       
