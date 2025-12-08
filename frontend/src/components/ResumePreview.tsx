@@ -67,19 +67,13 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
     const newResume = JSON.parse(JSON.stringify(resume)) // 深拷贝
     
     if (parts.length === 1) {
-      // 简单字段：name, summary, contact
+      // 简单字段：name, summary, objective
       if (field === 'name') {
         newResume.name = textContent
       } else if (field === 'summary') {
         newResume.summary = content // 保留 HTML 格式
-      } else if (field === 'contact') {
-        // 联系方式用 · 分隔
-        const contactParts = textContent.split('·').map(s => s.trim())
-        if (contactParts.length >= 1) newResume.contact = newResume.contact || {}
-        if (contactParts[0]) newResume.contact.phone = contactParts[0]
-        if (contactParts[1]) newResume.contact.email = contactParts[1]
-        if (contactParts[2]) newResume.contact.location = contactParts[2]
-        if (contactParts[3]) newResume.objective = contactParts[3]
+      } else if (field === 'objective') {
+        newResume.objective = textContent
       } else if (field === 'skills') {
         // 技能：提取所有技能标签文本
         const skillElements = e.currentTarget.querySelectorAll('[style*="skillItem"]') || []
@@ -92,6 +86,19 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
       } else if (field === 'awards') {
         // 奖项：按行分割
         newResume.awards = textContent.split(/[•\n]+/).map(s => s.trim()).filter(Boolean)
+      }
+    } else if (parts.length === 2) {
+      // contact.phone, contact.email, contact.location
+      const [section, subField] = parts
+      if (section === 'contact') {
+        newResume.contact = newResume.contact || {}
+        if (subField === 'phone') {
+          newResume.contact.phone = textContent
+        } else if (subField === 'email') {
+          newResume.contact.email = textContent
+        } else if (subField === 'location') {
+          newResume.contact.location = textContent
+        }
       }
     } else if (parts.length === 3) {
       // 数组字段：education.0.school
@@ -265,19 +272,56 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
           >
             {resume.name || '姓名'}
           </div>
-          <div 
-            contentEditable 
-            suppressContentEditableWarning
-            style={styles.contact}
-            data-field="contact"
-            onBlur={handleBlur}
-          >
-            {[
-              resume.contact?.phone,
-              resume.contact?.email,
-              resume.contact?.location,
-              resume.objective
-            ].filter(Boolean).join(' · ') || '联系方式'}
+          <div style={styles.contact}>
+            {resume.contact?.phone && (
+              <>
+                <span 
+                  contentEditable 
+                  suppressContentEditableWarning
+                  data-field="contact.phone"
+                  onBlur={handleBlur}
+                >
+                  {resume.contact.phone}
+                </span>
+                <span> · </span>
+              </>
+            )}
+            {resume.contact?.email && (
+              <>
+                <span 
+                  contentEditable 
+                  suppressContentEditableWarning
+                  data-field="contact.email"
+                  onBlur={handleBlur}
+                >
+                  {resume.contact.email}
+                </span>
+                <span> · </span>
+              </>
+            )}
+            {resume.contact?.location && (
+              <>
+                <span 
+                  contentEditable 
+                  suppressContentEditableWarning
+                  data-field="contact.location"
+                  onBlur={handleBlur}
+                >
+                  {resume.contact.location}
+                </span>
+                <span> · </span>
+              </>
+            )}
+            {resume.objective && (
+              <span 
+                contentEditable 
+                suppressContentEditableWarning
+                data-field="objective"
+                onBlur={handleBlur}
+              >
+                {resume.objective}
+              </span>
+            )}
           </div>
         </div>
 
