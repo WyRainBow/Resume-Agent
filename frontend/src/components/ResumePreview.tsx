@@ -1,18 +1,146 @@
 /**
- * 简历实时预览组件
- * 使用 HTML/CSS 渲染，拖拽时立即显示变化
- * 注意：仅用于预览，最终 PDF 使用 LaTeX 生成
+ * 简历实时预览组件（可编辑版）
+ * 使用 HTML/CSS 渲染，支持直接在预览中编辑
+ * 顶部工具栏支持：加粗、斜体、下划线、标题级别
  */
-import React from 'react'
+import React, { useCallback } from 'react'
 import type { Resume } from '../types/resume'
 
 interface Props {
   resume: Resume | null
   sectionOrder?: string[]
   scale?: number
+  onUpdate?: (resume: Resume) => void
 }
 
-export default function ResumePreview({ resume, sectionOrder, scale = 1 }: Props) {
+// 格式化工具栏按钮配置
+const toolbarButtons = [
+  { command: 'bold', icon: 'B', title: '加粗', style: { fontWeight: 'bold' } },
+  { command: 'italic', icon: 'I', title: '斜体', style: { fontStyle: 'italic' } },
+  { command: 'underline', icon: 'U', title: '下划线', style: { textDecoration: 'underline' } },
+  { type: 'divider' },
+  { command: 'formatBlock', arg: 'h1', icon: 'H1', title: '一级标题' },
+  { command: 'formatBlock', arg: 'h2', icon: 'H2', title: '二级标题' },
+  { command: 'formatBlock', arg: 'h3', icon: 'H3', title: '三级标题' },
+  { command: 'formatBlock', arg: 'p', icon: '¶', title: '正文' },
+  { type: 'divider' },
+  { command: 'justifyLeft', icon: '☰', title: '左对齐' },
+  { command: 'justifyCenter', icon: '☰', title: '居中', style: { transform: 'scaleX(0.8)' } },
+  { command: 'justifyRight', icon: '☰', title: '右对齐' },
+]
+
+export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdate }: Props) {
+  // 执行格式化命令
+  const execCommand = useCallback((command: string, arg?: string) => {
+    document.execCommand(command, false, arg)
+  }, [])
+
+  // 处理 Tab 键缩进
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLElement>) => {
+    if (e.key === 'Tab') {
+      e.preventDefault() // 阻止默认的 Tab 跳转
+      if (e.shiftKey) {
+        // Shift+Tab: 减少缩进
+        document.execCommand('outdent', false)
+      } else {
+        // Tab: 增加缩进
+        document.execCommand('indent', false)
+      }
+    }
+  }, [])
+
+  // 处理编辑后的数据同步
+  const handleBlur = useCallback((e: React.FocusEvent<HTMLElement>) => {
+    if (!onUpdate || !resume) return
+    
+    const field = e.currentTarget.dataset.field
+    if (!field) return
+    
+    const content = e.currentTarget.innerHTML
+    const textContent = e.currentTarget.textContent || ''
+    
+    // 解析字段路径，如 "education.0.school" 或 "name"
+    const parts = field.split('.')
+    const newResume = JSON.parse(JSON.stringify(resume)) // 深拷贝
+    
+    if (parts.length === 1) {
+      // 简单字段：name, summary, contact
+      if (field === 'name') {
+        newResume.name = textContent
+      } else if (field === 'summary') {
+        newResume.summary = content // 保留 HTML 格式
+      } else if (field === 'contact') {
+        // 联系方式用 · 分隔
+        const contactParts = textContent.split('·').map(s => s.trim())
+        if (contactParts.length >= 1) newResume.contact = newResume.contact || {}
+        if (contactParts[0]) newResume.contact.phone = contactParts[0]
+        if (contactParts[1]) newResume.contact.email = contactParts[1]
+        if (contactParts[2]) newResume.contact.location = contactParts[2]
+        if (contactParts[3]) newResume.objective = contactParts[3]
+      } else if (field === 'skills') {
+        // 技能：提取所有技能标签文本
+        const skillElements = e.currentTarget.querySelectorAll('[style*="skillItem"]') || []
+        if (skillElements.length > 0) {
+          newResume.skills = Array.from(skillElements).map(el => el.textContent || '')
+        } else {
+          // 简单文本分割
+          newResume.skills = textContent.split(/[,，、\s]+/).filter(Boolean)
+        }
+      } else if (field === 'awards') {
+        // 奖项：按行分割
+        newResume.awards = textContent.split(/[•\n]+/).map(s => s.trim()).filter(Boolean)
+      }
+    } else if (parts.length === 3) {
+      // 数组字段：education.0.school
+      const [section, indexStr, subField] = parts
+      const index = parseInt(indexStr, 10)
+      
+      if (section === 'education' && newResume.education?.[index]) {
+        if (subField === 'school') {
+          newResume.education[index].school = textContent
+          newResume.education[index].title = textContent
+        } else if (subField === 'degree') {
+          const cleanText = textContent.replace(/^[\s-·]+/, '').trim()
+          newResume.education[index].degree = cleanText
+          newResume.education[index].subtitle = cleanText
+        } else if (subField === 'date') {
+          newResume.education[index].date = textContent
+          newResume.education[index].duration = textContent
+        } else if (subField === 'details') {
+          newResume.education[index].details = textContent.split(/[；;。\n]+/).map(s => s.trim()).filter(Boolean)
+        }
+      } else if (section === 'experience' && newResume.internships?.[index]) {
+        if (subField === 'title') {
+          newResume.internships[index].title = textContent
+        } else if (subField === 'subtitle') {
+          const cleanText = textContent.replace(/^[\s-]+/, '').trim()
+          newResume.internships[index].subtitle = cleanText
+        } else if (subField === 'date') {
+          newResume.internships[index].date = textContent
+        } else if (subField === 'details') {
+          newResume.internships[index].highlights = textContent.split(/[•\n]+/).map(s => s.trim()).filter(Boolean)
+          newResume.internships[index].details = newResume.internships[index].highlights
+        }
+      } else if (section === 'projects' && newResume.projects?.[index]) {
+        if (subField === 'title') {
+          newResume.projects[index].title = textContent
+          newResume.projects[index].name = textContent
+        } else if (subField === 'subtitle') {
+          const cleanText = textContent.replace(/^[\s-]+/, '').trim()
+          newResume.projects[index].subtitle = cleanText
+          newResume.projects[index].role = cleanText
+        } else if (subField === 'date') {
+          newResume.projects[index].date = textContent
+        } else if (subField === 'details') {
+          newResume.projects[index].highlights = textContent.split(/[•\n]+/).map(s => s.trim()).filter(Boolean)
+          newResume.projects[index].details = newResume.projects[index].highlights
+        }
+      }
+    }
+    
+    onUpdate(newResume)
+  }, [resume, onUpdate])
+
   if (!resume) {
     return (
       <div style={styles.placeholder}>
@@ -22,12 +150,33 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1 }: Props
   }
 
   const defaultOrder = ['education', 'experience', 'projects', 'skills', 'awards', 'summary']
-  // 如果 sectionOrder 是空数组或 undefined，使用默认顺序
   const order = (sectionOrder && sectionOrder.length > 0) ? sectionOrder : defaultOrder
 
   return (
     <div style={styles.container}>
-      {/* 打印样式：只打印简历内容 */}
+      {/* 顶部工具栏 */}
+      <div style={styles.toolbar}>
+        {toolbarButtons.map((btn, idx) => 
+          btn.type === 'divider' ? (
+            <div key={idx} style={styles.toolbarDivider} />
+          ) : (
+            <button
+              key={idx}
+              onClick={() => execCommand(btn.command!, btn.arg)}
+              title={btn.title}
+              style={{
+                ...styles.toolbarButton,
+                ...(btn.style || {}),
+              }}
+              onMouseDown={(e) => e.preventDefault()} // 防止失去焦点
+            >
+              {btn.icon}
+            </button>
+          )
+        )}
+      </div>
+
+      {/* 打印样式 */}
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -42,23 +191,47 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1 }: Props
             box-shadow: none;
           }
         }
+        #resume-preview [contenteditable]:focus {
+          outline: 2px solid rgba(167, 139, 250, 0.5);
+          outline-offset: 2px;
+          border-radius: 2px;
+        }
+        #resume-preview [contenteditable]:hover {
+          background: rgba(167, 139, 250, 0.05);
+        }
       `}</style>
-      <div id="resume-preview" style={{
-        ...styles.paper,
-        transform: `scale(${scale})`,
-        transformOrigin: 'top center',
-      }}>
-        {/* 头部：姓名和联系方式 */}
+
+      {/* 可滚动的预览区域 */}
+      <div style={styles.scrollArea}>
+        <div id="resume-preview" style={{
+          ...styles.paper,
+          transform: `scale(${scale})`,
+          transformOrigin: 'top center',
+        }}>
+        {/* 头部：姓名和联系方式 - 可编辑 */}
         <div style={styles.header}>
-          <div style={styles.name}>{resume.name || '姓名'}</div>
-          <div style={styles.contact}>
-            {resume.contact?.phone && <span>{resume.contact.phone}</span>}
-            {resume.contact?.phone && resume.contact?.email && <span> · </span>}
-            {resume.contact?.email && <span>{resume.contact.email}</span>}
-            {resume.contact?.location && (resume.contact?.phone || resume.contact?.email) && <span> · </span>}
-            {resume.contact?.location && <span>{resume.contact.location}</span>}
-            {resume.objective && (resume.contact?.phone || resume.contact?.email || resume.contact?.location) && <span> · </span>}
-            {resume.objective && <span>{resume.objective}</span>}
+          <div 
+            contentEditable 
+            suppressContentEditableWarning
+            style={styles.name}
+            data-field="name"
+            onBlur={handleBlur}
+          >
+            {resume.name || '姓名'}
+          </div>
+          <div 
+            contentEditable 
+            suppressContentEditableWarning
+            style={styles.contact}
+            data-field="contact"
+            onBlur={handleBlur}
+          >
+            {[
+              resume.contact?.phone,
+              resume.contact?.email,
+              resume.contact?.location,
+              resume.objective
+            ].filter(Boolean).join(' · ') || '联系方式'}
           </div>
         </div>
 
@@ -66,28 +239,32 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1 }: Props
         {order.map((sectionType) => {
           switch (sectionType) {
             case 'education':
-              return renderEducation(resume)
+              return renderEducation(resume, handleBlur, handleKeyDown)
             case 'experience':
             case 'internships':
-              return renderExperience(resume)
+              return renderExperience(resume, handleBlur, handleKeyDown)
             case 'projects':
-              return renderProjects(resume)
+              return renderProjects(resume, handleBlur, handleKeyDown)
             case 'skills':
-              return renderSkills(resume)
+              return renderSkills(resume, handleBlur, handleKeyDown)
             case 'awards':
-              return renderAwards(resume)
+              return renderAwards(resume, handleBlur, handleKeyDown)
             case 'summary':
-              return renderSummary(resume)
+              return renderSummary(resume, handleBlur, handleKeyDown)
             default:
               return null
           }
         })}
+        </div>
       </div>
     </div>
   )
 }
 
-function renderEducation(resume: Resume) {
+type BlurHandler = (e: React.FocusEvent<HTMLElement>) => void
+type KeyHandler = (e: React.KeyboardEvent<HTMLElement>) => void
+
+function renderEducation(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler) {
   const education = resume.education
   if (!education || education.length === 0) return null
 
@@ -108,23 +285,52 @@ function renderEducation(resume: Resume) {
           <div key={idx} style={styles.entry}>
             <div style={styles.entryHeader}>
               <div>
-                <span style={styles.entryTitle}>{school}</span>
+                <span 
+                  contentEditable 
+                  suppressContentEditableWarning
+                  style={styles.entryTitle}
+                  data-field={`education.${idx}.school`}
+                  onBlur={onBlur}
+                >
+                  {school}
+                </span>
                 {(degree || major) && (
-                  <span style={styles.entrySubtitle}>
+                  <span 
+                    contentEditable 
+                    suppressContentEditableWarning
+                    style={styles.entrySubtitle}
+                    data-field={`education.${idx}.degree`}
+                    onBlur={onBlur}
+                  >
                     {degree && ` - ${degree}`}
                     {major && ` · ${major}`}
                   </span>
                 )}
               </div>
-              {date && <span style={styles.entryDate}>{date}</span>}
+              {date && (
+                <span 
+                  contentEditable 
+                  suppressContentEditableWarning
+                  style={styles.entryDate}
+                  data-field={`education.${idx}.date`}
+                  onBlur={onBlur}
+                >
+                  {date}
+                </span>
+              )}
             </div>
-            {(details.length > 0 || description) && (
-              <div style={{ fontSize: '10pt', color: '#666', marginTop: '4px' }}>
-                {Array.isArray(details) && details.length > 0 
-                  ? details.join('；') 
-                  : description}
-              </div>
-            )}
+            <div 
+              contentEditable 
+              suppressContentEditableWarning
+              style={{ fontSize: '10pt', color: '#666', marginTop: '4px', minHeight: '1em' }}
+              data-field={`education.${idx}.details`}
+              onBlur={onBlur}
+              onKeyDown={onKeyDown}
+            >
+              {Array.isArray(details) && details.length > 0 
+                ? details.join('；') 
+                : description || '点击添加描述...'}
+            </div>
           </div>
         )
       })}
@@ -132,7 +338,7 @@ function renderEducation(resume: Resume) {
   )
 }
 
-function renderExperience(resume: Resume) {
+function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler) {
   const internships = resume.internships
   if (!internships || internships.length === 0) return null
 
@@ -151,18 +357,51 @@ function renderExperience(resume: Resume) {
           <div key={idx} style={styles.entry}>
             <div style={styles.entryHeader}>
               <div>
-                <span style={styles.entryTitle}>{title}</span>
-                {subtitle && <span style={styles.entrySubtitle}> - {subtitle}</span>}
+                <span 
+                  contentEditable 
+                  suppressContentEditableWarning
+                  style={styles.entryTitle}
+                  data-field={`experience.${idx}.title`}
+                  onBlur={onBlur}
+                >
+                  {title}
+                </span>
+                {subtitle && (
+                  <span 
+                    contentEditable 
+                    suppressContentEditableWarning
+                    style={styles.entrySubtitle}
+                    data-field={`experience.${idx}.subtitle`}
+                    onBlur={onBlur}
+                  >
+                    {` - ${subtitle}`}
+                  </span>
+                )}
               </div>
-              {date && <span style={styles.entryDate}>{date}</span>}
+              {date && (
+                <span 
+                  contentEditable 
+                  suppressContentEditableWarning
+                  style={styles.entryDate}
+                  data-field={`experience.${idx}.date`}
+                  onBlur={onBlur}
+                >
+                  {date}
+                </span>
+              )}
             </div>
-            {details.length > 0 && (
-              <ul style={styles.highlights}>
-                {details.map((h: string, i: number) => (
-                  <li key={i} style={styles.highlightItem}>{h}</li>
-                ))}
-              </ul>
-            )}
+            <div 
+              contentEditable 
+              suppressContentEditableWarning
+              style={{ ...styles.highlights, paddingLeft: '18px', minHeight: '1em' }}
+              data-field={`experience.${idx}.details`}
+              onBlur={onBlur}
+              onKeyDown={onKeyDown}
+            >
+              {details.length > 0 
+                ? details.map((h: string, i: number) => <div key={i}>• {h}</div>)
+                : '点击添加工作描述...'}
+            </div>
           </div>
         )
       })}
@@ -170,7 +409,7 @@ function renderExperience(resume: Resume) {
   )
 }
 
-function renderProjects(resume: Resume) {
+function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler) {
   const projects = resume.projects
   if (!projects || projects.length === 0) return null
 
@@ -189,18 +428,51 @@ function renderProjects(resume: Resume) {
           <div key={idx} style={styles.entry}>
             <div style={styles.entryHeader}>
               <div>
-                <span style={styles.entryTitle}>{title}</span>
-                {subtitle && <span style={styles.entrySubtitle}> - {subtitle}</span>}
+                <span 
+                  contentEditable 
+                  suppressContentEditableWarning
+                  style={styles.entryTitle}
+                  data-field={`projects.${idx}.title`}
+                  onBlur={onBlur}
+                >
+                  {title}
+                </span>
+                {subtitle && (
+                  <span 
+                    contentEditable 
+                    suppressContentEditableWarning
+                    style={styles.entrySubtitle}
+                    data-field={`projects.${idx}.subtitle`}
+                    onBlur={onBlur}
+                  >
+                    {` - ${subtitle}`}
+                  </span>
+                )}
               </div>
-              {date && <span style={styles.entryDate}>{date}</span>}
+              {date && (
+                <span 
+                  contentEditable 
+                  suppressContentEditableWarning
+                  style={styles.entryDate}
+                  data-field={`projects.${idx}.date`}
+                  onBlur={onBlur}
+                >
+                  {date}
+                </span>
+              )}
             </div>
-            {details.length > 0 && (
-              <ul style={styles.highlights}>
-                {details.map((h: string, i: number) => (
-                  <li key={i} style={styles.highlightItem}>{h}</li>
-                ))}
-              </ul>
-            )}
+            <div 
+              contentEditable 
+              suppressContentEditableWarning
+              style={{ ...styles.highlights, paddingLeft: '18px', minHeight: '1em' }}
+              data-field={`projects.${idx}.details`}
+              onBlur={onBlur}
+              onKeyDown={onKeyDown}
+            >
+              {details.length > 0 
+                ? details.map((h: string, i: number) => <div key={i}>• {h}</div>)
+                : '点击添加项目描述...'}
+            </div>
           </div>
         )
       })}
@@ -208,14 +480,20 @@ function renderProjects(resume: Resume) {
   )
 }
 
-function renderSkills(resume: Resume) {
+function renderSkills(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler) {
   const skills = resume.skills
   if (!skills || skills.length === 0) return null
 
   return (
     <div key="skills" style={styles.section}>
       <div style={styles.sectionTitle}>专业技能</div>
-      <div style={styles.skillsList}>
+      <div 
+        contentEditable 
+        suppressContentEditableWarning
+        style={{ ...styles.skillsList, minHeight: '1em' }}
+        data-field="skills"
+        onBlur={onBlur}
+      >
         {skills.map((skill, idx: number) => {
           const skillText = typeof skill === 'string' ? skill : skill.details || skill.category
           return <span key={idx} style={styles.skillItem}>{skillText}</span>
@@ -225,32 +503,47 @@ function renderSkills(resume: Resume) {
   )
 }
 
-function renderAwards(resume: Resume) {
+function renderAwards(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler) {
   const awards = resume.awards
   if (!awards || awards.length === 0) return null
 
   return (
     <div key="awards" style={styles.section}>
       <div style={styles.sectionTitle}>荣誉奖项</div>
-      <ul style={styles.awardsList}>
+      <div 
+        contentEditable 
+        suppressContentEditableWarning
+        style={{ ...styles.awardsList, listStyle: 'none', padding: 0, minHeight: '1em' }}
+        data-field="awards"
+        onBlur={onBlur}
+      >
         {awards.map((award: any, idx: number) => {
           const text = typeof award === 'string' ? award : (award.title || award.name || '')
           if (!text) return null
-          return <li key={idx} style={styles.awardItem}>{text}</li>
+          return <div key={idx} style={styles.awardItem}>• {text}</div>
         })}
-      </ul>
+      </div>
     </div>
   )
 }
 
-function renderSummary(resume: Resume) {
+function renderSummary(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler) {
   const summary = resume.summary
   if (!summary) return null
 
   return (
     <div key="summary" style={styles.section}>
       <div style={styles.sectionTitle}>个人总结</div>
-      <p style={styles.summaryText}>{summary}</p>
+      <div 
+        contentEditable 
+        suppressContentEditableWarning
+        style={{ ...styles.summaryText, minHeight: '2em' }}
+        data-field="summary"
+        onBlur={onBlur}
+        onKeyDown={onKeyDown}
+      >
+        {summary}
+      </div>
     </div>
   )
 }
@@ -259,9 +552,43 @@ const styles: Record<string, React.CSSProperties> = {
   container: {
     width: '100%',
     height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    overflow: 'hidden',
+  },
+  toolbar: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    padding: '8px 16px',
+    background: 'rgba(255, 255, 255, 0.95)',
+    borderBottom: '1px solid rgba(0, 0, 0, 0.1)',
+    flexShrink: 0,
+  },
+  toolbarButton: {
+    width: '32px',
+    height: '32px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'transparent',
+    border: '1px solid transparent',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    color: '#333',
+    transition: 'all 0.15s',
+  },
+  toolbarDivider: {
+    width: '1px',
+    height: '20px',
+    background: 'rgba(0, 0, 0, 0.15)',
+    margin: '0 4px',
+  },
+  scrollArea: {
+    flex: 1,
     overflow: 'auto',
-    // backgroundColor: '#525659', // 移除深色背景，由父容器控制
-    padding: '32px', // 增加内边距，让纸张悬浮感更强
+    padding: '32px',
     display: 'flex',
     justifyContent: 'center',
   },
