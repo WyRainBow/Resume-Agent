@@ -467,10 +467,11 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     contact = resume_data.get('contact') or {}
     phone = escape_latex(contact.get('phone') or '')
     email = escape_latex(contact.get('email') or '')
-    role = escape_latex(contact.get('role') or '')
+    """求职意向：优先从 objective 获取，其次从 contact.role 获取"""
+    role = escape_latex(resume_data.get('objective') or contact.get('role') or '')
     location = escape_latex(contact.get('location') or '')
     
-    """contactInfo 格式: {phone}{email}{homepage}{role}"""
+    """contactInfo 格式: {phone}{email}{location}{role}"""
     latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{location}}}{{{role}}}")
     latex_content.append("")
     

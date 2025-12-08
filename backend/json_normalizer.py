@@ -34,8 +34,11 @@ class ResumeNormalizer:
             'location': [
                 r'地址', r'所在地', r'位置', r'location', r'address', r'city'
             ],
+            'objective': [
+                r'求职意向', r'求职方向', r'目标职位', r'objective', r'job.*title', r'position.*wanted'
+            ],
             'summary': [
-                r'求职方向', r'个人简介', r'自我评价', r'简介', r'summary', r'objective', r'profile'
+                r'个人简介', r'自我评价', r'简介', r'summary', r'profile', r'个人总结'
             ],
             'experience': [
                 r'工作经历', r'工作经验', r'experience', r'work'
