@@ -94,17 +94,31 @@ function renderEducation(resume: Resume) {
   return (
     <div key="education" style={styles.section}>
       <div style={styles.sectionTitle}>教育经历</div>
-      {education.map((edu: any, idx: number) => (
-        <div key={idx} style={styles.entry}>
-          <div style={styles.entryHeader}>
-            <div>
-              <span style={styles.entryTitle}>{edu.school || edu.title}</span>
-              <span style={styles.entrySubtitle}> - {edu.degree} · {edu.major}</span>
+      {education.map((edu: any, idx: number) => {
+        const school = edu.school || edu.title || ''
+        const degree = edu.degree || edu.subtitle || ''
+        const major = edu.major || ''
+        const date = edu.date || edu.duration || ''
+        
+        if (!school && !degree) return null
+        
+        return (
+          <div key={idx} style={styles.entry}>
+            <div style={styles.entryHeader}>
+              <div>
+                <span style={styles.entryTitle}>{school}</span>
+                {(degree || major) && (
+                  <span style={styles.entrySubtitle}>
+                    {degree && ` - ${degree}`}
+                    {major && ` · ${major}`}
+                  </span>
+                )}
+              </div>
+              {date && <span style={styles.entryDate}>{date}</span>}
             </div>
-            <span style={styles.entryDate}>{edu.date}</span>
           </div>
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -116,24 +130,33 @@ function renderExperience(resume: Resume) {
   return (
     <div key="experience" style={styles.section}>
       <div style={styles.sectionTitle}>工作经历</div>
-      {internships.map((item: any, idx: number) => (
-        <div key={idx} style={styles.entry}>
-          <div style={styles.entryHeader}>
-            <div>
-              <span style={styles.entryTitle}>{item.title}</span>
-              <span style={styles.entrySubtitle}> - {item.subtitle}</span>
+      {internships.map((item: any, idx: number) => {
+        const title = item.title || item.company || ''
+        const subtitle = item.subtitle || item.position || ''
+        const date = item.date || item.duration || ''
+        const details = item.highlights || item.details || []
+        
+        if (!title && !subtitle) return null
+        
+        return (
+          <div key={idx} style={styles.entry}>
+            <div style={styles.entryHeader}>
+              <div>
+                <span style={styles.entryTitle}>{title}</span>
+                {subtitle && <span style={styles.entrySubtitle}> - {subtitle}</span>}
+              </div>
+              {date && <span style={styles.entryDate}>{date}</span>}
             </div>
-            <span style={styles.entryDate}>{item.date}</span>
+            {details.length > 0 && (
+              <ul style={styles.highlights}>
+                {details.map((h: string, i: number) => (
+                  <li key={i} style={styles.highlightItem}>{h}</li>
+                ))}
+              </ul>
+            )}
           </div>
-          {item.highlights && item.highlights.length > 0 && (
-            <ul style={styles.highlights}>
-              {item.highlights.map((h: string, i: number) => (
-                <li key={i} style={styles.highlightItem}>{h}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -145,24 +168,33 @@ function renderProjects(resume: Resume) {
   return (
     <div key="projects" style={styles.section}>
       <div style={styles.sectionTitle}>项目经历</div>
-      {projects.map((item: any, idx: number) => (
-        <div key={idx} style={styles.entry}>
-          <div style={styles.entryHeader}>
-            <div>
-              <span style={styles.entryTitle}>{item.title}</span>
-              <span style={styles.entrySubtitle}> - {item.subtitle}</span>
+      {projects.map((item: any, idx: number) => {
+        const title = item.title || item.name || ''
+        const subtitle = item.subtitle || item.role || ''
+        const date = item.date || ''
+        const details = item.highlights || item.details || []
+        
+        if (!title) return null
+        
+        return (
+          <div key={idx} style={styles.entry}>
+            <div style={styles.entryHeader}>
+              <div>
+                <span style={styles.entryTitle}>{title}</span>
+                {subtitle && <span style={styles.entrySubtitle}> - {subtitle}</span>}
+              </div>
+              {date && <span style={styles.entryDate}>{date}</span>}
             </div>
-            <span style={styles.entryDate}>{item.date}</span>
+            {details.length > 0 && (
+              <ul style={styles.highlights}>
+                {details.map((h: string, i: number) => (
+                  <li key={i} style={styles.highlightItem}>{h}</li>
+                ))}
+              </ul>
+            )}
           </div>
-          {item.highlights && item.highlights.length > 0 && (
-            <ul style={styles.highlights}>
-              {item.highlights.map((h: string, i: number) => (
-                <li key={i} style={styles.highlightItem}>{h}</li>
-              ))}
-            </ul>
-          )}
-        </div>
-      ))}
+        )
+      })}
     </div>
   )
 }
@@ -192,9 +224,11 @@ function renderAwards(resume: Resume) {
     <div key="awards" style={styles.section}>
       <div style={styles.sectionTitle}>荣誉奖项</div>
       <ul style={styles.awardsList}>
-        {awards.map((award: string, idx: number) => (
-          <li key={idx} style={styles.awardItem}>{award}</li>
-        ))}
+        {awards.map((award: any, idx: number) => {
+          const text = typeof award === 'string' ? award : (award.title || award.name || '')
+          if (!text) return null
+          return <li key={idx} style={styles.awardItem}>{text}</li>
+        })}
       </ul>
     </div>
   )

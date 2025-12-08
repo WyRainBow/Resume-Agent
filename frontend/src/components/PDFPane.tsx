@@ -78,7 +78,7 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
       }
       
       // PDF 实际渲染比例 = 用户设置的 scale * 1.2
-      // 这样按钮 100% 时，PDF 视觉大小等于之前 120% 的效果
+      // 这样按钮 100% 时 PDF 视觉大小等于之前 120% 的效果
       const renderScale = scale * 1.2
       
       // 创建新 canvas 避免冲突
