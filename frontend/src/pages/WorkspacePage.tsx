@@ -18,7 +18,7 @@ export default function WorkspacePage() {
   const [showGuide, setShowGuide] = useState(false)
   const [previewMode, setPreviewMode] = useState<'live' | 'pdf'>('live') // 预览模式：live=实时预览，pdf=PDF预览
   const [currentSectionOrder, setCurrentSectionOrder] = useState<string[]>([]) // 当前模块顺序
-  const [leftPanelWidth, setLeftPanelWidth] = useState(380) // 左侧面板宽度
+  const [leftPanelWidth, setLeftPanelWidth] = useState<number | null>(null) // 左侧面板宽度，初始为 null 表示使用百分比
   const [isDragging, setIsDragging] = useState(false) // 是否正在拖拽分割条
   const [previewScale, setPreviewScale] = useState(1.0) // 预览缩放比例，公共状态
   const containerRef = useRef<HTMLDivElement>(null)
@@ -90,6 +90,56 @@ export default function WorkspacePage() {
       document.body.style.userSelect = ''
     }
   }, [isDragging, handleMouseMove, handleMouseUp])
+
+  // 预览容器引用，用于计算自适应缩放
+  const previewContainerRef = useRef<HTMLDivElement>(null)
+
+  // 监听容器大小变化，自动调整预览缩放比例
+  useEffect(() => {
+    const calculateScale = () => {
+      if (!previewContainerRef.current) return
+      
+      const containerWidth = previewContainerRef.current.clientWidth
+      const containerHeight = previewContainerRef.current.clientHeight
+      
+      if (containerWidth === 0 || containerHeight === 0) return
+      
+      // A4 纸张尺寸（渲染后的像素大小，考虑 PDF 的 1.2 倍渲染）
+      const paperWidth = 595 * 1.2  // 约 714px
+      const paperHeight = 842 * 1.2 // 约 1010px
+      
+      // 根据容器宽高计算合适的缩放比例（取较小值以确保完整显示）
+      const scaleByWidth = (containerWidth - 64) / paperWidth  // 减去 padding
+      const scaleByHeight = (containerHeight - 100) / paperHeight // 减去底部控制条
+      
+      let newScale = Math.min(scaleByWidth, scaleByHeight)
+      // 限制在 0.4 ~ 1.2 之间
+      newScale = Math.min(1.2, Math.max(0.4, newScale))
+      newScale = Math.round(newScale * 10) / 10 // 保留一位小数
+      
+      setPreviewScale(newScale)
+    }
+
+    // 使用 ResizeObserver 监听容器大小变化（包括浏览器缩放）
+    const resizeObserver = new ResizeObserver(() => {
+      calculateScale()
+    })
+    
+    if (previewContainerRef.current) {
+      resizeObserver.observe(previewContainerRef.current)
+    }
+
+    // 初始计算
+    calculateScale()
+
+    // 监听窗口大小变化作为备用
+    window.addEventListener('resize', calculateScale)
+    
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', calculateScale)
+    }
+  }, []) // 只在组件挂载时设置监听
 
   useEffect(() => {
     // 检查是否有从首页传递过来的指令
@@ -255,7 +305,7 @@ export default function WorkspacePage() {
       <div 
         className="left-panel"
         style={{ 
-          width: `${leftPanelWidth}px`,
+          width: leftPanelWidth !== null ? `${leftPanelWidth}px` : '30%',
           minWidth: '280px',
           flexShrink: 0,
           position: 'relative',
@@ -435,11 +485,11 @@ export default function WorkspacePage() {
       <div
         onMouseDown={handleMouseDown}
         style={{
-          width: '6px',
+          width: '3px',
           cursor: 'col-resize',
           background: isDragging 
-            ? 'rgba(167, 139, 250, 0.6)' 
-            : 'rgba(255, 255, 255, 0.1)',
+            ? 'rgba(167, 139, 250, 0.8)' 
+            : 'rgba(255, 255, 255, 0.15)',
           transition: isDragging ? 'none' : 'background 0.2s',
           position: 'relative',
           zIndex: 10,
@@ -447,27 +497,15 @@ export default function WorkspacePage() {
         }}
         onMouseEnter={(e) => {
           if (!isDragging) {
-            e.currentTarget.style.background = 'rgba(167, 139, 250, 0.4)'
+            e.currentTarget.style.background = 'rgba(167, 139, 250, 0.5)'
           }
         }}
         onMouseLeave={(e) => {
           if (!isDragging) {
-            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)'
           }
         }}
-      >
-        {/* 分割条中间的拖拽提示 */}
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: '4px',
-          height: '40px',
-          borderRadius: '2px',
-          background: 'rgba(255, 255, 255, 0.3)',
-        }} />
-      </div>
+      />
       
       <div 
         className="right-panel"
@@ -582,7 +620,7 @@ export default function WorkspacePage() {
         </div>
         
         {/* 预览内容 */}
-        <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+        <div ref={previewContainerRef} style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           {loadingPdf && previewMode === 'pdf' && (
             <div style={{
               position: 'absolute', 

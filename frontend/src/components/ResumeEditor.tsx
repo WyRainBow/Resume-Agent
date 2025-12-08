@@ -199,8 +199,8 @@ function SectionEditor({ section, onUpdate }: { section: ResumeSection, onUpdate
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '12px 16px',
-    background: 'rgba(0, 0, 0, 0.2)',
-    border: '1px solid rgba(255, 255, 255, 0.15)',
+    background: 'rgba(255, 255, 255, 0.1)',
+    border: '1px solid rgba(255, 255, 255, 0.2)',
     borderRadius: '10px',
     color: 'white',
     fontSize: '14px',
@@ -300,15 +300,147 @@ function SectionEditor({ section, onUpdate }: { section: ResumeSection, onUpdate
       )
 
     case 'education':
+      const eduItems = Array.isArray(section.data) ? section.data : []
+      return (
+        <div style={{ paddingTop: '16px' }}>
+          {eduItems.map((item: any, index: number) => (
+            <div 
+              key={index} 
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                borderRadius: '12px',
+                padding: '16px',
+                marginBottom: '12px',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>#{index + 1}</span>
+                <button
+                  onClick={() => {
+                    const newItems = eduItems.filter((_: any, i: number) => i !== index)
+                    onUpdate(newItems)
+                  }}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.2)',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    borderRadius: '6px',
+                    color: '#f87171',
+                    padding: '4px 12px',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  删除
+                </button>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={labelStyle}>学校</label>
+                  <input
+                    style={inputStyle}
+                    value={item.title || item.school || ''}
+                    onChange={(e) => {
+                      const newItems = [...eduItems]
+                      newItems[index] = { ...item, title: e.target.value, school: e.target.value }
+                      onUpdate(newItems)
+                    }}
+                    placeholder="请输入学校名称"
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)' }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)' }}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>专业</label>
+                  <input
+                    style={inputStyle}
+                    value={item.major || ''}
+                    onChange={(e) => {
+                      const newItems = [...eduItems]
+                      newItems[index] = { ...item, major: e.target.value }
+                      onUpdate(newItems)
+                    }}
+                    placeholder="请输入专业"
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)' }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)' }}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={labelStyle}>学位</label>
+                  <input
+                    style={inputStyle}
+                    value={item.subtitle || item.degree || ''}
+                    onChange={(e) => {
+                      const newItems = [...eduItems]
+                      newItems[index] = { ...item, subtitle: e.target.value, degree: e.target.value }
+                      onUpdate(newItems)
+                    }}
+                    placeholder="如：本科、硕士"
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)' }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)' }}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>时间</label>
+                  <input
+                    style={inputStyle}
+                    value={item.date || item.duration || ''}
+                    onChange={(e) => {
+                      const newItems = [...eduItems]
+                      newItems[index] = { ...item, date: e.target.value, duration: e.target.value }
+                      onUpdate(newItems)
+                    }}
+                    placeholder="如：2016.09 - 2020.06"
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)' }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)' }}
+                  />
+                </div>
+              </div>
+              <label style={labelStyle}>描述</label>
+              <textarea
+                style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }}
+                value={Array.isArray(item.details) ? item.details.join('\n') : (item.description || item.details || '')}
+                onChange={(e) => {
+                  const newItems = [...eduItems]
+                  const desc = e.target.value
+                  newItems[index] = { ...item, details: desc.split('\n').filter(Boolean), description: desc }
+                  onUpdate(newItems)
+                }}
+                placeholder="如：GPA 3.8/4.0，专业排名前 10%"
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)' }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)' }}
+              />
+            </div>
+          ))}
+          <button
+            onClick={() => onUpdate([...eduItems, { title: '', school: '', major: '', subtitle: '', degree: '', date: '', details: [], description: '' }])}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: 'rgba(167, 139, 250, 0.15)',
+              border: '2px dashed rgba(167, 139, 250, 0.4)',
+              borderRadius: '12px',
+              color: '#a78bfa',
+              fontSize: '14px',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            + 添加教育
+          </button>
+        </div>
+      )
+
     case 'experience':
     case 'projects':
       const items = Array.isArray(section.data) ? section.data : []
       const itemLabels = {
-        education: { title: '学校/专业', subtitle: '学位', date: '时间' },
         experience: { title: '公司', subtitle: '职位', date: '时间' },
         projects: { title: '项目名称', subtitle: '角色', date: '时间' },
       }
-      const labels = itemLabels[section.type]
+      const labels = itemLabels[section.type as 'experience' | 'projects']
       
       return (
         <div style={{ paddingTop: '16px' }}>
@@ -343,23 +475,31 @@ function SectionEditor({ section, onUpdate }: { section: ResumeSection, onUpdate
                   删除
                 </button>
               </div>
+              <label style={labelStyle}>{labels.title}</label>
+              <input
+                style={inputStyle}
+                value={item.title || ''}
+                onChange={(e) => {
+                  const newItems = [...items]
+                  newItems[index] = { ...item, title: e.target.value }
+                  onUpdate(newItems)
+                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)' }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)' }}
+              />
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label style={labelStyle}>{labels.title}</label>
+                  <label style={labelStyle}>{labels.subtitle}</label>
                   <input
                     style={inputStyle}
-                    value={item.title || ''}
+                    value={item.subtitle || ''}
                     onChange={(e) => {
                       const newItems = [...items]
-                      newItems[index] = { ...item, title: e.target.value }
+                      newItems[index] = { ...item, subtitle: e.target.value }
                       onUpdate(newItems)
                     }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
-                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)' }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)' }}
                   />
                 </div>
                 <div>
@@ -372,31 +512,11 @@ function SectionEditor({ section, onUpdate }: { section: ResumeSection, onUpdate
                       newItems[index] = { ...item, date: e.target.value }
                       onUpdate(newItems)
                     }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
-                    }}
+                    onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)' }}
+                    onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)' }}
                   />
                 </div>
               </div>
-              <label style={labelStyle}>{labels.subtitle}</label>
-              <input
-                style={inputStyle}
-                value={item.subtitle || ''}
-                onChange={(e) => {
-                  const newItems = [...items]
-                  newItems[index] = { ...item, subtitle: e.target.value }
-                  onUpdate(newItems)
-                }}
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
-                }}
-              />
               <label style={labelStyle}>描述</label>
               <textarea
                 style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }}
@@ -407,12 +527,8 @@ function SectionEditor({ section, onUpdate }: { section: ResumeSection, onUpdate
                   onUpdate(newItems)
                 }}
                 placeholder="每行一条描述"
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
-                }}
+                onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)' }}
+                onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)' }}
               />
             </div>
           ))}
@@ -843,12 +959,19 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
   }
 
   return (
-    <div style={{ 
+    <div className="resume-editor" style={{ 
       height: '100%', 
       display: 'flex', 
       flexDirection: 'column',
       overflow: 'hidden',
     }}>
+      {/* 全局样式：placeholder 颜色 */}
+      <style>{`
+        .resume-editor input::placeholder,
+        .resume-editor textarea::placeholder {
+          color: rgba(255, 255, 255, 0.5) !important;
+        }
+      `}</style>
       {/* 编辑器标题 */}
       <div style={{
         padding: '16px 20px',
