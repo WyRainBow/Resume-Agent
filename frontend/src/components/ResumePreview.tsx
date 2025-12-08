@@ -22,7 +22,10 @@ const toolbarButtons = [
   { command: 'formatBlock', arg: 'h1', icon: 'H1', title: '一级标题' },
   { command: 'formatBlock', arg: 'h2', icon: 'H2', title: '二级标题' },
   { command: 'formatBlock', arg: 'h3', icon: 'H3', title: '三级标题' },
-  { command: 'formatBlock', arg: 'p', icon: '¶', title: '正文' },
+  { command: 'formatBlock', arg: 'p', icon: 'P', title: '正文' },
+  { type: 'divider' },
+  { command: 'insertUnorderedList', icon: '•', title: '无序列表' },
+  { command: 'insertOrderedList', icon: '1.', title: '有序列表' },
   { type: 'divider' },
   { command: 'justifyLeft', icon: '☰', title: '左对齐' },
   { command: 'justifyCenter', icon: '☰', title: '居中', style: { transform: 'scaleX(0.8)' } },
@@ -96,7 +99,18 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
       const index = parseInt(indexStr, 10)
       
       if (section === 'education' && newResume.education?.[index]) {
-        if (subField === 'school') {
+        if (subField === 'titleLine') {
+          // 解析 "学校 - 学位 · 专业" 格式
+          const parts = textContent.split(' - ')
+          newResume.education[index].school = parts[0]?.trim() || ''
+          newResume.education[index].title = parts[0]?.trim() || ''
+          if (parts[1]) {
+            const subParts = parts[1].split(' · ')
+            newResume.education[index].degree = subParts[0]?.trim() || ''
+            newResume.education[index].subtitle = subParts[0]?.trim() || ''
+            newResume.education[index].major = subParts[1]?.trim() || ''
+          }
+        } else if (subField === 'school') {
           newResume.education[index].school = textContent
           newResume.education[index].title = textContent
         } else if (subField === 'degree') {
@@ -110,7 +124,12 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
           newResume.education[index].details = textContent.split(/[；;。\n]+/).map(s => s.trim()).filter(Boolean)
         }
       } else if (section === 'experience' && newResume.internships?.[index]) {
-        if (subField === 'title') {
+        if (subField === 'titleLine') {
+          // 解析 "公司 - 职位" 格式
+          const parts = textContent.split(' - ')
+          newResume.internships[index].title = parts[0]?.trim() || ''
+          newResume.internships[index].subtitle = parts[1]?.trim() || ''
+        } else if (subField === 'title') {
           newResume.internships[index].title = textContent
         } else if (subField === 'subtitle') {
           const cleanText = textContent.replace(/^[\s-]+/, '').trim()
@@ -122,7 +141,14 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
           newResume.internships[index].details = newResume.internships[index].highlights
         }
       } else if (section === 'projects' && newResume.projects?.[index]) {
-        if (subField === 'title') {
+        if (subField === 'titleLine') {
+          // 解析 "项目名 - 角色" 格式
+          const parts = textContent.split(' - ')
+          newResume.projects[index].title = parts[0]?.trim() || ''
+          newResume.projects[index].name = parts[0]?.trim() || ''
+          newResume.projects[index].subtitle = parts[1]?.trim() || ''
+          newResume.projects[index].role = parts[1]?.trim() || ''
+        } else if (subField === 'title') {
           newResume.projects[index].title = textContent
           newResume.projects[index].name = textContent
         } else if (subField === 'subtitle') {
@@ -198,6 +224,26 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
         }
         #resume-preview [contenteditable]:hover {
           background: rgba(167, 139, 250, 0.05);
+        }
+        /* 限制标题字体大小 */
+        #resume-preview h1 {
+          font-size: 14pt !important;
+          margin: 2px 0 2px 0;
+        }
+        #resume-preview h2 {
+          font-size: 12pt !important;
+          margin: 2px 0 2px 0;
+        }
+        #resume-preview h3 {
+          font-size: 10pt !important;
+          margin: 2px 0 2px 0;
+        }
+        #resume-preview ul, #resume-preview ol {
+          margin: 4px 0;
+          padding-left: 20px;
+        }
+        #resume-preview li {
+          margin: 2px 0;
         }
       `}</style>
 
@@ -284,28 +330,15 @@ function renderEducation(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHand
         return (
           <div key={idx} style={styles.entry}>
             <div style={styles.entryHeader}>
-              <div>
-                <span 
-                  contentEditable 
-                  suppressContentEditableWarning
-                  style={styles.entryTitle}
-                  data-field={`education.${idx}.school`}
-                  onBlur={onBlur}
-                >
-                  {school}
-                </span>
-                {(degree || major) && (
-                  <span 
-                    contentEditable 
-                    suppressContentEditableWarning
-                    style={styles.entrySubtitle}
-                    data-field={`education.${idx}.degree`}
-                    onBlur={onBlur}
-                  >
-                    {degree && ` - ${degree}`}
-                    {major && ` · ${major}`}
-                  </span>
-                )}
+              <div
+                contentEditable 
+                suppressContentEditableWarning
+                style={{ ...styles.entryTitle, display: 'inline' }}
+                data-field={`education.${idx}.titleLine`}
+                onBlur={onBlur}
+                onKeyDown={onKeyDown}
+              >
+                {school}{degree ? ` - ${degree}` : ''}{major ? ` · ${major}` : ''}
               </div>
               {date && (
                 <span 
@@ -356,27 +389,15 @@ function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHan
         return (
           <div key={idx} style={styles.entry}>
             <div style={styles.entryHeader}>
-              <div>
-                <span 
-                  contentEditable 
-                  suppressContentEditableWarning
-                  style={styles.entryTitle}
-                  data-field={`experience.${idx}.title`}
-                  onBlur={onBlur}
-                >
-                  {title}
-                </span>
-                {subtitle && (
-                  <span 
-                    contentEditable 
-                    suppressContentEditableWarning
-                    style={styles.entrySubtitle}
-                    data-field={`experience.${idx}.subtitle`}
-                    onBlur={onBlur}
-                  >
-                    {` - ${subtitle}`}
-                  </span>
-                )}
+              <div
+                contentEditable 
+                suppressContentEditableWarning
+                style={{ ...styles.entryTitle, display: 'inline' }}
+                data-field={`experience.${idx}.titleLine`}
+                onBlur={onBlur}
+                onKeyDown={onKeyDown}
+              >
+                {title}{subtitle ? ` - ${subtitle}` : ''}
               </div>
               {date && (
                 <span 
@@ -399,7 +420,7 @@ function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHan
               onKeyDown={onKeyDown}
             >
               {details.length > 0 
-                ? details.map((h: string, i: number) => <div key={i}>• {h}</div>)
+                ? <ul style={{ margin: 0, paddingLeft: '18px' }}>{details.map((h: string, i: number) => <li key={i}>{h}</li>)}</ul>
                 : '点击添加工作描述...'}
             </div>
           </div>
@@ -428,26 +449,16 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
           <div key={idx} style={styles.entry}>
             <div style={styles.entryHeader}>
               <div>
-                <span 
+                <div
                   contentEditable 
                   suppressContentEditableWarning
-                  style={styles.entryTitle}
-                  data-field={`projects.${idx}.title`}
+                  style={{ ...styles.entryTitle, display: 'inline' }}
+                  data-field={`projects.${idx}.titleLine`}
                   onBlur={onBlur}
+                  onKeyDown={onKeyDown}
                 >
-                  {title}
-                </span>
-                {subtitle && (
-                  <span 
-                    contentEditable 
-                    suppressContentEditableWarning
-                    style={styles.entrySubtitle}
-                    data-field={`projects.${idx}.subtitle`}
-                    onBlur={onBlur}
-                  >
-                    {` - ${subtitle}`}
-                  </span>
-                )}
+                  {title}{subtitle ? ` - ${subtitle}` : ''}
+                </div>
               </div>
               {date && (
                 <span 
@@ -470,7 +481,7 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
               onKeyDown={onKeyDown}
             >
               {details.length > 0 
-                ? details.map((h: string, i: number) => <div key={i}>• {h}</div>)
+                ? <ul style={{ margin: 0, paddingLeft: '18px' }}>{details.map((h: string, i: number) => <li key={i}>{h}</li>)}</ul>
                 : '点击添加项目描述...'}
             </div>
           </div>
@@ -517,11 +528,13 @@ function renderAwards(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler
         data-field="awards"
         onBlur={onBlur}
       >
-        {awards.map((award: any, idx: number) => {
-          const text = typeof award === 'string' ? award : (award.title || award.name || '')
-          if (!text) return null
-          return <div key={idx} style={styles.awardItem}>• {text}</div>
-        })}
+        <ul style={{ margin: 0, paddingLeft: '18px' }}>
+          {awards.map((award: any, idx: number) => {
+            const text = typeof award === 'string' ? award : (award.title || award.name || '')
+            if (!text) return null
+            return <li key={idx} style={styles.awardItem}>{text}</li>
+          })}
+        </ul>
       </div>
     </div>
   )
