@@ -39,19 +39,19 @@ PDF 生成需要中文字体支持，系统会自动检测并使用以下字体�
 
 **Linux（Ubuntu/Debian）**
 ```bash
-# 安装 Noto CJK 字体
+
 sudo apt install fonts-noto-cjk fonts-noto-cjk-extra
 
-# 安装 XeLaTeX
+
 sudo apt install texlive-xetex texlive-fonts-recommended texlive-lang-chinese
 ```
 
 **Linux（CentOS/RHEL）**
 ```bash
-# 安装 Noto CJK 字体
+
 sudo yum install google-noto-sans-cjk-fonts google-noto-serif-cjk-fonts
 
-# 安装 XeLaTeX
+
 sudo yum install texlive-xetex texlive-collection-langchinese
 ```
 
