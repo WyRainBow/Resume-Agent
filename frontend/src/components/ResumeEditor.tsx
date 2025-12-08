@@ -78,11 +78,11 @@ function SortableSection({
           ? 'rgba(167, 139, 250, 0.3)' 
           : 'rgba(255, 255, 255, 0.08)',
         backdropFilter: 'blur(10px)',
-        borderRadius: '16px',
+        borderRadius: '12px',
         border: isDragging 
           ? '2px solid rgba(167, 139, 250, 0.6)' 
           : '1px solid rgba(255, 255, 255, 0.15)',
-        marginBottom: '12px',
+        marginBottom: '8px',
         overflow: 'hidden',
         transition: 'all 0.3s ease',
         boxShadow: isDragging 
@@ -96,7 +96,7 @@ function SortableSection({
           style={{
             display: 'flex',
             alignItems: 'center',
-            padding: '16px 20px',
+            padding: '12px 14px',
             cursor: 'grab',
             userSelect: 'none',
           }}
@@ -141,10 +141,10 @@ function SortableSection({
               cursor: 'pointer',
             }}
           >
-            <span style={{ fontSize: '20px' }}>{section.icon}</span>
+            <span style={{ fontSize: '16px' }}>{section.icon}</span>
             <span style={{ 
               color: 'white', 
-              fontSize: '16px', 
+              fontSize: '14px', 
               fontWeight: 600 
             }}>
               {section.title}
@@ -603,8 +603,36 @@ function SectionEditor({ section, onUpdate }: { section: ResumeSection, onUpdate
  */
 export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
   const [sections, setSections] = useState<ResumeSection[]>(defaultSections)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
+  const [allExpanded, setAllExpanded] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isInitialLoad = useRef(true) // 跟踪是否为首次加载
+
+  // 展开/收起全部
+  const toggleAllExpanded = () => {
+    if (allExpanded) {
+      setExpandedIds(new Set())
+      setAllExpanded(false)
+    } else {
+      setExpandedIds(new Set(sections.map(s => s.id)))
+      setAllExpanded(true)
+    }
+  }
+
+  // 切换单个模块展开状态
+  const toggleSection = (sectionId: string) => {
+    setExpandedIds(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(sectionId)) {
+        newSet.delete(sectionId)
+      } else {
+        newSet.add(sectionId)
+      }
+      // 更新 allExpanded 状态
+      setAllExpanded(newSet.size === sections.length)
+      return newSet
+    })
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -622,10 +650,12 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
    */
   useEffect(() => {
     if (resumeData) {
-      // 加载外部数据时，默认折叠所有分组
-      setExpandedId(null)
-      // 加载外部数据时默认折叠所有分组
-      setExpandedId(null)
+      // 只在首次加载时折叠所有分组，保存后不折叠
+      if (isInitialLoad.current) {
+        setExpandedIds(new Set())
+        setAllExpanded(false)
+        isInitialLoad.current = false
+      }
       setSections(prev => prev.map(section => {
         switch (section.type) {
           case 'contact':
@@ -717,6 +747,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
               degree: item.subtitle || item.degree || '',
               major: item.major || '',
               duration: item.date || item.duration || '',
+              details: Array.isArray(item.details) ? item.details : [],  // 保存描述字段
               title: item.title || '',
               date: item.date || '',
             }))
@@ -795,6 +826,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
         degree: item.subtitle || item.degree || '',   // subtitle → degree
         major: item.major || '',
         duration: item.date || item.duration || '',   // date → duration
+        details: Array.isArray(item.details) ? item.details : [],  // 保存描述字段
         // 同时保留原字段以兼容
         title: item.title || '',
         date: item.date || '',
@@ -873,9 +905,27 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
           <span>✏️</span>
           可视化编辑
         </div>
-        <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.5)' }}>
-          拖拽调整顺序
-        </div>
+        <button
+          onClick={toggleAllExpanded}
+          style={{
+            padding: '4px 10px',
+            background: 'rgba(255, 255, 255, 0.1)',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
+            borderRadius: '6px',
+            color: 'rgba(255,255,255,0.7)',
+            fontSize: '11px',
+            cursor: 'pointer',
+            transition: 'all 0.2s',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'
+          }}
+        >
+          {allExpanded ? '收起全部' : '展开全部'}
+        </button>
       </div>
 
       {/* 可滚动的模块列表 */}
@@ -897,8 +947,8 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
               <SortableSection
                 key={section.id}
                 section={section}
-                expanded={expandedId === section.id}
-                onToggle={() => setExpandedId(expandedId === section.id ? null : section.id)}
+                expanded={expandedIds.has(section.id)}
+                onToggle={() => toggleSection(section.id)}
                 onUpdate={(data) => handleSectionUpdate(section.id, data)}
               />
             ))}

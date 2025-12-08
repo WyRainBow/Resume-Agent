@@ -91,55 +91,8 @@ export default function WorkspacePage() {
     }
   }, [isDragging, handleMouseMove, handleMouseUp])
 
-  // 预览容器引用，用于计算自适应缩放
-  const previewContainerRef = useRef<HTMLDivElement>(null)
-
-  // 监听容器大小变化，自动调整预览缩放比例
-  useEffect(() => {
-    const calculateScale = () => {
-      if (!previewContainerRef.current) return
-      
-      const containerWidth = previewContainerRef.current.clientWidth
-      const containerHeight = previewContainerRef.current.clientHeight
-      
-      if (containerWidth === 0 || containerHeight === 0) return
-      
-      // A4 纸张尺寸（渲染后的像素大小，考虑 PDF 的 1.2 倍渲染）
-      const paperWidth = 595 * 1.2  // 约 714px
-      const paperHeight = 842 * 1.2 // 约 1010px
-      
-      // 根据容器宽高计算合适的缩放比例（取较小值以确保完整显示）
-      const scaleByWidth = (containerWidth - 64) / paperWidth  // 减去 padding
-      const scaleByHeight = (containerHeight - 100) / paperHeight // 减去底部控制条
-      
-      let newScale = Math.min(scaleByWidth, scaleByHeight)
-      // 限制在 0.4 ~ 1.2 之间
-      newScale = Math.min(1.2, Math.max(0.4, newScale))
-      newScale = Math.round(newScale * 10) / 10 // 保留一位小数
-      
-      setPreviewScale(newScale)
-    }
-
-    // 使用 ResizeObserver 监听容器大小变化（包括浏览器缩放）
-    const resizeObserver = new ResizeObserver(() => {
-      calculateScale()
-    })
-    
-    if (previewContainerRef.current) {
-      resizeObserver.observe(previewContainerRef.current)
-    }
-
-    // 初始计算
-    calculateScale()
-
-    // 监听窗口大小变化作为备用
-    window.addEventListener('resize', calculateScale)
-    
-    return () => {
-      resizeObserver.disconnect()
-      window.removeEventListener('resize', calculateScale)
-    }
-  }, []) // 只在组件挂载时设置监听
+  // 预览缩放比例固定为 100%，用户可通过底部 +/- 按钮手动调整
+  // 不自动计算，确保默认始终是 100%
 
   useEffect(() => {
     // 检查是否有从首页传递过来的指令
@@ -620,7 +573,7 @@ export default function WorkspacePage() {
         </div>
         
         {/* 预览内容 */}
-        <div ref={previewContainerRef} style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+        <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           {loadingPdf && previewMode === 'pdf' && (
             <div style={{
               position: 'absolute', 
