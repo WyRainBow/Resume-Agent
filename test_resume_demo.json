@@ -44,7 +44,16 @@
       ]
     }
   ],
-  "skills": ["Java", "Go", "Spring Boot", "Spring Cloud", "Redis", "MySQL", "Kafka", "Docker", "Kubernetes"],
+  "skills": [
+    { "category": "Java基础", "details": "熟悉 Java 编程语言，有两年使用经验，掌握 集合框架、异常、多线程、反射 等核心机制。" },
+    { "category": "Golang基础", "details": "熟悉 Golang 语言，有一年使用经验，掌握 Map、Channel 实现原理，熟悉 Gin、GORM 组件。" },
+    { "category": "JVM", "details": "熟悉 JVM，掌握 内存结构，垃圾回收机制，类加载机制，GC 算法 等，了解过 JVM 调优 方法。" },
+    { "category": "MySQL", "details": "熟悉 MySQL 基础原理、存储引擎、索引原理、MVCC、事务 等机制、具备一定的 SQL 性能调优 能力。" },
+    { "category": "Redis", "details": "熟悉 Redis 底层数据结构、分布式锁、线程模型 等机制，熟悉 缓存击穿、穿透、雪崩 概念。" },
+    { "category": "计算机网络", "details": "熟悉 TCP、UDP、HTTP、HTTPS 等网络协议，掌握 TCP 三次握手、四次挥手、流量控制 等机制。" },
+    { "category": "操作系统", "details": "熟悉 进程、线程、虚拟内存、I/O 多路复用 等，掌握 进程间通信和多线程同步 技术。" },
+    { "category": "AI", "details": "了解 AI Agent、RAG、FunctionCall、LLM(如阿里百炼、DeepSeek)Promot 管理和编排的基本概念及原理。" }
+  ],
   "awards": [
     "2019年 优秀毕业生",
     "2018年 ACM程序设计大赛 省级二等奖"
