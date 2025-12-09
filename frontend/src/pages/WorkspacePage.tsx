@@ -5,9 +5,18 @@ import ChatPanel from '../components/ChatPanel'
 import PDFPane from '../components/PDFPane'
 import ResumeEditor from '../components/ResumeEditor'
 import ResumePreview from '../components/ResumePreview'
+import ResumeList from '../components/ResumeList'
+import AIImportDialog from '../components/AIImportDialog'
 import OnboardingGuide from '../components/OnboardingGuide'
 import type { Resume } from '../types/resume'
 import { renderPDF, getDefaultTemplate } from '../services/api'
+import { 
+  getAllResumes, 
+  getResume, 
+  saveResume, 
+  getCurrentResumeId, 
+  setCurrentResumeId 
+} from '../services/resumeStorage'
 
 export default function WorkspacePage() {
   const navigate = useNavigate()
@@ -16,44 +25,143 @@ export default function WorkspacePage() {
   const [loadingPdf, setLoadingPdf] = useState(false)
   const [showEditor, setShowEditor] = useState(true) // 默认显示可视化编辑器
   const [showGuide, setShowGuide] = useState(false)
+  const [showResumeList, setShowResumeList] = useState(false) // 显示简历列表
+  const [showAIImport, setShowAIImport] = useState(false) // 显示 AI 导入弹窗
+  const [currentResumeId, setCurrentResumeIdState] = useState<string | null>(null) // 当前简历ID
   const [previewMode, setPreviewMode] = useState<'live' | 'pdf'>('live') // 预览模式：live=实时预览，pdf=PDF预览
   const [currentSectionOrder, setCurrentSectionOrder] = useState<string[]>([]) // 当前模块顺序
   const [leftPanelWidth, setLeftPanelWidth] = useState<number | null>(null) // 左侧面板宽度，初始为 null 表示使用百分比
   const [isDragging, setIsDragging] = useState(false) // 是否正在拖拽分割条
   const [previewScale, setPreviewScale] = useState(1.0) // 预览缩放比例，公共状态
   const containerRef = useRef<HTMLDivElement>(null)
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   
   /**
    * 从首页传递过来的指令
    */
   const [initialInstruction, setInitialInstruction] = useState<string | null>(null)
 
+  const defaultSectionOrder = ['education', 'experience', 'projects', 'opensource', 'skills', 'awards', 'summary']
+
   /**
-   * 加载默认模板（从后端 test_resume_demo.json 加载）
-   * 1. 先加载数据 → 立即显示实时预览
-   * 2. 异步后台生成 PDF（不阻塞用户）
+   * 加载简历（优先从 localStorage，否则从后端模板）
    */
-  const loadDefaultTemplate = useCallback(async () => {
+  const loadResume = useCallback(async () => {
+    // 检查是否有保存的简历
+    const savedId = getCurrentResumeId()
+    if (savedId) {
+      const saved = getResume(savedId)
+      if (saved) {
+        setResume(saved.data)
+        setCurrentResumeIdState(savedId)
+        setShowEditor(true)
+        setPreviewMode('live')
+        setCurrentSectionOrder(defaultSectionOrder)
+        renderPDF(saved.data, false, defaultSectionOrder)
+          .then(blob => setPdfBlob(blob))
+          .catch(err => console.log('PDF 后台生成失败:', err))
+        return
+      }
+    }
+    
+    // 检查是否有任何保存的简历
+    const allResumes = getAllResumes()
+    if (allResumes.length > 0) {
+      const first = allResumes[0]
+      setResume(first.data)
+      setCurrentResumeIdState(first.id)
+      setCurrentResumeId(first.id)
+      setShowEditor(true)
+      setPreviewMode('live')
+      setCurrentSectionOrder(defaultSectionOrder)
+      renderPDF(first.data, false, defaultSectionOrder)
+        .then(blob => setPdfBlob(blob))
+        .catch(err => console.log('PDF 后台生成失败:', err))
+      return
+    }
+
+    // 没有保存的简历，加载默认模板
     try {
-      // 1. 加载模板数据
       const template = await getDefaultTemplate() as unknown as Resume
       setResume(template)
       setShowEditor(true)
-      setPreviewMode('live') // 默认显示实时预览
-      
-      // 设置默认 section 顺序
-      const defaultSectionOrder = ['education', 'experience', 'projects', 'skills', 'awards', 'summary']
+      setPreviewMode('live')
       setCurrentSectionOrder(defaultSectionOrder)
+      // 自动保存为新简历
+      const saved = saveResume(template)
+      setCurrentResumeIdState(saved.id)
       
-      // 2. 异步后台生成 PDF（不阻塞实时预览）
       renderPDF(template, false, defaultSectionOrder)
         .then(blob => setPdfBlob(blob))
         .catch(err => console.log('PDF 后台生成失败:', err))
-        
     } catch (error) {
       console.error('Failed to load template:', error)
       alert('加载模板失败，请检查后端服务是否正常。')
     }
+  }, [])
+
+  /**
+   * 新建简历
+   */
+  const handleCreateNew = useCallback(async () => {
+    try {
+      const template = await getDefaultTemplate() as unknown as Resume
+      const saved = saveResume(template)
+      setResume(template)
+      setCurrentResumeIdState(saved.id)
+      setShowEditor(true)
+      setPreviewMode('live')
+      setCurrentSectionOrder(defaultSectionOrder)
+      setShowResumeList(false)
+    } catch (error) {
+      console.error('Failed to create new resume:', error)
+    }
+  }, [])
+
+  /**
+   * 选择简历
+   */
+  const handleSelectResume = useCallback((resumeData: Resume, id: string) => {
+    setResume(resumeData)
+    setCurrentResumeIdState(id)
+    setShowEditor(true)
+    setPreviewMode('live')
+    setCurrentSectionOrder(defaultSectionOrder)
+    setShowResumeList(false)
+    renderPDF(resumeData, false, defaultSectionOrder)
+      .then(blob => setPdfBlob(blob))
+      .catch(err => console.log('PDF 后台生成失败:', err))
+  }, [])
+
+  /**
+   * 自动保存（防抖）
+   */
+  const autoSave = useCallback((resumeData: Resume) => {
+    if (autoSaveTimer.current) {
+      clearTimeout(autoSaveTimer.current)
+    }
+    autoSaveTimer.current = setTimeout(() => {
+      if (currentResumeId) {
+        saveResume(resumeData, currentResumeId)
+      }
+    }, 1000) // 1秒防抖
+  }, [currentResumeId])
+
+  /**
+   * AI 导入简历
+   */
+  const handleAIImport = useCallback((importedResume: Resume) => {
+    // 保存为新简历
+    const saved = saveResume(importedResume)
+    setResume(importedResume)
+    setCurrentResumeIdState(saved.id)
+    setShowEditor(true)
+    setPreviewMode('live')
+    setCurrentSectionOrder(defaultSectionOrder)
+    // 生成 PDF
+    renderPDF(importedResume, false, defaultSectionOrder)
+      .then(blob => setPdfBlob(blob))
+      .catch(err => console.log('PDF 后台生成失败:', err))
   }, [])
 
   // 分割条拖拽处理
@@ -103,9 +211,9 @@ export default function WorkspacePage() {
       sessionStorage.removeItem('resume_instruction')
     } else {
       // 没有指令时，加载默认模板
-      loadDefaultTemplate()
+      loadResume()
     }
-  }, [loadDefaultTemplate])
+  }, [loadResume])
 
   const handleResumeChange = useCallback(async (newResume: Resume) => {
     setResume(newResume)
@@ -129,6 +237,8 @@ export default function WorkspacePage() {
    */
   const handleEditorSave = useCallback(async (newResume: Resume, sectionOrder?: string[]) => {
     setResume(newResume)
+    autoSave(newResume) // 自动保存到 localStorage
+    
     const newOrder = sectionOrder || currentSectionOrder
     if (sectionOrder) {
       setCurrentSectionOrder(sectionOrder)
@@ -147,7 +257,7 @@ export default function WorkspacePage() {
         setLoadingPdf(false)
       }
     }
-  }, [previewMode, currentSectionOrder])
+  }, [previewMode, currentSectionOrder, autoSave])
   
   /**
    * 生成 PDF（用于下载或查看最终效果）
@@ -194,6 +304,13 @@ export default function WorkspacePage() {
         overflow: 'hidden'
       }}
     >
+      {/* AI 导入弹窗 */}
+      <AIImportDialog
+        isOpen={showAIImport}
+        onClose={() => setShowAIImport(false)}
+        onImport={handleAIImport}
+      />
+
       {/* 新手引导弹窗 */}
       <OnboardingGuide 
         visible={showGuide} 
@@ -327,7 +444,7 @@ export default function WorkspacePage() {
         }}>
           {/* 左侧：重置 */}
           <button
-            onClick={loadDefaultTemplate}
+            onClick={loadResume}
             disabled={loadingPdf}
             style={{
               background: 'rgba(239, 68, 68, 0.1)',
@@ -393,9 +510,45 @@ export default function WorkspacePage() {
             </div>
             
             <button
+              onClick={() => setShowResumeList(!showResumeList)}
+              style={{
+                padding: '8px 14px',
+                background: showResumeList ? 'rgba(102, 126, 234, 0.3)' : 'rgba(167, 139, 250, 0.15)',
+                border: showResumeList ? '1px solid rgba(102, 126, 234, 0.5)' : '1px solid rgba(167, 139, 250, 0.3)',
+                borderRadius: '8px',
+                color: '#c4b5fd',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              📄 我的简历
+            </button>
+            <button
+              onClick={() => setShowAIImport(true)}
+              style={{
+                padding: '8px 14px',
+                background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%)',
+                border: '1px solid rgba(102, 126, 234, 0.5)',
+                borderRadius: '8px',
+                color: '#c4b5fd',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              ✨ AI导入
+            </button>
+            <button
               onClick={() => setShowGuide(true)}
               style={{
-                padding: '6px 12px',
+                padding: '8px 14px',
                 background: 'rgba(167, 139, 250, 0.15)',
                 border: '1px solid rgba(167, 139, 250, 0.3)',
                 borderRadius: '8px',
@@ -412,6 +565,21 @@ export default function WorkspacePage() {
             </button>
           </div>
         </div>
+
+        {/* 简历列表 */}
+        {showResumeList && (
+          <div style={{ 
+            borderBottom: '1px solid rgba(255,255,255,0.1)',
+            maxHeight: '300px',
+            overflowY: 'auto'
+          }}>
+            <ResumeList
+              onSelect={handleSelectResume}
+              onCreateNew={handleCreateNew}
+              currentId={currentResumeId}
+            />
+          </div>
+        )}
 
         {/* 内容区域 */}
         <div style={{ flex: 1, overflow: 'hidden' }}>
@@ -617,7 +785,10 @@ export default function WorkspacePage() {
               resume={resume} 
               sectionOrder={currentSectionOrder} 
               scale={previewScale}
-              onUpdate={(updatedResume) => setResume(updatedResume)}
+              onUpdate={(updatedResume) => {
+                setResume(updatedResume)
+                autoSave(updatedResume)
+              }}
             />
           ) : (
             <PDFPane pdfBlob={pdfBlob} scale={previewScale} onScaleChange={setPreviewScale} />
