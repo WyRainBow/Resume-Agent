@@ -13,10 +13,20 @@ from io import BytesIO
 
 def escape_latex(text: str) -> str:
     """
-    转义 LaTeX 特殊字符
+    转义 LaTeX 特殊字符，并处理 Markdown 加粗语法
     """
     if not isinstance(text, str):
         text = str(text)
+    
+    # 先处理 **text** -> \textbf{text} (在转义之前)
+    import re
+    # 匹配 **text** 格式，转成临时占位符
+    bold_pattern = re.compile(r'\*\*(.+?)\*\*')
+    bold_matches = []
+    def save_bold(match):
+        bold_matches.append(match.group(1))
+        return f'__BOLD_{len(bold_matches)-1}__'
+    text = bold_pattern.sub(save_bold, text)
     
     """LaTeX 特殊字符转义"""
     replacements = {
@@ -35,6 +45,13 @@ def escape_latex(text: str) -> str:
     result = text
     for char, replacement in replacements.items():
         result = result.replace(char, replacement)
+    
+    # 恢复加粗文本（转义后的内容需要再次转义）
+    for i, bold_text in enumerate(bold_matches):
+        escaped_bold = bold_text
+        for char, replacement in replacements.items():
+            escaped_bold = escaped_bold.replace(char, replacement)
+        result = result.replace(f'\\_\\_BOLD\\_{i}\\_\\_', f'\\textbf{{{escaped_bold}}}')
     
     return result
 
@@ -191,29 +208,23 @@ def generate_section_summary(resume_data: Dict[str, Any], section_titles: Dict[s
     return content
 
 def generate_section_internships(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
-    """生成实习经历"""
+    """生成实习经历（简洁版：公司 - 职位 - 日期，不显示详情）"""
     content = []
     internships = resume_data.get('internships') or []
     title = (section_titles or {}).get('internships') or (section_titles or {}).get('experience', '实习经历')
     if isinstance(internships, list) and internships:
         content.append(f"\\section{{{escape_latex(title)}}}")
         for it in internships:
-            title = escape_latex(it.get('title') or '')
-            subtitle = escape_latex(it.get('subtitle') or '')
+            company = escape_latex(it.get('title') or '')
+            position = escape_latex(it.get('subtitle') or '')
             date = escape_latex(it.get('date') or '')
-            if subtitle:
-                subsection_title = f"\\textbf{{{title}}} - {subtitle}"
+            # 简洁格式：公司 - 职位    日期
+            if position:
+                line = f"\\textbf{{{company}}} - {position}"
             else:
-                subsection_title = f"\\textbf{{{title}}}"
-            content.append(f"\\datedsubsection{{{subsection_title}}}{{{date}}}")
-            highlights = it.get('highlights') or it.get('details') or []
-            if isinstance(highlights, list) and highlights:
-                content.append(r"\begin{itemize}[parsep=0.2ex]")
-                for h in highlights:
-                    if isinstance(h, str) and h.strip():
-                        content.append(f"  \\item {escape_latex(h.strip())}")
-                content.append(r"\end{itemize}")
-            content.append("")
+                line = f"\\textbf{{{company}}}"
+            content.append(f"\\datedsubsection{{{line}}}{{{date}}}")
+        content.append("")
     return content
 
 def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
@@ -383,7 +394,8 @@ def generate_section_awards(resume_data: Dict[str, Any], section_titles: Dict[st
 def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """生成开源经历"""
     content = []
-    open_source = resume_data.get('openSource') or []
+    # 兼容 openSource 和 opensource 两种字段名
+    open_source = resume_data.get('openSource') or resume_data.get('opensource') or []
     title = (section_titles or {}).get('openSource', '开源经历')
     if isinstance(open_source, list) and open_source:
         content.append(f"\\section{{{escape_latex(title)}}}")
@@ -498,6 +510,8 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     
     """按顺序生成各 section"""
     order = section_order if section_order else DEFAULT_SECTION_ORDER
+    print(f"[DEBUG] section_order received: {section_order}")
+    print(f"[DEBUG] using order: {order}")
     for section_id in order:
         generator = SECTION_GENERATORS.get(section_id)
         if generator:
