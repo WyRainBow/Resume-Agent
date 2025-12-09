@@ -54,6 +54,20 @@ export interface Education {
 }
 
 /**
+ * 模块标题配置
+ */
+export interface SectionTitles {
+  education?: string;      // 默认：教育经历
+  experience?: string;     // 默认：工作经历
+  internships?: string;    // 默认：实习经历
+  projects?: string;       // 默认：项目经历
+  skills?: string;         // 默认：专业技能
+  awards?: string;         // 默认：荣誉奖项
+  summary?: string;        // 默认：个人总结
+  openSource?: string;     // 默认：开源贡献
+}
+
+/**
  * 完整的简历数据结构
  */
 export interface Resume {
@@ -72,4 +86,5 @@ export interface Resume {
   education?: Education[];
   awards?: string[];
   summary?: string;
+  sectionTitles?: SectionTitles;  // 自定义模块标题
 }

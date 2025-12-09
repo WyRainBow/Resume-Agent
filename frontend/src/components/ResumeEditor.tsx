@@ -48,12 +48,14 @@ function SortableSection({
   section, 
   expanded, 
   onToggle, 
-  onUpdate 
+  onUpdate,
+  onTitleChange
 }: { 
   section: ResumeSection
   expanded: boolean
   onToggle: () => void
   onUpdate: (data: any) => void
+  onTitleChange: (title: string) => void
 }) {
   const {
     attributes,
@@ -142,13 +144,35 @@ function SortableSection({
             }}
           >
             <span style={{ fontSize: '16px' }}>{section.icon}</span>
-            <span style={{ 
-              color: 'white', 
-              fontSize: '14px', 
-              fontWeight: 600 
-            }}>
-              {section.title}
-            </span>
+            <input
+              type="text"
+              value={section.title}
+              onChange={(e) => onTitleChange(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              style={{ 
+                color: 'white', 
+                fontSize: '14px', 
+                fontWeight: 600,
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                cursor: 'text',
+                width: 'auto',
+                minWidth: '80px',
+                maxWidth: '150px',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.background = 'rgba(167, 139, 250, 0.2)'
+                e.currentTarget.style.border = '1px solid rgba(167, 139, 250, 0.4)'
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.background = 'transparent'
+                e.currentTarget.style.border = 'none'
+              }}
+            />
           </div>
 
           {/* 展开/收起箭头 - 点击展开 */}
@@ -808,11 +832,18 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
         setAllExpanded(false)
         isInitialLoad.current = false
       }
+      // 获取自定义标题
+      const customTitles = resumeData.sectionTitles || {}
+      
       setSections(prev => prev.map(section => {
+        // 应用自定义标题（如果有）
+        const customTitle = customTitles[section.type]
+        const baseSection = customTitle ? { ...section, title: customTitle } : section
+        
         switch (section.type) {
           case 'contact':
             return {
-              ...section,
+              ...baseSection,
               data: {
                 name: resumeData.name || '',
                 phone: resumeData.contact?.phone || resumeData.phone || '',
@@ -825,7 +856,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
             // 确保字段正确映射到前端格式
             const eduData = resumeData.education || []
             return { 
-              ...section, 
+              ...baseSection, 
               data: eduData.map((item: any) => ({
                 title: item.title || item.school || '',
                 subtitle: item.subtitle || item.degree || '',
@@ -838,7 +869,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
             // 确保字段正确映射到前端格式
             const expData = resumeData.internships || resumeData.experience || []
             return { 
-              ...section, 
+              ...baseSection, 
               data: expData.map((item: any) => ({
                 title: item.title || item.company || '',
                 subtitle: item.subtitle || item.position || '',
@@ -850,7 +881,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
             // 确保字段正确映射到前端格式
             const projData = resumeData.projects || []
             return { 
-              ...section, 
+              ...baseSection, 
               data: projData.map((item: any) => ({
                 title: item.title || item.name || '',
                 subtitle: item.subtitle || item.role || '',
@@ -859,13 +890,13 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
               }))
             }
           case 'skills':
-            return { ...section, data: resumeData.skills || [] }
+            return { ...baseSection, data: resumeData.skills || [] }
           case 'awards':
-            return { ...section, data: resumeData.awards || resumeData.honors || [] }
+            return { ...baseSection, data: resumeData.awards || resumeData.honors || [] }
           case 'summary':
-            return { ...section, data: resumeData.summary || '' }
+            return { ...baseSection, data: resumeData.summary || '' }
           default:
-            return section
+            return baseSection
         }
       }))
     }
@@ -962,6 +993,95 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
     ))
   }
 
+  function handleTitleChange(sectionId: string, title: string) {
+    setSections(prev => {
+      const newSections = prev.map(s => 
+        s.id === sectionId ? { ...s, title } : s
+      )
+      
+      // 防抖自动保存（500ms 内连续修改只触发一次）
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
+      saveTimerRef.current = setTimeout(() => {
+        // 自动触发保存
+        triggerAutoSave(newSections)
+      }, 500)
+      
+      return newSections
+    })
+  }
+  
+  // 自动保存函数（复用 handleSave 逻辑）
+  function triggerAutoSave(currentSections: ResumeSection[]) {
+    const contactSection = currentSections.find(s => s.type === 'contact')
+    const educationSection = currentSections.find(s => s.type === 'education')
+    const experienceSection = currentSections.find(s => s.type === 'experience')
+    const projectsSection = currentSections.find(s => s.type === 'projects')
+    const skillsSection = currentSections.find(s => s.type === 'skills')
+    const awardsSection = currentSections.find(s => s.type === 'awards')
+    const summarySection = currentSections.find(s => s.type === 'summary')
+
+    const convertEducationFormat = (items: any[]) => items.map(item => ({
+      school: item.title || item.school || '',
+      degree: item.subtitle || item.degree || '',
+      major: item.major || '',
+      duration: item.date || item.duration || '',
+      details: Array.isArray(item.details) ? item.details : [],
+      title: item.title || '',
+      date: item.date || '',
+    }))
+
+    const convertExperienceFormat = (items: any[]) => items.map(item => ({
+      title: item.title || '',
+      subtitle: item.subtitle || '',
+      date: item.date || '',
+      highlights: Array.isArray(item.details) ? item.details : (item.highlights || []),
+    }))
+
+    const convertProjectsFormat = (items: any[]) => items.map(item => ({
+      title: item.title || '',
+      name: item.title || '',
+      role: item.subtitle || '',
+      subtitle: item.subtitle || '',
+      date: item.date || '',
+      highlights: Array.isArray(item.details) ? item.details : (item.highlights || []),
+    }))
+
+    const sectionTitles: Record<string, string> = {}
+    currentSections.forEach(s => {
+      if (s.type !== 'contact') {
+        const defaultTitle = defaultSections.find(d => d.type === s.type)?.title
+        if (s.title !== defaultTitle) {
+          sectionTitles[s.type] = s.title
+        }
+      }
+    })
+
+    const newResumeData = {
+      name: contactSection?.data?.name || '',
+      contact: {
+        phone: contactSection?.data?.phone || '',
+        email: contactSection?.data?.email || '',
+        location: contactSection?.data?.location || '',
+      },
+      objective: contactSection?.data?.objective || '',
+      education: convertEducationFormat(educationSection?.data || []),
+      internships: convertExperienceFormat(experienceSection?.data || []),
+      projects: convertProjectsFormat(projectsSection?.data || []),
+      skills: skillsSection?.data || [],
+      awards: awardsSection?.data || [],
+      summary: summarySection?.data || '',
+      sectionTitles: Object.keys(sectionTitles).length > 0 ? sectionTitles : undefined,
+    }
+
+    const sectionOrder = currentSections
+      .filter(s => s.type !== 'contact')
+      .map(s => s.type)
+
+    onSave(newResumeData, sectionOrder)
+  }
+
   function handleSave() {
     // 将编辑器数据转换回简历 JSON 格式
     const contactSection = sections.find(s => s.type === 'contact')
@@ -1008,6 +1128,17 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
       }))
     }
 
+    // 构建自定义模块标题
+    const sectionTitles: Record<string, string> = {}
+    sections.forEach(s => {
+      if (s.type !== 'contact') {
+        const defaultTitle = defaultSections.find(d => d.type === s.type)?.title
+        if (s.title !== defaultTitle) {
+          sectionTitles[s.type] = s.title
+        }
+      }
+    })
+
     const newResumeData = {
       name: contactSection?.data?.name || '',
       contact: {
@@ -1022,6 +1153,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
       skills: skillsSection?.data || [],
       awards: awardsSection?.data || [],
       summary: summarySection?.data || '',
+      sectionTitles: Object.keys(sectionTitles).length > 0 ? sectionTitles : undefined,
     }
 
     // 获取当前 section 顺序（排除 contact，因为它总是在头部）
@@ -1103,6 +1235,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
                 expanded={expandedIds.has(section.id)}
                 onToggle={() => toggleSection(section.id)}
                 onUpdate={(data) => handleSectionUpdate(section.id, data)}
+                onTitleChange={(title) => handleTitleChange(section.id, title)}
               />
             ))}
           </SortableContext>

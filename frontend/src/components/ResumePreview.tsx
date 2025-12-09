@@ -117,6 +117,10 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
             newResume.skills[idx] = { category: textContent, details: '' }
           }
         }
+      } else if (section === 'sectionTitle') {
+        // 模块标题：sectionTitle.education, sectionTitle.experience 等
+        newResume.sectionTitles = newResume.sectionTitles || {}
+        newResume.sectionTitles[subField as keyof typeof newResume.sectionTitles] = textContent
       }
     } else if (parts.length === 3) {
       // 数组字段：education.0.school
@@ -372,10 +376,19 @@ type KeyHandler = (e: React.KeyboardEvent<HTMLElement>) => void
 function renderEducation(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler) {
   const education = resume.education
   if (!education || education.length === 0) return null
+  const title = resume.sectionTitles?.education || '教育经历'
 
   return (
     <div key="education" style={styles.section}>
-      <div style={styles.sectionTitle}>教育经历</div>
+      <div 
+        contentEditable 
+        suppressContentEditableWarning
+        style={styles.sectionTitle}
+        data-field="sectionTitle.education"
+        onBlur={onBlur}
+      >
+        {title}
+      </div>
       {education.map((edu: any, idx: number) => {
         const school = edu.school || edu.title || ''
         const degree = edu.degree || edu.subtitle || ''
@@ -433,10 +446,19 @@ function renderEducation(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHand
 function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler) {
   const internships = resume.internships
   if (!internships || internships.length === 0) return null
+  const title = resume.sectionTitles?.experience || resume.sectionTitles?.internships || '工作经历'
 
   return (
     <div key="experience" style={styles.section}>
-      <div style={styles.sectionTitle}>工作经历</div>
+      <div 
+        contentEditable 
+        suppressContentEditableWarning
+        style={styles.sectionTitle}
+        data-field="sectionTitle.experience"
+        onBlur={onBlur}
+      >
+        {title}
+      </div>
       {internships.map((item: any, idx: number) => {
         const title = item.title || item.company || ''
         const subtitle = item.subtitle || item.position || ''
@@ -492,10 +514,19 @@ function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHan
 function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler) {
   const projects = resume.projects
   if (!projects || projects.length === 0) return null
+  const title = resume.sectionTitles?.projects || '项目经历'
 
   return (
     <div key="projects" style={styles.section}>
-      <div style={styles.sectionTitle}>项目经历</div>
+      <div 
+        contentEditable 
+        suppressContentEditableWarning
+        style={styles.sectionTitle}
+        data-field="sectionTitle.projects"
+        onBlur={onBlur}
+      >
+        {title}
+      </div>
       {projects.map((item: any, idx: number) => {
         const title = item.title || item.name || ''
         const subtitle = item.subtitle || item.role || ''
@@ -553,10 +584,19 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
 function renderSkills(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler) {
   const skills = resume.skills
   if (!skills || skills.length === 0) return null
+  const title = resume.sectionTitles?.skills || '专业技能'
 
   return (
     <div key="skills" style={styles.section}>
-      <div style={styles.sectionTitle}>专业技能</div>
+      <div 
+        contentEditable 
+        suppressContentEditableWarning
+        style={styles.sectionTitle}
+        data-field="sectionTitle.skills"
+        onBlur={onBlur}
+      >
+        {title}
+      </div>
       <ul 
         contentEditable 
         suppressContentEditableWarning
@@ -587,10 +627,19 @@ function renderSkills(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler
 function renderAwards(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler) {
   const awards = resume.awards
   if (!awards || awards.length === 0) return null
+  const title = resume.sectionTitles?.awards || '荣誉奖项'
 
   return (
     <div key="awards" style={styles.section}>
-      <div style={styles.sectionTitle}>荣誉奖项</div>
+      <div 
+        contentEditable 
+        suppressContentEditableWarning
+        style={styles.sectionTitle}
+        data-field="sectionTitle.awards"
+        onBlur={onBlur}
+      >
+        {title}
+      </div>
       <div 
         contentEditable 
         suppressContentEditableWarning
@@ -613,10 +662,19 @@ function renderAwards(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler
 function renderSummary(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler) {
   const summary = resume.summary
   if (!summary) return null
+  const title = resume.sectionTitles?.summary || '个人总结'
 
   return (
     <div key="summary" style={styles.section}>
-      <div style={styles.sectionTitle}>个人总结</div>
+      <div 
+        contentEditable 
+        suppressContentEditableWarning
+        style={styles.sectionTitle}
+        data-field="sectionTitle.summary"
+        onBlur={onBlur}
+      >
+        {title}
+      </div>
       <div 
         contentEditable 
         suppressContentEditableWarning
