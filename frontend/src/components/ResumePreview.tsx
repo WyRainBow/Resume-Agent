@@ -122,16 +122,41 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
     document.execCommand(command, false, arg)
   }, [])
 
-  // 处理 Tab 键缩进
+  // 处理 Tab 键缩进 - 添加/移除 > 前缀实现层级切换
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLElement>) => {
     if (e.key === 'Tab') {
       e.preventDefault() // 阻止默认的 Tab 跳转
+      
+      // 获取当前选区
+      const selection = window.getSelection()
+      if (!selection || selection.rangeCount === 0) return
+      
+      // 找到当前光标所在的行（最近的 div 元素）
+      let currentNode = selection.anchorNode as HTMLElement | null
+      while (currentNode && currentNode.nodeName !== 'DIV') {
+        currentNode = currentNode.parentElement
+      }
+      
+      if (!currentNode) return
+      
+      // 获取行的第一个文本节点
+      const textSpan = currentNode.querySelector('span:last-of-type') as HTMLElement
+      if (!textSpan) return
+      
+      const currentText = textSpan.textContent || ''
+      
       if (e.shiftKey) {
-        // Shift+Tab: 减少缩进
-        document.execCommand('outdent', false)
+        // Shift+Tab: 移除缩进
+        if (currentNode.dataset.indent) {
+          delete currentNode.dataset.indent
+          currentNode.style.marginLeft = '0'
+        }
       } else {
-        // Tab: 增加缩进
-        document.execCommand('indent', false)
+        // Tab: 添加缩进（仅视觉效果，无标记符号）
+        if (!currentNode.dataset.indent) {
+          currentNode.dataset.indent = 'true'
+          currentNode.style.marginLeft = '18px'
+        }
       }
     }
   }, [])
@@ -307,20 +332,27 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
           const itemElements = container?.querySelectorAll(':scope > div') || e.currentTarget.querySelectorAll('li')
           if (itemElements && itemElements.length > 0) {
             const items = Array.from(itemElements).map(el => {
-              // 提取文本，处理 **标题**:内容 格式
-              const text = el.textContent?.trim() || ''
+              // 检查是否有缩进标记（通过 data-indent 属性或 marginLeft 样式）
+              const elem = el as HTMLElement
+              const hasIndent = elem.dataset.indent === 'true' || 
+                               elem.style.marginLeft === '18px'
+              const prefix = hasIndent ? '>' : ''
+              
+              // 提取文本
+              const text = (el.textContent || '').replace(/^[•·\s]+/, '').trim()
+              
               // 检查是否有粗体标题
               const boldEl = el.querySelector('span[style*="bold"]')
               if (boldEl) {
                 const boldText = boldEl.textContent?.trim() || ''
-                const restText = text.replace(boldText, '').replace(/^[：:•·\s]+/, '').trim()
+                const restText = text.replace(boldText, '').replace(/^[：:•·›\s]+/, '').trim()
                 if (restText) {
-                  return `**${boldText}**:${restText}`
+                  return `${prefix}**${boldText}**:${restText}`
                 } else {
-                  return `**${boldText}**`
+                  return `${prefix}**${boldText}**`
                 }
               }
-              return text.replace(/^[•·]\s*/, '')
+              return prefix + text.replace(/^[•·›]\s*/, '')
             }).filter(Boolean)
             newResume.projects[index].highlights = items
             newResume.projects[index].details = items

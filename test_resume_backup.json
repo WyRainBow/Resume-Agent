@@ -1,22 +1,22 @@
 {
-  "name": "韦宇",
+  "name": "张三",
   "contact": {
-    "email": "3658043236@qq.com",
-    "phone": "18933549212"
+    "email": "zhangsan@example.com",
+    "phone": "13800138000"
   },
-  "objective": "大模型应用开发/后端开发工程师",
+  "objective": "软件开发工程师",
   "sectionTitles": {
     "experience": "实习经历"
   },
   "education": [
     {
-      "title": "广东药科大学",
+      "title": "示例大学",
       "subtitle": "本科",
-      "date": "2022.09 - 2026.06",
-      "school": "广东药科大学",
+      "date": "2020.09 - 2024.06",
+      "school": "示例大学",
       "degree": "本科",
       "major": "计算机科学与技术",
-      "details": ["全国大学生数学建模省一等奖", "人工智能和大数据比赛省二等奖"]
+      "details": []
     }
   ],
   "internships": [
