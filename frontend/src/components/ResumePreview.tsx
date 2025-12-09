@@ -649,18 +649,21 @@ function renderEducation(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHand
                 </span>
               )}
             </div>
-            <div 
-              contentEditable 
-              suppressContentEditableWarning
-              style={{ fontSize: '10pt', color: '#666', marginTop: '4px', minHeight: '1em' }}
-              data-field={`education.${idx}.details`}
-              onBlur={onBlur}
-              onKeyDown={onKeyDown}
-            >
-              {Array.isArray(details) && details.length > 0 
-                ? details.join('；') 
-                : description || '点击添加描述...'}
-            </div>
+            {/* 只有在有描述内容时才显示描述行 */}
+            {((Array.isArray(details) && details.length > 0) || description) && (
+              <div 
+                contentEditable 
+                suppressContentEditableWarning
+                style={{ fontSize: '10pt', color: '#666', marginTop: '4px' }}
+                data-field={`education.${idx}.details`}
+                onBlur={onBlur}
+                onKeyDown={onKeyDown}
+              >
+                {Array.isArray(details) && details.length > 0 
+                  ? details.join('；') 
+                  : description}
+              </div>
+            )}
           </div>
         )
       })}

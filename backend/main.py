@@ -601,6 +601,12 @@ MOCK_RESUME_DATA = {
     ]
 }
 
+class SectionParseRequest(BaseModel):
+    """单模块 AI 解析请求"""
+    text: str = Field(..., description="用户粘贴的模块文本")
+    section_type: str = Field(..., description="模块类型: contact/education/experience/projects/skills/awards/summary/opensource")
+    provider: Literal["zhipu", "gemini", "mock"] = Field(default="gemini")
+
 class ResumeParseRequest(BaseModel):
     text: str = Field(..., description="用户粘贴的简历文本")
     provider: Literal["zhipu", "gemini", "mock"] = Field(default="gemini")
@@ -664,6 +670,89 @@ async def parse_resume_text(body: ResumeParseRequest):
     }
     
     return {"resume": data, "provider": body.provider}
+
+
+@app.post("/api/resume/parse-section")
+async def parse_section_text(body: SectionParseRequest):
+    """
+    AI 解析单个模块文本 → 结构化数据
+    支持的模块类型: contact, education, experience, projects, skills, awards, summary, opensource
+    """
+    import re
+    import json as _json
+    
+    if body.provider == "mock":
+        mock_data = {
+            "contact": {"name": "张三", "phone": "138****8888", "email": "test@example.com", "location": "北京"},
+            "education": [{"title": "示例大学", "subtitle": "本科", "major": "计算机科学", "date": "2020-2024"}],
+            "experience": [{"title": "示例公司", "subtitle": "软件工程师", "date": "2023-至今", "highlights": ["负责后端开发"]}],
+            "projects": [{"title": "示例项目", "subtitle": "负责人", "date": "2023", "highlights": ["项目描述"]}],
+            "skills": [{"category": "编程语言", "details": "Java, Python"}],
+            "awards": ["优秀学生"],
+            "summary": "热爱技术的软件工程师",
+            "opensource": [{"title": "开源项目", "subtitle": "贡献者", "items": ["提交PR"]}]
+        }
+        return {"data": mock_data.get(body.section_type, {}), "section_type": body.section_type, "provider": "mock"}
+    
+    # 根据模块类型构建不同的 prompt
+    section_prompts = {
+        "contact": '提取个人信息,输出JSON:{"name":"姓名","phone":"电话","email":"邮箱","location":"地区","objective":"求职意向"}',
+        "education": '提取教育经历,输出JSON数组:[{"title":"学校","subtitle":"学历","major":"专业","date":"时间","details":["描述"]}]',
+        "experience": '提取工作/实习经历,输出JSON数组:[{"title":"公司","subtitle":"职位","date":"时间","highlights":["工作内容"]}]',
+        "projects": '提取项目经历,输出JSON数组:[{"title":"项目名","subtitle":"角色","date":"时间","highlights":["描述"],"repoUrl":"仓库链接(可选)"}]',
+        "skills": '提取技能,输出JSON数组:[{"category":"技能类别","details":"技能描述"}]',
+        "awards": '提取荣誉奖项,输出JSON字符串数组:["奖项1","奖项2"]',
+        "summary": '提取个人总结,输出JSON:{"summary":"总结内容"}',
+        "opensource": '提取开源经历,输出JSON数组:[{"title":"项目名","subtitle":"角色","items":["贡献描述"],"repoUrl":"仓库链接"}]'
+    }
+    
+    section_prompt = section_prompts.get(body.section_type, '提取信息,输出JSON')
+    
+    prompt = f"""{section_prompt}
+只输出JSON,不要markdown,不要解释。
+
+文本内容:
+{body.text}"""
+    
+    try:
+        raw = call_llm(body.provider, prompt)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
+    
+    # 清理返回内容
+    cleaned = re.sub(r'<\|begin_of_box\|>', '', raw)
+    cleaned = re.sub(r'<\|end_of_box\|>', '', cleaned)
+    cleaned = re.sub(r'```json\s*', '', cleaned)
+    cleaned = re.sub(r'```\s*', '', cleaned)
+    cleaned = cleaned.strip()
+    
+    # 解析 JSON
+    data = None
+    try:
+        data = _json.loads(cleaned)
+    except Exception:
+        try:
+            # 尝试提取 JSON 部分
+            if cleaned.startswith('['):
+                start = cleaned.find('[')
+                end = cleaned.rfind(']')
+            else:
+                start = cleaned.find('{')
+                end = cleaned.rfind('}')
+            if start != -1 and end != -1 and end > start:
+                json_str = cleaned[start:end+1]
+                data = _json.loads(json_str)
+        except Exception:
+            pass
+    
+    if data is None:
+        raise HTTPException(status_code=500, detail="AI 返回的内容无法解析为 JSON，请重试")
+    
+    # 对于 summary 类型，提取 summary 字段
+    if body.section_type == "summary" and isinstance(data, dict):
+        data = data.get("summary", data)
+    
+    return {"data": data, "section_type": body.section_type, "provider": body.provider}
 
 
 """
