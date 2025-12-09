@@ -64,13 +64,15 @@ except Exception as e:
 """
 app = FastAPI(title="Resume Agent API")
 
-# ========== 全局 AI 配置 ==========
-DEFAULT_AI_PROVIDER = "gemini"  # 默认 AI 提供商: "gemini" 或 "zhipu"
+"""
+========== 全局 AI 配置 ==========
+默认 AI 提供商: "gemini" 或 "zhipu"
+"""
+DEFAULT_AI_PROVIDER = "gemini"
 DEFAULT_AI_MODEL = {
     "gemini": "gemini-2.5-pro",
     "zhipu": "glm-4-flash"
 }
-# =================================
 
 @app.get("/api/ai/config")
 async def get_ai_config():
@@ -664,7 +666,9 @@ async def parse_resume_text(body: ResumeParseRequest):
     return {"resume": data, "provider": body.provider}
 
 
-# ========== Reflection Agent API ==========
+"""
+========== Reflection Agent API ==========
+"""
 from backend.agent import run_reflection_agent, quick_fix_resume, analyze_resume_screenshot
 
 class AgentReflectRequest(BaseModel):
@@ -725,7 +729,9 @@ async def agent_vision_analyze(body: VisionAnalyzeRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"视觉分析失败: {e}")
 
-# ==========================================
+"""
+==========================================
+"""
 
 
 @app.post("/api/resume/generate", response_model=ResumeGenerateResponse)

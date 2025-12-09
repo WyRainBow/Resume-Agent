@@ -423,7 +423,9 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
             content.append("")
     return content
 
-# Section 生成器映射
+"""
+Section 生成器映射
+"""
 SECTION_GENERATORS = {
     'contact': None,  # 联系信息在头部特殊处理
     'summary': generate_section_summary,
@@ -436,8 +438,10 @@ SECTION_GENERATORS = {
     'opensource': generate_section_opensource,
 }
 
-# 默认 section 顺序（与前端可视化编辑器一致）
-# 前端顺序: contact → education → experience → projects → skills → awards → summary
+"""
+默认 section 顺序（与前端可视化编辑器一致）
+前端顺序: contact → education → experience → projects → skills → awards → summary
+"""
 DEFAULT_SECTION_ORDER = [
     'education', 'experience', 'internships', 'projects', 
     'skills', 'awards', 'summary', 'opensource'
@@ -603,7 +607,9 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path) -> BytesIO:
         shutil.rmtree(temp_dir, ignore_errors=True)
 
 
-# PDF 缓存（内存缓存，最多保留 50 个）
+"""
+PDF 缓存（内存缓存，最多保留 50 个）
+"""
 _pdf_cache: Dict[str, bytes] = {}
 _pdf_cache_order: List[str] = []
 _PDF_CACHE_MAX_SIZE = 50
