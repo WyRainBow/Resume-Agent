@@ -296,7 +296,13 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                     if isinstance(highlights, list) and highlights:
                         for h in highlights:
                             if isinstance(h, str) and h.strip():
-                                content.append(f"  \\item {escape_latex(h.strip())}")
+                                # 支持 > 前缀表示缩进
+                                is_indented = h.startswith('>')
+                                text = h[1:].strip() if is_indented else h.strip()
+                                if is_indented:
+                                    content.append(f"    \\item[] \\hspace{{1em}} {escape_latex(text)}")
+                                else:
+                                    content.append(f"  \\item {escape_latex(text)}")
                 content.append(r"\end{itemize}")
                 content.append("")
     return content

@@ -159,21 +159,45 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
       } else if (field === 'objective') {
         newResume.objective = textContent
       } else if (field === 'skills') {
-        // 技能：按行分割，解析 "技能名: 描述" 格式
-        const lines = textContent.split(/[\n]+/).map(s => s.trim()).filter(Boolean)
-        newResume.skills = lines.map(line => {
-          const colonIdx = line.indexOf(':')
-          if (colonIdx > 0) {
-            return {
-              category: line.substring(0, colonIdx).trim(),
-              details: line.substring(colonIdx + 1).trim()
+        // 技能：从 <li> 元素解析，格式 "技能名: 描述"
+        const liElements = e.currentTarget.querySelectorAll('li')
+        if (liElements.length > 0) {
+          newResume.skills = Array.from(liElements).map(li => {
+            const text = li.textContent?.trim() || ''
+            const colonIdx = text.indexOf(':')
+            if (colonIdx > 0) {
+              return {
+                category: text.substring(0, colonIdx).trim(),
+                details: text.substring(colonIdx + 1).trim()
+              }
             }
-          }
-          return { category: line, details: '' }
-        })
+            return { category: text, details: '' }
+          }).filter(s => s.category || s.details)
+        } else {
+          // 回退：按行分割
+          const lines = textContent.split(/[\n]+/).map(s => s.trim()).filter(Boolean)
+          newResume.skills = lines.map(line => {
+            const colonIdx = line.indexOf(':')
+            if (colonIdx > 0) {
+              return {
+                category: line.substring(0, colonIdx).trim(),
+                details: line.substring(colonIdx + 1).trim()
+              }
+            }
+            return { category: line, details: '' }
+          })
+        }
       } else if (field === 'awards') {
-        // 奖项：按行分割
-        newResume.awards = textContent.split(/[•\n]+/).map(s => s.trim()).filter(Boolean)
+        // 奖项：从 <li> 元素解析
+        const liElements = e.currentTarget.querySelectorAll('li')
+        if (liElements.length > 0) {
+          newResume.awards = Array.from(liElements)
+            .map(li => li.textContent?.trim() || '')
+            .filter(Boolean)
+        } else {
+          // 回退：按行分割
+          newResume.awards = textContent.split(/[•\n]+/).map(s => s.trim()).filter(Boolean)
+        }
       }
     } else if (parts.length === 2) {
       // contact.phone, contact.email, contact.location 或 skills.0
@@ -278,15 +302,31 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
         } else if (subField === 'date') {
           newResume.projects[index].date = textContent
         } else if (subField === 'details') {
-          // 从 HTML 中提取列表项
-          const liElements = e.currentTarget.querySelectorAll('li')
-          if (liElements.length > 0) {
-            const items = Array.from(liElements).map(li => li.textContent?.trim() || '').filter(Boolean)
+          // 从 HTML 中提取列表项（支持 div 和 li 元素）
+          const container = e.currentTarget.querySelector('div')
+          const itemElements = container?.querySelectorAll(':scope > div') || e.currentTarget.querySelectorAll('li')
+          if (itemElements && itemElements.length > 0) {
+            const items = Array.from(itemElements).map(el => {
+              // 提取文本，处理 **标题**:内容 格式
+              const text = el.textContent?.trim() || ''
+              // 检查是否有粗体标题
+              const boldEl = el.querySelector('span[style*="bold"]')
+              if (boldEl) {
+                const boldText = boldEl.textContent?.trim() || ''
+                const restText = text.replace(boldText, '').replace(/^[：:•·\s]+/, '').trim()
+                if (restText) {
+                  return `**${boldText}**:${restText}`
+                } else {
+                  return `**${boldText}**`
+                }
+              }
+              return text.replace(/^[•·]\s*/, '')
+            }).filter(Boolean)
             newResume.projects[index].highlights = items
             newResume.projects[index].details = items
           } else {
-            // 没有列表结构时，按换行分割
-            const items = textContent.split(/[\n]+/).map(s => s.trim()).filter(Boolean)
+            // 没有列表结构时，按换行或 • 分割
+            const items = textContent.split(/[•·\n]+/).map(s => s.trim()).filter(Boolean)
             newResume.projects[index].highlights = items
             newResume.projects[index].details = items
           }
@@ -772,33 +812,50 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
               {details.length > 0 
                 ? <div style={{ margin: 0 }}>
                     {details.map((h: string, i: number) => {
-                      const isBold = h.startsWith('**') && h.endsWith('**')
-                      const content = isBold ? h.slice(2, -2) : h
-                      return (
-                        <div key={i} style={{ 
-                          display: 'flex', 
-                          alignItems: 'flex-start',
-                          marginBottom: '3px',
-                          marginLeft: isBold ? '0' : '14px'
-                        }}>
-                          <span style={{ 
-                            marginRight: '6px', 
-                            lineHeight: '1.6',
-                            fontSize: isBold ? '14px' : '20px',
-                            marginTop: isBold ? '0' : '-6px'
-                          }}>
-                            {isBold ? '•' : '·'}
-                          </span>
-                          <span style={{ 
-                            fontWeight: isBold ? 'bold' : 'normal',
-                            flex: 1,
-                            lineHeight: '1.6',
-                            color: isBold ? '#000' : '#333'
-                          }}>
-                            {content}
-                          </span>
-                        </div>
-                      )
+                      // 支持缩进：以 > 开头表示下一级
+                      const isIndented = h.startsWith('>')
+                      const text = isIndented ? h.slice(1) : h
+                      const indentStyle = isIndented ? { marginLeft: '18px' } : {}
+                      
+                      // 支持三种格式：
+                      // 1. **标题** - 纯粗体标题
+                      // 2. **标题**:内容 - 粗体标题 + 内容
+                      // 3. 普通文本
+                      const boldMatch = text.match(/^\*\*(.+?)\*\*(.*)$/)
+                      const isBoldTitle = text.startsWith('**') && text.endsWith('**')
+                      const hasBoldPrefix = boldMatch && !isBoldTitle
+                      
+                      if (isBoldTitle) {
+                        // 纯粗体标题
+                        const content = text.slice(2, -2)
+                        return (
+                          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '3px', ...indentStyle }}>
+                            <span style={{ marginRight: '6px', lineHeight: '1.6', fontSize: '14px' }}>•</span>
+                            <span style={{ fontWeight: 'bold', flex: 1, lineHeight: '1.6', color: '#000' }}>{content}</span>
+                          </div>
+                        )
+                      } else if (hasBoldPrefix) {
+                        // **标题**:内容 格式
+                        const boldPart = boldMatch[1]
+                        const restPart = boldMatch[2].replace(/^[:：]\s*/, '') // 移除冒号
+                        return (
+                          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '3px', ...indentStyle }}>
+                            <span style={{ marginRight: '6px', lineHeight: '1.6', fontSize: '14px' }}>•</span>
+                            <span style={{ flex: 1, lineHeight: '1.6' }}>
+                              <span style={{ fontWeight: 'bold', color: '#000' }}>{boldPart}</span>
+                              {restPart && <span style={{ color: '#333' }}>：{restPart}</span>}
+                            </span>
+                          </div>
+                        )
+                      } else {
+                        // 普通文本
+                        return (
+                          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '3px', marginLeft: isIndented ? '32px' : '14px' }}>
+                            <span style={{ marginRight: '6px', lineHeight: '1.6', fontSize: '20px', marginTop: '-6px' }}>·</span>
+                            <span style={{ flex: 1, lineHeight: '1.6', color: '#333' }}>{text}</span>
+                          </div>
+                        )
+                      }
                     })}
                   </div>
                 : '点击添加项目描述...'}
