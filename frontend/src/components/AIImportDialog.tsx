@@ -4,7 +4,7 @@ import type { Resume } from '../types/resume'
 interface Props {
   isOpen: boolean
   onClose: () => void
-  onImport: (resume: Resume) => void
+  onImport: (resume: Resume, saveToList: boolean) => void  // 增加是否保存参数
 }
 
 export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
@@ -13,8 +13,35 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
   const [error, setError] = useState('')
   const [elapsedTime, setElapsedTime] = useState(0) // 已用时间（毫秒）
   const [finalTime, setFinalTime] = useState<number | null>(null) // 最终耗时
+  const [parsedResume, setParsedResume] = useState<Resume | null>(null) // 解析结果
+  const [showConfirm, setShowConfirm] = useState(false) // 显示确认弹窗
+  const [provider, setProvider] = useState<'gemini' | 'zhipu'>('gemini') // 当前选择的提供商
+  const [aiConfig, setAiConfig] = useState<{
+    defaultProvider: string
+    models: Record<string, string>
+  } | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef<number>(0)
+
+  // 获取 AI 配置
+  useEffect(() => {
+    fetch('/api/ai/config')
+      .then(res => res.json())
+      .then(data => {
+        setAiConfig(data)
+        setProvider(data.defaultProvider as 'gemini' | 'zhipu')
+      })
+      .catch(() => {})
+  }, [])
+
+  // 获取当前模型显示名称
+  const getModelDisplayName = (p: string) => {
+    const modelName = aiConfig?.models?.[p] || ''
+    return modelName
+      .replace('gemini-', 'Gemini ')
+      .replace('glm-', 'GLM ')
+      .replace('-', ' ')
+  }
 
   // 清理计时器
   useEffect(() => {
@@ -60,7 +87,7 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
       const response = await fetch('/api/resume/parse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: text.trim() })
+        body: JSON.stringify({ text: text.trim(), provider })
       })
 
       stopTimer()
@@ -70,9 +97,8 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
       }
 
       const data = await response.json()
-      onImport(data.resume)
-      setText('')
-      onClose()
+      setParsedResume(data.resume)
+      setShowConfirm(true) // 显示确认弹窗
     } catch (err) {
       stopTimer()
       setError('AI 解析失败，请检查内容格式或稍后重试')
@@ -87,7 +113,152 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
     return `${seconds}s`
   }
 
+  // 处理确认导入
+  const handleConfirmImport = (saveToList: boolean) => {
+    if (parsedResume) {
+      onImport(parsedResume, saveToList)
+      setText('')
+      setParsedResume(null)
+      setShowConfirm(false)
+      setFinalTime(null)
+      onClose()
+    }
+  }
+
+  // 取消导入
+  const handleCancelConfirm = () => {
+    setShowConfirm(false)
+    setParsedResume(null)
+  }
+
   if (!isOpen) return null
+
+  // 显示确认弹窗
+  if (showConfirm && parsedResume) {
+    return (
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 9999,
+        }}
+      >
+        <div
+          style={{
+            width: '450px',
+            maxWidth: '90vw',
+            background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
+            borderRadius: '16px',
+            boxShadow: '0 25px 50px rgba(0, 0, 0, 0.5)',
+            overflow: 'hidden',
+          }}
+        >
+          {/* 标题 */}
+          <div style={{ padding: '24px 24px 16px', textAlign: 'center' }}>
+            <div style={{ fontSize: '48px', marginBottom: '12px' }}>✅</div>
+            <h2 style={{ margin: 0, color: 'white', fontSize: '20px', fontWeight: 600 }}>
+              解析成功！
+            </h2>
+            <div style={{
+              marginTop: '8px',
+              padding: '4px 10px',
+              background: 'rgba(102, 126, 234, 0.2)',
+              borderRadius: '4px',
+              color: 'rgba(255,255,255,0.6)',
+              fontSize: '11px',
+            }}>
+              🤖 {getModelDisplayName(provider)}
+            </div>
+            <p style={{ margin: '8px 0 0', color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
+              已识别到简历信息：{parsedResume.name || '未知'}
+            </p>
+            {finalTime !== null && (
+              <div style={{
+                marginTop: '12px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                background: finalTime < 5000 ? 'rgba(34, 197, 94, 0.2)' : 'rgba(251, 191, 36, 0.2)',
+                borderRadius: '6px',
+                color: finalTime < 5000 ? '#86efac' : '#fcd34d',
+                fontSize: '13px',
+                fontFamily: 'monospace',
+              }}>
+                <span>⏱️</span>
+                <span>耗时 {formatTime(finalTime)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* 选项按钮 */}
+          <div style={{ padding: '16px 24px 24px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <button
+              onClick={() => handleConfirmImport(true)}
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                border: 'none',
+                borderRadius: '10px',
+                color: 'white',
+                fontSize: '15px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+              }}
+            >
+              💾 保存到我的简历
+            </button>
+            <button
+              onClick={() => handleConfirmImport(false)}
+              style={{
+                width: '100%',
+                padding: '14px',
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: '10px',
+                color: 'white',
+                fontSize: '15px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+              }}
+            >
+              📝 仅预览编辑（不保存）
+            </button>
+            <button
+              onClick={handleCancelConfirm}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: 'transparent',
+                border: 'none',
+                color: 'rgba(255, 255, 255, 0.5)',
+                fontSize: '14px',
+                cursor: 'pointer',
+              }}
+            >
+              取消
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -231,7 +402,31 @@ XX项目 - 核心开发 - 2023.01-2023.06
               lineHeight: 1.6,
             }}
           >
-            💡 <strong>提示：</strong>支持各种格式的简历文本，AI 会自动识别并提取以下信息：
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <span>🤖 AI 模型：</span>
+              <select
+                value={provider}
+                onChange={(e) => setProvider(e.target.value as 'gemini' | 'zhipu')}
+                style={{
+                  padding: '6px 12px',
+                  background: 'rgba(102, 126, 234, 0.3)',
+                  border: '1px solid rgba(102, 126, 234, 0.5)',
+                  borderRadius: '6px',
+                  color: 'white',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  outline: 'none',
+                }}
+              >
+                <option value="gemini" style={{ background: '#1e1b4b' }}>
+                  Gemini 2.5 Pro
+                </option>
+                <option value="zhipu" style={{ background: '#1e1b4b' }}>
+                  智谱 GLM-4-Flash
+                </option>
+              </select>
+            </div>
+            支持各种格式的简历文本，AI 会自动识别并提取以下信息：
             <ul style={{ margin: '8px 0 0 16px', padding: 0 }}>
               <li>基本信息（姓名、联系方式、求职意向）</li>
               <li>教育经历</li>

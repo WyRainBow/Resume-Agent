@@ -150,19 +150,37 @@ export default function WorkspacePage() {
   /**
    * AI 导入简历
    */
-  const handleAIImport = useCallback((importedResume: Resume) => {
-    // 保存为新简历
-    const saved = saveResume(importedResume)
+  const handleAIImport = useCallback((importedResume: Resume, saveToList: boolean) => {
     setResume(importedResume)
-    setCurrentResumeIdState(saved.id)
     setShowEditor(true)
     setPreviewMode('live')
     setCurrentSectionOrder(defaultSectionOrder)
+    
+    if (saveToList) {
+      // 保存到我的简历
+      const saved = saveResume(importedResume)
+      setCurrentResumeIdState(saved.id)
+    } else {
+      // 仅预览，不保存到列表
+      setCurrentResumeIdState(null)
+    }
+    
     // 生成 PDF
     renderPDF(importedResume, false, defaultSectionOrder)
       .then(blob => setPdfBlob(blob))
       .catch(err => console.log('PDF 后台生成失败:', err))
   }, [])
+
+  /**
+   * 手动保存当前简历到列表
+   */
+  const handleSaveToList = useCallback(() => {
+    if (resume) {
+      const saved = saveResume(resume, currentResumeId || undefined)
+      setCurrentResumeIdState(saved.id)
+      alert('已保存到我的简历！')
+    }
+  }, [resume, currentResumeId])
 
   // 分割条拖拽处理
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -544,6 +562,31 @@ export default function WorkspacePage() {
               }}
             >
               ✨ AI导入
+            </button>
+            <button
+              onClick={handleSaveToList}
+              disabled={!resume}
+              style={{
+                padding: '8px 14px',
+                background: currentResumeId 
+                  ? 'rgba(34, 197, 94, 0.15)' 
+                  : 'rgba(251, 191, 36, 0.15)',
+                border: currentResumeId 
+                  ? '1px solid rgba(34, 197, 94, 0.4)' 
+                  : '1px solid rgba(251, 191, 36, 0.4)',
+                borderRadius: '8px',
+                color: currentResumeId ? '#86efac' : '#fcd34d',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: resume ? 'pointer' : 'not-allowed',
+                opacity: resume ? 1 : 0.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+              title={currentResumeId ? '更新保存' : '保存为新简历'}
+            >
+              💾 {currentResumeId ? '已保存' : '保存'}
             </button>
             <button
               onClick={() => setShowGuide(true)}

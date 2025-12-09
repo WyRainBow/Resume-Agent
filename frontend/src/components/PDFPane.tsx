@@ -103,7 +103,13 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
         canvas.style.height = `${Math.floor(viewport.height)}px`
         canvas.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)'
         canvas.style.display = 'block'
-        canvas.style.marginBottom = '20px'
+        canvas.style.flexShrink = '0'  // 防止被压缩
+        
+        // 创建包装 div，确保间距
+        const wrapper = document.createElement('div')
+        wrapper.style.marginBottom = '24px'
+        wrapper.style.flexShrink = '0'
+        wrapper.appendChild(canvas)
         
         context.scale(dpr, dpr)
         
@@ -116,9 +122,9 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
         
         await page.render(renderContext).promise
         
-        // 添加到容器
+        // 添加到容器（使用 wrapper 确保间距）
         if (canvasContainer) {
-          canvasContainer.appendChild(canvas)
+          canvasContainer.appendChild(wrapper)
         }
       }
       
@@ -208,7 +214,9 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
                 alignItems: 'center',
                 backgroundColor: 'white',
                 padding: '20px',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                gap: '0',  // 间距由 wrapper 的 marginBottom 控制
+                minHeight: 'fit-content'
               }}
             />
           </div>
