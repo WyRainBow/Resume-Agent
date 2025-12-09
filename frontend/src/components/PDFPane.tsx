@@ -77,7 +77,8 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
       
       // PDF 实际渲染比例 = 用户设置的 scale * 1.2
       const renderScale = scale * 1.2
-      const dpr = window.devicePixelRatio || 1
+      // 使用更高的分辨率渲染以提高清晰度（至少 2x）
+      const dpr = Math.max(window.devicePixelRatio || 1, 2)
       
       // 清除旧内容
       const canvasContainer = container.querySelector('.pdf-canvas-container')
