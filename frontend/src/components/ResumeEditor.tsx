@@ -19,7 +19,7 @@ import { CSS } from '@dnd-kit/utilities'
 
 type ResumeSection = {
   id: string
-  type: 'contact' | 'education' | 'experience' | 'projects' | 'skills' | 'awards' | 'summary'
+  type: 'contact' | 'education' | 'experience' | 'projects' | 'skills' | 'awards' | 'summary' | 'opensource'
   title: string
   icon: string
   data: any
@@ -36,6 +36,7 @@ const defaultSections: ResumeSection[] = [
   { id: 'education', type: 'education', title: '教育经历', icon: '🎓', data: [] },
   { id: 'experience', type: 'experience', title: '工作经历', icon: '💼', data: [] },
   { id: 'projects', type: 'projects', title: '项目经历', icon: '🚀', data: [] },
+  { id: 'opensource', type: 'opensource', title: '开源经历', icon: '🌐', data: [] },
   { id: 'skills', type: 'skills', title: '专业技能', icon: '⚡', data: [] },
   { id: 'awards', type: 'awards', title: '荣誉奖项', icon: '🏆', data: [] },
   { id: 'summary', type: 'summary', title: '个人总结', icon: '📝', data: '' },
@@ -570,10 +571,31 @@ function SectionEditor({ section, onUpdate }: { section: ResumeSection, onUpdate
                   e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
                 }}
               />
+              {section.type === 'projects' && (
+                <>
+                  <label style={labelStyle}>🔗 仓库链接（可选）</label>
+                  <input
+                    style={inputStyle}
+                    value={item.repoUrl || ''}
+                    onChange={(e) => {
+                      const newItems = [...items]
+                      newItems[index] = { ...item, repoUrl: e.target.value }
+                      onUpdate(newItems)
+                    }}
+                    placeholder="如：https://github.com/user/repo"
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
+                    }}
+                  />
+                </>
+              )}
             </div>
           ))}
           <button
-            onClick={() => onUpdate([...items, { title: '', subtitle: '', date: '', details: [] }])}
+            onClick={() => onUpdate([...items, { title: '', subtitle: '', date: '', details: [], repoUrl: '' }])}
             style={{
               width: '100%',
               padding: '12px',
@@ -769,6 +791,135 @@ function SectionEditor({ section, onUpdate }: { section: ResumeSection, onUpdate
         </div>
       )
 
+    case 'opensource':
+      const opensourceItems = Array.isArray(section.data) ? section.data : []
+      return (
+        <div style={{ paddingTop: '16px' }}>
+          {opensourceItems.map((item: any, idx: number) => (
+            <div key={idx} style={{ 
+              background: 'rgba(255, 255, 255, 0.03)', 
+              borderRadius: '8px', 
+              padding: '12px', 
+              marginBottom: '12px',
+              border: '1px solid rgba(255, 255, 255, 0.08)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '12px' }}>开源项目 {idx + 1}</span>
+                <button
+                  onClick={() => {
+                    const newItems = opensourceItems.filter((_: any, i: number) => i !== idx)
+                    onUpdate(newItems)
+                  }}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: 'none',
+                    borderRadius: '4px',
+                    color: '#f87171',
+                    padding: '4px 8px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                  }}
+                >
+                  删除
+                </button>
+              </div>
+              <label style={labelStyle}>项目名称</label>
+              <input
+                style={inputStyle}
+                value={item.title || ''}
+                onChange={(e) => {
+                  const newItems = [...opensourceItems]
+                  newItems[idx] = { ...item, title: e.target.value }
+                  onUpdate(newItems)
+                }}
+                placeholder="如：Kubernetes"
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
+                  e.currentTarget.style.boxShadow = '0 0 0 2px rgba(167, 139, 250, 0.18)'
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
+                  e.currentTarget.style.boxShadow = 'none'
+                }}
+              />
+              <label style={labelStyle}>角色/贡献类型</label>
+              <input
+                style={inputStyle}
+                value={item.subtitle || ''}
+                onChange={(e) => {
+                  const newItems = [...opensourceItems]
+                  newItems[idx] = { ...item, subtitle: e.target.value }
+                  onUpdate(newItems)
+                }}
+                placeholder="如：核心贡献者"
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
+                  e.currentTarget.style.boxShadow = '0 0 0 2px rgba(167, 139, 250, 0.18)'
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
+                  e.currentTarget.style.boxShadow = 'none'
+                }}
+              />
+              <label style={labelStyle}>贡献描述（每行一条）</label>
+              <textarea
+                style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }}
+                value={(item.items || []).join('\n')}
+                onChange={(e) => {
+                  const newItems = [...opensourceItems]
+                  newItems[idx] = { ...item, items: e.target.value.split('\n').filter((s: string) => s.trim()) }
+                  onUpdate(newItems)
+                }}
+                placeholder="提交了性能优化 PR&#10;修复了关键 Bug"
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
+                  e.currentTarget.style.boxShadow = '0 0 0 2px rgba(167, 139, 250, 0.18)'
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
+                  e.currentTarget.style.boxShadow = 'none'
+                }}
+              />
+              <label style={labelStyle}>🔗 仓库链接（可选）</label>
+              <input
+                style={inputStyle}
+                value={item.repoUrl || ''}
+                onChange={(e) => {
+                  const newItems = [...opensourceItems]
+                  newItems[idx] = { ...item, repoUrl: e.target.value }
+                  onUpdate(newItems)
+                }}
+                placeholder="如：https://github.com/kubernetes/kubernetes"
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
+                  e.currentTarget.style.boxShadow = '0 0 0 2px rgba(167, 139, 250, 0.18)'
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
+                  e.currentTarget.style.boxShadow = 'none'
+                }}
+              />
+            </div>
+          ))}
+          <button
+            onClick={() => onUpdate([...opensourceItems, { title: '', subtitle: '', items: [], repoUrl: '' }])}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: 'rgba(167, 139, 250, 0.15)',
+              border: '2px dashed rgba(167, 139, 250, 0.4)',
+              borderRadius: '12px',
+              color: '#a78bfa',
+              fontSize: '14px',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            + 添加开源项目
+          </button>
+        </div>
+      )
+
     default:
       return null
   }
@@ -886,11 +1037,23 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
                 title: item.title || item.name || '',
                 subtitle: item.subtitle || item.role || '',
                 date: item.date || '',
-                details: item.details || item.highlights || []
+                details: item.details || item.highlights || [],
+                repoUrl: item.repoUrl || ''
               }))
             }
           case 'skills':
             return { ...baseSection, data: resumeData.skills || [] }
+          case 'opensource':
+            const osData = resumeData.openSource || []
+            return { 
+              ...baseSection, 
+              data: osData.map((item: any) => ({
+                title: item.title || '',
+                subtitle: item.subtitle || '',
+                items: item.items || [],
+                repoUrl: item.repoUrl || ''
+              }))
+            }
           case 'awards':
             return { ...baseSection, data: resumeData.awards || resumeData.honors || [] }
           case 'summary':
@@ -1018,6 +1181,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
     const educationSection = currentSections.find(s => s.type === 'education')
     const experienceSection = currentSections.find(s => s.type === 'experience')
     const projectsSection = currentSections.find(s => s.type === 'projects')
+    const opensourceSection = currentSections.find(s => s.type === 'opensource')
     const skillsSection = currentSections.find(s => s.type === 'skills')
     const awardsSection = currentSections.find(s => s.type === 'awards')
     const summarySection = currentSections.find(s => s.type === 'summary')
@@ -1046,6 +1210,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
       subtitle: item.subtitle || '',
       date: item.date || '',
       highlights: Array.isArray(item.details) ? item.details : (item.highlights || []),
+      repoUrl: item.repoUrl || '',
     }))
 
     const sectionTitles: Record<string, string> = {}
@@ -1069,6 +1234,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
       education: convertEducationFormat(educationSection?.data || []),
       internships: convertExperienceFormat(experienceSection?.data || []),
       projects: convertProjectsFormat(projectsSection?.data || []),
+      openSource: opensourceSection?.data || [],
       skills: skillsSection?.data || [],
       awards: awardsSection?.data || [],
       summary: summarySection?.data || '',
@@ -1088,6 +1254,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
     const educationSection = sections.find(s => s.type === 'education')
     const experienceSection = sections.find(s => s.type === 'experience')
     const projectsSection = sections.find(s => s.type === 'projects')
+    const opensourceSection = sections.find(s => s.type === 'opensource')
     const skillsSection = sections.find(s => s.type === 'skills')
     const awardsSection = sections.find(s => s.type === 'awards')
     const summarySection = sections.find(s => s.type === 'summary')
@@ -1125,6 +1292,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
         subtitle: item.subtitle || '',                // 保留 subtitle
         date: item.date || '',
         highlights: Array.isArray(item.details) ? item.details : (item.highlights || []),
+        repoUrl: item.repoUrl || '',                  // 仓库链接
       }))
     }
 
@@ -1150,6 +1318,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
       education: convertEducationFormat(educationSection?.data || []),
       internships: convertExperienceFormat(experienceSection?.data || []),
       projects: convertProjectsFormat(projectsSection?.data || []),
+      openSource: opensourceSection?.data || [],
       skills: skillsSection?.data || [],
       awards: awardsSection?.data || [],
       summary: summarySection?.data || '',

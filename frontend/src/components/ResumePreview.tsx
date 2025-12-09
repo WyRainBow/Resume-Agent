@@ -201,7 +201,7 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
     )
   }
 
-  const defaultOrder = ['education', 'experience', 'projects', 'skills', 'awards', 'summary']
+  const defaultOrder = ['education', 'experience', 'projects', 'opensource', 'skills', 'awards', 'summary']
   const order = (sectionOrder && sectionOrder.length > 0) ? sectionOrder : defaultOrder
 
   return (
@@ -360,6 +360,8 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
               return renderAwards(resume, handleBlur, handleKeyDown)
             case 'summary':
               return renderSummary(resume, handleBlur, handleKeyDown)
+            case 'opensource':
+              return renderOpenSource(resume, handleBlur, handleKeyDown)
             default:
               return null
           }
@@ -532,6 +534,7 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
         const subtitle = item.subtitle || item.role || ''
         const date = item.date || ''
         const details = item.highlights || item.details || []
+        const repoUrl = item.repoUrl || ''
         
         if (!title) return null
         
@@ -549,6 +552,17 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
                 >
                   {title}{subtitle ? ` - ${subtitle}` : ''}
                 </div>
+                {repoUrl && (
+                  <a 
+                    href={repoUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={{ marginLeft: '8px', color: '#6366f1', fontSize: '10pt', textDecoration: 'none' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    🔗 仓库
+                  </a>
+                )}
               </div>
               {date && (
                 <span 
@@ -685,6 +699,76 @@ function renderSummary(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandle
       >
         {summary}
       </div>
+    </div>
+  )
+}
+
+function renderOpenSource(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler) {
+  const openSource = resume.openSource
+  if (!openSource || openSource.length === 0) return null
+  const title = resume.sectionTitles?.openSource || '开源经历'
+
+  return (
+    <div key="opensource" style={styles.section}>
+      <div 
+        contentEditable 
+        suppressContentEditableWarning
+        style={styles.sectionTitle}
+        data-field="sectionTitle.openSource"
+        onBlur={onBlur}
+      >
+        {title}
+      </div>
+      {openSource.map((item: any, idx: number) => {
+        const itemTitle = item.title || ''
+        const subtitle = item.subtitle || ''
+        const items = item.items || []
+        const repoUrl = item.repoUrl || ''
+        
+        if (!itemTitle) return null
+        
+        return (
+          <div key={idx} style={styles.entry}>
+            <div style={styles.entryHeader}>
+              <div>
+                <div
+                  contentEditable 
+                  suppressContentEditableWarning
+                  style={{ ...styles.entryTitle, display: 'inline' }}
+                  data-field={`opensource.${idx}.titleLine`}
+                  onBlur={onBlur}
+                  onKeyDown={onKeyDown}
+                >
+                  {itemTitle}{subtitle ? ` - ${subtitle}` : ''}
+                </div>
+                {repoUrl && (
+                  <a 
+                    href={repoUrl} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={{ marginLeft: '8px', color: '#6366f1', fontSize: '10pt', textDecoration: 'none' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    🔗 仓库
+                  </a>
+                )}
+              </div>
+            </div>
+            <div 
+              contentEditable 
+              suppressContentEditableWarning
+              style={{ ...styles.highlights, paddingLeft: '18px', minHeight: '1em' }}
+              data-field={`opensource.${idx}.items`}
+              onBlur={onBlur}
+              onKeyDown={onKeyDown}
+            >
+              {items.length > 0 
+                ? <ul style={{ margin: 0, paddingLeft: '18px' }}>{items.map((h: string, i: number) => <li key={i}>{h}</li>)}</ul>
+                : '点击添加开源贡献描述...'}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
