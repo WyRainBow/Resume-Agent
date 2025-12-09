@@ -218,6 +218,205 @@ function SortableSection({
 }
 
 /**
+ * 年月选择器组件
+ */
+function YearMonthPicker({ 
+  value, 
+  onChange, 
+  placeholder = '选择年月',
+  style = {}
+}: { 
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  style?: React.CSSProperties
+}) {
+  // 解析当前值（格式如 "2022-05" 或 "2022.05" 或 "至今"）
+  const parseValue = (val: string) => {
+    if (!val || val === '至今' || val === '现在' || val === 'present') {
+      return { year: '', month: '', isPresent: val === '至今' || val === '现在' || val === 'present' }
+    }
+    const match = val.match(/(\d{4})[-./年]?(\d{1,2})?/)
+    if (match) {
+      return { year: match[1], month: match[2] || '', isPresent: false }
+    }
+    return { year: '', month: '', isPresent: false }
+  }
+
+  const { year, month, isPresent } = parseValue(value)
+  
+  // 生成年份选项（从当前年往前20年）
+  const currentYear = new Date().getFullYear()
+  const years = Array.from({ length: 25 }, (_, i) => currentYear - i)
+  
+  // 生成月份选项
+  const months = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
+
+  const handleChange = (newYear: string, newMonth: string, newIsPresent: boolean) => {
+    if (newIsPresent) {
+      onChange('至今')
+    } else if (newYear && newMonth) {
+      onChange(`${newYear}-${newMonth}`)
+    } else if (newYear) {
+      onChange(newYear)
+    } else {
+      onChange('')
+    }
+  }
+
+  const selectStyle: React.CSSProperties = {
+    padding: '8px 10px',
+    background: 'rgba(255, 255, 255, 0.04)',
+    border: '0.5px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: '4px',
+    color: 'white',
+    fontSize: '14px',
+    outline: 'none',
+    cursor: 'pointer',
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23ffffff' fill-opacity='0.6' d='M2 4l4 4 4-4'/%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 8px center',
+    paddingRight: '28px',
+    ...style
+  }
+
+  return (
+    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+      <select
+        value={isPresent ? '' : year}
+        onChange={(e) => handleChange(e.target.value, month, false)}
+        style={{ ...selectStyle, flex: 1 }}
+        disabled={isPresent}
+      >
+        <option value="">年</option>
+        {years.map(y => (
+          <option key={y} value={y}>{y}</option>
+        ))}
+      </select>
+      <select
+        value={isPresent ? '' : month}
+        onChange={(e) => handleChange(year, e.target.value, false)}
+        style={{ ...selectStyle, width: '70px' }}
+        disabled={isPresent || !year}
+      >
+        <option value="">月</option>
+        {months.map(m => (
+          <option key={m} value={m}>{m}</option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+/**
+ * 时间范围选择器（开始 - 结束）
+ */
+function DateRangePicker({
+  value,
+  onChange,
+  style = {}
+}: {
+  value: string
+  onChange: (value: string) => void
+  style?: React.CSSProperties
+}) {
+  // 解析时间范围（格式如 "2022-05-2023-10" 或 "2022.05 - 2023.10" 或 "2022-05-至今"）
+  const parseRange = (val: string) => {
+    if (!val) return { start: '', end: '' }
+    
+    // 尝试匹配各种格式
+    const patterns = [
+      /(\d{4}[-./]\d{1,2})[\s]*[-–~至]+[\s]*(\d{4}[-./]\d{1,2}|至今|现在|present)/i,
+      /(\d{4}[-./]\d{1,2})[\s]*[-–~至]+[\s]*/,
+      /(\d{4})[\s]*[-–~至]+[\s]*(\d{4}|至今|现在|present)/i,
+    ]
+    
+    for (const pattern of patterns) {
+      const match = val.match(pattern)
+      if (match) {
+        return { 
+          start: match[1]?.replace(/[./]/g, '-') || '', 
+          end: match[2]?.replace(/[./]/g, '-') || '' 
+        }
+      }
+    }
+    
+    // 如果只有一个日期
+    const singleMatch = val.match(/(\d{4}[-./]?\d{0,2})/)
+    if (singleMatch) {
+      return { start: singleMatch[1].replace(/[./]/g, '-'), end: '' }
+    }
+    
+    return { start: '', end: '' }
+  }
+
+  const { start, end } = parseRange(value)
+  
+  const handleStartChange = (newStart: string) => {
+    if (newStart && end) {
+      onChange(`${newStart}-${end}`)
+    } else if (newStart) {
+      onChange(newStart)
+    } else {
+      onChange(end || '')
+    }
+  }
+  
+  const handleEndChange = (newEnd: string) => {
+    if (start && newEnd) {
+      onChange(`${start}-${newEnd}`)
+    } else if (start) {
+      onChange(`${start}-${newEnd || ''}`)
+    } else {
+      onChange('')
+    }
+  }
+
+  const checkboxStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: '12px',
+    cursor: 'pointer',
+    userSelect: 'none',
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', ...style }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px', marginBottom: '4px' }}>开始</div>
+          <YearMonthPicker value={start} onChange={handleStartChange} />
+        </div>
+        <div style={{ color: 'rgba(255,255,255,0.4)', paddingTop: '18px' }}>→</div>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+            <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '11px' }}>结束</span>
+            <label style={checkboxStyle}>
+              <input
+                type="checkbox"
+                checked={end === '至今'}
+                onChange={(e) => handleEndChange(e.target.checked ? '至今' : '')}
+                style={{ width: '14px', height: '14px', accentColor: '#a78bfa' }}
+              />
+              至今
+            </label>
+          </div>
+          <YearMonthPicker 
+            value={end === '至今' ? '' : end} 
+            onChange={handleEndChange}
+            style={{ opacity: end === '至今' ? 0.5 : 1 }}
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
  * 各模块的编辑器
  */
 function SectionEditor({ section, onUpdate }: { section: ResumeSection, onUpdate: (data: any) => void }) {
@@ -392,36 +591,32 @@ function SectionEditor({ section, onUpdate }: { section: ResumeSection, onUpdate
                   />
                 </div>
               </div>
-              {/* 第二行：学位 + 时间 */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={labelStyle}>学位</label>
-                  <input
-                    style={inputStyle}
-                    value={item.subtitle || item.degree || ''}
-                    onChange={(e) => {
-                      const newItems = [...eduItems]
-                      newItems[index] = { ...item, subtitle: e.target.value, degree: e.target.value }
-                      onUpdate(newItems)
-                    }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'}
-                  />
-                </div>
-                <div>
-                  <label style={labelStyle}>时间</label>
-                  <input
-                    style={inputStyle}
-                    value={item.date || item.duration || ''}
-                    onChange={(e) => {
-                      const newItems = [...eduItems]
-                      newItems[index] = { ...item, date: e.target.value, duration: e.target.value }
-                      onUpdate(newItems)
-                    }}
-                    onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'}
-                    onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'}
-                  />
-                </div>
+              {/* 第二行：学位 */}
+              <div>
+                <label style={labelStyle}>学位</label>
+                <input
+                  style={inputStyle}
+                  value={item.subtitle || item.degree || ''}
+                  onChange={(e) => {
+                    const newItems = [...eduItems]
+                    newItems[index] = { ...item, subtitle: e.target.value, degree: e.target.value }
+                    onUpdate(newItems)
+                  }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'}
+                />
+              </div>
+              {/* 第三行：时间范围选择器 */}
+              <div>
+                <label style={labelStyle}>时间</label>
+                <DateRangePicker
+                  value={item.date || item.duration || ''}
+                  onChange={(newDate) => {
+                    const newItems = [...eduItems]
+                    newItems[index] = { ...item, date: newDate, duration: newDate }
+                    onUpdate(newItems)
+                  }}
+                />
               </div>
               {/* 描述 */}
               <label style={labelStyle}>描述</label>
@@ -500,43 +695,34 @@ function SectionEditor({ section, onUpdate }: { section: ResumeSection, onUpdate
                   删除
                 </button>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                  <label style={labelStyle}>{labels.title}</label>
-                  <input
-                    style={inputStyle}
-                    value={item.title || ''}
-                    onChange={(e) => {
-                      const newItems = [...items]
-                      newItems[index] = { ...item, title: e.target.value }
-                      onUpdate(newItems)
-                    }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={labelStyle}>{labels.date}</label>
-                  <input
-                    style={inputStyle}
-                    value={item.date || ''}
-                    onChange={(e) => {
-                      const newItems = [...items]
-                      newItems[index] = { ...item, date: e.target.value }
-                      onUpdate(newItems)
-                    }}
-                    onFocus={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
-                    }}
-                    onBlur={(e) => {
-                      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
-                    }}
-                  />
-                </div>
+              <div>
+                <label style={labelStyle}>{labels.title}</label>
+                <input
+                  style={inputStyle}
+                  value={item.title || ''}
+                  onChange={(e) => {
+                    const newItems = [...items]
+                    newItems[index] = { ...item, title: e.target.value }
+                    onUpdate(newItems)
+                  }}
+                  onFocus={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
+                  }}
+                  onBlur={(e) => {
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
+                  }}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>{labels.date}</label>
+                <DateRangePicker
+                  value={item.date || ''}
+                  onChange={(newDate) => {
+                    const newItems = [...items]
+                    newItems[index] = { ...item, date: newDate }
+                    onUpdate(newItems)
+                  }}
+                />
               </div>
               <label style={labelStyle}>{labels.subtitle}</label>
               <input

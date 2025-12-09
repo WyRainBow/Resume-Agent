@@ -181,19 +181,20 @@ export default function WorkspacePage() {
    */
   const handleAIOptimize = useCallback(async () => {
     if (!resume || !previewRef.current) {
-      alert('请先加载简历')
+      alert('请先加载简历并保持预览')
       return
     }
-    
-    // 如果没有原始文本，提示用户输入
-    let textToUse = lastImportedText
-    if (!textToUse) {
-      textToUse = prompt('请粘贴原始简历文本（用于 AI 对比分析）：') || ''
-      if (!textToUse.trim()) {
-        alert('需要原始文本才能进行 AI 优化')
-        return
-      }
-      setLastImportedText(textToUse)
+
+    if (previewMode !== 'live') {
+      alert('请先切换到 HTML 预览，再执行 AI 优化排版')
+      return
+    }
+
+    // 自动使用已有的原始文本；若无，则用当前 JSON 序列化，避免手动粘贴
+    const textToUse = lastImportedText?.trim() || JSON.stringify(resume)
+    if (!textToUse.trim()) {
+      alert('缺少原始文本或简历数据，无法进行 AI 排版优化')
+      return
     }
 
     setOptimizing(true)
@@ -236,15 +237,23 @@ export default function WorkspacePage() {
         
         // 显示优化结果
         const changes = result.changes?.join('\n') || '无修改'
-        alert(`AI 优化完成！\n迭代次数: ${result.iterations}\n修改记录:\n${changes}`)
+        const vision = typeof result.vision_analysis === 'string' 
+          ? result.vision_analysis 
+          : JSON.stringify(result.vision_analysis || {}, null, 2)
+        alert(
+          `AI 排版优化完成（自动截图→视觉分析→修正 JSON）\n` +
+          `迭代次数: ${result.iterations}\n` +
+          `视觉分析: ${vision || '暂无'}\n` +
+          `修改记录:\n${changes}`
+        )
       }
     } catch (err) {
-      console.error('AI 优化失败:', err)
-      alert('AI 优化失败，请稍后重试')
+      console.error('AI 优化排版失败:', err)
+      alert('AI 优化排版失败，请稍后重试')
     } finally {
       setOptimizing(false)
     }
-  }, [resume, lastImportedText, currentSectionOrder])
+  }, [resume, lastImportedText, currentSectionOrder, previewMode])
 
   /**
    * 手动保存当前简历到列表
@@ -682,9 +691,9 @@ export default function WorkspacePage() {
                 alignItems: 'center',
                 gap: '6px',
               }}
-              title="AI 视觉分析并自动修正"
+              title="截图预览 → 视觉分析 → 自动修正 JSON"
             >
-              {optimizing ? '🔄 优化中...' : '🧠 AI优化'}
+              {optimizing ? '🔄 排版中...' : '🧠 AI优化排版'}
             </button>
             <button
               onClick={() => setShowGuide(true)}

@@ -39,9 +39,10 @@ def call_vision_model(image_base64: str, prompt: str) -> str:
     
     """
     构建视觉请求，使用 GLM 视觉模型
+    智谱视觉模型调用 - 使用 glm-4.5v (用户可用模型)
     """
     response = client.chat.completions.create(
-        model="glm-4v-flash",
+        model="glm-4.5v",
         messages=[
             {
                 "role": "user",
@@ -58,9 +59,7 @@ def call_vision_model(image_base64: str, prompt: str) -> str:
                     }
                 ]
             }
-        ],
-        temperature=0.1,
-        max_tokens=2000
+        ]
     )
     
     return response.choices[0].message.content

@@ -7,3 +7,4 @@ reportlab==4.2.5
 instructor==1.3.3
 openai==1.40.0
 json-repair==0.25.2
+zhipuai==2.1.5.20250825
