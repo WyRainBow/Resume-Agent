@@ -4,7 +4,7 @@ import type { Resume } from '../types/resume'
 interface Props {
   isOpen: boolean
   onClose: () => void
-  onImport: (resume: Resume, saveToList: boolean) => void  // 增加是否保存参数
+  onImport: (resume: Resume, saveToList: boolean, originalText: string) => void  // 增加原始文本参数
 }
 
 export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
@@ -97,7 +97,27 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
       }
 
       const data = await response.json()
-      setParsedResume(data.resume)
+      
+      // Agent 快速修正：自动修正明显错误
+      try {
+        const fixResponse = await fetch('/api/agent/quick-fix', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            original_text: text.trim(), 
+            current_json: data.resume 
+          })
+        })
+        if (fixResponse.ok) {
+          const fixData = await fixResponse.json()
+          setParsedResume(fixData.fixed_json)
+        } else {
+          setParsedResume(data.resume)
+        }
+      } catch {
+        setParsedResume(data.resume)
+      }
+      
       setShowConfirm(true) // 显示确认弹窗
     } catch (err) {
       stopTimer()
@@ -116,7 +136,7 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
   // 处理确认导入
   const handleConfirmImport = (saveToList: boolean) => {
     if (parsedResume) {
-      onImport(parsedResume, saveToList)
+      onImport(parsedResume, saveToList, text.trim())  // 传递原始文本
       setText('')
       setParsedResume(null)
       setShowConfirm(false)

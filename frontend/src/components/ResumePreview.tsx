@@ -751,18 +751,19 @@ function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHan
                 </span>
               )}
             </div>
-            <div 
-              contentEditable 
-              suppressContentEditableWarning
-              style={{ ...styles.highlights, paddingLeft: '18px', minHeight: '1em' }}
-              data-field={`experience.${idx}.details`}
-              onBlur={onBlur}
-              onKeyDown={onKeyDown}
-            >
-              {details.length > 0 
-                ? <ul style={{ margin: 0, paddingLeft: '18px' }}>{details.map((h: string, i: number) => <li key={i}>{h}</li>)}</ul>
-                : '点击添加工作描述...'}
-            </div>
+            {/* 只有在有内容时才显示详情区域 */}
+            {details.length > 0 && (
+              <div 
+                contentEditable 
+                suppressContentEditableWarning
+                style={{ ...styles.highlights, paddingLeft: '18px' }}
+                data-field={`experience.${idx}.details`}
+                onBlur={onBlur}
+                onKeyDown={onKeyDown}
+              >
+                <ul style={{ margin: 0, paddingLeft: '18px' }}>{details.map((h: string, i: number) => <li key={i}>{h}</li>)}</ul>
+              </div>
+            )}
           </div>
         )
       })}
@@ -792,6 +793,7 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
         const date = item.date || ''
         const details = item.highlights || item.details || []
         const repoUrl = item.repoUrl || ''
+        const stack = item.stack || [] // 技术栈
         
         if (!title) return null
         
@@ -802,13 +804,18 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
                 <div
                   contentEditable 
                   suppressContentEditableWarning
-                  style={{ ...styles.entryTitle, display: 'inline' }}
-                  data-field={`projects.${idx}.titleLine`}
+                  style={{ ...styles.entryTitle, display: 'inline', fontWeight: 'bold' }}
+                  data-field={`projects.${idx}.title`}
                   onBlur={onBlur}
                   onKeyDown={onKeyDown}
                 >
-                  {title}{subtitle ? ` - ${subtitle}` : ''}
+                  {title}
                 </div>
+                {subtitle && (
+                  <span style={{ marginLeft: '8px', fontSize: '10pt', color: '#555' }}>
+                    - {subtitle}
+                  </span>
+                )}
                 {repoUrl && (
                   <a 
                     href={repoUrl} 
@@ -833,16 +840,23 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
                 </span>
               )}
             </div>
-            <div 
-              contentEditable 
-              suppressContentEditableWarning
-              style={{ ...styles.highlights, paddingLeft: '18px', minHeight: '1em' }}
-              data-field={`projects.${idx}.details`}
-              onBlur={onBlur}
-              onKeyDown={onKeyDown}
-            >
-              {details.length > 0 
-                ? <div style={{ margin: 0 }}>
+            {/* 技术栈单独一行 */}
+            {stack.length > 0 && (
+              <div style={{ fontSize: '9pt', color: '#666', marginTop: '2px', marginBottom: '4px' }}>
+                技术栈：{stack.join('、')}
+              </div>
+            )}
+            {/* 只在有内容时显示详情 */}
+            {details.length > 0 && (
+              <div 
+                contentEditable 
+                suppressContentEditableWarning
+                style={{ ...styles.highlights, paddingLeft: '18px' }}
+                data-field={`projects.${idx}.details`}
+                onBlur={onBlur}
+                onKeyDown={onKeyDown}
+              >
+                <div style={{ margin: 0 }}>
                     {details.map((h: string, i: number) => {
                       // 支持缩进：以 > 开头表示下一级
                       const isIndented = h.startsWith('>')
@@ -890,8 +904,8 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
                       }
                     })}
                   </div>
-                : '点击添加项目描述...'}
-            </div>
+              </div>
+            )}
           </div>
         )
       })}
