@@ -38,6 +38,7 @@ GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "https://api.chataiapi.com/v1")
 导入智谱 SDK (使用官方 zhipuai)
 """
 ZhipuAI = None
+_zhipu_client = None  # 全局客户端实例，避免重复创建
 try:
     from zhipuai import ZhipuAI
 except ImportError:
@@ -63,7 +64,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from backend.llm_utils import retry_with_backoff
 
-@retry_with_backoff(max_retries=3, initial_delay=1.0)
+@retry_with_backoff(max_retries=2, initial_delay=0.1)  # 减少重试次数和延迟
 def call_zhipu_api(prompt: str, model: str = None) -> str:
     """
     调用智谱 API（使用官方 zhipuai SDK）
@@ -75,26 +76,25 @@ def call_zhipu_api(prompt: str, model: str = None) -> str:
     返回:
         API 返回的响应内容
     """
+    global _zhipu_client
+    
     if ZhipuAI is None:
         return "智谱客户端未初始化"
     
     if model is None:
         model = ZHIPU_MODEL
     
-    # 初始化智谱客户端
-    client = ZhipuAI(api_key=ZHIPU_API_KEY)
+    # 复用全局客户端实例
+    if _zhipu_client is None:
+        _zhipu_client = ZhipuAI(api_key=ZHIPU_API_KEY)
+    client = _zhipu_client
     
-    # 调用 API
+    # 调用 API（极限优化参数）
     response = client.chat.completions.create(
         model=model,
-        messages=[
-            {
-                "role": "user",
-                "content": prompt
-            }
-        ],
-        temperature=0.3,
-        max_tokens=2000,
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.01,  # 最低温度
+        max_tokens=800,    # 进一步减少
     )
     
     # 提取返回内容

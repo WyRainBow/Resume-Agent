@@ -596,69 +596,10 @@ async def parse_resume_text(body: ResumeParseRequest):
     if body.provider == "mock":
         return {"resume": MOCK_RESUME_DATA, "provider": "mock"}
     
-    prompt = f"""你是一个专业的简历解析助手。请将以下简历文本解析为结构化的 JSON 格式。
-
-用户输入的简历文本：
----
+    # 优化 prompt 加速响应
+    prompt = f"""从文本提取简历信息,只输出JSON(不要markdown):
 {body.text}
----
-
-请严格按照以下 JSON 结构输出（只输出 JSON，不要任何其他文字、不要 Markdown 代码块）：
-{{
-  "name": "姓名",
-  "contact": {{
-    "email": "邮箱",
-    "phone": "电话"
-  }},
-  "objective": "求职意向/目标岗位",
-  "education": [
-    {{
-      "title": "学校名称",
-      "subtitle": "学历（本科/硕士等）",
-      "date": "起止时间",
-      "school": "学校名称",
-      "degree": "学历",
-      "major": "专业",
-      "details": ["在校荣誉或成绩（可选）"]
-    }}
-  ],
-  "internships": [
-    {{
-      "title": "公司名称",
-      "subtitle": "职位",
-      "date": "起止时间",
-      "highlights": ["工作内容1", "工作内容2"]
-    }}
-  ],
-  "projects": [
-    {{
-      "title": "项目名称",
-      "subtitle": "角色/公司",
-      "date": "起止时间",
-      "highlights": ["项目描述或亮点1", "项目描述或亮点2"]
-    }}
-  ],
-  "openSource": [
-    {{
-      "title": "开源项目名称",
-      "subtitle": "简介",
-      "items": ["贡献1", "贡献2"],
-      "repoUrl": "GitHub链接（如有）"
-    }}
-  ],
-  "skills": [
-    {{ "category": "技能类别", "details": "具体技能描述" }}
-  ],
-  "awards": ["奖项1", "奖项2"]
-}}
-
-重要提示：
-1. 仔细分析文本，准确提取信息
-2. 如果某个字段在文本中没有，可以设为空数组或空字符串
-3. 日期格式统一为：YYYY.MM - YYYY.MM
-4. 技能尽量按类别分组
-5. 只输出 JSON，不要任何额外文字
-"""
+输出:{{"name":"","contact":{{"phone":"","email":""}},"objective":"","education":[{{"title":"","subtitle":""}}],"internships":[{{"title":"","subtitle":"","highlights":[]}}],"skills":[{{"category":"","details":""}}]}}"""
     
     try:
         raw = call_llm(body.provider, prompt)
@@ -673,21 +614,33 @@ async def parse_resume_text(body: ResumeParseRequest):
     cleaned = cleaned.strip()
     
     # 解析 JSON
-    data = None
+    short_data = None
     try:
-        data = _json.loads(cleaned)
+        short_data = _json.loads(cleaned)
     except Exception:
         try:
             start = cleaned.find('{')
             end = cleaned.rfind('}')
             if start != -1 and end != -1 and end > start:
                 json_str = cleaned[start:end+1]
-                data = _json.loads(json_str)
+                short_data = _json.loads(json_str)
         except Exception:
             pass
     
-    if data is None:
+    if short_data is None:
         raise HTTPException(status_code=500, detail="AI 返回的内容无法解析为 JSON，请重试")
+    
+    # 确保必要字段存在
+    data = {
+        "name": short_data.get("name", ""),
+        "contact": short_data.get("contact", {"phone": "", "email": ""}),
+        "objective": short_data.get("objective", ""),
+        "education": short_data.get("education", []),
+        "internships": short_data.get("internships", []),
+        "projects": short_data.get("projects", []),
+        "skills": short_data.get("skills", []),
+        "awards": short_data.get("awards", [])
+    }
     
     return {"resume": data, "provider": body.provider}
 
