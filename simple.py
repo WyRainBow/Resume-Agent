@@ -35,19 +35,14 @@ GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "https://api.chataiapi.com/v1")
 
 
 """
-导入智谱 SDK
+导入智谱 SDK (使用官方 zhipuai)
 """
-ZhipuAiClient = None
+ZhipuAI = None
 try:
-    from zai import ZhipuAiClient
+    from zhipuai import ZhipuAI
 except ImportError:
-    try:
-        import subprocess as sp
-        sp.run(['pip3', 'install', 'zai-sdk', '--break-system-packages', '-q'], check=True)
-        from zai import ZhipuAiClient
-    except:
-        print("无法安装 zai-sdk")
-        ZhipuAiClient = None
+    print("zhipuai 未安装，请运行: pip install zhipuai")
+    ZhipuAI = None
 
 
 """
@@ -71,27 +66,25 @@ from backend.llm_utils import retry_with_backoff
 @retry_with_backoff(max_retries=3, initial_delay=1.0)
 def call_zhipu_api(prompt: str, model: str = None) -> str:
     """
-    调用智谱 API 的简单示例
+    调用智谱 API（使用官方 zhipuai SDK）
     
     参数:
         prompt: 用户输入的提示词
-        model: 使用的模型名称，默认为 ZHIPU_MODEL（GLM-4.5 或 GLM-4.5V）
+        model: 使用的模型名称，默认为 ZHIPU_MODEL
     
     返回:
         API 返回的响应内容
     """
-    if ZhipuAiClient is None:
+    if ZhipuAI is None:
         return "智谱客户端未初始化"
     
-    """如果没有指定模型，使用环境变量或默认值"""
     if model is None:
         model = ZHIPU_MODEL
     
-    """初始化智谱客户端"""
-    client = ZhipuAiClient(api_key=ZHIPU_API_KEY)
+    # 初始化智谱客户端
+    client = ZhipuAI(api_key=ZHIPU_API_KEY)
     
-    """调用 API"""
-    """GLM-4.5V 支持纯文本和图像输入，这里使用纯文本"""
+    # 调用 API
     response = client.chat.completions.create(
         model=model,
         messages=[
@@ -100,16 +93,14 @@ def call_zhipu_api(prompt: str, model: str = None) -> str:
                 "content": prompt
             }
         ],
-        temperature=0.3,  # 降低温度，加快响应
-        max_tokens=2000,  # 限制最大 token，加快响应
-        timeout=30  # 30秒超时
+        temperature=0.3,
+        max_tokens=2000,
     )
     
-    """提取返回内容"""
+    # 提取返回内容
     result = response.choices[0].message.content
     
-    """清理智谱返回的特殊标签"""
-    """移除 <|begin_of_box|> 和 <|end_of_box|> 等标签"""
+    # 清理智谱返回的特殊标签
     import re
     result = re.sub(r'<\|begin_of_box\|>', '', result)
     result = re.sub(r'<\|end_of_box\|>', '', result)

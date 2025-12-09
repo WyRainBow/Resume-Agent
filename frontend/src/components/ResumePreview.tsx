@@ -2,9 +2,11 @@
  * 简历实时预览组件（可编辑版）
  * 使用 HTML/CSS 渲染，支持直接在预览中编辑
  * 顶部工具栏支持：加粗、斜体、下划线、标题级别
+ * 支持选中文字后AI改写
  */
-import React, { useCallback } from 'react'
+import React, { useCallback, useState, useEffect, useRef } from 'react'
 import type { Resume } from '../types/resume'
+import AIRewriteDialog from './AIRewriteDialog'
 
 interface Props {
   resume: Resume | null
@@ -33,6 +35,88 @@ const toolbarButtons = [
 ]
 
 export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdate }: Props) {
+  // AI改写相关状态
+  const [showAIButton, setShowAIButton] = useState(false)
+  const [aiButtonPos, setAIButtonPos] = useState({ x: 0, y: 0 })
+  const [selectedText, setSelectedText] = useState('')
+  const [showAIDialog, setShowAIDialog] = useState(false)
+  const [dialogPos, setDialogPos] = useState({ x: 0, y: 0 })
+  const selectionRangeRef = useRef<Range | null>(null)
+  const previewRef = useRef<HTMLDivElement>(null)
+
+  // 监听文本选择
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const selection = window.getSelection()
+      if (!selection || selection.isCollapsed) {
+        // 延迟隐藏，避免点击按钮时消失
+        setTimeout(() => {
+          if (!showAIDialog) {
+            setShowAIButton(false)
+          }
+        }, 200)
+        return
+      }
+
+      const text = selection.toString().trim()
+      if (text.length < 2) {
+        setShowAIButton(false)
+        return
+      }
+
+      // 检查选中是否在预览区域内
+      const range = selection.getRangeAt(0)
+      const container = range.commonAncestorContainer
+      const previewEl = previewRef.current
+      if (!previewEl || !previewEl.contains(container)) {
+        setShowAIButton(false)
+        return
+      }
+
+      // 保存选区和位置
+      selectionRangeRef.current = range.cloneRange()
+      setSelectedText(text)
+
+      const rect = range.getBoundingClientRect()
+      setAIButtonPos({
+        x: rect.left + rect.width / 2 - 40,
+        y: rect.top - 45
+      })
+      setShowAIButton(true)
+    }
+
+    document.addEventListener('selectionchange', handleSelectionChange)
+    return () => document.removeEventListener('selectionchange', handleSelectionChange)
+  }, [showAIDialog])
+
+  // 打开AI对话框
+  const openAIDialog = () => {
+    setDialogPos({
+      x: Math.max(10, aiButtonPos.x - 150),
+      y: Math.max(10, aiButtonPos.y + 50)
+    })
+    setShowAIDialog(true)
+    setShowAIButton(false)
+  }
+
+  // 应用AI改写结果
+  const applyRewrite = (newText: string) => {
+    const range = selectionRangeRef.current
+    if (range) {
+      range.deleteContents()
+      range.insertNode(document.createTextNode(newText))
+      
+      // 触发更新
+      const previewEl = document.getElementById('resume-preview')
+      if (previewEl) {
+        const event = new Event('input', { bubbles: true })
+        previewEl.dispatchEvent(event)
+      }
+    }
+    setShowAIDialog(false)
+    setSelectedText('')
+  }
+
   // 执行格式化命令
   const execCommand = useCallback((command: string, arg?: string) => {
     document.execCommand(command, false, arg)
@@ -163,8 +247,18 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
         } else if (subField === 'date') {
           newResume.internships[index].date = textContent
         } else if (subField === 'details') {
-          newResume.internships[index].highlights = textContent.split(/[•\n]+/).map(s => s.trim()).filter(Boolean)
-          newResume.internships[index].details = newResume.internships[index].highlights
+          // 从 HTML 中提取列表项
+          const liElements = e.currentTarget.querySelectorAll('li')
+          if (liElements.length > 0) {
+            const items = Array.from(liElements).map(li => li.textContent?.trim() || '').filter(Boolean)
+            newResume.internships[index].highlights = items
+            newResume.internships[index].details = items
+          } else {
+            // 没有列表结构时，按换行分割
+            const items = textContent.split(/[\n]+/).map(s => s.trim()).filter(Boolean)
+            newResume.internships[index].highlights = items
+            newResume.internships[index].details = items
+          }
         }
       } else if (section === 'projects' && newResume.projects?.[index]) {
         if (subField === 'titleLine') {
@@ -184,8 +278,18 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
         } else if (subField === 'date') {
           newResume.projects[index].date = textContent
         } else if (subField === 'details') {
-          newResume.projects[index].highlights = textContent.split(/[•\n]+/).map(s => s.trim()).filter(Boolean)
-          newResume.projects[index].details = newResume.projects[index].highlights
+          // 从 HTML 中提取列表项
+          const liElements = e.currentTarget.querySelectorAll('li')
+          if (liElements.length > 0) {
+            const items = Array.from(liElements).map(li => li.textContent?.trim() || '').filter(Boolean)
+            newResume.projects[index].highlights = items
+            newResume.projects[index].details = items
+          } else {
+            // 没有列表结构时，按换行分割
+            const items = textContent.split(/[\n]+/).map(s => s.trim()).filter(Boolean)
+            newResume.projects[index].highlights = items
+            newResume.projects[index].details = items
+          }
         }
       }
     }
@@ -274,7 +378,7 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
       `}</style>
 
       {/* 可滚动的预览区域 */}
-      <div style={styles.scrollArea}>
+      <div ref={previewRef} style={styles.scrollArea}>
         <div id="resume-preview" style={{
           ...styles.paper,
           transform: `scale(${scale})`,
@@ -368,6 +472,53 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
         })}
         </div>
       </div>
+
+      {/* AI改写浮动按钮 */}
+      {showAIButton && (
+        <div
+          style={{
+            position: 'fixed',
+            left: aiButtonPos.x,
+            top: aiButtonPos.y,
+            zIndex: 9990,
+            animation: 'fadeIn 0.15s ease',
+          }}
+        >
+          <button
+            onClick={openAIDialog}
+            onMouseDown={(e) => e.preventDefault()}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              border: 'none',
+              borderRadius: '20px',
+              color: 'white',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              boxShadow: '0 4px 15px rgba(99, 102, 241, 0.4)',
+              transition: 'transform 0.15s',
+            }}
+            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            <span>✨</span>
+            AI 改写
+          </button>
+        </div>
+      )}
+
+      {/* AI改写对话框 */}
+      <AIRewriteDialog
+        isOpen={showAIDialog}
+        selectedText={selectedText}
+        position={dialogPos}
+        onClose={() => setShowAIDialog(false)}
+        onApply={applyRewrite}
+      />
     </div>
   )
 }
