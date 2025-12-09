@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import html2pdf from 'html2pdf.js'
+import html2canvas from 'html2canvas'
 import { useNavigate } from 'react-router-dom'
 import ChatPanel from '../components/ChatPanel'
 import PDFPane from '../components/PDFPane'
@@ -28,6 +29,9 @@ export default function WorkspacePage() {
   const [showResumeList, setShowResumeList] = useState(false) // 显示简历列表
   const [showAIImport, setShowAIImport] = useState(false) // 显示 AI 导入弹窗
   const [currentResumeId, setCurrentResumeIdState] = useState<string | null>(null) // 当前简历ID
+  const [lastImportedText, setLastImportedText] = useState('') // 最后导入的原始文本
+  const [optimizing, setOptimizing] = useState(false) // AI 优化中
+  const previewRef = useRef<HTMLDivElement>(null) // 预览区域引用
   const [previewMode, setPreviewMode] = useState<'live' | 'pdf'>('live') // 预览模式：live=实时预览，pdf=PDF预览
   const [currentSectionOrder, setCurrentSectionOrder] = useState<string[]>([]) // 当前模块顺序
   const [leftPanelWidth, setLeftPanelWidth] = useState<number | null>(null) // 左侧面板宽度，初始为 null 表示使用百分比
@@ -150,8 +154,9 @@ export default function WorkspacePage() {
   /**
    * AI 导入简历
    */
-  const handleAIImport = useCallback((importedResume: Resume, saveToList: boolean) => {
+  const handleAIImport = useCallback((importedResume: Resume, saveToList: boolean, originalText: string) => {
     setResume(importedResume)
+    setLastImportedText(originalText) // 保存原始文本
     setShowEditor(true)
     setPreviewMode('live')
     setCurrentSectionOrder(defaultSectionOrder)
@@ -170,6 +175,76 @@ export default function WorkspacePage() {
       .then(blob => setPdfBlob(blob))
       .catch(err => console.log('PDF 后台生成失败:', err))
   }, [])
+
+  /**
+   * AI 自动优化 - 视觉反思修正
+   */
+  const handleAIOptimize = useCallback(async () => {
+    if (!resume || !previewRef.current) {
+      alert('请先加载简历')
+      return
+    }
+    
+    // 如果没有原始文本，提示用户输入
+    let textToUse = lastImportedText
+    if (!textToUse) {
+      textToUse = prompt('请粘贴原始简历文本（用于 AI 对比分析）：') || ''
+      if (!textToUse.trim()) {
+        alert('需要原始文本才能进行 AI 优化')
+        return
+      }
+      setLastImportedText(textToUse)
+    }
+
+    setOptimizing(true)
+    
+    try {
+      // 1. 截图预览区域
+      const canvas = await html2canvas(previewRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff'
+      })
+      const screenshotBase64 = canvas.toDataURL('image/png').split(',')[1]
+      
+      // 2. 调用 Agent 反思接口
+      const response = await fetch('/api/agent/reflect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          original_text: textToUse,
+          current_json: resume,
+          screenshot_base64: screenshotBase64,
+          max_iterations: 2
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error('优化失败')
+      }
+      
+      const result = await response.json()
+      
+      // 3. 更新简历数据
+      if (result.final_json) {
+        setResume(result.final_json)
+        
+        // 重新生成 PDF
+        renderPDF(result.final_json, false, currentSectionOrder)
+          .then(blob => setPdfBlob(blob))
+          .catch(err => console.log('PDF 重新生成失败:', err))
+        
+        // 显示优化结果
+        const changes = result.changes?.join('\n') || '无修改'
+        alert(`AI 优化完成！\n迭代次数: ${result.iterations}\n修改记录:\n${changes}`)
+      }
+    } catch (err) {
+      console.error('AI 优化失败:', err)
+      alert('AI 优化失败，请稍后重试')
+    } finally {
+      setOptimizing(false)
+    }
+  }, [resume, lastImportedText, currentSectionOrder])
 
   /**
    * 手动保存当前简历到列表
@@ -589,6 +664,29 @@ export default function WorkspacePage() {
               💾 {currentResumeId ? '已保存' : '保存'}
             </button>
             <button
+              onClick={handleAIOptimize}
+              disabled={!resume || optimizing}
+              style={{
+                padding: '8px 14px',
+                background: optimizing 
+                  ? 'rgba(239, 68, 68, 0.3)' 
+                  : 'linear-gradient(135deg, rgba(236, 72, 153, 0.3) 0%, rgba(239, 68, 68, 0.3) 100%)',
+                border: '1px solid rgba(239, 68, 68, 0.5)',
+                borderRadius: '8px',
+                color: '#fca5a5',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: (!resume || optimizing) ? 'not-allowed' : 'pointer',
+                opacity: !resume ? 0.5 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+              title="AI 视觉分析并自动修正"
+            >
+              {optimizing ? '🔄 优化中...' : '🧠 AI优化'}
+            </button>
+            <button
               onClick={() => setShowGuide(true)}
               style={{
                 padding: '8px 14px',
@@ -824,15 +922,17 @@ export default function WorkspacePage() {
           )}
           
           {previewMode === 'live' ? (
-            <ResumePreview 
-              resume={resume} 
-              sectionOrder={currentSectionOrder} 
-              scale={previewScale}
-              onUpdate={(updatedResume) => {
-                setResume(updatedResume)
-                autoSave(updatedResume)
-              }}
-            />
+            <div ref={previewRef} style={{ height: '100%' }}>
+              <ResumePreview 
+                resume={resume} 
+                sectionOrder={currentSectionOrder} 
+                scale={previewScale}
+                onUpdate={(updatedResume) => {
+                  setResume(updatedResume)
+                  autoSave(updatedResume)
+                }}
+              />
+            </div>
           ) : (
             <PDFPane pdfBlob={pdfBlob} scale={previewScale} onScaleChange={setPreviewScale} />
           )}
