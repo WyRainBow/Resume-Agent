@@ -43,6 +43,141 @@ const defaultSections: ResumeSection[] = [
 ]
 
 /**
+ * AI 导入弹窗组件
+ */
+function AIImportModal({
+  isOpen,
+  sectionType,
+  sectionTitle,
+  onClose,
+  onImport,
+  importing
+}: {
+  isOpen: boolean
+  sectionType: string
+  sectionTitle: string
+  onClose: () => void
+  onImport: (text: string) => void
+  importing: boolean
+}) {
+  const [text, setText] = useState('')
+  
+  if (!isOpen) return null
+  
+  const placeholders: Record<string, string> = {
+    contact: '张三\n电话: 13800138000\n邮箱: zhangsan@example.com\n地区: 北京\n求职意向: 后端开发工程师',
+    education: '华南理工大学\n本科 · 计算机科学与技术\n2020.09 - 2024.06\nGPA: 3.8/4.0',
+    experience: '字节跳动 · 后端开发实习生\n2023.06 - 2023.09\n- 负责推荐系统后端开发\n- 优化接口性能，QPS 提升 50%',
+    projects: '智能简历系统\n技术负责人 · 2023.01 - 2023.06\n- 使用 React + FastAPI 开发\n- 集成 AI 自动生成功能\nGitHub: https://github.com/xxx/resume',
+    skills: '编程语言: Java, Python, Go\n数据库: MySQL, Redis, MongoDB\n框架: Spring Boot, FastAPI',
+    awards: '国家奖学金 · 2023\nACM 省级一等奖 · 2022\n优秀毕业生 · 2024',
+    summary: '3年后端开发经验，熟悉 Java/Go 技术栈，擅长高并发系统设计与优化，有丰富的微服务架构经验。',
+    opensource: 'Kubernetes\n核心贡献者\n- 提交性能优化 PR，被成功合并\n- 修复关键 Bug\n仓库: https://github.com/kubernetes/kubernetes'
+  }
+  
+  return (
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      background: 'rgba(0,0,0,0.6)',
+      backdropFilter: 'blur(4px)',
+      zIndex: 9999,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }} onClick={onClose}>
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
+          borderRadius: '16px',
+          padding: '24px',
+          width: '90%',
+          maxWidth: '500px',
+          border: '1px solid rgba(167, 139, 250, 0.3)',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h3 style={{ margin: 0, color: 'white', fontSize: '18px' }}>
+            ✨ AI 导入 - {sectionTitle}
+          </h3>
+          <button 
+            onClick={onClose}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'rgba(255,255,255,0.6)',
+              fontSize: '20px',
+              cursor: 'pointer',
+            }}
+          >×</button>
+        </div>
+        
+        <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', marginBottom: '12px' }}>
+          粘贴或输入该模块的文本内容，AI 将自动解析并填充
+        </p>
+        
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder={placeholders[sectionType] || '请输入文本内容...'}
+          style={{
+            width: '100%',
+            minHeight: '180px',
+            padding: '12px',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.2)',
+            borderRadius: '8px',
+            color: 'white',
+            fontSize: '14px',
+            resize: 'vertical',
+            outline: 'none',
+            fontFamily: 'inherit',
+          }}
+          onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'}
+          onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'}
+        />
+        
+        <div style={{ display: 'flex', gap: '12px', marginTop: '16px', justifyContent: 'flex-end' }}>
+          <button
+            onClick={onClose}
+            style={{
+              padding: '10px 20px',
+              background: 'rgba(255,255,255,0.1)',
+              border: '1px solid rgba(255,255,255,0.2)',
+              borderRadius: '8px',
+              color: 'rgba(255,255,255,0.8)',
+              fontSize: '14px',
+              cursor: 'pointer',
+            }}
+          >
+            取消
+          </button>
+          <button
+            onClick={() => onImport(text)}
+            disabled={!text.trim() || importing}
+            style={{
+              padding: '10px 24px',
+              background: importing ? 'rgba(167, 139, 250, 0.3)' : 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+              border: 'none',
+              borderRadius: '8px',
+              color: 'white',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: importing || !text.trim() ? 'not-allowed' : 'pointer',
+              opacity: !text.trim() ? 0.5 : 1,
+            }}
+          >
+            {importing ? '🔄 解析中...' : '✨ AI 解析'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
  * 可排序的模块卡片
  */
 function SortableSection({ 
@@ -50,13 +185,17 @@ function SortableSection({
   expanded, 
   onToggle, 
   onUpdate,
-  onTitleChange
+  onTitleChange,
+  onAIImport,
+  importing
 }: { 
   section: ResumeSection
   expanded: boolean
   onToggle: () => void
   onUpdate: (data: any) => void
   onTitleChange: (title: string) => void
+  onAIImport: () => void
+  importing: boolean
 }) {
   const {
     attributes,
@@ -175,6 +314,33 @@ function SortableSection({
               }}
             />
           </div>
+
+          {/* AI 导入按钮 */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onAIImport()
+            }}
+            onMouseDown={(e) => e.stopPropagation()}
+            disabled={importing}
+            style={{
+              padding: '4px 10px',
+              background: importing ? 'rgba(167, 139, 250, 0.2)' : 'rgba(167, 139, 250, 0.15)',
+              border: '1px solid rgba(167, 139, 250, 0.3)',
+              borderRadius: '6px',
+              color: '#a78bfa',
+              fontSize: '11px',
+              cursor: importing ? 'not-allowed' : 'pointer',
+              marginRight: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              transition: 'all 0.2s',
+            }}
+            title="AI 智能导入"
+          >
+            {importing ? '⏳' : '✨'} AI
+          </button>
 
           {/* 展开/收起箭头 - 点击展开 */}
           <div 
@@ -1120,6 +1286,15 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
   const [allExpanded, setAllExpanded] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isInitialLoad = useRef(true) // 跟踪是否为首次加载
+  
+  // AI 导入相关状态
+  const [aiImportModal, setAiImportModal] = useState<{ open: boolean; sectionId: string; sectionTitle: string; sectionType: string }>({
+    open: false,
+    sectionId: '',
+    sectionTitle: '',
+    sectionType: ''
+  })
+  const [importing, setImporting] = useState<string>('') // 正在导入的模块 ID
 
   // 展开/收起全部
   const toggleAllExpanded = () => {
@@ -1145,6 +1320,90 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
       setAllExpanded(newSet.size === sections.length)
       return newSet
     })
+  }
+
+  // 打开 AI 导入弹窗
+  const openAIImportModal = (section: ResumeSection) => {
+    setAiImportModal({
+      open: true,
+      sectionId: section.id,
+      sectionTitle: section.title,
+      sectionType: section.type
+    })
+  }
+
+  // 执行 AI 导入
+  const handleAIImport = async (text: string) => {
+    if (!text.trim() || !aiImportModal.sectionId) return
+    
+    setImporting(aiImportModal.sectionId)
+    
+    try {
+      const response = await fetch('/api/resume/parse-section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: text.trim(),
+          section_type: aiImportModal.sectionType,
+          provider: 'gemini'
+        })
+      })
+      
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.detail || '解析失败')
+      }
+      
+      const result = await response.json()
+      
+      // 更新对应模块的数据
+      setSections(prev => prev.map(section => {
+        if (section.id !== aiImportModal.sectionId) return section
+        
+        // 根据模块类型处理数据
+        let newData = result.data
+        
+        // 特殊处理 contact 类型
+        if (section.type === 'contact' && typeof newData === 'object') {
+          newData = {
+            name: newData.name || section.data?.name || '',
+            phone: newData.phone || section.data?.phone || '',
+            email: newData.email || section.data?.email || '',
+            location: newData.location || section.data?.location || '',
+            objective: newData.objective || section.data?.objective || ''
+          }
+        }
+        
+        // 特殊处理数组类型，合并而不是替换
+        if (Array.isArray(newData) && Array.isArray(section.data)) {
+          // 如果现有数据为空或只有空项，直接替换
+          const hasContent = section.data.some((item: any) => {
+            if (typeof item === 'string') return item.trim()
+            if (typeof item === 'object') return Object.values(item).some(v => v && String(v).trim())
+            return false
+          })
+          if (!hasContent) {
+            newData = newData
+          } else {
+            // 追加新数据
+            newData = [...section.data, ...newData]
+          }
+        }
+        
+        return { ...section, data: newData }
+      }))
+      
+      // 自动展开该模块
+      setExpandedIds(prev => new Set([...prev, aiImportModal.sectionId]))
+      
+      // 关闭弹窗
+      setAiImportModal({ open: false, sectionId: '', sectionTitle: '', sectionType: '' })
+      
+    } catch (err: any) {
+      alert(`AI 导入失败: ${err.message || err}`)
+    } finally {
+      setImporting('')
+    }
   }
 
   const sensors = useSensors(
@@ -1601,11 +1860,23 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
                 onToggle={() => toggleSection(section.id)}
                 onUpdate={(data) => handleSectionUpdate(section.id, data)}
                 onTitleChange={(title) => handleTitleChange(section.id, title)}
+                onAIImport={() => openAIImportModal(section)}
+                importing={importing === section.id}
               />
             ))}
           </SortableContext>
         </DndContext>
       </div>
+
+      {/* AI 导入弹窗 */}
+      <AIImportModal
+        isOpen={aiImportModal.open}
+        sectionType={aiImportModal.sectionType}
+        sectionTitle={aiImportModal.sectionTitle}
+        onClose={() => setAiImportModal({ open: false, sectionId: '', sectionTitle: '', sectionType: '' })}
+        onImport={handleAIImport}
+        importing={!!importing}
+      />
 
       {/* 保存按钮 */}
       <div style={{
