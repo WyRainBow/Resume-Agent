@@ -487,6 +487,51 @@ async def ai_test(body: AITestRequest):
         raise HTTPException(status_code=500, detail=f"AI 测试失败: {e}")
 
 
+class ChatMessage(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    messages: List[ChatMessage]
+    provider: Optional[str] = None
+
+@app.post("/api/chat")
+async def chat_api(body: ChatRequest):
+    """
+    通用聊天接口，用于AI改写等功能
+    """
+    try:
+        # 构建完整的提示词
+        prompt_parts = []
+        for msg in body.messages:
+            if msg.role == "system":
+                prompt_parts.append(f"系统指令：{msg.content}")
+            elif msg.role == "user":
+                prompt_parts.append(f"用户：{msg.content}")
+            elif msg.role == "assistant":
+                prompt_parts.append(f"助手：{msg.content}")
+        
+        prompt = "\n\n".join(prompt_parts) + "\n\n请回复："
+        
+        # 尝试使用指定的 provider，否则默认使用智谱
+        provider = body.provider
+        if not provider:
+            # 优先使用智谱
+            if os.getenv("ZHIPU_API_KEY"):
+                provider = "zhipu"
+            elif os.getenv("GEMINI_API_KEY"):
+                provider = "gemini"
+            else:
+                raise HTTPException(status_code=400, detail="未配置 AI 服务 API Key")
+        
+        result = call_llm(provider, prompt)
+        return {"content": result, "provider": provider}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI 请求失败: {e}")
+
+
 """A mock resume object that matches the new data structure"""
 MOCK_RESUME_DATA = {
     "name": "某某 (Mock)",
