@@ -8,7 +8,9 @@ from playwright.async_api import async_playwright
 import time
 import asyncio
 
-# HTML 模板
+"""
+HTML 模板
+"""
 HTML_TEMPLATE = """
 <!DOCTYPE html>
 <html>
@@ -410,7 +412,9 @@ def generate_opensource_html(resume_data: Dict[str, Any]) -> str:
     '''
 
 
-# Playwright 浏览器实例（复用以提升性能）
+"""
+Playwright 浏览器实例（复用以提升性能）
+"""
 _browser = None
 _playwright_instance = None
 

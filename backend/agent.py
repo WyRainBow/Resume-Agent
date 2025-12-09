@@ -37,9 +37,11 @@ def call_vision_model(image_base64: str, prompt: str) -> str:
     
     client = ZhipuAI(api_key=api_key)
     
-    # 构建视觉请求
+    """
+    构建视觉请求，使用 GLM 视觉模型
+    """
     response = client.chat.completions.create(
-        model="glm-4v-flash",  # 使用 GLM 视觉模型
+        model="glm-4v-flash",
         messages=[
             {
                 "role": "user",
@@ -133,16 +135,22 @@ def reflect_and_fix(
 请返回修正后的完整 JSON（只输出 JSON，不要其他内容）：
 """
     
-    # 调用 Gemini 进行推理修正
+    """
+    调用 Gemini 进行推理修正
+    """
     result = simple.call_gemini_api(prompt)
     
-    # 清理并解析 JSON
+    """
+    清理并解析 JSON
+    """
     cleaned = re.sub(r'```json\s*', '', result)
     cleaned = re.sub(r'```\s*', '', cleaned)
     cleaned = cleaned.strip()
     
     try:
-        # 尝试提取 JSON
+        """
+        尝试提取 JSON
+        """
         start = cleaned.find('{')
         end = cleaned.rfind('}')
         if start != -1 and end != -1:
@@ -190,18 +198,24 @@ def run_reflection_agent(
     for i in range(max_iterations):
         result["iterations"] = i + 1
         
-        # 如果有截图，进行视觉分析
+        """
+        如果有截图，进行视觉分析
+        """
         if screenshot_base64:
             try:
                 vision_analysis = analyze_resume_screenshot(screenshot_base64, original_text)
                 result["vision_analysis"] = vision_analysis
                 
-                # 检查是否有问题需要修正
+                """
+                检查是否有问题需要修正
+                """
                 if "没有发现问题" in vision_analysis or "looks good" in vision_analysis.lower():
                     result["changes"].append(f"第{i+1}轮：视觉分析未发现问题，停止迭代")
                     break
                 
-                # 推理修正
+                """
+                推理修正
+                """
                 fixed_json, fix_message = reflect_and_fix(original_text, working_json, vision_analysis)
                 
                 if fixed_json != working_json:
@@ -215,7 +229,9 @@ def run_reflection_agent(
                 result["changes"].append(f"第{i+1}轮错误：{str(e)}")
                 break
         else:
-            # 没有截图，只做基础文本对比修正
+            """
+            没有截图，只做基础文本对比修正
+            """
             basic_fix_prompt = f"""对比原始文本和当前JSON，修正明显错误：
 
 原始文本（关键词）：
@@ -253,18 +269,24 @@ def run_reflection_agent(
     return result
 
 
-# 快速修正函数（不需要截图）
+"""
+快速修正函数（不需要截图）
+"""
 def quick_fix_resume(original_text: str, current_json: Dict[str, Any]) -> Dict[str, Any]:
     """
     快速修正简历 JSON（基于文本对比，不需要截图）
     """
-    # 检测原文中的关键词
+    """
+    检测原文中的关键词
+    """
     has_internship = any(kw in original_text for kw in ['实习', '实习经历', '实习生'])
     has_opensource = any(kw in original_text for kw in ['开源', '开源经历', 'GitHub', 'github'])
     
     fixed = current_json.copy()
     
-    # 修正 sectionTitles
+    """
+    修正 sectionTitles
+    """
     if 'sectionTitles' not in fixed:
         fixed['sectionTitles'] = {}
     
@@ -274,12 +296,16 @@ def quick_fix_resume(original_text: str, current_json: Dict[str, Any]) -> Dict[s
     if has_opensource:
         fixed['sectionTitles']['openSource'] = '开源经历'
     
-    # 清理空的 highlights
+    """
+    清理空的 highlights
+    """
     for key in ['internships', 'projects', 'openSource']:
         if key in fixed and isinstance(fixed[key], list):
             for item in fixed[key]:
                 if 'highlights' in item and (not item['highlights'] or item['highlights'] == []):
-                    # 如果没有内容，移除这个字段
+                    """
+                    如果没有内容，移除这个字段
+                    """
                     del item['highlights']
     
     return fixed
