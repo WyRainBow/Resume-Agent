@@ -37,7 +37,7 @@ except Exception:
 重写接口的数据模型
 """
 class RewriteRequest(BaseModel):
-    provider: Literal["zhipu", "gemini", "mock"] = Field(default="mock")
+    provider: Literal["zhipu", "gemini", "mock"] = Field(default="gemini")
     resume: Dict[str, Any]
     path: str = Field(..., description="JSON 路径，如 summary 或 experience[0].achievements[1]")
     instruction: str = Field(..., description="修改意图，如：更量化、更贴合后端 JD")
@@ -62,7 +62,25 @@ except Exception as e:
 """
 初始化 FastAPI 应用与 CORS
 """
-app = FastAPI(title="Resume Agent Backend", version="0.1.0")
+app = FastAPI(title="Resume Agent API")
+
+# ========== 全局 AI 配置 ==========
+DEFAULT_AI_PROVIDER = "gemini"  # 默认 AI 提供商: "gemini" 或 "zhipu"
+DEFAULT_AI_MODEL = {
+    "gemini": "gemini-2.5-pro",
+    "zhipu": "glm-4-flash"
+}
+# =================================
+
+@app.get("/api/ai/config")
+async def get_ai_config():
+    """获取当前 AI 配置"""
+    return {
+        "defaultProvider": DEFAULT_AI_PROVIDER,
+        "defaultModel": DEFAULT_AI_MODEL.get(DEFAULT_AI_PROVIDER, ""),
+        "models": DEFAULT_AI_MODEL
+    }
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -75,11 +93,11 @@ app.add_middleware(
 请求 / 响应数据模型
 """
 class AITestRequest(BaseModel):
-    provider: Literal["zhipu", "gemini", "mock"] = Field(default="mock")
+    provider: Literal["zhipu", "gemini", "mock"] = Field(default="gemini")
     prompt: str = Field(..., description="测试提示词")
 
 class ResumeGenerateRequest(BaseModel):
-    provider: Literal["zhipu", "gemini", "mock"] = Field(default="mock")
+    provider: Literal["zhipu", "gemini", "mock"] = Field(default="gemini")
     instruction: str = Field(..., description="一句话或少量信息，说明岗位/经历/技能等")
     locale: Literal["zh", "en"] = Field(default="zh", description="输出语言")
 
@@ -513,14 +531,14 @@ async def chat_api(body: ChatRequest):
         
         prompt = "\n\n".join(prompt_parts) + "\n\n请回复："
         
-        # 尝试使用指定的 provider，否则默认使用智谱
+        # 尝试使用指定的 provider，否则默认使用 Gemini
         provider = body.provider
         if not provider:
-            # 优先使用智谱
-            if os.getenv("ZHIPU_API_KEY"):
-                provider = "zhipu"
-            elif os.getenv("GEMINI_API_KEY"):
+            # 优先使用 Gemini
+            if os.getenv("GEMINI_API_KEY"):
                 provider = "gemini"
+            elif os.getenv("ZHIPU_API_KEY"):
+                provider = "zhipu"
             else:
                 raise HTTPException(status_code=400, detail="未配置 AI 服务 API Key")
         
@@ -583,7 +601,7 @@ MOCK_RESUME_DATA = {
 
 class ResumeParseRequest(BaseModel):
     text: str = Field(..., description="用户粘贴的简历文本")
-    provider: Literal["zhipu", "gemini", "mock"] = Field(default="zhipu")
+    provider: Literal["zhipu", "gemini", "mock"] = Field(default="gemini")
 
 @app.post("/api/resume/parse")
 async def parse_resume_text(body: ResumeParseRequest):
@@ -596,10 +614,10 @@ async def parse_resume_text(body: ResumeParseRequest):
     if body.provider == "mock":
         return {"resume": MOCK_RESUME_DATA, "provider": "mock"}
     
-    # 优化 prompt 加速响应
-    prompt = f"""从文本提取简历信息,只输出JSON(不要markdown):
+    # 优化 prompt 加速响应（无数据字段用空数组，不要模板值）
+    prompt = f"""从简历文本提取信息,只输出JSON(不要markdown,无数据的字段用空数组[]):
 {body.text}
-输出:{{"name":"","contact":{{"phone":"","email":""}},"objective":"","education":[{{"title":"","subtitle":""}}],"internships":[{{"title":"","subtitle":"","highlights":[]}}],"skills":[{{"category":"","details":""}}]}}"""
+格式:{{"name":"姓名","contact":{{"phone":"电话","email":"邮箱"}},"objective":"求职意向","education":[{{"title":"学校","subtitle":"学历","date":"时间","major":"专业","details":["荣誉"]}}],"internships":[{{"title":"公司","subtitle":"职位","date":"时间","highlights":["工作内容"]}}],"projects":[{{"title":"项目名","subtitle":"角色","date":"时间","highlights":["描述"]}}],"openSource":[{{"title":"开源项目","subtitle":"描述","items":["贡献"],"repoUrl":"链接"}}],"skills":[{{"category":"类别","details":"技能"}}],"awards":["奖项"]}}"""
     
     try:
         raw = call_llm(body.provider, prompt)
@@ -638,6 +656,7 @@ async def parse_resume_text(body: ResumeParseRequest):
         "education": short_data.get("education", []),
         "internships": short_data.get("internships", []),
         "projects": short_data.get("projects", []),
+        "openSource": short_data.get("openSource", []),
         "skills": short_data.get("skills", []),
         "awards": short_data.get("awards", [])
     }
@@ -768,7 +787,7 @@ async def generate_resume(body: ResumeGenerateRequest):
 class FormatTextRequest(BaseModel):
     """格式化文本请求"""
     text: str = Field(..., description="简历文本内容")
-    provider: Literal['zhipu', 'gemini'] = Field(default='zhipu', description="AI 提供商")
+    provider: Literal['zhipu', 'gemini'] = Field(default='gemini', description="AI 提供商")
     use_ai: bool = Field(default=True, description="是否允许使用 AI（最后一层）")
 
 
