@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { Resume } from '../types/resume'
 
 interface Props {
@@ -11,6 +11,40 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [elapsedTime, setElapsedTime] = useState(0) // 已用时间（毫秒）
+  const [finalTime, setFinalTime] = useState<number | null>(null) // 最终耗时
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const startTimeRef = useRef<number>(0)
+
+  // 清理计时器
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+      }
+    }
+  }, [])
+
+  // 开始计时
+  const startTimer = () => {
+    setElapsedTime(0)
+    setFinalTime(null)
+    startTimeRef.current = Date.now()
+    timerRef.current = setInterval(() => {
+      setElapsedTime(Date.now() - startTimeRef.current)
+    }, 100) // 每100ms更新一次
+  }
+
+  // 停止计时
+  const stopTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current)
+      timerRef.current = null
+    }
+    const final = Date.now() - startTimeRef.current
+    setFinalTime(final)
+    setElapsedTime(final)
+  }
 
   const handleImport = async () => {
     if (!text.trim()) {
@@ -20,6 +54,7 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
 
     setLoading(true)
     setError('')
+    startTimer()
 
     try {
       const response = await fetch('/api/resume/parse', {
@@ -27,6 +62,8 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: text.trim() })
       })
+
+      stopTimer()
 
       if (!response.ok) {
         throw new Error('解析失败')
@@ -37,10 +74,17 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
       setText('')
       onClose()
     } catch (err) {
+      stopTimer()
       setError('AI 解析失败，请检查内容格式或稍后重试')
     } finally {
       setLoading(false)
     }
+  }
+
+  // 格式化时间显示
+  const formatTime = (ms: number) => {
+    const seconds = (ms / 1000).toFixed(1)
+    return `${seconds}s`
   }
 
   if (!isOpen) return null
@@ -205,34 +249,79 @@ XX项目 - 核心开发 - 2023.01-2023.06
             padding: '16px 24px',
             borderTop: '1px solid rgba(255, 255, 255, 0.1)',
             display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '12px',
+            justifyContent: 'space-between',
+            alignItems: 'center',
           }}
         >
-          <button
-            onClick={onClose}
-            style={{
-              padding: '10px 20px',
-              background: 'rgba(255, 255, 255, 0.1)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              borderRadius: '8px',
-              color: 'white',
-              fontSize: '14px',
-              cursor: 'pointer',
-            }}
-          >
-            取消
-          </button>
-          <button
-            onClick={handleImport}
-            disabled={loading || !text.trim()}
-            style={{
-              padding: '10px 24px',
-              background: loading
-                ? 'rgba(102, 126, 234, 0.5)'
-                : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              border: 'none',
-              borderRadius: '8px',
+          {/* 计时器显示 */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {(loading || finalTime !== null) && (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 16px',
+                  background: loading 
+                    ? 'rgba(102, 126, 234, 0.2)' 
+                    : finalTime && finalTime < 5000 
+                      ? 'rgba(34, 197, 94, 0.2)' 
+                      : 'rgba(251, 191, 36, 0.2)',
+                  borderRadius: '8px',
+                  color: loading 
+                    ? '#a5b4fc' 
+                    : finalTime && finalTime < 5000 
+                      ? '#86efac' 
+                      : '#fcd34d',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  fontFamily: 'monospace',
+                }}
+              >
+                <span style={{ fontSize: '16px' }}>
+                  {loading ? '⏱️' : finalTime && finalTime < 5000 ? '⚡' : '✅'}
+                </span>
+                <span>{formatTime(elapsedTime)}</span>
+                {!loading && finalTime !== null && (
+                  <span style={{ 
+                    fontSize: '11px', 
+                    opacity: 0.8,
+                    fontWeight: 400,
+                    marginLeft: '4px'
+                  }}>
+                    {finalTime < 3000 ? '极速' : finalTime < 5000 ? '较快' : '正常'}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* 按钮组 */}
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={onClose}
+              style={{
+                padding: '10px 20px',
+                background: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '14px',
+                cursor: 'pointer',
+              }}
+            >
+              取消
+            </button>
+            <button
+              onClick={handleImport}
+              disabled={loading || !text.trim()}
+              style={{
+                padding: '10px 24px',
+                background: loading
+                  ? 'rgba(102, 126, 234, 0.5)'
+                  : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                border: 'none',
+                borderRadius: '8px',
               color: 'white',
               fontSize: '14px',
               fontWeight: 600,
@@ -260,6 +349,7 @@ XX项目 - 核心开发 - 2023.01-2023.06
               <>✨ 开始解析</>
             )}
           </button>
+          </div>
         </div>
 
         <style>{`
