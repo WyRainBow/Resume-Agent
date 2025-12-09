@@ -1140,7 +1140,11 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
           
           const sectionOrder = newItems
             .filter(s => s.type !== 'contact')
-            .map(s => s.type)
+            .map(s => {
+              // 将 experience 映射为 internships（因为数据存在 internships 字段）
+              if (s.type === 'experience') return 'internships'
+              return s.type
+            })
           
           onSave(newResumeData, sectionOrder)
         }, 500) // 防抖 500ms
@@ -1243,7 +1247,10 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
 
     const sectionOrder = currentSections
       .filter(s => s.type !== 'contact')
-      .map(s => s.type)
+      .map(s => {
+        if (s.type === 'experience') return 'internships'
+        return s.type
+      })
 
     onSave(newResumeData, sectionOrder)
   }
@@ -1328,7 +1335,10 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
     // 获取当前 section 顺序（排除 contact，因为它总是在头部）
     const sectionOrder = sections
       .filter(s => s.type !== 'contact')
-      .map(s => s.type)
+      .map(s => {
+        if (s.type === 'experience') return 'internships'
+        return s.type
+      })
 
     onSave(newResumeData, sectionOrder)
   }

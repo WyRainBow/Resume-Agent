@@ -305,7 +305,7 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
     )
   }
 
-  const defaultOrder = ['education', 'experience', 'projects', 'opensource', 'skills', 'awards', 'summary']
+  const defaultOrder = ['education', 'internships', 'experience', 'projects', 'opensource', 'skills', 'awards', 'summary']
   const order = (sectionOrder && sectionOrder.length > 0) ? sectionOrder : defaultOrder
 
   return (
@@ -599,7 +599,9 @@ function renderEducation(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHand
 function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler) {
   const internships = resume.internships
   if (!internships || internships.length === 0) return null
-  const title = resume.sectionTitles?.experience || resume.sectionTitles?.internships || '工作经历'
+  const sectionTitle = resume.sectionTitles?.experience || resume.sectionTitles?.internships || '工作经历'
+  // 如果标题是"实习经历"，使用简洁模式（只显示一行）
+  const isCompactMode = sectionTitle === '实习经历'
 
   return (
     <div key="experience" style={styles.section}>
@@ -610,7 +612,7 @@ function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHan
         data-field="sectionTitle.experience"
         onBlur={onBlur}
       >
-        {title}
+        {sectionTitle}
       </div>
       {internships.map((item: any, idx: number) => {
         const title = item.title || item.company || ''
@@ -620,6 +622,38 @@ function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHan
         
         if (!title && !subtitle) return null
         
+        // 简洁模式：只显示一行
+        if (isCompactMode) {
+          return (
+            <div key={idx} style={{ ...styles.entry, marginBottom: '2px' }}>
+              <div style={styles.entryHeader}>
+                <div
+                  contentEditable 
+                  suppressContentEditableWarning
+                  style={{ ...styles.entryTitle, display: 'inline', fontWeight: 'normal' }}
+                  data-field={`experience.${idx}.titleLine`}
+                  onBlur={onBlur}
+                  onKeyDown={onKeyDown}
+                >
+                  {title}{subtitle ? ` - ${subtitle}` : ''}
+                </div>
+                {date && (
+                  <span 
+                    contentEditable 
+                    suppressContentEditableWarning
+                    style={styles.entryDate}
+                    data-field={`experience.${idx}.date`}
+                    onBlur={onBlur}
+                  >
+                    {date}
+                  </span>
+                )}
+              </div>
+            </div>
+          )
+        }
+        
+        // 完整模式：显示详情
         return (
           <div key={idx} style={styles.entry}>
             <div style={styles.entryHeader}>
@@ -736,7 +770,37 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
               onKeyDown={onKeyDown}
             >
               {details.length > 0 
-                ? <ul style={{ margin: 0, paddingLeft: '18px' }}>{details.map((h: string, i: number) => <li key={i}>{h}</li>)}</ul>
+                ? <div style={{ margin: 0 }}>
+                    {details.map((h: string, i: number) => {
+                      const isBold = h.startsWith('**') && h.endsWith('**')
+                      const content = isBold ? h.slice(2, -2) : h
+                      return (
+                        <div key={i} style={{ 
+                          display: 'flex', 
+                          alignItems: 'flex-start',
+                          marginBottom: '3px',
+                          marginLeft: isBold ? '0' : '14px'
+                        }}>
+                          <span style={{ 
+                            marginRight: '6px', 
+                            lineHeight: '1.6',
+                            fontSize: isBold ? '14px' : '20px',
+                            marginTop: isBold ? '0' : '-6px'
+                          }}>
+                            {isBold ? '•' : '·'}
+                          </span>
+                          <span style={{ 
+                            fontWeight: isBold ? 'bold' : 'normal',
+                            flex: 1,
+                            lineHeight: '1.6',
+                            color: isBold ? '#000' : '#333'
+                          }}>
+                            {content}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
                 : '点击添加项目描述...'}
             </div>
           </div>
@@ -967,18 +1031,22 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '32px',
     display: 'flex',
     justifyContent: 'center',
+    alignItems: 'flex-start', // 让纸张从顶部开始，高度自动
   },
   paper: {
     width: '210mm',
-    minHeight: '297mm',
+    minHeight: '297mm', // A4 最小高度
+    height: 'auto', // 高度自动适应内容
     // margin: '0 auto', // 由 flex 居中
     backgroundColor: 'white',
     padding: '40px 50px',
-    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2), 0 0 1px rgba(0, 0, 0, 0.1)', // 增强阴影以适应深色背景
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2), 0 0 1px rgba(0, 0, 0, 0.1)',
     fontFamily: '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif',
     fontSize: '10pt',
     lineHeight: 1.4,
     color: '#333',
+    boxSizing: 'border-box',
+    wordBreak: 'break-word',
   },
   placeholder: {
     width: '100%',

@@ -17,7 +17,9 @@ export async function generateResume(provider: 'zhipu' | 'gemini' | 'mock', inst
 
 export async function renderPDF(resume: Resume, useDemo: boolean = false, sectionOrder?: string[]): Promise<Blob> {
   const url = `${API_BASE}/api/pdf/render`
-  const { data } = await axios.post(url, { resume, demo: useDemo, section_order: sectionOrder }, { responseType: 'blob' })
+  // 将 experience 映射为 internships（因为数据存在 internships 字段）
+  const mappedOrder = sectionOrder?.map(s => s === 'experience' ? 'internships' : s)
+  const { data } = await axios.post(url, { resume, demo: useDemo, section_order: mappedOrder }, { responseType: 'blob' })
   return data as Blob
 }
 

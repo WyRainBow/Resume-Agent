@@ -69,8 +69,6 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
       
       setNumPages(pdf.numPages)
       
-      const page = await pdf.getPage(pageNum)
-      
       const container = containerRef.current
       if (!container) {
         setLoading(false)
@@ -78,44 +76,49 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
       }
       
       // PDF 实际渲染比例 = 用户设置的 scale * 1.2
-      // 这样按钮 100% 时 PDF 视觉大小等于之前 120% 的效果
       const renderScale = scale * 1.2
-      
-      // 创建新 canvas 避免冲突
-      const canvas = document.createElement('canvas')
-      const context = canvas.getContext('2d')
-      if (!context) {
-        setLoading(false)
-        return
-      }
-      
       const dpr = window.devicePixelRatio || 1
-      const viewport = page.getViewport({ scale: renderScale })
       
-      canvas.width = Math.floor(viewport.width * dpr)
-      canvas.height = Math.floor(viewport.height * dpr)
-      canvas.style.width = `${Math.floor(viewport.width)}px`
-      canvas.style.height = `${Math.floor(viewport.height)}px`
-      canvas.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)'
-      canvas.style.display = 'block'
-      canvas.style.margin = '0 auto'
-      
-      context.scale(dpr, dpr)
-      
-      const renderContext = {
-        canvasContext: context,
-        viewport: viewport,
-        enableWebGL: false,
-        renderInteractiveForms: false
-      }
-      
-      await page.render(renderContext).promise
-      
-      // 清除旧内容，添加新 canvas
+      // 清除旧内容
       const canvasContainer = container.querySelector('.pdf-canvas-container')
       if (canvasContainer) {
         canvasContainer.innerHTML = ''
-        canvasContainer.appendChild(canvas)
+      }
+      
+      // 渲染所有页面
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum)
+        
+        // 创建新 canvas
+        const canvas = document.createElement('canvas')
+        const context = canvas.getContext('2d')
+        if (!context) continue
+        
+        const viewport = page.getViewport({ scale: renderScale })
+        
+        canvas.width = Math.floor(viewport.width * dpr)
+        canvas.height = Math.floor(viewport.height * dpr)
+        canvas.style.width = `${Math.floor(viewport.width)}px`
+        canvas.style.height = `${Math.floor(viewport.height)}px`
+        canvas.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)'
+        canvas.style.display = 'block'
+        canvas.style.marginBottom = '20px'
+        
+        context.scale(dpr, dpr)
+        
+        const renderContext = {
+          canvasContext: context,
+          viewport: viewport,
+          enableWebGL: false,
+          renderInteractiveForms: false
+        }
+        
+        await page.render(renderContext).promise
+        
+        // 添加到容器
+        if (canvasContainer) {
+          canvasContainer.appendChild(canvas)
+        }
       }
       
       setLoading(false)
@@ -131,7 +134,7 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
 
   useEffect(() => {
     renderPDF()
-  }, [pdfBlob, pageNum, scale]) // 加入 scale 依赖，缩放时重新渲染
+  }, [pdfBlob, scale]) // 加入 scale 依赖，缩放时重新渲染
 
   return (
     <div style={{ 
@@ -200,7 +203,11 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
               className="pdf-canvas-container"
               style={{
                 display: (loading || error) ? 'none' : 'flex',
-                justifyContent: 'center'
+                flexDirection: 'column',
+                alignItems: 'center',
+                backgroundColor: 'white',
+                padding: '20px',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
               }}
             />
           </div>
