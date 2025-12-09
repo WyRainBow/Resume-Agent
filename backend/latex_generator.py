@@ -179,22 +179,24 @@ def normalize_item(item: Dict[str, Any], field_mapping: Dict[str, str]) -> Dict[
     return normalized_item
 
 
-def generate_section_summary(resume_data: Dict[str, Any]) -> List[str]:
+def generate_section_summary(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """生成个人总结"""
     content = []
     summary = resume_data.get('summary')
+    title = (section_titles or {}).get('summary', '个人总结')
     if isinstance(summary, str) and summary.strip():
-        content.append(r"\section{个人总结}")
+        content.append(f"\\section{{{escape_latex(title)}}}")
         content.append(escape_latex(summary.strip()))
         content.append("")
     return content
 
-def generate_section_internships(resume_data: Dict[str, Any]) -> List[str]:
+def generate_section_internships(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """生成实习经历"""
     content = []
     internships = resume_data.get('internships') or []
+    title = (section_titles or {}).get('internships') or (section_titles or {}).get('experience', '实习经历')
     if isinstance(internships, list) and internships:
-        content.append(r"\section{实习经历}")
+        content.append(f"\\section{{{escape_latex(title)}}}")
         for it in internships:
             title = escape_latex(it.get('title') or '')
             subtitle = escape_latex(it.get('subtitle') or '')
@@ -214,12 +216,13 @@ def generate_section_internships(resume_data: Dict[str, Any]) -> List[str]:
             content.append("")
     return content
 
-def generate_section_experience(resume_data: Dict[str, Any]) -> List[str]:
+def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """生成工作经历"""
     content = []
     exp = resume_data.get('experience') or []
+    title = (section_titles or {}).get('experience', '工作经历')
     if isinstance(exp, list) and exp:
-        content.append(r"\section{工作经历}")
+        content.append(f"\\section{{{escape_latex(title)}}}")
         for e in exp:
             company = escape_latex(e.get('company') or '')
             position = escape_latex(e.get('position') or '')
@@ -241,12 +244,13 @@ def generate_section_experience(resume_data: Dict[str, Any]) -> List[str]:
             content.append("")
     return content
 
-def generate_section_projects(resume_data: Dict[str, Any]) -> List[str]:
+def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """生成项目经历"""
     content = []
     projects = resume_data.get('projects') or []
+    title = (section_titles or {}).get('projects', '项目经历')
     if isinstance(projects, list) and projects:
-        content.append(r"\section{项目经历}")
+        content.append(f"\\section{{{escape_latex(title)}}}")
         for p in projects:
             # 兼容多种字段名
             title = p.get('title') or p.get('name') or ''
@@ -286,12 +290,13 @@ def generate_section_projects(resume_data: Dict[str, Any]) -> List[str]:
                 content.append("")
     return content
 
-def generate_section_skills(resume_data: Dict[str, Any]) -> List[str]:
+def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """生成专业技能"""
     content = []
     skills = resume_data.get('skills') or []
+    title = (section_titles or {}).get('skills', '专业技能')
     if skills:
-        content.append(r"\section{专业技能}")
+        content.append(f"\\section{{{escape_latex(title)}}}")
         content.append(r"\begin{itemize}[parsep=0.2ex]")
         if all(isinstance(s, str) for s in skills):
             for s in skills:
@@ -312,12 +317,13 @@ def generate_section_skills(resume_data: Dict[str, Any]) -> List[str]:
         content.append("")
     return content
 
-def generate_section_education(resume_data: Dict[str, Any]) -> List[str]:
+def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """生成教育经历"""
     content = []
     edu = resume_data.get('education') or []
+    title = (section_titles or {}).get('education', '教育经历')
     if isinstance(edu, list) and edu:
-        content.append(r"\section{教育经历}")
+        content.append(f"\\section{{{escape_latex(title)}}}")
         for ed in edu:
             # 兼容多种字段名
             school = escape_latex(ed.get('school') or ed.get('title') or '')
@@ -350,12 +356,13 @@ def generate_section_education(resume_data: Dict[str, Any]) -> List[str]:
             content.append("")
     return content
 
-def generate_section_awards(resume_data: Dict[str, Any]) -> List[str]:
+def generate_section_awards(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """生成奖项"""
     content = []
     awards = resume_data.get('awards') or []
+    title = (section_titles or {}).get('awards', '荣誉奖项')
     if isinstance(awards, list) and awards:
-        content.append(r"\section{奖项}")
+        content.append(f"\\section{{{escape_latex(title)}}}")
         content.append(r"\begin{itemize}[parsep=0.2ex]")
         for a in awards:
             if isinstance(a, str):
@@ -373,12 +380,13 @@ def generate_section_awards(resume_data: Dict[str, Any]) -> List[str]:
         content.append("")
     return content
 
-def generate_section_opensource(resume_data: Dict[str, Any]) -> List[str]:
+def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """生成开源经历"""
     content = []
     open_source = resume_data.get('openSource') or []
+    title = (section_titles or {}).get('openSource', '开源经历')
     if isinstance(open_source, list) and open_source:
-        content.append(r"\section{开源经历}")
+        content.append(f"\\section{{{escape_latex(title)}}}")
         for os_item in open_source:
             title = escape_latex(os_item.get('title') or '')
             subtitle = escape_latex(os_item.get('subtitle') or '')
@@ -485,12 +493,15 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{location}}}{{{role}}}")
     latex_content.append("")
     
+    """获取自定义模块标题"""
+    section_titles = resume_data.get('sectionTitles') or {}
+    
     """按顺序生成各 section"""
     order = section_order if section_order else DEFAULT_SECTION_ORDER
     for section_id in order:
         generator = SECTION_GENERATORS.get(section_id)
         if generator:
-            latex_content.extend(generator(resume_data))
+            latex_content.extend(generator(resume_data, section_titles))
     
     """文档结尾"""
     latex_content.append(r"\end{document}")
