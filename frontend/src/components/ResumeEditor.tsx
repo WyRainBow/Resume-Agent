@@ -301,15 +301,146 @@ function SectionEditor({ section, onUpdate }: { section: ResumeSection, onUpdate
       )
 
     case 'education':
+      // 教育经历单独处理
+      const eduItems = Array.isArray(section.data) ? section.data : []
+      return (
+        <div style={{ paddingTop: '16px' }}>
+          {eduItems.map((item: any, index: number) => (
+            <div 
+              key={index} 
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                borderRadius: '12px',
+                padding: '16px',
+                marginBottom: '12px',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>#{index + 1}</span>
+                <button
+                  onClick={() => {
+                    const newItems = eduItems.filter((_: any, i: number) => i !== index)
+                    onUpdate(newItems)
+                  }}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.2)',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    borderRadius: '6px',
+                    color: '#f87171',
+                    padding: '4px 12px',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  删除
+                </button>
+              </div>
+              {/* 第一行：学校 + 专业 */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={labelStyle}>学校</label>
+                  <input
+                    style={inputStyle}
+                    value={item.title || item.school || ''}
+                    onChange={(e) => {
+                      const newItems = [...eduItems]
+                      newItems[index] = { ...item, title: e.target.value, school: e.target.value }
+                      onUpdate(newItems)
+                    }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'}
+                    onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>专业</label>
+                  <input
+                    style={inputStyle}
+                    value={item.major || ''}
+                    onChange={(e) => {
+                      const newItems = [...eduItems]
+                      newItems[index] = { ...item, major: e.target.value }
+                      onUpdate(newItems)
+                    }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'}
+                    onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'}
+                  />
+                </div>
+              </div>
+              {/* 第二行：学位 + 时间 */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                  <label style={labelStyle}>学位</label>
+                  <input
+                    style={inputStyle}
+                    value={item.subtitle || item.degree || ''}
+                    onChange={(e) => {
+                      const newItems = [...eduItems]
+                      newItems[index] = { ...item, subtitle: e.target.value, degree: e.target.value }
+                      onUpdate(newItems)
+                    }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'}
+                    onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'}
+                  />
+                </div>
+                <div>
+                  <label style={labelStyle}>时间</label>
+                  <input
+                    style={inputStyle}
+                    value={item.date || item.duration || ''}
+                    onChange={(e) => {
+                      const newItems = [...eduItems]
+                      newItems[index] = { ...item, date: e.target.value, duration: e.target.value }
+                      onUpdate(newItems)
+                    }}
+                    onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'}
+                    onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'}
+                  />
+                </div>
+              </div>
+              {/* 描述 */}
+              <label style={labelStyle}>描述</label>
+              <textarea
+                style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }}
+                value={Array.isArray(item.details) ? item.details.join('\n') : (item.details || '')}
+                onChange={(e) => {
+                  const newItems = [...eduItems]
+                  newItems[index] = { ...item, details: e.target.value.split('\n').filter(Boolean) }
+                  onUpdate(newItems)
+                }}
+                placeholder="每行一条描述"
+                onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'}
+                onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'}
+              />
+            </div>
+          ))}
+          <button
+            onClick={() => onUpdate([...eduItems, { title: '', subtitle: '', major: '', date: '', details: [] }])}
+            style={{
+              width: '100%',
+              padding: '12px',
+              background: 'rgba(167, 139, 250, 0.15)',
+              border: '2px dashed rgba(167, 139, 250, 0.4)',
+              borderRadius: '12px',
+              color: '#a78bfa',
+              fontSize: '14px',
+              fontWeight: 500,
+              cursor: 'pointer',
+            }}
+          >
+            + 添加教育
+          </button>
+        </div>
+      )
+
     case 'experience':
     case 'projects':
       const items = Array.isArray(section.data) ? section.data : []
       const itemLabels = {
-        education: { title: '学校/专业', subtitle: '学位', date: '时间' },
         experience: { title: '公司', subtitle: '职位', date: '时间' },
         projects: { title: '项目名称', subtitle: '角色', date: '时间' },
       }
-      const labels = itemLabels[section.type]
+      const labels = itemLabels[section.type as 'experience' | 'projects']
       
       return (
         <div style={{ paddingTop: '16px' }}>
@@ -447,50 +578,71 @@ function SectionEditor({ section, onUpdate }: { section: ResumeSection, onUpdate
       const skills = Array.isArray(section.data) ? section.data : []
       return (
         <div style={{ paddingTop: '16px' }}>
-          {skills.map((skill: any, index: number) => (
-            <div 
-              key={index}
-              style={{
-                display: 'flex',
-                gap: '12px',
-                marginBottom: '12px',
-                alignItems: 'center',
-              }}
-            >
-              <input
-                style={{ ...inputStyle, marginBottom: 0, flex: 1 }}
-                value={typeof skill === 'string' ? skill : skill.name || ''}
-                onChange={(e) => {
-                  const newSkills = [...skills]
-                  newSkills[index] = e.target.value
-                  onUpdate(newSkills)
-                }}
-                placeholder="技能名称"
-                onFocus={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'
-                }}
-                onBlur={(e) => {
-                  e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'
-                }}
-              />
-              <button
-                onClick={() => onUpdate(skills.filter((_: any, i: number) => i !== index))}
+          {skills.map((skill: any, index: number) => {
+            // 兼容旧格式（字符串）和新格式（对象）
+            const isObject = typeof skill === 'object' && skill !== null
+            const category = isObject ? (skill.category || '') : skill
+            const details = isObject ? (skill.details || '') : ''
+            
+            return (
+              <div 
+                key={index}
                 style={{
-                  background: 'rgba(239, 68, 68, 0.2)',
-                  border: 'none',
-                  borderRadius: '8px',
-                  color: '#f87171',
-                  padding: '12px',
-                  cursor: 'pointer',
-                  fontSize: '16px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  marginBottom: '12px',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
                 }}
               >
-                ×
-              </button>
-            </div>
-          ))}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '13px' }}>#{index + 1}</span>
+                  <button
+                    onClick={() => onUpdate(skills.filter((_: any, i: number) => i !== index))}
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.2)',
+                      border: '1px solid rgba(239, 68, 68, 0.4)',
+                      borderRadius: '6px',
+                      color: '#f87171',
+                      padding: '4px 12px',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    删除
+                  </button>
+                </div>
+                <label style={labelStyle}>技能名称</label>
+                <input
+                  style={inputStyle}
+                  value={category}
+                  onChange={(e) => {
+                    const newSkills = [...skills]
+                    newSkills[index] = { category: e.target.value, details }
+                    onUpdate(newSkills)
+                  }}
+                  placeholder="如：Java基础"
+                  onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'}
+                />
+                <label style={labelStyle}>技能描述</label>
+                <textarea
+                  style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }}
+                  value={details}
+                  onChange={(e) => {
+                    const newSkills = [...skills]
+                    newSkills[index] = { category, details: e.target.value }
+                    onUpdate(newSkills)
+                  }}
+                  placeholder="详细描述你对该技能的掌握程度"
+                  onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)'}
+                />
+              </div>
+            )
+          })}
           <button
-            onClick={() => onUpdate([...skills, ''])}
+            onClick={() => onUpdate([...skills, { category: '', details: '' }])}
             style={{
               width: '100%',
               padding: '12px',
@@ -677,6 +829,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
               data: eduData.map((item: any) => ({
                 title: item.title || item.school || '',
                 subtitle: item.subtitle || item.degree || '',
+                major: item.major || '',
                 date: item.date || item.duration || '',
                 details: item.details || []
               }))

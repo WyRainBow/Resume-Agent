@@ -75,20 +75,24 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
       } else if (field === 'objective') {
         newResume.objective = textContent
       } else if (field === 'skills') {
-        // 技能：提取所有技能标签文本
-        const skillElements = e.currentTarget.querySelectorAll('[style*="skillItem"]') || []
-        if (skillElements.length > 0) {
-          newResume.skills = Array.from(skillElements).map(el => el.textContent || '')
-        } else {
-          // 简单文本分割
-          newResume.skills = textContent.split(/[,，、\s]+/).filter(Boolean)
-        }
+        // 技能：按行分割，解析 "技能名: 描述" 格式
+        const lines = textContent.split(/[\n]+/).map(s => s.trim()).filter(Boolean)
+        newResume.skills = lines.map(line => {
+          const colonIdx = line.indexOf(':')
+          if (colonIdx > 0) {
+            return {
+              category: line.substring(0, colonIdx).trim(),
+              details: line.substring(colonIdx + 1).trim()
+            }
+          }
+          return { category: line, details: '' }
+        })
       } else if (field === 'awards') {
         // 奖项：按行分割
         newResume.awards = textContent.split(/[•\n]+/).map(s => s.trim()).filter(Boolean)
       }
     } else if (parts.length === 2) {
-      // contact.phone, contact.email, contact.location
+      // contact.phone, contact.email, contact.location 或 skills.0
       const [section, subField] = parts
       if (section === 'contact') {
         newResume.contact = newResume.contact || {}
@@ -99,6 +103,20 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
         } else if (subField === 'location') {
           newResume.contact.location = textContent
         }
+      } else if (section === 'skills') {
+        // 技能格式：技能名: 描述
+        const idx = parseInt(subField, 10)
+        if (!isNaN(idx) && newResume.skills?.[idx] !== undefined) {
+          const colonIdx = textContent.indexOf(':')
+          if (colonIdx > 0) {
+            newResume.skills[idx] = {
+              category: textContent.substring(0, colonIdx).trim(),
+              details: textContent.substring(colonIdx + 1).trim()
+            }
+          } else {
+            newResume.skills[idx] = { category: textContent, details: '' }
+          }
+        }
       }
     } else if (parts.length === 3) {
       // 数组字段：education.0.school
@@ -107,16 +125,13 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
       
       if (section === 'education' && newResume.education?.[index]) {
         if (subField === 'titleLine') {
-          // 解析 "学校 - 学位 · 专业" 格式
+          // 解析 "学校 - 学位 - 专业" 格式
           const parts = textContent.split(' - ')
           newResume.education[index].school = parts[0]?.trim() || ''
           newResume.education[index].title = parts[0]?.trim() || ''
-          if (parts[1]) {
-            const subParts = parts[1].split(' · ')
-            newResume.education[index].degree = subParts[0]?.trim() || ''
-            newResume.education[index].subtitle = subParts[0]?.trim() || ''
-            newResume.education[index].major = subParts[1]?.trim() || ''
-          }
+          newResume.education[index].degree = parts[1]?.trim() || ''
+          newResume.education[index].subtitle = parts[1]?.trim() || ''
+          newResume.education[index].major = parts[2]?.trim() || ''
         } else if (subField === 'school') {
           newResume.education[index].school = textContent
           newResume.education[index].title = textContent
@@ -382,7 +397,7 @@ function renderEducation(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHand
                 onBlur={onBlur}
                 onKeyDown={onKeyDown}
               >
-                {school}{degree ? ` - ${degree}` : ''}{major ? ` · ${major}` : ''}
+                {school}{degree ? ` - ${degree}` : ''}{major ? ` - ${major}` : ''}
               </div>
               {date && (
                 <span 
@@ -542,18 +557,29 @@ function renderSkills(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler
   return (
     <div key="skills" style={styles.section}>
       <div style={styles.sectionTitle}>专业技能</div>
-      <div 
+      <ul 
         contentEditable 
         suppressContentEditableWarning
-        style={{ ...styles.skillsList, minHeight: '1em' }}
+        style={{ fontSize: '10pt', lineHeight: 1.6, minHeight: '2em', margin: 0, paddingLeft: '24px' }}
         data-field="skills"
         onBlur={onBlur}
+        onKeyDown={onKeyDown}
       >
-        {skills.map((skill, idx: number) => {
-          const skillText = typeof skill === 'string' ? skill : skill.details || skill.category
-          return <span key={idx} style={styles.skillItem}>{skillText}</span>
+        {skills.map((skill: any, idx: number) => {
+          const isObject = typeof skill === 'object' && skill !== null
+          const category = isObject ? (skill.category || '') : skill
+          const details = isObject ? (skill.details || '') : ''
+          return (
+            <li key={idx}>
+              {category && details ? (
+                <><strong>{category}</strong>: {details}</>
+              ) : (
+                category || details
+              )}
+            </li>
+          )
         })}
-      </div>
+      </ul>
     </div>
   )
 }
