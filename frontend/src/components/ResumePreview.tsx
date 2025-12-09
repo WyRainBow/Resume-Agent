@@ -672,8 +672,92 @@ function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHan
   const internships = resume.internships
   if (!internships || internships.length === 0) return null
   const sectionTitle = resume.sectionTitles?.experience || resume.sectionTitles?.internships || '工作经历'
-  // 如果标题是"实习经历"，使用简洁模式（只显示一行）
   const isCompactMode = sectionTitle === '实习经历'
+
+  // 详情项渲染函数（与项目经历共用逻辑）
+  const renderDetailItem = (text: string, index: number) => {
+    let indentLevel = 0
+    let cleanText = text
+    while (cleanText.startsWith('>')) {
+      indentLevel++
+      cleanText = cleanText.slice(1).trim()
+    }
+    
+    const boldMatch = cleanText.match(/^\*\*(.+?)\*\*[:：]?\s*(.*)$/)
+    const isPureBoldTitle = cleanText.startsWith('**') && cleanText.endsWith('**') && !cleanText.slice(2, -2).includes('**')
+    
+    const indentMargins = [0, 16, 32, 48]
+    const bulletStyles = [
+      { symbol: '•', size: '10px', color: '#333' },
+      { symbol: '◦', size: '10px', color: '#555' },
+      { symbol: '▪', size: '8px', color: '#666' },
+      { symbol: '–', size: '10px', color: '#777' },
+    ]
+    const bullet = bulletStyles[Math.min(indentLevel, bulletStyles.length - 1)]
+    
+    if (isPureBoldTitle) {
+      const titleContent = cleanText.slice(2, -2)
+      return (
+        <div 
+          key={index} 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'flex-start', 
+            marginBottom: '4px',
+            marginLeft: `${indentMargins[Math.min(indentLevel, 3)]}px`,
+            marginTop: indentLevel === 0 ? '6px' : '2px',
+          }}
+        >
+          <span style={{ marginRight: '8px', lineHeight: '1.5', fontSize: bullet.size, color: bullet.color, marginTop: '2px' }}>
+            {bullet.symbol}
+          </span>
+          <span style={{ fontWeight: 600, flex: 1, lineHeight: '1.5', color: '#1a1a1a', fontSize: '10pt' }}>
+            {titleContent}
+          </span>
+        </div>
+      )
+    } else if (boldMatch) {
+      const boldPart = boldMatch[1]
+      const restPart = boldMatch[2]
+      return (
+        <div 
+          key={index} 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'flex-start', 
+            marginBottom: '3px',
+            marginLeft: `${indentMargins[Math.min(indentLevel, 3)]}px`,
+            marginTop: indentLevel === 0 ? '4px' : '1px',
+          }}
+        >
+          <span style={{ marginRight: '8px', lineHeight: '1.55', fontSize: bullet.size, color: bullet.color, marginTop: '3px' }}>
+            {bullet.symbol}
+          </span>
+          <span style={{ flex: 1, lineHeight: '1.55' }}>
+            <span style={{ fontWeight: 600, color: '#1a1a1a' }}>{boldPart}</span>
+            {restPart && <span style={{ color: '#333' }}>：{restPart}</span>}
+          </span>
+        </div>
+      )
+    } else {
+      return (
+        <div 
+          key={index} 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'flex-start', 
+            marginBottom: '2px',
+            marginLeft: `${indentMargins[Math.min(indentLevel, 3)]}px`,
+          }}
+        >
+          <span style={{ marginRight: '8px', lineHeight: '1.55', fontSize: bullet.size, color: bullet.color, marginTop: '3px' }}>
+            {bullet.symbol}
+          </span>
+          <span style={{ flex: 1, lineHeight: '1.55', color: '#333' }}>{cleanText}</span>
+        </div>
+      )
+    }
+  }
 
   return (
     <div key="experience" style={styles.section}>
@@ -694,7 +778,7 @@ function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHan
         
         if (!title && !subtitle) return null
         
-        // 简洁模式：只显示一行
+        // 简洁模式
         if (isCompactMode) {
           return (
             <div key={idx} style={{ ...styles.entry, marginBottom: '2px' }}>
@@ -725,25 +809,52 @@ function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHan
           )
         }
         
-        // 完整模式：显示详情
+        // 完整模式
         return (
-          <div key={idx} style={styles.entry}>
-            <div style={styles.entryHeader}>
-              <div
-                contentEditable 
-                suppressContentEditableWarning
-                style={{ ...styles.entryTitle, display: 'inline' }}
-                data-field={`experience.${idx}.titleLine`}
-                onBlur={onBlur}
-                onKeyDown={onKeyDown}
-              >
-                {title}{subtitle ? ` - ${subtitle}` : ''}
+          <div key={idx} style={{ ...styles.entry, marginBottom: '14px' }}>
+            {/* 标题行 */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'baseline',
+              marginBottom: '2px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                <div
+                  contentEditable 
+                  suppressContentEditableWarning
+                  style={{ 
+                    fontWeight: 700, 
+                    fontSize: '11pt', 
+                    color: '#000',
+                    display: 'inline',
+                  }}
+                  data-field={`experience.${idx}.title`}
+                  onBlur={onBlur}
+                  onKeyDown={onKeyDown}
+                >
+                  {title}
+                </div>
+                {subtitle && (
+                  <span style={{ 
+                    fontSize: '10pt', 
+                    color: '#444',
+                    fontStyle: 'italic',
+                  }}>
+                    – {subtitle}
+                  </span>
+                )}
               </div>
               {date && (
                 <span 
                   contentEditable 
                   suppressContentEditableWarning
-                  style={styles.entryDate}
+                  style={{ 
+                    color: '#555', 
+                    fontSize: '9pt', 
+                    whiteSpace: 'nowrap',
+                    fontStyle: 'italic',
+                  }}
                   data-field={`experience.${idx}.date`}
                   onBlur={onBlur}
                 >
@@ -751,17 +862,18 @@ function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHan
                 </span>
               )}
             </div>
-            {/* 只有在有内容时才显示详情区域 */}
+            
+            {/* 详情内容 */}
             {details.length > 0 && (
               <div 
                 contentEditable 
                 suppressContentEditableWarning
-                style={{ ...styles.highlights, paddingLeft: '18px' }}
+                style={{ marginTop: '4px', paddingLeft: '4px' }}
                 data-field={`experience.${idx}.details`}
                 onBlur={onBlur}
                 onKeyDown={onKeyDown}
               >
-                <ul style={{ margin: 0, paddingLeft: '18px' }}>{details.map((h: string, i: number) => <li key={i}>{h}</li>)}</ul>
+                {details.map((h: string, i: number) => renderDetailItem(h, i))}
               </div>
             )}
           </div>
@@ -774,7 +886,7 @@ function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHan
 function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandler) {
   const projects = resume.projects
   if (!projects || projects.length === 0) return null
-  const title = resume.sectionTitles?.projects || '项目经历'
+  const sectionTitle = resume.sectionTitles?.projects || '项目经历'
 
   return (
     <div key="projects" style={styles.section}>
@@ -785,7 +897,7 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
         data-field="sectionTitle.projects"
         onBlur={onBlur}
       >
-        {title}
+        {sectionTitle}
       </div>
       {projects.map((item: any, idx: number) => {
         const title = item.title || item.name || ''
@@ -793,18 +905,144 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
         const date = item.date || ''
         const details = item.highlights || item.details || []
         const repoUrl = item.repoUrl || ''
-        const stack = item.stack || [] // 技术栈
+        const stack = item.stack || []
         
         if (!title) return null
+
+        // 解析详情内容，支持层级结构
+        const renderDetailItem = (text: string, index: number) => {
+          // 检测缩进级别：> 表示二级，>> 表示三级
+          let indentLevel = 0
+          let cleanText = text
+          while (cleanText.startsWith('>')) {
+            indentLevel++
+            cleanText = cleanText.slice(1).trim()
+          }
+          
+          // 解析粗体标记
+          const boldMatch = cleanText.match(/^\*\*(.+?)\*\*[:：]?\s*(.*)$/)
+          const isPureBoldTitle = cleanText.startsWith('**') && cleanText.endsWith('**') && !cleanText.slice(2, -2).includes('**')
+          
+          // 根据缩进级别设置样式
+          const indentMargins = [0, 16, 32, 48]
+          const bulletStyles = [
+            { symbol: '•', size: '10px', color: '#333' },      // 一级：实心圆点
+            { symbol: '◦', size: '10px', color: '#555' },      // 二级：空心圆点
+            { symbol: '▪', size: '8px', color: '#666' },       // 三级：小方块
+            { symbol: '–', size: '10px', color: '#777' },      // 四级：短横线
+          ]
+          const bullet = bulletStyles[Math.min(indentLevel, bulletStyles.length - 1)]
+          
+          if (isPureBoldTitle) {
+            // 纯粗体二级标题（如 **架构设计**）
+            const titleContent = cleanText.slice(2, -2)
+            return (
+              <div 
+                key={index} 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'flex-start', 
+                  marginBottom: '4px',
+                  marginLeft: `${indentMargins[Math.min(indentLevel, 3)]}px`,
+                  marginTop: indentLevel === 0 ? '6px' : '2px',
+                }}
+              >
+                <span style={{ 
+                  marginRight: '8px', 
+                  lineHeight: '1.5', 
+                  fontSize: bullet.size,
+                  color: bullet.color,
+                  marginTop: '2px',
+                }}>
+                  {bullet.symbol}
+                </span>
+                <span style={{ 
+                  fontWeight: 600, 
+                  flex: 1, 
+                  lineHeight: '1.5', 
+                  color: '#1a1a1a',
+                  fontSize: '10pt',
+                }}>
+                  {titleContent}
+                </span>
+              </div>
+            )
+          } else if (boldMatch) {
+            // 粗体标题 + 内容（如 **数据库设计**：设计任务信息表...）
+            const boldPart = boldMatch[1]
+            const restPart = boldMatch[2]
+            return (
+              <div 
+                key={index} 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'flex-start', 
+                  marginBottom: '3px',
+                  marginLeft: `${indentMargins[Math.min(indentLevel, 3)]}px`,
+                  marginTop: indentLevel === 0 ? '4px' : '1px',
+                }}
+              >
+                <span style={{ 
+                  marginRight: '8px', 
+                  lineHeight: '1.55', 
+                  fontSize: bullet.size,
+                  color: bullet.color,
+                  marginTop: '3px',
+                }}>
+                  {bullet.symbol}
+                </span>
+                <span style={{ flex: 1, lineHeight: '1.55' }}>
+                  <span style={{ fontWeight: 600, color: '#1a1a1a' }}>{boldPart}</span>
+                  {restPart && <span style={{ color: '#333' }}>：{restPart}</span>}
+                </span>
+              </div>
+            )
+          } else {
+            // 普通文本
+            return (
+              <div 
+                key={index} 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'flex-start', 
+                  marginBottom: '2px',
+                  marginLeft: `${indentMargins[Math.min(indentLevel, 3)]}px`,
+                }}
+              >
+                <span style={{ 
+                  marginRight: '8px', 
+                  lineHeight: '1.55', 
+                  fontSize: bullet.size,
+                  color: bullet.color,
+                  marginTop: '3px',
+                }}>
+                  {bullet.symbol}
+                </span>
+                <span style={{ flex: 1, lineHeight: '1.55', color: '#333' }}>{cleanText}</span>
+              </div>
+            )
+          }
+        }
         
         return (
-          <div key={idx} style={styles.entry}>
-            <div style={styles.entryHeader}>
-              <div>
+          <div key={idx} style={{ ...styles.entry, marginBottom: '14px' }}>
+            {/* 项目标题行 */}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'baseline',
+              marginBottom: '2px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
                 <div
                   contentEditable 
                   suppressContentEditableWarning
-                  style={{ ...styles.entryTitle, display: 'inline', fontWeight: 'bold' }}
+                  style={{ 
+                    fontWeight: 700, 
+                    fontSize: '11pt', 
+                    color: '#000',
+                    display: 'inline',
+                  }}
                   data-field={`projects.${idx}.title`}
                   onBlur={onBlur}
                   onKeyDown={onKeyDown}
@@ -812,8 +1050,12 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
                   {title}
                 </div>
                 {subtitle && (
-                  <span style={{ marginLeft: '8px', fontSize: '10pt', color: '#555' }}>
-                    - {subtitle}
+                  <span style={{ 
+                    fontSize: '10pt', 
+                    color: '#444',
+                    fontStyle: 'italic',
+                  }}>
+                    – {subtitle}
                   </span>
                 )}
                 {repoUrl && (
@@ -821,10 +1063,15 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
                     href={repoUrl} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    style={{ marginLeft: '8px', color: '#6366f1', fontSize: '10pt', textDecoration: 'none' }}
+                    style={{ 
+                      color: '#5b6cf9', 
+                      fontSize: '9pt', 
+                      textDecoration: 'none',
+                      opacity: 0.9,
+                    }}
                     onClick={(e) => e.stopPropagation()}
                   >
-                    🔗 仓库
+                    🔗
                   </a>
                 )}
               </div>
@@ -832,7 +1079,12 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
                 <span 
                   contentEditable 
                   suppressContentEditableWarning
-                  style={styles.entryDate}
+                  style={{ 
+                    color: '#555', 
+                    fontSize: '9pt', 
+                    whiteSpace: 'nowrap',
+                    fontStyle: 'italic',
+                  }}
                   data-field={`projects.${idx}.date`}
                   onBlur={onBlur}
                 >
@@ -840,70 +1092,45 @@ function renderProjects(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHandl
                 </span>
               )}
             </div>
-            {/* 技术栈单独一行 */}
+            
+            {/* 技术栈标签 */}
             {stack.length > 0 && (
-              <div style={{ fontSize: '9pt', color: '#666', marginTop: '2px', marginBottom: '4px' }}>
-                技术栈：{stack.join('、')}
+              <div style={{ 
+                display: 'flex', 
+                flexWrap: 'wrap', 
+                gap: '4px', 
+                marginTop: '4px',
+                marginBottom: '6px',
+              }}>
+                {stack.map((tech: string, i: number) => (
+                  <span key={i} style={{
+                    fontSize: '8pt',
+                    padding: '2px 8px',
+                    background: 'linear-gradient(135deg, #f0f4ff, #e8ecff)',
+                    border: '1px solid #d0d8f0',
+                    borderRadius: '10px',
+                    color: '#4a5490',
+                  }}>
+                    {tech}
+                  </span>
+                ))}
               </div>
             )}
-            {/* 只在有内容时显示详情 */}
+            
+            {/* 项目详情 - 支持层级结构 */}
             {details.length > 0 && (
               <div 
                 contentEditable 
                 suppressContentEditableWarning
-                style={{ ...styles.highlights, paddingLeft: '18px' }}
+                style={{ 
+                  marginTop: '4px',
+                  paddingLeft: '4px',
+                }}
                 data-field={`projects.${idx}.details`}
                 onBlur={onBlur}
                 onKeyDown={onKeyDown}
               >
-                <div style={{ margin: 0 }}>
-                    {details.map((h: string, i: number) => {
-                      // 支持缩进：以 > 开头表示下一级
-                      const isIndented = h.startsWith('>')
-                      const text = isIndented ? h.slice(1) : h
-                      const indentStyle = isIndented ? { marginLeft: '18px' } : {}
-                      
-                      // 支持三种格式：
-                      // 1. **标题** - 纯粗体标题
-                      // 2. **标题**:内容 - 粗体标题 + 内容
-                      // 3. 普通文本
-                      const boldMatch = text.match(/^\*\*(.+?)\*\*(.*)$/)
-                      const isBoldTitle = text.startsWith('**') && text.endsWith('**')
-                      const hasBoldPrefix = boldMatch && !isBoldTitle
-                      
-                      if (isBoldTitle) {
-                        // 纯粗体标题
-                        const content = text.slice(2, -2)
-                        return (
-                          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '3px', ...indentStyle }}>
-                            <span style={{ marginRight: '6px', lineHeight: '1.6', fontSize: '14px' }}>•</span>
-                            <span style={{ fontWeight: 'bold', flex: 1, lineHeight: '1.6', color: '#000' }}>{content}</span>
-                          </div>
-                        )
-                      } else if (hasBoldPrefix) {
-                        // **标题**:内容 格式
-                        const boldPart = boldMatch[1]
-                        const restPart = boldMatch[2].replace(/^[:：]\s*/, '') // 移除冒号
-                        return (
-                          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '3px', ...indentStyle }}>
-                            <span style={{ marginRight: '6px', lineHeight: '1.6', fontSize: '14px' }}>•</span>
-                            <span style={{ flex: 1, lineHeight: '1.6' }}>
-                              <span style={{ fontWeight: 'bold', color: '#000' }}>{boldPart}</span>
-                              {restPart && <span style={{ color: '#333' }}>：{restPart}</span>}
-                            </span>
-                          </div>
-                        )
-                      } else {
-                        // 普通文本
-                        return (
-                          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '3px', marginLeft: isIndented ? '32px' : '14px' }}>
-                            <span style={{ marginRight: '6px', lineHeight: '1.6', fontSize: '20px', marginTop: '-6px' }}>·</span>
-                            <span style={{ flex: 1, lineHeight: '1.6', color: '#333' }}>{text}</span>
-                          </div>
-                        )
-                      }
-                    })}
-                  </div>
+                {details.map((h: string, i: number) => renderDetailItem(h, i))}
               </div>
             )}
           </div>

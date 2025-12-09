@@ -136,10 +136,17 @@ npm run dev
 ### 后端
 - **框架**：FastAPI
 - **AI 模型**：
-  - 智谱 GLM-4.5V
-  - Google Gemini
+  - **智谱 GLM-4.5V-Flash**（视觉分析，用于 AI 优化排版）
+  - **Google Gemini 2.5 Pro**（文本生成，用于简历生成和推理修正）
 - **PDF 生成**：XeLaTeX + LaTeX 模板
 - **字体支持**：PingFang SC（中文）+ TeXGyreTermes（英文）
+
+### 可用模型配置
+| 功能 | 模型 | 说明 |
+|------|------|------|
+| 简历生成 | Gemini 2.5 Pro | 文本到 JSON |
+| 视觉分析 | GLM-4.5V-Flash | 截图分析排版问题 |
+| 推理修正 | Gemini 2.5 Pro | 基于分析结果修正 JSON |
 
 ## 🎯 核心特性
 
