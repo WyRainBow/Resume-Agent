@@ -68,7 +68,7 @@ app = FastAPI(title="Resume Agent API")
 ========== 全局 AI 配置 ==========
 默认 AI 提供商: "gemini" 或 "zhipu"
 """
-DEFAULT_AI_PROVIDER = "gemini"
+DEFAULT_AI_PROVIDER = "zhipu"  # 默认 AI 提供商: "gemini" 或 "zhipu" (Gemini 额度用尽，临时用智谱)
 DEFAULT_AI_MODEL = {
     "gemini": "gemini-2.5-pro",
     "zhipu": "glm-4-flash"
@@ -605,11 +605,11 @@ class SectionParseRequest(BaseModel):
     """单模块 AI 解析请求"""
     text: str = Field(..., description="用户粘贴的模块文本")
     section_type: str = Field(..., description="模块类型: contact/education/experience/projects/skills/awards/summary/opensource")
-    provider: Literal["zhipu", "gemini", "mock"] = Field(default="gemini")
+    provider: Optional[Literal["zhipu", "gemini", "mock"]] = Field(default=None)
 
 class ResumeParseRequest(BaseModel):
     text: str = Field(..., description="用户粘贴的简历文本")
-    provider: Literal["zhipu", "gemini", "mock"] = Field(default="gemini")
+    provider: Optional[Literal["zhipu", "gemini", "mock"]] = Field(default=None)
 
 @app.post("/api/resume/parse")
 async def parse_resume_text(body: ResumeParseRequest):
@@ -619,7 +619,10 @@ async def parse_resume_text(body: ResumeParseRequest):
     import re
     import json as _json
     
-    if body.provider == "mock":
+    # 使用全局默认配置
+    provider = body.provider or DEFAULT_AI_PROVIDER
+    
+    if provider == "mock":
         return {"resume": MOCK_RESUME_DATA, "provider": "mock"}
     
     # 优化 prompt 加速响应（无数据字段用空数组，不要模板值）
@@ -628,7 +631,7 @@ async def parse_resume_text(body: ResumeParseRequest):
 格式:{{"name":"姓名","contact":{{"phone":"电话","email":"邮箱"}},"objective":"求职意向","education":[{{"title":"学校","subtitle":"学历","date":"时间","major":"专业","details":["荣誉"]}}],"internships":[{{"title":"公司","subtitle":"职位","date":"时间","highlights":["工作内容"]}}],"projects":[{{"title":"项目名","subtitle":"角色","date":"时间","highlights":["描述"]}}],"openSource":[{{"title":"开源项目","subtitle":"描述","items":["贡献"],"repoUrl":"链接"}}],"skills":[{{"category":"类别","details":"技能"}}],"awards":["奖项"]}}"""
     
     try:
-        raw = call_llm(body.provider, prompt)
+        raw = call_llm(provider, prompt)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
     
@@ -681,7 +684,10 @@ async def parse_section_text(body: SectionParseRequest):
     import re
     import json as _json
     
-    if body.provider == "mock":
+    # 使用全局默认配置
+    provider = body.provider or DEFAULT_AI_PROVIDER
+    
+    if provider == "mock":
         mock_data = {
             "contact": {"name": "张三", "phone": "138****8888", "email": "test@example.com", "location": "北京"},
             "education": [{"title": "示例大学", "subtitle": "本科", "major": "计算机科学", "date": "2020-2024"}],
@@ -715,7 +721,7 @@ async def parse_section_text(body: SectionParseRequest):
 {body.text}"""
     
     try:
-        raw = call_llm(body.provider, prompt)
+        raw = call_llm(provider, prompt)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
     
@@ -752,7 +758,7 @@ async def parse_section_text(body: SectionParseRequest):
     if body.section_type == "summary" and isinstance(data, dict):
         data = data.get("summary", data)
     
-    return {"data": data, "section_type": body.section_type, "provider": body.provider}
+    return {"data": data, "section_type": body.section_type, "provider": provider}
 
 
 """
