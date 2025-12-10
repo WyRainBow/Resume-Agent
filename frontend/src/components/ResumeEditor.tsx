@@ -61,6 +61,43 @@ function AIImportModal({
   importing: boolean
 }) {
   const [text, setText] = useState('')
+  const [elapsedTime, setElapsedTime] = useState(0) // 已用时间（毫秒）
+  const [finalTime, setFinalTime] = useState<number | null>(null) // 最终耗时
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const startTimeRef = useRef<number>(0)
+
+  // 计时器逻辑
+  useEffect(() => {
+    if (importing) {
+      // 开始计时
+      setElapsedTime(0)
+      setFinalTime(null)
+      startTimeRef.current = Date.now()
+      timerRef.current = setInterval(() => {
+        setElapsedTime(Date.now() - startTimeRef.current)
+      }, 100)
+    } else if (timerRef.current) {
+      // 停止计时
+      clearInterval(timerRef.current)
+      timerRef.current = null
+      if (startTimeRef.current > 0) {
+        setFinalTime(Date.now() - startTimeRef.current)
+      }
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current)
+    }
+  }, [importing])
+
+  // 格式化时间显示
+  const formatTime = (ms: number) => `${(ms / 1000).toFixed(1)}s`
+  
+  // 获取时间颜色
+  const getTimeColor = (ms: number) => {
+    if (ms < 2000) return '#10b981' // 绿色 < 2s
+    if (ms < 5000) return '#f59e0b' // 橙色 2-5s
+    return '#ef4444' // 红色 > 5s
+  }
   
   if (!isOpen) return null
   
@@ -167,9 +204,32 @@ function AIImportModal({
               fontWeight: 600,
               cursor: importing || !text.trim() ? 'not-allowed' : 'pointer',
               opacity: !text.trim() ? 0.5 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
             }}
           >
             {importing ? '🔄 解析中...' : '✨ AI 解析'}
+            {/* 计时显示 */}
+            {importing && (
+              <span style={{ 
+                fontSize: '12px', 
+                color: getTimeColor(elapsedTime),
+                fontWeight: 500,
+                minWidth: '40px',
+              }}>
+                {formatTime(elapsedTime)}
+              </span>
+            )}
+            {!importing && finalTime !== null && (
+              <span style={{ 
+                fontSize: '12px', 
+                color: getTimeColor(finalTime),
+                fontWeight: 500,
+              }}>
+                ✓ {formatTime(finalTime)}
+              </span>
+            )}
           </button>
         </div>
       </div>
