@@ -33,6 +33,11 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-pro")
 GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "https://api.chataiapi.com/v1")
 
+# 豆包配置
+DOUBAO_API_KEY = os.getenv("DOUBAO_API_KEY", "")
+DOUBAO_MODEL = os.getenv("DOUBAO_MODEL", "doubao-seed-1-6-lite-251015")
+DOUBAO_BASE_URL = os.getenv("DOUBAO_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
+
 
 """
 导入智谱 SDK (使用官方 zhipuai)
@@ -223,6 +228,49 @@ def call_gemini_api(prompt: str, model: str = None, max_retries: int = 3) -> str
     
     """如果所有重试都失败了"""
     raise Exception(f"API 调用失败（已重试 {max_retries + 1} 次）: {str(last_error)}")
+
+
+@retry_with_backoff(max_retries=2, initial_delay=0.5)
+def call_doubao_api(prompt: str, model: str = None) -> str:
+    """
+    调用豆包 API（火山引擎）
+    
+    参数:
+        prompt: 用户输入的提示词
+        model: 使用的模型名称，默认为 DOUBAO_MODEL
+    
+    返回:
+        API 返回的响应内容
+    """
+    if model is None:
+        model = DOUBAO_MODEL
+    
+    api_url = f"{DOUBAO_BASE_URL}/chat/completions"
+    
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7,
+        "max_tokens": 2000
+    }
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {DOUBAO_API_KEY}"
+    }
+    
+    response = requests.post(
+        api_url,
+        json=payload,
+        headers=headers,
+        timeout=60
+    )
+    
+    if response.status_code == 200:
+        result = response.json()
+        return result["choices"][0]["message"]["content"]
+    else:
+        raise Exception(f"豆包 API 调用失败: {response.status_code} - {response.text}")
 
 
 def main():

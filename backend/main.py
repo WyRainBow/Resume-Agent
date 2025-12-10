@@ -37,7 +37,7 @@ except Exception:
 重写接口的数据模型
 """
 class RewriteRequest(BaseModel):
-    provider: Literal["zhipu", "gemini", "mock"] = Field(default="gemini")
+    provider: Literal["zhipu", "gemini", "doubao", "mock"] = Field(default="gemini")
     resume: Dict[str, Any]
     path: str = Field(..., description="JSON 路径，如 summary 或 experience[0].achievements[1]")
     instruction: str = Field(..., description="修改意图，如：更量化、更贴合后端 JD")
@@ -66,12 +66,13 @@ app = FastAPI(title="Resume Agent API")
 
 """
 ========== 全局 AI 配置 ==========
-默认 AI 提供商: "gemini" 或 "zhipu"
+默认 AI 提供商: "gemini" / "zhipu" / "doubao"
 """
-DEFAULT_AI_PROVIDER = "zhipu"  # 默认 AI 提供商: "gemini" 或 "zhipu" (Gemini 额度用尽，临时用智谱)
+DEFAULT_AI_PROVIDER = "doubao"  # 默认 AI 提供商（豆包额度充足）
 DEFAULT_AI_MODEL = {
     "gemini": "gemini-2.5-pro",
-    "zhipu": "glm-4-flash"
+    "zhipu": "glm-4-flash",
+    "doubao": "doubao-seed-1-6-lite-251015"
 }
 
 @app.get("/api/ai/config")
@@ -95,11 +96,11 @@ app.add_middleware(
 请求 / 响应数据模型
 """
 class AITestRequest(BaseModel):
-    provider: Literal["zhipu", "gemini", "mock"] = Field(default="gemini")
+    provider: Literal["zhipu", "gemini", "doubao", "mock"] = Field(default="gemini")
     prompt: str = Field(..., description="测试提示词")
 
 class ResumeGenerateRequest(BaseModel):
-    provider: Literal["zhipu", "gemini", "mock"] = Field(default="gemini")
+    provider: Literal["zhipu", "gemini", "doubao", "mock"] = Field(default="gemini")
     instruction: str = Field(..., description="一句话或少量信息，说明岗位/经历/技能等")
     locale: Literal["zh", "en"] = Field(default="zh", description="输出语言")
 
@@ -154,6 +155,16 @@ def call_llm(provider: str, prompt: str) -> str:
         simple.GEMINI_MODEL = _os.getenv("GEMINI_MODEL", simple.GEMINI_MODEL)
         simple.GEMINI_BASE_URL = _os.getenv("GEMINI_BASE_URL", simple.GEMINI_BASE_URL)
         return simple.call_gemini_api(prompt)
+    elif provider == "doubao":
+        import os as _os
+        key = _os.getenv("DOUBAO_API_KEY") or getattr(simple, "DOUBAO_API_KEY", "")
+        if not key:
+            from fastapi import HTTPException as _HE
+            raise _HE(status_code=400, detail="缺少 DOUBAO_API_KEY，请在项目根目录 .env 或系统环境中配置 DOUBAO_API_KEY")
+        simple.DOUBAO_API_KEY = key
+        simple.DOUBAO_MODEL = _os.getenv("DOUBAO_MODEL", simple.DOUBAO_MODEL)
+        simple.DOUBAO_BASE_URL = _os.getenv("DOUBAO_BASE_URL", simple.DOUBAO_BASE_URL)
+        return simple.call_doubao_api(prompt)
     else:
         raise ValueError("不支持的 provider")
 
@@ -605,11 +616,11 @@ class SectionParseRequest(BaseModel):
     """单模块 AI 解析请求"""
     text: str = Field(..., description="用户粘贴的模块文本")
     section_type: str = Field(..., description="模块类型: contact/education/experience/projects/skills/awards/summary/opensource")
-    provider: Optional[Literal["zhipu", "gemini", "mock"]] = Field(default=None)
+    provider: Optional[Literal["zhipu", "gemini", "doubao", "mock"]] = Field(default=None)
 
 class ResumeParseRequest(BaseModel):
     text: str = Field(..., description="用户粘贴的简历文本")
-    provider: Optional[Literal["zhipu", "gemini", "mock"]] = Field(default=None)
+    provider: Optional[Literal["zhipu", "gemini", "doubao", "mock"]] = Field(default=None)
 
 @app.post("/api/resume/parse")
 async def parse_resume_text(body: ResumeParseRequest):
