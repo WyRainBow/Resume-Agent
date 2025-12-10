@@ -50,26 +50,25 @@ function AIImportModal({
   sectionType,
   sectionTitle,
   onClose,
-  onImport,
-  importing
+  onSave
 }: {
   isOpen: boolean
   sectionType: string
   sectionTitle: string
   onClose: () => void
-  onImport: (text: string) => void
-  importing: boolean
+  onSave: (data: any) => void
 }) {
   const [text, setText] = useState('')
-  const [elapsedTime, setElapsedTime] = useState(0) // 已用时间（毫秒）
-  const [finalTime, setFinalTime] = useState<number | null>(null) // 最终耗时
+  const [parsing, setParsing] = useState(false)
+  const [parsedData, setParsedData] = useState<any>(null) // 解析结果
+  const [elapsedTime, setElapsedTime] = useState(0)
+  const [finalTime, setFinalTime] = useState<number | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef<number>(0)
 
   // 计时器逻辑
   useEffect(() => {
-    if (importing) {
-      // 开始计时
+    if (parsing) {
       setElapsedTime(0)
       setFinalTime(null)
       startTimeRef.current = Date.now()
@@ -77,7 +76,6 @@ function AIImportModal({
         setElapsedTime(Date.now() - startTimeRef.current)
       }, 100)
     } else if (timerRef.current) {
-      // 停止计时
       clearInterval(timerRef.current)
       timerRef.current = null
       if (startTimeRef.current > 0) {
@@ -87,16 +85,60 @@ function AIImportModal({
     return () => {
       if (timerRef.current) clearInterval(timerRef.current)
     }
-  }, [importing])
+  }, [parsing])
 
-  // 格式化时间显示
+  // 重置状态
+  useEffect(() => {
+    if (!isOpen) {
+      setText('')
+      setParsedData(null)
+      setFinalTime(null)
+    }
+  }, [isOpen])
+
+  // AI 解析
+  const handleParse = async () => {
+    if (!text.trim()) return
+    setParsing(true)
+    setParsedData(null)
+    
+    try {
+      const response = await fetch('/api/resume/parse-section', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: text.trim(),
+          section_type: sectionType
+        })
+      })
+      
+      if (!response.ok) {
+        const err = await response.json()
+        throw new Error(err.detail || '解析失败')
+      }
+      
+      const result = await response.json()
+      setParsedData(result.data)
+    } catch (err: any) {
+      alert('解析失败: ' + err.message)
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  // 保存数据
+  const handleSave = () => {
+    if (parsedData) {
+      onSave(parsedData)
+      onClose()
+    }
+  }
+
   const formatTime = (ms: number) => `${(ms / 1000).toFixed(1)}s`
-  
-  // 获取时间颜色
   const getTimeColor = (ms: number) => {
-    if (ms < 2000) return '#10b981' // 绿色 < 2s
-    if (ms < 5000) return '#f59e0b' // 橙色 2-5s
-    return '#ef4444' // 红色 > 5s
+    if (ms < 2000) return '#10b981'
+    if (ms < 5000) return '#f59e0b'
+    return '#ef4444'
   }
   
   if (!isOpen) return null
@@ -176,6 +218,32 @@ function AIImportModal({
           onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.2)'}
         />
         
+        {/* 解析结果预览 */}
+        {parsedData && (
+          <div style={{
+            marginTop: '16px',
+            padding: '12px',
+            background: 'rgba(16, 185, 129, 0.1)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            borderRadius: '8px',
+          }}>
+            <div style={{ color: '#10b981', fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>
+              ✅ 解析成功！预览：
+            </div>
+            <pre style={{
+              margin: 0,
+              color: 'rgba(255,255,255,0.8)',
+              fontSize: '12px',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word',
+              maxHeight: '150px',
+              overflow: 'auto',
+            }}>
+              {JSON.stringify(parsedData, null, 2)}
+            </pre>
+          </div>
+        )}
+        
         <div style={{ display: 'flex', gap: '12px', marginTop: '16px', justifyContent: 'flex-end' }}>
           <button
             onClick={onClose}
@@ -191,46 +259,78 @@ function AIImportModal({
           >
             取消
           </button>
-          <button
-            onClick={() => onImport(text)}
-            disabled={!text.trim() || importing}
-            style={{
-              padding: '10px 24px',
-              background: importing ? 'rgba(167, 139, 250, 0.3)' : 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-              border: 'none',
-              borderRadius: '8px',
-              color: 'white',
-              fontSize: '14px',
-              fontWeight: 600,
-              cursor: importing || !text.trim() ? 'not-allowed' : 'pointer',
-              opacity: !text.trim() ? 0.5 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
-          >
-            {importing ? '🔄 解析中...' : '✨ AI 解析'}
-            {/* 计时显示 */}
-            {importing && (
-              <span style={{ 
-                fontSize: '12px', 
-                color: getTimeColor(elapsedTime),
-                fontWeight: 500,
-                minWidth: '40px',
-              }}>
-                {formatTime(elapsedTime)}
-              </span>
-            )}
-            {!importing && finalTime !== null && (
-              <span style={{ 
-                fontSize: '12px', 
-                color: getTimeColor(finalTime),
-                fontWeight: 500,
-              }}>
-                ✓ {formatTime(finalTime)}
-              </span>
-            )}
-          </button>
+          
+          {/* 解析按钮 */}
+          {!parsedData && (
+            <button
+              onClick={handleParse}
+              disabled={!text.trim() || parsing}
+              style={{
+                padding: '10px 24px',
+                background: parsing ? 'rgba(167, 139, 250, 0.3)' : 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                border: 'none',
+                borderRadius: '8px',
+                color: 'white',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: parsing || !text.trim() ? 'not-allowed' : 'pointer',
+                opacity: !text.trim() ? 0.5 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}
+            >
+              {parsing ? '🔄 解析中...' : '✨ AI 解析'}
+              {parsing && (
+                <span style={{ fontSize: '12px', color: getTimeColor(elapsedTime), fontWeight: 500, minWidth: '40px' }}>
+                  {formatTime(elapsedTime)}
+                </span>
+              )}
+            </button>
+          )}
+          
+          {/* 保存按钮 */}
+          {parsedData && (
+            <>
+              <button
+                onClick={() => { setParsedData(null); setFinalTime(null) }}
+                style={{
+                  padding: '10px 20px',
+                  background: 'rgba(255,255,255,0.1)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: '8px',
+                  color: 'rgba(255,255,255,0.8)',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                }}
+              >
+                重新解析
+              </button>
+              <button
+                onClick={handleSave}
+                style={{
+                  padding: '10px 24px',
+                  background: 'linear-gradient(135deg, #10b981, #059669)',
+                  border: 'none',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
+                💾 保存
+                {finalTime !== null && (
+                  <span style={{ fontSize: '12px', color: getTimeColor(finalTime), fontWeight: 500 }}>
+                    {formatTime(finalTime)}
+                  </span>
+                )}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -1392,88 +1492,56 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
     })
   }
 
-  // 执行 AI 导入
-  const handleAIImport = async (text: string) => {
-    if (!text.trim() || !aiImportModal.sectionId) return
+  // 保存 AI 解析结果
+  const handleAISave = (parsedData: any) => {
+    if (!aiImportModal.sectionId) return
     
-    setImporting(aiImportModal.sectionId)
-    
-    try {
-      const response = await fetch('/api/resume/parse-section', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: text.trim(),
-          section_type: aiImportModal.sectionType
-          // provider 不传，使用后端默认配置
-        })
-      })
+    // 更新对应模块的数据
+    setSections(prev => prev.map(section => {
+      if (section.id !== aiImportModal.sectionId) return section
       
-      if (!response.ok) {
-        const err = await response.json()
-        throw new Error(err.detail || '解析失败')
+      let newData = parsedData
+      
+      // 特殊处理 contact 类型
+      if (section.type === 'contact' && typeof newData === 'object') {
+        newData = {
+          name: newData.name || section.data?.name || '',
+          phone: newData.phone || section.data?.phone || '',
+          email: newData.email || section.data?.email || '',
+          location: newData.location || section.data?.location || '',
+          objective: newData.objective || section.data?.objective || ''
+        }
       }
       
-      const result = await response.json()
+      // 特殊处理 projects/experience 类型：highlights → details
+      if ((section.type === 'projects' || section.type === 'experience') && Array.isArray(newData)) {
+        newData = newData.map((item: any) => ({
+          ...item,
+          details: item.details || item.highlights || [],
+          highlights: undefined
+        }))
+      }
       
-      // 更新对应模块的数据
-      setSections(prev => prev.map(section => {
-        if (section.id !== aiImportModal.sectionId) return section
-        
-        // 根据模块类型处理数据
-        let newData = result.data
-        
-        // 特殊处理 contact 类型
-        if (section.type === 'contact' && typeof newData === 'object') {
-          newData = {
-            name: newData.name || section.data?.name || '',
-            phone: newData.phone || section.data?.phone || '',
-            email: newData.email || section.data?.email || '',
-            location: newData.location || section.data?.location || '',
-            objective: newData.objective || section.data?.objective || ''
-          }
+      // 特殊处理数组类型，合并而不是替换
+      if (Array.isArray(newData) && Array.isArray(section.data)) {
+        const hasContent = section.data.some((item: any) => {
+          if (typeof item === 'string') return item.trim()
+          if (typeof item === 'object') return Object.values(item).some(v => v && String(v).trim())
+          return false
+        })
+        if (hasContent) {
+          newData = [...section.data, ...newData]
         }
-        
-        // 特殊处理 projects/experience 类型：highlights → details
-        if ((section.type === 'projects' || section.type === 'experience') && Array.isArray(newData)) {
-          newData = newData.map((item: any) => ({
-            ...item,
-            details: item.details || item.highlights || [],
-            // 移除 highlights 避免重复
-            highlights: undefined
-          }))
-        }
-        
-        // 特殊处理数组类型，合并而不是替换
-        if (Array.isArray(newData) && Array.isArray(section.data)) {
-          // 如果现有数据为空或只有空项，直接替换
-          const hasContent = section.data.some((item: any) => {
-            if (typeof item === 'string') return item.trim()
-            if (typeof item === 'object') return Object.values(item).some(v => v && String(v).trim())
-            return false
-          })
-          if (!hasContent) {
-            newData = newData
-          } else {
-            // 追加新数据
-            newData = [...section.data, ...newData]
-          }
-        }
-        
-        return { ...section, data: newData }
-      }))
+      }
       
-      // 自动展开该模块
-      setExpandedIds(prev => new Set([...prev, aiImportModal.sectionId]))
-      
-      // 关闭弹窗
-      setAiImportModal({ open: false, sectionId: '', sectionTitle: '', sectionType: '' })
-      
-    } catch (err: any) {
-      alert(`AI 导入失败: ${err.message || err}`)
-    } finally {
-      setImporting('')
-    }
+      return { ...section, data: newData }
+    }))
+    
+    // 自动展开该模块
+    setExpandedIds(prev => new Set([...prev, aiImportModal.sectionId]))
+    
+    // 关闭弹窗
+    setAiImportModal({ open: false, sectionId: '', sectionTitle: '', sectionType: '' })
   }
 
   const sensors = useSensors(
@@ -1944,8 +2012,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
         sectionType={aiImportModal.sectionType}
         sectionTitle={aiImportModal.sectionTitle}
         onClose={() => setAiImportModal({ open: false, sectionId: '', sectionTitle: '', sectionType: '' })}
-        onImport={handleAIImport}
-        importing={!!importing}
+        onSave={handleAISave}
       />
 
       {/* 保存按钮 */}
