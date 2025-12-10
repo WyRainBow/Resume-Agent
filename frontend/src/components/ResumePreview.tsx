@@ -77,11 +77,23 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
       selectionRangeRef.current = range.cloneRange()
       setSelectedText(text)
 
-      const rect = range.getBoundingClientRect()
-      setAIButtonPos({
-        x: rect.left + rect.width / 2 - 40,
-        y: rect.top - 45
-      })
+      const rects = range.getClientRects()
+      const targetRect = rects.length ? rects[rects.length - 1] : range.getBoundingClientRect()
+      const previewRect = previewEl.getBoundingClientRect()
+      const padding = 8
+      const btnSize = { w: 120, h: 38 }
+
+      // 计算相对于预览容器左上角的坐标，补偿容器滚动
+      let x = targetRect.right - previewRect.left + previewEl.scrollLeft + 8
+      if (x + btnSize.w + padding > previewEl.scrollWidth) {
+        x = Math.min(targetRect.left - previewRect.left + previewEl.scrollLeft - btnSize.w - 8, previewEl.scrollWidth - btnSize.w - padding)
+      }
+      x = Math.max(padding, Math.min(x, previewEl.scrollWidth - btnSize.w - padding))
+
+      let y = targetRect.top - previewRect.top + previewEl.scrollTop + targetRect.height / 2 - btnSize.h / 2
+      y = Math.max(padding, Math.min(y, previewEl.scrollHeight - btnSize.h - padding))
+
+      setAIButtonPos({ x, y })
       setShowAIButton(true)
     }
 
@@ -543,45 +555,45 @@ export default function ResumePreview({ resume, sectionOrder, scale = 1, onUpdat
           }
         })}
         </div>
-      </div>
 
-      {/* AI改写浮动按钮 */}
-      {showAIButton && (
-        <div
-          style={{
-            position: 'fixed',
-            left: aiButtonPos.x,
-            top: aiButtonPos.y,
-            zIndex: 9990,
-            animation: 'fadeIn 0.15s ease',
-          }}
-        >
-          <button
-            onClick={openAIDialog}
-            onMouseDown={(e) => e.preventDefault()}
+        {/* AI改写浮动按钮（定位相对于 scrollArea） */}
+        {showAIButton && (
+          <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              padding: '8px 14px',
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              border: 'none',
-              borderRadius: '20px',
-              color: 'white',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              boxShadow: '0 4px 15px rgba(99, 102, 241, 0.4)',
-              transition: 'transform 0.15s',
+              position: 'absolute',
+              left: aiButtonPos.x,
+              top: aiButtonPos.y,
+              zIndex: 9990,
+              animation: 'fadeIn 0.15s ease',
             }}
-            onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
-            onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
-            <span>✨</span>
-            AI 改写
-          </button>
-        </div>
-      )}
+            <button
+              onClick={openAIDialog}
+              onMouseDown={(e) => e.preventDefault()}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                border: 'none',
+                borderRadius: '20px',
+                color: 'white',
+                fontSize: '12px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(99, 102, 241, 0.4)',
+                transition: 'transform 0.15s',
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              <span>✨</span>
+              AI 改写
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* AI改写对话框 */}
       <AIRewriteDialog
@@ -1365,6 +1377,7 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'flex-start', // 让纸张从顶部开始，高度自动
+    position: 'relative',
   },
   paper: {
     width: '210mm',
