@@ -15,7 +15,7 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
   const [finalTime, setFinalTime] = useState<number | null>(null) // 最终耗时
   const [parsedResume, setParsedResume] = useState<Resume | null>(null) // 解析结果
   const [showConfirm, setShowConfirm] = useState(false) // 显示确认弹窗
-  const [provider, setProvider] = useState<'gemini' | 'zhipu'>('gemini') // 当前选择的提供商
+  const [provider, setProvider] = useState<'gemini' | 'zhipu' | 'doubao'>('doubao') // 当前选择的提供商
   const [aiConfig, setAiConfig] = useState<{
     defaultProvider: string
     models: Record<string, string>
@@ -29,7 +29,7 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
       .then(res => res.json())
       .then(data => {
         setAiConfig(data)
-        setProvider(data.defaultProvider as 'gemini' | 'zhipu')
+        setProvider(data.defaultProvider as 'gemini' | 'zhipu' | 'doubao')
       })
       .catch(() => {})
   }, [])
@@ -37,6 +37,7 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
   // 获取当前模型显示名称
   const getModelDisplayName = (p: string) => {
     const modelName = aiConfig?.models?.[p] || ''
+    if (p === 'doubao') return '豆包 ' + modelName.replace('doubao-', '').replace(/-/g, ' ')
     return modelName
       .replace('gemini-', 'Gemini ')
       .replace('glm-', 'GLM ')
@@ -438,6 +439,9 @@ XX项目 - 核心开发 - 2023.01-2023.06
                   outline: 'none',
                 }}
               >
+                <option value="doubao" style={{ background: '#1e1b4b' }}>
+                  🔥 豆包 Seed-1.6-lite
+                </option>
                 <option value="gemini" style={{ background: '#1e1b4b' }}>
                   Gemini 2.5 Pro
                 </option>
