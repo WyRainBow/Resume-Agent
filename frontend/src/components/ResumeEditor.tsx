@@ -1344,8 +1344,8 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           text: text.trim(),
-          section_type: aiImportModal.sectionType,
-          provider: 'gemini'
+          section_type: aiImportModal.sectionType
+          // provider 不传，使用后端默认配置
         })
       })
       
@@ -1372,6 +1372,16 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
             location: newData.location || section.data?.location || '',
             objective: newData.objective || section.data?.objective || ''
           }
+        }
+        
+        // 特殊处理 projects/experience 类型：highlights → details
+        if ((section.type === 'projects' || section.type === 'experience') && Array.isArray(newData)) {
+          newData = newData.map((item: any) => ({
+            ...item,
+            details: item.details || item.highlights || [],
+            // 移除 highlights 避免重复
+            highlights: undefined
+          }))
         }
         
         // 特殊处理数组类型，合并而不是替换
