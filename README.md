@@ -4,6 +4,22 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+## 📊 项目统计
+
+<!-- 代码行数趋势图 - 每日自动更新 -->
+![Code Stats](.github/stats/chart.svg)
+
+<details>
+<summary>查看详细统计</summary>
+
+| 指标 | 数值 |
+|------|------|
+| 总代码行数 | ![Lines](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/WyRainBow/Resume-Agent/main/.github/stats/badge.json) |
+| 主要语言 | TypeScript, Python |
+| 更新频率 | 每日自动统计 |
+
+</details>
+
 ## ✨ 核心功能
 
 ## 前端页面
