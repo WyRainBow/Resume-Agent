@@ -631,7 +631,7 @@ export default function WorkspacePage() {
                   gap: '4px',
                 }}
               >
-                历史
+                我的简历
               </button>
             </div>
           </div>
