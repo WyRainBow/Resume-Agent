@@ -6,12 +6,16 @@
 
 ## 项目代码统计
 
+
 <!-- 代码行数趋势图 - 每日自动更新 -->
 ![Code History](.github/stats/chart.svg)
 
 <!-- 每日代码变化图 -->
 ![Daily Changes](.github/stats/daily.svg)
 
+## Star 趋势
+
+[![Star History Chart](https://api.star-history.com/svg?repos=WyRainBow/Resume-Agent&type=Date)](https://star-history.com/#WyRainBow/Resume-Agent&Date)
 
 ## ✨ 核心功能
 
