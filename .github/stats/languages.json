@@ -1,0 +1,70 @@
+{
+  "languages": [
+    {
+      "name": null,
+      "code": 13,
+      "comments": 0,
+      "blanks": 1
+    },
+    {
+      "name": null,
+      "code": 2745,
+      "comments": 0,
+      "blanks": 4
+    },
+    {
+      "name": null,
+      "code": 15,
+      "comments": 2,
+      "blanks": 8
+    },
+    {
+      "name": null,
+      "code": 0,
+      "comments": 1599,
+      "blanks": 684
+    },
+    {
+      "name": null,
+      "code": 0,
+      "comments": 183,
+      "blanks": 141
+    },
+    {
+      "name": null,
+      "code": 3687,
+      "comments": 52,
+      "blanks": 631
+    },
+    {
+      "name": null,
+      "code": 6358,
+      "comments": 245,
+      "blanks": 411
+    },
+    {
+      "name": null,
+      "code": 830,
+      "comments": 45,
+      "blanks": 51
+    },
+    {
+      "name": null,
+      "code": 14248,
+      "comments": 2206,
+      "blanks": 1989
+    },
+    {
+      "name": null,
+      "code": 521,
+      "comments": 80,
+      "blanks": 49
+    },
+    {
+      "name": null,
+      "code": 79,
+      "comments": 0,
+      "blanks": 9
+    }
+  ]
+}
