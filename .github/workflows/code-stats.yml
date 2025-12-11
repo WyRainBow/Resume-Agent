@@ -176,26 +176,47 @@ jobs:
               </svg>'''
               
               # ========== 图表2: 每日新增代码量 ==========
-              daily_changes = [0]
+              # 计算每日变化（跳过第一天的0）
+              daily_changes = []
+              daily_dates = []
               for i in range(1, len(lines)):
                   daily_changes.append(lines[i] - lines[i-1])
+                  daily_dates.append(dates[i])
               
-              max_change = max(max(daily_changes), abs(min(daily_changes)), 1)
-              bar_width = max(chart_width / len(daily_changes) - 2, 4)
+              # 如果没有变化数据，显示占位
+              if not daily_changes:
+                  daily_changes = [0]
+                  daily_dates = dates[-1:]
+              
+              max_change = max(max(daily_changes) if daily_changes else 1, abs(min(daily_changes)) if daily_changes else 1, 100)
+              
+              # 柱子宽度和间距
+              num_bars = len(daily_changes)
+              bar_width = min(60, max((chart_width - 40) / max(num_bars, 1), 20))
+              total_bars_width = num_bars * bar_width + (num_bars - 1) * 10
+              start_x = padding_left + (chart_width - total_bars_width) / 2
               
               bars = []
+              bar_labels = []
               for i, change in enumerate(daily_changes):
-                  x = padding_left + (i / max(len(daily_changes)-1, 1)) * chart_width - bar_width/2
+                  x = start_x + i * (bar_width + 10)
+                  center_y = 125  # 零线位置
+                  
                   if change >= 0:
-                      bar_height = (change / max_change) * (chart_height / 2 - 10)
-                      y = padding_top + chart_height / 2 - bar_height
+                      bar_height = max((change / max_change) * 60, 2) if change > 0 else 0
+                      y = center_y - bar_height
                       color = "#27ae60"
                   else:
-                      bar_height = (abs(change) / max_change) * (chart_height / 2 - 10)
-                      y = padding_top + chart_height / 2
+                      bar_height = max((abs(change) / max_change) * 60, 2)
+                      y = center_y
                       color = "#e74c3c"
+                  
                   if bar_height > 0:
-                      bars.append(f'<rect x="{x}" y="{y}" width="{bar_width}" height="{bar_height}" fill="{color}" rx="2"/>')
+                      bars.append(f'<rect x="{x}" y="{y}" width="{bar_width}" height="{bar_height}" fill="{color}" rx="3"/>')
+                  
+                  # 日期标签
+                  if i < len(daily_dates):
+                      bar_labels.append(f'<text x="{x + bar_width/2}" y="210" fill="#666" font-size="10" text-anchor="middle" font-family="sans-serif">{daily_dates[i][5:]}</text>')
               
               daily_svg = f'''<svg width="{width}" height="250" xmlns="http://www.w3.org/2000/svg">
                 <rect width="100%" height="100%" fill="#ffffff"/>
@@ -215,6 +236,9 @@ jobs:
                 
                 <!-- 柱状图 -->
                 {"".join(bars)}
+                
+                <!-- 日期标签 -->
+                {"".join(bar_labels)}
                 
                 <!-- 最新变化标注 -->
                 <text x="{width - padding_right}" y="55" fill="{'#27ae60' if daily_changes[-1] >= 0 else '#e74c3c'}" font-size="14" font-weight="bold" text-anchor="end" font-family="sans-serif">今日: {'+' if daily_changes[-1] >= 0 else ''}{daily_changes[-1]} 行</text>
