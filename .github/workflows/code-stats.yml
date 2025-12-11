@@ -274,4 +274,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .github/stats/
           git diff --staged --quiet || git commit -m "chore: update code statistics [skip ci]"
-          git push
+          # 使用 merge 策略推送，避免 rebase 冲突
+          git pull --no-rebase origin main || true
+          git push || echo "推送失败，可能有冲突，跳过本次更新"
