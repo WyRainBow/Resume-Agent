@@ -87,7 +87,7 @@ jobs:
           if len(data) < 2:
               trend_svg = f'''<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
                 <rect width="100%" height="100%" fill="#ffffff"/>
-                <text x="{width//2}" y="{height//2}" fill="#666" text-anchor="middle" font-family="sans-serif" font-size="16">📊 数据收集中...</text>
+                <text x="{width//2}" y="{height//2}" fill="#666" text-anchor="middle" font-family="sans-serif" font-size="16">数据收集中...</text>
               </svg>'''
               daily_svg = trend_svg
           else:
@@ -172,7 +172,7 @@ jobs:
                 
                 <!-- 当前值标注 -->
                 <circle cx="{points[-1][0]}" cy="{points[-1][1]}" r="4" fill="#e74c3c"/>
-                <text x="{points[-1][0] + 8}" y="{points[-1][1] - 8}" fill="#e74c3c" font-size="12" font-weight="bold" font-family="sans-serif">{lines[-1]:,}</text>
+                <text x="{points[-1][0] + 8}" y="{points[-1][1] - 8}" fill="#e74c3c" font-size="12" font-weight="bold" font-family="sans-serif">{lines[-1]}</text>
               </svg>'''
               
               # ========== 图表2: 每日新增代码量 ==========
@@ -201,7 +201,7 @@ jobs:
                 <rect width="100%" height="100%" fill="#ffffff"/>
                 
                 <!-- 标题 -->
-                <text x="{width//2}" y="30" fill="#333" font-size="16" font-weight="bold" text-anchor="middle" font-family="sans-serif">📊 Daily Changes</text>
+                <text x="{width//2}" y="30" fill="#333" font-size="16" font-weight="bold" text-anchor="middle" font-family="sans-serif">Daily Changes</text>
                 
                 <!-- 图例 -->
                 <rect x="{padding_left}" y="45" width="12" height="12" fill="#27ae60" rx="2"/>
@@ -217,7 +217,7 @@ jobs:
                 {"".join(bars)}
                 
                 <!-- 最新变化标注 -->
-                <text x="{width - padding_right}" y="55" fill="{'#27ae60' if daily_changes[-1] >= 0 else '#e74c3c'}" font-size="14" font-weight="bold" text-anchor="end" font-family="sans-serif">今日: {'+' if daily_changes[-1] >= 0 else ''}{daily_changes[-1]:,} 行</text>
+                <text x="{width - padding_right}" y="55" fill="{'#27ae60' if daily_changes[-1] >= 0 else '#e74c3c'}" font-size="14" font-weight="bold" text-anchor="end" font-family="sans-serif">今日: {'+' if daily_changes[-1] >= 0 else ''}{daily_changes[-1]} 行</text>
               </svg>'''
           
           with open('.github/stats/chart.svg', 'w') as f:
