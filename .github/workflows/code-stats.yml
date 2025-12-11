@@ -144,7 +144,7 @@ jobs:
                 <rect width="100%" height="100%" fill="#ffffff"/>
                 
                 <!-- 标题 -->
-                <text x="{width//2}" y="30" fill="#333" font-size="16" font-weight="bold" text-anchor="middle" font-family="sans-serif">📈 Code History</text>
+                <text x="{width//2}" y="30" fill="#333" font-size="16" font-weight="bold" text-anchor="middle" font-family="sans-serif">Code History</text>
                 
                 <!-- 图例 -->
                 <rect x="{padding_left}" y="45" width="12" height="12" fill="#e74c3c" rx="2"/>
