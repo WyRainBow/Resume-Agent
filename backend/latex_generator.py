@@ -208,7 +208,7 @@ def generate_section_summary(resume_data: Dict[str, Any], section_titles: Dict[s
     return content
 
 def generate_section_internships(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
-    """生成实习经历（简洁版：公司 - 职位 - 日期，不显示详情）"""
+    """生成实习经历（包含公司、职位、日期和描述）"""
     content = []
     internships = resume_data.get('internships') or []
     title = (section_titles or {}).get('internships') or (section_titles or {}).get('experience', '实习经历')
@@ -218,12 +218,19 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
             company = escape_latex(it.get('title') or '')
             position = escape_latex(it.get('subtitle') or '')
             date = escape_latex(it.get('date') or '')
-            # 简洁格式：公司 - 职位    日期
+            # 格式：公司 - 职位    日期
             if position:
                 line = f"\\textbf{{{company}}} - {position}"
             else:
                 line = f"\\textbf{{{company}}}"
             content.append(f"\\datedsubsection{{{line}}}{{{date}}}")
+            # 渲染描述（details 或 highlights）
+            details = it.get('details') or it.get('highlights') or []
+            if isinstance(details, list) and details:
+                content.append("\\begin{itemize}[parsep=0.25ex]")
+                for d in details:
+                    content.append(f"  \\item {escape_latex(str(d))}")
+                content.append("\\end{itemize}")
         content.append("")
     return content
 
