@@ -71,58 +71,160 @@ jobs:
       
       - name: Generate chart SVG
         run: |
-          # 生成简单的 SVG 折线图
           python3 << 'EOF'
           import json
           
           with open('.github/stats/history.json') as f:
               data = json.load(f)['data']
           
+          # ========== 图表1: 代码总量趋势图 ==========
+          width, height = 800, 400
+          padding_left, padding_right = 80, 40
+          padding_top, padding_bottom = 60, 60
+          chart_width = width - padding_left - padding_right
+          chart_height = height - padding_top - padding_bottom
+          
           if len(data) < 2:
-              # 数据不足，创建占位图
-              svg = '''<svg width="400" height="120" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100%" height="100%" fill="#1a1a2e"/>
-                <text x="200" y="60" fill="#a78bfa" text-anchor="middle" font-family="sans-serif">数据收集中...</text>
+              trend_svg = f'''<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100%" height="100%" fill="#ffffff"/>
+                <text x="{width//2}" y="{height//2}" fill="#666" text-anchor="middle" font-family="sans-serif" font-size="16">📊 数据收集中...</text>
               </svg>'''
+              daily_svg = trend_svg
           else:
-              # 取最近30天数据
-              data = data[-30:]
-              
-              width, height = 400, 120
-              padding = 40
-              chart_width = width - padding * 2
-              chart_height = height - padding
-              
               lines = [d['lines'] for d in data]
-              min_val, max_val = min(lines), max(lines)
+              dates = [d['date'] for d in data]
+              min_val = 0
+              max_val = max(lines) * 1.1
               val_range = max(max_val - min_val, 1)
               
-              # 生成折线点
+              # 生成Y轴刻度
+              y_ticks = []
+              tick_count = 5
+              for i in range(tick_count + 1):
+                  val = min_val + (val_range * i / tick_count)
+                  y = padding_top + chart_height - (i / tick_count) * chart_height
+                  if val >= 1000:
+                      label = f"{val/1000:.1f}k"
+                  else:
+                      label = f"{int(val)}"
+                  y_ticks.append(f'<text x="{padding_left - 10}" y="{y + 4}" fill="#666" font-size="12" text-anchor="end" font-family="sans-serif">{label}</text>')
+                  y_ticks.append(f'<line x1="{padding_left}" y1="{y}" x2="{width - padding_right}" y2="{y}" stroke="#eee" stroke-width="1"/>')
+              
+              # 生成折线点和填充区域
               points = []
               for i, val in enumerate(lines):
-                  x = padding + (i / max(len(lines)-1, 1)) * chart_width
-                  y = height - padding - ((val - min_val) / val_range) * (chart_height - 20)
-                  points.append(f"{x},{y}")
+                  x = padding_left + (i / max(len(lines)-1, 1)) * chart_width
+                  y = padding_top + chart_height - ((val - min_val) / val_range) * chart_height
+                  points.append((x, y))
               
-              polyline = " ".join(points)
+              polyline = " ".join([f"{x},{y}" for x, y in points])
               
-              svg = f'''<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
+              # 填充区域
+              fill_points = [f"{padding_left},{padding_top + chart_height}"]
+              fill_points.extend([f"{x},{y}" for x, y in points])
+              fill_points.append(f"{points[-1][0]},{padding_top + chart_height}")
+              fill_polygon = " ".join(fill_points)
+              
+              # X轴日期标签
+              x_labels = []
+              label_count = min(6, len(dates))
+              for i in range(label_count):
+                  idx = int(i * (len(dates) - 1) / max(label_count - 1, 1))
+                  x = padding_left + (idx / max(len(dates)-1, 1)) * chart_width
+                  date_str = dates[idx][5:]  # MM-DD
+                  x_labels.append(f'<text x="{x}" y="{height - 25}" fill="#666" font-size="11" text-anchor="middle" font-family="sans-serif">{date_str}</text>')
+              
+              trend_svg = f'''<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
                 <defs>
-                  <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
-                    <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.3"/>
-                    <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:0"/>
+                  <linearGradient id="areaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color:#e74c3c;stop-opacity:0.3"/>
+                    <stop offset="100%" style="stop-color:#e74c3c;stop-opacity:0.05"/>
                   </linearGradient>
                 </defs>
-                <rect width="100%" height="100%" fill="#1a1a2e" rx="8"/>
-                <text x="10" y="20" fill="#a78bfa" font-size="12" font-family="sans-serif">代码行数趋势 (近30天)</text>
-                <text x="{width-10}" y="20" fill="#86efac" font-size="11" text-anchor="end" font-family="sans-serif">{lines[-1]:,} 行</text>
-                <polyline points="{polyline}" fill="none" stroke="#a78bfa" stroke-width="2"/>
-                <text x="10" y="{height-5}" fill="#666" font-size="10" font-family="sans-serif">{data[0]["date"]}</text>
-                <text x="{width-10}" y="{height-5}" fill="#666" font-size="10" text-anchor="end" font-family="sans-serif">{data[-1]["date"]}</text>
+                <rect width="100%" height="100%" fill="#ffffff"/>
+                
+                <!-- 标题 -->
+                <text x="{width//2}" y="30" fill="#333" font-size="16" font-weight="bold" text-anchor="middle" font-family="sans-serif">📈 Code History</text>
+                
+                <!-- 图例 -->
+                <rect x="{padding_left}" y="45" width="12" height="12" fill="#e74c3c" rx="2"/>
+                <text x="{padding_left + 18}" y="55" fill="#333" font-size="11" font-family="sans-serif">WyRainBow/Resume-Agent</text>
+                
+                <!-- Y轴标签 -->
+                <text x="20" y="{padding_top + chart_height//2}" fill="#666" font-size="12" text-anchor="middle" font-family="sans-serif" transform="rotate(-90, 20, {padding_top + chart_height//2})">Lines of Code</text>
+                
+                <!-- 网格线和Y轴刻度 -->
+                {"".join(y_ticks)}
+                
+                <!-- 坐标轴 -->
+                <line x1="{padding_left}" y1="{padding_top}" x2="{padding_left}" y2="{padding_top + chart_height}" stroke="#ccc" stroke-width="1"/>
+                <line x1="{padding_left}" y1="{padding_top + chart_height}" x2="{width - padding_right}" y2="{padding_top + chart_height}" stroke="#ccc" stroke-width="1"/>
+                
+                <!-- 填充区域 -->
+                <polygon points="{fill_polygon}" fill="url(#areaGrad)"/>
+                
+                <!-- 折线 -->
+                <polyline points="{polyline}" fill="none" stroke="#e74c3c" stroke-width="2.5"/>
+                
+                <!-- X轴标签 -->
+                {"".join(x_labels)}
+                <text x="{width//2}" y="{height - 5}" fill="#666" font-size="12" text-anchor="middle" font-family="sans-serif">Date</text>
+                
+                <!-- 当前值标注 -->
+                <circle cx="{points[-1][0]}" cy="{points[-1][1]}" r="4" fill="#e74c3c"/>
+                <text x="{points[-1][0] + 8}" y="{points[-1][1] - 8}" fill="#e74c3c" font-size="12" font-weight="bold" font-family="sans-serif">{lines[-1]:,}</text>
+              </svg>'''
+              
+              # ========== 图表2: 每日新增代码量 ==========
+              daily_changes = [0]
+              for i in range(1, len(lines)):
+                  daily_changes.append(lines[i] - lines[i-1])
+              
+              max_change = max(max(daily_changes), abs(min(daily_changes)), 1)
+              bar_width = max(chart_width / len(daily_changes) - 2, 4)
+              
+              bars = []
+              for i, change in enumerate(daily_changes):
+                  x = padding_left + (i / max(len(daily_changes)-1, 1)) * chart_width - bar_width/2
+                  if change >= 0:
+                      bar_height = (change / max_change) * (chart_height / 2 - 10)
+                      y = padding_top + chart_height / 2 - bar_height
+                      color = "#27ae60"
+                  else:
+                      bar_height = (abs(change) / max_change) * (chart_height / 2 - 10)
+                      y = padding_top + chart_height / 2
+                      color = "#e74c3c"
+                  if bar_height > 0:
+                      bars.append(f'<rect x="{x}" y="{y}" width="{bar_width}" height="{bar_height}" fill="{color}" rx="2"/>')
+              
+              daily_svg = f'''<svg width="{width}" height="250" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100%" height="100%" fill="#ffffff"/>
+                
+                <!-- 标题 -->
+                <text x="{width//2}" y="30" fill="#333" font-size="16" font-weight="bold" text-anchor="middle" font-family="sans-serif">📊 Daily Changes</text>
+                
+                <!-- 图例 -->
+                <rect x="{padding_left}" y="45" width="12" height="12" fill="#27ae60" rx="2"/>
+                <text x="{padding_left + 18}" y="55" fill="#333" font-size="11" font-family="sans-serif">新增</text>
+                <rect x="{padding_left + 60}" y="45" width="12" height="12" fill="#e74c3c" rx="2"/>
+                <text x="{padding_left + 78}" y="55" fill="#333" font-size="11" font-family="sans-serif">减少</text>
+                
+                <!-- 零线 -->
+                <line x1="{padding_left}" y1="125" x2="{width - padding_right}" y2="125" stroke="#999" stroke-width="1" stroke-dasharray="4"/>
+                <text x="{padding_left - 10}" y="129" fill="#666" font-size="11" text-anchor="end" font-family="sans-serif">0</text>
+                
+                <!-- 柱状图 -->
+                {"".join(bars)}
+                
+                <!-- 最新变化标注 -->
+                <text x="{width - padding_right}" y="55" fill="{'#27ae60' if daily_changes[-1] >= 0 else '#e74c3c'}" font-size="14" font-weight="bold" text-anchor="end" font-family="sans-serif">今日: {'+' if daily_changes[-1] >= 0 else ''}{daily_changes[-1]:,} 行</text>
               </svg>'''
           
           with open('.github/stats/chart.svg', 'w') as f:
-              f.write(svg)
+              f.write(trend_svg)
+          
+          with open('.github/stats/daily.svg', 'w') as f:
+              f.write(daily_svg)
           EOF
       
       - name: Commit stats
