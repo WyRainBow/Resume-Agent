@@ -357,6 +357,9 @@ function SortableSection({
   onAIImport: () => void
   importing: boolean
 }) {
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [editingTitle, setEditingTitle] = useState(section.title)
+  
   const {
     attributes,
     listeners,
@@ -371,6 +374,33 @@ function SortableSection({
     transition,
     zIndex: isDragging ? 1000 : 1,
     opacity: isDragging ? 0.8 : 1,
+  }
+
+  // 开始编辑标题
+  const handleStartEdit = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingTitle(section.title)
+    setIsEditingTitle(true)
+  }
+
+  // 确认编辑
+  const handleConfirmEdit = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onTitleChange(editingTitle)
+    setIsEditingTitle(false)
+  }
+
+  // 取消编辑
+  const handleCancelEdit = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingTitle(section.title)
+    setIsEditingTitle(false)
+  }
+
+  // 处理标题栏点击展开（排除拖拽手柄区域）
+  const handleHeaderClick = (e: React.MouseEvent) => {
+    // 不阻止冒泡，让拖拽正常工作
+    onToggle()
   }
 
   return (
@@ -391,20 +421,22 @@ function SortableSection({
           ? '0 20px 40px rgba(0, 0, 0, 0.3)' 
           : '0 4px 15px rgba(0, 0, 0, 0.1)',
       }}>
-        {/* 标题栏 - 整个区域可拖拽 */}
+        {/* 标题栏 - 点击展开/收起 */}
         <div 
-          {...attributes}
-          {...listeners}
+          onClick={handleHeaderClick}
           style={{
             display: 'flex',
             alignItems: 'center',
             padding: '12px 14px',
-            cursor: 'grab',
+            cursor: 'pointer',
             userSelect: 'none',
           }}
         >
-          {/* 拖拽手柄图标（视觉提示） */}
+          {/* 拖拽手柄图标 */}
           <div
+            {...attributes}
+            {...listeners}
+            onClick={(e) => e.stopPropagation()}
             style={{
               display: 'flex',
               flexDirection: 'column',
@@ -413,6 +445,7 @@ function SortableSection({
               marginRight: '12px',
               opacity: 0.5,
               transition: 'opacity 0.2s',
+              cursor: 'grab',
             }}
           >
             <div style={{ display: 'flex', gap: '2px' }}>
@@ -429,50 +462,131 @@ function SortableSection({
             </div>
           </div>
 
-          {/* 图标和标题 - 点击展开 */}
-          <div 
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggle()
-            }}
-            style={{ 
-              flex: 1, 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: '12px',
-              cursor: 'pointer',
-            }}
-          >
+          {/* 图标和标题 */}
+          <div style={{ 
+            flex: 1, 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '10px',
+          }}>
             <span style={{ fontSize: '16px' }}>{section.icon}</span>
-            <input
-              type="text"
-              value={section.title}
-              onChange={(e) => onTitleChange(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-              onMouseDown={(e) => e.stopPropagation()}
-              style={{ 
-                color: 'white', 
-                fontSize: '14px', 
-                fontWeight: 600,
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                cursor: 'text',
-                width: 'auto',
-                minWidth: '80px',
-                maxWidth: '150px',
-              }}
-              onFocus={(e) => {
-                e.currentTarget.style.background = 'rgba(167, 139, 250, 0.2)'
-                e.currentTarget.style.border = '1px solid rgba(167, 139, 250, 0.4)'
-              }}
-              onBlur={(e) => {
-                e.currentTarget.style.background = 'transparent'
-                e.currentTarget.style.border = 'none'
-              }}
-            />
+            
+            {isEditingTitle ? (
+              /* 编辑模式 */
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <input
+                  type="text"
+                  value={editingTitle}
+                  onChange={(e) => setEditingTitle(e.target.value)}
+                  autoFocus
+                  style={{ 
+                    color: 'white', 
+                    fontSize: '14px', 
+                    fontWeight: 600,
+                    background: 'rgba(167, 139, 250, 0.2)',
+                    border: '1px solid rgba(167, 139, 250, 0.5)',
+                    outline: 'none',
+                    padding: '4px 8px',
+                    borderRadius: '4px',
+                    width: '120px',
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      onTitleChange(editingTitle)
+                      setIsEditingTitle(false)
+                    } else if (e.key === 'Escape') {
+                      setEditingTitle(section.title)
+                      setIsEditingTitle(false)
+                    }
+                  }}
+                />
+                <button
+                  onClick={handleConfirmEdit}
+                  style={{
+                    background: '#10b981',
+                    border: 'none',
+                    borderRadius: '4px',
+                    color: 'white',
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#059669'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#10b981'}
+                  title="确认"
+                >
+                  ✓
+                </button>
+                <button
+                  onClick={handleCancelEdit}
+                  style={{
+                    background: '#ef4444',
+                    border: 'none',
+                    borderRadius: '4px',
+                    color: 'white',
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = '#dc2626'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = '#ef4444'}
+                  title="取消"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              /* 显示模式 */
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ 
+                  color: 'white', 
+                  fontSize: '14px', 
+                  fontWeight: 600,
+                }}>
+                  {section.title}
+                </span>
+                <button
+                  onClick={handleStartEdit}
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    color: 'rgba(255,255,255,0.8)',
+                    padding: '3px 7px',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    borderRadius: '6px',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '24px',
+                    height: '24px',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = '#fff'
+                    e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)'
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.3)'
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.8)'
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)'
+                  }}
+                  title="编辑标题"
+                >
+                  ✏️
+                </button>
+              </div>
+            )}
           </div>
 
           {/* AI 导入按钮 */}
@@ -481,33 +595,46 @@ function SortableSection({
               e.stopPropagation()
               onAIImport()
             }}
-            onMouseDown={(e) => e.stopPropagation()}
             disabled={importing}
             style={{
-              padding: '4px 10px',
-              background: importing ? 'rgba(167, 139, 250, 0.2)' : 'rgba(167, 139, 250, 0.15)',
-              border: '1px solid rgba(167, 139, 250, 0.3)',
+              padding: '6px 12px',
+              background: importing 
+                ? 'rgba(124, 58, 237, 0.5)' 
+                : 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+              border: '1px solid rgba(167, 139, 250, 0.5)',
               borderRadius: '6px',
-              color: '#a78bfa',
-              fontSize: '11px',
+              color: 'white',
+              fontSize: '12px',
+              fontWeight: 500,
               cursor: importing ? 'not-allowed' : 'pointer',
-              marginRight: '8px',
+              marginRight: '12px',
               display: 'flex',
               alignItems: 'center',
-              gap: '4px',
-              transition: 'all 0.2s',
+              gap: '6px',
+              transition: 'all 0.2s ease',
+              boxShadow: importing ? 'none' : '0 2px 4px rgba(0,0,0,0.2)',
+            }}
+            onMouseEnter={(e) => {
+              if (!importing) {
+                e.currentTarget.style.transform = 'translateY(-1px)'
+                e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.3)'
+                e.currentTarget.style.filter = 'brightness(1.1)'
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!importing) {
+                e.currentTarget.style.transform = 'translateY(0)'
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)'
+                e.currentTarget.style.filter = 'brightness(1)'
+              }
             }}
             title="AI 智能导入"
           >
-            {importing ? '⏳' : '✨'} AI
+            {importing ? '⏳' : '✨'} AI 导入
           </button>
 
-          {/* 展开/收起箭头 - 点击展开 */}
+          {/* 展开/收起箭头 */}
           <div 
-            onClick={(e) => {
-              e.stopPropagation()
-              onToggle()
-            }}
             style={{
               color: 'rgba(255,255,255,0.6)',
               fontSize: '14px',
@@ -2040,7 +2167,7 @@ export default function ResumeEditor({ resumeData, onSave, saving }: Props) {
             transition: 'all 0.3s ease',
           }}
         >
-          {saving ? '保存中...' : '💾 保存并更新'}
+          {saving ? '保存中...' : '保存并更新'}
         </button>
       </div>
     </div>

@@ -793,10 +793,10 @@ function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHan
         
         if (!title && !subtitle) return null
         
-        // 简洁模式
+        // 简洁模式（也渲染 details）
         if (isCompactMode) {
           return (
-            <div key={idx} style={{ ...styles.entry, marginBottom: '2px' }}>
+            <div key={idx} style={{ ...styles.entry, marginBottom: details.length > 0 ? '10px' : '2px' }}>
               <div style={styles.entryHeader}>
                 <div
                   contentEditable 
@@ -820,6 +820,19 @@ function renderExperience(resume: Resume, onBlur: BlurHandler, onKeyDown: KeyHan
                   </span>
                 )}
               </div>
+              {/* 简洁模式也渲染描述 */}
+              {details.length > 0 && (
+                <div 
+                  contentEditable 
+                  suppressContentEditableWarning
+                  style={{ marginTop: '4px', paddingLeft: '4px' }}
+                  data-field={`experience.${idx}.details`}
+                  onBlur={onBlur}
+                  onKeyDown={onKeyDown}
+                >
+                  {details.map((h: string, i: number) => renderDetailItem(h, i))}
+                </div>
+              )}
             </div>
           )
         }

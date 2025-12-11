@@ -535,53 +535,30 @@ export default function WorkspacePage() {
           </div>
         </div>
 
-        {/* 工具栏 */}
+        {/* 工具栏 - 改为两行布局 */}
         <div style={{
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+          flexDirection: 'column',
           padding: '12px 20px',
           borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
           background: 'rgba(0, 0, 0, 0.05)',
+          gap: '12px',
         }}>
-          {/* 左侧：重置 */}
-          <button
-            onClick={loadResume}
-            disabled={loadingPdf}
-            style={{
-              background: 'rgba(239, 68, 68, 0.1)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              borderRadius: '8px',
-              color: '#f87171',
-              padding: '6px 12px',
-              fontSize: '12px',
-              cursor: loadingPdf ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              opacity: loadingPdf ? 0.6 : 1,
-            }}
-          >
-            🔄 重置
-          </button>
-
-          {/* 右侧：视图切换和引导 */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-          }}>
+          {/* 第一行：视图切换 + 基础操作 */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+             {/* 视图切换 */}
             <div style={{
               display: 'flex',
               background: 'rgba(0, 0, 0, 0.2)',
               borderRadius: '8px',
               padding: '3px',
+              border: '1px solid rgba(255, 255, 255, 0.05)',
             }}>
               <button
                 onClick={() => setShowEditor(false)}
                 style={{
-                  padding: '6px 12px',
-                  background: !showEditor ? 'rgba(167, 139, 250, 0.4)' : 'transparent',
+                  padding: '4px 10px',
+                  background: !showEditor ? 'rgba(167, 139, 250, 0.5)' : 'transparent',
                   border: 'none',
                   borderRadius: '6px',
                   color: !showEditor ? 'white' : 'rgba(255, 255, 255, 0.6)',
@@ -589,6 +566,9 @@ export default function WorkspacePage() {
                   fontWeight: 500,
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
                 }}
               >
                 📝 JSON
@@ -596,8 +576,8 @@ export default function WorkspacePage() {
               <button
                 onClick={() => setShowEditor(true)}
                 style={{
-                  padding: '6px 12px',
-                  background: showEditor ? 'rgba(167, 139, 250, 0.4)' : 'transparent',
+                  padding: '4px 10px',
+                  background: showEditor ? 'rgba(167, 139, 250, 0.5)' : 'transparent',
                   border: 'none',
                   borderRadius: '6px',
                   color: showEditor ? 'white' : 'rgba(255, 255, 255, 0.6)',
@@ -605,60 +585,92 @@ export default function WorkspacePage() {
                   fontWeight: 500,
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
                 }}
               >
                 ✏️ 可视化
               </button>
             </div>
-            
-            <button
-              onClick={() => setShowResumeList(!showResumeList)}
-              style={{
-                padding: '8px 14px',
-                background: showResumeList ? 'rgba(102, 126, 234, 0.3)' : 'rgba(167, 139, 250, 0.15)',
-                border: showResumeList ? '1px solid rgba(102, 126, 234, 0.5)' : '1px solid rgba(167, 139, 250, 0.3)',
-                borderRadius: '8px',
-                color: '#c4b5fd',
-                fontSize: '12px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-              }}
-            >
-              📄 我的简历
-            </button>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {/* 重置 */}
+              <button
+                onClick={loadResume}
+                disabled={loadingPdf}
+                style={{
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1px solid rgba(239, 68, 68, 0.2)',
+                  borderRadius: '6px',
+                  color: '#fca5a5',
+                  padding: '6px 10px',
+                  fontSize: '12px',
+                  cursor: loadingPdf ? 'not-allowed' : 'pointer',
+                  opacity: loadingPdf ? 0.6 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                🔄 重置
+              </button>
+
+              {/* 我的简历 */}
+              <button
+                onClick={() => setShowResumeList(!showResumeList)}
+                style={{
+                  background: showResumeList ? 'rgba(102, 126, 234, 0.3)' : 'rgba(255, 255, 255, 0.08)',
+                  border: showResumeList ? '1px solid rgba(102, 126, 234, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '6px',
+                  color: '#e9d5ff',
+                  padding: '6px 10px',
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                📄 历史
+              </button>
+            </div>
+          </div>
+
+          {/* 第二行：核心功能按钮 - 等宽排列 */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '8px' }}>
             <button
               onClick={() => setShowAIImport(true)}
               style={{
-                padding: '8px 14px',
-                background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%)',
-                border: '1px solid rgba(102, 126, 234, 0.5)',
-                borderRadius: '8px',
-                color: '#c4b5fd',
+                height: '32px',
+                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.2) 0%, rgba(236, 72, 153, 0.2) 100%)',
+                border: '1px solid rgba(167, 139, 250, 0.3)',
+                borderRadius: '6px',
+                color: '#e9d5ff',
                 fontSize: '12px',
                 fontWeight: 500,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '6px',
               }}
             >
               ✨ AI导入
             </button>
+
             <button
               onClick={handleSaveToList}
               disabled={!resume}
               style={{
-                padding: '8px 14px',
+                height: '32px',
                 background: currentResumeId 
                   ? 'rgba(34, 197, 94, 0.15)' 
                   : 'rgba(251, 191, 36, 0.15)',
                 border: currentResumeId 
-                  ? '1px solid rgba(34, 197, 94, 0.4)' 
-                  : '1px solid rgba(251, 191, 36, 0.4)',
-                borderRadius: '8px',
+                  ? '1px solid rgba(34, 197, 94, 0.3)' 
+                  : '1px solid rgba(251, 191, 36, 0.3)',
+                borderRadius: '6px',
                 color: currentResumeId ? '#86efac' : '#fcd34d',
                 fontSize: '12px',
                 fontWeight: 500,
@@ -666,22 +678,23 @@ export default function WorkspacePage() {
                 opacity: resume ? 1 : 0.5,
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '6px',
               }}
-              title={currentResumeId ? '更新保存' : '保存为新简历'}
             >
-              💾 {currentResumeId ? '已保存' : '保存'}
+              {currentResumeId ? '✅ 已保存' : '💾 保存'}
             </button>
+
             <button
               onClick={handleAIOptimize}
               disabled={!resume || optimizing}
               style={{
-                padding: '8px 14px',
+                height: '32px',
                 background: optimizing 
-                  ? 'rgba(239, 68, 68, 0.3)' 
-                  : 'linear-gradient(135deg, rgba(236, 72, 153, 0.3) 0%, rgba(239, 68, 68, 0.3) 100%)',
-                border: '1px solid rgba(239, 68, 68, 0.5)',
-                borderRadius: '8px',
+                  ? 'rgba(239, 68, 68, 0.2)' 
+                  : 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '6px',
                 color: '#fca5a5',
                 fontSize: '12px',
                 fontWeight: 500,
@@ -689,29 +702,32 @@ export default function WorkspacePage() {
                 opacity: !resume ? 0.5 : 1,
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'center',
                 gap: '6px',
+                whiteSpace: 'nowrap',
               }}
-              title="截图预览 → 视觉分析 → 自动修正 JSON"
             >
-              {optimizing ? '🔄 排版中...' : '🧠 AI优化排版'}
+              {optimizing ? '🔄 排版中' : '🧠 AI排版'}
             </button>
+            
             <button
               onClick={() => setShowGuide(true)}
               style={{
-                padding: '8px 14px',
-                background: 'rgba(167, 139, 250, 0.15)',
-                border: '1px solid rgba(167, 139, 250, 0.3)',
-                borderRadius: '8px',
+                height: '32px',
+                width: '32px',
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '6px',
                 color: '#c4b5fd',
-                fontSize: '12px',
-                fontWeight: 500,
-                cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '6px',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                fontSize: '14px',
               }}
+              title="查看引导"
             >
-              💡 引导
+              💡
             </button>
           </div>
         </div>

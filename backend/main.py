@@ -7,7 +7,7 @@ FastAPI 后端入口
 4) /api/pdf/render 由简历 JSON 生成 PDF
 
 说明：
-- 直接复用根目录 simple.py 中的 call_zhipu_api / call_gemini_api
+- 直接复用根目录 simple.py 中的 call_zhipu_api / call_doubao_api
 - 先本地跑通基础的生成 + PDF 渲染
 - 后续可增加 WebSocket、版本管理、鉴权等
 """
@@ -37,7 +37,7 @@ except Exception:
 重写接口的数据模型
 """
 class RewriteRequest(BaseModel):
-    provider: Literal["zhipu", "gemini", "doubao", "mock"] = Field(default="gemini")
+    provider: Literal["zhipu", "doubao", "mock"] = Field(default="doubao")
     resume: Dict[str, Any]
     path: str = Field(..., description="JSON 路径，如 summary 或 experience[0].achievements[1]")
     instruction: str = Field(..., description="修改意图，如：更量化、更贴合后端 JD")
@@ -66,12 +66,10 @@ app = FastAPI(title="Resume Agent API")
 
 """
 ========== 全局 AI 配置 ==========
-默认 AI 提供商: "gemini" / "zhipu" / "doubao"
+默认 AI 提供商: "oubao"
 """
 DEFAULT_AI_PROVIDER = "doubao"  # 默认 AI 提供商（豆包额度充足）
 DEFAULT_AI_MODEL = {
-    "gemini": "gemini-2.5-pro",
-    "zhipu": "glm-4-flash",
     "doubao": "doubao-seed-1-6-lite-251015"
 }
 
@@ -96,11 +94,11 @@ app.add_middleware(
 请求 / 响应数据模型
 """
 class AITestRequest(BaseModel):
-    provider: Literal["zhipu", "gemini", "doubao", "mock"] = Field(default="gemini")
+    provider: Literal["zhipu", "doubao", "mock"] = Field(default="doubao")
     prompt: str = Field(..., description="测试提示词")
 
 class ResumeGenerateRequest(BaseModel):
-    provider: Literal["zhipu", "gemini", "doubao", "mock"] = Field(default="gemini")
+    provider: Literal["zhipu", "doubao", "mock"] = Field(default="doubao")
     instruction: str = Field(..., description="一句话或少量信息，说明岗位/经历/技能等")
     locale: Literal["zh", "en"] = Field(default="zh", description="输出语言")
 
@@ -141,20 +139,8 @@ def call_llm(provider: str, prompt: str) -> str:
         if not key:
             from fastapi import HTTPException as _HE
             raise _HE(status_code=400, detail="缺少 ZHIPU_API_KEY，请在项目根目录 .env 或系统环境中配置 ZHIPU_API_KEY")
-        """同步到 simple 以供 SDK 使用"""
         simple.ZHIPU_API_KEY = key
         return simple.call_zhipu_api(prompt)
-    elif provider == "gemini":
-        import os as _os
-        key = _os.getenv("GEMINI_API_KEY") or getattr(simple, "GEMINI_API_KEY", "")
-        if not key:
-            from fastapi import HTTPException as _HE
-            raise _HE(status_code=400, detail="缺少 GEMINI_API_KEY，请在项目根目录 .env 或系统环境中配置 GEMINI_API_KEY")
-        simple.GEMINI_API_KEY = key
-        """允许覆盖可选配置"""
-        simple.GEMINI_MODEL = _os.getenv("GEMINI_MODEL", simple.GEMINI_MODEL)
-        simple.GEMINI_BASE_URL = _os.getenv("GEMINI_BASE_URL", simple.GEMINI_BASE_URL)
-        return simple.call_gemini_api(prompt)
     elif provider == "doubao":
         import os as _os
         key = _os.getenv("DOUBAO_API_KEY") or getattr(simple, "DOUBAO_API_KEY", "")
@@ -274,7 +260,7 @@ def render_pdf_from_resume(resume_data: Dict[str, Any]) -> BytesIO:
 
     """
     旧结构：experience + achievements
-    新结构：internships [{title, subtitle, date}]
+    新结构：internships [{title, subtitle, date, details/highlights}]
     """
     internships = resume_data.get('internships') or []
     if isinstance(internships, list) and internships:
@@ -288,6 +274,11 @@ def render_pdf_from_resume(resume_data: Dict[str, Any]) -> BytesIO:
                 story.append(Paragraph(header, body_style))
             if date:
                 story.append(Paragraph(str(date), body_style))
+            """渲染描述（details 或 highlights）"""
+            details = it.get('details') or it.get('highlights') or []
+            if isinstance(details, list) and details:
+                items = [ListItem(Paragraph(str(d), body_style)) for d in details]
+                story.append(ListFlowable(items, bulletType='bullet', start='circle'))
 
     exp = resume_data.get('experience') or []
     if isinstance(exp, list) and exp:
@@ -393,7 +384,7 @@ API Key 配置接口
 """
 class SaveKeysRequest(BaseModel):
     zhipu_key: Optional[str] = None
-    gemini_key: Optional[str] = None
+    doubao_key: Optional[str] = None
 
 
 @app.get("/api/config/keys")
@@ -402,16 +393,16 @@ async def get_keys_status():
     获取 API Key 配置状态（不返回完整 Key，只返回是否已配置）
     """
     zhipu_key = os.getenv("ZHIPU_API_KEY", "")
-    gemini_key = os.getenv("GEMINI_API_KEY", "")
+    doubao_key = os.getenv("DOUBAO_API_KEY", "")
     
     return {
         "zhipu": {
             "configured": bool(zhipu_key and len(zhipu_key) > 10),
             "preview": f"{zhipu_key[:8]}..." if zhipu_key and len(zhipu_key) > 10 else ""
         },
-        "gemini": {
-            "configured": bool(gemini_key and len(gemini_key) > 10),
-            "preview": f"{gemini_key[:8]}..." if gemini_key and len(gemini_key) > 10 else ""
+        "doubao": {
+            "configured": bool(doubao_key and len(doubao_key) > 10),
+            "preview": f"{doubao_key[:8]}..." if doubao_key and len(doubao_key) > 10 else ""
         }
     }
 
@@ -473,23 +464,23 @@ async def save_keys(body: SaveKeysRequest):
         """更新或添加 Key"""
         new_lines = []
         zhipu_found = False
-        gemini_found = False
+        doubao_found = False
         
         for line in existing_lines:
             if line.startswith("ZHIPU_API_KEY=") and body.zhipu_key:
                 new_lines.append(f"ZHIPU_API_KEY={body.zhipu_key}\n")
                 zhipu_found = True
-            elif line.startswith("GEMINI_API_KEY=") and body.gemini_key:
-                new_lines.append(f"GEMINI_API_KEY={body.gemini_key}\n")
-                gemini_found = True
+            elif line.startswith("DOUBAO_API_KEY=") and body.doubao_key:
+                new_lines.append(f"DOUBAO_API_KEY={body.doubao_key}\n")
+                doubao_found = True
             else:
                 new_lines.append(line)
         
         """如果没有找到，追加到末尾"""
         if body.zhipu_key and not zhipu_found:
             new_lines.append(f"ZHIPU_API_KEY={body.zhipu_key}\n")
-        if body.gemini_key and not gemini_found:
-            new_lines.append(f"GEMINI_API_KEY={body.gemini_key}\n")
+        if body.doubao_key and not doubao_found:
+            new_lines.append(f"DOUBAO_API_KEY={body.doubao_key}\n")
         
         """写入文件"""
         with open(env_path, "w", encoding="utf-8") as f:
@@ -544,12 +535,12 @@ async def chat_api(body: ChatRequest):
         
         prompt = "\n\n".join(prompt_parts) + "\n\n请回复："
         
-        # 尝试使用指定的 provider，否则默认使用 Gemini
+        # 尝试使用指定的 provider，否则默认使用豆包
         provider = body.provider
         if not provider:
-            # 优先使用 Gemini
-            if os.getenv("GEMINI_API_KEY"):
-                provider = "gemini"
+            # 优先使用豆包
+            if os.getenv("DOUBAO_API_KEY"):
+                provider = "doubao"
             elif os.getenv("ZHIPU_API_KEY"):
                 provider = "zhipu"
             else:
@@ -616,11 +607,11 @@ class SectionParseRequest(BaseModel):
     """单模块 AI 解析请求"""
     text: str = Field(..., description="用户粘贴的模块文本")
     section_type: str = Field(..., description="模块类型: contact/education/experience/projects/skills/awards/summary/opensource")
-    provider: Optional[Literal["zhipu", "gemini", "doubao", "mock"]] = Field(default=None)
+    provider: Optional[Literal["zhipu", "doubao", "mock"]] = Field(default=None)
 
 class ResumeParseRequest(BaseModel):
     text: str = Field(..., description="用户粘贴的简历文本")
-    provider: Optional[Literal["zhipu", "gemini", "doubao", "mock"]] = Field(default=None)
+    provider: Optional[Literal["zhipu", "doubao", "mock"]] = Field(default=None)
 
 @app.post("/api/resume/parse")
 async def parse_resume_text(body: ResumeParseRequest):
@@ -963,7 +954,7 @@ async def generate_resume(body: ResumeGenerateRequest):
 class FormatTextRequest(BaseModel):
     """格式化文本请求"""
     text: str = Field(..., description="简历文本内容")
-    provider: Literal['zhipu', 'gemini'] = Field(default='gemini', description="AI 提供商")
+    provider: Literal['zhipu', 'doubao'] = Field(default='doubao', description="AI 提供商")
     use_ai: bool = Field(default=True, description="是否允许使用 AI（最后一层）")
 
 
