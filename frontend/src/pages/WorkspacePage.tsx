@@ -529,7 +529,6 @@ export default function WorkspacePage() {
               alignItems: 'center',
               gap: '8px',
             }}>
-              <span>😄</span>
               Resume Agent
             </div>
           </div>
@@ -571,7 +570,7 @@ export default function WorkspacePage() {
                   gap: '4px',
                 }}
               >
-                📝 JSON
+                JSON
               </button>
               <button
                 onClick={() => setShowEditor(true)}
@@ -590,7 +589,7 @@ export default function WorkspacePage() {
                   gap: '4px',
                 }}
               >
-                ✏️ 可视化
+                可视化
               </button>
             </div>
 
@@ -613,7 +612,7 @@ export default function WorkspacePage() {
                   gap: '4px',
                 }}
               >
-                🔄 重置
+                重置
               </button>
 
               {/* 我的简历 */}
@@ -632,7 +631,7 @@ export default function WorkspacePage() {
                   gap: '4px',
                 }}
               >
-                📄 历史
+                历史
               </button>
             </div>
           </div>
@@ -656,7 +655,7 @@ export default function WorkspacePage() {
                 gap: '6px',
               }}
             >
-              ✨ AI导入
+              AI导入
             </button>
 
             <button
@@ -682,7 +681,7 @@ export default function WorkspacePage() {
                 gap: '6px',
               }}
             >
-              {currentResumeId ? '✅ 已保存' : '💾 保存'}
+              {currentResumeId ? '已保存' : '保存'}
             </button>
 
             <button
@@ -707,14 +706,14 @@ export default function WorkspacePage() {
                 whiteSpace: 'nowrap',
               }}
             >
-              {optimizing ? '🔄 排版中' : '🧠 AI排版'}
+              {optimizing ? '排版中' : 'AI排版'}
             </button>
             
             <button
               onClick={() => setShowGuide(true)}
               style={{
                 height: '32px',
-                width: '32px',
+                padding: '0 10px',
                 background: 'rgba(255, 255, 255, 0.08)',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
                 borderRadius: '6px',
@@ -723,11 +722,12 @@ export default function WorkspacePage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 cursor: 'pointer',
-                fontSize: '14px',
+                fontSize: '12px',
+                fontWeight: 500,
               }}
               title="查看引导"
             >
-              💡
+              引导
             </button>
           </div>
         </div>
@@ -837,7 +837,7 @@ export default function WorkspacePage() {
                 cursor: 'pointer',
               }}
             >
-              🌐 HTML 版本
+              HTML 版本
             </button>
             <button
               onClick={() => {
@@ -857,7 +857,7 @@ export default function WorkspacePage() {
                 opacity: loadingPdf ? 0.7 : 1,
               }}
             >
-              {loadingPdf && previewMode === 'pdf' ? '生成中...' : '📄 LaTeX 版本'}
+              {loadingPdf && previewMode === 'pdf' ? '生成中...' : 'LaTeX 版本'}
             </button>
           </div>
           
@@ -902,7 +902,7 @@ export default function WorkspacePage() {
               gap: '4px',
             }}
           >
-            ⬇️ 下载 PDF
+            下载 PDF
           </button>
         </div>
         

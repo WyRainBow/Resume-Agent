@@ -240,7 +240,7 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
                 gap: '8px',
               }}
             >
-              💾 保存到我的简历
+              保存到我的简历
             </button>
             <button
               onClick={() => handleConfirmImport(false)}
@@ -259,7 +259,7 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
                 gap: '8px',
               }}
             >
-              📝 仅预览编辑（不保存）
+              仅预览编辑（不保存）
             </button>
             <button
               onClick={handleCancelConfirm}
@@ -424,7 +424,7 @@ XX项目 - 核心开发 - 2023.01-2023.06
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-              <span>🤖 AI 模型：</span>
+              <span>AI 模型：</span>
               <select
                 value={provider}
                 onChange={(e) => setProvider(e.target.value as 'gemini' | 'zhipu')}
@@ -440,7 +440,7 @@ XX项目 - 核心开发 - 2023.01-2023.06
                 }}
               >
                 <option value="doubao" style={{ background: '#1e1b4b' }}>
-                  🔥 豆包 Seed-1.6-lite
+                  豆包 Seed-1.6-lite
                 </option>
                 <option value="gemini" style={{ background: '#1e1b4b' }}>
                   Gemini 2.5 Pro
