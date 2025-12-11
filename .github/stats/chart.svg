@@ -18,23 +18,23 @@
       <text x="20" y="200" fill="#666" font-size="12" text-anchor="middle" font-family="sans-serif" transform="rotate(-90, 20, 200)">Lines of Code</text>
       
       <!-- 网格线和Y轴刻度 -->
-      <text x="70" y="344.0" fill="#666" font-size="12" text-anchor="end" font-family="sans-serif">0</text><line x1="80" y1="340.0" x2="760" y2="340.0" stroke="#eee" stroke-width="1"/><text x="70" y="288.0" fill="#666" font-size="12" text-anchor="end" font-family="sans-serif">3.1k</text><line x1="80" y1="284.0" x2="760" y2="284.0" stroke="#eee" stroke-width="1"/><text x="70" y="232.0" fill="#666" font-size="12" text-anchor="end" font-family="sans-serif">6.3k</text><line x1="80" y1="228.0" x2="760" y2="228.0" stroke="#eee" stroke-width="1"/><text x="70" y="176.0" fill="#666" font-size="12" text-anchor="end" font-family="sans-serif">9.4k</text><line x1="80" y1="172.0" x2="760" y2="172.0" stroke="#eee" stroke-width="1"/><text x="70" y="120.0" fill="#666" font-size="12" text-anchor="end" font-family="sans-serif">12.5k</text><line x1="80" y1="116.0" x2="760" y2="116.0" stroke="#eee" stroke-width="1"/><text x="70" y="64.0" fill="#666" font-size="12" text-anchor="end" font-family="sans-serif">15.7k</text><line x1="80" y1="60.0" x2="760" y2="60.0" stroke="#eee" stroke-width="1"/>
+      <text x="70" y="344.0" fill="#666" font-size="12" text-anchor="end" font-family="sans-serif">0</text><line x1="80" y1="340.0" x2="760" y2="340.0" stroke="#eee" stroke-width="1"/><text x="70" y="288.0" fill="#666" font-size="12" text-anchor="end" font-family="sans-serif">2.6k</text><line x1="80" y1="284.0" x2="760" y2="284.0" stroke="#eee" stroke-width="1"/><text x="70" y="232.0" fill="#666" font-size="12" text-anchor="end" font-family="sans-serif">5.3k</text><line x1="80" y1="228.0" x2="760" y2="228.0" stroke="#eee" stroke-width="1"/><text x="70" y="176.0" fill="#666" font-size="12" text-anchor="end" font-family="sans-serif">7.9k</text><line x1="80" y1="172.0" x2="760" y2="172.0" stroke="#eee" stroke-width="1"/><text x="70" y="120.0" fill="#666" font-size="12" text-anchor="end" font-family="sans-serif">10.6k</text><line x1="80" y1="116.0" x2="760" y2="116.0" stroke="#eee" stroke-width="1"/><text x="70" y="64.0" fill="#666" font-size="12" text-anchor="end" font-family="sans-serif">13.2k</text><line x1="80" y1="60.0" x2="760" y2="60.0" stroke="#eee" stroke-width="1"/>
       
       <!-- 坐标轴 -->
       <line x1="80" y1="60" x2="80" y2="340" stroke="#ccc" stroke-width="1"/>
       <line x1="80" y1="340" x2="760" y2="340" stroke="#ccc" stroke-width="1"/>
       
       <!-- 填充区域 -->
-      <polygon points="80,340 80.0,85.45454545454547 760.0,128.88520238885204 760.0,340" fill="url(#areaGrad)"/>
+      <polygon points="80,340 80.0,185.28710725893825 216.0,180.21698777928466 352.0,108.85346506148244 488.0,85.4545454545455 624.0,85.4545454545455 760.0,89.31547325913525 760.0,340" fill="url(#areaGrad)"/>
       
       <!-- 折线 -->
-      <polyline points="80.0,85.45454545454547 760.0,128.88520238885204" fill="none" stroke="#e74c3c" stroke-width="2.5"/>
+      <polyline points="80.0,185.28710725893825 216.0,180.21698777928466 352.0,108.85346506148244 488.0,85.4545454545455 624.0,85.4545454545455 760.0,89.31547325913525" fill="none" stroke="#e74c3c" stroke-width="2.5"/>
       
       <!-- X轴标签 -->
-      <text x="80.0" y="375" fill="#666" font-size="11" text-anchor="middle" font-family="sans-serif">12-11</text><text x="760.0" y="375" fill="#666" font-size="11" text-anchor="middle" font-family="sans-serif">12-12</text>
+      <text x="80.0" y="375" fill="#666" font-size="11" text-anchor="middle" font-family="sans-serif">12-07</text><text x="216.0" y="375" fill="#666" font-size="11" text-anchor="middle" font-family="sans-serif">12-08</text><text x="352.0" y="375" fill="#666" font-size="11" text-anchor="middle" font-family="sans-serif">12-09</text><text x="488.0" y="375" fill="#666" font-size="11" text-anchor="middle" font-family="sans-serif">12-10</text><text x="624.0" y="375" fill="#666" font-size="11" text-anchor="middle" font-family="sans-serif">12-11</text><text x="760.0" y="375" fill="#666" font-size="11" text-anchor="middle" font-family="sans-serif">12-12</text>
       <text x="400" y="395" fill="#666" font-size="12" text-anchor="middle" font-family="sans-serif">Date</text>
       
       <!-- 当前值标注 -->
-      <circle cx="760.0" cy="128.88520238885204" r="4" fill="#e74c3c"/>
-      <text x="768.0" y="120.88520238885204" fill="#e74c3c" font-size="12" font-weight="bold" font-family="sans-serif">11817</text>
+      <circle cx="760.0" cy="89.31547325913525" r="4" fill="#e74c3c"/>
+      <text x="768.0" y="81.31547325913525" fill="#e74c3c" font-size="12" font-weight="bold" font-family="sans-serif">11817</text>
     </svg>
