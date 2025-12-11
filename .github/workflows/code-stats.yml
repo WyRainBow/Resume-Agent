@@ -1,0 +1,134 @@
+name: Code Statistics
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * *'  # 每天 UTC 0:00 运行
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  stats:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取完整历史
+      
+      - name: Install tokei
+        run: |
+          curl -sSL https://github.com/XAMPPRocky/tokei/releases/download/v12.1.2/tokei-x86_64-unknown-linux-gnu.tar.gz | tar xz
+          chmod +x tokei
+      
+      - name: Count lines of code
+        run: |
+          # 统计当前代码行数
+          ./tokei --output json > /tmp/current.json
+          
+          # 提取总行数
+          TOTAL_LINES=$(cat /tmp/current.json | jq '.Total.code')
+          TODAY=$(date +%Y-%m-%d)
+          
+          # 读取或创建历史数据
+          mkdir -p .github/stats
+          if [ -f .github/stats/history.json ]; then
+            # 添加今天的数据
+            jq --arg date "$TODAY" --argjson lines "$TOTAL_LINES" \
+              '.data += [{"date": $date, "lines": $lines}] | .data |= unique_by(.date)' \
+              .github/stats/history.json > /tmp/new_history.json
+            mv /tmp/new_history.json .github/stats/history.json
+          else
+            # 创建新文件
+            echo "{\"data\": [{\"date\": \"$TODAY\", \"lines\": $TOTAL_LINES}]}" > .github/stats/history.json
+          fi
+          
+          # 生成语言统计
+          ./tokei --output json | jq '{languages: [.[] | select(type == "object") | {name: .name, code: .code, comments: .comments, blanks: .blanks}]}' > .github/stats/languages.json
+      
+      - name: Generate stats badge
+        run: |
+          TOTAL=$(cat .github/stats/history.json | jq '.data[-1].lines')
+          echo "Total lines: $TOTAL"
+          
+          # 计算今日增量
+          if [ $(cat .github/stats/history.json | jq '.data | length') -gt 1 ]; then
+            YESTERDAY=$(cat .github/stats/history.json | jq '.data[-2].lines')
+            DIFF=$((TOTAL - YESTERDAY))
+            if [ $DIFF -ge 0 ]; then
+              DIFF_STR="+$DIFF"
+            else
+              DIFF_STR="$DIFF"
+            fi
+          else
+            DIFF_STR="+0"
+          fi
+          
+          # 保存摘要
+          echo "{\"total\": $TOTAL, \"diff\": \"$DIFF_STR\", \"updated\": \"$(date -Iseconds)\"}" > .github/stats/summary.json
+      
+      - name: Generate chart SVG
+        run: |
+          # 生成简单的 SVG 折线图
+          python3 << 'EOF'
+          import json
+          
+          with open('.github/stats/history.json') as f:
+              data = json.load(f)['data']
+          
+          if len(data) < 2:
+              # 数据不足，创建占位图
+              svg = '''<svg width="400" height="120" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100%" height="100%" fill="#1a1a2e"/>
+                <text x="200" y="60" fill="#a78bfa" text-anchor="middle" font-family="sans-serif">数据收集中...</text>
+              </svg>'''
+          else:
+              # 取最近30天数据
+              data = data[-30:]
+              
+              width, height = 400, 120
+              padding = 40
+              chart_width = width - padding * 2
+              chart_height = height - padding
+              
+              lines = [d['lines'] for d in data]
+              min_val, max_val = min(lines), max(lines)
+              val_range = max(max_val - min_val, 1)
+              
+              # 生成折线点
+              points = []
+              for i, val in enumerate(lines):
+                  x = padding + (i / max(len(lines)-1, 1)) * chart_width
+                  y = height - padding - ((val - min_val) / val_range) * (chart_height - 20)
+                  points.append(f"{x},{y}")
+              
+              polyline = " ".join(points)
+              
+              svg = f'''<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="grad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color:#a78bfa;stop-opacity:0.3"/>
+                    <stop offset="100%" style="stop-color:#a78bfa;stop-opacity:0"/>
+                  </linearGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="#1a1a2e" rx="8"/>
+                <text x="10" y="20" fill="#a78bfa" font-size="12" font-family="sans-serif">代码行数趋势 (近30天)</text>
+                <text x="{width-10}" y="20" fill="#86efac" font-size="11" text-anchor="end" font-family="sans-serif">{lines[-1]:,} 行</text>
+                <polyline points="{polyline}" fill="none" stroke="#a78bfa" stroke-width="2"/>
+                <text x="10" y="{height-5}" fill="#666" font-size="10" font-family="sans-serif">{data[0]["date"]}</text>
+                <text x="{width-10}" y="{height-5}" fill="#666" font-size="10" text-anchor="end" font-family="sans-serif">{data[-1]["date"]}</text>
+              </svg>'''
+          
+          with open('.github/stats/chart.svg', 'w') as f:
+              f.write(svg)
+          EOF
+      
+      - name: Commit stats
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/stats/
+          git diff --staged --quiet || git commit -m "chore: update code statistics [skip ci]"
+          git push
