@@ -268,6 +268,87 @@ jobs:
               f.write(daily_svg)
           EOF
       
+      - name: Generate contributors chart
+        run: |
+          python3 << 'EOF'
+          import subprocess
+          
+          # 获取贡献者统计
+          result = subprocess.run('''
+          git log --format='%aN' | sort -u | while read author; do
+            added=$(git log --author="$author" --pretty=tformat: --numstat 2>/dev/null | awk '{ add += $1 } END { print add+0 }')
+            deleted=$(git log --author="$author" --pretty=tformat: --numstat 2>/dev/null | awk '{ del += $2 } END { print del+0 }')
+            commits=$(git rev-list --author="$author" --count HEAD 2>/dev/null || echo 0)
+            echo "$author|$added|$deleted|$commits"
+          done
+          ''', shell=True, capture_output=True, text=True)
+          
+          contributors = []
+          for line in result.stdout.strip().split('\n'):
+              if '|' in line:
+                  parts = line.split('|')
+                  if len(parts) == 4:
+                      name, added, deleted, commits = parts
+                      if 'bot' in name.lower() or (int(added or 0) == 0 and int(deleted or 0) == 0):
+                          continue
+                      contributors.append({
+                          'name': name,
+                          'added': int(added or 0),
+                          'deleted': int(deleted or 0),
+                          'commits': int(commits or 0),
+                          'net': int(added or 0) - int(deleted or 0)
+                      })
+          
+          # 合并同一用户的多个账号
+          merged = {}
+          for c in contributors:
+              key = c['name']
+              if key in ['wy770', 'WyRainBow']:
+                  key = 'WyRainBow'
+              if key in merged:
+                  merged[key]['added'] += c['added']
+                  merged[key]['deleted'] += c['deleted']
+                  merged[key]['commits'] += c['commits']
+                  merged[key]['net'] += c['net']
+              else:
+                  merged[key] = c.copy()
+                  merged[key]['name'] = key
+          
+          contributors = sorted(merged.values(), key=lambda x: x['net'], reverse=True)
+          
+          # 生成 SVG
+          width, height = 600, 60 + len(contributors) * 80
+          max_net = max(c['net'] for c in contributors) if contributors else 1
+          colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6']
+          
+          svg_parts = [f'''<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
+            <rect width="100%" height="100%" fill="#ffffff"/>
+            <text x="{width//2}" y="30" fill="#333" font-size="16" font-weight="bold" text-anchor="middle" font-family="sans-serif">Contributors</text>
+          ''']
+          
+          bar_max_width = 350
+          for i, c in enumerate(contributors):
+              y_base = 60 + i * 80
+              color = colors[i % len(colors)]
+              bar_width = max((c['net'] / max_net) * bar_max_width, 20) if max_net > 0 else 20
+              
+              svg_parts.append(f'''
+            <circle cx="40" cy="{y_base + 25}" r="25" fill="{color}" opacity="0.2"/>
+            <text x="40" y="{y_base + 32}" fill="{color}" font-size="20" font-weight="bold" text-anchor="middle" font-family="sans-serif">{c['name'][0].upper()}</text>
+            <text x="80" y="{y_base + 15}" fill="#333" font-size="14" font-weight="bold" font-family="sans-serif">{c['name']}</text>
+            <text x="80" y="{y_base + 32}" fill="#666" font-size="11" font-family="sans-serif">{c['commits']} commits</text>
+            <rect x="200" y="{y_base + 8}" width="{bar_width}" height="20" fill="{color}" rx="4"/>
+            <text x="{205 + bar_width}" y="{y_base + 22}" fill="#333" font-size="12" font-weight="bold" font-family="sans-serif">+{c['net']}</text>
+            <text x="200" y="{y_base + 48}" fill="#27ae60" font-size="10" font-family="sans-serif">+{c['added']}</text>
+            <text x="270" y="{y_base + 48}" fill="#e74c3c" font-size="10" font-family="sans-serif">-{c['deleted']}</text>
+          ''')
+          
+          svg_parts.append('</svg>')
+          
+          with open('.github/stats/contributors.svg', 'w') as f:
+              f.write(''.join(svg_parts))
+          EOF
+      
       - name: Commit stats
         run: |
           git config user.name "github-actions[bot]"
