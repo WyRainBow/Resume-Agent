@@ -68,6 +68,7 @@ from backend.llm_utils import retry_with_backoff
 
 # ========== HTTP 长连接复用优化 ==========
 _http_session = None
+_connection_warmed = False
 
 def get_http_session():
     """获取复用的 HTTP Session，启用连接池和长连接"""
@@ -76,22 +77,37 @@ def get_http_session():
         _http_session = requests.Session()
         # 配置连接池和重试策略
         adapter = HTTPAdapter(
-            pool_connections=10,      # 连接池大小
-            pool_maxsize=20,          # 最大连接数
+            pool_connections=20,      # 增大连接池
+            pool_maxsize=50,          # 增大最大连接数
             max_retries=Retry(
-                total=2,
-                backoff_factor=0.1,
-                status_forcelist=[500, 502, 503, 504]
-            ) if Retry else 2
+                total=1,              # 减少重试次数
+                backoff_factor=0.05,
+                status_forcelist=[502, 503, 504]
+            ) if Retry else 1
         )
         _http_session.mount('http://', adapter)
         _http_session.mount('https://', adapter)
-        # 启用 Keep-Alive
+        # 启用 Keep-Alive 和压缩
         _http_session.headers.update({
             'Connection': 'keep-alive',
-            'Accept-Encoding': 'gzip, deflate'
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept': 'application/json',
         })
     return _http_session
+
+
+def warmup_connection():
+    """预热 HTTP 连接，减少首次请求延迟"""
+    global _connection_warmed
+    if _connection_warmed:
+        return
+    try:
+        session = get_http_session()
+        # 预热到豆包 API 的连接
+        session.head(DOUBAO_BASE_URL.replace('/v3', ''), timeout=2)
+        _connection_warmed = True
+    except:
+        pass
 
 @retry_with_backoff(max_retries=2, initial_delay=0.1)  # 减少重试次数和延迟
 def call_zhipu_api(prompt: str, model: str = None) -> str:
@@ -138,10 +154,13 @@ def call_zhipu_api(prompt: str, model: str = None) -> str:
     return result
 
 
-@retry_with_backoff(max_retries=2, initial_delay=0.3)
+# 简化的系统提示词，让模型更快响应
+FAST_SYSTEM_PROMPT = """你是一个简历解析助手。直接输出 JSON，不要多余解释。"""
+
+@retry_with_backoff(max_retries=1, initial_delay=0.1)
 def call_doubao_api(prompt: str, model: str = None, fast_mode: bool = True) -> str:
     """
-    调用豆包 API（火山引擎）- 优化版
+    调用豆包 API（火山引擎）- 极限优化版
     
     参数:
         prompt: 用户输入的提示词
@@ -156,17 +175,25 @@ def call_doubao_api(prompt: str, model: str = None, fast_mode: bool = True) -> s
     
     api_url = f"{DOUBAO_BASE_URL}/chat/completions"
     
+    # 极限优化参数
     payload = {
         "model": model,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.3 if fast_mode else 0.7,  # 低温度更快更确定
-        "max_tokens": 1500,  # 减少生成量
-        "top_p": 0.8,        # 限制采样范围
+        "messages": [
+            {"role": "system", "content": FAST_SYSTEM_PROMPT} if fast_mode else None,
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.1 if fast_mode else 0.7,  # 极低温度
+        "max_tokens": 1000,   # 进一步减少
+        "top_p": 0.7,         # 更限制的采样
+        "frequency_penalty": 0,
+        "presence_penalty": 0,
     }
     
-    # 添加低思考强度参数（如果模型支持）
-    if fast_mode:
-        payload["reasoning_effort"] = "low"  # 低思考强度
+    # 移除 None 消息
+    payload["messages"] = [m for m in payload["messages"] if m]
+    
+    # 添加最低思考强度参数（大幅提升速度 1.5~5 倍）
+    payload["reasoning_effort"] = "minimal"
     
     headers = {
         "Content-Type": "application/json",
@@ -179,7 +206,7 @@ def call_doubao_api(prompt: str, model: str = None, fast_mode: bool = True) -> s
         api_url,
         json=payload,
         headers=headers,
-        timeout=45  # 减少超时时间
+        timeout=30  # 减少超时
     )
     
     if response.status_code == 200:
@@ -215,9 +242,8 @@ def call_doubao_api_stream(prompt: str, model: str = None, fast_mode: bool = Tru
         "stream": True  # 启用流式输出
     }
     
-    # 添加低思考强度参数
-    if fast_mode:
-        payload["reasoning_effort"] = "low"
+    # 添加最低思考强度参数（大幅提升速度 1.5~5 倍）
+    payload["reasoning_effort"] = "minimal"
     
     headers = {
         "Content-Type": "application/json",
