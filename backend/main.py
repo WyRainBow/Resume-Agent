@@ -55,6 +55,23 @@ app.include_router(agent_router)
 app.include_router(pdf_router)
 
 
+# 启动时预热 HTTP 连接
+@app.on_event("startup")
+async def startup_event():
+    """应用启动时预热连接"""
+    import sys
+    from pathlib import Path
+    ROOT = Path(__file__).resolve().parents[1]
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    try:
+        import simple
+        simple.warmup_connection()
+        print("[启动优化] HTTP 连接已预热")
+    except Exception as e:
+        print(f"[启动优化] 连接预热失败: {e}")
+
+
 """
 本地运行：
 1) 安装依赖：pip3 install -r backend/requirements.txt --break-system-packages
