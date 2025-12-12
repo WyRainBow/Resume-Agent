@@ -23,10 +23,81 @@ export async function renderPDF(resume: Resume, useDemo: boolean = false, sectio
   return data as Blob
 }
 
-export async function rewriteResume(provider: 'zhipu' | 'gemini', resume: Resume, path: string, instruction: string) {
+export async function rewriteResume(provider: 'zhipu' | 'gemini' | 'doubao', resume: Resume, path: string, instruction: string) {
   const url = `${API_BASE}/api/resume/rewrite`
   const { data } = await axios.post(url, { provider, resume, path, instruction })
   return data as { resume: Resume }
+}
+
+/**
+ * 流式 AI 改写 - 实时显示生成内容
+ */
+export async function rewriteResumeStream(
+  provider: 'zhipu' | 'gemini' | 'doubao',
+  resume: Resume,
+  path: string,
+  instruction: string,
+  onChunk: (chunk: string) => void,
+  onComplete?: () => void,
+  onError?: (error: string) => void
+) {
+  const url = `${API_BASE}/api/resume/rewrite/stream`
+  
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ provider, resume, path, instruction })
+    })
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
+    const reader = response.body?.getReader()
+    const decoder = new TextDecoder()
+    
+    if (!reader) {
+      throw new Error('无法获取响应流')
+    }
+    
+    let buffer = ''
+    
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() || ''
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6)
+          if (data === '[DONE]') {
+            onComplete?.()
+            return
+          }
+          try {
+            const parsed = JSON.parse(data)
+            if (parsed.content) {
+              onChunk(parsed.content)
+            }
+            if (parsed.error) {
+              onError?.(parsed.error)
+              return
+            }
+          } catch {
+            // 忽略解析错误
+          }
+        }
+      }
+    }
+    
+    onComplete?.()
+  } catch (error) {
+    onError?.(error instanceof Error ? error.message : '流式请求失败')
+  }
 }
 
 export async function formatResumeText(provider: 'zhipu' | 'gemini', text: string, useAi: boolean = true) {

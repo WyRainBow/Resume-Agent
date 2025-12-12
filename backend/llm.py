@@ -58,6 +58,38 @@ def call_llm(provider: str, prompt: str) -> str:
         raise ValueError("不支持的 provider")
 
 
+def call_llm_stream(provider: str, prompt: str):
+    """
+    流式调用 LLM，返回生成器
+    """
+    if provider == "mock":
+        # Mock 模式模拟流式输出
+        for word in f"MOCK: {prompt[:80]}".split():
+            yield word + " "
+        return
+    
+    if provider == "doubao":
+        key = os.getenv("DOUBAO_API_KEY") or getattr(simple, "DOUBAO_API_KEY", "")
+        if not key:
+            raise HTTPException(
+                status_code=400, 
+                detail="缺少 DOUBAO_API_KEY"
+            )
+        simple.DOUBAO_API_KEY = key
+        simple.DOUBAO_MODEL = os.getenv("DOUBAO_MODEL", simple.DOUBAO_MODEL)
+        simple.DOUBAO_BASE_URL = os.getenv("DOUBAO_BASE_URL", simple.DOUBAO_BASE_URL)
+        
+        for chunk in simple.call_doubao_api_stream(prompt):
+            yield chunk
+    
+    elif provider == "zhipu":
+        result = call_llm(provider, prompt)
+        yield result
+    
+    else:
+        raise ValueError("不支持的 provider")
+
+
 def get_ai_config():
     """获取当前 AI 配置"""
     return {

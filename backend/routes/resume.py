@@ -6,13 +6,14 @@ import json as _json
 from pathlib import Path
 from typing import Dict, Any
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 
 from models import (
     ResumeGenerateRequest, ResumeGenerateResponse, 
     ResumeParseRequest, SectionParseRequest,
     RewriteRequest, FormatTextRequest, FormatTextResponse
 )
-from llm import call_llm, DEFAULT_AI_PROVIDER
+from llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
 from prompts import build_resume_prompt, build_rewrite_prompt, SECTION_PROMPTS
 from json_path import parse_path, get_by_path, set_by_path
 
@@ -278,6 +279,38 @@ async def rewrite_resume(body: RewriteRequest):
         raise HTTPException(status_code=500, detail=f"写入失败：{e}")
 
     return {"resume": updated}
+
+
+@router.post("/resume/rewrite/stream")
+async def rewrite_resume_stream(body: RewriteRequest):
+    """流式对简历 JSON 的某个路径进行 AI 改写"""
+    try:
+        parts = parse_path(body.path)
+        parent, key, cur_value = get_by_path(body.resume, parts)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"路径错误：{e}")
+
+    prompt = build_rewrite_prompt(body.path, cur_value, body.instruction, body.locale)
+    
+    async def generate():
+        """生成 SSE 流"""
+        try:
+            for chunk in call_llm_stream(body.provider, prompt):
+                """发送 SSE 格式数据"""
+                yield f"data: {_json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: {_json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 
 @router.post("/resume/format", response_model=FormatTextResponse)
