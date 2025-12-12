@@ -13,6 +13,10 @@
 <!-- 每日代码变化图 -->
 ![Daily Changes](.github/stats/daily.svg)
 
+## 贡献者统计
+
+![Contributors](.github/stats/contributors.svg)
+
 ## Star 趋势
 
 [![Star History Chart](https://api.star-history.com/svg?repos=WyRainBow/Resume-Agent&type=Date)](https://star-history.com/#WyRainBow/Resume-Agent&Date)
