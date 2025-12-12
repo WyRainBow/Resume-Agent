@@ -66,6 +66,33 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from backend.llm_utils import retry_with_backoff
 
+# ========== HTTP 长连接复用优化 ==========
+_http_session = None
+
+def get_http_session():
+    """获取复用的 HTTP Session，启用连接池和长连接"""
+    global _http_session
+    if _http_session is None:
+        _http_session = requests.Session()
+        # 配置连接池和重试策略
+        adapter = HTTPAdapter(
+            pool_connections=10,      # 连接池大小
+            pool_maxsize=20,          # 最大连接数
+            max_retries=Retry(
+                total=2,
+                backoff_factor=0.1,
+                status_forcelist=[500, 502, 503, 504]
+            ) if Retry else 2
+        )
+        _http_session.mount('http://', adapter)
+        _http_session.mount('https://', adapter)
+        # 启用 Keep-Alive
+        _http_session.headers.update({
+            'Connection': 'keep-alive',
+            'Accept-Encoding': 'gzip, deflate'
+        })
+    return _http_session
+
 @retry_with_backoff(max_retries=2, initial_delay=0.1)  # 减少重试次数和延迟
 def call_zhipu_api(prompt: str, model: str = None) -> str:
     """
@@ -111,14 +138,15 @@ def call_zhipu_api(prompt: str, model: str = None) -> str:
     return result
 
 
-@retry_with_backoff(max_retries=2, initial_delay=0.5)
-def call_doubao_api(prompt: str, model: str = None) -> str:
+@retry_with_backoff(max_retries=2, initial_delay=0.3)
+def call_doubao_api(prompt: str, model: str = None, fast_mode: bool = True) -> str:
     """
-    调用豆包 API（火山引擎）
+    调用豆包 API（火山引擎）- 优化版
     
     参数:
         prompt: 用户输入的提示词
         model: 使用的模型名称，默认为 DOUBAO_MODEL
+        fast_mode: 是否使用快速模式（低思考强度）
     
     返回:
         API 返回的响应内容
@@ -131,20 +159,27 @@ def call_doubao_api(prompt: str, model: str = None) -> str:
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.7,
-        "max_tokens": 2000
+        "temperature": 0.3 if fast_mode else 0.7,  # 低温度更快更确定
+        "max_tokens": 1500,  # 减少生成量
+        "top_p": 0.8,        # 限制采样范围
     }
+    
+    # 添加低思考强度参数（如果模型支持）
+    if fast_mode:
+        payload["reasoning_effort"] = "low"  # 低思考强度
     
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {DOUBAO_API_KEY}"
     }
     
-    response = requests.post(
+    # 使用复用的 HTTP Session
+    session = get_http_session()
+    response = session.post(
         api_url,
         json=payload,
         headers=headers,
-        timeout=60
+        timeout=45  # 减少超时时间
     )
     
     if response.status_code == 200:
@@ -152,6 +187,74 @@ def call_doubao_api(prompt: str, model: str = None) -> str:
         return result["choices"][0]["message"]["content"]
     else:
         raise Exception(f"豆包 API 调用失败: {response.status_code} - {response.text}")
+
+
+def call_doubao_api_stream(prompt: str, model: str = None, fast_mode: bool = True):
+    """
+    流式调用豆包 API（火山引擎）- 优化版
+    
+    参数:
+        prompt: 用户输入的提示词
+        model: 使用的模型名称，默认为 DOUBAO_MODEL
+        fast_mode: 是否使用快速模式（低思考强度）
+    
+    生成器返回:
+        每次返回一个文本片段
+    """
+    if model is None:
+        model = DOUBAO_MODEL
+    
+    api_url = f"{DOUBAO_BASE_URL}/chat/completions"
+    
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.3 if fast_mode else 0.7,
+        "max_tokens": 2000,
+        "top_p": 0.8,
+        "stream": True  # 启用流式输出
+    }
+    
+    # 添加低思考强度参数
+    if fast_mode:
+        payload["reasoning_effort"] = "low"
+    
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {DOUBAO_API_KEY}"
+    }
+    
+    # 使用复用的 HTTP Session
+    session = get_http_session()
+    response = session.post(
+        api_url,
+        json=payload,
+        headers=headers,
+        timeout=90,
+        stream=True  # 启用流式响应
+    )
+    
+    if response.status_code != 200:
+        raise Exception(f"豆包 API 调用失败: {response.status_code} - {response.text}")
+    
+    # 解析 SSE 流
+    for line in response.iter_lines():
+        if line:
+            line = line.decode('utf-8')
+            if line.startswith('data: '):
+                data = line[6:]  # 移除 'data: ' 前缀
+                if data == '[DONE]':
+                    break
+                try:
+                    import json
+                    chunk = json.loads(data)
+                    if 'choices' in chunk and len(chunk['choices']) > 0:
+                        delta = chunk['choices'][0].get('delta', {})
+                        content = delta.get('content', '')
+                        if content:
+                            yield content
+                except json.JSONDecodeError:
+                    continue
 
 
 def main():
