@@ -66,28 +66,45 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from backend.llm_utils import retry_with_backoff
 
-# ========== HTTP 长连接复用优化 ==========
+# ========== HTTP 客户端优化 ==========
+# 尝试使用支持 HTTP/2 + DNS 预解析的高性能客户端
+_use_http2_client = False
+try:
+    from backend.http_client import (
+        get_httpx_client, get_requests_session, 
+        call_api, init as http_init, prefetch_api_hosts
+    )
+    _use_http2_client = True
+    print("[simple] 使用 HTTP/2 高性能客户端")
+except ImportError:
+    print("[simple] http_client 模块不可用，使用默认 requests")
+
+# 降级方案：原有的 Session
 _http_session = None
 _connection_warmed = False
 
 def get_http_session():
-    """获取复用的 HTTP Session，启用连接池和长连接"""
+    """获取 HTTP Session (优先使用 HTTP/2)"""
     global _http_session
+    
+    # 优先使用 HTTP/2 客户端
+    if _use_http2_client:
+        return get_requests_session()
+    
+    # 降级方案
     if _http_session is None:
         _http_session = requests.Session()
-        # 配置连接池和重试策略
         adapter = HTTPAdapter(
-            pool_connections=20,      # 增大连接池
-            pool_maxsize=50,          # 增大最大连接数
+            pool_connections=20,
+            pool_maxsize=50,
             max_retries=Retry(
-                total=1,              # 减少重试次数
+                total=1,
                 backoff_factor=0.05,
                 status_forcelist=[502, 503, 504]
             ) if Retry else 1
         )
         _http_session.mount('http://', adapter)
         _http_session.mount('https://', adapter)
-        # 启用 Keep-Alive 和压缩
         _http_session.headers.update({
             'Connection': 'keep-alive',
             'Accept-Encoding': 'gzip, deflate, br',
@@ -97,13 +114,23 @@ def get_http_session():
 
 
 def warmup_connection():
-    """预热 HTTP 连接，减少首次请求延迟"""
+    """预热 HTTP 连接 + DNS 预解析"""
     global _connection_warmed
     if _connection_warmed:
         return
+    
+    # 使用新的 http_client 预热
+    if _use_http2_client:
+        try:
+            prefetch_api_hosts()  # DNS 预解析
+            _connection_warmed = True
+            return
+        except:
+            pass
+    
+    # 降级方案
     try:
         session = get_http_session()
-        # 预热到豆包 API 的连接
         session.head(DOUBAO_BASE_URL.replace('/v3', ''), timeout=2)
         _connection_warmed = True
     except:
