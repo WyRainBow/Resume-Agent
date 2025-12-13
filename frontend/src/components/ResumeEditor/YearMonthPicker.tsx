@@ -10,23 +10,28 @@ export function YearMonthPicker({
   placeholder = '选择年月',
   style = {}
 }: YearMonthPickerProps) {
-  // 解析当前值（格式如 "2022-05" 或 "2022.05" 或 "至今"）
+  // 解析当前值（格式如 "2022-05" 或 "2022.05" 或 "2025" 或 "至今"）
   const parseValue = (val: string) => {
     if (!val || val === '至今' || val === '现在' || val === 'present') {
       return { year: '', month: '', isPresent: val === '至今' || val === '现在' || val === 'present' }
     }
-    const match = val.match(/(\d{4})[-./年]?(\d{1,2})?/)
-    if (match) {
-      return { year: match[1], month: match[2] || '', isPresent: false }
+    // 尝试匹配 年-月 或 年.月 格式
+    const fullMatch = val.match(/(\d{4})[-./年](\d{1,2})/)
+    if (fullMatch) {
+      return { year: fullMatch[1], month: fullMatch[2].padStart(2, '0'), isPresent: false }
+    }
+    // 尝试匹配只有年份的格式
+    const yearMatch = val.match(/^(\d{4})$/)
+    if (yearMatch) {
+      return { year: yearMatch[1], month: '', isPresent: false }
     }
     return { year: '', month: '', isPresent: false }
   }
 
   const { year, month, isPresent } = parseValue(value)
   
-  // 生成年份选项（从当前年往前25年）
-  const currentYear = new Date().getFullYear()
-  const years = Array.from({ length: 25 }, (_, i) => currentYear - i)
+  // 生成年份选项（2020-2030年）
+  const years = Array.from({ length: 11 }, (_, i) => 2020 + i)
   
   // 生成月份选项
   const months = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'))
