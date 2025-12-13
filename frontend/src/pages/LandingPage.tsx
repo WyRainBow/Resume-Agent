@@ -6,6 +6,8 @@ export default function LandingPage() {
   const [instruction, setInstruction] = useState('')
   const [isHovering, setIsHovering] = useState(false)
 
+  const placeholderText = '3年后端、Java/Go、投递后端工程师、擅长高并发与微服务（TAB 补全）'
+
   const handleGenerate = () => {
     if (!instruction.trim()) return
     // 将指令存储到 sessionStorage，功能页会读取并自动生成
@@ -17,6 +19,14 @@ export default function LandingPage() {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleGenerate()
+    }
+    // Tab 键补全 placeholder
+    if (e.key === 'Tab') {
+      e.preventDefault()
+      // 如果输入框为空，或者当前输入是 placeholder 的前缀，则补全
+      if (!instruction || placeholderText.startsWith(instruction)) {
+        setInstruction(placeholderText)
+      }
     }
   }
 
@@ -148,7 +158,7 @@ export default function LandingPage() {
               onKeyDown={handleKeyDown}
               onFocus={() => setIsHovering(true)}
               onBlur={() => setIsHovering(false)}
-              placeholder="3年后端、Java/Go、投递后端工程师、擅长高并发与微服务"
+              placeholder={placeholderText}
               style={{
                 flex: 1,
                 border: 'none',

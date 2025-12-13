@@ -89,6 +89,8 @@ export default function AIRewriteDialog({ isOpen, selectedText, position, onClos
     }
   }
 
+  const rewritePlaceholder = '更专业、更简洁'
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -96,6 +98,13 @@ export default function AIRewriteDialog({ isOpen, selectedText, position, onClos
     }
     if (e.key === 'Escape') {
       onClose()
+    }
+    // Tab 键补全 placeholder
+    if (e.key === 'Tab') {
+      if (!input || rewritePlaceholder.startsWith(input)) {
+        e.preventDefault()
+        setInput(rewritePlaceholder)
+      }
     }
   }
 
@@ -253,7 +262,7 @@ export default function AIRewriteDialog({ isOpen, selectedText, position, onClos
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="输入修改意图，如：更专业、更简洁..."
+              placeholder="输入修改意图，如：更专业、更简洁...（TAB 补全）"
               disabled={loading}
               style={{
                 flex: 1,

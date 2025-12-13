@@ -22,55 +22,6 @@ router = APIRouter(prefix="/api", tags=["Resume"])
 
 ROOT = Path(__file__).resolve().parents[2]
 
-# Mock 数据
-MOCK_RESUME_DATA = {
-    "name": "某某 (Mock)",
-    "contact": {
-        "phone": "000-0000-0000",
-        "email": "mock@example.com",
-        "role": "后端开发工程师"
-    },
-    "internships": [
-        {"title": "实习经历一", "subtitle": "某知名互联网公司", "date": "2025.06 - 2025.10"},
-        {"title": "实习经历二", "subtitle": "某初创科技公司", "date": "2025.02 - 2025.06"},
-    ],
-    "projects": [
-        {
-            "title": "项目一：智能简历分析系统",
-            "items": [
-                {
-                    "title": "子项目甲：核心引擎",
-                    "details": [
-                        "负责简历解析模块，使用 NLP 技术提取关键信息，准确率提升至 95%",
-                        "设计并实现 JD 匹配算法，将匹配速度优化 50%",
-                    ]
-                }
-            ]
-        }
-    ],
-    "openSource": [
-        {
-            "title": "社区贡献一",
-            "subtitle": "某分布式项目",
-            "items": [
-                "仓库: https://example.com/repo1",
-                "提交了关于性能优化的核心 PR，被成功合并",
-            ]
-        }
-    ],
-    "skills": [
-        {"category": "后端", "details": "熟悉 Python/Go，精通 FastAPI 与微服务架构"},
-        {"category": "数据库", "details": "熟悉 MySQL/Redis，有分库分表与调优经验"},
-    ],
-    "education": [
-        {
-            "title": "某高校 - 计算机科学 - 本科",
-            "date": "2022.09 - 2026.06",
-            "honors": "荣誉：国家奖学金、ACM 竞赛省级一等奖"
-        }
-    ]
-}
-
 
 def clean_llm_response(raw: str) -> str:
     """清理 LLM 返回的内容"""
@@ -102,9 +53,6 @@ def parse_json_response(cleaned: str) -> Dict:
 @router.post("/resume/generate", response_model=ResumeGenerateResponse)
 async def generate_resume(body: ResumeGenerateRequest):
     """一句话 → 结构化简历 JSON"""
-    if body.provider == "mock":
-        return ResumeGenerateResponse(resume=MOCK_RESUME_DATA, provider="mock")
-
     prompt = build_resume_prompt(body.instruction, body.locale)
     try:
         raw = call_llm(body.provider, prompt)
@@ -133,9 +81,6 @@ async def generate_resume(body: ResumeGenerateRequest):
 async def parse_resume_text(body: ResumeParseRequest):
     """AI 解析简历文本 → 结构化简历 JSON"""
     provider = body.provider or DEFAULT_AI_PROVIDER
-    
-    if provider == "mock":
-        return {"resume": MOCK_RESUME_DATA, "provider": "mock"}
     
     # 格式定义
     schema_desc = """格式:{"name":"姓名","contact":{"phone":"电话","email":"邮箱"},"objective":"求职意向","education":[{"title":"学校","subtitle":"学历","date":"时间","major":"专业","details":["荣誉"]}],"internships":[{"title":"公司","subtitle":"职位","date":"时间","highlights":["工作内容"]}],"projects":[{"title":"项目名","subtitle":"角色","date":"时间","highlights":["描述"]}],"openSource":[{"title":"开源项目","subtitle":"描述","items":["贡献"],"repoUrl":"链接"}],"skills":[{"category":"类别","details":"技能"}],"awards":["奖项"]}"""
@@ -210,19 +155,6 @@ async def parse_resume_text(body: ResumeParseRequest):
 async def parse_section_text(body: SectionParseRequest):
     """AI 解析单个模块文本 → 结构化数据"""
     provider = body.provider or DEFAULT_AI_PROVIDER
-    
-    if provider == "mock":
-        mock_data = {
-            "contact": {"name": "张三", "phone": "138****8888", "email": "test@example.com", "location": "北京"},
-            "education": [{"title": "示例大学", "subtitle": "本科", "major": "计算机科学", "date": "2020-2024"}],
-            "experience": [{"title": "示例公司", "subtitle": "软件工程师", "date": "2023-至今", "highlights": ["负责后端开发"]}],
-            "projects": [{"title": "示例项目", "subtitle": "负责人", "date": "2023", "highlights": ["项目描述"]}],
-            "skills": [{"category": "编程语言", "details": "Java, Python"}],
-            "awards": ["优秀学生"],
-            "summary": "热爱技术的软件工程师",
-            "opensource": [{"title": "开源项目", "subtitle": "贡献者", "items": ["提交PR"]}]
-        }
-        return {"data": mock_data.get(body.section_type, {}), "section_type": body.section_type, "provider": "mock"}
     
     section_prompt = SECTION_PROMPTS.get(body.section_type, '提取信息,输出JSON')
     

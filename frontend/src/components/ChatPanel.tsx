@@ -278,7 +278,16 @@ export default function ChatPanel({ onResume, onLoadDemo, pdfBlob, initialInstru
         <textarea
           value={resumeText}
           onChange={(e) => setResumeText(e.target.value)}
-          placeholder='例如：&#10;张三&#10;13800138000&#10;工作经历：2020-2023 腾讯 后端工程师&#10;负责微服务架构设计&#10;技能：Java、Go、Redis'
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              const placeholder = '例如：\n张三\n13800138000\n工作经历：2020-2023 腾讯 后端工程师\n负责微服务架构设计\n技能：Java、Go、Redis'
+              if (!resumeText || placeholder.startsWith(resumeText)) {
+                e.preventDefault()
+                setResumeText(placeholder)
+              }
+            }
+          }}
+          placeholder='例如：（TAB 补全）&#10;张三&#10;13800138000&#10;工作经历：2020-2023 腾讯 后端工程师&#10;负责微服务架构设计&#10;技能：Java、Go、Redis'
           style={{ 
             width: '100%', 
             minHeight: '120px',

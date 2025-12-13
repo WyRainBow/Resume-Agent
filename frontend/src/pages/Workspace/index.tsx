@@ -101,7 +101,7 @@ export default function WorkspacePage() {
 
     const textToUse = state.lastImportedText?.trim() || JSON.stringify(state.resume)
     if (!textToUse.trim()) {
-      alert('缺少原始文本或简历数据，无法进行 AI 排版优化')
+      alert('缺少原始文本或简历数据。无法进行 AI 排版优化')
       return
     }
 
@@ -311,7 +311,7 @@ export default function WorkspacePage() {
             onContentChange={pdfOps.handlePDFContentChange}
           />
           
-          {/* 隐藏的 HTML 预览，用于 AI 排版截图功能 */}
+          {/* 隐藏的 HTML 预览 AI 不读取 */}
           <div 
             ref={state.previewRef} 
             style={{ 

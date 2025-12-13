@@ -352,7 +352,36 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={`请粘贴您的简历内容，例如：
+            onKeyDown={(e) => {
+              if (e.key === 'Tab') {
+                const placeholder = `姓名：张三
+电话：13800138000
+邮箱：zhangsan@example.com
+求职意向：后端开发工程师
+
+教育经历：
+XX大学 - 计算机科学与技术 - 本科 - 2020.09-2024.06
+
+工作/实习经历：
+XX公司 - 后端开发实习生 - 2023.06-2023.09
+- 参与项目开发
+- 完成xxx功能
+
+项目经历：
+XX项目 - 核心开发 - 2023.01-2023.06
+- 项目描述...
+- 技术实现...
+
+专业技能：
+- 编程语言：Java, Python, Go
+- 数据库：MySQL, Redis`
+                if (!text || placeholder.startsWith(text)) {
+                  e.preventDefault()
+                  setText(placeholder)
+                }
+              }
+            }}
+            placeholder={`请粘贴您的简历内容（TAB 补全示例），例如：
 
 姓名：张三
 电话：13800138000
