@@ -99,28 +99,6 @@ def parse_json_response(cleaned: str) -> Dict:
         raise
 
 
-@router.get("/resume/template")
-async def get_default_template():
-    """获取默认简历模板"""
-    template_path = ROOT / "test_resume_demo.json"
-    
-    if template_path.exists():
-        with open(template_path, "r", encoding="utf-8") as f:
-            return _json.load(f)
-    
-    return {
-        "name": "张三",
-        "contact": {"phone": "138****8888", "email": "example@email.com"},
-        "objective": "软件工程师",
-        "education": [{"title": "XX大学 - 计算机科学与技术", "date": "2018-2022"}],
-        "internships": [{"title": "示例公司", "subtitle": "软件工程师实习", "date": "2021.06-2021.09", "highlights": ["参与项目开发"]}],
-        "projects": [{"title": "示例项目", "highlights": ["项目描述...", "技术栈: React, Node.js"]}],
-        "skills": ["JavaScript", "Python", "React", "Node.js"],
-        "awards": ["优秀学生奖学金"],
-        "summary": "热爱技术，善于学习，具有良好的团队协作能力。"
-    }
-
-
 @router.post("/resume/generate", response_model=ResumeGenerateResponse)
 async def generate_resume(body: ResumeGenerateRequest):
     """一句话 → 结构化简历 JSON"""
