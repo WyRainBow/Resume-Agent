@@ -56,25 +56,57 @@ export default function WorkspacePage() {
    * 加载简历（优先从 localStorage，否则从后端模板）
    */
   const loadResume = useCallback(async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:entry',message:'loadResume 函数被调用',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    // 设置加载状态，让用户看到加载中提示而非空状态
+    setLoadingPdf(true)
+    pdfTimer.startTimer() // 启动计时器
     // 检查是否有保存的简历
     const savedId = getCurrentResumeId()
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:savedId',message:'检查 savedId',data:{savedId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     if (savedId) {
       const saved = getResume(savedId)
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:savedResume',message:'从 localStorage 获取简历',data:{savedId,hasSaved:!!saved,savedDataKeys:saved?Object.keys(saved.data):null},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       if (saved) {
         setResume(saved.data)
         setCurrentResumeIdState(savedId)
         setShowEditor(true)
         setPreviewMode('pdf')
         setCurrentSectionOrder(defaultSectionOrder)
+        // #region agent log
+        fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:renderPDF:branch1:start',message:'开始渲染 PDF (分支1: savedId)',data:{savedId},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
         renderPDF(saved.data, false, defaultSectionOrder)
-          .then(blob => setPdfBlob(blob))
-          .catch(err => console.log('PDF 后台生成失败:', err))
+          .then(blob => {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:renderPDF:branch1:success',message:'PDF 渲染成功 (分支1)',data:{blobSize:blob?.size,blobType:blob?.type},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,D'})}).catch(()=>{});
+            // #endregion
+            setPdfBlob(blob)
+            setLoadingPdf(false)
+            pdfTimer.stopTimer() // 停止计时器
+          })
+          .catch(err => {
+            // #region agent log
+            fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:renderPDF:branch1:error',message:'PDF 渲染失败 (分支1)',data:{error:String(err)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            console.log('PDF 后台生成失败:', err)
+            setLoadingPdf(false)
+            pdfTimer.stopTimer() // 停止计时器
+          })
         return
       }
     }
     
     // 检查是否有任何保存的简历
     const allResumes = getAllResumes()
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:allResumes',message:'检查所有保存的简历',data:{count:allResumes.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     if (allResumes.length > 0) {
       const first = allResumes[0]
       setResume(first.data)
@@ -83,15 +115,38 @@ export default function WorkspacePage() {
       setShowEditor(true)
       setPreviewMode('pdf')
       setCurrentSectionOrder(defaultSectionOrder)
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:renderPDF:branch2:start',message:'开始渲染 PDF (分支2: allResumes)',data:{resumeId:first.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       renderPDF(first.data, false, defaultSectionOrder)
-        .then(blob => setPdfBlob(blob))
-        .catch(err => console.log('PDF 后台生成失败:', err))
+        .then(blob => {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:renderPDF:branch2:success',message:'PDF 渲染成功 (分支2)',data:{blobSize:blob?.size,blobType:blob?.type},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,D'})}).catch(()=>{});
+          // #endregion
+          setPdfBlob(blob)
+          setLoadingPdf(false)
+          pdfTimer.stopTimer() // 停止计时器
+        })
+        .catch(err => {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:renderPDF:branch2:error',message:'PDF 渲染失败 (分支2)',data:{error:String(err)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
+          console.log('PDF 后台生成失败:', err)
+          setLoadingPdf(false)
+          pdfTimer.stopTimer() // 停止计时器
+        })
       return
     }
 
     // 没有保存的简历，加载默认模板
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:branch3:start',message:'开始加载默认模板 (分支3)',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     try {
       const template = await getDefaultTemplate() as unknown as Resume
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:branch3:templateLoaded',message:'默认模板加载成功',data:{templateKeys:Object.keys(template)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       setResume(template)
       setShowEditor(true)
       setPreviewMode('pdf')
@@ -100,13 +155,36 @@ export default function WorkspacePage() {
       const saved = saveResume(template)
       setCurrentResumeIdState(saved.id)
       
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:renderPDF:branch3:start',message:'开始渲染 PDF (分支3: 默认模板)',data:{savedId:saved.id},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       renderPDF(template, false, defaultSectionOrder)
-        .then(blob => setPdfBlob(blob))
-        .catch(err => console.log('PDF 后台生成失败:', err))
+        .then(blob => {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:renderPDF:branch3:success',message:'PDF 渲染成功 (分支3)',data:{blobSize:blob?.size,blobType:blob?.type},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,D'})}).catch(()=>{});
+          // #endregion
+          setPdfBlob(blob)
+          setLoadingPdf(false)
+          pdfTimer.stopTimer() // 停止计时器
+        })
+        .catch(err => {
+          // #region agent log
+          fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:renderPDF:branch3:error',message:'PDF 渲染失败 (分支3)',data:{error:String(err)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
+          console.log('PDF 后台生成失败:', err)
+          setLoadingPdf(false)
+          pdfTimer.stopTimer() // 停止计时器
+        })
     } catch (error) {
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:loadResume:branch3:templateError',message:'加载默认模板失败',data:{error:String(error)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
+      // #endregion
       console.error('Failed to load template:', error)
+      setLoadingPdf(false)
+      pdfTimer.stopTimer() // 停止计时器
       alert('加载模板失败，请检查后端服务是否正常。')
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   /**
@@ -306,14 +384,23 @@ export default function WorkspacePage() {
   // 不自动计算，确保默认始终是 100%
 
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:useEffect:init',message:'初始化 useEffect 执行',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     // 检查是否有从首页传递过来的指令
     const instruction = sessionStorage.getItem('resume_instruction')
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:useEffect:instruction',message:'检查 sessionStorage 指令',data:{hasInstruction:!!instruction,instructionLength:instruction?.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     if (instruction) {
       setInitialInstruction(instruction)
       // 清除，避免重复触发
       sessionStorage.removeItem('resume_instruction')
     } else {
       // 没有指令时，加载默认模板
+      // #region agent log
+      fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'WorkspacePage.tsx:useEffect:callLoadResume',message:'准备调用 loadResume',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
       loadResume()
     }
   }, [loadResume])
