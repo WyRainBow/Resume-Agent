@@ -30,7 +30,7 @@ ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY", "")
 """
 ZHIPU_MODEL = os.getenv("ZHIPU_MODEL", "glm-4-flash")
 
-# 豆包配置
+"""豆包配置"""
 DOUBAO_API_KEY = os.getenv("DOUBAO_API_KEY", "")
 DOUBAO_MODEL = os.getenv("DOUBAO_MODEL", "doubao-seed-1-6-lite-251015")
 DOUBAO_BASE_URL = os.getenv("DOUBAO_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
@@ -40,7 +40,8 @@ DOUBAO_BASE_URL = os.getenv("DOUBAO_BASE_URL", "https://ark.cn-beijing.volces.co
 导入智谱 SDK (使用官方 zhipuai)
 """
 ZhipuAI = None
-_zhipu_client = None  # 全局客户端实例，避免重复创建
+"""全局客户端实例，避免重复创建"""
+_zhipu_client = None
 try:
     from zhipuai import ZhipuAI
 except ImportError:
@@ -66,8 +67,10 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 from backend.llm_utils import retry_with_backoff
 
-# ========== HTTP 客户端优化 ==========
-# 尝试使用支持 HTTP/2 + DNS 预解析的高性能客户端
+"""
+========== HTTP 客户端优化 ==========
+尝试使用支持 HTTP/2 + DNS 预解析的高性能客户端
+"""
 _use_http2_client = False
 try:
     from backend.http_client import (
@@ -79,7 +82,7 @@ try:
 except ImportError:
     print("[simple] http_client 模块不可用，使用默认 requests")
 
-# 降级方案：原有的 Session
+"""降级方案：原有的 Session"""
 _http_session = None
 _connection_warmed = False
 
@@ -87,11 +90,11 @@ def get_http_session():
     """获取 HTTP Session (优先使用 HTTP/2)"""
     global _http_session
     
-    # 优先使用 HTTP/2 客户端
+    """优先使用 HTTP/2 客户端"""
     if _use_http2_client:
         return get_requests_session()
     
-    # 降级方案
+    """降级方案"""
     if _http_session is None:
         _http_session = requests.Session()
         adapter = HTTPAdapter(
@@ -119,16 +122,17 @@ def warmup_connection():
     if _connection_warmed:
         return
     
-    # 使用新的 http_client 预热
+    """使用新的 http_client 预热"""
     if _use_http2_client:
         try:
-            prefetch_api_hosts()  # DNS 预解析
+            """执行 DNS 预解析"""
+            prefetch_api_hosts()
             _connection_warmed = True
             return
         except:
             pass
     
-    # 降级方案
+    """降级方案"""
     try:
         session = get_http_session()
         session.head(DOUBAO_BASE_URL.replace('/v3', ''), timeout=2)
@@ -136,7 +140,8 @@ def warmup_connection():
     except:
         pass
 
-@retry_with_backoff(max_retries=2, initial_delay=0.1)  # 减少重试次数和延迟
+"""减少重试次数和延迟"""
+@retry_with_backoff(max_retries=2, initial_delay=0.1)
 def call_zhipu_api(prompt: str, model: str = None) -> str:
     """
     调用智谱 API（使用官方 zhipuai SDK）
@@ -156,12 +161,12 @@ def call_zhipu_api(prompt: str, model: str = None) -> str:
     if model is None:
         model = ZHIPU_MODEL
     
-    # 复用全局客户端实例
+    """复用全局客户端实例"""
     if _zhipu_client is None:
         _zhipu_client = ZhipuAI(api_key=ZHIPU_API_KEY)
     client = _zhipu_client
     
-    # 调用 API（极限优化参数）
+    """调用 API（极限优化参数）"""
     response = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": prompt}],
@@ -169,10 +174,10 @@ def call_zhipu_api(prompt: str, model: str = None) -> str:
         max_tokens=800,    # 进一步减少
     )
     
-    # 提取返回内容
+    """提取返回内容"""
     result = response.choices[0].message.content
     
-    # 清理智谱返回的特殊标签
+    """清理智谱返回的特殊标签"""
     import re
     result = re.sub(r'<\|begin_of_box\|>', '', result)
     result = re.sub(r'<\|end_of_box\|>', '', result)
@@ -181,7 +186,7 @@ def call_zhipu_api(prompt: str, model: str = None) -> str:
     return result
 
 
-# 简化的系统提示词，让模型更快响应
+"""简化的系统提示词，让模型更快响应"""
 FAST_SYSTEM_PROMPT = """你是一个简历解析助手。直接输出 JSON，不要多余解释。"""
 
 @retry_with_backoff(max_retries=1, initial_delay=0.1)
@@ -202,7 +207,7 @@ def call_doubao_api(prompt: str, model: str = None, fast_mode: bool = True) -> s
     
     api_url = f"{DOUBAO_BASE_URL}/chat/completions"
     
-    # 极限优化参数
+    """极限优化参数"""
     payload = {
         "model": model,
         "messages": [
@@ -216,10 +221,10 @@ def call_doubao_api(prompt: str, model: str = None, fast_mode: bool = True) -> s
         "presence_penalty": 0,
     }
     
-    # 移除 None 消息
+    """移除 None 消息"""
     payload["messages"] = [m for m in payload["messages"] if m]
     
-    # 添加最低思考强度参数（大幅提升速度 1.5~5 倍）
+    """添加最低思考强度参数（大幅提升速度 1.5~5 倍）"""
     payload["reasoning_effort"] = "minimal"
     
     headers = {
@@ -227,14 +232,15 @@ def call_doubao_api(prompt: str, model: str = None, fast_mode: bool = True) -> s
         "Authorization": f"Bearer {DOUBAO_API_KEY}"
     }
     
-    # 使用复用的 HTTP Session
+    """使用复用的 HTTP Session"""
     session = get_http_session()
     response = session.post(
         api_url,
         json=payload,
         headers=headers,
-        timeout=30  # 减少超时
+        timeout=30
     )
+    """减少超时"""
     
     if response.status_code == 200:
         result = response.json()

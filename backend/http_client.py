@@ -15,7 +15,7 @@ import asyncio
 from typing import Optional, Dict, Any, Generator
 from functools import lru_cache
 
-# 尝试导入 httpx (支持 HTTP/2)
+"""尝试导入 httpx (支持 HTTP/2)"""
 try:
     import httpx
     HTTPX_AVAILABLE = True
@@ -24,7 +24,7 @@ except ImportError:
     print("[http_client] httpx 未安装，使用 requests 降级方案")
     print("[http_client] 安装命令: pip install httpx[http2]")
 
-# 降级方案：使用 requests
+"""降级方案：使用 requests"""
 import requests
 from requests.adapters import HTTPAdapter
 try:
@@ -33,7 +33,9 @@ except ImportError:
     Retry = None
 
 
-# ========== DNS 预解析 ==========
+"""
+========== DNS 预解析 ==========
+"""
 _dns_cache: Dict[str, str] = {}
 
 def dns_prefetch(host: str) -> Optional[str]:
@@ -45,7 +47,7 @@ def dns_prefetch(host: str) -> Optional[str]:
         return _dns_cache[host]
     
     try:
-        # 解析 DNS
+        """解析 DNS"""
         result = socket.getaddrinfo(host, 443, socket.AF_INET, socket.SOCK_STREAM)
         if result:
             ip = result[0][4][0]
@@ -59,15 +61,18 @@ def dns_prefetch(host: str) -> Optional[str]:
 
 def prefetch_api_hosts():
     """预解析常用 API 域名"""
+    """豆包/火山引擎、智谱"""
     hosts = [
-        "ark.cn-beijing.volces.com",  # 豆包/火山引擎
-        "open.bigmodel.cn",            # 智谱
+        "ark.cn-beijing.volces.com",
+        "open.bigmodel.cn",
     ]
     for host in hosts:
         dns_prefetch(host)
 
 
-# ========== HTTP/2 客户端 (httpx) ==========
+"""
+========== HTTP/2 客户端 (httpx) ==========
+"""
 _httpx_client: Optional["httpx.Client"] = None
 
 def get_httpx_client() -> "httpx.Client":
@@ -82,7 +87,7 @@ def get_httpx_client() -> "httpx.Client":
     
     if _httpx_client is None:
         _httpx_client = httpx.Client(
-            http2=True,  # 启用 HTTP/2
+            http2=True,
             timeout=httpx.Timeout(30.0, connect=5.0),
             limits=httpx.Limits(
                 max_keepalive_connections=20,
@@ -90,14 +95,16 @@ def get_httpx_client() -> "httpx.Client":
                 keepalive_expiry=30.0
             ),
             headers={
-                "Accept-Encoding": "br, gzip, deflate",  # 支持 Brotli 压缩
+                "Accept-Encoding": "br, gzip, deflate",
                 "Connection": "keep-alive",
             }
         )
     return _httpx_client
 
 
-# ========== 异步 HTTP/2 客户端 ==========
+"""
+========== 异步 HTTP/2 客户端 ==========
+"""
 _async_client: Optional["httpx.AsyncClient"] = None
 
 async def get_async_client() -> "httpx.AsyncClient":
@@ -123,7 +130,9 @@ async def get_async_client() -> "httpx.AsyncClient":
     return _async_client
 
 
-# ========== 降级方案：requests ==========
+"""
+========== 降级方案：requests ==========
+"""
 _requests_session: Optional[requests.Session] = None
 
 def get_requests_session() -> requests.Session:
@@ -146,7 +155,9 @@ def get_requests_session() -> requests.Session:
     return _requests_session
 
 
-# ========== 统一 API 调用接口 ==========
+"""
+========== 统一 API 调用接口 ==========
+"""
 def call_api(
     url: str,
     payload: Dict[str, Any],
@@ -169,7 +180,7 @@ def call_api(
         响应对象或 JSON
     """
     if HTTPX_AVAILABLE and not stream:
-        # 使用 HTTP/2
+        """使用 HTTP/2"""
         client = get_httpx_client()
         response = client.post(
             url,
@@ -180,7 +191,7 @@ def call_api(
         response.raise_for_status()
         return response.json()
     else:
-        # 降级使用 requests
+        """降级使用 requests"""
         session = get_requests_session()
         response = session.post(
             url,
@@ -247,19 +258,21 @@ async def call_api_async(
     return response.json()
 
 
-# ========== 初始化 ==========
+"""
+========== 初始化 ==========
+"""
 def init():
     """初始化：DNS 预解析 + 预热连接"""
     print("[http_client] 初始化中...")
     
-    # DNS 预解析
+    """执行 DNS 预解析"""
     prefetch_api_hosts()
     
-    # 预热连接
+    """预热连接"""
     if HTTPX_AVAILABLE:
         try:
             client = get_httpx_client()
-            # 预热到火山引擎
+            """预热到火山引擎"""
             client.head("https://ark.cn-beijing.volces.com", timeout=2)
             print("[http_client] HTTP/2 连接已预热")
         except:
@@ -281,6 +294,6 @@ def close():
         _requests_session = None
 
 
-# 模块加载时自动初始化
+"""模块加载时自动初始化"""
 if os.getenv("HTTP_CLIENT_AUTO_INIT", "1") == "1":
     init()
