@@ -31,6 +31,10 @@ Thumbs.db
 
 # Logs
 *.log
+logs/**/*.log
+!logs/README.md
+!logs/.gitignore
+!logs/**/.gitkeep
 
 # Temporary
 *.tmp

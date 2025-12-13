@@ -44,9 +44,14 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
 
   // 记录上次渲染的 blob，避免重复渲染
   const lastRenderedBlob = useRef<Blob | null>(null)
+  // 渲染计数器，用于取消旧的渲染任务
+  const renderIdRef = useRef(0)
 
   const renderPDF = async (forceLoading = false) => {
     if (!pdfBlob) return
+    
+    // 递增渲染 ID，取消之前的渲染
+    const currentRenderId = ++renderIdRef.current
     
     // 如果 blob 变了，或者强制显示 loading，才显示 loading 状态
     // 仅仅是缩放或翻页时，不显示 loading，避免闪烁
@@ -75,6 +80,11 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
         return
       }
       
+      // 检查是否已被新的渲染取消
+      if (currentRenderId !== renderIdRef.current) {
+        return
+      }
+      
       // PDF 实际渲染比例 = 用户设置的 scale * 1.2
       const renderScale = scale * 1.2
       // 使用更高的分辨率渲染以提高清晰度（至少 2x）
@@ -88,6 +98,11 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
       
       // 渲染所有页面
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        // 每页渲染前检查是否被取消
+        if (currentRenderId !== renderIdRef.current) {
+          return
+        }
+        
         const page = await pdf.getPage(pageNum)
         
         // 创建新 canvas
@@ -126,6 +141,11 @@ export default function PDFPane({ pdfBlob, scale, onScaleChange }: Props) {
         if (canvasContainer) {
           canvasContainer.appendChild(wrapper)
         }
+      }
+      
+      // 渲染完成后再次检查是否被取消
+      if (currentRenderId !== renderIdRef.current) {
+        return
       }
       
       setLoading(false)
