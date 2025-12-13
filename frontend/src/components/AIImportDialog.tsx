@@ -94,7 +94,8 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
       stopTimer()
 
       if (!response.ok) {
-        throw new Error('解析失败')
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.detail || `请求失败 (${response.status})`)
       }
 
       const data = await response.json()
@@ -120,9 +121,9 @@ export default function AIImportDialog({ isOpen, onClose, onImport }: Props) {
       }
       
       setShowConfirm(true) // 显示确认弹窗
-    } catch (err) {
+    } catch (err: any) {
       stopTimer()
-      setError('AI 解析失败，请检查内容格式或稍后重试')
+      setError(err.message || 'AI 解析失败，请检查内容格式或稍后重试')
     } finally {
       setLoading(false)
     }
