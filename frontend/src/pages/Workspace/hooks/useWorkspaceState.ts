@@ -38,6 +38,18 @@ export interface WorkspaceState {
   previewScale: number
   setPreviewScale: React.Dispatch<React.SetStateAction<number>>
   
+  // 右侧面板状态 - AI 流式输出
+  rightView: 'pdf' | 'ai-output'
+  setRightView: React.Dispatch<React.SetStateAction<'pdf' | 'ai-output'>>
+  aiOutput: string
+  setAiOutput: React.Dispatch<React.SetStateAction<string>>
+  aiGenerating: boolean
+  setAiGenerating: React.Dispatch<React.SetStateAction<boolean>>
+  aiGeneratingStatus: 'idle' | 'streaming' | 'parsing' | 'done' | 'error'
+  setAiGeneratingStatus: React.Dispatch<React.SetStateAction<'idle' | 'streaming' | 'parsing' | 'done' | 'error'>>
+  pendingResumeJson: Resume | null
+  setPendingResumeJson: React.Dispatch<React.SetStateAction<Resume | null>>
+  
   // 布局状态
   leftPanelWidth: number | null
   setLeftPanelWidth: React.Dispatch<React.SetStateAction<number | null>>
@@ -79,6 +91,13 @@ export function useWorkspaceState(): WorkspaceState {
   const [previewMode, setPreviewMode] = useState<'live' | 'pdf'>('pdf')
   const [previewScale, setPreviewScale] = useState(1.0)
   
+  // 右侧面板状态 - AI 流式输出
+  const [rightView, setRightView] = useState<'pdf' | 'ai-output'>('pdf')
+  const [aiOutput, setAiOutput] = useState('')
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiGeneratingStatus, setAiGeneratingStatus] = useState<'idle' | 'streaming' | 'parsing' | 'done' | 'error'>('idle')
+  const [pendingResumeJson, setPendingResumeJson] = useState<Resume | null>(null)
+  
   // 布局状态
   const [leftPanelWidth, setLeftPanelWidth] = useState<number | null>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -107,6 +126,11 @@ export function useWorkspaceState(): WorkspaceState {
     optimizing, setOptimizing,
     previewMode, setPreviewMode,
     previewScale, setPreviewScale,
+    rightView, setRightView,
+    aiOutput, setAiOutput,
+    aiGenerating, setAiGenerating,
+    aiGeneratingStatus, setAiGeneratingStatus,
+    pendingResumeJson, setPendingResumeJson,
     leftPanelWidth, setLeftPanelWidth,
     isDragging, setIsDragging,
     currentSectionOrder, setCurrentSectionOrder,

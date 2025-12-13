@@ -5,6 +5,7 @@
  * 模块化重构版本 - 将原1186行代码拆分为多个模块
  */
 import React, { useCallback, useEffect } from 'react'
+import { flushSync } from 'react-dom'
 import html2canvas from 'html2canvas'
 
 // 外部组件
@@ -17,7 +18,7 @@ import AIImportDialog from '../../components/AIImportDialog'
 import OnboardingGuide from '../../components/OnboardingGuide'
 import { useTimer } from '../../hooks/useTimer'
 import type { Resume } from '../../types/resume'
-import { renderPDF } from '../../services/api'
+import { renderPDF, generateResumeStream } from '../../services/api'
 
 // 内部 Hooks
 import { 
@@ -38,12 +39,14 @@ import {
   LoadingOverlay,
   NavHeader,
   Divider,
+  AIOutputView,
 } from './components'
 
 export default function WorkspacePage() {
   // 状态管理
   const state = useWorkspaceState()
   const pdfTimer = useTimer()
+  const aiTimer = useTimer()  // AI 生成计时器
   
   // 简历操作
   const resumeOps = useResumeOperations({
@@ -90,6 +93,80 @@ export default function WorkspacePage() {
     containerRef: state.containerRef,
   })
   
+  /**
+   * 流式生成简历
+   */
+  const handleStreamGenerate = useCallback(async (instruction: string) => {
+    // 切换到 AI 输出视图
+    state.setRightView('ai-output')
+    state.setAiOutput('')
+    state.setAiGenerating(true)
+    state.setAiGeneratingStatus('streaming')
+    state.setPendingResumeJson(null)
+    
+    // 启动计时器
+    aiTimer.startTimer()
+    
+    await generateResumeStream(instruction, 'zh', {
+      onMarkdown: (chunk) => {
+        // 使用 flushSync 强制同步更新，实现真正的流式效果
+        flushSync(() => {
+          state.setAiOutput(prev => prev + chunk)
+        })
+      },
+      onStatus: (status) => {
+        flushSync(() => {
+          state.setAiGeneratingStatus(status)
+        })
+      },
+      onComplete: (resume) => {
+        flushSync(() => {
+          state.setPendingResumeJson(resume)
+          state.setAiGenerating(false)
+          state.setAiGeneratingStatus('done')
+        })
+        // 停止计时器
+        aiTimer.stopTimer()
+      },
+      onError: (error) => {
+        console.error('流式生成失败:', error)
+        flushSync(() => {
+          state.setAiGenerating(false)
+          state.setAiGeneratingStatus('error')
+        })
+        // 停止计时器
+        aiTimer.stopTimer()
+      }
+    })
+  }, [state, aiTimer])
+
+  /**
+   * 更新预览 - 从 AI 输出切换到 PDF 视图
+   */
+  const handleUpdatePreview = useCallback(async () => {
+    if (!state.pendingResumeJson) return
+    
+    // 设置简历数据
+    state.setResume(state.pendingResumeJson)
+    state.setLoadingPdf(true)
+    state.setRightView('pdf')
+    
+    try {
+      // 渲染 PDF
+      const blob = await renderPDF(state.pendingResumeJson, false, state.currentSectionOrder)
+      state.setPdfBlob(blob)
+      state.setShowEditor(true)
+      
+      // 自动保存
+      resumeOps.autoSave(state.pendingResumeJson)
+    } catch (err) {
+      console.error('PDF 渲染失败:', err)
+      alert('PDF 渲染失败，请重试')
+    } finally {
+      state.setLoadingPdf(false)
+    }
+  }, [state, resumeOps])
+
   /**
    * AI 自动优化 - 视觉反思修正
    */
@@ -163,8 +240,9 @@ export default function WorkspacePage() {
   useEffect(() => {
     const instruction = sessionStorage.getItem('resume_instruction')
     if (instruction) {
-      state.setInitialInstruction(instruction)
       sessionStorage.removeItem('resume_instruction')
+      // 从首页跳转时，触发流式生成
+      handleStreamGenerate(instruction)
     } else {
       resumeOps.loadResume()
     }
@@ -292,24 +370,47 @@ export default function WorkspacePage() {
           flexDirection: 'column'
         }}
       >
-        <PreviewToolbar
-          pdfDirty={state.pdfDirty}
-          loadingPdf={state.loadingPdf}
-          hasResume={!!state.resume}
-          onSaveAndRender={pdfOps.handleSaveAndRender}
-          onDownload={pdfOps.handleDownloadPDF}
-          pdfTimer={pdfTimer}
-        />
+        {state.rightView === 'pdf' && (
+          <PreviewToolbar
+            pdfDirty={state.pdfDirty}
+            loadingPdf={state.loadingPdf}
+            hasResume={!!state.resume}
+            onSaveAndRender={pdfOps.handleSaveAndRender}
+            onDownload={pdfOps.handleDownloadPDF}
+            pdfTimer={pdfTimer}
+          />
+        )}
         
         {/* 预览内容 */}
         <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-          <LoadingOverlay visible={state.loadingPdf && state.previewMode === 'pdf'} />
-          
-          <PDFViewer 
-            pdfBlob={state.pdfBlob} 
-            scale={state.previewScale}
-            onContentChange={pdfOps.handlePDFContentChange}
-          />
+          {state.rightView === 'ai-output' ? (
+            // AI 流式输出视图
+            <AIOutputView
+              content={state.aiOutput}
+              status={state.aiGeneratingStatus}
+              onUpdatePreview={handleUpdatePreview}
+              elapsedTime={aiTimer.elapsedTime}
+              finalTime={aiTimer.finalTime}
+              formatTime={aiTimer.formatTime}
+              getTimeColor={aiTimer.getTimeColor}
+            />
+          ) : (
+            // PDF 预览视图
+            <>
+              <LoadingOverlay visible={state.loadingPdf && state.previewMode === 'pdf'} />
+              
+              <PDFViewer 
+                pdfBlob={state.pdfBlob} 
+                scale={state.previewScale}
+                onContentChange={pdfOps.handlePDFContentChange}
+              />
+              
+              <ZoomControl 
+                scale={state.previewScale} 
+                setScale={state.setPreviewScale} 
+              />
+            </>
+          )}
           
           {/* 隐藏的 HTML 预览 AI 不读取 */}
           <div 
@@ -333,11 +434,6 @@ export default function WorkspacePage() {
               }}
             />
           </div>
-          
-          <ZoomControl 
-            scale={state.previewScale} 
-            setScale={state.setPreviewScale} 
-          />
         </div>
       </div>
     </div>
