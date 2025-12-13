@@ -11,6 +11,8 @@ FastAPI 后端入口
 启动命令：uvicorn backend.main:app --reload --port 8000
 """
 import os
+import sys
+import logging
 from pathlib import Path
 
 # 加载环境变量
@@ -22,6 +24,26 @@ try:
     load_dotenv(override=True)
 except Exception:
     pass
+
+# 初始化日志系统
+from logger import backend_logger, LOGS_DIR, ensure_log_dirs
+from datetime import datetime
+
+# 日志文件 handler（延迟初始化）
+_log_file_handler = None
+
+def get_log_file_handler():
+    """获取日志文件 handler（单例模式）"""
+    global _log_file_handler
+    if _log_file_handler is None:
+        ensure_log_dirs()
+        log_file = LOGS_DIR / "backend" / f"{datetime.now().strftime('%Y-%m-%d')}.log"
+        _log_file_handler = logging.FileHandler(str(log_file), encoding='utf-8')
+        _log_file_handler.setFormatter(logging.Formatter(
+            fmt="[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S"
+        ))
+    return _log_file_handler
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,21 +77,33 @@ app.include_router(agent_router)
 app.include_router(pdf_router)
 
 
-# 启动时预热 HTTP 连接
+# 启动时预热 HTTP 连接并配置日志
 @app.on_event("startup")
 async def startup_event():
     """应用启动时预热连接"""
-    import sys
     from pathlib import Path
     ROOT = Path(__file__).resolve().parents[1]
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
+    
+    # 配置 uvicorn 日志输出到文件（只配置一次）
+    file_handler = get_log_file_handler()
+    for logger_name in ['uvicorn.access', 'uvicorn.error']:
+        logger = logging.getLogger(logger_name)
+        logger.propagate = False  # 禁止传播到父 logger，避免重复
+        # 移除所有 FileHandler，然后添加我们的
+        logger.handlers = [h for h in logger.handlers if not isinstance(h, logging.FileHandler)]
+        logger.addHandler(file_handler)
+    
+    backend_logger.info("========== 后端服务启动 ==========")
+    backend_logger.info(f"日志目录: {LOGS_DIR}")
+    
     try:
         import simple
         simple.warmup_connection()
-        print("[启动优化] HTTP 连接已预热")
+        backend_logger.info("[启动优化] HTTP 连接已预热")
     except Exception as e:
-        print(f"[启动优化] 连接预热失败: {e}")
+        backend_logger.warning(f"[启动优化] 连接预热失败: {e}")
 
 
 """

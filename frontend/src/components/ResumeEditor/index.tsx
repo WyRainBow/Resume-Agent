@@ -24,7 +24,7 @@ import { defaultSections } from './constants'
 import { AIImportModal } from './AIImportModal'
 import { SortableSection } from './SortableSection'
 
-export default function ResumeEditor({ resumeData, onSave, saving }: ResumeEditorProps) {
+export default function ResumeEditor({ resumeData, onSave, onSaveAndRender, saving }: ResumeEditorProps) {
   const [sections, setSections] = useState<ResumeSection[]>(defaultSections)
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [allExpanded, setAllExpanded] = useState(false)
@@ -340,8 +340,13 @@ export default function ResumeEditor({ resumeData, onSave, saving }: ResumeEdito
     onSave(newResumeData, sectionOrder)
   }
 
-  function handleSave() {
+  async function handleSave() {
+    // 先触发数据保存
     triggerAutoSave(sections)
+    // 再触发 PDF 渲染
+    if (onSaveAndRender) {
+      await onSaveAndRender()
+    }
   }
 
   return (

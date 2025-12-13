@@ -2,12 +2,13 @@ import React, { useState, useCallback, useEffect, useRef } from 'react'
 import html2canvas from 'html2canvas'
 import { useNavigate } from 'react-router-dom'
 import ChatPanel from '../components/ChatPanel'
-import PDFPane from '../components/PDFPane'
+import { PDFViewer } from '../components/PDFEditor'
 import ResumeEditor from '../components/ResumeEditor'
 import { HtmlPreview } from '../components/ResumePreview'
 import ResumeList from '../components/ResumeList'
 import AIImportDialog from '../components/AIImportDialog'
 import OnboardingGuide from '../components/OnboardingGuide'
+import { useTimer, TimerDisplay } from '../hooks/useTimer'
 import type { Resume } from '../types/resume'
 import { renderPDF, getDefaultTemplate } from '../services/api'
 import { 
@@ -31,13 +32,18 @@ export default function WorkspacePage() {
   const [lastImportedText, setLastImportedText] = useState('') // 最后导入的原始文本
   const [optimizing, setOptimizing] = useState(false) // AI 优化中
   const previewRef = useRef<HTMLDivElement>(null) // 预览区域引用
-  const [previewMode, setPreviewMode] = useState<'live' | 'pdf'>('pdf') // 预览模式：默认PDF预览（HTML预览已隐藏）
+  const [previewMode, setPreviewMode] = useState<'live' | 'pdf'>('pdf') // 预览模式：默认 PDF 预览
   const [currentSectionOrder, setCurrentSectionOrder] = useState<string[]>([]) // 当前模块顺序
   const [leftPanelWidth, setLeftPanelWidth] = useState<number | null>(null) // 左侧面板宽度，初始为 null 表示使用百分比
   const [isDragging, setIsDragging] = useState(false) // 是否正在拖拽分割条
   const [previewScale, setPreviewScale] = useState(1.0) // 预览缩放比例，公共状态
   const containerRef = useRef<HTMLDivElement>(null)
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  
+  // === 三层渲染架构新增状态 ===
+  const [pdfDirty, setPdfDirty] = useState(false) // PDF 是否需要重新生成
+  const previewDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null) // 预览防抖
+  const pdfTimer = useTimer() // PDF 生成计时器
   
   /**
    * 从首页传递过来的指令
@@ -328,52 +334,112 @@ export default function WorkspacePage() {
   }, [])
 
   /**
-   * 从编辑器保存简历
-   * - 实时预览模式：只更新状态（立即刷新预览）
-   * - PDF 预览模式：更新状态并重新生成 PDF
+   * 【三层渲染架构】Layer 1 & 2: 编辑器数据变化处理
+   * - Layer 1: 立即更新状态（极低成本）
+   * - Layer 2: 防抖 500ms 后更新预览和自动保存（中等成本）
+   * - 不触发 PDF 渲染（Layer 3 由显式操作触发）
    */
-  const handleEditorSave = useCallback(async (newResume: Resume, sectionOrder?: string[]) => {
+  const handleEditorSave = useCallback((newResume: Resume, sectionOrder?: string[]) => {
+    // Layer 1: 立即更新数据状态
     setResume(newResume)
-    autoSave(newResume) // 自动保存到 localStorage
+    setPdfDirty(true) // 标记 PDF 需要重新生成
     
     const newOrder = sectionOrder || currentSectionOrder
     if (sectionOrder) {
       setCurrentSectionOrder(sectionOrder)
     }
     
-    // PDF 预览模式下，点击保存也要更新 PDF
-    if (previewMode === 'pdf') {
-      setLoadingPdf(true)
-      try {
-        const blob = await renderPDF(newResume, false, newOrder.length > 0 ? newOrder : undefined)
-        setPdfBlob(blob)
-      } catch (error) {
-        console.error('Failed to render PDF:', error)
-        alert('PDF 渲染失败，请检查后端服务是否正常。')
-      } finally {
-        setLoadingPdf(false)
-      }
+    // Layer 2: 防抖更新预览和自动保存（500ms）
+    if (previewDebounceRef.current) {
+      clearTimeout(previewDebounceRef.current)
     }
-  }, [previewMode, currentSectionOrder, autoSave])
+    previewDebounceRef.current = setTimeout(() => {
+      autoSave(newResume) // 保存到 localStorage
+      console.log('[Layer 2] 预览更新 + 自动保存')
+    }, 500)
+    
+    // 注意：不再自动触发 PDF 渲染！
+  }, [currentSectionOrder, autoSave])
   
   /**
-   * 生成 PDF（用于下载或查看最终效果）
+   * 【三层渲染架构】Layer 3: 显式生成 PDF
+   * 只在用户明确需要时触发（下载、保存并更新、切换模板等）
    */
-  const generatePDF = useCallback(async () => {
-    if (!resume) return
+  const generatePDF = useCallback(async (forceRender = false) => {
+    if (!resume) return null
+    if (!pdfDirty && !forceRender && pdfBlob) {
+      console.log('[Layer 3] PDF 无变化，跳过渲染')
+      return pdfBlob
+    }
+    
+    console.log('[Layer 3] 开始生成 PDF...')
     setLoadingPdf(true)
-    setPreviewMode('pdf')
+    pdfTimer.startTimer()
+    
     try {
       const blob = await renderPDF(resume, false, currentSectionOrder.length > 0 ? currentSectionOrder : undefined)
       setPdfBlob(blob)
+      setPdfDirty(false) // 重置脏标记
+      pdfTimer.stopTimer()
+      console.log(`[Layer 3] PDF 生成完成，耗时 ${pdfTimer.formatTime(Date.now() - (pdfTimer as any).startTimeRef?.current || 0)}`)
+      return blob
     } catch (error) {
-      console.error('Failed to render PDF:', error)
+      console.error('[Layer 3] PDF 渲染失败:', error)
+      pdfTimer.stopTimer()
       alert('PDF 渲染失败，请检查后端服务是否正常。')
+      return null
     } finally {
       setLoadingPdf(false)
     }
-  }, [resume, currentSectionOrder])
+  }, [resume, pdfDirty, pdfBlob, currentSectionOrder, pdfTimer])
+  
+  /**
+   * 显式保存并更新 PDF（Layer 3 触发点）
+   */
+  const handleSaveAndRender = useCallback(async () => {
+    if (!resume) return
+    
+    // 先保存到 localStorage
+    if (currentResumeId) {
+      saveResume(resume, currentResumeId)
+    }
+    
+    // 生成 PDF
+    await generatePDF(true)
+    
+    // 切换到 PDF 预览模式
+    setPreviewMode('pdf')
+  }, [resume, currentResumeId, generatePDF])
 
+  // 递归替换简历数据中的文本
+  const replaceTextInResume = (obj: any, oldText: string, newText: string): any => {
+    if (typeof obj === 'string') {
+      return obj === oldText ? newText : obj
+    }
+    if (Array.isArray(obj)) {
+      return obj.map(item => replaceTextInResume(item, oldText, newText))
+    }
+    if (typeof obj === 'object' && obj !== null) {
+      const newObj: any = {}
+      for (const key in obj) {
+        newObj[key] = replaceTextInResume(obj[key], oldText, newText)
+      }
+      return newObj
+    }
+    return obj
+  }
+
+  const handlePDFContentChange = useCallback((oldText: string, newText: string) => {
+    if (!resume) return
+    
+    // 递归更新简历数据
+    const newResume = replaceTextInResume(resume, oldText, newText)
+    
+    // 如果数据确实改变了
+    if (JSON.stringify(newResume) !== JSON.stringify(resume)) {
+      handleEditorSave(newResume) // 这会触发保存并重新生成 PDF
+    }
+  }, [resume, handleEditorSave])
   const handleLoadDemo = useCallback(async () => {
     setLoadingPdf(true)
     try {
@@ -654,32 +720,6 @@ export default function WorkspacePage() {
             </button>
 
             <button
-              onClick={handleSaveToList}
-              disabled={!resume}
-              style={{
-                height: '32px',
-                background: currentResumeId 
-                  ? 'rgba(34, 197, 94, 0.15)' 
-                  : 'rgba(251, 191, 36, 0.15)',
-                border: currentResumeId 
-                  ? '1px solid rgba(34, 197, 94, 0.3)' 
-                  : '1px solid rgba(251, 191, 36, 0.3)',
-                borderRadius: '6px',
-                color: currentResumeId ? '#86efac' : '#fcd34d',
-                fontSize: '12px',
-                fontWeight: 500,
-                cursor: resume ? 'pointer' : 'not-allowed',
-                opacity: resume ? 1 : 0.5,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-              }}
-            >
-              {currentResumeId ? '已保存' : '保存'}
-            </button>
-
-            <button
               onClick={handleAIOptimize}
               disabled={!resume || optimizing}
               style={{
@@ -745,9 +785,10 @@ export default function WorkspacePage() {
         {/* 内容区域 */}
         <div style={{ flex: 1, overflow: 'hidden' }}>
           {showEditor && resume ? (
-            <ResumeEditor 
-              resumeData={resume} 
+            <ResumeEditor
+              resumeData={resume}
               onSave={handleEditorSave}
+              onSaveAndRender={handleSaveAndRender}
               saving={loadingPdf}
             />
           ) : (
@@ -813,49 +854,104 @@ export default function WorkspacePage() {
           borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
           background: 'rgba(0, 0, 0, 0.2)',
         }}>
-          {/* 标题 */}
+          {/* 左侧：标题 + 状态 + 计时器 */}
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '8px',
-            color: '#a78bfa',
-            fontSize: '14px',
-            fontWeight: 500,
+            gap: '12px',
           }}>
-            <span>📄</span>
-            PDF 预览
-            {loadingPdf && <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>（生成中...）</span>}
+            <span style={{ color: '#a78bfa', fontSize: '14px', fontWeight: 500 }}>
+              PDF 预览
+            </span>
+            
+            {/* 脏标记提示 */}
+            {pdfDirty && !loadingPdf && (
+              <span style={{ 
+                fontSize: '11px', 
+                color: '#fbbf24',
+                background: 'rgba(251, 191, 36, 0.15)',
+                padding: '2px 8px',
+                borderRadius: '10px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}>
+                ● 有未同步修改
+              </span>
+            )}
+            
+            {/* PDF 生成计时器 */}
+            <TimerDisplay
+              loading={loadingPdf}
+              elapsedTime={pdfTimer.elapsedTime}
+              finalTime={pdfTimer.finalTime}
+              formatTime={pdfTimer.formatTime}
+              getTimeColor={pdfTimer.getTimeColor}
+            />
           </div>
           
-          {/* 下载 PDF 按钮 */}
-          <button
-            onClick={() => {
-              if (pdfBlob) {
-                const url = URL.createObjectURL(pdfBlob)
-                const link = document.createElement('a')
-                link.href = url
-                link.download = `resume_${new Date().toISOString().split('T')[0]}.pdf`
-                link.click()
-                URL.revokeObjectURL(url)
-              }
-            }}
-            disabled={!pdfBlob}
-            style={{
-              padding: '6px 14px',
-              background: 'rgba(59, 130, 246, 0.2)',
-              border: '1px solid rgba(59, 130, 246, 0.4)',
-              borderRadius: '6px',
-              color: '#60a5fa',
-              fontSize: '12px',
-              cursor: !pdfBlob ? 'not-allowed' : 'pointer',
-              opacity: !pdfBlob ? 0.5 : 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-          >
-            下载 PDF
-          </button>
+          {/* 右侧按钮组 */}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {/* 更新预览按钮 - 只在有修改时显示 */}
+            {pdfDirty && (
+              <button
+                onClick={handleSaveAndRender}
+                disabled={loadingPdf}
+                style={{
+                  padding: '6px 14px',
+                  background: 'rgba(34, 197, 94, 0.2)',
+                  border: '1px solid rgba(34, 197, 94, 0.4)',
+                  borderRadius: '6px',
+                  color: '#86efac',
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  cursor: loadingPdf ? 'not-allowed' : 'pointer',
+                  opacity: loadingPdf ? 0.5 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                }}
+              >
+                {loadingPdf ? '生成中...' : '🔄 更新预览'}
+              </button>
+            )}
+            
+            {/* 下载 PDF 按钮 */}
+            <button
+              onClick={async () => {
+                // 如果有未同步的修改，先生成 PDF
+                let blob = pdfBlob
+                if (pdfDirty || !pdfBlob) {
+                  blob = await generatePDF(true)
+                }
+
+                if (blob) {
+                  const url = URL.createObjectURL(blob)
+                  const link = document.createElement('a')
+                  link.href = url
+                  link.download = `resume_${new Date().toISOString().split('T')[0]}.pdf`
+                  link.click()
+                  URL.revokeObjectURL(url)
+                }
+              }}
+              disabled={!resume || loadingPdf}
+              style={{
+                padding: '6px 14px',
+                background: 'rgba(59, 130, 246, 0.2)',
+                border: '1px solid rgba(59, 130, 246, 0.4)',
+                borderRadius: '6px',
+                color: '#60a5fa',
+                fontSize: '12px',
+                cursor: (!resume || loadingPdf) ? 'not-allowed' : 'pointer',
+                opacity: (!resume || loadingPdf) ? 0.5 : 1,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              {loadingPdf ? '生成中...' : '下载 PDF'}
+            </button>
+          </div>
         </div>
         
         {/* 预览内容 */}
@@ -898,8 +994,12 @@ export default function WorkspacePage() {
             </div>
           )}
           
-          {/* PDF 预览 */}
-          <PDFPane pdfBlob={pdfBlob} scale={previewScale} onScaleChange={setPreviewScale} />
+          {/* PDF 预览和编辑 */}
+          <PDFViewer 
+            pdfBlob={pdfBlob} 
+            scale={previewScale}
+            onContentChange={handlePDFContentChange}
+          />
           
           {/* 隐藏的 HTML 预览，用于 AI 排版截图功能 */}
           <div 
