@@ -14,7 +14,7 @@ from ..models import (
     RewriteRequest, FormatTextRequest, FormatTextResponse
 )
 from ..llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
-from ..prompts import build_resume_prompt, build_rewrite_prompt, SECTION_PROMPTS
+from ..prompts import build_resume_prompt, build_resume_markdown_prompt, build_rewrite_prompt, SECTION_PROMPTS
 from ..json_path import parse_path, get_by_path, set_by_path
 from ..chunk_processor import split_resume_text, merge_resume_chunks
 
@@ -75,6 +75,65 @@ async def generate_resume(body: ResumeGenerateRequest):
         raise HTTPException(status_code=500, detail=f"解析 JSON 失败: {e}")
 
     return ResumeGenerateResponse(resume=data, provider=body.provider)
+
+
+@router.post("/resume/generate/stream")
+async def generate_resume_stream(body: ResumeGenerateRequest):
+    """流式生成简历 - 输出 Markdown 格式，最后返回 JSON"""
+    import asyncio
+
+    # 生成 Markdown 的提示词
+    markdown_prompt = build_resume_markdown_prompt(body.instruction, body.locale)
+
+    # 生成 JSON 的提示词（用于最后返回结构化数据）
+    json_prompt = build_resume_prompt(body.instruction, body.locale)
+
+    async def generate():
+        """生成 SSE 流"""
+        full_markdown = ""
+
+        try:
+            # 流式输出 Markdown
+            for chunk in call_llm_stream(body.provider, markdown_prompt):
+                full_markdown += chunk
+                yield f"data: {_json.dumps({'type': 'markdown', 'content': chunk}, ensure_ascii=False)}\n\n"
+                # 关键：让出控制权，强制 uvicorn 立即发送数据
+                await asyncio.sleep(0)
+            
+            # Markdown 输出完成，开始生成 JSON
+            yield f"data: {_json.dumps({'type': 'status', 'content': 'parsing'}, ensure_ascii=False)}\n\n"
+            
+            # 调用 LLM 生成 JSON
+            raw_json = call_llm(body.provider, json_prompt)
+            cleaned = clean_llm_response(raw_json)
+            
+            # 修复常见的 JSON 格式错误
+            import re
+            cleaned = re.sub(r'\]\}\s*,\s*"', ']}}, "', cleaned)
+            cleaned = re.sub(r'\]\}\s*,\s*(["\}])', r']} \1', cleaned)
+            cleaned = re.sub(r'\]\s*,\s*(["\}])', r'] \1', cleaned)
+            cleaned = re.sub(r'\]\s+""([a-zA-Z_]+)"', r'], "\1"', cleaned)
+            cleaned = re.sub(r'\]\s+"([a-zA-Z_]+)"\s*:', r'], "\1":', cleaned)
+            cleaned = re.sub(r'\]\}\s+"([a-zA-Z_]+)"\s*:', r']}, "\1":', cleaned)
+            
+            resume_data = parse_json_response(cleaned)
+            
+            # 发送完整的 JSON 数据
+            yield f"data: {_json.dumps({'type': 'json', 'content': resume_data}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+            
+        except Exception as e:
+            yield f"data: {_json.dumps({'type': 'error', 'content': str(e)}, ensure_ascii=False)}\n\n"
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
 
 
 @router.post("/resume/parse")
