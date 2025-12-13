@@ -54,7 +54,8 @@ def get_log_path(category: str, filename: Optional[str] = None) -> Path:
 def get_logger(
     name: str,
     category: str = "backend",
-    level: int = logging.INFO
+    level: int = logging.INFO,
+    console_output: bool = True
 ) -> logging.Logger:
     """
     获取配置好的 logger 实例
@@ -63,6 +64,7 @@ def get_logger(
         name: logger 名称
         category: 日志类别 (frontend/backend/latex/other)
         level: 日志级别
+        console_output: 是否输出到控制台
     
     返回:
         配置好的 Logger 实例
@@ -76,6 +78,7 @@ def get_logger(
         return logger
     
     logger.setLevel(level)
+    logger.propagate = False  # 避免日志传播到父 logger 导致重复
     
     # 日志格式
     formatter = logging.Formatter(
@@ -97,14 +100,14 @@ def get_logger(
     file_handler.suffix = "%Y-%m-%d.log"
     file_handler.setFormatter(formatter)
     file_handler.setLevel(level)
-    
-    # 控制台 handler
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    console_handler.setLevel(level)
-    
     logger.addHandler(file_handler)
-    logger.addHandler(console_handler)
+    
+    # 控制台 handler（可选）
+    if console_output:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        console_handler.setLevel(level)
+        logger.addHandler(console_handler)
     
     return logger
 
