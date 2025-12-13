@@ -23,7 +23,7 @@ export function OpenSourceSection({ resume, onBlur, onKeyDown, styles }: Section
       {openSource.map((item: any, idx: number) => {
         const itemTitle = item.title || ''
         const subtitle = item.subtitle || ''
-        const items = item.items || []
+        const items = item.items || item.highlights || []
         const repoUrl = item.repoUrl || ''
         
         if (!itemTitle) return null

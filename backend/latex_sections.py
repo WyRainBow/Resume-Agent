@@ -3,7 +3,7 @@ LaTeX Section 生成器模块
 提供各个简历模块的 LaTeX 代码生成函数
 """
 from typing import Dict, Any, List
-from latex_utils import escape_latex
+from .latex_utils import escape_latex
 
 
 def generate_section_summary(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
@@ -186,11 +186,11 @@ def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict
     if isinstance(edu, list) and edu:
         content.append(f"\\section{{{escape_latex(section_title)}}}")
         for ed in edu:
-            """兼容多种字段名"""
-            school = escape_latex(ed.get('school') or ed.get('title') or '')
-            degree = escape_latex(ed.get('degree') or ed.get('subtitle') or '')
-            major = escape_latex(ed.get('major') or '')
-            duration = escape_latex(ed.get('duration') or ed.get('date') or '')
+            """兼容多种字段名：title=学校, subtitle=专业, degree=学位"""
+            school = escape_latex(ed.get('title') or ed.get('school') or '')
+            degree = escape_latex(ed.get('degree') or '')
+            major = escape_latex(ed.get('subtitle') or ed.get('major') or '')
+            duration = escape_latex(ed.get('date') or ed.get('duration') or '')
             
             """构建标题"""
             parts = [s for s in [school, degree, major] if s]

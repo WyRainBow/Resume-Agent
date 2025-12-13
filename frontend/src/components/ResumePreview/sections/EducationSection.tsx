@@ -21,14 +21,14 @@ export function EducationSection({ resume, onBlur, onKeyDown, styles }: SectionP
         {title}
       </div>
       {education.map((edu: any, idx: number) => {
-        const school = edu.school || edu.title || ''
-        const degree = edu.degree || edu.subtitle || ''
-        const major = edu.major || ''
+        const school = edu.title || edu.school || ''
+        const major = edu.subtitle || edu.major || ''
+        const degree = edu.degree || ''
         const date = edu.date || edu.duration || ''
         const details = edu.details || []
         const description = edu.description || ''
         
-        if (!school && !degree) return null
+        if (!school && !major) return null
         
         return (
           <div key={idx} style={styles.entry}>

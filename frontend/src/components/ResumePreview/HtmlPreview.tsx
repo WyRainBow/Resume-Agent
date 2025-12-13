@@ -239,18 +239,18 @@ export default function HtmlPreview({ resume, sectionOrder, scale = 1, onUpdate 
       
       if (section === 'education' && newResume.education?.[index]) {
         if (subField === 'titleLine') {
+          // 显示格式：学校 - 学位 - 专业
           const titleParts = textContent.split(' - ')
-          newResume.education[index].school = titleParts[0]?.trim() || ''
           newResume.education[index].title = titleParts[0]?.trim() || ''
           newResume.education[index].degree = titleParts[1]?.trim() || ''
-          newResume.education[index].subtitle = titleParts[1]?.trim() || ''
-          newResume.education[index].major = titleParts[2]?.trim() || ''
-        } else if (subField === 'school') {
-          newResume.education[index].school = textContent
+          newResume.education[index].subtitle = titleParts[2]?.trim() || ''
+        } else if (subField === 'school' || subField === 'title') {
           newResume.education[index].title = textContent
         } else if (subField === 'degree') {
           const cleanText = textContent.replace(/^[\s-·]+/, '').trim()
           newResume.education[index].degree = cleanText
+        } else if (subField === 'subtitle' || subField === 'major') {
+          const cleanText = textContent.replace(/^[\s-·]+/, '').trim()
           newResume.education[index].subtitle = cleanText
         } else if (subField === 'date') {
           newResume.education[index].date = textContent

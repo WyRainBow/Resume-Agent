@@ -8,7 +8,7 @@ from typing import Dict, Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from models import RenderPDFRequest
+from ..models import RenderPDFRequest
 
 router = APIRouter(prefix="/api", tags=["PDF"])
 
@@ -32,7 +32,7 @@ async def render_pdf(body: RenderPDFRequest):
     
     # 使用 LaTeX 渲染
     try:
-        from latex_generator import render_pdf_from_resume_latex
+        from ..latex_generator import render_pdf_from_resume_latex
         pdf_io = render_pdf_from_resume_latex(resume_data, body.section_order)
         return StreamingResponse(pdf_io, media_type='application/pdf', headers={
             'Content-Disposition': 'inline; filename="resume.pdf"'

@@ -48,8 +48,11 @@ export interface Skill {
  * 教育经历
  */
 export interface Education {
-  title: string; // 如：'某高校 - 某专业 - 本科'
+  title: string;      // 学校名称
+  subtitle?: string;  // 专业
+  degree?: string;    // 学位（本科、硕士等）
   date: string;
+  details?: string[];
   honors?: string;
 }
 

@@ -8,15 +8,15 @@ from typing import Dict, Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from models import (
+from ..models import (
     ResumeGenerateRequest, ResumeGenerateResponse, 
     ResumeParseRequest, SectionParseRequest,
     RewriteRequest, FormatTextRequest, FormatTextResponse
 )
-from llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
-from prompts import build_resume_prompt, build_rewrite_prompt, SECTION_PROMPTS
-from json_path import parse_path, get_by_path, set_by_path
-from chunk_processor import split_resume_text, merge_resume_chunks
+from ..llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
+from ..prompts import build_resume_prompt, build_rewrite_prompt, SECTION_PROMPTS
+from ..json_path import parse_path, get_by_path, set_by_path
+from ..chunk_processor import split_resume_text, merge_resume_chunks
 
 router = APIRouter(prefix="/api", tags=["Resume"])
 
