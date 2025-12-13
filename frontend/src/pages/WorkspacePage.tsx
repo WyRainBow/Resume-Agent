@@ -1,11 +1,10 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
-import html2pdf from 'html2pdf.js'
 import html2canvas from 'html2canvas'
 import { useNavigate } from 'react-router-dom'
 import ChatPanel from '../components/ChatPanel'
 import PDFPane from '../components/PDFPane'
 import ResumeEditor from '../components/ResumeEditor'
-import ResumePreview from '../components/ResumePreview'
+import { HtmlPreview } from '../components/ResumePreview'
 import ResumeList from '../components/ResumeList'
 import AIImportDialog from '../components/AIImportDialog'
 import OnboardingGuide from '../components/OnboardingGuide'
@@ -32,7 +31,7 @@ export default function WorkspacePage() {
   const [lastImportedText, setLastImportedText] = useState('') // 最后导入的原始文本
   const [optimizing, setOptimizing] = useState(false) // AI 优化中
   const previewRef = useRef<HTMLDivElement>(null) // 预览区域引用
-  const [previewMode, setPreviewMode] = useState<'live' | 'pdf'>('live') // 预览模式：live=实时预览，pdf=PDF预览
+  const [previewMode, setPreviewMode] = useState<'live' | 'pdf'>('pdf') // 预览模式：默认PDF预览（HTML预览已隐藏）
   const [currentSectionOrder, setCurrentSectionOrder] = useState<string[]>([]) // 当前模块顺序
   const [leftPanelWidth, setLeftPanelWidth] = useState<number | null>(null) // 左侧面板宽度，初始为 null 表示使用百分比
   const [isDragging, setIsDragging] = useState(false) // 是否正在拖拽分割条
@@ -59,7 +58,7 @@ export default function WorkspacePage() {
         setResume(saved.data)
         setCurrentResumeIdState(savedId)
         setShowEditor(true)
-        setPreviewMode('live')
+        setPreviewMode('pdf')
         setCurrentSectionOrder(defaultSectionOrder)
         renderPDF(saved.data, false, defaultSectionOrder)
           .then(blob => setPdfBlob(blob))
@@ -76,7 +75,7 @@ export default function WorkspacePage() {
       setCurrentResumeIdState(first.id)
       setCurrentResumeId(first.id)
       setShowEditor(true)
-      setPreviewMode('live')
+      setPreviewMode('pdf')
       setCurrentSectionOrder(defaultSectionOrder)
       renderPDF(first.data, false, defaultSectionOrder)
         .then(blob => setPdfBlob(blob))
@@ -89,7 +88,7 @@ export default function WorkspacePage() {
       const template = await getDefaultTemplate() as unknown as Resume
       setResume(template)
       setShowEditor(true)
-      setPreviewMode('live')
+      setPreviewMode('pdf')
       setCurrentSectionOrder(defaultSectionOrder)
       // 自动保存为新简历
       const saved = saveResume(template)
@@ -114,7 +113,7 @@ export default function WorkspacePage() {
       setResume(template)
       setCurrentResumeIdState(saved.id)
       setShowEditor(true)
-      setPreviewMode('live')
+      setPreviewMode('pdf')
       setCurrentSectionOrder(defaultSectionOrder)
       setShowResumeList(false)
     } catch (error) {
@@ -129,7 +128,7 @@ export default function WorkspacePage() {
     setResume(resumeData)
     setCurrentResumeIdState(id)
     setShowEditor(true)
-    setPreviewMode('live')
+    setPreviewMode('pdf')
     setCurrentSectionOrder(defaultSectionOrder)
     setShowResumeList(false)
     renderPDF(resumeData, false, defaultSectionOrder)
@@ -158,7 +157,7 @@ export default function WorkspacePage() {
     setResume(importedResume)
     setLastImportedText(originalText) // 保存原始文本
     setShowEditor(true)
-    setPreviewMode('live')
+    setPreviewMode('pdf')
     setCurrentSectionOrder(defaultSectionOrder)
     
     if (saveToList) {
@@ -178,15 +177,11 @@ export default function WorkspacePage() {
 
   /**
    * AI 自动优化 - 视觉反思修正
+   * 使用隐藏的 HTML 预览进行截图分析
    */
   const handleAIOptimize = useCallback(async () => {
     if (!resume || !previewRef.current) {
-      alert('请先加载简历并保持预览')
-      return
-    }
-
-    if (previewMode !== 'live') {
-      alert('请先切换到 HTML 预览，再执行 AI 优化排版')
+      alert('请先加载简历')
       return
     }
 
@@ -253,7 +248,7 @@ export default function WorkspacePage() {
     } finally {
       setOptimizing(false)
     }
-  }, [resume, lastImportedText, currentSectionOrder, previewMode])
+  }, [resume, lastImportedText, currentSectionOrder])
 
   /**
    * 手动保存当前简历到列表
@@ -809,7 +804,7 @@ export default function WorkspacePage() {
           flexDirection: 'column'
         }}
       >
-        {/* 预览工具栏 - 两种模板切换 */}
+        {/* 预览工具栏 - PDF 预览 */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -818,76 +813,33 @@ export default function WorkspacePage() {
           borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
           background: 'rgba(0, 0, 0, 0.2)',
         }}>
-          {/* 模板切换按钮 */}
+          {/* 标题 */}
           <div style={{
             display: 'flex',
-            background: 'rgba(0, 0, 0, 0.3)',
-            borderRadius: '6px',
-            padding: '2px',
+            alignItems: 'center',
+            gap: '8px',
+            color: '#a78bfa',
+            fontSize: '14px',
+            fontWeight: 500,
           }}>
-            <button
-              onClick={() => setPreviewMode('live')}
-              style={{
-                padding: '6px 12px',
-                background: previewMode === 'live' ? 'rgba(34, 197, 94, 0.4)' : 'transparent',
-                border: 'none',
-                borderRadius: '4px',
-                color: previewMode === 'live' ? '#4ade80' : 'rgba(255, 255, 255, 0.6)',
-                fontSize: '12px',
-                cursor: 'pointer',
-              }}
-            >
-              HTML 版本
-            </button>
-            <button
-              onClick={() => {
-                setPreviewMode('pdf')
-                // 切换到 LaTeX 版本时生成 PDF
-                generatePDF()
-              }}
-              disabled={loadingPdf}
-              style={{
-                padding: '6px 12px',
-                background: previewMode === 'pdf' ? 'rgba(167, 139, 250, 0.4)' : 'transparent',
-                border: 'none',
-                borderRadius: '4px',
-                color: previewMode === 'pdf' ? '#a78bfa' : 'rgba(255, 255, 255, 0.6)',
-                fontSize: '12px',
-                cursor: loadingPdf ? 'not-allowed' : 'pointer',
-                opacity: loadingPdf ? 0.7 : 1,
-              }}
-            >
-              {loadingPdf && previewMode === 'pdf' ? '生成中...' : 'LaTeX 版本'}
-            </button>
+            <span>📄</span>
+            PDF 预览
+            {loadingPdf && <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>（生成中...）</span>}
           </div>
           
           {/* 下载 PDF 按钮 */}
           <button
             onClick={() => {
-              if (previewMode === 'live') {
-                // HTML 版本：使用 html2pdf 直接生成并下载
-                const element = document.getElementById('resume-preview')
-                if (element) {
-                  const opt = {
-                    margin: [10, 10, 10, 10] as [number, number, number, number],
-                    filename: `resume_html_${new Date().toISOString().split('T')[0]}.pdf`,
-                    image: { type: 'jpeg' as const, quality: 0.98 },
-                    html2canvas: { scale: 2, useCORS: true },
-                    jsPDF: { unit: 'mm' as const, format: 'a4' as const, orientation: 'portrait' as const }
-                  }
-                  html2pdf().set(opt).from(element).save()
-                }
-              } else if (pdfBlob) {
-                // LaTeX 版本：下载已生成的 PDF
+              if (pdfBlob) {
                 const url = URL.createObjectURL(pdfBlob)
                 const link = document.createElement('a')
                 link.href = url
-                link.download = `resume_latex_${new Date().toISOString().split('T')[0]}.pdf`
+                link.download = `resume_${new Date().toISOString().split('T')[0]}.pdf`
                 link.click()
                 URL.revokeObjectURL(url)
               }
             }}
-            disabled={previewMode === 'pdf' && !pdfBlob}
+            disabled={!pdfBlob}
             style={{
               padding: '6px 14px',
               background: 'rgba(59, 130, 246, 0.2)',
@@ -895,8 +847,8 @@ export default function WorkspacePage() {
               borderRadius: '6px',
               color: '#60a5fa',
               fontSize: '12px',
-              cursor: (previewMode === 'pdf' && !pdfBlob) ? 'not-allowed' : 'pointer',
-              opacity: (previewMode === 'pdf' && !pdfBlob) ? 0.5 : 1,
+              cursor: !pdfBlob ? 'not-allowed' : 'pointer',
+              opacity: !pdfBlob ? 0.5 : 1,
               display: 'flex',
               alignItems: 'center',
               gap: '4px',
@@ -946,21 +898,31 @@ export default function WorkspacePage() {
             </div>
           )}
           
-          {previewMode === 'live' ? (
-            <div ref={previewRef} style={{ height: '100%' }}>
-              <ResumePreview 
-                resume={resume} 
-                sectionOrder={currentSectionOrder} 
-                scale={previewScale}
-                onUpdate={(updatedResume) => {
-                  setResume(updatedResume)
-                  autoSave(updatedResume)
-                }}
-              />
-            </div>
-          ) : (
-            <PDFPane pdfBlob={pdfBlob} scale={previewScale} onScaleChange={setPreviewScale} />
-          )}
+          {/* PDF 预览 */}
+          <PDFPane pdfBlob={pdfBlob} scale={previewScale} onScaleChange={setPreviewScale} />
+          
+          {/* 隐藏的 HTML 预览，用于 AI 排版截图功能 */}
+          <div 
+            ref={previewRef} 
+            style={{ 
+              position: 'absolute', 
+              left: '-9999px', 
+              top: 0, 
+              width: '210mm', 
+              height: '297mm',
+              background: 'white',
+            }}
+          >
+            <HtmlPreview 
+              resume={resume} 
+              sectionOrder={currentSectionOrder} 
+              scale={1}
+              onUpdate={(updatedResume: Resume) => {
+                setResume(updatedResume)
+                autoSave(updatedResume)
+              }}
+            />
+          </div>
           
           {/* 公共缩放控制条 */}
           <div style={{

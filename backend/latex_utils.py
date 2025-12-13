@@ -23,6 +23,9 @@ def escape_latex(text: str) -> str:
     
     text = bold_pattern.sub(save_bold, text)
     
+    """移除换行符（LaTeX 命令参数不能跨行）"""
+    text = text.replace('\n', ' ').replace('\r', ' ')
+    
     """LaTeX 特殊字符转义"""
     replacements = {
         '\\': r'\textbackslash{}',

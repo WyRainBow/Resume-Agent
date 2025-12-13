@@ -181,11 +181,10 @@ async def parse_resume_text(body: ResumeParseRequest):
                 chunks_results.append(chunk_data)
             except Exception as e:
                 print(f"[解析] 第 {i+1} 块失败: {e}")
-                # 记录错误但不中断
-                import os
-                log_path = os.path.join(os.path.dirname(__file__), "llm_debug.log")
-                with open(log_path, "a", encoding="utf-8") as f:
-                    f.write(f"Chunk {i+1} Error: {e}\n\n")
+                # 使用新日志系统记录错误
+                from logger import write_llm_debug, backend_logger
+                backend_logger.warning(f"分块 {i+1} 解析失败: {e}")
+                write_llm_debug(f"Chunk {i+1} Error: {e}")
                 continue
         
         short_data = merge_resume_chunks(chunks_results)
@@ -207,16 +206,11 @@ async def parse_resume_text(body: ResumeParseRequest):
         try:
             short_data = parse_json_response(cleaned)
         except Exception as e:
-            # 调试：写入错误日志
-            import os
-            log_path = os.path.join(os.path.dirname(__file__), "llm_debug.log")
-            try:
-                with open(log_path, "w", encoding="utf-8") as f:
-                    f.write(f"Error: {e}\n\nRaw:\n{raw}\n\nCleaned:\n{cleaned}")
-                print(f"[解析失败] 已写入 {log_path}")
-            except Exception as write_err:
-                print(f"[解析失败] 日志写入失败: {write_err}")
-                
+            # 使用新日志系统记录错误
+            from logger import write_llm_debug, backend_logger
+            backend_logger.error(f"JSON 解析失败: {e}")
+            write_llm_debug(raw, cleaned)
+            
             raise HTTPException(status_code=500, detail="AI 返回的内容无法解析为 JSON，请重试")
     
     data = {
