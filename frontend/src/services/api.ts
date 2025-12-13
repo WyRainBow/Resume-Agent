@@ -4,13 +4,13 @@ import { DEFAULT_RESUME_TEMPLATE } from '@/data/defaultTemplate'
 
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://127.0.0.1:8000'
 
-export async function aiTest(provider: 'zhipu' | 'gemini' | 'mock', prompt: string) {
+export async function aiTest(provider: 'zhipu' | 'doubao', prompt: string) {
   const url = `${API_BASE}/api/ai/test`
   const { data } = await axios.post(url, { provider, prompt })
   return data as { provider: string; result: string }
 }
 
-export async function generateResume(provider: 'zhipu' | 'gemini' | 'mock', instruction: string, locale: 'zh' | 'en' = 'zh') {
+export async function generateResume(provider: 'zhipu' | 'doubao', instruction: string, locale: 'zh' | 'en' = 'zh') {
   const url = `${API_BASE}/api/resume/generate`
   const { data } = await axios.post(url, { provider, instruction, locale })
   return data as { provider: string; resume: Resume }

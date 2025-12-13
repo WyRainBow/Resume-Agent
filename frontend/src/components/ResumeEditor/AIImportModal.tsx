@@ -143,7 +143,16 @@ export function AIImportModal({
         <textarea
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder={aiImportPlaceholders[sectionType] || '请输入文本内容...'}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
+              const placeholder = aiImportPlaceholders[sectionType] || ''
+              if (placeholder && (!text || placeholder.startsWith(text))) {
+                e.preventDefault()
+                setText(placeholder)
+              }
+            }
+          }}
+          placeholder={(aiImportPlaceholders[sectionType] || '请输入文本内容...') + '（TAB 补全）'}
           style={{
             width: '100%',
             minHeight: '180px',

@@ -29,9 +29,6 @@ def call_llm(provider: str, prompt: str) -> str:
     统一入口，基于 simple.py 封装 LLM 调用
     在调用前检查必要的 API Key，缺失时返回 400 级错误
     """
-    if provider == "mock":
-        return f"MOCK: {prompt[:80]}"
-    
     if provider == "zhipu":
         key = os.getenv("ZHIPU_API_KEY") or getattr(simple, "ZHIPU_API_KEY", "")
         if not key:
@@ -62,12 +59,6 @@ def call_llm_stream(provider: str, prompt: str):
     """
     流式调用 LLM，返回生成器
     """
-    if provider == "mock":
-        # Mock 模式模拟流式输出
-        for word in f"MOCK: {prompt[:80]}".split():
-            yield word + " "
-        return
-    
     if provider == "doubao":
         key = os.getenv("DOUBAO_API_KEY") or getattr(simple, "DOUBAO_API_KEY", "")
         if not key:

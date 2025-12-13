@@ -5,7 +5,7 @@
  * HTML 预览已拆分到 HtmlPreview.tsx，保留代码供未来使用
  */
 
-// 导出 HTML 预览组件（保留，供 AI 排版截图等功能使用）
+// 导出 HTML 预览组件（保留）
 export { default as HtmlPreview } from './HtmlPreview'
 
 // 导出类型
