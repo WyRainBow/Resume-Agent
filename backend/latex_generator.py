@@ -13,8 +13,8 @@ from pathlib import Path
 from typing import Dict, Any, List
 from io import BytesIO
 
-from latex_utils import escape_latex, normalize_resume_data
-from latex_sections import SECTION_GENERATORS, DEFAULT_SECTION_ORDER
+from .latex_utils import escape_latex, normalize_resume_data
+from .latex_sections import SECTION_GENERATORS, DEFAULT_SECTION_ORDER
 
 
 def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) -> str:

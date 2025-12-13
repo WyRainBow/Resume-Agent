@@ -10,12 +10,10 @@
   },
   "education": [
     {
-      "title": "某高校",
-      "subtitle": "某专业 - 本科",
-      "date": "2022.09 - 2026.06",
-      "school": "某高校",
+      "title": "北京大学深圳研究院",
+      "subtitle": "计算机科学与技术",
       "degree": "本科",
-      "major": "某专业",
+      "date": "2022.09 - 2026.06",
       "details": []
     }
   ],
@@ -79,23 +77,22 @@
     {
       "title": "社区贡献一（某分布式项目）",
       "subtitle": "",
-      "date": "",
-      "highlights": [
-        "* 仓库：[https://example.com/repo1](https://example.com/repo1)",
-        "* 简述提交的核心 PR 或 Issue 处理经验",
-        "* 说明在社区内承担的协作职责"
-      ]
+      "items": [
+        "简述提交的核心 PR 或 Issue 处理经验",
+        "PR: https://example.com/PR",
+        "说明在社区内承担的协作职责"
+      ],
+      "repoUrl": "https://example.com/repo1"
     },
     {
       "title": "社区贡献二",
       "subtitle": "",
-      "date": "",
-      "highlights": [
-        "* 组件一：列举涉及的技术栈与能力范围",
-        "* 仓库：[https://example.com/repo2（可演示）](https://example.com/repo2（可演示）)",
-        "* 能力二：描述检索、知识构建或多 Agent 流程的实现",
-        "* 成果：简述分享传播与社区反馈"
-      ]
+      "items": [
+        "组件一：列举涉及的技术栈与能力范围",
+        "能力二：描述检索、知识构建或多 Agent 流程的实现",
+        "成果：简述分享传播与社区反馈"
+      ],
+      "repoUrl": "https://example.com/repo2"
     }
   ],
   "skills": [

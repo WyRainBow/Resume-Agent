@@ -26,7 +26,7 @@ except Exception:
     pass
 
 # 初始化日志系统
-from logger import backend_logger, LOGS_DIR, ensure_log_dirs
+from .logger import backend_logger, LOGS_DIR, ensure_log_dirs
 from datetime import datetime
 
 # 日志文件 handler（延迟初始化）
@@ -49,7 +49,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 # 导入路由模块
-from routes import (
+from .routes import (
     health_router,
     config_router,
     resume_router,

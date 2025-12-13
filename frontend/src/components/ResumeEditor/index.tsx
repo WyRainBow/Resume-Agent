@@ -168,8 +168,8 @@ export default function ResumeEditor({ resumeData, onSave, onSaveAndRender, savi
               ...baseSection, 
               data: eduData.map((item: any) => ({
                 title: item.title || item.school || '',
-                subtitle: item.subtitle || item.degree || '',
-                major: item.major || '',
+                subtitle: item.subtitle || item.major || '',
+                degree: item.degree || '',
                 date: item.date || item.duration || '',
                 details: item.details || []
               }))
@@ -206,7 +206,7 @@ export default function ResumeEditor({ resumeData, onSave, onSaveAndRender, savi
               data: osData.map((item: any) => ({
                 title: item.title || '',
                 subtitle: item.subtitle || '',
-                items: item.items || [],
+                items: item.items || item.highlights || [],
                 repoUrl: item.repoUrl || ''
               }))
             }
@@ -276,13 +276,11 @@ export default function ResumeEditor({ resumeData, onSave, onSaveAndRender, savi
     const summarySection = currentSections.find(s => s.type === 'summary')
 
     const convertEducationFormat = (items: any[]) => items.map(item => ({
-      school: item.title || item.school || '',
-      degree: item.subtitle || item.degree || '',
-      major: item.major || '',
-      duration: item.date || item.duration || '',
+      title: item.title || item.school || '',
+      subtitle: item.subtitle || item.major || '',
+      degree: item.degree || '',
+      date: item.date || item.duration || '',
       details: Array.isArray(item.details) ? item.details : [],
-      title: item.title || '',
-      date: item.date || '',
     }))
 
     const convertExperienceFormat = (items: any[]) => items.map(item => ({

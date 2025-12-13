@@ -150,10 +150,10 @@ export function SectionEditor({ section, onUpdate }: SectionEditorProps) {
                   <label style={labelStyle}>学校</label>
                   <input
                     style={inputStyle}
-                    value={item.title || item.school || ''}
+                    value={item.title || ''}
                     onChange={(e) => {
                       const newItems = [...eduItems]
-                      newItems[index] = { ...item, title: e.target.value, school: e.target.value }
+                      newItems[index] = { ...item, title: e.target.value }
                       onUpdate(newItems)
                     }}
                     onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'}
@@ -164,10 +164,10 @@ export function SectionEditor({ section, onUpdate }: SectionEditorProps) {
                   <label style={labelStyle}>专业</label>
                   <input
                     style={inputStyle}
-                    value={item.major || ''}
+                    value={item.subtitle || ''}
                     onChange={(e) => {
                       const newItems = [...eduItems]
-                      newItems[index] = { ...item, major: e.target.value }
+                      newItems[index] = { ...item, subtitle: e.target.value }
                       onUpdate(newItems)
                     }}
                     onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'}
@@ -179,10 +179,10 @@ export function SectionEditor({ section, onUpdate }: SectionEditorProps) {
                 <label style={labelStyle}>学位</label>
                 <input
                   style={inputStyle}
-                  value={item.subtitle || item.degree || ''}
+                  value={item.degree || ''}
                   onChange={(e) => {
                     const newItems = [...eduItems]
-                    newItems[index] = { ...item, subtitle: e.target.value, degree: e.target.value }
+                    newItems[index] = { ...item, degree: e.target.value }
                     onUpdate(newItems)
                   }}
                   onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(167, 139, 250, 0.6)'}
