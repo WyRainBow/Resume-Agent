@@ -16,6 +16,7 @@ from models import (
 from llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
 from prompts import build_resume_prompt, build_rewrite_prompt, SECTION_PROMPTS
 from json_path import parse_path, get_by_path, set_by_path
+from chunk_processor import split_resume_text, merge_resume_chunks
 
 router = APIRouter(prefix="/api", tags=["Resume"])
 
@@ -158,21 +159,65 @@ async def parse_resume_text(body: ResumeParseRequest):
     if provider == "mock":
         return {"resume": MOCK_RESUME_DATA, "provider": "mock"}
     
-    prompt = f"""从简历文本提取信息,只输出JSON(不要markdown,无数据的字段用空数组[]):
+    # 格式定义
+    schema_desc = """格式:{"name":"姓名","contact":{"phone":"电话","email":"邮箱"},"objective":"求职意向","education":[{"title":"学校","subtitle":"学历","date":"时间","major":"专业","details":["荣誉"]}],"internships":[{"title":"公司","subtitle":"职位","date":"时间","highlights":["工作内容"]}],"projects":[{"title":"项目名","subtitle":"角色","date":"时间","highlights":["描述"]}],"openSource":[{"title":"开源项目","subtitle":"描述","items":["贡献"],"repoUrl":"链接"}],"skills":[{"category":"类别","details":"技能"}],"awards":["奖项"]}"""
+
+    # 如果文本过长，使用分块处理
+    if len(body.text) > 800:
+        print(f"[解析] 文本长度 {len(body.text)}，启用分块处理")
+        chunks = split_resume_text(body.text, max_chunk_size=300)
+        chunks_results = []
+        
+        for i, chunk in enumerate(chunks):
+            print(f"[解析] 处理第 {i+1}/{len(chunks)} 块: {chunk['section']}")
+            chunk_prompt = f"""从简历文本片段提取信息,只输出JSON(不要markdown,无数据的字段用空数组[]):
+片段内容({chunk['section']}):
+{chunk['content']}
+{schema_desc}"""
+            try:
+                raw = call_llm(provider, chunk_prompt)
+                cleaned = clean_llm_response(raw)
+                chunk_data = parse_json_response(cleaned)
+                chunks_results.append(chunk_data)
+            except Exception as e:
+                print(f"[解析] 第 {i+1} 块失败: {e}")
+                # 记录错误但不中断
+                import os
+                log_path = os.path.join(os.path.dirname(__file__), "llm_debug.log")
+                with open(log_path, "a", encoding="utf-8") as f:
+                    f.write(f"Chunk {i+1} Error: {e}\n\n")
+                continue
+        
+        short_data = merge_resume_chunks(chunks_results)
+        print("[解析] 分块合并完成")
+    
+    else:
+        # 短文本直接处理
+        prompt = f"""从简历文本提取信息,只输出JSON(不要markdown,无数据的字段用空数组[]):
 {body.text}
-格式:{{"name":"姓名","contact":{{"phone":"电话","email":"邮箱"}},"objective":"求职意向","education":[{{"title":"学校","subtitle":"学历","date":"时间","major":"专业","details":["荣誉"]}}],"internships":[{{"title":"公司","subtitle":"职位","date":"时间","highlights":["工作内容"]}}],"projects":[{{"title":"项目名","subtitle":"角色","date":"时间","highlights":["描述"]}}],"openSource":[{{"title":"开源项目","subtitle":"描述","items":["贡献"],"repoUrl":"链接"}}],"skills":[{{"category":"类别","details":"技能"}}],"awards":["奖项"]}}"""
-    
-    try:
-        raw = call_llm(provider, prompt)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
-    
-    cleaned = clean_llm_response(raw)
-    
-    try:
-        short_data = parse_json_response(cleaned)
-    except Exception:
-        raise HTTPException(status_code=500, detail="AI 返回的内容无法解析为 JSON，请重试")
+{schema_desc}"""
+        
+        try:
+            raw = call_llm(provider, prompt)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
+        
+        cleaned = clean_llm_response(raw)
+        
+        try:
+            short_data = parse_json_response(cleaned)
+        except Exception as e:
+            # 调试：写入错误日志
+            import os
+            log_path = os.path.join(os.path.dirname(__file__), "llm_debug.log")
+            try:
+                with open(log_path, "w", encoding="utf-8") as f:
+                    f.write(f"Error: {e}\n\nRaw:\n{raw}\n\nCleaned:\n{cleaned}")
+                print(f"[解析失败] 已写入 {log_path}")
+            except Exception as write_err:
+                print(f"[解析失败] 日志写入失败: {write_err}")
+                
+            raise HTTPException(status_code=500, detail="AI 返回的内容无法解析为 JSON，请重试")
     
     data = {
         "name": short_data.get("name", ""),

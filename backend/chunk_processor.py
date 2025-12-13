@@ -50,6 +50,18 @@ def split_resume_text(text: str, max_chunk_size: int = 400) -> List[Dict[str, st
         
         if not is_new_section:
             current_content.append(line)
+            
+            """检查长度是否超过限制"""
+            current_length = sum(len(l) + 1 for l in current_content) # +1 for newline
+            if current_length >= max_chunk_size:
+                """强制分块"""
+                content_text = '\n'.join(current_content).strip()
+                if content_text:
+                    chunks.append({
+                        'section': current_section,
+                        'content': content_text
+                    })
+                current_content = []
     
     """保存最后一段"""
     if current_content:

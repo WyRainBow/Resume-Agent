@@ -156,8 +156,19 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path) -> BytesIO:
             )
             
             if result.returncode != 0:
-                """如果第一次编译失败，尝试查看错误"""
+                # 如果第一次编译失败，尝试查看错误
                 error_msg = result.stderr or result.stdout
+                
+                # 记录 LaTeX 源码以便调试
+                import os
+                debug_log_path = os.path.join(template_dir.parent, "backend", "latex_debug.log")
+                try:
+                    with open(debug_log_path, "w", encoding="utf-8") as f:
+                        f.write(f"Error: {error_msg}\n\nLaTeX Source:\n{latex_content}")
+                    print(f"[LaTeX编译失败] 已写入调试日志: {debug_log_path}")
+                except Exception as e:
+                    print(f"[LaTeX编译失败] 写入日志失败: {e}")
+                
                 raise RuntimeError(f"LaTeX 编译失败: {error_msg}")
         
         """读取生成的 PDF"""

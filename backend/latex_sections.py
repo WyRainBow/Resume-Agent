@@ -112,20 +112,22 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                     content.append(f"\\datedsubsection{{\\textbf{{{escaped_title}}} \\href{{{escaped_url}}}{{\\faGithub}}}}{{{date}}}")
                 else:
                     content.append(f"\\datedsubsection{{\\textbf{{{escaped_title}}}}}{{{date}}}")
-                content.append(r"\begin{itemize}[parsep=0.2ex]")
+                
+                # 收集项目详情内容
+                item_content = []
                 if isinstance(p.get('items'), list) and p['items']:
                     for sub in p['items']:
                         sub_title = sub.get('title')
                         if sub_title:
                             escaped_sub_title = escape_latex(sub_title)
-                            content.append(f"  \\item \\textbf{{{escaped_sub_title}}}")
+                            item_content.append(f"  \\item \\textbf{{{escaped_sub_title}}}")
                             details = sub.get('details') or []
                             if isinstance(details, list) and details:
-                                content.append(r"    \begin{itemize}[label=\textbf{·},parsep=0.2ex]")
+                                item_content.append(r"    \begin{itemize}[label=\textbf{·},parsep=0.2ex]")
                                 for detail in details:
                                     if isinstance(detail, str) and detail.strip():
-                                        content.append(f"      \\item {escape_latex(detail.strip())}")
-                                content.append(r"    \end{itemize}")
+                                        item_content.append(f"      \\item {escape_latex(detail.strip())}")
+                                item_content.append(r"    \end{itemize}")
                 if not (isinstance(p.get('items'), list) and p['items']):
                     highlights = p.get('highlights') or []
                     if isinstance(highlights, list) and highlights:
@@ -135,10 +137,15 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                                 is_indented = h.startswith('>')
                                 text = h[1:].strip() if is_indented else h.strip()
                                 if is_indented:
-                                    content.append(f"    \\item[] \\hspace{{1em}} {escape_latex(text)}")
+                                    item_content.append(f"    \\item[] \\hspace{{1em}} {escape_latex(text)}")
                                 else:
-                                    content.append(f"  \\item {escape_latex(text)}")
-                content.append(r"\end{itemize}")
+                                    item_content.append(f"  \\item {escape_latex(text)}")
+                
+                # 只有当有内容时才添加 itemize 环境
+                if item_content:
+                    content.append(r"\begin{itemize}[parsep=0.2ex]")
+                    content.extend(item_content)
+                    content.append(r"\end{itemize}")
                 content.append("")
     return content
 
