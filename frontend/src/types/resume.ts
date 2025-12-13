@@ -9,6 +9,7 @@ export interface DatedEntry {
   title: string;
   subtitle?: string; // 如：'某职位'
   date: string;
+  highlights?: string[]; // 工作内容要点
 }
 
 /**
@@ -24,7 +25,10 @@ export interface ProjectItem {
  */
 export interface Project {
   title: string;
-  items: ProjectItem[];
+  subtitle?: string; // 角色
+  date?: string;
+  items?: ProjectItem[];
+  highlights?: string[]; // 项目描述要点
 }
 
 /**

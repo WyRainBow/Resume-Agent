@@ -23,13 +23,6 @@ async def render_pdf(body: RenderPDFRequest):
     """
     resume_data = body.resume
     
-    # demo 模式
-    if hasattr(body, 'demo') and getattr(body, 'demo', False):
-        demo_file = ROOT / 'test_resume_demo.json'
-        if demo_file.exists():
-            with open(demo_file, 'r', encoding='utf-8') as f:
-                resume_data = json.load(f)
-    
     # 使用 LaTeX 渲染
     try:
         from ..latex_generator import render_pdf_from_resume_latex

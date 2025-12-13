@@ -530,15 +530,23 @@ export default function WorkspacePage() {
   const handleLoadDemo = useCallback(async () => {
     setLoadingPdf(true)
     try {
-      const blob = await renderPDF({} as Resume, true)
+      // 使用前端本地模板
+      const template = getDefaultTemplate()
+      setResume(template)
+      const saved = saveResume(template)
+      setCurrentResumeIdState(saved.id)
+      setShowEditor(true)
+      setPreviewMode('pdf')
+      // 渲染 PDF
+      const blob = await renderPDF(template, false, defaultSectionOrder)
       setPdfBlob(blob)
     } catch (error) {
-      console.error('Failed to load demo PDF:', error)
-      alert('Demo PDF 加载失败，请检查后端服务是否正常。')
+      console.error('Failed to load demo:', error)
+      alert('加载模板失败，请检查后端服务是否正常。')
     } finally {
       setLoadingPdf(false)
     }
-  }, [])
+  }, [defaultSectionOrder])
 
   return (
     <div 
