@@ -3,8 +3,8 @@ Agent 路由 - Reflection Agent API
 """
 from fastapi import APIRouter, HTTPException
 
-from models import AgentReflectRequest, QuickFixRequest, VisionAnalyzeRequest
-from agent import run_reflection_agent, quick_fix_resume, analyze_resume_screenshot
+from models import AgentReflectRequest, QuickFixRequest, VisionAnalyzeRequest, TemplateAnalyzeRequest
+from agent import run_reflection_agent, quick_fix_resume, analyze_resume_screenshot, analyze_template
 
 router = APIRouter(prefix="/api", tags=["Agent"])
 
@@ -50,3 +50,24 @@ async def agent_vision_analyze(body: VisionAnalyzeRequest):
         return {"analysis": analysis}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"视觉分析失败: {e}")
+
+
+@router.post("/agent/template-analyze")
+async def agent_template_analyze(body: TemplateAnalyzeRequest):
+    """
+    模板分析 - 使用 GLM-4.5V 分析简历预览截图
+    
+    返回：
+    - appearance: 现有模板长什么样子
+    - issues: 存在什么问题
+    - suggestions: 模板修改建议
+    - raw_analysis: 原始分析内容
+    """
+    try:
+        result = analyze_template(
+            image_base64=body.screenshot_base64,
+            current_json=body.current_json
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"模板分析失败: {e}")
