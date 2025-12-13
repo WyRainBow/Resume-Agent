@@ -268,6 +268,128 @@ def run_reflection_agent(
     return result
 
 
+def analyze_template(image_base64: str, current_json: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """
+    使用 GLM-4.5V 分析简历模板预览截图
+    
+    返回：
+    - 现有模板长什么样子
+    - 存在什么问题
+    - 模板修改建议
+    
+    Args:
+        image_base64: 简历预览截图的 Base64 编码
+        current_json: 当前简历 JSON 数据（可选，用于对比）
+    
+    Returns:
+        {
+            "appearance": "模板外观描述",
+            "issues": ["问题1", "问题2"],
+            "suggestions": ["建议1", "建议2"],
+            "raw_analysis": "原始分析文本"
+        }
+    """
+    
+    json_context = ""
+    if current_json:
+        json_context = f"""
+
+当前简历包含的内容（JSON 数据摘要）：
+- 姓名: {current_json.get('name', '未设置')}
+- 联系方式: {bool(current_json.get('contact'))}
+- 教育经历: {len(current_json.get('education', [])) if current_json.get('education') else 0} 条
+- 工作/实习经历: {len(current_json.get('experience', [])) if current_json.get('experience') else 0} 条
+- 项目经历: {len(current_json.get('projects', [])) if current_json.get('projects') else 0} 条
+- 技能: {len(current_json.get('skills', [])) if current_json.get('skills') else 0} 项
+"""
+    
+    prompt = f"""你是一位专业的简历设计师和排版专家。请仔细分析这张简历预览截图，并提供详细的评估。
+{json_context}
+请从以下三个方面进行分析，使用 JSON 格式返回：
+
+1. **现有模板长什么样子** (appearance)：
+   - 整体布局风格（单栏/双栏/混合）
+   - 配色方案和视觉风格
+   - 字体使用情况
+   - 各模块的排列方式
+   - 信息密度和留白
+
+2. **存在什么问题** (issues)：
+   - 排版问题（对齐、间距、层次不清）
+   - 内容展示问题（信息遗漏、顺序不当）
+   - 视觉问题（配色不协调、字体不统一）
+   - 可读性问题（字太小、太密集）
+   - 专业性问题（是否符合行业标准）
+
+3. **模板修改建议** (suggestions)：
+   - 布局优化建议
+   - 内容调整建议
+   - 视觉改进建议
+   - 突出重点的建议
+   - 提升专业度的建议
+
+请严格按以下 JSON 格式返回（确保是有效的 JSON）：
+{{
+    "appearance": "这是一份[描述整体风格]的简历模板，采用[布局方式]布局...",
+    "issues": [
+        "问题1：具体描述",
+        "问题2：具体描述"
+    ],
+    "suggestions": [
+        "建议1：具体建议",
+        "建议2：具体建议"
+    ]
+}}
+"""
+    
+    try:
+        raw_result = call_vision_model(image_base64, prompt)
+        
+        """
+        解析 JSON 结果
+        """
+        cleaned = re.sub(r'```json\s*', '', raw_result)
+        cleaned = re.sub(r'```\s*', '', cleaned)
+        cleaned = cleaned.strip()
+        
+        """
+        尝试提取 JSON
+        """
+        start = cleaned.find('{')
+        end = cleaned.rfind('}')
+        
+        if start != -1 and end != -1:
+            json_str = cleaned[start:end+1]
+            try:
+                parsed = json.loads(json_str)
+                return {
+                    "appearance": parsed.get("appearance", "无法解析外观描述"),
+                    "issues": parsed.get("issues", []),
+                    "suggestions": parsed.get("suggestions", []),
+                    "raw_analysis": raw_result
+                }
+            except json.JSONDecodeError:
+                pass
+        
+        """
+        如果无法解析 JSON，返回原始文本
+        """
+        return {
+            "appearance": raw_result[:500] if len(raw_result) > 500 else raw_result,
+            "issues": ["无法解析结构化结果，请查看原始分析"],
+            "suggestions": ["请查看原始分析内容"],
+            "raw_analysis": raw_result
+        }
+        
+    except Exception as e:
+        return {
+            "appearance": f"分析失败: {str(e)}",
+            "issues": [f"错误: {str(e)}"],
+            "suggestions": ["请检查 API Key 配置或重试"],
+            "raw_analysis": str(e)
+        }
+
+
 """
 快速修正函数（不需要截图）
 """

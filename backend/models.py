@@ -117,3 +117,17 @@ class FormatTextResponse(BaseModel):
     data: Optional[Dict[str, Any]]
     method: str
     error: Optional[str]
+
+
+class TemplateAnalyzeRequest(BaseModel):
+    """模板分析请求 - 使用 GLM-4.5V 分析简历预览截图"""
+    screenshot_base64: str = Field(..., description="简历预览截图 Base64 编码")
+    current_json: Optional[Dict[str, Any]] = Field(default=None, description="当前简历 JSON（可选）")
+
+
+class TemplateAnalyzeResponse(BaseModel):
+    """模板分析响应"""
+    appearance: str = Field(..., description="现有模板长什么样子")
+    issues: List[str] = Field(..., description="存在什么问题")
+    suggestions: List[str] = Field(..., description="模板修改建议")
+    raw_analysis: str = Field(..., description="原始分析内容")
