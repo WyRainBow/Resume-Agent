@@ -15,9 +15,12 @@ export function DateRangePicker({
     
     // 尝试匹配各种格式
     const patterns = [
+      // 完整格式：年-月 到 年-月
       /(\d{4}[-./]\d{1,2})[\s]*[-–~至]+[\s]*(\d{4}[-./]\d{1,2}|至今|现在|present)/i,
-      /(\d{4}[-./]\d{1,2})[\s]*[-–~至]+[\s]*/,
-      /(\d{4})[\s]*[-–~至]+[\s]*(\d{4}|至今|现在|present)/i,
+      // 格式：年-月 到 年（只有年份）
+      /(\d{4}[-./]\d{1,2})[\s]*[-–~至]+[\s]*(\d{4})/,
+      // 简单格式：年 到 年
+      /^(\d{4})[\s]*[-–~至]+[\s]*(\d{4}|至今|现在|present)$/i,
     ]
     
     for (const pattern of patterns) {
@@ -41,21 +44,32 @@ export function DateRangePicker({
 
   const { start, end } = parseRange(value)
   
+  // 格式化日期为统一格式：2023.06
+  const formatDate = (date: string) => {
+    if (!date || date === '至今') return date
+    // 将 2023-06 转为 2023.06
+    return date.replace(/-/g, '.')
+  }
+
   const handleStartChange = (newStart: string) => {
-    if (newStart && end) {
-      onChange(`${newStart}-${end}`)
-    } else if (newStart) {
-      onChange(newStart)
+    const formattedStart = formatDate(newStart)
+    const formattedEnd = formatDate(end)
+    if (formattedStart && formattedEnd) {
+      onChange(`${formattedStart} - ${formattedEnd}`)
+    } else if (formattedStart) {
+      onChange(formattedStart)
     } else {
-      onChange(end || '')
+      onChange(formattedEnd || '')
     }
   }
   
   const handleEndChange = (newEnd: string) => {
-    if (start && newEnd) {
-      onChange(`${start}-${newEnd}`)
-    } else if (start) {
-      onChange(`${start}-${newEnd || ''}`)
+    const formattedStart = formatDate(start)
+    const formattedEnd = formatDate(newEnd)
+    if (formattedStart && formattedEnd) {
+      onChange(`${formattedStart} - ${formattedEnd}`)
+    } else if (formattedStart) {
+      onChange(`${formattedStart} - ${formattedEnd || ''}`)
     } else {
       onChange('')
     }
