@@ -20,7 +20,6 @@ export const PDFViewer: React.FC<PDFEditorProps> = ({
   const [pages, setPages] = useState<pdfjsLib.PDFPageProxy[]>([])
   const {
     edits,
-    hasEdits,
     startEdit,
     updateEdit,
     finishEdit,
@@ -43,7 +42,6 @@ export const PDFViewer: React.FC<PDFEditorProps> = ({
     
     // 如果内容有变化，通知父组件
     if (edit && onContentChange && edit.newText !== edit.originalText) {
-      // 使用 setTimeout 确保状态更新后再回调，避免渲染冲突
       setTimeout(() => {
         onContentChange(edit.originalText, edit.newText)
       }, 0)
@@ -113,7 +111,7 @@ export const PDFViewer: React.FC<PDFEditorProps> = ({
   }
 
   // 渲染空状态
-  if (!pdfBlob || pages.length === 0) {
+  if (!pdfBlob) {
     return (
       <div style={editorStyles.container}>
         <div style={{
@@ -129,9 +127,34 @@ export const PDFViewer: React.FC<PDFEditorProps> = ({
     )
   }
 
+  // 页面加载中
+  if (pdfDoc && pages.length === 0) {
+    return (
+      <div style={editorStyles.container}>
+        <div style={editorStyles.loadingOverlay}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            border: '4px solid rgba(255, 255, 255, 0.3)',
+            borderTop: '4px solid white',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite',
+            marginBottom: '16px'
+          }} />
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+          <div style={{ color: 'white', fontWeight: 500 }}>加载页面中...</div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={editorStyles.container}>
-      {/* PDF 页面列表 */}
       <div style={editorStyles.scrollArea}>
         {pages.map((page, index) => (
           <PDFPage

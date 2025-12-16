@@ -49,29 +49,34 @@ export const PDFPage: React.FC<PDFPageProps> = ({
     const renderPage = async () => {
       if (!canvasRef.current) return
 
-      const viewport = page.getViewport({ scale })
-      
+      // 获取设备像素比
+      const devicePixelRatio = window.devicePixelRatio || 1
+      const renderScale = scale * Math.min(devicePixelRatio, 2) // 限制最大2倍
+
+      const viewport = page.getViewport({ scale: renderScale })
+
       // 保存 PDF 原始高度（用于坐标转换）
       const originalViewport = page.getViewport({ scale: 1 })
       setPageHeight(originalViewport.height)
-      
-      setDimensions({ 
-        width: viewport.width, 
-        height: viewport.height 
+
+      // 设置显示尺寸（使用原始 scale）
+      const displayViewport = page.getViewport({ scale })
+      setDimensions({
+        width: displayViewport.width,
+        height: displayViewport.height
       })
 
       const canvas = canvasRef.current
       const context = canvas.getContext('2d')
       if (!context) return
 
-      // 设置 Canvas 尺寸（考虑 DPR）
-      const dpr = window.devicePixelRatio || 1
-      canvas.width = viewport.width * dpr
-      canvas.height = viewport.height * dpr
-      canvas.style.width = `${viewport.width}px`
-      canvas.style.height = `${viewport.height}px`
+      // 设置 Canvas 实际尺寸（高分辨率）
+      canvas.width = viewport.width
+      canvas.height = viewport.height
 
-      context.scale(dpr, dpr)
+      // 设置 Canvas 显示尺寸（CSS 像素）
+      canvas.style.width = `${displayViewport.width}px`
+      canvas.style.height = `${displayViewport.height}px`
 
       // 渲染 PDF
       await page.render({
@@ -81,7 +86,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
     }
 
     renderPage()
-  }, [page, scale])
+  }, [page, pageNumber, scale])
 
   // 处理文本点击
   const handleTextClick = (
