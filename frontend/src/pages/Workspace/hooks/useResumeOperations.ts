@@ -4,7 +4,7 @@
  */
 import { useCallback } from 'react'
 import type { Resume } from '../../../types/resume'
-import { renderPDF, getDefaultTemplate } from '../../../services/api'
+import { renderPDF, renderPDFStream, getDefaultTemplate } from '../../../services/api'
 import { 
   getAllResumes, 
   getResume, 
@@ -31,6 +31,8 @@ interface UseResumeOperationsProps {
     startTimer: () => void
     stopTimer: () => void
   }
+  setPdfProgress?: React.Dispatch<React.SetStateAction<string>>
+  setShowProgress?: React.Dispatch<React.SetStateAction<boolean>>
 }
 
 export function useResumeOperations({
@@ -47,6 +49,8 @@ export function useResumeOperations({
   resume,
   autoSaveTimer,
   pdfTimer,
+  setPdfProgress,
+  setShowProgress,
 }: UseResumeOperationsProps) {
   
   /**
@@ -114,12 +118,31 @@ export function useResumeOperations({
       setShowEditor(true)
       setPreviewMode('pdf')
       setCurrentSectionOrder(DEFAULT_SECTION_ORDER)
-      
+      setLoadingPdf(true)
+      setShowProgress?.(true)
+      setPdfProgress?.('生成默认模板...')
+
       // 自动保存为新简历
       const saved = saveResume(template)
       setCurrentResumeIdState(saved.id)
-      
-      renderPDF(template, false, DEFAULT_SECTION_ORDER)
+
+      // 使用流式渲染以显示进度
+      renderPDFStream(
+        template,
+        DEFAULT_SECTION_ORDER,
+        // 进度回调
+        (progress) => {
+          setPdfProgress?.(progress)
+        },
+        // PDF数据回调
+        (pdfData) => {
+          setPdfProgress?.('模板生成完成！')
+        },
+        // 错误回调
+        (error) => {
+          setPdfProgress?.(`错误: ${error}`)
+        }
+      )
         .then(blob => {
           setPdfBlob(blob)
           setLoadingPdf(false)
@@ -129,6 +152,8 @@ export function useResumeOperations({
           console.log('PDF 后台生成失败:', err)
           setLoadingPdf(false)
           pdfTimer.stopTimer()
+          setPdfProgress?.('渲染失败')
+          setShowProgress?.(false)
         })
     } catch (error) {
       console.error('Failed to load template:', error)
@@ -166,10 +191,36 @@ export function useResumeOperations({
     setPreviewMode('pdf')
     setCurrentSectionOrder(DEFAULT_SECTION_ORDER)
     setShowResumeList(false)
-    renderPDF(resumeData, false, DEFAULT_SECTION_ORDER)
+    setLoadingPdf(true)
+    setShowProgress?.(true)
+    setPdfProgress?.('加载简历中...')
+
+    renderPDFStream(
+      resumeData,
+      DEFAULT_SECTION_ORDER,
+      // 进度回调
+      (progress) => {
+        setPdfProgress?.(progress)
+      },
+      // PDF数据回调
+      (pdfData) => {
+        setPdfProgress?.('PDF 加载完成！')
+      },
+      // 错误回调
+      (error) => {
+        setPdfProgress?.(`错误: ${error}`)
+      }
+    )
       .then(blob => setPdfBlob(blob))
-      .catch(err => console.log('PDF 后台生成失败:', err))
-  }, [setResume, setCurrentResumeIdState, setShowEditor, setPreviewMode, setCurrentSectionOrder, setShowResumeList, setPdfBlob])
+      .catch(err => {
+        console.log('PDF 后台生成失败:', err)
+        setPdfProgress?.('加载失败')
+      })
+      .finally(() => {
+        setLoadingPdf(false)
+        setShowProgress?.(false)
+      })
+  }, [setResume, setCurrentResumeIdState, setShowEditor, setPreviewMode, setCurrentSectionOrder, setShowResumeList, setPdfBlob, setLoadingPdf, setShowProgress, setPdfProgress])
 
   /**
    * 自动保存（防抖）

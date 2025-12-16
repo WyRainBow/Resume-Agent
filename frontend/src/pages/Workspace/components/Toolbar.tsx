@@ -13,6 +13,7 @@ interface ToolbarProps {
   setShowGuide: (show: boolean) => void
   onReset: () => void
   onAIOptimize: () => void
+  onNewResume?: () => void  // 新建简历功能
   loadingPdf: boolean
   optimizing: boolean
   hasResume: boolean
@@ -27,6 +28,7 @@ export function Toolbar({
   setShowGuide,
   onReset,
   onAIOptimize,
+  onNewResume,
   loadingPdf,
   optimizing,
   hasResume,
@@ -91,6 +93,30 @@ export function Toolbar({
         </div>
 
         <div style={{ display: 'flex', gap: '8px' }}>
+          {/* 新建简历 */}
+          {onNewResume && (
+            <button
+              onClick={onNewResume}
+              disabled={loadingPdf}
+              style={{
+                background: 'rgba(34, 197, 94, 0.1)',
+                border: '1px solid rgba(34, 197, 94, 0.2)',
+                borderRadius: '6px',
+                color: '#86efac',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: loadingPdf ? 'not-allowed' : 'pointer',
+                padding: '6px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              <span style={{ fontSize: '14px' }}>+</span>
+              新建
+            </button>
+          )}
+
           {/* 重置 */}
           <button
             onClick={onReset}

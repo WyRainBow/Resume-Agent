@@ -31,7 +31,13 @@ export const measureTextWidth = (
   fontFamily: string = 'sans-serif'
 ): number => {
   if (!text) return 0
-  
+
+  // 检查 fontSize 是否有效
+  if (typeof fontSize !== 'number' || fontSize <= 0) {
+    console.warn('Invalid fontSize provided to measureTextWidth:', fontSize)
+    fontSize = 12 // 默认字体大小
+  }
+
   const ctx = getMeasureContext()
   if (!ctx) {
     // fallback: 粗略估算（中文约等于字体大小，英文约 0.6 倍）
@@ -39,7 +45,13 @@ export const measureTextWidth = (
     const otherCount = text.length - chineseCount
     return chineseCount * fontSize + otherCount * fontSize * 0.6
   }
-  
+
   ctx.font = `${fontSize}px ${fontFamily}`
-  return ctx.measureText(text).width
+  const measuredWidth = ctx.measureText(text).width
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'measureText.ts:44',message:'measureTextWidth',data:{text,fontSize,fontFamily,measuredWidth},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
+  // #endregion
+  
+  return measuredWidth
 }
