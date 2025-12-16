@@ -5,12 +5,13 @@
 
 // 主组件
 export { PDFViewer } from './PDFViewer'
+export { PDFViewerSelector } from './PDFViewerSelector'
 
 // 类型
-export type { 
-  PDFEditorProps, 
-  EditItem, 
-  TextItem, 
+export type {
+  PDFEditorProps,
+  EditItem,
+  TextItem,
   TextPosition,
   EditorState,
   PageData,
@@ -19,6 +20,6 @@ export type {
 // 工具函数
 export { exportEditedPdf, downloadPdf } from './utils/exportPdf'
 
-// Hooks (如果外部需要使用)
+// Hooks
 export { useEditState } from './hooks/useEditState'
 export { usePDFDocument } from './hooks/usePDFDocument'
