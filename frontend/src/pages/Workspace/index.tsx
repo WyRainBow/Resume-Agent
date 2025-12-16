@@ -10,7 +10,8 @@ import html2canvas from 'html2canvas'
 
 // 外部组件
 import ChatPanel from '../../components/ChatPanel'
-import { PDFViewer } from '../../components/PDFEditor'
+import { PDFViewerSelector } from '../../components/PDFEditor'
+import { PDFProgressIndicator } from '../../components/PDFEditor/PDFProgressIndicator'
 import ResumeEditor from '../../components/ResumeEditor'
 import { HtmlPreview } from '../../components/ResumePreview'
 import ResumeList from '../../components/ResumeList'
@@ -18,7 +19,8 @@ import AIImportDialog from '../../components/AIImportDialog'
 import OnboardingGuide from '../../components/OnboardingGuide'
 import { useTimer } from '../../hooks/useTimer'
 import type { Resume } from '../../types/resume'
-import { renderPDF, generateResumeStream } from '../../services/api'
+import { renderPDF, renderPDFStream, generateResumeStream, getDefaultTemplate } from '../../services/api'
+import { saveResume } from '../../services/resumeStorage'
 
 // 内部 Hooks
 import { 
@@ -47,6 +49,10 @@ export default function WorkspacePage() {
   const state = useWorkspaceState()
   const pdfTimer = useTimer()
   const aiTimer = useTimer()  // AI 生成计时器
+
+  // PDF 生成进度
+  const [pdfProgress, setPdfProgress] = React.useState('')
+  const [showProgress, setShowProgress] = React.useState(false)
   
   // 简历操作
   const resumeOps = useResumeOperations({
@@ -63,6 +69,8 @@ export default function WorkspacePage() {
     resume: state.resume,
     autoSaveTimer: state.autoSaveTimer,
     pdfTimer,
+    setPdfProgress,
+    setShowProgress,
   })
   
   // PDF 操作
@@ -83,6 +91,8 @@ export default function WorkspacePage() {
     autoSave: resumeOps.autoSave,
     previewDebounceRef: state.previewDebounceRef,
     pdfTimer,
+    setPdfProgress,
+    setShowProgress,
   })
   
   // 分割条拖拽
@@ -141,31 +151,107 @@ export default function WorkspacePage() {
   }, [state, aiTimer])
 
   /**
-   * 更新预览 - 从 AI 输出切换到 PDF 视图
+   * 更新预览 - 从 AI 输出切换到 PDF 视图（使用流式API显示进度）
    */
   const handleUpdatePreview = useCallback(async () => {
     if (!state.pendingResumeJson) return
-    
+
     // 设置简历数据
     state.setResume(state.pendingResumeJson)
     state.setLoadingPdf(true)
     state.setRightView('pdf')
-    
+    setShowProgress(true)
+    setPdfProgress('开始生成 PDF...')
+
     try {
-      // 渲染 PDF
-      const blob = await renderPDF(state.pendingResumeJson, false, state.currentSectionOrder)
+      // 使用流式PDF渲染API，显示进度
+      const blob = await renderPDFStream(
+        state.pendingResumeJson,
+        state.currentSectionOrder,
+        // 进度回调
+        (progress) => {
+          setPdfProgress(progress)
+        },
+        // PDF数据回调
+        (pdfData) => {
+          setPdfProgress('PDF 生成完成！')
+        },
+        // 错误回调
+        (error) => {
+          setPdfProgress(`错误: ${error}`)
+        }
+      )
+
       state.setPdfBlob(blob)
       state.setShowEditor(true)
-      
+
       // 自动保存
       resumeOps.autoSave(state.pendingResumeJson)
     } catch (err) {
       console.error('PDF 渲染失败:', err)
+      setPdfProgress('渲染失败，请重试')
       alert('PDF 渲染失败，请重试')
     } finally {
       state.setLoadingPdf(false)
+      setShowProgress(false)
     }
   }, [state, resumeOps])
+
+  /**
+   * 新建简历 - 创建新的默认模板
+   */
+  const handleNewResume = useCallback(async () => {
+    // 设置加载状态
+    state.setLoadingPdf(true)
+    setShowProgress(true)
+    setPdfProgress('创建新简历...')
+
+    try {
+      // 获取默认模板
+      const newTemplate = getDefaultTemplate()
+
+      // 设置简历数据
+      state.setResume(newTemplate)
+      state.setShowEditor(true)
+      state.setPreviewMode('pdf')
+      state.setCurrentSectionOrder(DEFAULT_SECTION_ORDER)
+      state.setShowResumeList(false)
+
+      // 使用流式渲染PDF
+      const blob = await renderPDFStream(
+        newTemplate,
+        DEFAULT_SECTION_ORDER,
+        // 进度回调
+        (progress) => {
+          setPdfProgress(progress)
+        },
+        // PDF数据回调
+        (pdfData) => {
+          setPdfProgress('新简历创建完成！')
+        },
+        // 错误回调
+        (error) => {
+          setPdfProgress(`错误: ${error}`)
+        }
+      )
+
+      state.setPdfBlob(blob)
+
+      // 自动保存为新简历
+      const saved = saveResume(newTemplate)
+      state.setCurrentResumeId(saved.id)
+      console.log('新简历已保存，ID:', saved.id)
+
+      // 清除编辑状态
+      state.setPdfDirty(false)
+    } catch (error) {
+      console.error('创建新简历失败:', error)
+      alert('创建新简历失败，请重试')
+    } finally {
+      state.setLoadingPdf(false)
+      setShowProgress(false)
+    }
+  }, [state, setPdfProgress, setShowProgress])
 
   /**
    * AI 自动优化 - 视觉反思修正
@@ -239,15 +325,68 @@ export default function WorkspacePage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const instruction = sessionStorage.getItem('resume_instruction')
+
     if (instruction) {
       sessionStorage.removeItem('resume_instruction')
       // 从首页跳转时，触发流式生成
       handleStreamGenerate(instruction)
     } else {
-      resumeOps.loadResume()
+      // 无论是否有保存的简历，都先加载默认模板
+      // 直接内联加载逻辑，避免依赖问题
+      const loadDefaultTemplate = async () => {
+        // 设置加载状态
+        state.setLoadingPdf(true)
+        setShowProgress(true)
+        setPdfProgress('加载默认模板...')
+
+        try {
+          // 获取默认模板
+          const defaultTemplate = getDefaultTemplate()
+
+          // 设置简历数据
+          state.setResume(defaultTemplate)
+          state.setShowEditor(true)
+          state.setPreviewMode('pdf')
+          state.setCurrentSectionOrder(DEFAULT_SECTION_ORDER)
+
+          // 使用流式渲染PDF
+          const blob = await renderPDFStream(
+            defaultTemplate,
+            DEFAULT_SECTION_ORDER,
+            (progress) => {
+              setPdfProgress(progress)
+            },
+            (pdfData) => {
+              setPdfProgress('模板加载完成！')
+            },
+            (error) => {
+              setPdfProgress(`错误: ${error}`)
+            }
+          )
+
+          state.setPdfBlob(blob)
+
+          // 自动保存默认模板为新简历
+          try {
+            const saved = saveResume(defaultTemplate)
+            state.setCurrentResumeId(saved.id)
+          } catch (error) {
+            console.error('自动保存默认模板失败:', error)
+          }
+        } catch (error) {
+          console.error('加载默认模板失败:', error)
+          alert('加载默认模板失败')
+        } finally {
+          state.setLoadingPdf(false)
+          setShowProgress(false)
+        }
+      }
+
+      loadDefaultTemplate()
     }
   }, [])
 
+  
   return (
     <div 
       ref={state.containerRef}
@@ -307,6 +446,7 @@ export default function WorkspacePage() {
           setShowGuide={state.setShowGuide}
           onReset={resumeOps.loadResume}
           onAIOptimize={handleAIOptimize}
+          onNewResume={handleNewResume}
           loadingPdf={state.loadingPdf}
           optimizing={state.optimizing}
           hasResume={!!state.resume}
@@ -397,17 +537,23 @@ export default function WorkspacePage() {
           ) : (
             // PDF 预览视图
             <>
-              <LoadingOverlay visible={state.loadingPdf && state.previewMode === 'pdf'} />
-              
-              <PDFViewer 
-                pdfBlob={state.pdfBlob} 
+              <LoadingOverlay visible={state.loadingPdf && state.previewMode === 'pdf' && !showProgress} />
+
+              {/* PDF 生成进度指示器 */}
+              <PDFProgressIndicator
+                progress={pdfProgress}
+                visible={showProgress}
+              />
+
+              <PDFViewerSelector
+                pdfBlob={state.pdfBlob}
                 scale={state.previewScale}
                 onContentChange={pdfOps.handlePDFContentChange}
               />
-              
-              <ZoomControl 
-                scale={state.previewScale} 
-                setScale={state.setPreviewScale} 
+
+              <ZoomControl
+                scale={state.previewScale}
+                setScale={state.setPreviewScale}
               />
             </>
           )}
