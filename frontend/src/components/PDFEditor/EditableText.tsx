@@ -29,16 +29,23 @@ export const EditableText: React.FC<EditableTextProps> = ({
 }) => {
   const inputRef = useRef<HTMLInputElement>(null)
   const [localValue, setLocalValue] = useState(edit.newText)
-  
+
+  // 检查 position 是否存在
+  if (!edit.position) {
+    console.error('Edit position is undefined:', edit)
+    return null
+  }
+
   // 动态宽度：根据输入内容实时计算
   const [dynamicWidth, setDynamicWidth] = useState(edit.position.width)
 
   // 计算文字需要的宽度
   const calculateWidth = useCallback((text: string) => {
-    const measuredWidth = measureTextWidth(text, edit.position.fontSize)
+    const measuredWidth = measureTextWidth(text, edit.position.fontSize || 12)
     // 取原始宽度和新文字宽度的较大值，确保遮盖原文
     // +8 是输入框的内边距补偿
-    return Math.max(edit.position.width, measuredWidth + 8)
+    const originalWidth = edit.position.width || 100
+    return Math.max(originalWidth, measuredWidth + 8)
   }, [edit.position.width, edit.position.fontSize])
 
   // 初始化时计算宽度
@@ -85,24 +92,37 @@ export const EditableText: React.FC<EditableTextProps> = ({
   }
 
   // 高度增加 20% 以覆盖中文字符的上下延伸
-  const adjustedHeight = edit.position.height * 1.2
+  const adjustedHeight = (edit.position.height || 12) * 1.2
 
   // 如果不是编辑状态，显示已修改的文本（精确遮盖）
   if (!edit.isEditing) {
     // 计算新文字的实际宽度
-    const newTextWidth = measureTextWidth(edit.newText, edit.position.fontSize)
+    const newTextWidth = measureTextWidth(edit.newText, edit.position.fontSize || 12)
     // 遮盖宽度 = max(原文字宽度, 新文字宽度)
-    const coverWidth = Math.max(edit.position.width, newTextWidth + 4)
+    const coverWidth = Math.max(edit.position.width || 100, newTextWidth + 4)
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EditableText.tsx:94',message:'非编辑状态渲染',data:{editId:edit.id,text:edit.newText,originalText:edit.originalText,positionLeft:edit.position.left,positionTop:edit.position.top,positionWidth:edit.position.width,newTextWidth,coverWidth,fontSize:edit.position.fontSize,textLengthDiff:edit.newText.length-edit.originalText.length,prefixAdded:!edit.newText.startsWith(edit.originalText)&&edit.newText.includes(edit.originalText)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A-B-C-D'})}).catch(()=>{});
+    // #endregion
     
     return (
       <div
+        ref={(el) => {
+          // #region agent log
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            const parentRect = el.parentElement?.getBoundingClientRect();
+            fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EditableText.tsx:DOM',message:'实际DOM位置',data:{editId:edit.id,domLeft:rect.left,domTop:rect.top,domWidth:rect.width,domHeight:rect.height,parentLeft:parentRect?.left,parentTop:parentRect?.top,offsetLeft:el.offsetLeft,scrollWidth:el.scrollWidth,clientWidth:el.clientWidth,textOverflow:el.scrollWidth>el.clientWidth},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E-F'})}).catch(()=>{});
+          }
+          // #endregion
+        }}
         style={{
           position: 'absolute',
-          left: edit.position.left,
-          top: edit.position.top - 2,  // 微调垂直位置
+          left: edit.position.left || 0,
+          top: (edit.position.top || 0) - 2,  // 微调垂直位置
           width: coverWidth,
           height: adjustedHeight + 4,
-          fontSize: edit.position.fontSize,
+          fontSize: edit.position.fontSize || 12,
           lineHeight: `${adjustedHeight}px`,
           backgroundColor: 'white',
           color: '#000',
@@ -124,6 +144,10 @@ export const EditableText: React.FC<EditableTextProps> = ({
   }
 
   // 编辑状态：显示输入框
+  // 计算位置补偿：border(2px) + padding-left(1px) = 3px
+  const inputLeftOffset = 3
+  const inputPaddingH = 1  // 水平内边距
+  
   return (
     <input
       ref={inputRef}
@@ -135,11 +159,11 @@ export const EditableText: React.FC<EditableTextProps> = ({
       spellCheck={false}
       style={{
         position: 'absolute',
-        left: edit.position.left - 2,  // 边框补偿
-        top: edit.position.top - 4,    // 边框 + 垂直居中补偿
-        width: Math.max(dynamicWidth, 50),  // 最小宽度 50px
+        left: (edit.position.left || 0) - inputLeftOffset,  // 精确补偿边框+内边距
+        top: (edit.position.top || 0) - 4,    // 边框 + 垂直居中补偿
+        width: Math.max(dynamicWidth + inputPaddingH * 2, 50),  // 补偿内边距，最小宽度 50px
         height: adjustedHeight + 8,
-        fontSize: edit.position.fontSize,
+        fontSize: edit.position.fontSize || 12,
         lineHeight: 1,
         fontFamily: 'inherit',
         backgroundColor: 'white',
@@ -149,7 +173,7 @@ export const EditableText: React.FC<EditableTextProps> = ({
         outline: 'none',
         boxShadow: '0 2px 8px rgba(37, 99, 235, 0.2)',
         boxSizing: 'border-box',
-        padding: '2px 4px',
+        padding: `2px ${inputPaddingH}px`,  // 减小水平内边距
         zIndex: 10,
       }}
     />

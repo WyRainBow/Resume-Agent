@@ -2,6 +2,8 @@
  * PDF 编辑器类型定义
  */
 
+import * as pdfjsLib from 'pdfjs-dist'
+
 // PDF 文本项（来自 PDF.js TextLayer）
 export interface TextItem {
   str: string           // 文本内容
@@ -47,6 +49,17 @@ export interface EditorState {
   edits: Map<string, EditItem>  // 所有编辑项
   activeEditId: string | null   // 当前激活的编辑项 ID
   isExporting: boolean          // 是否正在导出
+}
+
+// 缓存页面
+export interface CachedPage {
+  pageNumber: number
+  page: pdfjsLib.PDFPageProxy
+  viewport: pdfjsLib.PageViewport
+  canvas?: HTMLCanvasElement
+  lastUsed: number
+  textItems?: any[]
+  isLoading?: boolean
 }
 
 // 编辑器 Props

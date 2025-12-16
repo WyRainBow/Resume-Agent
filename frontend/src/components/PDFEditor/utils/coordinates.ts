@@ -32,26 +32,46 @@ export const calculateTextPosition = (
   pageHeight: number,
   scale: number
 ): TextPosition => {
+  // 检查必要的参数
+  if (!item || !item.transform || item.transform.length < 6) {
+    console.error('Invalid text item for position calculation:', item)
+    // 返回默认位置
+    return {
+      left: 0,
+      top: 0,
+      width: 100,
+      height: 12,
+      fontSize: 12,
+    }
+  }
+
   const [scaleX, , , scaleY, x, y] = item.transform
-  
+
   // PDF Y 坐标是从底部算起的，需要转换为从顶部算起
   // fontSize 约等于 scaleY 的绝对值
-  const fontSize = Math.abs(scaleY)
-  
+  const fontSize = Math.abs(scaleY) || 12
+
   // 转换坐标
-  const left = x * scale
-  const width = item.width * scale
+  const left = (x || 0) * scale
+  const width = (item.width || 0) * scale
   const height = fontSize * scale
   // PDF 的 y 是基线位置，需要减去字体高度得到顶部位置
-  const top = (pageHeight - y - fontSize) * scale
+  const top = (pageHeight - (y || 0) - fontSize) * scale
 
-  return {
-    left,
-    top,
-    width,
-    height,
-    fontSize: fontSize * scale,
+  // 确保所有值都是有效的数字
+  const position: TextPosition = {
+    left: isNaN(left) ? 0 : left,
+    top: isNaN(top) ? 0 : top,
+    width: isNaN(width) ? 100 : width,
+    height: isNaN(height) ? 12 : height,
+    fontSize: isNaN(height) ? 12 : height,
   }
+
+  // #region agent log
+  fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'coordinates.ts:46',message:'calculateTextPosition',data:{text:item.str,rawX:x,rawY:y,rawWidth:item.width,scale,pageHeight,computedLeft:left,computedTop:top,computedWidth:width,fontSize:fontSize*scale,scaleX,scaleY,finalPosition:position},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
+  // #endregion
+
+  return position
 }
 
 /**

@@ -4,7 +4,7 @@
  */
 import { useCallback } from 'react'
 import type { Resume } from '../../../types/resume'
-import { renderPDF } from '../../../services/api'
+import { renderPDF, renderPDFStream } from '../../../services/api'
 import { saveResume } from '../../../services/resumeStorage'
 
 interface UsePDFOperationsProps {
@@ -31,6 +31,8 @@ interface UsePDFOperationsProps {
     finalTime: number | null
     getTimeColor: (ms: number) => string
   }
+  setPdfProgress?: React.Dispatch<React.SetStateAction<string>>
+  setShowProgress?: React.Dispatch<React.SetStateAction<boolean>>
 }
 
 export function usePDFOperations({
@@ -49,6 +51,8 @@ export function usePDFOperations({
   autoSave,
   previewDebounceRef,
   pdfTimer,
+  setPdfProgress,
+  setShowProgress,
 }: UsePDFOperationsProps) {
 
   /**
@@ -59,15 +63,32 @@ export function usePDFOperations({
     setShowEditor(true)
     setLoadingPdf(true)
     try {
-      const blob = await renderPDF(newResume, false)
+      // 使用流式渲染以显示进度
+      const blob = await renderPDFStream(
+        newResume,
+        currentSectionOrder.length > 0 ? currentSectionOrder : undefined,
+        // 进度回调
+        (progress) => {
+          setPdfProgress?.(progress)
+        },
+        // PDF数据回调
+        (pdfData) => {
+          setPdfProgress?.('PDF 生成完成！')
+        },
+        // 错误回调
+        (error) => {
+          setPdfProgress?.(`错误: ${error}`)
+        }
+      )
       setPdfBlob(blob)
     } catch (error) {
       console.error('Failed to render PDF:', error)
+      setPdfProgress?.('渲染失败，请检查后端服务')
       alert('PDF 渲染失败，请检查后端服务是否正常。')
     } finally {
       setLoadingPdf(false)
     }
-  }, [setResume, setShowEditor, setLoadingPdf, setPdfBlob])
+  }, [setResume, setShowEditor, setLoadingPdf, setPdfBlob, currentSectionOrder, setPdfProgress])
 
   /**
    * 【三层渲染架构】Layer 1 & 2: 编辑器数据变化处理
@@ -93,7 +114,7 @@ export function usePDFOperations({
   }, [currentSectionOrder, autoSave, setResume, setPdfDirty, setCurrentSectionOrder, previewDebounceRef])
   
   /**
-   * 【三层渲染架构】Layer 3: 显式生成 PDF
+   * 【三层渲染架构】Layer 3: 显式生成 PDF（使用流式API）
    */
   const generatePDF = useCallback(async (forceRender = false) => {
     if (!resume) return null
@@ -101,13 +122,35 @@ export function usePDFOperations({
       console.log('[Layer 3] PDF 无变化，跳过渲染')
       return pdfBlob
     }
-    
+
     console.log('[Layer 3] 开始生成 PDF...')
     setLoadingPdf(true)
     pdfTimer.startTimer()
-    
+    setPdfProgress?.('开始生成 PDF...')
+    setShowProgress?.(true)
+
     try {
-      const blob = await renderPDF(resume, false, currentSectionOrder.length > 0 ? currentSectionOrder : undefined)
+      // 使用流式PDF渲染API，显示进度
+      const blob = await renderPDFStream(
+        resume,
+        currentSectionOrder.length > 0 ? currentSectionOrder : undefined,
+        // 进度回调
+        (progress) => {
+          console.log('[Layer 3] PDF生成进度:', progress)
+          setPdfProgress?.(progress)
+        },
+        // PDF数据回调
+        (pdfData) => {
+          console.log('[Layer 3] PDF数据已接收，大小:', pdfData?.byteLength || 0, '字节')
+          setPdfProgress?.('PDF 生成完成！')
+        },
+        // 错误回调
+        (error) => {
+          console.error('[Layer 3] PDF流式渲染错误:', error)
+          setPdfProgress?.(`错误: ${error}`)
+        }
+      )
+
       setPdfBlob(blob)
       setPdfDirty(false)
       pdfTimer.stopTimer()
@@ -115,12 +158,14 @@ export function usePDFOperations({
     } catch (error) {
       console.error('[Layer 3] PDF 渲染失败:', error)
       pdfTimer.stopTimer()
+      setPdfProgress?.('渲染失败，请重试')
       alert('PDF 渲染失败，请检查后端服务是否正常。')
       return null
     } finally {
       setLoadingPdf(false)
+      setShowProgress?.(false)
     }
-  }, [resume, pdfDirty, pdfBlob, currentSectionOrder, pdfTimer, setLoadingPdf, setPdfBlob, setPdfDirty])
+  }, [resume, pdfDirty, pdfBlob, currentSectionOrder, pdfTimer, setLoadingPdf, setPdfBlob, setPdfDirty, setPdfProgress, setShowProgress])
   
   /**
    * 显式保存并更新 PDF
