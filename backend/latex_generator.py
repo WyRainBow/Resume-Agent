@@ -103,80 +103,78 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
 
 def compile_latex_to_pdf(latex_content: str, template_dir: Path) -> BytesIO:
     """
-    编译 LaTeX 代码为 PDF
-    
+    编译 LaTeX 代码为 PDF（简化版本）
+
     参数:
         latex_content: LaTeX 代码字符串
         template_dir: LaTeX 模板目录（包含 resume.cls 等文件）
-    
+
     返回:
         PDF 文件的 BytesIO 对象
     """
     """创建临时目录"""
     temp_dir = tempfile.mkdtemp()
-    
+
     try:
-        """将模板文件复制到临时目录"""
+        # 复制所有必要的模板文件
         template_files = [
-            'resume.cls', 'fontawesome.sty', 'linespacing_fix.sty', 
+            'resume.cls', 'fontawesome.sty', 'linespacing_fix.sty',
             'zh_CN-Adobefonts_external.sty', 'zh_CN-Adobefonts_internal.sty'
         ]
-        
         for file_name in template_files:
             src_file = template_dir / file_name
             if src_file.exists():
-                shutil.copy2(src_file, temp_dir)
-        
-        """复制字体目录"""
+                dest_file = Path(temp_dir) / file_name
+                shutil.copy2(src_file, dest_file)
+                print(f"[调试] 复制文件: {file_name} -> {dest_file}")
+            else:
+                print(f"[警告] 文件不存在: {file_name}")
+
+        # 复制字体目录（如果存在）
         fonts_dir = template_dir / 'fonts'
         if fonts_dir.exists():
             shutil.copytree(fonts_dir, Path(temp_dir) / 'fonts', dirs_exist_ok=True)
-        
-        """写入 LaTeX 文件"""
+
+        # 写入 LaTeX 文件
         tex_file = Path(temp_dir) / 'resume.tex'
         tex_file.write_text(latex_content, encoding='utf-8')
-        
-        """编译 LaTeX 为 PDF（使用 xelatex 确保字体嵌入）"""
+
+        # 使用 xelatex 编译
         compile_cmd = [
             'xelatex',
             '-interaction=nonstopmode',
             '-output-directory', temp_dir,
-            '-synctex=0',
             str(tex_file)
         ]
-        
-        """执行编译（运行两次以确保交叉引用正确）"""
-        for _ in range(2):
-            result = subprocess.run(
-                compile_cmd,
-                cwd=temp_dir,
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
-            
-            if result.returncode != 0:
-                # 如果第一次编译失败，尝试查看错误
-                error_msg = result.stderr or result.stdout
-                
-                # 使用新的日志系统记录 LaTeX 调试信息
-                from logger import write_latex_debug, latex_logger
-                write_latex_debug(latex_content, error_msg)
-                latex_logger.error(f"LaTeX 编译失败: {error_msg[:200]}...")
-                
-                raise RuntimeError(f"LaTeX 编译失败: {error_msg}")
-        
+
+        # 只编译一次，简化逻辑
+        result = subprocess.run(
+            compile_cmd,
+            cwd=temp_dir,
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+
+        if result.returncode != 0:
+            error_msg = result.stderr or result.stdout
+            print(f"LaTeX 编译失败: {error_msg[:500]}")
+            raise RuntimeError(f"LaTeX 编译失败: {error_msg[:200]}")
+
         """读取生成的 PDF"""
         pdf_file = Path(temp_dir) / 'resume.pdf'
         if not pdf_file.exists():
             raise RuntimeError("PDF 文件未生成")
-        
+
+        # 读取 PDF
         pdf_bytes = pdf_file.read_bytes()
+        print(f"PDF 生成成功，大小: {len(pdf_bytes)} 字节")
+
         pdf_io = BytesIO(pdf_bytes)
         pdf_io.seek(0)
-        
+
         return pdf_io
-        
+
     finally:
         """清理临时目录"""
         shutil.rmtree(temp_dir, ignore_errors=True)
