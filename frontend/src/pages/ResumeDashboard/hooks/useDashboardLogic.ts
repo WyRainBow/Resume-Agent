@@ -40,14 +40,13 @@ export const useDashboardLogic = () => {
 
   const createResume = () => {
     const template = getDefaultTemplate()
-    const id = generateUUID()
-    const newResume = { ...template, id, basic: { ...template.basic, name: '未命名简历' } }
+    const newResume = { ...template, basic: { ...template.basic, name: '未命名简历' } }
     
-    // 保存到本地存储
-    saveResume(newResume)
+    // 保存到本地存储，saveResume 会自动生成 ID 并返回
+    const saved = saveResume(newResume)
     
-    // 设置当前 ID 并跳转
-    setCurrentResumeId(id)
+    // 使用 saveResume 返回的实际 ID（不是自己生成的）
+    setCurrentResumeId(saved.id)
     navigate('/workspace')
   };
 

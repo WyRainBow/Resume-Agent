@@ -46,7 +46,7 @@ const ResumeDashboard = () => {
             <Alert className="mb-6 bg-green-50/50 dark:bg-green-950/30 border-green-200 dark:border-green-900">
               <AlertDescription className="flex items-center justify-between">
                 <span className="text-green-700 dark:text-green-400">
-                  简历数据已自动保存到本地存储
+                  自动保存到本地存储
                 </span>
                 <Button
                   size="sm"
