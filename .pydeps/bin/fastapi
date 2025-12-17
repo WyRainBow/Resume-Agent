@@ -1,4 +1,6 @@
-#!/usr/local/opt/python@3.13/bin/python3.13
+#!/bin/sh
+'''exec' "/Users/wy770/AI 简历/.pydeps/bin/python3.13" "$0" "$@"
+' '''
 # -*- coding: utf-8 -*-
 import re
 import sys

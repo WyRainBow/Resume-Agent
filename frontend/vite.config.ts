@@ -44,7 +44,71 @@ writeToLog('INFO', '========== 前端服务启动 ==========')
 writeToLog('INFO', `日志文件: ${logFile}`)
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    {
+      name: 'configure-server',
+      configureServer(server) {
+        server.middlewares.use('/api/test', (req, res, next) => {
+          if (req.method === 'GET') {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+              status: 'ok', 
+              message: 'API测试成功',
+              timestamp: new Date().toISOString()
+            }));
+            return;
+          }
+          next();
+        });
+        
+        server.middlewares.use('/switch-main', (req, res, next) => {
+          if (req.method === 'GET') {
+            const url = new URL(req.url, `http://${req.headers.host}`);
+            const entry = url.searchParams.get('entry');
+            
+            // 读取index.html
+            const fs = require('fs');
+            const path = require('path');
+            const indexPath = path.resolve(__dirname, 'index.html');
+            let indexContent = fs.readFileSync(indexPath, 'utf8');
+            
+            // 根据entry参数修改script标签
+            if (entry === 'simple') {
+              indexContent = indexContent.replace('src="/src/main.tsx"', 'src="/src/main-simple.tsx"');
+            } else {
+              indexContent = indexContent.replace('src="/src/main-simple.tsx"', 'src="/src/main.tsx"');
+            }
+            
+            // 写回index.html
+            fs.writeFileSync(indexPath, indexContent);
+            
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+              status: 'ok', 
+              message: entry === 'simple' ? '已切换到简化版主入口' : '已切换到原始主入口',
+              entry
+            }));
+            return;
+          }
+          next();
+        });
+        
+        server.middlewares.use('/restart-frontend', (req, res, next) => {
+          if (req.method === 'GET') {
+            // 这里只是返回成功，实际重启需要外部操作
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ 
+              status: 'ok', 
+              message: '重启请求已发送，请手动重启前端服务'
+            }));
+            return;
+          }
+          next();
+        });
+      }
+    }
+  ],
   customLogger,
   resolve: {
     alias: {
