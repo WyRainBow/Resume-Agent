@@ -9,7 +9,6 @@ import { flushSync } from 'react-dom'
 import html2canvas from 'html2canvas'
 
 // 外部组件
-import ChatPanel from '../../components/ChatPanel'
 import { PDFViewerSelector } from '../../components/PDFEditor'
 import { PDFProgressIndicator } from '../../components/PDFEditor/PDFProgressIndicator'
 import ResumeEditor from '../../components/ResumeEditor'
@@ -438,8 +437,6 @@ export default function WorkspacePage() {
         <NavHeader />
         
         <Toolbar
-          showEditor={state.showEditor}
-          setShowEditor={state.setShowEditor}
           showResumeList={state.showResumeList}
           setShowResumeList={state.setShowResumeList}
           setShowAIImport={state.setShowAIImport}
@@ -466,9 +463,9 @@ export default function WorkspacePage() {
           </div>
         )}
 
-        {/* 内容区域 */}
+        {/* 内容区域 - 可视化编辑器 */}
         <div style={{ flex: 1, overflow: 'hidden' }}>
-          {state.showEditor && state.resume ? (
+          {state.resume ? (
             <ResumeEditor
               resumeData={state.resume}
               onSave={pdfOps.handleEditorSave}
@@ -476,13 +473,15 @@ export default function WorkspacePage() {
               saving={state.loadingPdf}
             />
           ) : (
-            <div style={{ height: '100%', overflowY: 'auto' }}>
-              <ChatPanel 
-                onResume={pdfOps.handleResumeChange} 
-                onLoadDemo={resumeOps.handleLoadDemo} 
-                pdfBlob={state.pdfBlob}
-                initialInstruction={state.initialInstruction}
-              />
+            <div style={{ 
+              height: '100%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              color: 'rgba(255,255,255,0.6)',
+              fontSize: '14px'
+            }}>
+              点击「AI导入」或从「我的简历」选择一份简历开始编辑
             </div>
           )}
         </div>
