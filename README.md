@@ -24,10 +24,15 @@
 ## ✨ 核心功能
 
 ## 前端页面
-![alt text](image.png)
 
+### 首页
+![首页](docs/screenshots/landing-page.png)
 
-![alt text](image-1.png)
+### Dashboard 简历管理
+![Dashboard](docs/screenshots/dashboard.png)
+
+### 工作区
+![工作区](docs/screenshots/workspace.png)
 
 ### 🤖 AI 智能生成
 - 支持一句话描述快速生成完整简历
