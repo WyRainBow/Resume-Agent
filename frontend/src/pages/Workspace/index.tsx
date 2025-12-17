@@ -19,7 +19,7 @@ import AIImportDialog from '../../components/AIImportDialog'
 import OnboardingGuide from '../../components/OnboardingGuide'
 import { useTimer } from '../../hooks/useTimer'
 import type { Resume } from '../../types/resume'
-import { renderPDF, renderPDFStream, generateResumeStream, getDefaultTemplate } from '../../services/api'
+import { renderPDF, renderPDFStream, generateResumeStream, getDefaultTemplate, compileLatexStream } from '../../services/api'
 import { saveResume, getCurrentResumeId, getResume } from '../../services/resumeStorage'
 
 // 内部 Hooks
@@ -257,6 +257,165 @@ export default function WorkspacePage() {
       setShowProgress(false)
     }
   }, [state, setPdfProgress, setShowProgress])
+
+  /**
+   * 导入 LaTeX 文件并编译为 PDF
+   */
+  const handleImportLatex = useCallback(async () => {
+    // 创建文件选择器
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.tex'
+    
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      
+      try {
+        // 读取文件内容
+        const latexContent = await file.text()
+        console.log('[LaTeX] 读取文件成功，内容长度:', latexContent.length)
+        
+        // 设置加载状态
+        state.setLoadingPdf(true)
+        state.setRightView('pdf')
+        setShowProgress(true)
+        setPdfProgress('正在编译 LaTeX...')
+        pdfTimer.startTimer()
+        
+        // 调用 API 编译
+        const blob = await compileLatexStream(
+          latexContent,
+          (progress) => {
+            setPdfProgress(progress)
+          },
+          (pdfData) => {
+            setPdfProgress('LaTeX 编译完成！')
+          },
+          (error) => {
+            setPdfProgress(`错误: ${error}`)
+          }
+        )
+        
+        pdfTimer.stopTimer()
+        state.setPdfBlob(blob)
+        state.setPdfDirty(false)
+        
+        console.log('[LaTeX] 编译成功，PDF 大小:', blob.size)
+      } catch (error) {
+        console.error('[LaTeX] 编译失败:', error)
+        pdfTimer.stopTimer()
+        setPdfProgress('编译失败: ' + (error as Error).message)
+        alert('LaTeX 编译失败: ' + (error as Error).message)
+      } finally {
+        state.setLoadingPdf(false)
+        setShowProgress(false)
+      }
+    }
+    
+    input.click()
+  }, [state, pdfTimer, setPdfProgress, setShowProgress])
+
+  /**
+   * 导入 JSON 文件并渲染为 PDF
+   */
+  const handleImportJson = useCallback(async () => {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json'
+    
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      
+      try {
+        const jsonContent = await file.text()
+        console.log('[JSON] 读取文件成功，内容长度:', jsonContent.length)
+        
+        const resumeData = JSON.parse(jsonContent) as Resume
+        console.log('[JSON] 解析成功，姓名:', resumeData.name)
+        
+        // 更新简历数据
+        state.setResume(resumeData)
+        state.setShowEditor(true)
+        state.setPdfDirty(true)
+        
+        // 开始渲染 PDF
+        state.setLoadingPdf(true)
+        state.setRightView('pdf')
+        setShowProgress(true)
+        setPdfProgress('正在渲染 PDF...')
+        pdfTimer.startTimer()
+        
+        // 调用流式渲染 API
+        const blob = await renderPDFStream(
+          resumeData,
+          state.currentSectionOrder,
+          (progress) => setPdfProgress(progress),
+          () => setPdfProgress('PDF 渲染完成！'),
+          (error) => setPdfProgress(`错误: ${error}`)
+        )
+        
+        pdfTimer.stopTimer()
+        state.setPdfBlob(blob)
+        state.setPdfDirty(false)
+        
+        console.log('[JSON] 渲染成功，PDF 大小:', blob.size)
+      } catch (error) {
+        console.error('[JSON] 导入失败:', error)
+        pdfTimer.stopTimer()
+        setPdfProgress('导入失败: ' + (error as Error).message)
+        alert('JSON 导入失败: ' + (error as Error).message)
+      } finally {
+        state.setLoadingPdf(false)
+        setShowProgress(false)
+      }
+    }
+    
+    input.click()
+  }, [state, pdfTimer, setPdfProgress, setShowProgress])
+
+  /**
+   * 保存到简历库（dashboard）
+   */
+  const handleSaveToLibrary = useCallback(() => {
+    const currentPdfBlob = state.pdfBlob
+    const currentResume = state.resume
+    const currentResumeId = state.currentResumeId
+    
+    console.log('[Save] 保存到简历库, pdfBlob:', !!currentPdfBlob, ', resume:', !!currentResume)
+    
+    if (!currentPdfBlob && !currentResume) {
+      alert('请先编译生成 PDF 或导入简历')
+      return
+    }
+    
+    // 如果有简历数据，保存简历
+    if (currentResume) {
+      const saved = saveResume(currentResume, currentResumeId || undefined)
+      state.setCurrentResumeId(saved.id)
+      console.log('[Save] 保存成功, id:', saved.id)
+      alert('简历已保存到简历库！\n\n前往 Dashboard 查看。')
+    } else if (currentPdfBlob) {
+      // 只有 PDF（LaTeX 编译），创建一个占位简历数据
+      const latexResume: Resume = {
+        name: `LaTeX简历_${new Date().toLocaleDateString('zh-CN')}`,
+        contact: { phone: '', email: '', location: '' },
+        objective: 'LaTeX 导入的简历',
+        education: [],
+        internships: [],
+        projects: [],
+        skills: [],
+        awards: [],
+        summary: '此简历由 LaTeX 直接编译生成，暂不支持可视化编辑。'
+      }
+      const saved = saveResume(latexResume)
+      state.setCurrentResumeId(saved.id)
+      state.setResume(latexResume)
+      console.log('[Save] LaTeX 简历保存成功, id:', saved.id)
+      alert('简历已保存到简历库！\n\n前往 Dashboard 查看。')
+    }
+  }, [state.pdfBlob, state.resume, state.currentResumeId, state.setCurrentResumeId, state.setResume])
 
   /**
    * AI 自动优化 - 视觉反思修正
@@ -514,9 +673,13 @@ export default function WorkspacePage() {
           onReset={resumeOps.loadResume}
           onAIOptimize={handleAIOptimize}
           onNewResume={handleNewResume}
+          onImportLatex={handleImportLatex}
+          onImportJson={handleImportJson}
+          onSaveToLibrary={handleSaveToLibrary}
           loadingPdf={state.loadingPdf}
           optimizing={state.optimizing}
           hasResume={!!state.resume}
+          hasPdfBlob={!!state.pdfBlob}
         />
 
         {/* 简历列表 */}

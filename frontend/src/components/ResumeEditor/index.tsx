@@ -339,11 +339,75 @@ export default function ResumeEditor({ resumeData, onSave, onSaveAndRender, savi
   }
 
   async function handleSave() {
+    // 构建最新的简历数据
+    const contactSection = sections.find(s => s.type === 'contact')
+    const educationSection = sections.find(s => s.type === 'education')
+    const experienceSection = sections.find(s => s.type === 'experience')
+    const projectsSection = sections.find(s => s.type === 'projects')
+    const opensourceSection = sections.find(s => s.type === 'opensource')
+    const skillsSection = sections.find(s => s.type === 'skills')
+    const awardsSection = sections.find(s => s.type === 'awards')
+    const summarySection = sections.find(s => s.type === 'summary')
+
+    const convertEducationFormat = (items: any[]) => items.map(item => ({
+      title: item.title || item.school || '',
+      subtitle: item.subtitle || item.major || '',
+      degree: item.degree || '',
+      date: item.date || item.duration || '',
+      details: Array.isArray(item.details) ? item.details : [],
+    }))
+
+    const convertExperienceFormat = (items: any[]) => items.map(item => ({
+      title: item.title || '',
+      subtitle: item.subtitle || '',
+      date: item.date || '',
+      highlights: Array.isArray(item.details) ? item.details : (item.highlights || []),
+    }))
+
+    const convertProjectsFormat = (items: any[]) => items.map(item => ({
+      title: item.title || '',
+      name: item.title || '',
+      role: item.subtitle || '',
+      subtitle: item.subtitle || '',
+      date: item.date || '',
+      highlights: Array.isArray(item.details) ? item.details : (item.highlights || []),
+      repoUrl: item.repoUrl || '',
+    }))
+
+    const sectionTitles: Record<string, string> = {}
+    sections.forEach(s => {
+      if (s.type !== 'contact') {
+        const defaultTitle = defaultSections.find(d => d.type === s.type)?.title
+        if (s.title !== defaultTitle) {
+          sectionTitles[s.type] = s.title
+        }
+      }
+    })
+
+    const newResumeData = {
+      name: contactSection?.data?.name || '',
+      contact: {
+        phone: contactSection?.data?.phone || '',
+        email: contactSection?.data?.email || '',
+        location: contactSection?.data?.location || '',
+      },
+      objective: contactSection?.data?.objective || '',
+      education: convertEducationFormat(educationSection?.data || []),
+      internships: convertExperienceFormat(experienceSection?.data || []),
+      projects: convertProjectsFormat(projectsSection?.data || []),
+      openSource: opensourceSection?.data || [],
+      skills: skillsSection?.data || [],
+      awards: awardsSection?.data || [],
+      summary: summarySection?.data || '',
+      sectionTitles: Object.keys(sectionTitles).length > 0 ? sectionTitles : undefined,
+    }
+
     // 先触发数据保存
     triggerAutoSave(sections)
-    // 再触发 PDF 渲染
+    
+    // 再触发 PDF 渲染，传入最新数据
     if (onSaveAndRender) {
-      await onSaveAndRender()
+      await onSaveAndRender(newResumeData)
     }
   }
 

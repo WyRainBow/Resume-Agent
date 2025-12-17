@@ -36,6 +36,26 @@ export const useDashboardLogic = () => {
 
   useEffect(() => {
     loadResumes()
+    
+    // 监听 storage 事件，当其他页面修改 localStorage 时刷新
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'resume_agent_resumes') {
+        loadResumes()
+      }
+    }
+    
+    // 监听页面获得焦点时刷新
+    const handleFocus = () => {
+      loadResumes()
+    }
+    
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [])
 
   const createResume = () => {

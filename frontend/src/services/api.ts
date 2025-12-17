@@ -500,3 +500,109 @@ function getPdfCache(key: string): Blob | null {
 export function getDefaultTemplate(): Resume {
   return structuredClone(DEFAULT_RESUME_TEMPLATE)
 }
+
+/**
+ * 编译 LaTeX 源代码为 PDF（流式）
+ * 使用 slager 原版样式，与 slager.link 完全一致
+ */
+export async function compileLatexStream(
+  latexContent: string,
+  onProgress?: (progress: string) => void,
+  onPdf?: (pdfData: ArrayBuffer) => void,
+  onError?: (error: string) => void
+): Promise<Blob> {
+  console.log('[API] 开始编译 LaTeX，内容长度:', latexContent.length)
+  
+  onProgress?.('开始编译 LaTeX...')
+  
+  const url = `${API_BASE}/api/pdf/compile-latex/stream`
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache'
+    },
+    body: JSON.stringify({ latex_content: latexContent })
+  })
+  
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+  }
+  
+  const reader = response.body?.getReader()
+  const decoder = new TextDecoder()
+  
+  if (!reader) {
+    throw new Error('无法获取响应流')
+  }
+  
+  let buffer = ''
+  let pdfData: Uint8Array | null = null
+  
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    
+    const chunk = decoder.decode(value, { stream: true })
+    buffer += chunk
+    
+    const events = buffer.split('\n\n')
+    buffer = events.pop() || ''
+    
+    for (const event of events) {
+      const lines = event.split('\n')
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          try {
+            const jsonStr = line.slice(6)
+            const data = JSON.parse(jsonStr)
+            
+            if (data.event === 'progress') {
+              onProgress?.(data.data)
+            } else if (data.event === 'pdf') {
+              const hexData = data.data
+              console.log('[API] 收到 PDF 数据，长度:', hexData?.length || 0)
+              
+              const normalizedHex = hexData.length % 2 === 0 ? hexData : '0' + hexData
+              const matches = normalizedHex.match(/.{2}/g)
+              if (matches) {
+                pdfData = new Uint8Array(matches.map((byte: string) => parseInt(byte, 16)))
+              }
+            } else if (data.event === 'error') {
+              onError?.(data.data)
+              throw new Error(data.data)
+            }
+          } catch (e) {
+            console.error('解析 SSE 数据失败:', e)
+          }
+        }
+      }
+    }
+  }
+  
+  // 处理剩余缓冲区
+  if (buffer && !pdfData) {
+    const pdfEventMatch = buffer.match(/event:\s*pdf\s*\ndata:\s*([a-fA-F0-9]+)/s)
+    if (pdfEventMatch) {
+      const hexData = pdfEventMatch[1]
+      const normalizedHex = hexData.length % 2 === 0 ? hexData : '0' + hexData
+      const matches = normalizedHex.match(/.{2}/g)
+      if (matches) {
+        pdfData = new Uint8Array(matches.map((byte: string) => parseInt(byte, 16)))
+      }
+    }
+  }
+  
+  if (!pdfData) {
+    throw new Error('未收到 PDF 数据')
+  }
+  
+  onPdf?.(pdfData.buffer)
+  
+  const blob = new Blob([pdfData], { type: 'application/pdf' })
+  console.log('[API] LaTeX 编译完成，PDF 大小:', blob.size, '字节')
+  
+  return blob
+}
