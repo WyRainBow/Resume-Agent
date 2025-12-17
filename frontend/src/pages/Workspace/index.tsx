@@ -7,6 +7,7 @@
 import React, { useCallback, useEffect } from 'react'
 import { flushSync } from 'react-dom'
 import html2canvas from 'html2canvas'
+import { useSearchParams } from 'react-router-dom'
 
 // 外部组件
 import { PDFViewerSelector } from '../../components/PDFEditor'
@@ -44,6 +45,11 @@ import {
 } from './components'
 
 export default function WorkspacePage() {
+  // 获取URL参数，用于判断跳转来源
+  const [searchParams] = useSearchParams()
+  const source = searchParams.get('source') // 来源：create（从dashboard创建简历）
+  const urlResumeId = searchParams.get('resumeId') // URL中携带的简历ID
+
   // 状态管理
   const state = useWorkspaceState()
   const pdfTimer = useTimer()
@@ -330,7 +336,44 @@ export default function WorkspacePage() {
       // 从首页跳转时，触发流式生成
       handleStreamGenerate(instruction)
     } else {
-      // 检查是否已有保存的简历（从 Dashboard 跳转过来的情况）
+      // 优先检查URL参数，判断是否是从dashboard点击"创建简历"跳转过来的
+      if (source === 'create' && urlResumeId) {
+        // 从dashboard点击"创建简历"跳转过来，直接加载已创建的简历
+        const saved = getResume(urlResumeId)
+        if (saved) {
+          const loadExistingResume = async () => {
+            state.setLoadingPdf(true)
+            setShowProgress(true)
+            setPdfProgress('加载简历中...')
+
+            try {
+              state.setResume(saved.data)
+              state.setCurrentResumeId(urlResumeId)
+              state.setShowEditor(true)
+              state.setPreviewMode('pdf')
+              state.setCurrentSectionOrder(DEFAULT_SECTION_ORDER)
+
+              const blob = await renderPDFStream(
+                saved.data,
+                DEFAULT_SECTION_ORDER,
+                (progress) => setPdfProgress(progress),
+                () => setPdfProgress('加载完成！'),
+                (error) => setPdfProgress(`错误: ${error}`)
+              )
+              state.setPdfBlob(blob)
+            } catch (error) {
+              console.error('加载简历失败:', error)
+            } finally {
+              state.setLoadingPdf(false)
+              setShowProgress(false)
+            }
+          }
+          loadExistingResume()
+          return
+        }
+      }
+
+      // 检查是否已有保存的简历（从 Dashboard 正常跳转过来的情况）
       const savedId = getCurrentResumeId()
       if (savedId) {
         const saved = getResume(savedId)
@@ -368,7 +411,7 @@ export default function WorkspacePage() {
         }
       }
 
-      // 没有已保存的简历，加载默认模板
+      // 没有已保存的简历，且不是从dashboard创建跳转，才加载默认模板
       const loadDefaultTemplate = async () => {
         state.setLoadingPdf(true)
         setShowProgress(true)
@@ -410,7 +453,7 @@ export default function WorkspacePage() {
 
       loadDefaultTemplate()
     }
-  }, [])
+  }, [source, urlResumeId])
 
   
   return (
