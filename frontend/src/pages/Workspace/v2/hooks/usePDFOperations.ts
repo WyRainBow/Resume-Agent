@@ -1,0 +1,94 @@
+/**
+ * PDF 操作 Hook
+ */
+import { useState, useCallback } from 'react'
+import { saveAs } from 'file-saver'
+import { renderPDFStream } from '../../../../services/api'
+import { saveResume, setCurrentResumeId } from '../../../../services/resumeStorage'
+import { convertToBackendFormat } from '../utils/convertToBackend'
+import type { ResumeData } from '../types'
+
+interface UsePDFOperationsProps {
+  resumeData: ResumeData
+  currentResumeId: string | null
+  setCurrentId: (id: string | null) => void
+}
+
+export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: UsePDFOperationsProps) {
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [progress, setProgress] = useState('')
+  const [saveSuccess, setSaveSuccess] = useState(false)
+
+  // 渲染 PDF
+  const handleRender = useCallback(async () => {
+    setLoading(true)
+    setProgress('正在准备数据...')
+
+    try {
+      const backendData = convertToBackendFormat(resumeData)
+      setProgress('正在渲染 PDF...')
+
+      const blob = await renderPDFStream(
+        backendData as any,
+        backendData.sectionOrder,
+        (p) => setProgress(p),
+        () => setProgress('渲染完成！'),
+        (err) => setProgress(`错误: ${err}`)
+      )
+
+      setPdfBlob(blob)
+      setProgress('')
+    } catch (error) {
+      console.error('PDF 渲染失败:', error)
+      setProgress(`渲染失败: ${(error as Error).message}`)
+    } finally {
+      setLoading(false)
+    }
+  }, [resumeData])
+
+  // 下载 PDF
+  const handleDownload = useCallback(() => {
+    if (!pdfBlob) return
+
+    const name = resumeData.basic.name || '简历'
+    const date = new Date().toISOString().split('T')[0]
+    const filename = `${name}_简历_${date}.pdf`
+
+    const file = new File([pdfBlob], filename, { type: 'application/pdf' })
+    saveAs(file, filename)
+  }, [pdfBlob, resumeData.basic.name])
+
+  // 保存到 Dashboard
+  const handleSaveToDashboard = useCallback(() => {
+    const resumeToSave = {
+      name: resumeData.basic.name || '未命名简历',
+      basic: resumeData.basic,
+      education: resumeData.education,
+      experience: resumeData.experience,
+      projects: resumeData.projects,
+      skills: resumeData.skillContent ? [{ category: '技能', details: resumeData.skillContent }] : [],
+    }
+    
+    const saved = saveResume(resumeToSave as any, currentResumeId || undefined)
+    
+    if (!currentResumeId) {
+      setCurrentId(saved.id)
+      setCurrentResumeId(saved.id)
+    }
+    
+    setSaveSuccess(true)
+    setTimeout(() => setSaveSuccess(false), 2000)
+  }, [resumeData, currentResumeId, setCurrentId])
+
+  return {
+    pdfBlob,
+    loading,
+    progress,
+    saveSuccess,
+    handleRender,
+    handleDownload,
+    handleSaveToDashboard,
+  }
+}
+
