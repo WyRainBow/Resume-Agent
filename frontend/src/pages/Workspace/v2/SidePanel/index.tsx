@@ -36,20 +36,24 @@ function SettingCard({
   return (
     <div
       className={cn(
-        'border shadow-sm rounded-lg',
-        'bg-white border-gray-100 shadow-gray-100/50',
-        'dark:bg-neutral-900 dark:border-neutral-800 dark:shadow-neutral-900/50'
+        'rounded-xl overflow-hidden',
+        'bg-white/70 dark:bg-slate-800/70',
+        'backdrop-blur-sm',
+        'border border-white/50 dark:border-slate-700/50',
+        'shadow-sm shadow-slate-200/50 dark:shadow-slate-900/50'
       )}
     >
-      <div className="p-4 pb-0">
-        <div className="flex items-center gap-2 text-base font-medium">
-          <Icon className={cn('w-4 h-4', 'text-gray-600 dark:text-neutral-300')} />
-          <span className={cn('text-gray-700 dark:text-neutral-200')}>
+      <div className="px-4 pt-4 pb-2">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center">
+            <Icon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
             {title}
           </span>
         </div>
       </div>
-      <div className="p-4">{children}</div>
+      <div className="px-4 pb-4">{children}</div>
     </div>
   )
 }
@@ -66,14 +70,8 @@ export function SidePanel({
   addCustomSection,
 }: SidePanelProps) {
   return (
-    <div
-      className={cn(
-        'h-full overflow-y-auto',
-        'bg-gray-50 border-gray-100',
-        'dark:bg-neutral-950 dark:border-neutral-800'
-      )}
-    >
-      <div className="p-3 space-y-3">
+    <div className="h-full overflow-y-auto">
+      <div className="p-4 space-y-4">
         {/* 布局设置 */}
         <SettingCard icon={Layout} title="布局">
           <LayoutSetting
