@@ -76,7 +76,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
           <CardDescription className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             更新于
             <span className="ml-2">
-              {new Date(resume.updatedAt).toLocaleDateString()}
+              {new Date(resume.updatedAt).toLocaleDateString()} {new Date(resume.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
             </span>
           </CardDescription>
         </CardContent>
