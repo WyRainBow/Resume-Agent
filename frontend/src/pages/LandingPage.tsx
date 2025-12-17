@@ -509,11 +509,12 @@ export default function LandingPage() {
 
         .text-input {
           width: 100%;
+          box-sizing: border-box;
           padding: 16px 20px;
           background: #f8fafc;
           border: 2px solid #e2e8f0;
           border-radius: 16px;
-          font-size: 16px;
+          font-size: 14px;
           color: #1a1a2e;
           outline: none;
           transition: all 0.3s ease;
