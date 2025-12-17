@@ -11,6 +11,7 @@ export interface BackendResumeData {
     location: string
   }
   objective: string
+  skillContent?: string  // HTML 格式的专业技能内容
   skills: { category: string; details: string }[]
   internships: {
     title: string
@@ -56,7 +57,8 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
       location: data.basic.location,
     },
     objective: data.basic.title,
-    skills: data.skillContent ? [{ category: '技能', details: data.skillContent }] : [],
+    skillContent: data.skillContent || '',  // 直接传递 HTML 内容
+    skills: data.skillContent ? [{ category: '', details: data.skillContent }] : [],  // 兼容旧格式
     internships: data.experience.filter(e => e.visible !== false).map((e) => ({
       title: e.company,
       subtitle: e.position,

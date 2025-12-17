@@ -40,7 +40,7 @@ class HTMLToLatexConverter(HTMLParser):
         elif tag == 'ul':
             self.in_list = True
             self.list_type = 'ul'
-            self.result.append(r'\begin{itemize}' + '\n')
+            self.result.append(r'\begin{itemize}[parsep=0.2ex]' + '\n')
         elif tag == 'ol':
             self.in_list = True
             self.list_type = 'ol'
