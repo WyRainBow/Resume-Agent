@@ -27,6 +27,8 @@ import {
   Undo,
   Redo,
   Wand2,
+  IndentIncrease,
+  IndentDecrease,
 } from 'lucide-react'
 import { cn } from '../../../../../lib/utils'
 import { BetterSpace } from './BetterSpace'
@@ -260,6 +262,20 @@ const RichEditor = ({
             tooltip="有序列表"
           >
             <ListOrdered className="h-5 w-5" />
+          </MenuButton>
+          <MenuButton
+            onClick={() => editor.chain().focus().sinkListItem('listItem').run()}
+            disabled={!editor.can().sinkListItem('listItem')}
+            tooltip="增加缩进 (Tab)"
+          >
+            <IndentIncrease className="h-5 w-5" />
+          </MenuButton>
+          <MenuButton
+            onClick={() => editor.chain().focus().liftListItem('listItem').run()}
+            disabled={!editor.can().liftListItem('listItem')}
+            tooltip="减少缩进 (Shift+Tab)"
+          >
+            <IndentDecrease className="h-5 w-5" />
           </MenuButton>
         </div>
 

@@ -3,7 +3,7 @@
  */
 import { useState } from 'react'
 import { Reorder, motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { PlusCircle, Wand2, ChevronDown, Eye, EyeOff, GripVertical, Trash2 } from 'lucide-react'
+import { PlusCircle, Wand2, ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { Award } from '../types'
 import Field from './Field'
@@ -47,10 +47,11 @@ function AwardItem({
       dragControls={dragControls}
       onDragEnd={() => setDraggingId(null)}
       className={cn(
-        'rounded-lg border overflow-hidden flex group',
+        'rounded-lg border overflow-hidden flex group transition-opacity',
         'bg-white hover:border-primary',
         'dark:bg-neutral-900/30 dark:border-neutral-800 dark:hover:border-primary',
-        'border-gray-100'
+        'border-gray-100',
+        award.visible === false && 'opacity-40'
       )}
     >
       {/* 拖拽手柄 */}
@@ -89,7 +90,7 @@ function AwardItem({
               }}
               className={cn('p-1.5 rounded-md', 'hover:bg-gray-100 dark:hover:bg-neutral-800')}
             >
-              {award.visible !== false ? <Eye className="w-4 h-4 text-primary" /> : <EyeOff className="w-4 h-4 text-gray-400" />}
+              <Eye className={cn('w-4 h-4', award.visible !== false ? 'text-primary' : 'text-gray-300')} />
             </button>
             <button
               onClick={(e) => {

@@ -23,7 +23,7 @@ def generate_section_summary(resume_data: Dict[str, Any], section_titles: Dict[s
 def generate_section_internships(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """
     生成实习经历 - 与 wy.tex 格式一致
-    格式: \datedsubsection{\textbf{公司} - 职位(语言)}{日期}
+    格式: \\datedsubsection{\\textbf{公司} - 职位(语言)}{日期}
     不带 itemize，简洁风格
     """
     content = []
@@ -39,7 +39,7 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
             if date and date.strip() in ['未提及', '未知', 'N/A', '-', '']:
                 date = ''
             date = escape_latex(date)
-            # 格式：\datedsubsection{\textbf{公司} - 职位}{日期}
+            # 格式：\\datedsubsection{\\textbf{公司} - 职位}{日期}
             if position:
                 line = f"\\textbf{{{company}}} - {position}"
             else:
@@ -70,7 +70,7 @@ def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dic
             content.append(f"\\datedsubsection{{{subsection_title}}}{{{duration}}}")
             achievements = e.get('achievements') or []
             if isinstance(achievements, list) and achievements:
-                content.append(r"\begin{itemize}[parsep=0.2ex]")
+                content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
                 for ach in achievements:
                     if isinstance(ach, str) and ach.strip():
                         content.append(f"  \\item {escape_latex(ach.strip())}")
@@ -80,7 +80,7 @@ def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dic
 
 
 def _convert_markdown_bold(text: str) -> str:
-    """将 **text** 转换为 \textbf{text}"""
+    """将 **text** 转换为 \\textbf{text}"""
     import re
     # 匹配 **text** 或 **text**: 格式
     pattern = r'\*\*([^*]+)\*\*'
@@ -95,14 +95,14 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
     2. highlights 结构：支持 **bold** 和 > 缩进语法
     
     格式:
-    \datedsubsection{\textbf{项目名}}{}
-    \begin{itemize}[parsep=0.2ex]
-      \item \textbf{子项目标题}
-        \begin{itemize}[label=\textbf{·},parsep=0.2ex]
-          \item 详情1
-          \item 详情2
-        \end{itemize}
-    \end{itemize}
+    \\datedsubsection{\\textbf{项目名}}{}
+    \\begin{itemize}[parsep=0.2ex]
+      \\item \\textbf{子项目标题}
+        \\begin{itemize}[label=\\textbf{·},parsep=0.2ex]
+          \\item 详情1
+          \\item 详情2
+        \\end{itemize}
+    \\end{itemize}
     """
     content = []
     projects = resume_data.get('projects') or []
@@ -134,8 +134,8 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                 highlights = p.get('highlights') or []
                 
                 if isinstance(items, list) and items:
-                    # 有子项目结构 - 与 wy.tex 一致
-                    content.append(r"\begin{itemize}[parsep=0.2ex]")
+                    # 有子项目结构 - 不带圆点的列表
+                    content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
                     for sub in items:
                         sub_title = sub.get('title')
                         if sub_title:
@@ -154,7 +154,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                     # highlights 结构 - 支持 HTML 和 Markdown 格式
                     has_list_wrapper = False
                     
-                        for h in highlights:
+                    for h in highlights:
                         if not isinstance(h, str) or not h.strip():
                             continue
                         
@@ -169,15 +169,15 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                                 if '\\begin{itemize}' in converted or '\\begin{enumerate}' in converted:
                                     content.append(converted)
                                 else:
-                                    # 否则包装成列表项
+                                    # 否则包装成列表项（不带圆点）
                                     if not has_list_wrapper:
-                                        content.append(r"\begin{itemize}[parsep=0.2ex]")
+                                        content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
                                         has_list_wrapper = True
                                     content.append(f"  \\item {converted}")
                         elif h.startswith('**') and '**' in h[2:]:
                             # Markdown 加粗格式
                             if not has_list_wrapper:
-                                content.append(r"\begin{itemize}[parsep=0.2ex]")
+                                content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
                                 has_list_wrapper = True
                             converted = _convert_markdown_bold(h)
                             converted = escape_latex(converted.replace('\\textbf{', '<<<TEXTBF>>>').replace('}', '<<<ENDBF>>>')).replace('<<<TEXTBF>>>', '\\textbf{').replace('<<<ENDBF>>>', '}')
@@ -185,12 +185,12 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                         else:
                             # 普通文本
                             if not has_list_wrapper:
-                    content.append(r"\begin{itemize}[parsep=0.2ex]")
+                                content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
                                 has_list_wrapper = True
                             content.append(f"  \\item {escape_latex(h)}")
                     
                     if has_list_wrapper:
-                    content.append(r"\end{itemize}")
+                        content.append(r"\end{itemize}")
                 
                 content.append("")
                 content.append("")
@@ -207,8 +207,8 @@ def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[st
     title = (section_titles or {}).get('skills', '专业技能')
     if skills:
         content.append(f"\\section{{{escape_latex(title)}}}")
-        content.append(r"\begin{itemize}[parsep=0.2ex]")
-            for s in skills:
+        content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
+        for s in skills:
             if isinstance(s, str):
                 if s.strip():
                     if ':' in s or '：' in s:
@@ -218,23 +218,23 @@ def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[st
                         if category and details:
                             content.append(f"  \\item \\textbf{{{escape_latex(category)}:}} {escape_latex(details)}")
                         else:
-                    content.append(f"  \\item {escape_latex(s.strip())}")
-        else:
+                            content.append(f"  \\item {escape_latex(s.strip())}")
+                    else:
                         content.append(f"  \\item {escape_latex(s.strip())}")
             elif isinstance(s, dict):
-                    category = escape_latex(s.get('category') or '')
+                category = escape_latex(s.get('category') or '')
                 details = s.get('details') or ''
                 # 检查 details 是否是 HTML
                 if '<' in details and '>' in details:
                     details = html_to_latex(details)
                 else:
                     details = escape_latex(details)
-                    if category and details:
+                if category and details:
                     content.append(f"  \\item \\textbf{{{category}:}} {details}")
-                    elif category:
-                        content.append(f"  \\item \\textbf{{{category}}}")
-                    elif details:
-                        content.append(f"  \\item {details}")
+                elif category:
+                    content.append(f"  \\item \\textbf{{{category}}}")
+                elif details:
+                    content.append(f"  \\item {details}")
         content.append(r"\end{itemize}")
         content.append("")
     return content
@@ -243,8 +243,8 @@ def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[st
 def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """
     生成教育经历 - 与 wy.tex 格式一致
-    格式: \datedsubsection{\textbf{学校} - 专业 - \textit{学位}}{日期}
-    \ \textbf{荣誉:} 荣誉内容
+    格式: \\datedsubsection{\\textbf{学校} - 专业 - \\textit{学位}}{日期}
+    \\ \\textbf{荣誉:} 荣誉内容
     """
     content = []
     edu = resume_data.get('education') or []
@@ -258,7 +258,7 @@ def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict
             major = escape_latex(ed.get('subtitle') or ed.get('major') or '')
             duration = escape_latex(ed.get('date') or ed.get('duration') or '')
             
-            # 构建标题：\textbf{学校} - 专业 - \textit{学位}
+            # 构建标题：\\textbf{学校} - 专业 - \\textit{学位}
             title_parts = []
             if school:
                 title_parts.append(f"\\textbf{{{school}}}")
@@ -288,7 +288,7 @@ def generate_section_awards(resume_data: Dict[str, Any], section_titles: Dict[st
     section_title = (section_titles or {}).get('awards', '荣誉奖项')
     if isinstance(awards, list) and awards:
         content.append(f"\\section{{{escape_latex(section_title)}}}")
-        content.append(r"\begin{itemize}[parsep=0.2ex]")
+        content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
         for a in awards:
             if isinstance(a, str):
                 if a.strip():
@@ -310,11 +310,11 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
     """
     生成开源经历 - 与 wy.tex 格式一致
     格式:
-    \datedsubsection{\textbf{项目名}}{描述}
-    \begin{itemize}[parsep=0.2ex]
-      \item 仓库: \textit{url}
-      \item 其他内容
-    \end{itemize}
+    \\datedsubsection{\\textbf{项目名}}{描述}
+    \\begin{itemize}[parsep=0.2ex]
+      \\item 仓库: \\textit{url}
+      \\item 其他内容
+    \\end{itemize}
     """
     content = []
     # 兼容 openSource、opensource、open_source 三种字段名
@@ -327,22 +327,22 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
             subtitle = escape_latex(os_item.get('subtitle') or '')
             repo_url = os_item.get('repoUrl') or os_item.get('repo') or os_item.get('link') or ''
             
-                subsection_title = f"\\textbf{{{item_title}}}"
+            subsection_title = f"\\textbf{{{item_title}}}"
             content.append(f"\\datedsubsection{{{subsection_title}}}{{{subtitle}}}")
             
             items = os_item.get('items') or []
             
             if repo_url or (isinstance(items, list) and items):
-                content.append(r"\begin{itemize}[parsep=0.2ex]")
+                content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
                 
                 if repo_url:
                     escaped_url = escape_latex(repo_url)
                     content.append(f"  \\item 仓库: \\textit{{{escaped_url}}}")
                 
                 if isinstance(items, list) and items:
-                for item in items:
-                    if isinstance(item, str) and item.strip():
-                        content.append(f"  \\item {escape_latex(item.strip())}")
+                    for item in items:
+                        if isinstance(item, str) and item.strip():
+                            content.append(f"  \\item {escape_latex(item.strip())}")
                 
                 content.append(r"\end{itemize}")
             
