@@ -1,8 +1,7 @@
 import React from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
-import WorkspacePage from './pages/WorkspacePage'
-import WorkspaceV2 from './pages/Workspace/v2'
+import Workspace from './pages/Workspace/v2'
 import ResumeDashboard from './pages/ResumeDashboard'
 import ErrorBoundary from './ErrorBoundary'
 
@@ -13,8 +12,7 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<LandingPage />} />
-            <Route path="/workspace" element={<WorkspaceV2 />} />
-            <Route path="/workspace-v1" element={<WorkspacePage />} />
+            <Route path="/workspace" element={<Workspace />} />
             <Route path="/dashboard" element={<ResumeDashboard />} />
           </Routes>
         </BrowserRouter>
