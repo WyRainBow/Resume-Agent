@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { 
   getAllResumes, 
   deleteResume as deleteResumeService, 
@@ -22,6 +22,9 @@ export const useDashboardLogic = () => {
   const [resumes, setResumes] = useState<SavedResume[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const navigate = useNavigate()
+
+  /** 选中的简历 ID 集合（用于批量删除） */
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const loadResumes = () => {
     setIsLoading(true)
@@ -48,9 +51,16 @@ export const useDashboardLogic = () => {
     navigate('/workspace')
   };
 
+  /** 删除单个简历 */
   const deleteResume = (id: string) => {
     if (window.confirm('确定删除这份简历吗？')) {
       deleteResumeService(id)
+      // 同时从选中集合中移除
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
       loadResumes()
     }
   }
@@ -97,6 +107,61 @@ export const useDashboardLogic = () => {
     input.click()
   }
 
+  /**
+   * 切换单个简历的选中状态
+   * @param id 简历 ID
+   * @param selected 是否选中
+   */
+  const toggleSelect = useCallback((id: string, selected: boolean) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (selected) {
+        next.add(id)
+      } else {
+        next.delete(id)
+      }
+      return next
+    })
+  }, [])
+
+  /**
+   * 批量删除选中的简历
+   * - 如果没有选中任何简历，给出友好提示
+   * - 删除前弹出确认框
+   * - 删除后清空选中状态并刷新列表
+   */
+  const batchDelete = useCallback(() => {
+    // 检查是否有选中的简历
+    if (selectedIds.size === 0) {
+      alert('请先选择要删除的简历')
+      return
+    }
+
+    // 确认删除
+    const confirmMessage = `确定删除选中的 ${selectedIds.size} 份简历吗？此操作不可恢复。`
+    if (!window.confirm(confirmMessage)) {
+      return
+    }
+
+    // 执行批量删除
+    selectedIds.forEach(id => {
+      deleteResumeService(id)
+    })
+
+    // 清空选中状态
+    setSelectedIds(new Set())
+
+    // 刷新列表
+    loadResumes()
+  }, [selectedIds])
+
+  /**
+   * 清空所有选中状态
+   */
+  const clearSelection = useCallback(() => {
+    setSelectedIds(new Set())
+  }, [])
+
   return {
     resumes,
     isLoading,
@@ -104,6 +169,11 @@ export const useDashboardLogic = () => {
     deleteResume,
     duplicateResume,
     editResume,
-    importJson
+    importJson,
+    // 批量删除相关
+    selectedIds,
+    toggleSelect,
+    batchDelete,
+    clearSelection
   }
 }

@@ -10,9 +10,19 @@ interface ResumeCardProps {
   resume: SavedResume
   onEdit: (id: string) => void
   onDelete: (id: string) => void
+  /** 是否被选中（用于批量删除） */
+  isSelected?: boolean
+  /** 选中状态变化回调 */
+  onSelectChange?: (id: string, selected: boolean) => void
 }
 
-export const ResumeCard: React.FC<ResumeCardProps> = ({ resume, onEdit, onDelete }) => {
+export const ResumeCard: React.FC<ResumeCardProps> = ({ 
+  resume, 
+  onEdit, 
+  onDelete,
+  isSelected = false,
+  onSelectChange
+}) => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -21,12 +31,35 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({ resume, onEdit, onDelete
       transition={{ duration: 0.3 }}
       whileHover={{ scale: 1.02 }}
       whileTap={{ scale: 0.98 }}
+      className="relative"
     >
+      {/* 复选框 - 用于批量选择删除 */}
+      {onSelectChange && (
+        <div 
+          className="absolute top-3 left-3 z-10"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <input
+            type="checkbox"
+            checked={isSelected}
+            onChange={(e) => onSelectChange(resume.id, e.target.checked)}
+            className={cn(
+              "w-5 h-5 rounded border-2 cursor-pointer transition-all duration-200",
+              "accent-gray-900 dark:accent-primary",
+              "hover:scale-110"
+            )}
+            title="选择此简历"
+          />
+        </div>
+      )}
+
       <Card
         className={cn(
           "group border transition-all duration-200 h-[260px] flex flex-col",
           "hover:border-gray-400 hover:bg-gray-50",
-          "dark:hover:border-primary dark:hover:bg-primary/10"
+          "dark:hover:border-primary dark:hover:bg-primary/10",
+          // 选中状态时添加高亮边框
+          isSelected && "border-red-400 bg-red-50/30 dark:border-red-500 dark:bg-red-950/20"
         )}
       >
         <CardContent className="relative flex-1 pt-6 text-center flex flex-col items-center">
