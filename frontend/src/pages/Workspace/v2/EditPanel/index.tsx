@@ -5,12 +5,14 @@
 import { motion } from 'framer-motion'
 import { Pencil } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
-import type { MenuSection, ResumeData, BasicInfo, Project, Experience, Education } from '../types'
+import type { MenuSection, ResumeData, BasicInfo, Project, Experience, Education, OpenSource, Award } from '../types'
 import BasicPanel from './BasicPanel'
 import ProjectPanel from './ProjectPanel'
 import ExperiencePanel from './ExperiencePanel'
 import EducationPanel from './EducationPanel'
 import SkillPanel from './SkillPanel'
+import OpenSourcePanel from './OpenSourcePanel'
+import AwardPanel from './AwardPanel'
 
 interface EditPanelProps {
   activeSection: string
@@ -27,6 +29,12 @@ interface EditPanelProps {
   updateEducation: (education: Education) => void
   deleteEducation: (id: string) => void
   reorderEducations: (educations: Education[]) => void
+  updateOpenSource: (openSource: OpenSource) => void
+  deleteOpenSource: (id: string) => void
+  reorderOpenSources: (openSources: OpenSource[]) => void
+  updateAward: (award: Award) => void
+  deleteAward: (id: string) => void
+  reorderAwards: (awards: Award[]) => void
   updateSkillContent: (content: string) => void
   updateMenuSections: (sections: MenuSection[]) => void
   // AI 导入回调
@@ -47,6 +55,12 @@ export function EditPanel({
   updateEducation,
   deleteEducation,
   reorderEducations,
+  updateOpenSource,
+  deleteOpenSource,
+  reorderOpenSources,
+  updateAward,
+  deleteAward,
+  reorderAwards,
   updateSkillContent,
   updateMenuSections,
   onAIImport,
@@ -101,6 +115,28 @@ export function EditPanel({
             onDelete={deleteEducation}
             onReorder={reorderEducations}
             onAIImport={onAIImport ? () => onAIImport('education') : undefined}
+          />
+        )
+
+      case 'openSource':
+        return (
+          <OpenSourcePanel
+            openSources={resumeData.openSource || []}
+            onUpdate={updateOpenSource}
+            onDelete={deleteOpenSource}
+            onReorder={reorderOpenSources}
+            onAIImport={onAIImport ? () => onAIImport('openSource') : undefined}
+          />
+        )
+
+      case 'awards':
+        return (
+          <AwardPanel
+            awards={resumeData.awards || []}
+            onUpdate={updateAward}
+            onDelete={deleteAward}
+            onReorder={reorderAwards}
+            onAIImport={onAIImport ? () => onAIImport('awards') : undefined}
           />
         )
 

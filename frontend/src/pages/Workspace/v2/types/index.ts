@@ -65,7 +65,7 @@ export interface Education {
 }
 
 /**
- * 工作经历
+ * 工作经历/实习经历
  */
 export interface Experience {
   id: string
@@ -73,6 +73,31 @@ export interface Experience {
   position: string
   date: string
   details: string  // HTML 格式
+  visible?: boolean
+}
+
+/**
+ * 开源经历
+ */
+export interface OpenSource {
+  id: string
+  name: string
+  repo?: string
+  role?: string
+  date?: string
+  description: string  // HTML 格式
+  visible?: boolean
+}
+
+/**
+ * 荣誉奖项
+ */
+export interface Award {
+  id: string
+  title: string
+  issuer?: string
+  date?: string
+  description?: string
   visible?: boolean
 }
 
@@ -131,6 +156,8 @@ export interface ResumeData {
   education: Education[]
   experience: Experience[]
   projects: Project[]
+  openSource: OpenSource[]
+  awards: Award[]
   customData: Record<string, CustomItem[]>
   skillContent: string  // HTML 格式
   activeSection: string
@@ -145,9 +172,11 @@ export interface ResumeData {
 export const DEFAULT_MENU_SECTIONS: MenuSection[] = [
   { id: 'basic', title: '基本信息', icon: '👤', enabled: true, order: 0 },
   { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 1 },
-  { id: 'experience', title: '工作经验', icon: '💼', enabled: true, order: 2 },
+  { id: 'experience', title: '实习经历', icon: '💼', enabled: true, order: 2 },
   { id: 'projects', title: '项目经历', icon: '🚀', enabled: true, order: 3 },
-  { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 4 },
+  { id: 'openSource', title: '开源经历', icon: '🔗', enabled: true, order: 4 },
+  { id: 'awards', title: '荣誉奖项', icon: '🏆', enabled: false, order: 5 },
+  { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 6 },
 ]
 
 /**

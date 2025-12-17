@@ -13,8 +13,8 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<LandingPage />} />
-            <Route path="/workspace" element={<WorkspacePage />} />
-            <Route path="/workspace-v2" element={<WorkspaceV2 />} />
+            <Route path="/workspace" element={<WorkspaceV2 />} />
+            <Route path="/workspace-v1" element={<WorkspacePage />} />
             <Route path="/dashboard" element={<ResumeDashboard />} />
           </Routes>
         </BrowserRouter>
