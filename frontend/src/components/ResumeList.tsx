@@ -11,11 +11,10 @@ import {
 
 interface Props {
   onSelect: (resume: Resume, id: string) => void
-  onCreateNew: () => void
   currentId: string | null
 }
 
-export default function ResumeList({ onSelect, onCreateNew, currentId }: Props) {
+export default function ResumeList({ onSelect, currentId }: Props) {
   const [resumes, setResumes] = useState<SavedResume[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
@@ -65,30 +64,13 @@ export default function ResumeList({ onSelect, onCreateNew, currentId }: Props) 
 
   return (
     <div style={{ padding: '16px' }}>
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
+      <div style={{
+        display: 'flex',
+        justifyContent: 'flex-start',
         alignItems: 'center',
         marginBottom: '16px'
       }}>
         <h3 style={{ margin: 0, color: 'white', fontSize: '14px' }}>📄 我的简历</h3>
-        <button
-          onClick={onCreateNew}
-          style={{
-            padding: '6px 12px',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            border: 'none',
-            borderRadius: '6px',
-            color: 'white',
-            fontSize: '12px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px'
-          }}
-        >
-          ➕ 新建
-        </button>
       </div>
 
       {resumes.length === 0 ? (
@@ -98,7 +80,7 @@ export default function ResumeList({ onSelect, onCreateNew, currentId }: Props) 
           padding: '32px 16px',
           fontSize: '13px'
         }}>
-          暂无简历，点击"新建"开始创建
+          暂无简历，点击顶部"新建"按钮开始创建
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
