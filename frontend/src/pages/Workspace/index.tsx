@@ -19,7 +19,7 @@ import OnboardingGuide from '../../components/OnboardingGuide'
 import { useTimer } from '../../hooks/useTimer'
 import type { Resume } from '../../types/resume'
 import { renderPDF, renderPDFStream, generateResumeStream, getDefaultTemplate } from '../../services/api'
-import { saveResume } from '../../services/resumeStorage'
+import { saveResume, getCurrentResumeId, getResume } from '../../services/resumeStorage'
 
 // 内部 Hooks
 import { 
@@ -330,37 +330,64 @@ export default function WorkspacePage() {
       // 从首页跳转时，触发流式生成
       handleStreamGenerate(instruction)
     } else {
-      // 无论是否有保存的简历，都先加载默认模板
-      // 直接内联加载逻辑，避免依赖问题
+      // 检查是否已有保存的简历（从 Dashboard 跳转过来的情况）
+      const savedId = getCurrentResumeId()
+      if (savedId) {
+        const saved = getResume(savedId)
+        if (saved) {
+          // 加载已有简历
+          const loadExistingResume = async () => {
+            state.setLoadingPdf(true)
+            setShowProgress(true)
+            setPdfProgress('加载简历中...')
+
+            try {
+              state.setResume(saved.data)
+              state.setCurrentResumeId(savedId)
+              state.setShowEditor(true)
+              state.setPreviewMode('pdf')
+              state.setCurrentSectionOrder(DEFAULT_SECTION_ORDER)
+
+              const blob = await renderPDFStream(
+                saved.data,
+                DEFAULT_SECTION_ORDER,
+                (progress) => setPdfProgress(progress),
+                () => setPdfProgress('加载完成！'),
+                (error) => setPdfProgress(`错误: ${error}`)
+              )
+              state.setPdfBlob(blob)
+            } catch (error) {
+              console.error('加载简历失败:', error)
+            } finally {
+              state.setLoadingPdf(false)
+              setShowProgress(false)
+            }
+          }
+          loadExistingResume()
+          return
+        }
+      }
+
+      // 没有已保存的简历，加载默认模板
       const loadDefaultTemplate = async () => {
-        // 设置加载状态
         state.setLoadingPdf(true)
         setShowProgress(true)
         setPdfProgress('加载默认模板...')
 
         try {
-          // 获取默认模板
           const defaultTemplate = getDefaultTemplate()
 
-          // 设置简历数据
           state.setResume(defaultTemplate)
           state.setShowEditor(true)
           state.setPreviewMode('pdf')
           state.setCurrentSectionOrder(DEFAULT_SECTION_ORDER)
 
-          // 使用流式渲染PDF
           const blob = await renderPDFStream(
             defaultTemplate,
             DEFAULT_SECTION_ORDER,
-            (progress) => {
-              setPdfProgress(progress)
-            },
-            (pdfData) => {
-              setPdfProgress('模板加载完成！')
-            },
-            (error) => {
-              setPdfProgress(`错误: ${error}`)
-            }
+            (progress) => setPdfProgress(progress),
+            () => setPdfProgress('模板加载完成！'),
+            (error) => setPdfProgress(`错误: ${error}`)
           )
 
           state.setPdfBlob(blob)

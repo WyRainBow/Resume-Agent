@@ -14,10 +14,14 @@ const ResumeDashboard = () => {
     createResume,
     deleteResume,
     editResume,
-    importJson
+    importJson,
+    // 批量删除相关
+    selectedIds,
+    toggleSelect,
+    batchDelete
   } = useDashboardLogic()
 
-  // 模拟 hasConfiguredFolder 状态，因为我们使用 localStorage，总是“已配置”或不需要配置
+  // 模拟 hasConfiguredFolder 状态，因为我们使用 localStorage，总是"已配置"或不需要配置
   const hasConfiguredFolder = true
 
   return (
@@ -81,7 +85,13 @@ const ResumeDashboard = () => {
           )}
         </motion.div>
 
-        <Header onImport={importJson} onCreate={createResume} />
+        {/* 顶部标题栏 - 传入批量删除相关 props */}
+        <Header 
+          onImport={importJson} 
+          onCreate={createResume}
+          selectedCount={selectedIds.size}
+          onBatchDelete={batchDelete}
+        />
 
         <motion.div
           className="flex-1 w-full p-3 sm:p-6"
@@ -93,12 +103,15 @@ const ResumeDashboard = () => {
             <CreateCard onClick={createResume} />
 
             <AnimatePresence>
-              {resumes.map((resume, index) => (
+              {resumes.map((resume) => (
                 <ResumeCard
                   key={resume.id}
                   resume={resume}
                   onEdit={editResume}
                   onDelete={deleteResume}
+                  // 传入选中状态和回调
+                  isSelected={selectedIds.has(resume.id)}
+                  onSelectChange={toggleSelect}
                 />
               ))}
             </AnimatePresence>
