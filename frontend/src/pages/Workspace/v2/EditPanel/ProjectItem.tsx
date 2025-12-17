@@ -4,7 +4,7 @@
  */
 import { useState, useCallback } from 'react'
 import { motion, Reorder, useDragControls, AnimatePresence } from 'framer-motion'
-import { ChevronDown, Eye, EyeOff, GripVertical, Trash2 } from 'lucide-react'
+import { ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { Project } from '../types'
 import Field from './Field'
@@ -111,10 +111,12 @@ const ProjectItem = ({
       dragControls={dragControls}
       onDragEnd={() => setDraggingId(null)}
       className={cn(
-        'rounded-lg border overflow-hidden flex group',
+        'rounded-lg border overflow-hidden flex group transition-opacity',
         'bg-white hover:border-primary',
         'dark:bg-neutral-900/30 dark:border-neutral-800 dark:hover:border-primary',
-        'border-gray-100'
+        'border-gray-100',
+        // 隐藏时显示淡透明
+        !project.visible && 'opacity-40'
       )}
     >
       {/* 拖拽手柄 */}
@@ -171,17 +173,10 @@ const ProjectItem = ({
               onClick={handleVisibilityToggle}
               className={cn(
                 'p-1.5 rounded-md',
-                'hover:bg-gray-100 dark:hover:bg-neutral-800',
-                project.visible
-                  ? 'text-gray-500 dark:text-neutral-400'
-                  : 'text-gray-400 dark:text-neutral-600'
+                'hover:bg-gray-100 dark:hover:bg-neutral-800'
               )}
             >
-              {project.visible ? (
-                <Eye className="w-4 h-4 text-primary" />
-              ) : (
-                <EyeOff className="w-4 h-4" />
-              )}
+              <Eye className={cn('w-4 h-4', project.visible ? 'text-primary' : 'text-gray-300')} />
             </button>
 
             {/* 删除 */}

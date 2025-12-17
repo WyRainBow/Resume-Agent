@@ -3,7 +3,7 @@
  */
 import { useState, useCallback } from 'react'
 import { motion, Reorder, useDragControls, AnimatePresence } from 'framer-motion'
-import { ChevronDown, Eye, EyeOff, GripVertical, Trash2 } from 'lucide-react'
+import { ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { Experience } from '../types'
 import Field from './Field'
@@ -99,10 +99,11 @@ const ExperienceItem = ({
       dragControls={dragControls}
       onDragEnd={() => setDraggingId(null)}
       className={cn(
-        'rounded-lg border overflow-hidden flex group',
+        'rounded-lg border overflow-hidden flex group transition-opacity',
         'bg-white hover:border-primary',
         'dark:bg-neutral-900/30 dark:border-neutral-800 dark:hover:border-primary',
-        'border-gray-100'
+        'border-gray-100',
+        !experience.visible && 'opacity-40'
       )}
     >
       <div
@@ -155,11 +156,7 @@ const ExperienceItem = ({
               onClick={handleVisibilityToggle}
               className={cn('p-1.5 rounded-md', 'hover:bg-gray-100 dark:hover:bg-neutral-800')}
             >
-              {experience.visible ? (
-                <Eye className="w-4 h-4 text-primary" />
-              ) : (
-                <EyeOff className="w-4 h-4" />
-              )}
+              <Eye className={cn('w-4 h-4', experience.visible ? 'text-primary' : 'text-gray-300')} />
             </button>
 
             <button
