@@ -40,15 +40,21 @@
   - 工具栏 Tooltip 中文提示
   - AI 润色按钮预留
 - [x] AI 导入功能（全局导入 + 分模块导入）
-- [x] 临时路由 `/workspace-v2`
 - [x] 后端 `html_to_latex.py` 转换函数
   - HTML → LaTeX 转换
   - 支持加粗、斜体、下划线、列表
   - LaTeX 特殊字符转义
 - [x] PDF 下载功能
+- [x] 保存简历到 Dashboard 功能
+- [x] 页面进入动画效果
+- [x] **替换旧版 workspace（已将 `/workspace-v2` 改为 `/workspace`）** ✅
+- [x] **清理旧代码（已删除 WorkspacePage.tsx、Workspace/index.tsx、components/、hooks/）** ✅
 
 ### 待完成
-- [ ] 替换旧版 workspace（将 `/workspace-v2` 改为 `/workspace`）
+- [ ] AI 润色功能
+- [ ] 照片上传功能
+- [ ] 模板切换功能
+- [ ] JSON 导入/导出功能
 
 ---
 
@@ -645,36 +651,48 @@ mkdir -p frontend/src/pages/Workspace/v2/shared
 # 5. 测试通过后，替换旧版本 ⏳ 待完成
 ```
 
-**已完成的文件：**
+**当前文件结构（已完成清理）：**
 
 ```
-frontend/src/pages/Workspace/v2/
-├── index.tsx                 # ✅ 三列布局主入口
-├── types/
-│   └── index.ts              # ✅ 类型定义
-├── SidePanel/
-│   ├── index.tsx             # ✅ 侧边面板
-│   ├── LayoutItem.tsx        # ✅ 布局项组件
-│   └── LayoutSetting.tsx     # ✅ 布局设置组件
-├── EditPanel/
-│   ├── index.tsx             # ✅ 编辑面板主组件
-│   ├── Field.tsx             # ✅ 通用字段组件
-│   ├── BasicPanel.tsx        # ✅ 基本信息面板
-│   ├── SkillPanel.tsx        # ✅ 技能面板
-│   ├── ProjectItem.tsx       # ✅ 项目条目组件
-│   ├── ProjectPanel.tsx      # ✅ 项目经历面板
-│   ├── ExperienceItem.tsx    # ✅ 工作经历条目
-│   ├── ExperiencePanel.tsx   # ✅ 工作经历面板
-│   └── EducationPanel.tsx    # ✅ 教育经历面板
-├── PreviewPanel/
-│   └── index.tsx             # ✅ PDF 预览面板
-└── shared/
-    └── RichEditor/
-        ├── index.tsx         # ✅ TipTap 富文本编辑器
-        └── BetterSpace.ts    # ✅ 空格处理扩展
+frontend/src/pages/Workspace/
+└── v2/                        # ✅ 唯一的 workspace 实现
+    ├── index.tsx              # ✅ 三列布局主入口
+    ├── ResizableLayout.tsx    # ✅ 可拖拽分隔线布局
+    ├── types/
+    │   └── index.ts           # ✅ 类型定义
+    ├── SidePanel/
+    │   ├── index.tsx          # ✅ 侧边面板
+    │   ├── LayoutItem.tsx     # ✅ 布局项组件
+    │   └── LayoutSetting.tsx  # ✅ 布局设置组件
+    ├── EditPanel/
+    │   ├── index.tsx          # ✅ 编辑面板主组件
+    │   ├── Field.tsx          # ✅ 通用字段组件
+    │   ├── BasicPanel.tsx     # ✅ 基本信息面板
+    │   ├── SkillPanel.tsx     # ✅ 技能面板
+    │   ├── ProjectItem.tsx    # ✅ 项目条目组件
+    │   ├── ProjectPanel.tsx   # ✅ 项目经历面板
+    │   ├── ExperienceItem.tsx # ✅ 工作经历条目
+    │   ├── ExperiencePanel.tsx# ✅ 工作经历面板
+    │   ├── EducationPanel.tsx # ✅ 教育经历面板
+    │   ├── OpenSourcePanel.tsx# ✅ 开源经历面板
+    │   └── AwardPanel.tsx     # ✅ 荣誉奖项面板
+    ├── PreviewPanel/
+    │   └── index.tsx          # ✅ PDF 预览面板
+    └── shared/
+        ├── AIImportModal.tsx  # ✅ AI 导入弹窗
+        └── RichEditor/
+            ├── index.tsx      # ✅ TipTap 富文本编辑器
+            ├── BetterSpace.ts # ✅ 空格处理扩展
+            └── tiptap.css     # ✅ 编辑器样式
 ```
 
-**临时测试路由：** http://localhost:5173/workspace-v2
+**已删除的旧代码：**
+- `frontend/src/pages/WorkspacePage.tsx`
+- `frontend/src/pages/Workspace/index.tsx`
+- `frontend/src/pages/Workspace/components/` (整个目录)
+- `frontend/src/pages/Workspace/hooks/` (整个目录)
+
+**正式路由：** http://localhost:5173/workspace
 
 ### 12.4 保留 & 复用的现有代码
 
