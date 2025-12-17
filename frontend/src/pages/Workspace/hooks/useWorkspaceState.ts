@@ -89,7 +89,7 @@ export function useWorkspaceState(): WorkspaceState {
   const [showAIImport, setShowAIImport] = useState(false)
   const [optimizing, setOptimizing] = useState(false)
   const [previewMode, setPreviewMode] = useState<'live' | 'pdf'>('pdf')
-  const [previewScale, setPreviewScale] = useState(1.0)
+  const [previewScale, setPreviewScale] = useState(1.2)
   
   // 右侧面板状态 - AI 流式输出
   const [rightView, setRightView] = useState<'pdf' | 'ai-output'>('pdf')

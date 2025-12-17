@@ -5,8 +5,6 @@
 import React from 'react'
 
 interface ToolbarProps {
-  showEditor: boolean
-  setShowEditor: (show: boolean) => void
   showResumeList: boolean
   setShowResumeList: (show: boolean) => void
   setShowAIImport: (show: boolean) => void
@@ -20,8 +18,6 @@ interface ToolbarProps {
 }
 
 export function Toolbar({
-  showEditor,
-  setShowEditor,
   showResumeList,
   setShowResumeList,
   setShowAIImport,
@@ -42,56 +38,8 @@ export function Toolbar({
       background: 'rgba(0, 0, 0, 0.05)',
       gap: '12px',
     }}>
-      {/* 第一行：视图切换 + 基础操作 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        {/* 视图切换 */}
-        <div style={{
-          display: 'flex',
-          background: 'rgba(0, 0, 0, 0.2)',
-          borderRadius: '8px',
-          padding: '3px',
-          border: '1px solid rgba(255, 255, 255, 0.05)',
-        }}>
-          <button
-            onClick={() => setShowEditor(false)}
-            style={{
-              padding: '4px 10px',
-              background: !showEditor ? 'rgba(167, 139, 250, 0.5)' : 'transparent',
-              border: 'none',
-              borderRadius: '6px',
-              color: !showEditor ? 'white' : 'rgba(255, 255, 255, 0.6)',
-              fontSize: '12px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-          >
-            JSON
-          </button>
-          <button
-            onClick={() => setShowEditor(true)}
-            style={{
-              padding: '4px 10px',
-              background: showEditor ? 'rgba(167, 139, 250, 0.5)' : 'transparent',
-              border: 'none',
-              borderRadius: '6px',
-              color: showEditor ? 'white' : 'rgba(255, 255, 255, 0.6)',
-              fontSize: '12px',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'all 0.2s ease',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-          >
-            可视化
-          </button>
-        </div>
-
+      {/* 第一行：基础操作 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
         <div style={{ display: 'flex', gap: '8px' }}>
           {/* 新建简历 */}
           {onNewResume && (
