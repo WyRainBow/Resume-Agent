@@ -54,3 +54,7 @@ logs/**/*.log
 .pydeps/
 backend/.venv/
 magic-resume-reference/
+wy.json
+wy-TEST.json
+wy.tex
+wy.txt
