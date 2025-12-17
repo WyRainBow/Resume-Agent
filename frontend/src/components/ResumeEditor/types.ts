@@ -23,7 +23,7 @@ export type ResumeSection = {
 export type ResumeEditorProps = {
   resumeData: any
   onSave: (data: any, sectionOrder?: string[]) => void
-  onSaveAndRender?: () => Promise<void>  // 保存并渲染 PDF
+  onSaveAndRender?: (resumeData?: any) => Promise<void>  // 保存并渲染 PDF
   saving?: boolean
 }
 
