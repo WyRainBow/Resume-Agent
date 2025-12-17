@@ -317,8 +317,8 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
     \end{itemize}
     """
     content = []
-    # 兼容 openSource 和 opensource 两种字段名
-    open_source = resume_data.get('openSource') or resume_data.get('opensource') or []
+    # 兼容 openSource、opensource、open_source 三种字段名
+    open_source = resume_data.get('openSource') or resume_data.get('opensource') or resume_data.get('open_source') or []
     title = (section_titles or {}).get('openSource', '开源经历')
     if isinstance(open_source, list) and open_source:
         content.append(f"\\section{{{escape_latex(title)}}}")
@@ -363,6 +363,7 @@ SECTION_GENERATORS = {
     'skills': generate_section_skills,
     'awards': generate_section_awards,
     'opensource': generate_section_opensource,
+    'open_source': generate_section_opensource,  # 别名
 }
 
 """

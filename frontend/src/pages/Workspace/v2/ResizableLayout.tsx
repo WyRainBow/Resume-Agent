@@ -6,7 +6,7 @@ import { cn } from '../../../lib/utils'
 import SidePanel from './SidePanel'
 import EditPanel from './EditPanel'
 import PreviewPanel from './PreviewPanel'
-import type { ResumeData, MenuSection, GlobalSettings, BasicInfo, Project, Experience, Education } from './types'
+import type { ResumeData, MenuSection, GlobalSettings, BasicInfo, Project, Experience, Education, OpenSource, Award } from './types'
 
 interface ResizableLayoutProps {
   resumeData: ResumeData
@@ -18,15 +18,21 @@ interface ResizableLayoutProps {
   updateGlobalSettings: (settings: Partial<GlobalSettings>) => void
   addCustomSection: () => void
   updateBasicInfo: (info: Partial<BasicInfo>) => void
-  updateProject: (id: string, data: Partial<Project>) => void
+  updateProject: (project: Project) => void
   deleteProject: (id: string) => void
   reorderProjects: (projects: Project[]) => void
-  updateExperience: (id: string, data: Partial<Experience>) => void
+  updateExperience: (experience: Experience) => void
   deleteExperience: (id: string) => void
   reorderExperiences: (experiences: Experience[]) => void
-  updateEducation: (id: string, data: Partial<Education>) => void
+  updateEducation: (education: Education) => void
   deleteEducation: (id: string) => void
   reorderEducations: (educations: Education[]) => void
+  updateOpenSource: (openSource: OpenSource) => void
+  deleteOpenSource: (id: string) => void
+  reorderOpenSources: (openSources: OpenSource[]) => void
+  updateAward: (award: Award) => void
+  deleteAward: (id: string) => void
+  reorderAwards: (awards: Award[]) => void
   updateSkillContent: (content: string) => void
   handleAIImport: (section: string) => void
   pdfBlob: Blob | null
@@ -104,6 +110,12 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
     updateEducation,
     deleteEducation,
     reorderEducations,
+    updateOpenSource,
+    deleteOpenSource,
+    reorderOpenSources,
+    updateAward,
+    deleteAward,
+    reorderAwards,
     updateSkillContent,
     handleAIImport,
     pdfBlob,
@@ -168,6 +180,12 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
           updateEducation={updateEducation}
           deleteEducation={deleteEducation}
           reorderEducations={reorderEducations}
+          updateOpenSource={updateOpenSource}
+          deleteOpenSource={deleteOpenSource}
+          reorderOpenSources={reorderOpenSources}
+          updateAward={updateAward}
+          deleteAward={deleteAward}
+          reorderAwards={reorderAwards}
           updateSkillContent={updateSkillContent}
           updateMenuSections={updateMenuSections}
           onAIImport={handleAIImport}

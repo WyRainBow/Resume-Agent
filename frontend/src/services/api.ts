@@ -150,13 +150,13 @@ export async function renderPDFStream(
   onError?: (error: string) => void
 ): Promise<Blob> {
   console.log('[API] 开始流式渲染PDF', { resume, sectionOrder })
-  // 检查缓存
-  const cacheKey = getCacheKey(resume, sectionOrder)
-  const cached = getPdfCache(cacheKey)
-  if (cached) {
-    onProgress?.('从缓存加载...')
-    return cached
-  }
+  // 暂时禁用缓存，确保每次都重新渲染
+  // const cacheKey = getCacheKey(resume, sectionOrder)
+  // const cached = getPdfCache(cacheKey)
+  // if (cached) {
+  //   onProgress?.('从缓存加载...')
+  //   return cached
+  // }
 
   onProgress?.('开始生成PDF...')
 
@@ -304,8 +304,9 @@ export async function renderPDFStream(
   const blob = new Blob([pdfData], { type: 'application/pdf' })
   console.log('[API] Blob创建成功，大小:', blob.size, '字节')
 
-  setPdfCache(cacheKey, blob)
-  console.log('[PDF Cache] 新PDF已缓存')
+  // 暂时禁用缓存
+  // setPdfCache(cacheKey, blob)
+  // console.log('[PDF Cache] 新PDF已缓存')
 
   return blob
 }
