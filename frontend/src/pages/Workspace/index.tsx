@@ -461,7 +461,6 @@ export default function WorkspacePage() {
           }}>
             <ResumeList
               onSelect={resumeOps.handleSelectResume}
-              onCreateNew={resumeOps.handleCreateNew}
               currentId={state.currentResumeId}
             />
           </div>
