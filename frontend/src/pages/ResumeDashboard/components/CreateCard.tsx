@@ -35,7 +35,7 @@ export const CreateCard: React.FC<CreateCardProps> = ({ onClick }) => {
             新简历
           </CardTitle>
           <CardDescription className="mt-2 text-gray-600 dark:text-gray-400">
-            首先，创建一个新的简历。
+            首先：创建一个新的简历。
           </CardDescription>
         </CardContent>
       </Card>

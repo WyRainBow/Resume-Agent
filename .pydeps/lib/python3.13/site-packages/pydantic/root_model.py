@@ -33,7 +33,7 @@ RootModelRootType = typing.TypeVar('RootModelRootType')
 
 
 class RootModel(BaseModel, typing.Generic[RootModelRootType], metaclass=_RootModelMetaclass):
-    """Usage docs: https://docs.pydantic.dev/2.9/concepts/models/#rootmodel-and-custom-root-types
+    """Usage docs: https://docs.pydantic.dev/2.10/concepts/models/#rootmodel-and-custom-root-types
 
     A Pydantic `BaseModel` for the root object of the model.
 
@@ -148,7 +148,9 @@ class RootModel(BaseModel, typing.Generic[RootModelRootType], metaclass=_RootMod
     def __eq__(self, other: Any) -> bool:
         if not isinstance(other, RootModel):
             return NotImplemented
-        return self.model_fields['root'].annotation == other.model_fields['root'].annotation and super().__eq__(other)
+        return self.__pydantic_fields__['root'].annotation == other.__pydantic_fields__[
+            'root'
+        ].annotation and super().__eq__(other)
 
     def __repr_args__(self) -> _repr.ReprArgs:
         yield 'root', self.root

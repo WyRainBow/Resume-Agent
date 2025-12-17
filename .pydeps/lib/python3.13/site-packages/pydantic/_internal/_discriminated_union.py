@@ -55,7 +55,7 @@ def apply_discriminators(schema: core_schema.CoreSchema) -> core_schema.CoreSche
             s = apply_discriminator(s, discriminator, global_definitions)
         return s
 
-    return _core_utils.walk_core_schema(schema, inner)
+    return _core_utils.walk_core_schema(schema, inner, copy=False)
 
 
 def apply_discriminator(
@@ -161,7 +161,7 @@ class _ApplyInferredDiscriminator:
         # in the output TaggedUnionSchema that will replace the union from the input schema
         self._tagged_union_choices: dict[Hashable, core_schema.CoreSchema] = {}
 
-        # `_used` is changed to True after applying the discriminator to prevent accidental re-use
+        # `_used` is changed to True after applying the discriminator to prevent accidental reuse
         self._used = False
 
     def apply(self, schema: core_schema.CoreSchema) -> core_schema.CoreSchema:

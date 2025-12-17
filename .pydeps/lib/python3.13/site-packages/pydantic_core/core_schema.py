@@ -435,6 +435,29 @@ SerSchema = Union[
 ]
 
 
+class InvalidSchema(TypedDict, total=False):
+    type: Required[Literal['invalid']]
+    ref: str
+    metadata: Dict[str, Any]
+    # note, we never plan to use this, but include it for type checking purposes to match
+    # all other CoreSchema union members
+    serialization: SerSchema
+
+
+def invalid_schema(ref: str | None = None, metadata: Dict[str, Any] | None = None) -> InvalidSchema:
+    """
+    Returns an invalid schema, used to indicate that a schema is invalid.
+
+        Returns a schema that matches any value, e.g.:
+
+    Args:
+        ref: optional unique identifier of the schema, used to reference the schema in other places
+        metadata: Any other information you want to include with the schema, not used by pydantic-core
+    """
+
+    return _dict_not_none(type='invalid', ref=ref, metadata=metadata)
+
+
 class ComputedField(TypedDict, total=False):
     type: Required[Literal['computed-field']]
     property_name: Required[str]
@@ -696,7 +719,7 @@ class DecimalSchema(TypedDict, total=False):
 
 def decimal_schema(
     *,
-    allow_inf_nan: bool = None,
+    allow_inf_nan: bool | None = None,
     multiple_of: Decimal | None = None,
     le: Decimal | None = None,
     ge: Decimal | None = None,
@@ -1947,6 +1970,7 @@ class _ValidatorFunctionSchema(TypedDict, total=False):
 
 class BeforeValidatorFunctionSchema(_ValidatorFunctionSchema, total=False):
     type: Required[Literal['function-before']]
+    json_schema_input_schema: CoreSchema
 
 
 def no_info_before_validator_function(
@@ -1954,6 +1978,7 @@ def no_info_before_validator_function(
     schema: CoreSchema,
     *,
     ref: str | None = None,
+    json_schema_input_schema: CoreSchema | None = None,
     metadata: Dict[str, Any] | None = None,
     serialization: SerSchema | None = None,
 ) -> BeforeValidatorFunctionSchema:
@@ -1979,6 +2004,7 @@ def no_info_before_validator_function(
         function: The validator function to call
         schema: The schema to validate the output of the validator function
         ref: optional unique identifier of the schema, used to reference the schema in other places
+        json_schema_input_schema: The core schema to be used to generate the corresponding JSON Schema input type
         metadata: Any other information you want to include with the schema, not used by pydantic-core
         serialization: Custom serialization schema
     """
@@ -1987,6 +2013,7 @@ def no_info_before_validator_function(
         function={'type': 'no-info', 'function': function},
         schema=schema,
         ref=ref,
+        json_schema_input_schema=json_schema_input_schema,
         metadata=metadata,
         serialization=serialization,
     )
@@ -1998,6 +2025,7 @@ def with_info_before_validator_function(
     *,
     field_name: str | None = None,
     ref: str | None = None,
+    json_schema_input_schema: CoreSchema | None = None,
     metadata: Dict[str, Any] | None = None,
     serialization: SerSchema | None = None,
 ) -> BeforeValidatorFunctionSchema:
@@ -2027,6 +2055,7 @@ def with_info_before_validator_function(
         field_name: The name of the field
         schema: The schema to validate the output of the validator function
         ref: optional unique identifier of the schema, used to reference the schema in other places
+        json_schema_input_schema: The core schema to be used to generate the corresponding JSON Schema input type
         metadata: Any other information you want to include with the schema, not used by pydantic-core
         serialization: Custom serialization schema
     """
@@ -2035,6 +2064,7 @@ def with_info_before_validator_function(
         function=_dict_not_none(type='with-info', function=function, field_name=field_name),
         schema=schema,
         ref=ref,
+        json_schema_input_schema=json_schema_input_schema,
         metadata=metadata,
         serialization=serialization,
     )
@@ -2049,6 +2079,7 @@ def no_info_after_validator_function(
     schema: CoreSchema,
     *,
     ref: str | None = None,
+    json_schema_input_schema: CoreSchema | None = None,
     metadata: Dict[str, Any] | None = None,
     serialization: SerSchema | None = None,
 ) -> AfterValidatorFunctionSchema:
@@ -2072,6 +2103,7 @@ def no_info_after_validator_function(
         function: The validator function to call after the schema is validated
         schema: The schema to validate before the validator function
         ref: optional unique identifier of the schema, used to reference the schema in other places
+        json_schema_input_schema: The core schema to be used to generate the corresponding JSON Schema input type
         metadata: Any other information you want to include with the schema, not used by pydantic-core
         serialization: Custom serialization schema
     """
@@ -2080,6 +2112,7 @@ def no_info_after_validator_function(
         function={'type': 'no-info', 'function': function},
         schema=schema,
         ref=ref,
+        json_schema_input_schema=json_schema_input_schema,
         metadata=metadata,
         serialization=serialization,
     )
@@ -2165,6 +2198,7 @@ class WrapValidatorFunctionSchema(TypedDict, total=False):
     function: Required[WrapValidatorFunction]
     schema: Required[CoreSchema]
     ref: str
+    json_schema_input_schema: CoreSchema
     metadata: Dict[str, Any]
     serialization: SerSchema
 
@@ -2174,6 +2208,7 @@ def no_info_wrap_validator_function(
     schema: CoreSchema,
     *,
     ref: str | None = None,
+    json_schema_input_schema: CoreSchema | None = None,
     metadata: Dict[str, Any] | None = None,
     serialization: SerSchema | None = None,
 ) -> WrapValidatorFunctionSchema:
@@ -2202,6 +2237,7 @@ def no_info_wrap_validator_function(
         function: The validator function to call
         schema: The schema to validate the output of the validator function
         ref: optional unique identifier of the schema, used to reference the schema in other places
+        json_schema_input_schema: The core schema to be used to generate the corresponding JSON Schema input type
         metadata: Any other information you want to include with the schema, not used by pydantic-core
         serialization: Custom serialization schema
     """
@@ -2209,6 +2245,7 @@ def no_info_wrap_validator_function(
         type='function-wrap',
         function={'type': 'no-info', 'function': function},
         schema=schema,
+        json_schema_input_schema=json_schema_input_schema,
         ref=ref,
         metadata=metadata,
         serialization=serialization,
@@ -2220,6 +2257,7 @@ def with_info_wrap_validator_function(
     schema: CoreSchema,
     *,
     field_name: str | None = None,
+    json_schema_input_schema: CoreSchema | None = None,
     ref: str | None = None,
     metadata: Dict[str, Any] | None = None,
     serialization: SerSchema | None = None,
@@ -2250,6 +2288,7 @@ def with_info_wrap_validator_function(
         function: The validator function to call
         schema: The schema to validate the output of the validator function
         field_name: The name of the field this validators is applied to, if any
+        json_schema_input_schema: The core schema to be used to generate the corresponding JSON Schema input type
         ref: optional unique identifier of the schema, used to reference the schema in other places
         metadata: Any other information you want to include with the schema, not used by pydantic-core
         serialization: Custom serialization schema
@@ -2258,6 +2297,7 @@ def with_info_wrap_validator_function(
         type='function-wrap',
         function=_dict_not_none(type='with-info', function=function, field_name=field_name),
         schema=schema,
+        json_schema_input_schema=json_schema_input_schema,
         ref=ref,
         metadata=metadata,
         serialization=serialization,
@@ -2268,6 +2308,7 @@ class PlainValidatorFunctionSchema(TypedDict, total=False):
     type: Required[Literal['function-plain']]
     function: Required[ValidationFunction]
     ref: str
+    json_schema_input_schema: CoreSchema
     metadata: Dict[str, Any]
     serialization: SerSchema
 
@@ -2276,6 +2317,7 @@ def no_info_plain_validator_function(
     function: NoInfoValidatorFunction,
     *,
     ref: str | None = None,
+    json_schema_input_schema: CoreSchema | None = None,
     metadata: Dict[str, Any] | None = None,
     serialization: SerSchema | None = None,
 ) -> PlainValidatorFunctionSchema:
@@ -2297,6 +2339,7 @@ def no_info_plain_validator_function(
     Args:
         function: The validator function to call
         ref: optional unique identifier of the schema, used to reference the schema in other places
+        json_schema_input_schema: The core schema to be used to generate the corresponding JSON Schema input type
         metadata: Any other information you want to include with the schema, not used by pydantic-core
         serialization: Custom serialization schema
     """
@@ -2304,6 +2347,7 @@ def no_info_plain_validator_function(
         type='function-plain',
         function={'type': 'no-info', 'function': function},
         ref=ref,
+        json_schema_input_schema=json_schema_input_schema,
         metadata=metadata,
         serialization=serialization,
     )
@@ -2314,6 +2358,7 @@ def with_info_plain_validator_function(
     *,
     field_name: str | None = None,
     ref: str | None = None,
+    json_schema_input_schema: CoreSchema | None = None,
     metadata: Dict[str, Any] | None = None,
     serialization: SerSchema | None = None,
 ) -> PlainValidatorFunctionSchema:
@@ -2336,6 +2381,7 @@ def with_info_plain_validator_function(
         function: The validator function to call
         field_name: The name of the field this validators is applied to, if any
         ref: optional unique identifier of the schema, used to reference the schema in other places
+        json_schema_input_schema: The core schema to be used to generate the corresponding JSON Schema input type
         metadata: Any other information you want to include with the schema, not used by pydantic-core
         serialization: Custom serialization schema
     """
@@ -2343,6 +2389,7 @@ def with_info_plain_validator_function(
         type='function-plain',
         function=_dict_not_none(type='with-info', function=function, field_name=field_name),
         ref=ref,
+        json_schema_input_schema=json_schema_input_schema,
         metadata=metadata,
         serialization=serialization,
     )
@@ -2352,7 +2399,8 @@ class WithDefaultSchema(TypedDict, total=False):
     type: Required[Literal['default']]
     schema: Required[CoreSchema]
     default: Any
-    default_factory: Callable[[], Any]
+    default_factory: Union[Callable[[], Any], Callable[[Dict[str, Any]], Any]]
+    default_factory_takes_data: bool
     on_error: Literal['raise', 'omit', 'default']  # default: 'raise'
     validate_default: bool  # default: False
     strict: bool
@@ -2365,7 +2413,8 @@ def with_default_schema(
     schema: CoreSchema,
     *,
     default: Any = PydanticUndefined,
-    default_factory: Callable[[], Any] | None = None,
+    default_factory: Union[Callable[[], Any], Callable[[Dict[str, Any]], Any], None] = None,
+    default_factory_takes_data: bool | None = None,
     on_error: Literal['raise', 'omit', 'default'] | None = None,
     validate_default: bool | None = None,
     strict: bool | None = None,
@@ -2390,7 +2439,8 @@ def with_default_schema(
     Args:
         schema: The schema to add a default value to
         default: The default value to use
-        default_factory: A function that returns the default value to use
+        default_factory: A callable that returns the default value to use
+        default_factory_takes_data: Whether the default factory takes a validated data argument
         on_error: What to do if the schema validation fails. One of 'raise', 'omit', 'default'
         validate_default: Whether the default value should be validated
         strict: Whether the underlying schema should be validated with strict mode
@@ -2402,6 +2452,7 @@ def with_default_schema(
         type='default',
         schema=schema,
         default_factory=default_factory,
+        default_factory_takes_data=default_factory_takes_data,
         on_error=on_error,
         validate_default=validate_default,
         strict=strict,
@@ -2813,7 +2864,7 @@ def typed_dict_field(
 
     Args:
         schema: The schema to use for the field
-        required: Whether the field is required
+        required: Whether the field is required, otherwise uses the value from `total` on the typed dict
         validation_alias: The alias(es) to use to find the field in the validation data
         serialization_alias: The alias to use as a key when serializing
         serialization_exclude: Whether to exclude the field when serializing
@@ -2833,7 +2884,7 @@ def typed_dict_field(
 class TypedDictSchema(TypedDict, total=False):
     type: Required[Literal['typed-dict']]
     fields: Required[Dict[str, TypedDictField]]
-    cls: Type[TypedDict]
+    cls: Type[Any]
     computed_fields: List[ComputedField]
     strict: bool
     extras_schema: CoreSchema
@@ -2850,7 +2901,7 @@ class TypedDictSchema(TypedDict, total=False):
 def typed_dict_schema(
     fields: Dict[str, TypedDictField],
     *,
-    cls: Type[TypedDict] | None = None,
+    cls: Type[Any] | None = None,
     computed_fields: list[ComputedField] | None = None,
     strict: bool | None = None,
     extras_schema: CoreSchema | None = None,
@@ -2889,7 +2940,7 @@ def typed_dict_schema(
         ref: optional unique identifier of the schema, used to reference the schema in other places
         metadata: Any other information you want to include with the schema, not used by pydantic-core
         extra_behavior: The extra behavior to use for the typed dict
-        total: Whether the typed dict is total
+        total: Whether the typed dict is total, otherwise uses `typed_dict_total` from config
         populate_by_name: Whether the typed dict should populate by name
         serialization: Custom serialization schema
     """
@@ -3033,6 +3084,7 @@ def model_fields_schema(
 class ModelSchema(TypedDict, total=False):
     type: Required[Literal['model']]
     cls: Required[Type[Any]]
+    generic_origin: Type[Any]
     schema: Required[CoreSchema]
     custom_init: bool
     root_model: bool
@@ -3051,6 +3103,7 @@ def model_schema(
     cls: Type[Any],
     schema: CoreSchema,
     *,
+    generic_origin: Type[Any] | None = None,
     custom_init: bool | None = None,
     root_model: bool | None = None,
     post_init: str | None = None,
@@ -3097,6 +3150,8 @@ def model_schema(
     Args:
         cls: The class to use for the model
         schema: The schema to use for the model
+        generic_origin: The origin type used for this model, if it's a parametrized generic. Ex,
+            if this model schema represents `SomeModel[int]`, generic_origin is `SomeModel`
         custom_init: Whether the model has a custom init method
         root_model: Whether the model is a `RootModel`
         post_init: The call after init to use for the model
@@ -3113,6 +3168,7 @@ def model_schema(
     return _dict_not_none(
         type='model',
         cls=cls,
+        generic_origin=generic_origin,
         schema=schema,
         custom_init=custom_init,
         root_model=root_model,
@@ -3266,6 +3322,7 @@ def dataclass_args_schema(
 class DataclassSchema(TypedDict, total=False):
     type: Required[Literal['dataclass']]
     cls: Required[Type[Any]]
+    generic_origin: Type[Any]
     schema: Required[CoreSchema]
     fields: Required[List[str]]
     cls_name: str
@@ -3285,6 +3342,7 @@ def dataclass_schema(
     schema: CoreSchema,
     fields: List[str],
     *,
+    generic_origin: Type[Any] | None = None,
     cls_name: str | None = None,
     post_init: bool | None = None,
     revalidate_instances: Literal['always', 'never', 'subclass-instances'] | None = None,
@@ -3305,6 +3363,8 @@ def dataclass_schema(
         schema: The schema to use for the dataclass fields
         fields: Fields of the dataclass, this is used in serialization and in validation during re-validation
             and while validating assignment
+        generic_origin: The origin type used for this dataclass, if it's a parametrized generic. Ex,
+            if this model schema represents `SomeDataclass[int]`, generic_origin is `SomeDataclass`
         cls_name: The name to use in error locs, etc; this is useful for generics (default: `cls.__name__`)
         post_init: Whether to call `__post_init__` after validation
         revalidate_instances: whether instances of models and dataclasses (including subclass instances)
@@ -3320,6 +3380,7 @@ def dataclass_schema(
     return _dict_not_none(
         type='dataclass',
         cls=cls,
+        generic_origin=generic_origin,
         fields=fields,
         cls_name=cls_name,
         schema=schema,
@@ -3372,11 +3433,15 @@ def arguments_parameter(
     return _dict_not_none(name=name, schema=schema, mode=mode, alias=alias)
 
 
+VarKwargsMode: TypeAlias = Literal['uniform', 'unpacked-typed-dict']
+
+
 class ArgumentsSchema(TypedDict, total=False):
     type: Required[Literal['arguments']]
     arguments_schema: Required[List[ArgumentsParameter]]
     populate_by_name: bool
     var_args_schema: CoreSchema
+    var_kwargs_mode: VarKwargsMode
     var_kwargs_schema: CoreSchema
     ref: str
     metadata: Dict[str, Any]
@@ -3388,6 +3453,7 @@ def arguments_schema(
     *,
     populate_by_name: bool | None = None,
     var_args_schema: CoreSchema | None = None,
+    var_kwargs_mode: VarKwargsMode | None = None,
     var_kwargs_schema: CoreSchema | None = None,
     ref: str | None = None,
     metadata: Dict[str, Any] | None = None,
@@ -3414,6 +3480,9 @@ def arguments_schema(
         arguments: The arguments to use for the arguments schema
         populate_by_name: Whether to populate by name
         var_args_schema: The variable args schema to use for the arguments schema
+        var_kwargs_mode: The validation mode to use for variadic keyword arguments. If `'uniform'`, every value of the
+            keyword arguments will be validated against the `var_kwargs_schema` schema. If `'unpacked-typed-dict'`,
+            the `var_kwargs_schema` argument must be a [`typed_dict_schema`][pydantic_core.core_schema.typed_dict_schema]
         var_kwargs_schema: The variable kwargs schema to use for the arguments schema
         ref: optional unique identifier of the schema, used to reference the schema in other places
         metadata: Any other information you want to include with the schema, not used by pydantic-core
@@ -3424,6 +3493,7 @@ def arguments_schema(
         arguments_schema=arguments,
         populate_by_name=populate_by_name,
         var_args_schema=var_args_schema,
+        var_kwargs_mode=var_kwargs_mode,
         var_kwargs_schema=var_kwargs_schema,
         ref=ref,
         metadata=metadata,
@@ -3817,6 +3887,7 @@ MYPY = False
 # union which kills performance not just for pydantic, but even for code using pydantic
 if not MYPY:
     CoreSchema = Union[
+        InvalidSchema,
         AnySchema,
         NoneSchema,
         BoolSchema,
@@ -3873,6 +3944,7 @@ elif False:
 
 # to update this, call `pytest -k test_core_schema_type_literal` and copy the output
 CoreSchemaType = Literal[
+    'invalid',
     'any',
     'none',
     'bool',
@@ -3933,6 +4005,7 @@ ErrorType = Literal[
     'no_such_attribute',
     'json_invalid',
     'json_type',
+    'needs_python_object',
     'recursion_loop',
     'missing',
     'frozen_field',

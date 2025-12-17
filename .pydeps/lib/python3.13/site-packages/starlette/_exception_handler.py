@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import typing
+from typing import Any
 
 from starlette._utils import is_async_callable
 from starlette.concurrency import run_in_threadpool
@@ -9,8 +9,8 @@ from starlette.requests import Request
 from starlette.types import ASGIApp, ExceptionHandler, Message, Receive, Scope, Send
 from starlette.websockets import WebSocket
 
-ExceptionHandlers = typing.Dict[typing.Any, ExceptionHandler]
-StatusHandlers = typing.Dict[int, ExceptionHandler]
+ExceptionHandlers = dict[Any, ExceptionHandler]
+StatusHandlers = dict[int, ExceptionHandler]
 
 
 def _lookup_exception_handler(exc_handlers: ExceptionHandlers, exc: Exception) -> ExceptionHandler | None:
@@ -58,7 +58,7 @@ def wrap_app_handling_exceptions(app: ASGIApp, conn: Request | WebSocket) -> ASG
             if is_async_callable(handler):
                 response = await handler(conn, exc)
             else:
-                response = await run_in_threadpool(handler, conn, exc)  # type: ignore
+                response = await run_in_threadpool(handler, conn, exc)
             if response is not None:
                 await response(scope, receive, sender)
 
