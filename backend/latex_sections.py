@@ -199,12 +199,45 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
 
 def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """
-    生成专业技能 - 与 wy.tex 格式一致
-    格式: \\item \\textbf{类别:} 详情
+    生成专业技能 - 支持 HTML 编辑器内容
+    如果 skillContent 存在，直接转换 HTML 为 LaTeX
+    否则使用旧的 skills 数组格式
     """
     content = []
-    skills = resume_data.get('skills') or []
     title = (section_titles or {}).get('skills', '专业技能')
+    
+    # 优先使用 skillContent（HTML 格式）
+    skill_content = resume_data.get('skillContent') or resume_data.get('skill_content') or ''
+    if skill_content and skill_content.strip():
+        content.append(f"\\section{{{escape_latex(title)}}}")
+        # 检查 HTML 是否包含列表结构
+        has_list = '<ul>' in skill_content or '<ol>' in skill_content
+        
+        if has_list:
+            # 用户已使用工具栏添加了列表，直接转换（会保留圆点）
+            latex_content = html_to_latex(skill_content.strip())
+            content.append(latex_content)
+        else:
+            # 如果没有列表结构，按段落或换行分割成列表项（无圆点）
+            latex_content = html_to_latex(skill_content.strip())
+            content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
+            # 按段落或换行分割
+            if '\\par' in latex_content:
+                paragraphs = latex_content.split('\\par')
+            elif '\n\n' in latex_content:
+                paragraphs = latex_content.split('\n\n')
+            else:
+                paragraphs = [latex_content]
+            for para in paragraphs:
+                para = para.strip()
+                if para:
+                    content.append(f"  \\item {para}")
+            content.append(r"\end{itemize}")
+        content.append("")
+        return content
+    
+    # 兼容旧的 skills 数组格式
+    skills = resume_data.get('skills') or []
     if skills:
         content.append(f"\\section{{{escape_latex(title)}}}")
         content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
@@ -222,19 +255,21 @@ def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[st
                     else:
                         content.append(f"  \\item {escape_latex(s.strip())}")
             elif isinstance(s, dict):
-                category = escape_latex(s.get('category') or '')
+                category = escape_latex(s.get('category') or '').strip()
                 details = s.get('details') or ''
                 # 检查 details 是否是 HTML
                 if '<' in details and '>' in details:
                     details = html_to_latex(details)
                 else:
                     details = escape_latex(details)
-                if category and details:
+                # 如果 category 为空，只输出 details
+                if not category:
+                    if details:
+                        content.append(f"  \\item {details}")
+                elif details:
                     content.append(f"  \\item \\textbf{{{category}:}} {details}")
                 elif category:
                     content.append(f"  \\item \\textbf{{{category}}}")
-                elif details:
-                    content.append(f"  \\item {details}")
         content.append(r"\end{itemize}")
         content.append("")
     return content
