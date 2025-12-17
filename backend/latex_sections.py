@@ -154,7 +154,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                     # highlights 结构 - 支持 HTML 和 Markdown 格式
                     has_list_wrapper = False
                     
-                    for h in highlights:
+                        for h in highlights:
                         if not isinstance(h, str) or not h.strip():
                             continue
                         
@@ -185,12 +185,12 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                         else:
                             # 普通文本
                             if not has_list_wrapper:
-                                content.append(r"\begin{itemize}[parsep=0.2ex]")
+                    content.append(r"\begin{itemize}[parsep=0.2ex]")
                                 has_list_wrapper = True
                             content.append(f"  \\item {escape_latex(h)}")
                     
                     if has_list_wrapper:
-                        content.append(r"\end{itemize}")
+                    content.append(r"\end{itemize}")
                 
                 content.append("")
                 content.append("")
@@ -208,7 +208,7 @@ def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[st
     if skills:
         content.append(f"\\section{{{escape_latex(title)}}}")
         content.append(r"\begin{itemize}[parsep=0.2ex]")
-        for s in skills:
+            for s in skills:
             if isinstance(s, str):
                 if s.strip():
                     if ':' in s or '：' in s:
@@ -218,23 +218,23 @@ def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[st
                         if category and details:
                             content.append(f"  \\item \\textbf{{{escape_latex(category)}:}} {escape_latex(details)}")
                         else:
-                            content.append(f"  \\item {escape_latex(s.strip())}")
-                    else:
+                    content.append(f"  \\item {escape_latex(s.strip())}")
+        else:
                         content.append(f"  \\item {escape_latex(s.strip())}")
             elif isinstance(s, dict):
-                category = escape_latex(s.get('category') or '')
+                    category = escape_latex(s.get('category') or '')
                 details = s.get('details') or ''
                 # 检查 details 是否是 HTML
                 if '<' in details and '>' in details:
                     details = html_to_latex(details)
                 else:
                     details = escape_latex(details)
-                if category and details:
+                    if category and details:
                     content.append(f"  \\item \\textbf{{{category}:}} {details}")
-                elif category:
-                    content.append(f"  \\item \\textbf{{{category}}}")
-                elif details:
-                    content.append(f"  \\item {details}")
+                    elif category:
+                        content.append(f"  \\item \\textbf{{{category}}}")
+                    elif details:
+                        content.append(f"  \\item {details}")
         content.append(r"\end{itemize}")
         content.append("")
     return content
@@ -327,7 +327,7 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
             subtitle = escape_latex(os_item.get('subtitle') or '')
             repo_url = os_item.get('repoUrl') or os_item.get('repo') or os_item.get('link') or ''
             
-            subsection_title = f"\\textbf{{{item_title}}}"
+                subsection_title = f"\\textbf{{{item_title}}}"
             content.append(f"\\datedsubsection{{{subsection_title}}}{{{subtitle}}}")
             
             items = os_item.get('items') or []
@@ -340,9 +340,9 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
                     content.append(f"  \\item 仓库: \\textit{{{escaped_url}}}")
                 
                 if isinstance(items, list) and items:
-                    for item in items:
-                        if isinstance(item, str) and item.strip():
-                            content.append(f"  \\item {escape_latex(item.strip())}")
+                for item in items:
+                    if isinstance(item, str) and item.strip():
+                        content.append(f"  \\item {escape_latex(item.strip())}")
                 
                 content.append(r"\end{itemize}")
             

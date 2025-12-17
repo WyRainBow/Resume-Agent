@@ -6,6 +6,7 @@
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import { cn } from '../../../lib/utils'
 import { renderPDFStream } from '../../../services/api'
 import { saveResume, getCurrentResumeId, setCurrentResumeId, getResume } from '../../../services/resumeStorage'
@@ -126,12 +127,13 @@ export default function WorkspaceV2() {
       const saved = getResume(id)
       if (saved && saved.data) {
         // 将保存的数据合并到当前状态
+        const data = saved.data as any
         setResumeData(prev => ({
           ...prev,
-          basic: { ...prev.basic, ...saved.data.basic, name: saved.name },
-          education: saved.data.education || prev.education,
-          experience: saved.data.experience || prev.experience,
-          projects: saved.data.projects || prev.projects,
+          basic: { ...prev.basic, ...(data.basic || {}), name: saved.name },
+          education: data.education || prev.education,
+          experience: data.experience || prev.experience,
+          projects: data.projects || prev.projects,
         }))
         setCurrentId(id)
       }
@@ -375,7 +377,7 @@ export default function WorkspaceV2() {
       setProgress('正在渲染 PDF...')
 
       const blob = await renderPDFStream(
-        backendData,
+        backendData as any,
         backendData.sectionOrder,
         (p) => setProgress(p),
         () => setProgress('渲染完成！'),
@@ -626,7 +628,10 @@ export default function WorkspaceV2() {
   }, [aiModalSection])
 
   return (
-    <main
+    <motion.main
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
       className={cn(
         'w-full h-screen overflow-hidden',
         'bg-white text-gray-900',
@@ -634,11 +639,16 @@ export default function WorkspaceV2() {
       )}
     >
       {/* 顶部导航 */}
-      <div className={cn(
-        'h-14 border-b flex items-center px-4',
-        'bg-white border-gray-200',
-        'dark:bg-neutral-800 dark:border-neutral-700'
-      )}>
+      <motion.div 
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+        className={cn(
+          'h-14 border-b flex items-center px-4',
+          'bg-white border-gray-200',
+          'dark:bg-neutral-800 dark:border-neutral-700'
+        )}
+      >
         <h1 className="text-lg font-semibold">简历编辑器</h1>
         <div className="flex-1" />
         
@@ -671,7 +681,7 @@ export default function WorkspaceV2() {
           <FolderOpen className="w-4 h-4" />
           我的简历
         </button>
-      </div>
+      </motion.div>
 
       {/* AI 导入弹窗 */}
       <AIImportModal
@@ -716,7 +726,7 @@ export default function WorkspaceV2() {
         handleRender={handleRender}
         handleDownload={handleDownload}
       />
-    </main>
+    </motion.main>
   )
 }
 
