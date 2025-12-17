@@ -5,6 +5,7 @@ LaTeX Section 生成器模块
 """
 from typing import Dict, Any, List
 from .latex_utils import escape_latex
+from .html_to_latex import html_to_latex
 
 
 def generate_section_summary(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
@@ -150,65 +151,46 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                             content.append("")
                     content.append(r"\end{itemize}")
                 elif isinstance(highlights, list) and highlights:
-                    # highlights 结构 - 解析 **bold** 和 > 缩进语法
-                    # 与 wy.tex 格式一致：主项目 + 嵌套子项目
-                    content.append(r"\begin{itemize}[parsep=0.2ex]")
+                    # highlights 结构 - 支持 HTML 和 Markdown 格式
+                    has_list_wrapper = False
                     
-                    i = 0
-                    while i < len(highlights):
-                        h = highlights[i]
+                    for h in highlights:
                         if not isinstance(h, str) or not h.strip():
-                            i += 1
                             continue
                         
                         h = h.strip()
                         
-                        # 检查是否是 **标题** 格式（子项目标题）
-                        if h.startswith('**') and '**' in h[2:]:
-                            # 转换 **text** 为 \textbf{text}
-                            converted = _convert_markdown_bold(h)
-                            converted = escape_latex(converted.replace('\\textbf{', '<<<TEXTBF>>>').replace('}', '<<<ENDBF>>>')).replace('<<<TEXTBF>>>', '\\textbf{').replace('<<<ENDBF>>>', '}')
-                            content.append(f"  \\item {converted}")
-                            
-                            # 收集后续的 > 开头的子项（详情）
-                            sub_items = []
-                            j = i + 1
-                            while j < len(highlights):
-                                next_h = highlights[j]
-                                if isinstance(next_h, str) and next_h.strip().startswith('>'):
-                                    sub_items.append(next_h.strip()[1:].strip())
-                                    j += 1
-                                elif isinstance(next_h, str) and not next_h.strip().startswith('**'):
-                                    # 普通项，作为当前标题的子项
-                                    sub_items.append(next_h.strip())
-                                    j += 1
+                        # 检查是否是 HTML 格式
+                        if '<' in h and '>' in h:
+                            # HTML 格式，使用 html_to_latex 转换
+                            converted = html_to_latex(h)
+                            if converted.strip():
+                                # 如果 HTML 已包含列表结构，直接添加
+                                if '\\begin{itemize}' in converted or '\\begin{enumerate}' in converted:
+                                    content.append(converted)
                                 else:
-                                    break
-                            
-                            if sub_items:
-                                content.append(r"    \begin{itemize}[label=\textbf{·},parsep=0.2ex]")
-                                for sub in sub_items:
-                                    converted_sub = _convert_markdown_bold(sub)
-                                    converted_sub = escape_latex(converted_sub.replace('\\textbf{', '<<<TEXTBF>>>').replace('}', '<<<ENDBF>>>')).replace('<<<TEXTBF>>>', '\\textbf{').replace('<<<ENDBF>>>', '}')
-                                    content.append(f"      \\item {converted_sub}")
-                                content.append(r"    \end{itemize}")
-                            
-                            i = j
-                        elif h.startswith('>'):
-                            # > 开头的独立子项（不在标题下）
-                            text = h[1:].strip()
-                            converted = _convert_markdown_bold(text)
-                            converted = escape_latex(converted.replace('\\textbf{', '<<<TEXTBF>>>').replace('}', '<<<ENDBF>>>')).replace('<<<TEXTBF>>>', '\\textbf{').replace('<<<ENDBF>>>', '}')
-                            content.append(f"    \\item {converted}")
-                            i += 1
-                        else:
-                            # 普通项
+                                    # 否则包装成列表项
+                                    if not has_list_wrapper:
+                                        content.append(r"\begin{itemize}[parsep=0.2ex]")
+                                        has_list_wrapper = True
+                                    content.append(f"  \\item {converted}")
+                        elif h.startswith('**') and '**' in h[2:]:
+                            # Markdown 加粗格式
+                            if not has_list_wrapper:
+                                content.append(r"\begin{itemize}[parsep=0.2ex]")
+                                has_list_wrapper = True
                             converted = _convert_markdown_bold(h)
                             converted = escape_latex(converted.replace('\\textbf{', '<<<TEXTBF>>>').replace('}', '<<<ENDBF>>>')).replace('<<<TEXTBF>>>', '\\textbf{').replace('<<<ENDBF>>>', '}')
                             content.append(f"  \\item {converted}")
-                            i += 1
+                        else:
+                            # 普通文本
+                            if not has_list_wrapper:
+                                content.append(r"\begin{itemize}[parsep=0.2ex]")
+                                has_list_wrapper = True
+                            content.append(f"  \\item {escape_latex(h)}")
                     
-                    content.append(r"\end{itemize}")
+                    if has_list_wrapper:
+                        content.append(r"\end{itemize}")
                 
                 content.append("")
                 content.append("")
@@ -218,7 +200,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
 def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """
     生成专业技能 - 与 wy.tex 格式一致
-    格式: \item \textbf{类别:} 详情
+    格式: \\item \\textbf{类别:} 详情
     """
     content = []
     skills = resume_data.get('skills') or []
@@ -228,9 +210,7 @@ def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[st
         content.append(r"\begin{itemize}[parsep=0.2ex]")
         for s in skills:
             if isinstance(s, str):
-                # 简单字符串格式
                 if s.strip():
-                    # 尝试解析 "类别: 详情" 格式
                     if ':' in s or '：' in s:
                         parts = s.replace('：', ':').split(':', 1)
                         category = parts[0].strip()
@@ -243,7 +223,12 @@ def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[st
                         content.append(f"  \\item {escape_latex(s.strip())}")
             elif isinstance(s, dict):
                 category = escape_latex(s.get('category') or '')
-                details = escape_latex(s.get('details') or '')
+                details = s.get('details') or ''
+                # 检查 details 是否是 HTML
+                if '<' in details and '>' in details:
+                    details = html_to_latex(details)
+                else:
+                    details = escape_latex(details)
                 if category and details:
                     content.append(f"  \\item \\textbf{{{category}:}} {details}")
                 elif category:
@@ -342,24 +327,18 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
             subtitle = escape_latex(os_item.get('subtitle') or '')
             repo_url = os_item.get('repoUrl') or os_item.get('repo') or os_item.get('link') or ''
             
-            # 构建标题
             subsection_title = f"\\textbf{{{item_title}}}"
-            
             content.append(f"\\datedsubsection{{{subsection_title}}}{{{subtitle}}}")
             
             items = os_item.get('items') or []
-            has_content = False
             
             if repo_url or (isinstance(items, list) and items):
                 content.append(r"\begin{itemize}[parsep=0.2ex]")
-                has_content = True
                 
-                # 添加仓库链接
                 if repo_url:
                     escaped_url = escape_latex(repo_url)
                     content.append(f"  \\item 仓库: \\textit{{{escaped_url}}}")
                 
-                # 添加其他内容
                 if isinstance(items, list) and items:
                     for item in items:
                         if isinstance(item, str) and item.strip():

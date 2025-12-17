@@ -2,6 +2,7 @@ import React from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
 import WorkspacePage from './pages/WorkspacePage'
+import WorkspaceV2 from './pages/Workspace/v2'
 import ResumeDashboard from './pages/ResumeDashboard'
 import ErrorBoundary from './ErrorBoundary'
 
@@ -13,6 +14,7 @@ function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/workspace" element={<WorkspacePage />} />
+            <Route path="/workspace-v2" element={<WorkspaceV2 />} />
             <Route path="/dashboard" element={<ResumeDashboard />} />
           </Routes>
         </BrowserRouter>

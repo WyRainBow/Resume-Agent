@@ -53,3 +53,4 @@ logs/**/*.log
 *.fls
 .pydeps/
 backend/.venv/
+magic-resume-reference/

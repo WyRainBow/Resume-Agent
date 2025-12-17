@@ -1,0 +1,128 @@
+/* TipTap 编辑器样式 */
+.ProseMirror {
+  min-height: 100px;
+  outline: none;
+}
+
+.ProseMirror:focus {
+  outline: none;
+}
+
+/* 无序列表样式 */
+.ProseMirror ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.ProseMirror ul li {
+  margin: 0.25rem 0;
+}
+
+.ProseMirror ul li p {
+  margin: 0;
+}
+
+/* 有序列表样式 */
+.ProseMirror ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin: 0.5rem 0;
+}
+
+.ProseMirror ol li {
+  margin: 0.25rem 0;
+}
+
+.ProseMirror ol li p {
+  margin: 0;
+}
+
+/* 嵌套列表 */
+.ProseMirror ul ul,
+.ProseMirror ol ul {
+  list-style-type: circle;
+}
+
+.ProseMirror ul ul ul,
+.ProseMirror ol ul ul {
+  list-style-type: square;
+}
+
+/* 段落样式 */
+.ProseMirror p {
+  margin: 0.25rem 0;
+}
+
+/* 加粗 */
+.ProseMirror strong {
+  font-weight: 700;
+}
+
+/* 斜体 */
+.ProseMirror em {
+  font-style: italic;
+}
+
+/* 下划线 */
+.ProseMirror u {
+  text-decoration: underline;
+}
+
+/* 标题样式 */
+.ProseMirror h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 1rem 0 0.5rem;
+}
+
+.ProseMirror h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0.75rem 0 0.5rem;
+}
+
+.ProseMirror h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0.5rem 0 0.25rem;
+}
+
+/* 引用块 */
+.ProseMirror blockquote {
+  border-left: 3px solid #d1d5db;
+  padding-left: 1rem;
+  margin: 0.5rem 0;
+  color: #6b7280;
+}
+
+/* 代码 */
+.ProseMirror code {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 0.25rem;
+  padding: 0.1rem 0.3rem;
+  font-family: monospace;
+  font-size: 0.9em;
+}
+
+/* 高亮 */
+.ProseMirror mark {
+  background-color: #fef08a;
+  padding: 0.1rem 0.2rem;
+  border-radius: 0.125rem;
+}
+
+/* 占位符样式 */
+.ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+}
+
+/* 聚焦时的边框 */
+.ProseMirror-focused {
+  outline: none;
+}
+
