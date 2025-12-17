@@ -1,0 +1,166 @@
+/**
+ * Workspace v2 类型定义
+ */
+
+/**
+ * 模块配置
+ */
+export interface MenuSection {
+  id: string
+  title: string
+  icon: string
+  enabled: boolean
+  order: number
+}
+
+/**
+ * 基本信息
+ */
+export interface BasicInfo {
+  name: string
+  title: string
+  email: string
+  phone: string
+  location: string
+  birthDate?: string
+  employementStatus?: string
+  photo?: string
+  icons?: Record<string, string>
+  layout?: 'left' | 'center' | 'right'
+  customFields?: CustomFieldType[]
+  fieldOrder?: BasicFieldType[]
+}
+
+export interface BasicFieldType {
+  id: string
+  key: keyof BasicInfo
+  label: string
+  type?: 'date' | 'textarea' | 'text' | 'editor'
+  visible: boolean
+  custom?: boolean
+}
+
+export interface CustomFieldType {
+  id: string
+  label: string
+  value: string
+  icon?: string
+  visible?: boolean
+  custom?: boolean
+}
+
+/**
+ * 教育经历
+ */
+export interface Education {
+  id: string
+  school: string
+  major: string
+  degree: string
+  startDate: string
+  endDate: string
+  gpa?: string
+  description?: string  // HTML 格式
+  visible?: boolean
+}
+
+/**
+ * 工作经历
+ */
+export interface Experience {
+  id: string
+  company: string
+  position: string
+  date: string
+  details: string  // HTML 格式
+  visible?: boolean
+}
+
+/**
+ * 项目经历
+ */
+export interface Project {
+  id: string
+  name: string
+  role: string
+  date: string
+  description: string  // HTML 格式
+  visible: boolean
+  link?: string
+}
+
+/**
+ * 自定义模块项
+ */
+export interface CustomItem {
+  id: string
+  title: string
+  subtitle: string
+  dateRange: string
+  description: string  // HTML 格式
+  visible: boolean
+}
+
+/**
+ * 全局设置
+ */
+export interface GlobalSettings {
+  themeColor?: string
+  fontFamily?: string
+  baseFontSize?: number
+  pagePadding?: number
+  paragraphSpacing?: number
+  lineHeight?: number
+  sectionSpacing?: number
+  headerSize?: number
+  subheaderSize?: number
+  useIconMode?: boolean
+  centerSubtitle?: boolean
+}
+
+/**
+ * 完整简历数据
+ */
+export interface ResumeData {
+  id: string
+  title: string
+  createdAt: string
+  updatedAt: string
+  templateId: string | null
+  basic: BasicInfo
+  education: Education[]
+  experience: Experience[]
+  projects: Project[]
+  customData: Record<string, CustomItem[]>
+  skillContent: string  // HTML 格式
+  activeSection: string
+  draggingProjectId: string | null
+  menuSections: MenuSection[]
+  globalSettings: GlobalSettings
+}
+
+/**
+ * 默认模块列表
+ */
+export const DEFAULT_MENU_SECTIONS: MenuSection[] = [
+  { id: 'basic', title: '基本信息', icon: '👤', enabled: true, order: 0 },
+  { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 1 },
+  { id: 'experience', title: '工作经验', icon: '💼', enabled: true, order: 2 },
+  { id: 'projects', title: '项目经历', icon: '🚀', enabled: true, order: 3 },
+  { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 4 },
+]
+
+/**
+ * 默认基本信息字段顺序
+ */
+export const DEFAULT_FIELD_ORDER: BasicFieldType[] = [
+  { id: '1', key: 'name', label: '姓名', type: 'text', visible: true },
+  { id: '2', key: 'title', label: '职位', type: 'text', visible: true },
+  { id: '3', key: 'employementStatus', label: '状态', type: 'text', visible: true },
+  { id: '4', key: 'birthDate', label: '生日', type: 'date', visible: true },
+  { id: '5', key: 'email', label: '邮箱', type: 'text', visible: true },
+  { id: '6', key: 'phone', label: '电话', type: 'text', visible: true },
+  { id: '7', key: 'location', label: '地址', type: 'text', visible: true },
+]
+
+

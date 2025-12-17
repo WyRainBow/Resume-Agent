@@ -1,0 +1,250 @@
+/**
+ * 项目经历条目组件
+ * 支持拖拽排序、展开/收起、显示/隐藏、删除
+ */
+import { useState, useCallback } from 'react'
+import { motion, Reorder, useDragControls, AnimatePresence } from 'framer-motion'
+import { ChevronDown, Eye, EyeOff, GripVertical, Trash2 } from 'lucide-react'
+import { cn } from '../../../../lib/utils'
+import type { Project } from '../types'
+import Field from './Field'
+
+interface ProjectItemProps {
+  project: Project
+  onUpdate: (project: Project) => void
+  onDelete: (id: string) => void
+  setDraggingId: (id: string | null) => void
+}
+
+/**
+ * 项目编辑表单
+ */
+const ProjectEditor = ({
+  project,
+  onSave,
+}: {
+  project: Project
+  onSave: (project: Project) => void
+}) => {
+  const handleChange = (field: keyof Project, value: string | boolean) => {
+    onSave({
+      ...project,
+      [field]: value,
+    })
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-5">
+        <div className="grid grid-cols-2 gap-4">
+          <Field
+            label="项目名称"
+            value={project.name}
+            onChange={(value) => handleChange('name', value)}
+            placeholder="请输入项目名称"
+          />
+          <Field
+            label="项目角色"
+            value={project.role}
+            onChange={(value) => handleChange('role', value)}
+            placeholder="请输入你的角色"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field
+            label="项目链接"
+            value={project.link || ''}
+            onChange={(value) => handleChange('link', value)}
+            placeholder="项目链接（可选）"
+          />
+          <Field
+            label="项目时间"
+            value={project.date}
+            onChange={(value) => handleChange('date', value)}
+            placeholder="如：2023.01 - 2023.06"
+          />
+        </div>
+        <Field
+          label="项目描述"
+          value={project.description}
+          onChange={(value) => handleChange('description', value)}
+          type="editor"
+          placeholder="请描述你在项目中的工作内容..."
+        />
+      </div>
+    </div>
+  )
+}
+
+const ProjectItem = ({
+  project,
+  onUpdate,
+  onDelete,
+  setDraggingId,
+}: ProjectItemProps) => {
+  const dragControls = useDragControls()
+  const [expanded, setExpanded] = useState(false)
+  const [isUpdating, setIsUpdating] = useState(false)
+
+  const handleVisibilityToggle = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation()
+      if (isUpdating) return
+
+      setIsUpdating(true)
+      setTimeout(() => {
+        onUpdate({
+          ...project,
+          visible: !project.visible,
+        })
+        setIsUpdating(false)
+      }, 10)
+    },
+    [project, onUpdate, isUpdating]
+  )
+
+  return (
+    <Reorder.Item
+      id={project.id}
+      value={project}
+      dragListener={false}
+      dragControls={dragControls}
+      onDragEnd={() => setDraggingId(null)}
+      className={cn(
+        'rounded-lg border overflow-hidden flex group',
+        'bg-white hover:border-primary',
+        'dark:bg-neutral-900/30 dark:border-neutral-800 dark:hover:border-primary',
+        'border-gray-100'
+      )}
+    >
+      {/* 拖拽手柄 */}
+      <div
+        onPointerDown={(event) => {
+          if (expanded) return
+          dragControls.start(event)
+          setDraggingId(project.id)
+        }}
+        onPointerUp={() => setDraggingId(null)}
+        onPointerCancel={() => setDraggingId(null)}
+        className={cn(
+          'w-12 flex items-center justify-center border-r shrink-0 touch-none',
+          'border-gray-100 dark:border-neutral-800',
+          expanded
+            ? 'cursor-not-allowed'
+            : 'cursor-grab hover:bg-gray-50 dark:hover:bg-neutral-800/50'
+        )}
+      >
+        <GripVertical
+          className={cn(
+            'w-4 h-4',
+            'text-gray-400 dark:text-neutral-400',
+            expanded && 'opacity-50',
+            'transform transition-transform group-hover:scale-110'
+          )}
+        />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        {/* 标题行 */}
+        <div
+          className={cn(
+            'px-4 py-4 flex items-center justify-between cursor-pointer select-none',
+            expanded && 'bg-gray-50 dark:bg-neutral-800/50'
+          )}
+          onClick={() => setExpanded(!expanded)}
+        >
+          <div className="flex-1 min-w-0">
+            <h3
+              className={cn(
+                'font-medium truncate',
+                'text-gray-700 dark:text-neutral-200'
+              )}
+            >
+              {project.name || '未命名项目'}
+            </h3>
+          </div>
+
+          <div className="flex items-center gap-2 ml-4 shrink-0">
+            {/* 显示/隐藏 */}
+            <button
+              disabled={isUpdating}
+              onClick={handleVisibilityToggle}
+              className={cn(
+                'p-1.5 rounded-md',
+                'hover:bg-gray-100 dark:hover:bg-neutral-800',
+                project.visible
+                  ? 'text-gray-500 dark:text-neutral-400'
+                  : 'text-gray-400 dark:text-neutral-600'
+              )}
+            >
+              {project.visible ? (
+                <Eye className="w-4 h-4 text-primary" />
+              ) : (
+                <EyeOff className="w-4 h-4" />
+              )}
+            </button>
+
+            {/* 删除 */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(project.id)
+              }}
+              className={cn(
+                'p-1.5 rounded-md',
+                'hover:bg-red-50 dark:hover:bg-red-900/50',
+                'text-red-600 dark:text-red-400'
+              )}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+
+            {/* 展开/收起 */}
+            <motion.div
+              initial={false}
+              animate={{ rotate: expanded ? 180 : 0 }}
+            >
+              <ChevronDown
+                className={cn(
+                  'w-5 h-5',
+                  'text-gray-500 dark:text-neutral-400'
+                )}
+              />
+            </motion.div>
+          </div>
+        </div>
+
+        {/* 展开内容 */}
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden"
+            >
+              <div
+                className={cn(
+                  'px-4 pb-4 space-y-4',
+                  'border-gray-100 dark:border-neutral-800'
+                )}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className={cn('h-px w-full', 'bg-gray-100 dark:bg-neutral-800')} />
+                <ProjectEditor
+                  project={project}
+                  onSave={onUpdate}
+                />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </Reorder.Item>
+  )
+}
+
+export default ProjectItem
+
+
