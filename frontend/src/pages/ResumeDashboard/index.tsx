@@ -18,7 +18,10 @@ const ResumeDashboard = () => {
     // 批量删除相关
     selectedIds,
     toggleSelect,
-    batchDelete
+    batchDelete,
+    selectAll,
+    clearSelection,
+    isAllSelected
   } = useDashboardLogic()
 
   // 模拟 hasConfiguredFolder 状态，因为我们使用 localStorage，总是"已配置"或不需要配置
@@ -91,6 +94,9 @@ const ResumeDashboard = () => {
           onCreate={createResume}
           selectedCount={selectedIds.size}
           onBatchDelete={batchDelete}
+          totalCount={resumes.length}
+          isAllSelected={isAllSelected}
+          onToggleSelectAll={isAllSelected ? clearSelection : selectAll}
         />
 
         <motion.div

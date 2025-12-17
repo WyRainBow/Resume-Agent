@@ -162,6 +162,18 @@ export const useDashboardLogic = () => {
     setSelectedIds(new Set())
   }, [])
 
+  /**
+   * 全选所有简历
+   */
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(resumes.map(r => r.id)))
+  }, [resumes])
+
+  /**
+   * 判断是否全选
+   */
+  const isAllSelected = resumes.length > 0 && selectedIds.size === resumes.length
+
   return {
     resumes,
     isLoading,
@@ -174,6 +186,8 @@ export const useDashboardLogic = () => {
     selectedIds,
     toggleSelect,
     batchDelete,
-    clearSelection
+    clearSelection,
+    selectAll,
+    isAllSelected
   }
 }

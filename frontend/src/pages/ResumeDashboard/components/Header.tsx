@@ -10,13 +10,22 @@ interface HeaderProps {
   selectedCount?: number
   /** 批量删除回调 */
   onBatchDelete?: () => void
+  /** 简历总数 */
+  totalCount?: number
+  /** 是否全选 */
+  isAllSelected?: boolean
+  /** 全选/取消全选回调 */
+  onToggleSelectAll?: () => void
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
   onImport, 
   onCreate,
   selectedCount = 0,
-  onBatchDelete
+  onBatchDelete,
+  totalCount = 0,
+  isAllSelected = false,
+  onToggleSelectAll
 }) => {
   return (
     <motion.div
@@ -41,6 +50,22 @@ export const Header: React.FC<HeaderProps> = ({
         )}
       </div>
       <div className="flex items-center space-x-2">
+        {/* 全选/取消全选按钮 - 仅在有简历时显示 */}
+        {totalCount > 0 && onToggleSelectAll && (
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+          >
+            <Button
+              onClick={onToggleSelectAll}
+              variant="outline"
+              className="hover:bg-gray-100 dark:border-primary/50 dark:hover:bg-primary/10"
+            >
+              {isAllSelected ? '取消全选' : '全选'}
+            </Button>
+          </motion.div>
+        )}
         {/* 批量删除按钮 - 仅在有选中项时显示 */}
         {selectedCount > 0 && onBatchDelete && (
           <motion.div
