@@ -1,6 +1,7 @@
 """
 LaTeX Section 生成器模块
 提供各个简历模块的 LaTeX 代码生成函数
+与 slager.link (wy.tex) 格式保持一致
 """
 from typing import Dict, Any, List
 from .latex_utils import escape_latex
@@ -19,7 +20,11 @@ def generate_section_summary(resume_data: Dict[str, Any], section_titles: Dict[s
 
 
 def generate_section_internships(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
-    """生成实习经历（包含公司、职位、日期和描述）"""
+    """
+    生成实习经历 - 与 wy.tex 格式一致
+    格式: \datedsubsection{\textbf{公司} - 职位(语言)}{日期}
+    不带 itemize，简洁风格
+    """
     content = []
     internships = resume_data.get('internships') or []
     title = (section_titles or {}).get('internships') or (section_titles or {}).get('experience', '实习经历')
@@ -29,23 +34,17 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
             company = escape_latex(it.get('title') or '')
             position = escape_latex(it.get('subtitle') or '')
             date = it.get('date') or ''
-            """过滤无效时间"""
+            # 过滤无效时间
             if date and date.strip() in ['未提及', '未知', 'N/A', '-', '']:
                 date = ''
             date = escape_latex(date)
-            """格式：公司 - 职位    日期"""
+            # 格式：\datedsubsection{\textbf{公司} - 职位}{日期}
             if position:
                 line = f"\\textbf{{{company}}} - {position}"
             else:
                 line = f"\\textbf{{{company}}}"
             content.append(f"\\datedsubsection{{{line}}}{{{date}}}")
-            """渲染描述（details 或 highlights）"""
-            details = it.get('details') or it.get('highlights') or []
-            if isinstance(details, list) and details:
-                content.append("\\begin{itemize}[parsep=0.25ex]")
-                for d in details:
-                    content.append(f"  \\item {escape_latex(str(d))}")
-                content.append("\\end{itemize}")
+            content.append("")
         content.append("")
     return content
 
@@ -79,141 +78,220 @@ def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dic
     return content
 
 
+def _convert_markdown_bold(text: str) -> str:
+    """将 **text** 转换为 \textbf{text}"""
+    import re
+    # 匹配 **text** 或 **text**: 格式
+    pattern = r'\*\*([^*]+)\*\*'
+    return re.sub(pattern, r'\\textbf{\1}', text)
+
+
 def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
-    """生成项目经历"""
+    """
+    生成项目经历 - 与 wy.tex 格式一致
+    支持两种格式：
+    1. items 结构：嵌套的子项目
+    2. highlights 结构：支持 **bold** 和 > 缩进语法
+    
+    格式:
+    \datedsubsection{\textbf{项目名}}{}
+    \begin{itemize}[parsep=0.2ex]
+      \item \textbf{子项目标题}
+        \begin{itemize}[label=\textbf{·},parsep=0.2ex]
+          \item 详情1
+          \item 详情2
+        \end{itemize}
+    \end{itemize}
+    """
     content = []
     projects = resume_data.get('projects') or []
-    section_title = (section_titles or {}).get('projects', '项目经历')
+    section_title = (section_titles or {}).get('projects', '项目经验')
     if isinstance(projects, list) and projects:
         content.append(f"\\section{{{escape_latex(section_title)}}}")
+        content.append("")
+        content.append("")
+        
         for p in projects:
-            """兼容多种字段名"""
+            # 兼容多种字段名
             title = p.get('title') or p.get('name') or ''
             role = p.get('role') or p.get('subtitle') or ''
             date = p.get('date') or ''
-            repo_url = p.get('repoUrl') or p.get('repo') or p.get('link') or ''
             
-            """过滤无效时间（如“未提及”等）"""
+            # 过滤无效时间
             if date and date.strip() in ['未提及', '未知', 'N/A', '-', '']:
                 date = ''
             date = escape_latex(date)
             
-            """构建标题：项目名 - 角色"""
-            if role:
-                full_title = f"{title} - {role}"
-            else:
-                full_title = title
+            # 构建标题 - 不显示日期，与 wy.tex 一致
+            full_title = escape_latex(title)
             
             if full_title:
-                escaped_title = escape_latex(full_title)
-                """添加仓库链接"""
-                if repo_url and repo_url.startswith('http'):
-                    escaped_url = escape_latex(repo_url)
-                    content.append(f"\\datedsubsection{{\\textbf{{{escaped_title}}} \\href{{{escaped_url}}}{{\\faGithub}}}}{{{date}}}")
-                else:
-                    content.append(f"\\datedsubsection{{\\textbf{{{escaped_title}}}}}{{{date}}}")
+                content.append(f"\\datedsubsection{{\\textbf{{{full_title}}}}}{{}}")
                 
-                # 收集项目详情内容
-                item_content = []
-                if isinstance(p.get('items'), list) and p['items']:
-                    for sub in p['items']:
+                # 检查是否有 items（子项目结构）
+                items = p.get('items') or []
+                highlights = p.get('highlights') or []
+                
+                if isinstance(items, list) and items:
+                    # 有子项目结构 - 与 wy.tex 一致
+                    content.append(r"\begin{itemize}[parsep=0.2ex]")
+                    for sub in items:
                         sub_title = sub.get('title')
                         if sub_title:
                             escaped_sub_title = escape_latex(sub_title)
-                            item_content.append(f"  \\item \\textbf{{{escaped_sub_title}}}")
+                            content.append(f"  \\item \\textbf{{{escaped_sub_title}}}")
                             details = sub.get('details') or []
                             if isinstance(details, list) and details:
-                                item_content.append(r"    \begin{itemize}[label=\textbf{·},parsep=0.2ex]")
+                                content.append(r"    \begin{itemize}[label=\textbf{·},parsep=0.2ex]")
                                 for detail in details:
                                     if isinstance(detail, str) and detail.strip():
-                                        item_content.append(f"      \\item {escape_latex(detail.strip())}")
-                                item_content.append(r"    \end{itemize}")
-                if not (isinstance(p.get('items'), list) and p['items']):
-                    highlights = p.get('highlights') or []
-                    if isinstance(highlights, list) and highlights:
-                        for h in highlights:
-                            if isinstance(h, str) and h.strip():
-                                """支持 > 前缀表示缩进"""
-                                is_indented = h.startswith('>')
-                                text = h[1:].strip() if is_indented else h.strip()
-                                if is_indented:
-                                    item_content.append(f"    \\item[] \\hspace{{1em}} {escape_latex(text)}")
-                                else:
-                                    item_content.append(f"  \\item {escape_latex(text)}")
-                
-                # 只有当有内容时才添加 itemize 环境
-                if item_content:
-                    content.append(r"\begin{itemize}[parsep=0.2ex]")
-                    content.extend(item_content)
+                                        content.append(f"      \\item {escape_latex(detail.strip())}")
+                                content.append(r"    \end{itemize}")
+                            content.append("")
                     content.append(r"\end{itemize}")
+                elif isinstance(highlights, list) and highlights:
+                    # highlights 结构 - 解析 **bold** 和 > 缩进语法
+                    # 与 wy.tex 格式一致：主项目 + 嵌套子项目
+                    content.append(r"\begin{itemize}[parsep=0.2ex]")
+                    
+                    i = 0
+                    while i < len(highlights):
+                        h = highlights[i]
+                        if not isinstance(h, str) or not h.strip():
+                            i += 1
+                            continue
+                        
+                        h = h.strip()
+                        
+                        # 检查是否是 **标题** 格式（子项目标题）
+                        if h.startswith('**') and '**' in h[2:]:
+                            # 转换 **text** 为 \textbf{text}
+                            converted = _convert_markdown_bold(h)
+                            converted = escape_latex(converted.replace('\\textbf{', '<<<TEXTBF>>>').replace('}', '<<<ENDBF>>>')).replace('<<<TEXTBF>>>', '\\textbf{').replace('<<<ENDBF>>>', '}')
+                            content.append(f"  \\item {converted}")
+                            
+                            # 收集后续的 > 开头的子项（详情）
+                            sub_items = []
+                            j = i + 1
+                            while j < len(highlights):
+                                next_h = highlights[j]
+                                if isinstance(next_h, str) and next_h.strip().startswith('>'):
+                                    sub_items.append(next_h.strip()[1:].strip())
+                                    j += 1
+                                elif isinstance(next_h, str) and not next_h.strip().startswith('**'):
+                                    # 普通项，作为当前标题的子项
+                                    sub_items.append(next_h.strip())
+                                    j += 1
+                                else:
+                                    break
+                            
+                            if sub_items:
+                                content.append(r"    \begin{itemize}[label=\textbf{·},parsep=0.2ex]")
+                                for sub in sub_items:
+                                    converted_sub = _convert_markdown_bold(sub)
+                                    converted_sub = escape_latex(converted_sub.replace('\\textbf{', '<<<TEXTBF>>>').replace('}', '<<<ENDBF>>>')).replace('<<<TEXTBF>>>', '\\textbf{').replace('<<<ENDBF>>>', '}')
+                                    content.append(f"      \\item {converted_sub}")
+                                content.append(r"    \end{itemize}")
+                            
+                            i = j
+                        elif h.startswith('>'):
+                            # > 开头的独立子项（不在标题下）
+                            text = h[1:].strip()
+                            converted = _convert_markdown_bold(text)
+                            converted = escape_latex(converted.replace('\\textbf{', '<<<TEXTBF>>>').replace('}', '<<<ENDBF>>>')).replace('<<<TEXTBF>>>', '\\textbf{').replace('<<<ENDBF>>>', '}')
+                            content.append(f"    \\item {converted}")
+                            i += 1
+                        else:
+                            # 普通项
+                            converted = _convert_markdown_bold(h)
+                            converted = escape_latex(converted.replace('\\textbf{', '<<<TEXTBF>>>').replace('}', '<<<ENDBF>>>')).replace('<<<TEXTBF>>>', '\\textbf{').replace('<<<ENDBF>>>', '}')
+                            content.append(f"  \\item {converted}")
+                            i += 1
+                    
+                    content.append(r"\end{itemize}")
+                
+                content.append("")
                 content.append("")
     return content
 
 
 def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
-    """生成专业技能"""
+    """
+    生成专业技能 - 与 wy.tex 格式一致
+    格式: \item \textbf{类别:} 详情
+    """
     content = []
     skills = resume_data.get('skills') or []
     title = (section_titles or {}).get('skills', '专业技能')
     if skills:
         content.append(f"\\section{{{escape_latex(title)}}}")
         content.append(r"\begin{itemize}[parsep=0.2ex]")
-        if all(isinstance(s, str) for s in skills):
-            for s in skills:
+        for s in skills:
+            if isinstance(s, str):
+                # 简单字符串格式
                 if s.strip():
-                    content.append(f"  \\item {escape_latex(s.strip())}")
-        else:
-            for s in skills:
-                if isinstance(s, dict):
-                    category = escape_latex(s.get('category') or '')
-                    details = escape_latex(s.get('details') or '')
-                    if category and details:
-                        content.append(f"  \\item \\textbf{{{category}}}: {details}")
-                    elif category:
-                        content.append(f"  \\item \\textbf{{{category}}}")
-                    elif details:
-                        content.append(f"  \\item {details}")
+                    # 尝试解析 "类别: 详情" 格式
+                    if ':' in s or '：' in s:
+                        parts = s.replace('：', ':').split(':', 1)
+                        category = parts[0].strip()
+                        details = parts[1].strip() if len(parts) > 1 else ''
+                        if category and details:
+                            content.append(f"  \\item \\textbf{{{escape_latex(category)}:}} {escape_latex(details)}")
+                        else:
+                            content.append(f"  \\item {escape_latex(s.strip())}")
+                    else:
+                        content.append(f"  \\item {escape_latex(s.strip())}")
+            elif isinstance(s, dict):
+                category = escape_latex(s.get('category') or '')
+                details = escape_latex(s.get('details') or '')
+                if category and details:
+                    content.append(f"  \\item \\textbf{{{category}:}} {details}")
+                elif category:
+                    content.append(f"  \\item \\textbf{{{category}}}")
+                elif details:
+                    content.append(f"  \\item {details}")
         content.append(r"\end{itemize}")
         content.append("")
     return content
 
 
 def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
-    """生成教育经历"""
+    """
+    生成教育经历 - 与 wy.tex 格式一致
+    格式: \datedsubsection{\textbf{学校} - 专业 - \textit{学位}}{日期}
+    \ \textbf{荣誉:} 荣誉内容
+    """
     content = []
     edu = resume_data.get('education') or []
     section_title = (section_titles or {}).get('education', '教育经历')
     if isinstance(edu, list) and edu:
         content.append(f"\\section{{{escape_latex(section_title)}}}")
         for ed in edu:
-            """兼容多种字段名：title=学校, subtitle=专业, degree=学位"""
+            # 兼容多种字段名
             school = escape_latex(ed.get('title') or ed.get('school') or '')
             degree = escape_latex(ed.get('degree') or '')
             major = escape_latex(ed.get('subtitle') or ed.get('major') or '')
             duration = escape_latex(ed.get('date') or ed.get('duration') or '')
             
-            """构建标题"""
-            parts = [s for s in [school, degree, major] if s]
-            title_str = " - ".join(parts) if parts else school
+            # 构建标题：\textbf{学校} - 专业 - \textit{学位}
+            title_parts = []
+            if school:
+                title_parts.append(f"\\textbf{{{school}}}")
+            if major:
+                title_parts.append(major)
+            if degree:
+                title_parts.append(f"\\textit{{{degree}}}")
+            
+            title_str = " - ".join(title_parts) if title_parts else f"\\textbf{{{school}}}"
             
             if title_str:
-                content.append(f"\\datedsubsection{{\\textbf{{{title_str}}}}}{{{duration}}}")
+                content.append(f"\\datedsubsection{{{title_str}}}{{{duration}}}")
                 
-                """描述信息（GPA、排名等）"""
-                details = ed.get('details') or []
-                description = ed.get('description') or ''
-                if isinstance(details, list) and details:
-                    desc_text = '；'.join([escape_latex(d) for d in details if d])
-                    if desc_text:
-                        content.append(f"{desc_text}")
-                elif description:
-                    content.append(f"{escape_latex(description)}")
-                
-                """荣誉信息（兼容旧格式）"""
+                # 荣誉信息 - 与 wy.tex 格式一致
                 honors = ed.get('honors')
                 if honors:
                     escaped_honors = escape_latex(honors)
-                    content.append(f" \\textbf{{荣誉:}} {escaped_honors}")
+                    content.append(f"\\ \\textbf{{荣誉:}} {escaped_honors}")
             content.append("")
     return content
 
@@ -244,9 +322,17 @@ def generate_section_awards(resume_data: Dict[str, Any], section_titles: Dict[st
 
 
 def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
-    """生成开源经历"""
+    """
+    生成开源经历 - 与 wy.tex 格式一致
+    格式:
+    \datedsubsection{\textbf{项目名}}{描述}
+    \begin{itemize}[parsep=0.2ex]
+      \item 仓库: \textit{url}
+      \item 其他内容
+    \end{itemize}
+    """
     content = []
-    """兼容 openSource 和 opensource 两种字段名"""
+    # 兼容 openSource 和 opensource 两种字段名
     open_source = resume_data.get('openSource') or resume_data.get('opensource') or []
     title = (section_titles or {}).get('openSource', '开源经历')
     if isinstance(open_source, list) and open_source:
@@ -256,24 +342,31 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
             subtitle = escape_latex(os_item.get('subtitle') or '')
             repo_url = os_item.get('repoUrl') or os_item.get('repo') or os_item.get('link') or ''
             
-            """构建标题，添加仓库链接"""
-            if repo_url and repo_url.startswith('http'):
-                escaped_url = escape_latex(repo_url)
-                subsection_title = f"\\textbf{{{item_title}}} \\href{{{escaped_url}}}{{\\faGithub}}"
-            else:
-                subsection_title = f"\\textbf{{{item_title}}}"
+            # 构建标题
+            subsection_title = f"\\textbf{{{item_title}}}"
             
-            if subtitle:
-                content.append(f"\\datedsubsection{{{subsection_title}}}{{{subtitle}}}")
-            else:
-                content.append(f"\\datedsubsection{{{subsection_title}}}{{}}")
+            content.append(f"\\datedsubsection{{{subsection_title}}}{{{subtitle}}}")
+            
             items = os_item.get('items') or []
-            if isinstance(items, list) and items:
+            has_content = False
+            
+            if repo_url or (isinstance(items, list) and items):
                 content.append(r"\begin{itemize}[parsep=0.2ex]")
-                for item in items:
-                    if isinstance(item, str) and item.strip():
-                        content.append(f"  \\item {escape_latex(item.strip())}")
+                has_content = True
+                
+                # 添加仓库链接
+                if repo_url:
+                    escaped_url = escape_latex(repo_url)
+                    content.append(f"  \\item 仓库: \\textit{{{escaped_url}}}")
+                
+                # 添加其他内容
+                if isinstance(items, list) and items:
+                    for item in items:
+                        if isinstance(item, str) and item.strip():
+                            content.append(f"  \\item {escape_latex(item.strip())}")
+                
                 content.append(r"\end{itemize}")
+            
             content.append("")
     return content
 
@@ -294,9 +387,9 @@ SECTION_GENERATORS = {
 }
 
 """
-默认 section 顺序（与前端可视化编辑器一致）
+默认 section 顺序 - 与 wy.tex 一致
 """
 DEFAULT_SECTION_ORDER = [
-    'education', 'experience', 'internships', 'projects', 
-    'skills', 'awards', 'summary', 'opensource'
+    'internships', 'projects', 'opensource', 'skills', 'education',
+    'awards', 'summary'
 ]

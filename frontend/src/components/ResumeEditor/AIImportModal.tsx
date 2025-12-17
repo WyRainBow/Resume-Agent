@@ -274,7 +274,7 @@ export function AIImportModal({
                   gap: '8px',
                 }}
               >
-                💾 保存
+                保存简历
                 {finalTime !== null && (
                   <span style={{ fontSize: '12px', color: getTimeColor(finalTime), fontWeight: 500 }}>
                     {formatTime(finalTime)}

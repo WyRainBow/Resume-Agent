@@ -115,9 +115,12 @@ export function usePDFOperations({
   
   /**
    * 【三层渲染架构】Layer 3: 显式生成 PDF（使用流式API）
+   * @param forceRender 是否强制渲染
+   * @param resumeData 可选，如果传入则使用传入的数据
    */
-  const generatePDF = useCallback(async (forceRender = false) => {
-    if (!resume) return null
+  const generatePDF = useCallback(async (forceRender = false, resumeData?: Resume) => {
+    const dataToRender = resumeData || resume
+    if (!dataToRender) return null
     if (!pdfDirty && !forceRender && pdfBlob) {
       console.log('[Layer 3] PDF 无变化，跳过渲染')
       return pdfBlob
@@ -132,7 +135,7 @@ export function usePDFOperations({
     try {
       // 使用流式PDF渲染API，显示进度
       const blob = await renderPDFStream(
-        resume,
+        dataToRender,
         currentSectionOrder.length > 0 ? currentSectionOrder : undefined,
         // 进度回调
         (progress) => {
@@ -169,17 +172,25 @@ export function usePDFOperations({
   
   /**
    * 显式保存并更新 PDF
+   * @param resumeData 可选，如果传入则使用传入的数据，否则使用当前状态
    */
-  const handleSaveAndRender = useCallback(async () => {
-    if (!resume) return
+  const handleSaveAndRender = useCallback(async (resumeData?: Resume) => {
+    const dataToRender = resumeData || resume
+    if (!dataToRender) return
     
-    if (currentResumeId) {
-      saveResume(resume, currentResumeId)
+    // 如果传入了新数据，先更新状态
+    if (resumeData) {
+      setResume(resumeData)
+      setPdfDirty(true)
     }
     
-    await generatePDF(true)
+    if (currentResumeId) {
+      saveResume(dataToRender, currentResumeId)
+    }
+    
+    await generatePDF(true, dataToRender)
     setPreviewMode('pdf')
-  }, [resume, currentResumeId, generatePDF, setPreviewMode])
+  }, [resume, currentResumeId, generatePDF, setPreviewMode, setResume, setPdfDirty])
 
   /**
    * 下载 PDF
