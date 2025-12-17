@@ -81,12 +81,20 @@ function DragHandle({
   return (
     <div
       className={cn(
-        'w-1 cursor-col-resize hover:bg-purple-400 active:bg-purple-500 transition-colors',
-        'bg-gray-200 dark:bg-neutral-700',
+        'w-[3px] cursor-col-resize transition-all duration-200 group relative',
+        'bg-gradient-to-b from-slate-200/60 via-slate-300/40 to-slate-200/60',
+        'dark:from-slate-700/60 dark:via-slate-600/40 dark:to-slate-700/60',
+        'hover:from-indigo-400/80 hover:via-purple-400/80 hover:to-indigo-400/80',
+        'active:from-indigo-500 active:via-purple-500 active:to-indigo-500',
         className
       )}
       onMouseDown={handleMouseDown}
-    />
+    >
+      {/* 拖拽指示器 */}
+      <div className="absolute inset-y-0 -left-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-8 rounded-full bg-indigo-500/50" />
+      </div>
+    </div>
   )
 }
 
@@ -139,10 +147,15 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
   }, [])
 
   return (
-    <div className="h-[calc(100vh-56px)] flex">
+    <div className="h-[calc(100vh-64px)] flex relative z-10">
       {/* 第一列：SidePanel */}
       <div 
-        className="h-full overflow-y-auto bg-gray-50 dark:bg-neutral-900"
+        className={cn(
+          "h-full overflow-y-auto",
+          "bg-white/60 dark:bg-slate-900/60",
+          "backdrop-blur-sm",
+          "border-r border-white/30 dark:border-slate-700/30"
+        )}
         style={{ width: col1Width, flexShrink: 0 }}
       >
         <SidePanel
@@ -163,7 +176,11 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
 
       {/* 第二列：EditPanel */}
       <div 
-        className="h-full overflow-y-auto bg-white dark:bg-neutral-900"
+        className={cn(
+          "h-full overflow-y-auto",
+          "bg-white/80 dark:bg-slate-900/80",
+          "backdrop-blur-sm"
+        )}
         style={{ width: col2Width, flexShrink: 0 }}
       >
         <EditPanel
@@ -196,7 +213,12 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
       <DragHandle onDrag={handleDrag2} />
 
       {/* 第三列：PreviewPanel */}
-      <div className="flex-1 h-full overflow-hidden bg-gray-100 dark:bg-neutral-800">
+      <div className={cn(
+        "flex-1 h-full overflow-hidden",
+        "bg-slate-100/80 dark:bg-slate-800/80",
+        "backdrop-blur-sm",
+        "border-l border-white/30 dark:border-slate-700/30"
+      )}>
         <PreviewPanel
           pdfBlob={pdfBlob}
           loading={loading}
