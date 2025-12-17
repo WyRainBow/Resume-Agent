@@ -51,3 +51,5 @@ logs/**/*.log
 *.synctex.gz
 *.fdb_latexmk
 *.fls
+.pydeps/
+backend/.venv/

@@ -73,13 +73,12 @@
   \vspace{1.2ex}
 }
 
-\newcommand{\contactInfo}[4]{
+\newcommand{\contactInfo}[3]{
   \begin{center}
   \sffamily\small
   {#1}
   \ifthenelse{\isempty{#2}}{}{\textperiodcentered\ \ {#2}}
   \ifthenelse{\isempty{#3}}{}{\textperiodcentered\ \ {#3}}
-  \ifthenelse{\isempty{#4}}{}{\textperiodcentered\ \ {#4}}
   \end{center}
   \vspace{0.5ex}
 }

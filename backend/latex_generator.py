@@ -41,7 +41,7 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     """获取 LaTeX 模板目录路径"""
     current_dir = Path(__file__).resolve().parent
     root_dir = current_dir.parent
-    latex_template_dir = root_dir / "LATEX"
+    latex_template_dir = root_dir / "LATEX-slager"
     
     """构建 LaTeX 文档"""
     latex_content = []
@@ -77,10 +77,9 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     email = escape_latex(contact.get('email') or '')
     """求职意向：优先从 objective 获取，其次从 contact.role 获取"""
     role = escape_latex(resume_data.get('objective') or contact.get('role') or '')
-    location = escape_latex(contact.get('location') or '')
     
-    """contactInfo 格式: {phone}{email}{location}{role}"""
-    latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{location}}}{{{role}}}")
+    """contactInfo 格式: {phone}{email}{role} - 与 slager.link 保持一致"""
+    latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{role}}}")
     latex_content.append("")
     
     """获取自定义模块标题"""
@@ -218,7 +217,7 @@ def render_pdf_from_resume_latex(resume_data: Dict[str, Any], section_order: Lis
     """获取模板目录"""
     current_dir = Path(__file__).resolve().parent
     root_dir = current_dir.parent
-    template_dir = root_dir / "LATEX"
+    template_dir = root_dir / "LATEX-slager"
     
     if not template_dir.exists():
         raise RuntimeError(f"LaTeX 模板目录不存在: {template_dir}")

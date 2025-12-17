@@ -12,9 +12,13 @@ interface ToolbarProps {
   onReset: () => void
   onAIOptimize: () => void
   onNewResume?: () => void  // 新建简历功能
+  onImportLatex?: () => void  // 导入 LaTeX 功能
+  onImportJson?: () => void  // 导入 JSON 功能
+  onSaveToLibrary?: () => void  // 保存到简历库
   loadingPdf: boolean
   optimizing: boolean
   hasResume: boolean
+  hasPdfBlob: boolean  // 是否有 PDF 数据
 }
 
 export function Toolbar({
@@ -25,9 +29,13 @@ export function Toolbar({
   onReset,
   onAIOptimize,
   onNewResume,
+  onImportLatex,
+  onImportJson,
+  onSaveToLibrary,
   loadingPdf,
   optimizing,
   hasResume,
+  hasPdfBlob,
 }: ToolbarProps) {
   return (
     <div style={{
@@ -108,7 +116,7 @@ export function Toolbar({
       </div>
 
       {/* 第二行：核心功能按钮 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '8px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '8px' }}>
         <button
           onClick={() => setShowAIImport(true)}
           style={{
@@ -127,6 +135,52 @@ export function Toolbar({
           }}
         >
           AI导入
+        </button>
+
+        {/* 导入 LaTeX */}
+        <button
+          onClick={onImportLatex}
+          disabled={loadingPdf}
+          style={{
+            height: '32px',
+            background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.2) 0%, rgba(16, 185, 129, 0.2) 100%)',
+            border: '1px solid rgba(34, 197, 94, 0.3)',
+            borderRadius: '6px',
+            color: '#86efac',
+            fontSize: '12px',
+            fontWeight: 500,
+            cursor: loadingPdf ? 'not-allowed' : 'pointer',
+            opacity: loadingPdf ? 0.6 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+          }}
+        >
+          LaTeX
+        </button>
+
+        {/* 导入 JSON */}
+        <button
+          onClick={onImportJson}
+          disabled={loadingPdf}
+          style={{
+            height: '32px',
+            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.2) 0%, rgba(37, 99, 235, 0.2) 100%)',
+            border: '1px solid rgba(59, 130, 246, 0.3)',
+            borderRadius: '6px',
+            color: '#93c5fd',
+            fontSize: '12px',
+            fontWeight: 500,
+            cursor: loadingPdf ? 'not-allowed' : 'pointer',
+            opacity: loadingPdf ? 0.6 : 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+          }}
+        >
+          JSON
         </button>
 
         <button
@@ -173,6 +227,30 @@ export function Toolbar({
           title="查看引导"
         >
           引导
+        </button>
+
+        {/* 保存到简历库 */}
+        <button
+          onClick={onSaveToLibrary}
+          disabled={!hasPdfBlob || loadingPdf}
+          style={{
+            height: '32px',
+            padding: '0 12px',
+            background: hasPdfBlob ? 'linear-gradient(135deg, rgba(59, 130, 246, 0.3) 0%, rgba(37, 99, 235, 0.3) 100%)' : 'rgba(255, 255, 255, 0.08)',
+            border: hasPdfBlob ? '1px solid rgba(59, 130, 246, 0.5)' : '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '6px',
+            color: hasPdfBlob ? '#93c5fd' : 'rgba(255,255,255,0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: (!hasPdfBlob || loadingPdf) ? 'not-allowed' : 'pointer',
+            fontSize: '12px',
+            fontWeight: 500,
+            gap: '4px',
+          }}
+          title="保存到简历库"
+        >
+          保存
         </button>
       </div>
     </div>

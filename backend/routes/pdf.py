@@ -5,15 +5,21 @@ import json
 import time
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
+from pydantic import BaseModel
 
 from ..models import RenderPDFRequest
 
 router = APIRouter(prefix="/api", tags=["PDF"])
+
+
+class CompileLatexRequest(BaseModel):
+    """LaTeX 编译请求"""
+    latex_content: str
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -68,7 +74,7 @@ async def render_pdf_stream(body: RenderPDFRequest):
             # 获取模板目录
             current_dir = Path(__file__).resolve().parent
             root_dir = current_dir.parents[1]  # Go up two levels to reach project root
-            template_dir = root_dir / "LATEX"
+            template_dir = root_dir / "LATEX-slager"
 
             # 生成 LaTeX
             latex_content = json_to_latex(resume_data, body.section_order)
@@ -99,3 +105,63 @@ async def render_pdf_stream(body: RenderPDFRequest):
             yield dict(event="error", data=f"PDF生成失败: {str(e)}")
 
     return EventSourceResponse(generate_pdf())
+
+
+@router.post("/pdf/compile-latex")
+async def compile_latex(body: CompileLatexRequest):
+    """
+    直接编译 LaTeX 源代码为 PDF
+    使用 slager 原版样式（与 slager.link 完全一致）
+    """
+    start_time = time.time()
+    
+    try:
+        from ..latex_compiler import compile_latex_raw
+        pdf_io = compile_latex_raw(body.latex_content)
+        
+        render_time = time.time() - start_time
+        print(f"[LaTeX 编译] 完成，耗时: {render_time:.2f}秒")
+        
+        return StreamingResponse(pdf_io, media_type='application/pdf', headers={
+            'Content-Disposition': 'inline; filename="resume.pdf"',
+            'X-Render-Time': str(render_time)
+        })
+    except Exception as e:
+        import traceback
+        error_msg = f"LaTeX 编译失败: {str(e)}"
+        print(f"[错误] {error_msg}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=error_msg)
+
+
+@router.post("/pdf/compile-latex/stream")
+async def compile_latex_stream(body: CompileLatexRequest):
+    """
+    流式编译 LaTeX 源代码为 PDF，提供实时进度反馈
+    """
+    async def generate():
+        try:
+            yield dict(event="start", data="开始编译 LaTeX...")
+            yield dict(event="progress", data="正在准备编译环境...")
+            
+            compile_start = time.time()
+            
+            from ..latex_compiler import compile_latex_raw
+            yield dict(event="progress", data="正在编译 PDF（可能需要几秒）...")
+            
+            pdf_io = compile_latex_raw(body.latex_content)
+            compile_time = time.time() - compile_start
+            
+            yield dict(event="progress", data=f"PDF 编译完成 ({compile_time:.1f}s)")
+            
+            # 发送 PDF 数据
+            pdf_hex = pdf_io.getvalue().hex()
+            yield dict(event="pdf", data=pdf_hex)
+            print(f"[LaTeX 编译] 成功，大小: {len(pdf_hex)/2} 字节")
+            
+        except Exception as e:
+            import traceback
+            error_msg = f"LaTeX 编译错误: {str(e)}"
+            print(f"[错误] {error_msg}\n{traceback.format_exc()}")
+            yield dict(event="error", data=error_msg)
+    
+    return EventSourceResponse(generate())
