@@ -17,6 +17,9 @@ from ..llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
 from ..prompts import build_resume_prompt, build_resume_markdown_prompt, build_rewrite_prompt, SECTION_PROMPTS
 from ..json_path import parse_path, get_by_path, set_by_path
 from ..chunk_processor import split_resume_text, merge_resume_chunks
+from ..parallel_chunk_processor import parse_resume_text_parallel
+from ..config.parallel_config import get_parallel_config
+from ..logger import backend_logger
 
 router = APIRouter(prefix="/api", tags=["Resume"])
 
@@ -138,20 +141,104 @@ async def generate_resume_stream(body: ResumeGenerateRequest):
 
 @router.post("/resume/parse")
 async def parse_resume_text(body: ResumeParseRequest):
-    """AI 解析简历文本 → 结构化简历 JSON"""
-    provider = body.provider or DEFAULT_AI_PROVIDER
+    """AI 解析简历文本 → 结构化简历 JSON（支持并行分块处理）"""
+    # 使用 print 和 logger 双重记录，确保能看到日志
+    import sys
+    # 输出到 stderr，uvicorn 会显示
+    print("========== 收到解析请求 ==========", file=sys.stderr, flush=True)
+    print(f"文本长度: {len(body.text)} 字符", file=sys.stderr, flush=True)
+    backend_logger.info("========== 收到解析请求 ==========")
+    backend_logger.info(f"文本长度: {len(body.text)} 字符")
     
+    provider = body.provider or DEFAULT_AI_PROVIDER
+    print(f"Provider: {provider}", file=sys.stderr, flush=True)
+    backend_logger.info(f"Provider: {provider}")
+
+    # 获取并行处理配置
+    config = get_parallel_config(provider)
+    use_parallel = getattr(body, 'use_parallel', config.get('enabled', True))
+    print(f"use_parallel: {use_parallel}, enabled: {config.get('enabled')}", file=sys.stderr, flush=True)
+    backend_logger.info(f"use_parallel: {use_parallel}, enabled: {config.get('enabled')}")
+
+    chunk_threshold = config.get("chunk_threshold", 500)
+    print(f"chunk_threshold: {chunk_threshold}, text_length: {len(body.text)}", file=sys.stderr, flush=True)
+    if use_parallel and len(body.text) > chunk_threshold:
+        print("========== 并行处理开始 ==========", file=sys.stderr, flush=True)
+        print(f"文本长度: {len(body.text)} 字符", file=sys.stderr, flush=True)
+        print(f"阈值: {chunk_threshold} 字符", file=sys.stderr, flush=True)
+        print(f"配置: max_concurrent={config.get('max_concurrent')}, max_chunk_size={config.get('max_chunk_size')}", file=sys.stderr, flush=True)
+        backend_logger.info("========== 并行处理开始 ==========")
+        backend_logger.info(f"文本长度: {len(body.text)} 字符")
+        backend_logger.info(f"阈值: {chunk_threshold} 字符")
+        backend_logger.info(f"配置: max_concurrent={config.get('max_concurrent')}, max_chunk_size={config.get('max_chunk_size')}")
+        import time
+        parallel_start = time.time()
+        try:
+            # 使用异步并行处理
+            short_data = await parse_resume_text_parallel(
+                text=body.text,
+                provider=provider,
+                max_concurrent=config.get("max_concurrent"),
+                max_chunk_size=config.get("max_chunk_size", 300)
+            )
+            parallel_elapsed = time.time() - parallel_start
+            backend_logger.info(f"✅ 并行处理成功！总耗时: {parallel_elapsed:.2f}秒")
+            backend_logger.info("========== 并行处理结束 ==========")
+        except Exception as e:
+            import traceback
+            parallel_elapsed = time.time() - parallel_start
+            backend_logger.error(f"❌ 并行处理失败，耗时: {parallel_elapsed:.2f}秒")
+            backend_logger.error(f"错误信息: {str(e)}")
+            backend_logger.error(f"错误详情:\n{traceback.format_exc()}")
+            backend_logger.warning("回退到串行模式...")
+            # 回退到原有的串行处理
+            return await _parse_resume_serial(body)
+    else:
+        # 短文本或禁用并行时，使用原有的处理方式
+        if len(body.text) > config.get("chunk_threshold", 500):
+            backend_logger.info(f"文本长度 {len(body.text)}，使用串行分块处理")
+        return await _parse_resume_serial(body)
+
+    # 额外的数据清理和标准化
+    try:
+        from ..json_normalizer import normalize_resume_json
+        normalized_data = normalize_resume_json(short_data)
+        print(f"[解析] 数据标准化完成", file=sys.stderr, flush=True)
+    except Exception as e:
+        print(f"[解析] 数据标准化失败: {e}", file=sys.stderr, flush=True)
+        normalized_data = short_data
+    
+    # 统一返回格式：与串行处理保持一致
+    data = {
+        "name": normalized_data.get("name", ""),
+        "contact": normalized_data.get("contact", {"phone": "", "email": ""}),
+        "objective": normalized_data.get("objective", ""),
+        "education": normalized_data.get("education", []),
+        "internships": normalized_data.get("internships", []),
+        "projects": normalized_data.get("projects", []),
+        "openSource": normalized_data.get("openSource", []),
+        "skills": normalized_data.get("skills", []),
+        "awards": normalized_data.get("awards", [])
+    }
+    
+    print(f"[解析] 返回数据，包含 {len(data.get('projects', []))} 个项目", file=sys.stderr, flush=True)
+    return {"resume": data, "provider": provider}
+
+
+async def _parse_resume_serial(body: ResumeParseRequest):
+    """串行解析简历文本（原有逻辑）"""
+    provider = body.provider or DEFAULT_AI_PROVIDER
+
     # 格式定义
     schema_desc = """格式:{"name":"姓名","contact":{"phone":"电话","email":"邮箱"},"objective":"求职意向","education":[{"title":"学校","subtitle":"学历","date":"时间","major":"专业","details":["荣誉"]}],"internships":[{"title":"公司","subtitle":"职位","date":"时间","highlights":["工作内容"]}],"projects":[{"title":"项目名","subtitle":"角色","date":"时间","highlights":["描述"]}],"openSource":[{"title":"开源项目","subtitle":"描述","items":["贡献"],"repoUrl":"链接"}],"skills":[{"category":"类别","details":"技能"}],"awards":["奖项"]}"""
 
     # 如果文本过长，使用分块处理
     if len(body.text) > 800:
-        print(f"[解析] 文本长度 {len(body.text)}，启用分块处理")
         chunks = split_resume_text(body.text, max_chunk_size=300)
         chunks_results = []
-        
+
         for i, chunk in enumerate(chunks):
-            print(f"[解析] 处理第 {i+1}/{len(chunks)} 块: {chunk['section']}")
+            backend_logger.info(f"处理第 {i+1}/{len(chunks)} 块: {chunk['section']}")
             chunk_prompt = f"""从简历文本片段提取信息,只输出JSON(不要markdown,无数据的字段用空数组[]):
 片段内容({chunk['section']}):
 {chunk['content']}
@@ -168,23 +255,23 @@ async def parse_resume_text(body: ResumeParseRequest):
                 backend_logger.warning(f"分块 {i+1} 解析失败: {e}")
                 write_llm_debug(f"Chunk {i+1} Error: {e}")
                 continue
-        
+
         short_data = merge_resume_chunks(chunks_results)
         print("[解析] 分块合并完成")
-    
+
     else:
         # 短文本直接处理
         prompt = f"""从简历文本提取信息,只输出JSON(不要markdown,无数据的字段用空数组[]):
 {body.text}
 {schema_desc}"""
-        
+
         try:
             raw = call_llm(provider, prompt)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
-        
+
         cleaned = clean_llm_response(raw)
-        
+
         try:
             short_data = parse_json_response(cleaned)
         except Exception as e:
@@ -195,19 +282,26 @@ async def parse_resume_text(body: ResumeParseRequest):
             
             raise HTTPException(status_code=500, detail="AI 返回的内容无法解析为 JSON，请重试")
     
-    data = {
-        "name": short_data.get("name", ""),
-        "contact": short_data.get("contact", {"phone": "", "email": ""}),
-        "objective": short_data.get("objective", ""),
-        "education": short_data.get("education", []),
-        "internships": short_data.get("internships", []),
-        "projects": short_data.get("projects", []),
-        "openSource": short_data.get("openSource", []),
-        "skills": short_data.get("skills", []),
-        "awards": short_data.get("awards", [])
-    }
-    
-    return {"resume": data, "provider": body.provider}
+    # 额外的数据清理和标准化
+    try:
+        from ..json_normalizer import normalize_resume_json
+        normalized_data = normalize_resume_json(short_data)
+        return {"success": True, "data": normalized_data}
+    except Exception as e:
+        print(f"[解析] 数据标准化失败: {e}")
+        # 返回原始数据
+        data = {
+            "name": short_data.get("name", ""),
+            "contact": short_data.get("contact", {"phone": "", "email": ""}),
+            "objective": short_data.get("objective", ""),
+            "education": short_data.get("education", []),
+            "internships": short_data.get("internships", []),
+            "projects": short_data.get("projects", []),
+            "openSource": short_data.get("openSource", []),
+            "skills": short_data.get("skills", []),
+            "awards": short_data.get("awards", [])
+        }
+        return {"success": True, "data": data}
 
 
 @router.post("/resume/parse-section")

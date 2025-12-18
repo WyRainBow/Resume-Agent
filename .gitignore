@@ -62,3 +62,6 @@ wy.txt
 simple.py
 start.sh
 stop.sh
+*.sh
+payload.json
+test_api.sh
