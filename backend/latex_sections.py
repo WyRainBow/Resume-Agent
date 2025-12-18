@@ -329,7 +329,7 @@ def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[st
 def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """
     生成教育经历 - 与 wy.tex 格式一致
-    格式: \\datedsubsection{\\textbf{学校} - 专业 - \\textit{学位}}{日期}
+    格式: \\datedsubsection{学校 - 专业 - 学位}{日期}
     \\ \\textbf{荣誉:} 荣誉内容
     """
     content = []
@@ -344,16 +344,16 @@ def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict
             major = escape_latex(ed.get('subtitle') or ed.get('major') or '')
             duration = escape_latex(ed.get('date') or ed.get('duration') or '')
             
-            # 构建标题：\\textbf{学校} - 专业 - \\textit{学位}
+            # 构建标题：学校 - 专业 - 学位（学校和学位默认不加粗）
             title_parts = []
             if school:
-                title_parts.append(f"\\textbf{{{school}}}")
+                title_parts.append(school)
             if major:
                 title_parts.append(major)
             if degree:
-                title_parts.append(f"\\textit{{{degree}}}")
+                title_parts.append(degree)
             
-            title_str = " - ".join(title_parts) if title_parts else f"\\textbf{{{school}}}"
+            title_str = " - ".join(title_parts) if title_parts else school
             
             if title_str:
                 content.append(f"\\datedsubsection{{{title_str}}}{{{duration}}}")
