@@ -5,7 +5,7 @@ import { useState, useCallback } from 'react'
 import { motion, Reorder, useDragControls, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
-import type { Experience } from '../types'
+import type { Experience, ResumeData } from '../types'
 import Field from './Field'
 
 // 将 Markdown 格式转换为 HTML（用于预览）
@@ -31,14 +31,17 @@ interface ExperienceItemProps {
   onUpdate: (experience: Experience) => void
   onDelete: (id: string) => void
   setDraggingId: (id: string | null) => void
+  resumeData?: ResumeData  // 简历数据，用于 AI 润色
 }
 
 const ExperienceEditor = ({
   experience,
   onSave,
+  resumeData,
 }: {
   experience: Experience
   onSave: (experience: Experience) => void
+  resumeData?: ResumeData
 }) => {
   const handleChange = (field: keyof Experience, value: string | boolean) => {
     onSave({
@@ -46,6 +49,11 @@ const ExperienceEditor = ({
       [field]: value,
     })
   }
+
+  // 构建 polishPath，使用方括号格式：experience[0].details
+  const polishPath = resumeData?.experience
+    ? `experience[${resumeData.experience.findIndex(e => e.id === experience.id)}].details`
+    : undefined
 
   return (
     <div className="space-y-5">
@@ -78,6 +86,8 @@ const ExperienceEditor = ({
           onChange={(value) => handleChange('details', value)}
           type="editor"
           placeholder="请描述你的工作内容..."
+          resumeData={resumeData}
+          polishPath={polishPath}
         />
       </div>
     </div>
@@ -89,6 +99,7 @@ const ExperienceItem = ({
   onUpdate,
   onDelete,
   setDraggingId,
+  resumeData,
 }: ExperienceItemProps) => {
   const dragControls = useDragControls()
   const [expanded, setExpanded] = useState(false)
@@ -204,7 +215,7 @@ const ExperienceItem = ({
             >
               <div className="px-4 pb-4 space-y-4" onClick={(e) => e.stopPropagation()}>
                 <div className={cn('h-px w-full', 'bg-gray-100 dark:bg-neutral-800')} />
-                <ExperienceEditor experience={experience} onSave={onUpdate} />
+                <ExperienceEditor experience={experience} onSave={onUpdate} resumeData={resumeData} />
               </div>
             </motion.div>
           )}

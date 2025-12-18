@@ -114,7 +114,7 @@ const RichEditor = ({
   const [showPolishDialog, setShowPolishDialog] = useState(false)
 
   const handlePolish = () => {
-    if (resumeData) {
+    if (resumeData && polishPath) {
       setShowPolishDialog(true)
     } else if (onPolish) {
       // 兼容旧的 onPolish 回调
@@ -319,7 +319,7 @@ const RichEditor = ({
           </MenuButton>
 
           {/* AI 润色按钮 */}
-          {(resumeData || onPolish) && (
+          {(resumeData && polishPath) || onPolish ? (
             <button
               onClick={handlePolish}
               className="ml-2 px-3 py-1.5 text-sm rounded-md bg-gradient-to-r from-purple-400 to-pink-500 hover:from-pink-500 hover:to-purple-400 text-white shadow-md transition-all duration-300 flex items-center gap-1"
@@ -327,7 +327,7 @@ const RichEditor = ({
               <Wand2 className="h-4 w-4" />
               AI 润色
             </button>
-          )}
+          ) : null}
         </div>
       </div>
 
@@ -335,7 +335,7 @@ const RichEditor = ({
       <EditorContent editor={editor} />
 
       {/* AI 润色对话框 */}
-      {resumeData && (
+      {resumeData && polishPath && (
         <AIPolishDialog
           open={showPolishDialog}
           onOpenChange={setShowPolishDialog}

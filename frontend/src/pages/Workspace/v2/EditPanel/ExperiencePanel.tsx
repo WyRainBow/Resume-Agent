@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { Reorder } from 'framer-motion'
 import { PlusCircle, Wand2, List, ListOrdered } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
-import type { Experience, GlobalSettings } from '../types'
+import type { Experience, GlobalSettings, ResumeData } from '../types'
 import ExperienceItem from './ExperienceItem'
 
 interface ExperiencePanelProps {
@@ -16,6 +16,7 @@ interface ExperiencePanelProps {
   globalSettings?: GlobalSettings
   updateGlobalSettings: (settings: Partial<GlobalSettings>) => void
   onAIImport?: () => void
+  resumeData?: ResumeData  // 简历数据，用于 AI 润色
 }
 
 const generateId = () => {
@@ -30,6 +31,7 @@ const ExperiencePanel = ({
   globalSettings,
   updateGlobalSettings,
   onAIImport,
+  resumeData,
 }: ExperiencePanelProps) => {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   
@@ -115,6 +117,7 @@ const ExperiencePanel = ({
             onUpdate={onUpdate}
             onDelete={onDelete}
             setDraggingId={setDraggingId}
+            resumeData={resumeData}
           />
         ))}
       </Reorder.Group>

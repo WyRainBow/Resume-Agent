@@ -22,9 +22,11 @@ interface ProjectItemProps {
 const ProjectEditor = ({
   project,
   onSave,
+  resumeData,
 }: {
   project: Project
   onSave: (project: Project) => void
+  resumeData?: ResumeData
 }) => {
   const handleChange = (field: keyof Project, value: string | boolean) => {
     onSave({
@@ -32,6 +34,11 @@ const ProjectEditor = ({
       [field]: value,
     })
   }
+
+  // 构建 polishPath，使用方括号格式：projects[0].description
+  const polishPath = resumeData?.projects
+    ? `projects[${resumeData.projects.findIndex(p => p.id === project.id)}].description`
+    : undefined
 
   return (
     <div className="space-y-5">
@@ -70,6 +77,8 @@ const ProjectEditor = ({
           onChange={(value) => handleChange('description', value)}
           type="editor"
           placeholder="请描述你在项目中的工作内容..."
+          resumeData={resumeData}
+          polishPath={polishPath}
         />
       </div>
     </div>
@@ -81,6 +90,7 @@ const ProjectItem = ({
   onUpdate,
   onDelete,
   setDraggingId,
+  resumeData,
 }: ProjectItemProps) => {
   const dragControls = useDragControls()
   const [expanded, setExpanded] = useState(false)
@@ -230,6 +240,7 @@ const ProjectItem = ({
                 <ProjectEditor
                   project={project}
                   onSave={onUpdate}
+                  resumeData={resumeData}
                 />
               </div>
             </motion.div>

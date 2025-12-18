@@ -31,6 +31,11 @@ export default function AIPolishDialog({
   const polishedContentRef = useRef<HTMLDivElement>(null)
 
   const handlePolish = async () => {
+    if (!path) {
+      console.error('AI 润色失败: 路径未指定')
+      return
+    }
+
     try {
       setIsPolishing(true)
       setPolishedContent('')
@@ -72,7 +77,7 @@ export default function AIPolishDialog({
   }
 
   useEffect(() => {
-    if (open) {
+    if (open && path) {
       handlePolish()
     } else {
       if (abortControllerRef.current) {
@@ -81,7 +86,8 @@ export default function AIPolishDialog({
       }
       setPolishedContent('')
     }
-  }, [open])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, path])
 
   const handleClose = () => {
     if (abortControllerRef.current) {

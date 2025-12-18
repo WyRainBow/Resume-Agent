@@ -26,11 +26,13 @@ function OpenSourceItem({
   onUpdate,
   onDelete,
   setDraggingId,
+  resumeData,
 }: {
   openSource: OpenSource
   onUpdate: (openSource: OpenSource) => void
   onDelete: (id: string) => void
   setDraggingId: (id: string | null) => void
+  resumeData?: ResumeData
 }) {
   const dragControls = useDragControls()
   const [expanded, setExpanded] = useState(false)
@@ -128,7 +130,15 @@ function OpenSourceItem({
                     <Field label="仓库地址" value={openSource.repo || ''} onChange={(v) => handleChange('repo', v)} placeholder="GitHub 链接" />
                     <Field label="时间" value={openSource.date || ''} onChange={(v) => handleChange('date', v)} placeholder="如：2024.01 - 至今" />
                   </div>
-                  <Field label="贡献描述" value={openSource.description} onChange={(v) => handleChange('description', v)} type="editor" placeholder="描述你的开源贡献..." />
+                  <Field 
+                    label="贡献描述" 
+                    value={openSource.description} 
+                    onChange={(v) => handleChange('description', v)} 
+                    type="editor" 
+                    placeholder="描述你的开源贡献..."
+                    resumeData={resumeData}
+                    polishPath={resumeData?.openSource ? `openSource[${resumeData.openSource.findIndex(os => os.id === openSource.id)}].description` : undefined}
+                  />
                 </div>
               </div>
             </motion.div>
@@ -139,7 +149,7 @@ function OpenSourceItem({
   )
 }
 
-export default function OpenSourcePanel({ openSources, onUpdate, onDelete, onReorder, onAIImport }: OpenSourcePanelProps) {
+export default function OpenSourcePanel({ openSources, onUpdate, onDelete, onReorder, onAIImport, resumeData }: OpenSourcePanelProps) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
 
   const handleCreate = () => {
@@ -169,7 +179,7 @@ export default function OpenSourcePanel({ openSources, onUpdate, onDelete, onReo
 
       <Reorder.Group axis="y" values={openSources} onReorder={onReorder} className="space-y-3">
         {openSources.map((item) => (
-          <OpenSourceItem key={item.id} openSource={item} onUpdate={onUpdate} onDelete={onDelete} setDraggingId={setDraggingId} />
+          <OpenSourceItem key={item.id} openSource={item} onUpdate={onUpdate} onDelete={onDelete} setDraggingId={setDraggingId} resumeData={resumeData} />
         ))}
       </Reorder.Group>
 
