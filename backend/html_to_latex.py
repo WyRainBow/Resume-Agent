@@ -40,7 +40,9 @@ class HTMLToLatexConverter(HTMLParser):
         elif tag == 'ul':
             self.in_list = True
             self.list_type = 'ul'
-            self.result.append(r'\begin{itemize}[parsep=0.2ex]' + '\n')
+            # 使用圆点符号（$\bullet$ 是数学模式的圆点，在所有字体中都可用）
+            # 注意：resume.cls 中设置了 \setlist[itemize]，但我们可以用 label 覆盖
+            self.result.append(r'\begin{itemize}[label=$\bullet$,parsep=0.2ex]' + '\n')
         elif tag == 'ol':
             self.in_list = True
             self.list_type = 'ol'
