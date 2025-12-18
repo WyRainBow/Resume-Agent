@@ -122,21 +122,18 @@ export function PreviewPanel({
         </div>
       )}
 
-      {/* PDF 预览区域 */}
-      <div className="flex-1 overflow-auto p-6">
+      {/* PDF 预览区域 - 优化：移除白色容器，直接展示PDF */}
+      <div className="flex-1 overflow-auto p-4 bg-slate-100 dark:bg-slate-900/50 flex justify-center">
         {pdfBlob ? (
           <div
-            className={cn(
-              "mx-auto bg-white rounded-lg overflow-hidden",
-              "shadow-2xl shadow-slate-300/50 dark:shadow-slate-900/50",
-              "ring-1 ring-slate-200/50 dark:ring-slate-700/50"
-            )}
             style={{
+              width: 'fit-content', // 宽度自适应内容
+              maxWidth: '100%',
               transform: `scale(${zoom / 100})`,
               transformOrigin: 'top center',
             }}
           >
-            <PDFViewerSelector pdfBlob={pdfBlob} />
+            <PDFViewerSelector pdfBlob={pdfBlob} scale={1.0} />
           </div>
         ) : (
           <div className="h-full flex items-center justify-center">
