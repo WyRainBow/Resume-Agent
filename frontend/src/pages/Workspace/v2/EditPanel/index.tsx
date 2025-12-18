@@ -98,7 +98,6 @@ export function EditPanel({
             globalSettings={resumeData.globalSettings}
             updateGlobalSettings={updateGlobalSettings}
             onAIImport={onAIImport ? () => onAIImport('experience') : undefined}
-            resumeData={resumeData}
           />
         )
 
@@ -110,7 +109,6 @@ export function EditPanel({
             onDelete={deleteProject}
             onReorder={reorderProjects}
             onAIImport={onAIImport ? () => onAIImport('projects') : undefined}
-            resumeData={resumeData}
           />
         )
 
@@ -133,7 +131,6 @@ export function EditPanel({
             onDelete={deleteOpenSource}
             onReorder={reorderOpenSources}
             onAIImport={onAIImport ? () => onAIImport('openSource') : undefined}
-            resumeData={resumeData}
           />
         )
 

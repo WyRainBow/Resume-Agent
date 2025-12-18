@@ -383,34 +383,56 @@ export async function rewriteResumeStream(
     
     let buffer = ''
     
+    // 处理 SSE 消息
+    const processLine = (line: string) => {
+      if (!line.startsWith('data: ')) return
+      
+      const data = line.slice(6).trim()
+      if (data === '[DONE]') {
+        onComplete?.()
+        return
+      }
+      
+      try {
+        const parsed = JSON.parse(data)
+        if (parsed.content) {
+          // 立即调用回调，触发 UI 更新
+          onChunk(parsed.content)
+        }
+        if (parsed.error) {
+          onError?.(parsed.error)
+          return
+        }
+      } catch {
+        // 忽略 JSON 解析错误
+      }
+    }
+    
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
       
       buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() || ''
       
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6)
-          if (data === '[DONE]') {
-            onComplete?.()
-            return
-          }
-          try {
-            const parsed = JSON.parse(data)
-            if (parsed.content) {
-              onChunk(parsed.content)
-            }
-            if (parsed.error) {
-              onError?.(parsed.error)
-              return
-            }
-          } catch {
-            // 忽略解析错误
-          }
+      // SSE 消息以 \n\n 分隔，处理完整的消息
+      const messages = buffer.split('\n\n')
+      // 最后一个可能是不完整的，保留在 buffer 中
+      buffer = messages.pop() || ''
+      
+      // 处理每个完整的消息
+      for (const message of messages) {
+        const lines = message.split('\n')
+        for (const line of lines) {
+          processLine(line)
         }
+      }
+    }
+    
+    // 处理剩余的 buffer
+    if (buffer.trim()) {
+      const lines = buffer.split('\n')
+      for (const line of lines) {
+        processLine(line)
       }
     }
     
