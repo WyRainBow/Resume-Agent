@@ -22,9 +22,9 @@ def generate_section_summary(resume_data: Dict[str, Any], section_titles: Dict[s
 
 def generate_section_internships(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """
-    生成实习经历 - 与 wy.tex 格式一致
-    格式: \\datedsubsection{\\textbf{公司} - 职位(语言)}{日期}
-    不带 itemize，简洁风格
+    生成实习经历/工作经历 - 与 wy.tex 格式一致
+    支持 Markdown 加粗（**text**），自动组合 company 和 position
+    格式：{company} - {position}
     """
     content = []
     internships = resume_data.get('internships') or []
@@ -34,6 +34,8 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
         # 使用无标记列表，去掉破折号，日期右对齐，消除左边空白
         content.append(r"\begin{itemize}[label={},parsep=0.2ex,leftmargin=0em,itemindent=0em]")
         for it in internships:
+            # escape_latex 会自动处理 **text** -> \textbf{text}
+            # 不再默认加粗，只有用户点击加粗按钮才会加粗
             company = escape_latex(it.get('title') or '')
             position = escape_latex(it.get('subtitle') or '')
             date = it.get('date') or ''
@@ -41,15 +43,23 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
             if date and date.strip() in ['未提及', '未知', 'N/A', '-', '']:
                 date = ''
             date = escape_latex(date)
-            # 格式：\item \raggedright \textbf{公司} 职位 \hfill 日期（文字左对齐，日期右对齐）
-            if position and date:
-                line = f"\\raggedright \\textbf{{{company}}} {position} \\hfill {date}"
+            
+            # 自动组合：{company} – {position}（使用 \textendash 并显式空隙让破折号居中）
+            if company and position:
+                # 使用 \textendash 比 -- 渲染更均匀，两侧加 \hspace 微调间距
+                title_text = f"{company}\\hspace{{0.2em}}\\textendash\\hspace{{0.2em}}{position}"
+            elif company:
+                title_text = company
             elif position:
-                line = f"\\raggedright \\textbf{{{company}}} {position}"
-            elif date:
-                line = f"\\raggedright \\textbf{{{company}}} \\hfill {date}"
+                title_text = position
             else:
-                line = f"\\raggedright \\textbf{{{company}}}"
+                title_text = '未命名公司'
+            
+            # 格式：\item \raggedright {company} - {position} \hfill 日期（文字左对齐，日期右对齐）
+            if date:
+                line = f"\\raggedright {title_text} \\hfill {date}"
+            else:
+                line = f"\\raggedright {title_text}"
             content.append(f"  \\item {line}")
         content.append(r"\end{itemize}")
         content.append("")
@@ -57,22 +67,32 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
 
 
 def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
-    """生成工作经历"""
+    """
+    生成工作经历
+    支持 Markdown 加粗（**text**），自动组合 company 和 position
+    格式：{company} - {position}
+    """
     content = []
     exp = resume_data.get('experience') or []
     title = (section_titles or {}).get('experience', '工作经历')
     if isinstance(exp, list) and exp:
         content.append(f"\\section{{{escape_latex(title)}}}")
         for e in exp:
+            # escape_latex 会自动处理 **text** -> \textbf{text}
             company = escape_latex(e.get('company') or '')
             position = escape_latex(e.get('position') or '')
-            duration = escape_latex(e.get('duration') or '')
-            if position and company:
-                subsection_title = f"\\textbf{{{position}}} - {company}"
+            duration = escape_latex(e.get('duration') or e.get('date') or '')
+            
+            # 自动组合：{company} – {position}（使用 \textendash 并显式空隙让破折号居中）
+            if company and position:
+                subsection_title = f"{company}\\hspace{{0.2em}}\\textendash\\hspace{{0.2em}}{position}"
             elif company:
-                subsection_title = f"\\textbf{{{company}}}"
+                subsection_title = company
+            elif position:
+                subsection_title = position
             else:
-                subsection_title = position or company
+                subsection_title = '未命名公司'
+            
             content.append(f"\\datedsubsection{{{subsection_title}}}{{{duration}}}")
             achievements = e.get('achievements') or []
             if isinstance(achievements, list) and achievements:

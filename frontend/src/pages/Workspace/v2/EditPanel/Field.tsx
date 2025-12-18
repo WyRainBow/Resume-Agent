@@ -1,10 +1,13 @@
 /**
  * 通用字段组件
  * 支持 text、textarea、date、editor 类型
+ * 支持 formatButtons 添加格式按钮（如加粗）
  */
-import React from 'react'
+import React, { useRef } from 'react'
+import { Bold } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import RichEditor from '../shared/RichEditor'
+import BoldInput from './BoldInput'
 
 interface FieldProps {
   label?: string
@@ -13,6 +16,7 @@ interface FieldProps {
   placeholder?: string
   type?: 'text' | 'textarea' | 'date' | 'editor'
   className?: string
+  formatButtons?: ('bold')[]  // 支持的格式按钮
 }
 
 const Field = ({
@@ -22,7 +26,9 @@ const Field = ({
   placeholder,
   type = 'text',
   className,
+  formatButtons,
 }: FieldProps) => {
+  const inputRef = useRef<HTMLInputElement>(null)
   // 富文本编辑器
   if (type === 'editor') {
     return (
@@ -93,6 +99,19 @@ const Field = ({
   }
 
   // 单行文本（默认）
+  // 如果支持加粗格式，使用 BoldInput 组件
+  if (formatButtons?.includes('bold')) {
+    return (
+      <BoldInput
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className={className}
+        label={label}
+      />
+    )
+  }
+  
   return (
     <div className="space-y-2">
       {label && (
@@ -101,6 +120,7 @@ const Field = ({
         </label>
       )}
       <input
+        ref={inputRef}
         type="text"
         value={value}
         onChange={(e) => onChange(e.target.value)}
