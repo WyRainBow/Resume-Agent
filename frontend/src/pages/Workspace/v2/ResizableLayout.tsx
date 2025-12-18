@@ -81,7 +81,7 @@ function DragHandle({
   return (
     <div
       className={cn(
-        'w-[3px] cursor-col-resize transition-all duration-200 group relative',
+        'w-[3px] cursor-col-resize transition-all duration-200 group relative shrink-0',
         'bg-gradient-to-b from-slate-200/60 via-slate-300/40 to-slate-200/60',
         'dark:from-slate-700/60 dark:via-slate-600/40 dark:to-slate-700/60',
         'hover:from-indigo-400/80 hover:via-purple-400/80 hover:to-indigo-400/80',
@@ -135,7 +135,8 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
 
   // 列宽状态
   const [col1Width, setCol1Width] = useState(350)
-  const [col2Width, setCol2Width] = useState(550)
+  // col3 改为固定/受控宽度，让 PDF 紧贴；col2 自动撑满
+  const [col3Width, setCol3Width] = useState(850) // 默认 850px
 
   // 拖拽处理
   const handleDrag1 = useCallback((delta: number) => {
@@ -143,20 +144,21 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
   }, [])
 
   const handleDrag2 = useCallback((delta: number) => {
-    setCol2Width(w => Math.max(400, Math.min(700, w + delta)))
+    // 拖拽分隔线2时，调整第三列的宽度（方向相反：往左拖，第三列变宽）
+    setCol3Width(w => Math.max(200, Math.min(1000, w - delta))) // 范围 200-1000px，支持默认 850px
   }, [])
 
   return (
-    <div className="h-[calc(100vh-64px)] flex relative z-10">
+    <div className="h-[calc(100vh-64px)] flex relative z-10 overflow-hidden">
       {/* 第一列：SidePanel */}
       <div 
         className={cn(
-          "h-full overflow-y-auto",
+          "h-full overflow-y-auto shrink-0",
           "bg-white/60 dark:bg-slate-900/60",
           "backdrop-blur-sm",
           "border-r border-white/30 dark:border-slate-700/30"
         )}
-        style={{ width: col1Width, flexShrink: 0 }}
+        style={{ width: col1Width }}
       >
         <SidePanel
           menuSections={resumeData.menuSections}
@@ -174,14 +176,13 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
       {/* 分隔线1 */}
       <DragHandle onDrag={handleDrag1} />
 
-      {/* 第二列：EditPanel */}
+      {/* 第二列：EditPanel - 改为 flex-1 自动撑满 */}
       <div 
         className={cn(
-          "h-full overflow-y-auto",
+          "h-full overflow-y-auto flex-1 min-w-[500px]",
           "bg-white/80 dark:bg-slate-900/80",
           "backdrop-blur-sm"
         )}
-        style={{ width: col2Width, flexShrink: 0 }}
       >
         <EditPanel
           activeSection={activeSection}
@@ -210,16 +211,19 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
         />
       </div>
 
-      {/* 分隔线2 */}
+      {/* 分隔线2（第二列和第三列之间） */}
       <DragHandle onDrag={handleDrag2} />
 
-      {/* 第三列：PreviewPanel */}
-      <div className={cn(
-        "flex-1 h-full overflow-hidden",
-        "bg-slate-100/80 dark:bg-slate-800/80",
-        "backdrop-blur-sm",
-        "border-l border-white/30 dark:border-slate-700/30"
-      )}>
+      {/* 第三列：PreviewPanel - 改回受控宽度，贴合 PDF */}
+      <div 
+        className={cn(
+          "h-full overflow-hidden shrink-0",
+          "bg-slate-100/80 dark:bg-slate-800/80",
+          "backdrop-blur-sm",
+          "border-l border-white/30 dark:border-slate-700/30"
+        )}
+        style={{ width: col3Width }}
+      >
         <PreviewPanel
           pdfBlob={pdfBlob}
           loading={loading}
@@ -231,4 +235,3 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
     </div>
   )
 }
-

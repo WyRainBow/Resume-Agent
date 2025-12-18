@@ -17,14 +17,14 @@ export const editorStyles = {
   scrollArea: {
     flex: 1,
     overflow: 'auto',
-    padding: '16px',
-    paddingBottom: '80px', // 为底部缩放控制器留出空间
+    padding: '0', // 移除内边距
+    paddingBottom: '80px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
-    justifyContent: 'flex-start', // 从顶部开始排列
-    gap: '16px',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%)',
+    justifyContent: 'flex-start',
+    gap: '20px',
+    background: 'transparent', // 移除背景色，由外层容器控制
   } as CSSProperties,
 
   // 页面容器
