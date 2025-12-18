@@ -9,12 +9,15 @@ import { cn } from '../../../../lib/utils'
 import type { Project } from '../types'
 import ProjectItem from './ProjectItem'
 
+import type { ResumeData } from '../types'
+
 interface ProjectPanelProps {
   projects: Project[]
   onUpdate: (project: Project) => void
   onDelete: (id: string) => void
   onReorder: (projects: Project[]) => void
   onAIImport?: () => void  // AI 导入回调
+  resumeData?: ResumeData  // 简历数据，用于 AI 润色
 }
 
 /**
@@ -30,6 +33,7 @@ const ProjectPanel = ({
   onDelete,
   onReorder,
   onAIImport,
+  resumeData,
 }: ProjectPanelProps) => {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [selectMode, setSelectMode] = useState(false)
@@ -149,6 +153,7 @@ const ProjectPanel = ({
                 onUpdate={onUpdate}
                 onDelete={onDelete}
                 setDraggingId={setDraggingId}
+                resumeData={resumeData}
               />
             </div>
           </div>
