@@ -46,6 +46,10 @@ export interface BackendResumeData {
     details: string[]
   }[]
   sectionOrder: string[]
+  globalSettings?: {
+    experienceListType?: 'none' | 'unordered' | 'ordered'
+    [key: string]: any
+  }
 }
 
 export function convertToBackendFormat(data: ResumeData): BackendResumeData {
@@ -104,6 +108,7 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
         }
         return mapping[s.id] || s.id
       }),
+    globalSettings: data.globalSettings,  // 传递全局设置
   }
 }
 

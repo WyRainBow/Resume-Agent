@@ -141,6 +141,7 @@ export interface GlobalSettings {
   subheaderSize?: number
   useIconMode?: boolean
   centerSubtitle?: boolean
+  experienceListType?: 'none' | 'unordered' | 'ordered'  // 工作经历列表类型：无列表、无序列表、有序列表
 }
 
 /**
