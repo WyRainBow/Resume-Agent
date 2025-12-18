@@ -189,7 +189,7 @@ def build_resume_markdown_prompt(instruction: str, locale: str = "zh") -> str:
 # 单模块 AI 解析的 prompt 模板
 SECTION_PROMPTS = {
     "contact": '提取个人信息,输出JSON:{"name":"姓名","phone":"电话","email":"邮箱","location":"地区","objective":"求职意向"}',
-    "education": '提取教育经历,输出JSON数组:[{"title":"学校","subtitle":"学历","major":"专业","date":"时间","details":["描述"]}]',
+    "education": '提取教育经历,输出JSON数组:[{"title":"学校","subtitle":"专业","degree":"学位(本科/硕士/博士等)","date":"时间","details":["描述"]}]',
     "experience": '提取工作/实习经历,输出JSON数组:[{"title":"公司","subtitle":"职位","date":"时间","highlights":["工作内容"]}]',
     "projects": '提取项目经历,输出JSON数组:[{"title":"项目名","subtitle":"角色","date":"时间","highlights":["描述"],"repoUrl":"仓库链接(可选)"}]',
     "skills": '提取技能,输出JSON数组:[{"category":"技能类别","details":"技能描述"}]',

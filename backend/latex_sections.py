@@ -271,7 +271,6 @@ def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[st
         else:
             # 如果没有列表结构，按段落或换行分割成列表项（无圆点）
             latex_content = html_to_latex(skill_content.strip())
-            content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
             # 按段落或换行分割
             if '\\par' in latex_content:
                 paragraphs = latex_content.split('\\par')
@@ -279,19 +278,27 @@ def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[st
                 paragraphs = latex_content.split('\n\n')
             else:
                 paragraphs = [latex_content]
+
+            # 先收集有效的段落
+            paragraph_items = []
             for para in paragraphs:
                 para = para.strip()
                 if para:
-                    content.append(f"  \\item {para}")
-            content.append(r"\end{itemize}")
+                    paragraph_items.append(f"  \\item {para}")
+
+            # 只有在有内容时才添加itemize
+            if paragraph_items:
+                content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
+                content.extend(paragraph_items)
+                content.append(r"\end{itemize}")
         content.append("")
         return content
     
     # 兼容旧的 skills 数组格式
     skills = resume_data.get('skills') or []
     if skills:
-        content.append(f"\\section{{{escape_latex(title)}}}")
-        content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
+        # 先收集有效的技能项
+        skill_items = []
         for s in skills:
             if isinstance(s, str):
                 if s.strip():
@@ -300,11 +307,11 @@ def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[st
                         category = parts[0].strip()
                         details = parts[1].strip() if len(parts) > 1 else ''
                         if category and details:
-                            content.append(f"  \\item \\textbf{{{escape_latex(category)}:}} {escape_latex(details)}")
+                            skill_items.append(f"  \\item \\textbf{{{escape_latex(category)}:}} {escape_latex(details)}")
                         else:
-                            content.append(f"  \\item {escape_latex(s.strip())}")
+                            skill_items.append(f"  \\item {escape_latex(s.strip())}")
                     else:
-                        content.append(f"  \\item {escape_latex(s.strip())}")
+                        skill_items.append(f"  \\item {escape_latex(s.strip())}")
             elif isinstance(s, dict):
                 category = escape_latex(s.get('category') or '').strip()
                 details = s.get('details') or ''
@@ -316,13 +323,19 @@ def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[st
                 # 如果 category 为空，只输出 details
                 if not category:
                     if details:
-                        content.append(f"  \\item {details}")
+                        skill_items.append(f"  \\item {details}")
                 elif details:
-                    content.append(f"  \\item \\textbf{{{category}:}} {details}")
+                    skill_items.append(f"  \\item \\textbf{{{category}:}} {details}")
                 elif category:
-                    content.append(f"  \\item \\textbf{{{category}}}")
-        content.append(r"\end{itemize}")
-        content.append("")
+                    skill_items.append(f"  \\item \\textbf{{{category}}}")
+
+        # 只有在有内容时才创建section和itemize
+        if skill_items:
+            content.append(f"\\section{{{escape_latex(title)}}}")
+            content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
+            content.extend(skill_items)
+            content.append(r"\end{itemize}")
+            content.append("")
     return content
 
 
@@ -373,12 +386,12 @@ def generate_section_awards(resume_data: Dict[str, Any], section_titles: Dict[st
     awards = resume_data.get('awards') or []
     section_title = (section_titles or {}).get('awards', '荣誉奖项')
     if isinstance(awards, list) and awards:
-        content.append(f"\\section{{{escape_latex(section_title)}}}")
-        content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
+        # 先收集有效的奖项内容
+        award_items = []
         for a in awards:
             if isinstance(a, str):
                 if a.strip():
-                    content.append(f"  \\item {escape_latex(a.strip())}")
+                    award_items.append(f"  \\item {escape_latex(a.strip())}")
                 continue
             title = escape_latex(a.get('title') or '')
             issuer = escape_latex(a.get('issuer') or '')
@@ -386,9 +399,15 @@ def generate_section_awards(resume_data: Dict[str, Any], section_titles: Dict[st
             parts = [s for s in [title, issuer] if s]
             subsection_title = " - ".join(parts) if parts else title or issuer
             if subsection_title:
-                content.append(f"  \\item {subsection_title}" + (f" ({date})" if date else ""))
-        content.append(r"\end{itemize}")
-        content.append("")
+                award_items.append(f"  \\item {subsection_title}" + (f" ({date})" if date else ""))
+
+        # 只有在有内容时才创建section和itemize
+        if award_items:
+            content.append(f"\\section{{{escape_latex(section_title)}}}")
+            content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
+            content.extend(award_items)
+            content.append(r"\end{itemize}")
+            content.append("")
     return content
 
 
