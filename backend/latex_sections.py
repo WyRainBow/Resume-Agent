@@ -31,6 +31,8 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
     title = (section_titles or {}).get('internships') or (section_titles or {}).get('experience', '实习经历')
     if isinstance(internships, list) and internships:
         content.append(f"\\section{{{escape_latex(title)}}}")
+        # 使用无标记列表，去掉破折号，日期右对齐，消除左边空白
+        content.append(r"\begin{itemize}[label={},parsep=0.2ex,leftmargin=0em,itemindent=0em]")
         for it in internships:
             company = escape_latex(it.get('title') or '')
             position = escape_latex(it.get('subtitle') or '')
@@ -39,13 +41,17 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
             if date and date.strip() in ['未提及', '未知', 'N/A', '-', '']:
                 date = ''
             date = escape_latex(date)
-            # 格式：\\datedsubsection{\\textbf{公司} - 职位}{日期}
-            if position:
-                line = f"\\textbf{{{company}}} - {position}"
+            # 格式：\item \raggedright \textbf{公司} 职位 \hfill 日期（文字左对齐，日期右对齐）
+            if position and date:
+                line = f"\\raggedright \\textbf{{{company}}} {position} \\hfill {date}"
+            elif position:
+                line = f"\\raggedright \\textbf{{{company}}} {position}"
+            elif date:
+                line = f"\\raggedright \\textbf{{{company}}} \\hfill {date}"
             else:
-                line = f"\\textbf{{{company}}}"
-            content.append(f"\\datedsubsection{{{line}}}{{{date}}}")
-            content.append("")
+                line = f"\\raggedright \\textbf{{{company}}}"
+            content.append(f"  \\item {line}")
+        content.append(r"\end{itemize}")
         content.append("")
     return content
 
