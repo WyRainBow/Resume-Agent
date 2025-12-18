@@ -3,9 +3,10 @@
  * 参考 magic-resume 实现，优化为使用豆包模型
  */
 import { useEffect, useState, useRef } from 'react'
-import { Loader2, Sparkles, Wand2 } from 'lucide-react'
+import { Loader2, Sparkles, Wand2, Zap } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { rewriteResumeStream } from '../../../../services/api'
+import { useTypewriter } from '../../../../hooks/useTypewriter'
 import type { ResumeData } from '../../types'
 
 interface AIPolishDialogProps {
@@ -26,25 +27,27 @@ export default function AIPolishDialog({
   path,
 }: AIPolishDialogProps) {
   const [isPolishing, setIsPolishing] = useState(false)
-  const [polishedContent, setPolishedContent] = useState('')
   const abortControllerRef = useRef<AbortController | null>(null)
   const polishedContentRef = useRef<HTMLDivElement>(null)
 
-  const handlePolish = async () => {
-    if (!path) {
-      console.error('AI 润色失败: 路径未指定')
-      return
-    }
+  // 使用优化的打字机效果
+  const { text: polishedContent, isTyping, appendContent, skipToEnd, reset } = useTypewriter({
+    initialDelay: 300,
+    baseDelay: 25,
+    punctuationDelay: 150,
+    enableSmartTokenization: true,
+    speedVariation: 0.2,
+    maxBufferSize: 200
+  })
 
+  const handlePolish = async () => {
     try {
       setIsPolishing(true)
-      setPolishedContent('')
+      reset() // 重置打字机状态
 
       // 使用豆包模型进行润色
       // 如果用户没有提供具体指令，使用默认的润色指令
       const instruction = '请优化这段文本，使其更加专业、简洁、有吸引力。使用更专业的词汇，突出关键成就，保持简洁清晰，使用主动语气，保留原有HTML格式标签（如 <strong>、<ul>、<li> 等）。'
-
-      let accumulatedContent = ''
 
       await rewriteResumeStream(
         'doubao', // 默认使用豆包模型
@@ -52,8 +55,9 @@ export default function AIPolishDialog({
         path,
         instruction,
         (chunk: string) => {
-          accumulatedContent += chunk
-          setPolishedContent(accumulatedContent)
+          // 使用打字机效果追加内容
+          appendContent(chunk)
+
           // 自动滚动到底部
           requestAnimationFrame(() => {
             if (polishedContentRef.current) {
@@ -77,17 +81,16 @@ export default function AIPolishDialog({
   }
 
   useEffect(() => {
-    if (open && path) {
+    if (open) {
       handlePolish()
     } else {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
         abortControllerRef.current = null
       }
-      setPolishedContent('')
+      reset()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, path])
+  }, [open])
 
   const handleClose = () => {
     if (abortControllerRef.current) {
@@ -95,7 +98,7 @@ export default function AIPolishDialog({
       abortControllerRef.current = null
     }
     onOpenChange(false)
-    setPolishedContent('')
+    reset()
   }
 
   const handleApply = () => {
@@ -106,6 +109,7 @@ export default function AIPolishDialog({
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen && !isPolishing) {
       onOpenChange(newOpen)
+      reset()
     }
   }
 
@@ -141,7 +145,7 @@ export default function AIPolishDialog({
                   AI 润色
                 </h2>
                 <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
-                  {isPolishing ? '正在优化中...' : '优化完成，请查看右侧结果'}
+                  {isPolishing ? '正在优化中...' : isTyping ? '正在打字显示...' : '优化完成，请查看右侧结果'}
                 </p>
               </div>
             </div>
@@ -184,11 +188,26 @@ export default function AIPolishDialog({
 
           {/* 右侧：润色后 */}
           <div className="space-y-2">
-            <div className="flex items-center gap-2 px-3">
-              <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
-              <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
-                润色后
-              </span>
+            <div className="flex items-center justify-between px-3">
+              <div className="flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                <span className="text-sm font-medium text-purple-600 dark:text-purple-400">
+                  润色后
+                </span>
+              </div>
+              {isTyping && (
+                <button
+                  onClick={skipToEnd}
+                  className={cn(
+                    'flex items-center gap-1 px-2 py-1 text-xs',
+                    'bg-purple-100 hover:bg-purple-200 dark:bg-purple-900/30 dark:hover:bg-purple-900/50',
+                    'text-purple-600 dark:text-purple-400 rounded-md transition-colors'
+                  )}
+                >
+                  <Zap className="h-3 w-3" />
+                  立即显示
+                </button>
+              )}
             </div>
             <div
               ref={polishedContentRef}
@@ -199,7 +218,7 @@ export default function AIPolishDialog({
                 'p-6 h-[400px] overflow-auto shadow-sm scroll-smooth'
               )}
             >
-              {isPolishing && !polishedContent ? (
+              {isPolishing && !polishedContent && !isTyping ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="flex flex-col items-center gap-3">
                     <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
@@ -212,7 +231,8 @@ export default function AIPolishDialog({
                 <div
                   className={cn(
                     'prose dark:prose-invert max-w-none',
-                    'text-neutral-800 dark:text-neutral-200'
+                    'text-neutral-800 dark:text-neutral-200',
+                    'transition-all duration-300'
                   )}
                   dangerouslySetInnerHTML={{ __html: polishedContent || content }}
                 />
