@@ -5,13 +5,16 @@ import { Wand2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import RichEditor from '../shared/RichEditor'
 
+import type { ResumeData } from '../../types'
+
 interface SkillPanelProps {
   skillContent: string
   onUpdate: (content: string) => void
   onAIImport?: () => void
+  resumeData?: ResumeData
 }
 
-const SkillPanel = ({ skillContent, onUpdate, onAIImport }: SkillPanelProps) => {
+const SkillPanel = ({ skillContent, onUpdate, onAIImport, resumeData }: SkillPanelProps) => {
   return (
     <div
       className={cn(
@@ -39,6 +42,8 @@ const SkillPanel = ({ skillContent, onUpdate, onAIImport }: SkillPanelProps) => 
           content={skillContent}
           onChange={onUpdate}
           placeholder="请描述你的专业技能..."
+          resumeData={resumeData}
+          polishPath="skillContent"
         />
       </div>
 
