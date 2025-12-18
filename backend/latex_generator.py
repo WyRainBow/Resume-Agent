@@ -157,8 +157,18 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path) -> BytesIO:
 
         if result.returncode != 0:
             error_msg = result.stderr or result.stdout
-            print(f"LaTeX 编译失败: {error_msg[:500]}")
-            raise RuntimeError(f"LaTeX 编译失败: {error_msg[:200]}")
+            # 提取关键错误信息（前1000字符，包含更多上下文）
+            error_summary = error_msg[:1000] if len(error_msg) > 1000 else error_msg
+            # 如果错误信息很长，尝试提取包含 "Error" 或 "!" 的行
+            if len(error_msg) > 1000:
+                error_lines = []
+                for line in error_msg.split('\n'):
+                    if '!' in line or 'Error' in line or 'error' in line or 'Undefined' in line:
+                        error_lines.append(line)
+                if error_lines:
+                    error_summary = '\n'.join(error_lines[:20])  # 最多20行关键错误
+            print(f"LaTeX 编译失败: {error_summary}")
+            raise RuntimeError(f"LaTeX 编译失败: {error_summary}")
 
         """读取生成的 PDF"""
         pdf_file = Path(temp_dir) / 'resume.pdf'

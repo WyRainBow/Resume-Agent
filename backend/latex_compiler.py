@@ -76,9 +76,13 @@ def compile_latex_raw(latex_content: str) -> BytesIO:
             # 提取有用的错误信息
             error_lines = []
             for line in result.stdout.split('\n'):
-                if '!' in line or 'Error' in line or 'error' in line:
+                if '!' in line or 'Error' in line or 'error' in line or 'Undefined' in line:
                     error_lines.append(line)
-            error_msg = '\n'.join(error_lines[:10]) if error_lines else result.stdout[-500:]
+            # 如果找到关键错误行，使用它们；否则使用最后500字符
+            if error_lines:
+                error_msg = '\n'.join(error_lines[:20])  # 最多20行关键错误
+            else:
+                error_msg = result.stdout[-1000:] if len(result.stdout) > 1000 else result.stdout
             print(f"[LaTeX 编译] 错误: {error_msg}")
             raise RuntimeError(f"LaTeX 编译失败: {error_msg}")
         

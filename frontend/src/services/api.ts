@@ -212,50 +212,64 @@ export async function renderPDFStream(
     console.log('[API] 剩余缓冲区长度:', buffer.length)
 
     for (const event of events) {
-      // 每个事件可能有多行，我们查找包含 data: 的行
+      // SSE 格式：先解析 event: 行，再解析 data: 行
       const lines = event.split('\n')
+      let eventType: string | null = null
+      let eventData: string | null = null
+
+      // 先解析 event: 和 data: 行
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const jsonStr = line.slice(6)
-            console.log('[API] JSON数据:', jsonStr.substring(0, 200))
-            const data = JSON.parse(jsonStr)
+        if (line.startsWith('event: ')) {
+          eventType = line.slice(7).trim()
+        } else if (line.startsWith('data: ')) {
+          eventData = line.slice(6).trim()
+        }
+      }
 
-            if (data.event === 'progress') {
-              onProgress?.(data.data)
-            } else if (data.event === 'pdf') {
-              // 接收PDF的十六进制数据
-              const hexData = data.data
-              console.log('[API] 收到PDF事件，数据长度:', hexData?.length || 0)
+      // 根据事件类型处理数据
+      if (eventType && eventData !== null) {
+        try {
+          if (eventType === 'progress') {
+            // progress 事件的 data 是纯字符串
+            onProgress?.(eventData)
+          } else if (eventType === 'error') {
+            // error 事件的 data 是纯字符串
+            console.error('[API] 收到错误事件:', eventData)
+            onError?.(eventData)
+            throw new Error(eventData)
+          } else if (eventType === 'pdf') {
+            // pdf 事件的 data 是十六进制字符串
+            const hexData = eventData
+            console.log('[API] 收到PDF事件，数据长度:', hexData?.length || 0)
 
-              // 验证hex数据
-              if (!hexData || hexData.length === 0) {
-                console.error('[API] PDF数据为空')
-                throw new Error('PDF数据为空')
-              }
-
-              try {
-                // 确保hex字符串长度为偶数
-                const normalizedHex = hexData.length % 2 === 0 ? hexData : '0' + hexData
-                const matches = normalizedHex.match(/.{2}/g)
-                if (!matches) {
-                  console.error('[API] PDF数据格式错误，无法分割成字节')
-                  throw new Error('PDF数据格式错误')
-                }
-
-                pdfData = new Uint8Array(matches.map(byte => parseInt(byte, 16)))
-                console.log('[API] PDF数据转换完成，大小:', pdfData.length, '字节')
-              } catch (error) {
-                console.error('[API] PDF数据转换失败:', error)
-                throw new Error(`PDF数据转换失败: ${error.message}`)
-              }
-            } else if (data.event === 'error') {
-              onError?.(data.data)
-              throw new Error(data.data)
+            // 验证hex数据
+            if (!hexData || hexData.length === 0) {
+              console.error('[API] PDF数据为空')
+              throw new Error('PDF数据为空')
             }
-          } catch (e) {
-            console.error('解析SSE数据失败:', e)
+
+            try {
+              // 确保hex字符串长度为偶数
+              const normalizedHex = hexData.length % 2 === 0 ? hexData : '0' + hexData
+              const matches = normalizedHex.match(/.{2}/g)
+              if (!matches) {
+                console.error('[API] PDF数据格式错误，无法分割成字节')
+                throw new Error('PDF数据格式错误')
+              }
+
+              pdfData = new Uint8Array(matches.map(byte => parseInt(byte, 16)))
+              console.log('[API] PDF数据转换完成，大小:', pdfData.length, '字节')
+            } catch (error) {
+              console.error('[API] PDF数据转换失败:', error)
+              throw new Error(`PDF数据转换失败: ${error instanceof Error ? error.message : String(error)}`)
+            }
           }
+        } catch (e) {
+          // 如果是 error 事件，重新抛出以便上层处理
+          if (eventType === 'error') {
+            throw e
+          }
+          console.error('解析SSE数据失败:', e)
         }
       }
     }
@@ -266,12 +280,27 @@ export async function renderPDFStream(
     console.log('[API] 处理剩余缓冲区数据，长度:', buffer.length)
     console.log('[API] 缓冲区内容前500字符:', buffer.substring(0, 500))
 
-    // 查找PDF数据的十六进制字符串
-    // PDF事件格式通常是: event: pdf\ndata: <hex>\n\n
-    const pdfEventMatch = buffer.match(/event:\s*pdf\s*\ndata:\s*([a-fA-F0-9]+)/s);
+    // 解析剩余缓冲区中的事件
+    const lines = buffer.split('\n')
+    let eventType: string | null = null
+    let eventData: string | null = null
 
-    if (pdfEventMatch) {
-      const hexData = pdfEventMatch[1];
+    for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        eventType = line.slice(7).trim()
+      } else if (line.startsWith('data: ')) {
+        eventData = line.slice(6).trim()
+      }
+    }
+
+    if (eventType === 'error' && eventData) {
+      // 处理错误事件
+      console.error('[API] 收到错误事件:', eventData)
+      onError?.(eventData)
+      throw new Error(eventData)
+    } else if (eventType === 'pdf' && eventData) {
+      // 处理PDF事件
+      const hexData = eventData
       console.log('[API] 收到PDF事件，数据长度:', hexData.length)
 
       try {
@@ -286,10 +315,13 @@ export async function renderPDFStream(
         console.log('[API] PDF数据转换完成，大小:', pdfData.length, '字节')
       } catch (error) {
         console.error('[API] PDF数据转换失败:', error)
-        throw new Error(`PDF数据转换失败: ${error.message}`)
+        throw new Error(`PDF数据转换失败: ${error instanceof Error ? error.message : String(error)}`)
       }
+    } else if (eventType === 'progress' && eventData) {
+      // 处理进度事件
+      onProgress?.(eventData)
     } else {
-      console.log('[API] 未找到PDF事件')
+      console.log('[API] 未找到完整的事件数据')
     }
   }
 
@@ -554,30 +586,46 @@ export async function compileLatexStream(
     
     for (const event of events) {
       const lines = event.split('\n')
+      let eventType: string | null = null
+      let eventData: string | null = null
+
+      // 先解析 event: 和 data: 行
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const jsonStr = line.slice(6)
-            const data = JSON.parse(jsonStr)
+        if (line.startsWith('event: ')) {
+          eventType = line.slice(7).trim()
+        } else if (line.startsWith('data: ')) {
+          eventData = line.slice(6).trim()
+        }
+      }
+
+      // 根据事件类型处理数据
+      if (eventType && eventData !== null) {
+        try {
+          if (eventType === 'progress') {
+            // progress 事件的 data 是纯字符串
+            onProgress?.(eventData)
+          } else if (eventType === 'error') {
+            // error 事件的 data 是纯字符串
+            console.error('[API] 收到错误事件:', eventData)
+            onError?.(eventData)
+            throw new Error(eventData)
+          } else if (eventType === 'pdf') {
+            // pdf 事件的 data 是十六进制字符串
+            const hexData = eventData
+            console.log('[API] 收到 PDF 数据，长度:', hexData?.length || 0)
             
-            if (data.event === 'progress') {
-              onProgress?.(data.data)
-            } else if (data.event === 'pdf') {
-              const hexData = data.data
-              console.log('[API] 收到 PDF 数据，长度:', hexData?.length || 0)
-              
-              const normalizedHex = hexData.length % 2 === 0 ? hexData : '0' + hexData
-              const matches = normalizedHex.match(/.{2}/g)
-              if (matches) {
-                pdfData = new Uint8Array(matches.map((byte: string) => parseInt(byte, 16)))
-              }
-            } else if (data.event === 'error') {
-              onError?.(data.data)
-              throw new Error(data.data)
+            const normalizedHex = hexData.length % 2 === 0 ? hexData : '0' + hexData
+            const matches = normalizedHex.match(/.{2}/g)
+            if (matches) {
+              pdfData = new Uint8Array(matches.map((byte: string) => parseInt(byte, 16)))
             }
-          } catch (e) {
-            console.error('解析 SSE 数据失败:', e)
           }
+        } catch (e) {
+          // 如果是 error 事件，重新抛出以便上层处理
+          if (eventType === 'error') {
+            throw e
+          }
+          console.error('解析 SSE 数据失败:', e)
         }
       }
     }
@@ -585,14 +633,31 @@ export async function compileLatexStream(
   
   // 处理剩余缓冲区
   if (buffer && !pdfData) {
-    const pdfEventMatch = buffer.match(/event:\s*pdf\s*\ndata:\s*([a-fA-F0-9]+)/s)
-    if (pdfEventMatch) {
-      const hexData = pdfEventMatch[1]
+    const lines = buffer.split('\n')
+    let eventType: string | null = null
+    let eventData: string | null = null
+
+    for (const line of lines) {
+      if (line.startsWith('event: ')) {
+        eventType = line.slice(7).trim()
+      } else if (line.startsWith('data: ')) {
+        eventData = line.slice(6).trim()
+      }
+    }
+
+    if (eventType === 'error' && eventData) {
+      console.error('[API] 收到错误事件:', eventData)
+      onError?.(eventData)
+      throw new Error(eventData)
+    } else if (eventType === 'pdf' && eventData) {
+      const hexData = eventData
       const normalizedHex = hexData.length % 2 === 0 ? hexData : '0' + hexData
       const matches = normalizedHex.match(/.{2}/g)
       if (matches) {
         pdfData = new Uint8Array(matches.map((byte: string) => parseInt(byte, 16)))
       }
+    } else if (eventType === 'progress' && eventData) {
+      onProgress?.(eventData)
     }
   }
   

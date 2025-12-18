@@ -99,10 +99,17 @@ async def render_pdf_stream(body: RenderPDFRequest):
                 import traceback
                 error_msg = f"LaTeX编译错误: {str(e)}\n{traceback.format_exc()}"
                 print(f"[PDF错误] {error_msg}")
-                yield dict(event="error", data=str(e))
+                # 发送完整的错误信息（最多5000字符，避免过长）
+                error_data = str(e) if len(str(e)) <= 5000 else str(e)[:5000] + "...(错误信息过长，已截断)"
+                yield dict(event="error", data=error_data)
 
         except Exception as e:
-            yield dict(event="error", data=f"PDF生成失败: {str(e)}")
+            import traceback
+            error_msg = f"PDF生成失败: {str(e)}\n{traceback.format_exc()}"
+            print(f"[PDF错误] {error_msg}")
+            # 发送完整的错误信息（最多5000字符）
+            error_data = str(e) if len(str(e)) <= 5000 else str(e)[:5000] + "...(错误信息过长，已截断)"
+            yield dict(event="error", data=error_data)
 
     return EventSourceResponse(generate_pdf())
 
@@ -162,6 +169,8 @@ async def compile_latex_stream(body: CompileLatexRequest):
             import traceback
             error_msg = f"LaTeX 编译错误: {str(e)}"
             print(f"[错误] {error_msg}\n{traceback.format_exc()}")
-            yield dict(event="error", data=error_msg)
+            # 发送完整的错误信息（最多5000字符）
+            error_data = str(e) if len(str(e)) <= 5000 else str(e)[:5000] + "...(错误信息过长，已截断)"
+            yield dict(event="error", data=error_data)
     
     return EventSourceResponse(generate())

@@ -42,3 +42,4 @@ export const CreateCard: React.FC<CreateCardProps> = ({ onClick }) => {
     </motion.div>
   )
 }
+
