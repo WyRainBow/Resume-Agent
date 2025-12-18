@@ -294,6 +294,7 @@ def close():
         _requests_session = None
 
 
-"""模块加载时自动初始化"""
-if os.getenv("HTTP_CLIENT_AUTO_INIT", "1") == "1":
-    init()
+"""模块加载时自动初始化 - 已禁用，改为在 startup 事件中异步初始化"""
+# 禁用自动初始化，避免启动时阻塞
+# if os.getenv("HTTP_CLIENT_AUTO_INIT", "1") == "1":
+#     init()
