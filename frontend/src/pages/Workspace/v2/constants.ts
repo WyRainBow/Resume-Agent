@@ -36,7 +36,7 @@ export const initialResumeData: ResumeData = {
     { id: 'experience', title: '实习经历', icon: '💼', enabled: true, order: 2 },
     { id: 'projects', title: '项目经历', icon: '🚀', enabled: true, order: 3 },
     { id: 'openSource', title: '开源经历', icon: '🔗', enabled: true, order: 4 },
-    { id: 'awards', title: '荣誉奖项', icon: '🎖️', enabled: false, order: 5 },
+    { id: 'awards', title: '荣誉奖项', icon: '🎖️', enabled: true, order: 5 },
     { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 6 },
   ],
   globalSettings: {
