@@ -59,24 +59,49 @@ def build_rewrite_prompt(path: str, original_value: Any, instruction: str, local
     构造一个将字段进行改写的提示词
     如果原值是字符串，则要求输出单段文本；
     如果原值是数组或对象，则要求输出 JSON。
+    
+    优化：针对简历润色场景，提供更专业的提示词
     """
     lang = "请使用中文输出" if locale == "zh" else "Please output in English"
+    
+    # 默认润色指令（如果用户没有提供具体指令）
+    default_polish_instruction = """请优化这段文本，使其更加专业、简洁、有吸引力。
+优化原则：
+1. 使用更专业的词汇和表达方式
+2. 突出关键成就和技能
+3. 保持简洁清晰，避免冗余
+4. 使用主动语气，以动词开头
+5. 量化成果，突出影响（如：提升30%、节省50%时间等）
+6. 保持原有信息的完整性
+7. 保留HTML格式标签（如 <strong>、<ul>、<li> 等）"""
+    
+    # 如果用户提供了具体指令，使用用户指令；否则使用默认润色指令
+    final_instruction = instruction.strip() if instruction.strip() else default_polish_instruction
+    
     if isinstance(original_value, str):
         return f"""
-{lang}。你是简历优化助手，请按照以下意图重写文本：{instruction}
+{lang}。你是一个专业的简历优化助手。
+
+任务：{final_instruction}
+
 要求：
-1. 以动词开头，量化成果，突出影响；
-2. 输出纯文本，不要包含任何多余解释或代码块；
+1. 直接返回优化后的文本，不要包含任何解释、代码块标记或其他内容
+2. 如果原文包含HTML标签（如 <strong>、<ul>、<li> 等），请保留这些标签
+3. 只输出优化后的内容，不要添加"优化后："等前缀
 
 原始文本：
 {original_value}
 """
     else:
         return f"""
-{lang}。你是简历优化助手，请根据以下意图重写数据：{instruction}
+{lang}。你是一个专业的简历优化助手。
+
+任务：{final_instruction}
+
 要求：
-1. 以动词开头，量化成果，突出影响；
-2. 严格输出 JSON，结构需与原值类型一致；
+1. 严格输出 JSON 格式，结构需与原值类型完全一致
+2. 不要包含任何解释或代码块标记
+3. 只输出 JSON 对象或数组
 
 原始数据(JSON)：
 {original_value}

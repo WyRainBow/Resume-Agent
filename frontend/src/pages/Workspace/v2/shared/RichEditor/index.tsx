@@ -3,7 +3,7 @@
  * 基于 TipTap，支持加粗、斜体、下划线、列表等格式
  * 输出 HTML 格式，后端转换为 LaTeX
  */
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import TextAlign from '@tiptap/extension-text-align'
@@ -32,13 +32,17 @@ import {
 } from 'lucide-react'
 import { cn } from '../../../../../lib/utils'
 import { BetterSpace } from './BetterSpace'
+import AIPolishDialog from '../AIPolishDialog'
+import type { ResumeData } from '../../types'
 import './tiptap.css'
 
 interface RichEditorProps {
   content?: string
   onChange: (content: string) => void
   placeholder?: string
-  onPolish?: () => void  // AI 润色回调
+  onPolish?: () => void  // AI 润色回调（已废弃，使用内置润色）
+  resumeData?: ResumeData  // 简历数据，用于 AI 润色
+  polishPath?: string  // JSON 路径，例如 "skillContent" 或 "projects.0.description"
 }
 
 /**
@@ -104,7 +108,23 @@ const RichEditor = ({
   content = '',
   onChange,
   onPolish,
+  resumeData,
+  polishPath = 'skillContent',
 }: RichEditorProps) => {
+  const [showPolishDialog, setShowPolishDialog] = useState(false)
+
+  const handlePolish = () => {
+    if (resumeData) {
+      setShowPolishDialog(true)
+    } else if (onPolish) {
+      // 兼容旧的 onPolish 回调
+      onPolish()
+    }
+  }
+
+  const handleApplyPolish = (polishedContent: string) => {
+    onChange(polishedContent)
+  }
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -298,10 +318,10 @@ const RichEditor = ({
             <Redo className="h-4 w-4" />
           </MenuButton>
 
-          {/* AI 润色按钮（可选） */}
-          {onPolish && (
+          {/* AI 润色按钮 */}
+          {(resumeData || onPolish) && (
             <button
-              onClick={onPolish}
+              onClick={handlePolish}
               className="ml-2 px-3 py-1.5 text-sm rounded-md bg-gradient-to-r from-purple-400 to-pink-500 hover:from-pink-500 hover:to-purple-400 text-white shadow-md transition-all duration-300 flex items-center gap-1"
             >
               <Wand2 className="h-4 w-4" />
@@ -313,6 +333,18 @@ const RichEditor = ({
 
       {/* 编辑区域 */}
       <EditorContent editor={editor} />
+
+      {/* AI 润色对话框 */}
+      {resumeData && (
+        <AIPolishDialog
+          open={showPolishDialog}
+          onOpenChange={setShowPolishDialog}
+          content={content || ''}
+          onApply={handleApplyPolish}
+          resumeData={resumeData}
+          path={polishPath}
+        />
+      )}
     </div>
   )
 }

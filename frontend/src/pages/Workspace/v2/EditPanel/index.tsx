@@ -84,6 +84,7 @@ export function EditPanel({
             skillContent={resumeData.skillContent}
             onUpdate={updateSkillContent}
             onAIImport={onAIImport ? () => onAIImport('skills') : undefined}
+            resumeData={resumeData}
           />
         )
 

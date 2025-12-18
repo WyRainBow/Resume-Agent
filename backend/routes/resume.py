@@ -298,12 +298,15 @@ async def rewrite_resume_stream(body: RewriteRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"路径错误：{e}")
 
+    # 默认使用豆包模型（如果未指定 provider）
+    provider = body.provider or "doubao"
+    
     prompt = build_rewrite_prompt(body.path, cur_value, body.instruction, body.locale)
     
     async def generate():
         """生成 SSE 流"""
         try:
-            for chunk in call_llm_stream(body.provider, prompt):
+            for chunk in call_llm_stream(provider, prompt):
                 """发送 SSE 格式数据"""
                 yield f"data: {_json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
