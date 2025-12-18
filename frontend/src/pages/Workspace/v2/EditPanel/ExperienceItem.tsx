@@ -8,6 +8,24 @@ import { cn } from '../../../../lib/utils'
 import type { Experience } from '../types'
 import Field from './Field'
 
+// 将 Markdown 格式转换为 HTML（用于预览）
+const markdownToHtml = (text: string): string => {
+  if (!text) return ''
+  // 将 **文本** 转换为 <strong>文本</strong>
+  return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+}
+
+// 渲染公司名称和职位（自动组合，支持 Markdown）
+const renderCompanyPosition = (company: string, position: string): string => {
+  const formattedCompany = markdownToHtml(company || '未命名公司')
+  const formattedPosition = markdownToHtml(position || '')
+  
+  if (formattedPosition) {
+    return `${formattedCompany} - ${formattedPosition}`
+  }
+  return formattedCompany
+}
+
 interface ExperienceItemProps {
   experience: Experience
   onUpdate: (experience: Experience) => void
@@ -38,12 +56,14 @@ const ExperienceEditor = ({
             value={experience.company}
             onChange={(value) => handleChange('company', value)}
             placeholder="请输入公司名称"
+            formatButtons={['bold']}
           />
           <Field
             label="职位"
             value={experience.position}
             onChange={(value) => handleChange('position', value)}
             placeholder="请输入职位"
+            formatButtons={['bold']}
           />
         </div>
         <Field
@@ -140,14 +160,12 @@ const ExperienceItem = ({
           onClick={() => setExpanded(!expanded)}
         >
           <div className="flex-1 min-w-0">
-            <h3 className={cn('font-medium truncate', 'text-gray-700 dark:text-neutral-200')}>
-              {experience.company || '未命名公司'}
-            </h3>
-            {experience.position && (
-              <p className="text-sm text-gray-500 dark:text-neutral-400 truncate">
-                {experience.position}
-              </p>
-            )}
+            <h3 
+              className={cn('font-medium truncate', 'text-gray-700 dark:text-neutral-200')}
+              dangerouslySetInnerHTML={{ 
+                __html: renderCompanyPosition(experience.company, experience.position) 
+              }}
+            />
           </div>
 
           <div className="flex items-center gap-2 ml-4 shrink-0">
