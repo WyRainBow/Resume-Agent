@@ -372,21 +372,28 @@ class ResumeNormalizer:
                 
                 for key, value in item.items():
                     key_lower = key.lower()
-                    
-                    if any(k in key_lower for k in ['学校', 'school', 'university', '院校']):
-                        standardized_item['school'] = value
-                    elif any(k in key_lower for k in ['专业', 'major', '学科']):
-                        standardized_item['major'] = value
-                    elif any(k in key_lower for k in ['学历', 'degree', '学位']):
+
+                    # 处理title字段（学校名称）
+                    if key_lower == 'title' or any(k in key_lower for k in ['学校', 'school', 'university', '院校']):
+                        standardized_item['title'] = value
+                    # 处理subtitle字段（专业）
+                    elif key_lower == 'subtitle' or any(k in key_lower for k in ['专业', 'major', '学科']):
+                        standardized_item['subtitle'] = value
+                    # 处理degree字段（学位）
+                    elif key_lower == 'degree' or any(k in key_lower for k in ['学历', 'degree', '学位']):
                         standardized_item['degree'] = value
-                    elif any(k in key_lower for k in ['时间', 'duration', 'date', '时间段']):
-                        standardized_item['duration'] = value
+                    # 处理date字段（时间）
+                    elif key_lower == 'date' or any(k in key_lower for k in ['时间', 'duration', 'date', '时间段']):
+                        standardized_item['date'] = value
+                    # 处理details字段
+                    elif key_lower == 'details' or any(k in key_lower for k in ['描述', 'description', '详情']):
+                        standardized_item['details'] = value
                     else:
                         standardized_item[key] = value
                 
                 result.append(standardized_item)
             elif isinstance(item, str):
-                result.append({'school': item})
+                result.append({'title': item})
         
         return result
     
