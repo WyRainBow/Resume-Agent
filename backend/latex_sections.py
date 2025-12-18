@@ -25,14 +25,31 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
     生成实习经历/工作经历 - 与 wy.tex 格式一致
     支持 Markdown 加粗（**text**），自动组合 company 和 position
     格式：{company} - {position}
+    支持列表类型：none（无列表）、unordered（无序列表）、ordered（有序列表）
     """
     content = []
     internships = resume_data.get('internships') or []
     title = (section_titles or {}).get('internships') or (section_titles or {}).get('experience', '实习经历')
+    
+    # 获取列表类型，默认为 'none'
+    global_settings = resume_data.get('globalSettings') or {}
+    list_type = global_settings.get('experienceListType', 'none')
+    
     if isinstance(internships, list) and internships:
         content.append(f"\\section{{{escape_latex(title)}}}")
-        # 使用无标记列表，去掉破折号，日期右对齐，消除左边空白
-        content.append(r"\begin{itemize}[label={},parsep=0.2ex,leftmargin=0em,itemindent=0em]")
+        
+        # 根据列表类型选择不同的 LaTeX 环境
+        # 使用 leftmargin=* 自动计算合适的左边距，让列表有适当缩进
+        if list_type == 'ordered':
+            # 有序列表：1. 2. 3. ...（有缩进，数字对齐）
+            content.append(r"\begin{enumerate}[label=\arabic*.,parsep=0.2ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
+        elif list_type == 'unordered':
+            # 无序列表：• • •（有缩进，圆点对齐）
+            content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
+        else:  # 'none'
+            # 无列表：无标记（保持无缩进）
+            content.append(r"\begin{itemize}[label={},parsep=0.2ex,leftmargin=0em,itemindent=0em]")
+        
         for it in internships:
             # escape_latex 会自动处理 **text** -> \textbf{text}
             # 不再默认加粗，只有用户点击加粗按钮才会加粗
@@ -55,13 +72,21 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
             else:
                 title_text = '未命名公司'
             
-            # 格式：\item \raggedright {company} - {position} \hfill 日期（文字左对齐，日期右对齐）
+            # 格式：\item {company} - {position} \hfill 日期（文字左对齐，日期右对齐）
+            # 使用 \hfill 确保日期固定在右侧，所有日期对齐到同一位置
+            # 注意：去掉 \raggedright，因为它会影响 \hfill 的对齐效果
             if date:
-                line = f"\\raggedright {title_text} \\hfill {date}"
+                # 使用 \hfill 将日期推到最右边，确保所有日期对齐
+                line = f"{title_text} \\hfill {date}"
             else:
-                line = f"\\raggedright {title_text}"
+                line = f"{title_text}"
             content.append(f"  \\item {line}")
-        content.append(r"\end{itemize}")
+        
+        # 根据列表类型关闭对应的 LaTeX 环境
+        if list_type == 'ordered':
+            content.append(r"\end{enumerate}")
+        else:
+            content.append(r"\end{itemize}")
         content.append("")
     return content
 

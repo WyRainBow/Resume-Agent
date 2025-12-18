@@ -205,6 +205,7 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
           reorderAwards={reorderAwards}
           updateSkillContent={updateSkillContent}
           updateMenuSections={updateMenuSections}
+          updateGlobalSettings={updateGlobalSettings}
           onAIImport={handleAIImport}
         />
       </div>

@@ -5,7 +5,7 @@
 import { motion } from 'framer-motion'
 import { Pencil } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
-import type { MenuSection, ResumeData, BasicInfo, Project, Experience, Education, OpenSource, Award } from '../types'
+import type { MenuSection, ResumeData, BasicInfo, Project, Experience, Education, OpenSource, Award, GlobalSettings } from '../types'
 import BasicPanel from './BasicPanel'
 import ProjectPanel from './ProjectPanel'
 import ExperiencePanel from './ExperiencePanel'
@@ -37,6 +37,7 @@ interface EditPanelProps {
   reorderAwards: (awards: Award[]) => void
   updateSkillContent: (content: string) => void
   updateMenuSections: (sections: MenuSection[]) => void
+  updateGlobalSettings: (settings: Partial<GlobalSettings>) => void
   // AI 导入回调
   onAIImport?: (section: string) => void
 }
@@ -63,6 +64,7 @@ export function EditPanel({
   reorderAwards,
   updateSkillContent,
   updateMenuSections,
+  updateGlobalSettings,
   onAIImport,
 }: EditPanelProps) {
   // 根据 activeSection 渲染对应面板
@@ -92,6 +94,8 @@ export function EditPanel({
             onUpdate={updateExperience}
             onDelete={deleteExperience}
             onReorder={reorderExperiences}
+            globalSettings={resumeData.globalSettings}
+            updateGlobalSettings={updateGlobalSettings}
             onAIImport={onAIImport ? () => onAIImport('experience') : undefined}
           />
         )
