@@ -359,15 +359,17 @@ export async function rewriteResumeStream(
   instruction: string,
   onChunk: (chunk: string) => void,
   onComplete?: () => void,
-  onError?: (error: string) => void
+  onError?: (error: string) => void,
+  signal?: AbortSignal
 ) {
   const url = `${API_BASE}/api/resume/rewrite/stream`
-  
+
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, resume, path, instruction })
+      body: JSON.stringify({ provider, resume, path, instruction }),
+      signal  // 添加 AbortSignal
     })
     
     if (!response.ok) {

@@ -29,10 +29,12 @@ import {
   Wand2,
   IndentIncrease,
   IndentDecrease,
+  Layout,
 } from 'lucide-react'
 import { cn } from '../../../../../lib/utils'
 import { BetterSpace } from './BetterSpace'
 import AIPolishDialog from '../AIPolishDialog'
+import FormatLayoutDialog from '../FormatLayoutDialog'
 import type { ResumeData } from '../../types'
 import './tiptap.css'
 
@@ -112,6 +114,7 @@ const RichEditor = ({
   polishPath = 'skillContent',
 }: RichEditorProps) => {
   const [showPolishDialog, setShowPolishDialog] = useState(false)
+  const [showFormatDialog, setShowFormatDialog] = useState(false)
 
   const handlePolish = () => {
     if (resumeData) {
@@ -124,6 +127,14 @@ const RichEditor = ({
 
   const handleApplyPolish = (polishedContent: string) => {
     onChange(polishedContent)
+  }
+
+  const handleFormat = () => {
+    setShowFormatDialog(true)
+  }
+
+  const handleApplyFormat = (formattedContent: string) => {
+    onChange(formattedContent)
   }
   const editor = useEditor({
     extensions: [
@@ -318,6 +329,15 @@ const RichEditor = ({
             <Redo className="h-4 w-4" />
           </MenuButton>
 
+          {/* AI 智能排版按钮 */}
+          <button
+            onClick={handleFormat}
+            className="ml-2 px-3 py-1.5 text-sm rounded-md bg-gradient-to-r from-blue-400 to-indigo-500 hover:from-indigo-500 hover:to-blue-400 text-white shadow-md transition-all duration-300 flex items-center gap-1"
+          >
+            <Layout className="h-4 w-4" />
+            AI 智能排版
+          </button>
+
           {/* AI 润色按钮 */}
           {(resumeData || onPolish) && (
             <button
@@ -333,6 +353,16 @@ const RichEditor = ({
 
       {/* 编辑区域 */}
       <EditorContent editor={editor} />
+
+      {/* AI 智能排版对话框 */}
+      <FormatLayoutDialog
+        open={showFormatDialog}
+        onOpenChange={setShowFormatDialog}
+        content={content || ''}
+        onApply={handleApplyFormat}
+        resumeData={resumeData}
+        path={polishPath}
+      />
 
       {/* AI 润色对话框 */}
       {resumeData && (
