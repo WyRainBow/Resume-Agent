@@ -164,7 +164,7 @@ export function EditPanel({
   return (
     <motion.div
       className={cn(
-        'w-full h-full border-r overflow-y-auto',
+        'h-full border-r overflow-y-auto',
         'bg-gray-50 border-gray-100',
         'dark:bg-neutral-950 dark:border-neutral-800'
       )}

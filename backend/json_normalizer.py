@@ -66,16 +66,16 @@ class ResumeNormalizer:
     def normalize(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """
         标准化简历 JSON
-        
+
         Args:
             data: 原始 JSON（任意结构）
-        
+
         Returns:
             标准化后的 JSON（LaTeX 模板格式）
         """
         normalized = {}
         contact_info = {}
-        
+
         """
         第一步：递归遍历所有字段，识别语义
         """
@@ -115,6 +115,9 @@ class ResumeNormalizer:
                     """
                     找到了语义匹配
                     """
+                    import sys
+                    print(f"[Normalizer] Found semantic type: {semantic_type} for key: {key}", file=sys.stderr, flush=True)
+
                     if semantic_type in ['phone', 'email', 'location']:
                         """
                         联系信息：放入 contact
@@ -135,11 +138,12 @@ class ResumeNormalizer:
                             字段已存在，合并
                             """
                             normalized[semantic_type] = self._merge_values(
-                                normalized[semantic_type], 
+                                normalized[semantic_type],
                                 value
                             )
                         else:
                             normalized[semantic_type] = value
+                            print(f"[Normalizer] Set normalized[{semantic_type}] = {value}", file=sys.stderr, flush=True)
                 else:
                     """
                     没有找到语义匹配
@@ -240,7 +244,15 @@ class ResumeNormalizer:
         确保符合 LaTeX 模板的期望
         """
         standardized = data.copy()
-        
+
+        """
+        标准化开源经历
+        """
+        if 'opensource' in standardized:
+            standardized['opensource'] = self._standardize_opensource(
+                standardized['opensource']
+            )
+
         """
         标准化实习经历
         """
@@ -248,7 +260,7 @@ class ResumeNormalizer:
             standardized['internships'] = self._standardize_experience_list(
                 standardized['internships']
             )
-        
+
         """
         标准化工作经历
         """
@@ -256,7 +268,7 @@ class ResumeNormalizer:
             standardized['experience'] = self._standardize_experience_list(
                 standardized['experience']
             )
-        
+
         """
         标准化项目经验
         """
@@ -264,7 +276,7 @@ class ResumeNormalizer:
             standardized['projects'] = self._standardize_projects(
                 standardized['projects']
             )
-        
+
         """
         标准化教育经历
         """
@@ -272,9 +284,66 @@ class ResumeNormalizer:
             standardized['education'] = self._standardize_education(
                 standardized['education']
             )
-        
+
         return standardized
-    
+
+    def _standardize_opensource(self, data: Any) -> List[Dict[str, Any]]:
+        """
+        标准化开源经历
+        将AI返回的字段映射到编辑器期望的字段
+        - AI返回: title, subtitle, items, repoUrl, date
+        - Editor期望: name, role, repo, date, description
+        """
+        if not isinstance(data, list):
+            data = [data]
+
+        result = []
+        for item in data:
+            if isinstance(item, dict):
+                standardized_item = {}
+
+                # 处理字段映射
+                for key, value in item.items():
+                    key_lower = key.lower()
+
+                    # 项目名称映射
+                    if key_lower == 'title' or any(k in key_lower for k in ['项目', 'project', '名称', 'name']):
+                        standardized_item['name'] = value
+                    # 角色映射
+                    elif key_lower == 'subtitle' or any(k in key_lower for k in ['角色', 'role', '描述', 'description']):
+                        # 如果items为空，将subtitle作为description
+                        if not item.get('items') and not item.get('description'):
+                            standardized_item['description'] = value
+                        else:
+                            standardized_item['role'] = value
+                    # 仓库链接映射
+                    elif key_lower == 'repourl' or any(k in key_lower for k in ['repo', '仓库', 'url', 'link']):
+                        standardized_item['repo'] = value
+                    # 时间映射
+                    elif key_lower == 'date' or any(k in key_lower for k in ['时间', 'duration', 'period']):
+                        standardized_item['date'] = value
+                    # 贡献列表映射到description
+                    elif key_lower == 'items' or any(k in key_lower for k in ['贡献', 'contribution', 'item']):
+                        if isinstance(value, list):
+                            # 将列表转换为描述文本
+                            standardized_item['description'] = ' | '.join(str(v) for v in value)
+                        else:
+                            standardized_item['description'] = str(value)
+                    else:
+                        # 未识别字段保留
+                        standardized_item[key] = value
+
+                # 确保有name字段
+                if 'name' not in standardized_item:
+                    standardized_item['name'] = '未命名项目'
+
+                result.append(standardized_item)
+            elif isinstance(item, str):
+                # 简单字符串处理
+                result.append({'name': item, 'description': ''})
+
+        return result
+
     def _standardize_experience_list(self, data: Any) -> List[Dict[str, Any]]:
         """
         标准化经历列表（工作/实习）
@@ -449,10 +518,10 @@ _normalizer = ResumeNormalizer()
 def normalize_resume_json(data: Dict[str, Any]) -> Dict[str, Any]:
     """
     标准化简历 JSON（通用入口）
-    
+
     Args:
         data: 原始 JSON
-    
+
     Returns:
         标准化后的 JSON
     """
