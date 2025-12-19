@@ -1,7 +1,7 @@
 /**
  * 可拖拽三列布局组件
  */
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { cn } from '../../../lib/utils'
 import SidePanel from './SidePanel'
 import EditPanel from './EditPanel'
@@ -81,19 +81,19 @@ function DragHandle({
   return (
     <div
       className={cn(
-        'w-[3px] cursor-col-resize transition-all duration-200 group relative shrink-0',
-        'bg-gradient-to-b from-slate-200/60 via-slate-300/40 to-slate-200/60',
-        'dark:from-slate-700/60 dark:via-slate-600/40 dark:to-slate-700/60',
-        'hover:from-indigo-400/80 hover:via-purple-400/80 hover:to-indigo-400/80',
-        'active:from-indigo-500 active:via-purple-500 active:to-indigo-500',
+        'w-1 cursor-ew-resize transition-all duration-200 group relative shrink-0',
+        'hover:bg-indigo-300 dark:hover:bg-indigo-600',
+        'active:bg-indigo-400 dark:active:bg-indigo-500',
         className
       )}
+      style={{
+        cursor: 'ew-resize',
+        touchAction: 'none'
+      }}
       onMouseDown={handleMouseDown}
     >
-      {/* 拖拽指示器 */}
-      <div className="absolute inset-y-0 -left-1 -right-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1 h-8 rounded-full bg-indigo-500/50" />
-      </div>
+      {/* 扩大可点击区域 */}
+      <div className="absolute inset-y-0 -left-2 -right-2 cursor-ew-resize" />
     </div>
   )
 }
@@ -135,8 +135,34 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
 
   // 列宽状态
   const [col1Width, setCol1Width] = useState(350)
-  // col3 改为固定/受控宽度，让 PDF 紧贴；col2 自动撑满
-  const [col3Width, setCol3Width] = useState(850) // 默认 850px
+  // 第二列固定宽度，第三列占据剩余空间
+  const [col2Width, setCol2Width] = useState(1000) // 第二列宽度（可拖动调整）
+
+  // 添加窗口宽度状态用于计算第三列宽度
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth)
+
+  // 监听窗口大小变化
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth)
+    }
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  // 初始输出布局信息
+  useEffect(() => {
+    const viewportWidth = window.innerWidth
+    const col3Width = viewportWidth - col1Width - col2Width - 6
+    console.log('=== 当前布局信息 ===')
+    console.log(`窗口宽度: ${viewportWidth}px`)
+    console.log(`第一列 (SidePanel): ${col1Width}px`)
+    console.log(`第二列 (EditPanel): ${col2Width}px`)
+    console.log(`第三列 (PreviewPanel): ${col3Width}px (自动占据)`)
+    console.log(`分割线1位置: ${col1Width}px`)
+    console.log(`分割线2位置: ${col1Width + col2Width + 3}px`)
+    console.log('==================')
+  }, [])
 
   // 拖拽处理
   const handleDrag1 = useCallback((delta: number) => {
@@ -144,9 +170,37 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
   }, [])
 
   const handleDrag2 = useCallback((delta: number) => {
-    // 拖拽分隔线2时，调整第三列的宽度（方向相反：往左拖，第三列变宽）
-    setCol3Width(w => Math.max(200, Math.min(1000, w - delta))) // 范围 200-1000px，支持默认 850px
-  }, [])
+    // 拖拽分隔线2时，只调整第二列的宽度
+    // 向右拖动（delta > 0）：第二列变宽
+    // 向左拖动（delta < 0）：第二列变窄
+    setCol2Width(prevWidth => {
+      const newCol2Width = prevWidth + delta
+
+      // 计算第三列宽度
+      const viewportWidth = window.innerWidth
+      const headerHeight = 64 // 头部高度
+      const availableWidth = viewportWidth
+      const col3Width = availableWidth - col1Width - newCol2Width - 6 // 减去分割线宽度(2个 * 3px)
+
+      // 限制第二列的宽度范围（500-1000px）
+      if (newCol2Width >= 500 && newCol2Width <= 1000) {
+        // 输出详细信息
+        console.log('=== 拖拽分割线2 ===')
+        console.log(`拖动距离: ${delta > 0 ? '+' : ''}${delta}px`)
+        console.log(`窗口宽度: ${viewportWidth}px`)
+        console.log(`第一列: ${col1Width}px`)
+        console.log(`第二列: ${prevWidth}px → ${newCol2Width}px`)
+        console.log(`第三列: ${col3Width}px (自动计算)`)
+        console.log(`分割线位置: ${col1Width + newCol2Width + 3}px (从左侧)`)
+        console.log('==================')
+
+        return newCol2Width
+      }
+
+      console.log('超出范围，保持原宽度')
+      return prevWidth
+    })
+  }, [col1Width])
 
   return (
     <div className="h-[calc(100vh-64px)] flex relative z-10 overflow-hidden">
@@ -176,13 +230,14 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
       {/* 分隔线1 */}
       <DragHandle onDrag={handleDrag1} />
 
-      {/* 第二列：EditPanel - 改为 flex-1 自动撑满 */}
-      <div 
+      {/* 第二列：EditPanel - 改为固定宽度 */}
+      <div
         className={cn(
-          "h-full overflow-y-auto flex-1 min-w-[500px]",
+          "h-full overflow-y-auto shrink-0",
           "bg-white/80 dark:bg-slate-900/80",
           "backdrop-blur-sm"
         )}
+        style={{ width: col2Width }}
       >
         <EditPanel
           activeSection={activeSection}
@@ -214,15 +269,14 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
       {/* 分隔线2（第二列和第三列之间） */}
       <DragHandle onDrag={handleDrag2} />
 
-      {/* 第三列：PreviewPanel - 改回受控宽度，贴合 PDF */}
-      <div 
+      {/* 第三列：PreviewPanel - 自动占据剩余所有空间到浏览器右边界 */}
+      <div
         className={cn(
-          "h-full overflow-hidden shrink-0",
+          "h-full overflow-hidden flex-1",  // 使用 flex-1 自动占据剩余空间
           "bg-slate-100/80 dark:bg-slate-800/80",
           "backdrop-blur-sm",
           "border-l border-white/30 dark:border-slate-700/30"
         )}
-        style={{ width: col3Width }}
       >
         <PreviewPanel
           pdfBlob={pdfBlob}

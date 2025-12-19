@@ -195,5 +195,5 @@ SECTION_PROMPTS = {
     "skills": '提取技能,输出JSON数组:[{"category":"技能类别","details":"技能描述"}]',
     "awards": '提取荣誉奖项,输出JSON字符串数组:["奖项1","奖项2"]',
     "summary": '提取个人总结,输出JSON:{"summary":"总结内容"}',
-    "opensource": '提取开源经历,输出JSON数组:[{"title":"项目名","subtitle":"角色","items":["贡献描述"],"repoUrl":"仓库链接"}]'
+    "opensource": '提取开源经历,输出JSON数组:[{"title":"项目名","subtitle":"角色/描述","date":"时间(格式: 2023.01-2023.12 或 2023.01-至今)","items":["贡献描述"],"repoUrl":"仓库链接"}]'
 }

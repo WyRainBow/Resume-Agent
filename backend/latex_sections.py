@@ -415,11 +415,15 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
     """
     生成开源经历 - 与 wy.tex 格式一致
     格式:
-    \\datedsubsection{\\textbf{项目名}}{描述}
+    \\datedsubsection{\\textbf{项目名}}{角色}
     \\begin{itemize}[parsep=0.2ex]
       \\item 仓库: \\textit{url}
-      \\item 其他内容
+      \\item 贡献描述
     \\end{itemize}
+
+    支持两种字段格式：
+    1. AI返回格式: title, subtitle, items, repoUrl/date
+    2. 编辑器格式: name, role, description, repo/date
     """
     content = []
     # 兼容 openSource、opensource、open_source 三种字段名
@@ -428,29 +432,57 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
     if isinstance(open_source, list) and open_source:
         content.append(f"\\section{{{escape_latex(title)}}}")
         for os_item in open_source:
-            item_title = escape_latex(os_item.get('title') or '')
-            subtitle = escape_latex(os_item.get('subtitle') or '')
-            repo_url = os_item.get('repoUrl') or os_item.get('repo') or os_item.get('link') or ''
-            
+            # 兼容两种字段名
+            item_title = escape_latex(
+                os_item.get('title') or os_item.get('name') or ''
+            )
+            subtitle = escape_latex(
+                os_item.get('subtitle') or os_item.get('role') or ''
+            )
+            # 兼容多种字段名获取仓库链接
+            repo_url = (os_item.get('repoUrl') or
+                       os_item.get('repo') or
+                       os_item.get('link') or '')
+
+            # 获取日期（如果有）
+            date = os_item.get('date') or ''
+            if date:
+                subtitle = f"{subtitle} ({date})" if subtitle else date
+
             subsection_title = f"\\textbf{{{item_title}}}"
             content.append(f"\\datedsubsection{{{subsection_title}}}{{{subtitle}}}")
-            
+
+            # 处理贡献描述 - 支持多种格式
             items = os_item.get('items') or []
-            
-            if repo_url or (isinstance(items, list) and items):
+            description = os_item.get('description') or ''
+
+            # 准备要显示的内容
+            item_contents = []
+
+            if repo_url:
+                escaped_url = escape_latex(repo_url)
+                item_contents.append(f"仓库: \\textit{{{escaped_url}}}")
+
+            if isinstance(items, list) and items:
+                for item in items:
+                    if isinstance(item, str) and item.strip():
+                        item_contents.append(escape_latex(item.strip()))
+            elif description:
+                # 将description按换行分割或作为整体
+                if '\n' in description:
+                    for desc in description.split('\n'):
+                        if desc.strip():
+                            item_contents.append(escape_latex(desc.strip()))
+                else:
+                    item_contents.append(escape_latex(description.strip()))
+
+            # 如果有内容，生成itemize
+            if item_contents:
                 content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
-                
-                if repo_url:
-                    escaped_url = escape_latex(repo_url)
-                    content.append(f"  \\item 仓库: \\textit{{{escaped_url}}}")
-                
-                if isinstance(items, list) and items:
-                    for item in items:
-                        if isinstance(item, str) and item.strip():
-                            content.append(f"  \\item {escape_latex(item.strip())}")
-                
+                for item in item_contents:
+                    content.append(f"  \\item {item}")
                 content.append(r"\end{itemize}")
-            
+
             content.append("")
     return content
 
@@ -467,6 +499,7 @@ SECTION_GENERATORS = {
     'projects': generate_section_projects,
     'skills': generate_section_skills,
     'awards': generate_section_awards,
+    'openSource': generate_section_opensource,  # 前端使用的字段名
     'opensource': generate_section_opensource,
     'open_source': generate_section_opensource,  # 别名
 }

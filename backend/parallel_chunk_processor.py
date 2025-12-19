@@ -244,7 +244,7 @@ async def parse_resume_text_parallel(text: str, provider: str,
         解析后的简历数据
     """
     # Schema定义（保持与原版一致）
-    schema_desc = """格式:{"name":"姓名","contact":{"phone":"电话","email":"邮箱"},"objective":"求职意向","education":[{"title":"学校","subtitle":"专业","degree":"学位(本科/硕士/博士)","date":"时间","details":["荣誉"]}],"internships":[{"title":"公司","subtitle":"职位","date":"时间","highlights":["工作内容"]}],"projects":[{"title":"项目名","subtitle":"角色","date":"时间","highlights":["描述"]}],"openSource":[{"title":"开源项目","subtitle":"描述","items":["贡献"],"repoUrl":"链接"}],"skills":[{"category":"类别","details":"技能"}],"awards":["奖项"]}"""
+    schema_desc = """格式:{"name":"姓名","contact":{"phone":"电话","email":"邮箱"},"objective":"求职意向","education":[{"title":"学校","subtitle":"专业","degree":"学位(本科/硕士/博士)","date":"时间","details":["荣誉"]}],"internships":[{"title":"公司","subtitle":"职位","date":"时间","highlights":["工作内容"]}],"projects":[{"title":"项目名","subtitle":"角色","date":"时间","highlights":["描述"]}],"openSource":[{"title":"开源项目","subtitle":"角色/描述","date":"时间(格式: 2023.01-2023.12 或 2023.01-至今)","items":["贡献描述"],"repoUrl":"仓库链接"}],"skills":[{"category":"类别","details":"技能"}],"awards":["奖项"]}"""
 
     # 获取配置
     config = get_parallel_config(provider)
