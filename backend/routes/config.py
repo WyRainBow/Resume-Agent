@@ -78,6 +78,17 @@ async def save_keys(body: SaveKeysRequest):
         if load_dotenv:
             load_dotenv(dotenv_path=str(env_path), override=True)
         
+        # 重置智谱客户端实例，强制使用新的 API Key
+        if body.zhipu_key:
+            try:
+                import simple
+                simple._zhipu_client = None
+                simple._last_zhipu_key = None
+                # 更新 simple 模块中的 API Key
+                simple.ZHIPU_API_KEY = body.zhipu_key
+            except Exception as e:
+                print(f"[警告] 重置智谱客户端失败: {e}")
+        
         return {"success": True, "message": "API Key 已保存"}
     
     except Exception as e:
@@ -113,10 +124,10 @@ async def chat_api(body: ChatRequest):
         
         provider = body.provider
         if not provider:
-            if os.getenv("DOUBAO_API_KEY"):
-                provider = "doubao"
-            elif os.getenv("ZHIPU_API_KEY"):
+            if os.getenv("ZHIPU_API_KEY"):
                 provider = "zhipu"
+            elif os.getenv("DOUBAO_API_KEY"):
+                provider = "doubao"
             else:
                 raise HTTPException(status_code=400, detail="未配置 AI 服务 API Key")
         
