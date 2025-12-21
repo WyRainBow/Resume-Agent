@@ -580,20 +580,21 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
                         # 否则作为普通文本，按行拆分
                         if '\n' in converted_desc:
                             for desc in converted_desc.split('\n'):
-                        if desc.strip():
-                            item_contents.append(escape_latex(desc.strip()))
-                else:
-                            item_contents.append(escape_latex(converted_desc.strip()))
+                                if desc.strip():
+                                    item_contents.append(escape_latex(desc.strip()))
+                        else:
+                            if converted_desc.strip():
+                                item_contents.append(escape_latex(converted_desc.strip()))
 
             # 如果有内容，生成itemize（除非已经包含列表）
             if item_contents:
                 # 检查是否已经包含列表结构
                 has_list = any('\\begin{itemize}' in item or '\\begin{enumerate}' in item for item in item_contents)
                 if not has_list:
-                content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
-                for item in item_contents:
-                    content.append(f"  \\item {item}")
-                content.append(r"\end{itemize}")
+                    content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
+                    for item in item_contents:
+                        content.append(f"  \\item {item}")
+                    content.append(r"\end{itemize}")
                 else:
                     # 已经包含列表结构，直接添加
                     for item in item_contents:
