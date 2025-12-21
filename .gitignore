@@ -60,8 +60,9 @@ wy-TEST.json
 wy.tex
 wy.txt
 /simple.py
-start.sh
 stop.sh
-*.sh
 payload.json
 test_api.sh
+# 忽略脚本文件，但保留 start.sh（Railway 启动脚本）
+*.sh
+!/start.sh
