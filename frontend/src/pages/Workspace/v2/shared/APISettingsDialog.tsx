@@ -3,10 +3,12 @@
  * 用于全局配置 AI 模型和 API Key
  */
 import { useState, useEffect } from 'react'
-import { X, Save, Key, Settings, TestTube } from 'lucide-react'
+import { X, Save, Key, Settings, TestTube, CheckCircle2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
-import { aiTest } from '../../../../services/api'
+import { aiTest, getKeysStatus, saveKeys } from '../../../../services/api'
 import TokenMonitor from '../../../../components/TokenMonitor'
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:8000'
 
 // 智谱 AI 图标组件 - BigModel 风格的三维六边形图标
 const ZhipuAIIcon = ({ className }: { className?: string }) => (
@@ -85,6 +87,7 @@ export default function APISettingsDialog({
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<string>('')
   const [testUsage, setTestUsage] = useState<{ prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined>()
+  const [backendConfigured, setBackendConfigured] = useState(false) // 后端是否已配置 API Key
 
   // 加载当前配置
   useEffect(() => {
@@ -95,48 +98,55 @@ export default function APISettingsDialog({
 
   const loadConfig = async () => {
     try {
-      const response = await fetch('/api/config/keys')
-      if (response.ok) {
-        const data = await response.json()
-        if (data.zhipu) {
-          setZhipuKey(data.zhipu.preview || '')
+      const data = await getKeysStatus()
+      if (data.zhipu) {
+        setBackendConfigured(data.zhipu.configured)
+        if (data.zhipu.configured) {
+          // 后端已配置，显示预览（不显示完整 Key）
+          setZhipuKey(data.zhipu.preview || '已配置')
+        } else {
+          setZhipuKey('')
         }
-        // 固定使用 GLM-4-Flash，不再从 localStorage 加载
       }
     } catch (error) {
       console.error('加载配置失败:', error)
+      setBackendConfigured(false)
     }
   }
 
   const handleSave = async () => {
+    // 如果后端已配置，不需要保存
+    if (backendConfigured) {
+      alert('后端已配置 API Key，无需再次配置。所有用户可直接使用。')
+      onOpenChange(false)
+      return
+    }
+
     setLoading(true)
     setSaveSuccess(false)
     
     try {
-      const response = await fetch('/api/config/keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          zhipu_key: zhipuKey,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('保存失败')
+      const result = await saveKeys(zhipuKey, undefined)
+      
+      if (!result.success) {
+        throw new Error(result.message || '保存失败')
       }
 
       // 保存模型配置到 localStorage
       localStorage.setItem('ai_provider', 'zhipu')
       localStorage.setItem('ai_model', zhipuModel)
 
+      // 重新加载配置
+      await loadConfig()
+
       setSaveSuccess(true)
       setTimeout(() => {
         setSaveSuccess(false)
         onOpenChange(false)
       }, 1500)
-    } catch (error) {
+    } catch (error: any) {
       console.error('保存失败:', error)
-      alert('保存失败，请重试')
+      alert(`保存失败: ${error.message || '请重试'}`)
     } finally {
       setLoading(false)
     }
@@ -149,8 +159,9 @@ export default function APISettingsDialog({
   }
 
   const handleTest = async () => {
-    if (!zhipuKey.trim()) {
-      alert('请先输入 API Key')
+    // 如果后端未配置且前端也没有输入 Key，提示输入
+    if (!backendConfigured && !zhipuKey.trim()) {
+      alert('请先输入 API Key 或确保后端已配置 API Key')
       return
     }
 
@@ -159,14 +170,12 @@ export default function APISettingsDialog({
     setTestUsage(undefined)
 
     try {
-      // 先保存 API Key
-      await fetch('/api/config/keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ zhipu_key: zhipuKey }),
-      })
+      // 如果后端未配置，先保存 API Key
+      if (!backendConfigured && zhipuKey.trim()) {
+        await saveKeys(zhipuKey, undefined)
+      }
 
-      // 测试 API
+      // 测试 API（使用后端配置的 Key）
       const result = await aiTest('zhipu', '请用一句话介绍人工智能')
       setTestResult(result.result || '测试成功')
       if (result.usage) {
@@ -246,22 +255,35 @@ export default function APISettingsDialog({
               <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
                 <Key className="w-4 h-4" />
                 API Key
-              </label>
-              <input
-                type="password"
-                value={zhipuKey}
-                onChange={(e) => setZhipuKey(e.target.value)}
-                placeholder="请输入智谱 AI API Key"
-                className={cn(
-                  'w-full px-4 py-2.5 rounded-lg',
-                  'bg-slate-50 dark:bg-slate-800',
-                  'border border-slate-200 dark:border-slate-700',
-                  'text-slate-900 dark:text-slate-100',
-                  'placeholder:text-slate-400 dark:placeholder:text-slate-500',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
-                  'transition-all'
+                {backendConfigured && (
+                  <span className="ml-2 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    后端已配置
+                  </span>
                 )}
-              />
+              </label>
+              {backendConfigured ? (
+                <div className="w-full px-4 py-2.5 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span className="text-sm">后端已配置 API Key，所有用户可直接使用，无需再次配置</span>
+                </div>
+              ) : (
+                <input
+                  type="password"
+                  value={zhipuKey}
+                  onChange={(e) => setZhipuKey(e.target.value)}
+                  placeholder="请输入智谱 AI API Key（如果后端未配置）"
+                  className={cn(
+                    'w-full px-4 py-2.5 rounded-lg',
+                    'bg-slate-50 dark:bg-slate-800',
+                    'border border-slate-200 dark:border-slate-700',
+                    'text-slate-900 dark:text-slate-100',
+                    'placeholder:text-slate-400 dark:placeholder:text-slate-500',
+                    'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
+                    'transition-all'
+                  )}
+                />
+              )}
             </div>
 
           </div>
@@ -275,7 +297,7 @@ export default function APISettingsDialog({
               </label>
               <button
                 onClick={handleTest}
-                disabled={testing || !zhipuKey.trim()}
+                disabled={testing || (!backendConfigured && !zhipuKey.trim())}
                 className={cn(
                   'px-3 py-1.5 rounded-lg text-xs font-medium',
                   'bg-blue-500 hover:bg-blue-600 text-white',
@@ -306,9 +328,22 @@ export default function APISettingsDialog({
           </div>
 
           {/* 提示信息 */}
-          <div className="p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-            <p className="text-sm text-blue-700 dark:text-blue-300">
-              配置完成后：所有 AI 功能将使用智谱 AI 模型。API Key 将安全保存在本地。
+          <div className={cn(
+            "p-4 rounded-lg border",
+            backendConfigured 
+              ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+              : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+          )}>
+            <p className={cn(
+              "text-sm",
+              backendConfigured
+                ? "text-green-700 dark:text-green-300"
+                : "text-blue-700 dark:text-blue-300"
+            )}>
+              {backendConfigured 
+                ? "✅ 后端已配置 API Key，所有用户可直接使用 AI 功能，无需再次配置。"
+                : "配置完成后：所有 AI 功能将使用智谱 AI 模型。API Key 将安全保存在后端服务器。"
+              }
             </p>
           </div>
         </div>
@@ -330,18 +365,25 @@ export default function APISettingsDialog({
           </button>
           <button
             onClick={handleSave}
-            disabled={loading || !zhipuKey.trim()}
+            disabled={loading || backendConfigured || !zhipuKey.trim()}
             className={cn(
               'px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2',
-              'bg-gradient-to-r from-blue-500 to-indigo-600 text-white',
-              'hover:from-blue-600 hover:to-indigo-700',
+              backendConfigured 
+                ? 'bg-gradient-to-r from-green-500 to-emerald-600 text-white'
+                : 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white',
+              !backendConfigured && 'hover:from-blue-600 hover:to-indigo-700',
               'shadow-lg shadow-blue-500/30',
               'transition-all',
               'disabled:opacity-50 disabled:cursor-not-allowed',
               saveSuccess && 'bg-gradient-to-r from-green-500 to-emerald-600'
             )}
           >
-            {loading ? (
+            {backendConfigured ? (
+              <>
+                <CheckCircle2 className="w-4 h-4" />
+                已配置
+              </>
+            ) : loading ? (
               <>
                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 保存中...

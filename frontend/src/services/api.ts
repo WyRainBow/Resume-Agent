@@ -2,7 +2,7 @@ import axios from 'axios'
 import type { Resume } from '@/types/resume'
 import { DEFAULT_RESUME_TEMPLATE } from '@/data/defaultTemplate'
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:8000'
 
 export async function aiTest(provider: 'zhipu' | 'doubao', prompt: string) {
   const url = `${API_BASE}/api/ai/test`
@@ -455,10 +455,19 @@ export async function formatResumeText(provider: 'zhipu' | 'doubao', text: strin
  */
 export async function getKeysStatus() {
   const url = `${API_BASE}/api/config/keys`
-  const { data } = await axios.get(url)
-  return data as {
-    zhipu: { configured: boolean; preview: string }
-    doubao: { configured: boolean; preview: string }
+  try {
+    const { data } = await axios.get(url)
+    return data as {
+      zhipu: { configured: boolean; preview: string }
+      doubao: { configured: boolean; preview: string }
+    }
+  } catch (error: any) {
+    console.error('获取 API Key 状态失败:', error)
+    // 如果请求失败，返回未配置状态
+    return {
+      zhipu: { configured: false, preview: '' },
+      doubao: { configured: false, preview: '' }
+    }
   }
 }
 
@@ -467,11 +476,16 @@ export async function getKeysStatus() {
  */
 export async function saveKeys(zhipuKey?: string, doubaoKey?: string) {
   const url = `${API_BASE}/api/config/keys`
-  const { data } = await axios.post(url, { 
-    zhipu_key: zhipuKey, 
-    doubao_key: doubaoKey 
-  })
-  return data as { success: boolean; message: string }
+  try {
+    const { data } = await axios.post(url, { 
+      zhipu_key: zhipuKey, 
+      doubao_key: doubaoKey 
+    })
+    return data as { success: boolean; message: string }
+  } catch (error: any) {
+    console.error('保存 API Key 失败:', error)
+    throw new Error(error.response?.data?.detail || error.message || '保存失败')
+  }
 }
 
 /**
