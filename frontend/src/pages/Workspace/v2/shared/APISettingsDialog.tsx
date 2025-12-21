@@ -341,7 +341,7 @@ export default function APISettingsDialog({
                 : "text-blue-700 dark:text-blue-300"
             )}>
               {backendConfigured 
-                ? "✅ 后端已配置 API Key，所有用户可直接使用 AI 功能，无需再次配置。"
+                ? " 后端已配置 API Key：所有用户可直接使用 AI 功能。无需再次配置。"
                 : "配置完成后：所有 AI 功能将使用智谱 AI 模型。API Key 将安全保存在后端服务器。"
               }
             </p>
