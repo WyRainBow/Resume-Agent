@@ -6,6 +6,10 @@ import React, { useState, useEffect, useRef } from 'react'
 import { X, Wand2, RotateCcw, Save } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 
+// 处理 API_BASE，确保有协议前缀
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+const API_BASE = rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`
+
 export type SectionType = 
   | 'contact' 
   | 'education' 
@@ -95,8 +99,8 @@ export function AIImportModal({
       
       // 根据是否全局导入选择不同的 API
       const endpoint = sectionType === 'all' 
-        ? '/api/resume/parse'  // 全局解析
-        : '/api/resume/parse-section'  // 分模块解析
+        ? `${API_BASE}/api/resume/parse`  // 全局解析
+        : `${API_BASE}/api/resume/parse-section`  // 分模块解析
       
       const body = sectionType === 'all'
         ? { text: text.trim() }
