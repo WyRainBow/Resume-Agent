@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>列表格式测试</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .prose {
+            color: #374151;
+            max-width: none;
+        }
+        .prose ul {
+            list-style-type: disc;
+            padding-left: 1.5rem;
+            margin: 0.5rem 0;
+        }
+        .prose ol {
+            list-style-type: decimal;
+            padding-left: 1.5rem;
+            margin: 0.5rem 0;
+        }
+        .prose li {
+            margin: 0.25rem 0;
+        }
+        .dark .prose {
+            color: #d1d5db;
+        }
+        .test-area {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            min-height: 200px;
+        }
+        .preview-area {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            min-height: 200px;
+        }
+        .dark .test-area,
+        .dark .preview-area {
+            border-color: #374151;
+            background: #1f2937;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-2xl font-bold mb-6">列表格式测试</h1>
+
+        <div class="grid grid-cols-2 gap-6">
+            <!-- 输入区域 -->
+            <div>
+                <h2 class="text-lg font-semibold mb-3">输入内容</h2>
+                <div class="test-area">
+                    <textarea id="inputText" class="w-full h-40 p-2 border-0 resize-none focus:outline-none bg-transparent">后端开发: 精通多语言技术栈及主流服务框架，主导高可用系统架构设计与落地实施
+数据库优化: 深入掌握主流数据库原理，主导5+次核心业务性能调优，单场景查询延迟降低40%！！！
+缓存体系建设: 深度构建多级缓存策略，成功解决高并发下缓存穿透/击穿/雪崩问题，峰值QPS提升60%！</textarea>
+                </div>
+
+                <div class="mt-4 space-y-2">
+                    <div class="flex gap-3">
+                        <label class="flex items-center gap-2">
+                            <input type="radio" name="format" value="paragraph" checked>
+                            <span>段落格式</span>
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input type="radio" name="format" value="list">
+                            <span>列表格式</span>
+                        </label>
+                    </div>
+                    <div id="listType" class="flex gap-3" style="display: none;">
+                        <label class="flex items-center gap-2">
+                            <input type="radio" name="listType" value="unordered" checked>
+                            <span>无序列表</span>
+                        </label>
+                        <label class="flex items-center gap-2">
+                            <input type="radio" name="listType" value="ordered">
+                            <span>有序列表</span>
+                        </label>
+                    </div>
+                    <button onclick="formatText()" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                        格式化
+                    </button>
+                </div>
+            </div>
+
+            <!-- 预览区域 -->
+            <div>
+                <h2 class="text-lg font-semibold mb-3">预览结果</h2>
+                <div class="preview-area prose">
+                    <div id="outputText"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 格式化函数
+        function splitCompactSkills(text) {
+            const skillPattern = /([^:]+):\s*([^:]+?)(?=\s+[^:]+:|$)/g;
+            const skills = [];
+            let match;
+
+            while ((match = skillPattern.exec(text)) !== null) {
+                const category = match[1].trim();
+                const description = match[2].trim();
+                if (category && description) {
+                    skills.push(`${category}: ${description}`);
+                }
+            }
+
+            if (skills.length === 0) {
+                const colonIndices = [];
+                for (let i = 0; i < text.length; i++) {
+                    if (text[i] === ':' && i > 0 && text[i - 1] !== ' ' && i < text.length - 1 && text[i + 1] === ' ') {
+                        colonIndices.push(i);
+                    }
+                }
+
+                if (colonIndices.length > 0) {
+                    for (let i = 0; i < colonIndices.length; i++) {
+                        const start = i === 0 ? 0 : colonIndices[i - 1] + 1;
+                        const end = i === colonIndices.length - 1 ? text.length : colonIndices[i];
+                        const skill = text.substring(start, end).trim();
+                        if (skill) {
+                            skills.push(skill);
+                        }
+                    }
+                }
+            }
+
+            return skills.length > 0 ? skills : [text];
+        }
+
+        function convertToParagraphs(lines) {
+            return lines
+                .map(line => {
+                    const trimmed = line.trim();
+                    if (!trimmed) return '';
+
+                    const escaped = trimmed
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+
+                    return `<p>${escaped}</p>`;
+                })
+                .filter(p => p)
+                .join('\n');
+        }
+
+        function convertToList(lines, ordered = false) {
+            const listItems = lines.map(line => `<li>${line.trim()}</li>`).join('\n');
+            return ordered ? `<ol>\n${listItems}\n</ol>` : `<ul>\n${listItems}\n</ul>`;
+        }
+
+        function formatText() {
+            const inputText = document.getElementById('inputText').value;
+            const format = document.querySelector('input[name="format"]:checked').value;
+            const listType = document.querySelector('input[name="listType"]:checked').value;
+            const outputText = document.getElementById('outputText');
+
+            if (format === 'paragraph') {
+                const skills = splitCompactSkills(inputText);
+                outputText.innerHTML = convertToParagraphs(skills);
+            } else if (format === 'list') {
+                const skills = splitCompactSkills(inputText);
+                const isOrdered = listType === 'ordered';
+                outputText.innerHTML = convertToList(skills, isOrdered);
+            }
+        }
+
+        // 切换显示列表类型选项
+        document.querySelectorAll('input[name="format"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                const listTypeDiv = document.getElementById('listType');
+                listTypeDiv.style.display = e.target.value === 'list' ? 'flex' : 'none';
+            });
+        });
+
+        // 初始格式化
+        formatText();
+    </script>
+</body>
+</html>
