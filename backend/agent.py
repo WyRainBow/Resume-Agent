@@ -19,7 +19,7 @@ from typing import Dict, Any, Optional, Tuple
 try:
     from backend import simple
 except ImportError:
-    import simple
+import simple
 
 
 def call_vision_model(image_base64: str, prompt: str) -> str:

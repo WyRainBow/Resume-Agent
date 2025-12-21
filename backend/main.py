@@ -70,13 +70,13 @@ try:
         pdf_router
     )
 except ModuleNotFoundError:
-    from .routes import (
-        health_router,
-        config_router,
-        resume_router,
-        agent_router,
-        pdf_router
-    )
+from .routes import (
+    health_router,
+    config_router,
+    resume_router,
+    agent_router,
+    pdf_router
+)
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="Resume Agent API")
@@ -123,7 +123,7 @@ async def startup_event():
         try:
             from backend import simple
         except ImportError:
-            import simple
+        import simple
         # 从环境变量同步 API Key 到 simple 模块
         zhipu_key = os.getenv("ZHIPU_API_KEY", "")
         if zhipu_key:

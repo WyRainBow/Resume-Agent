@@ -24,10 +24,10 @@ try:
     from backend.logger import backend_logger, write_llm_debug
 except ImportError:
     from models import (
-        ResumeGenerateRequest, ResumeGenerateResponse,
-        ResumeParseRequest, SectionParseRequest,
-        RewriteRequest, FormatTextRequest, FormatTextResponse
-    )
+    ResumeGenerateRequest, ResumeGenerateResponse,
+    ResumeParseRequest, SectionParseRequest,
+    RewriteRequest, FormatTextRequest, FormatTextResponse
+)
     from llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
     from prompts import build_resume_prompt, build_resume_markdown_prompt, build_rewrite_prompt, SECTION_PROMPTS
     from json_path import parse_path, get_by_path, set_by_path
