@@ -23,7 +23,7 @@
  *     ├── AIImportModal.tsx  # AI 导入弹窗
  *     └── RichEditor/        # 富文本编辑器
  */
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '../../../lib/utils'
 
@@ -94,6 +94,64 @@ export default function WorkspaceV2() {
   // API 设置弹窗
   const [apiSettingsOpen, setApiSettingsOpen] = useState(false)
 
+  // 文件输入引用（用于导入 JSON）
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // 导出 JSON
+  const handleExportJSON = () => {
+    try {
+      const jsonString = JSON.stringify(resumeData, null, 2)
+      const blob = new Blob([jsonString], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `resume-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('导出 JSON 失败:', error)
+      alert('导出失败，请重试')
+    }
+  }
+
+  // 导入 JSON
+  const handleImportJSON = () => {
+    fileInputRef.current?.click()
+  }
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string
+        const importedData = JSON.parse(text)
+        
+        // 验证数据格式（基本检查）
+        if (typeof importedData === 'object' && importedData !== null) {
+          setResumeData(importedData)
+          alert('导入成功！')
+        } else {
+          throw new Error('无效的 JSON 格式')
+        }
+      } catch (error) {
+        console.error('导入 JSON 失败:', error)
+        alert('导入失败：文件格式不正确，请确保是有效的 JSON 文件')
+      }
+    }
+    reader.onerror = () => {
+      alert('读取文件失败，请重试')
+    }
+    reader.readAsText(file)
+    
+    // 清空 input，以便可以重复选择同一文件
+    event.target.value = ''
+  }
+
   return (
     <motion.main
       initial={{ opacity: 0 }}
@@ -114,6 +172,17 @@ export default function WorkspaceV2() {
         onGlobalAIImport={handleGlobalAIImport}
         onSaveToDashboard={handleSaveToDashboard}
         onAPISettings={() => setApiSettingsOpen(true)}
+        onExportJSON={handleExportJSON}
+        onImportJSON={handleImportJSON}
+      />
+
+      {/* 隐藏的文件输入（用于导入 JSON） */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        onChange={handleFileChange}
+        style={{ display: 'none' }}
       />
 
       {/* AI 导入弹窗 */}
