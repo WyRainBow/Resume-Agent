@@ -117,7 +117,7 @@ export default function APISettingsDialog({
   const handleSave = async () => {
     // 如果后端已配置，不需要保存
     if (backendConfigured) {
-      alert('后端已配置 API Key，无需再次配置。所有用户可直接使用。')
+      alert('后端已配置 API Key：无需再次配置。所有用户可直接使用。')
       onOpenChange(false)
       return
     }
@@ -265,7 +265,7 @@ export default function APISettingsDialog({
               {backendConfigured ? (
                 <div className="w-full px-4 py-2.5 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 flex items-center gap-2">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span className="text-sm">后端已配置 API Key，所有用户可直接使用，无需再次配置</span>
+                  <span className="text-sm">后端已配置 API Key：所有用户可直接使用。无需再次配置</span>
                 </div>
               ) : (
                 <input
