@@ -3,8 +3,8 @@ Agent 路由 - Reflection Agent API
 """
 from fastapi import APIRouter, HTTPException
 
-from ..models import AgentReflectRequest, QuickFixRequest, VisionAnalyzeRequest, TemplateAnalyzeRequest
-from ..agent import run_reflection_agent, quick_fix_resume, analyze_resume_screenshot, analyze_template
+from models import AgentReflectRequest, QuickFixRequest, VisionAnalyzeRequest, TemplateAnalyzeRequest
+from agent import run_reflection_agent, quick_fix_resume, analyze_resume_screenshot, analyze_template
 
 router = APIRouter(prefix="/api", tags=["Agent"])
 
