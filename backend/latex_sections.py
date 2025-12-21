@@ -6,6 +6,7 @@ LaTeX Section 生成器模块
 from typing import Dict, Any, List
 from .latex_utils import escape_latex
 from .html_to_latex import html_to_latex
+import json, time, re  # debug logging
 
 
 def generate_section_summary(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
@@ -204,6 +205,21 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                 elif isinstance(highlights, list) and highlights:
                     # highlights 结构 - 支持 HTML 和 Markdown 格式
                     has_list_wrapper = False
+                    # #region agent log
+                    try:
+                        with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+                            _f.write(json.dumps({
+                                "sessionId": "debug-session",
+                                "runId": "run-pre-fix",
+                                "hypothesisId": "H1",
+                                "location": "latex_sections.py:highlights",
+                                "message": "enter highlights",
+                                "data": {"title": full_title, "count": len(highlights)},
+                                "timestamp": int(time.time() * 1000)
+                            }) + "\n")
+                    except Exception:
+                        pass
+                    # #endregion agent log
                     
                     for h in highlights:
                         if not isinstance(h, str) or not h.strip():
@@ -218,27 +234,99 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                             if converted.strip():
                                 # 如果 HTML 已包含列表结构，直接添加
                                 if '\\begin{itemize}' in converted or '\\begin{enumerate}' in converted:
+                                    # 正确的正则：\[ 和 \] 在原始字符串中匹配普通方括号
+                                    # 保留圆点标记，适度缩进 0.5cm
+                                    converted = re.sub(
+                                        r'\\begin\{itemize\}(\[[^\]]*\])?',
+                                        r'\\begin{itemize}[label=$\\bullet$,parsep=0.2ex,leftmargin=0.8cm,labelsep=0.5em]',
+                                        converted
+                                    )
+                                    converted = re.sub(
+                                        r'\\begin\{enumerate\}(\[[^\]]*\])?',
+                                        r'\\begin{enumerate}[leftmargin=2cm]',
+                                        converted
+                                    )
                                     content.append(converted)
+                                    # #region agent log
+                                    try:
+                                        with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+                                            _f.write(json.dumps({
+                                                "sessionId": "debug-session",
+                                                "runId": "run-pre-fix",
+                                                "hypothesisId": "H2",
+                                                "location": "latex_sections.py:highlights",
+                                                "message": "html passthrough list",
+                                                "data": {"snippet": converted[:120]},
+                                                "timestamp": int(time.time() * 1000)
+                                            }) + "\n")
+                                    except Exception:
+                                        pass
+                                    # #endregion agent log
                                 else:
-                                    # 否则包装成列表项（不带圆点）
+                                    # 否则包装成列表项（保留圆点，适度缩进）
                                     if not has_list_wrapper:
-                                        content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
+                                        content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,leftmargin=2cm,labelsep=0.5em]")
                                         has_list_wrapper = True
                                     content.append(f"  \\item {converted}")
+                                    # #region agent log
+                                    try:
+                                        with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+                                            _f.write(json.dumps({
+                                                "sessionId": "debug-session",
+                                                "runId": "run-pre-fix",
+                                                "hypothesisId": "H3",
+                                                "location": "latex_sections.py:highlights",
+                                                "message": "html wrapped item",
+                                                "data": {"snippet": converted[:120]},
+                                                "timestamp": int(time.time() * 1000)
+                                            }) + "\n")
+                                    except Exception:
+                                        pass
+                                    # #endregion agent log
                         elif h.startswith('**') and '**' in h[2:]:
-                            # Markdown 加粗格式
+                            # Markdown 加粗格式（保留圆点，适度缩进）
                             if not has_list_wrapper:
-                                content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
+                                content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,leftmargin=2cm,labelsep=0.5em]")
                                 has_list_wrapper = True
                             converted = _convert_markdown_bold(h)
                             converted = escape_latex(converted.replace('\\textbf{', '<<<TEXTBF>>>').replace('}', '<<<ENDBF>>>')).replace('<<<TEXTBF>>>', '\\textbf{').replace('<<<ENDBF>>>', '}')
                             content.append(f"  \\item {converted}")
+                            # #region agent log
+                            try:
+                                with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+                                    _f.write(json.dumps({
+                                        "sessionId": "debug-session",
+                                        "runId": "run-pre-fix",
+                                        "hypothesisId": "H4",
+                                        "location": "latex_sections.py:highlights",
+                                        "message": "markdown item",
+                                        "data": {"snippet": converted[:120]},
+                                        "timestamp": int(time.time() * 1000)
+                                    }) + "\n")
+                            except Exception:
+                                pass
+                            # #endregion agent log
                         else:
-                            # 普通文本
+                            # 普通文本（保留圆点，适度缩进）
                             if not has_list_wrapper:
-                                content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
+                                content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,leftmargin=2cm,labelsep=0.5em]")
                                 has_list_wrapper = True
                             content.append(f"  \\item {escape_latex(h)}")
+                            # #region agent log
+                            try:
+                                with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+                                    _f.write(json.dumps({
+                                        "sessionId": "debug-session",
+                                        "runId": "run-pre-fix",
+                                        "hypothesisId": "H5",
+                                        "location": "latex_sections.py:highlights",
+                                        "message": "plain item",
+                                        "data": {"snippet": h[:120]},
+                                        "timestamp": int(time.time() * 1000)
+                                    }) + "\n")
+                            except Exception:
+                                pass
+                            # #endregion agent log
                     
                     if has_list_wrapper:
                         content.append(r"\end{itemize}")
