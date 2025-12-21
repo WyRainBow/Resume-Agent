@@ -3,8 +3,15 @@
 
 [phases.setup]
 nixPkgs = [
-  "texlive.combined.scheme-full",
+  "texlive.combined.scheme-medium",
   "fontconfig"
+]
+aptPkgs = [
+  "texlive-xetex",
+  "texlive-fonts-recommended",
+  "texlive-fonts-extra",
+  "texlive-lang-chinese",
+  "fonts-noto-cjk"
 ]
 
 [phases.install]
