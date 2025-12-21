@@ -9,18 +9,18 @@ from typing import Dict, Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from ..models import (
+from models import (
     ResumeGenerateRequest, ResumeGenerateResponse,
     ResumeParseRequest, SectionParseRequest,
     RewriteRequest, FormatTextRequest, FormatTextResponse
 )
-from ..llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
-from ..prompts import build_resume_prompt, build_resume_markdown_prompt, build_rewrite_prompt, SECTION_PROMPTS
-from ..json_path import parse_path, get_by_path, set_by_path
-from ..chunk_processor import split_resume_text, merge_resume_chunks
-from ..parallel_chunk_processor import parse_resume_text_parallel
-from ..config.parallel_config import get_parallel_config
-from ..logger import backend_logger, write_llm_debug
+from llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
+from prompts import build_resume_prompt, build_resume_markdown_prompt, build_rewrite_prompt, SECTION_PROMPTS
+from json_path import parse_path, get_by_path, set_by_path
+from chunk_processor import split_resume_text, merge_resume_chunks
+from parallel_chunk_processor import parse_resume_text_parallel
+from config.parallel_config import get_parallel_config
+from logger import backend_logger, write_llm_debug
 
 router = APIRouter(prefix="/api", tags=["Resume"])
 
@@ -234,7 +234,7 @@ async def parse_resume_text(body: ResumeParseRequest):
 
     # 额外的数据清理和标准化
     try:
-        from ..json_normalizer import normalize_resume_json
+        from json_normalizer import normalize_resume_json
         normalized_data = normalize_resume_json(short_data)
     except Exception as e:
         print(f"[解析] 数据标准化失败: {e}", file=sys.stderr, flush=True)
@@ -318,7 +318,7 @@ async def _parse_resume_serial(body: ResumeParseRequest):
 
     # 额外的数据清理和标准化
     try:
-        from ..json_normalizer import normalize_resume_json
+        from json_normalizer import normalize_resume_json
         normalized_data = normalize_resume_json(short_data)
         return {"success": True, "data": normalized_data}
     except Exception as e:
