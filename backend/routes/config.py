@@ -86,7 +86,10 @@ async def save_keys(body: SaveKeysRequest):
         # 重置智谱客户端实例，强制使用新的 API Key
         if body.zhipu_key:
             try:
-                import simple
+                try:
+                    from backend import simple
+                except ImportError:
+                    import simple
                 simple._zhipu_client = None
                 simple._last_zhipu_key = None
                 # 更新 simple 模块中的 API Key
