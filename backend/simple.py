@@ -75,7 +75,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # 导入 llm_utils（兼容多种运行方式）
 try:
-from backend.llm_utils import retry_with_backoff
+    from backend.llm_utils import retry_with_backoff
 except ImportError:
     from llm_utils import retry_with_backoff
 
