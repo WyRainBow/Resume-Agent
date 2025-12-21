@@ -458,9 +458,9 @@ export async function formatResumeText(provider: 'zhipu' | 'doubao', text: strin
 export async function getKeysStatus() {
   const url = `${API_BASE}/api/config/keys`
   try {
-    const { data } = await axios.get(url)
-    return data as {
-      zhipu: { configured: boolean; preview: string }
+  const { data } = await axios.get(url)
+  return data as {
+    zhipu: { configured: boolean; preview: string }
       doubao: { configured: boolean; preview: string }
     }
   } catch (error: any) {
@@ -479,11 +479,11 @@ export async function getKeysStatus() {
 export async function saveKeys(zhipuKey?: string, doubaoKey?: string) {
   const url = `${API_BASE}/api/config/keys`
   try {
-    const { data } = await axios.post(url, { 
-      zhipu_key: zhipuKey, 
+  const { data } = await axios.post(url, { 
+    zhipu_key: zhipuKey, 
       doubao_key: doubaoKey 
-    })
-    return data as { success: boolean; message: string }
+  })
+  return data as { success: boolean; message: string }
   } catch (error: any) {
     console.error('保存 API Key 失败:', error)
     throw new Error(error.response?.data?.detail || error.message || '保存失败')

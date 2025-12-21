@@ -3,12 +3,13 @@
 
 [phases.setup]
 nixPkgs = [
-  "texlive.combined.scheme-full"
+  "texlive.combined.scheme-full",
+  "fontconfig"
 ]
 
 [phases.install]
 cmds = ["pip install -r requirements.txt"]
 
 [start]
-cmd = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+cmd = "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
 

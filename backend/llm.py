@@ -20,8 +20,8 @@ for p in [CURRENT_DIR, ROOT]:
 try:
     from backend import simple
 except ImportError:
-    try:
-        import simple
+try:
+    import simple
     except ImportError as e:
         # 最后尝试直接导入文件
         simple_path = CURRENT_DIR / "simple.py"
@@ -33,7 +33,7 @@ except ImportError:
             simple = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(simple)
         else:
-            raise RuntimeError(f"无法导入 simple.py: {e}")
+    raise RuntimeError(f"无法导入 simple.py: {e}")
 
 # 全局 AI 配置
 DEFAULT_AI_PROVIDER = "zhipu"
