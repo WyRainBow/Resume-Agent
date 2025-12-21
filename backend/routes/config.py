@@ -10,8 +10,9 @@ try:
 except ImportError:
     load_dotenv = None
 
-from ..models import SaveKeysRequest, AITestRequest, ChatRequest
-from ..llm import call_llm, get_ai_config
+# 使用绝对导入，兼容直接运行 main:app（无包前缀）
+from models import SaveKeysRequest, AITestRequest, ChatRequest
+from llm import call_llm, get_ai_config
 
 router = APIRouter(prefix="/api", tags=["Config"])
 
