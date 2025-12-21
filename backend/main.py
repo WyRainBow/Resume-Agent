@@ -100,6 +100,19 @@ async def startup_event():
     
     try:
         import simple
+        # 从环境变量同步 API Key 到 simple 模块
+        zhipu_key = os.getenv("ZHIPU_API_KEY", "")
+        if zhipu_key:
+            simple.ZHIPU_API_KEY = zhipu_key
+            simple._zhipu_client = None  # 重置客户端，使用新的 API Key
+            simple._last_zhipu_key = None
+            backend_logger.info(f"[配置] 已从 .env 加载 ZHIPU_API_KEY: {zhipu_key[:10]}...")
+        
+        doubao_key = os.getenv("DOUBAO_API_KEY", "")
+        if doubao_key:
+            simple.DOUBAO_API_KEY = doubao_key
+            backend_logger.info(f"[配置] 已从 .env 加载 DOUBAO_API_KEY: {doubao_key[:10]}...")
+        
         simple.warmup_connection()
         backend_logger.info("[启动优化] HTTP 连接已预热")
     except Exception as e:
