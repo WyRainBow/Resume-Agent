@@ -7,15 +7,30 @@ import sys
 from pathlib import Path
 from fastapi import HTTPException
 
-# 将项目根目录加入 sys.path
+# 将项目根目录加入 sys.path（确保在最前面，优先查找）
 ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.append(str(ROOT))
+ROOT_STR = str(ROOT)
+if ROOT_STR not in sys.path:
+    sys.path.insert(0, ROOT_STR)
+
+# 同时确保当前目录也在路径中
+CURRENT_DIR = Path(__file__).resolve().parent
+CURRENT_DIR_STR = str(CURRENT_DIR)
+if CURRENT_DIR_STR not in sys.path:
+    sys.path.insert(0, CURRENT_DIR_STR)
 
 try:
     import simple
 except Exception as e:
-    raise RuntimeError(f"无法导入 simple.py: {e}")
+    # 如果还是找不到，尝试直接导入文件
+    simple_path = ROOT / "simple.py"
+    if simple_path.exists():
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("simple", simple_path)
+        simple = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(simple)
+    else:
+        raise RuntimeError(f"无法导入 simple.py: {e}，文件路径: {simple_path}")
 
 # 全局 AI 配置
 DEFAULT_AI_PROVIDER = "zhipu"
