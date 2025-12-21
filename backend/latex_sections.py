@@ -8,6 +8,26 @@ from .latex_utils import escape_latex
 from .html_to_latex import html_to_latex
 import json, time, re  # debug logging
 
+# region agent log helper
+def _agent_log(hypothesis_id: str, location: str, message: str, data=None, run_id: str = "run1"):
+    """Lightweight NDJSON logger for debug mode (writes to .cursor/debug.log)."""
+    try:
+        payload = {
+            "sessionId": "debug-session",
+            "runId": run_id,
+            "hypothesisId": hypothesis_id,
+            "location": location,
+            "message": message,
+            "data": data or {},
+            "timestamp": int(time.time() * 1000),
+        }
+        with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as f:
+            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+    except Exception:
+        # Do not raise during debug logging
+        pass
+# endregion
+
 
 def generate_section_summary(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """生成个人总结"""
@@ -37,34 +57,22 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
     list_type = global_settings.get('experienceListType', 'none')
     
     if isinstance(internships, list) and internships:
+        _agent_log("H2", "latex_sections.py:generate_section_internships", "enter internships", {
+            "count": len(internships),
+            "list_type": list_type,
+        })
         content.append(f"\\section{{{escape_latex(title)}}}")
         
-        # 根据列表类型选择不同的 LaTeX 环境
-        # 使用 leftmargin=* 自动计算合适的左边距，让列表有适当缩进
-        if list_type == 'ordered':
-            # 有序列表：1. 2. 3. ...（有缩进，数字对齐）
-            content.append(r"\begin{enumerate}[label=\arabic*.,parsep=0.2ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
-        elif list_type == 'unordered':
-            # 无序列表：• • •（有缩进，圆点对齐）
-            content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
-        else:  # 'none'
-            # 无列表：无标记（保持无缩进）
-            content.append(r"\begin{itemize}[label={},parsep=0.2ex,leftmargin=0em,itemindent=0em]")
-        
-        for it in internships:
-            # escape_latex 会自动处理 **text** -> \textbf{text}
-            # 不再默认加粗，只有用户点击加粗按钮才会加粗
+        # 始终使用 \datedsubsection 保持与教育经历一致的字号/对齐
+        for idx, it in enumerate(internships):
             company = escape_latex(it.get('title') or '')
             position = escape_latex(it.get('subtitle') or '')
             date = it.get('date') or ''
-            # 过滤无效时间
             if date and date.strip() in ['未提及', '未知', 'N/A', '-', '']:
                 date = ''
             date = escape_latex(date)
             
-            # 自动组合：{company} – {position}（使用 \textendash 并显式空隙让破折号居中）
             if company and position:
-                # 使用 \textendash 比 -- 渲染更均匀，两侧加 \hspace 微调间距
                 title_text = f"{company}\\hspace{{0.2em}}\\textendash\\hspace{{0.2em}}{position}"
             elif company:
                 title_text = company
@@ -73,21 +81,20 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
             else:
                 title_text = '未命名公司'
             
-            # 格式：\item {company} - {position} \hfill 日期（文字左对齐，日期右对齐）
-            # 使用 \hfill 确保日期固定在右侧，所有日期对齐到同一位置
-            # 注意：去掉 \raggedright，因为它会影响 \hfill 的对齐效果
-            if date:
-                # 使用 \hfill 将日期推到最右边，确保所有日期对齐
-                line = f"{title_text} \\hfill {date}"
-            else:
-                line = f"{title_text}"
-            content.append(f"  \\item {line}")
-        
-        # 根据列表类型关闭对应的 LaTeX 环境
-        if list_type == 'ordered':
-            content.append(r"\end{enumerate}")
-        else:
-            content.append(r"\end{itemize}")
+            # 使用 \normalsize 字体，确保与教育经历一致
+            latex_line = f"\\datedsubsection{{\\normalsize {title_text}}}{{\\normalsize {date}}}"
+            content.append(latex_line)
+            content.append("")
+            _agent_log("H2", "latex_sections.py:generate_section_internships", "item computed (datedsubsection-forced)", {
+                "idx": idx,
+                "company": company,
+                "position": position,
+                "date": date,
+                "title_text": title_text,
+                "render_mode": "datedsubsection_forced",
+                "latex_line": latex_line,
+            })
+        # 不再开启列表环境，避免额外缩进和字号差异
         content.append("")
     return content
 
@@ -437,8 +444,11 @@ def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict
     edu = resume_data.get('education') or []
     section_title = (section_titles or {}).get('education', '教育经历')
     if isinstance(edu, list) and edu:
+        _agent_log("H1", "latex_sections.py:generate_section_education", "enter education", {
+            "count": len(edu),
+        })
         content.append(f"\\section{{{escape_latex(section_title)}}}")
-        for ed in edu:
+        for idx, ed in enumerate(edu):
             # 兼容多种字段名
             school = escape_latex(ed.get('title') or ed.get('school') or '')
             degree = escape_latex(ed.get('degree') or '')
@@ -457,8 +467,15 @@ def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict
             title_str = " - ".join(title_parts) if title_parts else school
             
             if title_str:
-                content.append(f"\\datedsubsection{{{title_str}}}{{{duration}}}")
-                
+                # 使用 \normalsize 字体，确保与实习经历一致
+                latex_line = f"\\datedsubsection{{\\normalsize {title_str}}}{{\\normalsize {duration}}}"
+                content.append(latex_line)
+                _agent_log("H1", "latex_sections.py:generate_section_education", "item computed", {
+                    "idx": idx,
+                    "title_str": title_str,
+                    "duration": duration,
+                    "latex_line": latex_line,
+                })
                 # 荣誉信息 - 与 wy.tex 格式一致
                 honors = ed.get('honors')
                 if honors:
@@ -560,13 +577,14 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
                     if '\\begin{itemize}' in converted_desc or '\\begin{enumerate}' in converted_desc:
                         item_contents.append(converted_desc)
                     else:
-                        # 否则作为普通文本
+                        # 否则作为普通文本，按行拆分
                         if '\n' in converted_desc:
                             for desc in converted_desc.split('\n'):
                                 if desc.strip():
                                     item_contents.append(escape_latex(desc.strip()))
                         else:
-                            item_contents.append(converted_desc.strip())
+                            if converted_desc.strip():
+                                item_contents.append(escape_latex(converted_desc.strip()))
 
             # 如果有内容，生成itemize（除非已经包含列表）
             if item_contents:
