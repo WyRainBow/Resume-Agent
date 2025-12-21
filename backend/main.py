@@ -15,10 +15,14 @@ import sys
 import logging
 from pathlib import Path
 
+# 兼容直接以脚本方式运行（无包上下文）时的相对导入问题
+ROOT_DIR = Path(__file__).resolve().parents[1]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
 # 加载环境变量
 try:
     from dotenv import load_dotenv
-    ROOT_DIR = Path(__file__).resolve().parents[1]
     DOTENV_PATH = ROOT_DIR / ".env"
     load_dotenv(dotenv_path=str(DOTENV_PATH), override=True)
     load_dotenv(override=True)
@@ -26,7 +30,7 @@ except Exception:
     pass
 
 # 初始化日志系统
-from .logger import backend_logger, LOGS_DIR, ensure_log_dirs
+from backend.logger import backend_logger, LOGS_DIR, ensure_log_dirs
 from datetime import datetime
 
 # 日志文件 handler（延迟初始化）
