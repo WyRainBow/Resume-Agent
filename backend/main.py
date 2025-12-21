@@ -60,14 +60,23 @@ def get_log_file_handler():
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# 导入路由模块
-from .routes import (
-    health_router,
-    config_router,
-    resume_router,
-    agent_router,
-    pdf_router
-)
+# 导入路由模块（兼容包/脚本两种运行方式）
+try:
+    from routes import (
+        health_router,
+        config_router,
+        resume_router,
+        agent_router,
+        pdf_router
+    )
+except ModuleNotFoundError:
+    from .routes import (
+        health_router,
+        config_router,
+        resume_router,
+        agent_router,
+        pdf_router
+    )
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="Resume Agent API")
