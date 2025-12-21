@@ -282,6 +282,13 @@ async def parse_resume_text_parallel(text: str, provider: str,
 
         # 合并结果
         print(f"[parse_resume_text_parallel] 开始合并 {len(chunk_results)} 个分块结果", file=sys.stderr, flush=True)
+        
+        # 检查是否有成功的结果
+        if not chunk_results:
+            error_msg = "所有分块处理都失败，请检查 API Key 配置或网络连接"
+            backend_logger.error(error_msg)
+            raise Exception(error_msg)
+        
         final_result = merge_resume_chunks(chunk_results)
         print(f"[parse_resume_text_parallel] 合并完成", file=sys.stderr, flush=True)
         backend_logger.info("分块合并完成")

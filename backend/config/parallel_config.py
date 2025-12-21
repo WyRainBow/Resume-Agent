@@ -35,7 +35,7 @@ PROVIDER_CONFIG = {
         "request_timeout": 25,
     },
     "zhipu": {
-        "max_concurrent": 2,  # 智谱较严格
+        "max_concurrent": 6,  # 提高并发数以加快处理速度
         "request_timeout": 35,
     },
     "gemini": {
