@@ -85,11 +85,11 @@ except ImportError:
 """
 _use_http2_client = False
 try:
-try:
-    from backend.http_client import (
-        get_httpx_client, get_requests_session, 
-        call_api, init as http_init, prefetch_api_hosts
-    )
+    try:
+        from backend.http_client import (
+            get_httpx_client, get_requests_session, 
+            call_api, init as http_init, prefetch_api_hosts
+        )
     except ImportError:
         from http_client import (
             get_httpx_client, get_requests_session, 
