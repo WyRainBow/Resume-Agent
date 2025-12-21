@@ -9,18 +9,32 @@ from typing import Dict, Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-from models import (
-    ResumeGenerateRequest, ResumeGenerateResponse,
-    ResumeParseRequest, SectionParseRequest,
-    RewriteRequest, FormatTextRequest, FormatTextResponse
-)
-from llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
-from prompts import build_resume_prompt, build_resume_markdown_prompt, build_rewrite_prompt, SECTION_PROMPTS
-from json_path import parse_path, get_by_path, set_by_path
-from chunk_processor import split_resume_text, merge_resume_chunks
-from parallel_chunk_processor import parse_resume_text_parallel
-from config.parallel_config import get_parallel_config
-from logger import backend_logger, write_llm_debug
+try:
+    from backend.models import (
+        ResumeGenerateRequest, ResumeGenerateResponse,
+        ResumeParseRequest, SectionParseRequest,
+        RewriteRequest, FormatTextRequest, FormatTextResponse
+    )
+    from backend.llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
+    from backend.prompts import build_resume_prompt, build_resume_markdown_prompt, build_rewrite_prompt, SECTION_PROMPTS
+    from backend.json_path import parse_path, get_by_path, set_by_path
+    from backend.chunk_processor import split_resume_text, merge_resume_chunks
+    from backend.parallel_chunk_processor import parse_resume_text_parallel
+    from backend.config.parallel_config import get_parallel_config
+    from backend.logger import backend_logger, write_llm_debug
+except ImportError:
+    from models import (
+        ResumeGenerateRequest, ResumeGenerateResponse,
+        ResumeParseRequest, SectionParseRequest,
+        RewriteRequest, FormatTextRequest, FormatTextResponse
+    )
+    from llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
+    from prompts import build_resume_prompt, build_resume_markdown_prompt, build_rewrite_prompt, SECTION_PROMPTS
+    from json_path import parse_path, get_by_path, set_by_path
+    from chunk_processor import split_resume_text, merge_resume_chunks
+    from parallel_chunk_processor import parse_resume_text_parallel
+    from config.parallel_config import get_parallel_config
+    from logger import backend_logger, write_llm_debug
 
 router = APIRouter(prefix="/api", tags=["Resume"])
 
