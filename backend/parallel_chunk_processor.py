@@ -89,11 +89,17 @@ class ParallelChunkProcessor:
 {schema_desc}"""
 
         try:
-            # 使用线程池执行同步的 call_llm 函数
+            # 获取超时配置
+            timeout = self.config.get("request_timeout", 15)
+            
+            # 使用线程池执行同步的 call_llm 函数，并添加异步超时控制
             loop = asyncio.get_event_loop()
-            raw = await loop.run_in_executor(
-                self.executor,
-                functools.partial(call_llm, provider, chunk_prompt)
+            raw = await asyncio.wait_for(
+                loop.run_in_executor(
+                    self.executor,
+                    functools.partial(call_llm, provider, chunk_prompt)
+                ),
+                timeout=timeout
             )
 
             # 清理和解析响应（这里也可以优化为异步）
@@ -119,14 +125,27 @@ class ParallelChunkProcessor:
                 "elapsed": elapsed
             }
 
+        except asyncio.TimeoutError:
+            elapsed = time.time() - start_time
+            timeout = self.config.get("request_timeout", 15)
+            error_msg = f"请求超时（超过 {timeout} 秒）"
+            backend_logger.error(f"第 {chunk_index+1}/{total_chunks} 块失败: {error_msg}, 耗时: {elapsed:.2f}秒")
+            return {
+                "index": chunk_index,
+                "data": None,
+                "success": False,
+                "error": error_msg,
+                "elapsed": elapsed
+            }
         except Exception as e:
             elapsed = time.time() - start_time
-            backend_logger.error(f"第 {chunk_index+1}/{total_chunks} 块失败: {e}, 耗时: {elapsed:.2f}秒")
+            error_msg = str(e) if str(e) else f"未知错误: {type(e).__name__}"
+            backend_logger.error(f"第 {chunk_index+1}/{total_chunks} 块失败: {error_msg}, 耗时: {elapsed:.2f}秒")
 
             # 记录错误
             try:
                 from .logger import write_llm_debug
-                write_llm_debug(f"Chunk {chunk_index+1} Error: {e}")
+                write_llm_debug(f"Chunk {chunk_index+1} Error: {error_msg}")
             except ImportError:
                 pass
 
@@ -134,7 +153,7 @@ class ParallelChunkProcessor:
                 "index": chunk_index,
                 "data": None,
                 "success": False,
-                "error": str(e),
+                "error": error_msg,
                 "elapsed": elapsed
             }
 

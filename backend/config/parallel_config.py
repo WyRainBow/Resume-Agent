@@ -35,8 +35,8 @@ PROVIDER_CONFIG = {
         "request_timeout": 25,
     },
     "zhipu": {
-        "max_concurrent": 6,  # 提高并发数以加快处理速度
-        "request_timeout": 35,
+        "max_concurrent": 6,  # 提高并发，加速处理（如遇限流再调回）
+        "request_timeout": 15,  # 缩短超时时间，快速失败
     },
     "gemini": {
         "max_concurrent": 2,  # Google也较严格

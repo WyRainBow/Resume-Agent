@@ -10,8 +10,8 @@ import sys
 
 def split_resume_text(text: str, max_chunk_size: int = 400) -> List[Dict[str, str]]:
     """
-    简单分割简历文本
-    按照段落关键词分割
+    简单分割简历文本，按照段落关键词分割。
+    注意：调用方不要去掉换行或用单行字符串拼接（否则会退化成 1 块，无法分段）。
     """
     chunks = []
     
