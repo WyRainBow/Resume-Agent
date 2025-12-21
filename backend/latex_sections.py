@@ -180,14 +180,14 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
             
             if full_title:
                 content.append(f"\\datedsubsection{{\\textbf{{{full_title}}}}}{{}}")
-                
+
                 # 检查是否有 items（子项目结构）
                 items = p.get('items') or []
                 highlights = p.get('highlights') or []
-                
+
                 if isinstance(items, list) and items:
                     # 有子项目结构 - 不带圆点的列表
-                    content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
+                    content.append(r"\begin{itemize}[label={},parsep=0.2ex,itemsep=0ex]")
                     for sub in items:
                         sub_title = sub.get('title')
                         if sub_title:
@@ -238,12 +238,12 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                                     # 保留圆点标记，适度缩进 0.5cm
                                     converted = re.sub(
                                         r'\\begin\{itemize\}(\[[^\]]*\])?',
-                                        r'\\begin{itemize}[label=$\\bullet$,parsep=0.2ex,leftmargin=0.8cm,labelsep=0.5em]',
+                                        r'\\begin{itemize}[label=$\\bullet$,parsep=0.05ex,itemsep=0ex,leftmargin=0.8cm,labelsep=0.5em,topsep=0ex,partopsep=0ex]',
                                         converted
                                     )
                                     converted = re.sub(
                                         r'\\begin\{enumerate\}(\[[^\]]*\])?',
-                                        r'\\begin{enumerate}[leftmargin=2cm]',
+                                        r'\\begin{enumerate}[leftmargin=0.8cm,labelsep=0.5em,topsep=0ex,partopsep=0ex]',
                                         converted
                                     )
                                     content.append(converted)
@@ -265,7 +265,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                                 else:
                                     # 否则包装成列表项（保留圆点，适度缩进）
                                     if not has_list_wrapper:
-                                        content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,leftmargin=2cm,labelsep=0.5em]")
+                                        content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=2cm,labelsep=0.5em]")
                                         has_list_wrapper = True
                                     content.append(f"  \\item {converted}")
                                     # #region agent log
@@ -286,7 +286,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                         elif h.startswith('**') and '**' in h[2:]:
                             # Markdown 加粗格式（保留圆点，适度缩进）
                             if not has_list_wrapper:
-                                content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,leftmargin=2cm,labelsep=0.5em]")
+                                content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=2cm,labelsep=0.5em]")
                                 has_list_wrapper = True
                             converted = _convert_markdown_bold(h)
                             converted = escape_latex(converted.replace('\\textbf{', '<<<TEXTBF>>>').replace('}', '<<<ENDBF>>>')).replace('<<<TEXTBF>>>', '\\textbf{').replace('<<<ENDBF>>>', '}')
@@ -309,7 +309,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                         else:
                             # 普通文本（保留圆点，适度缩进）
                             if not has_list_wrapper:
-                                content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,leftmargin=2cm,labelsep=0.5em]")
+                                content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=2cm,labelsep=0.5em]")
                                 has_list_wrapper = True
                             content.append(f"  \\item {escape_latex(h)}")
                             # #region agent log
@@ -528,9 +528,10 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
                 os_item.get('subtitle') or os_item.get('role') or ''
             )
             # 兼容多种字段名获取仓库链接
-            repo_url = (os_item.get('repoUrl') or
-                       os_item.get('repo') or
-                       os_item.get('link') or '')
+            repo_url = (os_item.get('repo') or  # 前端使用 repo
+                       os_item.get('repoUrl') or
+                       os_item.get('link') or
+                       os_item.get('url') or '')
 
             # 获取日期（如果有）
             date = os_item.get('date') or ''
@@ -540,8 +541,7 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
             subsection_title = f"\\textbf{{{item_title}}}"
             content.append(f"\\datedsubsection{{{subsection_title}}}{{{subtitle}}}")
 
-            # 处理贡献描述 - 支持多种格式
-            items = os_item.get('items') or []
+            # 处理贡献描述 - description 是 HTML 格式
             description = os_item.get('description') or ''
 
             # 准备要显示的内容
@@ -551,25 +551,36 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
                 escaped_url = escape_latex(repo_url)
                 item_contents.append(f"仓库: \\textit{{{escaped_url}}}")
 
-            if isinstance(items, list) and items:
-                for item in items:
-                    if isinstance(item, str) and item.strip():
-                        item_contents.append(escape_latex(item.strip()))
-            elif description:
-                # 将description按换行分割或作为整体
-                if '\n' in description:
-                    for desc in description.split('\n'):
-                        if desc.strip():
-                            item_contents.append(escape_latex(desc.strip()))
-                else:
-                    item_contents.append(escape_latex(description.strip()))
+            if description:
+                # description 是 HTML 格式，需要转换
+                from .html_to_latex import html_to_latex
+                converted_desc = html_to_latex(description)
+                if converted_desc.strip():
+                    # 如果转换后的内容包含列表标签，直接添加
+                    if '\\begin{itemize}' in converted_desc or '\\begin{enumerate}' in converted_desc:
+                        item_contents.append(converted_desc)
+                    else:
+                        # 否则作为普通文本
+                        if '\n' in converted_desc:
+                            for desc in converted_desc.split('\n'):
+                                if desc.strip():
+                                    item_contents.append(escape_latex(desc.strip()))
+                        else:
+                            item_contents.append(converted_desc.strip())
 
-            # 如果有内容，生成itemize
+            # 如果有内容，生成itemize（除非已经包含列表）
             if item_contents:
-                content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
-                for item in item_contents:
-                    content.append(f"  \\item {item}")
-                content.append(r"\end{itemize}")
+                # 检查是否已经包含列表结构
+                has_list = any('\\begin{itemize}' in item or '\\begin{enumerate}' in item for item in item_contents)
+                if not has_list:
+                    content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
+                    for item in item_contents:
+                        content.append(f"  \\item {item}")
+                    content.append(r"\end{itemize}")
+                else:
+                    # 已经包含列表结构，直接添加
+                    for item in item_contents:
+                        content.append(item)
 
             content.append("")
     return content
