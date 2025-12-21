@@ -7,7 +7,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
 export async function aiTest(provider: 'zhipu' | 'doubao', prompt: string) {
   const url = `${API_BASE}/api/ai/test`
   const { data } = await axios.post(url, { provider, prompt })
-  return data as { provider: string; result: string }
+  return data as { provider: string; result: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }
 }
 
 export async function generateResume(provider: 'zhipu' | 'doubao', instruction: string, locale: 'zh' | 'en' = 'zh') {

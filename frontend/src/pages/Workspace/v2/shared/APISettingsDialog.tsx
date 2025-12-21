@@ -3,8 +3,10 @@
  * 用于全局配置 AI 模型和 API Key
  */
 import { useState, useEffect } from 'react'
-import { X, Save, Key, Settings } from 'lucide-react'
+import { X, Save, Key, Settings, TestTube } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
+import { aiTest } from '../../../../services/api'
+import TokenMonitor from '../../../../components/TokenMonitor'
 
 // 智谱 AI 图标组件 - BigModel 风格的三维六边形图标
 const ZhipuAIIcon = ({ className }: { className?: string }) => (
@@ -80,6 +82,9 @@ export default function APISettingsDialog({
   const [zhipuModel, setZhipuModel] = useState('glm-4.5v')
   const [loading, setLoading] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<string>('')
+  const [testUsage, setTestUsage] = useState<{ prompt_tokens: number; completion_tokens: number; total_tokens: number } | undefined>()
 
   // 加载当前配置
   useEffect(() => {
@@ -144,6 +149,37 @@ export default function APISettingsDialog({
   const handleClose = () => {
     if (!loading) {
       onOpenChange(false)
+    }
+  }
+
+  const handleTest = async () => {
+    if (!zhipuKey.trim()) {
+      alert('请先输入 API Key')
+      return
+    }
+
+    setTesting(true)
+    setTestResult('')
+    setTestUsage(undefined)
+
+    try {
+      // 先保存 API Key
+      await fetch('/api/config/keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zhipu_key: zhipuKey }),
+      })
+
+      // 测试 API
+      const result = await aiTest('zhipu', '请用一句话介绍人工智能')
+      setTestResult(result.result || '测试成功')
+      if (result.usage) {
+        setTestUsage(result.usage)
+      }
+    } catch (error: any) {
+      setTestResult(`测试失败: ${error.message || '未知错误'}`)
+    } finally {
+      setTesting(false)
     }
   }
 
@@ -255,6 +291,45 @@ export default function APISettingsDialog({
                 <option value="glm-4">GLM-4 (标准)</option>
               </select>
             </div>
+          </div>
+
+          {/* AI 测试 */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                <TestTube className="w-4 h-4" />
+                API 测试
+              </label>
+              <button
+                onClick={handleTest}
+                disabled={testing || !zhipuKey.trim()}
+                className={cn(
+                  'px-3 py-1.5 rounded-lg text-xs font-medium',
+                  'bg-blue-500 hover:bg-blue-600 text-white',
+                  'disabled:opacity-50 disabled:cursor-not-allowed',
+                  'transition-colors flex items-center gap-2'
+                )}
+              >
+                {testing ? (
+                  <>
+                    <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    测试中...
+                  </>
+                ) : (
+                  '测试连接'
+                )}
+              </button>
+            </div>
+            {testResult && (
+              <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+                <p className="text-sm text-slate-700 dark:text-slate-300">{testResult}</p>
+                {testUsage && (
+                  <div className="mt-2">
+                    <TokenMonitor usage={testUsage} />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 提示信息 */}

@@ -99,8 +99,16 @@ async def save_keys(body: SaveKeysRequest):
 async def ai_test(body: AITestRequest):
     """测试已有 AI 接口是否可用"""
     try:
-        result = call_llm(body.provider, body.prompt)
-        return {"provider": body.provider, "result": result}
+        result = call_llm(body.provider, body.prompt, return_usage=True)
+        if isinstance(result, dict):
+            return {
+                "provider": body.provider,
+                "result": result.get("content", ""),
+                "usage": result.get("usage", {})
+            }
+        else:
+            # 向后兼容
+            return {"provider": body.provider, "result": result, "usage": {}}
     except HTTPException as he:
         raise he
     except Exception as e:
