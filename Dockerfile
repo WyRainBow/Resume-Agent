@@ -24,9 +24,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 复制项目文件
 COPY . .
 
+# 复制启动脚本并设置执行权限
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
+
 # 暴露端口
 EXPOSE 8000
 
-# 启动命令（使用 shell 形式以支持环境变量）
-CMD uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}
+# 启动命令
+CMD ["/start.sh"]
 
