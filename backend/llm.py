@@ -24,13 +24,23 @@ DEFAULT_AI_MODEL = {
 }
 
 
-def call_llm(provider: str, prompt: str) -> str:
+def call_llm(provider: str, prompt: str, return_usage: bool = False):
     """
     统一入口，基于 simple.py 封装 LLM 调用
     在调用前检查必要的 API Key，缺失时返回 400 级错误
+    
+    参数:
+        provider: AI 提供商 ("zhipu" 或 "doubao")
+        prompt: 提示词
+        return_usage: 是否返回 token 使用信息，默认 False（向后兼容）
+    
+    返回:
+        如果 return_usage=False: 返回字符串（内容）
+        如果 return_usage=True: 返回字典 {"content": str, "usage": dict}
     """
     if provider == "zhipu":
-        key = os.getenv("ZHIPU_API_KEY") or getattr(simple, "ZHIPU_API_KEY", "")
+        # 优先使用 simple 模块中的 API Key（保存时会立即更新），然后检查环境变量
+        key = getattr(simple, "ZHIPU_API_KEY", "") or os.getenv("ZHIPU_API_KEY", "")
         if not key:
             raise HTTPException(
                 status_code=400, 
@@ -43,7 +53,15 @@ def call_llm(provider: str, prompt: str) -> str:
             # 重置客户端实例，强制重新创建
             simple._zhipu_client = None
             simple._last_zhipu_key = None
-        return simple.call_zhipu_api(prompt)
+        result = simple.call_zhipu_api(prompt)
+        # call_zhipu_api 现在返回字典
+        if return_usage:
+            return result
+        else:
+            # 向后兼容：只返回内容字符串
+            if isinstance(result, dict):
+                return result.get("content", "")
+            return result
     
     elif provider == "doubao":
         key = os.getenv("DOUBAO_API_KEY") or getattr(simple, "DOUBAO_API_KEY", "")
