@@ -14,7 +14,12 @@ import json
 import base64
 import re
 from typing import Dict, Any, Optional, Tuple
-import simple
+
+# 导入 simple 模块（兼容多种运行方式）
+try:
+    from backend import simple
+except ImportError:
+    import simple
 
 
 def call_vision_model(image_base64: str, prompt: str) -> str:
