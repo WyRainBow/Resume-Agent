@@ -1,0 +1,14 @@
+# Nixpacks 配置文件 - Railway 构建
+# 安装 TeX Live 用于 PDF 渲染（包括 XeLaTeX 和中文支持）
+
+[phases.setup]
+nixPkgs = [
+  "texlive.combined.scheme-full"
+]
+
+[phases.install]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+
