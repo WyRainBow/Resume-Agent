@@ -8,7 +8,9 @@ import { cn } from '../../../../lib/utils'
 import { aiTest, getKeysStatus, saveKeys } from '../../../../services/api'
 import TokenMonitor from '../../../../components/TokenMonitor'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+// 处理 API_BASE，确保有协议前缀
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+const API_BASE = rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`
 
 // 智谱 AI 图标组件 - BigModel 风格的三维六边形图标
 const ZhipuAIIcon = ({ className }: { className?: string }) => (

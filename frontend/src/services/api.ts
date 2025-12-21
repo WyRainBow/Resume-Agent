@@ -2,7 +2,9 @@ import axios from 'axios'
 import type { Resume } from '@/types/resume'
 import { DEFAULT_RESUME_TEMPLATE } from '@/data/defaultTemplate'
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+// 处理 API_BASE，确保有协议前缀
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+const API_BASE = rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`
 
 export async function aiTest(provider: 'zhipu' | 'doubao', prompt: string) {
   const url = `${API_BASE}/api/ai/test`
