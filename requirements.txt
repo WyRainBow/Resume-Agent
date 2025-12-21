@@ -1,0 +1,13 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.5
+python-dotenv==1.0.1
+requests==2.32.3
+httpx[http2]==0.28.1
+reportlab==4.2.5
+instructor>=1.5.0
+openai>=1.50.0
+json-repair==0.25.2
+zhipuai==2.1.5.20250825
+sse-starlette==1.8.2
+
