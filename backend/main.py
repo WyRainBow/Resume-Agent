@@ -15,22 +15,30 @@ import sys
 import logging
 from pathlib import Path
 
-# 兼容直接以脚本方式运行（无包上下文）时的相对导入问题
-ROOT_DIR = Path(__file__).resolve().parents[1]
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
+# 兼容多种启动方式（uvicorn backend.main:app 或 uvicorn main:app）
+# 确保项目根目录与 backend 目录都在 sys.path
+CURRENT_DIR = Path(__file__).resolve().parent            # .../backend
+PROJECT_ROOT = CURRENT_DIR.parent                        # 项目根 /app
+for p in [PROJECT_ROOT, CURRENT_DIR]:
+    p_str = str(p)
+    if p_str not in sys.path:
+        sys.path.insert(0, p_str)
 
 # 加载环境变量
 try:
     from dotenv import load_dotenv
-    DOTENV_PATH = ROOT_DIR / ".env"
+    DOTENV_PATH = PROJECT_ROOT / ".env"
     load_dotenv(dotenv_path=str(DOTENV_PATH), override=True)
     load_dotenv(override=True)
 except Exception:
     pass
 
 # 初始化日志系统
-from backend.logger import backend_logger, LOGS_DIR, ensure_log_dirs
+try:
+    from backend.logger import backend_logger, LOGS_DIR, ensure_log_dirs
+except ModuleNotFoundError:
+    # 兼容以脚本方式运行（模块名解析不到 backend）
+    from logger import backend_logger, LOGS_DIR, ensure_log_dirs
 from datetime import datetime
 
 # 日志文件 handler（延迟初始化）
