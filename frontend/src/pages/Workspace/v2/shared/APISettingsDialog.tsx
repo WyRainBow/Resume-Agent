@@ -79,7 +79,7 @@ export default function APISettingsDialog({
   onOpenChange,
 }: APISettingsDialogProps) {
   const [zhipuKey, setZhipuKey] = useState('')
-  const [zhipuModel, setZhipuModel] = useState('glm-4.5v')
+  const [zhipuModel] = useState('glm-4-flash') // 固定使用 GLM-4-Flash
   const [loading, setLoading] = useState(false)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [testing, setTesting] = useState(false)
@@ -101,11 +101,7 @@ export default function APISettingsDialog({
         if (data.zhipu) {
           setZhipuKey(data.zhipu.preview || '')
         }
-        // 从 localStorage 加载模型配置
-        const savedModel = localStorage.getItem('ai_model')
-        if (savedModel) {
-          setZhipuModel(savedModel)
-        }
+        // 固定使用 GLM-4-Flash，不再从 localStorage 加载
       }
     } catch (error) {
       console.error('加载配置失败:', error)
@@ -241,7 +237,7 @@ export default function APISettingsDialog({
             <div className="flex items-center gap-2">
               <ZhipuAIIcon className="w-5 h-5" />
               <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                智谱 AI (GLM-4.5V)
+                智谱 AI (GLM-4-Flash)
               </h3>
             </div>
 
@@ -268,29 +264,6 @@ export default function APISettingsDialog({
               />
             </div>
 
-            {/* 模型选择 */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                模型
-              </label>
-              <select
-                value={zhipuModel}
-                onChange={(e) => setZhipuModel(e.target.value)}
-                className={cn(
-                  'w-full px-4 py-2.5 rounded-lg',
-                  'bg-slate-50 dark:bg-slate-800',
-                  'border border-slate-200 dark:border-slate-700',
-                  'text-slate-900 dark:text-slate-100',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent',
-                  'transition-all'
-                )}
-              >
-                <option value="glm-4.5v">GLM-4.5V (推荐)</option>
-                <option value="glm-4-flash">GLM-4-Flash (快速)</option>
-                <option value="glm-4-air">GLM-4-Air (平衡)</option>
-                <option value="glm-4">GLM-4 (标准)</option>
-              </select>
-            </div>
           </div>
 
           {/* AI 测试 */}
