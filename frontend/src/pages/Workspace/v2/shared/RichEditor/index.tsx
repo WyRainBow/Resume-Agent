@@ -38,6 +38,26 @@ import FormatLayoutDialog from '../FormatLayoutDialog'
 import type { ResumeData } from '../../types'
 import './tiptap.css'
 
+// #region agent log helper
+const logDebug = (message: string, data?: Record<string, any>) => {
+  try {
+    fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: 'debug-session',
+        runId: 'rich-editor',
+        hypothesisId: 'H-indent',
+        location: 'RichEditor/index.tsx',
+        message,
+        data,
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+  } catch (_) {}
+}
+// #endregion agent log helper
+
 interface RichEditorProps {
   content?: string
   onChange: (content: string) => void
@@ -295,15 +315,39 @@ const RichEditor = ({
             <ListOrdered className="h-5 w-5" />
           </MenuButton>
           <MenuButton
-            onClick={() => editor.chain().focus().sinkListItem('listItem').run()}
-            disabled={!editor.can().sinkListItem('listItem')}
+            onClick={() => {
+              // 优先确保选区在列表中，不在则先切换为无序列表再缩进
+              const isBullet = editor.isActive('bulletList')
+              const isOrdered = editor.isActive('orderedList')
+              if (!isBullet && !isOrdered) {
+                const didToggle = editor.chain().focus().toggleBulletList().run()
+                logDebug('indent-toggle-bullet', { didToggle })
+              }
+
+              const canSink = editor.can().sinkListItem('listItem')
+              logDebug('indent-increase-click', {
+                canSink,
+                isBullet: editor.isActive('bulletList'),
+                isOrdered: editor.isActive('orderedList'),
+              })
+              const didSink = editor.chain().focus().sinkListItem('listItem').run()
+              logDebug('indent-increase-result', { didSink })
+            }}
             tooltip="增加缩进 (Tab)"
           >
             <IndentIncrease className="h-5 w-5" />
           </MenuButton>
           <MenuButton
-            onClick={() => editor.chain().focus().liftListItem('listItem').run()}
-            disabled={!editor.can().liftListItem('listItem')}
+            onClick={() => {
+              const canLift = editor.can().liftListItem('listItem')
+              logDebug('indent-decrease-click', {
+                canLift,
+                isBullet: editor.isActive('bulletList'),
+                isOrdered: editor.isActive('orderedList'),
+              })
+              const didLift = editor.chain().focus().liftListItem('listItem').run()
+              logDebug('indent-decrease-result', { didLift })
+            }}
             tooltip="减少缩进 (Shift+Tab)"
           >
             <IndentDecrease className="h-5 w-5" />
