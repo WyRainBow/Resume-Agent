@@ -343,7 +343,7 @@ export async function renderPDFStream(
   return blob
 }
 
-export async function rewriteResume(provider: 'zhipu' | 'gemini' | 'doubao', resume: Resume, path: string, instruction: string) {
+export async function rewriteResume(provider: 'zhipu' | 'doubao', resume: Resume, path: string, instruction: string) {
   const url = `${API_BASE}/api/resume/rewrite`
   const { data } = await axios.post(url, { provider, resume, path, instruction })
   return data as { resume: Resume }
@@ -353,7 +353,7 @@ export async function rewriteResume(provider: 'zhipu' | 'gemini' | 'doubao', res
  * 流式 AI 改写 - 实时显示生成内容
  */
 export async function rewriteResumeStream(
-  provider: 'zhipu' | 'gemini' | 'doubao',
+  provider: 'zhipu' | 'doubao',
   resume: Resume,
   path: string,
   instruction: string,
@@ -444,7 +444,7 @@ export async function rewriteResumeStream(
   }
 }
 
-export async function formatResumeText(provider: 'zhipu' | 'gemini', text: string, useAi: boolean = true) {
+export async function formatResumeText(provider: 'zhipu' | 'doubao', text: string, useAi: boolean = true) {
   const url = `${API_BASE}/api/resume/format`
   const { data } = await axios.post(url, { text, provider, use_ai: useAi })
   return data as { success: boolean; data: Resume | null; method: string; error: string | null }
@@ -458,18 +458,18 @@ export async function getKeysStatus() {
   const { data } = await axios.get(url)
   return data as {
     zhipu: { configured: boolean; preview: string }
-    gemini: { configured: boolean; preview: string }
+    doubao: { configured: boolean; preview: string }
   }
 }
 
 /**
  * 保存 API Key
  */
-export async function saveKeys(zhipuKey?: string, geminiKey?: string) {
+export async function saveKeys(zhipuKey?: string, doubaoKey?: string) {
   const url = `${API_BASE}/api/config/keys`
   const { data } = await axios.post(url, { 
     zhipu_key: zhipuKey, 
-    gemini_key: geminiKey 
+    doubao_key: doubaoKey 
   })
   return data as { success: boolean; message: string }
 }

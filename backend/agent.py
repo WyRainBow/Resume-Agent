@@ -2,11 +2,11 @@
 Reflection Agent - 简历解析自我反思修正系统
 
 工作流程：
-1. 解析阶段：用户文本 → Gemini 2.5 Pro → JSON 数据
+1. 解析阶段：用户文本 → GLM-4.5V → JSON 数据
 2. 渲染阶段：JSON 数据 → 前端渲染 → 预览页面  
 3. 反思阶段：
    - 预览截图 → GLM-4.5V (视觉) → 图像分析
-   - [原始文本 + 图像分析 + 当前JSON] → Gemini (推理) → 修正 JSON
+   - [原始文本 + 图像分析 + 当前JSON] → GLM-4.5V (推理) → 修正 JSON
    - 循环直到满意或达到最大迭代次数
 """
 
@@ -135,9 +135,9 @@ def reflect_and_fix(
 """
     
     """
-    调用 Gemini 进行推理修正
+    调用智谱 AI 进行推理修正
     """
-    result = simple.call_gemini_api(prompt)
+    result = simple.call_zhipu_api(prompt, model="glm-4.5v")
     
     """
     清理并解析 JSON
@@ -247,7 +247,7 @@ def run_reflection_agent(
 返回修正后的JSON（只输出JSON）："""
             
             try:
-                fix_result = simple.call_gemini_api(basic_fix_prompt)
+                fix_result = simple.call_zhipu_api(basic_fix_prompt, model="glm-4.5v")
                 cleaned = re.sub(r'```json\s*', '', fix_result)
                 cleaned = re.sub(r'```\s*', '', cleaned).strip()
                 start = cleaned.find('{')

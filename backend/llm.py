@@ -18,9 +18,9 @@ except Exception as e:
     raise RuntimeError(f"无法导入 simple.py: {e}")
 
 # 全局 AI 配置
-DEFAULT_AI_PROVIDER = "doubao"
+DEFAULT_AI_PROVIDER = "zhipu"
 DEFAULT_AI_MODEL = {
-    "doubao": "doubao-seed-1-6-lite-251015"
+    "zhipu": "glm-4.5v"
 }
 
 
@@ -36,7 +36,13 @@ def call_llm(provider: str, prompt: str) -> str:
                 status_code=400, 
                 detail="缺少 ZHIPU_API_KEY，请在项目根目录 .env 或系统环境中配置 ZHIPU_API_KEY"
             )
+        # 如果 API Key 变化，重置客户端实例
+        old_key = getattr(simple, "ZHIPU_API_KEY", "")
         simple.ZHIPU_API_KEY = key
+        if old_key != key:
+            # 重置客户端实例，强制重新创建
+            simple._zhipu_client = None
+            simple._last_zhipu_key = None
         return simple.call_zhipu_api(prompt)
     
     elif provider == "doubao":

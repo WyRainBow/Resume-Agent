@@ -97,7 +97,7 @@ export default function FormatLayoutDialog({
 
     try {
       await rewriteResumeStream(
-        'doubao',
+        'zhipu',
         resumeData as any,
         path,
         instruction,

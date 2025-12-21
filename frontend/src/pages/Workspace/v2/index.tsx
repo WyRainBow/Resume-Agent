@@ -23,6 +23,7 @@
  *     ├── AIImportModal.tsx  # AI 导入弹窗
  *     └── RichEditor/        # 富文本编辑器
  */
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '../../../lib/utils'
 
@@ -33,6 +34,7 @@ import { useResumeData, usePDFOperations, useAIImport } from './hooks'
 import { Header, BackgroundDecoration } from './components'
 import ResizableLayout from './ResizableLayout'
 import AIImportModal from './shared/AIImportModal'
+import APISettingsDialog from './shared/APISettingsDialog'
 
 export default function WorkspaceV2() {
   // 简历数据管理
@@ -89,6 +91,9 @@ export default function WorkspaceV2() {
     handleAISave,
   } = useAIImport({ setResumeData })
 
+  // API 设置弹窗
+  const [apiSettingsOpen, setApiSettingsOpen] = useState(false)
+
   return (
     <motion.main
       initial={{ opacity: 0 }}
@@ -108,6 +113,7 @@ export default function WorkspaceV2() {
         saveSuccess={saveSuccess}
         onGlobalAIImport={handleGlobalAIImport}
         onSaveToDashboard={handleSaveToDashboard}
+        onAPISettings={() => setApiSettingsOpen(true)}
       />
 
       {/* AI 导入弹窗 */}
@@ -117,6 +123,12 @@ export default function WorkspaceV2() {
         sectionTitle={aiModalTitle}
         onClose={() => setAiModalOpen(false)}
         onSave={handleAISave}
+      />
+
+      {/* API 设置弹窗 */}
+      <APISettingsDialog
+        open={apiSettingsOpen}
+        onOpenChange={setApiSettingsOpen}
       />
 
       {/* 三列布局 - 可拖拽分隔线 */}

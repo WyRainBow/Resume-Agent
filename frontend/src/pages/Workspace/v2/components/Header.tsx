@@ -3,16 +3,17 @@
  */
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { Check, Sparkles, FileText, BookmarkPlus, LayoutGrid } from 'lucide-react'
+import { Check, Sparkles, FileText, BookmarkPlus, LayoutGrid, Settings } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 
 interface HeaderProps {
   saveSuccess: boolean
   onGlobalAIImport: () => void
   onSaveToDashboard: () => void
+  onAPISettings?: () => void
 }
 
-export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard }: HeaderProps) {
+export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPISettings }: HeaderProps) {
   const navigate = useNavigate()
 
   return (
@@ -117,6 +118,24 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard }: Hea
         >
           <LayoutGrid className="w-4 h-4 text-purple-500" />
           我的简历
+        </button>
+        
+        {/* API设置按钮 */}
+        <button
+          onClick={onAPISettings}
+          className={cn(
+            "px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2",
+            "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm",
+            "border border-slate-200/80 dark:border-slate-700/80",
+            "text-slate-700 dark:text-slate-200",
+            "hover:bg-white dark:hover:bg-slate-800",
+            "hover:border-slate-300 dark:hover:border-slate-600",
+            "shadow-sm hover:shadow-md",
+            "hover:scale-[1.02] active:scale-[0.98]"
+          )}
+        >
+          <Settings className="w-4 h-4 text-blue-500" />
+          API设置
         </button>
       </motion.div>
     </motion.header>

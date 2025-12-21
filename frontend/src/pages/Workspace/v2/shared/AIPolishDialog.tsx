@@ -50,7 +50,7 @@ export default function AIPolishDialog({
       const instruction = '请优化这段文本，使其更加专业、简洁、有吸引力。使用更专业的词汇，突出关键成就，保持简洁清晰，使用主动语气，保留原有HTML格式标签（如 <strong>、<ul>、<li> 等）。'
 
       await rewriteResumeStream(
-        'doubao', // 默认使用豆包模型
+        'zhipu', // 默认使用智谱模型
         resumeData as any,
         path,
         instruction,
