@@ -12,7 +12,10 @@ from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 from pydantic import BaseModel
 
-from models import RenderPDFRequest
+try:
+    from backend.models import RenderPDFRequest
+except ImportError:
+    from models import RenderPDFRequest
 
 router = APIRouter(prefix="/api", tags=["PDF"])
 
@@ -38,7 +41,10 @@ async def render_pdf(body: RenderPDFRequest):
 
     # 使用 LaTeX 渲染
     try:
-        from latex_generator import render_pdf_from_resume_latex
+        try:
+            from backend.latex_generator import render_pdf_from_resume_latex
+        except ImportError:
+            from latex_generator import render_pdf_from_resume_latex
         pdf_io = render_pdf_from_resume_latex(resume_data, body.section_order)
 
         render_time = time.time() - start_time
@@ -66,7 +72,10 @@ async def render_pdf_stream(body: RenderPDFRequest):
             yield dict(event="start", data="开始生成PDF...")
 
             # 转换为 LaTeX
-            from latex_generator import json_to_latex, compile_latex_to_pdf
+            try:
+                from backend.latex_generator import json_to_latex, compile_latex_to_pdf
+            except ImportError:
+                from latex_generator import json_to_latex, compile_latex_to_pdf
 
             latex_start = time.time()
             yield dict(event="progress", data="正在生成LaTeX代码...")
@@ -123,7 +132,10 @@ async def compile_latex(body: CompileLatexRequest):
     start_time = time.time()
     
     try:
-        from latex_compiler import compile_latex_raw
+        try:
+            from backend.latex_compiler import compile_latex_raw
+        except ImportError:
+            from latex_compiler import compile_latex_raw
         pdf_io = compile_latex_raw(body.latex_content)
         
         render_time = time.time() - start_time
@@ -152,7 +164,10 @@ async def compile_latex_stream(body: CompileLatexRequest):
             
             compile_start = time.time()
             
-            from latex_compiler import compile_latex_raw
+            try:
+                from backend.latex_compiler import compile_latex_raw
+            except ImportError:
+                from latex_compiler import compile_latex_raw
             yield dict(event="progress", data="正在编译 PDF（可能需要几秒）...")
             
             pdf_io = compile_latex_raw(body.latex_content)

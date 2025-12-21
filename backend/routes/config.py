@@ -10,9 +10,13 @@ try:
 except ImportError:
     load_dotenv = None
 
-# 使用绝对导入，兼容直接运行 main:app（无包前缀）
-from models import SaveKeysRequest, AITestRequest, ChatRequest
-from llm import call_llm, get_ai_config
+# 统一优先使用绝对导入，兼容本地/线上
+try:
+    from backend.models import SaveKeysRequest, AITestRequest, ChatRequest
+    from backend.llm import call_llm, get_ai_config
+except ImportError:  # fallback: 当运行于 backend 包内（如 uvicorn main:app）
+    from models import SaveKeysRequest, AITestRequest, ChatRequest
+    from llm import call_llm, get_ai_config
 
 router = APIRouter(prefix="/api", tags=["Config"])
 

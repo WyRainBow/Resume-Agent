@@ -14,10 +14,16 @@ from concurrent.futures import ThreadPoolExecutor
 import functools
 
 # 导入现有的同步函数
-from .llm import call_llm
-from .chunk_processor import split_resume_text, merge_resume_chunks
-from .config.parallel_config import get_parallel_config
-from .logger import backend_logger
+try:
+    from backend.llm import call_llm
+    from backend.chunk_processor import split_resume_text, merge_resume_chunks
+    from backend.config.parallel_config import get_parallel_config
+    from backend.logger import backend_logger
+except ImportError:
+    from llm import call_llm
+    from chunk_processor import split_resume_text, merge_resume_chunks
+    from config.parallel_config import get_parallel_config
+    from logger import backend_logger
 
 
 def clean_llm_response(raw: str) -> str:
@@ -144,7 +150,10 @@ class ParallelChunkProcessor:
 
             # 记录错误
             try:
-                from .logger import write_llm_debug
+                try:
+                    from backend.logger import write_llm_debug
+                except ImportError:
+                    from logger import write_llm_debug
                 write_llm_debug(f"Chunk {chunk_index+1} Error: {error_msg}")
             except ImportError:
                 pass
