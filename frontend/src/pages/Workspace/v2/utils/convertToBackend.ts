@@ -92,7 +92,7 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
       title: e.school,
       subtitle: e.major,
       degree: e.degree,
-      date: `${e.startDate} - ${e.endDate}`,
+      date: e.endDate ? `${e.startDate} - ${e.endDate}` : e.startDate,
       details: e.description ? [e.description] : [],
     })),
     sectionOrder: data.menuSections
