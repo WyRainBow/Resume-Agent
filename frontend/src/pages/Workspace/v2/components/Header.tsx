@@ -3,7 +3,7 @@
  */
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { Check, Sparkles, FileText, BookmarkPlus, LayoutGrid, Settings } from 'lucide-react'
+import { Check, Sparkles, FileText, BookmarkPlus, LayoutGrid, Settings, Download, Upload } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 
 interface HeaderProps {
@@ -11,9 +11,11 @@ interface HeaderProps {
   onGlobalAIImport: () => void
   onSaveToDashboard: () => void
   onAPISettings?: () => void
+  onExportJSON?: () => void
+  onImportJSON?: () => void
 }
 
-export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPISettings }: HeaderProps) {
+export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPISettings, onExportJSON, onImportJSON }: HeaderProps) {
   const navigate = useNavigate()
 
   return (
@@ -119,6 +121,46 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPI
           <LayoutGrid className="w-4 h-4 text-purple-500" />
           我的简历
         </button>
+        
+        {/* 导入 JSON 按钮 */}
+        {onImportJSON && (
+          <button
+            onClick={onImportJSON}
+            className={cn(
+              "px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2",
+              "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm",
+              "border border-slate-200/80 dark:border-slate-700/80",
+              "text-slate-700 dark:text-slate-200",
+              "hover:bg-white dark:hover:bg-slate-800",
+              "hover:border-slate-300 dark:hover:border-slate-600",
+              "shadow-sm hover:shadow-md",
+              "hover:scale-[1.02] active:scale-[0.98]"
+            )}
+          >
+            <Upload className="w-4 h-4 text-blue-500" />
+            导入 JSON
+          </button>
+        )}
+        
+        {/* 导出 JSON 按钮 */}
+        {onExportJSON && (
+          <button
+            onClick={onExportJSON}
+            className={cn(
+              "px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2",
+              "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm",
+              "border border-slate-200/80 dark:border-slate-700/80",
+              "text-slate-700 dark:text-slate-200",
+              "hover:bg-white dark:hover:bg-slate-800",
+              "hover:border-slate-300 dark:hover:border-slate-600",
+              "shadow-sm hover:shadow-md",
+              "hover:scale-[1.02] active:scale-[0.98]"
+            )}
+          >
+            <Download className="w-4 h-4 text-green-500" />
+            导出 JSON
+          </button>
+        )}
         
         {/* API设置按钮 */}
         <button
