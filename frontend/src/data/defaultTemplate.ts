@@ -24,7 +24,7 @@ export const DEFAULT_RESUME_TEMPLATE: ResumeData = {
   education: [
     {
       id: `edu_${Date.now()}_0`,
-      school: "某某大学",
+      school: "北京大学",
       major: "计算机科学与技术专业",
       degree: "本科",
       startDate: "2022.09",
@@ -89,11 +89,11 @@ export const DEFAULT_RESUME_TEMPLATE: ResumeData = {
     },
     {
       id: `os_${Date.now()}_1`,
-      name: "开源项目二",
+      name: "黑马点评",
       role: "个人项目",
       repo: "",
       date: "",
-      description: "<ul class=\"custom-list\"><li><p><strong>项目描述：</strong>构建了融合本地知识库检索（RAG）与实时网络搜索的多模态智能系统、帮助某企业显著提升业务转化率。</p></li><li><p><strong>核心技术与方法：</strong></p><ul class=\"custom-list\"><li><p><strong>RAG 检索与知识构建：</strong>搭建 RAG</p></li><li><p><strong>多 Agent 工作流：</strong>使用 ReAct + Reflection + Memory 机制、将用户需求拆解给不同 Agent 执行、包括本地知识检索与 Web 搜索、动态决策调用顺序。Reflection 模块能够对检索结果进行思考与修正、Memory 模块保留上下文、实现类人对复杂问题的深度回答。</p></li><li><p><strong>问答生成与后处理：</strong>在给出回答前、综合用户 Query、拓展信息、检索问答对、由大模型统一生成 Markdown 格式的回复、并给出引用与卡片式要点。最后通过后处理对答案进行逻辑审校和提纲式归纳。</p></li></ul></li></ul><p></p>",
+      description: "<ul class=\"custom-list\"><li><p><strong>项目描述：</strong>基于 Spring Boot + Redis + MySQL 开发的本地生活服务平台，提供商家信息展示、用户评价、优惠券等功能。</p></li><li><p><strong>核心功能：</strong></p><ul class=\"custom-list\"><li><p><strong>商家管理：</strong>实现商家信息录入、分类管理、位置搜索等功能</p></li><li><p><strong>用户评价：</strong>支持用户对商家进行评价、上传图片、点赞等操作</p></li><li><p><strong>优惠券系统：</strong>实现优惠券发放、秒杀抢购、库存管理等核心业务</p></li></ul></li></ul><p></p>",
       visible: true
     }
   ],
