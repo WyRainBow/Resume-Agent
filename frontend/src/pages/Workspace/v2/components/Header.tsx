@@ -31,7 +31,6 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPI
         'shadow-[0_4px_30px_rgba(0,0,0,0.05)]'
       )}
     >
-      {/* Logo & Title - 点击跳转主页 */}
       <motion.div 
         className="flex items-center gap-3 cursor-pointer group"
         initial={{ opacity: 0, x: -20 }}
@@ -40,20 +39,18 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPI
         onClick={() => navigate('/')}
       >
         <div className="relative">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/25 group-hover:shadow-xl group-hover:shadow-purple-500/35 transition-shadow">
-            <FileText className="w-5 h-5 text-white" />
+          <div className="w-9 h-9 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:rotate-12 transition-all duration-300">
+            <span className="text-white font-black text-sm italic tracking-tighter">RA</span>
           </div>
-          <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-gradient-to-br from-green-400 to-emerald-500 border-2 border-white dark:border-slate-900 flex items-center justify-center">
-            <span className="text-[8px] text-white font-bold">✓</span>
-          </div>
+          <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900" />
         </div>
-        <div>
-          <h1 className="text-lg font-bold bg-gradient-to-r from-slate-800 via-indigo-700 to-purple-700 dark:from-white dark:via-indigo-200 dark:to-purple-200 bg-clip-text text-transparent tracking-tight group-hover:from-indigo-600 group-hover:via-purple-600 group-hover:to-pink-600 transition-all">
-            简历工作台
+        <div className="flex flex-col">
+          <h1 className="text-sm font-black tracking-tighter text-slate-900 dark:text-white leading-tight">
+            Resume Agent
           </h1>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 -mt-0.5 tracking-wide">
-            专业 LaTeX 渲染
-          </p>
+          <span className="text-[9px] text-indigo-500 dark:text-indigo-400 font-bold tracking-[0.15em] uppercase">
+            Workspace
+          </span>
         </div>
       </motion.div>
 
