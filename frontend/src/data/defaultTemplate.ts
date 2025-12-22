@@ -3,125 +3,121 @@
  * 
  * 这个模板内嵌在前端代码中，不依赖后端接口
  * 用户数据保存在浏览器 localStorage 中
+ * 
+ * 使用 ResumeData 格式，包含 HTML 样式排版
  */
-import type { Resume } from '../types/resume'
+import type { ResumeData } from '../pages/Workspace/v2/types'
 
-export const DEFAULT_RESUME_TEMPLATE: Resume = {
-  name: "张三",
-  contact: {
+export const DEFAULT_RESUME_TEMPLATE: ResumeData = {
+  id: `resume_${Date.now()}`,
+  title: '我的简历',
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+  templateId: null,
+  basic: {
+    name: "张三",
+    title: "后端开发工程师",
     email: "zhangsan@example.com",
-    phone: "13800138000"
-  },
-  objective: "后端开发工程师",
-  sectionTitles: {
-    experience: "实习经历"
+    phone: "13800138000",
+    location: ""
   },
   education: [
     {
-      title: "某某大学",
-      subtitle: "计算机科学与技术专业",
+      id: `edu_${Date.now()}_0`,
+      school: "某某大学",
+      major: "计算机科学与技术专业",
       degree: "本科",
-      date: "2022.09 - 2026.06",
-      details: []
+      startDate: "2022.09",
+      endDate: "2026.06",
+      description: "",
+      visible: true
     }
   ],
-  internships: [
+  experience: [
     {
-      title: "实习公司一",
-      subtitle: "后端开发实习生",
+      id: `exp_${Date.now()}_0`,
+      company: "实习公司一",
+      position: "后端开发实习生",
       date: "2025.06 - 2025.10",
-      highlights: [
-        "参与核心业务模块的开发与维护，负责接口设计与实现",
-        "参与系统性能优化工作，通过代码重构和查询优化提升接口响应速度",
-        "参与技术方案讨论，协助解决开发过程中遇到的技术问题"
-      ]
+      details: "<ul class=\"custom-list\"><li><p>参与核心业务模块的开发与维护，负责接口设计与实现</p></li><li><p>参与系统性能优化工作，通过代码重构和查询优化提升接口响应速度</p></li><li><p>参与技术方案讨论，协助解决开发过程中遇到的技术问题</p></li></ul><p></p>",
+      visible: true
     },
     {
-      title: "实习公司二",
-      subtitle: "后端开发实习生",
+      id: `exp_${Date.now()}_1`,
+      company: "实习公司二",
+      position: "后端开发实习生",
       date: "2025.03 - 2025.06",
-      highlights: [
-        "参与新功能模块的开发，负责需求分析、技术方案设计和代码实现",
-        "参与代码审查，学习并实践代码规范和最佳实践",
-        "协助团队完成项目交付，参与测试和问题修复工作"
-      ]
+      details: "<ul class=\"custom-list\"><li><p>参与新功能模块的开发，负责需求分析、技术方案设计和代码实现</p></li><li><p>参与代码审查，学习并实践代码规范和最佳实践</p></li><li><p>协助团队完成项目交付，参与测试和问题修复工作</p></li></ul><p></p>",
+      visible: true
     },
     {
-      title: "实习公司三",
-      subtitle: "后端开发实习生",
+      id: `exp_${Date.now()}_2`,
+      company: "实习公司三",
+      position: "后端开发实习生",
       date: "2024.12 - 2025.03",
-      highlights: [
-        "参与业务系统开发，熟悉企业级应用开发流程",
-        "学习并实践常用框架和中间件的使用，提升技术能力",
-        "参与团队技术分享，学习系统架构设计相关知识"
-      ]
+      details: "<ul class=\"custom-list\"><li><p>参与业务系统开发，熟悉企业级应用开发流程</p></li><li><p>学习并实践常用框架和中间件的使用，提升技术能力</p></li><li><p>参与团队技术分享，学习系统架构设计相关知识</p></li></ul><p></p>",
+      visible: true
     }
   ],
   projects: [
     {
-      title: "项目经历一",
-      subtitle: "",
+      id: `proj_${Date.now()}_0`,
+      name: "项目经历一",
+      role: "",
       date: "",
-      highlights: [
-        "专项一",
-        "面向高并发业务场景，主导系统性能与稳定性问题的分析与优化，提升整体服务响应能力",
-        "参与核心服务架构设计与拆分，推动系统模块解耦与资源隔离，增强系统可扩展性与可靠性",
-        "推动数据一致性与稳定性保障方案的设计与落地，降低异常情况下的数据风险",
-        "参与数据库访问性能优化，通过查询与结构调整显著提升关键接口响应效率",
-        "专项二",
-        "设计并落地多层次容错与降级方案，提升系统在异常场景下的稳定运行能力",
-        "针对数据访问瓶颈，参与缓存体系与数据访问策略优化，支撑高并发访问场景",
-        "专项三",
-        "推动数据一致性与稳定性保障方案的设计与落地，降低异常情况下的数据风险",
-        "参与数据库访问性能优化，通过查询与结构调整显著提升关键接口响应效率"
-      ]
+      description: "<ul class=\"custom-list\"><li><p><strong>专项一</strong></p><ul class=\"custom-list\"><li><p>面向高并发业务场景，主导系统性能与稳定性问题的分析与优化，提升整体服务响应能力</p></li><li><p>参与核心服务架构设计与拆分，推动系统模块解耦与资源隔离，增强系统可扩展性与可靠性</p></li><li><p>推动数据一致性与稳定性保障方案的设计与落地，降低异常情况下的数据风险</p></li><li><p>参与数据库访问性能优化，通过查询与结构调整显著提升关键接口响应效率</p></li></ul></li><li><p><strong>专项二</strong></p><ul class=\"custom-list\"><li><p>设计并落地多层次容错与降级方案，提升系统在异常场景下的稳定运行能力</p></li><li><p>针对数据访问瓶颈，参与缓存体系与数据访问策略优化，支撑高并发访问场景</p></li></ul></li><li><p><strong>专项三</strong></p><ul class=\"custom-list\"><li><p>推动数据一致性与稳定性保障方案的设计与落地，降低异常情况下的数据风险</p></li><li><p>参与数据库访问性能优化，通过查询与结构调整显著提升关键接口响应效率</p></li></ul></li></ul><p></p>",
+      visible: true
     },
     {
-      title: "项目经历二",
-      subtitle: "",
+      id: `proj_${Date.now()}_1`,
+      name: "项目经历二",
+      role: "",
       date: "",
-      highlights: [
-        "项目描述：",
-        "基于大模型的智能简历系统",
-        "核心职责与产出：",
-        "参与智能信息检索系统的整体方案设计，提升系统对复杂查询和用户意图的理解能力",
-        "设计并实现多策略检索与结果融合机制，提升系统信息召回质量与准确性",
-        "模块一：生成内容 LLM：结合大模型能力，参与生成式内容模块设计，增强系统在复杂场景下的信息整合与表达能力",
-        "模块二：检索：智能简历检索",
-        "模块三：RAG：构建简历 RAG"
-      ]
+      description: "<ul class=\"custom-list\"><li><p><strong>项目描述：</strong>基于大模型的智能简历系统</p></li><li><p><strong>核心职责与产出：</strong>参与智能信息检索系统的整体方案设计，提升系统对复杂查询和用户意图的理解能力</p><ul class=\"custom-list\"><li><p>设计并实现多策略检索与结果融合机制，提升系统信息召回质量与准确性</p></li><li><p><strong>模块一：生成内容 LLM</strong>：结合大模型能力，参与生成式内容模块设计，增强系统在复杂场景下的信息整合与表达能力</p></li><li><p><strong>模块二：检索</strong>：智能简历检索</p></li><li><p><strong>模块三：RAG</strong>：构建简历 RAG</p></li></ul></li></ul><p></p>",
+      visible: true
     }
   ],
   openSource: [
     {
-      title: "开源项目一（某分布式项目）",
-      subtitle: "",
-      items: [
-        "仓库：https://github.com/example/project",
-        "社区日常 Issue 维护与答疑、问题复现与定位",
-        "实现某功能 PR 记录：https://github.com/example/project/issues/xxx"
-      ]
+      id: `os_${Date.now()}_0`,
+      name: "开源项目一（某分布式项目）",
+      role: "",
+      repo: "",
+      date: "",
+      description: "<ul class=\"custom-list\"><li><p>仓库：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://github.com/example/project\">https://github.com/example/project</a></p></li><li><p>社区日常 Issue 维护与答疑、问题复现与定位</p></li><li><p>实现某功能 PR 记录：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://github.com/example/project/issues/xxx\">https://github.com/example/project/issues/xxx</a></p></li></ul><p></p>",
+      visible: true
     },
     {
-      title: "开源项目二",
-      subtitle: "个人项目",
-      items: [
-        "项目描述：",
-        "构建了融合本地知识库检索（RAG）与实时网络搜索的多模态智能系统、帮助某企业显著提升业务转化率。",
-        "核心技术与方法：",
-        "RAG 检索与知识构建：搭建 RAG",
-        "多 Agent 工作流：使用 ReAct + Reflection + Memory 机制、将用户需求拆解给不同 Agent 执行、包括本地知识检索与 Web 搜索、动态决策调用顺序。Reflection 模块能够对检索结果进行思考与修正、Memory 模块保留上下文、实现类人对复杂问题的深度回答。",
-        "问答生成与后处理：在给出回答前、综合用户 Query、拓展信息、检索问答对、由大模型统一生成 Markdown 格式的回复、并给出引用与卡片式要点。最后通过后处理对答案进行逻辑审校和提纲式归纳。"
-      ]
+      id: `os_${Date.now()}_1`,
+      name: "开源项目二",
+      role: "个人项目",
+      repo: "",
+      date: "",
+      description: "<ul class=\"custom-list\"><li><p><strong>项目描述：</strong>构建了融合本地知识库检索（RAG）与实时网络搜索的多模态智能系统、帮助某企业显著提升业务转化率。</p></li><li><p><strong>核心技术与方法：</strong></p><ul class=\"custom-list\"><li><p><strong>RAG 检索与知识构建：</strong>搭建 RAG</p></li><li><p><strong>多 Agent 工作流：</strong>使用 ReAct + Reflection + Memory 机制、将用户需求拆解给不同 Agent 执行、包括本地知识检索与 Web 搜索、动态决策调用顺序。Reflection 模块能够对检索结果进行思考与修正、Memory 模块保留上下文、实现类人对复杂问题的深度回答。</p></li><li><p><strong>问答生成与后处理：</strong>在给出回答前、综合用户 Query、拓展信息、检索问答对、由大模型统一生成 Markdown 格式的回复、并给出引用与卡片式要点。最后通过后处理对答案进行逻辑审校和提纲式归纳。</p></li></ul></li></ul><p></p>",
+      visible: true
     }
   ],
-  skills: [
-    { category: "后端", details: "熟悉 Java 编程语言、Golang 编程语言等原理" },
-    { category: "数据库", details: "熟悉 MySQL、MongoDB、ES 等主流数据库原理。有优秀的 SQL 调优经验" },
-    { category: "缓存", details: "熟悉 Redis 底层数据结构、分布式锁等机制。熟悉缓存击穿、穿透、雪崩概念" },
-    { category: "计算机网络", details: "熟悉 TCP、UDP、HTTP、HTTPS 等网络协议。掌握 TCP 三次握手、四次挥手等机制" },
-    { category: "操作系统", details: "熟悉进程、线程、虚拟内存、I/O 多路复用等。掌握进程间通信和多线程同步技术" },
-    { category: "AI", details: "了解 AI Agent、RAG、FunctionCall、LLM Prompt 提示词工程" }
+  awards: [],
+  customData: {},
+  skillContent: "<p></p><ul class=\"custom-list\"><li><p><strong>后端</strong>：熟悉 Java 编程语言、Golang 编程语言等原理</p></li><li><p><strong>数据库</strong>：熟悉 MySQL、MongoDB、ES 等主流数据库原理。有优秀的 SQL 调优经验</p></li><li><p><strong>缓存</strong>：熟悉 Redis 底层数据结构、分布式锁等机制。熟悉缓存击穿、穿透、雪崩概念</p></li><li><p><strong>计算机网络</strong>：熟悉 TCP、UDP、HTTP、HTTPS 等网络协议。掌握 TCP 三次握手、四次挥手等机制</p></li><li><p><strong>操作系统</strong>：熟悉进程、线程、虚拟内存、I/O 多路复用等。掌握进程间通信和多线程同步技术</p></li><li><p><strong>AI</strong>：了解 AI Agent、RAG、FunctionCall、LLM Prompt 提示词工程</p></li></ul><p></p>",
+  activeSection: "basic",
+  draggingProjectId: null,
+  menuSections: [
+    { id: 'basic', title: '基本信息', icon: '👤', enabled: true, order: 0 },
+    { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 1 },
+    { id: 'experience', title: '实习经历', icon: '💼', enabled: true, order: 2 },
+    { id: 'projects', title: '项目经历', icon: '🚀', enabled: true, order: 3 },
+    { id: 'openSource', title: '开源经历', icon: '🔗', enabled: true, order: 4 },
+    { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 5 },
+    { id: 'awards', title: '荣誉奖项', icon: '🏆', enabled: true, order: 6 }
   ],
-  awards: []
+  globalSettings: {
+    lineHeight: 1.5,
+    baseFontSize: 16,
+    headerSize: 18,
+    pagePadding: 40,
+    sectionSpacing: 20,
+    paragraphSpacing: 10,
+    experienceListType: "none"
+  }
 }

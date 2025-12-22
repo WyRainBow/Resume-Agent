@@ -189,7 +189,8 @@ export const loadFromStorage = (): ResumeData => {
         (!data.experience || data.experience.length === 0) &&
         (!data.education || data.education.length === 0)
       if (isBlank) {
-        return convertTemplateToResumeData(DEFAULT_RESUME_TEMPLATE)
+        // DEFAULT_RESUME_TEMPLATE 已经是 ResumeData 格式，直接返回
+        return structuredClone(DEFAULT_RESUME_TEMPLATE)
       }
 
       // 合并新模块到 menuSections（如果旧数据缺少新模块）
@@ -208,6 +209,7 @@ export const loadFromStorage = (): ResumeData => {
   }
   
   // localStorage 为空时，使用默认模板
-  return convertTemplateToResumeData(DEFAULT_RESUME_TEMPLATE)
+  // DEFAULT_RESUME_TEMPLATE 已经是 ResumeData 格式，直接返回
+  return structuredClone(DEFAULT_RESUME_TEMPLATE)
 }
 
