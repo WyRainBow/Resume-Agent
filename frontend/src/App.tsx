@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
 import Workspace from './pages/Workspace/v2'
 import ResumeDashboard from './pages/ResumeDashboard'
+import TemplateMarket from './pages/TemplateMarket'
 import ErrorBoundary from './ErrorBoundary'
 
 function App() {
@@ -14,6 +15,7 @@ function App() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/workspace" element={<Workspace />} />
             <Route path="/dashboard" element={<ResumeDashboard />} />
+            <Route path="/templates" element={<TemplateMarket />} />
           </Routes>
         </BrowserRouter>
       </ErrorBoundary>

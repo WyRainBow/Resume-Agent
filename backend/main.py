@@ -72,12 +72,12 @@ try:
 except ImportError:
     try:
         from routes import (
-            health_router,
-            config_router,
-            resume_router,
-            agent_router,
+        health_router,
+        config_router,
+        resume_router,
+        agent_router,
             pdf_router,
-        )
+    )
     except ImportError as e:
         raise RuntimeError(f"无法导入 routes 模块: {e}")
 
@@ -126,7 +126,7 @@ async def startup_event():
         try:
             from backend import simple
         except ImportError:
-            import simple
+        import simple
         # 从环境变量同步 API Key 到 simple 模块
         zhipu_key = os.getenv("ZHIPU_API_KEY", "")
         if zhipu_key:
