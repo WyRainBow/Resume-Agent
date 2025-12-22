@@ -62,14 +62,23 @@ from fastapi.middleware.cors import CORSMiddleware
 
 # 导入路由模块（兼容包/脚本两种运行方式）
 try:
-    from routes import (
+    from backend.routes import (
         health_router,
         config_router,
         resume_router,
         agent_router,
         pdf_router
     )
-except ModuleNotFoundError:
+except ImportError:
+    try:
+        from routes import (
+            health_router,
+            config_router,
+            resume_router,
+            agent_router,
+            pdf_router
+        )
+    except ImportError:
 from .routes import (
     health_router,
     config_router,

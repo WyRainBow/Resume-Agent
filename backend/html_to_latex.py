@@ -138,8 +138,8 @@ def html_to_latex(html: str) -> str:
     # 预处理：移除多余空白
     html = html.strip()
     
-    # 处理空段落
-    html = re.sub(r'<p>\s*</p>', '', html)
+    # 处理空段落（包括带属性的空段落）
+    html = re.sub(r'<p[^>]*>\s*</p>', '', html)
     
     # 使用解析器转换
     converter = HTMLToLatexConverter()
