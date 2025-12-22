@@ -67,7 +67,7 @@ try:
         config_router,
         resume_router,
         agent_router,
-        pdf_router
+        pdf_router,
     )
 except ImportError:
     try:
@@ -76,16 +76,10 @@ except ImportError:
             config_router,
             resume_router,
             agent_router,
-            pdf_router
+            pdf_router,
         )
-    except ImportError:
-from .routes import (
-    health_router,
-    config_router,
-    resume_router,
-    agent_router,
-    pdf_router
-)
+    except ImportError as e:
+        raise RuntimeError(f"无法导入 routes 模块: {e}")
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="Resume Agent API")
@@ -132,7 +126,7 @@ async def startup_event():
         try:
             from backend import simple
         except ImportError:
-        import simple
+            import simple
         # 从环境变量同步 API Key 到 simple 模块
         zhipu_key = os.getenv("ZHIPU_API_KEY", "")
         if zhipu_key:
