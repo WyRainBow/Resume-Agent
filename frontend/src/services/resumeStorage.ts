@@ -1,4 +1,5 @@
 import type { Resume } from '../types/resume'
+import type { ResumeData } from '../pages/Workspace/v2/types'
 
 const STORAGE_KEY = 'resume_agent_resumes'
 const CURRENT_KEY = 'resume_agent_current'
@@ -6,7 +7,7 @@ const CURRENT_KEY = 'resume_agent_current'
 export interface SavedResume {
   id: string
   name: string
-  data: Resume
+  data: Resume | ResumeData  // 支持新旧两种格式
   createdAt: number
   updatedAt: number
 }
@@ -51,10 +52,14 @@ export function getResume(id: string): SavedResume | null {
 
 /**
  * 保存简历（新建或更新）
+ * 支持 Resume 和 ResumeData 两种格式
  */
-export function saveResume(resume: Resume, id?: string): SavedResume {
+export function saveResume(resume: Resume | ResumeData, id?: string): SavedResume {
   const resumes = getAllResumes()
   const now = Date.now()
+  
+  // 从 resume 中提取名称（支持新旧两种格式）
+  const resumeName = (resume as any).basic?.name || (resume as any).name || '未命名简历'
   
   if (id) {
     // 更新现有简历
@@ -62,7 +67,7 @@ export function saveResume(resume: Resume, id?: string): SavedResume {
     if (index >= 0) {
       resumes[index] = {
         ...resumes[index],
-        name: resume.name || '未命名简历',
+        name: resumeName,
         data: resume,
         updatedAt: now
       }
@@ -74,7 +79,7 @@ export function saveResume(resume: Resume, id?: string): SavedResume {
   // 新建简历
   const newResume: SavedResume = {
     id: `resume_${now}_${Math.random().toString(36).substr(2, 9)}`,
-    name: resume.name || '未命名简历',
+    name: resumeName,
     data: resume,
     createdAt: now,
     updatedAt: now
