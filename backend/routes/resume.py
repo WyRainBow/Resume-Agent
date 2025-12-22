@@ -9,6 +9,7 @@ from typing import Dict, Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
+# 统一导入方式：优先使用绝对导入（backend.xxx），失败则使用相对导入
 try:
     from backend.models import (
         ResumeGenerateRequest, ResumeGenerateResponse,
@@ -23,21 +24,20 @@ try:
     from backend.config.parallel_config import get_parallel_config
     from backend.logger import backend_logger, write_llm_debug
 except ImportError:
+    # 确保 backend 目录在 sys.path 中
+    backend_dir = Path(__file__).resolve().parent.parent
+    if str(backend_dir) not in sys.path:
+        sys.path.insert(0, str(backend_dir))
+    
     from models import (
-    ResumeGenerateRequest, ResumeGenerateResponse,
-    ResumeParseRequest, SectionParseRequest,
-    RewriteRequest, FormatTextRequest, FormatTextResponse
-)
+        ResumeGenerateRequest, ResumeGenerateResponse,
+        ResumeParseRequest, SectionParseRequest,
+        RewriteRequest, FormatTextRequest, FormatTextResponse
+    )
     from llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
     from prompts import build_resume_prompt, build_resume_markdown_prompt, build_rewrite_prompt, SECTION_PROMPTS
     from json_path import parse_path, get_by_path, set_by_path
     from chunk_processor import split_resume_text, merge_resume_chunks
-    # 当作为顶层模块导入时，parallel_chunk_processor 需要使用绝对导入
-    import sys
-    from pathlib import Path
-    backend_dir = Path(__file__).resolve().parent.parent
-    if str(backend_dir) not in sys.path:
-        sys.path.insert(0, str(backend_dir))
     from parallel_chunk_processor import parse_resume_text_parallel
     from config.parallel_config import get_parallel_config
     from logger import backend_logger, write_llm_debug

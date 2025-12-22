@@ -17,28 +17,34 @@ import functools
 # 确保 backend 目录在 sys.path 中
 import sys
 from pathlib import Path
+
 current_file = Path(__file__).resolve()
 backend_dir = current_file.parent
-if str(backend_dir) not in sys.path:
-    sys.path.insert(0, str(backend_dir))
+project_root = backend_dir.parent
 
-# 尝试多种导入方式
+# 确保项目根目录和 backend 目录都在 sys.path 中
+for p in [project_root, backend_dir]:
+    p_str = str(p)
+    if p_str not in sys.path:
+        sys.path.insert(0, p_str)
+
+# 统一导入方式：优先使用绝对导入（backend.xxx），失败则使用相对导入
 try:
-    # 方式1：作为 backend 包的子模块导入
+    # 方式1：作为 backend 包的子模块导入（适用于 uvicorn backend.main:app）
     from backend.llm import call_llm
     from backend.chunk_processor import split_resume_text, merge_resume_chunks
     from backend.config.parallel_config import get_parallel_config
     from backend.logger import backend_logger
 except ImportError:
     try:
-        # 方式2：作为顶层模块导入（backend 目录已在 sys.path）
+        # 方式2：作为顶层模块导入（适用于 backend 目录已在 sys.path）
         from llm import call_llm
         from chunk_processor import split_resume_text, merge_resume_chunks
         from config.parallel_config import get_parallel_config
         from logger import backend_logger
-    except ImportError:
-        # 方式3：如果都失败，抛出错误
-        raise ImportError("无法导入必要的模块：llm, chunk_processor, config.parallel_config, logger")
+    except ImportError as e:
+        # 如果都失败，抛出错误
+        raise ImportError(f"无法导入必要的模块：{e}")
 
 
 def clean_llm_response(raw: str) -> str:
