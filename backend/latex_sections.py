@@ -5,7 +5,7 @@ LaTeX Section 生成器模块
 """
 from typing import Dict, Any, List
 from .latex_utils import escape_latex
-from .html_to_latex import html_to_latex
+from .html_to_latex import html_to_latex, html_to_latex_items
 import json, time, re  # debug logging
 
 # region agent log helper
@@ -84,6 +84,75 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
             # 使用 \normalsize 字体，确保与教育经历一致
             latex_line = f"\\datedsubsection{{\\normalsize {title_text}}}{{\\normalsize {date}}}"
             content.append(latex_line)
+
+            # 处理工作内容/成就
+            achievements = it.get('highlights') or it.get('achievements') or it.get('items') or it.get('description') or []
+            if isinstance(achievements, str):
+                # 如果是字符串，转换为列表
+                achievements = [achievements]
+            elif isinstance(achievements, dict):
+                # 如果是字典，尝试提取text字段
+                achievements = achievements.get('text') or [achievements]
+
+            if isinstance(achievements, list) and achievements:
+                _agent_log("H2", "latex_sections.py:generate_section_internships", "achievements found", {
+                    "idx": idx,
+                    "achievements_count": len(achievements),
+                    "achievements_type": type(achievements).__name__
+                })
+
+                # 根据列表类型决定渲染方式
+                if list_type == 'ordered':
+                    content.append(r"\begin{enumerate}[label={},parsep=0.2ex,itemsep=0.2ex,topsep=0.2ex]")
+                    for ach in achievements:
+                        if isinstance(ach, str) and ach.strip():
+                            # 直接添加内容，不使用额外的列表环境
+                            content.append(f"  {html_to_latex(ach.strip()).strip()}")
+                        elif isinstance(ach, dict):
+                            text = ach.get('text') or ach.get('content') or ''
+                            if text and text.strip():
+                                content.append(f"  {html_to_latex(text.strip()).strip()}")
+                    content.append(r"\end{enumerate}")
+                elif list_type == 'unordered':
+                    content.append(r"\begin{itemize}[label={},parsep=0.2ex,itemsep=0.2ex,topsep=0.2ex]")
+                    for ach in achievements:
+                        if isinstance(ach, str) and ach.strip():
+                            # 直接添加内容，不使用额外的列表环境
+                            content.append(f"  {html_to_latex(ach.strip()).strip()}")
+                        elif isinstance(ach, dict):
+                            text = ach.get('text') or ach.get('content') or ''
+                            if text and text.strip():
+                                content.append(f"  {html_to_latex(text.strip()).strip()}")
+                    content.append(r"\end{itemize}")
+                else:
+                    # list_type == 'none' 或其他情况，使用段落格式
+                    for ach in achievements:
+                        if isinstance(ach, str) and ach.strip():
+                            # 对于段落格式，我们直接使用html_to_latex，但让内容自然流动
+                            latex_content = html_to_latex(ach.strip())
+                            # 清理多余的换行符
+                            latex_content = re.sub(r'\n{3,}', '\n\n', latex_content)
+                            # 如果内容不以句号等结尾，添加句号
+                            if latex_content and latex_content[-1] not in '.。！?；;':
+                                latex_content += '。'
+                            content.append(latex_content)
+                            content.append("")  # 添加空行作为段落间距
+                        elif isinstance(ach, dict):
+                            text = ach.get('text') or ach.get('content') or ''
+                            if text and text.strip():
+                                latex_content = html_to_latex(text.strip())
+                                latex_content = re.sub(r'\n{3,}', '\n\n', latex_content)
+                                if latex_content and latex_content[-1] not in '.。！?；;':
+                                    latex_content += '。'
+                                content.append(latex_content)
+                                content.append("")
+            else:
+                _agent_log("H2", "latex_sections.py:generate_section_internships", "no achievements found", {
+                    "idx": idx,
+                    "achievements_raw": it.get('highlights') or it.get('achievements') or it.get('items') or it.get('description'),
+                    "achievements_type": type(it.get('achievements') or it.get('items') or it.get('description')).__name__
+                })
+
             content.append("")
             _agent_log("H2", "latex_sections.py:generate_section_internships", "item computed (datedsubsection-forced)", {
                 "idx": idx,

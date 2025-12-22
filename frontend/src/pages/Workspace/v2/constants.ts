@@ -2,6 +2,8 @@
  * Workspace v2 常量和初始数据
  */
 import type { ResumeData } from './types'
+import type { Resume } from '../../../types/resume'
+import { DEFAULT_RESUME_TEMPLATE } from '../../../data/defaultTemplate'
 
 export const STORAGE_KEY = 'resume_v2_data'
 
@@ -50,7 +52,129 @@ export const initialResumeData: ResumeData = {
 }
 
 /**
+ * 将 v1 格式的 Resume 转换为 v2 格式的 ResumeData
+ */
+function convertTemplateToResumeData(template: Resume): ResumeData {
+  // 解析日期范围 "2022.09 - 2026.06" 为 startDate 和 endDate
+  const parseDateRange = (dateStr: string) => {
+    if (!dateStr || !dateStr.includes(' - ')) {
+      return { startDate: dateStr || '', endDate: '' }
+    }
+    const [start, end] = dateStr.split(' - ')
+    return { startDate: start?.trim() || '', endDate: end?.trim() || '' }
+  }
+
+  // 将字符串数组转换为 HTML
+  const arrayToHtml = (items: string[]): string => {
+    if (!items || items.length === 0) return ''
+    return items.map(item => `<p>${item}</p>`).join('')
+  }
+
+  // 将 highlights 数组转换为 HTML
+  const highlightsToHtml = (highlights: string[]): string => {
+    if (!highlights || highlights.length === 0) return ''
+    return highlights.map(h => `<p>${h}</p>`).join('')
+  }
+
+  // 转换教育经历
+  const education = (template.education || []).map((edu, index) => {
+    const { startDate, endDate } = parseDateRange(edu.date || '')
+    return {
+      id: `edu_${Date.now()}_${index}`,
+      school: edu.title || '',
+      major: edu.subtitle || '',
+      degree: edu.degree || '',
+      startDate,
+      endDate,
+      gpa: undefined,
+      description: arrayToHtml(edu.details || []),
+      visible: true,
+    }
+  })
+
+  // 转换实习经历
+  const experience = (template.internships || []).map((exp, index) => {
+    return {
+      id: `exp_${Date.now()}_${index}`,
+      company: exp.title || '',
+      position: exp.subtitle || '',
+      date: exp.date || '',
+      details: highlightsToHtml(exp.highlights || []),
+      visible: true,
+    }
+  })
+
+  // 转换项目经历
+  const projects = (template.projects || []).map((proj, index) => {
+    return {
+      id: `proj_${Date.now()}_${index}`,
+      name: proj.title || '',
+      role: proj.subtitle || '',
+      date: proj.date || '',
+      description: highlightsToHtml(proj.highlights || []),
+      visible: true,
+      link: undefined,
+    }
+  })
+
+  // 转换开源经历
+  const openSource = (template.openSource || []).map((os, index) => {
+    return {
+      id: `os_${Date.now()}_${index}`,
+      name: os.title || '',
+      repo: undefined,
+      role: os.subtitle || '',
+      date: undefined,
+      description: arrayToHtml(os.items || []),
+      visible: true,
+    }
+  })
+
+  // 转换荣誉奖项
+  const awards = (template.awards || []).map((award, index) => {
+    return {
+      id: `award_${Date.now()}_${index}`,
+      title: award,
+      issuer: undefined,
+      date: undefined,
+      description: undefined,
+      visible: true,
+    }
+  })
+
+  // 转换专业技能
+  const skillContent = (template.skills || [])
+    .map(skill => {
+      if (typeof skill === 'string') {
+        return `<p>${skill}</p>`
+      } else {
+        return `<p><strong>${skill.category}:</strong> ${skill.details}</p>`
+      }
+    })
+    .join('')
+
+  return {
+    ...initialResumeData,
+    basic: {
+      ...initialResumeData.basic,
+      name: template.name || '',
+      title: template.objective || '',
+      email: template.contact?.email || '',
+      phone: template.contact?.phone || '',
+      location: template.contact?.location || '',
+    },
+    education,
+    experience,
+    projects,
+    openSource,
+    awards,
+    skillContent,
+  }
+}
+
+/**
  * 从 localStorage 加载数据，并合并新模块
+ * 如果 localStorage 为空，则使用默认模板
  */
 export const loadFromStorage = (): ResumeData => {
   try {
@@ -71,6 +195,8 @@ export const loadFromStorage = (): ResumeData => {
   } catch (e) {
     console.error('Failed to load from localStorage:', e)
   }
-  return initialResumeData
+  
+  // localStorage 为空时，使用默认模板
+  return convertTemplateToResumeData(DEFAULT_RESUME_TEMPLATE)
 }
 
