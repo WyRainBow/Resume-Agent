@@ -136,3 +136,27 @@
   outline: none;
 }
 
+/* 隐藏空的父级列表项 - 当列表项有嵌套列表时，隐藏其圆点 */
+/* 使用 :has() 检测是否有嵌套的 ul/ol */
+.ProseMirror ul > li:has(> ul),
+.ProseMirror ul > li:has(> ol),
+.ProseMirror ol > li:has(> ul),
+.ProseMirror ol > li:has(> ol) {
+  list-style-type: none;
+}
+
+/* 隐藏空的段落（作为占位父级的段落），支持包含 br 的情况 */
+.ProseMirror ul > li:has(> ul) > p:first-child:empty,
+.ProseMirror ul > li:has(> ul) > p:first-child:has(> br:only-child),
+.ProseMirror ul > li:has(> ol) > p:first-child:empty,
+.ProseMirror ul > li:has(> ol) > p:first-child:has(> br:only-child),
+.ProseMirror ol > li:has(> ul) > p:first-child:empty,
+.ProseMirror ol > li:has(> ul) > p:first-child:has(> br:only-child),
+.ProseMirror ol > li:has(> ol) > p:first-child:empty,
+.ProseMirror ol > li:has(> ol) > p:first-child:has(> br:only-child) {
+  display: none;
+  height: 0;
+  margin: 0;
+  padding: 0;
+}
+
