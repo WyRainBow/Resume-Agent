@@ -85,19 +85,25 @@ except ImportError:
 """
 _use_http2_client = False
 try:
+    # 优先使用 backend 包形式
     from backend.http_client import (
         get_httpx_client, get_requests_session, 
         call_api, init as http_init, prefetch_api_hosts
     )
+    _use_http2_client = True
+    print("[simple] 使用 HTTP/2 高性能客户端")
 except ImportError:
-    from http_client import (
-        get_httpx_client, get_requests_session, 
-        call_api, init as http_init, prefetch_api_hosts
-    )
-_use_http2_client = True
-print("[simple] 使用 HTTP/2 高性能客户端")
-except ImportError:
-    print("[simple] http_client 模块不可用，使用默认 requests")
+    try:
+        # 兼容脚本直接运行的顶层导入
+        from http_client import (
+            get_httpx_client, get_requests_session, 
+            call_api, init as http_init, prefetch_api_hosts
+        )
+        _use_http2_client = True
+        print("[simple] 使用 HTTP/2 高性能客户端")
+    except ImportError:
+        # 回退到 requests
+        print("[simple] http_client 模块不可用，使用默认 requests")
 
 """降级方案：原有的 Session"""
 _http_session = None
