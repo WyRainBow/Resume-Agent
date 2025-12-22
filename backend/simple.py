@@ -75,7 +75,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # 导入 llm_utils（兼容多种运行方式）
 try:
-from backend.llm_utils import retry_with_backoff
+    from backend.llm_utils import retry_with_backoff
 except ImportError:
     from llm_utils import retry_with_backoff
 
@@ -85,18 +85,17 @@ except ImportError:
 """
 _use_http2_client = False
 try:
-try:
     from backend.http_client import (
         get_httpx_client, get_requests_session, 
         call_api, init as http_init, prefetch_api_hosts
     )
-    except ImportError:
-        from http_client import (
-            get_httpx_client, get_requests_session, 
-            call_api, init as http_init, prefetch_api_hosts
-        )
-    _use_http2_client = True
-    print("[simple] 使用 HTTP/2 高性能客户端")
+except ImportError:
+    from http_client import (
+        get_httpx_client, get_requests_session, 
+        call_api, init as http_init, prefetch_api_hosts
+    )
+_use_http2_client = True
+print("[simple] 使用 HTTP/2 高性能客户端")
 except ImportError:
     print("[simple] http_client 模块不可用，使用默认 requests")
 
