@@ -126,7 +126,7 @@ async def startup_event():
         try:
             from backend import simple
         except ImportError:
-        import simple
+            import simple
         # 从环境变量同步 API Key 到 simple 模块
         zhipu_key = os.getenv("ZHIPU_API_KEY", "")
         if zhipu_key:
