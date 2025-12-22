@@ -10,19 +10,27 @@ import json, time, re  # debug logging
 
 # region agent log helper
 def _agent_log(hypothesis_id: str, location: str, message: str, data=None, run_id: str = "run1"):
-    """Lightweight NDJSON logger for debug mode (writes to .cursor/debug.log)."""
+    """Lightweight NDJSON logger for debug mode (writes to .cursor/debug.log if available)."""
     try:
-        payload = {
-            "sessionId": "debug-session",
-            "runId": run_id,
-            "hypothesisId": hypothesis_id,
-            "location": location,
-            "message": message,
-            "data": data or {},
-            "timestamp": int(time.time() * 1000),
-        }
-        with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as f:
-            f.write(json.dumps(payload, ensure_ascii=False) + "\n")
+        from pathlib import Path
+        # 尝试使用相对路径，如果不存在则静默失败
+        current_file = Path(__file__).resolve()
+        project_root = current_file.parent.parent
+        debug_log_path = project_root / ".cursor" / "debug.log"
+        
+        # 只在本地开发环境且文件存在时才写入
+        if debug_log_path.parent.exists():
+            payload = {
+                "sessionId": "debug-session",
+                "runId": run_id,
+                "hypothesisId": hypothesis_id,
+                "location": location,
+                "message": message,
+                "data": data or {},
+                "timestamp": int(time.time() * 1000),
+            }
+            with open(debug_log_path, "a", encoding="utf-8") as f:
+                f.write(json.dumps(payload, ensure_ascii=False) + "\n")
     except Exception:
         # Do not raise during debug logging
         pass
@@ -129,23 +137,251 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
                     for ach in achievements:
                         if isinstance(ach, str) and ach.strip():
                             # 对于段落格式，我们直接使用html_to_latex，但让内容自然流动
+                            # #region agent log
+                            try:
+                                _dbg_payload = {
+                                    "sessionId": "debug-session",
+                                    "runId": "run1",
+                                    "hypothesisId": "A",
+                                    "location": "latex_sections.py:achievements:str:before",
+                                    "message": "ach string before html_to_latex",
+                                    "data": {
+                                        "list_type": list_type,
+                                        "ach_preview": ach.strip()[:120]
+                                    },
+                                    "timestamp": __import__("time").time()
+                                }
+                                with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+                                    _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
+                            except Exception:
+                                pass
+                            # #endregion agent log
                             latex_content = html_to_latex(ach.strip())
                             # 清理多余的换行符
                             latex_content = re.sub(r'\n{3,}', '\n\n', latex_content)
-                            # 如果内容不以句号等结尾，添加句号
-                            if latex_content and latex_content[-1] not in '.。！?；;':
-                                latex_content += '。'
+                            latex_stripped_before = latex_content.strip()
+                            # #region agent log
+                            try:
+                                _dbg_payload = {
+                                    "sessionId": "debug-session",
+                                    "runId": "run1",
+                                    "hypothesisId": "B",
+                                    "location": "latex_sections.py:achievements:str:after_convert",
+                                    "message": "after html_to_latex",
+                                    "data": {
+                                        "latex_stripped_before": latex_stripped_before[:160],
+                                        "endswith_char": latex_stripped_before[-1:] if latex_stripped_before else "",
+                                        "len": len(latex_stripped_before)
+                                    },
+                                    "timestamp": __import__("time").time()
+                                }
+                                with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+                                    _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
+                            except Exception:
+                                pass
+                            # #endregion agent log
+                            # strip 后检查内容是否为空
+                            latex_stripped = latex_content.strip()
+                            if not latex_stripped:
+                                # 如果转换后内容为空，跳过
+                                continue
+                            # 如果转换结果包含 itemize/enumerate，则视为列表，避免自动补句号
+                            list_env = (
+                                "\\begin{itemize}" in latex_stripped
+                                or "\\begin{enumerate}" in latex_stripped
+                                or bool(re.search(r'\\begin\\{(?:itemize|enumerate)\\}', latex_stripped))
+                            )
+                            # #region agent log
+                            try:
+                                _dbg_payload = {
+                                    "sessionId": "debug-session",
+                                    "runId": "run1",
+                                    "hypothesisId": "D",
+                                    "location": "latex_sections.py:achievements:str:list_env_check",
+                                    "message": "detect list environment",
+                                    "data": {
+                                        "list_env": list_env,
+                                        "has_itemize": "\\begin{itemize}" in latex_stripped,
+                                        "has_enumerate": "\\begin{enumerate}" in latex_stripped,
+                                        "re_match": bool(re.search(r'\\begin\\{(?:itemize|enumerate)\\}', latex_stripped)),
+                                        "snippet": latex_stripped[:160]
+                                    },
+                                    "timestamp": __import__("time").time()
+                                }
+                                with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+                                    _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
+                            except Exception:
+                                pass
+                            # #endregion agent log
+                            if list_env:
+                                latex_content = latex_stripped
+                                # #region agent log
+                                try:
+                                    _dbg_payload = {
+                                        "sessionId": "debug-session",
+                                        "runId": "run1",
+                                        "hypothesisId": "E",
+                                        "location": "latex_sections.py:achievements:str:list_env_append",
+                                        "message": "append list env without punctuation",
+                                        "data": {
+                                            "latex_content": latex_content[:200]
+                                        },
+                                        "timestamp": __import__("time").time()
+                                    }
+                                    with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+                                        _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
+                                except Exception:
+                                    pass
+                                # #endregion agent log
+                                content.append(latex_content)
+                                continue
+                            # 如果内容不以句号等结尾，添加句号（用 strip 后的内容检查末尾字符）
+                            if latex_stripped[-1] not in '.。！?；;\n':
+                                latex_content = latex_stripped + '。'
+                            else:
+                                latex_content = latex_stripped
+                            # #region agent log
+                            try:
+                                _dbg_payload = {
+                                    "sessionId": "debug-session",
+                                    "runId": "run1",
+                                    "hypothesisId": "C",
+                                    "location": "latex_sections.py:achievements:str:final",
+                                    "message": "final latex_content to append",
+                                    "data": {
+                                        "latex_content": latex_content[:200],
+                                        "endswith_char": latex_content[-1:] if latex_content else "",
+                                        "len": len(latex_content)
+                                    },
+                                    "timestamp": __import__("time").time()
+                                }
+                                with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+                                    _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
+                            except Exception:
+                                pass
+                            # #endregion agent log
                             content.append(latex_content)
-                            content.append("")  # 添加空行作为段落间距
                         elif isinstance(ach, dict):
                             text = ach.get('text') or ach.get('content') or ''
                             if text and text.strip():
+                                # #region agent log
+                                try:
+                                    _dbg_payload = {
+                                        "sessionId": "debug-session",
+                                        "runId": "run1",
+                                        "hypothesisId": "A",
+                                        "location": "latex_sections.py:achievements:dict:before",
+                                        "message": "ach dict before html_to_latex",
+                                        "data": {
+                                            "list_type": list_type,
+                                            "text_preview": str(text).strip()[:120]
+                                        },
+                                        "timestamp": __import__("time").time()
+                                    }
+                                    with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+                                        _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
+                                except Exception:
+                                    pass
+                                # #endregion agent log
                                 latex_content = html_to_latex(text.strip())
                                 latex_content = re.sub(r'\n{3,}', '\n\n', latex_content)
-                                if latex_content and latex_content[-1] not in '.。！?；;':
-                                    latex_content += '。'
+                                latex_stripped = latex_content.strip()
+                                # #region agent log
+                                try:
+                                    _dbg_payload = {
+                                        "sessionId": "debug-session",
+                                        "runId": "run1",
+                                        "hypothesisId": "B",
+                                        "location": "latex_sections.py:achievements:dict:after_convert",
+                                        "message": "after html_to_latex",
+                                        "data": {
+                                            "latex_stripped": latex_stripped[:160],
+                                            "endswith_char": latex_stripped[-1:] if latex_stripped else "",
+                                            "len": len(latex_stripped)
+                                        },
+                                        "timestamp": __import__("time").time()
+                                    }
+                                    with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+                                        _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
+                                except Exception:
+                                    pass
+                                # #endregion agent log
+                                if not latex_stripped:
+                                    continue
+                                list_env = (
+                                    "\\begin{itemize}" in latex_stripped
+                                    or "\\begin{enumerate}" in latex_stripped
+                                    or bool(re.search(r'\\begin\\{(?:itemize|enumerate)\\}', latex_stripped))
+                                )
+                                # #region agent log
+                                try:
+                                    _dbg_payload = {
+                                        "sessionId": "debug-session",
+                                        "runId": "run1",
+                                        "hypothesisId": "D",
+                                        "location": "latex_sections.py:achievements:dict:list_env_check",
+                                        "message": "detect list environment",
+                                        "data": {
+                                            "list_env": list_env,
+                                            "has_itemize": "\\begin{itemize}" in latex_stripped,
+                                            "has_enumerate": "\\begin{enumerate}" in latex_stripped,
+                                            "re_match": bool(re.search(r'\\begin\\{(?:itemize|enumerate)\\}', latex_stripped)),
+                                            "snippet": latex_stripped[:160]
+                                        },
+                                        "timestamp": __import__("time").time()
+                                    }
+                                    with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+                                        _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
+                                except Exception:
+                                    pass
+                                # #endregion agent log
+                                if list_env:
+                                    latex_content = latex_stripped
+                                    # #region agent log
+                                    try:
+                                        _dbg_payload = {
+                                            "sessionId": "debug-session",
+                                            "runId": "run1",
+                                            "hypothesisId": "E",
+                                            "location": "latex_sections.py:achievements:dict:list_env_append",
+                                            "message": "append list env without punctuation",
+                                            "data": {
+                                                "latex_content": latex_content[:200]
+                                            },
+                                            "timestamp": __import__("time").time()
+                                        }
+                                        with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+                                            _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
+                                    except Exception:
+                                        pass
+                                    # #endregion agent log
+                                    content.append(latex_content)
+                                    continue
+                                if latex_stripped[-1] not in '.。！?；;\n':
+                                    latex_content = latex_stripped + '。'
+                                else:
+                                    latex_content = latex_stripped
+                                # #region agent log
+                                try:
+                                    _dbg_payload = {
+                                        "sessionId": "debug-session",
+                                        "runId": "run1",
+                                        "hypothesisId": "C",
+                                        "location": "latex_sections.py:achievements:dict:final",
+                                        "message": "final latex_content to append",
+                                        "data": {
+                                            "latex_content": latex_content[:200],
+                                            "endswith_char": latex_content[-1:] if latex_content else "",
+                                            "len": len(latex_content)
+                                        },
+                                        "timestamp": __import__("time").time()
+                                    }
+                                    with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+                                        _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
+                                except Exception:
+                                    pass
+                                # #endregion agent log
                                 content.append(latex_content)
-                                content.append("")
             else:
                 _agent_log("H2", "latex_sections.py:generate_section_internships", "no achievements found", {
                     "idx": idx,
@@ -210,6 +446,7 @@ def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dic
 def _convert_markdown_bold(text: str) -> str:
     """将 **text** 转换为 \\textbf{text}"""
     import re
+    import json
     # 匹配 **text** 或 **text**: 格式
     pattern = r'\*\*([^*]+)\*\*'
     return re.sub(pattern, r'\\textbf{\1}', text)
@@ -282,19 +519,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                     # highlights 结构 - 支持 HTML 和 Markdown 格式
                     has_list_wrapper = False
                     # #region agent log
-                    try:
-                        with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-                            _f.write(json.dumps({
-                                "sessionId": "debug-session",
-                                "runId": "run-pre-fix",
-                                "hypothesisId": "H1",
-                                "location": "latex_sections.py:highlights",
-                                "message": "enter highlights",
-                                "data": {"title": full_title, "count": len(highlights)},
-                                "timestamp": int(time.time() * 1000)
-                            }) + "\n")
-                    except Exception:
-                        pass
+                    _agent_log("H1", "latex_sections.py:highlights", "enter highlights", {"title": full_title, "count": len(highlights)}, "run-pre-fix")
                     # #endregion agent log
                     
                     for h in highlights:
@@ -324,19 +549,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                                     )
                                     content.append(converted)
                                     # #region agent log
-                                    try:
-                                        with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-                                            _f.write(json.dumps({
-                                                "sessionId": "debug-session",
-                                                "runId": "run-pre-fix",
-                                                "hypothesisId": "H2",
-                                                "location": "latex_sections.py:highlights",
-                                                "message": "html passthrough list",
-                                                "data": {"snippet": converted[:120]},
-                                                "timestamp": int(time.time() * 1000)
-                                            }) + "\n")
-                                    except Exception:
-                                        pass
+                                    _agent_log("H2", "latex_sections.py:highlights", "html passthrough list", {"snippet": converted[:120]}, "run-pre-fix")
                                     # #endregion agent log
                                 else:
                                     # 否则包装成列表项（保留圆点，适度缩进）
@@ -345,19 +558,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                                         has_list_wrapper = True
                                     content.append(f"  \\item {converted}")
                                     # #region agent log
-                                    try:
-                                        with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-                                            _f.write(json.dumps({
-                                                "sessionId": "debug-session",
-                                                "runId": "run-pre-fix",
-                                                "hypothesisId": "H3",
-                                                "location": "latex_sections.py:highlights",
-                                                "message": "html wrapped item",
-                                                "data": {"snippet": converted[:120]},
-                                                "timestamp": int(time.time() * 1000)
-                                            }) + "\n")
-                                    except Exception:
-                                        pass
+                                    _agent_log("H3", "latex_sections.py:highlights", "html wrapped item", {"snippet": converted[:120]}, "run-pre-fix")
                                     # #endregion agent log
                         elif h.startswith('**') and '**' in h[2:]:
                             # Markdown 加粗格式（保留圆点，适度缩进）
@@ -368,19 +569,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                             converted = escape_latex(converted.replace('\\textbf{', '<<<TEXTBF>>>').replace('}', '<<<ENDBF>>>')).replace('<<<TEXTBF>>>', '\\textbf{').replace('<<<ENDBF>>>', '}')
                             content.append(f"  \\item {converted}")
                             # #region agent log
-                            try:
-                                with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-                                    _f.write(json.dumps({
-                                        "sessionId": "debug-session",
-                                        "runId": "run-pre-fix",
-                                        "hypothesisId": "H4",
-                                        "location": "latex_sections.py:highlights",
-                                        "message": "markdown item",
-                                        "data": {"snippet": converted[:120]},
-                                        "timestamp": int(time.time() * 1000)
-                                    }) + "\n")
-                            except Exception:
-                                pass
+                            _agent_log("H4", "latex_sections.py:highlights", "markdown item", {"snippet": converted[:120]}, "run-pre-fix")
                             # #endregion agent log
                         else:
                             # 普通文本（保留圆点，适度缩进）
@@ -389,19 +578,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                                 has_list_wrapper = True
                             content.append(f"  \\item {escape_latex(h)}")
                             # #region agent log
-                            try:
-                                with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-                                    _f.write(json.dumps({
-                                        "sessionId": "debug-session",
-                                        "runId": "run-pre-fix",
-                                        "hypothesisId": "H5",
-                                        "location": "latex_sections.py:highlights",
-                                        "message": "plain item",
-                                        "data": {"snippet": h[:120]},
-                                        "timestamp": int(time.time() * 1000)
-                                    }) + "\n")
-                            except Exception:
-                                pass
+                            _agent_log("H5", "latex_sections.py:highlights", "plain item", {"snippet": h[:120]}, "run-pre-fix")
                             # #endregion agent log
                     
                     if has_list_wrapper:
