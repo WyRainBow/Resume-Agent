@@ -194,7 +194,7 @@ const RichEditor = ({
     editorProps: {
       attributes: {
         class: cn(
-          'prose prose-sm sm:prose lg:prose-lg max-w-none focus:outline-none min-h-[150px] px-4 py-3',
+          'prose prose-sm sm:prose lg:prose-lg max-w-none focus:outline-none min-h-[300px] px-4 py-3',
           'dark:prose-invert',
           'dark:prose-headings:text-neutral-200',
           'dark:prose-p:text-neutral-300',
