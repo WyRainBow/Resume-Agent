@@ -32,6 +32,12 @@ except ImportError:
     from prompts import build_resume_prompt, build_resume_markdown_prompt, build_rewrite_prompt, SECTION_PROMPTS
     from json_path import parse_path, get_by_path, set_by_path
     from chunk_processor import split_resume_text, merge_resume_chunks
+    # 当作为顶层模块导入时，parallel_chunk_processor 需要使用绝对导入
+    import sys
+    from pathlib import Path
+    backend_dir = Path(__file__).resolve().parent.parent
+    if str(backend_dir) not in sys.path:
+        sys.path.insert(0, str(backend_dir))
     from parallel_chunk_processor import parse_resume_text_parallel
     from config.parallel_config import get_parallel_config
     from logger import backend_logger, write_llm_debug
