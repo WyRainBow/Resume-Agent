@@ -179,8 +179,8 @@ export function AIImportModal({
             </div>
             <div>
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                AI 导入 - {sectionTitle}
-              </h3>
+            AI 导入 - {sectionTitle}
+          </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                 {sectionType === 'all' 
                   ? '粘贴完整简历内容：AI 将自动解析各模块并填充'
@@ -211,26 +211,26 @@ export function AIImportModal({
                 （按 Tab 键快速填充示例内容）
               </span>
             </label>
-            <textarea
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Tab') {
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Tab') {
                   // 处理命名不一致：openSource -> opensource
                   const normalizedType = sectionType === 'openSource' ? 'opensource' : sectionType
                   const placeholder = aiImportPlaceholders[normalizedType] || ''
-                  if (placeholder && (!text || placeholder.startsWith(text))) {
-                    e.preventDefault()
-                    setText(placeholder)
-                  }
-                }
-              }}
+              if (placeholder && (!text || placeholder.startsWith(text))) {
+                e.preventDefault()
+                setText(placeholder)
+              }
+            }
+          }}
               placeholder={(() => {
                 // 处理命名不一致：openSource -> opensource
                 const normalizedType = sectionType === 'openSource' ? 'opensource' : sectionType
                 return aiImportPlaceholders[normalizedType] || '请输入文本内容...'
               })()}
-              className={cn(
+          className={cn(
                 'w-full min-h-[200px] p-4 rounded-xl resize-y',
                 'bg-slate-50 dark:bg-slate-800/50',
                 'border border-slate-200 dark:border-slate-700',
@@ -245,11 +245,11 @@ export function AIImportModal({
               <div className="text-xs text-slate-500 dark:text-slate-400">
                 字符数: {text.length}
               </div>
-            )}
+          )}
           </div>
-          
-          {/* 解析结果预览 */}
-          {parsedData && (
+        
+        {/* 解析结果预览 */}
+        {parsedData && (
             <div className={cn(
               'p-4 rounded-xl',
               'bg-green-50 dark:bg-green-900/20',
@@ -263,11 +263,11 @@ export function AIImportModal({
                 <span className="text-green-700 dark:text-green-400 text-sm font-semibold">
                   解析成功！
                 </span>
-              </div>
+            </div>
               <div className="max-h-[200px] overflow-auto rounded-lg bg-white dark:bg-slate-900 p-3 border border-slate-200 dark:border-slate-700">
                 <pre className="m-0 text-slate-700 dark:text-slate-300 text-xs whitespace-pre-wrap break-words font-mono">
-                  {JSON.stringify(parsedData, null, 2)}
-                </pre>
+              {JSON.stringify(parsedData, null, 2)}
+            </pre>
               </div>
             </div>
           )}
@@ -287,8 +287,8 @@ export function AIImportModal({
               <span className={cn('text-sm font-medium min-w-[50px] text-right', getTimeColor(elapsedTime))}>
                 {formatTime(elapsedTime)}
               </span>
-            </div>
-          )}
+          </div>
+        )}
         </div>
         
         {/* 底部按钮 */}
