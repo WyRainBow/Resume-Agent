@@ -13,17 +13,32 @@ import json as _json
 from concurrent.futures import ThreadPoolExecutor
 import functools
 
-# 导入现有的同步函数
+# 导入现有的同步函数（兼容多种运行方式）
+# 确保 backend 目录在 sys.path 中
+import sys
+from pathlib import Path
+current_file = Path(__file__).resolve()
+backend_dir = current_file.parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
+# 尝试多种导入方式
 try:
+    # 方式1：作为 backend 包的子模块导入
     from backend.llm import call_llm
     from backend.chunk_processor import split_resume_text, merge_resume_chunks
     from backend.config.parallel_config import get_parallel_config
     from backend.logger import backend_logger
 except ImportError:
-    from llm import call_llm
-    from chunk_processor import split_resume_text, merge_resume_chunks
-    from config.parallel_config import get_parallel_config
-    from logger import backend_logger
+    try:
+        # 方式2：作为顶层模块导入（backend 目录已在 sys.path）
+        from llm import call_llm
+        from chunk_processor import split_resume_text, merge_resume_chunks
+        from config.parallel_config import get_parallel_config
+        from logger import backend_logger
+    except ImportError:
+        # 方式3：如果都失败，抛出错误
+        raise ImportError("无法导入必要的模块：llm, chunk_processor, config.parallel_config, logger")
 
 
 def clean_llm_response(raw: str) -> str:
