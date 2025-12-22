@@ -499,8 +499,8 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                 highlights = p.get('highlights') or []
 
                 if isinstance(items, list) and items:
-                    # 有子项目结构 - 不带圆点的列表
-                    content.append(r"\begin{itemize}[label={},parsep=0.2ex,itemsep=0ex]")
+                    # 有子项目结构 - 不带圆点的列表，缩进对齐实习经历（使用 leftmargin=* 自动对齐）
+                    content.append(r"\begin{itemize}[label={},parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
                     for sub in items:
                         sub_title = sub.get('title')
                         if sub_title:
@@ -508,7 +508,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                             content.append(f"  \\item \\textbf{{{escaped_sub_title}}}")
                             details = sub.get('details') or []
                             if isinstance(details, list) and details:
-                                content.append(r"    \begin{itemize}[label=\textbf{·},parsep=0.2ex]")
+                                content.append(r"    \begin{itemize}[label=\textbf{·},parsep=0.2ex,itemsep=0ex,leftmargin=1em,labelsep=0.4em,itemindent=0em]")
                                 for detail in details:
                                     if isinstance(detail, str) and detail.strip():
                                         content.append(f"      \\item {escape_latex(detail.strip())}")
@@ -536,15 +536,15 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                                 # 如果 HTML 已包含列表结构，直接添加
                                 if '\\begin{itemize}' in converted or '\\begin{enumerate}' in converted:
                                     # 正确的正则：\[ 和 \] 在原始字符串中匹配普通方括号
-                                    # 保留圆点标记，适度缩进 0.5cm
+                                    # 使用 leftmargin=* 与实习经历对齐（html_to_latex 默认设置）
                                     converted = re.sub(
                                         r'\\begin\{itemize\}(\[[^\]]*\])?',
-                                        r'\\begin{itemize}[label=$\\bullet$,parsep=0.05ex,itemsep=0ex,leftmargin=0.8cm,labelsep=0.5em,topsep=0ex,partopsep=0ex]',
+                                        r'\\begin{itemize}[label=$\\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]',
                                         converted
                                     )
                                     converted = re.sub(
                                         r'\\begin\{enumerate\}(\[[^\]]*\])?',
-                                        r'\\begin{enumerate}[leftmargin=0.8cm,labelsep=0.5em,topsep=0ex,partopsep=0ex]',
+                                        r'\\begin{enumerate}[leftmargin=*,labelsep=0.5em,topsep=0ex,partopsep=0ex]',
                                         converted
                                     )
                                     content.append(converted)
@@ -552,9 +552,9 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                                     _agent_log("H2", "latex_sections.py:highlights", "html passthrough list", {"snippet": converted[:120]}, "run-pre-fix")
                                     # #endregion agent log
                                 else:
-                                    # 否则包装成列表项（保留圆点，适度缩进）
+                                    # 否则包装成列表项（与实习经历对齐）
                                     if not has_list_wrapper:
-                                        content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=2cm,labelsep=0.5em]")
+                                        content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
                                         has_list_wrapper = True
                                     content.append(f"  \\item {converted}")
                                     # #region agent log
@@ -563,7 +563,8 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                         elif h.startswith('**') and '**' in h[2:]:
                             # Markdown 加粗格式（保留圆点，适度缩进）
                             if not has_list_wrapper:
-                                content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=2cm,labelsep=0.5em]")
+                                # 对齐实习经历的列表缩进
+                                content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
                                 has_list_wrapper = True
                             converted = _convert_markdown_bold(h)
                             converted = escape_latex(converted.replace('\\textbf{', '<<<TEXTBF>>>').replace('}', '<<<ENDBF>>>')).replace('<<<TEXTBF>>>', '\\textbf{').replace('<<<ENDBF>>>', '}')
@@ -572,9 +573,9 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                             _agent_log("H4", "latex_sections.py:highlights", "markdown item", {"snippet": converted[:120]}, "run-pre-fix")
                             # #endregion agent log
                         else:
-                            # 普通文本（保留圆点，适度缩进）
+                            # 普通文本（与实习经历对齐）
                             if not has_list_wrapper:
-                                content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=2cm,labelsep=0.5em]")
+                                content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
                                 has_list_wrapper = True
                             content.append(f"  \\item {escape_latex(h)}")
                             # #region agent log
