@@ -28,13 +28,17 @@ const ResumeDashboard = () => {
   const hasConfiguredFolder = true
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 p-8">
+    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617] relative overflow-hidden transition-colors duration-500">
+      {/* 装饰性背景元素 */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-400/10 dark:bg-blue-600/5 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-400/10 dark:bg-indigo-600/5 rounded-full blur-[120px] pointer-events-none" />
+      
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.3 }}
-        className="flex-1 space-y-6 max-w-[1600px] mx-auto relative z-10"
+        transition={{ duration: 0.5 }}
+        className="flex-1 space-y-8 max-w-[1600px] mx-auto relative z-10 p-6 sm:p-10"
       >
         <motion.div
           className="flex w-full items-center justify-center px-4"

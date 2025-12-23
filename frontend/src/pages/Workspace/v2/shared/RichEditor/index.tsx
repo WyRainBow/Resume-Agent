@@ -194,7 +194,7 @@ const RichEditor = ({
     editorProps: {
       attributes: {
         class: cn(
-          'prose prose-sm sm:prose lg:prose-lg max-w-none focus:outline-none min-h-[150px] px-4 py-3',
+          'prose prose-sm sm:prose lg:prose-lg max-w-none focus:outline-none min-h-[300px] px-4 py-3',
           'dark:prose-invert',
           'dark:prose-headings:text-neutral-200',
           'dark:prose-p:text-neutral-300',
@@ -322,6 +322,7 @@ const RichEditor = ({
               if (!isBullet && !isOrdered) {
                 const didToggle = editor.chain().focus().toggleBulletList().run()
                 logDebug('indent-toggle-bullet', { didToggle })
+                return
               }
 
               const canSink = editor.can().sinkListItem('listItem')
@@ -330,8 +331,53 @@ const RichEditor = ({
                 isBullet: editor.isActive('bulletList'),
                 isOrdered: editor.isActive('orderedList'),
               })
-              const didSink = editor.chain().focus().sinkListItem('listItem').run()
-              logDebug('indent-increase-result', { didSink })
+
+              if (canSink) {
+                // 正常情况：可以直接 sink
+                const didSink = editor.chain().focus().sinkListItem('listItem').run()
+                logDebug('indent-increase-result', { didSink })
+              } else {
+                // 首行情况：无法 sink，需要在前面插入一个空白父级列表项
+                logDebug('indent-first-item-detected', { canSink: false })
+                
+                editor.chain()
+                  .focus()
+                  .command(({ tr, state }) => {
+                    const { $from } = state.selection
+                    const listItemType = state.schema.nodes.listItem
+                    const paragraphType = state.schema.nodes.paragraph
+                    
+                    // 找到最近的 listItem
+                    let depth = $from.depth
+                    while (depth > 0) {
+                      const node = $from.node(depth)
+                      if (node.type === listItemType) {
+                        const pos = $from.before(depth)
+                        
+                        // 创建一个新的空白 listItem（包含一个空段落）
+                        const newListItem = listItemType.create(null, paragraphType.create())
+                        tr.insert(pos, newListItem)
+                        
+                        logDebug('indent-insert-parent', { pos, depth })
+                        return true
+                      }
+                      depth--
+                    }
+                    logDebug('indent-no-listitem-found', { depth: $from.depth })
+                    return false
+                  })
+                  .run()
+                
+                // 插入后，再次尝试 sink
+                setTimeout(() => {
+                  const canSinkNow = editor.can().sinkListItem('listItem')
+                  logDebug('indent-after-insert', { canSinkNow })
+                  if (canSinkNow) {
+                    editor.chain().focus().sinkListItem('listItem').run()
+                    logDebug('indent-sink-after-insert', { success: true })
+                  }
+                }, 10)
+              }
             }}
             tooltip="增加缩进 (Tab)"
           >

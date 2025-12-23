@@ -1,6 +1,6 @@
 /* TipTap 编辑器样式 */
 .ProseMirror {
-  min-height: 100px;
+  min-height: 300px;
   outline: none;
 }
 
@@ -40,13 +40,14 @@
   padding-left: 0.25rem;
 }
 
-/* 嵌套列表 */
+/* 嵌套列表：尽量与父级对齐，减小缩进 */
 .ProseMirror ul ul,
 .ProseMirror ol ul,
 .ProseMirror ul ol,
 .ProseMirror ol ol {
   list-style-type: circle;
-  padding-left: 1.5rem; /* 嵌套列表再缩进一层 */
+  padding-left: 0.25rem; /* 接近父级左侧 */
+  margin-left: 0;
 }
 
 .ProseMirror ul ul ul,
@@ -54,7 +55,8 @@
 .ProseMirror ul ol ol,
 .ProseMirror ol ol ol {
   list-style-type: square;
-  padding-left: 1.5rem;
+  padding-left: 0.25rem;
+  margin-left: 0;
 }
 
 /* 段落样式 */
@@ -87,7 +89,7 @@
 .ProseMirror h2 {
   font-size: 1.25rem;
   font-weight: 600;
-  margin: 0.75rem 0 0.5rem;
+  margin: 0.5rem 0 0.5rem;
 }
 
 .ProseMirror h3 {
@@ -132,5 +134,29 @@
 /* 聚焦时的边框 */
 .ProseMirror-focused {
   outline: none;
+}
+
+/* 隐藏空的父级列表项 - 当列表项有嵌套列表时，隐藏其圆点 */
+/* 使用 :has() 检测是否有嵌套的 ul/ol */
+.ProseMirror ul > li:has(> ul),
+.ProseMirror ul > li:has(> ol),
+.ProseMirror ol > li:has(> ul),
+.ProseMirror ol > li:has(> ol) {
+  list-style-type: none;
+}
+
+/* 隐藏空的段落（作为占位父级的段落），支持包含 br 的情况 */
+.ProseMirror ul > li:has(> ul) > p:first-child:empty,
+.ProseMirror ul > li:has(> ul) > p:first-child:has(> br:only-child),
+.ProseMirror ul > li:has(> ol) > p:first-child:empty,
+.ProseMirror ul > li:has(> ol) > p:first-child:has(> br:only-child),
+.ProseMirror ol > li:has(> ul) > p:first-child:empty,
+.ProseMirror ol > li:has(> ul) > p:first-child:has(> br:only-child),
+.ProseMirror ol > li:has(> ol) > p:first-child:empty,
+.ProseMirror ol > li:has(> ol) > p:first-child:has(> br:only-child) {
+  display: none;
+  height: 0;
+  margin: 0;
+  padding: 0;
 }
 
