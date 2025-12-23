@@ -140,6 +140,8 @@ def html_to_latex(html: str) -> str:
     
     # 处理空段落（包括带属性的空段落）
     html = re.sub(r'<p[^>]*>\s*</p>', '', html)
+    # 注意：不要在 HTML 阶段“删除空 li”，否则会导致 LaTeX 生成时出现
+    # itemize/enumerate 环境内直接嵌套 begin{itemize} 而缺少 \item，从而编译报错。
     
     # 使用解析器转换
     converter = HTMLToLatexConverter()
@@ -153,6 +155,53 @@ def html_to_latex(html: str) -> str:
     
     # 后处理：清理多余换行
     result = re.sub(r'\n{3,}', '\n\n', result)
+
+    # 后处理：处理“空父级列表项 + 嵌套列表”的场景
+    # 目标：既满足 LaTeX 语法（必须有 \item），又不渲染出父级黑点。
+    # 做法：把 `\item <nested-list>` 替换为 `\item[]\n<nested-list>`（空标签，不显示圆点）。
+    # #region agent log
+    try:
+        import json as _json
+        import time as _time
+        _pre_cnt = len(re.findall(r'\\item(?:\s*\n\s*|\s+)(\\begin\{(?:itemize|enumerate)\}(?:\[[^\]]*\])?)', result))
+        with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+            _f.write(_json.dumps({
+                "sessionId": "debug-session",
+                "runId": "run-fix-item",
+                "hypothesisId": "H1",
+                "location": "html_to_latex.py:postprocess:pre",
+                "message": "nested-list parent item count (pre)",
+                "data": {"count": _pre_cnt},
+                "timestamp": _time.time(),
+            }, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+    # #endregion agent log
+
+    result = re.sub(
+        r'\\item(?:\s*\n\s*|\s+)(\\begin\{(?:itemize|enumerate)\}(?:\[[^\]]*\])?)',
+        r'\\item[]\n\1',
+        result
+    )
+
+    # #region agent log
+    try:
+        import json as _json
+        import time as _time
+        _post_cnt = len(re.findall(r'\\item(?:\s*\n\s*|\s+)(\\begin\{(?:itemize|enumerate)\}(?:\[[^\]]*\])?)', result))
+        with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
+            _f.write(_json.dumps({
+                "sessionId": "debug-session",
+                "runId": "run-fix-item",
+                "hypothesisId": "H1",
+                "location": "html_to_latex.py:postprocess:post",
+                "message": "nested-list parent item count (post)",
+                "data": {"count": _post_cnt},
+                "timestamp": _time.time(),
+            }, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+    # #endregion agent log
     
     return result
 

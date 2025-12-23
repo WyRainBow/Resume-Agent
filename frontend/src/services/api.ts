@@ -1,5 +1,6 @@
 import axios from 'axios'
 import type { Resume } from '@/types/resume'
+import type { ResumeData } from '@/pages/Workspace/v2/types'
 import { DEFAULT_RESUME_TEMPLATE } from '@/data/defaultTemplate'
 
 // 处理 API_BASE，确保有协议前缀
@@ -570,7 +571,7 @@ function getPdfCache(key: string): Blob | null {
  * 使用前端内嵌的模板，不依赖后端
  * 用户数据保存在浏览器 localStorage 中
  */
-export function getDefaultTemplate(): Resume {
+export function getDefaultTemplate(): ResumeData {
   return structuredClone(DEFAULT_RESUME_TEMPLATE)
 }
 

@@ -2,7 +2,7 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardTitle, CardDescription, CardFooter } from './ui/card'
 import { Button } from './ui/button'
-import { FileText } from './Icons'
+import { FileText, Trash2 } from './Icons'
 import { cn } from '@/lib/utils'
 import type { SavedResume } from '@/services/resumeStorage'
 
@@ -25,18 +25,22 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
 }) => {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ duration: 0.3 }}
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      className="relative"
+      layout
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      whileHover={{ y: -8, transition: { duration: 0.2 } }}
+      className="relative group"
     >
-      {/* 复选框 - 用于批量选择删除 */}
+      {/* 选中状态的发光背景 */}
+      {isSelected && (
+        <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl blur opacity-30 dark:opacity-50 animate-pulse" />
+      )}
+
+      {/* 复选框容器 */}
       {onSelectChange && (
         <div 
-          className="absolute top-3 left-3 z-10"
+          className="absolute top-4 left-4 z-20"
           onClick={(e) => e.stopPropagation()}
         >
           <input
@@ -44,9 +48,10 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
             checked={isSelected}
             onChange={(e) => onSelectChange(resume.id, e.target.checked)}
             className={cn(
-              "w-5 h-5 rounded border-2 cursor-pointer transition-all duration-200",
-              "accent-gray-900 dark:accent-primary",
-              "hover:scale-110"
+              "w-5 h-5 rounded-md border-2 cursor-pointer transition-all duration-300",
+              "bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm",
+              "checked:bg-blue-600 dark:checked:bg-blue-500",
+              "focus:ring-2 focus:ring-blue-500/50 outline-none"
             )}
             title="选择此简历"
           />
@@ -55,68 +60,55 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
 
       <Card
         className={cn(
-          "group border transition-all duration-200 h-[260px] flex flex-col",
-          "hover:border-gray-400 hover:bg-gray-50",
-          "dark:hover:border-primary dark:hover:bg-primary/10",
-          // 选中状态时添加高亮边框
-          isSelected && "border-red-400 bg-red-50/30 dark:border-red-500 dark:bg-red-950/20"
+          "relative overflow-hidden border-none transition-all duration-300 h-[280px] flex flex-col rounded-2xl",
+          "bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl",
+          "shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)]",
+          "hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)]",
+          isSelected && "ring-2 ring-blue-500/50"
         )}
       >
-        <CardContent className="relative flex-1 pt-6 text-center flex flex-col items-center">
+        {/* 背景渐变装饰 */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/5 to-transparent rounded-bl-[100px] pointer-events-none" />
+
+        <CardContent className="relative flex-1 pt-10 text-center flex flex-col items-center z-10">
           <motion.div
-            className="mb-4 p-4 rounded-full bg-gray-100 dark:bg-primary/10"
-            whileHover={{ rotate: 90 }}
-            transition={{ duration: 0.2 }}
+            className="mb-5 p-5 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-600 dark:text-blue-400"
+            whileHover={{ rotate: 10, scale: 1.1 }}
           >
-            <FileText className="h-8 w-8 text-gray-600 dark:text-primary" />
+            <FileText className="h-10 w-10" />
           </motion.div>
-          <CardTitle className="text-xl line-clamp-1 text-gray-900 dark:text-gray-100 px-4">
+          
+          <CardTitle className="text-xl font-bold line-clamp-1 text-slate-800 dark:text-slate-100 px-6 mb-2">
             {resume.name || "未命名简历"}
           </CardTitle>
-          <CardDescription className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            更新于
-            <span className="ml-2">
-              {new Date(resume.updatedAt).toLocaleDateString()} {new Date(resume.updatedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
-            </span>
-          </CardDescription>
-        </CardContent>
-        <CardFooter className="pt-0 pb-4 px-4">
-          <div className="grid grid-cols-2 gap-2 w-full">
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            >
-              <Button
-                variant="outline"
-                className="w-full text-sm hover:bg-gray-100 dark:border-primary/50 dark:hover:bg-primary/10"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit(resume.id);
-                }}
-              >
-                编辑
-              </Button>
-            </motion.div>
-            <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ type: "spring", stiffness: 400, damping: 17 }}
-            >
-              <Button
-                variant="outline"
-                className="w-full text-sm text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-500 dark:hover:bg-red-950/50 dark:hover:text-red-400"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(resume.id);
-                }}
-              >
-                删除
-              </Button>
-            </motion.div>
+          
+          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
+            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+            已保存 · {new Date(resume.updatedAt).toLocaleDateString()}
           </div>
+        </CardContent>
+
+        <CardFooter className="relative z-10 pt-0 pb-6 px-6 gap-3">
+          <Button
+            variant="ghost"
+            className="flex-1 h-11 rounded-xl font-semibold bg-slate-100/50 hover:bg-blue-100/50 dark:bg-slate-800/50 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(resume.id);
+            }}
+          >
+            编辑
+          </Button>
+          <Button
+            variant="ghost"
+            className="h-11 w-11 p-0 rounded-xl bg-slate-100/50 hover:bg-red-100/50 dark:bg-slate-800/50 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-red-400 transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(resume.id);
+            }}
+          >
+            <Trash2 className="h-5 w-5" />
+          </Button>
         </CardFooter>
       </Card>
     </motion.div>

@@ -181,6 +181,18 @@ export const loadFromStorage = (): ResumeData => {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       const data = JSON.parse(saved) as ResumeData
+
+      // 如果存量数据为空白（无姓名、无标题且核心板块全空），回退到默认模板
+      const isBlank =
+        (!data.basic?.name && !data.basic?.title) &&
+        (!data.projects || data.projects.length === 0) &&
+        (!data.experience || data.experience.length === 0) &&
+        (!data.education || data.education.length === 0)
+      if (isBlank) {
+        // DEFAULT_RESUME_TEMPLATE 已经是 ResumeData 格式，直接返回
+        return structuredClone(DEFAULT_RESUME_TEMPLATE)
+      }
+
       // 合并新模块到 menuSections（如果旧数据缺少新模块）
       const existingIds = new Set(data.menuSections.map(s => s.id))
       const newSections = initialResumeData.menuSections.filter(s => !existingIds.has(s.id))
@@ -197,6 +209,7 @@ export const loadFromStorage = (): ResumeData => {
   }
   
   // localStorage 为空时，使用默认模板
-  return convertTemplateToResumeData(DEFAULT_RESUME_TEMPLATE)
+  // DEFAULT_RESUME_TEMPLATE 已经是 ResumeData 格式，直接返回
+  return structuredClone(DEFAULT_RESUME_TEMPLATE)
 }
 

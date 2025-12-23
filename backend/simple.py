@@ -29,13 +29,13 @@ except Exception:
 
 ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY", "")
 """
-默认使用 GLM-4-Flash（更快），可通过环境变量 ZHIPU_MODEL 修改
+默认使用 GLM-4.5V，可通过环境变量 ZHIPU_MODEL 修改
 模型选择：
 - glm-4-flash: 最快，适合简单任务
 - glm-4-air: 平衡速度和质量
-- glm-4.5v: 最强，但较慢
+- glm-4.5v: 综合能力最强（默认）
 """
-ZHIPU_MODEL = os.getenv("ZHIPU_MODEL", "glm-4-flash")
+ZHIPU_MODEL = os.getenv("ZHIPU_MODEL", "glm-4.5v")
 
 """豆包配置"""
 DOUBAO_API_KEY = os.getenv("DOUBAO_API_KEY", "")

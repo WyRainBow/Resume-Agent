@@ -68,14 +68,29 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
           details: e.highlights?.join('\n') || '',
           visible: true,
         })) || prev.experience,
-        projects: data.projects?.map((p: any, i: number) => ({
-          id: `proj_${Date.now()}_${i}`,
-          name: p.title || '',
-          role: p.subtitle || '',
-          date: p.date || '',
-          description: p.highlights?.join('\n') || '',
-          visible: true,
-        })) || prev.projects,
+        projects: data.projects?.map((p: any, i: number) => {
+          // 合并项目描述和亮点
+          let description = ''
+          if (p.description) {
+            description = p.description
+          }
+          if (p.highlights && p.highlights.length > 0) {
+            const highlightsText = p.highlights.join('\n')
+            if (description) {
+              description = description + '\n\n' + highlightsText
+            } else {
+              description = highlightsText
+            }
+          }
+          return {
+            id: `proj_${Date.now()}_${i}`,
+            name: p.title || '',
+            role: p.subtitle || '',
+            date: p.date || '',
+            description: description,
+            visible: true,
+          }
+        }) || prev.projects,
         openSource: data.open_source?.map((o: any, i: number) => ({
           id: `os_${Date.now()}_${i}`,
           name: o.title || '',
@@ -93,9 +108,14 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
           description: a.description || '',
           visible: true,
         })) || prev.awards,
-        skillContent: data.skills?.map((s: any) => 
-          `<strong>${s.category}</strong>: ${s.details}`
-        ).join('<br>') || prev.skillContent,
+        skillContent: data.skills?.map((s: any) => {
+          // 如果 category 为空，说明是单行技能描述，直接返回 details
+          if (!s.category || s.category === '') {
+            return `<p>${s.details || ''}</p>`
+          }
+          // 如果有 category，使用分类格式
+          return `<p><strong>${s.category}</strong>: ${s.details || ''}</p>`
+        }).join('') || prev.skillContent,
       }))
     } else {
       // 分模块导入
@@ -159,14 +179,29 @@ function handleSectionImport(
 
     case 'projects':
       if (Array.isArray(data)) {
-        const newProjects = data.map((p: any, i: number) => ({
-          id: `proj_${Date.now()}_${i}`,
-          name: p.title || p.name || '',
-          role: p.subtitle || p.role || '',
-          date: p.date || '',
-          description: p.highlights?.join('\n') || p.description || '',
-          visible: true,
-        }))
+        const newProjects = data.map((p: any, i: number) => {
+          // 合并项目描述和亮点
+          let description = ''
+          if (p.description) {
+            description = p.description
+          }
+          if (p.highlights && p.highlights.length > 0) {
+            const highlightsText = p.highlights.join('\n')
+            if (description) {
+              description = description + '\n\n' + highlightsText
+            } else {
+              description = highlightsText
+            }
+          }
+          return {
+            id: `proj_${Date.now()}_${i}`,
+            name: p.title || p.name || '',
+            role: p.subtitle || p.role || '',
+            date: p.date || '',
+            description: description || '',
+            visible: true,
+          }
+        })
         setResumeData((prev) => ({
           ...prev,
           projects: [...prev.projects, ...newProjects],
@@ -176,12 +211,17 @@ function handleSectionImport(
 
     case 'skills':
       if (Array.isArray(data)) {
-        const skillHtml = data.map((s: any) => 
-          `<strong>${s.category}</strong>: ${s.details}`
-        ).join('<br>')
+        const skillHtml = data.map((s: any) => {
+          // 如果 category 为空，说明是单行技能描述，直接返回 details
+          if (!s.category || s.category === '') {
+            return `<p>${s.details || ''}</p>`
+          }
+          // 如果有 category，使用分类格式
+          return `<p><strong>${s.category}</strong>: ${s.details || ''}</p>`
+        }).join('')
         setResumeData((prev) => ({
           ...prev,
-          skillContent: prev.skillContent ? prev.skillContent + '<br>' + skillHtml : skillHtml,
+          skillContent: prev.skillContent ? prev.skillContent + skillHtml : skillHtml,
         }))
       } else if (typeof data === 'string') {
         setResumeData((prev) => ({

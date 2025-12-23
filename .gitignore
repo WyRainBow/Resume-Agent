@@ -66,3 +66,6 @@ test_api.sh
 # 忽略脚本文件，但保留 start.sh（Railway 启动脚本）
 *.sh
 !/start.sh
+
+# 测试目录
+测试测试/
