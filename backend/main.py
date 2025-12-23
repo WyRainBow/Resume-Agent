@@ -79,13 +79,13 @@ except ImportError:
             pdf_router
         )
     except ImportError:
-from .routes import (
-    health_router,
-    config_router,
-    resume_router,
-    agent_router,
-    pdf_router
-)
+        from .routes import (
+            health_router,
+            config_router,
+            resume_router,
+            agent_router,
+            pdf_router
+        )
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="Resume Agent API")
