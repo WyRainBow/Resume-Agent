@@ -13,6 +13,7 @@ FastAPI 后端入口
 import os
 import sys
 import logging
+import importlib
 from pathlib import Path
 
 # 兼容多种启动方式（uvicorn backend.main:app 或 uvicorn main:app）
@@ -60,32 +61,25 @@ def get_log_file_handler():
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# 导入路由模块（兼容包/脚本两种运行方式）
-try:
-    from backend.routes import (
-        health_router,
-        config_router,
-        resume_router,
-        agent_router,
-        pdf_router
-    )
-except ImportError:
-    try:
-        from routes import (
-            health_router,
-            config_router,
-            resume_router,
-            agent_router,
-            pdf_router
-        )
-    except ImportError:
-        from .routes import (
-            health_router,
-            config_router,
-            resume_router,
-            agent_router,
-            pdf_router
-        )
+def import_module_candidates(candidates):
+    """按候选列表依次尝试导入模块，避免多层嵌套 try/except。"""
+    last_exc: Exception | None = None
+    for name in candidates:
+        try:
+            return importlib.import_module(name)
+        except ModuleNotFoundError as exc:
+            last_exc = exc
+            continue
+    raise last_exc or ModuleNotFoundError(f"Cannot import any of: {candidates}")
+
+
+# 导入路由模块（兼容包/脚本两种运行方式），优先使用绝对路径
+routes_module = import_module_candidates(["backend.routes", "routes"])
+health_router = routes_module.health_router
+config_router = routes_module.config_router
+resume_router = routes_module.resume_router
+agent_router = routes_module.agent_router
+pdf_router = routes_module.pdf_router
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="Resume Agent API")
@@ -129,10 +123,7 @@ async def startup_event():
     backend_logger.info(f"日志目录: {LOGS_DIR}")
     
     try:
-        try:
-            from backend import simple
-        except ImportError:
-            import simple
+        simple = import_module_candidates(["backend.simple", "simple"])
         # 从环境变量同步 API Key 到 simple 模块
         zhipu_key = os.getenv("ZHIPU_API_KEY", "")
         if zhipu_key:
