@@ -108,14 +108,14 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
           description: a.description || '',
           visible: true,
         })) || prev.awards,
-        skillContent: data.skills?.map((s: any) => {
+        skillContent: data.skills?.length > 0 ? `<ul class="custom-list">${data.skills.map((s: any) => {
           // 如果 category 为空，说明是单行技能描述，直接返回 details
           if (!s.category || s.category === '') {
-            return `<p>${s.details || ''}</p>`
+            return `<li><p>${s.details || ''}</p></li>`
           }
           // 如果有 category，使用分类格式
-          return `<p><strong>${s.category}</strong>: ${s.details || ''}</p>`
-        }).join('') || prev.skillContent,
+          return `<li><p><strong>${s.category}</strong>: ${s.details || ''}</p></li>`
+        }).join('')}</ul>` : prev.skillContent,
       }))
     } else {
       // 分模块导入
@@ -211,14 +211,14 @@ function handleSectionImport(
 
     case 'skills':
       if (Array.isArray(data)) {
-        const skillHtml = data.map((s: any) => {
+        const skillHtml = `<ul class="custom-list">${data.map((s: any) => {
           // 如果 category 为空，说明是单行技能描述，直接返回 details
           if (!s.category || s.category === '') {
-            return `<p>${s.details || ''}</p>`
+            return `<li><p>${s.details || ''}</p></li>`
           }
           // 如果有 category，使用分类格式
-          return `<p><strong>${s.category}</strong>: ${s.details || ''}</p>`
-        }).join('')
+          return `<li><p><strong>${s.category}</strong>: ${s.details || ''}</p></li>`
+        }).join('')}</ul>`
         setResumeData((prev) => ({
           ...prev,
           skillContent: prev.skillContent ? prev.skillContent + skillHtml : skillHtml,
