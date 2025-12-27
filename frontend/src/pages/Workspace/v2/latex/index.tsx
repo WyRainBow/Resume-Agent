@@ -187,7 +187,7 @@ export default function LaTeXWorkspace() {
   }
 
   return (
-    <WorkspaceLayout onSave={handleSaveToDashboard}>
+    <WorkspaceLayout onSave={handleSaveToDashboard} onDownload={pdfBlob ? handleDownload : undefined}>
       {/* 顶部导航栏 */}
       <Header
         saveSuccess={saveSuccess}
