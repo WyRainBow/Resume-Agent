@@ -6,6 +6,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { cn } from '../../../../lib/utils'
 import { saveResume } from '../../../../services/resumeStorage'
+import html2pdf from 'html2pdf.js'
 
 // Hooks
 import { useResumeData, usePDFOperations, useAIImport } from '../hooks'
@@ -242,6 +243,32 @@ export default function HTMLWorkspace() {
     fileInputRef.current?.click()
   }
 
+  // HTML 转 PDF 下载
+  const handleDownloadPDF = useCallback(() => {
+    try {
+      // 获取预览容器
+      const element = document.querySelector('.html-template-container') as HTMLElement
+      if (!element) {
+        alert('找不到简历预览内容')
+        return
+      }
+
+      const opt = {
+        margin: 10,
+        filename: `${resumeData.basic.name || '简历'}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
+      }
+
+      // 使用 html2pdf 转换并下载
+      html2pdf().set(opt).from(element).save()
+    } catch (error) {
+      console.error('PDF 下载失败:', error)
+      alert('下载失败，请重试')
+    }
+  }, [resumeData.basic.name])
+
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
@@ -272,7 +299,7 @@ export default function HTMLWorkspace() {
   }
 
   return (
-    <WorkspaceLayout onSave={handleSaveToDashboard}>
+    <WorkspaceLayout onSave={handleSaveToDashboard} onDownload={handleDownloadPDF}>
       {/* 顶部导航栏 */}
       <Header
         saveSuccess={saveSuccess}
