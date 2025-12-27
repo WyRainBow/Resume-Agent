@@ -2,9 +2,11 @@
  * 顶部导航栏组件（仅包含右侧操作按钮）
  */
 import { motion } from 'framer-motion'
-import { Check, Sparkles, BookmarkPlus, Settings, Upload } from 'lucide-react'
+import { Check, Sparkles, BookmarkPlus, Settings, Upload, LayoutGrid, List } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { ExportButton } from './ExportButton'
+
+type EditMode = 'click' | 'scroll'
 
 interface HeaderProps {
   saveSuccess: boolean
@@ -17,21 +19,63 @@ interface HeaderProps {
   resumeName?: string
   pdfBlob?: Blob | null
   onDownloadPDF?: () => void
+  editMode?: EditMode
+  onEditModeChange?: (mode: EditMode) => void
 }
 
-export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPISettings, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF }: HeaderProps) {
+export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPISettings, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF, editMode, onEditModeChange }: HeaderProps) {
   return (
     <motion.header
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
       className={cn(
-        'relative z-20 h-16 flex items-center justify-end px-4 shrink-0',
+        'relative z-20 h-16 flex items-center justify-between px-4 shrink-0',
         'bg-white dark:bg-slate-900',
         'border-b border-slate-200 dark:border-slate-800'
       )}
     >
-      {/* Action Buttons */}
+      {/* 左侧：编辑模式切换 */}
+      {editMode !== undefined && onEditModeChange && (
+        <motion.div
+          className="flex items-center gap-2"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+        >
+          <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">编辑模式：</span>
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+            <button
+              onClick={() => onEditModeChange('click')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                "flex items-center gap-2",
+                editMode === 'click'
+                  ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+              )}
+            >
+              <List className="w-4 h-4" />
+              点击编辑
+            </button>
+            <button
+              onClick={() => onEditModeChange('scroll')}
+              className={cn(
+                "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                "flex items-center gap-2",
+                editMode === 'scroll'
+                  ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+              )}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              滚动编辑
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* 右侧：Action Buttons */}
       <motion.div
         className="flex items-center gap-3"
         initial={{ opacity: 0, x: 20 }}
