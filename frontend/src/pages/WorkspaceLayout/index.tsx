@@ -5,11 +5,11 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Edit, Sparkles } from 'lucide-react'
+import { Edit, Sparkles, LayoutGrid, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // 工作区类型
-type WorkspaceType = 'edit' | 'conversation'
+type WorkspaceType = 'edit' | 'conversation' | 'dashboard' | 'templates'
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode
@@ -24,6 +24,12 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     if (location.pathname === '/conversation') {
       return 'conversation'
     }
+    if (location.pathname === '/dashboard') {
+      return 'dashboard'
+    }
+    if (location.pathname === '/templates') {
+      return 'templates'
+    }
     return 'edit'
   }
 
@@ -32,6 +38,10 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
   const handleWorkspaceChange = (workspace: WorkspaceType) => {
     if (workspace === 'conversation') {
       navigate('/conversation')
+    } else if (workspace === 'dashboard') {
+      navigate('/dashboard')
+    } else if (workspace === 'templates') {
+      navigate('/templates')
     } else {
       navigate('/workspace')
     }
@@ -85,6 +95,36 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
               <Sparkles className="w-5 h-5 shrink-0" />
               <span className="text-[10px] leading-tight">对话</span>
             </button>
+
+            {/* 简历区 */}
+            <button
+              onClick={() => handleWorkspaceChange('dashboard')}
+              className={cn(
+                "w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg transition-all duration-200",
+                currentWorkspace === 'dashboard'
+                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+              )}
+              title="我的简历"
+            >
+              <FileText className="w-5 h-5 shrink-0" />
+              <span className="text-[10px] leading-tight">简历</span>
+            </button>
+
+            {/* 简历模板区 */}
+            <button
+              onClick={() => handleWorkspaceChange('templates')}
+              className={cn(
+                "w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg transition-all duration-200",
+                currentWorkspace === 'templates'
+                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+              )}
+              title="简历模板区"
+            >
+              <LayoutGrid className="w-5 h-5 shrink-0" />
+              <span className="text-[10px] leading-tight">模板</span>
+            </button>
           </nav>
 
           {/* 分隔线 */}
@@ -92,16 +132,6 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
 
           {/* 其他导航 */}
           <nav className="space-y-1 flex flex-col items-center">
-            <button
-              onClick={() => navigate('/dashboard')}
-              className="w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
-              title="我的简历"
-            >
-              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              <span className="text-[10px] leading-tight">简历</span>
-            </button>
             <button
               onClick={() => navigate('/create-new')}
               className="w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
