@@ -251,7 +251,11 @@ export function EditPanel({
               </div>
             ) : (
               <div className="flex items-center flex-1 gap-2">
-                <span className="text-lg font-semibold text-primary flex-1">
+                <span
+                  onClick={handleEditClick}
+                  className="text-lg font-semibold text-primary flex-1 cursor-pointer hover:opacity-70 transition-opacity"
+                  title="点击编辑标题"
+                >
                   {currentSection?.title}
                 </span>
                 <button
