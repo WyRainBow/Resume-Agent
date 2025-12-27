@@ -102,7 +102,7 @@ const TemplateMarket = () => {
               </p>
             </div>
           ) : (
-            <div className="space-y-12">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
               {/* LaTeX 模板列 */}
               <div>
                 <div className="mb-8">
@@ -116,10 +116,10 @@ const TemplateMarket = () => {
                     </span>
                   </div>
                   <p className="text-base text-gray-600 dark:text-gray-400 ml-0">
-                    专业级简历模板、生成高质量 PDF，适合投递求职简历
+                    专业级简历模板、生成高质量 PDF、适合投递求职简历
                   </p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 gap-6">
                   {templates
                     .filter(t => t.type === 'latex')
                     .map((template) => (
@@ -148,7 +148,7 @@ const TemplateMarket = () => {
                     实时预览模板、支持快速迭代、编辑时即刻看到效果
                   </p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 gap-6">
                   {templates
                     .filter(t => t.type === 'html')
                     .map((template) => (
