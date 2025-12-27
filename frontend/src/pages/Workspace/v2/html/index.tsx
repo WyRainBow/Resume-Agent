@@ -17,7 +17,6 @@ import EditPreviewLayout from '../EditPreviewLayout'
 import AIImportModal from '../shared/AIImportModal'
 import APISettingsDialog from '../shared/APISettingsDialog'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
-import { generateHTMLFile } from '../utils/generateHTML'
 
 type EditMode = 'click' | 'scroll'
 
@@ -247,49 +246,101 @@ export default function HTMLWorkspace() {
   // HTML 转 PDF 下载
   const handleDownloadPDF = useCallback(() => {
     try {
-      // 生成完整的 HTML 文件内容（包含所有样式）
-      const htmlContent = generateHTMLFile(resumeData)
-      
-      // 创建一个临时容器来渲染 HTML
-      const tempDiv = document.createElement('div')
-      tempDiv.innerHTML = htmlContent
-      tempDiv.style.position = 'absolute'
-      tempDiv.style.left = '-9999px'
-      tempDiv.style.width = '210mm' // A4 宽度
-      document.body.appendChild(tempDiv)
-
-      // 获取实际的内容容器
-      const element = tempDiv.querySelector('.html-template-container') as HTMLElement
-      if (!element) {
-        document.body.removeChild(tempDiv)
-        alert('找不到简历预览内容')
+      // 直接从当前页面获取已渲染的 HTML 模板容器
+      const sourceElement = document.querySelector('.html-template-container') as HTMLElement
+      if (!sourceElement) {
+        alert('找不到简历预览内容，请确保预览区域可见')
         return
       }
 
+      // 克隆元素
+      const clonedElement = sourceElement.cloneNode(true) as HTMLElement
+      
+      // 创建一个临时容器
+      const tempContainer = document.createElement('div')
+      tempContainer.style.position = 'absolute'
+      tempContainer.style.left = '-9999px'
+      tempContainer.style.top = '0'
+      tempContainer.style.width = '210mm'
+      tempContainer.style.background = 'white'
+      
+      // 添加内联样式到克隆元素（确保样式被应用）
+      const styles = `
+        .html-template-container {
+          width: 100%;
+          max-width: 850px;
+          background: white;
+          padding: 40px;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
+            'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+          line-height: 1.6;
+          color: #333;
+        }
+        .template-header { border-bottom: 3px solid #2563eb; padding-bottom: 20px; margin-bottom: 24px; }
+        .header-main { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 12px; }
+        .header-left { flex: 1; }
+        .candidate-name { font-size: 32px; font-weight: bold; color: #1f2937; margin: 0; line-height: 1.2; }
+        .candidate-title { font-size: 18px; color: #2563eb; margin: 6px 0 0 0; font-weight: 600; }
+        .header-right { display: flex; flex-direction: column; gap: 6px; text-align: right; }
+        .info-item { font-size: 13px; color: #666; white-space: nowrap; }
+        .employment-status { font-size: 12px; color: #666; display: inline-block; padding: 4px 8px; background: #f0f9ff; border-radius: 4px; margin-top: 8px; }
+        .template-content { display: flex; flex-direction: column; gap: 24px; }
+        .template-section { display: flex; flex-direction: column; gap: 12px; }
+        .section-title { font-size: 16px; font-weight: bold; color: #1f2937; margin: 0; display: flex; align-items: center; gap: 8px; padding-bottom: 8px; border-bottom: 2px solid #e5e7eb; }
+        .section-content { display: flex; flex-direction: column; gap: 16px; }
+        .section-content ul, .section-content ol { margin: 0; padding-left: 24px; line-height: 1.7; }
+        .section-content ul { list-style-type: disc; }
+        .section-content ol { list-style-type: decimal; }
+        .section-content li { margin: 6px 0; color: #555; font-size: 14px; }
+        .section-content li p { margin: 0; }
+        .item { display: flex; flex-direction: column; gap: 8px; }
+        .item-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+        .item-title-group { display: flex; flex-direction: column; gap: 2px; flex: 1; }
+        .item-title { font-size: 15px; font-weight: 600; color: #1f2937; margin: 0; }
+        .item-subtitle { font-size: 13px; color: #2563eb; }
+        .item-date { font-size: 12px; color: #999; white-space: nowrap; flex-shrink: 0; }
+        .item-description { font-size: 13px; color: #555; margin: 0; line-height: 1.5; }
+        .item-description p { margin: 0; padding: 0; }
+        .item-description ul, .item-description ol { margin: 4px 0; padding-left: 20px; }
+        .item-description li { margin: 3px 0; }
+        .item-link { font-size: 12px; color: #2563eb; text-decoration: none; font-weight: 500; }
+      `
+      
+      const styleElement = document.createElement('style')
+      styleElement.textContent = styles
+      tempContainer.appendChild(styleElement)
+      tempContainer.appendChild(clonedElement)
+      document.body.appendChild(tempContainer)
+
       const opt = {
-        margin: 10,
+        margin: [10, 10, 10, 10],
         filename: `${resumeData.basic.name || '简历'}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { 
+          scale: 2, 
+          useCORS: true,
+          logging: false,
+          backgroundColor: '#ffffff'
+        },
         jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
       }
 
       // 使用 html2pdf 转换并下载
       html2pdf()
         .set(opt)
-        .from(element)
+        .from(clonedElement)
         .save()
         .finally(() => {
           // 清理临时元素
-          if (tempDiv.parentNode) {
-            document.body.removeChild(tempDiv)
+          if (tempContainer.parentNode) {
+            document.body.removeChild(tempContainer)
           }
         })
     } catch (error) {
       console.error('PDF 下载失败:', error)
       alert('下载失败，请重试')
     }
-  }, [resumeData])
+  }, [resumeData.basic.name])
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
