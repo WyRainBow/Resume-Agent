@@ -17,7 +17,12 @@ import AIImportModal from './shared/AIImportModal'
 import APISettingsDialog from './shared/APISettingsDialog'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 
+type EditMode = 'click' | 'scroll'
+
 export default function WorkspaceV2() {
+  // 编辑模式状态
+  const [editMode, setEditMode] = useState<EditMode>('click')
+  
   // 跟踪编辑状态和保存状态
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [initialResumeData, setInitialResumeData] = useState<any>(null)
@@ -199,6 +204,8 @@ export default function WorkspaceV2() {
         resumeName={resumeData?.basic?.name || '我的简历'}
         pdfBlob={pdfBlob}
         onDownloadPDF={handleDownload}
+        editMode={editMode}
+        onEditModeChange={setEditMode}
       />
 
       {/* 编辑 + 预览三列布局 */}
@@ -234,6 +241,7 @@ export default function WorkspaceV2() {
         progress={progress}
         handleRender={handleRender}
         handleDownload={handleDownload}
+        editMode={editMode}
       />
 
       {/* 隐藏的文件输入（用于导入 JSON） */}

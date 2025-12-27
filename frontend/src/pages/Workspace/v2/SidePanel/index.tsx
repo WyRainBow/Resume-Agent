@@ -42,17 +42,19 @@ function SettingCard({
         'shadow-sm shadow-slate-200/50 dark:shadow-slate-900/50'
       )}
     >
-      <div className="px-4 pt-4 pb-2">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center">
-            <Icon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+      {title && (
+        <div className="px-4 pt-4 pb-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center">
+              <Icon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+              {title}
+            </span>
           </div>
-          <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-            {title}
-          </span>
         </div>
-      </div>
-      <div className="px-4 pb-4">{children}</div>
+      )}
+      <div className={cn("px-4", title ? "pb-4" : "pt-4 pb-4")}>{children}</div>
     </div>
   )
 }
@@ -72,7 +74,7 @@ export function SidePanel({
     <div className="h-full overflow-y-auto">
       <div className="p-4 space-y-4">
         {/* 布局设置 */}
-        <SettingCard icon={Layout} title="模块">
+        <SettingCard icon={Layout} title="">
           <LayoutSetting
             menuSections={menuSections}
             activeSection={activeSection}
