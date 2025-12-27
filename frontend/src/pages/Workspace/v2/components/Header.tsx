@@ -19,12 +19,11 @@ interface HeaderProps {
   resumeName?: string
   pdfBlob?: Blob | null
   onDownloadPDF?: () => void
-  onDownloadHTML?: () => void  // HTML 模板下载 PDF
   editMode?: EditMode
   onEditModeChange?: (mode: EditMode) => void
 }
 
-export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPISettings, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF, onDownloadHTML, editMode, onEditModeChange }: HeaderProps) {
+export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPISettings, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF, editMode, onEditModeChange }: HeaderProps) {
   return (
     <motion.header
       initial={{ opacity: 0, y: -20 }}
@@ -151,7 +150,6 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPI
             onExportJSON={onExportJSON}
             pdfBlob={pdfBlob}
             onDownloadPDF={onDownloadPDF}
-            onDownloadHTML={onDownloadHTML}
           />
         )}
         

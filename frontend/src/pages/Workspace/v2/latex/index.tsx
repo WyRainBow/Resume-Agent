@@ -67,7 +67,6 @@ export default function LaTeXWorkspace() {
     saveSuccess,
     handleRender,
     handleDownload,
-    handleDownloadHTML,
     handleSaveToDashboard,
   } = usePDFOperations({ resumeData, currentResumeId, setCurrentId })
 
@@ -201,7 +200,6 @@ export default function LaTeXWorkspace() {
         resumeName={resumeData?.basic?.name || '我的简历'}
         pdfBlob={pdfBlob}
         onDownloadPDF={handleDownload}
-        onDownloadHTML={handleDownloadHTML}
         editMode={editMode}
         onEditModeChange={setEditMode}
       />
@@ -239,7 +237,6 @@ export default function LaTeXWorkspace() {
         progress={progress}
         handleRender={handleRender}
         handleDownload={handleDownload}
-        handleDownloadHTML={handleDownloadHTML}
         editMode={editMode}
       />
 
