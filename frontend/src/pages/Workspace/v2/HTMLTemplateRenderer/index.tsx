@@ -75,7 +75,7 @@ export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resu
         {/* 工作经历 */}
         {experience.length > 0 && (
           <section className="template-section">
-            <h2 className="section-title">💼 工作经历</h2>
+            <h2 className="section-title">工作经历</h2>
             <div className="section-content">
               {experience.map((exp) => (
                 <div key={exp.id} className="item">
@@ -128,7 +128,7 @@ export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resu
         {/* 开源经历 */}
         {openSource.length > 0 && (
           <section className="template-section">
-            <h2 className="section-title">🔗 开源经历</h2>
+            <h2 className="section-title">开源经历</h2>
             <div className="section-content">
               {openSource.map((os) => (
                 <div key={os.id} className="item">

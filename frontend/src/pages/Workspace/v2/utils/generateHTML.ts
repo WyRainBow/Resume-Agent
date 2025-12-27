@@ -214,7 +214,7 @@ export function generateHTMLFile(resumeData: ResumeData): string {
 
         ${experience.length > 0 ? `
           <section class="template-section">
-            <h2 class="section-title">💼 工作经历</h2>
+            <h2 class="section-title">工作经历</h2>
             <div class="section-content">
               ${experience.map(exp => `
                 <div class="item">
@@ -255,7 +255,7 @@ export function generateHTMLFile(resumeData: ResumeData): string {
 
         ${openSource.length > 0 ? `
           <section class="template-section">
-            <h2 class="section-title">🔗 开源经历</h2>
+            <h2 class="section-title">开源经历</h2>
             <div class="section-content">
               ${openSource.map(os => `
                 <div class="item">
