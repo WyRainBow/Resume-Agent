@@ -7,9 +7,7 @@ import {
   setCurrentResumeId,
   type SavedResume 
 } from '@/services/resumeStorage'
-import { getDefaultTemplate } from '@/services/api'
 import { useNavigate } from 'react-router-dom'
-import type { ResumeData } from '@/pages/Workspace/v2/types'
 
 // 简单的 UUID 生成
 const generateUUID = () => {
@@ -60,16 +58,8 @@ export const useDashboardLogic = () => {
   }, [])
 
   const createResume = () => {
-    const template = getDefaultTemplate()
-    // template 是 ResumeData 格式，直接修改 basic.name
-    const newResume: ResumeData = { ...template, basic: { ...template.basic, name: '未命名简历' } }
-    
-    // 保存到本地存储，saveResume 会自动生成 ID 并返回
-    const saved = saveResume(newResume)
-    
-    // 使用 saveResume 返回的实际 ID（不是自己生成的）
-    setCurrentResumeId(saved.id)
-    navigate('/workspace')
+    // 直接跳转到模板市场，让用户选择模板
+    navigate('/templates')
   };
 
   /** 删除单个简历 */
