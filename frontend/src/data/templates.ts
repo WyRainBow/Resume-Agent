@@ -6,10 +6,13 @@
 import type { ResumeData } from '../pages/Workspace/v2/types'
 import { DEFAULT_RESUME_TEMPLATE } from './defaultTemplate'
 
+export type TemplateType = 'latex' | 'html'
+
 export interface TemplateMetadata {
   id: string
   name: string
   description: string
+  type: TemplateType // 模板类型：latex 或 html
   thumbnail?: string // 预览图 URL（未来可扩展）
   category?: string // 分类（未来可扩展）
   tags?: string[] // 标签（未来可扩展）
@@ -17,15 +20,25 @@ export interface TemplateMetadata {
 
 /**
  * 模板元数据列表
- * 只保留经典模板
+ * 包含 LaTeX 和 HTML 模板
  */
 export const TEMPLATE_METADATA: TemplateMetadata[] = [
   {
     id: 'default',
-    name: '经典模板',
-    description: 'LATEX简历模板：适用于程序员大多数求职场景。包含基本信息、教育经历、实习经历、项目经历等完整模块。',
+    name: '经典模板（LaTeX）',
+    description: 'LATEX简历模板：适用于程序员大多数求职场景',
+    type: 'latex',
     category: '通用',
-    tags: ['标准', '通用', '经典'],
+    tags: ['标准', '通用', '经典', '高质量'],
+    thumbnail: '/templates/PNG/classic.png'
+  },
+  {
+    id: 'html-classic',
+    name: '经典模板（HTML）',
+    description: 'HTML实时编辑模板：支持实时预览',
+    type: 'html',
+    category: '通用',
+    tags: ['实时预览', '快速编辑', '经典'],
     thumbnail: '/templates/PNG/classic.png'
   }
 ]

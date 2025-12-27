@@ -16,6 +16,7 @@ export const initialResumeData: ResumeData = {
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   templateId: null,
+  templateType: 'latex',  // 默认使用 LaTeX 模板
   basic: {
     name: '',
     title: '',
@@ -202,6 +203,7 @@ export const loadFromStorage = (): ResumeData => {
       // 确保新字段存在
       if (!data.openSource) data.openSource = []
       if (!data.awards) data.awards = []
+      if (!data.templateType) data.templateType = 'latex'  // 默认 LaTeX 模板
       return data
     }
   } catch (e) {

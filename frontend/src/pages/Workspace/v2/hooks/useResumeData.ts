@@ -37,6 +37,8 @@ export function useResumeData() {
           education: data.education || prev.education,
           experience: data.experience || prev.experience,
           projects: data.projects || prev.projects,
+          templateType: data.templateType || prev.templateType,  // 保留模板类型
+          templateId: data.templateId || prev.templateId,  // 保留模板 ID
         }))
         setCurrentId(id)
       }

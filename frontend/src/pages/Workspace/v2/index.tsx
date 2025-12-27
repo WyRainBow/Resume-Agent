@@ -124,11 +124,12 @@ export default function WorkspaceV2() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [hasUnsavedChanges])
 
-  // 页面加载时自动渲染 PDF
+  // 页面加载时自动渲染 PDF（仅对 LaTeX 模板）
   useEffect(() => {
     // 延迟100ms，确保页面完全渲染
     const timer = setTimeout(() => {
-      if (!loading && !pdfBlob) {
+      // 只有 LaTeX 模板时才自动渲染 PDF
+      if (!loading && !pdfBlob && resumeData.templateType !== 'html') {
         handleRender()
       }
     }, 100)
