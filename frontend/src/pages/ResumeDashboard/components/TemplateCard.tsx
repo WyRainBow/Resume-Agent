@@ -33,13 +33,29 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
         )}
       >
         <CardContent className="relative flex-1 pt-6 text-center flex flex-col items-center">
-          <motion.div
-            className="mb-4 p-4 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30"
-            whileHover={{ rotate: 360, scale: 1.1 }}
-            transition={{ duration: 0.5 }}
-          >
-            <LayoutGrid className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-          </motion.div>
+          {/* 模板预览图 */}
+          {template.thumbnail ? (
+            <div className="mb-4 w-full h-32 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 relative">
+              <img
+                src={template.thumbnail}
+                alt={template.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  // 如果图片加载失败，显示占位符
+                  const target = e.target as HTMLImageElement
+                  target.src = '/templates/placeholder.svg'
+                }}
+              />
+            </div>
+          ) : (
+            <motion.div
+              className="mb-4 p-4 rounded-full bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30"
+              whileHover={{ rotate: 360, scale: 1.1 }}
+              transition={{ duration: 0.5 }}
+            >
+              <LayoutGrid className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+            </motion.div>
+          )}
           <CardTitle className="text-xl line-clamp-1 text-gray-900 dark:text-gray-100 px-4">
             {template.name}
           </CardTitle>
