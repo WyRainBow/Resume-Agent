@@ -1,11 +1,16 @@
-import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { Download, Copy, Eye, Calendar } from 'lucide-react'
-import { PDFViewer } from '../../components/PDFEditor/PDFViewer'
+import { useState, useEffect, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
+import { Download, Copy, Check, ZoomIn, ZoomOut, Maximize2, FileText, Eye, Calendar, RefreshCw } from 'lucide-react'
+import { cn } from '../lib/utils'
+import { PDFViewerSelector } from '../components/PDFEditor'
+import { renderPDFStream } from '../services/api'
+import { convertToBackendFormat } from './Workspace/v2/utils/convertToBackend'
+import { saveAs } from 'file-saver'
+import type { ResumeData } from './Workspace/v2/types'
 
 interface SharedResume {
   success: boolean
-  data: Record<string, any>
+  data: ResumeData
   name: string
   expires_at: string
   views: number
@@ -13,16 +18,21 @@ interface SharedResume {
 
 export default function SharePage() {
   const { shareId } = useParams<{ shareId: string }>()
-  const navigate = useNavigate()
   const [resume, setResume] = useState<SharedResume | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [pdfBlob, setPdfBlob] = useState<Blob | null>(null)
+  const [pdfLoading, setPdfLoading] = useState(false)
+  const [pdfProgress, setPdfProgress] = useState('')
+  const [zoom, setZoom] = useState(100)
 
   useEffect(() => {
     const fetchSharedResume = async () => {
       try {
-        const response = await fetch(`/api/resume/share/${shareId}`)
+        const API_BASE = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+        const response = await fetch(`${API_BASE}/api/resume/share/${shareId}`)
+        
         if (!response.ok) {
           if (response.status === 404) {
             setError('分享链接不存在或已过期')
@@ -47,33 +57,73 @@ export default function SharePage() {
     }
   }, [shareId])
 
-  const handleDownloadPDF = () => {
-    if (resume) {
-      // 调用 PDF 生成函数
-      const element = document.getElementById('resume-preview')
-      if (element) {
-        const html2pdf = window.html2pdf
-        html2pdf.set({
-          margin: 10,
-          filename: `${resume.name}.pdf`,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2 },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        }).from(element).save()
-      }
+  // 使用正确的 API 渲染 PDF
+  const handleRenderPDF = useCallback(async () => {
+    if (!resume?.data) return
+    
+    setPdfLoading(true)
+    setPdfProgress('正在准备数据...')
+    
+    try {
+      // 使用 convertToBackendFormat 转换数据格式
+      const backendData = convertToBackendFormat(resume.data)
+      setPdfProgress('正在渲染 PDF...')
+      
+      // 使用 renderPDFStream 渲染 PDF
+      const blob = await renderPDFStream(
+        backendData as any,
+        backendData.sectionOrder,
+        (p) => setPdfProgress(p),
+        () => setPdfProgress('渲染完成！'),
+        (err) => setPdfProgress(`错误: ${err}`)
+      )
+      
+      setPdfBlob(blob)
+      setPdfProgress('')
+    } catch (error) {
+      console.error('渲染 PDF 失败:', error)
+      setPdfProgress(`渲染失败: ${(error as Error).message}`)
+    } finally {
+      setPdfLoading(false)
     }
-  }
+  }, [resume?.data])
+
+  // 页面加载时自动渲染 PDF
+  useEffect(() => {
+    if (resume?.data && !pdfBlob && !pdfLoading) {
+      const timer = setTimeout(() => {
+        handleRenderPDF()
+      }, 300) // 延迟300ms确保页面完全加载
+      return () => clearTimeout(timer)
+    }
+  }, [resume?.data]) // 只依赖 resume?.data，避免重复渲染
+
+  const handleDownloadPDF = useCallback(() => {
+    if (!pdfBlob || !resume) return
+    
+    const name = resume.name || '简历'
+    const date = new Date().toISOString().split('T')[0]
+    const filename = `${name}_简历_${date}.pdf`
+    
+    const file = new File([pdfBlob], filename, { type: 'application/pdf' })
+    saveAs(file, filename)
+  }, [pdfBlob, resume])
 
   const handleCopyLink = async () => {
     const currentUrl = window.location.href
-    await navigator.clipboard.writeText(currentUrl)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(currentUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      console.error('复制失败:', error)
+      alert('复制失败，请重试')
+    }
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50/50 to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">正在加载简历...</p>
@@ -84,17 +134,10 @@ export default function SharePage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="text-6xl mb-4">😕</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">出错了</h1>
-          <p className="text-gray-600 mb-8">{error}</p>
-          <button
-            onClick={() => navigate('/')}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            返回首页
-          </button>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50/50 to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950">
+        <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700">
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-2">出错了</h2>
+          <p className="text-slate-600 dark:text-slate-300">{error}</p>
         </div>
       </div>
     )
@@ -105,204 +148,152 @@ export default function SharePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 顶部信息栏 */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-6xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{resume.name}</h1>
-              <div className="flex items-center gap-4 mt-2 text-sm text-gray-600">
-                <div className="flex items-center gap-1">
-                  <Eye className="w-4 h-4" />
-                  <span>{resume.views} 次查看</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Calendar className="w-4 h-4" />
-                  <span>到期时间: {new Date(resume.expires_at).toLocaleDateString()}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              {/* 复制链接按钮 */}
-              <button
-                onClick={handleCopyLink}
-                className="px-4 py-2 bg-gray-200 text-gray-900 rounded-lg hover:bg-gray-300 transition-colors flex items-center gap-2"
-              >
-                <Copy className="w-4 h-4" />
-                {copied ? '已复制' : '复制链接'}
-              </button>
-
-              {/* 下载 PDF 按钮 */}
-              <button
-                onClick={handleDownloadPDF}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                下载 PDF
-              </button>
-            </div>
+    <div className={cn(
+      'w-full h-screen flex flex-col',
+      'bg-gradient-to-br from-slate-50 via-blue-50/50 to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950'
+    )}>
+      {/* 顶部工具栏 */}
+      <div
+        className={cn(
+          'flex items-center justify-between px-6 py-4',
+          'bg-white/70 dark:bg-slate-800/70',
+          'backdrop-blur-md',
+          'border-b border-slate-200/50 dark:border-slate-700/50',
+          'shadow-sm'
+        )}
+      >
+        <div>
+          <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">{resume.name}</h1>
+          <div className="flex items-center gap-4 mt-1 text-xs text-slate-500 dark:text-slate-400">
+            <span className="flex items-center gap-1">
+              <Eye className="w-3.5 h-3.5" />
+              {resume.views} 次查看
+            </span>
+            <span>•</span>
+            <span className="flex items-center gap-1">
+              <Calendar className="w-3.5 h-3.5" />
+              到期: {new Date(resume.expires_at).toLocaleDateString()}
+            </span>
           </div>
         </div>
-      </div>
 
-      {/* 简历内容 */}
-      <div className="max-w-6xl mx-auto px-6 py-10">
-        <div id="resume-preview" className="bg-white rounded-lg shadow-lg p-10">
-          {/* 简历渲染组件 */}
-          <ResumePreview data={resume.data} />
+        <div className="flex items-center gap-3">
+          {/* 复制链接按钮 */}
+          <button
+            onClick={handleCopyLink}
+            className={cn(
+              'px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium',
+              'transition-all duration-200',
+              copied
+                ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
+                : 'bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm border border-slate-200/80 dark:border-slate-600/80 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-500 shadow-sm hover:shadow-md'
+            )}
+          >
+            {copied ? (
+              <>
+                <Check className="w-4 h-4" />
+                已复制
+              </>
+            ) : (
+              <>
+                <Copy className="w-4 h-4" />
+                复制链接
+              </>
+            )}
+          </button>
+
+          {/* 下载 PDF 按钮 */}
+          <button
+            onClick={handleDownloadPDF}
+            disabled={!pdfBlob || pdfLoading}
+            className={cn(
+              'px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium',
+              'bg-blue-600 text-white',
+              'hover:bg-blue-700',
+              'shadow-sm hover:shadow-md',
+              'disabled:opacity-50 disabled:cursor-not-allowed',
+              'transition-all duration-200',
+              'hover:scale-[1.02] active:scale-[0.98]',
+              'disabled:hover:scale-100'
+            )}
+          >
+            <Download className="w-4 h-4" />
+            下载 PDF
+          </button>
         </div>
       </div>
 
-      {/* 底部提示 */}
-      <div className="bg-blue-50 border-t border-blue-200 py-6 mt-10">
-        <div className="max-w-6xl mx-auto px-6 text-center">
-          <p className="text-gray-600">
-            这是一份通过分享链接查看的简历。
-            <br />
-            链接将在 {new Date(resume.expires_at).toLocaleDateString()} 后失效。
-          </p>
+      {/* PDF 预览区域 - 直接复制 PreviewPanel 的样式 */}
+      <div className="flex-1 overflow-auto p-4 bg-slate-100 dark:bg-slate-900/50 flex flex-col">
+        {/* 缩放控制 */}
+        <div className="flex justify-center mb-4">
+          <div className="flex items-center gap-1 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm rounded-xl px-2 py-1 border border-slate-200/50 dark:border-slate-600/50">
+            <button
+              onClick={() => setZoom(Math.max(50, zoom - 10))}
+              className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors text-slate-600 dark:text-slate-300"
+            >
+              <ZoomOut className="w-4 h-4" />
+            </button>
+            <span className="text-sm font-medium text-slate-600 dark:text-slate-300 min-w-[4ch] text-center tabular-nums">
+              {zoom}%
+            </span>
+            <button
+              onClick={() => setZoom(Math.min(200, zoom + 10))}
+              className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors text-slate-600 dark:text-slate-300"
+            >
+              <ZoomIn className="w-4 h-4" />
+            </button>
+            <div className="w-px h-5 bg-slate-200 dark:bg-slate-600 mx-1" />
+            <button
+              onClick={() => setZoom(100)}
+              className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors text-slate-600 dark:text-slate-300"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-      </div>
-    </div>
-  )
-}
 
-// 简历预览组件
-function ResumePreview({ data }: { data: Record<string, any> }) {
-  return (
-    <div className="space-y-8">
-      {/* 姓名和联系方式 */}
-      {data.name && (
-        <div className="text-center pb-6 border-b-2 border-gray-200">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">{data.name}</h1>
-          {data.contact && (
-            <div className="flex items-center justify-center gap-6 text-gray-600">
-              {data.contact.phone && <span>📞 {data.contact.phone}</span>}
-              {data.contact.email && <span>📧 {data.contact.email}</span>}
+        {/* PDF 内容 */}
+        <div className="flex-1 overflow-auto flex justify-center">
+          {pdfBlob ? (
+            <div
+              style={{
+                width: 'fit-content',
+                maxWidth: '100%',
+                transform: `scale(${zoom / 100})`,
+                transformOrigin: 'top center',
+              }}
+            >
+              <PDFViewerSelector pdfBlob={pdfBlob} scale={1.0} />
+            </div>
+          ) : (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                {pdfLoading ? (
+                  <>
+                    <RefreshCw className="w-12 h-12 mx-auto mb-4 text-blue-500 animate-spin" />
+                    <p className="text-lg font-medium text-slate-500 dark:text-slate-400 mb-2">
+                      {pdfProgress || '正在生成 PDF 预览...'}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center">
+                      <FileText className="w-10 h-10 text-slate-400 dark:text-slate-500" />
+                    </div>
+                    <p className="text-lg font-medium text-slate-500 dark:text-slate-400 mb-2">
+                      {pdfProgress || '正在准备 PDF 预览'}
+                    </p>
+                    <p className="text-sm text-slate-400 dark:text-slate-500">
+                      请稍候...
+                    </p>
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>
-      )}
-
-      {/* 求职意向 */}
-      {data.summary && (
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 mb-3">求职意向</h2>
-          <p className="text-gray-700">{data.summary}</p>
-        </div>
-      )}
-
-      {/* 教育经历 */}
-      {data.education && data.education.length > 0 && (
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 mb-3">教育经历</h2>
-          <div className="space-y-3">
-            {data.education.map((edu: any, idx: number) => (
-              <div key={idx}>
-                <div className="font-bold text-gray-900">
-                  {edu.title}
-                  {edu.subtitle && ` - ${edu.subtitle}`}
-                </div>
-                <div className="text-sm text-gray-600">{edu.date}</div>
-                {edu.details && (
-                  <ul className="list-disc list-inside text-gray-700 mt-1">
-                    {edu.details.map((detail: string, i: number) => (
-                      <li key={i}>{detail}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 工作经历 */}
-      {data.experience && data.experience.length > 0 && (
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 mb-3">工作经历</h2>
-          <div className="space-y-4">
-            {data.experience.map((exp: any, idx: number) => (
-              <div key={idx}>
-                <div className="font-bold text-gray-900">
-                  {exp.title}
-                  {exp.subtitle && ` - ${exp.subtitle}`}
-                </div>
-                <div className="text-sm text-gray-600">{exp.date}</div>
-                {exp.highlights && (
-                  <ul className="list-disc list-inside text-gray-700 mt-2">
-                    {exp.highlights.map((highlight: string, i: number) => (
-                      <li key={i}>{highlight}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 项目经历 */}
-      {data.projects && data.projects.length > 0 && (
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 mb-3">项目经历</h2>
-          <div className="space-y-4">
-            {data.projects.map((proj: any, idx: number) => (
-              <div key={idx}>
-                <div className="font-bold text-gray-900">
-                  {proj.title}
-                  {proj.subtitle && ` - ${proj.subtitle}`}
-                </div>
-                <div className="text-sm text-gray-600">{proj.date}</div>
-                {proj.description && (
-                  <p className="text-gray-700 mt-2">{proj.description}</p>
-                )}
-                {proj.highlights && (
-                  <ul className="list-disc list-inside text-gray-700 mt-2">
-                    {proj.highlights.map((highlight: string, i: number) => (
-                      <li key={i}>{highlight}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 技能 */}
-      {data.skills && data.skills.length > 0 && (
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 mb-3">技能</h2>
-          <div className="flex flex-wrap gap-2">
-            {data.skills.map((skill: any, idx: number) => (
-              <span
-                key={idx}
-                className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
-              >
-                {typeof skill === 'string' ? skill : `${skill.category}: ${skill.details}`}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 奖项 */}
-      {data.awards && data.awards.length > 0 && (
-        <div>
-          <h2 className="text-lg font-bold text-gray-900 mb-3">奖项</h2>
-          <ul className="list-disc list-inside space-y-1">
-            {data.awards.map((award: any, idx: number) => (
-              <li key={idx} className="text-gray-700">
-                {typeof award === 'string' ? award : award.title}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      </div>
     </div>
   )
 }
-
