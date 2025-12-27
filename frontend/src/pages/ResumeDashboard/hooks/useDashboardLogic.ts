@@ -5,6 +5,7 @@ import {
   duplicateResume as duplicateResumeService,
   saveResume,
   setCurrentResumeId,
+  getResume,
   type SavedResume 
 } from '@/services/resumeStorage'
 import { useNavigate } from 'react-router-dom'
@@ -85,7 +86,23 @@ export const useDashboardLogic = () => {
 
   const editResume = (id: string) => {
     setCurrentResumeId(id)
-    navigate('/workspace')
+    
+    // 获取简历数据，根据模板类型跳转到对应的工作区
+    const saved = getResume(id)
+    if (saved && saved.data) {
+      const data = saved.data as any
+      const templateType = data.templateType || 'latex' // 默认为 latex
+      
+      // 根据模板类型跳转到对应的工作区
+      if (templateType === 'html') {
+        navigate('/workspace/html')
+      } else {
+        navigate('/workspace/latex')
+      }
+    } else {
+      // 如果没有找到简历数据，默认跳转到 latex 工作区
+      navigate('/workspace/latex')
+    }
   }
 
   const importJson = async () => {
