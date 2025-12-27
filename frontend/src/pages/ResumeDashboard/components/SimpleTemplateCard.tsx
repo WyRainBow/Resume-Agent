@@ -56,7 +56,7 @@ export const SimpleTemplateCard: React.FC<SimpleTemplateCardProps> = ({
             <img
               src={imageSrc}
               alt={template.name}
-              className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105"
+              className="w-full h-full object-contain p-6 transition-transform duration-300 group-hover:scale-105"
               onError={(e) => {
                 const target = e.target as HTMLImageElement
                 target.src = '/templates/placeholder.svg'
@@ -71,8 +71,8 @@ export const SimpleTemplateCard: React.FC<SimpleTemplateCardProps> = ({
         )}
         
         {/* 底部标签 */}
-        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700">
-          <p className="text-center text-sm font-medium text-gray-700 dark:text-gray-300">
+        <div className="px-4 py-4 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700">
+          <p className="text-center text-base font-semibold text-gray-700 dark:text-gray-300">
             {mainTag}
           </p>
         </div>
