@@ -15,6 +15,25 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
   template, 
   onSelect 
 }) => {
+  // 处理图片路径，确保中文路径正确编码
+  const getImageSrc = () => {
+    if (!template.thumbnail) return null
+    // 如果路径包含中文，需要编码
+    try {
+      // 分离路径和文件名
+      const parts = template.thumbnail.split('/')
+      const filename = parts[parts.length - 1]
+      const dir = parts.slice(0, -1).join('/')
+      // 只编码文件名部分
+      const encodedFilename = encodeURIComponent(filename)
+      return `${dir}/${encodedFilename}`
+    } catch {
+      return template.thumbnail
+    }
+  }
+
+  const imageSrc = getImageSrc()
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -34,16 +53,20 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
       >
         <CardContent className="relative flex-1 pt-6 text-center flex flex-col items-center">
           {/* 模板预览图 */}
-          {template.thumbnail ? (
-            <div className="mb-4 w-full h-32 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 relative">
+          {imageSrc ? (
+            <div className="mb-4 w-full h-48 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 relative">
               <img
-                src={template.thumbnail}
+                src={imageSrc}
                 alt={template.name}
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
                 onError={(e) => {
                   // 如果图片加载失败，显示占位符
                   const target = e.target as HTMLImageElement
                   target.src = '/templates/placeholder.svg'
+                  console.error('Failed to load template thumbnail:', imageSrc)
+                }}
+                onLoad={() => {
+                  console.log('Template thumbnail loaded:', imageSrc)
                 }}
               />
             </div>
