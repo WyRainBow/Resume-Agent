@@ -2,8 +2,9 @@
  * 编辑面板组件（第二列）
  * 根据当前选中的模块动态渲染对应的编辑面板
  */
+import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Pencil } from 'lucide-react'
+import { Pencil, Check, X } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { MenuSection, ResumeData, BasicInfo, Project, Experience, Education, OpenSource, Award, GlobalSettings } from '../types'
 import BasicPanel from './BasicPanel'
@@ -67,6 +68,42 @@ export function EditPanel({
   updateGlobalSettings,
   onAIImport,
 }: EditPanelProps) {
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+
+  // 获取当前模块信息
+  const currentSection = menuSections.find((s) => s.id === activeSection)
+
+  // 点击铅笔图标进入编辑模式
+  const handleEditClick = () => {
+    setEditTitle(currentSection?.title || '')
+    setIsEditingTitle(true)
+  }
+
+  // 确认编辑
+  const handleConfirm = () => {
+    const newSections = menuSections.map((s) =>
+      s.id === activeSection ? { ...s, title: editTitle } : s
+    )
+    updateMenuSections(newSections)
+    setIsEditingTitle(false)
+  }
+
+  // 取消编辑
+  const handleCancel = () => {
+    setIsEditingTitle(false)
+    setEditTitle('')
+  }
+
+  // 处理 Enter 和 Escape 快捷键
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleConfirm()
+    } else if (e.key === 'Escape') {
+      handleCancel()
+    }
+  }
+
   // 根据 activeSection 渲染对应面板
   const renderFields = () => {
     switch (activeSection) {
@@ -158,9 +195,6 @@ export function EditPanel({
     }
   }
 
-  // 获取当前模块信息
-  const currentSection = menuSections.find((s) => s.id === activeSection)
-
   return (
     <motion.div
       className={cn(
@@ -185,27 +219,48 @@ export function EditPanel({
               <span className="text-lg font-semibold text-primary">
                 {currentSection?.title}
               </span>
-            ) : (
+            ) : isEditingTitle ? (
               <div className="flex items-center flex-1 gap-2">
                 <input
+                  autoFocus
                   className={cn(
                     'flex-1 text-lg font-medium bg-transparent outline-none text-primary',
-                    'border-b-2 border-transparent focus:border-primary pb-1',
-                    'px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-neutral-800',
-                    'transition-colors cursor-text'
+                    'border-b-2 border-primary pb-1',
+                    'px-2 py-1'
                   )}
                   type="text"
-                  value={currentSection?.title || ''}
-                  onChange={(e) => {
-                    const newSections = menuSections.map((s) =>
-                      s.id === activeSection ? { ...s, title: e.target.value } : s
-                    )
-                    updateMenuSections(newSections)
-                  }}
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   onClick={(e) => e.stopPropagation()}
-                  onFocus={(e) => e.stopPropagation()}
                 />
-                <Pencil size={16} className="text-primary flex-shrink-0" />
+                <button
+                  onClick={handleConfirm}
+                  className="text-green-600 hover:text-green-700 flex-shrink-0 transition-colors"
+                  title="确认"
+                >
+                  <Check size={18} />
+                </button>
+                <button
+                  onClick={handleCancel}
+                  className="text-red-600 hover:text-red-700 flex-shrink-0 transition-colors"
+                  title="取消"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center flex-1 gap-2">
+                <span className="text-lg font-semibold text-primary flex-1">
+                  {currentSection?.title}
+                </span>
+                <button
+                  onClick={handleEditClick}
+                  className="text-primary hover:text-primary/80 flex-shrink-0 transition-colors"
+                  title="编辑标题"
+                >
+                  <Pencil size={18} />
+                </button>
               </div>
             )}
           </div>
@@ -227,5 +282,3 @@ export function EditPanel({
 }
 
 export default EditPanel
-
-
