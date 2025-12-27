@@ -33,7 +33,7 @@ export default function FormatLayoutDialog({
   const [isAIProcessing, setIsAIProcessing] = useState(false)
   const [formattedContent, setFormattedContent] = useState('')
   const [currentFormat, setCurrentFormat] = useState<ContentFormat>('unknown')
-  const [targetFormat, setTargetFormat] = useState<'paragraph' | 'list'>('paragraph')
+  const [targetFormat, setTargetFormat] = useState<'paragraph' | 'list'>('list')
   const [useOrderedList, setUseOrderedList] = useState(false)
   const [isCompleted, setIsCompleted] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
