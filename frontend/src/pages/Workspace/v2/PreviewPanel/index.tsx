@@ -73,21 +73,24 @@ export function PreviewPanel({
               <span className="px-3 py-1 text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
                 实时预览
               </span>
-              {/* HTML 下载按钮 */}
+              {/* HTML 模板下载 PDF 按钮 */}
               <button
                 onClick={onDownloadHTML}
+                disabled={loading}
                 className={cn(
                   'px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium',
                   'bg-gradient-to-r from-emerald-400 to-teal-400',
                   'hover:from-emerald-300 hover:to-teal-300',
                   'text-white font-semibold',
                   'shadow-lg shadow-emerald-300/40 hover:shadow-xl hover:shadow-emerald-300/50',
+                  'disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-lg',
                   'transition-all duration-200',
-                  'hover:scale-[1.02] active:scale-[0.98]'
+                  'hover:scale-[1.02] active:scale-[0.98]',
+                  'disabled:hover:scale-100'
                 )}
               >
                 <Download className="w-4 h-4" />
-                下载 HTML
+                {loading ? '生成中...' : '下载 PDF'}
               </button>
             </>
           )}
@@ -145,12 +148,12 @@ export function PreviewPanel({
       </div>
 
       {/* 进度提示 */}
-      {loading && progress && !isHTMLTemplate && (
+      {loading && progress && (
         <div className={cn(
           "px-4 py-2.5 text-sm font-medium flex items-center gap-2",
-          "bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20",
-          "text-indigo-600 dark:text-indigo-400",
-          "border-b border-indigo-100 dark:border-indigo-800/30"
+          isHTMLTemplate 
+            ? "bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 text-emerald-600 dark:text-emerald-400 border-b border-emerald-100 dark:border-emerald-800/30"
+            : "bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 text-indigo-600 dark:text-indigo-400 border-b border-indigo-100 dark:border-indigo-800/30"
         )}>
           <Sparkles className="w-4 h-4 animate-pulse" />
           {progress}

@@ -3,6 +3,7 @@
  */
 import { useState, useCallback } from 'react'
 import { saveAs } from 'file-saver'
+import html2pdf from 'html2pdf.js'
 import { renderPDFStream } from '../../../../services/api'
 import { saveResume, setCurrentResumeId } from '../../../../services/resumeStorage'
 import { convertToBackendFormat } from '../utils/convertToBackend'
@@ -60,15 +61,88 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
     saveAs(file, filename)
   }, [pdfBlob, resumeData.basic.name])
 
-  // 下载 HTML
-  const handleDownloadHTML = useCallback(() => {
-    const htmlContent = generateHTMLFile(resumeData)
-    const name = resumeData.basic.name || '简历'
-    const date = new Date().toISOString().split('T')[0]
-    const filename = `${name}_简历_${date}.html`
+  // 下载 HTML 为 PDF
+  const handleDownloadHTML = useCallback(async () => {
+    setLoading(true)
+    setProgress('正在生成 PDF...')
 
-    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
-    saveAs(blob, filename)
+    try {
+      const htmlContent = generateHTMLFile(resumeData)
+      const name = resumeData.basic.name || '简历'
+      const date = new Date().toISOString().split('T')[0]
+      const filename = `${name}_简历_${date}.pdf`
+
+      // 使用 DOMParser 解析完整的 HTML 文档
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(htmlContent, 'text/html')
+      
+      // 创建临时容器并隐藏
+      const tempDiv = document.createElement('div')
+      tempDiv.style.position = 'absolute'
+      tempDiv.style.left = '-9999px'
+      tempDiv.style.top = '-9999px'
+      tempDiv.style.width = '850px' // 匹配 HTML 容器的 max-width
+      tempDiv.style.backgroundColor = 'white'
+      
+      // 将解析后的 body 内容复制到临时容器
+      if (doc.body) {
+        // 复制所有样式（从 head 中的 style 标签）
+        const styles = doc.head.querySelectorAll('style')
+        styles.forEach(style => {
+          const styleElement = document.createElement('style')
+          styleElement.textContent = style.textContent
+          tempDiv.appendChild(styleElement)
+        })
+        
+        // 复制 body 内容
+        while (doc.body.firstChild) {
+          tempDiv.appendChild(doc.body.firstChild.cloneNode(true))
+        }
+      } else {
+        // 如果解析失败，直接使用 innerHTML
+        tempDiv.innerHTML = htmlContent
+      }
+      
+      document.body.appendChild(tempDiv)
+
+      // 等待内容渲染和样式应用
+      await new Promise(resolve => setTimeout(resolve, 200))
+
+      // 获取要转换的元素
+      const element = tempDiv.querySelector('.html-template-container') || tempDiv
+
+      // 配置 html2pdf 选项
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          windowWidth: 850,
+          backgroundColor: '#ffffff',
+        },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'portrait',
+        },
+      }
+
+      // 转换为 PDF 并下载
+      await html2pdf().set(opt).from(element).save()
+
+      // 清理临时元素
+      document.body.removeChild(tempDiv)
+      
+      setProgress('')
+    } catch (error) {
+      console.error('HTML 转 PDF 失败:', error)
+      setProgress(`转换失败: ${(error as Error).message}`)
+    } finally {
+      setLoading(false)
+    }
   }, [resumeData])
 
   // 保存到 Dashboard
