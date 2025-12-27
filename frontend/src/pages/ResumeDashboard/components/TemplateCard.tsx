@@ -6,11 +6,13 @@ import { LayoutGrid } from './Icons'
 import { cn } from '@/lib/utils'
 import type { TemplateMetadata } from '@/data/templates'
 import classicImage from '@/assets/images/templates/classic.png'
+import htmlImage from '@/assets/images/templates/html.png'
 
 // 模板图片映射
 const templateImages: Record<string, string> = {
   default: classicImage,
   classic: classicImage,
+  'html-classic': htmlImage,
 }
 
 interface TemplateCardProps {
