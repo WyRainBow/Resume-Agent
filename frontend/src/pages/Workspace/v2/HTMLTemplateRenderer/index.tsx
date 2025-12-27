@@ -38,7 +38,7 @@ export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resu
         {/* 专业技能 */}
         {resumeData.skillContent && (
           <section className="template-section">
-            <h2 className="section-title">🎯 专业技能</h2>
+            <h2 className="section-title">专业技能</h2>
             <div
               className="section-content"
               dangerouslySetInnerHTML={{ __html: resumeData.skillContent }}
