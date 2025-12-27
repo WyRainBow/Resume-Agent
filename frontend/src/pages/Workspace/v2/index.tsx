@@ -111,7 +111,7 @@ export default function WorkspaceV2() {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
         e.preventDefault()
-        e.returnValue = '记得保存简历'
+        e.returnValue = '记得保存简历的修改'
       }
     }
 
