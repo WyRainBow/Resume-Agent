@@ -13,7 +13,7 @@ interface ExportButtonProps {
   onExportJSON?: () => void
   pdfBlob?: Blob | null
   onDownloadPDF?: () => void
-  onDownloadHTML?: () => void  // HTML 模板下载 PDF
+  onDownloadHTML?: () => void | Promise<void>  // HTML 模板下载 PDF（支持异步）
 }
 
 export function ExportButton({ 
@@ -43,7 +43,19 @@ export function ExportButton({
       if (isHTMLTemplate) {
         // HTML 模板：直接调用 HTML 下载函数（可以直接生成 PDF）
         if (onDownloadHTML) {
-          onDownloadHTML()
+          try {
+            await onDownloadHTML()
+            setIsOpen(false)
+            return
+          } catch (error) {
+            console.error('HTML 转 PDF 失败:', error)
+            alert('PDF 导出失败，请重试')
+            setIsOpen(false)
+            return
+          }
+        } else {
+          console.error('onDownloadHTML 函数未传递')
+          alert('导出功能未正确配置，请刷新页面重试')
           setIsOpen(false)
           return
         }
