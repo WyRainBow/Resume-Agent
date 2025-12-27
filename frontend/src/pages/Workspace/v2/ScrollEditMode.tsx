@@ -2,7 +2,9 @@
  * 滚动编辑模式组件
  * 所有模块在一个页面中从上到下排列，可以滚动查看和编辑
  */
+import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { Pencil, Check, X } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import type { ResumeData, MenuSection, GlobalSettings, BasicInfo, Project, Experience, Education, OpenSource, Award } from './types'
 import BasicPanel from './EditPanel/BasicPanel'
@@ -34,6 +36,7 @@ interface ScrollEditModeProps {
   reorderAwards: (awards: Award[]) => void
   updateSkillContent: (content: string) => void
   updateGlobalSettings: (settings: Partial<GlobalSettings>) => void
+  updateMenuSections: (sections: MenuSection[]) => void
   handleAIImport?: (section: string) => void
 }
 
@@ -58,25 +61,57 @@ export default function ScrollEditMode({
   reorderAwards,
   updateSkillContent,
   updateGlobalSettings,
+  updateMenuSections,
   handleAIImport,
 }: ScrollEditModeProps) {
-  // 定义模块显示顺序（按照用户要求：教育经历、实习经历、工作经历等从上到下）
-  const sectionOrder = [
-    'basic',      // 基本信息（通常在最前面）
-    'education',  // 教育经历（第一个）
-    'experience', // 实习经历/工作经历（第二个）
-    'projects',   // 项目经历（第三个）
-    'skills',     // 技能
-    'openSource', // 开源经历
-    'awards',     // 荣誉奖项
-  ]
+  // 根据 menuSections 的顺序获取启用的模块（排除 basic，因为它在 header 中）
+  const enabledSections = menuSections
+    .filter(section => section.id !== 'basic' && section.enabled)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  
+  // 跟踪正在编辑的模块 ID
+  const [editingSectionId, setEditingSectionId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState<string>('')
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  // 获取启用的模块，按顺序排列
-  const enabledSections = sectionOrder
-    .map(id => menuSections.find(s => s.id === id))
-    .filter((section): section is MenuSection => 
-      section !== undefined && section.enabled
+  // 当进入编辑模式时，聚焦输入框
+  useEffect(() => {
+    if (editingSectionId && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editingSectionId])
+
+  // 开始编辑标题
+  const handleStartEdit = (section: MenuSection) => {
+    if (section.id === 'basic') return // 基本信息不可编辑
+    setEditingSectionId(section.id)
+    setEditingTitle(section.title)
+  }
+
+  // 保存标题
+  const handleSaveTitle = (sectionId: string) => {
+    if (!editingTitle.trim()) {
+      // 如果标题为空，恢复原值
+      const section = menuSections.find(s => s.id === sectionId)
+      setEditingTitle(section?.title || '')
+      setEditingSectionId(null)
+      return
+    }
+    
+    const newSections = menuSections.map(s =>
+      s.id === sectionId ? { ...s, title: editingTitle.trim() } : s
     )
+    updateMenuSections(newSections)
+    setEditingSectionId(null)
+  }
+
+  // 取消编辑
+  const handleCancelEdit = (sectionId: string) => {
+    const section = menuSections.find(s => s.id === sectionId)
+    setEditingTitle(section?.title || '')
+    setEditingSectionId(null)
+  }
 
   const renderSection = (section: MenuSection) => {
     switch (section.id) {
@@ -170,7 +205,7 @@ export default function ScrollEditMode({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: index * 0.05 }}
             className={cn(
-              'rounded-2xl border overflow-hidden shadow-sm',
+              'rounded-2xl border overflow-hidden shadow-sm group',
               'bg-white border-slate-200',
               'dark:bg-slate-900 dark:border-slate-700',
               'hover:shadow-md transition-shadow duration-200'
@@ -185,9 +220,74 @@ export default function ScrollEditMode({
             )}>
               <div className="flex items-center gap-3">
                 <span className="text-2xl">{section.icon}</span>
-                <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-                  {section.title}
-                </h2>
+                {editingSectionId === section.id ? (
+                  // 编辑模式
+                  <div className="flex items-center gap-2 flex-1">
+                    <input
+                      ref={inputRef}
+                      type="text"
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleSaveTitle(section.id)
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault()
+                          handleCancelEdit(section.id)
+                        }
+                      }}
+                      onBlur={() => handleSaveTitle(section.id)}
+                      className={cn(
+                        'flex-1 text-xl font-bold bg-transparent outline-none',
+                        'text-slate-900 dark:text-slate-100',
+                        'border-b-2 border-primary pb-1'
+                      )}
+                    />
+                    <button
+                      onClick={() => handleSaveTitle(section.id)}
+                      className={cn(
+                        'p-1.5 rounded-md',
+                        'hover:bg-green-100 dark:hover:bg-green-900/30',
+                        'text-green-600 dark:text-green-400',
+                        'transition-colors'
+                      )}
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleCancelEdit(section.id)}
+                      className={cn(
+                        'p-1.5 rounded-md',
+                        'hover:bg-red-100 dark:hover:bg-red-900/30',
+                        'text-red-600 dark:text-red-400',
+                        'transition-colors'
+                      )}
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ) : (
+                  // 显示模式
+                  <div className="flex items-center gap-2 flex-1">
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex-1">
+                      {section.title}
+                    </h2>
+                    {section.id !== 'basic' && (
+                      <button
+                        onClick={() => handleStartEdit(section)}
+                        className={cn(
+                          'p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity',
+                          'hover:bg-slate-100 dark:hover:bg-slate-700',
+                          'text-slate-600 dark:text-slate-400'
+                        )}
+                        title="编辑标题"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

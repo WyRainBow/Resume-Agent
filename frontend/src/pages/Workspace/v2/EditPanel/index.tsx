@@ -186,11 +186,13 @@ export function EditPanel({
                 {currentSection?.title}
               </span>
             ) : (
-              <div className="flex items-center flex-1">
+              <div className="flex items-center flex-1 gap-2">
                 <input
                   className={cn(
                     'flex-1 text-lg font-medium bg-transparent outline-none text-primary',
-                    'border-b border-transparent focus:border-primary pb-1'
+                    'border-b-2 border-transparent focus:border-primary pb-1',
+                    'px-2 py-1 rounded hover:bg-gray-50 dark:hover:bg-neutral-800',
+                    'transition-colors cursor-text'
                   )}
                   type="text"
                   value={currentSection?.title || ''}
@@ -200,8 +202,10 @@ export function EditPanel({
                     )
                     updateMenuSections(newSections)
                   }}
+                  onClick={(e) => e.stopPropagation()}
+                  onFocus={(e) => e.stopPropagation()}
                 />
-                <Pencil size={16} className="text-primary ml-2" />
+                <Pencil size={16} className="text-primary flex-shrink-0" />
               </div>
             )}
           </div>
