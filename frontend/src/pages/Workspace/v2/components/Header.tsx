@@ -19,7 +19,7 @@ interface HeaderProps {
   resumeName?: string
   pdfBlob?: Blob | null
   onDownloadPDF?: () => void
-  onDownloadHTML?: () => void | Promise<void>  // HTML 模板下载 PDF（支持异步）
+  onDownloadHTML?: () => void  // HTML 模板下载 PDF
   editMode?: EditMode
   onEditModeChange?: (mode: EditMode) => void
 }

@@ -13,7 +13,7 @@ interface ExportButtonProps {
   onExportJSON?: () => void
   pdfBlob?: Blob | null
   onDownloadPDF?: () => void
-  onDownloadHTML?: () => void | Promise<void>  // HTML 模板下载 PDF（支持异步）
+  onDownloadHTML?: () => void  // HTML 模板下载 PDF
 }
 
 export function ExportButton({ 
@@ -32,56 +32,34 @@ export function ExportButton({
   const menuRef = useRef<HTMLDivElement>(null)
 
   // 导出 PDF - 根据模板类型选择不同的处理方式
-  const handleExportPDF = async () => {
-    try {
-      setIsExporting(true)
-      
-      // 检查是否为 HTML 模板
-      const templateType = resumeData?.templateType
-      const isHTMLTemplate = templateType === 'html'
-      
-      if (isHTMLTemplate) {
-        // HTML 模板：直接调用 HTML 下载函数（可以直接生成 PDF）
-        if (onDownloadHTML) {
-          try {
-            await onDownloadHTML()
-            setIsOpen(false)
-            return
-          } catch (error) {
-            console.error('HTML 转 PDF 失败:', error)
-            alert('PDF 导出失败，请重试')
-            setIsOpen(false)
-            return
-          }
-        } else {
-          console.error('onDownloadHTML 函数未传递')
-          alert('导出功能未正确配置，请刷新页面重试')
-          setIsOpen(false)
-          return
-        }
-      } else {
-        // LaTeX 模板：需要先渲染 PDF
-        // 如果有 pdfBlob，直接下载（用户已经渲染过 PDF）
-        if (pdfBlob && onDownloadPDF) {
-          onDownloadPDF()
-          setIsOpen(false)
-          return
-        }
-        
-        // 如果没有 pdfBlob，提示用户先渲染 PDF
-        if (!pdfBlob) {
-          alert('请先点击"渲染 PDF"按钮生成 PDF，然后再下载')
-          setIsOpen(false)
-          return
-        }
+  const handleExportPDF = () => {
+    // 检查是否为 HTML 模板
+    const templateType = resumeData?.templateType
+    const isHTMLTemplate = templateType === 'html'
+    
+    // 先关闭菜单
+    setIsOpen(false)
+    
+    if (isHTMLTemplate) {
+      // HTML 模板：延迟执行下载，让菜单先关闭
+      if (onDownloadHTML) {
+        setTimeout(() => {
+          onDownloadHTML()
+        }, 50)
       }
-      
-      setIsOpen(false)
-    } catch (error) {
-      console.error('PDF 导出失败:', error)
-      alert('PDF 导出失败，请重试')
-    } finally {
-      setIsExporting(false)
+      return
+    }
+    
+    // LaTeX 模板：需要先渲染 PDF
+    if (pdfBlob && onDownloadPDF) {
+      onDownloadPDF()
+      return
+    }
+    
+    // 如果没有 pdfBlob，提示用户先渲染 PDF
+    if (!pdfBlob) {
+      alert('请先点击"渲染 PDF"按钮生成 PDF，然后再下载')
+      return
     }
   }
 
