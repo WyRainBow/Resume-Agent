@@ -163,7 +163,7 @@ export default function WorkspaceV2() {
       try {
         const text = e.target?.result as string
         const importedData = JSON.parse(text)
-        
+
         // 验证数据格式（基本检查）
         if (typeof importedData === 'object' && importedData !== null) {
           setResumeData(importedData)
@@ -180,34 +180,28 @@ export default function WorkspaceV2() {
       alert('读取文件失败，请重试')
     }
     reader.readAsText(file)
-    
+
     // 清空 input，以便可以重复选择同一文件
     event.target.value = ''
   }
 
   return (
     <WorkspaceLayout>
-      {/* 顶部导航 */}
-      <div className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 shrink-0">
-        <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
-          <span>编辑区</span>
-        </div>
+      {/* 顶部导航栏 */}
+      <Header
+        saveSuccess={saveSuccess}
+        onGlobalAIImport={handleGlobalAIImport}
+        onSaveToDashboard={handleSaveToDashboard}
+        onAPISettings={() => setApiSettingsOpen(true)}
+        onExportJSON={handleExportJSON}
+        onImportJSON={handleImportJSON}
+        resumeData={resumeData}
+        resumeName={resumeData?.basic?.name || '我的简历'}
+        pdfBlob={pdfBlob}
+        onDownloadPDF={handleDownload}
+      />
 
-        <Header
-          saveSuccess={saveSuccess}
-          onGlobalAIImport={handleGlobalAIImport}
-          onSaveToDashboard={handleSaveToDashboard}
-          onAPISettings={() => setApiSettingsOpen(true)}
-          onExportJSON={handleExportJSON}
-          onImportJSON={handleImportJSON}
-          resumeData={resumeData}
-          resumeName={resumeData?.basic?.name || '我的简历'}
-          pdfBlob={pdfBlob}
-          onDownloadPDF={handleDownload}
-        />
-      </div>
-
-      {/* 编辑 + 预览两列布局 */}
+      {/* 编辑 + 预览三列布局 */}
       <EditPreviewLayout
         resumeData={resumeData}
         activeSection={activeSection}

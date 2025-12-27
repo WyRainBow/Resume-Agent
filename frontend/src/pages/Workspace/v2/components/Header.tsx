@@ -26,11 +26,9 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPI
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
       className={cn(
-        'relative z-20 h-16 flex items-center justify-end px-6',
-        'bg-white/70 dark:bg-slate-900/70',
-        'backdrop-blur-xl backdrop-saturate-150',
-        'border-b border-white/50 dark:border-slate-700/50',
-        'shadow-[0_4px_30px_rgba(0,0,0,0.05)]'
+        'relative z-20 h-16 flex items-center justify-end px-4 shrink-0',
+        'bg-white dark:bg-slate-900',
+        'border-b border-slate-200 dark:border-slate-800'
       )}
     >
       {/* Action Buttons */}

@@ -1,14 +1,17 @@
 /**
- * 可拖拽三列布局组件
+ * 编辑区三列布局（在 WorkspaceLayout 的基础上）：
+ * 第一列：模块选择（窄，约 280px）
+ * 第二列：详细编辑面板（可调整宽度）
+ * 第三列：预览面板（占据剩余空间）
  */
-import { useState, useRef, useCallback, useEffect } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { cn } from '../../../lib/utils'
-import SidePanel from './SidePanel'
 import EditPanel from './EditPanel'
 import PreviewPanel from './PreviewPanel'
+import { SidePanel } from './SidePanel'
 import type { ResumeData, MenuSection, GlobalSettings, BasicInfo, Project, Experience, Education, OpenSource, Award } from './types'
 
-interface ResizableLayoutProps {
+interface EditPreviewLayoutProps {
   resumeData: ResumeData
   activeSection: string
   setActiveSection: (id: string) => void
@@ -43,12 +46,12 @@ interface ResizableLayoutProps {
 }
 
 // 拖拽分隔线组件
-function DragHandle({ 
-  onDrag, 
-  className 
-}: { 
+function DragHandle({
+  onDrag,
+  className
+}: {
   onDrag: (delta: number) => void
-  className?: string 
+  className?: string
 }) {
   const isDragging = useRef(false)
   const startX = useRef(0)
@@ -98,7 +101,7 @@ function DragHandle({
   )
 }
 
-export default function ResizableLayout(props: ResizableLayoutProps) {
+export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
   const {
     resumeData,
     activeSection,
@@ -134,85 +137,24 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
   } = props
 
   // 列宽状态
-  const [col1Width, setCol1Width] = useState(350)
-  // 第二列固定宽度，第三列占据剩余空间
-  const [col2Width, setCol2Width] = useState(1000) // 第二列宽度（可拖动调整）
-
-  // 添加窗口宽度状态用于计算第三列宽度
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth)
-
-  // 监听窗口大小变化
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowWidth(window.innerWidth)
-    }
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [])
-
-  // 初始输出布局信息
-  useEffect(() => {
-    const viewportWidth = window.innerWidth
-    const col3Width = viewportWidth - col1Width - col2Width - 6
-    console.log('=== 当前布局信息 ===')
-    console.log(`窗口宽度: ${viewportWidth}px`)
-    console.log(`第一列 (SidePanel): ${col1Width}px`)
-    console.log(`第二列 (EditPanel): ${col2Width}px`)
-    console.log(`第三列 (PreviewPanel): ${col3Width}px (自动占据)`)
-    console.log(`分割线1位置: ${col1Width}px`)
-    console.log(`分割线2位置: ${col1Width + col2Width + 3}px`)
-    console.log('==================')
-  }, [])
+  const [sidePanelWidth, setSidePanelWidth] = useState(280) // 模块选择列宽度（固定）
+  const [editPanelWidth, setEditPanelWidth] = useState(500) // 编辑面板宽度（可拖动调整）
 
   // 拖拽处理
-  const handleDrag1 = useCallback((delta: number) => {
-    setCol1Width(w => Math.max(250, Math.min(500, w + delta)))
+  const handleDrag = useCallback((delta: number) => {
+    setEditPanelWidth(w => Math.max(400, Math.min(800, w + delta)))
   }, [])
-
-  const handleDrag2 = useCallback((delta: number) => {
-    // 拖拽分隔线2时，只调整第二列的宽度
-    // 向右拖动（delta > 0）：第二列变宽
-    // 向左拖动（delta < 0）：第二列变窄
-    setCol2Width(prevWidth => {
-      const newCol2Width = prevWidth + delta
-
-      // 计算第三列宽度
-      const viewportWidth = window.innerWidth
-      const headerHeight = 64 // 头部高度
-      const availableWidth = viewportWidth
-      const col3Width = availableWidth - col1Width - newCol2Width - 6 // 减去分割线宽度(2个 * 3px)
-
-      // 限制第二列的宽度范围（500-1000px）
-      if (newCol2Width >= 500 && newCol2Width <= 1000) {
-        // 输出详细信息
-        console.log('=== 拖拽分割线2 ===')
-        console.log(`拖动距离: ${delta > 0 ? '+' : ''}${delta}px`)
-        console.log(`窗口宽度: ${viewportWidth}px`)
-        console.log(`第一列: ${col1Width}px`)
-        console.log(`第二列: ${prevWidth}px → ${newCol2Width}px`)
-        console.log(`第三列: ${col3Width}px (自动计算)`)
-        console.log(`分割线位置: ${col1Width + newCol2Width + 3}px (从左侧)`)
-        console.log('==================')
-
-        return newCol2Width
-      }
-
-      console.log('超出范围，保持原宽度')
-      return prevWidth
-    })
-  }, [col1Width])
 
   return (
     <div className="h-[calc(100vh-64px)] flex relative z-10 overflow-hidden">
-      {/* 第一列：SidePanel */}
-      <div 
+      {/* 第一列：模块选择（窄） */}
+      <div
         className={cn(
           "h-full overflow-y-auto shrink-0",
-          "bg-white/60 dark:bg-slate-900/60",
-          "backdrop-blur-sm",
-          "border-r border-white/30 dark:border-slate-700/30"
+          "bg-white/80 dark:bg-slate-900/80",
+          "backdrop-blur-sm border-r border-slate-200 dark:border-slate-800"
         )}
-        style={{ width: col1Width }}
+        style={{ width: sidePanelWidth }}
       >
         <SidePanel
           menuSections={resumeData.menuSections}
@@ -227,17 +169,17 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
         />
       </div>
 
-      {/* 分隔线1 */}
-      <DragHandle onDrag={handleDrag1} />
+      {/* 分隔线 1 */}
+      <div className="w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
 
-      {/* 第二列：EditPanel - 改为固定宽度 */}
+      {/* 第二列：编辑面板（可调整宽度） */}
       <div
         className={cn(
           "h-full overflow-y-auto shrink-0",
           "bg-white/80 dark:bg-slate-900/80",
-          "backdrop-blur-sm"
+          "backdrop-blur-sm border-r border-slate-200 dark:border-slate-800"
         )}
-        style={{ width: col2Width }}
+        style={{ width: editPanelWidth }}
       >
         <EditPanel
           activeSection={activeSection}
@@ -266,16 +208,15 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
         />
       </div>
 
-      {/* 分隔线2（第二列和第三列之间） */}
-      <DragHandle onDrag={handleDrag2} />
+      {/* 分隔线 2（可拖拽调整编辑面板宽度） */}
+      <DragHandle onDrag={handleDrag} />
 
-      {/* 第三列：PreviewPanel - 自动占据剩余所有空间到浏览器右边界 */}
+      {/* 第三列：预览面板 - 自动占据剩余空间 */}
       <div
         className={cn(
-          "h-full overflow-hidden flex-1",  // 使用 flex-1 自动占据剩余空间
+          "h-full overflow-hidden flex-1",
           "bg-slate-100/80 dark:bg-slate-800/80",
-          "backdrop-blur-sm",
-          "border-l border-white/30 dark:border-slate-700/30"
+          "backdrop-blur-sm"
         )}
       >
         <PreviewPanel
