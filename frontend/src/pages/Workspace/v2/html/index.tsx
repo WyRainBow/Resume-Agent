@@ -361,9 +361,9 @@ export default function HTMLWorkspace() {
       const opt = {
         margin: [6, 6, 6, 6],
         filename: `${resumeData.basic.name || '简历'}.pdf`,
-        image: { type: 'jpeg', quality: 0.92 },
+        image: { type: 'jpeg', quality: 0.95 },
         html2canvas: { 
-          scale: 2.5,
+          scale: 3.2,
           useCORS: true,
           allowTaint: true,
           logging: false,
@@ -377,7 +377,7 @@ export default function HTMLWorkspace() {
           orientation: 'portrait', 
           unit: 'mm', 
           format: 'a4',
-          compress: true  // 启用 PDF 压缩
+          compress: true
         },
       }
 
