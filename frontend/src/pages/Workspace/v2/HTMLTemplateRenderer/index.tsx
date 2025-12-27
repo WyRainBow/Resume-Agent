@@ -49,7 +49,7 @@ export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resu
         {/* 教育经历 */}
         {education.length > 0 && (
           <section className="template-section">
-            <h2 className="section-title">🎓 教育经历</h2>
+            <h2 className="section-title">教育经历</h2>
             <div className="section-content">
               {education.map((edu) => (
                 <div key={edu.id} className="item">
@@ -99,7 +99,7 @@ export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resu
         {/* 项目经历 */}
         {projects.length > 0 && (
           <section className="template-section">
-            <h2 className="section-title">🚀 项目经历</h2>
+            <h2 className="section-title">项目经历</h2>
             <div className="section-content">
               {projects.map((proj) => (
                 <div key={proj.id} className="item">
