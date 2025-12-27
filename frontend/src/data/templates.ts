@@ -26,7 +26,7 @@ export const TEMPLATE_METADATA: TemplateMetadata[] = [
     description: 'LATEX简历模板：适用于程序员大多数求职场景。包含基本信息、教育经历、实习经历、项目经历等完整模块。',
     category: '通用',
     tags: ['标准', '通用', '经典'],
-    thumbnail: '/templates/PNG/经典.png'
+    thumbnail: '/templates/PNG/classic.png'
   }
 ]
 
