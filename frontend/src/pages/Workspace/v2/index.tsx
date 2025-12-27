@@ -1,29 +1,8 @@
 /**
- * Workspace v2 - 三列布局主入口
- * 
- * 目录结构:
- * v2/
- * ├── index.tsx              # 主入口（当前文件）
- * ├── constants.ts           # 常量和初始数据
- * ├── types/                 # 类型定义
- * ├── hooks/                 # 自定义 Hooks
- * │   ├── useResumeData.ts   # 简历数据管理
- * │   ├── usePDFOperations.ts # PDF 操作
- * │   └── useAIImport.ts     # AI 导入
- * ├── utils/                 # 工具函数
- * │   └── convertToBackend.ts # 数据转换
- * ├── components/            # 页面级组件
- * │   ├── Header.tsx         # 顶部导航
- * │   └── BackgroundDecoration.tsx # 背景装饰
- * ├── SidePanel/             # 第一列：布局管理
- * ├── EditPanel/             # 第二列：可视化编辑
- * ├── PreviewPanel/          # 第三列：PDF 预览
- * ├── ResizableLayout.tsx    # 可拖拽布局
- * └── shared/                # 共享组件
- *     ├── AIImportModal.tsx  # AI 导入弹窗
- *     └── RichEditor/        # 富文本编辑器
+ * Workspace v2 - 编辑区主入口
+ * 使用 WorkspaceLayout 包裹，提供统一的侧边栏布局
  */
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '../../../lib/utils'
 
@@ -31,12 +10,19 @@ import { cn } from '../../../lib/utils'
 import { useResumeData, usePDFOperations, useAIImport } from './hooks'
 
 // 组件
-import { Header, BackgroundDecoration } from './components'
-import ResizableLayout from './ResizableLayout'
+import { Header } from './components'
+import { BackgroundDecoration } from './components'
+import EditPreviewLayout from './EditPreviewLayout'
 import AIImportModal from './shared/AIImportModal'
 import APISettingsDialog from './shared/APISettingsDialog'
+import WorkspaceLayout from '@/pages/WorkspaceLayout'
 
 export default function WorkspaceV2() {
+  // 跟踪编辑状态和保存状态
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [initialResumeData, setInitialResumeData] = useState<any>(null)
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
+  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null)
   // 简历数据管理
   const {
     resumeData,
@@ -97,6 +83,53 @@ export default function WorkspaceV2() {
   // 文件输入引用（用于导入 JSON）
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // 监听编辑状态：页面加载时保存初始状态
+  useEffect(() => {
+    if (!initialResumeData) {
+      setInitialResumeData(JSON.stringify(resumeData))
+    }
+  }, [])
+
+  // 监听简历数据变化，判断是否有未保存的修改
+  useEffect(() => {
+    if (initialResumeData && saveSuccess === false) {
+      const currentData = JSON.stringify(resumeData)
+      setHasUnsavedChanges(currentData !== initialResumeData)
+    }
+  }, [resumeData, initialResumeData, saveSuccess])
+
+  // 保存成功时，更新初始状态
+  useEffect(() => {
+    if (saveSuccess) {
+      setInitialResumeData(JSON.stringify(resumeData))
+      setHasUnsavedChanges(false)
+    }
+  }, [saveSuccess, resumeData])
+
+  // 页面卸载时提醒用户保存
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault()
+        e.returnValue = '记得保存简历'
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
+
+  // 页面加载时自动渲染 PDF
+  useEffect(() => {
+    // 延迟100ms，确保页面完全渲染
+    const timer = setTimeout(() => {
+      if (!loading && !pdfBlob) {
+        handleRender()
+      }
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [])
+
   // 导出 JSON
   const handleExportJSON = () => {
     try {
@@ -153,57 +186,30 @@ export default function WorkspaceV2() {
   }
 
   return (
-    <motion.main
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5, ease: 'easeOut' }}
-      className={cn(
-        'w-full h-screen overflow-hidden relative',
-        'bg-gradient-to-br from-slate-50 via-blue-50/80 to-indigo-100',
-        'dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950'
-      )}
-    >
-      {/* 背景装饰 */}
-      <BackgroundDecoration />
-
+    <WorkspaceLayout>
       {/* 顶部导航 */}
-      <Header
-        saveSuccess={saveSuccess}
-        onGlobalAIImport={handleGlobalAIImport}
-        onSaveToDashboard={handleSaveToDashboard}
-        onAPISettings={() => setApiSettingsOpen(true)}
-        onExportJSON={handleExportJSON}
-        onImportJSON={handleImportJSON}
-      />
+      <div className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-4 shrink-0">
+        <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+          <span>编辑区</span>
+        </div>
 
-      {/* 隐藏的文件输入（用于导入 JSON） */}
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept=".json,application/json"
-        onChange={handleFileChange}
-        style={{ display: 'none' }}
-      />
+        <Header
+          saveSuccess={saveSuccess}
+          onGlobalAIImport={handleGlobalAIImport}
+          onSaveToDashboard={handleSaveToDashboard}
+          onAPISettings={() => setApiSettingsOpen(true)}
+          onExportJSON={handleExportJSON}
+          onImportJSON={handleImportJSON}
+          resumeData={resumeData}
+          resumeName={resumeData?.basic?.name || '我的简历'}
+          pdfBlob={pdfBlob}
+          onDownloadPDF={handleDownload}
+        />
+      </div>
 
-      {/* AI 导入弹窗 */}
-      <AIImportModal
-        isOpen={aiModalOpen}
-        sectionType={aiModalSection}
-        sectionTitle={aiModalTitle}
-        onClose={() => setAiModalOpen(false)}
-        onSave={handleAISave}
-      />
-
-      {/* API 设置弹窗 */}
-      <APISettingsDialog
-        open={apiSettingsOpen}
-        onOpenChange={setApiSettingsOpen}
-      />
-
-      {/* 三列布局 - 可拖拽分隔线 */}
-      <ResizableLayout
+      {/* 编辑 + 预览两列布局 */}
+      <EditPreviewLayout
         resumeData={resumeData}
-        setResumeData={setResumeData}
         activeSection={activeSection}
         setActiveSection={setActiveSection}
         toggleSectionVisibility={toggleSectionVisibility}
@@ -235,6 +241,65 @@ export default function WorkspaceV2() {
         handleRender={handleRender}
         handleDownload={handleDownload}
       />
-    </motion.main>
+
+      {/* 隐藏的文件输入（用于导入 JSON） */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json,application/json"
+        onChange={handleFileChange}
+        style={{ display: 'none' }}
+      />
+
+      {/* AI 导入弹窗 */}
+      <AIImportModal
+        isOpen={aiModalOpen}
+        sectionType={aiModalSection}
+        sectionTitle={aiModalTitle}
+        onClose={() => setAiModalOpen(false)}
+        onSave={handleAISave}
+      />
+
+      {/* API 设置弹窗 */}
+      <APISettingsDialog
+        open={apiSettingsOpen}
+        onOpenChange={setApiSettingsOpen}
+      />
+
+      {/* 未保存提醒对话框 */}
+      {showUnsavedDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 max-w-sm">
+            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+              未保存的更改
+            </h3>
+            <p className="text-slate-600 dark:text-slate-300 mb-6">
+              记得保存简历！您的更改可能会丢失。
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowUnsavedDialog(false)
+                  if (pendingNavigation) {
+                    pendingNavigation()
+                    setPendingNavigation(null)
+                  }
+                }}
+                className="flex-1 px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors font-medium"
+              >
+                继续离开
+              </button>
+              <button
+                onClick={() => setShowUnsavedDialog(false)}
+                className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium"
+              >
+                留下保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </WorkspaceLayout>
   )
 }
+
