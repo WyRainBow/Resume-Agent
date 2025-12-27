@@ -4,8 +4,10 @@
 import type { ResumeData } from '../types'
 
 // 生成单个模块的 HTML
-function generateSectionHTML(sectionId: string, resumeData: ResumeData): string {
+function generateSectionHTML(section: { id: string; title: string }, resumeData: ResumeData): string {
   const { basic, experience, education, projects, openSource, awards, skillContent } = resumeData
+  const sectionId = section.id
+  const sectionTitle = section.title
 
   switch (sectionId) {
     case 'basic':
@@ -15,7 +17,7 @@ function generateSectionHTML(sectionId: string, resumeData: ResumeData): string 
       if (!skillContent) return ''
       return `
         <section class="template-section">
-          <h2 class="section-title">专业技能</h2>
+          <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
           <div class="section-content">${skillContent}</div>
         </section>
       `
@@ -24,7 +26,7 @@ function generateSectionHTML(sectionId: string, resumeData: ResumeData): string 
       if (education.length === 0) return ''
       return `
         <section class="template-section">
-          <h2 class="section-title">教育经历</h2>
+          <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
           <div class="section-content">
             ${education.map(edu => `
               <div class="item">
@@ -46,7 +48,7 @@ function generateSectionHTML(sectionId: string, resumeData: ResumeData): string 
       if (experience.length === 0) return ''
       return `
         <section class="template-section">
-          <h2 class="section-title">工作经历</h2>
+          <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
           <div class="section-content">
             ${experience.map(exp => `
               <div class="item">
@@ -68,7 +70,7 @@ function generateSectionHTML(sectionId: string, resumeData: ResumeData): string 
       if (projects.length === 0) return ''
       return `
         <section class="template-section">
-          <h2 class="section-title">项目经历</h2>
+          <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
           <div class="section-content">
             ${projects.map(proj => `
               <div class="item">
@@ -91,7 +93,7 @@ function generateSectionHTML(sectionId: string, resumeData: ResumeData): string 
       if (openSource.length === 0) return ''
       return `
         <section class="template-section">
-          <h2 class="section-title">开源经历</h2>
+          <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
           <div class="section-content">
             ${openSource.map(os => `
               <div class="item">
@@ -114,7 +116,7 @@ function generateSectionHTML(sectionId: string, resumeData: ResumeData): string 
       if (awards.length === 0) return ''
       return `
         <section class="template-section">
-          <h2 class="section-title">荣誉奖项</h2>
+          <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
           <div class="section-content">
             ${awards.map(award => `
               <div class="item">
@@ -136,10 +138,9 @@ function generateSectionHTML(sectionId: string, resumeData: ResumeData): string 
       // 自定义模块
       const customItems = resumeData.customData[sectionId]
       if (!customItems || customItems.length === 0) return ''
-      const section = resumeData.menuSections.find(s => s.id === sectionId)
       return `
         <section class="template-section">
-          <h2 class="section-title">${escapeHtml(section?.title || '自定义模块')}</h2>
+          <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
           <div class="section-content">
             ${customItems.map(item => `
               <div class="item">
@@ -348,7 +349,7 @@ export function generateHTMLFile(resumeData: ResumeData): string {
             .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
           
           return sectionsToRender
-            .map(section => generateSectionHTML(section.id, resumeData))
+            .map(section => generateSectionHTML(section, resumeData))
             .filter(html => html.trim() !== '')
             .join('')
         })()}
