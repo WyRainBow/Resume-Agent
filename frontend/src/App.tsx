@@ -21,7 +21,9 @@ function App() {
             {/* 工作区路由 */}
             <Route path="/workspace" element={<Workspace />} />
             <Route path="/workspace/latex" element={<LaTeXWorkspace />} />
+            <Route path="/workspace/latex/:resumeId" element={<LaTeXWorkspace />} />
             <Route path="/workspace/html" element={<HTMLWorkspace />} />
+            <Route path="/workspace/html/:resumeId" element={<HTMLWorkspace />} />
             {/* 其他路由 */}
             <Route path="/dashboard" element={<ResumeDashboard />} />
             <Route path="/templates" element={<TemplateMarket />} />

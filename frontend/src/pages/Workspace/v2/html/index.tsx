@@ -4,6 +4,7 @@
  * 无需渲染按钮，所有编辑即时生效
  */
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useParams } from 'react-router-dom'
 import { cn } from '../../../../lib/utils'
 import { saveResume } from '../../../../services/resumeStorage'
 import html2pdf from 'html2pdf.js'
@@ -21,6 +22,7 @@ import WorkspaceLayout from '@/pages/WorkspaceLayout'
 type EditMode = 'click' | 'scroll'
 
 export default function HTMLWorkspace() {
+  const { resumeId } = useParams<{ resumeId?: string }>()
   // 编辑模式状态 - HTML 模板默认使用滚动编辑模式
   const [editMode, setEditMode] = useState<EditMode>('scroll')
   
@@ -140,6 +142,14 @@ export default function HTMLWorkspace() {
       console.error('立即保存失败:', error)
     }
   }, [resumeData, currentResumeId])
+
+  // 如果路由携带 resumeId，则设置为当前简历 ID，保持与路由一致
+  useEffect(() => {
+    if (resumeId) {
+      setCurrentId(resumeId)
+      setCurrentResumeId(resumeId)
+    }
+  }, [resumeId, setCurrentId])
 
   // 监听简历数据变化，自动保存（防抖）
   useEffect(() => {
@@ -349,11 +359,11 @@ export default function HTMLWorkspace() {
       document.body.appendChild(tempContainer)
 
       const opt = {
-        margin: [10, 10, 10, 10],
+        margin: [6, 6, 6, 6],
         filename: `${resumeData.basic.name || '简历'}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { 
-          scale: 2, 
+          scale: 3,
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff'

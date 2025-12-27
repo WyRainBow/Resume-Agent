@@ -99,9 +99,9 @@ export const useDashboardLogic = () => {
     // 如果 ID 中有模板类型信息，直接使用
     if (templateTypeFromId) {
       if (templateTypeFromId === 'html') {
-        navigate('/workspace/html')
+        navigate(`/workspace/html/${id}`)
       } else {
-        navigate('/workspace/latex')
+        navigate(`/workspace/latex/${id}`)
       }
       return
     }
@@ -114,13 +114,13 @@ export const useDashboardLogic = () => {
       
       // 根据模板类型跳转到对应的工作区
       if (templateType === 'html') {
-        navigate('/workspace/html')
+        navigate(`/workspace/html/${id}`)
       } else {
-        navigate('/workspace/latex')
+        navigate(`/workspace/latex/${id}`)
       }
     } else {
       // 如果没有找到简历数据，默认跳转到 latex 工作区
-      navigate('/workspace/latex')
+      navigate(`/workspace/latex/${id}`)
     }
   }
 

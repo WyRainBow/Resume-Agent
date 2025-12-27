@@ -39,11 +39,11 @@ const TemplateMarket = () => {
     // 保存到本地存储，使用新的 ID
     saveResume(newResume, newId)
     
-    // 🎯 根据模板类型跳转到对应的工作区
+    // 🎯 根据模板类型跳转到对应的工作区（附带 ID）
     if (templateType === 'html') {
-      navigate('/workspace/html')
+      navigate(`/workspace/html/${newId}`)
     } else {
-      navigate('/workspace/latex')
+      navigate(`/workspace/latex/${newId}`)
     }
   }
 
