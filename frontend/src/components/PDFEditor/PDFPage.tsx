@@ -49,40 +49,51 @@ export const PDFPage: React.FC<PDFPageProps> = ({
     const renderPage = async () => {
       if (!canvasRef.current) return
 
-      // 获取设备像素比
-      const devicePixelRatio = window.devicePixelRatio || 1
-      const renderScale = scale * Math.min(devicePixelRatio, 2) // 限制最大2倍
+      try {
+        // 获取设备像素比
+        const devicePixelRatio = window.devicePixelRatio || 1
+        const isMobile = window.innerWidth < 768
+        
+        // 移动设备优化：降低渲染质量以提高性能
+        const maxDeviceRatio = isMobile ? 1 : 2
+        const renderScale = scale * Math.min(devicePixelRatio, maxDeviceRatio)
 
-      const viewport = page.getViewport({ scale: renderScale })
+        const viewport = page.getViewport({ scale: renderScale })
 
-      // 保存 PDF 原始高度（用于坐标转换）
-      const originalViewport = page.getViewport({ scale: 1 })
-      setPageHeight(originalViewport.height)
+        // 保存 PDF 原始高度（用于坐标转换）
+        const originalViewport = page.getViewport({ scale: 1 })
+        setPageHeight(originalViewport.height)
 
-      // 设置显示尺寸（使用原始 scale）
-      const displayViewport = page.getViewport({ scale })
-      setDimensions({
-        width: displayViewport.width,
-        height: displayViewport.height
-      })
+        // 设置显示尺寸（使用原始 scale）
+        const displayViewport = page.getViewport({ scale })
+        setDimensions({
+          width: displayViewport.width,
+          height: displayViewport.height
+        })
 
-      const canvas = canvasRef.current
-      const context = canvas.getContext('2d')
-      if (!context) return
+        const canvas = canvasRef.current
+        const context = canvas.getContext('2d')
+        if (!context) return
 
-      // 设置 Canvas 实际尺寸（高分辨率）
-      canvas.width = viewport.width
-      canvas.height = viewport.height
+        // 设置 Canvas 实际尺寸（高分辨率）
+        canvas.width = viewport.width
+        canvas.height = viewport.height
 
-      // 设置 Canvas 显示尺寸（CSS 像素）
-      canvas.style.width = `${displayViewport.width}px`
-      canvas.style.height = `${displayViewport.height}px`
+        // 设置 Canvas 显示尺寸（CSS 像素）
+        canvas.style.width = `${displayViewport.width}px`
+        canvas.style.height = `${displayViewport.height}px`
 
-      // 渲染 PDF
-      await page.render({
-        canvasContext: context,
-        viewport: viewport,
-      }).promise
+        // 渲染 PDF
+        const renderTask = page.render({
+          canvasContext: context,
+          viewport: viewport,
+        })
+        
+        await renderTask.promise
+      } catch (error) {
+        console.error('PDF page rendering error:', error)
+        // 静默处理，让 PDFViewer 捕获错误
+      }
     }
 
     renderPage()
