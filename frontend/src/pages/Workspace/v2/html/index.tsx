@@ -272,7 +272,7 @@ export default function HTMLWorkspace() {
   }
 
   return (
-    <WorkspaceLayout>
+    <WorkspaceLayout onSave={handleSaveToDashboard}>
       {/* 顶部导航栏 */}
       <Header
         saveSuccess={saveSuccess}
