@@ -230,7 +230,15 @@ export function EditPanel({
                   )}
                   type="text"
                   value={editTitle}
-                  onChange={(e) => setEditTitle(e.target.value)}
+                  onChange={(e) => {
+                    const newTitle = e.target.value
+                    setEditTitle(newTitle)
+                    // 实时更新 menuSections 以显示实时预览
+                    const newSections = menuSections.map((s) =>
+                      s.id === activeSection ? { ...s, title: newTitle } : s
+                    )
+                    updateMenuSections(newSections)
+                  }}
                   onKeyDown={handleKeyDown}
                   onClick={(e) => e.stopPropagation()}
                 />
