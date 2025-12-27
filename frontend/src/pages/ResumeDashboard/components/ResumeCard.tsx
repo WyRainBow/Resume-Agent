@@ -6,6 +6,18 @@ import { FileText, Trash2 } from './Icons'
 import { cn } from '@/lib/utils'
 import type { SavedResume } from '@/services/resumeStorage'
 
+// 格式化时间为 年/月/日 时:分:秒
+const formatDateTime = (timestamp: number): string => {
+  const date = new Date(timestamp)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  const seconds = String(date.getSeconds()).padStart(2, '0')
+  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`
+}
+
 interface ResumeCardProps {
   resume: SavedResume
   onEdit: (id: string) => void
@@ -84,7 +96,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
           
           <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            已保存 · {new Date(resume.updatedAt).toLocaleDateString()}
+            已保存 · {formatDateTime(resume.updatedAt)}
           </div>
         </CardContent>
 
