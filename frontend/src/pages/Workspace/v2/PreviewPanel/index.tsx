@@ -16,7 +16,6 @@ interface PreviewPanelProps {
   progress: string
   onRender: () => void
   onDownload: () => void
-  onDownloadHTML: () => void
 }
 
 export function PreviewPanel({
@@ -26,7 +25,6 @@ export function PreviewPanel({
   progress,
   onRender,
   onDownload,
-  onDownloadHTML,
 }: PreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1.0)
@@ -67,32 +65,11 @@ export function PreviewPanel({
         )}
       >
         <div className="flex items-center gap-3">
-          {/* HTML 模板：显示实时预览标签和下载按钮 */}
+          {/* HTML 模板：仅显示实时预览标签 */}
           {isHTMLTemplate && (
-            <>
-              <span className="px-3 py-1 text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
-                实时预览
-              </span>
-              {/* HTML 模板下载 PDF 按钮 */}
-              <button
-                onClick={onDownloadHTML}
-                disabled={loading}
-                className={cn(
-                  'px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium',
-                  'bg-gradient-to-r from-emerald-400 to-teal-400',
-                  'hover:from-emerald-300 hover:to-teal-300',
-                  'text-white font-semibold',
-                  'shadow-lg shadow-emerald-300/40 hover:shadow-xl hover:shadow-emerald-300/50',
-                  'disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-lg',
-                  'transition-all duration-200',
-                  'hover:scale-[1.02] active:scale-[0.98]',
-                  'disabled:hover:scale-100'
-                )}
-              >
-                <Download className="w-4 h-4" />
-                {loading ? '生成中...' : '下载 PDF'}
-              </button>
-            </>
+            <span className="px-3 py-1 text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
+              实时预览
+            </span>
           )}
 
           {/* LaTeX 模板：显示渲染和下载按钮 */}

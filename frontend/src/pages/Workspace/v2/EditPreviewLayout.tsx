@@ -47,7 +47,6 @@ interface EditPreviewLayoutProps {
   progress: string
   handleRender: () => void
   handleDownload: () => void
-  handleDownloadHTML: () => void
 }
 
 // 拖拽分隔线组件
@@ -140,7 +139,6 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
     progress,
     handleRender,
     handleDownload,
-    handleDownloadHTML,
   } = props
   
   // 列宽状态
@@ -280,7 +278,6 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
             progress={progress}
             onRender={handleRender}
             onDownload={handleDownload}
-            onDownloadHTML={handleDownloadHTML}
           />
         </div>
       </div>

@@ -68,7 +68,6 @@ export default function HTMLWorkspace() {
     saveSuccess,
     handleRender,
     handleDownload,
-    handleDownloadHTML,
     handleSaveToDashboard,
   } = usePDFOperations({ resumeData, currentResumeId, setCurrentId })
 
@@ -194,7 +193,6 @@ export default function HTMLWorkspace() {
         resumeName={resumeData?.basic?.name || '我的简历'}
         pdfBlob={pdfBlob}
         onDownloadPDF={handleDownload}
-        onDownloadHTML={handleDownloadHTML}
         editMode={editMode}
         onEditModeChange={setEditMode}
       />
@@ -232,7 +230,6 @@ export default function HTMLWorkspace() {
         progress={progress}
         handleRender={handleRender}
         handleDownload={handleDownload}
-        handleDownloadHTML={handleDownloadHTML}
         editMode={editMode}
       />
 

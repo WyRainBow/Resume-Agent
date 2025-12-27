@@ -13,7 +13,6 @@ interface ExportButtonProps {
   onExportJSON?: () => void
   pdfBlob?: Blob | null
   onDownloadPDF?: () => void
-  onDownloadHTML?: () => void  // HTML 模板下载 PDF
 }
 
 export function ExportButton({ 
@@ -22,7 +21,6 @@ export function ExportButton({
   onExportJSON,
   pdfBlob,
   onDownloadPDF,
-  onDownloadHTML
 }: ExportButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -31,24 +29,9 @@ export function ExportButton({
   const [copied, setCopied] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  // 导出 PDF - 根据模板类型选择不同的处理方式
+  // 导出 PDF - 仅用于 LaTeX 模板
   const handleExportPDF = () => {
-    // 检查是否为 HTML 模板
-    const templateType = resumeData?.templateType
-    const isHTMLTemplate = templateType === 'html'
-    
-    // 先关闭菜单
     setIsOpen(false)
-    
-    if (isHTMLTemplate) {
-      // HTML 模板：延迟执行下载，让菜单先关闭
-      if (onDownloadHTML) {
-        setTimeout(() => {
-          onDownloadHTML()
-        }, 50)
-      }
-      return
-    }
     
     // LaTeX 模板：需要先渲染 PDF
     if (pdfBlob && onDownloadPDF) {
@@ -59,7 +42,6 @@ export function ExportButton({
     // 如果没有 pdfBlob，提示用户先渲染 PDF
     if (!pdfBlob) {
       alert('请先点击"渲染 PDF"按钮生成 PDF，然后再下载')
-      return
     }
   }
 
@@ -204,37 +186,39 @@ export function ExportButton({
       {/* 下拉菜单 - 优化后的卡片式设计 */}
       {isOpen && (
         <div className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-slate-800 rounded-2xl shadow-xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden z-50 backdrop-blur-sm">
-          {/* PDF 导出卡片 */}
-          <button
-            onClick={handleExportPDF}
-            disabled={isExporting}
-            className={cn(
-              "w-full px-5 py-4 text-left",
-              "hover:bg-slate-50 dark:hover:bg-slate-700/50",
-              "transition-all duration-150",
-              "flex items-center gap-4",
-              "border-b border-slate-100 dark:border-slate-700/50",
-              "group",
-              isExporting && "opacity-50 cursor-not-allowed",
-              !pdfBlob && resumeData?.templateType !== 'html' && "opacity-60"
-            )}
-          >
-            {/* PDF 图标 */}
-            <div className="w-12 h-12 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-              <FileText className="w-6 h-6 text-red-600 dark:text-red-400" strokeWidth={2} />
-            </div>
-            {/* 内容 */}
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-slate-900 dark:text-slate-100 text-base">
-                导出 PDF
-              </div>
-              {!pdfBlob && resumeData?.templateType !== 'html' && (
-                <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                  需要先渲染 PDF
-                </div>
+          {/* PDF 导出卡片 - 仅对 LaTeX 模板显示 */}
+          {resumeData?.templateType !== 'html' && (
+            <button
+              onClick={handleExportPDF}
+              disabled={isExporting}
+              className={cn(
+                "w-full px-5 py-4 text-left",
+                "hover:bg-slate-50 dark:hover:bg-slate-700/50",
+                "transition-all duration-150",
+                "flex items-center gap-4",
+                "border-b border-slate-100 dark:border-slate-700/50",
+                "group",
+                isExporting && "opacity-50 cursor-not-allowed",
+                !pdfBlob && "opacity-60"
               )}
-            </div>
-          </button>
+            >
+              {/* PDF 图标 */}
+              <div className="w-12 h-12 rounded-xl bg-red-50 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
+                <FileText className="w-6 h-6 text-red-600 dark:text-red-400" strokeWidth={2} />
+              </div>
+              {/* 内容 */}
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-slate-900 dark:text-slate-100 text-base">
+                  导出 PDF
+                </div>
+                {!pdfBlob && (
+                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                    需要先渲染 PDF
+                  </div>
+                )}
+              </div>
+            </button>
+          )}
 
           {/* JSON 导出卡片 */}
           <button

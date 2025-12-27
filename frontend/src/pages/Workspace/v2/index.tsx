@@ -2,20 +2,17 @@
  * Workspace v2 - 编辑区主入口
  * 使用 WorkspaceLayout 包裹，提供统一的侧边栏布局
  */
-import { useState, useRef, useEffect } from 'react'
-import { motion } from 'framer-motion'
-import { cn } from '../../../lib/utils'
+import { useEffect, useRef, useState } from 'react'
 
 // Hooks
-import { useResumeData, usePDFOperations, useAIImport } from './hooks'
+import { useAIImport, usePDFOperations, useResumeData } from './hooks'
 
 // 组件
+import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import { Header } from './components'
-import { BackgroundDecoration } from './components'
 import EditPreviewLayout from './EditPreviewLayout'
 import AIImportModal from './shared/AIImportModal'
 import APISettingsDialog from './shared/APISettingsDialog'
-import WorkspaceLayout from '@/pages/WorkspaceLayout'
 
 type EditMode = 'click' | 'scroll'
 
@@ -68,7 +65,6 @@ export default function WorkspaceV2() {
     saveSuccess,
     handleRender,
     handleDownload,
-    handleDownloadHTML,
     handleSaveToDashboard,
   } = usePDFOperations({ resumeData, currentResumeId, setCurrentId })
 
@@ -206,7 +202,6 @@ export default function WorkspaceV2() {
         resumeName={resumeData?.basic?.name || '我的简历'}
         pdfBlob={pdfBlob}
         onDownloadPDF={handleDownload}
-        onDownloadHTML={handleDownloadHTML}
         editMode={editMode}
         onEditModeChange={setEditMode}
       />
@@ -244,7 +239,6 @@ export default function WorkspaceV2() {
         progress={progress}
         handleRender={handleRender}
         handleDownload={handleDownload}
-        handleDownloadHTML={handleDownloadHTML}
         editMode={editMode}
       />
 
