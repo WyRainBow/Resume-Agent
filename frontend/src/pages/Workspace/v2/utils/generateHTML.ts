@@ -187,7 +187,7 @@ export function generateHTMLFile(resumeData: ResumeData): string {
       <div class="template-content">
         ${resumeData.skillContent ? `
           <section class="template-section">
-            <h2 class="section-title">🎯 专业技能</h2>
+            <h2 class="section-title">专业技能</h2>
             <div class="section-content">${resumeData.skillContent}</div>
           </section>
         ` : ''}
