@@ -2,17 +2,18 @@
  * AI 对话创建简历页面
  * 1:1 复刻指定 UI 样式
  */
-import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
 import {
-  Sparkles,
-  Trash2,
   List,
-  User,
-  ArrowLeft
+  Trash2
 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
+import { HTMLTemplateRenderer } from '../Workspace/v2/HTMLTemplateRenderer'
+import { initialResumeData } from '@/data/initialResumeData'
+import type { ResumeData } from '../Workspace/v2/types'
+import { EducationForm, type Education } from './components/EducationForm'
 
 // 消息类型
 interface Message {
@@ -20,7 +21,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string | React.ReactNode
   timestamp: number
-  type?: 'text' | 'card' // 消息类型
+  type?: 'text' | 'card' | 'form-education' // 新增表单类型
 }
 
 export default function AIConversation() {
@@ -31,6 +32,8 @@ export default function AIConversation() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedOption, setSelectedOption] = useState<string | null>(null)
+  const [resumeData, setResumeData] = useState<ResumeData>(initialResumeData)
   
   // 初始化消息
   useEffect(() => {
@@ -38,7 +41,7 @@ export default function AIConversation() {
     const initialUserMsg: Message = {
       id: 'init-user',
       role: 'user',
-      content: '你好 UP AI，帮我写一份求职简历',
+      content: '你好 RA AI，帮我写一份求职简历',
       timestamp: Date.now()
     }
     
@@ -46,7 +49,7 @@ export default function AIConversation() {
     const initialAIMsgText: Message = {
       id: 'init-ai-text',
       role: 'assistant',
-      content: 'Hi！我是 UP 简历，很高兴与你相遇✨ 让我们一起打造属于你的精彩简历吧！首先，请告诉我你目前的身份，这样我就能为你提供最贴心的指导~',
+      content: 'Hi！我是 RA 简历，很高兴与你相遇✨ 让我们一起打造属于你的精彩简历吧！首先，请告诉我你目前的身份，这样我就能为你提供最贴心的指导~',
       timestamp: Date.now() + 100,
       type: 'text'
     }
@@ -70,9 +73,56 @@ export default function AIConversation() {
 
   // 处理选项点击
   const handleOptionClick = (option: string) => {
-    // 这里处理点击逻辑，例如添加用户回复
-    console.log('Selected:', option)
-    // 示例：跳转到下一步或添加用户回复
+    setSelectedOption(option)
+    
+    // 1. 添加用户回复
+    const userMsg: Message = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: `我的求职身份是${option}🎓`,
+        timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+
+    // 2. 模拟 AI 思考和回复
+    setIsLoading(true)
+    setTimeout(() => {
+        // AI 鼓励语
+        const aiTextMsg: Message = {
+            id: `ai-edu-intro-${Date.now()}`,
+            role: 'assistant',
+            content: '太棒了！✨ 现在让我们一起梳理你的教育背景。每一段求学经历都是你向上生长的证明，让我们把这些闪光点都记录下来吧！',
+            timestamp: Date.now(),
+            type: 'text'
+        }
+        
+        // AI 表单卡片
+        const aiFormMsg: Message = {
+            id: `ai-edu-form-${Date.now()}`,
+            role: 'assistant',
+            content: 'form-placeholder',
+            timestamp: Date.now() + 100,
+            type: 'form-education'
+        }
+
+        setMessages(prev => [...prev, aiTextMsg, aiFormMsg])
+        setIsLoading(false)
+    }, 800)
+  }
+
+  // 处理教育经历更新
+  const handleEducationChange = (edu: Education) => {
+    // 实时更新简历数据
+    setResumeData(prev => ({
+      ...prev,
+      education: [edu] // 暂时只支持一条，或替换第一条
+    }))
+  }
+
+  // 处理教育经历提交
+  const handleEducationSubmit = () => {
+    // 可以在这里添加后续流程，比如进入工作经历
+    console.log('Education Submitted')
   }
 
   return (
@@ -80,83 +130,174 @@ export default function AIConversation() {
       {/* 顶部导航栏 */}
       <div className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-[#2563EB] rounded-full flex items-center justify-center text-white font-bold text-xs">
-            UP
+          {/* 新版 RA Logo */}
+          <div className="relative w-9 h-9">
+            <div className="absolute inset-0 bg-violet-600 rounded-xl flex items-center justify-center shadow-sm">
+              <span className="text-white font-black italic text-lg pr-0.5 transform -skew-x-6">RA</span>
+            </div>
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white" />
           </div>
-          <span className="font-bold text-gray-900 text-lg">AI 创建简历</span>
+          <span className="font-bold text-gray-900 text-lg tracking-tight">RA 智能简历</span>
         </div>
         
         <button 
           className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-          onClick={() => setMessages([])} // 简单清除演示
+          onClick={() => setMessages([])} 
         >
           <Trash2 className="w-4 h-4" />
           清除历史记录
         </button>
       </div>
 
-      {/* 主内容区 */}
-      <div className="flex-1 max-w-4xl w-full mx-auto p-6 overflow-y-auto">
-        <div className="space-y-8">
-          {messages.map((message) => (
-            <motion.div
-              key={message.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-            >
-              {message.role === 'user' ? (
-                // 用户消息样式
-                <div className="bg-[#2563EB] text-white px-6 py-3 rounded-2xl rounded-tr-sm max-w-[80%] shadow-sm text-[15px] leading-relaxed">
-                  {message.content as string}
-                </div>
-              ) : (
-                // AI 消息样式
-                <div className="max-w-[85%] w-full">
-                  {message.type === 'text' && (
-                    <div className="text-gray-600 text-[15px] leading-relaxed mb-4">
+      {/* 主内容区 - 左右分屏布局 */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* 左侧对话区 */}
+        <div className={cn(
+          "flex-1 flex flex-col transition-all duration-500 ease-in-out",
+          selectedOption ? "max-w-[50%]" : "max-w-4xl mx-auto w-full"
+        )}>
+          <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
+            <div className="space-y-8 max-w-3xl mx-auto w-full">
+              {messages.map((message) => (
+                <motion.div
+                  key={message.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  {message.role === 'user' ? (
+                    // 用户消息样式
+                    <div className="bg-violet-600 text-white px-6 py-3 rounded-2xl rounded-tr-sm max-w-[80%] shadow-md shadow-violet-200 text-[15px] leading-relaxed">
                       {message.content as string}
                     </div>
-                  )}
-
-                  {message.type === 'card' && (
-                    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                      {/* 卡片头部 */}
-                      <div className="flex items-start gap-4 mb-6">
-                        <div className="w-10 h-10 rounded-full bg-[#EFF6FF] flex items-center justify-center shrink-0">
-                          <List className="w-5 h-5 text-[#2563EB]" />
+                  ) : (
+                    // AI 消息样式
+                    <div className="max-w-[90%] w-full">
+                      {message.type === 'text' && (
+                        <div className="text-gray-600 text-[15px] leading-relaxed mb-4">
+                          {message.content as string}
                         </div>
-                        <div>
-                          <h3 className="text-lg font-bold text-gray-900 mb-1">让我们一起开始吧</h3>
-                          <p className="text-gray-500 text-sm">UP 简历想更好地了解你，为你量身定制最合适的简历方案</p>
-                        </div>
-                      </div>
+                      )}
 
-                      {/* 选项列表 */}
-                      <div className="space-y-3 pl-14">
-                        {['学生', '职场人士'].map((option) => (
-                          <motion.button
-                            key={option}
-                            whileHover={{ scale: 1.01 }}
-                            whileTap={{ scale: 0.99 }}
-                            onClick={() => handleOptionClick(option)}
-                            className="w-full flex items-center gap-3 p-4 bg-white border border-gray-100 rounded-xl hover:border-[#2563EB] hover:shadow-sm transition-all group text-left"
-                          >
-                            <div className="w-2 h-2 rounded-full bg-[#bfdbfe] group-hover:bg-[#2563EB] transition-colors" />
-                            <span className="text-gray-700 font-medium group-hover:text-[#2563EB] transition-colors">
-                              {option}
-                            </span>
-                          </motion.button>
-                        ))}
-                      </div>
+                      {message.type === 'card' && (
+                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                          {/* 卡片头部 */}
+                          <div className="flex items-start gap-4 mb-6">
+                            <div className="w-10 h-10 rounded-full bg-violet-50 flex items-center justify-center shrink-0">
+                              <List className="w-5 h-5 text-violet-600" />
+                            </div>
+                            <div>
+                              <h3 className="text-lg font-bold text-gray-900 mb-1">让我们一起开始吧</h3>
+                              <p className="text-gray-500 text-sm">RA 简历想更好地了解你，为你量身定制最合适的简历方案</p>
+                            </div>
+                          </div>
+
+                          {/* 选项列表 */}
+                          <div className="space-y-3 pl-14">
+                            {['学生', '职场人士'].map((option) => {
+                              const isSelected = selectedOption === option
+                              // 如果已经做出选择，禁用的选项变得不明显
+                              const isDimmed = selectedOption && !isSelected
+
+                              return (
+                                <motion.button
+                                  key={option}
+                                  layout
+                                  disabled={!!selectedOption}
+                                  whileHover={!selectedOption ? { scale: 1.01 } : {}}
+                                  whileTap={!selectedOption ? { scale: 0.99 } : {}}
+                                  onClick={() => handleOptionClick(option)}
+                                  className={cn(
+                                    "w-full flex items-center gap-3 p-4 rounded-xl border transition-all duration-300 text-left relative overflow-hidden",
+                                    isSelected 
+                                      ? "bg-blue-50/80 border-blue-500 shadow-lg shadow-blue-500/10 z-10" 
+                                      : "bg-white border-gray-100",
+                                    !selectedOption && "hover:border-blue-500/50 hover:shadow-sm",
+                                    isDimmed && "opacity-50 grayscale"
+                                  )}
+                                >
+                                  <div className={cn(
+                                    "w-2.5 h-2.5 rounded-full transition-all duration-300",
+                                    isSelected 
+                                      ? "bg-blue-600 scale-110" 
+                                      : "bg-blue-200 group-hover:bg-blue-400"
+                                  )} />
+                                  <span className={cn(
+                                    "font-medium text-lg transition-colors duration-300",
+                                    isSelected 
+                                      ? "text-blue-900 font-bold" 
+                                      : "text-gray-700 group-hover:text-blue-600"
+                                  )}>
+                                    {option}
+                                  </span>
+                                  
+                                  {isSelected && (
+                                    <motion.div
+                                      layoutId="highlight"
+                                      className="absolute inset-0 bg-blue-100/50 -z-10"
+                                      initial={{ opacity: 0 }}
+                                      animate={{ opacity: 1 }}
+                                      exit={{ opacity: 0 }}
+                                    />
+                                  )}
+                                </motion.button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {message.type === 'form-education' && (
+                        <EducationForm 
+                          onChange={handleEducationChange}
+                          onSubmit={handleEducationSubmit}
+                        />
+                      )}
                     </div>
                   )}
-                </div>
+                </motion.div>
+              ))}
+              
+              {/* 加载指示器 */}
+              {isLoading && (
+                 <div className="flex justify-start">
+                   <div className="bg-gray-100 rounded-2xl px-4 py-3 flex gap-1 items-center">
+                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75" />
+                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150" />
+                   </div>
+                 </div>
               )}
-            </motion.div>
-          ))}
-          <div ref={messagesEndRef} />
+              
+              <div ref={messagesEndRef} />
+            </div>
+          </div>
         </div>
+
+        {/* 右侧预览区 - 初始隐藏，选择后滑出 */}
+        <AnimatePresence>
+          {selectedOption && (
+            <motion.div 
+              initial={{ x: '100%', opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: '100%', opacity: 0 }}
+              transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              className="flex-1 bg-slate-50 border-l border-gray-200 overflow-hidden relative shadow-2xl z-20 flex flex-col"
+            >
+              {/* 顶部提示条 */}
+              <div className="h-12 bg-white/80 backdrop-blur border-b border-gray-200 px-4 flex items-center justify-center text-center text-sm text-gray-500 shrink-0">
+                简历预览 · 实时更新
+              </div>
+
+              {/* 预览内容区 - 滚动容器 */}
+              <div className="flex-1 overflow-y-auto p-6 flex items-center justify-center">
+                <div className="bg-white shadow-xl min-h-[1050px] w-[760px] rounded-lg overflow-hidden">
+                   <HTMLTemplateRenderer resumeData={resumeData} />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   )
