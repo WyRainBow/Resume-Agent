@@ -36,65 +36,84 @@ except ImportError:
             raise RuntimeError(f"无法导入 simple.py: {e}")
 
 # 全局 AI 配置
-DEFAULT_AI_PROVIDER = "zhipu"
+DEFAULT_AI_PROVIDER = "deepseek"
 DEFAULT_AI_MODEL = {
-    "zhipu": "glm-4.5v"
+    "deepseek": "deepseek-chat"  # 可选: deepseek-chat, deepseek-reasoner
+}
+
+# 支持的模型列表
+SUPPORTED_MODELS = {
+    "deepseek-chat": "DeepSeek Chat (快速)",
+    "deepseek-reasoner": "DeepSeek Reasoner (深度推理)"
 }
 
 
-def call_llm(provider: str, prompt: str, return_usage: bool = False):
+def call_llm(provider: str, prompt: str, return_usage: bool = False, model: str = None):
     """
     统一入口，基于 simple.py 封装 LLM 调用
     在调用前检查必要的 API Key，缺失时返回 400 级错误
-    
+
     参数:
-        provider: AI 提供商 ("zhipu" 或 "doubao")
+        provider: AI 提供商 ("deepseek")
         prompt: 提示词
         return_usage: 是否返回 token 使用信息，默认 False（向后兼容）
-    
+        model: 可选，指定具体模型（如 "deepseek-chat" 或 "deepseek-reasoner"）
+
     返回:
         如果 return_usage=False: 返回字符串（内容）
         如果 return_usage=True: 返回字典 {"content": str, "usage": dict}
     """
-    if provider == "zhipu":
-        # 优先使用 simple 模块中的 API Key（保存时会立即更新），然后检查环境变量
-        key = getattr(simple, "ZHIPU_API_KEY", "") or os.getenv("ZHIPU_API_KEY", "")
+    if provider == "deepseek":
+        key = os.getenv("DEEPSEEK_API_KEY") or getattr(simple, "DEEPSEEK_API_KEY", "")
         if not key:
             raise HTTPException(
-                status_code=400, 
-                detail="缺少 ZHIPU_API_KEY，请在项目根目录 .env 或系统环境中配置 ZHIPU_API_KEY"
+                status_code=400,
+                detail="缺少 DEEPSEEK_API_KEY，请在项目根目录 .env 或系统环境中配置 DEEPSEEK_API_KEY"
             )
-        # 如果 API Key 变化，重置客户端实例
-        old_key = getattr(simple, "ZHIPU_API_KEY", "")
-        simple.ZHIPU_API_KEY = key
-        if old_key != key:
-            # 重置客户端实例，强制重新创建
-            simple._zhipu_client = None
-            simple._last_zhipu_key = None
-        result = simple.call_zhipu_api(prompt)
-        # call_zhipu_api 现在返回字典
-        if return_usage:
-            return result
+        simple.DEEPSEEK_API_KEY = key
+        # 如果指定了模型，使用指定的模型，否则使用环境变量或默认值
+        if model:
+            simple.DEEPSEEK_MODEL = model
         else:
-            # 向后兼容：只返回内容字符串
-            if isinstance(result, dict):
-                return result.get("content", "")
-            return result
-    
+            simple.DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", simple.DEEPSEEK_MODEL)
+        simple.DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", simple.DEEPSEEK_BASE_URL)
+        return simple.call_deepseek_api(prompt, model=simple.DEEPSEEK_MODEL)
+
     elif provider == "doubao":
         key = os.getenv("DOUBAO_API_KEY") or getattr(simple, "DOUBAO_API_KEY", "")
         if not key:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail="缺少 DOUBAO_API_KEY，请在项目根目录 .env 或系统环境中配置 DOUBAO_API_KEY"
             )
         simple.DOUBAO_API_KEY = key
         simple.DOUBAO_MODEL = os.getenv("DOUBAO_MODEL", simple.DOUBAO_MODEL)
         simple.DOUBAO_BASE_URL = os.getenv("DOUBAO_BASE_URL", simple.DOUBAO_BASE_URL)
         return simple.call_doubao_api(prompt)
-    
+
+    elif provider == "zhipu":
+        # 保留兼容性
+        key = getattr(simple, "ZHIPU_API_KEY", "") or os.getenv("ZHIPU_API_KEY", "")
+        if not key:
+            raise HTTPException(
+                status_code=400,
+                detail="缺少 ZHIPU_API_KEY，请在项目根目录 .env 或系统环境中配置 ZHIPU_API_KEY"
+            )
+        old_key = getattr(simple, "ZHIPU_API_KEY", "")
+        simple.ZHIPU_API_KEY = key
+        if old_key != key:
+            simple._zhipu_client = None
+            simple._last_zhipu_key = None
+        result = simple.call_zhipu_api(prompt)
+        if return_usage:
+            return result
+        else:
+            if isinstance(result, dict):
+                return result.get("content", "")
+            return result
+
     else:
-        raise ValueError("不支持的 provider")
+        raise ValueError(f"不支持的 provider: {provider}")
 
 
 def call_llm_stream(provider: str, prompt: str):
@@ -105,22 +124,36 @@ def call_llm_stream(provider: str, prompt: str):
         key = os.getenv("DOUBAO_API_KEY") or getattr(simple, "DOUBAO_API_KEY", "")
         if not key:
             raise HTTPException(
-                status_code=400, 
+                status_code=400,
                 detail="缺少 DOUBAO_API_KEY"
             )
         simple.DOUBAO_API_KEY = key
         simple.DOUBAO_MODEL = os.getenv("DOUBAO_MODEL", simple.DOUBAO_MODEL)
         simple.DOUBAO_BASE_URL = os.getenv("DOUBAO_BASE_URL", simple.DOUBAO_BASE_URL)
-        
+
         for chunk in simple.call_doubao_api_stream(prompt):
             yield chunk
-    
+
+    elif provider == "deepseek":
+        key = os.getenv("DEEPSEEK_API_KEY") or getattr(simple, "DEEPSEEK_API_KEY", "")
+        if not key:
+            raise HTTPException(
+                status_code=400,
+                detail="缺少 DEEPSEEK_API_KEY"
+            )
+        simple.DEEPSEEK_API_KEY = key
+        simple.DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", simple.DEEPSEEK_MODEL)
+        simple.DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", simple.DEEPSEEK_BASE_URL)
+
+        for chunk in simple.call_deepseek_api_stream(prompt):
+            yield chunk
+
     elif provider == "zhipu":
         result = call_llm(provider, prompt)
         yield result
-    
+
     else:
-        raise ValueError("不支持的 provider")
+        raise ValueError(f"不支持的 provider: {provider}")
 
 
 def get_ai_config():
@@ -128,5 +161,6 @@ def get_ai_config():
     return {
         "defaultProvider": DEFAULT_AI_PROVIDER,
         "defaultModel": DEFAULT_AI_MODEL.get(DEFAULT_AI_PROVIDER, ""),
-        "models": DEFAULT_AI_MODEL
+        "models": DEFAULT_AI_MODEL,
+        "supportedModels": SUPPORTED_MODELS
     }

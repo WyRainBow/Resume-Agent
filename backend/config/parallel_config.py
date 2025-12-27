@@ -42,6 +42,10 @@ PROVIDER_CONFIG = {
         "max_concurrent": 2,  # Google也较严格
         "request_timeout": 40,
     },
+    "deepseek": {
+        "max_concurrent": 6,  # DeepSeek 支持较高并发
+        "request_timeout": 30,  # 适中超时时间
+    },
 }
 
 def get_parallel_config(provider: str = None) -> dict:

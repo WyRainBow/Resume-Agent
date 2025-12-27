@@ -4,11 +4,14 @@
 """
 
 """
-智谱 / 豆包 API 配置（从环境变量读取）
+智谱 / 豆包 / DeepSeek API 配置（从环境变量读取）
 - ZHIPU_API_KEY
 - DOUBAO_API_KEY
 - DOUBAO_MODEL（默认 doubao-seed-1-6-lite-251015）
 - DOUBAO_BASE_URL（默认 https://ark.cn-beijing.volces.com/api/v3）
+- DEEPSEEK_API_KEY
+- DEEPSEEK_MODEL（默认 deepseek-chat）
+- DEEPSEEK_BASE_URL（默认 https://api.deepseek.com）
 """
 import os
 """
@@ -41,6 +44,11 @@ ZHIPU_MODEL = os.getenv("ZHIPU_MODEL", "glm-4.5v")
 DOUBAO_API_KEY = os.getenv("DOUBAO_API_KEY", "")
 DOUBAO_MODEL = os.getenv("DOUBAO_MODEL", "doubao-seed-1-6-lite-251015")
 DOUBAO_BASE_URL = os.getenv("DOUBAO_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
+
+"""DeepSeek 配置"""
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
 
 
 """
@@ -386,9 +394,131 @@ def call_doubao_api_stream(prompt: str, model: str = None, fast_mode: bool = Tru
                     continue
 
 
+@retry_with_backoff(max_retries=1, initial_delay=0.1)
+def call_deepseek_api(prompt: str, model: str = None) -> str:
+    """
+    调用 DeepSeek API
+
+    参数:
+        prompt: 用户输入的提示词
+        model: 使用的模型名称，默认为 DEEPSEEK_MODEL
+
+    返回:
+        API 返回的响应内容
+    """
+    if model is None:
+        model = DEEPSEEK_MODEL
+
+    api_url = f"{DEEPSEEK_BASE_URL}/chat/completions"
+
+    """优化参数"""
+    payload = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": FAST_SYSTEM_PROMPT},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.1,  # 极低温度
+        "max_tokens": 4000,   # DeepSeek 支持较长输出
+        "top_p": 0.9,
+        "frequency_penalty": 0,
+        "presence_penalty": 0,
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
+    }
+
+    """使用复用的 HTTP Session"""
+    session = get_http_session()
+    response = session.post(
+        api_url,
+        json=payload,
+        headers=headers,
+        timeout=30
+    )
+
+    if response.status_code == 200:
+        result = response.json()
+        return result["choices"][0]["message"]["content"]
+    else:
+        error_detail = response.text
+        try:
+            error_json = response.json()
+            if "error" in error_json:
+                error_detail = error_json["error"].get("message", error_detail)
+        except:
+            pass
+        raise Exception(f"DeepSeek API 调用失败: {response.status_code} - {error_detail}")
+
+
+def call_deepseek_api_stream(prompt: str, model: str = None):
+    """
+    流式调用 DeepSeek API
+
+    参数:
+        prompt: 用户输入的提示词
+        model: 使用的模型名称，默认为 DEEPSEEK_MODEL
+
+    生成器返回:
+        每次返回一个文本片段
+    """
+    if model is None:
+        model = DEEPSEEK_MODEL
+
+    api_url = f"{DEEPSEEK_BASE_URL}/chat/completions"
+
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.3,
+        "max_tokens": 4000,
+        "top_p": 0.9,
+        "stream": True  # 启用流式输出
+    }
+
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}"
+    }
+
+    # 使用复用的 HTTP Session
+    session = get_http_session()
+    response = session.post(
+        api_url,
+        json=payload,
+        headers=headers,
+        timeout=90,
+        stream=True  # 启用流式响应
+    )
+
+    if response.status_code != 200:
+        raise Exception(f"DeepSeek API 调用失败: {response.status_code} - {response.text}")
+
+    # 解析 SSE 流
+    for line in response.iter_lines():
+        if line:
+            line = line.decode('utf-8')
+            if line.startswith('data: '):
+                data = line[6:]  # 移除 'data: ' 前缀
+                if data == '[DONE]':
+                    break
+                try:
+                    import json
+                    chunk = json.loads(data)
+                    if 'choices' in chunk and len(chunk['choices']) > 0:
+                        delta = chunk['choices'][0].get('delta', {})
+                        content = delta.get('content', '')
+                        if content:
+                            yield content
+                except json.JSONDecodeError:
+                    continue
+
+
 def main():
     """
-    主函数：演示如何使用两个 API
+    主函数：演示如何使用三个 API
     """
     """测试智谱 API"""
     print("=" * 50)
@@ -400,7 +530,7 @@ def main():
     except Exception as e:
         print(f"智谱 API 调用失败: {e}")
     print()
-    
+
     """测试豆包 API"""
     print("=" * 50)
     print("测试豆包 API")
@@ -410,6 +540,17 @@ def main():
         print(f"豆包返回: {doubao_result}")
     except Exception as e:
         print(f"豆包 API 调用失败: {e}")
+    print()
+
+    """测试 DeepSeek API"""
+    print("=" * 50)
+    print("测试 DeepSeek API")
+    print("=" * 50)
+    try:
+        deepseek_result = call_deepseek_api("请用一句话介绍人工智能")
+        print(f"DeepSeek 返回: {deepseek_result}")
+    except Exception as e:
+        print(f"DeepSeek API 调用失败: {e}")
     print()
 
 

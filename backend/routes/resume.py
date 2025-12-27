@@ -198,7 +198,8 @@ async def parse_resume_text(body: ResumeParseRequest):
                 text=body.text,
                 provider=provider,
                 max_concurrent=config.get("max_concurrent"),
-                max_chunk_size=config.get("max_chunk_size", 300)
+                max_chunk_size=config.get("max_chunk_size", 300),
+                model=getattr(body, 'model', None)
             )
             parallel_elapsed = time.time() - parallel_start
             backend_logger.info(f"✅ 并行处理成功！总耗时: {parallel_elapsed:.2f}秒")
@@ -278,17 +279,20 @@ async def parse_resume_text(body: ResumeParseRequest):
 async def _parse_resume_serial(body: ResumeParseRequest):
     """串行解析简历文本（原有逻辑）"""
     provider = body.provider or DEFAULT_AI_PROVIDER
+    model = getattr(body, 'model', None)
 
     # 格式定义
     schema_desc = """格式:{"name":"姓名","contact":{"phone":"电话","email":"邮箱"},"objective":"求职意向","education":[{"title":"学校","subtitle":"专业","degree":"学位(本科/硕士/博士)","date":"时间","details":["荣誉"]}],"internships":[{"title":"公司","subtitle":"职位","date":"时间","highlights":["工作内容"]}],"projects":[{"title":"项目名","subtitle":"角色","date":"时间","description":"项目描述(可选)","highlights":["描述"]}],"openSource":[{"title":"开源项目","subtitle":"角色/描述","date":"时间(格式: 2023.01-2023.12 或 2023.01-至今)","items":["贡献描述"],"repoUrl":"仓库链接"}],"skills":[{"category":"类别","details":"技能描述"}],"awards":["奖项"]}
 
 重要说明：
 1. 技能描述：如果原文中技能描述部分有多行，每行以"-"开头，应该将每一行作为一个独立的技能项，格式为{"category":"","details":"该行的完整内容(去掉开头的破折号)"}
-2. 项目经历：
-   - 如果项目有描述段落（在技术栈之前），应该提取到"description"字段
-   - 如果项目有技术栈（如"技术栈：SpringBoot MySQL..."），应该提取技术栈信息
-   - 如果项目亮点是"- **标题**：描述"格式，应该保留"**标题**："的格式，完整提取到highlights数组中
-   - highlights数组中的每一项应该保持原文格式，包括加粗标记"""
+2. 项目经历（极其重要，必须严格遵守）：
+   - 只有"### xxx"或"## xxx"开头的才是项目标题，如"### RAG知识库助手"是项目名
+   - 项目描述段落（从项目标题后、技术栈前的完整段落）必须放入"description"字段
+   - 技术栈信息（如"技术栈：SpringBoot MySQL..."）应该附加到 description 字段末尾
+   - "- **标题**：描述"格式是项目的功能亮点，必须放入该项目的"highlights"数组，绝不能作为独立项目！
+   - highlights数组中的每一项应该保持原文格式，包括加粗标记
+   - 如果只看到功能亮点（"- **xxx**：描述"）而没有项目标题，将这些放入highlights数组，title留空，系统会自动合并"""
 
     # 如果文本过长，使用分块处理
     if len(body.text) > 800:
@@ -302,16 +306,44 @@ async def _parse_resume_serial(body: ResumeParseRequest):
 
 解析规则：
 1. 技能描述：如果有多行以"-"开头的技能描述，每行应该作为一个独立的技能项，格式为{{"category":"","details":"该行的完整内容(去掉开头的破折号)"}}
-2. 项目经历：
-   - 项目描述段落（在技术栈之前）应该提取到"description"字段
-   - 技术栈信息（如"技术栈：SpringBoot MySQL..."）应该提取
-   - 项目亮点如果是"- **标题**：描述"格式，应该完整保留"**标题**："格式到highlights数组中
+2. 项目经历（极其重要，必须严格遵守）：
+   - 只有"### xxx"或"## xxx"开头的才是项目标题
+   - 项目描述段落（从项目标题后、第一个"- **"之前的完整段落）放入"description"字段
+   - 技术栈信息（如"技术栈：SpringBoot MySQL..."）附加到 description 字段末尾
+   - 以"- **标题**：描述"格式开头的行是项目的功能亮点，每行一个，放入该项目的"highlights"字符串数组
+   - highlights数组中的每一项保持原格式，包括**加粗标记**
+   - 绝对不要把功能亮点合并到description中！
+
+正确示例：
+输入文本：
+### RAG 知识库助手
+基于私有知识库的 RAG 对话平台。
+技术栈：SpringBoot MySQL Redis
+
+- **上下文截断**：解决截断问题
+- **文档解析**：多格式解析
+
+输出：
+{{
+  "projects": [
+    {{
+      "title": "RAG 知识库助手",
+      "description": "基于私有知识库的 RAG 对话平台。技术栈：SpringBoot MySQL Redis",
+      "highlights": [
+        "**上下文截断**：解决截断问题",
+        "**文档解析**：多格式解析"
+      ]
+    }}
+  ]
+}}
+
+注意：highlights数组中每项不要开头的"- "符号，前端会用无序列表渲染！
 
 片段内容({chunk['section']}):
 {chunk['content']}
 {schema_desc}"""
             try:
-                raw = call_llm(provider, chunk_prompt)
+                raw = call_llm(provider, chunk_prompt, model=model)
             except Exception as e:
                 backend_logger.warning(f"分块 {i+1} 解析失败: {e}")
                 write_llm_debug(f"Chunk {i+1} Error: {e}")
@@ -337,17 +369,45 @@ async def _parse_resume_serial(body: ResumeParseRequest):
 
 解析规则：
 1. 技能描述：如果有多行以"-"开头的技能描述，每行应该作为一个独立的技能项，格式为{{"category":"","details":"该行的完整内容(去掉开头的破折号)"}}
-2. 项目经历：
-   - 项目描述段落（在技术栈之前）应该提取到"description"字段
-   - 技术栈信息（如"技术栈：SpringBoot MySQL..."）应该提取
-   - 项目亮点如果是"- **标题**：描述"格式，应该完整保留"**标题**："格式到highlights数组中
+2. 项目经历（极其重要，必须严格遵守）：
+   - 只有"### xxx"或"## xxx"开头的才是项目标题
+   - 项目描述段落（从项目标题后、第一个"- **"之前的完整段落）放入"description"字段
+   - 技术栈信息（如"技术栈：SpringBoot MySQL..."）附加到 description 字段末尾
+   - 以"- **标题**：描述"格式开头的行是项目的功能亮点，每行一个，放入该项目的"highlights"字符串数组
+   - highlights数组中的每一项保持原格式，包括**加粗标记**
+   - 绝对不要把功能亮点合并到description中！
+
+正确示例：
+输入文本：
+### RAG 知识库助手
+基于私有知识库的 RAG 对话平台。
+技术栈：SpringBoot MySQL Redis
+
+- **上下文截断**：解决截断问题
+- **文档解析**：多格式解析
+
+输出：
+{{
+  "projects": [
+    {{
+      "title": "RAG 知识库助手",
+      "description": "基于私有知识库的 RAG 对话平台。技术栈：SpringBoot MySQL Redis",
+      "highlights": [
+        "**上下文截断**：解决截断问题",
+        "**文档解析**：多格式解析"
+      ]
+    }}
+  ]
+}}
+
+注意：highlights数组中每项不要开头的"- "符号，前端会用无序列表渲染！
 
 简历文本:
 {body.text}
 {schema_desc}"""
 
         try:
-            raw = call_llm(provider, prompt)
+            raw = call_llm(provider, prompt, model=model)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
 
@@ -387,31 +447,32 @@ async def _parse_resume_serial(body: ResumeParseRequest):
 async def parse_section_text(body: SectionParseRequest):
     """AI 解析单个模块文本 → 结构化数据"""
     provider = body.provider or DEFAULT_AI_PROVIDER
-    
+    model = body.model  # 获取用户指定的模型
+
     section_prompt = SECTION_PROMPTS.get(body.section_type, '提取信息,输出JSON')
-    
+
     prompt = f"""{section_prompt}
 只输出JSON,不要markdown,不要解释。
 
 文本内容:
 {body.text}"""
-    
+
     try:
-        raw = call_llm(provider, prompt)
+        raw = call_llm(provider, prompt, model=model)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
-    
+
     cleaned = clean_llm_response(raw)
-    
+
     try:
         data = parse_json_response(cleaned)
     except Exception:
         raise HTTPException(status_code=500, detail="AI 返回的内容无法解析为 JSON，请重试")
-    
+
     if body.section_type == "summary" and isinstance(data, dict):
         data = data.get("summary", data)
-    
-    return {"data": data, "section_type": body.section_type, "provider": provider}
+
+    return {"data": data, "section_type": body.section_type, "provider": provider, "model": model}
 
 
 @router.post("/resume/rewrite")

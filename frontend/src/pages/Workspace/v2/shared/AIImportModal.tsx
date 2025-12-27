@@ -2,9 +2,15 @@
  * AI 导入弹窗组件（从 v1 移植）
  * 支持全局导入和分模块导入
  */
-import React, { useState, useEffect, useRef } from 'react'
-import { X, Wand2, RotateCcw, Save } from 'lucide-react'
+import { ChevronDown, RotateCcw, Save, Wand2, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { cn } from '../../../../lib/utils'
+
+// 可用的 AI 模型列表
+const AI_MODELS = [
+  { id: 'deepseek-chat', name: 'DeepSeek Chat', description: '快速响应：适合简单任务' },
+  { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner', description: '深度推理：适合复杂任务' },
+]
 
 // 处理 API_BASE，确保有协议前缀
 const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:8000'
@@ -54,8 +60,24 @@ export function AIImportModal({
   const [parsedData, setParsedData] = useState<any>(null)
   const [elapsedTime, setElapsedTime] = useState(0)
   const [finalTime, setFinalTime] = useState<number | null>(null)
+  const [selectedModel, setSelectedModel] = useState('deepseek-chat')
+  const [showModelDropdown, setShowModelDropdown] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef<number>(0)
+  const dropdownRef = useRef<HTMLDivElement>(null)
+
+  // 点击外部关闭下拉框
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowModelDropdown(false)
+      }
+    }
+    if (showModelDropdown) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [showModelDropdown])
 
   // 计时器逻辑
   useEffect(() => {
@@ -92,26 +114,26 @@ export function AIImportModal({
     if (!text.trim()) return
     setParsing(true)
     setParsedData(null)
-    
+
     try {
       // 处理命名不一致：openSource -> opensource
       const normalizedType = sectionType === 'openSource' ? 'opensource' : sectionType
-      
+
       // 根据是否全局导入选择不同的 API
-      const endpoint = sectionType === 'all' 
+      const endpoint = sectionType === 'all'
         ? `${API_BASE}/api/resume/parse`  // 全局解析
         : `${API_BASE}/api/resume/parse-section`  // 分模块解析
-      
+
       const body = sectionType === 'all'
-        ? { text: text.trim() }
-        : { text: text.trim(), section_type: normalizedType }
-      
+        ? { text: text.trim(), model: selectedModel }
+        : { text: text.trim(), section_type: normalizedType, model: selectedModel }
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       })
-      
+
       if (!response.ok) {
         let errMsg = '解析失败'
         try {
@@ -122,7 +144,7 @@ export function AIImportModal({
         }
         throw new Error(errMsg)
       }
-      
+
       const result = await response.json()
       // 全局解析返回 { resume: {...} }，提取 resume 字段
       if (sectionType === 'all') {
@@ -203,6 +225,87 @@ export function AIImportModal({
         
         {/* 内容区域 */}
         <div className="p-6 space-y-4">
+          {/* 模型选择器 */}
+          <div className="relative" ref={dropdownRef}>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+              选择 AI 模型
+            </label>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowModelDropdown(!showModelDropdown)}
+                className={cn(
+                  'w-full px-4 py-3 rounded-xl',
+                  'bg-slate-50 dark:bg-slate-800',
+                  'border border-slate-200 dark:border-slate-700',
+                  'text-slate-900 dark:text-slate-100',
+                  'text-left',
+                  'focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent',
+                  'transition-all',
+                  'flex items-center justify-between'
+                )}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                    <Wand2 className="w-4 h-4 text-white" />
+                  </div>
+                  <div>
+                    <div className="font-semibold">{AI_MODELS.find(m => m.id === selectedModel)?.name}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      {AI_MODELS.find(m => m.id === selectedModel)?.description}
+                    </div>
+                  </div>
+                </div>
+                <ChevronDown className={cn(
+                  'w-5 h-5 text-slate-400 transition-transform',
+                  showModelDropdown && 'rotate-180'
+                )} />
+              </button>
+
+              {/* 下拉菜单 */}
+              {showModelDropdown && (
+                <div className="absolute z-10 w-full mt-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden">
+                  {AI_MODELS.map((model) => (
+                    <button
+                      key={model.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedModel(model.id)
+                        setShowModelDropdown(false)
+                      }}
+                      className={cn(
+                        'w-full px-4 py-3 text-left transition-colors',
+                        'hover:bg-slate-50 dark:hover:bg-slate-700',
+                        selectedModel === model.id && 'bg-purple-50 dark:bg-purple-900/20'
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          'w-8 h-8 rounded-lg flex items-center justify-center',
+                          selectedModel === model.id
+                            ? 'bg-gradient-to-br from-purple-500 to-indigo-600'
+                            : 'bg-slate-200 dark:bg-slate-700'
+                        )}>
+                          <Wand2 className={cn(
+                            'w-4 h-4',
+                            selectedModel === model.id ? 'text-white' : 'text-slate-500 dark:text-slate-400'
+                          )} />
+                        </div>
+                        <div>
+                          <div className={cn(
+                            'font-semibold',
+                            selectedModel === model.id ? 'text-purple-700 dark:text-purple-400' : 'text-slate-900 dark:text-slate-100'
+                          )}>{model.name}</div>
+                          <div className="text-xs text-slate-500 dark:text-slate-400">{model.description}</div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* 输入框 */}
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
