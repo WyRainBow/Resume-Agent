@@ -37,15 +37,15 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
     >
       <Card
         className={cn(
-          "group border transition-all duration-200 h-[420px] flex flex-col overflow-hidden",
+          "group border transition-all duration-200 h-[600px] flex flex-col",
           "hover:border-gray-400 hover:bg-gray-50",
           "dark:hover:border-primary dark:hover:bg-primary/10"
         )}
       >
-        <CardContent className="relative flex-1 pt-4 pb-2 text-center flex flex-col items-center min-w-0">
-          {/* 模板预览图 */}
+        <CardContent className="relative flex-1 pt-3 pb-2 text-center flex flex-col items-center min-w-0 overflow-hidden">
+          {/* 模板预览图 - 占据更多空间 */}
           {imageSrc ? (
-            <div className="mb-3 w-full h-64 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 relative flex-shrink-0">
+            <div className="mb-2 w-full h-[420px] rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 relative flex-shrink-0">
               <img
                 src={imageSrc}
                 alt={template.name}
@@ -70,26 +70,28 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
               <LayoutGrid className="h-8 w-8 text-blue-600 dark:text-blue-400" />
             </motion.div>
           )}
-          <CardTitle className="text-lg font-semibold line-clamp-1 text-gray-900 dark:text-gray-100 px-4 w-full min-w-0">
-            {template.name}
-          </CardTitle>
-          <CardDescription className="mt-2 text-xs text-gray-600 dark:text-gray-400 px-4 line-clamp-3 w-full min-w-0 break-words">
-            {template.description}
-          </CardDescription>
-          {template.tags && template.tags.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1 justify-center px-4 w-full min-w-0">
-              {template.tags.slice(0, 3).map((tag, index) => (
-                <span
-                  key={index}
-                  className="px-2 py-1 text-xs rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 whitespace-nowrap"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
-          )}
+          <div className="flex-shrink-0 flex flex-col justify-start w-full min-w-0 px-4">
+            <CardTitle className="text-base font-semibold line-clamp-1 text-gray-900 dark:text-gray-100 w-full min-w-0 mb-1">
+              {template.name}
+            </CardTitle>
+            <CardDescription className="text-xs text-gray-600 dark:text-gray-400 w-full min-w-0 line-clamp-2 break-words">
+              {template.description}
+            </CardDescription>
+            {template.tags && template.tags.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5 justify-center w-full min-w-0">
+                {template.tags.slice(0, 3).map((tag, index) => (
+                  <span
+                    key={index}
+                    className="px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 whitespace-nowrap flex-shrink-0"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
         </CardContent>
-        <CardFooter className="pt-2 pb-4 px-4 flex-shrink-0">
+        <CardFooter className="pt-2 pb-3 px-4 flex-shrink-0 border-t border-gray-100 dark:border-gray-800">
           <motion.div
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
