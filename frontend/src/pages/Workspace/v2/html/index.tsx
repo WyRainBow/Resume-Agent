@@ -3,8 +3,9 @@
  * 专门用于 HTML 模板的实时编辑和预览
  * 无需渲染按钮，所有编辑即时生效
  */
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { cn } from '../../../../lib/utils'
+import { saveResume } from '../../../../services/resumeStorage'
 
 // Hooks
 import { useResumeData, usePDFOperations, useAIImport } from '../hooks'
@@ -87,11 +88,102 @@ export default function HTMLWorkspace() {
 
   // 文件输入引用（用于导入 JSON）
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // 防抖保存定时器
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const lastSavedDataRef = useRef<string>('')
+
+  // 自动保存函数（防抖）
+  const autoSave = useCallback(() => {
+    if (!currentResumeId) return
+    
+    // 清除之前的定时器
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+    }
+    
+    // 设置新的定时器，500ms 后保存
+    saveTimerRef.current = setTimeout(() => {
+      try {
+        const currentDataStr = JSON.stringify(resumeData)
+        // 只有当数据真正变化时才保存
+        if (currentDataStr !== lastSavedDataRef.current) {
+          saveResume(resumeData, currentResumeId)
+          lastSavedDataRef.current = currentDataStr
+          console.log('自动保存成功')
+        }
+      } catch (error) {
+        console.error('自动保存失败:', error)
+      }
+    }, 500)
+  }, [resumeData, currentResumeId])
+
+  // 立即保存函数（用于失焦时）
+  const saveImmediately = useCallback(() => {
+    if (!currentResumeId) return
+    
+    // 清除防抖定时器
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+    }
+    
+    try {
+      const currentDataStr = JSON.stringify(resumeData)
+      if (currentDataStr !== lastSavedDataRef.current) {
+        saveResume(resumeData, currentResumeId)
+        lastSavedDataRef.current = currentDataStr
+        console.log('立即保存成功')
+      }
+    } catch (error) {
+      console.error('立即保存失败:', error)
+    }
+  }, [resumeData, currentResumeId])
+
+  // 监听简历数据变化，自动保存（防抖）
+  useEffect(() => {
+    if (currentResumeId && resumeData) {
+      autoSave()
+    }
+    
+    // 清理定时器
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
+    }
+  }, [resumeData, autoSave, currentResumeId])
+
+  // 全局点击事件：点击任意区域时立即保存（排除交互元素）
+  useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      // 如果点击的是输入框、文本域、可编辑元素、按钮或链接，不保存
+      const isEditable = target.tagName === 'INPUT' || 
+                        target.tagName === 'TEXTAREA' || 
+                        target.tagName === 'BUTTON' ||
+                        target.tagName === 'A' ||
+                        target.isContentEditable ||
+                        target.closest('input, textarea, button, a, [contenteditable="true"]')
+      
+      // 点击非交互区域时保存
+      if (!isEditable) {
+        saveImmediately()
+      }
+    }
+
+    // 使用 mousedown 事件，在点击时立即保存
+    document.addEventListener('mousedown', handleGlobalClick)
+    return () => {
+      document.removeEventListener('mousedown', handleGlobalClick)
+    }
+  }, [saveImmediately])
 
   // 监听编辑状态：页面加载时保存初始状态
   useEffect(() => {
     if (!initialResumeData) {
       setInitialResumeData(JSON.stringify(resumeData))
+      lastSavedDataRef.current = JSON.stringify(resumeData)
     }
   }, [])
 
