@@ -32,6 +32,12 @@ export function PreviewPanel({
   // 判断是否为 HTML 模板
   const isHTMLTemplate = resumeData.templateType === 'html'
 
+  // #region agent log H2 H3
+  useEffect(() => {
+    fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'PreviewPanel/index.tsx:render',message:'PreviewPanel render check',data:{templateType:resumeData.templateType,isHTMLTemplate,hasPdfBlob:!!pdfBlob},timestamp:Date.now(),sessionId:'debug-session',runId:'html-pdf-download',hypothesisId:'H2-H3'})}).catch(()=>{});
+  }, [resumeData.templateType, isHTMLTemplate, pdfBlob]);
+  // #endregion agent log H2 H3
+
   // 根据容器宽度自适应计算缩放比例
   useEffect(() => {
     if (!containerRef.current || !pdfBlob || isHTMLTemplate) return

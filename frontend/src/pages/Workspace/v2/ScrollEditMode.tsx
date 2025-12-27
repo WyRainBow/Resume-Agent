@@ -271,8 +271,8 @@ export default function ScrollEditMode({
                   // 显示模式
                   <div className="flex items-center gap-2 flex-1">
                     <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex-1">
-                      {section.title}
-                    </h2>
+                  {section.title}
+                </h2>
                     {section.id !== 'basic' && (
                       <button
                         onClick={() => handleStartEdit(section)}
