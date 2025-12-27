@@ -14,6 +14,7 @@ export const DEFAULT_RESUME_TEMPLATE: ResumeData = {
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   templateId: null,
+  templateType: 'latex',  // 默认使用 LaTeX 模板
   basic: {
     name: "张三",
     title: "后端开发工程师",

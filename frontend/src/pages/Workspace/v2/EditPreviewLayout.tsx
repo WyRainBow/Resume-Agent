@@ -272,6 +272,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
           )}
         >
           <PreviewPanel
+            resumeData={resumeData}
             pdfBlob={pdfBlob}
             loading={loading}
             progress={progress}

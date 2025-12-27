@@ -1,11 +1,10 @@
-import React from 'react'
-import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { ArrowLeft } from '../ResumeDashboard/components/Icons'
-import { Button } from '../ResumeDashboard/components/ui/button'
-import { TemplateCard } from '../ResumeDashboard/components/TemplateCard'
-import { getAllTemplates, getTemplateById } from '@/data/templates'
+import { getAllTemplates, getTemplateById, getTemplateMetadata } from '@/data/templates'
 import { saveResume } from '@/services/resumeStorage'
+import { motion } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
+import { ArrowLeft } from '../ResumeDashboard/components/Icons'
+import { TemplateCard } from '../ResumeDashboard/components/TemplateCard'
+import { Button } from '../ResumeDashboard/components/ui/button'
 import type { ResumeData } from '../Workspace/v2/types'
 
 const TemplateMarket = () => {
@@ -14,16 +13,19 @@ const TemplateMarket = () => {
 
   const handleSelectTemplate = (templateId: string) => {
     const template = getTemplateById(templateId)
+    const templateMetadata = getTemplateMetadata(templateId)
+    
     if (!template) {
       console.error(`Template not found: ${templateId}`)
       return
     }
 
-    // 基于模板创建新简历
+    // 基于模板创建新简历，确保 templateType 不被覆盖
     const newResume: ResumeData = {
       ...template,
       basic: { ...template.basic, name: '未命名简历' },
-      templateId: templateId
+      templateId: templateId,
+      templateType: templateMetadata?.type || 'latex'  // 确保在 ...template 之后设置，避免被覆盖
     }
 
     // 保存到本地存储（saveResume 会自动设置当前简历 ID）
@@ -65,10 +67,10 @@ const TemplateMarket = () => {
             </motion.div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                简历市场
+                简历模板市场
               </h1>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                选择一个模板开始创建你的简历
+                选择适合你的模板开始创建简历
               </p>
             </div>
           </div>
@@ -88,14 +90,52 @@ const TemplateMarket = () => {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
-              {templates.map((template) => (
-                <TemplateCard
-                  key={template.id}
-                  template={template}
-                  onSelect={handleSelectTemplate}
-                />
-              ))}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              {/* LaTeX 模板列 */}
+              <div>
+                <div className="mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+                    LaTeX 模板（高质量）
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    专业级简历模板、生成高质量 PDF
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {templates
+                    .filter(t => t.type === 'latex')
+                    .map((template) => (
+                      <TemplateCard
+                        key={template.id}
+                        template={template}
+                        onSelect={handleSelectTemplate}
+                      />
+                    ))}
+                </div>
+              </div>
+
+              {/* HTML 模板列 */}
+              <div>
+                <div className="mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+                    ⚡ HTML 模板（实时编辑）
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    实时预览模板、支持快速迭代、编辑时即刻看到效果
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {templates
+                    .filter(t => t.type === 'html')
+                    .map((template) => (
+                      <TemplateCard
+                        key={template.id}
+                        template={template}
+                        onSelect={handleSelectTemplate}
+                      />
+                    ))}
+                </div>
+              </div>
             </div>
           )}
         </motion.div>

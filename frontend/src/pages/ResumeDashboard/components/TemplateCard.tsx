@@ -71,14 +71,16 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
             </motion.div>
           )}
           <div className="flex-shrink-0 flex flex-col justify-start w-full min-w-0 px-4">
-            <CardTitle className="text-base font-semibold line-clamp-1 text-gray-900 dark:text-gray-100 w-full min-w-0 mb-1">
-              {template.name}
-            </CardTitle>
+            <div className="flex items-center gap-2 mb-1">
+              <CardTitle className="text-base font-semibold line-clamp-1 text-gray-900 dark:text-gray-100 w-full min-w-0">
+                {template.name}
+              </CardTitle>
+            </div>
             <CardDescription className="text-xs text-gray-600 dark:text-gray-400 w-full min-w-0 line-clamp-2 break-words">
               {template.description}
             </CardDescription>
             {template.tags && template.tags.length > 0 && (
-              <div className="mt-2 flex flex-wrap gap-1.5 justify-center w-full min-w-0">
+              <div className="mt-2 flex flex-wrap gap-1.5 justify-start w-full min-w-0">
                 {template.tags.slice(0, 3).map((tag, index) => (
                   <span
                     key={index}
