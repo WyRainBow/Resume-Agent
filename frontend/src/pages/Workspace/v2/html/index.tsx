@@ -6,7 +6,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { cn } from '../../../../lib/utils'
-import { saveResume } from '../../../../services/resumeStorage'
+import { saveResume, setCurrentResumeId } from '../../../../services/resumeStorage'
 import html2pdf from 'html2pdf.js'
 
 // Hooks
