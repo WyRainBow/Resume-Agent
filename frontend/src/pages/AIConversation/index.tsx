@@ -274,7 +274,7 @@ export default function AIConversation() {
           </div>
         </div>
 
-        {/* 右侧预览区 - 初始隐藏，选择后滑出 */}
+        {/* 右侧预览区 - 使用 fixed 定位固定在视口右侧中间 */}
         <AnimatePresence>
           {selectedOption && (
             <motion.div 
@@ -282,16 +282,16 @@ export default function AIConversation() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: '100%', opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="flex-1 bg-slate-50 border-l border-gray-200 overflow-hidden relative shadow-2xl z-20 flex flex-col"
+              className="fixed top-16 right-0 bottom-0 w-1/2 bg-slate-50 border-l border-gray-200 shadow-2xl z-30 flex flex-col"
             >
               {/* 顶部提示条 */}
-              <div className="h-12 bg-white/80 backdrop-blur border-b border-gray-200 px-4 flex items-center justify-center text-center text-sm text-gray-500 shrink-0">
+              <div className="h-10 bg-white border-b border-gray-200 px-4 flex items-center justify-center text-sm text-gray-500 shrink-0">
                 简历预览 · 实时更新
               </div>
 
-              {/* 预览内容区 - 滚动容器 */}
-              <div className="flex-1 overflow-y-auto p-6 flex items-start justify-center pt-8">
-                <div className="bg-white shadow-xl min-h-[1050px] w-[760px] rounded-lg overflow-hidden">
+              {/* 预览内容区 - 固定在中间 */}
+              <div className="flex-1 flex items-center justify-center p-4">
+                <div className="bg-white shadow-xl w-[700px] max-h-[calc(100vh-120px)] rounded-lg overflow-y-auto">
                    <HTMLTemplateRenderer resumeData={resumeData} />
                 </div>
               </div>
