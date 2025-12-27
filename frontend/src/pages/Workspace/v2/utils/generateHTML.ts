@@ -194,7 +194,7 @@ export function generateHTMLFile(resumeData: ResumeData): string {
 
         ${education.length > 0 ? `
           <section class="template-section">
-            <h2 class="section-title">🎓 教育经历</h2>
+            <h2 class="section-title">教育经历</h2>
             <div class="section-content">
               ${education.map(edu => `
                 <div class="item">
@@ -234,7 +234,7 @@ export function generateHTMLFile(resumeData: ResumeData): string {
 
         ${projects.length > 0 ? `
           <section class="template-section">
-            <h2 class="section-title">🚀 项目经历</h2>
+            <h2 class="section-title">项目经历</h2>
             <div class="section-content">
               ${projects.map(proj => `
                 <div class="item">
