@@ -20,19 +20,26 @@ const TemplateMarket = () => {
       return
     }
 
+    // 获取模板类型
+    const templateType = templateMetadata?.type || 'latex'
+
     // 基于模板创建新简历，确保 templateType 不被覆盖
     const newResume: ResumeData = {
       ...template,
       basic: { ...template.basic, name: '未命名简历' },
       templateId: templateId,
-      templateType: templateMetadata?.type || 'latex'  // 确保在 ...template 之后设置，避免被覆盖
+      templateType: templateType
     }
 
     // 保存到本地存储（saveResume 会自动设置当前简历 ID）
     saveResume(newResume)
     
-    // 跳转到编辑页面
-    navigate('/workspace')
+    // 🎯 根据模板类型跳转到对应的工作区
+    if (templateType === 'html') {
+      navigate('/workspace/html')
+    } else {
+      navigate('/workspace/latex')
+    }
   }
 
   return (
