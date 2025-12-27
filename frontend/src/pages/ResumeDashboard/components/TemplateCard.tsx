@@ -5,6 +5,13 @@ import { Button } from './ui/button'
 import { LayoutGrid } from './Icons'
 import { cn } from '@/lib/utils'
 import type { TemplateMetadata } from '@/data/templates'
+import classicImage from '@/assets/images/templates/classic.png'
+
+// 模板图片映射
+const templateImages: Record<string, string> = {
+  default: classicImage,
+  classic: classicImage,
+}
 
 interface TemplateCardProps {
   template: TemplateMetadata
@@ -15,6 +22,9 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
   template, 
   onSelect 
 }) => {
+  // 获取模板图片，优先使用映射，否则使用 thumbnail
+  const imageSrc = templateImages[template.id] || template.thumbnail
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -34,20 +44,20 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
       >
         <CardContent className="relative flex-1 pt-6 text-center flex flex-col items-center">
           {/* 模板预览图 */}
-          {template.thumbnail ? (
+          {imageSrc ? (
             <div className="mb-4 w-full h-48 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 relative">
               <img
-                src={template.thumbnail}
+                src={imageSrc}
                 alt={template.name}
                 className="w-full h-full object-contain"
                 onError={(e) => {
                   // 如果图片加载失败，显示占位符
                   const target = e.target as HTMLImageElement
                   target.src = '/templates/placeholder.svg'
-                  console.error('Failed to load template thumbnail:', template.thumbnail)
+                  console.error('Failed to load template thumbnail:', imageSrc)
                 }}
                 onLoad={() => {
-                  console.log('Template thumbnail loaded:', template.thumbnail)
+                  console.log('Template thumbnail loaded:', imageSrc)
                 }}
               />
             </div>
