@@ -34,7 +34,8 @@ async def get_keys_status():
     """获取 API Key 配置状态（不返回完整 Key，只返回是否已配置）"""
     zhipu_key = os.getenv("ZHIPU_API_KEY", "")
     doubao_key = os.getenv("DOUBAO_API_KEY", "")
-    
+    deepseek_key = os.getenv("DEEPSEEK_API_KEY", "")
+
     return {
         "zhipu": {
             "configured": bool(zhipu_key and len(zhipu_key) > 10),
@@ -43,6 +44,10 @@ async def get_keys_status():
         "doubao": {
             "configured": bool(doubao_key and len(doubao_key) > 10),
             "preview": f"{doubao_key[:8]}..." if doubao_key and len(doubao_key) > 10 else ""
+        },
+        "deepseek": {
+            "configured": bool(deepseek_key and len(deepseek_key) > 10),
+            "preview": f"{deepseek_key[:8]}..." if deepseek_key and len(deepseek_key) > 10 else ""
         }
     }
 
@@ -52,16 +57,17 @@ async def save_keys(body: SaveKeysRequest):
     """保存 API Key 到 .env 文件"""
     try:
         env_path = ROOT_DIR / ".env"
-        
+
         existing_lines = []
         if env_path.exists():
             with open(env_path, "r", encoding="utf-8") as f:
                 existing_lines = f.readlines()
-        
+
         new_lines = []
         zhipu_found = False
         doubao_found = False
-        
+        deepseek_found = False
+
         for line in existing_lines:
             if line.startswith("ZHIPU_API_KEY=") and body.zhipu_key:
                 new_lines.append(f"ZHIPU_API_KEY={body.zhipu_key}\n")
@@ -69,20 +75,25 @@ async def save_keys(body: SaveKeysRequest):
             elif line.startswith("DOUBAO_API_KEY=") and body.doubao_key:
                 new_lines.append(f"DOUBAO_API_KEY={body.doubao_key}\n")
                 doubao_found = True
+            elif line.startswith("DEEPSEEK_API_KEY=") and body.deepseek_key:
+                new_lines.append(f"DEEPSEEK_API_KEY={body.deepseek_key}\n")
+                deepseek_found = True
             else:
                 new_lines.append(line)
-        
+
         if body.zhipu_key and not zhipu_found:
             new_lines.append(f"ZHIPU_API_KEY={body.zhipu_key}\n")
         if body.doubao_key and not doubao_found:
             new_lines.append(f"DOUBAO_API_KEY={body.doubao_key}\n")
-        
+        if body.deepseek_key and not deepseek_found:
+            new_lines.append(f"DEEPSEEK_API_KEY={body.deepseek_key}\n")
+
         with open(env_path, "w", encoding="utf-8") as f:
             f.writelines(new_lines)
-        
+
         if load_dotenv:
             load_dotenv(dotenv_path=str(env_path), override=True)
-        
+
         # 重置智谱客户端实例，强制使用新的 API Key
         if body.zhipu_key:
             try:
@@ -96,9 +107,20 @@ async def save_keys(body: SaveKeysRequest):
                 simple.ZHIPU_API_KEY = body.zhipu_key
             except Exception as e:
                 print(f"[警告] 重置智谱客户端失败: {e}")
-        
+
+        # 更新 DeepSeek API Key
+        if body.deepseek_key:
+            try:
+                try:
+                    from backend import simple
+                except ImportError:
+                    import simple
+                simple.DEEPSEEK_API_KEY = body.deepseek_key
+            except Exception as e:
+                print(f"[警告] 更新 DeepSeek API Key 失败: {e}")
+
         return {"success": True, "message": "API Key 已保存"}
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
 
@@ -135,18 +157,20 @@ async def chat_api(body: ChatRequest):
                 prompt_parts.append(f"用户：{msg.content}")
             elif msg.role == "assistant":
                 prompt_parts.append(f"助手：{msg.content}")
-        
+
         prompt = "\n\n".join(prompt_parts) + "\n\n请回复："
-        
+
         provider = body.provider
         if not provider:
             if os.getenv("ZHIPU_API_KEY"):
                 provider = "zhipu"
             elif os.getenv("DOUBAO_API_KEY"):
                 provider = "doubao"
+            elif os.getenv("DEEPSEEK_API_KEY"):
+                provider = "deepseek"
             else:
                 raise HTTPException(status_code=400, detail="未配置 AI 服务 API Key")
-        
+
         result = call_llm(provider, prompt)
         return {"content": result, "provider": provider}
     except HTTPException as he:

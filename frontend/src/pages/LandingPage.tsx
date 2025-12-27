@@ -1,17 +1,13 @@
-import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  FileText, 
-  Sparkles, 
-  Zap, 
-  ShieldCheck, 
-  Layout, 
-  ArrowRight,
+import { motion } from 'framer-motion'
+import {
   ChevronRight,
-  LogIn,
-  User
+  FileText,
+  Layout,
+  Sparkles,
+  Zap
 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 // 动画变体
 const fadeInUp = {
@@ -100,7 +96,7 @@ export default function LandingPage() {
           >
             Resume-Agent 是一款为开发者打造的简历智能体。
             <br />
-            通过 <span className="text-slate-800 font-bold">一句话指令</span> 触发，实时流式生成具有 <span className="text-slate-800 font-bold">LaTeX 像素级精度</span> 的专业简历。
+            通过 <span className="text-slate-800 font-bold">一句话指令</span> 触发：实时流式生成具有 <span className="text-slate-800 font-bold">LaTeX 像素级精度</span> 的专业简历。
           </motion.p>
 
           <motion.div 

@@ -114,10 +114,38 @@ class ParallelChunkProcessor:
 
 解析规则：
 1. 技能描述：如果有多行以"-"开头的技能描述，每行应该作为一个独立的技能项，格式为{{"category":"","details":"该行的完整内容(去掉开头的破折号)"}}
-2. 项目经历：
-   - 项目描述段落（在技术栈之前）应该提取到"description"字段
-   - 技术栈信息（如"技术栈：SpringBoot MySQL..."）应该提取
-   - 项目亮点如果是"- **标题**：描述"格式，应该完整保留"**标题**："格式到highlights数组中
+2. 项目经历（极其重要，必须严格遵守）：
+   - 只有"### xxx"或"## xxx"开头的才是项目标题
+   - 项目描述段落（从项目标题后、第一个"- **"之前的完整段落）放入"description"字段
+   - 技术栈信息（如"技术栈：SpringBoot MySQL..."）附加到 description 字段末尾
+   - 以"- **标题**：描述"格式开头的行是项目的功能亮点，每行一个，放入该项目的"highlights"字符串数组
+   - highlights数组中的每一项保持原格式，包括**加粗标记**
+   - 绝对不要把功能亮点合并到description中！
+
+正确示例：
+输入文本：
+### RAG 知识库助手
+基于私有知识库的 RAG 对话平台。
+技术栈：SpringBoot MySQL Redis
+
+- **上下文截断**：解决截断问题
+- **文档解析**：多格式解析
+
+输出：
+{{
+  "projects": [
+    {{
+      "title": "RAG 知识库助手",
+      "description": "基于私有知识库的 RAG 对话平台。技术栈：SpringBoot MySQL Redis",
+      "highlights": [
+        "**上下文截断**：解决截断问题",
+        "**文档解析**：多格式解析"
+      ]
+    }}
+  ]
+}}
+
+注意：highlights数组中每项不要开头的"- "符号，前端会用无序列表渲染！
 
 片段内容({chunk['section']}):
 {chunk['content']}
@@ -286,7 +314,8 @@ class ParallelChunkProcessor:
 async def parse_resume_text_parallel(text: str, provider: str,
                                      chunk_threshold: int = None,
                                      max_chunk_size: int = 300,
-                                     max_concurrent: int = None) -> Dict[str, Any]:
+                                     max_concurrent: int = None,
+                                     model: str = None) -> Dict[str, Any]:
     """
     并行解析简历文本（保持与原函数签名兼容）
 
@@ -296,6 +325,7 @@ async def parse_resume_text_parallel(text: str, provider: str,
         chunk_threshold: 分块阈值
         max_chunk_size: 最大分块大小
         max_concurrent: 最大并发数
+        model: 可选，指定具体模型（如 deepseek-chat, deepseek-reasoner）
 
     Returns:
         解析后的简历数据
@@ -305,11 +335,13 @@ async def parse_resume_text_parallel(text: str, provider: str,
 
 重要说明：
 1. 技能描述：如果原文中技能描述部分有多行，每行以"-"开头，应该将每一行作为一个独立的技能项，格式为{"category":"","details":"该行的完整内容(去掉开头的破折号)"}
-2. 项目经历：
-   - 如果项目有描述段落（在技术栈之前），应该提取到"description"字段
-   - 如果项目有技术栈（如"技术栈：SpringBoot MySQL..."），应该提取技术栈信息
-   - 如果项目亮点是"- **标题**：描述"格式，应该保留"**标题**："的格式，完整提取到highlights数组中
-   - highlights数组中的每一项应该保持原文格式，包括加粗标记"""
+2. 项目经历（极其重要，必须严格遵守）：
+   - 只有"### xxx"或"## xxx"开头的才是项目标题，如"### RAG知识库助手"是项目名
+   - 项目描述段落（从项目标题后、技术栈前的完整段落）必须放入"description"字段
+   - 技术栈信息（如"技术栈：SpringBoot MySQL..."）应该附加到 description 字段末尾
+   - "- **标题**：描述"格式是项目的功能亮点，必须放入该项目的"highlights"数组，绝不能作为独立项目！
+   - highlights数组中的每一项应该保持原文格式，包括加粗标记
+   - 如果只看到功能亮点（"- **xxx**：描述"）而没有项目标题，将这些放入highlights数组，title留空，系统会自动合并"""
 
     # 获取配置
     config = get_parallel_config(provider)
@@ -322,10 +354,38 @@ async def parse_resume_text_parallel(text: str, provider: str,
 
 解析规则：
 1. 技能描述：如果有多行以"-"开头的技能描述，每行应该作为一个独立的技能项，格式为{{"category":"","details":"该行的完整内容(去掉开头的破折号)"}}
-2. 项目经历：
-   - 项目描述段落（在技术栈之前）应该提取到"description"字段
-   - 技术栈信息（如"技术栈：SpringBoot MySQL..."）应该提取
-   - 项目亮点如果是"- **标题**：描述"格式，应该完整保留"**标题**："格式到highlights数组中
+2. 项目经历（极其重要，必须严格遵守）：
+   - 只有"### xxx"或"## xxx"开头的才是项目标题
+   - 项目描述段落（从项目标题后、第一个"- **"之前的完整段落）放入"description"字段
+   - 技术栈信息（如"技术栈：SpringBoot MySQL..."）附加到 description 字段末尾
+   - 以"- **标题**：描述"格式开头的行是项目的功能亮点，每行一个，放入该项目的"highlights"字符串数组
+   - highlights数组中的每一项保持原格式，包括**加粗标记**
+   - 绝对不要把功能亮点合并到description中！
+
+正确示例：
+输入文本：
+### RAG 知识库助手
+基于私有知识库的 RAG 对话平台。
+技术栈：SpringBoot MySQL Redis
+
+- **上下文截断**：解决截断问题
+- **文档解析**：多格式解析
+
+输出：
+{{
+  "projects": [
+    {{
+      "title": "RAG 知识库助手",
+      "description": "基于私有知识库的 RAG 对话平台。技术栈：SpringBoot MySQL Redis",
+      "highlights": [
+        "**上下文截断**：解决截断问题",
+        "**文档解析**：多格式解析"
+      ]
+    }}
+  ]
+}}
+
+注意：highlights数组中每项不要开头的"- "符号，前端会用无序列表渲染！
 
 简历文本:
 {text}
@@ -338,7 +398,13 @@ async def parse_resume_text_parallel(text: str, provider: str,
             functools.partial(call_llm, provider, prompt)
         )
         cleaned = clean_llm_response(raw)
-        return parse_json_response(cleaned)
+        result = parse_json_response(cleaned)
+
+        # 反思和修复：让 AI 检查并修复项目解析中的问题
+        print(f"[parse_resume_text_parallel] 短文本处理完成，开始 AI 反思修复...", file=sys.stderr, flush=True)
+        result = await reflect_and_fix_projects(provider, text, result)
+
+        return result
 
     # 长文本使用并行分块处理
     print(f"[parse_resume_text_parallel] 文本长度: {len(text)}, 阈值: {chunk_threshold}, 需要分块", file=sys.stderr, flush=True)
@@ -367,10 +433,130 @@ async def parse_resume_text_parallel(text: str, provider: str,
         print(f"[parse_resume_text_parallel] 合并完成", file=sys.stderr, flush=True)
         backend_logger.info("分块合并完成")
 
-        return final_result
+        # 反思和修复：让 AI 检查并修复项目解析中的问题
+        print(f"[parse_resume_text_parallel] 开始 AI 反思修复...", file=sys.stderr, flush=True)
+        final_result = await reflect_and_fix_projects(provider, text, final_result)
 
+        return final_result
     finally:
         processor.close()
+
+
+async def reflect_and_fix_projects(provider: str, text: str, current_result: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    反思并修复项目解析结果
+
+    这是一个两阶段处理：
+    1. 让 AI 分析当前解析结果，找出可能的问题
+    2. 让 AI 重新解析项目部分，修复问题
+    """
+    import json as _json
+
+    # 提取项目经验部分
+    projects_section = ""
+    if "## 项目经验" in text or "###" in text:
+        # 尝试提取项目经验部分
+        lines = text.split('\n')
+        in_project_section = False
+        for line in lines:
+            if '项目经验' in line or '项目经历' in line:
+                in_project_section = True
+            if in_project_section:
+                projects_section += line + '\n'
+
+    # 如果没有找到项目经验部分，返回原结果
+    if not projects_section or "###" not in projects_section:
+        return current_result
+
+    # 让 AI 分析当前的项目解析结果
+    current_projects = current_result.get("projects", [])
+    current_projects_json = _json.dumps(current_projects, ensure_ascii=False, indent=2)
+
+    reflect_prompt = f"""你是一个简历解析专家。请分析以下简历文本和当前的 AI 解析结果，找出解析中的问题。
+
+**原始简历文本（项目经验部分）：**
+{projects_section}
+
+**当前 AI 解析结果（projects 数组）：**
+{current_projects_json}
+
+**你的任务：**
+1. 仔细对比原始文本和解析结果
+2. 找出被错误解析为独立项目的"功能亮点"
+3. 找出应该合并到一个项目中的多个"项目"
+4. 列出所有需要修复的问题
+
+**输出格式：**
+请以 JSON 格式输出分析结果：
+{{
+  "issues": [
+    {{
+      "type": "功能亮点被误识别为项目" | "项目被拆分" | "项目名错误" | "其他",
+      "description": "问题描述",
+      "affected_items": ["项目中文名或索引"]
+    }}
+  ],
+  "correct_structure": [
+    {{
+      "project_name": "正确的项目名（从 ### 后提取）",
+      "highlights": ["功能亮点1", "功能亮点2", "..."]
+    }}
+  ]
+}}
+
+只输出 JSON，不要 markdown。
+"""
+
+    try:
+        loop = asyncio.get_event_loop()
+        reflect_response = await loop.run_in_executor(
+            None,
+            functools.partial(call_llm, provider, reflect_prompt)
+        )
+
+        cleaned_reflect = clean_llm_response(reflect_response)
+        reflect_data = parse_json_response(cleaned_reflect)
+
+        # 根据 AI 的反思结果修复项目列表
+        if "correct_structure" in reflect_data and reflect_data["correct_structure"]:
+            print(f"[反思] AI 发现了 {len(reflect_data.get('issues', []))} 个问题，正在修复...", file=sys.stderr, flush=True)
+
+            # 重建项目列表
+            fixed_projects = []
+            for correct_proj in reflect_data["correct_structure"]:
+                project_name = correct_proj.get("project_name", "")
+                highlights = correct_proj.get("highlights", [])
+
+                # 从原项目中查找匹配的项目，保留其其他信息（如 date, description）
+                matched_project = None
+                for orig_proj in current_projects:
+                    orig_title = orig_proj.get("title", "") or orig_proj.get("name", "")
+                    if project_name in orig_title or orig_title in project_name:
+                        matched_project = orig_proj
+                        break
+
+                if matched_project:
+                    # 更新 highlights
+                    matched_project["highlights"] = highlights
+                    fixed_projects.append(matched_project)
+                else:
+                    # 创建新项目
+                    fixed_projects.append({
+                        "title": project_name,
+                        "subtitle": "",
+                        "date": "",
+                        "description": "",
+                        "highlights": highlights
+                    })
+
+            current_result["projects"] = fixed_projects
+            print(f"[反思] 修复完成，项目数量从 {len(current_projects)} 变为 {len(fixed_projects)}", file=sys.stderr, flush=True)
+
+    except Exception as e:
+        print(f"[反思] 反思过程出错，使用原始结果: {e}", file=sys.stderr, flush=True)
+        backend_logger.warning(f"反思过程失败: {e}")
+
+    return current_result
 
 
 # 示例：如何在FastAPI中使用

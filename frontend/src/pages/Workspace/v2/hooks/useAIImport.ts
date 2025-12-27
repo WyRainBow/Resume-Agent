@@ -70,18 +70,26 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
         })) || prev.experience,
         projects: data.projects?.map((p: any, i: number) => {
           // 合并项目描述和亮点
-          let description = ''
-          if (p.description) {
-            description = p.description
-          }
+          let description = p.description || ''
+
+          // 将 highlights 数组转换为 HTML 无序列表
           if (p.highlights && p.highlights.length > 0) {
-            const highlightsText = p.highlights.join('\n')
+            const highlightsHtml = p.highlights.map((h: string) => {
+              // 转换 Markdown **加粗** 为 HTML <strong>
+              const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+              return `<li>${formatted}</li>`
+            }).join('')
+            const highlightsList = `<ul class="custom-list">${highlightsHtml}</ul>`
             if (description) {
-              description = description + '\n\n' + highlightsText
+              description = description + highlightsList
             } else {
-              description = highlightsText
+              description = highlightsList
             }
           }
+
+          // 转换 description 中的 Markdown ** 加粗
+          description = description.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+
           return {
             id: `proj_${Date.now()}_${i}`,
             name: p.title || '',
@@ -181,24 +189,32 @@ function handleSectionImport(
       if (Array.isArray(data)) {
         const newProjects = data.map((p: any, i: number) => {
           // 合并项目描述和亮点
-          let description = ''
-          if (p.description) {
-            description = p.description
-          }
+          let description = p.description || ''
+
+          // 将 highlights 数组转换为 HTML 无序列表
           if (p.highlights && p.highlights.length > 0) {
-            const highlightsText = p.highlights.join('\n')
+            const highlightsHtml = p.highlights.map((h: string) => {
+              // 转换 Markdown **加粗** 为 HTML <strong>
+              const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+              return `<li>${formatted}</li>`
+            }).join('')
+            const highlightsList = `<ul class="custom-list">${highlightsHtml}</ul>`
             if (description) {
-              description = description + '\n\n' + highlightsText
+              description = description + highlightsList
             } else {
-              description = highlightsText
+              description = highlightsList
             }
           }
+
+          // 转换 description 中的 Markdown ** 加粗
+          description = description.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+
           return {
             id: `proj_${Date.now()}_${i}`,
             name: p.title || p.name || '',
             role: p.subtitle || p.role || '',
             date: p.date || '',
-            description: description || '',
+            description: description,
             visible: true,
           }
         })
