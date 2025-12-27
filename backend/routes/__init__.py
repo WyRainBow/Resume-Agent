@@ -6,11 +6,13 @@ from .config import router as config_router
 from .resume import router as resume_router
 from .agent import router as agent_router
 from .pdf import router as pdf_router
+from .share import router as share_router
 
 __all__ = [
     'health_router',
     'config_router', 
     'resume_router',
     'agent_router',
-    'pdf_router'
+    'pdf_router',
+    'share_router'
 ]

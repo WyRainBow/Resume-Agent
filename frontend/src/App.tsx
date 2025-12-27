@@ -4,6 +4,7 @@ import LandingPage from './pages/LandingPage'
 import Workspace from './pages/Workspace/v2'
 import ResumeDashboard from './pages/ResumeDashboard'
 import TemplateMarket from './pages/TemplateMarket'
+import SharePage from './pages/SharePage'
 import ErrorBoundary from './ErrorBoundary'
 
 function App() {
@@ -16,6 +17,7 @@ function App() {
             <Route path="/workspace" element={<Workspace />} />
             <Route path="/dashboard" element={<ResumeDashboard />} />
             <Route path="/templates" element={<TemplateMarket />} />
+            <Route path="/share/:shareId" element={<SharePage />} />
           </Routes>
         </BrowserRouter>
       </ErrorBoundary>
