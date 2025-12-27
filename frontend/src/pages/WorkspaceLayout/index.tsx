@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Edit, Sparkles, LayoutGrid, FileText } from 'lucide-react'
+import { Edit, Sparkles, LayoutGrid, FileText, Save } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // 工作区类型
@@ -13,9 +13,10 @@ type WorkspaceType = 'edit' | 'conversation' | 'dashboard' | 'templates'
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode
+  onSave?: () => void
 }
 
-export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
+export default function WorkspaceLayout({ children, onSave }: WorkspaceLayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -132,6 +133,18 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
 
           {/* 其他导航 */}
           <nav className="space-y-1 flex flex-col items-center">
+            {/* 保存按钮 - 仅在编辑区显示 */}
+            {currentWorkspace === 'edit' && onSave && (
+              <button
+                onClick={onSave}
+                className="w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
+                title="保存简历"
+              >
+                <Save className="w-5 h-5 shrink-0" />
+                <span className="text-[10px] leading-tight">保存</span>
+              </button>
+            )}
+
             <button
               onClick={() => navigate('/create-new')}
               className="w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
