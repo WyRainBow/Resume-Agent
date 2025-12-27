@@ -25,7 +25,7 @@ interface HeaderProps {
 
 export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPISettings, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF, editMode, onEditModeChange }: HeaderProps) {
   return (
-    <motion.header
+    <motion.header 
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
@@ -37,12 +37,12 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPI
     >
       {/* 左侧：编辑模式切换 */}
       {editMode !== undefined && onEditModeChange && (
-        <motion.div
+      <motion.div 
           className="flex items-center gap-2"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
-        >
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.4, delay: 0.2 }}
+      >
           <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">编辑模式：</span>
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
             <button
@@ -71,12 +71,12 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPI
               <LayoutGrid className="w-4 h-4" />
               滚动编辑
             </button>
-          </div>
-        </motion.div>
+        </div>
+      </motion.div>
       )}
 
       {/* 右侧：Action Buttons */}
-      <motion.div
+      <motion.div 
         className="flex items-center gap-3"
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
@@ -121,7 +121,7 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPI
           )}
           {saveSuccess ? '已保存' : '保存'}
         </button>
-
+        
         {/* 导入 JSON 按钮 */}
         {onImportJSON && (
           <button
