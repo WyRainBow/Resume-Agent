@@ -67,6 +67,14 @@ export default function LandingPage() {
           >
             我的简历
           </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => navigate('/create-new')}
+            className="hidden md:block px-5 py-2.5 bg-white text-blue-600 rounded-xl font-bold shadow-lg hover:bg-blue-50 transition-all border border-blue-100"
+          >
+            创建简历
+          </motion.button>
         </div>
       </nav>
 

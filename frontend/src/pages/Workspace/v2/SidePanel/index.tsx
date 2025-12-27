@@ -1,7 +1,6 @@
 /**
- * 侧边面板组件（第一列）
- * 包含布局管理
- * 注：排版设置已移除
+ * 侧边面板组件（编辑区的第一列）
+ * 包含模块选择和布局管理
  */
 import { motion } from 'framer-motion'
 import { Layout } from 'lucide-react'
@@ -73,7 +72,7 @@ export function SidePanel({
     <div className="h-full overflow-y-auto">
       <div className="p-4 space-y-4">
         {/* 布局设置 */}
-        <SettingCard icon={Layout} title="布局">
+        <SettingCard icon={Layout} title="模块">
           <LayoutSetting
             menuSections={menuSections}
             activeSection={activeSection}
@@ -89,7 +88,7 @@ export function SidePanel({
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.9 }}
               onClick={addCustomSection}
-              className="flex justify-center w-full rounded-lg items-center gap-2 py-2 px-3 text-sm font-medium text-primary bg-indigo-50 dark:bg-indigo-900/20"
+              className="flex justify-center w-full rounded-lg items-center gap-2 py-2 px-3 text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-colors"
             >
               添加自定义模块
             </motion.button>
@@ -102,5 +101,3 @@ export function SidePanel({
 }
 
 export default SidePanel
-
-

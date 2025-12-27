@@ -1,9 +1,7 @@
 /**
  * 编辑面板组件（第二列）
  * 根据当前选中的模块动态渲染对应的编辑面板
- * 支持两种模式：编辑模式（手动编辑）和对话模式（AI 对话生成）
  */
-import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Pencil } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
@@ -15,14 +13,11 @@ import EducationPanel from './EducationPanel'
 import SkillPanel from './SkillPanel'
 import OpenSourcePanel from './OpenSourcePanel'
 import AwardPanel from './AwardPanel'
-import EditModeSelector, { type EditMode } from './EditModeSelector'
-import ConversationPanel from './ConversationPanel'
 
 interface EditPanelProps {
   activeSection: string
   menuSections: MenuSection[]
   resumeData: ResumeData
-  setResumeData: (data: ResumeData | ((prev: ResumeData) => ResumeData)) => void
   // 更新回调
   updateBasicInfo: (data: Partial<BasicInfo>) => void
   updateProject: (project: Project) => void
@@ -51,7 +46,6 @@ export function EditPanel({
   activeSection,
   menuSections,
   resumeData,
-  setResumeData,
   updateBasicInfo,
   updateProject,
   deleteProject,
@@ -73,16 +67,6 @@ export function EditPanel({
   updateGlobalSettings,
   onAIImport,
 }: EditPanelProps) {
-  // 编辑模式状态
-  const [editMode, setEditMode] = useState<EditMode>('edit')
-
-  // 处理对话完成
-  const handleConversationComplete = (data: ResumeData) => {
-    setResumeData(data)
-    // 完成后自动切换到编辑模式
-    setEditMode('edit')
-  }
-
   // 根据 activeSection 渲染对应面板
   const renderFields = () => {
     switch (activeSection) {
@@ -180,88 +164,59 @@ export function EditPanel({
   return (
     <motion.div
       className={cn(
-        'h-full border-r overflow-hidden flex flex-col',
+        'h-full border-r overflow-y-auto',
         'bg-gray-50 border-gray-100',
         'dark:bg-neutral-950 dark:border-neutral-800'
       )}
     >
-      <div className="p-4 flex-shrink-0">
-        {/* 模式切换选择器 */}
-        <EditModeSelector
-          currentMode={editMode}
-          onModeChange={setEditMode}
-        />
+      <div className="p-4">
+        {/* 模块标题 */}
+        <motion.div
+          className={cn(
+            'mb-4 p-4 rounded-lg border',
+            'bg-white border-gray-100',
+            'dark:bg-neutral-900/50 dark:border-neutral-800'
+          )}
+        >
+          <div className="flex items-center gap-2">
+            <span className="text-lg">{currentSection?.icon}</span>
 
-        {/* 模块标题 - 仅在编辑模式下显示 */}
-        {editMode === 'edit' && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={cn(
-              'mb-4 p-4 rounded-lg border',
-              'bg-white border-gray-100',
-              'dark:bg-neutral-900/50 dark:border-neutral-800'
+            {activeSection === 'basic' ? (
+              <span className="text-lg font-semibold text-primary">
+                {currentSection?.title}
+              </span>
+            ) : (
+              <div className="flex items-center flex-1">
+                <input
+                  className={cn(
+                    'flex-1 text-lg font-medium bg-transparent outline-none text-primary',
+                    'border-b border-transparent focus:border-primary pb-1'
+                  )}
+                  type="text"
+                  value={currentSection?.title || ''}
+                  onChange={(e) => {
+                    const newSections = menuSections.map((s) =>
+                      s.id === activeSection ? { ...s, title: e.target.value } : s
+                    )
+                    updateMenuSections(newSections)
+                  }}
+                />
+                <Pencil size={16} className="text-primary ml-2" />
+              </div>
             )}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{currentSection?.icon}</span>
+          </div>
+        </motion.div>
 
-              {activeSection === 'basic' ? (
-                <span className="text-lg font-semibold text-primary">
-                  {currentSection?.title}
-                </span>
-              ) : (
-                <div className="flex items-center flex-1">
-                  <input
-                    className={cn(
-                      'flex-1 text-lg font-medium bg-transparent outline-none text-primary',
-                      'border-b border-transparent focus:border-primary pb-1'
-                    )}
-                    type="text"
-                    value={currentSection?.title || ''}
-                    onChange={(e) => {
-                      const newSections = menuSections.map((s) =>
-                        s.id === activeSection ? { ...s, title: e.target.value } : s
-                      )
-                      updateMenuSections(newSections)
-                    }}
-                  />
-                  <Pencil size={16} className="text-primary ml-2" />
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </div>
-
-      {/* 内容区域 */}
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
-        {editMode === 'conversation' ? (
-          /* 对话模式 */
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="h-full"
-          >
-            <ConversationPanel
-              resumeData={resumeData}
-              onConversationComplete={handleConversationComplete}
-            />
-          </motion.div>
-        ) : (
-          /* 编辑模式 */
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className={cn(
-              'rounded-lg',
-              'bg-white border-gray-100',
-              'dark:bg-neutral-900/50 dark:border-neutral-800'
-            )}
-          >
-            {renderFields()}
-          </motion.div>
-        )}
+        {/* 编辑面板内容 */}
+        <motion.div
+          className={cn(
+            'rounded-lg',
+            'bg-white border-gray-100',
+            'dark:bg-neutral-900/50 dark:border-neutral-800'
+          )}
+        >
+          {renderFields()}
+        </motion.div>
       </div>
     </motion.div>
   )
