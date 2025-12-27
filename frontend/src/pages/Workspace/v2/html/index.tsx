@@ -361,20 +361,24 @@ export default function HTMLWorkspace() {
       const opt = {
         margin: [6, 6, 6, 6],
         filename: `${resumeData.basic.name || '简历'}.pdf`,
-        image: { type: 'png', quality: 0.99 },
+        image: { type: 'jpeg', quality: 0.92 },
         html2canvas: { 
-          scale: 5,
+          scale: 2.5,
           useCORS: true,
           allowTaint: true,
           logging: false,
           backgroundColor: '#ffffff',
           imageTimeout: 0,
           ignoreElements: (element: HTMLElement) => {
-            // 忽略某些不需要渲染的元素
             return element.classList?.contains('no-print');
           }
         },
-        jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
+        jsPDF: { 
+          orientation: 'portrait', 
+          unit: 'mm', 
+          format: 'a4',
+          compress: true  // 启用 PDF 压缩
+        },
       }
 
       // #region agent log H5
