@@ -10,6 +10,7 @@ import type { ResumeData, MenuSection, GlobalSettings, BasicInfo, Project, Exper
 
 interface ResizableLayoutProps {
   resumeData: ResumeData
+  setResumeData: (data: ResumeData | ((prev: ResumeData) => ResumeData)) => void
   activeSection: string
   setActiveSection: (id: string) => void
   toggleSectionVisibility: (id: string) => void
@@ -101,6 +102,7 @@ function DragHandle({
 export default function ResizableLayout(props: ResizableLayoutProps) {
   const {
     resumeData,
+    setResumeData,
     activeSection,
     setActiveSection,
     toggleSectionVisibility,
@@ -243,6 +245,7 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
           activeSection={activeSection}
           menuSections={resumeData.menuSections}
           resumeData={resumeData}
+          setResumeData={setResumeData}
           updateBasicInfo={updateBasicInfo}
           updateProject={updateProject}
           deleteProject={deleteProject}
