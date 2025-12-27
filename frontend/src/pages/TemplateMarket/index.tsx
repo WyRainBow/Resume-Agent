@@ -48,17 +48,17 @@ const TemplateMarket = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.3 }}
-        className="flex-1 space-y-6 max-w-[1600px] mx-auto relative z-10"
+        className="flex-1 space-y-8 max-w-[1400px] mx-auto relative z-10 py-12 px-4 sm:px-8"
       >
         {/* 顶部标题栏 */}
         <motion.div
-          className="flex items-center justify-between mb-6"
+          className="flex items-center justify-between"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.3 }}
@@ -78,10 +78,10 @@ const TemplateMarket = () => {
               </Button>
             </motion.div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
                 简历模板市场
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-base text-gray-600 dark:text-gray-400 mt-2">
                 选择适合你的模板开始创建简历
               </p>
             </div>
@@ -90,30 +90,36 @@ const TemplateMarket = () => {
 
         {/* 模板列表 */}
         <motion.div
-          className="w-full p-3 sm:p-6"
+          className="w-full"
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ duration: 0.3, delay: 0.2 }}
         >
           {templates.length === 0 ? (
-            <div className="text-center py-12">
-              <p className="text-gray-600 dark:text-gray-400">
+            <div className="text-center py-20">
+              <p className="text-gray-600 dark:text-gray-400 text-lg">
                 暂无可用模板
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="space-y-12">
               {/* LaTeX 模板列 */}
               <div>
-                <div className="mb-4">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                    LaTeX 模板（高质量）
-                  </h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    专业级简历模板、生成高质量 PDF
+                <div className="mb-8">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-1 h-8 bg-gradient-to-b from-blue-600 to-blue-400 rounded-full"></div>
+                    <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                      LaTeX 模板
+                    </h2>
+                    <span className="px-3 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium">
+                      高质量
+                    </span>
+                  </div>
+                  <p className="text-base text-gray-600 dark:text-gray-400 ml-0">
+                    专业级简历模板、生成高质量 PDF，适合投递求职简历
                   </p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {templates
                     .filter(t => t.type === 'latex')
                     .map((template) => (
@@ -128,15 +134,21 @@ const TemplateMarket = () => {
 
               {/* HTML 模板列 */}
               <div>
-                <div className="mb-4">
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-1">
-                    ⚡ HTML 模板（实时编辑）
-                  </h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                <div className="mb-8">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-1 h-8 bg-gradient-to-b from-amber-500 to-orange-400 rounded-full"></div>
+                    <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                      HTML 模板
+                    </h2>
+                    <span className="px-3 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-sm font-medium">
+                      实时编辑
+                    </span>
+                  </div>
+                  <p className="text-base text-gray-600 dark:text-gray-400 ml-0">
                     实时预览模板、支持快速迭代、编辑时即刻看到效果
                   </p>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                   {templates
                     .filter(t => t.type === 'html')
                     .map((template) => (
