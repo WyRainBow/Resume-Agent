@@ -169,7 +169,7 @@ const TemplateMarket = () => {
                 {templates
                   .filter(t => t.type === 'latex')
                   .map((template) => (
-                    <div key={template.id} className="w-[280px]">
+                    <div key={template.id} className="w-[400px]">
                       <SimpleTemplateCard
                         template={template}
                         onSelect={handleSelectTemplate}
@@ -179,7 +179,7 @@ const TemplateMarket = () => {
                 {templates
                   .filter(t => t.type === 'html')
                   .map((template) => (
-                    <div key={template.id} className="w-[280px]">
+                    <div key={template.id} className="w-[400px]">
                       <SimpleTemplateCard
                         template={template}
                         onSelect={handleSelectTemplate}
