@@ -290,7 +290,7 @@ export default function AIConversation() {
               </div>
 
               {/* 预览内容区 - 滚动容器 */}
-              <div className="flex-1 overflow-y-auto p-6 flex items-center justify-center">
+              <div className="flex-1 overflow-y-auto p-6 flex items-start justify-center pt-8">
                 <div className="bg-white shadow-xl min-h-[1050px] w-[760px] rounded-lg overflow-hidden">
                    <HTMLTemplateRenderer resumeData={resumeData} />
                 </div>
