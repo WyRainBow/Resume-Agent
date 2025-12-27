@@ -37,7 +37,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
     >
       <Card
         className={cn(
-          "group border-2 transition-all duration-300 h-[520px] flex flex-col",
+          "group border-2 transition-all duration-300 h-[440px] flex flex-col",
           "border-gray-200 dark:border-gray-700",
           "hover:border-blue-400 hover:shadow-xl hover:shadow-blue-500/10",
           "dark:hover:border-blue-500 dark:hover:shadow-blue-900/30"
@@ -49,7 +49,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
         <CardContent className="relative flex-1 pt-4 pb-2 text-center flex flex-col items-center min-w-0 overflow-hidden">
           {/* 模板预览图 */}
           {imageSrc ? (
-            <div className="mb-4 w-full h-[340px] rounded-lg overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 border-2 border-gray-200 dark:border-gray-700 relative flex-shrink-0 group-hover:border-blue-300 dark:group-hover:border-blue-700 transition-all duration-300">
+            <div className="mb-4 w-full h-[260px] rounded-lg overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 border-2 border-gray-200 dark:border-gray-700 relative flex-shrink-0 group-hover:border-blue-300 dark:group-hover:border-blue-700 transition-all duration-300">
               <img
                 src={imageSrc}
                 alt={template.name}
