@@ -3,8 +3,164 @@
  */
 import type { ResumeData } from '../types'
 
+// 生成单个模块的 HTML
+function generateSectionHTML(sectionId: string, resumeData: ResumeData): string {
+  const { basic, experience, education, projects, openSource, awards, skillContent } = resumeData
+
+  switch (sectionId) {
+    case 'basic':
+      return ''
+
+    case 'skills':
+      if (!skillContent) return ''
+      return `
+        <section class="template-section">
+          <h2 class="section-title">专业技能</h2>
+          <div class="section-content">${skillContent}</div>
+        </section>
+      `
+
+    case 'education':
+      if (education.length === 0) return ''
+      return `
+        <section class="template-section">
+          <h2 class="section-title">教育经历</h2>
+          <div class="section-content">
+            ${education.map(edu => `
+              <div class="item">
+                <div class="item-header">
+                  <div class="item-title-group">
+                    <h3 class="item-title">${escapeHtml(edu.school)}</h3>
+                    <span class="item-subtitle">${escapeHtml(edu.degree)} · ${escapeHtml(edu.major)}</span>
+                  </div>
+                  <span class="item-date">${escapeHtml(edu.startDate)} ~ ${escapeHtml(edu.endDate)}</span>
+                </div>
+                ${edu.description ? `<div class="item-description">${edu.description}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      `
+
+    case 'experience':
+      if (experience.length === 0) return ''
+      return `
+        <section class="template-section">
+          <h2 class="section-title">工作经历</h2>
+          <div class="section-content">
+            ${experience.map(exp => `
+              <div class="item">
+                <div class="item-header">
+                  <div class="item-title-group">
+                    <h3 class="item-title">${escapeHtml(exp.company)}</h3>
+                    <span class="item-subtitle">${escapeHtml(exp.position)}</span>
+                  </div>
+                  <span class="item-date">${escapeHtml(exp.date)}</span>
+                </div>
+                <div class="item-description">${exp.details}</div>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      `
+
+    case 'projects':
+      if (projects.length === 0) return ''
+      return `
+        <section class="template-section">
+          <h2 class="section-title">项目经历</h2>
+          <div class="section-content">
+            ${projects.map(proj => `
+              <div class="item">
+                <div class="item-header">
+                  <div class="item-title-group">
+                    <h3 class="item-title">${escapeHtml(proj.name)}</h3>
+                    <span class="item-subtitle">${escapeHtml(proj.role)}</span>
+                  </div>
+                  <span class="item-date">${escapeHtml(proj.date)}</span>
+                </div>
+                <div class="item-description">${proj.description}</div>
+                ${proj.link ? `<a href="${escapeHtml(proj.link)}" target="_blank" rel="noopener noreferrer" class="item-link">查看项目 →</a>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      `
+
+    case 'openSource':
+      if (openSource.length === 0) return ''
+      return `
+        <section class="template-section">
+          <h2 class="section-title">开源经历</h2>
+          <div class="section-content">
+            ${openSource.map(os => `
+              <div class="item">
+                <div class="item-header">
+                  <div class="item-title-group">
+                    <h3 class="item-title">${escapeHtml(os.name)}</h3>
+                    ${os.role ? `<span class="item-subtitle">${escapeHtml(os.role)}</span>` : ''}
+                  </div>
+                  ${os.date ? `<span class="item-date">${escapeHtml(os.date)}</span>` : ''}
+                </div>
+                <div class="item-description">${os.description}</div>
+                ${os.repo ? `<a href="${escapeHtml(os.repo)}" target="_blank" rel="noopener noreferrer" class="item-link">查看仓库 →</a>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      `
+
+    case 'awards':
+      if (awards.length === 0) return ''
+      return `
+        <section class="template-section">
+          <h2 class="section-title">荣誉奖项</h2>
+          <div class="section-content">
+            ${awards.map(award => `
+              <div class="item">
+                <div class="item-header">
+                  <div class="item-title-group">
+                    <h3 class="item-title">${escapeHtml(award.title)}</h3>
+                    ${award.issuer ? `<span class="item-subtitle">${escapeHtml(award.issuer)}</span>` : ''}
+                  </div>
+                  ${award.date ? `<span class="item-date">${escapeHtml(award.date)}</span>` : ''}
+                </div>
+                ${award.description ? `<p class="item-description">${escapeHtml(award.description)}</p>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      `
+
+    default:
+      // 自定义模块
+      const customItems = resumeData.customData[sectionId]
+      if (!customItems || customItems.length === 0) return ''
+      const section = resumeData.menuSections.find(s => s.id === sectionId)
+      return `
+        <section class="template-section">
+          <h2 class="section-title">${escapeHtml(section?.title || '自定义模块')}</h2>
+          <div class="section-content">
+            ${customItems.map(item => `
+              <div class="item">
+                <div class="item-header">
+                  <div class="item-title-group">
+                    <h3 class="item-title">${escapeHtml(item.title)}</h3>
+                    ${item.subtitle ? `<span class="item-subtitle">${escapeHtml(item.subtitle)}</span>` : ''}
+                  </div>
+                  ${item.dateRange ? `<span class="item-date">${escapeHtml(item.dateRange)}</span>` : ''}
+                </div>
+                ${item.description ? `<div class="item-description">${item.description}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      `
+  }
+}
+
 export function generateHTMLFile(resumeData: ResumeData): string {
-  const { basic, experience, education, projects, openSource, awards } = resumeData
+  const { basic } = resumeData
 
   // 读取 CSS 样式（内联）
   const css = `
@@ -185,114 +341,17 @@ export function generateHTMLFile(resumeData: ResumeData): string {
       </header>
 
       <div class="template-content">
-        ${resumeData.skillContent ? `
-          <section class="template-section">
-            <h2 class="section-title">专业技能</h2>
-            <div class="section-content">${resumeData.skillContent}</div>
-          </section>
-        ` : ''}
-
-        ${education.length > 0 ? `
-          <section class="template-section">
-            <h2 class="section-title">教育经历</h2>
-            <div class="section-content">
-              ${education.map(edu => `
-                <div class="item">
-                  <div class="item-header">
-                    <div class="item-title-group">
-                      <h3 class="item-title">${escapeHtml(edu.school)}</h3>
-                      <span class="item-subtitle">${escapeHtml(edu.degree)} · ${escapeHtml(edu.major)}</span>
-                    </div>
-                    <span class="item-date">${escapeHtml(edu.startDate)} ~ ${escapeHtml(edu.endDate)}</span>
-                  </div>
-                  ${edu.description ? `<div class="item-description">${edu.description}</div>` : ''}
-                </div>
-              `).join('')}
-            </div>
-          </section>
-        ` : ''}
-
-        ${experience.length > 0 ? `
-          <section class="template-section">
-            <h2 class="section-title">工作经历</h2>
-            <div class="section-content">
-              ${experience.map(exp => `
-                <div class="item">
-                  <div class="item-header">
-                    <div class="item-title-group">
-                      <h3 class="item-title">${escapeHtml(exp.company)}</h3>
-                      <span class="item-subtitle">${escapeHtml(exp.position)}</span>
-                    </div>
-                    <span class="item-date">${escapeHtml(exp.date)}</span>
-                  </div>
-                  <div class="item-description">${exp.details}</div>
-                </div>
-              `).join('')}
-            </div>
-          </section>
-        ` : ''}
-
-        ${projects.length > 0 ? `
-          <section class="template-section">
-            <h2 class="section-title">项目经历</h2>
-            <div class="section-content">
-              ${projects.map(proj => `
-                <div class="item">
-                  <div class="item-header">
-                    <div class="item-title-group">
-                      <h3 class="item-title">${escapeHtml(proj.name)}</h3>
-                      <span class="item-subtitle">${escapeHtml(proj.role)}</span>
-                    </div>
-                    <span class="item-date">${escapeHtml(proj.date)}</span>
-                  </div>
-                  <div class="item-description">${proj.description}</div>
-                  ${proj.link ? `<a href="${escapeHtml(proj.link)}" target="_blank" rel="noopener noreferrer" class="item-link">查看项目 →</a>` : ''}
-                </div>
-              `).join('')}
-            </div>
-          </section>
-        ` : ''}
-
-        ${openSource.length > 0 ? `
-          <section class="template-section">
-            <h2 class="section-title">开源经历</h2>
-            <div class="section-content">
-              ${openSource.map(os => `
-                <div class="item">
-                  <div class="item-header">
-                    <div class="item-title-group">
-                      <h3 class="item-title">${escapeHtml(os.name)}</h3>
-                      ${os.role ? `<span class="item-subtitle">${escapeHtml(os.role)}</span>` : ''}
-                    </div>
-                    ${os.date ? `<span class="item-date">${escapeHtml(os.date)}</span>` : ''}
-                  </div>
-                  <div class="item-description">${os.description}</div>
-                  ${os.repo ? `<a href="${escapeHtml(os.repo)}" target="_blank" rel="noopener noreferrer" class="item-link">查看仓库 →</a>` : ''}
-                </div>
-              `).join('')}
-            </div>
-          </section>
-        ` : ''}
-
-        ${awards.length > 0 ? `
-          <section class="template-section">
-            <h2 class="section-title">🏆 荣誉奖项</h2>
-            <div class="section-content">
-              ${awards.map(award => `
-                <div class="item">
-                  <div class="item-header">
-                    <div class="item-title-group">
-                      <h3 class="item-title">${escapeHtml(award.title)}</h3>
-                      ${award.issuer ? `<span class="item-subtitle">${escapeHtml(award.issuer)}</span>` : ''}
-                    </div>
-                    ${award.date ? `<span class="item-date">${escapeHtml(award.date)}</span>` : ''}
-                  </div>
-                  ${award.description ? `<p class="item-description">${escapeHtml(award.description)}</p>` : ''}
-                </div>
-              `).join('')}
-            </div>
-          </section>
-        ` : ''}
+        ${(() => {
+          // 根据 menuSections 的顺序生成模块 HTML（排除 basic，因为它在 header 中）
+          const sectionsToRender = resumeData.menuSections
+            .filter(section => section.id !== 'basic' && section.enabled)
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+          
+          return sectionsToRender
+            .map(section => generateSectionHTML(section.id, resumeData))
+            .filter(html => html.trim() !== '')
+            .join('')
+        })()}
       </div>
     </div>
   `
