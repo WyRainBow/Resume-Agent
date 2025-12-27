@@ -27,19 +27,31 @@ export function useResumeData() {
   // 从 Dashboard 进入时加载对应简历
   useEffect(() => {
     const id = getCurrentResumeId()
+    // #region agent log H8
+    fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useResumeData.ts:useEffect',message:'Loading resume from storage',data:{id},timestamp:Date.now(),sessionId:'debug-session',runId:'load-debug',hypothesisId:'H8'})}).catch(()=>{});
+    // #endregion agent log H8
     if (id) {
       const saved = getResume(id)
+      // #region agent log H8
+      fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useResumeData.ts:useEffect',message:'Saved resume found',data:{savedFound:!!saved,savedDataFound:!!(saved?.data),dataTemplateType:(saved?.data as any)?.templateType,dataKeys:saved?.data?Object.keys(saved.data):null},timestamp:Date.now(),sessionId:'debug-session',runId:'load-debug',hypothesisId:'H8'})}).catch(()=>{});
+      // #endregion agent log H8
       if (saved && saved.data) {
         const data = saved.data as any
-        setResumeData(prev => ({
-          ...prev,
-          basic: { ...prev.basic, ...(data.basic || {}), name: saved.name },
-          education: data.education || prev.education,
-          experience: data.experience || prev.experience,
-          projects: data.projects || prev.projects,
-          templateType: data.templateType || prev.templateType,  // 保留模板类型
-          templateId: data.templateId || prev.templateId,  // 保留模板 ID
-        }))
+        setResumeData(prev => {
+          const newData = {
+            ...prev,
+            basic: { ...prev.basic, ...(data.basic || {}), name: saved.name },
+            education: data.education || prev.education,
+            experience: data.experience || prev.experience,
+            projects: data.projects || prev.projects,
+            templateType: data.templateType || prev.templateType,  // 保留模板类型
+            templateId: data.templateId || prev.templateId,  // 保留模板 ID
+          };
+          // #region agent log H8
+          fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useResumeData.ts:setResumeData',message:'Setting resume data',data:{prevTemplateType:prev.templateType,dataTemplateType:data.templateType,newTemplateType:newData.templateType},timestamp:Date.now(),sessionId:'debug-session',runId:'load-debug',hypothesisId:'H8'})}).catch(()=>{});
+          // #endregion agent log H8
+          return newData;
+        })
         setCurrentId(id)
       }
     }

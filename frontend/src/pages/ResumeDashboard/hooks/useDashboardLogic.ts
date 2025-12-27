@@ -87,7 +87,26 @@ export const useDashboardLogic = () => {
   const editResume = (id: string) => {
     setCurrentResumeId(id)
     
-    // 获取简历数据，根据模板类型跳转到对应的工作区
+    // 🎯 优先从 ID 中推断模板类型（最可靠的方式）
+    // ID 格式：resume_{templateType}_{timestamp}_{random}
+    // 例如：resume_html_1766858166530_j234y46ds
+    const idParts = id.split('_')
+    let templateTypeFromId: string | null = null
+    if (idParts.length >= 2 && (idParts[1] === 'html' || idParts[1] === 'latex')) {
+      templateTypeFromId = idParts[1]
+    }
+
+    // 如果 ID 中有模板类型信息，直接使用
+    if (templateTypeFromId) {
+      if (templateTypeFromId === 'html') {
+        navigate('/workspace/html')
+      } else {
+        navigate('/workspace/latex')
+      }
+      return
+    }
+    
+    // 回退：从简历数据中获取模板类型
     const saved = getResume(id)
     if (saved && saved.data) {
       const data = saved.data as any
