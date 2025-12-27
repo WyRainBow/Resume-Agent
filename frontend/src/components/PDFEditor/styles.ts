@@ -17,21 +17,21 @@ export const editorStyles = {
   scrollArea: {
     flex: 1,
     overflow: 'auto',
-    padding: '0', // 移除内边距
-    paddingBottom: '80px',
+    padding: '0',
+    paddingBottom: '40px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    gap: '20px',
-    background: 'transparent', // 移除背景色，由外层容器控制
+    gap: '12px',
+    background: 'transparent',
   } as CSSProperties,
 
   // 页面容器
   pageContainer: {
     position: 'relative',
     backgroundColor: 'white',
-    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)',
   } as CSSProperties,
 
   // PDF Canvas
