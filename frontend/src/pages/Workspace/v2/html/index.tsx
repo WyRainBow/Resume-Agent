@@ -245,16 +245,52 @@ export default function HTMLWorkspace() {
 
   // HTML 转 PDF 下载
   const handleDownloadPDF = useCallback(() => {
+    // #region agent log helper
+    const logDebug = (msg: string, data: any, hypothesisId: string) => {
+      fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'html/index.tsx:handleDownloadPDF',message:msg,data,timestamp:Date.now(),sessionId:'debug-session',runId:'html-pdf-download',hypothesisId})}).catch(()=>{});
+    };
+    // #endregion agent log helper
+
+    // #region agent log H1 H2
+    logDebug('handleDownloadPDF called', { templateType: resumeData.templateType }, 'H1-H2');
+    // #endregion agent log H1 H2
+
     try {
       // 直接从当前页面获取已渲染的 HTML 模板容器
       const sourceElement = document.querySelector('.html-template-container') as HTMLElement
+      
+      // #region agent log H1
+      const allContainers = document.querySelectorAll('.html-template-container');
+      logDebug('querySelector result', { 
+        found: !!sourceElement, 
+        totalContainers: allContainers.length,
+        sourceElementTag: sourceElement?.tagName,
+        sourceElementClassName: sourceElement?.className,
+        sourceElementInnerHTMLLength: sourceElement?.innerHTML?.length || 0
+      }, 'H1');
+      // #endregion agent log H1
+
       if (!sourceElement) {
+        // #region agent log H1
+        logDebug('sourceElement is null - checking for any containers', { 
+          bodyInnerHTMLSnippet: document.body.innerHTML.substring(0, 500)
+        }, 'H1');
+        // #endregion agent log H1
         alert('找不到简历预览内容，请确保预览区域可见')
         return
       }
 
       // 克隆元素
       const clonedElement = sourceElement.cloneNode(true) as HTMLElement
+      
+      // #region agent log H4
+      logDebug('clonedElement info', { 
+        clonedTagName: clonedElement?.tagName,
+        clonedClassName: clonedElement?.className,
+        clonedInnerHTMLLength: clonedElement?.innerHTML?.length || 0,
+        clonedInnerHTMLSnippet: clonedElement?.innerHTML?.substring(0, 300)
+      }, 'H4');
+      // #endregion agent log H4
       
       // 创建一个临时容器
       const tempContainer = document.createElement('div')
@@ -325,11 +361,28 @@ export default function HTMLWorkspace() {
         jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
       }
 
+      // #region agent log H5
+      logDebug('before html2pdf call', { 
+        clonedElementInBody: document.body.contains(tempContainer),
+        optFilename: opt.filename
+      }, 'H5');
+      // #endregion agent log H5
+
       // 使用 html2pdf 转换并下载
       html2pdf()
         .set(opt)
         .from(clonedElement)
         .save()
+        .then(() => {
+          // #region agent log H5
+          logDebug('html2pdf success', { success: true }, 'H5');
+          // #endregion agent log H5
+        })
+        .catch((err: any) => {
+          // #region agent log H5
+          logDebug('html2pdf error', { error: err?.message || String(err) }, 'H5');
+          // #endregion agent log H5
+        })
         .finally(() => {
           // 清理临时元素
           if (tempContainer.parentNode) {
@@ -337,6 +390,9 @@ export default function HTMLWorkspace() {
           }
         })
     } catch (error) {
+      // #region agent log H5
+      logDebug('handleDownloadPDF exception', { error: String(error) }, 'H5');
+      // #endregion agent log H5
       console.error('PDF 下载失败:', error)
       alert('下载失败，请重试')
     }

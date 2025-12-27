@@ -61,16 +61,8 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
 
   // 保存到 Dashboard
   const handleSaveToDashboard = useCallback(() => {
-    const resumeToSave = {
-      name: resumeData.basic.name || '未命名简历',
-      basic: resumeData.basic,
-      education: resumeData.education,
-      experience: resumeData.experience,
-      projects: resumeData.projects,
-      skills: resumeData.skillContent ? [{ category: '技能', details: resumeData.skillContent }] : [],
-    }
-    
-    const saved = saveResume(resumeToSave as any, currentResumeId || undefined)
+    // 直接保存完整的 resumeData，确保 templateType 等字段不丢失
+    const saved = saveResume(resumeData as any, currentResumeId || undefined)
     
     if (!currentResumeId) {
       setCurrentId(saved.id)
