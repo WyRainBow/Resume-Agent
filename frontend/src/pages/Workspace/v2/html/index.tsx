@@ -361,12 +361,18 @@ export default function HTMLWorkspace() {
       const opt = {
         margin: [6, 6, 6, 6],
         filename: `${resumeData.basic.name || '简历'}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
+        image: { type: 'png', quality: 0.99 },
         html2canvas: { 
-          scale: 3,
+          scale: 5,
           useCORS: true,
+          allowTaint: true,
           logging: false,
-          backgroundColor: '#ffffff'
+          backgroundColor: '#ffffff',
+          imageTimeout: 0,
+          ignoreElements: (element: HTMLElement) => {
+            // 忽略某些不需要渲染的元素
+            return element.classList?.contains('no-print');
+          }
         },
         jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
       }
