@@ -12,8 +12,10 @@ interface HTMLTemplateRendererProps {
 }
 
 // 渲染单个模块的函数
-const renderSection = (sectionId: string, resumeData: ResumeData) => {
+const renderSection = (section: { id: string; title: string }, resumeData: ResumeData) => {
   const { basic, experience, education, projects, openSource, awards, skillContent } = resumeData
+  const sectionId = section.id
+  const sectionTitle = section.title
 
   switch (sectionId) {
     case 'basic':
@@ -24,7 +26,7 @@ const renderSection = (sectionId: string, resumeData: ResumeData) => {
       if (!skillContent) return null
       return (
         <section key="skills" className="template-section">
-          <h2 className="section-title">专业技能</h2>
+          <h2 className="section-title">{sectionTitle}</h2>
           <div
             className="section-content"
             dangerouslySetInnerHTML={{ __html: skillContent }}
@@ -36,7 +38,7 @@ const renderSection = (sectionId: string, resumeData: ResumeData) => {
       if (education.length === 0) return null
       return (
         <section key="education" className="template-section">
-          <h2 className="section-title">教育经历</h2>
+          <h2 className="section-title">{sectionTitle}</h2>
           <div className="section-content">
             {education.map((edu) => (
               <div key={edu.id} className="item">
@@ -63,7 +65,7 @@ const renderSection = (sectionId: string, resumeData: ResumeData) => {
       if (experience.length === 0) return null
       return (
         <section key="experience" className="template-section">
-          <h2 className="section-title">工作经历</h2>
+          <h2 className="section-title">{sectionTitle}</h2>
           <div className="section-content">
             {experience.map((exp) => (
               <div key={exp.id} className="item">
@@ -88,7 +90,7 @@ const renderSection = (sectionId: string, resumeData: ResumeData) => {
       if (projects.length === 0) return null
       return (
         <section key="projects" className="template-section">
-          <h2 className="section-title">项目经历</h2>
+          <h2 className="section-title">{sectionTitle}</h2>
           <div className="section-content">
             {projects.map((proj) => (
               <div key={proj.id} className="item">
@@ -118,7 +120,7 @@ const renderSection = (sectionId: string, resumeData: ResumeData) => {
       if (openSource.length === 0) return null
       return (
         <section key="openSource" className="template-section">
-          <h2 className="section-title">开源经历</h2>
+          <h2 className="section-title">{sectionTitle}</h2>
           <div className="section-content">
             {openSource.map((os) => (
               <div key={os.id} className="item">
@@ -148,7 +150,7 @@ const renderSection = (sectionId: string, resumeData: ResumeData) => {
       if (awards.length === 0) return null
       return (
         <section key="awards" className="template-section">
-          <h2 className="section-title">荣誉奖项</h2>
+          <h2 className="section-title">{sectionTitle}</h2>
           <div className="section-content">
             {awards.map((award) => (
               <div key={award.id} className="item">
@@ -172,10 +174,9 @@ const renderSection = (sectionId: string, resumeData: ResumeData) => {
       // 自定义模块
       const customItems = resumeData.customData[sectionId]
       if (!customItems || customItems.length === 0) return null
-      const section = resumeData.menuSections.find(s => s.id === sectionId)
       return (
         <section key={sectionId} className="template-section">
-          <h2 className="section-title">{section?.title || '自定义模块'}</h2>
+          <h2 className="section-title">{sectionTitle}</h2>
           <div className="section-content">
             {customItems.map((item) => (
               <div key={item.id} className="item">
@@ -230,7 +231,7 @@ export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resu
 
       <div className="template-content">
         {/* 根据 menuSections 的顺序动态渲染模块 */}
-        {sectionsToRender.map(section => renderSection(section.id, resumeData))}
+        {sectionsToRender.map(section => renderSection(section, resumeData))}
       </div>
     </div>
   )
