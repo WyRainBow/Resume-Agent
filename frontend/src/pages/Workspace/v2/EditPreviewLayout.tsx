@@ -1,8 +1,8 @@
 /**
  * 编辑区三列布局（在 WorkspaceLayout 的基础上）：
  * 第一列：模块选择（窄，约 280px）
- * 第二列：详细编辑面板（可调整宽度）
- * 第三列：预览面板（占据剩余空间）
+ * 第二列：详细编辑面板
+ * 第三列：预览面板（可拖拽调整宽度）
  */
 import { useState, useCallback, useRef } from 'react'
 import { cn } from '../../../lib/utils'
@@ -137,12 +137,12 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
   } = props
 
   // 列宽状态
-  const [sidePanelWidth, setSidePanelWidth] = useState(280) // 模块选择列宽度（固定）
-  const [editPanelWidth, setEditPanelWidth] = useState(500) // 编辑面板宽度（可拖动调整）
+  const [sidePanelWidth, setSidePanelWidth] = useState(350) // 模块选择列宽度（固定）
+  const [editPanelWidth, setEditPanelWidth] = useState(1100) // 编辑面板宽度（可拖动调整，范围 400-1400px）
 
-  // 拖拽处理
+  // 拖拽处理 - 调整编辑面板宽度
   const handleDrag = useCallback((delta: number) => {
-    setEditPanelWidth(w => Math.max(400, Math.min(800, w + delta)))
+    setEditPanelWidth(w => Math.max(400, Math.min(1400, w + delta)))
   }, [])
 
   return (
@@ -172,7 +172,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
       {/* 分隔线 1 */}
       <div className="w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
 
-      {/* 第二列：编辑面板（可调整宽度） */}
+      {/* 第二列：编辑面板（固定宽度） */}
       <div
         className={cn(
           "h-full overflow-y-auto shrink-0",
@@ -211,7 +211,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
       {/* 分隔线 2（可拖拽调整编辑面板宽度） */}
       <DragHandle onDrag={handleDrag} />
 
-      {/* 第三列：预览面板 - 自动占据剩余空间 */}
+      {/* 第三列：预览面板（flex-1 填充剩余空间） */}
       <div
         className={cn(
           "h-full overflow-hidden flex-1",

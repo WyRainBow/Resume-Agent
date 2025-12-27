@@ -1,9 +1,9 @@
 /**
  * 预览面板组件（第三列）
- * 显示 PDF 渲染结果
+ * 显示 PDF 渲染结果 - 自适应宽度铺满
  */
-import { useState } from 'react'
-import { ZoomIn, ZoomOut, Download, RefreshCw, Maximize2, FileText, Sparkles } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Download, RefreshCw, FileText, Sparkles } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { PDFViewerSelector } from '../../../../components/PDFEditor'
 
@@ -22,7 +22,29 @@ export function PreviewPanel({
   onRender,
   onDownload,
 }: PreviewPanelProps) {
-  const [zoom, setZoom] = useState(100)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1.0)
+
+  // 根据容器宽度自适应计算缩放比例
+  useEffect(() => {
+    if (!containerRef.current || !pdfBlob) return
+
+    const updateScale = () => {
+      const container = containerRef.current
+      if (!container) return
+
+      const containerWidth = container.clientWidth - 16 // 减去内边距
+      // A4 比例：宽度约 595 单位，高度约 842 单位
+      // 基础 scale=1 时宽度约为 595px
+      const baseWidth = 595
+      const newScale = containerWidth / baseWidth
+      setScale(Math.max(0.5, Math.min(newScale, 2.5))) // 限制在合理范围
+    }
+
+    updateScale()
+    window.addEventListener('resize', updateScale)
+    return () => window.removeEventListener('resize', updateScale)
+  }, [pdfBlob])
 
   return (
     <div className="h-full flex flex-col">
@@ -81,32 +103,6 @@ export function PreviewPanel({
             下载
           </button>
         </div>
-
-        {/* 缩放控制 */}
-        <div className="flex items-center gap-1 bg-white/60 dark:bg-slate-700/60 backdrop-blur-sm rounded-xl px-2 py-1 border border-slate-200/50 dark:border-slate-600/50">
-          <button
-            onClick={() => setZoom(Math.max(50, zoom - 10))}
-            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors text-slate-600 dark:text-slate-300"
-          >
-            <ZoomOut className="w-4 h-4" />
-          </button>
-          <span className="text-sm font-medium text-slate-600 dark:text-slate-300 min-w-[4ch] text-center tabular-nums">
-            {zoom}%
-          </span>
-          <button
-            onClick={() => setZoom(Math.min(200, zoom + 10))}
-            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors text-slate-600 dark:text-slate-300"
-          >
-            <ZoomIn className="w-4 h-4" />
-          </button>
-          <div className="w-px h-5 bg-slate-200 dark:bg-slate-600 mx-1" />
-          <button
-            onClick={() => setZoom(100)}
-            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-600 transition-colors text-slate-600 dark:text-slate-300"
-          >
-            <Maximize2 className="w-4 h-4" />
-          </button>
-        </div>
       </div>
 
       {/* 进度提示 */}
@@ -122,18 +118,14 @@ export function PreviewPanel({
         </div>
       )}
 
-      {/* PDF 预览区域 - 优化：移除白色容器，直接展示PDF */}
-      <div className="flex-1 overflow-auto p-4 bg-slate-100 dark:bg-slate-900/50 flex justify-center">
+      {/* PDF 预览区域 - 自适应宽度 */}
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-auto p-2 bg-slate-100/80 dark:bg-slate-900/50"
+      >
         {pdfBlob ? (
-          <div
-            style={{
-              width: 'fit-content', // 宽度自适应内容
-              maxWidth: '100%',
-              transform: `scale(${zoom / 100})`,
-              transformOrigin: 'top center',
-            }}
-          >
-            <PDFViewerSelector pdfBlob={pdfBlob} scale={1.0} />
+          <div className="flex justify-center w-full">
+            <PDFViewerSelector pdfBlob={pdfBlob} scale={scale} />
           </div>
         ) : (
           <div className="h-full flex items-center justify-center">
