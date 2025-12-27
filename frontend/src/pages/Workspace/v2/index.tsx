@@ -206,6 +206,7 @@ export default function WorkspaceV2() {
         resumeName={resumeData?.basic?.name || '我的简历'}
         pdfBlob={pdfBlob}
         onDownloadPDF={handleDownload}
+        onDownloadHTML={handleDownloadHTML}
         editMode={editMode}
         onEditModeChange={setEditMode}
       />
