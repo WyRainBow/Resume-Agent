@@ -254,6 +254,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                 reorderAwards={reorderAwards}
                 updateSkillContent={updateSkillContent}
                 updateGlobalSettings={updateGlobalSettings}
+                updateMenuSections={updateMenuSections}
                 handleAIImport={handleAIImport}
               />
             </div>
