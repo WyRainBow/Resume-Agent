@@ -4,12 +4,15 @@ import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import { ArrowLeft } from '../ResumeDashboard/components/Icons'
 import { TemplateCard } from '../ResumeDashboard/components/TemplateCard'
+import { SimpleTemplateCard } from '../ResumeDashboard/components/SimpleTemplateCard'
 import { Button } from '../ResumeDashboard/components/ui/button'
 import type { ResumeData } from '../Workspace/v2/types'
+import { useState } from 'react'
 
 const TemplateMarket = () => {
   const navigate = useNavigate()
   const templates = getAllTemplates()
+  const [viewMode, setViewMode] = useState<'detailed' | 'simple'>('detailed')
 
   const handleSelectTemplate = (templateId: string) => {
     const template = getTemplateById(templateId)
@@ -86,6 +89,26 @@ const TemplateMarket = () => {
               </p>
             </div>
           </div>
+          
+          {/* 视图切换按钮 */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant={viewMode === 'detailed' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('detailed')}
+              className="text-sm"
+            >
+              详细视图
+            </Button>
+            <Button
+              variant={viewMode === 'simple' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setViewMode('simple')}
+              className="text-sm"
+            >
+              简洁视图
+            </Button>
+          </div>
         </motion.div>
 
         {/* 模板列表 */}
@@ -119,17 +142,32 @@ const TemplateMarket = () => {
                     专业级简历模板、生成高质量 PDF、适合投递求职简历
                   </p>
                 </div>
-                <div className="grid grid-cols-1 gap-6">
-                  {templates
-                    .filter(t => t.type === 'latex')
-                    .map((template) => (
-                      <TemplateCard
-                        key={template.id}
-                        template={template}
-                        onSelect={handleSelectTemplate}
-                      />
-                    ))}
-                </div>
+                {viewMode === 'detailed' ? (
+                  <div className="grid grid-cols-1 gap-6">
+                    {templates
+                      .filter(t => t.type === 'latex')
+                      .map((template) => (
+                        <TemplateCard
+                          key={template.id}
+                          template={template}
+                          onSelect={handleSelectTemplate}
+                        />
+                      ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-6 justify-center">
+                    {templates
+                      .filter(t => t.type === 'latex')
+                      .map((template) => (
+                        <div key={template.id} className="w-[200px]">
+                          <SimpleTemplateCard
+                            template={template}
+                            onSelect={handleSelectTemplate}
+                          />
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
 
               {/* HTML 模板列 */}
@@ -148,17 +186,32 @@ const TemplateMarket = () => {
                     实时预览模板、支持快速迭代、编辑时即刻看到效果
                   </p>
                 </div>
-                <div className="grid grid-cols-1 gap-6">
-                  {templates
-                    .filter(t => t.type === 'html')
-                    .map((template) => (
-                      <TemplateCard
-                        key={template.id}
-                        template={template}
-                        onSelect={handleSelectTemplate}
-                      />
-                    ))}
-                </div>
+                {viewMode === 'detailed' ? (
+                  <div className="grid grid-cols-1 gap-6">
+                    {templates
+                      .filter(t => t.type === 'html')
+                      .map((template) => (
+                        <TemplateCard
+                          key={template.id}
+                          template={template}
+                          onSelect={handleSelectTemplate}
+                        />
+                      ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-6 justify-center">
+                    {templates
+                      .filter(t => t.type === 'html')
+                      .map((template) => (
+                        <div key={template.id} className="w-[200px]">
+                          <SimpleTemplateCard
+                            template={template}
+                            onSelect={handleSelectTemplate}
+                          />
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
