@@ -13,6 +13,7 @@ interface ExportButtonProps {
   onExportJSON?: () => void
   pdfBlob?: Blob | null
   onDownloadPDF?: () => void
+  onDownloadHTML?: () => void  // HTML 模板下载 PDF
 }
 
 export function ExportButton({ 
@@ -20,7 +21,8 @@ export function ExportButton({
   resumeName = '我的简历', 
   onExportJSON,
   pdfBlob,
-  onDownloadPDF 
+  onDownloadPDF,
+  onDownloadHTML
 }: ExportButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
@@ -29,23 +31,37 @@ export function ExportButton({
   const [copied, setCopied] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
-  // 导出 PDF - 使用下载按钮的功能
+  // 导出 PDF - 根据模板类型选择不同的处理方式
   const handleExportPDF = async () => {
     try {
       setIsExporting(true)
       
-      // 如果有 pdfBlob，直接下载（用户已经渲染过 PDF）
-      if (pdfBlob && onDownloadPDF) {
-        onDownloadPDF()
-        setIsOpen(false)
-        return
-      }
+      // 检查是否为 HTML 模板
+      const templateType = resumeData?.templateType
+      const isHTMLTemplate = templateType === 'html'
       
-      // 如果没有 pdfBlob，提示用户先渲染 PDF
-      if (!pdfBlob) {
-        alert('请先点击"渲染 PDF"按钮生成 PDF，然后再下载')
-        setIsOpen(false)
-        return
+      if (isHTMLTemplate) {
+        // HTML 模板：直接调用 HTML 下载函数（可以直接生成 PDF）
+        if (onDownloadHTML) {
+          onDownloadHTML()
+          setIsOpen(false)
+          return
+        }
+      } else {
+        // LaTeX 模板：需要先渲染 PDF
+        // 如果有 pdfBlob，直接下载（用户已经渲染过 PDF）
+        if (pdfBlob && onDownloadPDF) {
+          onDownloadPDF()
+          setIsOpen(false)
+          return
+        }
+        
+        // 如果没有 pdfBlob，提示用户先渲染 PDF
+        if (!pdfBlob) {
+          alert('请先点击"渲染 PDF"按钮生成 PDF，然后再下载')
+          setIsOpen(false)
+          return
+        }
       }
       
       setIsOpen(false)
@@ -210,7 +226,7 @@ export function ExportButton({
               "border-b border-slate-100 dark:border-slate-700/50",
               "group",
               isExporting && "opacity-50 cursor-not-allowed",
-              !pdfBlob && "opacity-60"
+              !pdfBlob && resumeData?.templateType !== 'html' && "opacity-60"
             )}
           >
             {/* PDF 图标 */}
@@ -222,7 +238,7 @@ export function ExportButton({
               <div className="font-semibold text-slate-900 dark:text-slate-100 text-base">
                 导出 PDF
               </div>
-              {!pdfBlob && (
+              {!pdfBlob && resumeData?.templateType !== 'html' && (
                 <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                   需要先渲染 PDF
                 </div>
