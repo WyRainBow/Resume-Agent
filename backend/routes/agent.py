@@ -1,14 +1,22 @@
 """
-Agent 路由 - Reflection Agent API
+Agent 路由 - Reflection Agent API + Conversation Agent API
 """
 from fastapi import APIRouter, HTTPException
 
 try:
-    from backend.models import AgentReflectRequest, QuickFixRequest, VisionAnalyzeRequest, TemplateAnalyzeRequest
+    from backend.models import (
+        AgentReflectRequest, QuickFixRequest, VisionAnalyzeRequest,
+        TemplateAnalyzeRequest, ConversationRequest, ConversationResponse
+    )
     from backend.agent import run_reflection_agent, quick_fix_resume, analyze_resume_screenshot, analyze_template
+    from backend.agents.conversation_agent import conversation_handler
 except ImportError:
-    from models import AgentReflectRequest, QuickFixRequest, VisionAnalyzeRequest, TemplateAnalyzeRequest
+    from models import (
+        AgentReflectRequest, QuickFixRequest, VisionAnalyzeRequest,
+        TemplateAnalyzeRequest, ConversationRequest, ConversationResponse
+    )
     from agent import run_reflection_agent, quick_fix_resume, analyze_resume_screenshot, analyze_template
+    from agents.conversation_agent import conversation_handler
 
 router = APIRouter(prefix="/api", tags=["Agent"])
 
@@ -60,7 +68,7 @@ async def agent_vision_analyze(body: VisionAnalyzeRequest):
 async def agent_template_analyze(body: TemplateAnalyzeRequest):
     """
     模板分析 - 使用 GLM-4.5V 分析简历预览截图
-    
+
     返回：
     - appearance: 现有模板长什么样子
     - issues: 存在什么问题
@@ -75,3 +83,29 @@ async def agent_template_analyze(body: TemplateAnalyzeRequest):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"模板分析失败: {e}")
+
+
+@router.post("/agent/conversation", response_model=ConversationResponse)
+async def agent_conversation(body: ConversationRequest):
+    """
+    对话式简历生成 Agent
+
+    工作流程：
+    1. 接收用户输入
+    2. 根据当前对话步骤处理输入
+    3. 提取/更新简历信息
+    4. 返回 AI 回复和下一步骤
+    """
+    try:
+        result = await conversation_handler(
+            message=body.message,
+            step=body.step,
+            collected_info=body.collected_info,
+            resume_data=body.resume_data
+        )
+        return result
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"对话处理失败: {e}")
+

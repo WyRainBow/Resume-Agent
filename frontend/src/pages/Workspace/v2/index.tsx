@@ -203,6 +203,7 @@ export default function WorkspaceV2() {
       {/* 三列布局 - 可拖拽分隔线 */}
       <ResizableLayout
         resumeData={resumeData}
+        setResumeData={setResumeData}
         activeSection={activeSection}
         setActiveSection={setActiveSection}
         toggleSectionVisibility={toggleSectionVisibility}

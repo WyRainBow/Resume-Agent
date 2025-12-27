@@ -134,3 +134,20 @@ class TemplateAnalyzeResponse(BaseModel):
     issues: List[str] = Field(..., description="存在什么问题")
     suggestions: List[str] = Field(..., description="模板修改建议")
     raw_analysis: str = Field(..., description="原始分析内容")
+
+
+class ConversationRequest(BaseModel):
+    """对话式简历生成请求"""
+    message: str = Field(..., description="用户输入的消息")
+    step: str = Field(..., description="当前对话步骤")
+    collected_info: Dict[str, Any] = Field(default_factory=dict, description="已收集的信息")
+    resume_data: Dict[str, Any] = Field(default_factory=dict, description="当前简历数据")
+
+
+class ConversationResponse(BaseModel):
+    """对话式简历生成响应"""
+    reply: str = Field(..., description="AI 回复消息")
+    next_step: str = Field(..., description="下一步骤")
+    updated_info: Dict[str, Any] = Field(default_factory=dict, description="更新后的收集信息")
+    is_complete: bool = Field(default=False, description="是否完成")
+    resume_data: Optional[Dict[str, Any]] = Field(default=None, description="生成的完整简历数据")
