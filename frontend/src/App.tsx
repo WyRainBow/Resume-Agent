@@ -7,7 +7,6 @@ import HTMLWorkspace from './pages/Workspace/v2/html'
 import ResumeDashboard from './pages/ResumeDashboard'
 import TemplateMarket from './pages/TemplateMarket'
 import CreateNew from './pages/CreateNew'
-import ConversationWorkspace from './pages/ConversationWorkspace'
 import SharePage from './pages/SharePage'
 import ErrorBoundary from './ErrorBoundary'
 
@@ -28,7 +27,6 @@ function App() {
             <Route path="/dashboard" element={<ResumeDashboard />} />
             <Route path="/templates" element={<TemplateMarket />} />
             <Route path="/create-new" element={<CreateNew />} />
-            <Route path="/conversation" element={<ConversationWorkspace />} />
             <Route path="/share/:shareId" element={<SharePage />} />
           </Routes>
         </BrowserRouter>
