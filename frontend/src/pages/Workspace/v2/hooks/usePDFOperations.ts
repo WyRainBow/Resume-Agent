@@ -6,6 +6,7 @@ import { saveAs } from 'file-saver'
 import { renderPDFStream } from '../../../../services/api'
 import { saveResume, setCurrentResumeId } from '../../../../services/resumeStorage'
 import { convertToBackendFormat } from '../utils/convertToBackend'
+import { generateHTMLFile } from '../utils/generateHTML'
 import type { ResumeData } from '../types'
 
 interface UsePDFOperationsProps {
@@ -59,6 +60,17 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
     saveAs(file, filename)
   }, [pdfBlob, resumeData.basic.name])
 
+  // 下载 HTML
+  const handleDownloadHTML = useCallback(() => {
+    const htmlContent = generateHTMLFile(resumeData)
+    const name = resumeData.basic.name || '简历'
+    const date = new Date().toISOString().split('T')[0]
+    const filename = `${name}_简历_${date}.html`
+
+    const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' })
+    saveAs(blob, filename)
+  }, [resumeData])
+
   // 保存到 Dashboard
   const handleSaveToDashboard = useCallback(() => {
     const resumeToSave = {
@@ -88,6 +100,7 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
     saveSuccess,
     handleRender,
     handleDownload,
+    handleDownloadHTML,
     handleSaveToDashboard,
   }
 }
