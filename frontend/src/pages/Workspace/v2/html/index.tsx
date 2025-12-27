@@ -17,6 +17,7 @@ import EditPreviewLayout from '../EditPreviewLayout'
 import AIImportModal from '../shared/AIImportModal'
 import APISettingsDialog from '../shared/APISettingsDialog'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
+import { generateHTMLFile } from '../utils/generateHTML'
 
 type EditMode = 'click' | 'scroll'
 
@@ -246,9 +247,21 @@ export default function HTMLWorkspace() {
   // HTML 转 PDF 下载
   const handleDownloadPDF = useCallback(() => {
     try {
-      // 获取预览容器
-      const element = document.querySelector('.html-template-container') as HTMLElement
+      // 生成完整的 HTML 文件内容（包含所有样式）
+      const htmlContent = generateHTMLFile(resumeData)
+      
+      // 创建一个临时容器来渲染 HTML
+      const tempDiv = document.createElement('div')
+      tempDiv.innerHTML = htmlContent
+      tempDiv.style.position = 'absolute'
+      tempDiv.style.left = '-9999px'
+      tempDiv.style.width = '210mm' // A4 宽度
+      document.body.appendChild(tempDiv)
+
+      // 获取实际的内容容器
+      const element = tempDiv.querySelector('.html-template-container') as HTMLElement
       if (!element) {
+        document.body.removeChild(tempDiv)
         alert('找不到简历预览内容')
         return
       }
@@ -257,17 +270,26 @@ export default function HTMLWorkspace() {
         margin: 10,
         filename: `${resumeData.basic.name || '简历'}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2 },
+        html2canvas: { scale: 2, useCORS: true },
         jsPDF: { orientation: 'portrait', unit: 'mm', format: 'a4' },
       }
 
       // 使用 html2pdf 转换并下载
-      html2pdf().set(opt).from(element).save()
+      html2pdf()
+        .set(opt)
+        .from(element)
+        .save()
+        .finally(() => {
+          // 清理临时元素
+          if (tempDiv.parentNode) {
+            document.body.removeChild(tempDiv)
+          }
+        })
     } catch (error) {
       console.error('PDF 下载失败:', error)
       alert('下载失败，请重试')
     }
-  }, [resumeData.basic.name])
+  }, [resumeData])
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
