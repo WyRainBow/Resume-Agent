@@ -4,6 +4,7 @@
 """
 import uuid
 import json
+import os
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -14,6 +15,9 @@ router = APIRouter(prefix="/api/resume", tags=["resume-share"])
 
 # 使用内存存储（生产环境请替换为数据库/Redis）
 share_store: Dict[str, Dict[str, Any]] = {}
+
+# 获取前端域名（从环境变量读取，默认为生产环境域名）
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://resume-agent-staging.pages.dev")
 
 
 class ShareResumeRequest(BaseModel):
@@ -50,10 +54,10 @@ async def create_share_link(request: ShareResumeRequest):
         "views": 0,
     }
 
-    # 分享链接配置（根据环境设置）
+    # 分享链接配置（根据环境变量动态设置）
     # 开发环境：http://localhost:5173/share/{share_id}
-    # 生产环境：https://yourdomain.com/share/{share_id}
-    share_url = f"http://localhost:5173/share/{share_id}"
+    # 生产环境：从环境变量 FRONTEND_URL 读取
+    share_url = f"{FRONTEND_URL}/share/{share_id}"
 
     return ShareResumeResponse(
         share_url=share_url,

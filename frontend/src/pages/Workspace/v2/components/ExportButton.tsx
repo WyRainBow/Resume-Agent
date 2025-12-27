@@ -88,10 +88,23 @@ export function ExportButton({
       // 开启分享，生成链接
       try {
         setIsExporting(true)
+        // 获取 API 基础 URL
         const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || ''
-        const apiBase = rawApiBase
-          ? (rawApiBase.startsWith('http') ? rawApiBase : `http://${rawApiBase}`)
-          : ''
+        let apiBase = ''
+        
+        if (rawApiBase) {
+          // 如果配置了环境变量，使用配置的值
+          apiBase = rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`
+        } else {
+          // 如果没有配置，根据当前环境判断
+          // 生产环境使用相对路径（通过代理），开发环境使用 localhost
+          if (import.meta.env.PROD) {
+            apiBase = '' // 生产环境使用相对路径，由代理处理
+          } else {
+            apiBase = 'http://localhost:8000' // 开发环境
+          }
+        }
+        
         const url = apiBase ? `${apiBase}/api/resume/share` : `/api/resume/share`
 
         const response = await fetch(url, {

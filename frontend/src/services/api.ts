@@ -4,8 +4,19 @@ import type { ResumeData } from '@/pages/Workspace/v2/types'
 import { DEFAULT_RESUME_TEMPLATE } from '@/data/defaultTemplate'
 
 // 处理 API_BASE，确保有协议前缀
-const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:8000'
-const API_BASE = rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`
+// 生产环境如果没有配置，使用相对路径（由代理处理）
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || ''
+let API_BASE = ''
+if (rawApiBase) {
+  API_BASE = rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`
+} else {
+  // 如果没有配置环境变量，根据环境判断
+  if (import.meta.env.PROD) {
+    API_BASE = '' // 生产环境使用相对路径，由代理处理
+  } else {
+    API_BASE = 'http://localhost:8000' // 开发环境
+  }
+}
 
 export async function aiTest(provider: 'zhipu' | 'doubao', prompt: string) {
   const url = `${API_BASE}/api/ai/test`
