@@ -80,6 +80,7 @@ config_router = routes_module.config_router
 resume_router = routes_module.resume_router
 agent_router = routes_module.agent_router
 pdf_router = routes_module.pdf_router
+share_router = routes_module.share_router
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="Resume Agent API")
@@ -99,6 +100,7 @@ app.include_router(config_router)
 app.include_router(resume_router)
 app.include_router(agent_router)
 app.include_router(pdf_router)
+app.include_router(share_router)
 
 
 # 启动时预热 HTTP 连接并配置日志
