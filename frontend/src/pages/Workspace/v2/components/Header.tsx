@@ -1,10 +1,10 @@
 /**
- * 顶部导航栏组件
+ * 顶部导航栏组件（仅包含右侧操作按钮）
  */
 import { motion } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
-import { Check, Sparkles, FileText, BookmarkPlus, LayoutGrid, Settings, Download, Upload } from 'lucide-react'
+import { Check, Sparkles, BookmarkPlus, Settings, Upload } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
+import { ExportButton } from './ExportButton'
 
 interface HeaderProps {
   saveSuccess: boolean
@@ -13,49 +13,28 @@ interface HeaderProps {
   onAPISettings?: () => void
   onExportJSON?: () => void
   onImportJSON?: () => void
+  resumeData?: Record<string, any>
+  resumeName?: string
+  pdfBlob?: Blob | null
+  onDownloadPDF?: () => void
 }
 
-export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPISettings, onExportJSON, onImportJSON }: HeaderProps) {
-  const navigate = useNavigate()
-
+export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPISettings, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF }: HeaderProps) {
   return (
-    <motion.header 
+    <motion.header
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
       className={cn(
-        'relative z-20 h-16 flex items-center justify-between px-6',
+        'relative z-20 h-16 flex items-center justify-end px-6',
         'bg-white/70 dark:bg-slate-900/70',
         'backdrop-blur-xl backdrop-saturate-150',
         'border-b border-white/50 dark:border-slate-700/50',
         'shadow-[0_4px_30px_rgba(0,0,0,0.05)]'
       )}
     >
-      <motion.div 
-        className="flex items-center gap-3 cursor-pointer group"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.4, delay: 0.2 }}
-        onClick={() => navigate('/')}
-      >
-        <div className="relative">
-          <div className="w-9 h-9 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:rotate-12 transition-all duration-300">
-            <span className="text-white font-black text-sm italic tracking-tighter">RA</span>
-          </div>
-          <div className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-900" />
-        </div>
-        <div className="flex flex-col">
-          <h1 className="text-sm font-black tracking-tighter text-slate-900 dark:text-white leading-tight">
-            Resume Agent
-          </h1>
-          <span className="text-[9px] text-indigo-500 dark:text-indigo-400 font-bold tracking-[0.15em] uppercase">
-            Workspace
-          </span>
-        </div>
-      </motion.div>
-
       {/* Action Buttons */}
-      <motion.div 
+      <motion.div
         className="flex items-center gap-3"
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
@@ -100,25 +79,7 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPI
           )}
           {saveSuccess ? '已保存' : '保存'}
         </button>
-        
-        {/* 我的简历按钮 */}
-        <button
-          onClick={() => navigate('/dashboard')}
-          className={cn(
-            "px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2",
-            "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm",
-            "border border-slate-200/80 dark:border-slate-700/80",
-            "text-slate-700 dark:text-slate-200",
-            "hover:bg-white dark:hover:bg-slate-800",
-            "hover:border-slate-300 dark:hover:border-slate-600",
-            "shadow-sm hover:shadow-md",
-            "hover:scale-[1.02] active:scale-[0.98]"
-          )}
-        >
-          <LayoutGrid className="w-4 h-4 text-purple-500" />
-          我的简历
-        </button>
-        
+
         {/* 导入 JSON 按钮 */}
         {onImportJSON && (
           <button
@@ -139,24 +100,15 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onAPI
           </button>
         )}
         
-        {/* 导出 JSON 按钮 */}
-        {onExportJSON && (
-          <button
-            onClick={onExportJSON}
-            className={cn(
-              "px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2",
-              "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm",
-              "border border-slate-200/80 dark:border-slate-700/80",
-              "text-slate-700 dark:text-slate-200",
-              "hover:bg-white dark:hover:bg-slate-800",
-              "hover:border-slate-300 dark:hover:border-slate-600",
-              "shadow-sm hover:shadow-md",
-              "hover:scale-[1.02] active:scale-[0.98]"
-            )}
-          >
-            <Download className="w-4 h-4 text-green-500" />
-            导出 JSON
-          </button>
+        {/* 导出按钮（PDF/JSON/分享链接） */}
+        {resumeData && (
+          <ExportButton
+            resumeData={resumeData}
+            resumeName={resumeName}
+            onExportJSON={onExportJSON}
+            pdfBlob={pdfBlob}
+            onDownloadPDF={onDownloadPDF}
+          />
         )}
         
         {/* API设置按钮 */}
