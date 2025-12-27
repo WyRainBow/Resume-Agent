@@ -68,6 +68,7 @@ export default function WorkspaceV2() {
     saveSuccess,
     handleRender,
     handleDownload,
+    handleDownloadHTML,
     handleSaveToDashboard,
   } = usePDFOperations({ resumeData, currentResumeId, setCurrentId })
 
@@ -242,6 +243,7 @@ export default function WorkspaceV2() {
         progress={progress}
         handleRender={handleRender}
         handleDownload={handleDownload}
+        handleDownloadHTML={handleDownloadHTML}
         editMode={editMode}
       />
 
