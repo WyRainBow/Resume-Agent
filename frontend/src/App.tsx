@@ -7,6 +7,7 @@ import HTMLWorkspace from './pages/Workspace/v2/html'
 import ResumeDashboard from './pages/ResumeDashboard'
 import TemplateMarket from './pages/TemplateMarket'
 import CreateNew from './pages/CreateNew'
+import AIConversation from './pages/AIConversation' // 新增导入
 import SharePage from './pages/SharePage'
 import ErrorBoundary from './ErrorBoundary'
 
@@ -27,6 +28,7 @@ function App() {
             <Route path="/dashboard" element={<ResumeDashboard />} />
             <Route path="/templates" element={<TemplateMarket />} />
             <Route path="/create-new" element={<CreateNew />} />
+            <Route path="/ai-conversation" element={<AIConversation />} /> {/* 新增路由 */}
             <Route path="/share/:shareId" element={<SharePage />} />
           </Routes>
         </BrowserRouter>
