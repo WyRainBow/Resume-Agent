@@ -1,112 +1,54 @@
 /**
- * AI 对话创建简历页面
- * 复刻图2的样式：左侧对话框，右侧选项引导
+ * 创建简历入口页面
+ * 提供两个选项：创建新简历（推荐）和导入已有简历
  */
-import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+import { motion } from 'framer-motion'
 import {
-  Send,
-  User,
-  Sparkles,
-  ArrowLeft
+  ArrowRight,
+  CheckCircle,
+  Clock,
+  FileText,
+  Sparkles
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { useNavigate } from 'react-router-dom'
 
-// 消息类型
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: number
+// 动画变体
+const fadeInUp = {
+  initial: { opacity: 0, y: 30 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.5 }
+}
+
+const staggerContainer = {
+  animate: {
+    transition: {
+      staggerChildren: 0.15
+    }
+  }
 }
 
 export default function CreateNew() {
   const navigate = useNavigate()
-  const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // 状态
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome',
-      role: 'assistant',
-      content: '你好！我是 RA AI，很高兴与你相识🎉 让我们一起打造属于你的精彩简历吧！首先，请告诉我你目前的身份，这样我就能为你提供最贴心的指导。',
-      timestamp: Date.now()
-    }
-  ])
-  const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [showOptions, setShowOptions] = useState(true)
-
-  // 自动滚动到底部
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  // 处理选项点击
-  const handleOptionClick = (option: string) => {
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: option,
-      timestamp: Date.now()
-    }
-
-    setMessages(prev => [...prev, userMessage])
-    setShowOptions(false)
-    setIsLoading(true)
-
-    // 模拟 AI 回复
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: `好的！我已经了解到你是${option === '学生' ? '学生' : '职场人士'}。接下来，请告诉我你的名字吧~`,
-        timestamp: Date.now()
-      }
-      setMessages(prev => [...prev, assistantMessage])
-      setIsLoading(false)
-    }, 800)
+  const handleCreateNew = () => {
+    // 跳转到新的 AI 对话页面
+    navigate('/ai-conversation')
   }
 
-  // 发送消息
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return
-
-    const userMessage: Message = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: input.trim(),
-      timestamp: Date.now()
-    }
-
-    setMessages(prev => [...prev, userMessage])
-    setInput('')
-    setIsLoading(true)
-
-    // 模拟 AI 回复
-    setTimeout(() => {
-      const assistantMessage: Message = {
-        id: `assistant-${Date.now()}`,
-        role: 'assistant',
-        content: '感谢提供的信息！现在让我为你创建一份个性化的简历...',
-        timestamp: Date.now()
-      }
-      setMessages(prev => [...prev, assistantMessage])
-      setIsLoading(false)
-    }, 1200)
-  }
-
-  // 处理键盘事件
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
-    }
+  const handleImportExisting = () => {
+    // 跳转到 workspace 直接编辑
+    navigate('/workspace')
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950 flex flex-col">
+    <div className="min-h-screen bg-[#F8F9FA] text-[#1E293B] font-sans overflow-hidden">
+      {/* 动态背景 */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-blue-400/5 rounded-full blur-[100px] -z-10" />
+        <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-400/5 rounded-full blur-[80px] -z-10" />
+        <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-400/5 rounded-full blur-[80px] -z-10" />
+      </div>
+
       {/* 返回按钮 */}
       <div className="fixed top-6 left-6 z-50">
         <motion.button
@@ -115,170 +57,155 @@ export default function CreateNew() {
           onClick={() => navigate('/dashboard')}
           className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full text-sm font-medium text-slate-600 hover:text-slate-900 shadow-sm hover:shadow-md transition-all"
         >
-          <ArrowLeft className="w-4 h-4" />
+          <ArrowRight className="w-4 h-4 rotate-180" />
           返回
         </motion.button>
       </div>
 
       {/* 主内容区 */}
-      <div className="flex-1 flex overflow-hidden max-w-7xl w-full mx-auto">
-        {/* 左侧：对话面板 */}
+      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6">
+        {/* 标题区域 */}
         <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4 }}
-          className="w-[550px] flex flex-col bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 m-6 overflow-hidden"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="text-center mb-16"
         >
-          {/* 对话头部 */}
-          <div className="px-6 py-4 bg-gradient-to-r from-indigo-500 to-blue-500 text-white">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
-                <Sparkles className="w-6 h-6" />
-              </div>
-              <div>
-                <h2 className="font-bold text-lg">RA AI 智能助手</h2>
-                <p className="text-sm text-white/80 text-xs">准备好创建你的完美简历了吗？</p>
-              </div>
-            </div>
+          <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-xs font-black mb-6 border border-indigo-100 tracking-widest uppercase shadow-sm">
+            <Sparkles className="w-3 h-3 fill-current" />
+            AI 智能体
           </div>
 
-          {/* 对话历史 */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            <AnimatePresence>
-              {messages.map((message) => (
-                <motion.div
-                  key={message.id}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div className={`flex gap-3 max-w-[85%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-                    {/* 头像 */}
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                      message.role === 'user'
-                        ? 'bg-gradient-to-br from-indigo-500 to-blue-500'
-                        : 'bg-slate-100'
-                    }`}>
-                      {message.role === 'user' ? (
-                        <User className="w-4 h-4 text-white" />
-                      ) : (
-                        <Sparkles className="w-4 h-4 text-indigo-500" />
-                      )}
-                    </div>
+          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-slate-900 mb-4">
+            选择创建方式
+          </h1>
 
-                    {/* 消息内容 */}
-                    <div className={`px-4 py-3 rounded-2xl ${
-                      message.role === 'user'
-                        ? 'bg-gradient-to-r from-indigo-500 to-blue-500 text-white'
-                        : 'bg-slate-100 text-slate-800'
-                    }`}>
-                      <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                        {message.content}
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
-
-            {/* 加载动画 */}
-            {isLoading && (
-              <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="flex justify-start"
-              >
-                <div className="flex gap-3 max-w-[85%]">
-                  <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-indigo-500" />
-                  </div>
-                  <div className="px-4 py-3 rounded-2xl bg-slate-100">
-                    <div className="flex gap-1.5">
-                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="w-2 h-2 bg-slate-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* 输入区域 */}
-          <div className="p-4 border-t border-slate-100">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="输入你的回答..."
-                disabled={isLoading}
-                className="flex-1 px-4 py-3 bg-slate-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50 transition-all"
-              />
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleSend}
-                disabled={!input.trim() || isLoading}
-                className="px-4 py-3 bg-gradient-to-r from-indigo-500 to-blue-500 text-white rounded-xl font-medium shadow-lg shadow-indigo-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
-                <Send className="w-5 h-5" />
-              </motion.button>
-            </div>
-          </div>
+          <p className="text-lg text-slate-500 font-medium max-w-xl mx-auto">
+            通过 AI 对话快速生成专业简历、或导入现有简历进行编辑
+          </p>
         </motion.div>
 
-        {/* 右侧：选项引导 */}
-        {showOptions && (
+        {/* 选项卡片 */}
+        <motion.div
+          variants={staggerContainer}
+          initial="initial"
+          animate="animate"
+          className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full"
+        >
+          {/* 创建新简历卡片（推荐） */}
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-            className="flex-1 flex items-center justify-center pr-12"
+            variants={fadeInUp}
+            whileHover={{ y: -8 }}
+            onClick={handleCreateNew}
+            className="group relative cursor-pointer"
           >
-            <div className="max-w-sm w-full space-y-4">
-              <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-slate-900 mb-2">请选择你的身份</h3>
-                <p className="text-slate-600 font-medium">这样我能为你提供更符合的建议</p>
-              </div>
-
-              <div className="space-y-3">
-                {[
-                  {
-                    label: '学生',
-                    description: '还在学校，准备找实习或第一份工作'
-                  },
-                  {
-                    label: '职场人士',
-                    description: '已有工作经验，准备跳槽或升职'
-                  }
-                ].map((option) => (
-                  <motion.button
-                    key={option.label}
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => handleOptionClick(option.label)}
-                    disabled={isLoading}
-                    className="w-full p-4 bg-white rounded-2xl border-2 border-slate-200 hover:border-indigo-400 shadow-sm hover:shadow-lg transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed group"
-                  >
-                    <h4 className="font-bold text-slate-900 text-lg group-hover:text-indigo-600 transition-colors">
-                      {option.label}
-                    </h4>
-                    <p className="text-sm text-slate-600 mt-1">
-                      {option.description}
-                    </p>
-                  </motion.button>
-                ))}
+            {/* 推荐标签 */}
+            <div className="absolute -top-3 left-6 z-10">
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-indigo-500 to-blue-500 rounded-full text-white text-xs font-bold shadow-lg shadow-indigo-500/30">
+                <Sparkles className="w-3 h-3 fill-current" />
+                推荐
               </div>
             </div>
+
+            <div className="relative h-full p-8 bg-white rounded-2xl border-2 border-indigo-100 hover:border-indigo-300 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(79,70,229,0.12)] transition-all duration-300">
+              {/* 卡片内容 */}
+              <div className="flex flex-col h-full">
+                {/* 图标 */}
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg shadow-indigo-500/30">
+                  <Sparkles className="w-8 h-8 text-white" />
+                </div>
+
+                {/* 标题 */}
+                <h3 className="text-2xl font-black text-slate-900 mb-3">
+                  AI 对话创建
+                </h3>
+
+                {/* 描述 */}
+                <p className="text-slate-500 font-medium mb-6 leading-relaxed">
+                  通过与 AI 智能对话，轻松收集和整理您的信息，自动生成专业简历
+                </p>
+
+                {/* 特性列表 */}
+                <div className="space-y-3 mb-6">
+                  {[
+                    { icon: CheckCircle, text: '智能对话引导，无需担心格式' },
+                    { icon: CheckCircle, text: '实时预览，所见即所得' },
+                    { icon: Clock, text: '5分钟完成初稿' }
+                  ].map((feature, i) => (
+                    <div key={i} className="flex items-center gap-3 text-sm">
+                      <feature.icon className="w-5 h-5 text-indigo-500 flex-shrink-0" />
+                      <span className="text-slate-600 font-medium">{feature.text}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 按钮 */}
+                <div className="mt-auto">
+                  <div className="flex items-center justify-center gap-2 w-full py-3.5 bg-gradient-to-r from-indigo-500 to-blue-500 text-white rounded-xl font-bold text-base shadow-lg shadow-indigo-500/30 group-hover:shadow-xl group-hover:shadow-indigo-500/40 transition-all">
+                    开始创建
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </div>
+
+              {/* 装饰：角落光晕 */}
+              <div className="absolute top-0 right-0 w-40 h-40 bg-indigo-100 rounded-full blur-3xl opacity-50 group-hover:opacity-70 transition-opacity -z-10" />
+            </div>
           </motion.div>
-        )}
+
+          {/* 导入已有简历卡片 */}
+          <motion.div
+            variants={fadeInUp}
+            whileHover={{ y: -8 }}
+            onClick={handleImportExisting}
+            className="group relative cursor-pointer"
+          >
+            <div className="relative h-full p-8 bg-white rounded-2xl border-2 border-slate-100 hover:border-slate-300 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] transition-all duration-300">
+              {/* 卡片内容 */}
+              <div className="flex flex-col h-full">
+                {/* 图标 */}
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-slate-600 to-slate-700 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform shadow-lg">
+                  <FileText className="w-8 h-8 text-white" />
+                </div>
+
+                {/* 标题 */}
+                <h3 className="text-2xl font-black text-slate-900 mb-3">
+                  从模板创建 / 导入
+                </h3>
+
+                {/* 描述 */}
+                <p className="text-slate-500 font-medium mb-6 leading-relaxed">
+                  选择精美模板直接编辑，或导入 PDF/Word 文件进行优化
+                </p>
+
+                {/* 特性列表 */}
+                <div className="space-y-3 mb-6">
+                  {[
+                    { icon: CheckCircle, text: '支持 PDF、Word 格式解析' },
+                    { icon: CheckCircle, text: '可视化拖拽编辑' },
+                    { icon: CheckCircle, text: '丰富的模板选择' }
+                  ].map((feature, i) => (
+                    <div key={i} className="flex items-center gap-3 text-sm">
+                      <feature.icon className="w-5 h-5 text-slate-400 flex-shrink-0" />
+                      <span className="text-slate-600 font-medium">{feature.text}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 按钮 */}
+                <div className="mt-auto">
+                  <div className="flex items-center justify-center gap-2 w-full py-3.5 bg-slate-700 text-white rounded-xl font-bold text-base shadow-lg group-hover:bg-slate-800 transition-all">
+                    去编辑
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </div>
+
+              {/* 装饰：角落光晕 */}
+              <div className="absolute top-0 right-0 w-40 h-40 bg-slate-100 rounded-full blur-3xl opacity-50 group-hover:opacity-70 transition-opacity -z-10" />
+            </div>
+          </motion.div>
+        </motion.div>
       </div>
     </div>
   )
