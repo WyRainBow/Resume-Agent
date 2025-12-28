@@ -1,7 +1,9 @@
-import React, { useState } from 'react'
+import { AIImportModal } from '@/pages/Workspace/v2/shared/AIImportModal'
+import AIWriteDialog from '@/pages/Workspace/v2/shared/AIWriteDialog'
+import type { Education as WorkspaceEducation } from '@/pages/Workspace/v2/types'
 import { motion } from 'framer-motion'
-import { Calendar, ChevronDown, Plus, Trash2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { ChevronDown, Plus, Sparkles, Upload } from 'lucide-react'
+import React, { useState } from 'react'
 import { MonthPicker } from './MonthPicker'
 
 export interface Education {
@@ -38,11 +40,28 @@ export const EducationForm: React.FC<EducationFormProps> = ({
   })
   
   const [isDegreeOpen, setIsDegreeOpen] = useState(false)
+  const [showAIImport, setShowAIImport] = useState(false)
+  const [showAIWrite, setShowAIWrite] = useState(false)
 
   const handleChange = (field: keyof Education, value: string) => {
     const newData = { ...formData, [field]: value }
     setFormData(newData)
     onChange(newData)
+  }
+
+  // AI 导入完成后的处理
+  const handleAIImportComplete = (data: any) => {
+    // 如果导入的是教育经历数据，则更新表单
+    if (data.education) {
+      const edu = data.education[0] || data.education
+      handleChange('school', edu.school || edu.schoolName || '')
+      handleChange('major', edu.major || edu.majorName || '')
+      handleChange('degree', edu.degree || edu.degreeType || '')
+      handleChange('startDate', edu.startDate || '')
+      handleChange('endDate', edu.endDate || '')
+      handleChange('description', edu.description || edu.detail || '')
+    }
+    setShowAIImport(false)
   }
 
   return (
@@ -158,9 +177,29 @@ export const EducationForm: React.FC<EducationFormProps> = ({
 
         {/* 在校经历 */}
         <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">
-            在校经历
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-700">
+              在校经历
+            </label>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setShowAIImport(true)}
+                className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 text-blue-700 hover:from-blue-100 hover:to-indigo-100 transition-all shadow-sm group"
+              >
+                <Upload className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
+                <span className="text-sm font-medium">AI 导入</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAIWrite(true)}
+                className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100 text-purple-700 hover:from-purple-100 hover:to-pink-100 transition-all shadow-sm group"
+              >
+                <Sparkles className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform" />
+                <span className="text-sm font-medium">AI 帮写</span>
+              </button>
+            </div>
+          </div>
           <textarea
             value={formData.description}
             onChange={(e) => handleChange('description', e.target.value)}
@@ -177,6 +216,26 @@ export const EducationForm: React.FC<EducationFormProps> = ({
           提交
         </button>
       </div>
+
+      {/* AI 导入弹窗 */}
+      <AIImportModal
+        isOpen={showAIImport}
+        sectionType="education"
+        sectionTitle="教育经历"
+        onClose={() => setShowAIImport(false)}
+        onSave={handleAIImportComplete}
+      />
+
+      {/* AI 帮写对话框 */}
+      <AIWriteDialog
+        open={showAIWrite}
+        onOpenChange={setShowAIWrite}
+        educationData={formData as unknown as WorkspaceEducation}
+        onApply={(content) => {
+          handleChange('description', content)
+          setShowAIWrite(false)
+        }}
+      />
     </motion.div>
   )
 }

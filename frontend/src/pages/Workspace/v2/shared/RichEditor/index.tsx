@@ -35,7 +35,8 @@ import { cn } from '../../../../../lib/utils'
 import { BetterSpace } from './BetterSpace'
 import AIPolishDialog from '../AIPolishDialog'
 import FormatLayoutDialog from '../FormatLayoutDialog'
-import type { ResumeData } from '../../types'
+import AIWriteDialog from '../AIWriteDialog'
+import type { ResumeData, Education } from '../../types'
 import './tiptap.css'
 
 // #region agent log helper
@@ -65,6 +66,7 @@ interface RichEditorProps {
   onPolish?: () => void  // AI 润色回调（已废弃，使用内置润色）
   resumeData?: ResumeData  // 简历数据，用于 AI 润色
   polishPath?: string  // JSON 路径，例如 "skillContent" 或 "projects.0.description"
+  educationData?: Partial<Education>  // 教育经历数据，用于 AI 帮写
 }
 
 /**
@@ -132,9 +134,11 @@ const RichEditor = ({
   onPolish,
   resumeData,
   polishPath = 'skillContent',
+  educationData,
 }: RichEditorProps) => {
   const [showPolishDialog, setShowPolishDialog] = useState(false)
   const [showFormatDialog, setShowFormatDialog] = useState(false)
+  const [showAIWriteDialog, setShowAIWriteDialog] = useState(false)
 
   const handlePolish = () => {
     if (resumeData) {
@@ -428,6 +432,17 @@ const RichEditor = ({
             AI 智能排版
           </button>
 
+          {/* AI 帮写按钮 - 仅在教育经历模块显示 */}
+          {educationData && (
+            <button
+              onClick={() => setShowAIWriteDialog(true)}
+              className="ml-2 px-3 py-1.5 text-sm rounded-md bg-gradient-to-r from-violet-400 to-purple-500 hover:from-purple-500 hover:to-violet-400 text-white shadow-md transition-all duration-300 flex items-center gap-1"
+            >
+              <Wand2 className="h-4 w-4" />
+              AI 帮写
+            </button>
+          )}
+
           {/* AI 润色按钮 */}
           {(resumeData || onPolish) && (
             <button
@@ -463,6 +478,16 @@ const RichEditor = ({
           onApply={handleApplyPolish}
           resumeData={resumeData}
           path={polishPath}
+        />
+      )}
+
+      {/* AI 帮写对话框 */}
+      {educationData && (
+        <AIWriteDialog
+          open={showAIWriteDialog}
+          onOpenChange={setShowAIWriteDialog}
+          educationData={educationData}
+          onApply={onChange}
         />
       )}
     </div>

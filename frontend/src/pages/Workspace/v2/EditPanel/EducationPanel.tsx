@@ -169,6 +169,7 @@ const EducationItem = ({
                   onChange={(v) => onUpdate({ ...education, description: v })}
                   type="editor"
                   placeholder="如：荣誉奖项、相关课程等"
+                  educationData={education}
                 />
               </div>
             </motion.div>

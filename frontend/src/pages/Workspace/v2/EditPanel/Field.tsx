@@ -9,7 +9,7 @@ import { cn } from '../../../../lib/utils'
 import RichEditor from '../shared/RichEditor'
 import BoldInput from './BoldInput'
 
-import type { ResumeData } from '../types'
+import type { ResumeData, Education } from '../types'
 
 interface FieldProps {
   label?: string
@@ -21,6 +21,7 @@ interface FieldProps {
   formatButtons?: ('bold')[]  // 支持的格式按钮
   resumeData?: ResumeData  // 简历数据，用于 AI 润色
   polishPath?: string  // JSON 路径，例如 "projects.0.description"
+  educationData?: Partial<Education>  // 教育经历数据，用于 AI 帮写
 }
 
 const Field = ({
@@ -33,6 +34,7 @@ const Field = ({
   formatButtons,
   resumeData,
   polishPath,
+  educationData,
 }: FieldProps) => {
   const inputRef = useRef<HTMLInputElement>(null)
   // 富文本编辑器
@@ -50,6 +52,7 @@ const Field = ({
           placeholder={placeholder}
           resumeData={resumeData}
           polishPath={polishPath}
+          educationData={educationData}
         />
       </div>
     )
