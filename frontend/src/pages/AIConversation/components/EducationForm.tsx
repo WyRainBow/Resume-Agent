@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { ChevronDown, Plus, Sparkles, Upload } from 'lucide-react'
 import React, { useState } from 'react'
 import { MonthPicker } from './MonthPicker'
+import { SimpleTextEditor } from './SimpleTextEditor'
 
 export interface Education {
   id: string
@@ -177,34 +178,24 @@ export const EducationForm: React.FC<EducationFormProps> = ({
 
         {/* 在校经历 */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-1">
             <label className="text-sm font-medium text-gray-700">
               在校经历
             </label>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setShowAIImport(true)}
-                className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 text-blue-700 hover:from-blue-100 hover:to-indigo-100 transition-all shadow-sm group"
-              >
-                <Upload className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
-                <span className="text-sm font-medium">AI 导入</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowAIWrite(true)}
-                className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100 text-purple-700 hover:from-purple-100 hover:to-pink-100 transition-all shadow-sm group"
-              >
-                <Sparkles className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform" />
-                <span className="text-sm font-medium">AI 帮写</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setShowAIImport(true)}
+              className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 text-blue-700 hover:from-blue-100 hover:to-indigo-100 transition-all shadow-sm group"
+            >
+              <Upload className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
+              <span className="text-sm font-medium">AI 导入</span>
+            </button>
           </div>
-          <textarea
-            value={formData.description}
-            onChange={(e) => handleChange('description', e.target.value)}
-            placeholder="请描述你的在校经历、主修课程、获得的奖项等..."
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none min-h-[120px] resize-none"
+          <SimpleTextEditor
+            content={formData.description}
+            onChange={(value) => handleChange('description', value)}
+            onAIWrite={() => setShowAIWrite(true)}
+            placeholder="写作公式：【主修课程+成绩】 → 【获得奖项+排名】 → 【学生工作/科研/社团活动】\n点击右上角「AI 帮写」，让 AI 帮你生成专业的描述\n【职场人建议直接留空】"
           />
         </div>
 
