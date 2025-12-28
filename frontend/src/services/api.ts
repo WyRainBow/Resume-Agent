@@ -367,7 +367,7 @@ export async function rewriteResume(provider: 'zhipu' | 'doubao', resume: Resume
  * 流式 AI 改写 - 实时显示生成内容
  */
 export async function rewriteResumeStream(
-  provider: 'zhipu' | 'doubao',
+  provider: 'zhipu' | 'doubao' | 'deepseek',
   resume: Resume,
   path: string,
   instruction: string,

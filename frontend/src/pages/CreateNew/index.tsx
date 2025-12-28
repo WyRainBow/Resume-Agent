@@ -122,14 +122,14 @@ export default function CreateNew() {
 
                 {/* 描述 */}
                 <p className="text-slate-500 font-medium mb-6 leading-relaxed">
-                  通过与 AI 智能对话，轻松收集和整理您的信息，自动生成专业简历
+                  通过与 AI 智能对话、轻松收集和整理您的信息、自动生成专业简历
                 </p>
 
                 {/* 特性列表 */}
                 <div className="space-y-3 mb-6">
                   {[
-                    { icon: CheckCircle, text: '智能对话引导，无需担心格式' },
-                    { icon: CheckCircle, text: '实时预览，所见即所得' },
+                    { icon: CheckCircle, text: '智能对话引导、无需担心格式' },
+                    { icon: CheckCircle, text: '实时预览、所见即所得' },
                     { icon: Clock, text: '5分钟完成初稿' }
                   ].map((feature, i) => (
                     <div key={i} className="flex items-center gap-3 text-sm">
@@ -175,7 +175,7 @@ export default function CreateNew() {
 
                 {/* 描述 */}
                 <p className="text-slate-500 font-medium mb-6 leading-relaxed">
-                  选择精美模板直接编辑，或导入 PDF/Word 文件进行优化
+                  选择精美模板直接编辑、或导入 PDF/Word 文件进行优化
                 </p>
 
                 {/* 特性列表 */}
