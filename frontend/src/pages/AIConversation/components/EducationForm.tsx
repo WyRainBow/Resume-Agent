@@ -2,10 +2,12 @@ import { AIImportModal } from '@/pages/Workspace/v2/shared/AIImportModal'
 import AIWriteDialog from '@/pages/Workspace/v2/shared/AIWriteDialog'
 import type { Education as WorkspaceEducation } from '@/pages/Workspace/v2/types'
 import { motion } from 'framer-motion'
-import { ChevronDown, Plus, Sparkles, Upload } from 'lucide-react'
-import React, { useState } from 'react'
+import { ChevronDown, Plus, Upload } from 'lucide-react'
+import React, { useState, useMemo } from 'react'
 import { MonthPicker } from './MonthPicker'
 import { SimpleTextEditor } from './SimpleTextEditor'
+import { AutocompleteInput } from './AutocompleteInput'
+import { getSuggestions, COMMON_UNIVERSITIES, COMMON_MAJORS } from './autocompleteData'
 
 export interface Education {
   id: string
@@ -43,6 +45,16 @@ export const EducationForm: React.FC<EducationFormProps> = ({
   const [isDegreeOpen, setIsDegreeOpen] = useState(false)
   const [showAIImport, setShowAIImport] = useState(false)
   const [showAIWrite, setShowAIWrite] = useState(false)
+
+  // 计算建议
+  const schoolSuggestions = useMemo(() => 
+    getSuggestions(formData.school, 'school'), 
+    [formData.school]
+  )
+  const majorSuggestions = useMemo(() => 
+    getSuggestions(formData.major, 'major'), 
+    [formData.major]
+  )
 
   const handleChange = (field: keyof Education, value: string) => {
     const newData = { ...formData, [field]: value }
@@ -86,33 +98,25 @@ export const EducationForm: React.FC<EducationFormProps> = ({
       </div>
 
       <div className="space-y-5">
-        {/* 学校名称 */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">
-            学校名称 <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            value={formData.school}
-            onChange={(e) => handleChange('school', e.target.value)}
-            placeholder="例如：清华大学"
-            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-gray-50/50"
-          />
-        </div>
+        {/* 学校名称 - 使用自动补全输入框 */}
+        <AutocompleteInput
+          label="学校名称"
+          required
+          value={formData.school}
+          onChange={(value) => handleChange('school', value)}
+          placeholder="例如：清华大学"
+          suggestions={COMMON_UNIVERSITIES}
+        />
 
-        {/* 专业 */}
-        <div className="space-y-1.5">
-          <label className="text-sm font-medium text-gray-700">
-            专业 <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            value={formData.major}
-            onChange={(e) => handleChange('major', e.target.value)}
-            placeholder="例如：计算机科学与技术"
-            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-gray-50/50"
-          />
-        </div>
+        {/* 专业 - 使用自动补全输入框 */}
+        <AutocompleteInput
+          label="专业"
+          required
+          value={formData.major}
+          onChange={(value) => handleChange('major', value)}
+          placeholder="例如：计算机科学与技术"
+          suggestions={COMMON_MAJORS}
+        />
 
         {/* 学历选择 */}
         <div className="space-y-1.5 relative">
@@ -223,6 +227,10 @@ export const EducationForm: React.FC<EducationFormProps> = ({
         onOpenChange={setShowAIWrite}
         educationData={formData as unknown as WorkspaceEducation}
         onApply={(content) => {
+          console.log('[EducationForm] AI 采纳内容:', {
+            content: content?.substring(0, 100),
+            contentLength: content?.length
+          })
           handleChange('description', content)
           setShowAIWrite(false)
         }}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import Underline from '@tiptap/extension-underline'
@@ -82,6 +82,14 @@ export const SimpleTextEditor: React.FC<SimpleTextEditorProps> = ({
       setIsEmpty(html === '<p></p>' || html === '')
     },
   })
+
+  // 当外部 content 变化时，更新编辑器
+  useEffect(() => {
+    if (editor && content && content !== editor.getHTML()) {
+      editor.commands.setContent(content)
+      setIsEmpty(content === '<p></p>' || content === '')
+    }
+  }, [content, editor])
 
   if (!editor) return null
 
