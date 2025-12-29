@@ -227,6 +227,10 @@ export const EducationForm: React.FC<EducationFormProps> = ({
         onOpenChange={setShowAIWrite}
         educationData={formData as unknown as WorkspaceEducation}
         onApply={(content) => {
+          console.log('[EducationForm] AI 采纳内容:', {
+            content: content?.substring(0, 100),
+            contentLength: content?.length
+          })
           handleChange('description', content)
           setShowAIWrite(false)
         }}
