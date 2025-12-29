@@ -487,7 +487,15 @@ const RichEditor = ({
           open={showAIWriteDialog}
           onOpenChange={setShowAIWriteDialog}
           educationData={educationData}
-          onApply={onChange}
+          onApply={(content) => {
+            console.log('[RichEditor] AI 帮写采纳内容:', content?.substring(0, 100) + '...')
+            // 直接更新编辑器内容
+            if (editor) {
+              editor.commands.setContent(content)
+            }
+            // 同时调用 onChange 更新外部状态
+            onChange(content)
+          }}
         />
       )}
     </div>
