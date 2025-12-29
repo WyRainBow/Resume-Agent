@@ -223,7 +223,8 @@ export default function AIWriteDialog({
           subtitle: educationData.major || '',
           degree: educationData.degree || '',
           date: `${educationData.startDate || ''} - ${educationData.endDate || ''}`,
-          details: [], // 用于存储 description，但后端会根据 path 处理
+          description: '', // 添加 description 字段，初始为空
+          details: [], // 用于存储其他信息
         }],
         internships: [],
         projects: [],
