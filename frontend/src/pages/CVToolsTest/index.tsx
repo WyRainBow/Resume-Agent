@@ -615,9 +615,9 @@ export default function CVToolsTest() {
                   value={input}
                   onChange={(e) => {
                     setInput(e.target.value)
-                    // 自动调整高度
+                    // 自动调整高度，最大2行（约80px）
                     e.target.style.height = 'auto'
-                    e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`
+                    e.target.style.height = `${Math.min(e.target.scrollHeight, 80)}px`
                   }}
                   onKeyDown={handleKeyDown}
                   onCompositionStart={handleCompositionStart}
@@ -625,9 +625,9 @@ export default function CVToolsTest() {
                   placeholder='用自然语言告诉我，例如：把名字改成张三'
                   rows={1}
                   className={cn(
-                    "flex-1 px-4 py-3 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 transition-all",
+                    "flex-1 px-4 py-2.5 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 transition-all",
                     "resize-none overflow-y-auto",
-                    "min-h-[52px] max-h-[200px]",
+                    "min-h-[44px] max-h-[80px]",
                     "leading-relaxed",
                     isLoading && "opacity-60" // 加载时降低透明度提示，但不禁用
                   )}
@@ -637,10 +637,10 @@ export default function CVToolsTest() {
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading}
                   className={cn(
-                    "px-4 py-3 rounded-xl transition-all shrink-0",
+                    "px-4 py-2.5 rounded-xl transition-all shrink-0",
                     "bg-violet-600 hover:bg-violet-700 text-white",
                     "disabled:opacity-50 disabled:cursor-not-allowed",
-                    "h-[52px] flex items-center justify-center"
+                    "h-[44px] flex items-center justify-center"
                   )}
                 >
                   <Send className="w-5 h-5" />
