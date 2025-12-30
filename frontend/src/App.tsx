@@ -9,6 +9,7 @@ import TemplateMarket from './pages/TemplateMarket'
 import CreateNew from './pages/CreateNew'
 import AIConversation from './pages/AIConversation' // 新增导入
 import SharePage from './pages/SharePage'
+import CVToolsTest from './pages/CVToolsTest' // CV 工具测试页面
 import ErrorBoundary from './ErrorBoundary'
 
 function App() {
@@ -30,6 +31,7 @@ function App() {
             <Route path="/create-new" element={<CreateNew />} />
             <Route path="/ai-conversation" element={<AIConversation />} /> {/* 新增路由 */}
             <Route path="/share/:shareId" element={<SharePage />} />
+            <Route path="/conversation" element={<CVToolsTest />} /> {/* CV 工具自然语言对话页面 */}
           </Routes>
         </BrowserRouter>
       </ErrorBoundary>

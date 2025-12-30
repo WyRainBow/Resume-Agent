@@ -151,3 +151,74 @@ class ConversationResponse(BaseModel):
     updated_info: Dict[str, Any] = Field(default_factory=dict, description="更新后的收集信息")
     is_complete: bool = Field(default=False, description="是否完成")
     resume_data: Optional[Dict[str, Any]] = Field(default=None, description="生成的完整简历数据")
+
+
+# ============ CV Tools 对话模型 ============
+
+class CVToolCallRequest(BaseModel):
+    """CV 工具自然语言调用请求"""
+    message: str = Field(..., description="用户自然语言消息")
+    resume_data: Dict[str, Any] = Field(..., description="当前简历数据")
+    conversation_history: Optional[List[Dict[str, str]]] = Field(default=None, description="对话历史")
+    session_id: Optional[str] = Field(default=None, description="会话 ID（可选，用于维护对话状态）")
+
+
+class ToolCallSpec(BaseModel):
+    """工具调用规格"""
+    name: Literal["CVReader", "CVEditor", "CVTemplateList", "TemplateSwitcher", "SmartFitToOnePage"] = Field(..., description="工具名称")
+    params: Dict[str, Any] = Field(..., description="工具参数")
+
+
+class CVToolCallResponse(BaseModel):
+    """CV 工具调用响应"""
+    success: bool = Field(..., description="是否成功解析为工具调用")
+    reply: str = Field(..., description="AI 回复消息")
+    tool_call: Optional[ToolCallSpec] = Field(default=None, description="解析出的工具调用")
+    reasoning: Optional[str] = Field(default=None, description="推理过程")
+    session_id: Optional[str] = Field(default=None, description="会话ID，用于多轮对话上下文保持")
+
+
+# ============ 工具执行结果模型 ============
+
+class ToolExecutionResult(BaseModel):
+    """工具执行结果"""
+    success: bool = Field(..., description="执行是否成功")
+    tool_name: str = Field(..., description="工具名称")
+    message: str = Field(..., description="执行消息")
+    data: Optional[Any] = Field(default=None, description="返回数据")
+    path: Optional[str] = Field(default=None, description="操作路径")
+    execution_time: float = Field(default=0.0, description="执行时间（秒）")
+    error: Optional[Dict[str, Any]] = Field(default=None, description="错误信息")
+
+
+# ============ 会话管理模型 ============
+
+class SessionCreateRequest(BaseModel):
+    """创建会话请求"""
+    user_id: Optional[str] = Field(default=None, description="用户 ID")
+    resume_id: Optional[str] = Field(default=None, description="简历 ID")
+    resume_data: Optional[Dict[str, Any]] = Field(default=None, description="初始简历数据")
+
+
+class SessionResponse(BaseModel):
+    """会话响应"""
+    session_id: str = Field(..., description="会话 ID")
+    status: str = Field(..., description="会话状态")
+    message_count: int = Field(default=0, description="消息数量")
+    created_at: float = Field(..., description="创建时间戳")
+    updated_at: float = Field(..., description="更新时间戳")
+
+
+# ============ 意图识别模型 ============
+
+class IntentRecognizeRequest(BaseModel):
+    """意图识别请求"""
+    message: str = Field(..., description="用户消息")
+    context: Optional[Dict[str, Any]] = Field(default=None, description="上下文信息")
+
+
+class IntentRecognizeResponse(BaseModel):
+    """意图识别响应"""
+    intent: str = Field(..., description="识别的意图")
+    params: Dict[str, Any] = Field(default_factory=dict, description="提取的参数")
+    confidence: float = Field(default=1.0, description="置信度")
