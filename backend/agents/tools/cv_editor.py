@@ -293,8 +293,48 @@ class CVEditorTool(BaseTool):
         # 应用字段映射
         parts = self._map_path(parts)
         
-        # 获取父对象和键
-        parent, key, old_value = get_by_path(self.resume_data, parts)
+        # 顶层属性：清空而不是删除
+        if len(parts) == 1:
+            key = parts[0]
+            if key not in self.resume_data:
+                # 字段不存在，视为已删除
+                return {
+                    "success": True,
+                    "message": f"字段已不存在: {path}",
+                    "path": path,
+                    "deleted_value": None
+                }
+            
+            old_value = self.resume_data.get(key)
+            
+            # 根据类型清空
+            if isinstance(old_value, list):
+                self.resume_data[key] = []
+            elif isinstance(old_value, str):
+                self.resume_data[key] = ""
+            elif isinstance(old_value, dict):
+                self.resume_data[key] = {}
+            else:
+                self.resume_data[key] = None
+            
+            return {
+                "success": True,
+                "message": f"成功清空: {path}",
+                "path": path,
+                "deleted_value": old_value
+            }
+        
+        # 非顶层属性：正常删除
+        try:
+            parent, key, old_value = get_by_path(self.resume_data, parts)
+        except ValueError as e:
+            # 路径不存在，视为已删除
+            return {
+                "success": True,
+                "message": f"路径已不存在: {path}",
+                "path": path,
+                "deleted_value": None
+            }
         
         # 执行删除
         if isinstance(parent, list):
