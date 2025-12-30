@@ -7,9 +7,10 @@ import HTMLWorkspace from './pages/Workspace/v2/html'
 import ResumeDashboard from './pages/ResumeDashboard'
 import TemplateMarket from './pages/TemplateMarket'
 import CreateNew from './pages/CreateNew'
-import AIConversation from './pages/AIConversation' // 新增导入
+import AIConversation from './pages/AIConversation'
+import ResumeCreator from './pages/ResumeCreator'
+import Conversation from './pages/CVToolsTest'
 import SharePage from './pages/SharePage'
-import CVToolsTest from './pages/CVToolsTest' // CV 工具测试页面
 import ErrorBoundary from './ErrorBoundary'
 
 function App() {
@@ -29,9 +30,10 @@ function App() {
             <Route path="/dashboard" element={<ResumeDashboard />} />
             <Route path="/templates" element={<TemplateMarket />} />
             <Route path="/create-new" element={<CreateNew />} />
-            <Route path="/ai-conversation" element={<AIConversation />} /> {/* 新增路由 */}
+            {/* 简历对话路由 */}
+            <Route path="/resume-chat" element={<Conversation />} /> {/* 修改简历 */}
+            <Route path="/resume-creator" element={<ResumeCreator />} /> {/* 新手创建简历 */}
             <Route path="/share/:shareId" element={<SharePage />} />
-            <Route path="/conversation" element={<CVToolsTest />} /> {/* CV 工具自然语言对话页面 */}
           </Routes>
         </BrowserRouter>
       </ErrorBoundary>
