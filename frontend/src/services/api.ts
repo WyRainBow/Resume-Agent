@@ -627,8 +627,8 @@ export async function cvToolsChat(
 
 /**
  * 流式 CV 工具对话
- * 
- * 逐步返回思考过程、工具调用、工具结果和最终回复
+ *
+ * 逐步返回思考过程、工具调用、工具开始/结束、工具结果、澄清请求和最终回复
  */
 export async function cvToolsChatStream(
   message: string,
@@ -637,14 +637,24 @@ export async function cvToolsChatStream(
   callbacks: {
     onThinking?: (thinking: string) => void
     onToolCall?: (toolCall: { name: string; params: any }) => void
+    onToolStart?: (info: { tool_name: string; action: string; path: string }) => void
+    onToolEnd?: (info: { tool_name: string; success: boolean; duration_ms: number }) => void
     onToolResult?: (result: any) => void
+    onClarify?: (clarify: {
+      prompt: string
+      module: string
+      collected_data: any
+      missing_fields: string[]
+      missing_fields_names: string[]
+    }) => void  // 澄清请求
+    onContentChunk?: (content: string) => void  // 流式内容块
     onContent?: (content: string, metadata?: { resume_modified?: boolean; resume_data?: any }) => void
     onComplete?: (sessionId: string) => void
     onError?: (error: string) => void
   }
 ) {
   const url = `${API_BASE}/api/cv-agent/chat/stream`
-  
+
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -655,43 +665,53 @@ export async function cvToolsChatStream(
         session_id: sessionId
       })
     })
-    
+
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`)
     }
-    
+
     const reader = response.body?.getReader()
     const decoder = new TextDecoder()
-    
+
     if (!reader) {
       throw new Error('无法获取响应流')
     }
-    
+
     let buffer = ''
     let currentSessionId: string | undefined = sessionId
-    
+
     // 处理 SSE 消息
     const processLine = (line: string) => {
       if (!line.startsWith('data: ')) return
-      
+
       const data = line.slice(6).trim()
       if (data === '[DONE]') return
-      
+
       try {
         const parsed = JSON.parse(data)
-        
+
         // 更新 session_id
         if (parsed.session_id) {
           currentSessionId = parsed.session_id
         }
-        
+
         // 根据类型调用不同的回调
         if (parsed.type === 'thinking' && parsed.content) {
           callbacks.onThinking?.(parsed.content)
         } else if (parsed.type === 'tool_call' && parsed.content) {
           callbacks.onToolCall?.(parsed.content)
+        } else if (parsed.type === 'tool_start' && parsed.content) {
+          callbacks.onToolStart?.(parsed.content)
+        } else if (parsed.type === 'tool_end' && parsed.content) {
+          callbacks.onToolEnd?.(parsed.content)
         } else if (parsed.type === 'tool_result' && parsed.content) {
           callbacks.onToolResult?.(parsed.content)
+        } else if (parsed.type === 'clarify' && parsed.content) {
+          // 新增：澄清请求
+          callbacks.onClarify?.(parsed.content)
+        } else if (parsed.type === 'content_chunk' && parsed.content) {
+          // 流式内容块：实时更新
+          callbacks.onContentChunk?.(parsed.content)
         } else if (parsed.type === 'content' && parsed.content) {
           callbacks.onContent?.(parsed.content, {
             resume_modified: parsed.resume_modified,
@@ -706,7 +726,7 @@ export async function cvToolsChatStream(
         // 忽略 JSON 解析错误
       }
     }
-    
+
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
@@ -725,7 +745,7 @@ export async function cvToolsChatStream(
         }
       }
     }
-    
+
     // 处理剩余的 buffer
     if (buffer.trim()) {
       const lines = buffer.split('\n')

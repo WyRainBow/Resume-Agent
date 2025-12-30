@@ -240,12 +240,12 @@ const TemplateMarket = () => {
                   {templates
                     .filter(t => t.type === 'html')
                     .map((template) => (
-                      <TemplateCard
-                        key={template.id}
-                        template={template}
-                        onSelect={handleSelectTemplate}
-                      />
-                    ))}
+                <TemplateCard
+                  key={template.id}
+                  template={template}
+                  onSelect={handleSelectTemplate}
+                />
+              ))}
                 </div>
               </div>
             </div>

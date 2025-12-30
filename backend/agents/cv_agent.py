@@ -76,10 +76,36 @@ LLM_TOOLS_DEFINITION = [
                 ]
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "CVBatchEditor",
+            "description": "批量编辑简历。一次执行多个编辑操作，包括修改(update)、添加(add)、删除(delete)。适用于需要同时修改多个字段的场景。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "operations": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "path": {"type": "string", "description": "JSON路径，如 'basic.name', 'education[0].school'"},
+                                "action": {"type": "string", "enum": ["update", "add", "delete"], "description": "操作类型"},
+                                "value": {"description": "新值（update/add时必需）"}
+                            },
+                            "required": ["path", "action"]
+                        },
+                        "description": "操作列表"
+                    }
+                },
+                "required": ["operations"]
+            }
+        }
     }
 ]
 
-LLM_SYSTEM_PROMPT = """你是简历编辑助手。有两个工具：CVReader（读取）和 CVEditor（编辑）。
+LLM_SYSTEM_PROMPT = """你是简历编辑助手。有三个工具：CVReader（读取）、CVEditor（编辑）和 CVBatchEditor（批量编辑）。
 
 ## 核心原则
 1. **提取所有信息**：从用户输入中提取全部可用信息，特别是描述/职责
@@ -174,6 +200,14 @@ LLM_SYSTEM_PROMPT = """你是简历编辑助手。有两个工具：CVReader（�
 ## 其他示例
 「把名字改成张三」→ CVEditor(path="basic.name", action="update", value="张三")
 「查看工作经历」→ CVReader(path="workExperience")
+
+## CVBatchEditor 使用场景
+当用户需要同时修改多个字段时，使用 CVBatchEditor 更高效：
+「把名字改成张三，电话改成13800138000，邮箱改成test@example.com」→ CVBatchEditor(operations=[
+  {"path": "basic.name", "action": "update", "value": "张三"},
+  {"path": "basic.phone", "action": "update", "value": "13800138000"},
+  {"path": "basic.email", "action": "update", "value": "test@example.com"}
+])
 
 ## CVReader 使用规则（重要！）
 当调用 CVReader 获取数据后：
@@ -661,7 +695,7 @@ class CVAgent:
         """流式调用 LLM Agent（直接使用 LLM，不再使用规则引擎）"""
         # 构建消息（包含对话历史）
         messages = [{"role": "system", "content": LLM_SYSTEM_PROMPT}]
-        
+
         # 添加对话历史和当前消息（使用优化后的上下文管理）
         resume_summary = self._get_resume_summary()
         context_messages = self.state.get_context_for_llm(
@@ -669,35 +703,38 @@ class CVAgent:
             resume_summary=resume_summary
         )
         messages.extend(context_messages)
-        
+
         if self.debug:
             print(f"[LLM 流式] 历史消息: {len(self.state.chat_history)}条, 发送: {len(context_messages)}条")
             print(f"[LLM 流式] 简历摘要: {resume_summary[:150]}...")
-        
-        # 输出：正在分析用户意图
+
+        # 输出：正在处理（只发送一次 thinking 消息）
         yield {
             "type": "thinking",
-            "content": "📥 接收用户输入: {}\n🤖 使用 LLM 处理\n💭 正在分析用户意图...".format(
+            "content": "📥 接收用户输入: {}\n🤖 使用 LLM 处理".format(
                 user_message[:50] + ('...' if len(user_message) > 50 else '')
-            )
+            ),
+            "session_id": self.session_id
         }
-        
+
         # 流式调用 LLM
         accumulated_content = ""
         tool_calls = []
         tool_call_ids = {}  # 用于跟踪工具调用 ID
-        
+        has_sent_tool_recognition = False  # 标记是否已发送工具识别消息
+        last_content_update_len = 0  # 上次发送内容更新时的长度
+
         for chunk in self._call_llm_api_stream(messages, tools=LLM_TOOLS_DEFINITION):
             if not chunk:
                 continue
-                
+
             delta = chunk.get("choices", [{}])[0].get("delta", {})
-            
+
             # 检查是否有工具调用
             if "tool_calls" in delta:
                 for tool_call_delta in delta["tool_calls"]:
                     index = tool_call_delta.get("index", 0)
-                    
+
                     # 初始化工具调用对象
                     if index not in tool_call_ids:
                         tool_call_id = tool_call_delta.get("id", f"call_{index}")
@@ -707,29 +744,39 @@ class CVAgent:
                             "type": "function",
                             "function": {"name": "", "arguments": ""}
                         })
-                    
+
                     # 更新工具调用信息
                     if "function" in tool_call_delta:
                         func_delta = tool_call_delta["function"]
                         if "name" in func_delta:
                             tool_calls[index]["function"]["name"] = func_delta["name"]
+                            # 检测到工具名称后，立即发送 thinking 更新
+                            if not has_sent_tool_recognition:
+                                has_sent_tool_recognition = True
+                                yield {
+                                    "type": "thinking",
+                                    "content": f"📥 接收用户输入: {user_message[:50]}{'...' if len(user_message) > 50 else ''}\n🤖 使用 LLM 处理\n🔧 准备调用工具: {func_delta['name']}",
+                                    "session_id": self.session_id
+                                }
                         if "arguments" in func_delta:
                             tool_calls[index]["function"]["arguments"] += func_delta["arguments"]
-            
+
             # 检查是否有文本内容（只在工具调用之前输出，工具调用时不再输出文本）
-            if "content" in delta and not tool_calls:
+            if "content" in delta and delta["content"] and not tool_calls:
                 content_chunk = delta["content"]
                 accumulated_content += content_chunk
                 
-                # 流式输出思考过程（限制频率，避免过于频繁）
-                if len(accumulated_content) % 20 == 0 or len(accumulated_content) < 50:
+                # 每收到内容就发送更新（实现真正的流式输出）
+                # 减少发送频率：每 10 个字符发送一次，或者收到标点符号时发送
+                if (len(accumulated_content) - last_content_update_len >= 10 or 
+                    content_chunk in '。！？，、；：""''【】（）\n'):
+                    last_content_update_len = len(accumulated_content)
                     yield {
-                        "type": "thinking",
-                        "content": "📥 接收用户输入: {}\n🤖 使用 LLM 处理\n💭 正在分析用户意图...".format(
-                            user_message[:50] + ('...' if len(user_message) > 50 else '')
-                        )
+                        "type": "content_chunk",
+                        "content": accumulated_content,
+                        "session_id": self.session_id
                     }
-        
+
         # 构建完整的消息
         if tool_calls:
             # 有工具调用
@@ -737,32 +784,21 @@ class CVAgent:
                 "role": "assistant",
                 "tool_calls": tool_calls
             }
-            
-            # 输出：识别到工具调用
-            tool_names = [tc["function"]["name"] for tc in tool_calls if tc["function"]["name"]]
-            if tool_names:
-                yield {
-                    "type": "thinking",
-                    "content": "📥 接收用户输入: {}\n🤖 使用 LLM 处理\n✅ 已识别到需要调用工具: {}".format(
-                        user_message[:50] + ('...' if len(user_message) > 50 else ''),
-                        ", ".join(tool_names)
-                    )
-                }
-            
+
             # 处理工具调用（流式）
             for event in self._handle_llm_tool_calls_stream(message, messages, user_message):
                 yield event
         else:
             # 纯文本回复
             content = accumulated_content or "抱歉，我不太理解您的意思"
-            
+
             # 添加助手回复到历史
             self.state.add_message(
                 "assistant",
                 content,
                 metadata={"type": "text"}
             )
-            
+
             yield {
                 "type": "content",
                 "content": content
@@ -770,56 +806,80 @@ class CVAgent:
     
     def _handle_llm_tool_calls_stream(self, llm_message: Dict, messages: List[Dict], user_message: str):
         """流式处理 LLM 工具调用"""
+        import time as time_module
         resume_modified = False
         tool_call_info = None
-        
+        has_clarify = False  # 是否有澄清请求
+        clarify_data = None  # 澄清数据
+
         for tool_call in llm_message["tool_calls"]:
             func = tool_call["function"]
             tool_name = func["name"]
             tool_params = json.loads(func.get("arguments", "{}"))
-            
-            # 输出：准备调用工具
-            yield {
-                "type": "thinking",
-                "content": "📥 接收用户输入: {}\n🤖 使用 LLM 处理\n🔧 准备调用工具: {}".format(
-                    user_message[:50] + ('...' if len(user_message) > 50 else ''),
-                    tool_name
-                )
-            }
-            
-            # 输出工具调用
+
+            # 输出工具调用参数
             tool_call_info = {
                 "name": tool_name,
                 "params": tool_params
             }
             yield {
                 "type": "tool_call",
-                "content": tool_call_info
+                "content": tool_call_info,
+                "session_id": self.session_id
             }
-            
-            # 输出：正在执行工具
-            path_info = tool_params.get("path", "N/A")
-            action_info = tool_params.get("action", "")
+
+            # 输出：工具开始执行（新增）
             yield {
-                "type": "thinking",
-                "content": "📥 接收用户输入: {}\n🤖 使用 LLM 处理\n⚙️ 正在执行工具: {} ({}) -> {}".format(
-                    user_message[:50] + ('...' if len(user_message) > 50 else ''),
-                    tool_name,
-                    action_info,
-                    path_info
-                )
+                "type": "tool_start",
+                "content": {
+                    "tool_name": tool_name,
+                    "action": tool_params.get("action", ""),
+                    "path": tool_params.get("path", "")
+                },
+                "session_id": self.session_id
             }
-            
-            # 执行工具
+
+            # 执行工具（计时）
+            start_time = time_module.time()
             result = self._execute_llm_tool(tool_name, tool_params)
-            
+            duration_ms = int((time_module.time() - start_time) * 1000)
+
+            # 将 duration_ms 添加到 result 中
+            result["duration_ms"] = duration_ms
+
             # 输出工具结果
             yield {
                 "type": "tool_result",
-                "content": result
+                "content": result,
+                "session_id": self.session_id
             }
-            
-            # 输出：工具执行完成
+
+            # 输出：工具执行结束（新增）
+            yield {
+                "type": "tool_end",
+                "content": {
+                    "tool_name": tool_name,
+                    "success": result.get("success", False),
+                    "duration_ms": duration_ms
+                },
+                "session_id": self.session_id
+            }
+
+            # ========== 澄清能力检测 ==========
+            # 如果工具返回的是澄清错误（信息不完整）
+            if not result.get("success") and result.get("error_type") == "clarify":
+                has_clarify = True
+                clarify_data = {
+                    "module": result.get("module"),
+                    "collected_data": result.get("collected_data"),
+                    "missing_fields": result.get("missing_fields"),
+                    "missing_fields_names": result.get("missing_fields_names"),
+                    "prompt": result.get("prompt")
+                }
+                break  # 停止处理后续工具调用，直接返回澄清请求
+
+            # 输出：工具执行完成（thinking 消息，保留兼容）
+            path_info = tool_params.get("path", "N/A")
             status = "✅ 成功" if result.get("success") else "❌ 失败"
             yield {
                 "type": "thinking",
@@ -828,13 +888,14 @@ class CVAgent:
                     status,
                     tool_name,
                     path_info
-                )
+                ),
+                "session_id": self.session_id
             }
-            
+
             # 检查是否修改了简历
             if tool_name == "CVEditor" and result.get("success"):
                 resume_modified = True
-            
+
             # 添加工具调用和结果到消息
             messages.append({
                 "role": "assistant",
@@ -846,35 +907,45 @@ class CVAgent:
                 "tool_call_id": tool_call["id"],
                 "content": json.dumps(result, ensure_ascii=False)
             })
-        
+
+        # 如果有澄清请求，发送澄清消息后返回
+        if has_clarify and clarify_data:
+            yield {
+                "type": "clarify",
+                "content": clarify_data,
+                "session_id": self.session_id
+            }
+            return
+
         # 第二次调用 LLM（继续允许工具调用）
         response = self._call_llm_api(messages, tools=LLM_TOOLS_DEFINITION)
         if response:
             next_message = response["choices"][0]["message"]
-            
+
             # 检查是否还有工具调用（支持多轮工具调用链）
             if next_message.get("tool_calls"):
                 # 递归处理下一轮工具调用
                 for event in self._handle_llm_tool_calls_stream(next_message, messages, user_message):
                     yield event
                 return
-            
+
             final_reply = next_message.get("content", "操作完成")
         else:
             final_reply = "已为您处理"
-        
+
         # 添加助手回复到历史
         self.state.add_message(
             "assistant",
             final_reply,
             metadata={"type": "text"}
         )
-        
+
         yield {
             "type": "content",
             "content": final_reply,
             "resume_modified": resume_modified,
-            "resume_data": self.state.resume_data if resume_modified else None
+            "resume_data": self.state.resume_data if resume_modified else None,
+            "session_id": self.session_id
         }
     
     def _should_use_llm(self, user_message: str) -> bool:
@@ -1501,11 +1572,75 @@ class CVAgent:
             path = tool_params.get("path", "")
             action = tool_params.get("action", "update")
             value = tool_params.get("value")
-            
+
             # 验证必需参数
             if action in ["update", "add"] and value is None:
                 return {"success": False, "message": f"'{action}' 操作需要提供 value 参数"}
-            
+
+            # ========== 信息完整性检查（澄清能力） ==========
+            if action == "add" and isinstance(value, dict):
+                # 检查工作经历必需字段
+                if path in ["workExperience", "experience"]:
+                    required_fields = ["company", "position"]
+                    missing = [f for f in required_fields if not value.get(f)]
+                    if missing:
+                        field_names = {
+                            "company": "公司名称",
+                            "position": "职位",
+                            "startDate": "开始时间",
+                            "endDate": "结束时间",
+                            "description": "工作描述"
+                        }
+                        missing_names = [field_names.get(f, f) for f in missing]
+                        return {
+                            "success": False,
+                            "message": f"信息不完整",
+                            "error_type": "clarify",
+                            "module": path,
+                            "collected_data": value,
+                            "missing_fields": missing,
+                            "missing_fields_names": missing_names,
+                            "prompt": f"请补充以下信息：{', '.join(missing_names)}"
+                        }
+
+                # 检查教育经历必需字段
+                elif path == "education":
+                    required_fields = ["school", "major"]
+                    missing = [f for f in required_fields if not value.get(f)]
+                    if missing:
+                        field_names = {
+                            "school": "学校名称",
+                            "major": "专业",
+                            "degree": "学历",
+                            "startDate": "开始时间",
+                            "endDate": "结束时间"
+                        }
+                        missing_names = [field_names.get(f, f) for f in missing]
+                        return {
+                            "success": False,
+                            "message": f"信息不完整",
+                            "error_type": "clarify",
+                            "module": path,
+                            "collected_data": value,
+                            "missing_fields": missing,
+                            "missing_fields_names": missing_names,
+                            "prompt": f"请补充以下信息：{', '.join(missing_names)}"
+                        }
+
+                # 检查项目经历必需字段
+                elif path == "projects":
+                    if not value.get("name"):
+                        return {
+                            "success": False,
+                            "message": "信息不完整",
+                            "error_type": "clarify",
+                            "module": path,
+                            "collected_data": value,
+                            "missing_fields": ["name"],
+                            "missing_fields_names": ["项目名称"],
+                            "prompt": "请补充：项目名称"
+                        }
+
             # 特殊处理：列表格式转换
             # 如果 value 是字符串且包含列表转换指令，先读取现有值，然后转换
             if action == "update" and isinstance(value, str):
@@ -1527,7 +1662,7 @@ class CVAgent:
                         value = converted_html
                     else:
                         return {"success": False, "message": f"无法读取路径 {path} 的现有值"}
-            
+
             if action == "add":
                 result = self.executor.execute_add(path, value)
             elif action == "update":
@@ -1536,12 +1671,31 @@ class CVAgent:
                 result = self.executor.execute_delete(path)
             else:
                 return {"success": False, "message": f"未知操作: {action}"}
-            
+
             # 更新简历数据
             if result.success and result.updated_resume:
                 self.state.update_resume(result.updated_resume)
-            
+
             return result.to_dict()
+        elif tool_name == "CVBatchEditor":
+            # 批量编辑工具
+            from .tools.cv_batch_editor import CVBatchEditorTool
+            operations = tool_params.get("operations", [])
+
+            if not operations:
+                return {"success": False, "message": "CVBatchEditor 需要提供 operations 参数"}
+
+            # 创建批量编辑器
+            batch_editor = CVBatchEditorTool(resume_data=self.state.resume_data)
+
+            # 执行批量操作
+            result = batch_editor._run(operations=operations)
+
+            # 如果全部成功，更新简历数据
+            if result.get("success"):
+                self.state.update_resume(self.state.resume_data)
+
+            return result
         else:
             return {"success": False, "message": f"未知工具: {tool_name}"}
     
@@ -1577,7 +1731,7 @@ class CVAgent:
             return None
     
     def _call_llm_api_stream(self, messages: List[Dict], tools: List[Dict] = None):
-        """流式调用 LLM API"""
+        """流式调用 LLM API（同步版本，用于非异步上下文）"""
         try:
             headers = {
                 "Authorization": f"Bearer {self.llm_api_key}",
@@ -1626,6 +1780,58 @@ class CVAgent:
         except Exception as e:
             if self.debug:
                 print(f"[LLM API 流式错误] {e}")
+            yield None
+    
+    async def _call_llm_api_stream_async(self, messages: List[Dict], tools: List[Dict] = None):
+        """流式调用 LLM API（异步版本）"""
+        try:
+            headers = {
+                "Authorization": f"Bearer {self.llm_api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            payload = {
+                "model": self.llm_model,
+                "messages": messages,
+                "temperature": 0.1,
+                "stream": True  # 启用流式输出
+            }
+            
+            if tools:
+                payload["tools"] = tools
+                payload["tool_choice"] = "auto"
+            
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                async with client.stream(
+                    "POST",
+                    f"{self.llm_base_url}/v1/chat/completions",
+                    headers=headers,
+                    json=payload
+                ) as response:
+                    response.raise_for_status()
+                    
+                    # 解析 SSE 流
+                    async for line in response.aiter_lines():
+                        if not line:
+                            continue
+                        
+                        # 移除 "data: " 前缀
+                        if line.startswith("data: "):
+                            line = line[6:]
+                        
+                        # 检查结束标记
+                        if line.strip() == "[DONE]":
+                            break
+                        
+                        try:
+                            chunk = json.loads(line)
+                            yield chunk
+                        except json.JSONDecodeError:
+                            continue
+                            
+        except Exception as e:
+            if self.debug:
+                print(f"[LLM API 异步流式错误] {e}")
             yield None
     
     def _get_resume_summary(self) -> str:

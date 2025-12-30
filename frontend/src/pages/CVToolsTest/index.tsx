@@ -7,16 +7,17 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  Send, 
-  History, 
-  Plus, 
+import {
+  Send,
+  History,
+  Plus,
   Sparkles,
   User,
   CheckCircle,
   XCircle,
   ChevronDown,
-  Loader2
+  Loader2,
+  HelpCircle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { HTMLTemplateRenderer } from '../Workspace/v2/HTMLTemplateRenderer'
@@ -24,6 +25,7 @@ import { initialResumeData } from '../../data/initialResumeData'
 import { cvReader, cvEditor, executeToolCall, type ToolCall, type ToolResult } from '../../tools/cvTools'
 import { cvToolsChat, cvToolsChatStream, type ToolCallSpec } from '../../services/api'
 import type { ResumeData } from '../Workspace/v2/types'
+import { MessageContent } from './MessageContent'
 
 // 消息类型
 interface Message {
@@ -34,6 +36,16 @@ interface Message {
   toolCall?: ToolCall
   toolResult?: ToolResult
   reasoning?: string
+  toolStatus?: 'executing' | 'success' | 'error'  // 新增：工具执行状态
+  toolDuration?: number  // 新增：工具执行时长（毫秒）
+  isStreaming?: boolean  // 新增：是否正在流式输出（需要打字机效果）
+  clarify?: {  // 新增：澄清请求
+    prompt: string
+    module: string
+    collected_data: any
+    missing_fields: string[]
+    missing_fields_names: string[]
+  }
 }
 
 // 预设的快捷操作
@@ -111,18 +123,13 @@ export default function CVToolsTest() {
     let toolCall: ToolCall | undefined
     let toolResult: any
 
-    const assistantMsg: Message = {
-      id: assistantMsgId,
-      role: 'assistant',
-      content: '正在分析您的请求...',
-      timestamp: Date.now()
-    }
-    setMessages(prev => [...prev, assistantMsg])
+    // 不再创建初始助手消息，等待流式内容填充
+    // 加载状态由 isLoading 控制显示加载动画
 
     try {
       // 调用流式 API
       console.log('[API 请求] session_id:', sessionIdRef.current)
-      
+
       await cvToolsChatStream(
         userMessage,
         resumeData as unknown as Record<string, unknown>,
@@ -130,21 +137,63 @@ export default function CVToolsTest() {
         {
           onThinking: (thinking: string) => {
             thinkingContent = thinking
-            // 更新消息显示思考过程
-            setMessages(prev => prev.map(msg => 
-              msg.id === assistantMsgId 
-                ? { ...msg, reasoning: thinking }
-                : msg
-            ))
+            // 创建或更新助手消息，显示思考过程
+            setMessages(prev => {
+              const existingMsg = prev.find(msg => msg.id === assistantMsgId)
+              if (existingMsg) {
+                // 更新现有消息
+                return prev.map(msg =>
+                  msg.id === assistantMsgId
+                    ? { ...msg, reasoning: thinking }
+                    : msg
+                )
+              } else {
+                // 创建新消息
+                return [...prev, {
+                  id: assistantMsgId,
+                  role: 'assistant' as const,
+                  content: '',
+                  timestamp: Date.now(),
+                  reasoning: thinking
+                }]
+              }
+            })
           },
           onToolCall: (toolCallData: { name: string; params: any }) => {
             toolCall = toolCallData as ToolCall
             console.log('[工具调用]', toolCall)
-            
+
             // 更新消息显示工具调用（流式更新）
-            setMessages(prev => prev.map(msg => 
-              msg.id === assistantMsgId 
+            setMessages(prev => prev.map(msg =>
+              msg.id === assistantMsgId
                 ? { ...msg, toolCall, content: `正在执行 ${toolCall.name}...` }
+                : msg
+            ))
+          },
+          onToolStart: (info: { tool_name: string; action: string; path: string }) => {
+            console.log('[工具开始]', info)
+            // 更新消息显示工具开始执行状态
+            setMessages(prev => prev.map(msg =>
+              msg.id === assistantMsgId
+                ? {
+                    ...msg,
+                    toolStatus: 'executing',
+                    content: `正在执行 ${info.tool_name} (${info.action})...`
+                  }
+                : msg
+            ))
+          },
+          onToolEnd: (info: { tool_name: string; success: boolean; duration_ms: number }) => {
+            console.log('[工具结束]', info)
+            // 更新消息显示工具执行结束状态
+            setMessages(prev => prev.map(msg =>
+              msg.id === assistantMsgId
+                ? {
+                    ...msg,
+                    toolStatus: info.success ? 'success' : 'error',
+                    toolDuration: info.duration_ms,
+                    content: `${info.tool_name} ${info.success ? '执行成功' : '执行失败'} (${info.duration_ms}ms)`
+                  }
                 : msg
             ))
           },
@@ -152,7 +201,7 @@ export default function CVToolsTest() {
             toolResult = result
             console.log('[工具结果]', result)
             console.log('[工具结果] tool_params.value:', result.tool_params?.value)
-            
+
             // 如果是 CVEditor 且成功，执行本地工具调用更新前端数据
             if (toolCall?.name === 'CVEditor' && result.success) {
               // 使用后端返回的完整参数，而不是前端的 toolCall
@@ -161,7 +210,7 @@ export default function CVToolsTest() {
                 params: result.tool_params
               }
               console.log('[简历更新] 使用后端工具参数:', backendToolCall.params)
-              
+
               // 使用 ref 确保访问最新的 resumeData
               const dataCopy = JSON.parse(JSON.stringify(resumeDataRef.current))
               console.log('[简历更新] 执行前数据:', backendToolCall.params.path, '当前值:', dataCopy.skillContent?.slice(0, 50))
@@ -174,17 +223,39 @@ export default function CVToolsTest() {
                 console.log('[简历更新] 本地工具调用成功，已调用 setResumeData')
               }
             }
-            
+
             // 更新消息显示工具结果（流式更新）
             const statusText = result.success ? '✅ 执行成功' : '❌ 执行失败'
-            setMessages(prev => prev.map(msg => 
-              msg.id === assistantMsgId 
+            setMessages(prev => prev.map(msg =>
+              msg.id === assistantMsgId
                 ? { ...msg, toolResult: result, content: `${toolCall?.name} ${statusText}` }
                 : msg
             ))
           },
+          onContentChunk: (content: string) => {
+            // 流式内容块：更新消息内容，标记为流式输出
+            setMessages(prev => {
+              const existingMsg = prev.find(msg => msg.id === assistantMsgId)
+              if (existingMsg) {
+                return prev.map(msg =>
+                  msg.id === assistantMsgId
+                    ? { ...msg, content: content, isStreaming: true }
+                    : msg
+                )
+              } else {
+                // 如果消息还不存在，创建新消息
+                return [...prev, {
+                  id: assistantMsgId,
+                  role: 'assistant' as const,
+                  content: content,
+                  timestamp: Date.now(),
+                  isStreaming: true  // 标记为流式输出
+                }]
+              }
+            })
+          },
           onContent: (content: string, metadata?: { resume_modified?: boolean; resume_data?: any }) => {
-            // 构建完整回复（包含工具结果数据）
+            // 构建完整回复（包含工具结果数据），移除光标
             let responseContent = content
             if (toolCall?.name === 'CVReader' && toolResult?.data) {
               responseContent += '\n\n```json\n' + JSON.stringify(toolResult.data, null, 2).slice(0, 800)
@@ -193,24 +264,43 @@ export default function CVToolsTest() {
               }
               responseContent += '\n```'
             }
-            
+
             // 注意：不再使用后端返回的 resume_data 覆盖前端数据
             // 因为前端在 onToolResult 中已经通过本地工具调用更新了数据
             // 使用后端数据会导致覆盖问题
             // if (metadata?.resume_data) {
             //   setResumeData(metadata.resume_data)
             // }
-            
-            // 更新消息显示最终内容
-            setMessages(prev => prev.map(msg => 
-              msg.id === assistantMsgId 
-                ? { 
-                    ...msg, 
+
+            // 更新消息显示最终内容，保持 isStreaming: true 让打字机效果完成
+            // 打字机效果完成后会通过 onStreamingComplete 回调自动设置 isStreaming: false
+            setMessages(prev => prev.map(msg =>
+              msg.id === assistantMsgId
+                ? {
+                    ...msg,
                     content: responseContent,
-                    reasoning: thinkingContent || undefined
+                    reasoning: thinkingContent || undefined,
+                    isStreaming: true  // 保持流式输出，让打字机效果完成
                   }
                 : msg
             ))
+          },
+          onClarify: (clarify: {
+            prompt: string
+            module: string
+            collected_data: any
+            missing_fields: string[]
+            missing_fields_names: string[]
+          }) => {
+            console.log('[澄清请求]', clarify)
+            // 显示澄清请求消息
+            setMessages(prev => [...prev, {
+              id: `clarify-${Date.now()}`,
+              role: 'assistant',
+              content: clarify.prompt,
+              clarify,
+              timestamp: Date.now()
+            }])
           },
           onComplete: (sessionId: string) => {
             sessionIdRef.current = sessionId
@@ -219,8 +309,8 @@ export default function CVToolsTest() {
           },
           onError: (error: string) => {
             console.error('[API 错误]', error)
-            setMessages(prev => prev.map(msg => 
-              msg.id === assistantMsgId 
+            setMessages(prev => prev.map(msg =>
+              msg.id === assistantMsgId
                 ? { ...msg, content: `❌ 请求失败: ${error}` }
                 : msg
             ))
@@ -230,8 +320,8 @@ export default function CVToolsTest() {
       )
     } catch (error) {
       // 错误处理
-      setMessages(prev => prev.map(msg => 
-        msg.id === assistantMsgId 
+      setMessages(prev => prev.map(msg =>
+        msg.id === assistantMsgId
           ? { ...msg, content: `❌ 请求失败: ${error instanceof Error ? error.message : '未知错误'}` }
           : msg
       ))
@@ -381,13 +471,21 @@ export default function CVToolsTest() {
                           </div>
                         </div>
                       )}
-                      
+
+                      {/* 工具执行状态标记（新增） */}
+                      {message.toolStatus === 'executing' && (
+                        <div className="flex items-center gap-1.5 text-xs mb-2 pb-2 text-violet-600 border-b border-violet-200">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>正在执行 {message.toolCall?.name}...</span>
+                        </div>
+                      )}
+
                       {/* 工具调用结果标记 */}
                       {message.toolResult && (
                         <div className={cn(
                           "flex items-center gap-1.5 text-xs mb-2 pb-2 border-b",
-                          message.toolResult.success 
-                            ? "text-green-600 border-green-200" 
+                          message.toolResult.success
+                            ? "text-green-600 border-green-200"
                             : "text-red-600 border-red-200"
                         )}>
                           {message.toolResult.success ? (
@@ -396,14 +494,55 @@ export default function CVToolsTest() {
                             <XCircle className="w-3.5 h-3.5" />
                           )}
                           <span>
-                            {message.toolCall?.name} 
+                            {message.toolCall?.name}
                             {message.toolResult.path && ` → ${message.toolResult.path}`}
                           </span>
+                          {message.toolDuration !== undefined && (
+                            <span className="text-gray-400">({message.toolDuration}ms)</span>
+                          )}
                         </div>
                       )}
-                      
+
+                      {/* 澄清请求卡片（新增） */}
+                      {message.clarify && (
+                        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-xl">
+                          <div className="flex items-center gap-1.5 text-sm text-blue-700 font-medium mb-2">
+                            <HelpCircle className="w-4 h-4" />
+                            <span>需要更多信息</span>
+                          </div>
+                          <p className="text-sm text-blue-600 mb-3">{message.clarify.prompt}</p>
+                          {message.clarify.missing_fields_names && (
+                            <div className="flex flex-wrap gap-2">
+                              {message.clarify.missing_fields_names.map((fieldName, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => {
+                                    // 点击后自动补充该字段的输入
+                                    setInput(`补充${fieldName}：`)
+                                  }}
+                                  className="px-3 py-1.5 text-sm bg-white border border-blue-300 rounded-lg hover:bg-blue-100 transition-colors"
+                                >
+                                  + {fieldName}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       <div className="text-sm whitespace-pre-wrap leading-relaxed">
-                        {message.content}
+                        <MessageContent 
+                          content={message.content} 
+                          isStreaming={message.isStreaming}
+                          onStreamingComplete={() => {
+                            // 打字机效果完成，设置 isStreaming: false
+                            setMessages(prev => prev.map(msg =>
+                              msg.id === message.id
+                                ? { ...msg, isStreaming: false }
+                                : msg
+                            ))
+                          }}
+                        />
                       </div>
                     </div>
                   </motion.div>

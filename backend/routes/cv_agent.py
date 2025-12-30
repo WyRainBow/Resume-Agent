@@ -135,6 +135,10 @@ async def chat_stream(request: ChatRequest):
     
     使用 SSE (Server-Sent Events) 格式
     """
+    import asyncio
+    import queue
+    import threading
+    
     async def event_generator():
         try:
             # 获取或创建 Agent
@@ -143,8 +147,40 @@ async def chat_stream(request: ChatRequest):
                 resume_data=request.resume_data
             )
             
-            # 流式处理消息
-            for event in agent.process_message_stream(request.message):
+            # 使用队列来传递事件（解决同步生成器阻塞异步事件循环的问题）
+            event_queue = queue.Queue()
+            
+            def run_sync_generator():
+                """在后台线程中运行同步生成器"""
+                try:
+                    for event in agent.process_message_stream(request.message):
+                        event_queue.put(event)
+                    event_queue.put(None)  # 结束标记
+                except Exception as e:
+                    event_queue.put({"type": "error", "content": str(e)})
+                    event_queue.put(None)
+            
+            # 在后台线程中启动同步生成器
+            thread = threading.Thread(target=run_sync_generator)
+            thread.start()
+            
+            # 异步读取队列中的事件
+            while True:
+                # 使用 asyncio.to_thread 来非阻塞地从队列中获取事件
+                try:
+                    event = await asyncio.to_thread(lambda: event_queue.get(timeout=0.1))
+                except queue.Empty:
+                    # 队列为空，继续等待
+                    await asyncio.sleep(0.01)
+                    continue
+                except Exception:
+                    # 其他异常，继续等待
+                    await asyncio.sleep(0.01)
+                    continue
+                
+                if event is None:
+                    break
+                
                 # 构建 SSE 事件
                 event_data = {
                     "type": event.get("type", "message"),
@@ -164,6 +200,9 @@ async def chat_stream(request: ChatRequest):
                     "event": event.get("type", "message"),
                     "data": json.dumps(event_data, ensure_ascii=False)
                 }
+            
+            # 等待线程结束
+            thread.join()
             
             # 发送完成事件
             yield {
