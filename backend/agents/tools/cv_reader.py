@@ -89,15 +89,42 @@ class CVReaderTool(BaseTool):
             # 解析路径
             parts = parse_path(path)
             
-            # 读取数据
-            try:
-                _, _, value = get_by_path(self.resume_data, parts)
-            except ValueError:
-                # 路径不存在，根据路径类型返回默认值
+            # 字段映射：workExperience <-> experience（兼容前端使用 experience 字段）
+            field_mapping = {
+                "workExperience": "experience",
+                "experience": "workExperience"
+            }
+            
+            # 如果路径的第一部分是映射字段，尝试映射
+            mapped_parts = parts.copy()
+            if len(parts) > 0 and isinstance(parts[0], str) and parts[0] in field_mapping:
+                mapped_field = field_mapping[parts[0]]
+                # 先尝试使用原始路径
+                try:
+                    _, _, value = get_by_path(self.resume_data, parts)
+                except ValueError:
+                    # 如果原始路径失败，尝试映射后的路径
+                    mapped_parts[0] = mapped_field
+                    try:
+                        _, _, value = get_by_path(self.resume_data, mapped_parts)
+                    except ValueError:
+                        value = None
+                else:
+                    # 原始路径成功，使用原始值
+                    pass
+            else:
+                # 非映射字段，直接读取
+                try:
+                    _, _, value = get_by_path(self.resume_data, parts)
+                except ValueError:
+                    value = None
+            
+            # 如果读取失败，根据路径类型返回默认值
+            if value is None:
                 # 如果是数组类型的路径（如 workExperience, education），返回空数组
                 if len(parts) == 1 and isinstance(parts[0], str):
-                    # 检查是否是常见的数组字段
-                    array_fields = ["workExperience", "education", "skills", "projects"]
+                    # 检查是否是常见的数组字段（包括映射字段）
+                    array_fields = ["workExperience", "experience", "education", "skills", "projects"]
                     if parts[0] in array_fields:
                         value = []
                     else:
