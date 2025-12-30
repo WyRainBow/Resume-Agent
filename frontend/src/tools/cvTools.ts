@@ -321,10 +321,27 @@ export function cvEditor(resumeData: ResumeData, params: CVEditorParams): ToolRe
       
       case 'delete': {
         if (parts.length === 1) {
-          // 不允许删除顶层属性
+          // 顶层属性：清空而不是删除
+          const key = parts[0] as string
+          const currentValue = (resumeData as any)[key]
+          
+          if (Array.isArray(currentValue)) {
+            // 数组清空为 []
+            (resumeData as any)[key] = []
+          } else if (typeof currentValue === 'string') {
+            // 字符串清空为 ''
+            (resumeData as any)[key] = ''
+          } else if (typeof currentValue === 'object' && currentValue !== null) {
+            // 对象清空为 {}
+            (resumeData as any)[key] = {}
+          } else {
+            // 其他类型设为 null
+            (resumeData as any)[key] = null
+          }
+          
           return {
-            status: 'error',
-            message: '不允许删除顶层属性',
+            status: 'success',
+            message: `已清空简历字段：${path}`,
             path
           }
         }
