@@ -6,6 +6,7 @@
  * - 思考过程展示
  * - 工具执行进度（带状态图标）
  * - 更清晰的视觉层次
+ * - 美化的 Markdown 内容渲染
  */
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -19,7 +20,11 @@ import {
   CheckCircle2,
   Settings,
   Eye,
-  EyeOff
+  EyeOff,
+  Briefcase,
+  Building,
+  Calendar,
+  Code
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -29,6 +34,208 @@ import { initialResumeData } from '@/data/initialResumeData'
 import type { ResumeData } from '../Workspace/v2/types'
 import { EducationForm, type Education } from './components/EducationForm'
 import { cvToolsChatStream } from '@/services/api'
+
+// ========== 消息内容渲染组件 ==========
+
+interface MessageContentProps {
+  content: string
+}
+
+function MessageContent({ content }: MessageContentProps) {
+  // 解析工作经历格式的数据
+  const parseWorkExperience = (text: string) => {
+    // 匹配工作经历格式：**公司名** - 职位 (时间)
+    const workMatch = text.match(/\*\*([^*]+)\*\*\s*-\s*([^(]+)\s*\(([^)]+)\)/)
+    if (workMatch) {
+      return {
+        company: workMatch[1],
+        position: workMatch[2].trim(),
+        time: workMatch[3]
+      }
+    }
+    return null
+  }
+
+  // 检测是否是工作经历数据
+  const isWorkExperienceData = (text: string) => {
+    return text.includes('**工作经历：**') || text.includes('根据简历数据，您的工作经历如下')
+  }
+
+  // 解析内容为富文本格式
+  const parseContent = (text: string): React.ReactNode => {
+    // 特殊处理工作经历数据
+    if (isWorkExperienceData(text)) {
+      return parseWorkExperienceContent(text)
+    }
+
+    const lines = text.split('\n')
+    const result: React.ReactNode[] = []
+    let i = 0
+
+    while (i < lines.length) {
+      const line = lines[i]
+      const trimmed = line.trim()
+
+      // 空行
+      if (!trimmed) {
+        result.push(<br key={`br-${i}`} />)
+        i++
+        continue
+      }
+
+      // 标题格式 (## xxx 或 **xxx:)
+      if (trimmed.startsWith('##') || (trimmed.startsWith('**') && trimmed.includes(':**'))) {
+        const titleText = trimmed.replace(/^##\s*/, '').replace(/\*\*:/g, '').replace(/\*\*/g, '')
+        result.push(
+          <h4 key={`h4-${i}`} className="font-semibold text-gray-900 mt-4 mb-2">
+            {titleText}
+          </h4>
+        )
+        i++
+        continue
+      }
+
+      // 列表项格式 (1. xxx 或 - xxx 或 ·xxx)
+      if (/^[\d\-\•\·]+\s/.test(trimmed)) {
+        const listItemText = trimmed.replace(/^[\d\-\•\·]+\s/, '').replace(/^\*\*\s*(.*?)\s*\*\*:?\s*/, '$1: ')
+        result.push(
+          <li key={`li-${i}`} className="ml-4 text-gray-600 leading-relaxed">
+            {parseInline(listItemText)}
+          </li>
+        )
+        i++
+        continue
+      }
+
+      // 普通段落
+      result.push(
+        <p key={`p-${i}`} className="text-gray-600 leading-relaxed">
+          {parseInline(line)}
+        </p>
+      )
+      i++
+    }
+
+    return result.length > 0 ? result : text
+  }
+
+  // 解析工作经历内容为卡片
+  const parseWorkExperienceContent = (text: string): React.ReactNode => {
+    const lines = text.split('\n')
+    const cards: React.ReactNode[] = []
+    let currentCard: {
+      company?: string
+      position?: string
+      time?: string
+      items: string[]
+    } | null = null
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+
+      // 检测工作经历标题行
+      const workMatch = trimmed.match(/\*\*([^*]+)\*\*\s*-\s*([^(]+)\s*\(([^)]+)\)/)
+      if (workMatch) {
+        // 保存之前的卡片
+        if (currentCard && currentCard.items.length > 0) {
+          cards.push(renderWorkCard(currentCard))
+        }
+        // 开始新卡片
+        currentCard = {
+          company: workMatch[1],
+          position: workMatch[2].trim(),
+          time: workMatch[3],
+          items: []
+        }
+        continue
+      }
+
+      // 检测项目描述等子项
+      if (trimmed.startsWith('-') || trimmed.startsWith('•') || /^\d+\./ .test(trimmed)) {
+        const itemText = trimmed.replace(/^[-•\d.]\s*/, '').replace(/^\*\*\s*(.*?)\s*\*\*:?\s*/, '$1: ')
+        if (currentCard) {
+          currentCard.items.push(itemText)
+        }
+        continue
+      }
+
+      // 普通文本
+      if (trimmed && currentCard) {
+        currentCard.items.push(trimmed)
+      }
+    }
+
+    // 添加最后一个卡片
+    if (currentCard && currentCard.items.length > 0) {
+      cards.push(renderWorkCard(currentCard))
+    }
+
+    return cards.length > 0 ? <div className="space-y-4">{cards}</div> : <p className="text-gray-600">{text}</p>
+  }
+
+  // 渲染工作经历卡片
+  const renderWorkCard = (card: { company?: string; position?: string; time?: string; items: string[] }) => {
+    return (
+      <div key={`${card.company}-${card.time}`} className="bg-gradient-to-br from-slate-50 to-gray-50 rounded-xl border border-gray-200 overflow-hidden">
+        {/* 卡片头部 */}
+        <div className="px-4 py-3 bg-white border-b border-gray-100 flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+            <Building className="w-5 h-5 text-blue-600" />
+          </div>
+          <div className="flex-1">
+            <div className="font-semibold text-gray-900">{card.company}</div>
+            <div className="text-sm text-gray-500">{card.position}</div>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
+            <Calendar className="w-3 h-3" />
+            {card.time}
+          </div>
+        </div>
+        {/* 卡片内容 */}
+        <div className="p-4 space-y-2">
+          {card.items.map((item, idx) => (
+            <div key={idx} className="flex items-start gap-2 text-sm text-gray-600">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
+              <span className="leading-relaxed">{parseInline(item)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // 解析行内格式 (加粗等)
+  const parseInline = (text: string): React.ReactNode => {
+    // 处理 **加粗**
+    const parts: React.ReactNode[] = []
+    let lastIndex = 0
+    const boldRegex = /\*\*(.+?)\*\*/g
+    let match
+
+    while ((match = boldRegex.exec(text)) !== null) {
+      // 添加前面的普通文本
+      if (match.index > lastIndex) {
+        parts.push(text.slice(lastIndex, match.index))
+      }
+      // 添加加粗文本
+      parts.push(<strong key={`bold-${match.index}`} className="font-semibold text-gray-900">{match[1]}</strong>)
+      lastIndex = boldRegex.lastIndex
+    }
+
+    // 添加剩余的普通文本
+    if (lastIndex < text.length) {
+      parts.push(text.slice(lastIndex))
+    }
+
+    return parts.length > 0 ? parts : text
+  }
+
+  return (
+    <div className="space-y-1">
+      {parseContent(content)}
+    </div>
+  )
+}
 
 // 消息类型
 interface Message {
@@ -409,8 +616,8 @@ export default function AIConversation() {
                     // AI 消息样式
                     <div className="max-w-[90%] w-full">
                       {message.type === 'text' && (
-                        <div className="text-gray-600 text-[15px] leading-relaxed whitespace-pre-wrap">
-                          {message.content as string}
+                        <div className="text-[15px] leading-relaxed">
+                          <MessageContent content={message.content as string} />
                         </div>
                       )}
 
@@ -585,8 +792,8 @@ export default function AIConversation() {
                         {/* 主内容区域 */}
                         {streamingContent && (
                           <div className="bg-white rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm border border-gray-100 max-w-full">
-                            <div className="text-gray-600 text-[15px] leading-relaxed whitespace-pre-wrap">
-                              {streamingContent}
+                            <div className="text-[15px] leading-relaxed">
+                              <MessageContent content={streamingContent} />
                               <span className="inline-block w-2 h-4 bg-violet-500 ml-1 animate-pulse" />
                             </div>
                           </div>
