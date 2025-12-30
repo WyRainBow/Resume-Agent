@@ -13,12 +13,10 @@ import html2pdf from 'html2pdf.js'
 import { useResumeData, usePDFOperations, useAIImport } from '../hooks'
 
 // 组件
-import { Header } from '../components'
 import EditPreviewLayout from '../EditPreviewLayout'
 import AIImportModal from '../shared/AIImportModal'
 import APISettingsDialog from '../shared/APISettingsDialog'
-// WorkspaceLayout 暂时移除，直接渲染内容
-// import WorkspaceLayout from '@/pages/WorkspaceLayout'
+import WorkspaceLayout from '@/pages/WorkspaceLayout'
 
 type EditMode = 'click' | 'scroll'
 
@@ -449,23 +447,10 @@ export default function HTMLWorkspace() {
   }
 
   return (
-    <>
-      {/* 顶部导航栏 */}
-      <Header
-        saveSuccess={saveSuccess}
-        onGlobalAIImport={handleGlobalAIImport}
-        onSaveToDashboard={handleSaveToDashboard}
-        onAPISettings={() => setApiSettingsOpen(true)}
-        onExportJSON={handleExportJSON}
-        onImportJSON={handleImportJSON}
-        resumeData={resumeData}
-        resumeName={resumeData?.basic?.name || '我的简历'}
-        pdfBlob={pdfBlob}
-        onDownloadPDF={handleDownload}
-        editMode={editMode}
-        onEditModeChange={setEditMode}
-      />
-
+    <WorkspaceLayout
+      onSave={handleSaveToDashboard}
+      onDownload={handleDownloadPDF}
+    >
       {/* 编辑 + 预览布局 */}
       <EditPreviewLayout
         resumeData={resumeData}
@@ -559,7 +544,7 @@ export default function HTMLWorkspace() {
           </div>
         </div>
       )}
-    </>
+    </WorkspaceLayout>
   )
 }
 
