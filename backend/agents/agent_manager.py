@@ -63,50 +63,57 @@ class AgentManager:
     def get_or_create(
         self,
         session_id: Optional[str] = None,
-        resume_data: Optional[Dict[str, Any]] = None
+        resume_data: Optional[Dict[str, Any]] = None,
+        capability: Optional[str] = None  # 新增：Capability 支持
     ) -> tuple[str, CVAgent]:
         """
         获取或创建 Agent
-        
+
         Args:
             session_id: 会话 ID（可选）
             resume_data: 简历数据
-        
+            capability: 能力包名称（base|advanced|optimizer）
+
         Returns:
             (session_id, agent)
         """
         # 清理过期会话
         self._cleanup_expired()
-        
+
         # 如果有 session_id，尝试获取已有会话
         if session_id and session_id in self._sessions:
             session = self._sessions[session_id]
             session.touch()
-            
+
+            # 如果传入了新的 capability，动态更新
+            if capability:
+                session.agent.set_capability(capability)
+
             # ⚠️ 重要：在多轮对话中，信任 Agent 自己维护的数据
             # 不要用前端传递的旧数据覆盖 Agent 中已更新的数据
             # 这解决了"更新后再操作，数据被覆盖"的 Bug
-            # 
+            #
             # 前端传递的 resume_data 只在**创建新会话时**使用
             # 已有会话中，Agent 通过工具调用自己维护数据
-            
+
             return session_id, session.agent
-        
+
         # 创建新会话
         new_session_id = session_id or self._generate_session_id()
         agent = CVAgent(
             resume_data=resume_data or {},
             session_id=new_session_id,
             enable_llm=True,  # 启用 LLM 兜底
-            debug=False
+            debug=False,
+            capability=capability  # 传递 Capability
         )
-        
+
         # 存储会话
         self._sessions[new_session_id] = AgentSession(
             session_id=new_session_id,
             agent=agent
         )
-        
+
         return new_session_id, agent
     
     def get(self, session_id: str) -> Optional[CVAgent]:

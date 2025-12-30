@@ -1,11 +1,25 @@
 /**
  * AI 对话创建简历页面
- * 1:1 复刻指定 UI 样式
+ * 集成 ReAct Agent，支持真实的流式对话
+ *
+ * 新增特性：
+ * - 思考过程展示
+ * - 工具执行进度（带状态图标）
+ * - 更清晰的视觉层次
  */
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   List,
-  Trash2
+  Trash2,
+  Send,
+  Sparkles,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  CheckCircle2,
+  Settings,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -14,6 +28,7 @@ import { HTMLTemplateRenderer } from '../Workspace/v2/HTMLTemplateRenderer'
 import { initialResumeData } from '@/data/initialResumeData'
 import type { ResumeData } from '../Workspace/v2/types'
 import { EducationForm, type Education } from './components/EducationForm'
+import { cvToolsChatStream } from '@/services/api'
 
 // 消息类型
 interface Message {
@@ -24,9 +39,33 @@ interface Message {
   type?: 'text' | 'card' | 'form-education' // 新增表单类型
 }
 
+// 思考步骤组件
+interface ThinkingStep {
+  step: number
+  text: string
+}
+
+// 工具执行状态
+interface ToolExecution {
+  toolName: string
+  action: string
+  path: string
+  status: 'running' | 'success' | 'error'
+  startTime: number
+  duration?: number
+}
+
+// ReAct 消息类型（用于流式显示）
+interface StreamMessage {
+  type: string
+  content: string | any
+  metadata?: any
+}
+
 export default function AIConversation() {
   const navigate = useNavigate()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   // 状态
   const [messages, setMessages] = useState<Message[]>([])
@@ -34,7 +73,18 @@ export default function AIConversation() {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [resumeData, setResumeData] = useState<ResumeData>(initialResumeData)
-  
+  const [sessionId] = useState(() => `session-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
+
+  // 流式消息状态
+  const [streamingContent, setStreamingContent] = useState('')
+  const [isStreaming, setIsStreaming] = useState(false)
+
+  // 新增：思考过程和工具执行状态
+  const [thinkingContent, setThinkingContent] = useState('')
+  const [showThinking, setShowThinking] = useState(true)
+  const [currentToolExecution, setCurrentToolExecution] = useState<ToolExecution | null>(null)
+  const [toolExecutions, setToolExecutions] = useState<ToolExecution[]>([])
+
   // 初始化消息
   useEffect(() => {
     // 初始用户消息
@@ -44,12 +94,12 @@ export default function AIConversation() {
       content: '你好 RA AI，帮我写一份求职简历',
       timestamp: Date.now()
     }
-    
+
     // 初始 AI 消息（文本）
     const initialAIMsgText: Message = {
       id: 'init-ai-text',
       role: 'assistant',
-      content: 'Hi！我是 RA 简历，很高兴与你相遇✨ 让我们一起打造属于你的精彩简历吧！首先，请告诉我你目前的身份，这样我就能为你提供最贴心的指导~',
+      content: 'Hi！我是 RA 简历助手，很高兴与你相遇✨ 让我们一起打造属于你的精彩简历吧！首先，请告诉我你目前的身份，这样我就能为你提供最贴心的指导~',
       timestamp: Date.now() + 100,
       type: 'text'
     }
@@ -69,12 +119,178 @@ export default function AIConversation() {
   // 自动滚动到底部
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  }, [messages, streamingContent, thinkingContent, currentToolExecution])
+
+  // 处理流式响应
+  const handleStreamResponse = async (userMessage: string) => {
+    setIsStreaming(true)
+    setStreamingContent('')
+    setThinkingContent('')
+    setCurrentToolExecution(null)
+    setToolExecutions([])
+
+    let fullContent = ''
+    let currentToolStartTime = 0
+
+    // 解析思考内容的辅助函数
+    const parseThinkingContent = (content: string): ThinkingStep[] => {
+      const steps: ThinkingStep[] = []
+      const lines = content.split('\n')
+      let stepNum = 1
+
+      for (const line of lines) {
+        const trimmed = line.trim()
+        // 匹配 "1. xxx" 或 "1、xxx" 格式
+        const stepMatch = trimmed.match(/^(\d+)[.、]\s*(.+)/)
+        if (stepMatch) {
+          steps.push({ step: parseInt(stepMatch[1]), text: stepMatch[2] })
+        }
+        // 匹配 "- xxx" 格式
+        else if (trimmed.startsWith('-')) {
+          steps.push({ step: stepNum++, text: trimmed.slice(1).trim() })
+        }
+        // 匹配 "理解用户意图:" 等
+        else if (trimmed.includes('理解用户意图') || trimmed.includes('提取关键信息') || trimmed.includes('确定执行方案')) {
+          steps.push({ step: stepNum++, text: trimmed })
+        }
+      }
+      return steps
+    }
+
+    try {
+      await cvToolsChatStream(
+        userMessage,
+        resumeData,
+        sessionId,
+        {
+          onThinking: (thinking) => {
+            // 显示思考过程 - 只提取"🤔 分析中..."部分
+            const match = thinking.match(/🤔 分析中\.\.\.[\s\S]+?(?=📥|🔧|\n\n|$)/)
+            if (match) {
+              setThinkingContent(match[0].trim())
+            } else {
+              // 如果没有匹配到，尝试提取有用信息
+              const lines = thinking.split('\n').filter(l => l.includes('理解用户意图') || l.includes('提取关键信息') || l.includes('确定执行方案'))
+              if (lines.length > 0) {
+                setThinkingContent('🤔 分析中...\n' + lines.join('\n'))
+              }
+            }
+            console.log('[Thinking]', thinking)
+          },
+          onToolCall: (toolCall) => {
+            console.log('[Tool Call]', toolCall)
+          },
+          onToolStart: (info) => {
+            console.log('[Tool Start]', info)
+            currentToolStartTime = Date.now()
+            const newTool: ToolExecution = {
+              toolName: info.tool_name,
+              action: info.action || 'execute',
+              path: info.path || '',
+              status: 'running',
+              startTime: currentToolStartTime
+            }
+            setCurrentToolExecution(newTool)
+            setToolExecutions(prev => [...prev, newTool])
+          },
+          onToolEnd: (info) => {
+            console.log('[Tool End]', info)
+            const duration = Date.now() - currentToolStartTime
+            const updatedTool: ToolExecution = {
+              toolName: info.tool_name,
+              action: info.action || 'execute',
+              path: info.path || '',
+              status: info.success !== false ? 'success' : 'error',
+              startTime: currentToolStartTime,
+              duration
+            }
+            setCurrentToolExecution(updatedTool)
+            setToolExecutions(prev =>
+              prev.map(t => t.toolName === info.tool_name && t.status === 'running' ? updatedTool : t)
+            )
+          },
+          onToolResult: (result) => {
+            console.log('[Tool Result]', result)
+          },
+          onContentChunk: (chunk) => {
+            // 实时流式内容
+            fullContent += chunk
+            setStreamingContent(fullContent)
+          },
+          onContent: (content, metadata) => {
+            // 最终完整内容
+            fullContent = content
+            setStreamingContent(content)
+
+            // 如果简历被修改，更新简历数据
+            if (metadata.resume_modified && metadata.resume_data) {
+              setResumeData(metadata.resume_data)
+            }
+          },
+          onComplete: (newSessionId) => {
+            console.log('[Complete]', sessionId)
+            // 完成后重置当前工具执行状态
+            setCurrentToolExecution(null)
+          },
+          onError: (error) => {
+            console.error('[Error]', error)
+            setStreamingContent(`❌ 出错了: ${error}`)
+          }
+        }
+      )
+    } catch (error) {
+      console.error('Stream error:', error)
+      setStreamingContent(`❌ 请求失败: ${error instanceof Error ? error.message : '未知错误'}`)
+    } finally {
+      setIsStreaming(false)
+      // 延迟清除思考内容，让用户看到完整过程
+      setTimeout(() => {
+        setThinkingContent('')
+        setCurrentToolExecution(null)
+      }, 2000)
+    }
+  }
+
+  // 处理发送消息
+  const handleSend = async () => {
+    if (!input.trim() || isStreaming) return
+
+    const userMessage = input.trim()
+    setInput('')
+
+    // 添加用户消息
+    const userMsg: Message = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: userMessage,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+
+    // 清空之前的流式内容
+    setStreamingContent('')
+
+    // 调用流式 API
+    await handleStreamResponse(userMessage)
+
+    // 将流式内容保存为消息
+    if (streamingContent || fullContent) {
+      const aiMsg: Message = {
+        id: `ai-${Date.now()}`,
+        role: 'assistant',
+        content: streamingContent || fullContent,
+        timestamp: Date.now(),
+        type: 'text'
+      }
+      setMessages(prev => [...prev, aiMsg])
+      setStreamingContent('')
+    }
+  }
 
   // 处理选项点击
-  const handleOptionClick = (option: string) => {
+  const handleOptionClick = async (option: string) => {
     setSelectedOption(option)
-    
+
     // 1. 添加用户回复
     const userMsg: Message = {
         id: `user-${Date.now()}`,
@@ -84,30 +300,45 @@ export default function AIConversation() {
     }
     setMessages(prev => [...prev, userMsg])
 
-    // 2. 模拟 AI 思考和回复
+    // 2. 使用 ReAct Agent 回复
     setIsLoading(true)
-    setTimeout(() => {
-        // AI 鼓励语
-        const aiTextMsg: Message = {
-            id: `ai-edu-intro-${Date.now()}`,
-            role: 'assistant',
-            content: '太棒了！✨ 现在让我们一起梳理你的教育背景。每一段求学经历都是你向上生长的证明，让我们把这些闪光点都记录下来吧！',
-            timestamp: Date.now(),
-            type: 'text'
-        }
-        
-        // AI 表单卡片
-        const aiFormMsg: Message = {
-            id: `ai-edu-form-${Date.now()}`,
-            role: 'assistant',
-            content: 'form-placeholder',
-            timestamp: Date.now() + 100,
-            type: 'form-education'
-        }
+    setStreamingContent('')
 
-        setMessages(prev => [...prev, aiTextMsg, aiFormMsg])
-        setIsLoading(false)
-    }, 800)
+    try {
+      await cvToolsChatStream(
+        `我的求职身份是${option}，请帮我开始创建简历`,
+        resumeData,
+        sessionId,
+        {
+          onContentChunk: (chunk) => {
+            setStreamingContent(prev => prev + chunk)
+          },
+          onContent: (content) => {
+            setStreamingContent(content)
+            if (content) {
+              const aiMsg: Message = {
+                id: `ai-${Date.now()}`,
+                role: 'assistant',
+                content: content,
+                timestamp: Date.now(),
+                type: 'text'
+              }
+              setMessages(prev => [...prev, aiMsg])
+              setStreamingContent('')
+            }
+          },
+          onError: (error) => {
+            setStreamingContent(`❌ ${error}`)
+          }
+        }
+      )
+    } catch (error) {
+      console.error('Stream error:', error)
+      setStreamingContent('❌ 连接失败，请稍后重试')
+    } finally {
+      setIsLoading(false)
+      setStreamingContent('')
+    }
   }
 
   // 处理教育经历更新
@@ -138,14 +369,18 @@ export default function AIConversation() {
             <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white" />
           </div>
           <span className="font-bold text-gray-900 text-lg tracking-tight">RA 智能简历</span>
+          <span className="text-xs text-violet-600 bg-violet-50 px-2 py-1 rounded-full">ReAct Agent</span>
         </div>
-        
-        <button 
+
+        <button
           className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-          onClick={() => setMessages([])} 
+          onClick={() => {
+            setMessages([])
+            setStreamingContent('')
+          }}
         >
           <Trash2 className="w-4 h-4" />
-          清除历史记录
+          清除历史
         </button>
       </div>
 
@@ -174,7 +409,7 @@ export default function AIConversation() {
                     // AI 消息样式
                     <div className="max-w-[90%] w-full">
                       {message.type === 'text' && (
-                        <div className="text-gray-600 text-[15px] leading-relaxed mb-4">
+                        <div className="text-gray-600 text-[15px] leading-relaxed whitespace-pre-wrap">
                           {message.content as string}
                         </div>
                       )}
@@ -196,7 +431,6 @@ export default function AIConversation() {
                           <div className="space-y-3 pl-14">
                             {['学生', '职场人士'].map((option) => {
                               const isSelected = selectedOption === option
-                              // 如果已经做出选择，禁用的选项变得不明显
                               const isDimmed = selectedOption && !isSelected
 
                               return (
@@ -209,8 +443,8 @@ export default function AIConversation() {
                                   onClick={() => handleOptionClick(option)}
                                   className={cn(
                                     "w-full flex items-center gap-3 p-4 rounded-xl border transition-all duration-300 text-left relative overflow-hidden",
-                                    isSelected 
-                                      ? "bg-blue-50/80 border-blue-500 shadow-lg shadow-blue-500/10 z-10" 
+                                    isSelected
+                                      ? "bg-blue-50/80 border-blue-500 shadow-lg shadow-blue-500/10 z-10"
                                       : "bg-white border-gray-100",
                                     !selectedOption && "hover:border-blue-500/50 hover:shadow-sm",
                                     isDimmed && "opacity-50 grayscale"
@@ -218,19 +452,19 @@ export default function AIConversation() {
                                 >
                                   <div className={cn(
                                     "w-2.5 h-2.5 rounded-full transition-all duration-300",
-                                    isSelected 
-                                      ? "bg-blue-600 scale-110" 
+                                    isSelected
+                                      ? "bg-blue-600 scale-110"
                                       : "bg-blue-200 group-hover:bg-blue-400"
                                   )} />
                                   <span className={cn(
                                     "font-medium text-lg transition-colors duration-300",
-                                    isSelected 
-                                      ? "text-blue-900 font-bold" 
+                                    isSelected
+                                      ? "text-blue-900 font-bold"
                                       : "text-gray-700 group-hover:text-blue-600"
                                   )}>
                                     {option}
                                   </span>
-                                  
+
                                   {isSelected && (
                                     <motion.div
                                       layoutId="highlight"
@@ -248,7 +482,7 @@ export default function AIConversation() {
                       )}
 
                       {message.type === 'form-education' && (
-                        <EducationForm 
+                        <EducationForm
                           onChange={handleEducationChange}
                           onSubmit={handleEducationSubmit}
                         />
@@ -257,19 +491,177 @@ export default function AIConversation() {
                   )}
                 </motion.div>
               ))}
-              
+
+              {/* 流式消息显示 - 增强版 */}
+              {isStreaming && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex justify-start"
+                >
+                  <div className="max-w-[90%] w-full space-y-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center shrink-0">
+                        <Sparkles className="w-4 h-4 text-white" />
+                      </div>
+
+                      <div className="flex-1 space-y-3">
+                        {/* 思考过程 - 可折叠 */}
+                        {thinkingContent && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            className="bg-gradient-to-r from-violet-50 to-blue-50 rounded-xl border border-violet-100 overflow-hidden"
+                          >
+                            <button
+                              onClick={() => setShowThinking(!showThinking)}
+                              className="w-full px-4 py-2 flex items-center justify-between text-sm text-violet-700 hover:bg-violet-100/50 transition-colors"
+                            >
+                              <span className="flex items-center gap-2">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                正在分析...
+                              </span>
+                              {showThinking ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                            </button>
+                            <AnimatePresence>
+                              {showThinking && (
+                                <motion.div
+                                  initial={{ height: 0 }}
+                                  animate={{ height: 'auto' }}
+                                  exit={{ height: 0 }}
+                                  className="px-4 pb-3 overflow-hidden"
+                                >
+                                  <div className="text-sm text-gray-600 whitespace-pre-wrap font-mono bg-white/50 rounded-lg p-3">
+                                    {thinkingContent}
+                                  </div>
+                                </motion.div>
+                              )}
+                            </AnimatePresence>
+                          </motion.div>
+                        )}
+
+                        {/* 工具执行状态 */}
+                        {currentToolExecution && (
+                          <motion.div
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            className="bg-white rounded-xl border border-blue-100 shadow-sm"
+                          >
+                            <div className="px-4 py-3 flex items-center gap-3">
+                              {currentToolExecution.status === 'running' ? (
+                                <Loader2 className="w-5 h-5 text-blue-500 animate-spin" />
+                              ) : (
+                                <CheckCircle2 className="w-5 h-5 text-emerald-500" />
+                              )}
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-gray-900">{currentToolExecution.toolName}</span>
+                                  <span className="text-xs text-gray-400">·</span>
+                                  <span className="text-sm text-gray-500">{currentToolExecution.action}</span>
+                                  {currentToolExecution.path && (
+                                    <>
+                                      <span className="text-xs text-gray-400">·</span>
+                                      <span className="text-sm text-gray-500 font-mono">{currentToolExecution.path}</span>
+                                    </>
+                                  )}
+                                </div>
+                                {currentToolExecution.duration && (
+                                  <div className="text-xs text-gray-400 mt-1">
+                                    耗时 {currentToolExecution.duration}ms
+                                  </div>
+                                )}
+                              </div>
+                              {currentToolExecution.status === 'running' && (
+                                <div className="flex gap-1">
+                                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" />
+                                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce delay-75" />
+                                  <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce delay-150" />
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+
+                        {/* 主内容区域 */}
+                        {streamingContent && (
+                          <div className="bg-white rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm border border-gray-100 max-w-full">
+                            <div className="text-gray-600 text-[15px] leading-relaxed whitespace-pre-wrap">
+                              {streamingContent}
+                              <span className="inline-block w-2 h-4 bg-violet-500 ml-1 animate-pulse" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
               {/* 加载指示器 */}
-              {isLoading && (
+              {isLoading && !isStreaming && (
                  <div className="flex justify-start">
-                   <div className="bg-gray-100 rounded-2xl px-4 py-3 flex gap-1 items-center">
-                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75" />
-                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150" />
+                   <div className="flex items-start gap-3">
+                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center shrink-0">
+                       <Sparkles className="w-4 h-4 text-white" />
+                     </div>
+                     <div className="bg-gray-100 rounded-2xl px-4 py-3 flex gap-1 items-center">
+                       <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                       <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75" />
+                       <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150" />
+                     </div>
                    </div>
                  </div>
               )}
-              
+
               <div ref={messagesEndRef} />
+            </div>
+          </div>
+
+          {/* 输入框区域 */}
+          <div className="border-t border-gray-100 bg-white p-4">
+            <div className="max-w-3xl mx-auto">
+              <div className="flex items-center gap-3">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSend()
+                    }
+                  }}
+                  placeholder="输入消息，如：把名字改成张三..."
+                  disabled={isStreaming}
+                  className={cn(
+                    "flex-1 px-5 py-3 rounded-xl border transition-all duration-200",
+                    "focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-500",
+                    "disabled:bg-gray-100 disabled:cursor-not-allowed",
+                    isStreaming ? "bg-gray-50" : "bg-white"
+                  )}
+                />
+                <button
+                  onClick={handleSend}
+                  disabled={!input.trim() || isStreaming}
+                  className={cn(
+                    "px-5 py-3 rounded-xl transition-all duration-200",
+                    "flex items-center gap-2 font-medium",
+                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                    input.trim() && !isStreaming
+                      ? "bg-violet-600 text-white hover:bg-violet-700 shadow-md shadow-violet-200"
+                      : "bg-gray-100 text-gray-400"
+                  )}
+                >
+                  <Send className="w-4 h-4" />
+                  <span className="hidden sm:inline">发送</span>
+                </button>
+              </div>
+              <div className="mt-2 text-xs text-gray-400 flex items-center gap-4">
+                <span>💡 可以试试：把名字改成张三</span>
+                <span>添加工作经历：腾讯后端工程师，2023-2025</span>
+                <span>查看我的简历</span>
+              </div>
             </div>
           </div>
         </div>
@@ -277,7 +669,7 @@ export default function AIConversation() {
         {/* 右侧预览区 - 使用 fixed 定位固定在视口右侧中间 */}
         <AnimatePresence>
           {selectedOption && (
-            <motion.div 
+            <motion.div
               initial={{ x: '100%', opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: '100%', opacity: 0 }}

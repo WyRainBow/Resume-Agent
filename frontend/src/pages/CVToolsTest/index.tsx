@@ -213,14 +213,36 @@ export default function CVToolsTest() {
 
               // 使用 ref 确保访问最新的 resumeData
               const dataCopy = JSON.parse(JSON.stringify(resumeDataRef.current))
-              console.log('[简历更新] 执行前数据:', backendToolCall.params.path, '当前值:', dataCopy.skillContent?.slice(0, 50))
+              
+              // 记录删除操作前的数据
+              if (backendToolCall.params.action === 'delete') {
+                const path = backendToolCall.params.path
+                console.log('[简历更新] 删除操作 - 路径:', path)
+                if (path?.includes('workExperience') || path?.includes('experience')) {
+                  const expData = dataCopy.experience || []
+                  console.log('[简历更新] 删除前工作经历数量:', expData.length)
+                  console.log('[简历更新] 删除前工作经历:', expData)
+                }
+              }
+              
               const localResult = executeToolCall(dataCopy, backendToolCall as ToolCall)
-              console.log('[简历更新] 执行后数据:', dataCopy.skillContent?.slice(0, 100))
+              
+              // 记录删除操作后的数据
+              if (backendToolCall.params.action === 'delete') {
+                const path = backendToolCall.params.path
+                if (path?.includes('workExperience') || path?.includes('experience')) {
+                  const expData = dataCopy.experience || []
+                  console.log('[简历更新] 删除后工作经历数量:', expData.length)
+                  console.log('[简历更新] 删除后工作经历:', expData)
+                }
+              }
+              
               if (localResult.status === 'success') {
-                console.log('[简历更新] dataCopy skillContent:', dataCopy.skillContent?.slice(0, 100))
+                console.log('[简历更新] 本地工具调用成功，已调用 setResumeData')
                 // 直接使用更新后的数据对象
                 setResumeData(dataCopy as ResumeData)
-                console.log('[简历更新] 本地工具调用成功，已调用 setResumeData')
+              } else {
+                console.error('[简历更新] 本地工具调用失败:', localResult.message)
               }
             }
 

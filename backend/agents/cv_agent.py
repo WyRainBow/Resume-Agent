@@ -7,6 +7,10 @@ CVAgent - 核心对话 Agent
 1. 规则层（IntentRecognizer）：快速、低成本，处理常见场景
 2. LLM 层：作为兜底，处理复杂/模糊场景
 
+新架构特性：
+- Capability 系统：动态配置 Agent 行为（通过 capability 参数）
+- 工具策略白名单：根据 Capability 限制可用工具
+
 负责：
 1. 接收用户消息，返回响应
 2. 维护对话状态（AgentState）
@@ -15,7 +19,7 @@ CVAgent - 核心对话 Agent
 """
 import json
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from dataclasses import dataclass
 import httpx
 
@@ -25,6 +29,8 @@ from .message_builder import MessageBuilder, AgentMessage, MessageType
 from .intent_recognizer import IntentRecognizer, RecognitionResult
 from .tool_executor import ToolExecutor, ExecutionResult
 from .tool_hooks import ToolStatusHook, LoggingToolHook
+from .capability import Capability, CapabilityRegistry, ToolPolicy, BASE_CAPABILITY
+from .react_agent import ReActPromptBuilder
 
 
 # ============================================================================
@@ -106,6 +112,39 @@ LLM_TOOLS_DEFINITION = [
 ]
 
 LLM_SYSTEM_PROMPT = """你是简历编辑助手。有三个工具：CVReader（读取）、CVEditor（编辑）和 CVBatchEditor（批量编辑）。
+
+## 对话输出规范（重要！）
+
+在调用工具之前，你需要在回复中**先输出思考过程**，让用户了解你的分析逻辑：
+
+**思考过程格式**：
+```
+🤔 分析中...
+1. 理解用户意图：[用户想做什么]
+2. 提取关键信息：[从用户输入中提取的信息]
+3. 确定执行方案：[将调用什么工具，做什么操作]
+```
+
+**示例**：
+用户：「把名字改成张三」
+你的回复：
+```
+🤔 分析中...
+1. 理解用户意图：修改简历基本信息中的姓名
+2. 提取关键信息：新姓名 = 张三
+3. 确定执行方案：调用 CVEditor 工具，修改 basic.name 字段
+```
+[然后调用工具]
+
+用户：「在腾讯工作，做后端开发」
+你的回复：
+```
+🤔 分析中...
+1. 理解用户意图：添加工作经历
+2. 提取关键信息：公司 = 腾讯，职位 = 后端开发，时间 = 未提供
+3. 确定执行方案：调用 CVEditor 添加工作经历，时间将使用默认值
+```
+[然后调用工具]
 
 ## 核心原则
 1. **提取所有信息**：从用户输入中提取全部可用信息，特别是描述/职责
@@ -269,43 +308,104 @@ class CVAgent:
     """
     
     def __init__(
-        self, 
-        resume_data: Dict[str, Any] = None, 
+        self,
+        resume_data: Dict[str, Any] = None,
         session_id: str = "",
         debug: bool = False,
-        enable_llm: bool = True  # 是否启用 LLM 兜底
+        enable_llm: bool = True,  # 是否启用 LLM 兜底
+        capability: Optional[Union[str, Capability]] = None,  # 新增：Capability 支持
     ):
         """
         初始化 Agent
-        
+
         分层架构：
         - 规则层（IntentRecognizer）：快速处理常见场景
         - LLM 层：兜底处理复杂场景
-        
+
+        新架构特性：
+        - Capability 系统：动态配置 Agent 行为
+        - 工具策略白名单：根据 Capability 限制可用工具
+
         Args:
             resume_data: 初始简历数据
             session_id: 会话 ID
             debug: 是否启用调试日志
             enable_llm: 是否启用 LLM 兜底（规则失败时调用）
+            capability: 能力包配置（名称字符串或 Capability 对象）
         """
         self.session_id = session_id
         self.debug = debug
         self.enable_llm = enable_llm
-        
+
+        # 解析 Capability
+        self.capability = self._resolve_capability(capability)
+
         # LLM 配置
         self.llm_api_key = os.getenv("DEEPSEEK_API_KEY")
         self.llm_base_url = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
         self.llm_model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
-        
+
         # 使用 AgentState 统一管理状态
         self.state = AgentState(resume_data=resume_data, session_id=session_id)
-        
+
         # 工具钩子（参考 sophia-pro tool_hooks）
         self.tool_hook = LoggingToolHook() if debug else None
-        
+
         # 初始化组件
         self.recognizer = IntentRecognizer()
         self.executor = ToolExecutor(self.state.resume_data, tool_hook=self.tool_hook)
+
+        # 调用 Capability 的 setup 函数（如果有）
+        if self.capability and self.capability.setup:
+            try:
+                self.capability.setup({"agent": self}, self.state)
+            except Exception as e:
+                if debug:
+                    print(f"[Capability] Setup 警告: {e}")
+
+    def _resolve_capability(self, capability: Optional[Union[str, Capability]]) -> Capability:
+        """解析 Capability 参数"""
+        if capability is None:
+            return BASE_CAPABILITY
+
+        if isinstance(capability, Capability):
+            return capability
+
+        # 字符串：从注册中心获取
+        return CapabilityRegistry.get(capability)
+
+    def set_capability(self, capability: Optional[Union[str, Capability]]) -> None:
+        """动态设置 Capability"""
+        self.capability = self._resolve_capability(capability)
+
+        # 调用 setup
+        if self.capability and self.capability.setup:
+            self.capability.setup({"agent": self}, self.state)
+
+    def get_capability(self) -> Capability:
+        """获取当前 Capability"""
+        return self.capability
+
+    def _get_effective_tools(self) -> List[Dict]:
+        """根据 Capability 获取有效工具列表"""
+        all_tools = LLM_TOOLS_DEFINITION.copy()
+
+        if self.capability and self.capability.tool_policy:
+            tool_names = [t["function"]["name"] for t in all_tools]
+            effective_names = self.capability.tool_policy.get_effective_tools(tool_names)
+            return [t for t in all_tools if t["function"]["name"] in effective_names]
+
+        return all_tools
+
+    def _build_system_prompt(self, chat_history: List[Dict] = None) -> str:
+        """构建 System Prompt（结合 Capability）"""
+        base_prompt = LLM_SYSTEM_PROMPT
+
+        # 添加 Capability 指令
+        if self.capability and self.capability.system_prompt_addendum:
+            return f"{base_prompt}\n\n{self.capability.system_prompt_addendum}"
+
+        return base_prompt
     
     # 兼容属性：resume_data
     @property
@@ -690,11 +790,13 @@ class CVAgent:
                     "type": "content",
                     "content": message.content
                 }
-    
+
     def _call_llm_agent_stream(self, user_message: str):
         """流式调用 LLM Agent（直接使用 LLM，不再使用规则引擎）"""
         # 构建消息（包含对话历史）
-        messages = [{"role": "system", "content": LLM_SYSTEM_PROMPT}]
+        # 使用 Capability 扩展的 System Prompt
+        system_prompt = self._build_system_prompt(self.state.chat_history)
+        messages = [{"role": "system", "content": system_prompt}]
 
         # 添加对话历史和当前消息（使用优化后的上下文管理）
         resume_summary = self._get_resume_summary()
@@ -705,8 +807,11 @@ class CVAgent:
         messages.extend(context_messages)
 
         if self.debug:
+            print(f"[LLM 流式] Capability: {self.capability.name if self.capability else 'None'}")
             print(f"[LLM 流式] 历史消息: {len(self.state.chat_history)}条, 发送: {len(context_messages)}条")
             print(f"[LLM 流式] 简历摘要: {resume_summary[:150]}...")
+            effective_tools = self._get_effective_tools()
+            print(f"[LLM 流式] 有效工具: {[t['function']['name'] for t in effective_tools]}")
 
         # 输出：正在处理（只发送一次 thinking 消息）
         yield {
@@ -717,14 +822,17 @@ class CVAgent:
             "session_id": self.session_id
         }
 
-        # 流式调用 LLM
+        # 流式调用 LLM（使用 Capability 过滤后的工具列表）
         accumulated_content = ""
         tool_calls = []
         tool_call_ids = {}  # 用于跟踪工具调用 ID
         has_sent_tool_recognition = False  # 标记是否已发送工具识别消息
         last_content_update_len = 0  # 上次发送内容更新时的长度
 
-        for chunk in self._call_llm_api_stream(messages, tools=LLM_TOOLS_DEFINITION):
+        # 获取 Capability 过滤后的工具列表
+        effective_tools = self._get_effective_tools()
+
+        for chunk in self._call_llm_api_stream(messages, tools=effective_tools):
             if not chunk:
                 continue
 

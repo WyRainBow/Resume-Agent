@@ -1,5 +1,5 @@
 """
-Agents 模块
+Agents 模组
 
 参考架构：sophia-pro/backend/agent/src/amplift/
 
@@ -10,6 +10,11 @@ Agents 模块
 - IntentRecognizer: 意图识别（复用 task_planner 逻辑）
 - ToolExecutor: 工具执行
 - MessageBuilder: 消息构建
+
+新架构特性（参考 sophia-pro）：
+- Capability: 能力包系统，动态配置 Agent 行为
+- ReActAgent: 基于 ReAct 循环的智能体
+- ToolPolicy: 工具策略白名单
 
 向后兼容：
 - CoreAgent: 旧版 Agent（保留供参考）
@@ -94,6 +99,38 @@ from .session_manager import (
 )
 
 
+# ========== 新架构模块（参考 sophia-pro） ==========
+
+# Capability 系统
+try:
+    from .capability import (
+        Capability,
+        ToolPolicy,
+        CapabilityRegistry,
+        BASE_CAPABILITY,
+        ADVANCED_CAPABILITY,
+        OPTIMIZER_CAPABILITY,
+    )
+    _capability_available = True
+except ImportError:
+    _capability_available = False
+
+# ReAct Agent
+try:
+    from .react_agent import (
+        ReActAgent,
+        ReActStep,
+        ReActStepType,
+        ReActMemory,
+        ReActPromptBuilder,
+        ReActOutputParser,
+        create_react_agent,
+    )
+    _react_agent_available = True
+except ImportError:
+    _react_agent_available = False
+
+
 __all__ = [
     # ========== 核心模块 ==========
     # Agent
@@ -159,4 +196,21 @@ __all__ = [
     "SessionStatus",
     "ChatMessage",
     "get_session_manager",
+
+    # ========== 新架构模块（参考 sophia-pro）==========
+    # Capability
+    "Capability",
+    "ToolPolicy",
+    "CapabilityRegistry",
+    "BASE_CAPABILITY",
+    "ADVANCED_CAPABILITY",
+    "OPTIMIZER_CAPABILITY",
+    # ReAct Agent
+    "ReActAgent",
+    "ReActStep",
+    "ReActStepType",
+    "ReActMemory",
+    "ReActPromptBuilder",
+    "ReActOutputParser",
+    "create_react_agent",
 ]

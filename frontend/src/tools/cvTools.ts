@@ -332,16 +332,45 @@ export function cvEditor(resumeData: ResumeData, params: CVEditorParams): ToolRe
         // 获取父对象
         let parent: any = resumeData
         for (let i = 0; i < parts.length - 1; i++) {
-          parent = parent[parts[i]]
+          const part = parts[i]
+          if (parent === undefined || parent === null) {
+            return {
+              status: 'error',
+              message: `路径不存在：${parts.slice(0, i + 1).join('.')}`,
+              path
+            }
+          }
+          parent = parent[part]
         }
         const lastKey = parts[parts.length - 1]
         
+        if (parent === undefined || parent === null) {
+          return {
+            status: 'error',
+            message: `父对象不存在：${parts.slice(0, -1).join('.')}`,
+            path
+          }
+        }
+        
         if (typeof lastKey === 'number' && Array.isArray(parent)) {
           // 从数组中删除
+          if (lastKey < 0 || lastKey >= parent.length) {
+            return {
+              status: 'error',
+              message: `索引越界：${lastKey}，数组长度为 ${parent.length}`,
+              path
+            }
+          }
           parent.splice(lastKey, 1)
-        } else {
+        } else if (typeof lastKey === 'string' && typeof parent === 'object') {
           // 删除对象属性
           delete parent[lastKey]
+        } else {
+          return {
+            status: 'error',
+            message: `无法删除：父对象类型不匹配`,
+            path
+          }
         }
         
         return {
