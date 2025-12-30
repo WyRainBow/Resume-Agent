@@ -78,6 +78,47 @@ class CVEditorTool(BaseTool):
     # 简历数据引用（由 Agent 注入，会被直接修改）
     resume_data: Dict[str, Any] = Field(default_factory=dict)
     
+    def _map_path(self, parts: list) -> list:
+        """
+        字段路径映射：workExperience <-> experience（兼容前端使用 experience 字段）
+        
+        Args:
+            parts: 解析后的路径部分列表
+        
+        Returns:
+            映射后的路径部分列表
+        """
+        if not parts or not isinstance(parts[0], str):
+            return parts
+        
+        field_mapping = {
+            "workExperience": "experience",
+            "experience": "workExperience"
+        }
+        
+        # 如果路径的第一部分是映射字段，尝试映射
+        if parts[0] in field_mapping:
+            mapped_field = field_mapping[parts[0]]
+            mapped_parts = [mapped_field] + parts[1:]
+            
+            # 优先检查原始路径是否存在
+            try:
+                get_by_path(self.resume_data, parts)
+                # 原始路径存在，使用原始路径
+                return parts
+            except ValueError:
+                # 原始路径不存在，检查映射路径
+                try:
+                    get_by_path(self.resume_data, mapped_parts)
+                    # 映射路径存在，使用映射路径
+                    return mapped_parts
+                except ValueError:
+                    # 两个路径都不存在，优先使用映射路径（用于创建新字段）
+                    # 这样确保新创建的数据使用统一的字段名
+                    return mapped_parts
+        
+        return parts
+    
     def _run(
         self,
         path: str,
@@ -146,6 +187,8 @@ class CVEditorTool(BaseTool):
     def _update(self, path: str, value: Any) -> Dict[str, Any]:
         """更新操作"""
         parts = parse_path(path)
+        # 应用字段映射
+        parts = self._map_path(parts)
         
         # 检查路径中是否包含数组索引
         # 如果路径是 workExperience[0].description，需要确保 workExperience[0] 存在
@@ -216,6 +259,8 @@ class CVEditorTool(BaseTool):
     def _add(self, path: str, value: Any) -> Dict[str, Any]:
         """添加操作（向数组添加元素）"""
         parts = parse_path(path)
+        # 应用字段映射
+        parts = self._map_path(parts)
         
         # 获取目标数组，若不存在则创建
         try:
@@ -245,6 +290,8 @@ class CVEditorTool(BaseTool):
     def _delete(self, path: str) -> Dict[str, Any]:
         """删除操作"""
         parts = parse_path(path)
+        # 应用字段映射
+        parts = self._map_path(parts)
         
         # 获取父对象和键
         parent, key, old_value = get_by_path(self.resume_data, parts)
