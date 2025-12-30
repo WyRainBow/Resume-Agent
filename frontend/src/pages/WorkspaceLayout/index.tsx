@@ -23,7 +23,8 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
   // 根据路径确定当前工作区
   const getCurrentWorkspace = (): WorkspaceType => {
-    if (location.pathname === '/conversation') {
+    // 检测是否是 AI 对话页面
+    if (location.pathname === '/resume-chat' || location.pathname === '/resume-creator' || location.pathname.startsWith('/resume-chat')) {
       return 'conversation'
     }
     if (location.pathname === '/dashboard') {
@@ -32,6 +33,10 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
     if (location.pathname === '/templates') {
       return 'templates'
     }
+    // workspace/html 或 workspace/latex 都算编辑区
+    if (location.pathname.startsWith('/workspace')) {
+      return 'edit'
+    }
     return 'edit'
   }
 
@@ -39,7 +44,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
   const handleWorkspaceChange = (workspace: WorkspaceType) => {
     if (workspace === 'conversation') {
-      navigate('/conversation')
+      navigate('/resume-chat')
     } else if (workspace === 'dashboard') {
       navigate('/dashboard')
     } else if (workspace === 'templates') {
