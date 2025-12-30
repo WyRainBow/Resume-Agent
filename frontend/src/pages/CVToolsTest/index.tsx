@@ -76,6 +76,7 @@ export default function CVToolsTest() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [showQuickActions, setShowQuickActions] = useState(false)
+  const [isComposing, setIsComposing] = useState(false) // 跟踪输入法状态
   
   // 会话 ID（使用 useRef 避免 useCallback 依赖问题）
   const sessionIdRef = useRef<string | undefined>(undefined)
@@ -274,11 +275,26 @@ export default function CVToolsTest() {
   }, [])
 
   // 处理键盘事件
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // 如果正在输入中文（输入法组合输入中），不处理 Enter 键
+    // 应该让 Enter 键确认输入而不是发送
+    if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
       e.preventDefault()
-      handleSend()
+      // 只有在非输入法状态下才发送
+      if (input.trim()) {
+        handleSend()
+      }
     }
+  }
+  
+  // 处理输入法开始（中文输入开始）
+  const handleCompositionStart = () => {
+    setIsComposing(true)
+  }
+  
+  // 处理输入法结束（中文输入完成）
+  const handleCompositionEnd = () => {
+    setIsComposing(false)
   }
 
   return (
@@ -460,9 +476,13 @@ export default function CVToolsTest() {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={handleKeyDown}
+                  onCompositionStart={handleCompositionStart}
+                  onCompositionEnd={handleCompositionEnd}
                   placeholder='用自然语言告诉我，例如：把名字改成张三'
-                  className="flex-1 px-4 py-3 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 transition-all"
-                  disabled={isLoading}
+                  className={cn(
+                    "flex-1 px-4 py-3 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 transition-all",
+                    isLoading && "opacity-60" // 加载时降低透明度提示，但不禁用
+                  )}
                 />
                 <button
                   onClick={handleSend}
