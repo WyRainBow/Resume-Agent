@@ -373,8 +373,19 @@ export function cvEditor(resumeData: ResumeData, params: CVEditorParams): ToolRe
  * 工具调用 JSON 格式
  */
 export interface ToolCall {
-  name: 'CVReader' | 'CVEditor'
-  params: CVReaderParams | CVEditorParams
+  name: 'CVReader' | 'CVEditor' | 'CVBatchEditor'
+  params: CVReaderParams | CVEditorParams | CVBatchEditorParams
+}
+
+/**
+ * CVBatchEditor 参数
+ */
+export interface CVBatchEditorParams {
+  operations: Array<{
+    path: string
+    action: 'update' | 'add' | 'delete'
+    value?: any
+  }>
 }
 
 /**
@@ -474,40 +485,77 @@ function convertBackendToFrontend(value: any, path: string): any {
 export function executeToolCall(resumeData: ResumeData, toolCall: ToolCall): ToolResult {
   // 复制参数以避免修改原对象
   const params = { ...toolCall.params }
-  
-  // 路径映射（统一后端和前端字段名）
-  if ('path' in params && params.path) {
-    const originalPath = params.path
-    params.path = mapPath(params.path)
-    if (originalPath !== params.path) {
-      console.log(`[工具调用] 路径映射: ${originalPath} -> ${params.path}`)
-    }
-  }
-  
-  // 数据格式转换（后端格式 -> 前端格式）
-  if ('action' in params && params.action === 'add' && 'value' in params && params.value) {
-    const convertedValue = convertBackendToFrontend(params.value, params.path || '')
-    if (convertedValue !== params.value) {
-      console.log(`[工具调用] 数据格式转换:`, {
-        original: params.value,
-        converted: convertedValue
-      })
-      params.value = convertedValue
-    }
-  }
-  
+
   switch (toolCall.name) {
     case 'CVReader':
       return cvReader(resumeData, params as CVReaderParams)
-    
+
     case 'CVEditor':
+      // 路径映射（统一后端和前端字段名）
+      if ('path' in params && params.path) {
+        const originalPath = params.path
+        params.path = mapPath(params.path)
+        if (originalPath !== params.path) {
+          console.log(`[工具调用] 路径映射: ${originalPath} -> ${params.path}`)
+        }
+      }
+
+      // 数据格式转换（后端格式 -> 前端格式）
+      if ('action' in params && params.action === 'add' && 'value' in params && params.value) {
+        const convertedValue = convertBackendToFrontend(params.value, params.path || '')
+        if (convertedValue !== params.value) {
+          console.log(`[工具调用] 数据格式转换:`, {
+            original: params.value,
+            converted: convertedValue
+          })
+          params.value = convertedValue
+        }
+      }
+
       return cvEditor(resumeData, params as CVEditorParams)
-    
+
+    case 'CVBatchEditor':
+      return executeBatchOperations(resumeData, params as CVBatchEditorParams)
+
     default:
       return {
         status: 'error',
         message: `未知的工具：${(toolCall as any).name}`
       }
+  }
+}
+
+/**
+ * 执行批量编辑操作
+ * @param resumeData 简历数据
+ * @param params 批量编辑参数
+ * @returns 工具执行结果
+ */
+export function executeBatchOperations(resumeData: ResumeData, params: CVBatchEditorParams): ToolResult {
+  const { operations } = params
+  const results: ToolResult[] = []
+  let succeeded = 0
+  let failed = 0
+
+  for (const op of operations) {
+    const result = executeToolCall(resumeData, { name: 'CVEditor', params: op })
+    results.push(result)
+    if (result.status === 'success') {
+      succeeded++
+    } else {
+      failed++
+    }
+  }
+
+  return {
+    status: failed === 0 ? 'success' : 'error',
+    message: `批量操作完成：成功 ${succeeded} 个，失败 ${failed} 个`,
+    data: {
+      total: operations.length,
+      succeeded,
+      failed,
+      results
+    }
   }
 }
 

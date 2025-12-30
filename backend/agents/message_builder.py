@@ -20,10 +20,15 @@ import uuid
 class MessageType(str, Enum):
     """消息类型"""
     TEXT = "text"
-    TOOL_CALL = "tool_call"
-    TOOL_RESULT = "tool_result"
-    CLARIFY = "clarify"
+    THINKING = "thinking"       # 思考过程
+    TOOL_CALL = "tool_call"     # 工具调用参数
+    TOOL_START = "tool_start"   # 工具开始执行
+    TOOL_END = "tool_end"       # 工具执行结束
+    TOOL_RESULT = "tool_result" # 工具执行结果
+    CLARIFY = "clarify"         # 需要澄清/补充信息
+    CONTENT = "content"         # 最终回复内容
     ERROR = "error"
+    DONE = "done"               # 完成标记
 
 
 @dataclass
