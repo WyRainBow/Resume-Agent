@@ -965,6 +965,9 @@ class CVAgent:
 
             # 将 duration_ms 添加到 result 中
             result["duration_ms"] = duration_ms
+            # 添加工具名称和参数，供前端本地执行
+            result["tool_name"] = tool_name
+            result["tool_params"] = tool_params
 
             # 输出工具结果
             yield {
