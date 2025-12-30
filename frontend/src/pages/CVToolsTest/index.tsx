@@ -365,7 +365,7 @@ export default function CVToolsTest() {
   }, [])
 
   // 处理键盘事件
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // 如果正在输入中文（输入法组合输入中），不处理 Enter 键
     // 应该让 Enter 键确认输入而不是发送
     if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
@@ -375,6 +375,7 @@ export default function CVToolsTest() {
         handleSend()
       }
     }
+    // Shift+Enter 换行，不发送
   }
   
   // 处理输入法开始（中文输入开始）
@@ -609,27 +610,37 @@ export default function CVToolsTest() {
                 {showQuickActions ? '收起快捷操作' : '展开快捷操作'}
               </button>
 
-              <div className="flex gap-3">
-                <input
-                  type="text"
+              <div className="flex gap-3 items-end">
+                <textarea
                   value={input}
-                  onChange={(e) => setInput(e.target.value)}
+                  onChange={(e) => {
+                    setInput(e.target.value)
+                    // 自动调整高度
+                    e.target.style.height = 'auto'
+                    e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`
+                  }}
                   onKeyDown={handleKeyDown}
                   onCompositionStart={handleCompositionStart}
                   onCompositionEnd={handleCompositionEnd}
                   placeholder='用自然语言告诉我，例如：把名字改成张三'
+                  rows={1}
                   className={cn(
                     "flex-1 px-4 py-3 bg-gray-100 rounded-xl text-sm outline-none focus:ring-2 focus:ring-violet-500 transition-all",
+                    "resize-none overflow-y-auto",
+                    "min-h-[52px] max-h-[200px]",
+                    "leading-relaxed",
                     isLoading && "opacity-60" // 加载时降低透明度提示，但不禁用
                   )}
+                  style={{ height: 'auto' }}
                 />
                 <button
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading}
                   className={cn(
-                    "px-4 py-3 rounded-xl transition-all",
+                    "px-4 py-3 rounded-xl transition-all shrink-0",
                     "bg-violet-600 hover:bg-violet-700 text-white",
-                    "disabled:opacity-50 disabled:cursor-not-allowed"
+                    "disabled:opacity-50 disabled:cursor-not-allowed",
+                    "h-[52px] flex items-center justify-center"
                   )}
                 >
                   <Send className="w-5 h-5" />
