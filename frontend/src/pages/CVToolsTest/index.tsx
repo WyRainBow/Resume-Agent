@@ -200,49 +200,49 @@ export default function CVToolsTest() {
           onToolResult: (result: any) => {
             toolResult = result
             console.log('[工具结果]', result)
-            console.log('[工具结果] tool_params.value:', result.tool_params?.value)
+
+            // 使用 ref 确保访问最新的 resumeData
+            const dataCopy = JSON.parse(JSON.stringify(resumeDataRef.current))
 
             // 如果是 CVEditor 且成功，执行本地工具调用更新前端数据
             if (toolCall?.name === 'CVEditor' && result.success) {
-              // 使用后端返回的完整参数，而不是前端的 toolCall
               const backendToolCall = {
                 name: result.tool_name,
                 params: result.tool_params
               }
-              console.log('[简历更新] 使用后端工具参数:', backendToolCall.params)
-
-              // 使用 ref 确保访问最新的 resumeData
-              const dataCopy = JSON.parse(JSON.stringify(resumeDataRef.current))
-              
-              // 记录删除操作前的数据
-              if (backendToolCall.params.action === 'delete') {
-                const path = backendToolCall.params.path
-                console.log('[简历更新] 删除操作 - 路径:', path)
-                if (path?.includes('workExperience') || path?.includes('experience')) {
-                  const expData = dataCopy.experience || []
-                  console.log('[简历更新] 删除前工作经历数量:', expData.length)
-                  console.log('[简历更新] 删除前工作经历:', expData)
-                }
-              }
+              console.log('[简历更新] CVEditor 参数:', backendToolCall.params)
               
               const localResult = executeToolCall(dataCopy, backendToolCall as ToolCall)
               
-              // 记录删除操作后的数据
-              if (backendToolCall.params.action === 'delete') {
-                const path = backendToolCall.params.path
-                if (path?.includes('workExperience') || path?.includes('experience')) {
-                  const expData = dataCopy.experience || []
-                  console.log('[简历更新] 删除后工作经历数量:', expData.length)
-                  console.log('[简历更新] 删除后工作经历:', expData)
+              if (localResult.status === 'success') {
+                console.log('[简历更新] CVEditor 本地执行成功')
+                setResumeData(dataCopy as ResumeData)
+              } else {
+                console.error('[简历更新] CVEditor 本地执行失败:', localResult.message)
+              }
+            }
+            
+            // 如果是 CVBatchEditor 且成功，执行批量本地工具调用
+            if (toolCall?.name === 'CVBatchEditor' && result.success) {
+              const operations = result.tool_params?.operations || []
+              console.log('[简历更新] CVBatchEditor 批量操作:', operations)
+              
+              let allSuccess = true
+              for (const op of operations) {
+                const backendToolCall = {
+                  name: 'CVEditor',
+                  params: op
+                }
+                const localResult = executeToolCall(dataCopy, backendToolCall as ToolCall)
+                if (localResult.status !== 'success') {
+                  console.error('[简历更新] 批量操作失败:', op, localResult.message)
+                  allSuccess = false
                 }
               }
               
-              if (localResult.status === 'success') {
-                console.log('[简历更新] 本地工具调用成功，已调用 setResumeData')
-                // 直接使用更新后的数据对象
+              if (allSuccess || operations.length > 0) {
+                console.log('[简历更新] CVBatchEditor 本地执行完成')
                 setResumeData(dataCopy as ResumeData)
-              } else {
-                console.error('[简历更新] 本地工具调用失败:', localResult.message)
               }
             }
 

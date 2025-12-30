@@ -248,6 +248,17 @@ LLM_SYSTEM_PROMPT = """你是简历编辑助手。有三个工具：CVReader（�
   {"path": "basic.email", "action": "update", "value": "test@example.com"}
 ])
 
+## 删除整个简历内容
+当用户要求"删除整个简历"、"清空简历"、"重新开始"时，使用 CVBatchEditor 批量删除所有字段：
+「删除整个简历内容」→ CVBatchEditor(operations=[
+  {"path": "basic", "action": "delete"},
+  {"path": "education", "action": "delete"},
+  {"path": "workExperience", "action": "delete"},
+  {"path": "projects", "action": "delete"},
+  {"path": "skillContent", "action": "delete"},
+  {"path": "certificates", "action": "delete"}
+])
+
 ## CVReader 使用规则（重要！）
 当调用 CVReader 获取数据后：
 1. **必须使用工具返回的实际数据**，不要使用你的"记忆"或猜测
