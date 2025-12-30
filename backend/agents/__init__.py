@@ -130,6 +130,38 @@ try:
 except ImportError:
     _react_agent_available = False
 
+# ========== 混合架构模块 ==========
+
+# TaskClassifier - 任务复杂度分类器
+from .task_classifier import (
+    TaskClassifier,
+    ExecutionMode,
+    TaskComplexity,
+    ClassificationResult,
+    classify_task,
+    should_use_react,
+)
+
+# HybridAgent - 混合模式 Agent
+from .hybrid_agent import (
+    HybridAgent,
+    HybridAgentConfig,
+    ExecutionContext,
+    create_hybrid_agent,
+)
+
+# ToolRegistry V2
+try:
+    from .tool_registry_v2 import (
+        ToolRegistry as ToolRegistryV2,
+        ToolMetadata,
+        ToolStatus,
+        register_tool as register_tool_v2,
+    )
+    _tool_registry_v2_available = True
+except ImportError:
+    _tool_registry_v2_available = False
+
 
 __all__ = [
     # ========== 核心模块 ==========
@@ -213,4 +245,24 @@ __all__ = [
     "ReActPromptBuilder",
     "ReActOutputParser",
     "create_react_agent",
+
+    # ========== 混合架构模块 ==========
+    # TaskClassifier
+    "TaskClassifier",
+    "ExecutionMode",
+    "TaskComplexity",
+    "ClassificationResult",
+    "classify_task",
+    "should_use_react",
+    # HybridAgent
+    "HybridAgent",
+    "HybridAgentConfig",
+    "ExecutionContext",
+    "create_hybrid_agent",
+    # ToolRegistry V2
+    "ToolRegistryV2",
+    "ToolMetadata",
+    "ToolStatus",
+    "register_tool_v2",
+    "_tool_registry_v2_available",
 ]
