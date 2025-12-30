@@ -39,35 +39,35 @@ export function MessageContent({ content, isStreaming = false, onStreamingComple
     <div className="markdown-content">
       <ReactMarkdown
         components={{
-          // 自定义标题样式
-          h1: ({ children }) => <h1 className="text-lg font-bold mt-2 mb-1 text-gray-800">{children}</h1>,
-          h2: ({ children }) => <h2 className="text-base font-bold mt-1.5 mb-1 text-gray-800">{children}</h2>,
-          h3: ({ children }) => <h3 className="text-sm font-semibold mt-1 mb-0.5 text-gray-800">{children}</h3>,
-          // 段落样式 - 减小间距
-          p: ({ children }) => <p className="my-0.5 leading-normal">{children}</p>,
+          // 自定义标题样式 - 紧凑
+          h1: ({ children }) => <h1 className="text-base font-bold mt-1 mb-0 text-gray-800">{children}</h1>,
+          h2: ({ children }) => <h2 className="text-sm font-bold mt-0.5 mb-0 text-gray-800">{children}</h2>,
+          h3: ({ children }) => <h3 className="text-sm font-semibold mt-0.5 mb-0 text-gray-800">{children}</h3>,
+          // 段落样式 - 极简间距
+          p: ({ children }) => <p className="my-0 leading-tight">{children}</p>,
           // 粗体样式
           strong: ({ children }) => <strong className="font-semibold text-gray-800">{children}</strong>,
-          // 无序列表样式 - 减小间距
-          ul: ({ children }) => <ul className="list-disc list-inside my-0.5 space-y-0">{children}</ul>,
-          // 有序列表样式 - 减小间距
-          ol: ({ children }) => <ol className="list-decimal list-inside my-0.5 space-y-0">{children}</ol>,
-          // 列表项样式
-          li: ({ children }) => <li className="ml-1 leading-snug">{children}</li>,
+          // 无序列表样式 - 无间距
+          ul: ({ children }) => <ul className="list-disc list-inside my-0 pl-0">{children}</ul>,
+          // 有序列表样式 - 无间距
+          ol: ({ children }) => <ol className="list-decimal list-inside my-0 pl-0">{children}</ol>,
+          // 列表项样式 - 紧凑行高
+          li: ({ children }) => <li className="leading-tight">{children}</li>,
           // 代码块样式
           code: ({ children, className }) => {
             const isInline = !className
             return isInline 
-              ? <code className="bg-gray-100 px-1 py-0.5 rounded text-sm text-violet-600">{children}</code>
-              : <code className="block bg-gray-100 p-2 rounded-lg my-1 text-sm overflow-x-auto">{children}</code>
+              ? <code className="bg-gray-100 px-1 rounded text-sm text-violet-600">{children}</code>
+              : <code className="block bg-gray-100 p-2 rounded my-0.5 text-sm overflow-x-auto">{children}</code>
           },
           // 引用块样式
           blockquote: ({ children }) => (
-            <blockquote className="border-l-3 border-violet-300 pl-2 my-1 text-gray-600 italic">
+            <blockquote className="border-l-2 border-violet-300 pl-2 my-0.5 text-gray-600 italic">
               {children}
             </blockquote>
           ),
           // 分隔线样式
-          hr: () => <hr className="my-2 border-gray-200" />,
+          hr: () => <hr className="my-1 border-gray-200" />,
           // 链接样式
           a: ({ href, children }) => (
             <a href={href} className="text-violet-600 hover:text-violet-800 underline" target="_blank" rel="noopener noreferrer">
