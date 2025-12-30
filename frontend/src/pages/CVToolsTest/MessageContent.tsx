@@ -40,34 +40,34 @@ export function MessageContent({ content, isStreaming = false, onStreamingComple
       <ReactMarkdown
         components={{
           // 自定义标题样式
-          h1: ({ children }) => <h1 className="text-xl font-bold mt-4 mb-2 text-gray-800">{children}</h1>,
-          h2: ({ children }) => <h2 className="text-lg font-bold mt-3 mb-2 text-gray-800">{children}</h2>,
-          h3: ({ children }) => <h3 className="text-base font-semibold mt-2 mb-1 text-gray-800">{children}</h3>,
-          // 段落样式
-          p: ({ children }) => <p className="my-1 leading-relaxed">{children}</p>,
+          h1: ({ children }) => <h1 className="text-lg font-bold mt-2 mb-1 text-gray-800">{children}</h1>,
+          h2: ({ children }) => <h2 className="text-base font-bold mt-1.5 mb-1 text-gray-800">{children}</h2>,
+          h3: ({ children }) => <h3 className="text-sm font-semibold mt-1 mb-0.5 text-gray-800">{children}</h3>,
+          // 段落样式 - 减小间距
+          p: ({ children }) => <p className="my-0.5 leading-normal">{children}</p>,
           // 粗体样式
           strong: ({ children }) => <strong className="font-semibold text-gray-800">{children}</strong>,
-          // 无序列表样式
-          ul: ({ children }) => <ul className="list-disc list-inside my-2 space-y-1">{children}</ul>,
-          // 有序列表样式
-          ol: ({ children }) => <ol className="list-decimal list-inside my-2 space-y-1">{children}</ol>,
+          // 无序列表样式 - 减小间距
+          ul: ({ children }) => <ul className="list-disc list-inside my-0.5 space-y-0">{children}</ul>,
+          // 有序列表样式 - 减小间距
+          ol: ({ children }) => <ol className="list-decimal list-inside my-0.5 space-y-0">{children}</ol>,
           // 列表项样式
-          li: ({ children }) => <li className="ml-2">{children}</li>,
+          li: ({ children }) => <li className="ml-1 leading-snug">{children}</li>,
           // 代码块样式
           code: ({ children, className }) => {
             const isInline = !className
             return isInline 
               ? <code className="bg-gray-100 px-1 py-0.5 rounded text-sm text-violet-600">{children}</code>
-              : <code className="block bg-gray-100 p-3 rounded-lg my-2 text-sm overflow-x-auto">{children}</code>
+              : <code className="block bg-gray-100 p-2 rounded-lg my-1 text-sm overflow-x-auto">{children}</code>
           },
           // 引用块样式
           blockquote: ({ children }) => (
-            <blockquote className="border-l-4 border-violet-300 pl-3 my-2 text-gray-600 italic">
+            <blockquote className="border-l-3 border-violet-300 pl-2 my-1 text-gray-600 italic">
               {children}
             </blockquote>
           ),
           // 分隔线样式
-          hr: () => <hr className="my-4 border-gray-200" />,
+          hr: () => <hr className="my-2 border-gray-200" />,
           // 链接样式
           a: ({ href, children }) => (
             <a href={href} className="text-violet-600 hover:text-violet-800 underline" target="_blank" rel="noopener noreferrer">
