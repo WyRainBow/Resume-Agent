@@ -201,13 +201,16 @@ export default function CVToolsTest() {
             toolResult = result
             console.log('[工具结果]', result)
 
+            // 使用 result.tool_name 判断工具类型（不依赖可能被覆盖的 toolCall）
+            const toolName = result.tool_name
+
             // 使用 ref 确保访问最新的 resumeData
             const dataCopy = JSON.parse(JSON.stringify(resumeDataRef.current))
 
             // 如果是 CVEditor 且成功，执行本地工具调用更新前端数据
-            if (toolCall?.name === 'CVEditor' && result.success) {
+            if (toolName === 'CVEditor' && result.success) {
               const backendToolCall = {
-                name: result.tool_name,
+                name: toolName,
                 params: result.tool_params
               }
               console.log('[简历更新] CVEditor 参数:', backendToolCall.params)
@@ -223,7 +226,7 @@ export default function CVToolsTest() {
             }
             
             // 如果是 CVBatchEditor 且成功，执行批量本地工具调用
-            if (toolCall?.name === 'CVBatchEditor' && result.success) {
+            if (toolName === 'CVBatchEditor' && result.success) {
               const operations = result.tool_params?.operations || []
               console.log('[简历更新] CVBatchEditor 批量操作:', operations)
               
@@ -250,7 +253,7 @@ export default function CVToolsTest() {
             const statusText = result.success ? '✅ 执行成功' : '❌ 执行失败'
             setMessages(prev => prev.map(msg =>
               msg.id === assistantMsgId
-                ? { ...msg, toolResult: result, content: `${toolCall?.name} ${statusText}` }
+                ? { ...msg, toolResult: result, content: `${toolName} ${statusText}` }
                 : msg
             ))
           },
