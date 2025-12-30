@@ -18,13 +18,8 @@ import {
   ChevronUp,
   Loader2,
   CheckCircle2,
-  Settings,
-  Eye,
-  EyeOff,
-  Briefcase,
   Building,
-  Calendar,
-  Code
+  Calendar
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -83,9 +78,15 @@ function MessageContent({ content }: MessageContentProps) {
         continue
       }
 
-      // 标题格式 (## xxx 或 **xxx:)
-      if (trimmed.startsWith('##') || (trimmed.startsWith('**') && trimmed.includes(':**'))) {
-        const titleText = trimmed.replace(/^##\s*/, '').replace(/\*\*:/g, '').replace(/\*\*/g, '')
+      // 标题格式 (## xxx 或 **xxx: 或 **xxx**)
+      if (trimmed.startsWith('##') || trimmed.startsWith('**')) {
+        // 清理所有 Markdown 符号获取标题文本
+        let titleText = trimmed
+          .replace(/^##\s*/, '')
+          .replace(/^\*\*\s*/, '')
+          .replace(/\*\*:?\s*$/, '')
+          .replace(/\*/g, '')
+          .replace(/：$/, '')
         result.push(
           <h4 key={`h4-${i}`} className="font-semibold text-gray-900 mt-4 mb-2">
             {titleText}
@@ -97,7 +98,11 @@ function MessageContent({ content }: MessageContentProps) {
 
       // 列表项格式 (1. xxx 或 - xxx 或 ·xxx)
       if (/^[\d\-\•\·]+\s/.test(trimmed)) {
-        const listItemText = trimmed.replace(/^[\d\-\•\·]+\s/, '').replace(/^\*\*\s*(.*?)\s*\*\*:?\s*/, '$1: ')
+        let listItemText = trimmed.replace(/^[\d\-\•\·]+\s/, '')
+        // 处理 **字段名：** 格式
+        listItemText = listItemText.replace(/^\*\*\s*(.*?)\s*\*\*\s*：?\s*/, '$1：')
+        // 清理残留的 * 符号
+        listItemText = listItemText.replace(/\*/g, '')
         result.push(
           <li key={`li-${i}`} className="ml-4 text-gray-600 leading-relaxed">
             {parseInline(listItemText)}
@@ -107,16 +112,17 @@ function MessageContent({ content }: MessageContentProps) {
         continue
       }
 
-      // 普通段落
+      // 普通段落 - 清理所有 Markdown 符号
+      const cleanedLine = line.replace(/\*/g, '')
       result.push(
         <p key={`p-${i}`} className="text-gray-600 leading-relaxed">
-          {parseInline(line)}
+          {parseInline(cleanedLine)}
         </p>
       )
       i++
     }
 
-    return result.length > 0 ? result : text
+    return result.length > 0 ? result : <p className="text-gray-600">{content.replace(/\*/g, '')}</p>
   }
 
   // 解析工作经历内容为卡片
@@ -150,17 +156,18 @@ function MessageContent({ content }: MessageContentProps) {
         continue
       }
 
-      // 检测项目描述等子项
-      if (trimmed.startsWith('-') || trimmed.startsWith('•') || /^\d+\./ .test(trimmed)) {
-        const itemText = trimmed.replace(/^[-•\d.]\s*/, '').replace(/^\*\*\s*(.*?)\s*\*\*:?\s*/, '$1: ')
+      // 检测项目描述等子项（支持多种格式）
+      if (trimmed.startsWith('-') || trimmed.startsWith('•') || trimmed.startsWith('·') || /^\d+\./ .test(trimmed)) {
+        const itemText = trimmed.replace(/^[-•·\d.]\s*/, '').replace(/^\*\*\s*(.*?)\s*\*\*:?\s*/, '$1: ')
         if (currentCard) {
           currentCard.items.push(itemText)
         }
         continue
       }
 
-      // 普通文本
-      if (trimmed && currentCard) {
+      // 普通文本（属于上一个工作经历）
+      if (trimmed && currentCard && trimmed.includes('：')) {
+        // 描述性文本，如 "项目描述：xxx"
         currentCard.items.push(trimmed)
       }
     }
@@ -173,8 +180,36 @@ function MessageContent({ content }: MessageContentProps) {
     return cards.length > 0 ? <div className="space-y-4">{cards}</div> : <p className="text-gray-600">{text}</p>
   }
 
+  // 检测是否是成功/完成消息
+  const isSuccessMessage = (text: string) => {
+    return text.includes('已成功') || text.includes('已完成') || text.includes('修改完成')
+  }
+
   // 渲染工作经历卡片
   const renderWorkCard = (card: { company?: string; position?: string; time?: string; items: string[] }) => {
+    // 分组和处理项目
+    const groups: { title?: string; items: string[] }[] = []
+    let currentGroup: { title?: string; items: string[] } = { items: [] }
+
+    for (const item of card.items) {
+      // 检测是否是分组标题（包含：且较短）
+      if (item.includes('：') && item.length < 30 && !item.includes('，')) {
+        if (currentGroup.items.length > 0) {
+          groups.push(currentGroup)
+        }
+        const titleParts = item.split('：')
+        currentGroup = {
+          title: titleParts[0].replace(/\*\*/g, '').trim(),
+          items: titleParts.length > 1 ? [titleParts[1].trim()] : []
+        }
+      } else {
+        currentGroup.items.push(item)
+      }
+    }
+    if (currentGroup.items.length > 0) {
+      groups.push(currentGroup)
+    }
+
     return (
       <div key={`${card.company}-${card.time}`} className="bg-gradient-to-br from-slate-50 to-gray-50 rounded-xl border border-gray-200 overflow-hidden">
         {/* 卡片头部 */}
@@ -186,17 +221,26 @@ function MessageContent({ content }: MessageContentProps) {
             <div className="font-semibold text-gray-900">{card.company}</div>
             <div className="text-sm text-gray-500">{card.position}</div>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-full">
+          <div className="flex items-center gap-1.5 text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
             <Calendar className="w-3 h-3" />
             {card.time}
           </div>
         </div>
         {/* 卡片内容 */}
-        <div className="p-4 space-y-2">
-          {card.items.map((item, idx) => (
-            <div key={idx} className="flex items-start gap-2 text-sm text-gray-600">
-              <div className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 shrink-0" />
-              <span className="leading-relaxed">{parseInline(item)}</span>
+        <div className="p-4 space-y-3">
+          {groups.map((group, gIdx) => (
+            <div key={gIdx}>
+              {group.title && (
+                <div className="text-sm font-medium text-gray-700 mb-2">{group.title}</div>
+              )}
+              <div className="space-y-1.5">
+                {group.items.map((item, idx) => (
+                  <div key={idx} className="flex items-start gap-2 text-sm text-gray-600">
+                    <div className="w-1 h-1 rounded-full bg-blue-400 mt-2 shrink-0" />
+                    <span className="leading-relaxed">{parseInline(item)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -206,28 +250,9 @@ function MessageContent({ content }: MessageContentProps) {
 
   // 解析行内格式 (加粗等)
   const parseInline = (text: string): React.ReactNode => {
-    // 处理 **加粗**
-    const parts: React.ReactNode[] = []
-    let lastIndex = 0
-    const boldRegex = /\*\*(.+?)\*\*/g
-    let match
-
-    while ((match = boldRegex.exec(text)) !== null) {
-      // 添加前面的普通文本
-      if (match.index > lastIndex) {
-        parts.push(text.slice(lastIndex, match.index))
-      }
-      // 添加加粗文本
-      parts.push(<strong key={`bold-${match.index}`} className="font-semibold text-gray-900">{match[1]}</strong>)
-      lastIndex = boldRegex.lastIndex
-    }
-
-    // 添加剩余的普通文本
-    if (lastIndex < text.length) {
-      parts.push(text.slice(lastIndex))
-    }
-
-    return parts.length > 0 ? parts : text
+    // 先清理所有 * 符号
+    const cleaned = text.replace(/\*/g, '')
+    return cleaned
   }
 
   return (
@@ -616,8 +641,10 @@ export default function AIConversation() {
                     // AI 消息样式
                     <div className="max-w-[90%] w-full">
                       {message.type === 'text' && (
-                        <div className="text-[15px] leading-relaxed">
-                          <MessageContent content={message.content as string} />
+                        <div className="bg-white rounded-2xl rounded-tl-sm px-5 py-4 shadow-sm border border-gray-100">
+                          <div className="text-[15px] leading-relaxed">
+                            <MessageContent content={message.content as string} />
+                          </div>
                         </div>
                       )}
 
