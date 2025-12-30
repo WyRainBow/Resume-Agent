@@ -7,15 +7,17 @@ import { useState, useEffect, useRef } from 'react'
 export function useTypewriter(
   targetContent: string,
   options: {
-    speed?: number  // 每帧显示的字符数（1-5），默认 3
+    speed?: number  // 每帧显示的字符数（1-5），默认 1
     enabled?: boolean  // 是否启用打字机效果，默认 true
     onComplete?: () => void  // 打字机效果完成时的回调
+    delay?: number  // 每帧之间的延迟（毫秒），默认 30ms
   } = {}
 ) {
-  const { speed = 3, enabled = true, onComplete } = options
+  const { speed = 1, enabled = true, onComplete, delay = 30 } = options
   const [displayedContent, setDisplayedContent] = useState('')
   const displayedLengthRef = useRef(0)
   const animationFrameRef = useRef<number | null>(null)
+  const timeoutRef = useRef<number | null>(null)
   const targetContentRef = useRef(targetContent)
   const onCompleteRef = useRef(onComplete)
   const hasCompletedRef = useRef(false)
@@ -57,7 +59,10 @@ export function useTypewriter(
           const charsToAdd = Math.min(speed, currentTarget.length - displayedLengthRef.current)
           displayedLengthRef.current += charsToAdd
           setDisplayedContent(currentTarget.slice(0, displayedLengthRef.current))
-          animationFrameRef.current = requestAnimationFrame(animate)
+          // 使用 setTimeout 添加延迟，让打字机效果更慢
+          timeoutRef.current = window.setTimeout(() => {
+            animationFrameRef.current = requestAnimationFrame(animate)
+          }, delay)
         } else {
           // 打字机效果完成
           if (!hasCompletedRef.current) {
@@ -77,8 +82,18 @@ export function useTypewriter(
       if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current)
       }
+      if (timeoutRef.current !== null) {
+        clearTimeout(timeoutRef.current)
+      }
     }
-  }, [targetContent, enabled, speed])
+
+    // 清理函数
+    return () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current)
+      }
+    }
+  }, [targetContent, enabled, speed, delay])
 
   return displayedContent
 }
