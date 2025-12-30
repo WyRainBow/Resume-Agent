@@ -20,15 +20,30 @@ import uuid
 class MessageType(str, Enum):
     """消息类型"""
     TEXT = "text"
-    THINKING = "thinking"       # 思考过程
-    TOOL_CALL = "tool_call"     # 工具调用参数
-    TOOL_START = "tool_start"   # 工具开始执行
-    TOOL_END = "tool_end"       # 工具执行结束
-    TOOL_RESULT = "tool_result" # 工具执行结果
-    CLARIFY = "clarify"         # 需要澄清/补充信息
-    CONTENT = "content"         # 最终回复内容
+    THINKING = "thinking"           # 思考过程
+    THINKING_START = "thinking_start"  # 思考开始（Span）
+    THINKING_CONTENT = "thinking_content"  # 思考内容
+    THINKING_END = "thinking_end"    # 思考结束（Span）
+    TOOL_CALL = "tool_call"         # 工具调用参数
+    TOOL_START = "tool_start"       # 工具开始执行
+    TOOL_END = "tool_end"           # 工具执行结束
+    TOOL_RESULT = "tool_result"     # 工具执行结果
+    CLARIFY = "clarify"             # 需要澄清/补充信息
+    CONTENT = "content"             # 最终回复内容
     ERROR = "error"
-    DONE = "done"               # 完成标记
+    DONE = "done"                   # 完成标记
+
+    # ReAct 相关消息类型
+    PROCEDURE_START = "procedure_start"  # 整个流程开始
+    PROCEDURE_END = "procedure_end"      # 整个流程结束
+    STEP_START = "step_start"            # 单步开始
+    STEP_END = "step_end"                # 单步结束
+    FINAL_ANSWER = "final_answer"        # 最终答案
+
+    # 消息通道（参考 sophia-pro）
+    PLAIN = "plain"                 # 纯文本消息
+    OUTPUT = "output"               # 输出文件消息
+    SYSTEM = "system"               # 系统控制消息
 
 
 @dataclass
@@ -335,6 +350,134 @@ class MessageBuilder:
             session_id=session_id
         )
     
+    # ============ ReAct 相关消息工厂方法 ============
+
+    @staticmethod
+    def procedure_start(
+        content: str = "开始处理",
+        session_id: str = "",
+        **metadata
+    ) -> AgentMessage:
+        """创建流程开始消息（Procedure Span Start）"""
+        return AgentMessage(
+            type=MessageType.PROCEDURE_START,
+            content=content,
+            session_id=session_id,
+            metadata=metadata
+        )
+
+    @staticmethod
+    def procedure_end(
+        content: str = "处理完成",
+        session_id: str = "",
+        error: Optional[str] = None,
+        **metadata
+    ) -> AgentMessage:
+        """创建流程结束消息（Procedure Span End）"""
+        msg = AgentMessage(
+            type=MessageType.PROCEDURE_END,
+            content=content,
+            session_id=session_id,
+            metadata=metadata
+        )
+        if error:
+            msg.metadata["error"] = error
+        return msg
+
+    @staticmethod
+    def step_start(
+        step_number: int = 1,
+        max_steps: int = 10,
+        session_id: str = "",
+        step_id: str = "",
+        **metadata
+    ) -> AgentMessage:
+        """创建步骤开始消息（Step Span Start）"""
+        return AgentMessage(
+            type=MessageType.STEP_START,
+            content=f"步骤 {step_number}/{max_steps}",
+            session_id=session_id,
+            metadata={
+                "step_number": step_number,
+                "max_steps": max_steps,
+                "step_id": step_id,
+                **metadata
+            }
+        )
+
+    @staticmethod
+    def step_end(
+        step_number: int = 1,
+        session_id: str = "",
+        step_id: str = "",
+        **metadata
+    ) -> AgentMessage:
+        """创建步骤结束消息（Step Span End）"""
+        return AgentMessage(
+            type=MessageType.STEP_END,
+            content=f"步骤 {step_number} 完成",
+            session_id=session_id,
+            metadata={
+                "step_number": step_number,
+                "step_id": step_id,
+                **metadata
+            }
+        )
+
+    @staticmethod
+    def thinking_start(
+        session_id: str = "",
+        **metadata
+    ) -> AgentMessage:
+        """创建思考开始消息（Thinking Span Start）"""
+        return AgentMessage(
+            type=MessageType.THINKING_START,
+            content="",
+            session_id=session_id,
+            metadata=metadata
+        )
+
+    @staticmethod
+    def thinking_content(
+        content: str,
+        session_id: str = "",
+        **metadata
+    ) -> AgentMessage:
+        """创建思考内容消息（Thinking Content）"""
+        return AgentMessage(
+            type=MessageType.THINKING_CONTENT,
+            content=content,
+            session_id=session_id,
+            metadata=metadata
+        )
+
+    @staticmethod
+    def thinking_end(
+        session_id: str = "",
+        **metadata
+    ) -> AgentMessage:
+        """创建思考结束消息（Thinking Span End）"""
+        return AgentMessage(
+            type=MessageType.THINKING_END,
+            content="",
+            session_id=session_id,
+            metadata=metadata
+        )
+
+    @staticmethod
+    def final_answer(
+        content: str,
+        session_id: str = "",
+        **metadata
+    ) -> AgentMessage:
+        """创建最终答案消息（Final Answer）"""
+        return AgentMessage(
+            type=MessageType.FINAL_ANSWER,
+            content=content,
+            session_id=session_id,
+            metadata=metadata
+        )
+
     # ============ 私有方法 ============
     
     @staticmethod

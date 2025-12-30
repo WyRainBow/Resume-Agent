@@ -30,6 +30,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., description="用户消息")
     session_id: Optional[str] = Field(None, description="会话 ID（可选，不传则创建新会话）")
     resume_data: Optional[Dict[str, Any]] = Field(None, description="当前简历数据")
+    capability: Optional[str] = Field(None, description="能力包名称: base|advanced|optimizer")
 
 
 class ChatResponse(BaseModel):
@@ -65,18 +66,21 @@ class SessionListResponse(BaseModel):
 async def chat(request: ChatRequest):
     """
     对话接口
-    
+
     支持多轮对话，通过 session_id 维护对话状态。
-    
+
+    新增：支持 Capability 能力包配置
+
     示例请求：
     ```json
     {
         "message": "添加工作经历，在腾讯做前端开发",
         "session_id": null,
-        "resume_data": {}
+        "resume_data": {},
+        "capability": "advanced"
     }
     ```
-    
+
     示例响应（需要补充信息）：
     ```json
     {
@@ -92,10 +96,11 @@ async def chat(request: ChatRequest):
     ```
     """
     try:
-        # 获取或创建 Agent
+        # 获取或创建 Agent（传递 capability 参数）
         session_id, agent = agent_manager.get_or_create(
             session_id=request.session_id,
-            resume_data=request.resume_data
+            resume_data=request.resume_data,
+            capability=request.capability
         )
         
         # 处理消息
@@ -125,26 +130,29 @@ async def chat(request: ChatRequest):
 async def chat_stream(request: ChatRequest):
     """
     流式对话接口
-    
+
     逐步返回：
     - thinking: 思考过程
     - tool_call: 工具调用
     - tool_result: 工具执行结果
     - content: 最终回复
     - done: 完成
-    
+
+    新增：支持 Capability 能力包配置
+
     使用 SSE (Server-Sent Events) 格式
     """
     import asyncio
     import queue
     import threading
-    
+
     async def event_generator():
         try:
-            # 获取或创建 Agent
+            # 获取或创建 Agent（传递 capability 参数）
             session_id, agent = agent_manager.get_or_create(
                 session_id=request.session_id,
-                resume_data=request.resume_data
+                resume_data=request.resume_data,
+                capability=request.capability
             )
             
             # 使用队列来传递事件（解决同步生成器阻塞异步事件循环的问题）
