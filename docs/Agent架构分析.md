@@ -1514,7 +1514,310 @@ print(explanation)
 
 ---
 
-## 十二、参考资料
+## 十三、基于最新代码的进一步优化建议
+
+### 13.1 HybridAgent 完善建议
+
+**现状分析**：
+- ✅ 已实现 TaskClassifier（任务分类器）
+- ✅ 已实现 HybridAgent（混合模式 Agent）
+- ✅ 已支持 Function Calling 和 ReAct 两种路径
+- 🔄 工具执行逻辑需要完善（标记为"待实现"）
+
+**优化方向**：
+
+#### 方案 A：完善工具执行逻辑
+
+**当前状态**：`_handle_tool_calls` 和 `_handle_tool_calls_stream` 标记为"待实现"
+
+**实现要点**：
+```python
+def _handle_tool_calls_stream(self, tool_calls, messages, user_message):
+    """流式处理工具调用"""
+    for tool_call in tool_calls:
+        func = tool_call["function"]
+        tool_name = func["name"]
+        tool_params = json.loads(func.get("arguments", "{}"))
+
+        # 发送工具开始
+        yield {
+            "type": "tool_start",
+            "tool_name": tool_name,
+            "params": tool_params
+        }
+
+        # 执行工具（使用现有的 ToolExecutor）
+        result = self.executor.execute_tool(tool_name, tool_params)
+
+        # 发送工具结果
+        yield {
+            "type": "tool_result",
+            "tool_name": tool_name,
+            "result": result
+        }
+```
+
+#### 方案 B：增强 TaskClassifier 精度
+
+**当前分类规则**：基于关键词和正则匹配
+
+**改进方向**：
+1. **增加语义分析**：使用 LLM 对模糊输入进行二次分类
+2. **学习用户习惯**：记录分类结果和用户反馈，动态调整
+3. **上下文感知**：根据对话历史调整分类（如连续多轮操作）
+
+**示例**：
+```python
+class AdvancedTaskClassifier(TaskClassifier):
+    """增强型任务分类器"""
+
+    @classmethod
+    def classify_with_llm(
+        cls,
+        user_message: str,
+        llm_call_fn: Callable
+    ) -> ClassificationResult:
+        """使用 LLM 进行辅助分类"""
+        # 当置信度 < 0.7 时，调用 LLM 进行二次判断
+        initial_result = cls.classify(user_message)
+
+        if initial_result.confidence < 0.7:
+            # LLM 判断
+            prompt = f"""
+            判断以下任务应该使用哪种模式：
+            任务：{user_message}
+
+            模式：
+            - function_calling: 简单操作（查看、修改、删除）
+            - react: 复杂操作（优化、分析、批量）
+
+            返回格式：function_calling 或 react
+            """
+            # 调用 LLM...
+
+        return initial_result
+```
+
+---
+
+### 13.2 与 CVAgent 的集成方案
+
+**现状**：
+- CVAgent 是当前主 Agent（已集成 Capability 系统）
+- HybridAgent 是新实现的混合架构
+- 两者独立存在，需要统一
+
+**方案 A：CVAgent 内嵌 TaskClassifier**
+
+**思路**：在 CVAgent 内部使用 TaskClassifier，复杂任务自动切换 ReAct
+
+**实现要点**：
+```python
+class CVAgent:
+    def process_message_stream(self, user_message: str):
+        # 1. 使用 TaskClassifier 分类
+        classification = TaskClassifier.classify(user_message)
+
+        # 2. 发送分类信息（前端展示）
+        yield {
+            "type": "mode_selected",
+            "mode": classification.mode.value,
+            "complexity": classification.complexity.value
+        }
+
+        # 3. 根据分类选择处理方式
+        if classification.mode == ExecutionMode.REACT:
+            # 切换到 ReAct 模式
+            yield from self._process_with_react(user_message)
+        else:
+            # 使用现有 Function Calling 逻辑
+            yield from self._call_llm_agent_stream(user_message)
+```
+
+**方案 B：AgentManager 路由**
+
+**思路**：在 AgentManager 层面根据任务类型选择 Agent
+
+**实现要点**：
+```python
+class AgentManager:
+    def get_or_create(self, session_id, capability, mode):
+        """获取或创建 Agent"""
+        # 检查是否需要 HybridAgent
+        if mode == "auto":
+            return create_hybrid_agent(...)
+
+        # 否则返回标准 CVAgent
+        return CVAgent(capability=capability)
+```
+
+---
+
+### 13.3 用户体验优化
+
+#### 方案 A：模式切换可视化
+
+**前端展示**：
+```
+┌─────────────────────────────────────────┐
+│ 📊 任务分析完成                         │
+│ ├─ 任务类型：复杂优化                   │
+│ ├─ 推荐模式：ReAct 推理模式             │
+│ ├─ 预计时间：5-10 秒                     │
+│ └─ [切换到快速模式] [继续]              │
+└─────────────────────────────────────────┘
+```
+
+#### 方案 B：渐进式展示（SophiaPro 风格）
+
+**ReAct 模式下的展示优化**：
+```
+┌─────────────────────────────────────────┐
+│ 📍 步骤 1/3：分析简历结构                │
+│                                          │
+│ 🤔 思考：                               │
+│   我需要先读取完整简历，分析当前状态    │
+│                                          │
+│ 💬 回复：                               │
+│   好的，让我先读取您的简历数据...        │
+│                                          │
+│ 🔧 执行中：                              │
+│   ━━━━━━━━━━━━━━━━━━━━━━━ 100%          │
+│   ✅ CVReader 执行完成 (45ms)            │
+└─────────────────────────────────────────┘
+```
+
+---
+
+### 13.4 性能优化建议
+
+#### 方案 A：智能缓存
+
+**缓存策略**：
+```python
+class ToolResultCache:
+    """工具结果缓存"""
+
+    def __init__(self):
+        self._cache = {}
+        self._ttl = 60  # 60秒过期
+
+    def get(self, tool_name: str, params: Dict) -> Optional[Any]:
+        key = f"{tool_name}:{hash(json.dumps(params, sort_keys=True))}"
+
+        if key in self._cache:
+            result, timestamp = self._cache[key]
+            if time.time() - timestamp < self._ttl:
+                return result
+
+        return None
+
+    def set(self, tool_name: str, params: Dict, result: Any):
+        key = f"{tool_name}:{hash(json.dumps(params, sort_keys=True))}"
+        self._cache[key] = (result, time.time())
+```
+
+**使用场景**：
+- CVReader 读取同一路径
+- 频繁查询的基本信息
+
+#### 方案 B：并行工具调用
+
+**场景**：用户同时请求多个独立操作
+
+```
+用户："查看我的姓名、电话和教育经历"
+
+传统方式：
+CVReader("basic.name") → CVReader("basic.phone") → CVReader("education")
+
+并行方式：
+parallel([
+    CVReader("basic.name"),
+    CVReader("basic.phone"),
+    CVReader("education")
+])
+```
+
+**实现要点**：
+```python
+import asyncio
+
+async def _parallel_tool_calls(self, tool_calls: List[Dict]):
+    """并行执行工具调用"""
+    tasks = []
+    for tool_call in tool_calls:
+        tasks.append(self._execute_tool_async(tool_call))
+
+    results = await asyncio.gather(*tasks)
+    return results
+```
+
+---
+
+### 13.5 监控与可观测性
+
+#### 方案 A：结构化日志
+
+**日志格式**：
+```json
+{
+  "timestamp": "2024-01-01T12:00:00Z",
+  "session_id": "abc123",
+  "event_type": "tool_call",
+  "tool_name": "CVEditor",
+  "params": {"path": "basic.name", "action": "update"},
+  "result": {"success": true},
+  "duration_ms": 45,
+  "mode": "function_calling",
+  "complexity": "simple"
+}
+```
+
+#### 方案 B：性能指标 Dashboard
+
+**监控指标**：
+- 模式选择分布（Function Calling vs ReAct）
+- 平均响应时间（分模式统计）
+- 工具调用成功率
+- Token 消耗统计
+
+**用途**：
+1. 优化 TaskClassifier 规则
+2. 识别性能瓶颈
+3. 成本优化
+
+---
+
+### 13.6 实施优先级（更新）
+
+| 优先级 | 优化项 | 难度 | 效果 | 依赖 |
+|--------|--------|------|------|------|
+| **高** | 完善 HybridAgent 工具执行 | 中 | 混合架构可用 | - |
+| **高** | TaskClassifier 精度提升 | 中 | 减少误分类 | - |
+| **中** | 模式切换可视化 | 低 | 用户体验提升 | 前端 |
+| **中** | 智能缓存 | 低 | 性能提升 | - |
+| **中** | 结构化日志 | 低 | 可观测性 | - |
+| **低** | 并行工具调用 | 中 | 复杂场景性能提升 | - |
+| **低** | 性能 Dashboard | 中 | 运维友好 | 前端+后端 |
+
+---
+
+### 13.7 与 SophiaPro 的对比总结
+
+| 特性 | SophiaPro | 本项目（现状） | 本项目（优化后） |
+|------|-----------|--------------|----------------|
+| **Agent 类型** | 统一 AmpliftAgent | CVAgent + HybridAgent | 统一 HybridAgent |
+| **执行模式** | ReAct 为主 | Function Calling 为主 | 自动切换 FC/ReAct |
+| **任务分类** | 隐式（Planning） | TaskClassifier | TaskClassifier + LLM |
+| **工具钩子** | pre/post hooks | LoggingToolHook | 完整钩子系统 |
+| **状态管理** | AgentState | AgentState | AgentState + 缓存 |
+| **消息协议** | CLTP (Span/Content) | 简单消息类型 | CLTP 标准化 |
+| **可观测性** | 完善 | 基础 | 结构化日志 + Dashboard |
+
+---
+
+## 十四、参考资料
 
 - **SophiaPro**: 内部参考架构项目
 - **UP简历**: https://upcv.tech/builder/cmjnzf6a33jnula2cw94ptbdz

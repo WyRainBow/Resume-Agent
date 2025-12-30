@@ -31,8 +31,8 @@ export default function CreateNew() {
   const navigate = useNavigate()
 
   const handleCreateNew = () => {
-    // 跳转到新的 AI 对话页面
-    navigate('/ai-conversation')
+    // 跳转到简历创建页面
+    navigate('/resume-creator')
   }
 
   const handleImportExisting = () => {

@@ -442,6 +442,7 @@ const PATH_MAPPING: Record<string, string> = {
   'workExperience': 'experience',  // 工作经历
   'projectExperience': 'projects', // 项目经历
   'skills': 'skillContent',  // 专业技能
+  'certificates': 'awards',  // 证书荣誉
 }
 
 /**

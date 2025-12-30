@@ -17,7 +17,8 @@ import { Header } from '../components'
 import EditPreviewLayout from '../EditPreviewLayout'
 import AIImportModal from '../shared/AIImportModal'
 import APISettingsDialog from '../shared/APISettingsDialog'
-import WorkspaceLayout from '@/pages/WorkspaceLayout'
+// WorkspaceLayout 暂时移除，直接渲染内容
+// import WorkspaceLayout from '@/pages/WorkspaceLayout'
 
 type EditMode = 'click' | 'scroll'
 
@@ -448,7 +449,7 @@ export default function HTMLWorkspace() {
   }
 
   return (
-    <WorkspaceLayout onSave={handleSaveToDashboard} onDownload={handleDownloadPDF}>
+    <>
       {/* 顶部导航栏 */}
       <Header
         saveSuccess={saveSuccess}
@@ -558,7 +559,7 @@ export default function HTMLWorkspace() {
           </div>
         </div>
       )}
-    </WorkspaceLayout>
+    </>
   )
 }
 
