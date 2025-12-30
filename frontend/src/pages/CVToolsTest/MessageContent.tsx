@@ -21,8 +21,8 @@ export function MessageContent({ content, isStreaming = false, onStreamingComple
   
   // 只在流式输出时启用打字机效果
   const displayedContent = useTypewriter(content, {
-    speed: 2,  // 每帧显示 2 个字符
-    delay: 50,  // 每帧之间延迟 50ms（约 40 字符/秒）
+    speed: 5,  // 每帧显示 5 个字符
+    delay: 50,  // 每帧之间延迟 50ms（约 100 字符/秒）
     enabled: localIsStreaming,
     onComplete: () => {
       // 打字机效果完成，通知父组件
