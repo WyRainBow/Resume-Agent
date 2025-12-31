@@ -290,7 +290,17 @@ class ResumeOptimizationAgent(CVAgent):
             "优化简历", "分析简历", "评估简历"
         ]
 
-        # 优化模块关键词
+        # 检查是否是"按照我的专业建议"选项
+        if "按照我的专业建议" in message or "从最重要的模块开始" in message:
+            # 自动选择最高优先级的模块（个人总结）
+            self._auto_selected_module = "summary"
+            return "optimize_module"
+
+        # 检查诊断意图
+        if any(word in message for word in diagnosis_keywords):
+            return "diagnose"
+
+        # 检查优化模块意图
         module_keywords = {
             "个人总结": "summary",
             "总结": "summary",
@@ -303,11 +313,6 @@ class ResumeOptimizationAgent(CVAgent):
             "技能": "skills"
         }
 
-        # 检查诊断意图
-        if any(word in message for word in diagnosis_keywords):
-            return "diagnose"
-
-        # 检查优化模块意图
         for keyword, module in module_keywords.items():
             if keyword in message:
                 # 直接返回模块名
@@ -327,21 +332,45 @@ class ResumeOptimizationAgent(CVAgent):
     def _extract_module_from_message(self, message: str) -> str:
         """从消息中提取模块名"""
 
+        # 先检查是否有自动选择的模块
+        if hasattr(self, '_auto_selected_module'):
+            module = self._auto_selected_module
+            delattr(self, '_auto_selected_module')
+            return module
+
         module_mapping = {
             "个人总结": "summary",
             "总结": "summary",
             "工作经历": "experience",
+            "工作/实习经历": "experience",
+            "实习经历": "experience",
             "实习": "experience",
             "项目经历": "projects",
             "项目": "projects",
             "教育经历": "education",
             "教育": "education",
-            "技能": "skills"
+            "技能": "skills",
+            "基本信息": "basic"
         }
 
+        # 先检查完整的关键词匹配
         for keyword, module in module_mapping.items():
             if keyword in message:
                 return module
+
+        # 特殊处理：处理"工作/实习经历：xxx"这种格式
+        if "工作/实习经历" in message or "工作经历" in message or "实习经历" in message:
+            return "experience"
+        if "个人总结" in message or "总结" in message:
+            return "summary"
+        if "项目经历" in message or "项目" in message:
+            return "projects"
+        if "教育经历" in message or "教育" in message:
+            return "education"
+        if "技能" in message:
+            return "skills"
+        if "基本信息" in message or "headline" in message:
+            return "basic"
 
         return "unknown"
 
