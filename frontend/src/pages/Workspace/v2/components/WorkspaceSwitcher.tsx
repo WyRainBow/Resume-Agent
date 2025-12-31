@@ -19,7 +19,7 @@ export function WorkspaceSwitcher({ currentMode = 'edit' }: WorkspaceSwitcherPro
 
   // 根据当前路径确定模式
   const getMode = (): WorkspaceMode => {
-    if (location.pathname === '/conversation') {
+    if (location.pathname === '/resume-chat' || location.pathname.startsWith('/resume-chat')) {
       return 'conversation'
     }
     return 'edit'
@@ -29,7 +29,7 @@ export function WorkspaceSwitcher({ currentMode = 'edit' }: WorkspaceSwitcherPro
 
   const handleModeChange = (newMode: WorkspaceMode) => {
     if (newMode === 'conversation') {
-      navigate('/conversation')
+      navigate('/resume-chat')
     } else {
       navigate('/workspace')
     }
