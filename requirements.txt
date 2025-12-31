@@ -10,4 +10,5 @@ openai>=1.50.0
 json-repair==0.25.2
 zhipuai==2.1.5.20250825
 sse-starlette==1.8.2
+langchain-core>=0.2.0
 
