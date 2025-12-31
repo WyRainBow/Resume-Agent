@@ -113,7 +113,7 @@ export default function LandingPage() {
             className="flex flex-col sm:flex-row items-center justify-center gap-6"
           >
             <button
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/create-new')}
               className="px-12 py-5 bg-indigo-600 text-white rounded-2xl font-black text-xl shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 hover:-translate-y-1 transition-all flex items-center gap-4 group"
             >
               启动 Agent
