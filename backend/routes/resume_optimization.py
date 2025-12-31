@@ -17,6 +17,7 @@ router = APIRouter(prefix="/api/resume-optimization", tags=["简历优化"])
 class DiagnoseRequest(BaseModel):
     """诊断请求"""
     resume_id: str
+    resume_data: Optional[Dict[str, Any]] = None  # 接收前端发送的简历数据
 
 
 class ChatRequest(BaseModel):
@@ -38,9 +39,8 @@ async def diagnose_resume(request: DiagnoseRequest):
         # 动态导入以避免循环依赖
         from backend.agents.diagnosis import ResumeDiagnosis, GuidanceEngine
 
-        # 1. 构造简历数据（暂时使用空字典，实际应从数据库/文件读取）
-        # TODO: 从实际数据源读取简历数据
-        resume_data = {
+        # 1. 使用前端发送的简历数据，如果没有则使用空字典
+        resume_data = request.resume_data if request.resume_data else {
             "basic": {},
             "summary": "",
             "experience": [],
@@ -48,6 +48,8 @@ async def diagnose_resume(request: DiagnoseRequest):
             "education": [],
             "skills": []
         }
+
+        logger.info(f"诊断简历 {request.resume_id}，数据字段: {list(resume_data.keys())}")
 
         # 2. 执行诊断
         diagnosis = ResumeDiagnosis()

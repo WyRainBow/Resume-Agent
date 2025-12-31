@@ -10,6 +10,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Sparkles } from 'lucide-react';
 import { DiagnosisReportCard } from '@/components/DiagnosisReportCard';
 import { GuidanceChoicesCard } from '@/components/GuidanceChoicesCard';
+import { ResumePreviewPanel } from '@/components/ResumePreviewPanel';
+import { LoadingSpinner, TypingIndicator } from '@/components/LoadingSpinner';
+import { getResume } from '@/services/resumeStorage';
 
 interface Message {
   type: 'text' | 'diagnosis_report' | 'guidance_choices' | 'followup' | 'error' | 'update_success';
@@ -24,15 +27,29 @@ export function ResumeOptimizationPage() {
   const navigate = useNavigate();
 
   const [messages, setMessages] = useState<Message[]>([]);
+  const [resumeData, setResumeData] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentModule, setCurrentModule] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 页面加载时自动触发诊断
+  // 页面加载时读取简历数据并触发诊断
   useEffect(() => {
+    loadResumeData();
     handleDiagnose();
   }, [resumeId]);
+
+  const loadResumeData = () => {
+    if (!resumeId) return;
+
+    const saved = getResume(resumeId);
+    if (saved && saved.data) {
+      setResumeData(saved.data);
+      console.log('简历数据已加载:', saved.data);
+    } else {
+      console.error('未找到简历数据:', resumeId);
+    }
+  };
 
   // 自动滚动到底部
   useEffect(() => {
@@ -43,10 +60,14 @@ export function ResumeOptimizationPage() {
     setIsProcessing(true);
 
     try {
+      // 发送真实的简历数据到后端
       const response = await fetch('/api/resume-optimization/diagnose', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resume_id: resumeId })
+        body: JSON.stringify({
+          resume_id: resumeId,
+          resume_data: resumeData  // 发送真实简历数据
+        })
       });
 
       if (!response.ok) {
@@ -200,6 +221,18 @@ export function ResumeOptimizationPage() {
     return null;
   };
 
+  const getModuleName = (module: string): string => {
+    const names: Record<string, string> = {
+      'summary': '个人总结',
+      'experience': '工作经历',
+      'projects': '项目经历',
+      'education': '教育经历',
+      'skills': '技能',
+      'basic': '基本信息'
+    };
+    return names[module] || module;
+  };
+
   return (
     <div className="flex h-screen bg-gray-50">
       {/* 主内容区域 */}
@@ -246,6 +279,13 @@ export function ResumeOptimizationPage() {
                   </div>
                 </div>
               ))}
+              {isProcessing && (
+                <div className="flex justify-start">
+                  <div className="bg-gray-100 rounded-lg p-3">
+                    <TypingIndicator />
+                  </div>
+                </div>
+              )}
               <div ref={messagesEndRef} />
             </div>
 
@@ -286,21 +326,17 @@ export function ResumeOptimizationPage() {
 
           {/* 右侧：简历预览（移动端隐藏） */}
           <div className="hidden md:block w-1/2 bg-gray-100 overflow-auto p-6">
-            <div className="bg-white rounded-lg shadow-sm p-6">
-              <h2 className="text-xl font-semibold mb-4">简历预览</h2>
-              <p className="text-gray-600">简历ID: {resumeId}</p>
-              {currentModule && (
-                <div className="mt-4 p-3 bg-purple-50 rounded-lg">
-                  <p className="text-sm text-purple-800">
-                    正在优化模块: <span className="font-semibold">{currentModule}</span>
-                  </p>
-                </div>
-              )}
-              {/* TODO: 集成实际的简历预览组件 */}
-              <div className="mt-6 text-gray-400 text-center">
-                简历预览功能开发中...
+            {currentModule && (
+              <div className="mb-3 p-2 bg-purple-50 rounded-lg">
+                <p className="text-sm text-purple-800">
+                  ⚡ 正在优化: <span className="font-semibold">{getModuleName(currentModule)}</span>
+                </p>
               </div>
-            </div>
+            )}
+            <ResumePreviewPanel
+              resumeData={resumeData}
+              highlightModule={currentModule}
+            />
           </div>
         </div>
       </div>
