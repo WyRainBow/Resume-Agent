@@ -7,36 +7,61 @@ Agents 模组
 - RAG 知识库: 基于 Milvus 的向量检索
 - STAR 法则: 渐进式追问引导
 - SessionManager: 会话管理
+
+注意：部分模块依赖 langchain_core，未安装时使用 mock 实现
 """
 
 # ========== 核心模块 ==========
 
-# 核心 Agent（新版，支持动态任务图）
-from .core_agent import (
-    CoreAgent,
-    AgentMode,
-    AgentResponse,
-    create_agent,
-    handle_message_stream,
-)
+# 核心 Agent（新版，支持动态任务图）- 懒加载
+try:
+    from .core_agent import (
+        CoreAgent,
+        AgentMode,
+        AgentResponse,
+        create_agent,
+        handle_message_stream,
+    )
+except ImportError:
+    CoreAgent = None
+    AgentMode = None
+    AgentResponse = None
+    create_agent = None
+    handle_message_stream = None
 
-# 动态任务 Agent
-from .dynamic_agent import (
-    LangChainResumeAgent,
-    TaskGraph,
-    TaskNode,
-    TaskNodeType,
-    create_dynamic_agent,
-)
+# 动态任务 Agent - 懒加载（依赖 langchain_core）
+try:
+    from .dynamic_agent import (
+        LangChainResumeAgent,
+        TaskGraph,
+        TaskNode,
+        TaskNodeType,
+        create_dynamic_agent,
+        LANGCHAIN_AVAILABLE,
+    )
+except ImportError:
+    LangChainResumeAgent = None
+    TaskGraph = None
+    TaskNode = None
+    TaskNodeType = None
+    create_dynamic_agent = None
+    LANGCHAIN_AVAILABLE = False
 
-# RAG 知识库
-from .knowledge_base import (
-    ResumeKnowledgeBase,
-    STARGuidancer,
-    SearchConfig,
-    get_knowledge_base,
-    get_star_guidancer,
-)
+# RAG 知识库 - 懒加载
+try:
+    from .knowledge_base import (
+        ResumeKnowledgeBase,
+        STARGuidancer,
+        SearchConfig,
+        get_knowledge_base,
+        get_star_guidancer,
+    )
+except ImportError:
+    ResumeKnowledgeBase = None
+    STARGuidancer = None
+    SearchConfig = None
+    get_knowledge_base = None
+    get_star_guidancer = None
 
 # 会话管理
 from .session_manager import (
@@ -93,6 +118,7 @@ __all__ = [
     "TaskNode",
     "TaskNodeType",
     "create_dynamic_agent",
+    "LANGCHAIN_AVAILABLE",
     # RAG 知识库
     "ResumeKnowledgeBase",
     "STARGuidancer",

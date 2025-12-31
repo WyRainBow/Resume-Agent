@@ -13,11 +13,20 @@ from typing import Dict, Any, Optional, List, AsyncGenerator, Callable
 from dataclasses import dataclass
 from enum import Enum
 
-# 导入动态任务 Agent
-from .dynamic_agent import LangChainResumeAgent, create_dynamic_agent
+# 导入动态任务 Agent（懒加载，可选依赖）
+try:
+    from .dynamic_agent import LangChainResumeAgent, create_dynamic_agent, LANGCHAIN_AVAILABLE
+except ImportError:
+    LangChainResumeAgent = None
+    create_dynamic_agent = None
+    LANGCHAIN_AVAILABLE = False
 
-# 导入知识库
-from .knowledge_base import get_knowledge_base, get_star_guidancer
+# 导入知识库（懒加载，可选依赖）
+try:
+    from .knowledge_base import get_knowledge_base, get_star_guidancer
+except ImportError:
+    get_knowledge_base = None
+    get_star_guidancer = None
 
 # LLM 调用
 import sys

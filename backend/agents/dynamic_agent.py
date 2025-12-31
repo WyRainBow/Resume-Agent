@@ -9,6 +9,8 @@
 2. RAG 知识库增强回复
 3. STAR 法则渐进式追问
 4. 多轮对话状态管理
+
+注意：此模块依赖 langchain_core，如果未安装会使用 mock 实现
 """
 import json
 import re
@@ -16,8 +18,29 @@ from typing import Dict, Any, Optional, List, Callable, Union, Tuple
 from dataclasses import dataclass, field
 from enum import Enum
 
-from langchain_core.tools import BaseTool, StructuredTool, Tool
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+# Langchain 依赖（可选）
+LANGCHAIN_AVAILABLE = False
+try:
+    from langchain_core.tools import BaseTool, StructuredTool, Tool
+    from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+    LANGCHAIN_AVAILABLE = True
+except ImportError:
+    # Mock classes for when langchain is not available
+    class BaseTool:
+        pass
+    class StructuredTool:
+        pass
+    class Tool:
+        pass
+    class AIMessage:
+        def __init__(self, content=""):
+            self.content = content
+    class HumanMessage:
+        def __init__(self, content=""):
+            self.content = content
+    class SystemMessage:
+        def __init__(self, content=""):
+            self.content = content
 
 # Pydantic 兼容处理
 try:

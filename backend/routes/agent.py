@@ -19,8 +19,12 @@ try:
     )
     from backend.agent import run_reflection_agent, quick_fix_resume, analyze_resume_screenshot, analyze_template
     from backend.agents.conversation_agent import conversation_handler
-    from backend.agents import create_agent, get_session_manager
-    # execute_tool 已移除，使用 ToolExecutor 类代替
+    from backend.agents import get_session_manager
+    # create_agent 是可选依赖
+    try:
+        from backend.agents import create_agent
+    except ImportError:
+        create_agent = None
 except ImportError:
     from models import (
         AgentReflectRequest, QuickFixRequest, VisionAnalyzeRequest,
@@ -29,8 +33,12 @@ except ImportError:
     )
     from agent import run_reflection_agent, quick_fix_resume, analyze_resume_screenshot, analyze_template
     from agents.conversation_agent import conversation_handler
-    from agents import create_agent, get_session_manager
-    # execute_tool 已移除，使用 ToolExecutor 类代替
+    from agents import get_session_manager
+    # create_agent 是可选依赖
+    try:
+        from agents import create_agent
+    except ImportError:
+        create_agent = None
 
 router = APIRouter(prefix="/api", tags=["Agent"])
 
