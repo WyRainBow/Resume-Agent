@@ -44,8 +44,17 @@ class GuidanceEngine:
         pass
 
     def generate_diagnosis_message(self, report: DiagnosisReport) -> str:
-        """生成诊断消息"""
-        return report.to_message()
+        """生成诊断消息（简洁版，只返回开场白）"""
+        # 根据诊断级别生成简短的开场白
+        # 详细内容通过前端 DiagnosisReportCard 组件展示
+        if report.diagnosis_level == "excellent":
+            return "太棒了！您的简历整体非常完善，还有一些小细节可以微调。"
+        elif report.diagnosis_level == "good":
+            return "您的简历整体不错，还有一些提升空间，我帮您找出了几个可以优化的地方。"
+        elif report.diagnosis_level == "needs_improvement":
+            return "您的简历需要一些优化，我帮您找出了几个关键问题，让我们一起完善它！"
+        else:
+            return "坦白说，这份简历还比较\"骨感\"，我们需要一起把它充实起来！"
 
     def generate_guidance_choices(self, report: DiagnosisReport) -> List[Dict]:
         """生成引导选项"""

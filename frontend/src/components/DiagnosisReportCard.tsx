@@ -75,12 +75,7 @@ export function DiagnosisReportCard({ data }: DiagnosisReportCardProps) {
         </div>
       </div>
 
-      {/* 总体评价 */}
-      {data.message && (
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-          <p className="text-gray-700 leading-relaxed">{data.message}</p>
-        </div>
-      )}
+      {/* 总体评价 - 由外层消息显示，此处移除避免重复 */}
 
       {/* 发现的主要问题 */}
       {data.priority_issues && data.priority_issues.length > 0 && (
