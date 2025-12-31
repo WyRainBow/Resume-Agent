@@ -9,33 +9,29 @@
  * - 打字机效果
  */
 
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import React from 'react'
+import { cn } from '@/lib/utils'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
+  Bot,
+  Check,
+  CheckCircle,
+  CheckCircle2,
+  ChevronDown,
+  FileText,
+  HelpCircle,
+  Lightbulb,
+  Loader2,
+  RefreshCw,
   Send,
-  History,
-  Plus,
   Sparkles,
   User,
-  CheckCircle,
-  XCircle,
-  ChevronDown,
-  Loader2,
-  HelpCircle,
-  CheckCircle2,
-  Check,
-  X,
-  Bot,
-  Lightbulb,
-  FileText,
-  RefreshCw
+  XCircle
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { HTMLTemplateRenderer } from '../Workspace/v2/HTMLTemplateRenderer'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { initialResumeData } from '../../data/initialResumeData'
-import { cvReader, cvEditor, executeToolCall, type ToolCall, type ToolResult } from '../../tools/cvTools'
-import { cvToolsChat, cvToolsChatStream, type ToolCallSpec } from '../../services/api'
+import { cvToolsChatStream } from '../../services/api'
+import { executeToolCall, type ToolCall, type ToolResult } from '../../tools/cvTools'
+import { HTMLTemplateRenderer } from '../Workspace/v2/HTMLTemplateRenderer'
 import type { ResumeData } from '../Workspace/v2/types'
 
 // ========== 打字机效果 Hook ==========
@@ -924,8 +920,10 @@ export default function Conversation() {
 
           {/* 预览内容 */}
           <div className="flex-1 overflow-y-auto p-6">
-            <div className="bg-card shadow-sm w-full max-w-[500px] rounded-lg overflow-hidden border border-border mx-auto">
-              <HTMLTemplateRenderer resumeData={resumeData} />
+            <div className="bg-card shadow-sm w-full max-w-[700px] rounded-lg border border-border mx-auto min-h-0">
+              <div className="w-full overflow-y-auto">
+                <HTMLTemplateRenderer resumeData={resumeData} />
+              </div>
             </div>
           </div>
         </div>

@@ -54,43 +54,43 @@ const TemplateMarket = () => {
   return (
     <WorkspaceLayout>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.3 }}
           className="flex-1 space-y-8 max-w-[1400px] mx-auto relative z-10 py-12 px-4 sm:px-8"
-        >
-          {/* 顶部标题栏 */}
-          <motion.div
+      >
+        {/* 顶部标题栏 */}
+        <motion.div
             className="flex items-center justify-between"
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.3 }}
-          >
-            <div className="flex items-center gap-4">
-              <motion.div
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="flex items-center gap-4">
+            <motion.div
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <Button
+                variant="outline"
+                onClick={() => navigate('/dashboard')}
+                className="flex items-center gap-2"
               >
-                <Button
-                  variant="outline"
-                  onClick={() => navigate('/dashboard')}
-                  className="flex items-center gap-2"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  返回
-                </Button>
-              </motion.div>
-              <div>
+                <ArrowLeft className="w-4 h-4" />
+                返回
+              </Button>
+            </motion.div>
+            <div>
                 <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400 bg-clip-text text-transparent">
                   简历模板市场
-                </h1>
+              </h1>
                 <p className="text-base text-gray-600 dark:text-gray-400 mt-2">
                   选择适合你的模板开始创建简历
-                </p>
-              </div>
+              </p>
             </div>
+          </div>
 
             {/* 视图切换按钮 */}
             <div className="flex items-center gap-2">
@@ -111,21 +111,21 @@ const TemplateMarket = () => {
                 简洁视图
               </Button>
             </div>
-          </motion.div>
+        </motion.div>
 
-          {/* 模板列表 */}
-          <motion.div
+        {/* 模板列表 */}
+        <motion.div
             className="w-full"
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-          >
-            {templates.length === 0 ? (
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+        >
+          {templates.length === 0 ? (
               <div className="text-center py-20">
                 <p className="text-gray-600 dark:text-gray-400 text-lg">
-                  暂无可用模板
-                </p>
-              </div>
+                暂无可用模板
+              </p>
+            </div>
             ) : viewMode === 'simple' ? (
               // 简洁视图：两个模板居中并排显示
               <div className="flex flex-col items-center gap-12">
@@ -242,19 +242,19 @@ const TemplateMarket = () => {
                     {templates
                       .filter(t => t.type === 'html')
                       .map((template) => (
-                    <TemplateCard
-                      key={template.id}
-                      template={template}
-                      onSelect={handleSelectTemplate}
-                    />
-                  ))}
+                <TemplateCard
+                  key={template.id}
+                  template={template}
+                  onSelect={handleSelectTemplate}
+                />
+              ))}
                   </div>
                 </div>
-              </div>
-            )}
-          </motion.div>
+            </div>
+          )}
         </motion.div>
-      </div>
+      </motion.div>
+    </div>
     </WorkspaceLayout>
   )
 }
