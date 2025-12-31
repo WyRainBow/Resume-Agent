@@ -1,35 +1,18 @@
 /**
- * ResumeCreator - 新手引导创建简历页面
- *
- * 目的：为初次使用用户提供简洁的简历创建引导流程
- * 特点：
- * - 身份选择卡片
- * - 渐进式信息收集
- * - 简洁的对话界面
- * - 右侧实时预览
+ * AI 对话创建简历页面
+ * 1:1 复刻指定 UI 样式
  */
-
-import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  User,
-  Bot,
-  GraduationCap,
-  Briefcase,
-  Award,
-  X,
-  ChevronRight,
-  Loader2,
-  Send,
-  Sparkles,
-  Wand2
+  List,
+  Trash2
 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { HTMLTemplateRenderer } from '../Workspace/v2/HTMLTemplateRenderer'
 import { initialResumeData } from '@/data/initialResumeData'
 import type { ResumeData } from '../Workspace/v2/types'
-import { cvToolsChatStream } from '@/services/api'
+import { EducationForm, type Education } from './components/EducationForm'
 
 // 消息类型
 interface Message {
@@ -37,492 +20,276 @@ interface Message {
   role: 'user' | 'assistant'
   content: string | React.ReactNode
   timestamp: number
-  type?: 'text' | 'card' | 'identity-selection'
+  type?: 'text' | 'card' | 'form-education' // 新增表单类型
 }
 
-// 身份选项
-const IDENTITY_OPTIONS = [
-  {
-    id: 'student',
-    icon: <GraduationCap className="w-5 h-5" />,
-    title: '在校学生',
-    description: '本科/研究生在读，主要突出教育背景和实习经历'
-  },
-  {
-    id: 'professional',
-    icon: <Briefcase className="w-5 h-5" />,
-    title: '职场人士',
-    description: '已工作，突出工作经验和专业技能'
-  },
-  {
-    id: 'graduate',
-    icon: <Award className="w-5 h-5" />,
-    title: '应届毕业生',
-    description: '刚毕业，平衡展示教育背景和实习经历'
-  }
-]
-
 export default function ResumeCreator() {
-  const navigate = useNavigate()
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // 状态
   const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  const [isStreaming, setIsStreaming] = useState(false)
-  const [streamingContent, setStreamingContent] = useState('')
+  const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [resumeData, setResumeData] = useState<ResumeData>(initialResumeData)
-  const [selectedIdentity, setSelectedIdentity] = useState<string | null>(null)
-  const [showPreview, setShowPreview] = useState(false)
 
-  // 会话 ID
-  const sessionId = `creator-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
-
-  // 自动滚动
+  // 初始化消息
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamingContent])
-
-  // 初始化欢迎消息
-  useEffect(() => {
-    const welcomeMsg: Message = {
-      id: 'welcome',
-      role: 'assistant',
-      content: '',
-      timestamp: Date.now(),
-      type: 'identity-selection'
+    // 初始用户消息
+    const initialUserMsg: Message = {
+      id: 'init-user',
+      role: 'user',
+      content: '你好 RA AI，帮我写一份求职简历',
+      timestamp: Date.now()
     }
-    setMessages([welcomeMsg])
+
+    // 初始 AI 消息（文本）
+    const initialAIMsgText: Message = {
+      id: 'init-ai-text',
+                role: 'assistant',
+      content: 'Hi！我是 RA 简历，很高兴与你相遇✨ 让我们一起打造属于你的精彩简历吧！首先，请告诉我你目前的身份，这样我就能为你提供最贴心的指导~',
+      timestamp: Date.now() + 100,
+                type: 'text'
+              }
+
+    // 初始 AI 消息（卡片）
+    const initialAIMsgCard: Message = {
+      id: 'init-ai-card',
+              role: 'assistant',
+      content: 'card-content', // 占位符，实际渲染在下方处理
+      timestamp: Date.now() + 200,
+      type: 'card'
+    }
+
+    setMessages([initialUserMsg, initialAIMsgText, initialAIMsgCard])
   }, [])
 
-  // 处理身份选择
-  const handleIdentitySelect = async (identity: string) => {
-    setSelectedIdentity(identity)
+  // 自动滚动到底部
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
-    const option = IDENTITY_OPTIONS.find(o => o.id === identity)
+  // 处理选项点击
+  const handleOptionClick = (option: string) => {
+    setSelectedOption(option)
+    
+    // 1. 添加用户回复
     const userMsg: Message = {
       id: `user-${Date.now()}`,
       role: 'user',
-      content: `我是${option?.title}`,
-      timestamp: Date.now()
-    }
-
-    setMessages(prev => [...prev, userMsg])
-    setShowPreview(true)
-
-    // 发送到后端
-    setIsLoading(true)
-    setIsStreaming(true)
-
-    try {
-      await cvToolsChatStream(
-        `我是${option?.title}，帮我创建一份简历`,
-        resumeData,
-        sessionId,
-        {
-          onThinking: () => {},
-          onToolStart: () => {},
-          onToolEnd: () => {},
-          onContentChunk: (chunk: string) => {
-            setStreamingContent(prev => prev + chunk)
-          },
-          onContent: (content: string, metadata) => {
-            setStreamingContent(content)
-            if (metadata.resume_modified && metadata.resume_data) {
-              setResumeData(metadata.resume_data)
-            }
-          },
-          onComplete: () => {
-            // 保存消息
-            setMessages(prev => {
-              const newMessages = [...prev]
-              // 移除临时的流式消息（如果有）
-              const filtered = newMessages.filter(m => m.id !== 'streaming')
-
-              // 添加最终回复
-              const aiMsg: Message = {
-                id: `ai-${Date.now()}`,
-                role: 'assistant',
-                content: streamingContent,
-                timestamp: Date.now(),
-                type: 'text'
-              }
-              return [...filtered, aiMsg]
-            })
-          },
-          onError: (error: string) => {
-            setMessages(prev => [...prev, {
-              id: `error-${Date.now()}`,
-              role: 'assistant',
-              content: `抱歉，出错了：${error}`,
-              timestamp: Date.now()
-            }])
-          }
-        }
-      )
-    } catch (error) {
-      setMessages(prev => [...prev, {
-        id: `error-${Date.now()}`,
-        role: 'assistant',
-        content: '网络请求失败，请重试',
-        timestamp: Date.now()
-      }])
-    } finally {
-      setIsLoading(false)
-      setIsStreaming(false)
-      setStreamingContent('')
-    }
-  }
-
-  // 发送消息
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return
-
-    const userMessage = input.trim()
-    setInput('')
-
-    // 添加用户消息
-    const userMsg: Message = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: userMessage,
+        content: `我的求职身份是${option}🎓`,
       timestamp: Date.now()
     }
     setMessages(prev => [...prev, userMsg])
 
-    // 发送到后端
+    // 2. 模拟 AI 思考和回复
     setIsLoading(true)
-    setIsStreaming(true)
-    setStreamingContent('')
-
-    try {
-      await cvToolsChatStream(
-        userMessage,
-        resumeData,
-        sessionId,
-        {
-          onThinking: () => {},
-          onToolStart: () => {},
-          onToolEnd: () => {},
-          onContentChunk: (chunk: string) => {
-            setStreamingContent(prev => prev + chunk)
-          },
-          onContent: (content: string, metadata) => {
-            setStreamingContent(content)
-            if (metadata.resume_modified && metadata.resume_data) {
-              setResumeData(metadata.resume_data)
-            }
-          },
-          onComplete: () => {
-            setMessages(prev => {
-              const newMessages = [...prev]
-              const filtered = newMessages.filter(m => m.id !== 'streaming')
-
-              const aiMsg: Message = {
-                id: `ai-${Date.now()}`,
+    setTimeout(() => {
+        // AI 鼓励语
+        const aiTextMsg: Message = {
+            id: `ai-edu-intro-${Date.now()}`,
                 role: 'assistant',
-                content: streamingContent,
+            content: '太棒了！✨ 现在让我们一起梳理你的教育背景。每一段求学经历都是你向上生长的证明，让我们把这些闪光点都记录下来吧！',
                 timestamp: Date.now(),
                 type: 'text'
               }
-              return [...filtered, aiMsg]
-            })
-          },
-          onError: (error: string) => {
-            setMessages(prev => [...prev, {
-              id: `error-${Date.now()}`,
+        
+        // AI 表单卡片
+        const aiFormMsg: Message = {
+            id: `ai-edu-form-${Date.now()}`,
               role: 'assistant',
-              content: `出错了：${error}`,
-              timestamp: Date.now()
-            }])
-          }
+            content: 'form-placeholder',
+            timestamp: Date.now() + 100,
+            type: 'form-education'
         }
-      )
-    } catch (error) {
-      setMessages(prev => [...prev, {
-        id: `error-${Date.now()}`,
-        role: 'assistant',
-        content: '请求失败，请重试',
-        timestamp: Date.now()
-      }])
-    } finally {
+
+        setMessages(prev => [...prev, aiTextMsg, aiFormMsg])
       setIsLoading(false)
-      setIsStreaming(false)
-      setStreamingContent('')
-    }
+    }, 800)
   }
 
-  // 跳转到完整编辑器
-  const goToWorkspace = () => {
-    navigate('/workspace/html')
+  // 处理教育经历更新
+  const handleEducationChange = (edu: Education) => {
+    // 实时更新简历数据
+    setResumeData(prev => ({
+      ...prev,
+      education: [edu] // 暂时只支持一条，或替换第一条
+    }))
+  }
+
+  // 处理教育经历提交
+  const handleEducationSubmit = () => {
+    // 可以在这里添加后续流程，比如进入工作经历
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col font-sans">
-      {/* 顶部导航 */}
-      <div className="h-14 bg-card border-b border-border flex items-center justify-between px-4 sticky top-0 z-50">
+    <div className="min-h-screen bg-[#F8F9FA] flex flex-col font-sans">
+      {/* 顶部导航栏 */}
+      <div className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 sticky top-0 z-50">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center cursor-pointer" onClick={() => navigate('/')}>
-            <span className="text-primary-foreground font-bold text-sm">RA</span>
+          {/* 新版 RA Logo */}
+          <div className="relative w-9 h-9">
+            <div className="absolute inset-0 bg-violet-600 rounded-xl flex items-center justify-center shadow-sm">
+              <span className="text-white font-black italic text-lg pr-0.5 transform -skew-x-6">RA</span>
           </div>
-          <div>
-            <h1 className="font-semibold text-foreground text-sm">创建新简历</h1>
+            <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white" />
           </div>
+          <span className="font-bold text-gray-900 text-lg tracking-tight">RA 智能简历</span>
         </div>
-        <div className="flex items-center gap-2">
+        
           <button
-            onClick={goToWorkspace}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded-md transition-colors"
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+          onClick={() => setMessages([])} 
           >
-            <span>跳过引导</span>
-            <ChevronRight className="w-3.5 h-3.5" />
+          <Trash2 className="w-4 h-4" />
+          清除历史记录
           </button>
-        </div>
       </div>
 
-      {/* 主内容 */}
+      {/* 主内容区 - 左右分屏布局 */}
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧对话区 */}
         <div className={cn(
-          "flex-1 flex flex-col transition-all duration-300",
-          showPreview ? "max-w-[50%]" : "max-w-2xl mx-auto w-full"
+          "flex-1 flex flex-col transition-all duration-500 ease-in-out",
+          selectedOption ? "max-w-[50%]" : "max-w-4xl mx-auto w-full"
         )}>
-          {/* 消息列表 */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <div className="max-w-xl mx-auto w-full space-y-4 pb-4">
-              <AnimatePresence mode="popLayout">
+          <div className="flex-1 overflow-y-auto p-6 scroll-smooth">
+            <div className="space-y-8 max-w-3xl mx-auto w-full">
                 {messages.map((message) => (
                   <motion.div
                     key={message.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className={`flex gap-3 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
+                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
-                    {/* 头像 */}
-                    <div className={cn(
-                      "w-8 h-8 rounded-full flex items-center justify-center shrink-0",
-                      message.role === 'user' ? "bg-primary/10" : "bg-muted"
-                    )}>
                       {message.role === 'user' ? (
-                        <User className="w-4 h-4 text-primary" />
-                      ) : (
-                        <Bot className="w-4 h-4 text-muted-foreground" />
-                      )}
+                    // 用户消息样式
+                    <div className="bg-violet-600 text-white px-6 py-3 rounded-2xl rounded-tr-sm max-w-[80%] shadow-md shadow-violet-200 text-[15px] leading-relaxed">
+                      {message.content as string}
                     </div>
-
-                    {/* 内容 */}
-                    {message.role === 'user' ? (
-                      <div className="bg-primary/10 text-foreground px-4 py-2 rounded-2xl rounded-tr-sm text-sm max-w-[80%]">
+                  ) : (
+                    // AI 消息样式
+                    <div className="max-w-[90%] w-full">
+                      {message.type === 'text' && (
+                        <div className="text-gray-600 text-[15px] leading-relaxed mb-4">
                         {message.content as string}
                       </div>
-                    ) : (
-                      <div className="flex-1 max-w-[90%]">
-                        {message.type === 'identity-selection' ? (
-                          /* 身份选择卡片 */
-                          <div className="bg-card rounded-xl border border-border p-5 shadow-sm">
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className="w-10 h-10 rounded-lg bg-primary flex items-center justify-center">
-                                <Wand2 className="w-5 h-5 text-primary-foreground" />
+                      )}
+
+                      {message.type === 'card' && (
+                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                          {/* 卡片头部 */}
+                          <div className="flex items-start gap-4 mb-6">
+                            <div className="w-10 h-10 rounded-full bg-violet-50 flex items-center justify-center shrink-0">
+                              <List className="w-5 h-5 text-violet-600" />
                               </div>
                               <div>
-                                <h3 className="font-semibold text-foreground">创建你的简历</h3>
-                                <p className="text-xs text-muted-foreground">选择你的身份，我会帮你快速创建</p>
-                              </div>
+                              <h3 className="text-lg font-bold text-gray-900 mb-1">让我们一起开始吧</h3>
+                              <p className="text-gray-500 text-sm">RA 简历想更好地了解你，为你量身定制最合适的简历方案</p>
                             </div>
-                            <div className="space-y-2">
-                              {IDENTITY_OPTIONS.map((option) => (
-                                <button
-                                  key={option.id}
-                                  onClick={() => !selectedIdentity && handleIdentitySelect(option.id)}
-                                  disabled={!!selectedIdentity}
+                          </div>
+
+                          {/* 选项列表 */}
+                          <div className="space-y-3 pl-14">
+                            {['学生', '职场人士'].map((option) => {
+                              const isSelected = selectedOption === option
+                              // 如果已经做出选择，禁用的选项变得不明显
+                              const isDimmed = selectedOption && !isSelected
+
+                              return (
+                                <motion.button
+                                  key={option}
+                                  layout
+                                  disabled={!!selectedOption}
+                                  whileHover={!selectedOption ? { scale: 1.01 } : {}}
+                                  whileTap={!selectedOption ? { scale: 0.99 } : {}}
+                                  onClick={() => handleOptionClick(option)}
                                   className={cn(
-                                    "w-full flex items-center gap-3 p-4 rounded-lg border text-left transition-all",
-                                    selectedIdentity === option.id
-                                      ? "bg-primary/10 border-primary"
-                                      : "bg-background border-border hover:border-primary/50",
-                                    selectedIdentity && selectedIdentity !== option.id && "opacity-50"
+                                    "w-full flex items-center gap-3 p-4 rounded-xl border transition-all duration-300 text-left relative overflow-hidden",
+                                    isSelected 
+                                      ? "bg-blue-50/80 border-blue-500 shadow-lg shadow-blue-500/10 z-10" 
+                                      : "bg-white border-gray-100",
+                                    !selectedOption && "hover:border-blue-500/50 hover:shadow-sm",
+                                    isDimmed && "opacity-50 grayscale"
                                   )}
                                 >
                                   <div className={cn(
-                                    "w-10 h-10 rounded-lg flex items-center justify-center shrink-0",
-                                    selectedIdentity === option.id
-                                      ? "bg-primary text-primary-foreground"
-                                      : "bg-muted text-muted-foreground"
+                                    "w-2.5 h-2.5 rounded-full transition-all duration-300",
+                                    isSelected 
+                                      ? "bg-blue-600 scale-110" 
+                                      : "bg-blue-200 group-hover:bg-blue-400"
+                                  )} />
+                                  <span className={cn(
+                                    "font-medium text-lg transition-colors duration-300",
+                                    isSelected 
+                                      ? "text-blue-900 font-bold" 
+                                      : "text-gray-700 group-hover:text-blue-600"
                                   )}>
-                                    {option.icon}
-                                  </div>
-                                  <div className="flex-1">
-                                    <div className={cn(
-                                      "text-sm font-medium",
-                                      selectedIdentity === option.id ? "text-foreground" : "text-muted-foreground"
-                                    )}>
-                                      {option.title}
-                                    </div>
-                                    <div className="text-xs text-muted-foreground mt-0.5">
-                                      {option.description}
-                                    </div>
-                                  </div>
-                                  {selectedIdentity === option.id && (
-                                    <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                                    {option}
+                                  </span>
+                                  
+                                  {isSelected && (
+                                    <motion.div
+                                      layoutId="highlight"
+                                      className="absolute inset-0 bg-blue-100/50 -z-10"
+                                      initial={{ opacity: 0 }}
+                                      animate={{ opacity: 1 }}
+                                      exit={{ opacity: 0 }}
+                                    />
                                   )}
-                                </button>
-                              ))}
-                            </div>
+                                </motion.button>
+                              )
+                            })}
                           </div>
-                        ) : (
-                          /* 普通文本消息 */
-                          <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-                            {message.content as string}
                           </div>
                         )}
+
+                      {message.type === 'form-education' && (
+                        <EducationForm 
+                          onChange={handleEducationChange}
+                          onSubmit={handleEducationSubmit}
+                        />
+                      )}
                       </div>
                     )}
                   </motion.div>
                 ))}
 
-                {/* 流式消息 */}
-                {isStreaming && streamingContent && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="flex gap-3"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                      <Bot className="w-4 h-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex-1 max-w-[90%]">
-                      <div className="text-sm text-foreground leading-relaxed">
-                        {streamingContent}
-                        <span className="inline-block w-1 h-4 bg-primary/60 ml-0.5 animate-pulse align-middle" />
+              {/* 加载指示器 */}
+              {isLoading && (
+                 <div className="flex justify-start">
+                   <div className="bg-gray-100 rounded-2xl px-4 py-3 flex gap-1 items-center">
+                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-75" />
+                     <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-150" />
                       </div>
                     </div>
-                  </motion.div>
-                )}
-
-                {/* 加载中 */}
-                {isLoading && !isStreaming && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    className="flex gap-3"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-                      <Bot className="w-4 h-4 text-muted-foreground" />
-                    </div>
-                    <div className="flex gap-1 items-center h-8 px-4 bg-muted/50 rounded-full">
-                      <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce" />
-                      <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce delay-75" />
-                      <span className="w-1.5 h-1.5 bg-muted-foreground/50 rounded-full animate-bounce delay-150" />
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              )}
 
               <div ref={messagesEndRef} />
             </div>
           </div>
-
-          {/* 输入框 */}
-          {selectedIdentity && (
-            <div className="border-t border-border bg-card p-4">
-              <div className="max-w-xl mx-auto">
-                <div className="flex items-end gap-2">
-                  <div className="flex-1 relative">
-                    <textarea
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                          e.preventDefault()
-                          handleSend()
-                        }
-                      }}
-                      placeholder="告诉我你想添加什么内容..."
-                      disabled={isLoading}
-                      rows={1}
-                      className={cn(
-                        "w-full resize-none text-sm py-3 px-4 pr-10",
-                        "rounded-xl border border-border bg-background",
-                        "focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary",
-                        "placeholder:text-muted-foreground/50",
-                        "disabled:opacity-50"
-                      )}
-                    />
-                    {input && (
-                      <button
-                        onClick={() => setInput('')}
-                        className="absolute right-3 bottom-3 h-5 w-5 rounded hover:bg-muted flex items-center justify-center"
-                      >
-                        <X className="h-3 w-3 text-muted-foreground" />
-                      </button>
-                    )}
-                  </div>
-                  <button
-                    onClick={handleSend}
-                    disabled={!input.trim() || isLoading}
-                    className={cn(
-                      "h-10 w-10 rounded-xl flex items-center justify-center transition-all",
-                      "disabled:opacity-40 disabled:cursor-not-allowed",
-                      input.trim() && !isLoading
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "bg-muted text-muted-foreground"
-                    )}
-                  >
-                    {isLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-                <div className="text-xs text-muted-foreground/50 text-center mt-2">
-                  Enter 发送 · Shift + Enter 换行
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* 右侧预览 */}
+        {/* 右侧预览区 - 使用 fixed 定位固定在视口右侧中间 */}
         <AnimatePresence>
-          {showPreview && (
+          {selectedOption && (
             <motion.div
               initial={{ x: '100%', opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: '100%', opacity: 0 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="w-[50%] bg-muted/30 border-l border-border flex flex-col"
+              className="fixed top-16 right-0 bottom-0 w-1/2 bg-slate-50 border-l border-gray-200 shadow-2xl z-30 flex flex-col"
             >
-              {/* 预览头部 */}
-              <div className="h-12 bg-card border-b border-border px-4 flex items-center justify-between shrink-0">
-                <span className="text-xs font-medium text-foreground">简历预览</span>
-                <button
-                  onClick={() => setShowPreview(false)}
-                  className="h-7 w-7 rounded hover:bg-muted flex items-center justify-center transition-colors"
-                >
-                  <X className="w-3.5 h-3.5 text-muted-foreground" />
-                </button>
+              {/* 顶部提示条 */}
+              <div className="h-10 bg-white border-b border-gray-200 px-4 flex items-center justify-center text-sm text-gray-500 shrink-0">
+                简历预览 · 实时更新
               </div>
 
-              {/* 预览内容 */}
-              <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
-                <div className="bg-card shadow-sm w-full max-w-[500px] rounded-lg overflow-hidden border border-border">
+              {/* 预览内容区 - 固定在中间 */}
+              <div className="flex-1 flex items-center justify-center p-4">
+                <div className="bg-white shadow-xl w-[700px] max-h-[calc(100vh-120px)] rounded-lg overflow-y-auto">
                   <HTMLTemplateRenderer resumeData={resumeData} />
                 </div>
-              </div>
-
-              {/* 底部操作 */}
-              <div className="p-4 bg-card border-t border-border shrink-0">
-                <button
-                  onClick={goToWorkspace}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>继续完善简历</span>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
               </div>
             </motion.div>
           )}
