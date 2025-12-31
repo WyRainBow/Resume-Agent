@@ -221,18 +221,6 @@ export function ResumeOptimizationPage() {
     return null;
   };
 
-  const getModuleName = (module: string): string => {
-    const names: Record<string, string> = {
-      'summary': '个人总结',
-      'experience': '工作经历',
-      'projects': '项目经历',
-      'education': '教育经历',
-      'skills': '技能',
-      'basic': '基本信息'
-    };
-    return names[module] || module;
-  };
-
   return (
     <div className="flex h-screen bg-gray-50">
       {/* 主内容区域 */}
@@ -325,14 +313,7 @@ export function ResumeOptimizationPage() {
           </div>
 
           {/* 右侧：简历预览（移动端隐藏） */}
-          <div className="hidden md:block w-1/2 bg-gray-100 overflow-auto p-6">
-            {currentModule && (
-              <div className="mb-3 p-2 bg-purple-50 rounded-lg">
-                <p className="text-sm text-purple-800">
-                  ⚡ 正在优化: <span className="font-semibold">{getModuleName(currentModule)}</span>
-                </p>
-              </div>
-            )}
+          <div className="hidden md:block w-1/2">
             <ResumePreviewPanel
               resumeData={resumeData}
               highlightModule={currentModule}
