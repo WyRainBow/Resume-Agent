@@ -37,10 +37,17 @@ async def diagnose_resume(request: DiagnoseRequest):
     try:
         # 动态导入以避免循环依赖
         from backend.agents.diagnosis import ResumeDiagnosis, GuidanceEngine
-        from backend.services.resume_service import get_resume_data
 
-        # 1. 读取简历数据
-        resume_data = await get_resume_data(request.resume_id)
+        # 1. 构造简历数据（暂时使用空字典，实际应从数据库/文件读取）
+        # TODO: 从实际数据源读取简历数据
+        resume_data = {
+            "basic": {},
+            "summary": "",
+            "experience": [],
+            "projects": [],
+            "education": [],
+            "skills": []
+        }
 
         # 2. 执行诊断
         diagnosis = ResumeDiagnosis()
@@ -115,10 +122,16 @@ async def get_module_guidance(resume_id: str, module: str):
     """
     try:
         from backend.agents.diagnosis import GuidanceEngine
-        from backend.services.resume_service import get_resume_data
 
-        # 读取简历数据
-        resume_data = await get_resume_data(resume_id)
+        # 构造简历数据
+        resume_data = {
+            "basic": {},
+            "summary": "",
+            "experience": [],
+            "projects": [],
+            "education": [],
+            "skills": []
+        }
 
         # 生成引导问题
         guidance = GuidanceEngine()
