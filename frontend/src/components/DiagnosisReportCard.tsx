@@ -52,6 +52,16 @@ export function DiagnosisReportCard({ data }: DiagnosisReportCardProps) {
     }
   };
 
+  const getDimensionName = (key: string) => {
+    const names: Record<string, string> = {
+      'completeness': '完整性',
+      'content_quality': '内容质量',
+      'structure': '结构格式',
+      'relevance': '匹配度'
+    };
+    return names[key] || key;
+  };
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-6 my-4 shadow-sm">
       {/* 标题 */}
@@ -124,8 +134,8 @@ export function DiagnosisReportCard({ data }: DiagnosisReportCardProps) {
             {Object.entries(data.dimensions).map(([key, dimension]: [string, any]) => (
               <div key={key} className="py-2">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-gray-700 capitalize">
-                    {dimension.dimension}
+                  <span className="text-sm font-medium text-gray-700">
+                    {getDimensionName(key)}
                   </span>
                   <span className="text-sm text-gray-500">
                     {Math.round(dimension.score * 100)}%

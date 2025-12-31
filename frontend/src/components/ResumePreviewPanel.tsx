@@ -31,14 +31,14 @@ export function ResumePreviewPanel({ resumeData, highlightModule }: ResumePrevie
 
   // 提取数据（兼容新旧格式）
   const basic = resumeData.basic || resumeData?.sections?.basic || {};
-  const summary = resumeData.summary || resumeData?.sections?.summary?.content || '';
-  const experience = resumeData.experience || resumeData?.sections?.experience?.items || [];
-  const projects = resumeData.projects || resumeData?.sections?.projects?.items || [];
-  const education = resumeData.education || resumeData?.sections?.education?.items || [];
-  const skills = resumeData.skills || resumeData?.sections?.skills || [];
+  const summary = resumeData.summary || resumeData?.sections?.summary?.content || resumeData?.sections?.summary || '';
+  const experience = resumeData.experience || resumeData?.sections?.experience?.items || resumeData?.sections?.experience || [];
+  const projects = resumeData.projects || resumeData?.sections?.projects?.items || resumeData?.sections?.projects || [];
+  const education = resumeData.education || resumeData?.sections?.education?.items || resumeData?.sections?.education || [];
+  const skills = resumeData.skills || resumeData?.sections?.skills?.items || resumeData?.sections?.skills || [];
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 h-full overflow-auto">
+    <div className="bg-white rounded-lg shadow-sm p-6 h-full overflow-y-auto">
       <div className="mb-4 pb-4 border-b">
         <h2 className="text-xl font-bold text-gray-900">
           {basic.name || '未命名简历'}
