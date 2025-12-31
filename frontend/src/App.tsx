@@ -7,9 +7,9 @@ import HTMLWorkspace from './pages/Workspace/v2/html'
 import ResumeDashboard from './pages/ResumeDashboard'
 import TemplateMarket from './pages/TemplateMarket'
 import CreateNew from './pages/CreateNew'
-import AIConversation from './pages/AIConversation'
 import ResumeCreator from './pages/ResumeCreator'
 import Conversation from './pages/CVToolsTest'
+import AIConversation from './pages/AIConversation'
 import SharePage from './pages/SharePage'
 import ErrorBoundary from './ErrorBoundary'
 
@@ -32,6 +32,7 @@ function App() {
             <Route path="/create-new" element={<CreateNew />} />
             {/* 简历对话路由 */}
             <Route path="/resume-chat" element={<Conversation />} /> {/* 修改简历 */}
+            <Route path="/ai-conversation" element={<AIConversation />} /> {/* AI对话创建简历 */}
             <Route path="/resume-creator" element={<ResumeCreator />} /> {/* 新手创建简历 */}
             <Route path="/share/:shareId" element={<SharePage />} />
           </Routes>
