@@ -141,6 +141,11 @@ async def startup_event():
             simple.DOUBAO_API_KEY = doubao_key
             backend_logger.info(f"[配置] 已从 .env 加载 DOUBAO_API_KEY: {doubao_key[:10]}...")
         
+        deepseek_key = os.getenv("DEEPSEEK_API_KEY", "")
+        if deepseek_key:
+            simple.DEEPSEEK_API_KEY = deepseek_key
+            backend_logger.info(f"[配置] 已从 .env 加载 DEEPSEEK_API_KEY: {deepseek_key[:10]}...")
+        
         simple.warmup_connection()
         backend_logger.info("[启动优化] HTTP 连接已预热")
     except Exception as e:
