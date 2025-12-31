@@ -2,7 +2,7 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardTitle, CardDescription, CardFooter } from './ui/card'
 import { Button } from './ui/button'
-import { FileText, Trash2 } from './Icons'
+import { FileText, Trash2, Sparkles } from './Icons'
 import { cn } from '@/lib/utils'
 import type { SavedResume } from '@/services/resumeStorage'
 
@@ -22,16 +22,18 @@ interface ResumeCardProps {
   resume: SavedResume
   onEdit: (id: string) => void
   onDelete: (id: string) => void
+  onOptimize?: (id: string) => void
   /** 是否被选中（用于批量删除） */
   isSelected?: boolean
   /** 选中状态变化回调 */
   onSelectChange?: (id: string, selected: boolean) => void
 }
 
-export const ResumeCard: React.FC<ResumeCardProps> = ({ 
-  resume, 
-  onEdit, 
+export const ResumeCard: React.FC<ResumeCardProps> = ({
+  resume,
+  onEdit,
   onDelete,
+  onOptimize,
   isSelected = false,
   onSelectChange
 }) => {
@@ -111,6 +113,19 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
           >
             编辑
           </Button>
+          {onOptimize && (
+            <Button
+              variant="ghost"
+              className="h-11 w-11 p-0 rounded-xl bg-slate-100/50 hover:bg-purple-100/50 dark:bg-slate-800/50 dark:hover:bg-purple-900/30 text-slate-400 hover:text-purple-600 dark:text-slate-500 dark:hover:text-purple-400 transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOptimize(resume.id);
+              }}
+              title="优化简历"
+            >
+              <Sparkles className="h-5 w-5" />
+            </Button>
+          )}
           <Button
             variant="ghost"
             className="h-11 w-11 p-0 rounded-xl bg-slate-100/50 hover:bg-red-100/50 dark:bg-slate-800/50 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-red-400 transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50"

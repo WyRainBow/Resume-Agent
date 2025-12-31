@@ -86,7 +86,7 @@ export const useDashboardLogic = () => {
 
   const editResume = (id: string) => {
     setCurrentResumeId(id)
-    
+
     // 🎯 优先从 ID 中推断模板类型（最可靠的方式）
     // ID 格式：resume_{templateType}_{timestamp}_{random}
     // 例如：resume_html_1766858166530_j234y46ds
@@ -105,13 +105,13 @@ export const useDashboardLogic = () => {
       }
       return
     }
-    
+
     // 回退：从简历数据中获取模板类型
     const saved = getResume(id)
     if (saved && saved.data) {
       const data = saved.data as any
       const templateType = data.templateType || 'latex' // 默认为 latex
-      
+
       // 根据模板类型跳转到对应的工作区
       if (templateType === 'html') {
         navigate(`/workspace/html/${id}`)
@@ -122,6 +122,11 @@ export const useDashboardLogic = () => {
       // 如果没有找到简历数据，默认跳转到 latex 工作区
       navigate(`/workspace/latex/${id}`)
     }
+  }
+
+  const optimizeResume = (id: string) => {
+    setCurrentResumeId(id)
+    navigate(`/resume/optimize/${id}`)
   }
 
   const importJson = async () => {
@@ -228,6 +233,7 @@ export const useDashboardLogic = () => {
     deleteResume,
     duplicateResume,
     editResume,
+    optimizeResume,
     importJson,
     // 批量删除相关
     selectedIds,
