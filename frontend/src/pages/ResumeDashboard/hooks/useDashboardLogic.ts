@@ -59,8 +59,8 @@ export const useDashboardLogic = () => {
   }, [])
 
   const createResume = () => {
-    // 直接跳转到模板市场，让用户选择模板
-    navigate('/templates')
+    // 跳转到创建选择页面
+    navigate('/create-new')
   };
 
   /** 删除单个简历 */

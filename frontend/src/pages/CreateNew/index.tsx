@@ -31,13 +31,13 @@ export default function CreateNew() {
   const navigate = useNavigate()
 
   const handleCreateNew = () => {
-    // 跳转到简历创建页面
+    // 跳转到 AI 对话创建简历页面
     navigate('/resume-creator')
   }
 
   const handleImportExisting = () => {
-    // 跳转到 workspace 直接编辑
-    navigate('/workspace')
+    // 跳转到模板市场
+    navigate('/templates')
   }
 
   return (
