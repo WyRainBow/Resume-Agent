@@ -8,9 +8,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ChevronLeft, Sparkles } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { ChatPanel } from '@/components/ChatPanel';
-import { ResumePreview } from '@/components/ResumePreview';
 import { DiagnosisReportCard } from '@/components/DiagnosisReportCard';
 import { GuidanceChoicesCard } from '@/components/GuidanceChoicesCard';
 
@@ -27,10 +24,8 @@ export function ResumeOptimizationPage() {
   const navigate = useNavigate();
 
   const [messages, setMessages] = useState<Message[]>([]);
-  const [resumeData, setResumeData] = useState<any>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [currentModule, setCurrentModule] = useState<string | null>(null);
-  const [sessionId] = useState<string>(`session_${resumeId}_${Date.now()}`);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -112,7 +107,7 @@ export function ResumeOptimizationPage() {
         body: JSON.stringify({
           resume_id: resumeId,
           message: message,
-          session_id: sessionId,
+          session_id: `session_${resumeId}_${Date.now()}`,
           stream: true
         })
       });
@@ -166,11 +161,6 @@ export function ResumeOptimizationPage() {
                 );
               });
 
-              // 如果更新成功，重新加载简历数据
-              if (data.type === 'update_success') {
-                await loadResumeData();
-              }
-
               // 更新当前模块
               if (data.path) {
                 const module = extractModuleFromPath(data.path);
@@ -201,18 +191,6 @@ export function ResumeOptimizationPage() {
     handleSendMessage(choice.text);
   };
 
-  const loadResumeData = async () => {
-    try {
-      const response = await fetch(`/api/resume/${resumeId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setResumeData(data.resume);
-      }
-    } catch (error) {
-      console.error('加载简历数据失败:', error);
-    }
-  };
-
   const extractModuleFromPath = (path: string): string | null => {
     if (path.includes('summary')) return 'summary';
     if (path.includes('experience')) return 'experience';
@@ -225,17 +203,16 @@ export function ResumeOptimizationPage() {
   return (
     <div className="flex h-screen bg-gray-50">
       {/* 主内容区域 */}
-      <div className="flex flex-1">
+      <div className="flex flex-col w-full">
         {/* 顶部导航栏 */}
         <div className="h-14 bg-white border-b flex items-center px-4">
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
+            className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
             onClick={() => navigate(-1)}
           >
             <ChevronLeft className="h-4 w-4 mr-1" />
             返回
-          </Button>
+          </button>
           <h1 className="ml-4 text-lg font-semibold flex items-center">
             <Sparkles className="h-5 w-5 mr-2 text-purple-600" />
             优化简历
@@ -243,36 +220,87 @@ export function ResumeOptimizationPage() {
         </div>
 
         {/* 左右分栏 */}
-        <div className="flex h-[calc(100vh-3.5rem)]">
-          {/* 左侧：对话区域 (40%) */}
-          <div className="w-2/5 border-r bg-white">
-            <ChatPanel
-              messages={messages}
-              onSendMessage={handleSendMessage}
-              isProcessing={isProcessing}
-              renderMessage={(message: Message) => {
-                if (message.type === 'diagnosis_report') {
-                  return <DiagnosisReportCard data={message} />;
-                }
-                if (message.type === 'guidance_choices') {
-                  return (
-                    <GuidanceChoicesCard
-                      choices={message.choices || []}
-                      onChoiceClick={handleChoiceClick}
-                    />
-                  );
-                }
-                return null;
-              }}
-            />
+        <div className="flex flex-1 overflow-hidden">
+          {/* 左侧：对话区域 */}
+          <div className="w-full md:w-1/2 border-r bg-white overflow-y-auto">
+            <div className="p-4 space-y-4">
+              {messages.map((message, index) => (
+                <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[80%] rounded-lg p-3 ${
+                    message.role === 'user'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 text-gray-900'
+                  }`}>
+                    {message.type === 'diagnosis_report' && (
+                      <DiagnosisReportCard data={message} />
+                    )}
+                    {message.type === 'guidance_choices' && (
+                      <GuidanceChoicesCard
+                        choices={message.choices || []}
+                        onChoiceClick={handleChoiceClick}
+                      />
+                    )}
+                    {message.type === 'text' && message.content && (
+                      <p className="whitespace-pre-wrap">{message.content}</p>
+                    )}
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* 输入框 */}
+            <div className="border-t p-4">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="告诉我您想优化哪个模块..."
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      const target = e.target as HTMLInputElement;
+                      if (target.value.trim()) {
+                        handleSendMessage(target.value);
+                        target.value = '';
+                      }
+                    }
+                  }}
+                  disabled={isProcessing}
+                />
+                <button
+                  className="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+                  onClick={() => {
+                    const input = document.querySelector('input') as HTMLInputElement;
+                    if (input?.value.trim()) {
+                      handleSendMessage(input.value);
+                      input.value = '';
+                    }
+                  }}
+                  disabled={isProcessing}
+                >
+                  发送
+                </button>
+              </div>
+            </div>
           </div>
 
-          {/* 右侧：简历预览 (60%) */}
-          <div className="w-3/5 bg-gray-100 overflow-auto">
-            <ResumePreview
-              resumeData={resumeData}
-              highlightModule={currentModule}
-            />
+          {/* 右侧：简历预览（移动端隐藏） */}
+          <div className="hidden md:block w-1/2 bg-gray-100 overflow-auto p-6">
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h2 className="text-xl font-semibold mb-4">简历预览</h2>
+              <p className="text-gray-600">简历ID: {resumeId}</p>
+              {currentModule && (
+                <div className="mt-4 p-3 bg-purple-50 rounded-lg">
+                  <p className="text-sm text-purple-800">
+                    正在优化模块: <span className="font-semibold">{currentModule}</span>
+                  </p>
+                </div>
+              )}
+              {/* TODO: 集成实际的简历预览组件 */}
+              <div className="mt-6 text-gray-400 text-center">
+                简历预览功能开发中...
+              </div>
+            </div>
           </div>
         </div>
       </div>
