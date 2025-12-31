@@ -2,22 +2,20 @@
  * 简历预览面板组件
  *
  * 实时显示简历内容，支持模块高亮
+ * 使用与 Workspace v2 相同的 HTMLTemplateRenderer
  */
 
 import React from 'react';
+import { HTMLTemplateRenderer } from '@/pages/Workspace/v2/HTMLTemplateRenderer';
+import type { ResumeData } from '@/pages/Workspace/v2/types';
 
 interface ResumePreviewPanelProps {
-  resumeData: any;
+  resumeData: ResumeData | any;
   highlightModule?: string | null;
 }
 
 export function ResumePreviewPanel({ resumeData, highlightModule }: ResumePreviewPanelProps) {
-  const getModuleHighlightClass = (module: string) => {
-    return highlightModule === module
-      ? 'bg-purple-100 border-l-4 border-purple-600 -ml-2 pl-4'
-      : '';
-  };
-
+  // 数据为空时的显示
   if (!resumeData) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-6 h-full flex items-center justify-center">
@@ -29,137 +27,178 @@ export function ResumePreviewPanel({ resumeData, highlightModule }: ResumePrevie
     );
   }
 
-  // 提取数据（兼容新旧格式）
-  const basic = resumeData.basic || resumeData?.sections?.basic || {};
-  const summary = resumeData.summary || resumeData?.sections?.summary?.content || resumeData?.sections?.summary || '';
-  const experience = resumeData.experience || resumeData?.sections?.experience?.items || resumeData?.sections?.experience || [];
-  const projects = resumeData.projects || resumeData?.sections?.projects?.items || resumeData?.sections?.projects || [];
-  const education = resumeData.education || resumeData?.sections?.education?.items || resumeData?.sections?.education || [];
-  const skills = resumeData.skills || resumeData?.sections?.skills?.items || resumeData?.sections?.skills || [];
+  // 将旧格式转换为新格式（兼容性处理）
+  const normalizedData: ResumeData = normalizeResumeData(resumeData);
 
   return (
-    <div className="bg-white rounded-lg shadow-sm p-6 h-full overflow-y-auto">
-      <div className="mb-4 pb-4 border-b">
-        <h2 className="text-xl font-bold text-gray-900">
-          {basic.name || '未命名简历'}
-        </h2>
-        {basic.headline && (
-          <p className="text-sm text-gray-600 mt-1">{basic.headline}</p>
-        )}
-        <div className="flex flex-wrap gap-4 mt-2 text-xs text-gray-500">
-          {basic.email && <span>📧 {basic.email}</span>}
-          {basic.phone && <span>📱 {basic.phone}</span>}
-          {basic.location && <span>📍 {basic.location}</span>}
-        </div>
+    <div className="h-full flex flex-col bg-slate-100/80">
+      {/* 顶部提示条 */}
+      <div className="h-10 bg-white border-b border-gray-200 px-4 flex items-center justify-center text-sm text-gray-500 shrink-0">
+        {highlightModule ? `正在优化: ${getModuleName(highlightModule)}` : '简历预览'}
       </div>
 
-      {/* 个人总结 */}
-      {summary && (
-        <div className={`mb-4 ${getModuleHighlightClass('summary')}`}>
-          <h3 className="font-semibold text-gray-900 mb-2">📝 个人总结</h3>
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{summary}</p>
+      {/* 预览内容区 */}
+      <div className="flex-1 overflow-auto p-4">
+        <div className="bg-white shadow-xl w-[700px] max-w-full mx-auto rounded-lg overflow-hidden">
+          <HTMLTemplateRenderer resumeData={normalizedData} />
         </div>
-      )}
-
-      {/* 工作经历 */}
-      {experience.length > 0 && (
-        <div className={`mb-4 ${getModuleHighlightClass('experience')}`}>
-          <h3 className="font-semibold text-gray-900 mb-2">💼 工作经历</h3>
-          <div className="space-y-3">
-            {experience.map((exp: any, index: number) => (
-              <div key={index} className="text-sm">
-                <div className="font-medium text-gray-900">
-                  {exp.company} - {exp.title}
-                </div>
-                <div className="text-xs text-gray-500 mb-1">
-                  {exp.startDate && exp.endDate
-                    ? `${exp.startDate} - ${exp.endDate}`
-                    : exp.startDate || exp.endDate}
-                </div>
-                {exp.summary && (
-                  <p className="text-gray-700 text-xs mt-1 whitespace-pre-wrap">
-                    {exp.summary}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 项目经历 */}
-      {projects.length > 0 && (
-        <div className={`mb-4 ${getModuleHighlightClass('projects')}`}>
-          <h3 className="font-semibold text-gray-900 mb-2">🚀 项目经历</h3>
-          <div className="space-y-3">
-            {projects.map((project: any, index: number) => (
-              <div key={index} className="text-sm">
-                <div className="font-medium text-gray-900">{project.name}</div>
-                {project.description && (
-                  <p className="text-gray-700 text-xs mt-1 whitespace-pre-wrap">
-                    {project.description}
-                  </p>
-                )}
-                {project.tech_stack && (
-                  <div className="text-xs text-gray-500 mt-1">
-                    技术: {Array.isArray(project.tech_stack)
-                      ? project.tech_stack.join(', ')
-                      : project.tech_stack}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 教育经历 */}
-      {education.length > 0 && (
-        <div className={`mb-4 ${getModuleHighlightClass('education')}`}>
-          <h3 className="font-semibold text-gray-900 mb-2">🎓 教育经历</h3>
-          <div className="space-y-3">
-            {education.map((edu: any, index: number) => (
-              <div key={index} className="text-sm">
-                <div className="font-medium text-gray-900">
-                  {edu.school} - {edu.degree}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {edu.major && `${edu.major} | `}
-                  {edu.startDate && edu.endDate
-                    ? `${edu.startDate} - ${edu.endDate}`
-                    : edu.startDate || edu.endDate}
-                </div>
-                {edu.gpa && <div className="text-xs text-gray-600 mt-1">GPA: {edu.gpa}</div>}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 技能 */}
-      {skills.length > 0 && (
-        <div className={`mb-4 ${getModuleHighlightClass('skills')}`}>
-          <h3 className="font-semibold text-gray-900 mb-2">⚡ 技能</h3>
-          <div className="flex flex-wrap gap-2">
-            {skills.map((skill: any, index: number) => (
-              <span
-                key={index}
-                className="px-2 py-1 bg-purple-50 text-purple-700 text-xs rounded"
-              >
-                {typeof skill === 'string' ? skill : skill.name || skill}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* 如果简历为空 */}
-      {!summary && experience.length === 0 && projects.length === 0 && education.length === 0 && (
-        <div className="text-center text-gray-400 py-8">
-          <p>简历内容为空</p>
-          <p className="text-sm mt-2">开始优化以填充内容</p>
-        </div>
-      )}
+      </div>
     </div>
   );
+}
+
+/**
+ * 将各种简历数据格式标准化为 ResumeData
+ */
+function normalizeResumeData(data: any): ResumeData {
+  // 如果已经是新格式，直接返回
+  if (data.id && data.basic && data.menuSections) {
+    return data as ResumeData;
+  }
+
+  // 旧格式转换为新格式
+  const oldData = data;
+
+  return {
+    id: oldData.id || 'resume_preview',
+    title: oldData.title || oldData.name || '未命名简历',
+    createdAt: oldData.createdAt || new Date().toISOString(),
+    updatedAt: oldData.updatedAt || new Date().toISOString(),
+    templateId: oldData.templateId || 'default',
+    templateType: oldData.templateType || 'html',
+
+    // 基本信息
+    basic: oldData.basic || {
+      name: oldData.name || '未命名',
+      title: oldData.headline || oldData.basic?.title || '求职者',
+      email: oldData.email || oldData.basic?.email || '',
+      phone: oldData.phone || oldData.basic?.phone || '',
+      location: oldData.location || oldData.basic?.location || '',
+      employementStatus: oldData.employementStatus || oldData.basic?.employementStatus || '',
+    },
+
+    // 教育经历
+    education: normalizeEducation(oldData.education || oldData.sections?.education?.items || oldData.sections?.education || []),
+
+    // 工作经历
+    experience: normalizeExperience(oldData.experience || oldData.sections?.experience?.items || oldData.sections?.experience || []),
+
+    // 项目经历
+    projects: normalizeProjects(oldData.projects || oldData.sections?.projects?.items || oldData.sections?.projects || []),
+
+    // 开源经历（默认空）
+    openSource: oldData.openSource || [],
+
+    // 荣誉奖项（默认空）
+    awards: oldData.awards || [],
+
+    // 自定义数据
+    customData: oldData.customData || {},
+
+    // 技能内容（HTML 格式）
+    skillContent: normalizeSkills(oldData.skills || oldData.sections?.skills?.items || oldData.sections?.skills || []),
+
+    // 其他必需字段
+    activeSection: oldData.activeSection || 'basic',
+    draggingProjectId: null,
+    menuSections: oldData.menuSections || getDefaultMenuSections(),
+    globalSettings: oldData.globalSettings || {},
+  };
+}
+
+/**
+ * 标准化教育经历数据
+ */
+function normalizeEducation(data: any[]): any[] {
+  if (!Array.isArray(data)) return [];
+
+  return data.map((item, index) => ({
+    id: item.id || `edu_${index}`,
+    school: item.school || '',
+    major: item.major || '',
+    degree: item.degree || '',
+    startDate: item.startDate || '',
+    endDate: item.endDate || '',
+    gpa: item.gpa || '',
+    description: item.summary || item.description || '',
+    visible: item.visible !== false,
+  }));
+}
+
+/**
+ * 标准化工作经历数据
+ */
+function normalizeExperience(data: any[]): any[] {
+  if (!Array.isArray(data)) return [];
+
+  return data.map((item, index) => ({
+    id: item.id || `exp_${index}`,
+    company: item.company || '',
+    position: item.position || item.title || '',
+    date: `${item.startDate || ''} ~ ${item.endDate || ''}`,
+    details: item.summary || item.details || item.description || '',
+    visible: item.visible !== false,
+  }));
+}
+
+/**
+ * 标准化项目经历数据
+ */
+function normalizeProjects(data: any[]): any[] {
+  if (!Array.isArray(data)) return [];
+
+  return data.map((item, index) => ({
+    id: item.id || `proj_${index}`,
+    name: item.name || '',
+    role: item.role || '项目成员',
+    date: item.date || item.startDate || '',
+    description: item.description || item.summary || '',
+    visible: item.visible !== false,
+    link: item.link || item.repo || '',
+  }));
+}
+
+/**
+ * 标准化技能数据为 HTML 格式
+ */
+function normalizeSkills(data: any): string {
+  if (typeof data === 'string') return data;
+
+  if (Array.isArray(data)) {
+    // 如果是对象数组，提取名称
+    const skills = data.map(s => typeof s === 'string' ? s : s.name || s).join('、');
+    return `<p>${skills}</p>`;
+  }
+
+  return '';
+}
+
+/**
+ * 获取默认模块配置
+ */
+function getDefaultMenuSections() {
+  return [
+    { id: 'basic', title: '基本信息', icon: '👤', enabled: true, order: 0 },
+    { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 1 },
+    { id: 'experience', title: '工作经历', icon: '💼', enabled: true, order: 2 },
+    { id: 'projects', title: '项目经历', icon: '🚀', enabled: true, order: 3 },
+    { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 4 },
+  ];
+}
+
+/**
+ * 获取模块中文名称
+ */
+function getModuleName(module: string): string {
+  const names: Record<string, string> = {
+    'summary': '个人总结',
+    'experience': '工作经历',
+    'projects': '项目经历',
+    'education': '教育经历',
+    'skills': '技能',
+    'basic': '基本信息',
+    'openSource': '开源经历',
+    'awards': '荣誉奖项',
+  };
+  return names[module] || module;
 }
