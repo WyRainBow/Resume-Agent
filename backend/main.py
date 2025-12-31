@@ -82,6 +82,7 @@ agent_router = routes_module.agent_router
 pdf_router = routes_module.pdf_router
 share_router = routes_module.share_router
 cv_agent_router = routes_module.cv_agent_router
+resume_optimization_router = routes_module.resume_optimization_router
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="Resume Agent API")
@@ -103,6 +104,7 @@ app.include_router(agent_router)
 app.include_router(pdf_router)
 app.include_router(share_router)
 app.include_router(cv_agent_router)  # 新版 Agent API
+app.include_router(resume_optimization_router)  # 简历优化 API
 
 
 # 启动时预热 HTTP 连接并配置日志
