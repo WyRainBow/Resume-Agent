@@ -15,6 +15,7 @@ const ResumeDashboard = () => {
     createResume,
     deleteResume,
     editResume,
+    optimizeResume,
     importJson,
     // 批量删除相关
     selectedIds,
@@ -121,6 +122,7 @@ const ResumeDashboard = () => {
                     resume={resume}
                     onEdit={editResume}
                     onDelete={deleteResume}
+                    onOptimize={optimizeResume}
                     // 传入选中状态和回调
                     isSelected={selectedIds.has(resume.id)}
                     onSelectChange={toggleSelect}

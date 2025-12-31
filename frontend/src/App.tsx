@@ -12,6 +12,7 @@ import Conversation from './pages/CVToolsTest'
 import AIConversation from './pages/AIConversation'
 import SharePage from './pages/SharePage'
 import ErrorBoundary from './ErrorBoundary'
+import { ResumeOptimizationPage } from './pages/ResumeOptimizationPage'
 
 function App() {
   try {
@@ -34,6 +35,7 @@ function App() {
             <Route path="/resume-chat" element={<Conversation />} /> {/* 修改简历 */}
             <Route path="/ai-conversation" element={<AIConversation />} /> {/* AI对话创建简历 */}
             <Route path="/resume-creator" element={<ResumeCreator />} /> {/* 新手创建简历 */}
+            <Route path="/resume/optimize/:resumeId" element={<ResumeOptimizationPage />} /> {/* 优化简历 */}
             <Route path="/share/:shareId" element={<SharePage />} />
           </Routes>
         </BrowserRouter>
