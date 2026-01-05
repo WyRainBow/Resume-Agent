@@ -23,8 +23,8 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
   // 根据路径确定当前工作区
   const getCurrentWorkspace = (): WorkspaceType => {
-    // 检测是否是 AI 对话页面
-    if (location.pathname === '/resume-chat' || location.pathname === '/resume-creator' || location.pathname.startsWith('/resume-chat')) {
+    // 检测是否是简历创建页面（保留 resume-creator）
+    if (location.pathname === '/resume-creator') {
       return 'conversation'
     }
     if (location.pathname === '/dashboard') {
@@ -44,7 +44,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
   const handleWorkspaceChange = (workspace: WorkspaceType) => {
     if (workspace === 'conversation') {
-      navigate('/resume-chat')
+      navigate('/resume-creator')  // 改为导航到 resume-creator
     } else if (workspace === 'dashboard') {
       navigate('/dashboard')
     } else if (workspace === 'templates') {

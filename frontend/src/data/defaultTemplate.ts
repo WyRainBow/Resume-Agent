@@ -100,7 +100,7 @@ export const DEFAULT_RESUME_TEMPLATE: ResumeData = {
   ],
   awards: [],
   customData: {},
-  skillContent: "<p></p><ul class=\"custom-list\"><li><p><strong>后端</strong>：熟悉 Java 编程语言、Golang 编程语言等原理</p></li><li><p><strong>数据库</strong>：熟悉 MySQL、MongoDB、ES 等主流数据库原理。有优秀的 SQL 调优经验</p></li><li><p><strong>缓存</strong>：熟悉 Redis 底层数据结构、分布式锁等机制。熟悉缓存击穿、穿透、雪崩概念</p></li><li><p><strong>计算机网络</strong>：熟悉 TCP、UDP、HTTP、HTTPS 等网络协议。掌握 TCP 三次握手、四次挥手等机制</p></li><li><p><strong>操作系统</strong>：熟悉进程、线程、虚拟内存、I/O 多路复用等。掌握进程间通信和多线程同步技术</p></li><li><p><strong>AI</strong>：了解 AI Agent、RAG、FunctionCall、LLM Prompt 提示词工程</p></li></ul><p></p>",
+  skillContent: "<p></p><ul class=\"custom-list\"><li><p><strong>后端</strong>：熟悉 Java 编程语言、Golang 编程语言等原理</p></li><li><p><strong>数据库</strong>：熟悉 MySQL、MongoDB、ES 等主流数据库原理。有优秀的 SQL 调优经验</p></li><li><p><strong>缓存</strong>：熟悉 Redis 底层数据结构、分布式锁等机制。熟悉缓存击穿、穿透、雪崩概念</p></li><li><p><strong>计算机网络</strong>：熟悉 TCP、UDP、HTTP、HTTPS 等网络协议。掌握 TCP 三次握手、四次挥手等机制</p></li><li><p><strong>操作系统</strong>：熟悉进程、线程、虚拟内存、I/O 多路复用等。掌握进程间通信和多线程同步技术</p></li><li><p><strong>AI</strong>：了解 RAG、FunctionCall、LLM Prompt 提示词工程</p></li></ul><p></p>",
   activeSection: "basic",
   draggingProjectId: null,
   menuSections: [

@@ -8,11 +8,8 @@ import ResumeDashboard from './pages/ResumeDashboard'
 import TemplateMarket from './pages/TemplateMarket'
 import CreateNew from './pages/CreateNew'
 import ResumeCreator from './pages/ResumeCreator'
-import Conversation from './pages/CVToolsTest'
-import AIConversation from './pages/AIConversation'
 import SharePage from './pages/SharePage'
 import ErrorBoundary from './ErrorBoundary'
-import { ResumeOptimizationPage } from './pages/ResumeOptimizationPage'
 
 function App() {
   try {
@@ -31,11 +28,8 @@ function App() {
             <Route path="/dashboard" element={<ResumeDashboard />} />
             <Route path="/templates" element={<TemplateMarket />} />
             <Route path="/create-new" element={<CreateNew />} />
-            {/* 简历对话路由 */}
-            <Route path="/resume-chat" element={<Conversation />} /> {/* 修改简历 */}
-            <Route path="/ai-conversation" element={<AIConversation />} /> {/* AI对话创建简历 */}
+            {/* 简历创建路由 */}
             <Route path="/resume-creator" element={<ResumeCreator />} /> {/* 新手创建简历 */}
-            <Route path="/resume/optimize/:resumeId" element={<ResumeOptimizationPage />} /> {/* 优化简历 */}
             <Route path="/share/:shareId" element={<SharePage />} />
           </Routes>
         </BrowserRouter>

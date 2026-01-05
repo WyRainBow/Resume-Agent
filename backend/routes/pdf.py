@@ -64,27 +64,6 @@ async def render_pdf_stream(body: RenderPDFRequest):
     """
     流式渲染PDF，提供实时进度反馈
     """
-    # #region agent log
-    import json as _json
-    import time as _time
-    from pathlib import Path as _Path
-    try:
-        _dbg_path = _Path("/Users/wy770/AI 简历/.cursor/debug.log")
-        _dbg_payload = {
-            "sessionId": "debug-session",
-            "runId": "pdf-stream",
-            "hypothesisId": "H-enter",
-            "location": "routes/pdf.py:render_pdf_stream",
-            "message": "enter render_pdf_stream",
-            "data": {"has_resume": bool(body.resume), "section_order": body.section_order},
-            "timestamp": _time.time(),
-        }
-        with open(_dbg_path, "a", encoding="utf-8") as _f:
-            _f.write(_json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-    except Exception:
-        pass
-    # #endregion agent log
-
     async def generate_pdf():
         resume_data = body.resume
 
@@ -99,22 +78,6 @@ async def render_pdf_stream(body: RenderPDFRequest):
                 from latex_generator import json_to_latex, compile_latex_to_pdf
 
             latex_start = time.time()
-            # #region agent log
-            try:
-                _dbg_payload = {
-                    "sessionId": "debug-session",
-                    "runId": "pdf-stream",
-                    "hypothesisId": "H-latex",
-                    "location": "routes/pdf.py:render_pdf_stream",
-                    "message": "start latex generation",
-                    "data": {"section_order": body.section_order},
-                    "timestamp": _time.time(),
-                }
-                with open(_dbg_path, "a", encoding="utf-8") as _f:
-                    _f.write(_json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-            except Exception:
-                pass
-            # #endregion agent log
             yield dict(event="progress", data="正在生成LaTeX代码...")
 
             # 获取模板目录
@@ -126,64 +89,15 @@ async def render_pdf_stream(body: RenderPDFRequest):
             latex_content = json_to_latex(resume_data, body.section_order)
             latex_time = time.time() - latex_start
             yield dict(event="progress", data=f"LaTeX代码生成完成 ({latex_time:.1f}s)")
-            # #region agent log
-            try:
-                _dbg_payload = {
-                    "sessionId": "debug-session",
-                    "runId": "pdf-stream",
-                    "hypothesisId": "H-latex",
-                    "location": "routes/pdf.py:render_pdf_stream",
-                    "message": "latex done",
-                    "data": {"latex_time": latex_time, "latex_length": len(latex_content or "")},
-                    "timestamp": _time.time(),
-                }
-                with open(_dbg_path, "a", encoding="utf-8") as _f:
-                    _f.write(_json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-            except Exception:
-                pass
-            # #endregion agent log
 
             # 编译PDF
             compile_start = time.time()
-            # #region agent log
-            try:
-                _dbg_payload = {
-                    "sessionId": "debug-session",
-                    "runId": "pdf-stream",
-                    "hypothesisId": "H-compile",
-                    "location": "routes/pdf.py:render_pdf_stream",
-                    "message": "start compile",
-                    "data": {},
-                    "timestamp": _time.time(),
-                }
-                with open(_dbg_path, "a", encoding="utf-8") as _f:
-                    _f.write(_json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-            except Exception:
-                pass
-            # #endregion agent log
             yield dict(event="progress", data="正在编译PDF（可能需要几秒）...")
 
             try:
                 pdf_io = compile_latex_to_pdf(latex_content, template_dir)
                 compile_time = time.time() - compile_start
                 yield dict(event="progress", data=f"PDF编译完成 ({compile_time:.1f}s)")
-                # #region agent log
-                try:
-                    _pdf_len = len(pdf_io.getvalue())
-                    _dbg_payload = {
-                        "sessionId": "debug-session",
-                        "runId": "pdf-stream",
-                        "hypothesisId": "H-compile",
-                        "location": "routes/pdf.py:render_pdf_stream",
-                        "message": "compile done",
-                        "data": {"compile_time": compile_time, "pdf_bytes": _pdf_len},
-                        "timestamp": _time.time(),
-                    }
-                    with open(_dbg_path, "a", encoding="utf-8") as _f:
-                        _f.write(_json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-                except Exception:
-                    pass
-                # #endregion agent log
 
                 # 发送PDF
                 pdf_hex = pdf_io.getvalue().hex()
@@ -194,22 +108,6 @@ async def render_pdf_stream(body: RenderPDFRequest):
                 import traceback
                 error_msg = f"LaTeX编译错误: {str(e)}\n{traceback.format_exc()}"
                 print(f"[PDF错误] {error_msg}")
-                # #region agent log
-                try:
-                    _dbg_payload = {
-                        "sessionId": "debug-session",
-                        "runId": "pdf-stream",
-                        "hypothesisId": "H-error",
-                        "location": "routes/pdf.py:render_pdf_stream",
-                        "message": "compile error",
-                        "data": {"error": error_msg[:1000]},
-                        "timestamp": _time.time(),
-                    }
-                    with open(_dbg_path, "a", encoding="utf-8") as _f:
-                        _f.write(_json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-                except Exception:
-                    pass
-                # #endregion agent log
                 # 发送完整的错误信息（最多5000字符，避免过长）
                 error_data = str(e) if len(str(e)) <= 5000 else str(e)[:5000] + "...(错误信息过长，已截断)"
                 yield dict(event="error", data=error_data)
@@ -218,22 +116,6 @@ async def render_pdf_stream(body: RenderPDFRequest):
             import traceback
             error_msg = f"PDF生成失败: {str(e)}\n{traceback.format_exc()}"
             print(f"[PDF错误] {error_msg}")
-            # #region agent log
-            try:
-                _dbg_payload = {
-                    "sessionId": "debug-session",
-                    "runId": "pdf-stream",
-                    "hypothesisId": "H-error",
-                    "location": "routes/pdf.py:render_pdf_stream",
-                    "message": "fatal error",
-                    "data": {"error": error_msg[:1000]},
-                    "timestamp": _time.time(),
-                }
-                with open(_dbg_path, "a", encoding="utf-8") as _f:
-                    _f.write(_json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-            except Exception:
-                pass
-            # #endregion agent log
             # 发送完整的错误信息（最多5000字符）
             error_data = str(e) if len(str(e)) <= 5000 else str(e)[:5000] + "...(错误信息过长，已截断)"
             yield dict(event="error", data=error_data)

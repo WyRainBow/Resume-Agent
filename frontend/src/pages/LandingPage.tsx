@@ -50,13 +50,13 @@ export default function LandingPage() {
           <div className="flex items-center justify-center w-9 h-9 bg-blue-600 rounded-lg shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
             <span className="text-white font-black text-sm italic tracking-tighter">RA</span>
           </div>
-          <span className="text-2xl font-black tracking-tight text-slate-900">Resume Agent</span>
+          <span className="text-2xl font-black tracking-tight text-slate-900">Resume</span>
         </div>
 
           <div className="hidden md:flex items-center gap-10">
             <a href="#features" className="text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors">核心技术</a>
             <a href="#market" className="text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors">简历市场</a>
-            <a href="#ai" className="text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors">智能体引擎</a>
+            <a href="#ai" className="text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors">AI 引擎</a>
           </div>
 
           <motion.button
@@ -102,7 +102,7 @@ export default function LandingPage() {
             transition={{ delay: 0.1 }}
             className="text-xl md:text-2xl text-slate-500 font-medium mb-14 max-w-3xl mx-auto leading-relaxed"
           >
-            Resume-Agent 是一款为开发者打造的简历智能体。
+            Resume 是一款为开发者打造的简历工具。
             <br />
             通过 <span className="text-slate-800 font-bold">一句话指令</span> 触发：实时流式生成具有 <span className="text-slate-800 font-bold">LaTeX 像素级精度</span> 的专业简历。
           </motion.p>
@@ -116,7 +116,7 @@ export default function LandingPage() {
               onClick={() => navigate('/create-new')}
               className="px-12 py-5 bg-indigo-600 text-white rounded-2xl font-black text-xl shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 hover:-translate-y-1 transition-all flex items-center gap-4 group"
             >
-              启动 Agent
+              开始创建
               <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
             </button>
             <div className="text-slate-500 font-bold">
@@ -134,7 +134,7 @@ export default function LandingPage() {
               { 
                 icon: <Zap className="w-8 h-8 text-indigo-600" />, 
                 title: "Neural Streaming", 
-                desc: "基于 SSE 的流式渲染技术。看着简历内容实时流转、AI Agent 在毫秒内完成内容润色与逻辑构建。" 
+                desc: "基于 SSE 的流式渲染技术。看着简历内容实时流转、AI 在毫秒内完成内容润色与逻辑构建。" 
               },
               { 
                 icon: <FileText className="w-8 h-8 text-violet-600" />, 
@@ -143,7 +143,7 @@ export default function LandingPage() {
               },
               { 
                 icon: <Layout className="w-8 h-8 text-emerald-600" />, 
-                title: "Agentic Logic", 
+                title: "智能逻辑", 
                 desc: "它懂你的项目亮点、也懂你的复杂场景。智能识别关键词、自动优化工作描述的动作词与数据产出。" 
               }
             ].map((feature, i) => (

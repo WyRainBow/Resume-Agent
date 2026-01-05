@@ -159,49 +159,11 @@ def html_to_latex(html: str) -> str:
     # 后处理：处理“空父级列表项 + 嵌套列表”的场景
     # 目标：既满足 LaTeX 语法（必须有 \item），又不渲染出父级黑点。
     # 做法：把 `\item <nested-list>` 替换为 `\item[]\n<nested-list>`（空标签，不显示圆点）。
-    # #region agent log
-    try:
-        import json as _json
-        import time as _time
-        _pre_cnt = len(re.findall(r'\\item(?:\s*\n\s*|\s+)(\\begin\{(?:itemize|enumerate)\}(?:\[[^\]]*\])?)', result))
-        with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-            _f.write(_json.dumps({
-                "sessionId": "debug-session",
-                "runId": "run-fix-item",
-                "hypothesisId": "H1",
-                "location": "html_to_latex.py:postprocess:pre",
-                "message": "nested-list parent item count (pre)",
-                "data": {"count": _pre_cnt},
-                "timestamp": _time.time(),
-            }, ensure_ascii=False) + "\n")
-    except Exception:
-        pass
-    # #endregion agent log
-
     result = re.sub(
         r'\\item(?:\s*\n\s*|\s+)(\\begin\{(?:itemize|enumerate)\}(?:\[[^\]]*\])?)',
         r'\\item[]\n\1',
         result
     )
-
-    # #region agent log
-    try:
-        import json as _json
-        import time as _time
-        _post_cnt = len(re.findall(r'\\item(?:\s*\n\s*|\s+)(\\begin\{(?:itemize|enumerate)\}(?:\[[^\]]*\])?)', result))
-        with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-            _f.write(_json.dumps({
-                "sessionId": "debug-session",
-                "runId": "run-fix-item",
-                "hypothesisId": "H1",
-                "location": "html_to_latex.py:postprocess:post",
-                "message": "nested-list parent item count (post)",
-                "data": {"count": _post_cnt},
-                "timestamp": _time.time(),
-            }, ensure_ascii=False) + "\n")
-    except Exception:
-        pass
-    # #endregion agent log
     
     return result
 
