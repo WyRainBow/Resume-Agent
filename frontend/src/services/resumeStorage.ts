@@ -1,8 +1,8 @@
 import type { Resume } from '../types/resume'
 import type { ResumeData } from '../pages/Workspace/v2/types'
 
-const STORAGE_KEY = 'resume_agent_resumes'
-const CURRENT_KEY = 'resume_agent_current'
+const STORAGE_KEY = 'resume_resumes'
+const CURRENT_KEY = 'resume_current'
 
 export interface SavedResume {
   id: string

@@ -6,36 +6,7 @@ LaTeX Section 生成器模块
 from typing import Dict, Any, List
 from .latex_utils import escape_latex
 from .html_to_latex import html_to_latex, html_to_latex_items
-import json, time, re  # debug logging
-
-# region agent log helper
-def _agent_log(hypothesis_id: str, location: str, message: str, data=None, run_id: str = "run1"):
-    """Lightweight NDJSON logger for debug mode (writes to .cursor/debug.log if available)."""
-    try:
-        from pathlib import Path
-        # 尝试使用相对路径，如果不存在则静默失败
-        current_file = Path(__file__).resolve()
-        project_root = current_file.parent.parent
-        debug_log_path = project_root / ".cursor" / "debug.log"
-        
-        # 只在本地开发环境且文件存在时才写入
-        if debug_log_path.parent.exists():
-            payload = {
-                "sessionId": "debug-session",
-                "runId": run_id,
-                "hypothesisId": hypothesis_id,
-                "location": location,
-                "message": message,
-                "data": data or {},
-                "timestamp": int(time.time() * 1000),
-            }
-            with open(debug_log_path, "a", encoding="utf-8") as f:
-                f.write(json.dumps(payload, ensure_ascii=False) + "\n")
-    except Exception:
-        # Do not raise during debug logging
-        pass
-# endregion
-
+import re
 
 def generate_section_summary(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """生成个人总结"""
@@ -47,7 +18,6 @@ def generate_section_summary(resume_data: Dict[str, Any], section_titles: Dict[s
         content.append(escape_latex(summary.strip()))
         content.append("")
     return content
-
 
 def generate_section_internships(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """
@@ -65,10 +35,6 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
     list_type = global_settings.get('experienceListType', 'none')
     
     if isinstance(internships, list) and internships:
-        _agent_log("H2", "latex_sections.py:generate_section_internships", "enter internships", {
-            "count": len(internships),
-            "list_type": list_type,
-        })
         content.append(f"\\section{{{escape_latex(title)}}}")
         
         # 始终使用 \datedsubsection 保持与教育经历一致的字号/对齐
@@ -103,12 +69,6 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
                 achievements = achievements.get('text') or [achievements]
 
             if isinstance(achievements, list) and achievements:
-                _agent_log("H2", "latex_sections.py:generate_section_internships", "achievements found", {
-                    "idx": idx,
-                    "achievements_count": len(achievements),
-                    "achievements_type": type(achievements).__name__
-                })
-
                 # 根据列表类型决定渲染方式
                 if list_type == 'ordered':
                     content.append(r"\begin{enumerate}[label={},parsep=0.2ex,itemsep=0.2ex,topsep=0.2ex]")
@@ -137,49 +97,12 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
                     for ach in achievements:
                         if isinstance(ach, str) and ach.strip():
                             # 对于段落格式，我们直接使用html_to_latex，但让内容自然流动
-                            # #region agent log
-                            try:
-                                _dbg_payload = {
-                                    "sessionId": "debug-session",
-                                    "runId": "run1",
-                                    "hypothesisId": "A",
-                                    "location": "latex_sections.py:achievements:str:before",
-                                    "message": "ach string before html_to_latex",
-                                    "data": {
-                                        "list_type": list_type,
-                                        "ach_preview": ach.strip()[:120]
-                                    },
-                                    "timestamp": __import__("time").time()
-                                }
-                                with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-                                    _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-                            except Exception:
-                                pass
-                            # #endregion agent log
+                            
                             latex_content = html_to_latex(ach.strip())
                             # 清理多余的换行符
                             latex_content = re.sub(r'\n{3,}', '\n\n', latex_content)
                             latex_stripped_before = latex_content.strip()
-                            # #region agent log
-                            try:
-                                _dbg_payload = {
-                                    "sessionId": "debug-session",
-                                    "runId": "run1",
-                                    "hypothesisId": "B",
-                                    "location": "latex_sections.py:achievements:str:after_convert",
-                                    "message": "after html_to_latex",
-                                    "data": {
-                                        "latex_stripped_before": latex_stripped_before[:160],
-                                        "endswith_char": latex_stripped_before[-1:] if latex_stripped_before else "",
-                                        "len": len(latex_stripped_before)
-                                    },
-                                    "timestamp": __import__("time").time()
-                                }
-                                with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-                                    _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-                            except Exception:
-                                pass
-                            # #endregion agent log
+                            
                             # strip 后检查内容是否为空
                             latex_stripped = latex_content.strip()
                             if not latex_stripped:
@@ -191,48 +114,10 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
                                 or "\\begin{enumerate}" in latex_stripped
                                 or bool(re.search(r'\\begin\\{(?:itemize|enumerate)\\}', latex_stripped))
                             )
-                            # #region agent log
-                            try:
-                                _dbg_payload = {
-                                    "sessionId": "debug-session",
-                                    "runId": "run1",
-                                    "hypothesisId": "D",
-                                    "location": "latex_sections.py:achievements:str:list_env_check",
-                                    "message": "detect list environment",
-                                    "data": {
-                                        "list_env": list_env,
-                                        "has_itemize": "\\begin{itemize}" in latex_stripped,
-                                        "has_enumerate": "\\begin{enumerate}" in latex_stripped,
-                                        "re_match": bool(re.search(r'\\begin\\{(?:itemize|enumerate)\\}', latex_stripped)),
-                                        "snippet": latex_stripped[:160]
-                                    },
-                                    "timestamp": __import__("time").time()
-                                }
-                                with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-                                    _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-                            except Exception:
-                                pass
-                            # #endregion agent log
+                            
                             if list_env:
                                 latex_content = latex_stripped
-                                # #region agent log
-                                try:
-                                    _dbg_payload = {
-                                        "sessionId": "debug-session",
-                                        "runId": "run1",
-                                        "hypothesisId": "E",
-                                        "location": "latex_sections.py:achievements:str:list_env_append",
-                                        "message": "append list env without punctuation",
-                                        "data": {
-                                            "latex_content": latex_content[:200]
-                                        },
-                                        "timestamp": __import__("time").time()
-                                    }
-                                    with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-                                        _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-                                except Exception:
-                                    pass
-                                # #endregion agent log
+                                
                                 content.append(latex_content)
                                 continue
                             # 如果内容不以句号等结尾，添加句号（用 strip 后的内容检查末尾字符）
@@ -240,72 +125,16 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
                                 latex_content = latex_stripped + '。'
                             else:
                                 latex_content = latex_stripped
-                            # #region agent log
-                            try:
-                                _dbg_payload = {
-                                    "sessionId": "debug-session",
-                                    "runId": "run1",
-                                    "hypothesisId": "C",
-                                    "location": "latex_sections.py:achievements:str:final",
-                                    "message": "final latex_content to append",
-                                    "data": {
-                                        "latex_content": latex_content[:200],
-                                        "endswith_char": latex_content[-1:] if latex_content else "",
-                                        "len": len(latex_content)
-                                    },
-                                    "timestamp": __import__("time").time()
-                                }
-                                with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-                                    _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-                            except Exception:
-                                pass
-                            # #endregion agent log
+                            
                             content.append(latex_content)
                         elif isinstance(ach, dict):
                             text = ach.get('text') or ach.get('content') or ''
                             if text and text.strip():
-                                # #region agent log
-                                try:
-                                    _dbg_payload = {
-                                        "sessionId": "debug-session",
-                                        "runId": "run1",
-                                        "hypothesisId": "A",
-                                        "location": "latex_sections.py:achievements:dict:before",
-                                        "message": "ach dict before html_to_latex",
-                                        "data": {
-                                            "list_type": list_type,
-                                            "text_preview": str(text).strip()[:120]
-                                        },
-                                        "timestamp": __import__("time").time()
-                                    }
-                                    with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-                                        _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-                                except Exception:
-                                    pass
-                                # #endregion agent log
+                                
                                 latex_content = html_to_latex(text.strip())
                                 latex_content = re.sub(r'\n{3,}', '\n\n', latex_content)
                                 latex_stripped = latex_content.strip()
-                                # #region agent log
-                                try:
-                                    _dbg_payload = {
-                                        "sessionId": "debug-session",
-                                        "runId": "run1",
-                                        "hypothesisId": "B",
-                                        "location": "latex_sections.py:achievements:dict:after_convert",
-                                        "message": "after html_to_latex",
-                                        "data": {
-                                            "latex_stripped": latex_stripped[:160],
-                                            "endswith_char": latex_stripped[-1:] if latex_stripped else "",
-                                            "len": len(latex_stripped)
-                                        },
-                                        "timestamp": __import__("time").time()
-                                    }
-                                    with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-                                        _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-                                except Exception:
-                                    pass
-                                # #endregion agent log
+                                
                                 if not latex_stripped:
                                     continue
                                 list_env = (
@@ -313,96 +142,26 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
                                     or "\\begin{enumerate}" in latex_stripped
                                     or bool(re.search(r'\\begin\\{(?:itemize|enumerate)\\}', latex_stripped))
                                 )
-                                # #region agent log
-                                try:
-                                    _dbg_payload = {
-                                        "sessionId": "debug-session",
-                                        "runId": "run1",
-                                        "hypothesisId": "D",
-                                        "location": "latex_sections.py:achievements:dict:list_env_check",
-                                        "message": "detect list environment",
-                                        "data": {
-                                            "list_env": list_env,
-                                            "has_itemize": "\\begin{itemize}" in latex_stripped,
-                                            "has_enumerate": "\\begin{enumerate}" in latex_stripped,
-                                            "re_match": bool(re.search(r'\\begin\\{(?:itemize|enumerate)\\}', latex_stripped)),
-                                            "snippet": latex_stripped[:160]
-                                        },
-                                        "timestamp": __import__("time").time()
-                                    }
-                                    with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-                                        _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-                                except Exception:
-                                    pass
-                                # #endregion agent log
+                                
                                 if list_env:
                                     latex_content = latex_stripped
-                                    # #region agent log
-                                    try:
-                                        _dbg_payload = {
-                                            "sessionId": "debug-session",
-                                            "runId": "run1",
-                                            "hypothesisId": "E",
-                                            "location": "latex_sections.py:achievements:dict:list_env_append",
-                                            "message": "append list env without punctuation",
-                                            "data": {
-                                                "latex_content": latex_content[:200]
-                                            },
-                                            "timestamp": __import__("time").time()
-                                        }
-                                        with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-                                            _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-                                    except Exception:
-                                        pass
-                                    # #endregion agent log
+                                    
                                     content.append(latex_content)
                                     continue
                                 if latex_stripped[-1] not in '.。！?；;\n':
                                     latex_content = latex_stripped + '。'
                                 else:
                                     latex_content = latex_stripped
-                                # #region agent log
-                                try:
-                                    _dbg_payload = {
-                                        "sessionId": "debug-session",
-                                        "runId": "run1",
-                                        "hypothesisId": "C",
-                                        "location": "latex_sections.py:achievements:dict:final",
-                                        "message": "final latex_content to append",
-                                        "data": {
-                                            "latex_content": latex_content[:200],
-                                            "endswith_char": latex_content[-1:] if latex_content else "",
-                                            "len": len(latex_content)
-                                        },
-                                        "timestamp": __import__("time").time()
-                                    }
-                                    with open("/Users/wy770/AI 简历/.cursor/debug.log", "a", encoding="utf-8") as _f:
-                                        _f.write(json.dumps(_dbg_payload, ensure_ascii=False) + "\n")
-                                except Exception:
-                                    pass
-                                # #endregion agent log
+                                
                                 content.append(latex_content)
             else:
-                _agent_log("H2", "latex_sections.py:generate_section_internships", "no achievements found", {
-                    "idx": idx,
-                    "achievements_raw": it.get('highlights') or it.get('achievements') or it.get('items') or it.get('description'),
-                    "achievements_type": type(it.get('achievements') or it.get('items') or it.get('description')).__name__
-                })
+                # 没有成就信息
+                pass
 
             content.append("")
-            _agent_log("H2", "latex_sections.py:generate_section_internships", "item computed (datedsubsection-forced)", {
-                "idx": idx,
-                "company": company,
-                "position": position,
-                "date": date,
-                "title_text": title_text,
-                "render_mode": "datedsubsection_forced",
-                "latex_line": latex_line,
-            })
         # 不再开启列表环境，避免额外缩进和字号差异
         content.append("")
     return content
-
 
 def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """
@@ -442,7 +201,6 @@ def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dic
             content.append("")
     return content
 
-
 def _convert_markdown_bold(text: str) -> str:
     """将 **text** 转换为 \\textbf{text}"""
     import re
@@ -450,7 +208,6 @@ def _convert_markdown_bold(text: str) -> str:
     # 匹配 **text** 或 **text**: 格式
     pattern = r'\*\*([^*]+)\*\*'
     return re.sub(pattern, r'\\textbf{\1}', text)
-
 
 def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """
@@ -518,9 +275,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                 elif isinstance(highlights, list) and highlights:
                     # highlights 结构 - 支持 HTML 和 Markdown 格式
                     has_list_wrapper = False
-                    # #region agent log
-                    _agent_log("H1", "latex_sections.py:highlights", "enter highlights", {"title": full_title, "count": len(highlights)}, "run-pre-fix")
-                    # #endregion agent log
+                    
                     
                     for h in highlights:
                         if not isinstance(h, str) or not h.strip():
@@ -548,18 +303,14 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                                         converted
                                     )
                                     content.append(converted)
-                                    # #region agent log
-                                    _agent_log("H2", "latex_sections.py:highlights", "html passthrough list", {"snippet": converted[:120]}, "run-pre-fix")
-                                    # #endregion agent log
+                                    
                                 else:
                                     # 否则包装成列表项（与实习经历对齐）
                                     if not has_list_wrapper:
                                         content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
                                         has_list_wrapper = True
                                     content.append(f"  \\item {converted}")
-                                    # #region agent log
-                                    _agent_log("H3", "latex_sections.py:highlights", "html wrapped item", {"snippet": converted[:120]}, "run-pre-fix")
-                                    # #endregion agent log
+                                    
                         elif h.startswith('**') and '**' in h[2:]:
                             # Markdown 加粗格式（保留圆点，适度缩进）
                             if not has_list_wrapper:
@@ -569,18 +320,14 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                             converted = _convert_markdown_bold(h)
                             converted = escape_latex(converted.replace('\\textbf{', '<<<TEXTBF>>>').replace('}', '<<<ENDBF>>>')).replace('<<<TEXTBF>>>', '\\textbf{').replace('<<<ENDBF>>>', '}')
                             content.append(f"  \\item {converted}")
-                            # #region agent log
-                            _agent_log("H4", "latex_sections.py:highlights", "markdown item", {"snippet": converted[:120]}, "run-pre-fix")
-                            # #endregion agent log
+                            
                         else:
                             # 普通文本（与实习经历对齐）
                             if not has_list_wrapper:
                                 content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
                                 has_list_wrapper = True
                             content.append(f"  \\item {escape_latex(h)}")
-                            # #region agent log
-                            _agent_log("H5", "latex_sections.py:highlights", "plain item", {"snippet": h[:120]}, "run-pre-fix")
-                            # #endregion agent log
+                            
                     
                     if has_list_wrapper:
                         content.append(r"\end{itemize}")
@@ -588,7 +335,6 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                 content.append("")
                 content.append("")
     return content
-
 
 def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """
@@ -680,7 +426,6 @@ def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[st
             content.append("")
     return content
 
-
 def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """
     生成教育经历 - 与 wy.tex 格式一致
@@ -691,9 +436,6 @@ def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict
     edu = resume_data.get('education') or []
     section_title = (section_titles or {}).get('education', '教育经历')
     if isinstance(edu, list) and edu:
-        _agent_log("H1", "latex_sections.py:generate_section_education", "enter education", {
-            "count": len(edu),
-        })
         content.append(f"\\section{{{escape_latex(section_title)}}}")
         for idx, ed in enumerate(edu):
             # 兼容多种字段名
@@ -717,20 +459,13 @@ def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict
                 # 使用 \normalsize 字体，确保与实习经历一致
                 latex_line = f"\\datedsubsection{{\\normalsize {title_str}}}{{\\normalsize {duration}}}"
                 content.append(latex_line)
-                _agent_log("H1", "latex_sections.py:generate_section_education", "item computed", {
-                    "idx": idx,
-                    "title_str": title_str,
-                    "duration": duration,
-                    "latex_line": latex_line,
-                })
-                # 荣誉信息 - 与 wy.tex 格式一致
+                                # 荣誉信息 - 与 wy.tex 格式一致
                 honors = ed.get('honors')
                 if honors:
                     escaped_honors = escape_latex(honors)
                     content.append(f"\\ \\textbf{{荣誉:}} {escaped_honors}")
             content.append("")
     return content
-
 
 def generate_section_awards(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """生成奖项"""
@@ -761,7 +496,6 @@ def generate_section_awards(resume_data: Dict[str, Any], section_titles: Dict[st
             content.append(r"\end{itemize}")
             content.append("")
     return content
-
 
 def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """
@@ -849,7 +583,6 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
 
             content.append("")
     return content
-
 
 """
 Section 生成器映射

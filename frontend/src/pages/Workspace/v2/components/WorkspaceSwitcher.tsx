@@ -19,20 +19,15 @@ export function WorkspaceSwitcher({ currentMode = 'edit' }: WorkspaceSwitcherPro
 
   // 根据当前路径确定模式
   const getMode = (): WorkspaceMode => {
-    if (location.pathname === '/resume-chat' || location.pathname.startsWith('/resume-chat')) {
-      return 'conversation'
-    }
+    // resume-chat 已删除，只保留编辑模式
     return 'edit'
   }
 
   const mode = getMode()
 
   const handleModeChange = (newMode: WorkspaceMode) => {
-    if (newMode === 'conversation') {
-      navigate('/resume-chat')
-    } else {
-      navigate('/workspace')
-    }
+    // resume-chat 已删除，只支持编辑模式
+    navigate('/workspace')
   }
 
   return (

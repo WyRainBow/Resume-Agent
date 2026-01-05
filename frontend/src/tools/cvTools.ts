@@ -1,6 +1,5 @@
 /**
  * CV 工具层
- * 基于 Agent + Tools 架构模式
  * 提供 CVReader 和 CVEditor 两个核心工具
  */
 
@@ -436,7 +435,7 @@ export interface CVBatchEditorParams {
 
 /**
  * 路径映射：后端字段名 -> 前端字段名
- * 统一后端 Agent 和前端数据模型之间的字段名差异
+ * 统一后端和前端数据模型之间的字段名差异
  */
 const PATH_MAPPING: Record<string, string> = {
   'workExperience': 'experience',  // 工作经历
