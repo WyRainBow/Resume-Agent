@@ -465,44 +465,6 @@ export async function formatResumeText(provider: 'zhipu' | 'doubao', text: strin
 }
 
 /**
- * 获取 API Key 配置状态
- */
-export async function getKeysStatus() {
-  const url = `${API_BASE}/api/config/keys`
-  try {
-  const { data } = await axios.get(url)
-  return data as {
-    zhipu: { configured: boolean; preview: string }
-      doubao: { configured: boolean; preview: string }
-    }
-  } catch (error: any) {
-    console.error('获取 API Key 状态失败:', error)
-    // 如果请求失败，返回未配置状态
-    return {
-      zhipu: { configured: false, preview: '' },
-      doubao: { configured: false, preview: '' }
-    }
-  }
-}
-
-/**
- * 保存 API Key
- */
-export async function saveKeys(zhipuKey?: string, doubaoKey?: string) {
-  const url = `${API_BASE}/api/config/keys`
-  try {
-  const { data } = await axios.post(url, { 
-    zhipu_key: zhipuKey, 
-      doubao_key: doubaoKey 
-  })
-  return data as { success: boolean; message: string }
-  } catch (error: any) {
-    console.error('保存 API Key 失败:', error)
-    throw new Error(error.response?.data?.detail || error.message || '保存失败')
-  }
-}
-
-/**
  * PDF 缓存管理（使用 Map 实现简单的内存缓存）
  */
 const pdfCache = new Map<string, { blob: Blob; timestamp: number }>()

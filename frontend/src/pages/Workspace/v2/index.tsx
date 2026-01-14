@@ -12,7 +12,6 @@ import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import { Header } from './components'
 import EditPreviewLayout from './EditPreviewLayout'
 import AIImportModal from './shared/AIImportModal'
-import APISettingsDialog from './shared/APISettingsDialog'
 
 type EditMode = 'click' | 'scroll'
 
@@ -79,8 +78,6 @@ export default function WorkspaceV2() {
     handleAISave,
   } = useAIImport({ setResumeData })
 
-  // API 设置弹窗
-  const [apiSettingsOpen, setApiSettingsOpen] = useState(false)
 
   // 文件输入引用（用于导入 JSON）
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -195,7 +192,6 @@ export default function WorkspaceV2() {
         saveSuccess={saveSuccess}
         onGlobalAIImport={handleGlobalAIImport}
         onSaveToDashboard={handleSaveToDashboard}
-        onAPISettings={() => setApiSettingsOpen(true)}
         onExportJSON={handleExportJSON}
         onImportJSON={handleImportJSON}
         resumeData={resumeData}
@@ -258,12 +254,6 @@ export default function WorkspaceV2() {
         sectionTitle={aiModalTitle}
         onClose={() => setAiModalOpen(false)}
         onSave={handleAISave}
-      />
-
-      {/* API 设置弹窗 */}
-      <APISettingsDialog
-        open={apiSettingsOpen}
-        onOpenChange={setApiSettingsOpen}
       />
 
       {/* 未保存提醒对话框 */}

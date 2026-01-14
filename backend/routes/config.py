@@ -162,14 +162,15 @@ async def chat_api(body: ChatRequest):
 
         provider = body.provider
         if not provider:
-            if os.getenv("ZHIPU_API_KEY"):
+            # 默认使用 deepseek
+            if os.getenv("DEEPSEEK_API_KEY"):
+                provider = "deepseek"
+            elif os.getenv("ZHIPU_API_KEY"):
                 provider = "zhipu"
             elif os.getenv("DOUBAO_API_KEY"):
                 provider = "doubao"
-            elif os.getenv("DEEPSEEK_API_KEY"):
-                provider = "deepseek"
             else:
-                raise HTTPException(status_code=400, detail="未配置 AI 服务 API Key")
+                raise HTTPException(status_code=400, detail="未配置 AI 服务 API Key，请在环境变量中配置 DEEPSEEK_API_KEY")
 
         result = call_llm(provider, prompt)
         return {"content": result, "provider": provider}
