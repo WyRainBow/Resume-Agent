@@ -8,7 +8,7 @@ FastAPI 后端入口
 3) /api/resume/generate 一句话 → 结构化简历 JSON
 4) /api/pdf/render 由简历 JSON 生成 PDF
 
-启动命令：uvicorn backend.main:app --reload --port 8000
+启动命令：uvicorn backend.main:app --reload --port 9000
 """
 import os
 import sys
@@ -151,8 +151,8 @@ async def startup_event():
 """
 本地运行：
 1) 安装依赖：pip3 install -r backend/requirements.txt --break-system-packages
-2) 启动服务：uvicorn backend.main:app --reload --port 8000
+2) 启动服务：uvicorn backend.main:app --reload --port 9000
 3) 测试接口：
-   - 健康：curl http://127.0.0.1:8000/api/health | cat
-   - AI测试：curl -X POST http://127.0.0.1:8000/api/ai/test -H 'Content-Type: application/json' -d '{"provider":"doubao","prompt":"用一句话介绍人工智能"}' | cat
+   - 健康：curl http://127.0.0.1:9000/api/health | cat
+   - AI测试：curl -X POST http://127.0.0.1:9000/api/ai/test -H 'Content-Type: application/json' -d '{"provider":"doubao","prompt":"用一句话介绍人工智能"}' | cat
 """

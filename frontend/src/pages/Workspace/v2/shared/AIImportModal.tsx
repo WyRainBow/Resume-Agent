@@ -13,7 +13,7 @@ const AI_MODELS = [
 ]
 
 // 处理 API_BASE，确保有协议前缀
-const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:8000'
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || 'http://localhost:9000'
 const API_BASE = rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`
 
 export type SectionType = 

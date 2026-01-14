@@ -89,7 +89,7 @@ export function ExportButton({
           if (import.meta.env.PROD) {
             apiBase = '' // 生产环境使用相对路径，由代理处理
           } else {
-            apiBase = 'http://localhost:8000' // 开发环境
+            apiBase = 'http://localhost:9000' // 开发环境
           }
         }
         
