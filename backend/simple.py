@@ -441,7 +441,12 @@ def call_deepseek_api(prompt: str, model: str = None) -> str:
 
     if response.status_code == 200:
         result = response.json()
-        return result["choices"][0]["message"]["content"]
+        content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+        if not content:
+            # 如果 content 为空，记录详细错误信息
+            import json
+            raise Exception(f"DeepSeek API 返回空内容。完整响应: {json.dumps(result, ensure_ascii=False, indent=2)}")
+        return content
     else:
         error_detail = response.text
         try:
