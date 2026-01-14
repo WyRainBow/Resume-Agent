@@ -40,12 +40,11 @@
 ### AI 对话生成简历
 ![AI对话生成简历](docs/images/AI对话生成简历.png)
 
-### 🤖 AI 智能生成
+###  AI 智能生成
 - 支持一句话描述快速生成完整简历
 - 支持粘贴完整简历文本、智能解析为结构化数据
-- 多模型支持、智谱 GLM、Google Gemini、豆包(火山引擎)
 
-### ✏️ 可视化编辑
+###  可视化编辑
 - 左侧编辑器、右侧实时预览、所见即所得
 - 支持拖拽排序模块顺序
 - 每个模块支持独立 AI 导入和 AI 改写功能
@@ -57,9 +56,8 @@
 - 实时预览、支持翻页和缩放
 
 ### AI 辅助功能
-- **AI 导入**、将文本智能解析为对应模块数据
-- **AI 改写**、根据指令优化现有内容、如量化数据、突出成果
-- **Reflection Agent**、视觉分析预览截图、自动修正排版问题
+- **AI 导入**：将文本智能解析为对应模块数据
+- **AI 改写**：根据指令优化现有内容、如量化数据、突出成果
 
 ##  快速开始
 
@@ -78,13 +76,6 @@ git clone https://github.com/WyRainBow/Resume-Agent.git
 cd Resume-Agent
 ```
 
-**2、配置环境变量**
-创建 `.env` 文件、填入 API 密钥
-```bash
-ZHIPU_API_KEY=your_zhipu_api_key
-GEMINI_API_KEY=your_gemini_api_key
-DOUBAO_API_KEY=your_doubao_api_key
-```
 
 **3、安装依赖**
 ```bash
@@ -94,10 +85,10 @@ cd frontend && npm install
 
 **4、启动服务**
 ```bash
-# 后端
+ 
 cd backend && uvicorn main:app --reload --port 8000
 
-# 前端
+
 cd frontend && npm run dev
 ```
 
@@ -140,5 +131,3 @@ MIT License
 - 仓库地址、https://github.com/WyRainBow/Resume-Agent
 
 ---
-
-**注意**、使用前请确保已配置正确的 API 密钥、`.env` 文件不会被推送到仓库、请自行创建并配置
