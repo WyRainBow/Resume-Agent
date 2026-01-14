@@ -1,6 +1,8 @@
 name: Star History Monthly
 
 on:
+  push:
+    branches: [main, staging]
   schedule:
     - cron: '0 0 * * *'  # 每天 UTC 0:00 运行
   workflow_dispatch:  # 允许手动触发
