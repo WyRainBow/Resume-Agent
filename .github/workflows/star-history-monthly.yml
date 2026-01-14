@@ -30,6 +30,9 @@ jobs:
           # GitHub API 配置
           repo = "WyRainBow/Resume-Agent"
           token = os.environ.get('GITHUB_TOKEN')
+          if not token:
+              print("错误: 未找到 GITHUB_TOKEN 环境变量")
+              exit(1)
           headers = {
               'Authorization': f'token {token}',
               'Accept': 'application/vnd.github.v3.star+json'
@@ -39,14 +42,20 @@ jobs:
           stars = []
           page = 1
           per_page = 100
+          max_pages = 10  # 限制最多获取 10 页，避免超时
           
-          while True:
+          print(f"开始获取 {repo} 的 star 数据...")
+          while page <= max_pages:
               url = f'https://api.github.com/repos/{repo}/stargazers'
               params = {'per_page': per_page, 'page': page}
-              response = requests.get(url, headers=headers, params=params)
+              try:
+                  response = requests.get(url, headers=headers, params=params, timeout=30)
+              except Exception as e:
+                  print(f"请求失败: {e}")
+                  break
               
               if response.status_code != 200:
-                  print(f"API 错误: {response.status_code}")
+                  print(f"API 错误: {response.status_code}, {response.text[:200]}")
                   break
               
               data = response.json()
@@ -54,11 +63,14 @@ jobs:
                   break
               
               stars.extend(data)
+              print(f"已获取第 {page} 页，共 {len(stars)} 个 star")
               page += 1
               
               # 检查是否还有更多页面
               if len(data) < per_page:
                   break
+          
+          print(f"总共获取到 {len(stars)} 个 star")
           
           # 按月份统计
           monthly_stars = defaultdict(int)

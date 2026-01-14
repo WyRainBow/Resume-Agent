@@ -301,12 +301,15 @@ jobs:
           
           # 合并同一用户的多个账号，并只保留自己的贡献
           merged = {}
+          # 允许的用户名列表（支持多种格式）
           allowed_names = ['wy770', 'WyRainBow']
           
           for c in contributors:
               key = c['name']
               # 只处理允许的用户名
-              if key not in allowed_names:
+              # 检查是否在允许列表中，或者包含允许的关键字
+              is_allowed = key in allowed_names or any(allowed.lower() in key.lower() for allowed in allowed_names)
+              if not is_allowed:
                   continue
               
               # 统一使用 WyRainBow 作为显示名称
