@@ -19,7 +19,10 @@
 
 ## Star 趋势
 
-[![Star History Chart](https://api.star-history.com/svg?repos=WyRainBow/Resume-Agent&type=Date)](https://star-history.com/#WyRainBow/Resume-Agent&Date)
+![Star History Monthly](.github/stats/star-history-monthly.svg)
+
+<!-- 备用链接：按日期显示的 Star 趋势 -->
+<!-- [![Star History Chart](https://api.star-history.com/svg?repos=WyRainBow/Resume-Agent&type=Date)](https://star-history.com/#WyRainBow/Resume-Agent&Date) -->
 
 ## ✨ 核心功能
 
