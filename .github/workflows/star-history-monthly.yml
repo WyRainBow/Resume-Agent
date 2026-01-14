@@ -1,0 +1,213 @@
+name: Star History Monthly
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 每天 UTC 0:00 运行
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  generate-star-chart:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Generate monthly star chart
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 << 'EOF'
+          import os
+          import json
+          import requests
+          from datetime import datetime, timedelta
+          from collections import defaultdict
+          
+          # GitHub API 配置
+          repo = "WyRainBow/Resume-Agent"
+          token = os.environ.get('GITHUB_TOKEN')
+          if not token:
+              print("错误: 未找到 GITHUB_TOKEN 环境变量")
+              exit(1)
+          headers = {
+              'Authorization': f'token {token}',
+              'Accept': 'application/vnd.github.v3.star+json'
+          }
+          
+          # 获取所有 star 数据
+          stars = []
+          page = 1
+          per_page = 100
+          max_pages = 10  # 限制最多获取 10 页，避免超时
+          
+          print(f"开始获取 {repo} 的 star 数据...")
+          while page <= max_pages:
+              url = f'https://api.github.com/repos/{repo}/stargazers'
+              params = {'per_page': per_page, 'page': page}
+              try:
+                  response = requests.get(url, headers=headers, params=params, timeout=30)
+              except Exception as e:
+                  print(f"请求失败: {e}")
+                  break
+              
+              if response.status_code != 200:
+                  print(f"API 错误: {response.status_code}, {response.text[:200]}")
+                  break
+              
+              data = response.json()
+              if not data:
+                  break
+              
+              stars.extend(data)
+              print(f"已获取第 {page} 页，共 {len(stars)} 个 star")
+              page += 1
+              
+              # 检查是否还有更多页面
+              if len(data) < per_page:
+                  break
+          
+          print(f"总共获取到 {len(stars)} 个 star")
+          
+          # 按月份统计
+          monthly_stars = defaultdict(int)
+          for star in stars:
+              starred_at = star.get('starred_at', '')
+              if starred_at:
+                  # 解析日期并提取年月
+                  date = datetime.strptime(starred_at, '%Y-%m-%dT%H:%M:%SZ')
+                  month_key = date.strftime('%Y-%m')
+                  monthly_stars[month_key] += 1
+          
+          # 按月份排序并计算累计值
+          sorted_months = sorted(monthly_stars.keys())
+          cumulative = 0
+          chart_data = []
+          
+          for month in sorted_months:
+              cumulative += monthly_stars[month]
+              chart_data.append({
+                  'month': month,
+                  'new_stars': monthly_stars[month],
+                  'total_stars': cumulative
+              })
+          
+          # 生成 SVG 图表
+          width, height = 800, 400
+          padding_left, padding_right = 80, 40
+          padding_top, padding_bottom = 60, 60
+          chart_width = width - padding_left - padding_right
+          chart_height = height - padding_top - padding_bottom
+          
+          if len(chart_data) < 2:
+              svg = f'''<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100%" height="100%" fill="#ffffff"/>
+                <text x="{width//2}" y="{height//2}" fill="#666" text-anchor="middle" font-family="sans-serif" font-size="16">数据收集中...</text>
+              </svg>'''
+          else:
+              totals = [d['total_stars'] for d in chart_data]
+              months = [d['month'] for d in chart_data]
+              min_val = 0
+              max_val = max(totals) * 1.1
+              val_range = max(max_val - min_val, 1)
+              
+              # 生成Y轴刻度
+              y_ticks = []
+              tick_count = 5
+              for i in range(tick_count + 1):
+                  val = min_val + (val_range * i / tick_count)
+                  y = padding_top + chart_height - (i / tick_count) * chart_height
+                  if val >= 1000:
+                      label = f"{val/1000:.1f}k"
+                  else:
+                      label = f"{int(val)}"
+                  y_ticks.append(f'<text x="{padding_left - 10}" y="{y + 4}" fill="#666" font-size="12" text-anchor="end" font-family="sans-serif">{label}</text>')
+                  y_ticks.append(f'<line x1="{padding_left}" y1="{y}" x2="{width - padding_right}" y2="{y}" stroke="#eee" stroke-width="1"/>')
+              
+              # 生成折线点
+              points = []
+              for i, val in enumerate(totals):
+                  x = padding_left + (i / max(len(totals)-1, 1)) * chart_width
+                  y = padding_top + chart_height - ((val - min_val) / val_range) * chart_height
+                  points.append((x, y))
+              
+              polyline = " ".join([f"{x},{y}" for x, y in points])
+              
+              # 填充区域
+              fill_points = [f"{padding_left},{padding_top + chart_height}"]
+              fill_points.extend([f"{x},{y}" for x, y in points])
+              fill_points.append(f"{points[-1][0]},{padding_top + chart_height}")
+              fill_polygon = " ".join(fill_points)
+              
+              # X轴月份标签
+              x_labels = []
+              label_count = min(8, len(months))
+              for i in range(label_count):
+                  idx = int(i * (len(months) - 1) / max(label_count - 1, 1))
+                  x = padding_left + (idx / max(len(months)-1, 1)) * chart_width
+                  month_str = months[idx][5:]  # YYYY-MM -> MM
+                  # 显示月份，如 "01" -> "1月"
+                  month_num = int(month_str)
+                  month_label = f"{month_num}月"
+                  x_labels.append(f'<text x="{x}" y="{height - 25}" fill="#666" font-size="11" text-anchor="middle" font-family="sans-serif">{month_label}</text>')
+              
+              svg = f'''<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="areaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" style="stop-color:#e74c3c;stop-opacity:0.3"/>
+                    <stop offset="100%" style="stop-color:#e74c3c;stop-opacity:0.05"/>
+                  </linearGradient>
+                </defs>
+                <rect width="100%" height="100%" fill="#ffffff"/>
+                
+                <!-- 标题 -->
+                <text x="{width//2}" y="30" fill="#333" font-size="16" font-weight="bold" text-anchor="middle" font-family="sans-serif">Star History</text>
+                
+                <!-- 图例 -->
+                <rect x="{padding_left}" y="45" width="12" height="12" fill="#e74c3c" rx="2"/>
+                <text x="{padding_left + 18}" y="55" fill="#333" font-size="11" font-family="sans-serif">WyRainBow/Resume-Agent</text>
+                
+                <!-- Y轴标签 -->
+                <text x="20" y="{padding_top + chart_height//2}" fill="#666" font-size="12" text-anchor="middle" font-family="sans-serif" transform="rotate(-90, 20, {padding_top + chart_height//2})">GitHub Stars</text>
+                
+                <!-- 网格线和Y轴刻度 -->
+                {"".join(y_ticks)}
+                
+                <!-- 坐标轴 -->
+                <line x1="{padding_left}" y1="{padding_top}" x2="{padding_left}" y2="{padding_top + chart_height}" stroke="#ccc" stroke-width="1"/>
+                <line x1="{padding_left}" y1="{padding_top + chart_height}" x2="{width - padding_right}" y2="{padding_top + chart_height}" stroke="#ccc" stroke-width="1"/>
+                
+                <!-- 填充区域 -->
+                <polygon points="{fill_polygon}" fill="url(#areaGrad)"/>
+                
+                <!-- 折线 -->
+                <polyline points="{polyline}" fill="none" stroke="#e74c3c" stroke-width="2.5"/>
+                
+                <!-- X轴标签 -->
+                {"".join(x_labels)}
+                <text x="{width//2}" y="{height - 5}" fill="#666" font-size="12" text-anchor="middle" font-family="sans-serif">Month</text>
+                
+                <!-- 当前值标注 -->
+                <circle cx="{points[-1][0]}" cy="{points[-1][1]}" r="4" fill="#e74c3c"/>
+                <text x="{points[-1][0] + 8}" y="{points[-1][1] - 8}" fill="#e74c3c" font-size="12" font-weight="bold" font-family="sans-serif">{totals[-1]}</text>
+              </svg>'''
+          
+          # 保存 SVG
+          os.makedirs('.github/stats', exist_ok=True)
+          with open('.github/stats/star-history-monthly.svg', 'w', encoding='utf-8') as f:
+              f.write(svg)
+          
+          print(f"已生成按月统计的 Star 趋势图，共 {len(chart_data)} 个月的数据")
+          EOF
+      
+      - name: Commit star chart
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/stats/star-history-monthly.svg
+          git diff --staged --quiet || git commit -m "chore: update monthly star history chart [skip ci]"
+          git pull --no-rebase origin staging || true
+          git push || echo "推送失败，可能有冲突，跳过本次更新"
