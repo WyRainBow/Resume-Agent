@@ -70,3 +70,5 @@ test_api.sh
 # 测试目录
 测试测试/
 sophia-pro-reference/
+.Awytests/
+.logs/
