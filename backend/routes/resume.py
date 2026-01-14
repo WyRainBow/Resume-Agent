@@ -532,8 +532,8 @@ async def rewrite_resume_stream(body: RewriteRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"路径错误：{e}")
 
-    # 默认使用智谱模型（如果未指定 provider）
-    provider = body.provider or "zhipu"
+    # 默认使用 deepseek（如果未指定 provider）
+    provider = body.provider or DEFAULT_AI_PROVIDER
     
     prompt = build_rewrite_prompt(body.path, cur_value, body.instruction, body.locale)
     
