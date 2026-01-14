@@ -32,7 +32,6 @@ Thumbs.db
 # Logs
 *.log
 logs/
-!logs/.gitignore
 
 # Temporary
 *.tmp
