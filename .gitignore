@@ -69,3 +69,6 @@ test_api.sh
 sophia-pro-reference/
 .Awytests/
 .logs/
+
+# 参考目录
+reference/
