@@ -447,10 +447,36 @@ def call_deepseek_api(prompt: str, model: str = None) -> str:
     except requests.exceptions.RequestException as e:
         raise Exception(f"DeepSeek API 网络请求失败: {str(e)}")
 
-    # 先获取原始响应文本
-    raw_text = response.text
-    
     if response.status_code == 200:
+        # 检查响应内容
+        if not response.content:
+            raise Exception(f"DeepSeek API 返回空响应 (status=200, body为空)")
+        
+        # 检查是否是 gzip 压缩的内容（但响应头没有正确设置）
+        if len(response.content) >= 2 and response.content[:2] == b'\x1f\x8b':  # gzip magic number
+            import gzip
+            try:
+                decompressed = gzip.decompress(response.content).decode('utf-8')
+                result = json.loads(decompressed)
+                content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if not content:
+                    raise Exception(f"DeepSeek API 返回空内容。响应: {json.dumps(result, ensure_ascii=False)[:500]}")
+                return content
+            except (gzip.BadGzipFile, json.JSONDecodeError, UnicodeDecodeError) as e:
+                raise Exception(f"DeepSeek API 返回压缩数据但解压失败: {str(e)}")
+        
+        # 确保响应编码正确
+        if response.encoding is None or response.encoding == 'ISO-8859-1':
+            # 尝试从响应头或内容推断编码
+            response.encoding = response.apparent_encoding or 'utf-8'
+        
+        # 获取响应文本
+        try:
+            raw_text = response.text
+        except UnicodeDecodeError:
+            # 如果解码失败，尝试使用 UTF-8
+            raw_text = response.content.decode('utf-8', errors='ignore')
+        
         # 检查响应是否为空
         if not raw_text or not raw_text.strip():
             raise Exception(f"DeepSeek API 返回空响应 (status=200, body为空)")
@@ -458,7 +484,7 @@ def call_deepseek_api(prompt: str, model: str = None) -> str:
         # 尝试解析 JSON
         try:
             result = response.json()
-        except json.JSONDecodeError as e:
+        except (json.JSONDecodeError, ValueError) as e:
             preview = raw_text[:300] if len(raw_text) > 300 else raw_text
             raise Exception(f"DeepSeek API 返回非 JSON 内容: {preview}")
         
@@ -467,7 +493,11 @@ def call_deepseek_api(prompt: str, model: str = None) -> str:
             raise Exception(f"DeepSeek API 返回空内容。响应: {json.dumps(result, ensure_ascii=False)[:500]}")
         return content
     else:
-        error_detail = raw_text[:500] if raw_text else "无响应内容"
+        # 获取错误详情
+        try:
+            error_detail = response.text[:500] if response.text else "无响应内容"
+        except:
+            error_detail = response.content[:500].decode('utf-8', errors='ignore') if response.content else "无响应内容"
         try:
             error_json = response.json()
             if "error" in error_json:
