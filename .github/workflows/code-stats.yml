@@ -2,7 +2,7 @@ name: Code Statistics
 
 on:
   push:
-    branches: [main]
+    branches: [main, staging]
   schedule:
     - cron: '0 0 * * *'  # 每天 UTC 0:00 运行
   workflow_dispatch:  # 允许手动触发
@@ -284,12 +284,23 @@ jobs:
           ''', shell=True, capture_output=True, text=True)
           
           contributors = []
+          # 允许的用户名列表（提前定义，在收集时就过滤）
+          allowed_names = ['wy770', 'WyRainBow']
+          
           for line in result.stdout.strip().split('\n'):
               if '|' in line:
                   parts = line.split('|')
                   if len(parts) == 4:
                       name, added, deleted, commits = parts
-                      if 'bot' in name.lower() or (int(added or 0) == 0 and int(deleted or 0) == 0):
+                      # 过滤掉 bot
+                      if 'bot' in name.lower():
+                          continue
+                      # 过滤掉空贡献
+                      if int(added or 0) == 0 and int(deleted or 0) == 0:
+                          continue
+                      # 只保留允许的用户名（提前过滤）
+                      is_allowed = name in allowed_names or any(allowed.lower() in name.lower() for allowed in allowed_names)
+                      if not is_allowed:
                           continue
                       contributors.append({
                           'name': name,
@@ -299,18 +310,13 @@ jobs:
                           'net': int(added or 0) - int(deleted or 0)
                       })
           
-          # 合并同一用户的多个账号，并只保留自己的贡献
+          # 合并同一用户的多个账号
           merged = {}
-          # 允许的用户名列表（支持多种格式）
-          allowed_names = ['wy770', 'WyRainBow']
           
           for c in contributors:
               key = c['name']
-              # 只处理允许的用户名
-              # 检查是否在允许列表中，或者包含允许的关键字
-              is_allowed = key in allowed_names or any(allowed.lower() in key.lower() for allowed in allowed_names)
-              if not is_allowed:
-                  continue
+              # 统一使用 WyRainBow 作为显示名称
+              display_name = 'WyRainBow'
               
               # 统一使用 WyRainBow 作为显示名称
               display_name = 'WyRainBow'
