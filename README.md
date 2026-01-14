@@ -76,6 +76,12 @@ git clone https://github.com/WyRainBow/Resume-Agent.git
 cd Resume-Agent
 ```
 
+**2、配置环境变量**
+创建 `.env` 文件，填入 DeepSeek API Key：
+```bash
+cp .env.example .env
+# 编辑 .env 文件，填入 DEEPSEEK_API_KEY=your_api_key_here
+```
 
 **3、安装依赖**
 ```bash
@@ -85,10 +91,11 @@ cd frontend && npm install
 
 **4、启动服务**
 ```bash
- 
-cd backend && uvicorn main:app --reload --port 8000
+# 后端（从项目根目录）
+export PYTHONPATH="$(pwd):$PYTHONPATH"
+python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
 
-
+# 前端
 cd frontend && npm run dev
 ```
 
@@ -96,6 +103,8 @@ cd frontend && npm run dev
 - 前端、http://localhost:5173
 - 后端 API、http://localhost:8000
 - API 文档、http://localhost:8000/docs
+
+**详细配置说明请查看 [LOCAL_SETUP.md](LOCAL_SETUP.md)**
 
 ## 🛠️ 技术栈
 
