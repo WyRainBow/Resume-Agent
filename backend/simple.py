@@ -406,6 +406,10 @@ def call_deepseek_api(prompt: str, model: str = None) -> str:
     返回:
         API 返回的响应内容
     """
+    # 检查 API Key 是否配置
+    if not DEEPSEEK_API_KEY:
+        raise Exception("DEEPSEEK_API_KEY 未配置。请在 Railway 环境变量或本地 .env 文件中设置 DEEPSEEK_API_KEY")
+    
     if model is None:
         model = DEEPSEEK_MODEL
 
@@ -432,30 +436,45 @@ def call_deepseek_api(prompt: str, model: str = None) -> str:
 
     """使用复用的 HTTP Session"""
     session = get_http_session()
-    response = session.post(
-        api_url,
-        json=payload,
-        headers=headers,
-        timeout=30
-    )
+    
+    try:
+        response = session.post(
+            api_url,
+            json=payload,
+            headers=headers,
+            timeout=30
+        )
+    except requests.exceptions.RequestException as e:
+        raise Exception(f"DeepSeek API 网络请求失败: {str(e)}")
 
+    # 先获取原始响应文本
+    raw_text = response.text
+    
     if response.status_code == 200:
-        result = response.json()
+        # 检查响应是否为空
+        if not raw_text or not raw_text.strip():
+            raise Exception(f"DeepSeek API 返回空响应 (status=200, body为空)")
+        
+        # 尝试解析 JSON
+        try:
+            result = response.json()
+        except json.JSONDecodeError as e:
+            preview = raw_text[:300] if len(raw_text) > 300 else raw_text
+            raise Exception(f"DeepSeek API 返回非 JSON 内容: {preview}")
+        
         content = result.get("choices", [{}])[0].get("message", {}).get("content", "")
         if not content:
-            # 如果 content 为空，记录详细错误信息
-            import json
-            raise Exception(f"DeepSeek API 返回空内容。完整响应: {json.dumps(result, ensure_ascii=False, indent=2)}")
+            raise Exception(f"DeepSeek API 返回空内容。响应: {json.dumps(result, ensure_ascii=False)[:500]}")
         return content
     else:
-        error_detail = response.text
+        error_detail = raw_text[:500] if raw_text else "无响应内容"
         try:
             error_json = response.json()
             if "error" in error_json:
                 error_detail = error_json["error"].get("message", error_detail)
         except:
             pass
-        raise Exception(f"DeepSeek API 调用失败: {response.status_code} - {error_detail}")
+        raise Exception(f"DeepSeek API 错误 {response.status_code}: {error_detail}")
 
 
 def call_deepseek_api_stream(prompt: str, model: str = None):
