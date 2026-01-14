@@ -12,7 +12,6 @@ import { useResumeData, usePDFOperations, useAIImport } from '../hooks'
 import { Header } from '../components'
 import EditPreviewLayout from '../EditPreviewLayout'
 import AIImportModal from '../shared/AIImportModal'
-import APISettingsDialog from '../shared/APISettingsDialog'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 
 type EditMode = 'click' | 'scroll'
@@ -80,9 +79,6 @@ export default function LaTeXWorkspace() {
     handleGlobalAIImport,
     handleAISave,
   } = useAIImport({ setResumeData })
-
-  // API 设置弹窗
-  const [apiSettingsOpen, setApiSettingsOpen] = useState(false)
 
   // 文件输入引用（用于导入 JSON）
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -193,7 +189,6 @@ export default function LaTeXWorkspace() {
         saveSuccess={saveSuccess}
         onGlobalAIImport={handleGlobalAIImport}
         onSaveToDashboard={handleSaveToDashboard}
-        onAPISettings={() => setApiSettingsOpen(true)}
         onExportJSON={handleExportJSON}
         onImportJSON={handleImportJSON}
         resumeData={resumeData}
@@ -256,12 +251,6 @@ export default function LaTeXWorkspace() {
         sectionTitle={aiModalTitle}
         onClose={() => setAiModalOpen(false)}
         onSave={handleAISave}
-      />
-
-      {/* API 设置弹窗 */}
-      <APISettingsDialog
-        open={apiSettingsOpen}
-        onOpenChange={setApiSettingsOpen}
       />
 
       {/* 未保存提醒对话框 */}

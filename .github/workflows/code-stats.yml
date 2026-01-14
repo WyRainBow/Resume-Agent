@@ -299,25 +299,51 @@ jobs:
                           'net': int(added or 0) - int(deleted or 0)
                       })
           
-          # 合并同一用户的多个账号
+          # 合并同一用户的多个账号，并只保留自己的贡献
           merged = {}
+          # 允许的用户名列表（支持多种格式）
+          allowed_names = ['wy770', 'WyRainBow']
+          
           for c in contributors:
               key = c['name']
-              if key in ['wy770', 'WyRainBow']:
-                  key = 'WyRainBow'
-              if key in merged:
-                  merged[key]['added'] += c['added']
-                  merged[key]['deleted'] += c['deleted']
-                  merged[key]['commits'] += c['commits']
-                  merged[key]['net'] += c['net']
+              # 只处理允许的用户名
+              # 检查是否在允许列表中，或者包含允许的关键字
+              is_allowed = key in allowed_names or any(allowed.lower() in key.lower() for allowed in allowed_names)
+              if not is_allowed:
+                  continue
+              
+              # 统一使用 WyRainBow 作为显示名称
+              display_name = 'WyRainBow'
+              
+              if display_name in merged:
+                  merged[display_name]['added'] += c['added']
+                  merged[display_name]['deleted'] += c['deleted']
+                  merged[display_name]['commits'] += c['commits']
+                  merged[display_name]['net'] += c['added'] - c['deleted']
               else:
-                  merged[key] = c.copy()
-                  merged[key]['name'] = key
+                  merged[display_name] = {
+                      'name': display_name,
+                      'added': c['added'],
+                      'deleted': c['deleted'],
+                      'commits': c['commits'],
+                      'net': c['added'] - c['deleted']
+                  }
           
           contributors = sorted(merged.values(), key=lambda x: x['net'], reverse=True)
           
           # 生成 SVG
-          width, height = 600, 60 + len(contributors) * 80
+          width, height = 600, 60 + max(len(contributors) * 80, 140)
+          
+          if not contributors:
+              # 如果没有贡献者，显示提示信息
+              svg = f'''<svg width="{width}" height="{height}" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100%" height="100%" fill="#ffffff"/>
+                <text x="{width//2}" y="{height//2}" fill="#666" text-anchor="middle" font-family="sans-serif" font-size="16">暂无贡献数据</text>
+              </svg>'''
+              with open('.github/stats/contributors.svg', 'w') as f:
+                  f.write(svg)
+              exit(0)
+          
           max_net = max(c['net'] for c in contributors) if contributors else 1
           colors = ['#e74c3c', '#3498db', '#2ecc71', '#f39c12', '#9b59b6']
           

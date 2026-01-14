@@ -73,5 +73,9 @@ sophia-pro-reference/
 # 参考目录
 reference/
 
-# 文档目录
-docs/
+# 文档目录（但保留图片和截图）
+docs/**
+!docs/images/
+!docs/images/**
+!docs/screenshots/
+!docs/screenshots/**
