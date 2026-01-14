@@ -93,7 +93,7 @@ cd frontend && npm install
 ```bash
 # 后端（从项目根目录）
 export PYTHONPATH="$(pwd):$PYTHONPATH"
-python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+python3 -m uvicorn backend.main:app --host 0.0.0.0 --port 9000 --reload
 
 # 前端
 cd frontend && npm run dev
@@ -101,8 +101,8 @@ cd frontend && npm run dev
 
 **5、访问应用**
 - 前端、http://localhost:5173
-- 后端 API、http://localhost:8000
-- API 文档、http://localhost:8000/docs
+- 后端 API、http://localhost:9000
+- API 文档、http://localhost:9000/docs
 
 **详细配置说明请查看 [LOCAL_SETUP.md](LOCAL_SETUP.md)**
 

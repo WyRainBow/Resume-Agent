@@ -9,14 +9,14 @@ const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API
 let API_BASE = ''
 if (rawApiBase) {
   API_BASE = rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`
-} else {
-  // 如果没有配置环境变量，根据环境判断
-  if (import.meta.env.PROD) {
-    API_BASE = '' // 生产环境使用相对路径，由代理处理
   } else {
-    API_BASE = 'http://localhost:8000' // 开发环境
+    // 如果没有配置环境变量，根据环境判断
+    if (import.meta.env.PROD) {
+      API_BASE = '' // 生产环境使用相对路径，由代理处理
+    } else {
+      API_BASE = 'http://localhost:9000' // 开发环境
+    }
   }
-}
 
 export async function aiTest(provider: 'zhipu' | 'doubao', prompt: string) {
   const url = `${API_BASE}/api/ai/test`
