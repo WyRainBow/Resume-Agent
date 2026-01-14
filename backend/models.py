@@ -22,7 +22,7 @@ class AITestRequest(BaseModel):
 
 class ResumeGenerateRequest(BaseModel):
     """简历生成请求"""
-    provider: Literal["zhipu", "doubao", "deepseek"] = Field(default="doubao")
+    provider: Literal["zhipu", "doubao", "deepseek"] = Field(default="deepseek")
     instruction: str = Field(..., description="一句话或少量信息，说明岗位/经历/技能等")
     locale: Literal["zh", "en"] = Field(default="zh", description="输出语言")
 
