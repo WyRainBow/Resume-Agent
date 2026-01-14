@@ -165,12 +165,21 @@ class ParallelChunkProcessor:
                 timeout=timeout
             )
 
+            # 检查 raw 是否为空
+            if not raw:
+                raise Exception(f"API 返回空内容 (raw is None or empty)")
+
             # 清理和解析响应（这里也可以优化为异步）
             cleaned = await loop.run_in_executor(
                 self.executor,
                 clean_llm_response,
                 raw
             )
+            
+            # 检查 cleaned 是否为空
+            if not cleaned:
+                raise Exception(f"清理后的内容为空。原始内容: {raw[:200] if raw else 'None'}")
+
             chunk_data = await loop.run_in_executor(
                 self.executor,
                 parse_json_response,
