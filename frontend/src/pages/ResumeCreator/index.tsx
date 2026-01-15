@@ -18,6 +18,7 @@ import { EducationForm, type Education } from './components/EducationForm'
 import { ProgressNav, type ResumeStep } from './components/ProgressNav'
 import { TargetPositionForm } from './components/TargetPositionForm'
 import { InternshipForm, type Internship } from './components/InternshipForm'
+import { OrganizationForm, type Organization } from './components/OrganizationForm'
 
 // 简历创建步骤
 const RESUME_STEPS: Array<{ key: ResumeStep; label: string }> = [
@@ -38,7 +39,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string | React.ReactNode
   timestamp: number
-  type?: 'text' | 'card' | 'form-education' | 'choice-education' | 'form-target-position' | 'form-internship' // 新增实习经历类型
+  type?: 'text' | 'card' | 'form-education' | 'choice-education' | 'form-target-position' | 'form-internship' | 'form-organization' // 新增社团组织类型
 }
 
 export default function ResumeCreator() {
@@ -347,9 +348,29 @@ export default function ResumeCreator() {
     }
     setMessages(prev => [...prev, userMsg])
     
-    // 进入下一步：社团组织 (暂时先跳到项目经历或保持当前)
-    setCurrentStep('organization')
-    // TODO: 添加下一步 AI 引导
+    // 进入下一步：社团组织
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-org-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '太棒了！🌟 现在让我们一起分享你的社团组织经历。这些经历最能展现你的领导能力、组织协调能力和团队合作精神，是简历中的重要加分项！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-org-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'org-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-organization'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('organization')
+    }, 1000)
   }
 
   // 处理实习经历跳过
@@ -362,7 +383,73 @@ export default function ResumeCreator() {
     }
     setMessages(prev => [...prev, userMsg])
     
-    setCurrentStep('organization')
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-org-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '太棒了！🌟 现在让我们一起分享你的社团组织经历。这些经历最能展现你的领导能力、组织协调能力和团队合作精神，是简历中的重要加分项！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-org-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'org-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-organization'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('organization')
+    }, 1000)
+  }
+
+  // 处理社团组织提交
+  const handleOrganizationSubmit = (org: Organization) => {
+    setResumeData(prev => ({
+      ...prev,
+      volunteer: [
+        ...(prev.volunteer || []),
+        {
+          id: org.id,
+          organization: org.name,
+          position: org.role,
+          startDate: org.startDate,
+          endDate: org.isCurrent ? '' : org.endDate,
+          summary: org.description,
+          url: '',
+          highlights: []
+        }
+      ]
+    }))
+
+    const userMsg: Message = {
+      id: `user-org-${Date.now()}`,
+      role: 'user',
+      content: `我在 ${org.name} 担任 ${org.role} 🌟`,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    // 自动进入下一步：项目经历
+    setCurrentStep('project')
+    // TODO: 添加下一步 AI 引导
+  }
+
+  // 处理社团组织跳过
+  const handleOrganizationSkip = () => {
+    const userMsg: Message = {
+      id: `user-org-skip-${Date.now()}`,
+      role: 'user',
+      content: '暂时跳过',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setCurrentStep('project')
     // TODO: 添加下一步 AI 引导
   }
 
@@ -543,6 +630,13 @@ export default function ResumeCreator() {
                         <InternshipForm 
                           onSkip={handleInternshipSkip}
                           onSubmit={handleInternshipSubmit}
+                        />
+                      )}
+
+                      {message.type === 'form-organization' && (
+                        <OrganizationForm 
+                          onSkip={handleOrganizationSkip}
+                          onSubmit={handleOrganizationSubmit}
                         />
                       )}
                       </div>
