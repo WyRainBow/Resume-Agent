@@ -19,6 +19,7 @@ import { ProgressNav, type ResumeStep } from './components/ProgressNav'
 import { TargetPositionForm } from './components/TargetPositionForm'
 import { InternshipForm, type Internship } from './components/InternshipForm'
 import { OrganizationForm, type Organization } from './components/OrganizationForm'
+import { ProjectForm, type Project } from './components/ProjectForm'
 
 // 简历创建步骤
 const RESUME_STEPS: Array<{ key: ResumeStep; label: string }> = [
@@ -39,7 +40,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string | React.ReactNode
   timestamp: number
-  type?: 'text' | 'card' | 'form-education' | 'choice-education' | 'form-target-position' | 'form-internship' | 'form-organization' // 新增社团组织类型
+  type?: 'text' | 'card' | 'form-education' | 'choice-education' | 'form-target-position' | 'form-internship' | 'form-organization' | 'form-project' // 新增项目经历类型
 }
 
 export default function ResumeCreator() {
@@ -435,8 +436,28 @@ export default function ResumeCreator() {
     setMessages(prev => [...prev, userMsg])
     
     // 自动进入下一步：项目经历
-    setCurrentStep('project')
-    // TODO: 添加下一步 AI 引导
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-project-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '很棒！💻 现在让我们一起展示你的项目经历。项目经历是技术能力的最佳证明，也是 HR 最关注的部分之一。让我们把你的技术实力完美展现出来！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-project-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'project-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-project'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('project')
+    }, 1000)
   }
 
   // 处理社团组织跳过
@@ -444,12 +465,79 @@ export default function ResumeCreator() {
     const userMsg: Message = {
       id: `user-org-skip-${Date.now()}`,
       role: 'user',
-      content: '暂时跳过',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
       timestamp: Date.now()
     }
     setMessages(prev => [...prev, userMsg])
     
-    setCurrentStep('project')
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-project-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '很棒！💻 现在让我们一起展示你的项目经历。项目经历是技术能力的最佳证明，也是 HR 最关注的部分之一。让我们把你的技术实力完美展现出来！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-project-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'project-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-project'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('project')
+    }, 1000)
+  }
+
+  // 处理项目经历提交
+  const handleProjectSubmit = (project: Project) => {
+    setResumeData(prev => ({
+      ...prev,
+      projects: [
+        ...(prev.projects || []),
+        {
+          id: project.id,
+          name: project.name,
+          description: project.description,
+          startDate: project.startDate,
+          endDate: project.isCurrent ? '' : project.endDate,
+          url: '',
+          highlights: [],
+          roles: project.role,
+          keywords: []
+        }
+      ]
+    }))
+
+    const userMsg: Message = {
+      id: `user-project-${Date.now()}`,
+      role: 'user',
+      content: `项目：${project.name}，担任：${project.role} 🚀`,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    // 进入下一步：技能推荐
+    setCurrentStep('skills')
+    // TODO: 添加下一步 AI 引导
+  }
+
+  // 处理项目经历跳过
+  const handleProjectSkip = () => {
+    const userMsg: Message = {
+      id: `user-project-skip-${Date.now()}`,
+      role: 'user',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setCurrentStep('skills')
     // TODO: 添加下一步 AI 引导
   }
 
@@ -637,6 +725,13 @@ export default function ResumeCreator() {
                         <OrganizationForm 
                           onSkip={handleOrganizationSkip}
                           onSubmit={handleOrganizationSubmit}
+                        />
+                      )}
+
+                      {message.type === 'form-project' && (
+                        <ProjectForm 
+                          onSkip={handleProjectSkip}
+                          onSubmit={handleProjectSubmit}
                         />
                       )}
                       </div>
