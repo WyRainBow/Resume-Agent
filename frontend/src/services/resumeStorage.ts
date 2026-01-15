@@ -1,135 +1,127 @@
 import type { Resume } from '../types/resume'
 import type { ResumeData } from '../pages/Workspace/v2/types'
+import type { SavedResume } from './storage/StorageAdapter'
+import { LocalStorageAdapter } from './storage/LocalStorageAdapter'
+import { DatabaseAdapter } from './storage/DatabaseAdapter'
 
-const STORAGE_KEY = 'resume_resumes'
-const CURRENT_KEY = 'resume_current'
+const localAdapter = new LocalStorageAdapter()
+const databaseAdapter = new DatabaseAdapter()
 
-export interface SavedResume {
-  id: string
-  name: string
-  data: Resume | ResumeData  // 支持新旧两种格式
-  createdAt: number
-  updatedAt: number
+function isAuthenticated() {
+  return Boolean(localStorage.getItem('auth_token'))
 }
+
+function getAdapter() {
+  return isAuthenticated() ? databaseAdapter : localAdapter
+}
+
+async function syncLocalCache(resumes: SavedResume[]) {
+  // 用本地存储做缓存
+  const existing = await localAdapter.getAllResumes()
+  const merged = new Map<string, SavedResume>()
+
+  for (const item of existing) {
+    merged.set(item.id, item)
+  }
+  for (const item of resumes) {
+    merged.set(item.id, item)
+  }
+
+  const list = Array.from(merged.values())
+  try {
+    localStorage.setItem('resume_resumes', JSON.stringify(list))
+  } catch {
+    // ignore
+  }
+}
+
+export { SavedResume }
 
 /**
  * 获取所有保存的简历
  */
-export function getAllResumes(): SavedResume[] {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY)
-    return data ? JSON.parse(data) : []
-  } catch {
-    return []
+export async function getAllResumes(): Promise<SavedResume[]> {
+  const adapter = getAdapter()
+  const list = await adapter.getAllResumes()
+  if (isAuthenticated()) {
+    await syncLocalCache(list)
   }
+  return list
 }
 
 /**
  * 获取当前编辑的简历ID
  */
 export function getCurrentResumeId(): string | null {
-  return localStorage.getItem(CURRENT_KEY)
+  return localAdapter.getCurrentResumeId()
 }
 
 /**
  * 设置当前编辑的简历ID
  */
 export function setCurrentResumeId(id: string | null) {
-  if (id) {
-    localStorage.setItem(CURRENT_KEY, id)
-  } else {
-    localStorage.removeItem(CURRENT_KEY)
-  }
+  localAdapter.setCurrentResumeId(id)
 }
 
 /**
  * 获取指定简历
  */
-export function getResume(id: string): SavedResume | null {
-  const resumes = getAllResumes()
-  return resumes.find(r => r.id === id) || null
+export async function getResume(id: string): Promise<SavedResume | null> {
+  const adapter = getAdapter()
+  const resume = await adapter.getResume(id)
+  if (resume && isAuthenticated()) {
+    await syncLocalCache([resume])
+  }
+  return resume
 }
 
 /**
  * 保存简历（新建或更新）
  * 支持 Resume 和 ResumeData 两种格式
  */
-export function saveResume(resume: Resume | ResumeData, id?: string): SavedResume {
-  const resumes = getAllResumes()
-  const now = Date.now()
-  
-  // 从 resume 中提取名称（支持新旧两种格式）
-  const resumeName = (resume as any).basic?.name || (resume as any).name || '未命名简历'
-  
-  if (id) {
-    // 更新现有简历
-    const index = resumes.findIndex(r => r.id === id)
-    if (index >= 0) {
-      resumes[index] = {
-        ...resumes[index],
-        name: resumeName,
-        data: resume,
-        updatedAt: now
-      }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(resumes))
-      return resumes[index]
-    }
+export async function saveResume(resume: Resume | ResumeData, id?: string): Promise<SavedResume> {
+  const adapter = getAdapter()
+  const saved = await adapter.saveResume(resume, id)
+
+  if (isAuthenticated()) {
+    await localAdapter.saveResume(resume, saved.id)
   }
-  
-  // 新建简历
-  const newResume: SavedResume = {
-    id: `resume_${now}_${Math.random().toString(36).substr(2, 9)}`,
-    name: resumeName,
-    data: resume,
-    createdAt: now,
-    updatedAt: now
-  }
-  resumes.push(newResume)
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(resumes))
-  setCurrentResumeId(newResume.id)
-  return newResume
+
+  return saved
 }
 
 /**
  * 删除简历
  */
-export function deleteResume(id: string): boolean {
-  const resumes = getAllResumes()
-  const filtered = resumes.filter(r => r.id !== id)
-  if (filtered.length !== resumes.length) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
-    if (getCurrentResumeId() === id) {
-      setCurrentResumeId(filtered.length > 0 ? filtered[0].id : null)
-    }
-    return true
+export async function deleteResume(id: string): Promise<boolean> {
+  const adapter = getAdapter()
+  const result = await adapter.deleteResume(id)
+  if (isAuthenticated()) {
+    await localAdapter.deleteResume(id)
   }
-  return false
+  return result
 }
 
 /**
  * 重命名简历
  */
-export function renameResume(id: string, newName: string): boolean {
-  const resumes = getAllResumes()
-  const index = resumes.findIndex(r => r.id === id)
-  if (index >= 0) {
-    resumes[index].name = newName
-    resumes[index].updatedAt = Date.now()
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(resumes))
-    return true
+export async function renameResume(id: string, newName: string): Promise<boolean> {
+  const adapter = getAdapter()
+  const result = await adapter.renameResume(id, newName)
+  if (isAuthenticated()) {
+    await localAdapter.renameResume(id, newName)
   }
-  return false
+  return result
 }
 
 /**
  * 复制简历
  */
-export function duplicateResume(id: string): SavedResume | null {
-  const original = getResume(id)
-  if (original) {
-    const copied = JSON.parse(JSON.stringify(original.data)) as Resume
-    copied.name = `${original.name} (副本)`
-    return saveResume(copied)
+export async function duplicateResume(id: string): Promise<SavedResume | null> {
+  const adapter = getAdapter()
+  const result = await adapter.duplicateResume(id)
+  if (result && isAuthenticated()) {
+    await localAdapter.saveResume(result.data, result.id)
   }
-  return null
+  return result
 }

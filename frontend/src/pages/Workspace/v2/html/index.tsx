@@ -102,17 +102,19 @@ export default function HTMLWorkspace() {
     
     // 设置新的定时器，500ms 后保存
     saveTimerRef.current = setTimeout(() => {
-      try {
-        const currentDataStr = JSON.stringify(resumeData)
-        // 只有当数据真正变化时才保存
-        if (currentDataStr !== lastSavedDataRef.current) {
-          saveResume(resumeData, currentResumeId)
-          lastSavedDataRef.current = currentDataStr
-          console.log('自动保存成功')
+      void (async () => {
+        try {
+          const currentDataStr = JSON.stringify(resumeData)
+          // 只有当数据真正变化时才保存
+          if (currentDataStr !== lastSavedDataRef.current) {
+            await saveResume(resumeData, currentResumeId)
+            lastSavedDataRef.current = currentDataStr
+            console.log('自动保存成功')
+          }
+        } catch (error) {
+          console.error('自动保存失败:', error)
         }
-      } catch (error) {
-        console.error('自动保存失败:', error)
-      }
+      })()
     }, 500)
   }, [resumeData, currentResumeId])
 
@@ -126,16 +128,18 @@ export default function HTMLWorkspace() {
       saveTimerRef.current = null
     }
     
-    try {
-      const currentDataStr = JSON.stringify(resumeData)
-      if (currentDataStr !== lastSavedDataRef.current) {
-        saveResume(resumeData, currentResumeId)
-        lastSavedDataRef.current = currentDataStr
-        console.log('立即保存成功')
+    void (async () => {
+      try {
+        const currentDataStr = JSON.stringify(resumeData)
+        if (currentDataStr !== lastSavedDataRef.current) {
+          await saveResume(resumeData, currentResumeId)
+          lastSavedDataRef.current = currentDataStr
+          console.log('立即保存成功')
+        }
+      } catch (error) {
+        console.error('立即保存失败:', error)
       }
-    } catch (error) {
-      console.error('立即保存失败:', error)
-    }
+    })()
   }, [resumeData, currentResumeId])
 
   // 如果路由携带 resumeId，则设置为当前简历 ID，保持与路由一致

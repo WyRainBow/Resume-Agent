@@ -15,7 +15,7 @@ const TemplateMarket = () => {
   const templates = getAllTemplates()
   const [viewMode, setViewMode] = useState<'detailed' | 'simple'>('simple')
 
-  const handleSelectTemplate = (templateId: string) => {
+  const handleSelectTemplate = async (templateId: string) => {
     const template = getTemplateById(templateId)
     const templateMetadata = getTemplateMetadata(templateId)
     
@@ -41,7 +41,7 @@ const TemplateMarket = () => {
     }
 
     // 保存到本地存储，使用新的 ID
-    saveResume(newResume, newId)
+    await saveResume(newResume, newId)
     
     // 🎯 根据模板类型跳转到对应的工作区（附带 ID）
     if (templateType === 'html') {

@@ -26,20 +26,22 @@ export const useDashboardLogic = () => {
   /** 选中的简历 ID 集合（用于批量删除） */
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
-  const loadResumes = () => {
+  const loadResumes = async () => {
     setIsLoading(true)
-    const list = getAllResumes()
+    const list = await getAllResumes()
     list.sort((a, b) => b.updatedAt - a.updatedAt)
     setResumes(list)
     setIsLoading(false)
   }
 
   useEffect(() => {
-    loadResumes()
+    ;(async () => {
+      await loadResumes()
+    })()
     
     // 监听 storage 事件，当其他页面修改 localStorage 时刷新
     const handleStorage = (e: StorageEvent) => {
-      if (e.key === 'resume_agent_resumes') {
+      if (e.key === 'resume_resumes') {
         loadResumes()
       }
     }
@@ -64,27 +66,27 @@ export const useDashboardLogic = () => {
   };
 
   /** 删除单个简历 */
-  const deleteResume = (id: string) => {
+  const deleteResume = async (id: string) => {
     if (window.confirm('确定删除这份简历吗？')) {
-      deleteResumeService(id)
+      await deleteResumeService(id)
       // 同时从选中集合中移除
       setSelectedIds(prev => {
         const next = new Set(prev)
         next.delete(id)
         return next
       })
-      loadResumes()
+      await loadResumes()
     }
   }
 
-  const duplicateResume = (id: string) => {
-    const newResume = duplicateResumeService(id)
+  const duplicateResume = async (id: string) => {
+    const newResume = await duplicateResumeService(id)
     if (newResume) {
-      loadResumes()
+      await loadResumes()
     }
   }
 
-  const editResume = (id: string) => {
+  const editResume = async (id: string) => {
     setCurrentResumeId(id)
 
     // 🎯 优先从 ID 中推断模板类型（最可靠的方式）
@@ -107,7 +109,7 @@ export const useDashboardLogic = () => {
     }
 
     // 回退：从简历数据中获取模板类型
-    const saved = getResume(id)
+    const saved = await getResume(id)
     if (saved && saved.data) {
       const data = saved.data as any
       const templateType = data.templateType || 'latex' // 默认为 latex
@@ -149,8 +151,8 @@ export const useDashboardLogic = () => {
 
         const newId = generateUUID()
         const newResume = { ...data, id: newId }
-        saveResume(newResume)
-        loadResumes()
+        await saveResume(newResume)
+        await loadResumes()
       } catch (e) {
         console.error('Import failed', e)
         alert('导入失败')
@@ -182,7 +184,7 @@ export const useDashboardLogic = () => {
    * - 删除前弹出确认框
    * - 删除后清空选中状态并刷新列表
    */
-  const batchDelete = useCallback(() => {
+  const batchDelete = useCallback(async () => {
     // 检查是否有选中的简历
     if (selectedIds.size === 0) {
       alert('请先选择要删除的简历')
@@ -196,15 +198,15 @@ export const useDashboardLogic = () => {
     }
 
     // 执行批量删除
-    selectedIds.forEach(id => {
-      deleteResumeService(id)
-    })
+    for (const id of selectedIds) {
+      await deleteResumeService(id)
+    }
 
     // 清空选中状态
     setSelectedIds(new Set())
 
     // 刷新列表
-    loadResumes()
+    await loadResumes()
   }, [selectedIds])
 
   /**
