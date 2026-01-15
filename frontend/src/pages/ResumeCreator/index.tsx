@@ -47,6 +47,21 @@ export default function ResumeCreator() {
   const [resumeData, setResumeData] = useState<ResumeData>(initialResumeData)
   const [currentStep, setCurrentStep] = useState<ResumeStep>('education')
 
+  const buildEducationSummary = (education?: Education) => {
+    if (!education) return ''
+    const school = education.school?.trim()
+    let major = education.major?.trim()
+    const degree = education.degree?.trim()
+    if (!school || !major || !degree) return ''
+    
+    // 如果专业名称已经包含"专业"两个字，则不再添加
+    if (major.endsWith('专业')) {
+      major = major.slice(0, -2)
+    }
+    
+    return `我在${school}就读${major}专业，学历是${degree} 🌟`
+  }
+
   // 初始化消息
   useEffect(() => {
     // 初始用户消息
@@ -132,7 +147,25 @@ export default function ResumeCreator() {
   }
 
   // 处理教育经历提交
-  const handleEducationSubmit = () => {
+  const handleEducationSubmit = (edu: Education) => {
+    // 确保数据已更新
+    setResumeData(prev => ({
+      ...prev,
+      education: [edu]
+    }))
+
+    // 根据实际填写的信息生成总结消息
+    const summary = buildEducationSummary(edu)
+    if (summary) {
+      const userSummaryMsg: Message = {
+        id: `user-edu-summary-${Date.now()}`,
+        role: 'user',
+        content: summary,
+        timestamp: Date.now()
+      }
+      setMessages(prev => [...prev, userSummaryMsg])
+    }
+
     // 进入下一步：目标职位
     setCurrentStep('target-position')
     // 可以在这里添加下一步的 AI 消息

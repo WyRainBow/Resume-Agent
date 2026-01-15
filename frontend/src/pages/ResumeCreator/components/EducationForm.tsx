@@ -4,6 +4,7 @@ import type { Education as WorkspaceEducation } from '@/pages/Workspace/v2/types
 import { motion } from 'framer-motion'
 import { ChevronDown, Plus, Sparkles, Upload } from 'lucide-react'
 import React, { useState } from 'react'
+import { cn } from '@/lib/utils'
 import { MonthPicker } from './MonthPicker'
 
 export interface Education {
@@ -19,7 +20,7 @@ export interface Education {
 interface EducationFormProps {
   data?: Education
   onChange: (data: Education) => void
-  onSubmit: () => void
+  onSubmit: (data: Education) => void
 }
 
 const DEGREES = ['专科', '本科', '硕士', '博士', '其他']
@@ -64,6 +65,36 @@ export const EducationForm: React.FC<EducationFormProps> = ({
       if (exampleValue) {
         handleChange(field, exampleValue)
       }
+    }
+  }
+
+  // 验证必填字段
+  const isFormValid = () => {
+    return !!(
+      formData.school?.trim() &&
+      formData.major?.trim() &&
+      formData.degree?.trim() &&
+      formData.startDate?.trim() &&
+      formData.endDate?.trim()
+    )
+  }
+
+  // 处理提交
+  const handleSubmit = (e?: React.MouseEvent) => {
+    e?.preventDefault()
+    e?.stopPropagation()
+    
+    if (!isFormValid()) {
+      console.warn('表单验证失败，请填写所有必填字段', formData)
+      alert('请填写所有必填字段（学校名称、专业、学历、在校时间）')
+      return
+    }
+    
+    console.log('✅ 提交教育经历数据:', formData)
+    try {
+      onSubmit(formData)
+    } catch (error) {
+      console.error('提交失败:', error)
     }
   }
 
@@ -234,8 +265,15 @@ export const EducationForm: React.FC<EducationFormProps> = ({
 
         {/* 提交按钮 */}
         <button
-          onClick={onSubmit}
-          className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20 transition-all active:scale-[0.98]"
+          type="button"
+          onClick={handleSubmit}
+          disabled={!isFormValid()}
+          className={cn(
+            "w-full py-3 rounded-xl font-bold text-sm shadow-lg transition-all active:scale-[0.98]",
+            isFormValid()
+              ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 cursor-pointer"
+              : "bg-gray-300 text-gray-500 cursor-not-allowed"
+          )}
         >
           提交
         </button>
