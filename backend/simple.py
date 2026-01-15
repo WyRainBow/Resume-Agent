@@ -141,7 +141,7 @@ def get_http_session():
         _http_session.mount('https://', adapter)
         _http_session.headers.update({
             'Connection': 'keep-alive',
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Encoding': 'gzip, deflate',  # 不使用 br (Brotli)，requests 不支持自动解压
             'Accept': 'application/json',
         })
     return _http_session
