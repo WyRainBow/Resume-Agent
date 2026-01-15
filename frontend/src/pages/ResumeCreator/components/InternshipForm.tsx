@@ -30,8 +30,26 @@ export const InternshipForm: React.FC<InternshipFormProps> = ({ onSkip, onSubmit
     description: ''
   })
 
+  // Placeholder 示例值映射
+  const placeholderExamples: Record<string, string> = {
+    company: '百度',
+    position: '前端开发实习生',
+    description: '负责公司前端项目的开发与维护，使用 React 和 TypeScript 技术栈。参与需求分析和技术方案设计，优化页面性能，提升用户体验。完成多个核心功能模块开发，代码质量优秀，获得团队认可。'
+  }
+
   const handleChange = (field: keyof Internship, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  // 处理 Tab 键一键补全
+  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, field: keyof Internship) => {
+    if (e.key === 'Tab' && !e.shiftKey && !formData[field]) {
+      e.preventDefault()
+      const exampleValue = placeholderExamples[field]
+      if (exampleValue) {
+        handleChange(field, exampleValue)
+      }
+    }
   }
 
   const isFormValid = () => {
@@ -63,11 +81,15 @@ export const InternshipForm: React.FC<InternshipFormProps> = ({ onSkip, onSubmit
       <div className="space-y-6">
         {/* 公司名称 */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">公司名称</label>
+          <label className="text-sm font-medium text-gray-700">
+            公司名称
+            <span className="ml-2 text-xs text-gray-400 font-normal">(按 Tab 快速填充示例)</span>
+          </label>
           <input
             type="text"
             value={formData.company}
             onChange={(e) => handleChange('company', e.target.value)}
+            onKeyDown={(e) => handleTabKeyDown(e, 'company')}
             placeholder="例如：百度"
             className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-50 outline-none transition-all"
           />
@@ -75,11 +97,15 @@ export const InternshipForm: React.FC<InternshipFormProps> = ({ onSkip, onSubmit
 
         {/* 职位名称 */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">职位名称</label>
+          <label className="text-sm font-medium text-gray-700">
+            职位名称
+            <span className="ml-2 text-xs text-gray-400 font-normal">(按 Tab 快速填充示例)</span>
+          </label>
           <input
             type="text"
             value={formData.position}
             onChange={(e) => handleChange('position', e.target.value)}
+            onKeyDown={(e) => handleTabKeyDown(e, 'position')}
             placeholder="例如：前端开发实习生"
             className="w-full px-4 py-3 rounded-xl border border-gray-100 bg-gray-50/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-50 outline-none transition-all"
           />
@@ -125,7 +151,10 @@ export const InternshipForm: React.FC<InternshipFormProps> = ({ onSkip, onSubmit
 
         {/* 工作描述 */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">工作描述</label>
+          <label className="text-sm font-medium text-gray-700">
+            工作描述
+            <span className="ml-2 text-xs text-gray-400 font-normal">(按 Tab 快速填充示例)</span>
+          </label>
           <div className="border border-gray-100 rounded-xl overflow-hidden">
             {/* 工具栏 */}
             <div className="flex items-center justify-between px-3 py-2 bg-gray-50/50 border-b border-gray-100">
@@ -150,6 +179,7 @@ export const InternshipForm: React.FC<InternshipFormProps> = ({ onSkip, onSubmit
             <textarea
               value={formData.description}
               onChange={(e) => handleChange('description', e.target.value)}
+              onKeyDown={(e) => handleTabKeyDown(e, 'description')}
               placeholder="写作公式（STAR法则）：【背景情况】→【工作任务】→【具体行动+技术方案】→【成果+数据】&#10;&#10;点击右上角「AI 帮写」，让 AI 帮你生成专业的描述"
               className="w-full h-48 px-4 py-3 bg-white outline-none resize-none text-sm text-gray-600 placeholder:text-gray-300 leading-relaxed"
             />
