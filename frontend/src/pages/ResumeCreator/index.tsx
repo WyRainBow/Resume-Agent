@@ -5,14 +5,41 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   List,
-  Trash2
+  Trash2,
+  GraduationCap,
+  Circle
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { HTMLTemplateRenderer } from '../Workspace/v2/HTMLTemplateRenderer'
 import { initialResumeData } from '@/data/initialResumeData'
+import { getTemplateMetadata } from '@/data/templates'
+import { saveResume } from '@/services/resumeStorage'
 import type { ResumeData } from '../Workspace/v2/types'
 import { EducationForm, type Education } from './components/EducationForm'
+import { ProgressNav, type ResumeStep } from './components/ProgressNav'
+import { TargetPositionForm } from './components/TargetPositionForm'
+import { InternshipForm, type Internship } from './components/InternshipForm'
+import { OrganizationForm, type Organization } from './components/OrganizationForm'
+import { ProjectForm, type Project } from './components/ProjectForm'
+import { SkillsForm } from './components/SkillsForm'
+import { CertificatesForm } from './components/CertificatesForm'
+import { BasicInfoForm, type BasicInfo } from './components/BasicInfoForm'
+import { TemplateSelector } from './components/TemplateSelector'
+
+// 简历创建步骤
+const RESUME_STEPS: Array<{ key: ResumeStep; label: string }> = [
+  { key: 'education', label: '教育经历' },
+  { key: 'target-position', label: '目标职位' },
+  { key: 'internship', label: '实习经历' },
+  { key: 'organization', label: '社团组织' },
+  { key: 'project', label: '项目经历' },
+  { key: 'skills', label: '技能推荐' },
+  { key: 'certificates', label: '证书荣誉' },
+  { key: 'basic-info', label: '基本信息' },
+  { key: 'template', label: '选择模板' }
+]
 
 // 消息类型
 interface Message {
@@ -20,17 +47,34 @@ interface Message {
   role: 'user' | 'assistant'
   content: string | React.ReactNode
   timestamp: number
-  type?: 'text' | 'card' | 'form-education' // 新增表单类型
+  type?: 'text' | 'card' | 'form-education' | 'choice-education' | 'form-target-position' | 'form-internship' | 'form-organization' | 'form-project' | 'form-skills' | 'form-certificates' | 'form-basic-info' | 'form-template' // 新增模板选择类型
 }
 
 export default function ResumeCreator() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
 
   // 状态
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [resumeData, setResumeData] = useState<ResumeData>(initialResumeData)
+  const [currentStep, setCurrentStep] = useState<ResumeStep>('education')
+
+  const buildEducationSummary = (education?: Education) => {
+    if (!education) return ''
+    const school = education.school?.trim()
+    let major = education.major?.trim()
+    const degree = education.degree?.trim()
+    if (!school || !major || !degree) return ''
+    
+    // 如果专业名称已经包含"专业"两个字，则不再添加
+    if (major.endsWith('专业')) {
+      major = major.slice(0, -2)
+    }
+    
+    return `我在${school}就读${major}专业，学历是${degree} 🌟`
+  }
 
   // 初始化消息
   useEffect(() => {
@@ -38,7 +82,7 @@ export default function ResumeCreator() {
     const initialUserMsg: Message = {
       id: 'init-user',
       role: 'user',
-      content: '你好 RA AI，帮我写一份求职简历',
+      content: '你好 RA AI：帮我写一份求职简历',
       timestamp: Date.now()
     }
 
@@ -117,8 +161,766 @@ export default function ResumeCreator() {
   }
 
   // 处理教育经历提交
-  const handleEducationSubmit = () => {
-    // 可以在这里添加后续流程，比如进入工作经历
+  const handleEducationSubmit = (edu: Education) => {
+    // 确保数据已更新
+    setResumeData(prev => ({
+      ...prev,
+      education: [edu]
+    }))
+
+    // 1. 根据实际填写的信息生成总结消息
+    const summary = buildEducationSummary(edu)
+    if (summary) {
+      const userSummaryMsg: Message = {
+        id: `user-edu-summary-${Date.now()}`,
+        role: 'user',
+        content: summary,
+        timestamp: Date.now()
+      }
+      setMessages(prev => [...prev, userSummaryMsg])
+    }
+
+    // 2. 模拟 AI 思考并弹出“是否继续添加”卡片
+    setIsLoading(true)
+    setTimeout(() => {
+      // AI 鼓励语
+      const aiEncouragementMsg: Message = {
+        id: `ai-edu-done-${Date.now()}`,
+        role: 'assistant',
+        content: '太棒了！🎓 第一段教育经历填写完成！如果你还有其他教育经历想要展示，我们可以继续添加。丰富的教育背景能让 HR 更好地了解你的学习成长轨迹哦！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      // AI 选择卡片
+      const aiChoiceMsg: Message = {
+        id: `ai-edu-choice-${Date.now()}`,
+        role: 'assistant',
+        content: 'choice-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'choice-education'
+      }
+
+      setMessages(prev => [...prev, aiEncouragementMsg, aiChoiceMsg])
+      setIsLoading(false)
+    }, 1000)
+  }
+
+  // 处理教育经历跳过
+  const handleEducationSkip = () => {
+    const userMsg: Message = {
+      id: `user-edu-skip-${Date.now()}`,
+      role: 'user',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-target-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '没问题，我们先看其他的。想好投递什么职位了吗？🎯 明确目标职位能让简历更有竞争力哦！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-target-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'target-position-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-target-position'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('target-position')
+    }, 1000)
+  }
+
+  // 处理“是否继续添加教育经历”的选择
+  const handleChoiceEducation = (choice: 'yes' | 'no') => {
+    if (choice === 'yes') {
+      // 再次弹出表单
+      const aiFormMsg: Message = {
+        id: `ai-edu-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'form-placeholder',
+        timestamp: Date.now(),
+        type: 'form-education'
+      }
+      setMessages(prev => [...prev, aiFormMsg])
+    } else {
+      // 确认不添加，进入下一步
+      const userNoMsg: Message = {
+        id: `user-no-${Date.now()}`,
+        role: 'user',
+        content: '否，继续下一步，让我继续完善我的经历 ✨',
+        timestamp: Date.now()
+      }
+      setMessages(prev => [...prev, userNoMsg])
+      
+      setIsLoading(true)
+      setTimeout(() => {
+        const aiIntroMsg: Message = {
+          id: `ai-target-intro-${Date.now()}`,
+          role: 'assistant',
+          content: '很棒！🌟 现在让我们一起明确你的目标职位。选择你心仪的职位类型，UP 简历会为你打造最吸引 HR 的简历内容！',
+          timestamp: Date.now(),
+          type: 'text'
+        }
+
+        const aiFormMsg: Message = {
+          id: `ai-target-form-${Date.now()}`,
+          role: 'assistant',
+          content: 'target-placeholder',
+          timestamp: Date.now() + 100,
+          type: 'form-target-position'
+        }
+
+        setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+        setIsLoading(false)
+        setCurrentStep('target-position')
+      }, 800)
+    }
+  }
+
+  // 处理目标职位提交
+  const handleTargetPositionSubmit = (position: string) => {
+    setResumeData(prev => ({
+      ...prev,
+      basics: {
+        ...prev.basics,
+        label: position
+      }
+    }))
+
+    const userMsg: Message = {
+      id: `user-target-${Date.now()}`,
+      role: 'user',
+      content: `我的目标职位是：${position} 🎯`,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    // 自动进入下一步：实习经历
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-internship-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '现在让我们一起分享你的实习或工作经历吧！🚀 不管是大公司还是小团队，每一次实践都是你向上生长的宝贵经历。如果暂时还没有也没关系，我们可以先跳过~',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-internship-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'internship-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-internship'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('internship')
+    }, 1000)
+  }
+
+  // 处理目标职位跳过
+  const handleTargetPositionSkip = () => {
+    const userMsg: Message = {
+      id: `user-target-skip-${Date.now()}`,
+      role: 'user',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-internship-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '现在让我们一起分享你的实习或工作经历吧！🚀 不管是大公司还是小团队，每一次实践都是你向上生长的宝贵经历。如果暂时还没有也没关系，我们可以先跳过~',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-internship-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'internship-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-internship'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('internship')
+    }, 1000)
+  }
+
+  // 处理实习经历提交
+  const handleInternshipSubmit = (internship: Internship) => {
+    setResumeData(prev => ({
+      ...prev,
+      work: [
+        ...(prev.work || []),
+        {
+          id: internship.id,
+          name: internship.company,
+          position: internship.position,
+          startDate: internship.startDate,
+          endDate: internship.isCurrent ? '' : internship.endDate,
+          summary: internship.description,
+          url: '',
+          highlights: []
+        }
+      ]
+    }))
+
+    const userMsg: Message = {
+      id: `user-internship-${Date.now()}`,
+      role: 'user',
+      content: `我在 ${internship.company} 担任 ${internship.position} 💼`,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    // 进入下一步：社团组织
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-org-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '太棒了！🌟 现在让我们一起分享你的社团组织经历。这些经历最能展现你的领导能力、组织协调能力和团队合作精神，是简历中的重要加分项！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-org-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'org-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-organization'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('organization')
+    }, 1000)
+  }
+
+  // 处理实习经历跳过
+  const handleInternshipSkip = () => {
+    const userMsg: Message = {
+      id: `user-internship-skip-${Date.now()}`,
+      role: 'user',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-org-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '太棒了！🌟 现在让我们一起分享你的社团组织经历。这些经历最能展现你的领导能力、组织协调能力和团队合作精神，是简历中的重要加分项！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-org-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'org-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-organization'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('organization')
+    }, 1000)
+  }
+
+  // 处理社团组织提交
+  const handleOrganizationSubmit = (org: Organization) => {
+    setResumeData(prev => ({
+      ...prev,
+      volunteer: [
+        ...(prev.volunteer || []),
+        {
+          id: org.id,
+          organization: org.name,
+          position: org.role,
+          startDate: org.startDate,
+          endDate: org.isCurrent ? '' : org.endDate,
+          summary: org.description,
+          url: '',
+          highlights: []
+        }
+      ]
+    }))
+
+    const userMsg: Message = {
+      id: `user-org-${Date.now()}`,
+      role: 'user',
+      content: `我在 ${org.name} 担任 ${org.role} 🌟`,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    // 自动进入下一步：项目经历
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-project-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '很棒！💻 现在让我们一起展示你的项目经历。项目经历是技术能力的最佳证明，也是 HR 最关注的部分之一。让我们把你的技术实力完美展现出来！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-project-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'project-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-project'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('project')
+    }, 1000)
+  }
+
+  // 处理社团组织跳过
+  const handleOrganizationSkip = () => {
+    const userMsg: Message = {
+      id: `user-org-skip-${Date.now()}`,
+      role: 'user',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-project-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '很棒！💻 现在让我们一起展示你的项目经历。项目经历是技术能力的最佳证明，也是 HR 最关注的部分之一。让我们把你的技术实力完美展现出来！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-project-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'project-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-project'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('project')
+    }, 1000)
+  }
+
+  // 处理项目经历提交
+  const handleProjectSubmit = (project: Project) => {
+    setResumeData(prev => ({
+      ...prev,
+      projects: [
+        ...(prev.projects || []),
+        {
+          id: project.id,
+          name: project.name,
+          description: project.description,
+          startDate: project.startDate,
+          endDate: project.isCurrent ? '' : project.endDate,
+          url: '',
+          highlights: [],
+          roles: project.role,
+          keywords: []
+        }
+      ]
+    }))
+
+    const userMsg: Message = {
+      id: `user-project-${Date.now()}`,
+      role: 'user',
+      content: `项目：${project.name}，担任：${project.role} 🚀`,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    // 进入下一步：技能推荐
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-skills-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '真棒！🎯 基于你的专业背景和职业目标，我为你精心挑选了这些技能。这些都是你专业实力的体现，让我们一起展示你的技能特长，让 HR 看到你的专业价值！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-skills-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'skills-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-skills'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('skills')
+    }, 1000)
+  }
+
+  // 处理项目经历跳过
+  const handleProjectSkip = () => {
+    const userMsg: Message = {
+      id: `user-project-skip-${Date.now()}`,
+      role: 'user',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-skills-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '真棒！🎯 基于你的专业背景和职业目标，我为你精心挑选了这些技能。这些都是你专业实力的体现，让我们一起展示你的技能特长，让 HR 看到你的专业价值！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-skills-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'skills-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-skills'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('skills')
+    }, 1000)
+  }
+
+  // 处理技能提交
+  const handleSkillsSubmit = (skills: string[]) => {
+    setResumeData(prev => ({
+      ...prev,
+      skills: [
+        ...(prev.skills || []),
+        ...skills.map(name => ({
+          name,
+          level: '熟练',
+          keywords: []
+        }))
+      ]
+    }))
+
+    const userMsg: Message = {
+      id: `user-skills-${Date.now()}`,
+      role: 'user',
+      content: `推荐技能: ${skills.join('、')} 🎯`,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    // 进入下一步：证书荣誉
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-certs-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '太棒了！🏆 现在让我们一起展示你的资格证书和荣誉奖项。每一份证书和奖项都是你专业能力的证明，让我们把这些闪光点都添加到简历里吧！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-certs-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'certs-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-certificates'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('certificates')
+    }, 1000)
+  }
+
+  // 处理技能跳过
+  const handleSkillsSkip = () => {
+    const userMsg: Message = {
+      id: `user-skills-skip-${Date.now()}`,
+      role: 'user',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-certs-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '没问题，我们先看其他的。🏆 现在让我们一起展示你的资格证书和荣誉奖项。',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-certs-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'certs-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-certificates'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('certificates')
+    }, 1000)
+  }
+
+  // 处理证书荣誉提交
+  const handleCertificatesSubmit = (awards: string[], certs: string[]) => {
+    setResumeData(prev => ({
+      ...prev,
+      awards: [
+        ...(prev.awards || []),
+        ...awards.map(title => ({
+          title,
+          date: '',
+          awarder: '',
+          summary: ''
+        }))
+      ],
+      certificates: [
+        ...(prev.certificates || []),
+        ...certs.map(name => ({
+          name,
+          date: '',
+          issuer: '',
+          url: ''
+        }))
+      ]
+    }))
+
+    const userMsg: Message = {
+      id: `user-certs-${Date.now()}`,
+      role: 'user',
+      content: `我的荣誉和证书：${[...awards, ...certs].join('、')} 🏆`,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    // 进入下一步：基本信息
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-basic-info-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '快到终点了！🏁 现在让我们完善你的联系方式。这样 HR 就能轻松找到优秀的你，为你的职业生涯打开更多可能性！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-basic-info-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'basic-info-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-basic-info'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('basic-info')
+    }, 1000)
+  }
+
+  // 处理证书荣誉跳过
+  const handleCertificatesSkip = () => {
+    const userMsg: Message = {
+      id: `user-certs-skip-${Date.now()}`,
+      role: 'user',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-basic-info-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '快到终点了！🏁 现在让我们完善你的联系方式。这样 HR 就能轻松找到优秀的你，为你的职业生涯打开更多可能性！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-basic-info-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'basic-info-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-basic-info'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('basic-info')
+    }, 1000)
+  }
+
+  // 处理基本信息提交
+  const handleBasicInfoSubmit = (info: BasicInfo) => {
+    setResumeData(prev => ({
+      ...prev,
+      basics: {
+        ...prev.basics,
+        name: info.name,
+        phone: info.phone,
+        email: info.email
+      }
+    }))
+
+    const userMsg: Message = {
+      id: `user-basic-info-${Date.now()}`,
+      role: 'user',
+      content: `我的联系方式已填好：${info.name}，${info.phone} 📱`,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    // 进入下一步：选择模板
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-template-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '太棒了！简历内容已经全部收集完毕 🎉。现在为你准备了多款精美模板，快选一个心仪的样式看看效果吧！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-template-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'template-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-template'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('template')
+    }, 1000)
+  }
+
+  // 处理基本信息跳过
+  const handleBasicInfoSkip = () => {
+    const userMsg: Message = {
+      id: `user-basic-info-skip-${Date.now()}`,
+      role: 'user',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-template-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '没问题！简历内容已经基本成型。现在为你准备了多款精美模板，快选一个心仪的样式看看效果吧！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-template-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'template-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-template'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('template')
+    }, 1000)
+  }
+
+  // 处理模板选择逻辑
+  const handleTemplateSelect = (templateId: string) => {
+    // 查找模板元数据以确定类型
+    const meta = getTemplateMetadata(templateId)
+    
+    // 如果模板市场中没有该模板，根据 ID 判断类型（用于模板选择器中的新模板）
+    let templateType: 'latex' | 'html' = meta?.type || 'latex'
+    if (!meta) {
+      // 模板选择器专用的模板类型映射
+      const htmlTemplates = ['html-classic', 'elegant-blue', 'dynamic', 'timeline']
+      templateType = htmlTemplates.includes(templateId) ? 'html' : 'latex'
+    }
+    
+    setResumeData(prev => ({
+      ...prev,
+      templateId: templateId,
+      templateType: templateType
+    }))
+  }
+
+  // 编辑简历 - 保存并跳转
+  const handleEditResume = async () => {
+    // 生成 ID
+    const templateType = resumeData.templateType || 'latex'
+    const newId = `resume_${templateType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
+    const finalResume = {
+      ...resumeData,
+      id: newId,
+      basic: {
+        ...resumeData.basics,
+        name: '未命名简历'
+      }
+    }
+
+    await saveResume(finalResume, newId)
+    
+    if (templateType === 'html') {
+      navigate(`/workspace/html/${newId}`)
+    } else {
+      navigate(`/workspace/latex/${newId}`)
+    }
+  }
+
+  // 更多模板
+  const handleMoreTemplates = () => {
+    navigate('/templates')
   }
 
   return (
@@ -144,6 +946,11 @@ export default function ResumeCreator() {
           清除历史记录
           </button>
       </div>
+
+      {/* 流程导航栏 - 固定在顶部 */}
+      {selectedOption && (
+        <ProgressNav currentStep={currentStep} steps={RESUME_STEPS} />
+      )}
 
       {/* 主内容区 - 左右分屏布局 */}
       <div className="flex-1 flex overflow-hidden">
@@ -245,8 +1052,98 @@ export default function ResumeCreator() {
 
                       {message.type === 'form-education' && (
                         <EducationForm 
+                          onSkip={handleEducationSkip}
                           onChange={handleEducationChange}
                           onSubmit={handleEducationSubmit}
+                        />
+                      )}
+
+                      {message.type === 'choice-education' && (
+                        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 max-w-xl">
+                          {/* 卡片头部 */}
+                          <div className="flex items-start gap-5 mb-8">
+                            <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center shrink-0">
+                              <GraduationCap className="w-7 h-7 text-indigo-600" />
+                            </div>
+                            <div>
+                              <h3 className="text-[19px] font-bold text-gray-900 mb-2">要不要添加更多教育经历？</h3>
+                              <p className="text-gray-500 text-[15px] leading-relaxed">让我们一起完善你的教育背景，展示你的求学成长轨迹</p>
+                            </div>
+                          </div>
+
+                          {/* 选项按钮 */}
+                          <div className="space-y-4">
+                            {[
+                              { label: '是，添加教育经历', key: 'yes' },
+                              { label: '否，继续下一步', key: 'no' }
+                            ].map((opt) => (
+                              <button
+                                key={opt.key}
+                                onClick={() => handleChoiceEducation(opt.key as 'yes' | 'no')}
+                                className="w-full flex items-center gap-4 p-5 rounded-2xl border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all duration-300 text-left group"
+                              >
+                                <div className="w-2.5 h-2.5 rounded-full bg-indigo-300 group-hover:bg-indigo-500 transition-colors" />
+                                <span className="font-medium text-[16px] text-gray-700 group-hover:text-indigo-900">{opt.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {message.type === 'form-target-position' && (
+                        <TargetPositionForm 
+                          onSkip={handleTargetPositionSkip}
+                          onSubmit={handleTargetPositionSubmit}
+                        />
+                      )}
+
+                      {message.type === 'form-internship' && (
+                        <InternshipForm 
+                          onSkip={handleInternshipSkip}
+                          onSubmit={handleInternshipSubmit}
+                        />
+                      )}
+
+                      {message.type === 'form-organization' && (
+                        <OrganizationForm 
+                          onSkip={handleOrganizationSkip}
+                          onSubmit={handleOrganizationSubmit}
+                        />
+                      )}
+
+                      {message.type === 'form-project' && (
+                        <ProjectForm 
+                          onSkip={handleProjectSkip}
+                          onSubmit={handleProjectSubmit}
+                        />
+                      )}
+
+                      {message.type === 'form-skills' && (
+                        <SkillsForm 
+                          onSkip={handleSkillsSkip}
+                          onSubmit={handleSkillsSubmit}
+                        />
+                      )}
+
+                      {message.type === 'form-certificates' && (
+                        <CertificatesForm 
+                          onSkip={handleCertificatesSkip}
+                          onSubmit={handleCertificatesSubmit}
+                        />
+                      )}
+
+                      {message.type === 'form-basic-info' && (
+                        <BasicInfoForm 
+                          onSkip={handleBasicInfoSkip}
+                          onSubmit={handleBasicInfoSubmit}
+                        />
+                      )}
+
+                      {message.type === 'form-template' && (
+                        <TemplateSelector 
+                          onSelect={handleTemplateSelect}
+                          onEdit={handleEditResume}
+                          onMore={handleMoreTemplates}
                         />
                       )}
                       </div>

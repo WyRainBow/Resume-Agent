@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 隐藏滚动条 */
+.progress-nav-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 @layer utilities {
   .no-spinner::-webkit-inner-spin-button,
   .no-spinner::-webkit-outer-spin-button {
