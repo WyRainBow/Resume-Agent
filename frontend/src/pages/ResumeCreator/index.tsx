@@ -13,6 +13,20 @@ import { HTMLTemplateRenderer } from '../Workspace/v2/HTMLTemplateRenderer'
 import { initialResumeData } from '@/data/initialResumeData'
 import type { ResumeData } from '../Workspace/v2/types'
 import { EducationForm, type Education } from './components/EducationForm'
+import { ProgressNav, type ResumeStep } from './components/ProgressNav'
+
+// 简历创建步骤
+const RESUME_STEPS: Array<{ key: ResumeStep; label: string }> = [
+  { key: 'education', label: '教育经历' },
+  { key: 'target-position', label: '目标职位' },
+  { key: 'internship', label: '实习经历' },
+  { key: 'organization', label: '社团组织' },
+  { key: 'project', label: '项目经历' },
+  { key: 'skills', label: '技能推荐' },
+  { key: 'certificates', label: '证书荣誉' },
+  { key: 'basic-info', label: '基本信息' },
+  { key: 'template', label: '选择模板' }
+]
 
 // 消息类型
 interface Message {
@@ -31,6 +45,7 @@ export default function ResumeCreator() {
   const [isLoading, setIsLoading] = useState(false)
   const [selectedOption, setSelectedOption] = useState<string | null>(null)
   const [resumeData, setResumeData] = useState<ResumeData>(initialResumeData)
+  const [currentStep, setCurrentStep] = useState<ResumeStep>('education')
 
   // 初始化消息
   useEffect(() => {
@@ -38,7 +53,7 @@ export default function ResumeCreator() {
     const initialUserMsg: Message = {
       id: 'init-user',
       role: 'user',
-      content: '你好 RA AI，帮我写一份求职简历',
+      content: '你好 RA AI：帮我写一份求职简历',
       timestamp: Date.now()
     }
 
@@ -118,7 +133,9 @@ export default function ResumeCreator() {
 
   // 处理教育经历提交
   const handleEducationSubmit = () => {
-    // 可以在这里添加后续流程，比如进入工作经历
+    // 进入下一步：目标职位
+    setCurrentStep('target-position')
+    // 可以在这里添加下一步的 AI 消息
   }
 
   return (
@@ -144,6 +161,11 @@ export default function ResumeCreator() {
           清除历史记录
           </button>
       </div>
+
+      {/* 流程导航栏 - 固定在顶部 */}
+      {selectedOption && (
+        <ProgressNav currentStep={currentStep} steps={RESUME_STEPS} />
+      )}
 
       {/* 主内容区 - 左右分屏布局 */}
       <div className="flex-1 flex overflow-hidden">
