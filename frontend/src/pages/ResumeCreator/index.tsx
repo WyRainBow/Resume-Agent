@@ -16,6 +16,7 @@ import { initialResumeData } from '@/data/initialResumeData'
 import type { ResumeData } from '../Workspace/v2/types'
 import { EducationForm, type Education } from './components/EducationForm'
 import { ProgressNav, type ResumeStep } from './components/ProgressNav'
+import { TargetPositionForm } from './components/TargetPositionForm'
 
 // 简历创建步骤
 const RESUME_STEPS: Array<{ key: ResumeStep; label: string }> = [
@@ -36,7 +37,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string | React.ReactNode
   timestamp: number
-  type?: 'text' | 'card' | 'form-education' | 'choice-education' // 新增选择类型
+  type?: 'text' | 'card' | 'form-education' | 'choice-education' | 'form-target-position' // 新增目标职位类型
 }
 
 export default function ResumeCreator() {
@@ -211,14 +212,71 @@ export default function ResumeCreator() {
       const userNoMsg: Message = {
         id: `user-no-${Date.now()}`,
         role: 'user',
-        content: '否，继续下一步',
+        content: '否，继续下一步，让我继续完善我的经历 ✨',
         timestamp: Date.now()
       }
       setMessages(prev => [...prev, userNoMsg])
       
-      setCurrentStep('target-position')
-      // 这里可以触发下一步的 AI 引导
+      setIsLoading(true)
+      setTimeout(() => {
+        const aiIntroMsg: Message = {
+          id: `ai-target-intro-${Date.now()}`,
+          role: 'assistant',
+          content: '很棒！🌟 现在让我们一起明确你的目标职位。选择你心仪的职位类型，UP 简历会为你打造最吸引 HR 的简历内容！',
+          timestamp: Date.now(),
+          type: 'text'
+        }
+
+        const aiFormMsg: Message = {
+          id: `ai-target-form-${Date.now()}`,
+          role: 'assistant',
+          content: 'target-placeholder',
+          timestamp: Date.now() + 100,
+          type: 'form-target-position'
+        }
+
+        setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+        setIsLoading(false)
+        setCurrentStep('target-position')
+      }, 800)
     }
+  }
+
+  // 处理目标职位提交
+  const handleTargetPositionSubmit = (position: string) => {
+    setResumeData(prev => ({
+      ...prev,
+      basics: {
+        ...prev.basics,
+        label: position
+      }
+    }))
+
+    const userMsg: Message = {
+      id: `user-target-${Date.now()}`,
+      role: 'user',
+      content: `我想投递：${position} 🚀`,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    // 自动进入下一步：实习经历
+    setCurrentStep('internship')
+    // TODO: 添加下一步 AI 引导
+  }
+
+  // 处理目标职位跳过
+  const handleTargetPositionSkip = () => {
+    const userMsg: Message = {
+      id: `user-target-skip-${Date.now()}`,
+      role: 'user',
+      content: '暂时跳过',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setCurrentStep('internship')
+    // TODO: 添加下一步 AI 引导
   }
 
   return (
@@ -385,6 +443,13 @@ export default function ResumeCreator() {
                             ))}
                           </div>
                         </div>
+                      )}
+
+                      {message.type === 'form-target-position' && (
+                        <TargetPositionForm 
+                          onSkip={handleTargetPositionSkip}
+                          onSubmit={handleTargetPositionSubmit}
+                        />
                       )}
                       </div>
                     )}
