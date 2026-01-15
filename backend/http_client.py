@@ -150,7 +150,7 @@ def get_requests_session() -> requests.Session:
         _requests_session.mount('https://', adapter)
         _requests_session.headers.update({
             'Connection': 'keep-alive',
-            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Encoding': 'gzip, deflate',  # 不使用 br (Brotli)，requests 不支持自动解压
         })
     return _requests_session
 
