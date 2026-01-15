@@ -10,9 +10,12 @@ import {
   Circle
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { HTMLTemplateRenderer } from '../Workspace/v2/HTMLTemplateRenderer'
 import { initialResumeData } from '@/data/initialResumeData'
+import { getTemplateMetadata } from '@/data/templates'
+import { saveResume } from '@/services/resumeStorage'
 import type { ResumeData } from '../Workspace/v2/types'
 import { EducationForm, type Education } from './components/EducationForm'
 import { ProgressNav, type ResumeStep } from './components/ProgressNav'
@@ -23,6 +26,7 @@ import { ProjectForm, type Project } from './components/ProjectForm'
 import { SkillsForm } from './components/SkillsForm'
 import { CertificatesForm } from './components/CertificatesForm'
 import { BasicInfoForm, type BasicInfo } from './components/BasicInfoForm'
+import { TemplateSelector } from './components/TemplateSelector'
 
 // 简历创建步骤
 const RESUME_STEPS: Array<{ key: ResumeStep; label: string }> = [
@@ -43,11 +47,12 @@ interface Message {
   role: 'user' | 'assistant'
   content: string | React.ReactNode
   timestamp: number
-  type?: 'text' | 'card' | 'form-education' | 'choice-education' | 'form-target-position' | 'form-internship' | 'form-organization' | 'form-project' | 'form-skills' | 'form-certificates' | 'form-basic-info' // 新增基本信息类型
+  type?: 'text' | 'card' | 'form-education' | 'choice-education' | 'form-target-position' | 'form-internship' | 'form-organization' | 'form-project' | 'form-skills' | 'form-certificates' | 'form-basic-info' | 'form-template' // 新增模板选择类型
 }
 
 export default function ResumeCreator() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const navigate = useNavigate()
 
   // 状态
   const [messages, setMessages] = useState<Message[]>([])
@@ -811,8 +816,28 @@ export default function ResumeCreator() {
     setMessages(prev => [...prev, userMsg])
     
     // 进入下一步：选择模板
-    setCurrentStep('template')
-    // TODO: 添加最后一步 AI 引导
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-template-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '太棒了！简历内容已经全部收集完毕 🎉。现在为你准备了多款精美模板，快选一个心仪的样式看看效果吧！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-template-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'template-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-template'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('template')
+    }, 1000)
   }
 
   // 处理基本信息跳过
@@ -825,8 +850,77 @@ export default function ResumeCreator() {
     }
     setMessages(prev => [...prev, userMsg])
     
-    setCurrentStep('template')
-    // TODO: 添加最后一步 AI 引导
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-template-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '没问题！简历内容已经基本成型。现在为你准备了多款精美模板，快选一个心仪的样式看看效果吧！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-template-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'template-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-template'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('template')
+    }, 1000)
+  }
+
+  // 处理模板选择逻辑
+  const handleTemplateSelect = (templateId: string) => {
+    // 查找模板元数据以确定类型
+    const meta = getTemplateMetadata(templateId)
+    
+    // 如果模板市场中没有该模板，根据 ID 判断类型（用于模板选择器中的新模板）
+    let templateType: 'latex' | 'html' = meta?.type || 'latex'
+    if (!meta) {
+      // 模板选择器专用的模板类型映射
+      const htmlTemplates = ['html-classic', 'elegant-blue', 'dynamic', 'timeline']
+      templateType = htmlTemplates.includes(templateId) ? 'html' : 'latex'
+    }
+    
+    setResumeData(prev => ({
+      ...prev,
+      templateId: templateId,
+      templateType: templateType
+    }))
+  }
+
+  // 编辑简历 - 保存并跳转
+  const handleEditResume = async () => {
+    // 生成 ID
+    const templateType = resumeData.templateType || 'latex'
+    const newId = `resume_${templateType}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
+    const finalResume = {
+      ...resumeData,
+      id: newId,
+      basic: {
+        ...resumeData.basics,
+        name: '未命名简历'
+      }
+    }
+
+    await saveResume(finalResume, newId)
+    
+    if (templateType === 'html') {
+      navigate(`/workspace/html/${newId}`)
+    } else {
+      navigate(`/workspace/latex/${newId}`)
+    }
+  }
+
+  // 更多模板
+  const handleMoreTemplates = () => {
+    navigate('/templates')
   }
 
   return (
@@ -1042,6 +1136,14 @@ export default function ResumeCreator() {
                         <BasicInfoForm 
                           onSkip={handleBasicInfoSkip}
                           onSubmit={handleBasicInfoSubmit}
+                        />
+                      )}
+
+                      {message.type === 'form-template' && (
+                        <TemplateSelector 
+                          onSelect={handleTemplateSelect}
+                          onEdit={handleEditResume}
+                          onMore={handleMoreTemplates}
                         />
                       )}
                       </div>
