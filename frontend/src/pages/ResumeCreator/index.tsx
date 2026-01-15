@@ -5,7 +5,9 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   List,
-  Trash2
+  Trash2,
+  GraduationCap,
+  Circle
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -34,7 +36,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string | React.ReactNode
   timestamp: number
-  type?: 'text' | 'card' | 'form-education' // 新增表单类型
+  type?: 'text' | 'card' | 'form-education' | 'choice-education' // 新增选择类型
 }
 
 export default function ResumeCreator() {
@@ -154,7 +156,7 @@ export default function ResumeCreator() {
       education: [edu]
     }))
 
-    // 根据实际填写的信息生成总结消息
+    // 1. 根据实际填写的信息生成总结消息
     const summary = buildEducationSummary(edu)
     if (summary) {
       const userSummaryMsg: Message = {
@@ -166,9 +168,57 @@ export default function ResumeCreator() {
       setMessages(prev => [...prev, userSummaryMsg])
     }
 
-    // 进入下一步：目标职位
-    setCurrentStep('target-position')
-    // 可以在这里添加下一步的 AI 消息
+    // 2. 模拟 AI 思考并弹出“是否继续添加”卡片
+    setIsLoading(true)
+    setTimeout(() => {
+      // AI 鼓励语
+      const aiEncouragementMsg: Message = {
+        id: `ai-edu-done-${Date.now()}`,
+        role: 'assistant',
+        content: '太棒了！🎓 第一段教育经历填写完成！如果你还有其他教育经历想要展示，我们可以继续添加。丰富的教育背景能让 HR 更好地了解你的学习成长轨迹哦！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      // AI 选择卡片
+      const aiChoiceMsg: Message = {
+        id: `ai-edu-choice-${Date.now()}`,
+        role: 'assistant',
+        content: 'choice-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'choice-education'
+      }
+
+      setMessages(prev => [...prev, aiEncouragementMsg, aiChoiceMsg])
+      setIsLoading(false)
+    }, 1000)
+  }
+
+  // 处理“是否继续添加教育经历”的选择
+  const handleChoiceEducation = (choice: 'yes' | 'no') => {
+    if (choice === 'yes') {
+      // 再次弹出表单
+      const aiFormMsg: Message = {
+        id: `ai-edu-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'form-placeholder',
+        timestamp: Date.now(),
+        type: 'form-education'
+      }
+      setMessages(prev => [...prev, aiFormMsg])
+    } else {
+      // 确认不添加，进入下一步
+      const userNoMsg: Message = {
+        id: `user-no-${Date.now()}`,
+        role: 'user',
+        content: '否，继续下一步',
+        timestamp: Date.now()
+      }
+      setMessages(prev => [...prev, userNoMsg])
+      
+      setCurrentStep('target-position')
+      // 这里可以触发下一步的 AI 引导
+    }
   }
 
   return (
@@ -303,6 +353,38 @@ export default function ResumeCreator() {
                           onChange={handleEducationChange}
                           onSubmit={handleEducationSubmit}
                         />
+                      )}
+
+                      {message.type === 'choice-education' && (
+                        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 max-w-xl">
+                          {/* 卡片头部 */}
+                          <div className="flex items-start gap-5 mb-8">
+                            <div className="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center shrink-0">
+                              <GraduationCap className="w-7 h-7 text-indigo-600" />
+                            </div>
+                            <div>
+                              <h3 className="text-[19px] font-bold text-gray-900 mb-2">要不要添加更多教育经历？</h3>
+                              <p className="text-gray-500 text-[15px] leading-relaxed">让我们一起完善你的教育背景，展示你的求学成长轨迹</p>
+                            </div>
+                          </div>
+
+                          {/* 选项按钮 */}
+                          <div className="space-y-4">
+                            {[
+                              { label: '是，添加教育经历', key: 'yes' },
+                              { label: '否，继续下一步', key: 'no' }
+                            ].map((opt) => (
+                              <button
+                                key={opt.key}
+                                onClick={() => handleChoiceEducation(opt.key as 'yes' | 'no')}
+                                className="w-full flex items-center gap-4 p-5 rounded-2xl border border-gray-100 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all duration-300 text-left group"
+                              >
+                                <div className="w-2.5 h-2.5 rounded-full bg-indigo-300 group-hover:bg-indigo-500 transition-colors" />
+                                <span className="font-medium text-[16px] text-gray-700 group-hover:text-indigo-900">{opt.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       )}
                       </div>
                     )}
