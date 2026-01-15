@@ -19,6 +19,7 @@ export interface Education {
 
 interface EducationFormProps {
   data?: Education
+  onSkip: () => void
   onChange: (data: Education) => void
   onSubmit: (data: Education) => void
 }
@@ -27,6 +28,7 @@ const DEGREES = ['专科', '本科', '硕士', '博士', '其他']
 
 export const EducationForm: React.FC<EducationFormProps> = ({ 
   data, 
+  onSkip,
   onChange,
   onSubmit 
 }) => {
@@ -264,20 +266,29 @@ export const EducationForm: React.FC<EducationFormProps> = ({
           />
         </div>
 
-        {/* 提交按钮 */}
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!isFormValid()}
-          className={cn(
-            "w-full py-3 rounded-xl font-bold text-sm shadow-lg transition-all active:scale-[0.98]",
-            isFormValid()
-              ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 cursor-pointer"
-              : "bg-gray-300 text-gray-500 cursor-not-allowed"
-          )}
-        >
-          提交
-        </button>
+        {/* 底部按钮 */}
+        <div className="flex items-center gap-4 pt-4">
+          <button
+            type="button"
+            onClick={onSkip}
+            className="flex-1 py-4 bg-gray-50 hover:bg-gray-100 text-gray-600 rounded-2xl font-bold text-[16px] transition-all"
+          >
+            暂时跳过
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!isFormValid()}
+            className={cn(
+              "flex-[2] py-4 rounded-2xl font-bold text-[16px] transition-all active:scale-[0.98] shadow-lg",
+              isFormValid()
+                ? "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20 cursor-pointer"
+                : "bg-gray-200 text-gray-400 cursor-not-allowed shadow-none"
+            )}
+          >
+            提交
+          </button>
+        </div>
       </div>
 
       {/* AI 导入弹窗 */}

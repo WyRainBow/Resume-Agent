@@ -20,6 +20,9 @@ import { TargetPositionForm } from './components/TargetPositionForm'
 import { InternshipForm, type Internship } from './components/InternshipForm'
 import { OrganizationForm, type Organization } from './components/OrganizationForm'
 import { ProjectForm, type Project } from './components/ProjectForm'
+import { SkillsForm } from './components/SkillsForm'
+import { CertificatesForm } from './components/CertificatesForm'
+import { BasicInfoForm, type BasicInfo } from './components/BasicInfoForm'
 
 // 简历创建步骤
 const RESUME_STEPS: Array<{ key: ResumeStep; label: string }> = [
@@ -40,7 +43,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string | React.ReactNode
   timestamp: number
-  type?: 'text' | 'card' | 'form-education' | 'choice-education' | 'form-target-position' | 'form-internship' | 'form-organization' | 'form-project' // 新增项目经历类型
+  type?: 'text' | 'card' | 'form-education' | 'choice-education' | 'form-target-position' | 'form-internship' | 'form-organization' | 'form-project' | 'form-skills' | 'form-certificates' | 'form-basic-info' // 新增基本信息类型
 }
 
 export default function ResumeCreator() {
@@ -198,6 +201,40 @@ export default function ResumeCreator() {
     }, 1000)
   }
 
+  // 处理教育经历跳过
+  const handleEducationSkip = () => {
+    const userMsg: Message = {
+      id: `user-edu-skip-${Date.now()}`,
+      role: 'user',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-target-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '没问题，我们先看其他的。想好投递什么职位了吗？🎯 明确目标职位能让简历更有竞争力哦！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-target-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'target-position-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-target-position'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('target-position')
+    }, 1000)
+  }
+
   // 处理“是否继续添加教育经历”的选择
   const handleChoiceEducation = (choice: 'yes' | 'no') => {
     if (choice === 'yes') {
@@ -293,7 +330,7 @@ export default function ResumeCreator() {
     const userMsg: Message = {
       id: `user-target-skip-${Date.now()}`,
       role: 'user',
-      content: '暂时跳过',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
       timestamp: Date.now()
     }
     setMessages(prev => [...prev, userMsg])
@@ -379,7 +416,7 @@ export default function ResumeCreator() {
     const userMsg: Message = {
       id: `user-internship-skip-${Date.now()}`,
       role: 'user',
-      content: '暂时跳过',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
       timestamp: Date.now()
     }
     setMessages(prev => [...prev, userMsg])
@@ -523,8 +560,28 @@ export default function ResumeCreator() {
     setMessages(prev => [...prev, userMsg])
     
     // 进入下一步：技能推荐
-    setCurrentStep('skills')
-    // TODO: 添加下一步 AI 引导
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-skills-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '真棒！🎯 基于你的专业背景和职业目标，我为你精心挑选了这些技能。这些都是你专业实力的体现，让我们一起展示你的技能特长，让 HR 看到你的专业价值！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-skills-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'skills-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-skills'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('skills')
+    }, 1000)
   }
 
   // 处理项目经历跳过
@@ -537,8 +594,239 @@ export default function ResumeCreator() {
     }
     setMessages(prev => [...prev, userMsg])
     
-    setCurrentStep('skills')
-    // TODO: 添加下一步 AI 引导
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-skills-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '真棒！🎯 基于你的专业背景和职业目标，我为你精心挑选了这些技能。这些都是你专业实力的体现，让我们一起展示你的技能特长，让 HR 看到你的专业价值！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-skills-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'skills-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-skills'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('skills')
+    }, 1000)
+  }
+
+  // 处理技能提交
+  const handleSkillsSubmit = (skills: string[]) => {
+    setResumeData(prev => ({
+      ...prev,
+      skills: [
+        ...(prev.skills || []),
+        ...skills.map(name => ({
+          name,
+          level: '熟练',
+          keywords: []
+        }))
+      ]
+    }))
+
+    const userMsg: Message = {
+      id: `user-skills-${Date.now()}`,
+      role: 'user',
+      content: `推荐技能: ${skills.join('、')} 🎯`,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    // 进入下一步：证书荣誉
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-certs-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '太棒了！🏆 现在让我们一起展示你的资格证书和荣誉奖项。每一份证书和奖项都是你专业能力的证明，让我们把这些闪光点都添加到简历里吧！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-certs-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'certs-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-certificates'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('certificates')
+    }, 1000)
+  }
+
+  // 处理技能跳过
+  const handleSkillsSkip = () => {
+    const userMsg: Message = {
+      id: `user-skills-skip-${Date.now()}`,
+      role: 'user',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-certs-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '没问题，我们先看其他的。🏆 现在让我们一起展示你的资格证书和荣誉奖项。',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-certs-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'certs-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-certificates'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('certificates')
+    }, 1000)
+  }
+
+  // 处理证书荣誉提交
+  const handleCertificatesSubmit = (awards: string[], certs: string[]) => {
+    setResumeData(prev => ({
+      ...prev,
+      awards: [
+        ...(prev.awards || []),
+        ...awards.map(title => ({
+          title,
+          date: '',
+          awarder: '',
+          summary: ''
+        }))
+      ],
+      certificates: [
+        ...(prev.certificates || []),
+        ...certs.map(name => ({
+          name,
+          date: '',
+          issuer: '',
+          url: ''
+        }))
+      ]
+    }))
+
+    const userMsg: Message = {
+      id: `user-certs-${Date.now()}`,
+      role: 'user',
+      content: `我的荣誉和证书：${[...awards, ...certs].join('、')} 🏆`,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    // 进入下一步：基本信息
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-basic-info-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '快到终点了！🏁 现在让我们完善你的联系方式。这样 HR 就能轻松找到优秀的你，为你的职业生涯打开更多可能性！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-basic-info-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'basic-info-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-basic-info'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('basic-info')
+    }, 1000)
+  }
+
+  // 处理证书荣誉跳过
+  const handleCertificatesSkip = () => {
+    const userMsg: Message = {
+      id: `user-certs-skip-${Date.now()}`,
+      role: 'user',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-basic-info-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '快到终点了！🏁 现在让我们完善你的联系方式。这样 HR 就能轻松找到优秀的你，为你的职业生涯打开更多可能性！',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-basic-info-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'basic-info-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-basic-info'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('basic-info')
+    }, 1000)
+  }
+
+  // 处理基本信息提交
+  const handleBasicInfoSubmit = (info: BasicInfo) => {
+    setResumeData(prev => ({
+      ...prev,
+      basics: {
+        ...prev.basics,
+        name: info.name,
+        phone: info.phone,
+        email: info.email
+      }
+    }))
+
+    const userMsg: Message = {
+      id: `user-basic-info-${Date.now()}`,
+      role: 'user',
+      content: `我的联系方式已填好：${info.name}，${info.phone} 📱`,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    // 进入下一步：选择模板
+    setCurrentStep('template')
+    // TODO: 添加最后一步 AI 引导
+  }
+
+  // 处理基本信息跳过
+  const handleBasicInfoSkip = () => {
+    const userMsg: Message = {
+      id: `user-basic-info-skip-${Date.now()}`,
+      role: 'user',
+      content: '这个部分暂时跳过，先继续其他内容 ⏩',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setCurrentStep('template')
+    // TODO: 添加最后一步 AI 引导
   }
 
   return (
@@ -670,6 +958,7 @@ export default function ResumeCreator() {
 
                       {message.type === 'form-education' && (
                         <EducationForm 
+                          onSkip={handleEducationSkip}
                           onChange={handleEducationChange}
                           onSubmit={handleEducationSubmit}
                         />
@@ -732,6 +1021,27 @@ export default function ResumeCreator() {
                         <ProjectForm 
                           onSkip={handleProjectSkip}
                           onSubmit={handleProjectSubmit}
+                        />
+                      )}
+
+                      {message.type === 'form-skills' && (
+                        <SkillsForm 
+                          onSkip={handleSkillsSkip}
+                          onSubmit={handleSkillsSubmit}
+                        />
+                      )}
+
+                      {message.type === 'form-certificates' && (
+                        <CertificatesForm 
+                          onSkip={handleCertificatesSkip}
+                          onSubmit={handleCertificatesSubmit}
+                        />
+                      )}
+
+                      {message.type === 'form-basic-info' && (
+                        <BasicInfoForm 
+                          onSkip={handleBasicInfoSkip}
+                          onSubmit={handleBasicInfoSubmit}
                         />
                       )}
                       </div>
