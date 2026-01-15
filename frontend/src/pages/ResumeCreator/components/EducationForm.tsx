@@ -43,10 +43,28 @@ export const EducationForm: React.FC<EducationFormProps> = ({
   const [showAIImport, setShowAIImport] = useState(false)
   const [showAIWrite, setShowAIWrite] = useState(false)
 
+  // Placeholder 示例值映射
+  const placeholderExamples: Record<string, string> = {
+    school: '清华大学',
+    major: '计算机科学与技术',
+    description: '主修课程包括数据结构、算法设计、操作系统等。曾获得校级优秀学生奖学金，参与多个项目开发。'
+  }
+
   const handleChange = (field: keyof Education, value: string) => {
     const newData = { ...formData, [field]: value }
     setFormData(newData)
     onChange(newData)
+  }
+
+  // 处理 Tab 键一键补全
+  const handleTabKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>, field: keyof Education) => {
+    if (e.key === 'Tab' && !e.shiftKey && !formData[field]) {
+      e.preventDefault()
+      const exampleValue = placeholderExamples[field]
+      if (exampleValue) {
+        handleChange(field, exampleValue)
+      }
+    }
   }
 
   // AI 导入完成后的处理
@@ -89,11 +107,13 @@ export const EducationForm: React.FC<EducationFormProps> = ({
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-gray-700">
             学校名称 <span className="text-red-500">*</span>
+            <span className="ml-2 text-xs text-gray-400 font-normal">(按 Tab 快速填充示例)</span>
           </label>
           <input
             type="text"
             value={formData.school}
             onChange={(e) => handleChange('school', e.target.value)}
+            onKeyDown={(e) => handleTabKeyDown(e, 'school')}
             placeholder="例如：清华大学"
             className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-gray-50/50"
           />
@@ -103,11 +123,13 @@ export const EducationForm: React.FC<EducationFormProps> = ({
         <div className="space-y-1.5">
           <label className="text-sm font-medium text-gray-700">
             专业 <span className="text-red-500">*</span>
+            <span className="ml-2 text-xs text-gray-400 font-normal">(按 Tab 快速填充示例)</span>
           </label>
           <input
             type="text"
             value={formData.major}
             onChange={(e) => handleChange('major', e.target.value)}
+            onKeyDown={(e) => handleTabKeyDown(e, 'major')}
             placeholder="例如：计算机科学与技术"
             className="w-full px-4 py-2.5 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all bg-gray-50/50"
           />
@@ -180,6 +202,7 @@ export const EducationForm: React.FC<EducationFormProps> = ({
           <div className="flex items-center justify-between">
             <label className="text-sm font-medium text-gray-700">
               在校经历
+              <span className="ml-2 text-xs text-gray-400 font-normal">(按 Tab 快速填充示例)</span>
             </label>
             <div className="flex items-center gap-3">
               <button
@@ -203,6 +226,7 @@ export const EducationForm: React.FC<EducationFormProps> = ({
           <textarea
             value={formData.description}
             onChange={(e) => handleChange('description', e.target.value)}
+            onKeyDown={(e) => handleTabKeyDown(e, 'description')}
             placeholder="请描述你的在校经历、主修课程、获得的奖项等..."
             className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-gray-50/50 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none min-h-[120px] resize-none"
           />
