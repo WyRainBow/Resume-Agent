@@ -17,6 +17,7 @@ import type { ResumeData } from '../Workspace/v2/types'
 import { EducationForm, type Education } from './components/EducationForm'
 import { ProgressNav, type ResumeStep } from './components/ProgressNav'
 import { TargetPositionForm } from './components/TargetPositionForm'
+import { InternshipForm, type Internship } from './components/InternshipForm'
 
 // 简历创建步骤
 const RESUME_STEPS: Array<{ key: ResumeStep; label: string }> = [
@@ -37,7 +38,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string | React.ReactNode
   timestamp: number
-  type?: 'text' | 'card' | 'form-education' | 'choice-education' | 'form-target-position' // 新增目标职位类型
+  type?: 'text' | 'card' | 'form-education' | 'choice-education' | 'form-target-position' | 'form-internship' // 新增实习经历类型
 }
 
 export default function ResumeCreator() {
@@ -255,14 +256,34 @@ export default function ResumeCreator() {
     const userMsg: Message = {
       id: `user-target-${Date.now()}`,
       role: 'user',
-      content: `我想投递：${position} 🚀`,
+      content: `我的目标职位是：${position} 🎯`,
       timestamp: Date.now()
     }
     setMessages(prev => [...prev, userMsg])
     
     // 自动进入下一步：实习经历
-    setCurrentStep('internship')
-    // TODO: 添加下一步 AI 引导
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-internship-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '现在让我们一起分享你的实习或工作经历吧！🚀 不管是大公司还是小团队，每一次实践都是你向上生长的宝贵经历。如果暂时还没有也没关系，我们可以先跳过~',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-internship-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'internship-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-internship'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('internship')
+    }, 1000)
   }
 
   // 处理目标职位跳过
@@ -275,7 +296,73 @@ export default function ResumeCreator() {
     }
     setMessages(prev => [...prev, userMsg])
     
-    setCurrentStep('internship')
+    setIsLoading(true)
+    setTimeout(() => {
+      const aiIntroMsg: Message = {
+        id: `ai-internship-intro-${Date.now()}`,
+        role: 'assistant',
+        content: '现在让我们一起分享你的实习或工作经历吧！🚀 不管是大公司还是小团队，每一次实践都是你向上生长的宝贵经历。如果暂时还没有也没关系，我们可以先跳过~',
+        timestamp: Date.now(),
+        type: 'text'
+      }
+
+      const aiFormMsg: Message = {
+        id: `ai-internship-form-${Date.now()}`,
+        role: 'assistant',
+        content: 'internship-placeholder',
+        timestamp: Date.now() + 100,
+        type: 'form-internship'
+      }
+
+      setMessages(prev => [...prev, aiIntroMsg, aiFormMsg])
+      setIsLoading(false)
+      setCurrentStep('internship')
+    }, 1000)
+  }
+
+  // 处理实习经历提交
+  const handleInternshipSubmit = (internship: Internship) => {
+    setResumeData(prev => ({
+      ...prev,
+      work: [
+        ...(prev.work || []),
+        {
+          id: internship.id,
+          name: internship.company,
+          position: internship.position,
+          startDate: internship.startDate,
+          endDate: internship.isCurrent ? '' : internship.endDate,
+          summary: internship.description,
+          url: '',
+          highlights: []
+        }
+      ]
+    }))
+
+    const userMsg: Message = {
+      id: `user-internship-${Date.now()}`,
+      role: 'user',
+      content: `我在 ${internship.company} 担任 ${internship.position} 💼`,
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    // 进入下一步：社团组织 (暂时先跳到项目经历或保持当前)
+    setCurrentStep('organization')
+    // TODO: 添加下一步 AI 引导
+  }
+
+  // 处理实习经历跳过
+  const handleInternshipSkip = () => {
+    const userMsg: Message = {
+      id: `user-internship-skip-${Date.now()}`,
+      role: 'user',
+      content: '暂时跳过',
+      timestamp: Date.now()
+    }
+    setMessages(prev => [...prev, userMsg])
+    
+    setCurrentStep('organization')
     // TODO: 添加下一步 AI 引导
   }
 
@@ -449,6 +536,13 @@ export default function ResumeCreator() {
                         <TargetPositionForm 
                           onSkip={handleTargetPositionSkip}
                           onSubmit={handleTargetPositionSubmit}
+                        />
+                      )}
+
+                      {message.type === 'form-internship' && (
+                        <InternshipForm 
+                          onSkip={handleInternshipSkip}
+                          onSubmit={handleInternshipSubmit}
                         />
                       )}
                       </div>

@@ -68,7 +68,7 @@ export const EducationForm: React.FC<EducationFormProps> = ({
     }
   }
 
-  // 验证必填字段
+  // 验证必填字段（在校经历 description 为可选字段，不参与验证）
   const isFormValid = () => {
     return !!(
       formData.school?.trim() &&
@@ -76,6 +76,7 @@ export const EducationForm: React.FC<EducationFormProps> = ({
       formData.degree?.trim() &&
       formData.startDate?.trim() &&
       formData.endDate?.trim()
+      // 注意：description（在校经历）为可选字段，不参与验证
     )
   }
 
@@ -86,7 +87,7 @@ export const EducationForm: React.FC<EducationFormProps> = ({
     
     if (!isFormValid()) {
       console.warn('表单验证失败，请填写所有必填字段', formData)
-      alert('请填写所有必填字段（学校名称、专业、学历、在校时间）')
+      alert('请填写所有必填字段（学校名称、专业、学历、在校时间）\n注：在校经历为可选字段，可以不填写')
       return
     }
     
