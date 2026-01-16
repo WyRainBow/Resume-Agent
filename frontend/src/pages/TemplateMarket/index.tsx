@@ -40,14 +40,20 @@ const TemplateMarket = () => {
       templateType: templateType
     }
 
-    // 保存到本地存储，使用新的 ID
-    await saveResume(newResume, newId)
-    
-    // 🎯 根据模板类型跳转到对应的工作区（附带 ID）
-    if (templateType === 'html') {
-      navigate(`/workspace/html/${newId}`)
-    } else {
-      navigate(`/workspace/latex/${newId}`)
+    try {
+      // 保存到本地/数据库，使用新的 ID
+      const saved = await saveResume(newResume, newId)
+      const targetId = saved?.id || newId
+      
+      // 🎯 根据模板类型跳转到对应的工作区（附带 ID）
+      if (templateType === 'html') {
+        navigate(`/workspace/html/${targetId}`)
+      } else {
+        navigate(`/workspace/latex/${targetId}`)
+      }
+    } catch (error) {
+      console.error('模板创建失败:', error)
+      alert('模板创建失败，请稍后重试')
     }
   }
 

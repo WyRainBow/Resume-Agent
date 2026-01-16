@@ -8,8 +8,10 @@ import { Alert, AlertDescription, AlertTitle } from './components/ui/alert'
 import { AlertCircle, Settings } from './components/Icons'
 import { Button } from './components/ui/button'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
+import { useAuth } from '@/contexts/AuthContext'
 
 const ResumeDashboard = () => {
+  const { isAuthenticated } = useAuth()
   const {
     resumes,
     createResume,
@@ -26,8 +28,8 @@ const ResumeDashboard = () => {
     isAllSelected
   } = useDashboardLogic()
 
-  // 模拟 hasConfiguredFolder 状态，因为我们使用 localStorage，总是"已配置"或不需要配置
-  const hasConfiguredFolder = true
+  // 登录时数据保存到数据库，未登录时保存到本地存储
+  const hasConfiguredFolder = true // 总是有存储配置（本地或云端）
 
   return (
     <WorkspaceLayout>
@@ -53,19 +55,35 @@ const ResumeDashboard = () => {
               <Alert className="mb-6 bg-green-50/50 dark:bg-green-950/30 border-green-200 dark:border-green-900">
                 <AlertDescription className="flex items-center justify-between">
                   <span className="text-green-700 dark:text-green-400">
-                    自动保存到本地存储
+                    {isAuthenticated 
+                      ? '✅ 数据已自动保存到云端数据库' 
+                      : '✅ 数据已自动保存到本地存储（登录后可同步到云端）'}
                   </span>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="ml-4 hover:bg-green-100 dark:hover:bg-green-900"
-                    onClick={() => {
-                      // router.push("/app/dashboard/settings");
-                    }}
-                  >
-                    <Settings className="w-4 h-4 mr-2" />
-                    设置
-                  </Button>
+                  {!isAuthenticated && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="ml-4 hover:bg-green-100 dark:hover:bg-green-900"
+                      onClick={() => {
+                        window.location.href = '/login'
+                      }}
+                    >
+                      登录同步到云端
+                    </Button>
+                  )}
+                  {isAuthenticated && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="ml-4 hover:bg-green-100 dark:hover:bg-green-900"
+                      onClick={() => {
+                        // router.push("/app/dashboard/settings");
+                      }}
+                    >
+                      <Settings className="w-4 h-4 mr-2" />
+                      设置
+                    </Button>
+                  )}
                 </AlertDescription>
               </Alert>
             ) : (

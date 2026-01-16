@@ -46,7 +46,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(user)
 
-    token = create_access_token({"sub": user.id, "email": user.email})
+    token = create_access_token({"sub": str(user.id), "email": user.email})
     return TokenResponse(
         access_token=token,
         user=UserResponse(id=user.id, email=user.email)
@@ -60,7 +60,7 @@ def login(body: LoginRequest, db: Session = Depends(get_db)):
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="邮箱或密码错误")
 
-    token = create_access_token({"sub": user.id, "email": user.email})
+    token = create_access_token({"sub": str(user.id), "email": user.email})
     return TokenResponse(
         access_token=token,
         user=UserResponse(id=user.id, email=user.email)

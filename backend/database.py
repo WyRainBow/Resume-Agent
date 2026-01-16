@@ -18,7 +18,7 @@ load_dotenv(override=True)
 # 从环境变量获取数据库 URL，默认使用本地 MySQL
 DATABASE_URL = os.getenv(
     "DATABASE_URL",
-    "mysql+pymysql://root:password@localhost:3306/resume_db"
+    "mysql+pymysql://root@localhost:3306/resume_db"
 )
 
 # 创建数据库引擎

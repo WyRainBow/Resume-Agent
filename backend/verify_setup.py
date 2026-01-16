@@ -10,8 +10,9 @@ def check_mysql():
     print("1. 检查 MySQL 连接...")
     try:
         from database import DATABASE_URL, engine
+        from sqlalchemy import text
         with engine.connect() as conn:
-            conn.execute("SELECT 1")
+            conn.execute(text("SELECT 1"))
         print("   ✅ MySQL 连接成功")
         return True
     except Exception as e:
