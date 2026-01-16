@@ -93,8 +93,6 @@ export default function HTMLWorkspace() {
 
   // 自动保存函数（防抖）
   const autoSave = useCallback(() => {
-    if (!currentResumeId) return
-    
     // 清除之前的定时器
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
@@ -107,21 +105,24 @@ export default function HTMLWorkspace() {
           const currentDataStr = JSON.stringify(resumeData)
           // 只有当数据真正变化时才保存
           if (currentDataStr !== lastSavedDataRef.current) {
-            await saveResume(resumeData, currentResumeId)
+            const saved = await saveResume(resumeData, currentResumeId || undefined)
+            // 如果保存后获得了新的 ID，更新 currentResumeId
+            if (!currentResumeId && saved.id) {
+              setCurrentId(saved.id)
+              setCurrentResumeId(saved.id)
+            }
             lastSavedDataRef.current = currentDataStr
-            console.log('自动保存成功')
+            console.log('自动保存成功', saved.id)
           }
         } catch (error) {
           console.error('自动保存失败:', error)
         }
       })()
     }, 500)
-  }, [resumeData, currentResumeId])
+  }, [resumeData, currentResumeId, setCurrentId])
 
   // 立即保存函数（用于失焦时）
   const saveImmediately = useCallback(() => {
-    if (!currentResumeId) return
-    
     // 清除防抖定时器
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
@@ -132,15 +133,20 @@ export default function HTMLWorkspace() {
       try {
         const currentDataStr = JSON.stringify(resumeData)
         if (currentDataStr !== lastSavedDataRef.current) {
-          await saveResume(resumeData, currentResumeId)
+          const saved = await saveResume(resumeData, currentResumeId || undefined)
+          // 如果保存后获得了新的 ID，更新 currentResumeId
+          if (!currentResumeId && saved.id) {
+            setCurrentId(saved.id)
+            setCurrentResumeId(saved.id)
+          }
           lastSavedDataRef.current = currentDataStr
-          console.log('立即保存成功')
+          console.log('立即保存成功', saved.id)
         }
       } catch (error) {
         console.error('立即保存失败:', error)
       }
     })()
-  }, [resumeData, currentResumeId])
+  }, [resumeData, currentResumeId, setCurrentId])
 
   // 如果路由携带 resumeId，则设置为当前简历 ID，保持与路由一致
   useEffect(() => {
@@ -152,7 +158,7 @@ export default function HTMLWorkspace() {
 
   // 监听简历数据变化，自动保存（防抖）
   useEffect(() => {
-    if (currentResumeId && resumeData) {
+    if (resumeData) {
       autoSave()
     }
     
@@ -162,7 +168,7 @@ export default function HTMLWorkspace() {
         clearTimeout(saveTimerRef.current)
       }
     }
-  }, [resumeData, autoSave, currentResumeId])
+  }, [resumeData, autoSave])
 
   // 全局点击事件：点击任意区域时立即保存（排除交互元素）
   useEffect(() => {

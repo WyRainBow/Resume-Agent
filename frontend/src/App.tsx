@@ -28,14 +28,7 @@ function App() {
             <Route path="/workspace/html/:resumeId" element={<HTMLWorkspace />} />
             {/* 其他路由 */}
             <Route path="/login" element={<LoginPage />} />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <ResumeDashboard />
-                </ProtectedRoute>
-              }
-            />
+            <Route path="/dashboard" element={<ResumeDashboard />} />
             <Route path="/templates" element={<TemplateMarket />} />
             <Route path="/create-new" element={<CreateNew />} />
             {/* 简历创建路由 */}

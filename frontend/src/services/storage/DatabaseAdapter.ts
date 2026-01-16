@@ -77,22 +77,43 @@ export class DatabaseAdapter implements StorageAdapter {
 
   async saveResume(resume: Resume | ResumeData, id?: string): Promise<SavedResume> {
     const name = (resume as any).basic?.name || (resume as any).name || '未命名简历'
-    if (id) {
-      const { data } = await apiClient.put(
-        `/api/resumes/${id}`,
-        { id, name, data: resume },
+    try {
+      if (id) {
+        try {
+          const { data } = await apiClient.put(
+            `/api/resumes/${id}`,
+            { id, name, data: resume },
+            { headers: getAuthHeaders() }
+          )
+          return toSavedResume(data)
+        } catch (error: any) {
+          const status = error?.response?.status
+          if (status !== 404) {
+            throw error
+          }
+          // 如果不存在则创建（允许携带自定义 id）
+          const { data } = await apiClient.post(
+            '/api/resumes',
+            { id, name, data: resume },
+            { headers: getAuthHeaders() }
+          )
+          this.setCurrentResumeId(data.id)
+          return toSavedResume(data)
+        }
+      }
+
+      const { data } = await apiClient.post(
+        '/api/resumes',
+        { name, data: resume },
         { headers: getAuthHeaders() }
       )
+      this.setCurrentResumeId(data.id)
       return toSavedResume(data)
+    } catch (error: any) {
+      console.error('保存到数据库失败:', error)
+      // 如果保存失败，抛出错误以便上层处理
+      throw new Error(error?.response?.data?.detail || error?.message || '保存失败')
     }
-
-    const { data } = await apiClient.post(
-      '/api/resumes',
-      { name, data: resume },
-      { headers: getAuthHeaders() }
-    )
-    this.setCurrentResumeId(data.id)
-    return toSavedResume(data)
   }
 
   async deleteResume(id: string): Promise<boolean> {

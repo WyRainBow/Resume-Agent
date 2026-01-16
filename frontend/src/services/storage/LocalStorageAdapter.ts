@@ -52,7 +52,7 @@ export class LocalStorageAdapter implements StorageAdapter {
     }
 
     const newResume: SavedResume = {
-      id: `resume_${now}_${Math.random().toString(36).substr(2, 9)}`,
+      id: id || `resume_${now}_${Math.random().toString(36).substr(2, 9)}`,
       name: resumeName,
       data: resume,
       createdAt: now,

@@ -4,16 +4,6 @@ import type { SavedResume } from './storage/StorageAdapter'
 const STORAGE_KEY = 'resume_resumes'
 const TOKEN_KEY = 'auth_token'
 
-apiClient.interceptors.response.use(
-  response => response,
-  error => {
-    if (error?.response?.status === 401) {
-      localStorage.removeItem(TOKEN_KEY)
-    }
-    return Promise.reject(error)
-  }
-)
-
 // 处理 API_BASE，确保有协议前缀
 const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || ''
 let API_BASE = ''
@@ -30,6 +20,16 @@ if (rawApiBase) {
 const apiClient = axios.create({
   baseURL: API_BASE
 })
+
+apiClient.interceptors.response.use(
+  response => response,
+  error => {
+    if (error?.response?.status === 401) {
+      localStorage.removeItem(TOKEN_KEY)
+    }
+    return Promise.reject(error)
+  }
+)
 
 function getAuthHeaders() {
   const token = localStorage.getItem(TOKEN_KEY)

@@ -21,7 +21,12 @@ SECRET_KEY = os.getenv("JWT_SECRET_KEY", "change-me-in-production")
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 EXPIRE_HOURS = int(os.getenv("JWT_EXPIRE_HOURS", "168"))
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# 修复 bcrypt 版本兼容性问题
+try:
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+except Exception:
+    # 如果 bcrypt 有问题，使用 pbkdf2_sha256 作为备用
+    pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
 
 
 def hash_password(password: str) -> str:
@@ -47,5 +52,14 @@ def decode_access_token(token: str) -> Optional[Dict[str, Any]]:
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload
-    except JWTError:
+    except JWTError as e:
+        # 记录错误以便调试
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"JWT decode error: {e}")
+        return None
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Unexpected error decoding token: {e}")
         return None

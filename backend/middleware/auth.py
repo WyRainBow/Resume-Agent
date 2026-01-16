@@ -24,6 +24,12 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="Token 无效或已过期")
 
     user_id = payload.get("sub")
+    # 处理 user_id 可能是字符串或整数的情况
+    if isinstance(user_id, str):
+        try:
+            user_id = int(user_id)
+        except ValueError:
+            raise HTTPException(status_code=401, detail="Token 格式错误")
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=401, detail="用户不存在")

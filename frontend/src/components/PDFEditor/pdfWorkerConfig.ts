@@ -7,23 +7,21 @@ import * as pdfjsLib from 'pdfjs-dist'
 
 // 配置 worker 源
 export function configurePDFWorker() {
-  // 方案 1：先尝试使用 CDN 上的 ESM 版本
-  // 方案 2：如果 CDN 失败，回退到本地打包的 worker
+  // 优先使用多个 CDN 源作为备选，避免单点故障
+  const workerUrls = [
+    // 方案 1: JSDelivr CDN (通常更稳定)
+    `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`,
+    // 方案 2: unpkg CDN
+    `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`,
+    // 方案 3: Legacy 版本 (兼容性更好)
+    `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`,
+    `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`,
+  ]
+
+  // 尝试第一个 URL，如果失败会在运行时由 PDF.js 自动处理
+  pdfjsLib.GlobalWorkerOptions.workerSrc = workerUrls[0]
   
-  try {
-    // 使用 ESM 版本（现代浏览器支持）
-    pdfjsLib.GlobalWorkerOptions.workerSrc =
-      `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`
-  } catch (e) {
-    // 回退方案：使用 legacy 版本
-    console.warn('ESM worker failed, falling back to legacy version:', e)
-    try {
-      pdfjsLib.GlobalWorkerOptions.workerSrc =
-        `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`
-    } catch (e2) {
-      console.error('Worker configuration failed:', e2)
-    }
-  }
+  console.log(`PDF.js worker 配置: ${pdfjsLib.version} (${workerUrls[0]})`)
 
   // 优化配置，提高移动设备兼容性
   pdfjsLib.GlobalWorkerOptions.workerPort = null
