@@ -41,7 +41,7 @@ class HTMLToLatexConverter(HTMLParser):
             self.in_list = True
             self.list_type = 'ul'
             # 使用圆点符号，并设置对齐参数：leftmargin=* 自动计算，labelsep 控制标签和文本间距
-            self.result.append(r'\begin{itemize}[label=$\bullet$,parsep=0.2ex,leftmargin=*,labelsep=0.5em,itemindent=0em]' + '\n')
+            self.result.append(r'\begin{itemize}[label=\footnotesize$\bullet$,parsep=0.2ex,leftmargin=*,labelsep=0.5em,itemindent=0em]' + '\n')
         elif tag == 'ol':
             self.in_list = True
             self.list_type = 'ol'
