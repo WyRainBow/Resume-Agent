@@ -15,6 +15,10 @@ type AuthContextValue = {
   login: (email: string, password: string) => Promise<void>
   register: (email: string, password: string) => Promise<void>
   logout: () => void
+  isModalOpen: boolean
+  openModal: (mode?: 'login' | 'register') => void
+  closeModal: () => void
+  modalMode: 'login' | 'register'
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -25,6 +29,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(localStorage.getItem(TOKEN_KEY))
   const [loading, setLoading] = useState(true)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [modalMode, setModalMode] = useState<'login' | 'register'>('login')
 
   useEffect(() => {
     const init = async () => {
@@ -81,6 +87,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(null)
   }
 
+  const openModal = (mode: 'login' | 'register' = 'login') => {
+    setModalMode(mode)
+    setIsModalOpen(true)
+  }
+
+  const closeModal = () => {
+    setIsModalOpen(false)
+  }
+
   const value = useMemo(
     () => ({
       user,
@@ -89,9 +104,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated: Boolean(token && user),
       login,
       register,
-      logout
+      logout,
+      isModalOpen,
+      openModal,
+      closeModal,
+      modalMode
     }),
-    [user, token, loading]
+    [user, token, loading, isModalOpen, modalMode]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

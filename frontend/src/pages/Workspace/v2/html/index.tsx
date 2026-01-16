@@ -25,7 +25,7 @@ type EditMode = 'click' | 'scroll'
 export default function HTMLWorkspace() {
   const { resumeId } = useParams<{ resumeId?: string }>()
   // 认证状态
-  const { isAuthenticated, user, logout } = useAuth()
+  const { isAuthenticated, user, logout, openModal } = useAuth()
   
   // 编辑模式状态 - HTML 模板默认使用滚动编辑模式
   const [editMode, setEditMode] = useState<EditMode>('scroll')
@@ -578,7 +578,7 @@ export default function HTMLWorkspace() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => {
-              window.location.href = '/login'
+              openModal('login')
             }}
             className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl shadow-lg border border-slate-200 hover:border-indigo-300 transition-all group"
           >
