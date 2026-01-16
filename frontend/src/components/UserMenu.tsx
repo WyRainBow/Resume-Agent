@@ -3,16 +3,16 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function UserMenu() {
-  const { user, isAuthenticated, logout } = useAuth()
+  const { user, isAuthenticated, logout, openModal } = useAuth()
 
   if (!isAuthenticated) {
     return (
-      <Link
-        to="/login"
+      <button
+        onClick={() => openModal('login')}
         className="text-sm text-gray-600 hover:text-gray-900"
       >
         登录/注册
-      </Link>
+      </button>
     )
   }
 

@@ -12,7 +12,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { LogIn, User } from 'lucide-react'
 
 const ResumeDashboard = () => {
-  const { isAuthenticated, user, logout } = useAuth()
+  const { isAuthenticated, user, logout, openModal } = useAuth()
   const {
     resumes,
     createResume,
@@ -66,7 +66,7 @@ const ResumeDashboard = () => {
                       variant="outline"
                       className="ml-4 hover:bg-green-100 dark:hover:bg-green-900"
                       onClick={() => {
-                        window.location.href = '/login'
+                        openModal('login')
                       }}
                     >
                       登录同步到云端
@@ -180,7 +180,7 @@ const ResumeDashboard = () => {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => {
-              window.location.href = '/login'
+              openModal('login')
             }}
             className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl shadow-lg border border-slate-200 hover:border-indigo-300 transition-all group"
           >

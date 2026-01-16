@@ -12,6 +12,7 @@ import SharePage from './pages/SharePage'
 import ErrorBoundary from './ErrorBoundary'
 import LoginPage from './pages/Login'
 import ProtectedRoute from './components/ProtectedRoute'
+import { AuthModal } from './components/AuthModal'
 
 function App() {
   try {
@@ -35,6 +36,7 @@ function App() {
             <Route path="/resume-creator" element={<ResumeCreator />} /> {/* 新手创建简历 */}
             <Route path="/share/:shareId" element={<SharePage />} />
           </Routes>
+          <AuthModal />
         </BrowserRouter>
       </ErrorBoundary>
     );
