@@ -125,7 +125,7 @@ export const AuthModal: React.FC = () => {
                       <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                     </div>
                     <input
-                      type="email"
+                      type="text"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
