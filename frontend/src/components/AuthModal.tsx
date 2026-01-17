@@ -118,18 +118,18 @@ export const AuthModal: React.FC = () => {
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="space-y-1.5">
                   <label className="text-xs font-black text-slate-400 uppercase tracking-widest ml-1">
-                    电子邮箱
+                    账号
                   </label>
                   <div className="relative group">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                       <Mail className="h-5 w-5 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
                     </div>
                     <input
-                      type="email"
+                      type="text"
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      placeholder="name@example.com"
+                      placeholder="请输入账号"
                       className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 text-sm font-medium placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                     />
                   </div>

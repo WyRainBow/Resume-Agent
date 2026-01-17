@@ -4,7 +4,7 @@
 import logging
 import traceback
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -18,18 +18,18 @@ router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
 
 class RegisterRequest(BaseModel):
-    email: EmailStr
+    email: str  # 改为普通字符串，支持任意格式的账户名
     password: str
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str  # 改为普通字符串，支持任意格式的账户名
     password: str
 
 
 class UserResponse(BaseModel):
     id: int
-    email: EmailStr
+    email: str  # 改为普通字符串
 
 
 class TokenResponse(BaseModel):
