@@ -15,11 +15,36 @@ if env_path.exists():
     load_dotenv(dotenv_path=str(env_path), override=True)
 load_dotenv(override=True)
 
-# 从环境变量获取数据库 URL，默认使用本地 MySQL
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "mysql+pymysql://root@localhost:3306/resume_db"
-)
+# 从环境变量获取数据库 URL
+# 优先级：DATABASE_URL > 从 Railway MySQL 变量构建 > 默认本地 MySQL
+def get_database_url():
+    # 1. 优先使用 DATABASE_URL（如果已设置）
+    database_url = os.getenv("DATABASE_URL")
+    
+    if database_url:
+        # Railway 的 MYSQL_URL 格式可能是 mysql://，需要转换为 mysql+pymysql://
+        if database_url.startswith("mysql://") and not database_url.startswith("mysql+pymysql://"):
+            database_url = database_url.replace("mysql://", "mysql+pymysql://", 1)
+        return database_url
+    
+    # 2. 尝试从 Railway MySQL 环境变量构建（如果存在）
+    mysql_host = os.getenv("MYSQLHOST")
+    mysql_port = os.getenv("MYSQLPORT", "3306")
+    mysql_user = os.getenv("MYSQLUSER", "root")
+    mysql_password = os.getenv("MYSQLPASSWORD", "")
+    mysql_database = os.getenv("MYSQLDATABASE", "resume_db")
+    
+    if mysql_host:
+        # 构建连接字符串
+        if mysql_password:
+            return f"mysql+pymysql://{mysql_user}:{mysql_password}@{mysql_host}:{mysql_port}/{mysql_database}"
+        else:
+            return f"mysql+pymysql://{mysql_user}@{mysql_host}:{mysql_port}/{mysql_database}"
+    
+    # 3. 默认使用本地 MySQL
+    return "mysql+pymysql://root@localhost:3306/resume_db"
+
+DATABASE_URL = get_database_url()
 
 # 创建数据库引擎
 engine = create_engine(
