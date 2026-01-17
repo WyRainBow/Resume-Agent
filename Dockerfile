@@ -29,6 +29,6 @@ COPY . .
 # 暴露端口
 EXPOSE 8000
 
-# 启动命令（使用环境变量 PORT，默认 8000）
-CMD ["sh", "-c", "uvicorn backend.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# 启动命令（先运行迁移，再启动服务）
+CMD ["bash", "railway-start.sh"]
 
