@@ -5,8 +5,9 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Edit, Sparkles, LayoutGrid, FileText, Save, Download } from 'lucide-react'
+import { Edit, Sparkles, LayoutGrid, FileText, Save, Download, LogIn, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/contexts/AuthContext'
 
 // 工作区类型
 type WorkspaceType = 'edit' | 'conversation' | 'dashboard' | 'templates'
@@ -20,6 +21,7 @@ interface WorkspaceLayoutProps {
 export default function WorkspaceLayout({ children, onSave, onDownload }: WorkspaceLayoutProps) {
   const navigate = useNavigate()
   const location = useLocation()
+  const { isAuthenticated, user, logout, openModal } = useAuth()
 
   // 根据路径确定当前工作区
   const getCurrentWorkspace = (): WorkspaceType => {
@@ -176,11 +178,46 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
           </nav>
         </div>
 
-        {/* 底部 */}
+        {/* 底部：登录组件（仅在 dashboard 页面显示）或版本号 */}
         <div className="px-1 py-2 border-t border-slate-100 dark:border-slate-800">
-          <div className="text-[9px] text-slate-400 dark:text-slate-600 text-center leading-tight">
-            v2.0
-          </div>
+          {currentWorkspace === 'dashboard' ? (
+            <div className="px-2 py-2">
+              {isAuthenticated ? (
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={logout}
+                  className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all cursor-pointer group"
+                >
+                  <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center group-hover:bg-indigo-200 dark:group-hover:bg-indigo-900/60 transition-colors">
+                    <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <div className="flex flex-col items-center w-full">
+                    <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium leading-tight">已登录</span>
+                    <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 leading-tight truncate w-full text-center" title={user?.email}>
+                      {user?.email?.split('@')[0] || user?.email}
+                    </span>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => openModal('login')}
+                  className="w-full flex flex-col items-center gap-1.5 px-2 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all group"
+                >
+                  <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center group-hover:bg-indigo-600 dark:group-hover:bg-indigo-700 transition-colors">
+                    <LogIn className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:text-white transition-colors" />
+                  </div>
+                  <span className="text-[10px] font-bold leading-tight">登录/注册</span>
+                </motion.button>
+              )}
+            </div>
+          ) : (
+            <div className="text-[9px] text-slate-400 dark:text-slate-600 text-center leading-tight">
+              v2.0
+            </div>
+          )}
         </div>
       </aside>
 
