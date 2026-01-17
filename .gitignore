@@ -63,6 +63,7 @@ test_api.sh
 # 忽略脚本文件，但保留部署脚本
 *.sh
 !deploy.sh
+!railway-start.sh
 
 # 测试目录
 测试测试/
