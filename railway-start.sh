@@ -8,9 +8,23 @@ echo "当前目录: $(pwd)"
 echo "Python 版本: $(python --version 2>&1 || echo 'Python not found')"
 echo "Alembic 版本: $(alembic --version 2>&1 || echo 'Alembic not found')"
 
-# 检查 DATABASE_URL
+# 检查 DATABASE_URL，如果没有则尝试从 Railway MySQL 变量构建
 if [ -z "$DATABASE_URL" ]; then
-    echo "⚠️  警告: DATABASE_URL 未设置，跳过数据库迁移"
+    if [ -n "$MYSQLHOST" ]; then
+        MYSQL_PORT="${MYSQLPORT:-3306}"
+        MYSQL_USER="${MYSQLUSER:-root}"
+        MYSQL_PASSWORD="${MYSQLPASSWORD:-}"
+        MYSQL_DATABASE="${MYSQLDATABASE:-resume_db}"
+        if [ -n "$MYSQL_PASSWORD" ]; then
+            export DATABASE_URL="mysql+pymysql://${MYSQL_USER}:${MYSQL_PASSWORD}@${MYSQLHOST}:${MYSQL_PORT}/${MYSQL_DATABASE}"
+        else
+            export DATABASE_URL="mysql+pymysql://${MYSQL_USER}@${MYSQLHOST}:${MYSQL_PORT}/${MYSQL_DATABASE}"
+        fi
+        echo "✅ DATABASE_URL 由 Railway MySQL 变量构建"
+        echo "数据库 URL: ${DATABASE_URL:0:50}..."  # 只显示前50个字符，避免泄露密码
+    else
+        echo "⚠️  警告: DATABASE_URL 未设置，且未检测到 MYSQLHOST，跳过数据库迁移"
+    fi
 else
     echo "✅ DATABASE_URL 已设置"
     echo "数据库 URL: ${DATABASE_URL:0:50}..."  # 只显示前50个字符，避免泄露密码

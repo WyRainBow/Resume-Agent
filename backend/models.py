@@ -121,7 +121,13 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    resumes = relationship(lambda: Resume, back_populates="user", cascade="all, delete-orphan", lazy="select")
+    resumes = relationship(
+        lambda: Resume,
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="select",
+        overlaps="user,resumes",
+    )
 
 
 class Resume(Base):
@@ -136,4 +142,9 @@ class Resume(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    user = relationship(lambda: User, back_populates="resumes", lazy="select")
+    user = relationship(
+        lambda: User,
+        back_populates="resumes",
+        lazy="select",
+        overlaps="user,resumes",
+    )
