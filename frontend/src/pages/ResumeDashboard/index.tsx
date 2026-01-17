@@ -9,7 +9,6 @@ import { AlertCircle, Settings } from './components/Icons'
 import { Button } from './components/ui/button'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import { useAuth } from '@/contexts/AuthContext'
-import { LogIn, User } from 'lucide-react'
 
 const ResumeDashboard = () => {
   const { isAuthenticated, user, logout, openModal } = useAuth()
@@ -152,45 +151,6 @@ const ResumeDashboard = () => {
           </motion.div>
         </motion.div>
       </div>
-
-      {/* 左下角登录按钮 */}
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.5 }}
-        className="fixed bottom-6 left-6 z-50"
-      >
-        {isAuthenticated ? (
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl shadow-lg border border-slate-200 hover:border-indigo-300 transition-all cursor-pointer group"
-            onClick={logout}
-          >
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
-              <User className="w-4 h-4 text-indigo-600" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs text-slate-400 font-medium">已登录</span>
-              <span className="text-sm font-bold text-slate-900">{user?.email}</span>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => {
-              openModal('login')
-            }}
-            className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl shadow-lg border border-slate-200 hover:border-indigo-300 transition-all group"
-          >
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 transition-colors">
-              <LogIn className="w-4 h-4 text-indigo-600 group-hover:text-white transition-colors" />
-            </div>
-            <span className="text-sm font-bold text-slate-900">登录/注册</span>
-          </motion.button>
-        )}
-      </motion.div>
     </WorkspaceLayout>
   )
 }
