@@ -60,9 +60,9 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
   }, [pdfBlob, resumeData.basic.name])
 
   // 保存到 Dashboard
-  const handleSaveToDashboard = useCallback(() => {
+  const handleSaveToDashboard = useCallback(async () => {
     // 直接保存完整的 resumeData，确保 templateType 等字段不丢失
-    const saved = saveResume(resumeData as any, currentResumeId || undefined)
+    const saved = await saveResume(resumeData as any, currentResumeId || undefined)
     
     if (!currentResumeId) {
       setCurrentId(saved.id)

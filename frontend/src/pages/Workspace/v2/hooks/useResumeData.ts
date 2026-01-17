@@ -26,9 +26,10 @@ export function useResumeData() {
 
   // 从 Dashboard 进入时加载对应简历
   useEffect(() => {
-    const id = getCurrentResumeId()
-    if (id) {
-      const saved = getResume(id)
+    const loadResume = async () => {
+      const id = getCurrentResumeId()
+      if (!id) return
+      const saved = await getResume(id)
       if (saved && saved.data) {
         const data = saved.data as any
         setResumeData(prev => ({
@@ -43,6 +44,8 @@ export function useResumeData() {
         setCurrentId(id)
       }
     }
+
+    loadResume()
   }, [])
 
   // 自动保存到 localStorage

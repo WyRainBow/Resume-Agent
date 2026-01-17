@@ -17,5 +17,7 @@ aptPkgs = [
 [phases.install]
 cmds = ["pip install -r requirements.txt"]
 
+# 启动前运行数据库迁移（如果有 DATABASE_URL）
 [start]
-cmd = "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+# 使用启动脚本确保迁移正确执行
+cmd = "bash railway-start.sh"

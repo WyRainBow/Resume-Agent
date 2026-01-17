@@ -10,6 +10,9 @@ import CreateNew from './pages/CreateNew'
 import ResumeCreator from './pages/ResumeCreator'
 import SharePage from './pages/SharePage'
 import ErrorBoundary from './ErrorBoundary'
+import LoginPage from './pages/Login'
+import ProtectedRoute from './components/ProtectedRoute'
+import { AuthModal } from './components/AuthModal'
 
 function App() {
   try {
@@ -25,6 +28,7 @@ function App() {
             <Route path="/workspace/html" element={<HTMLWorkspace />} />
             <Route path="/workspace/html/:resumeId" element={<HTMLWorkspace />} />
             {/* 其他路由 */}
+            <Route path="/login" element={<LoginPage />} />
             <Route path="/dashboard" element={<ResumeDashboard />} />
             <Route path="/templates" element={<TemplateMarket />} />
             <Route path="/create-new" element={<CreateNew />} />
@@ -32,6 +36,7 @@ function App() {
             <Route path="/resume-creator" element={<ResumeCreator />} /> {/* 新手创建简历 */}
             <Route path="/share/:shareId" element={<SharePage />} />
           </Routes>
+          <AuthModal />
         </BrowserRouter>
       </ErrorBoundary>
     );

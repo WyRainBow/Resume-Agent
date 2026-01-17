@@ -5,12 +5,15 @@
  */
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
+import { motion } from 'framer-motion'
+import { LogIn, User } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { saveResume, setCurrentResumeId } from '../../../../services/resumeStorage'
 import html2pdf from 'html2pdf.js'
 
 // Hooks
 import { useResumeData, usePDFOperations, useAIImport } from '../hooks'
+import { useAuth } from '@/contexts/AuthContext'
 
 // 组件
 import EditPreviewLayout from '../EditPreviewLayout'
@@ -21,6 +24,9 @@ type EditMode = 'click' | 'scroll'
 
 export default function HTMLWorkspace() {
   const { resumeId } = useParams<{ resumeId?: string }>()
+  // 认证状态
+  const { isAuthenticated, user, logout, openModal } = useAuth()
+  
   // 编辑模式状态 - HTML 模板默认使用滚动编辑模式
   const [editMode, setEditMode] = useState<EditMode>('scroll')
   
@@ -93,8 +99,6 @@ export default function HTMLWorkspace() {
 
   // 自动保存函数（防抖）
   const autoSave = useCallback(() => {
-    if (!currentResumeId) return
-    
     // 清除之前的定时器
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
@@ -102,41 +106,53 @@ export default function HTMLWorkspace() {
     
     // 设置新的定时器，500ms 后保存
     saveTimerRef.current = setTimeout(() => {
-      try {
-        const currentDataStr = JSON.stringify(resumeData)
-        // 只有当数据真正变化时才保存
-        if (currentDataStr !== lastSavedDataRef.current) {
-          saveResume(resumeData, currentResumeId)
-          lastSavedDataRef.current = currentDataStr
-          console.log('自动保存成功')
+      void (async () => {
+        try {
+          const currentDataStr = JSON.stringify(resumeData)
+          // 只有当数据真正变化时才保存
+          if (currentDataStr !== lastSavedDataRef.current) {
+            const saved = await saveResume(resumeData, currentResumeId || undefined)
+            // 如果保存后获得了新的 ID，更新 currentResumeId
+            if (!currentResumeId && saved.id) {
+              setCurrentId(saved.id)
+              setCurrentResumeId(saved.id)
+            }
+            lastSavedDataRef.current = currentDataStr
+            console.log('自动保存成功', saved.id)
+          }
+        } catch (error) {
+          console.error('自动保存失败:', error)
         }
-      } catch (error) {
-        console.error('自动保存失败:', error)
-      }
+      })()
     }, 500)
-  }, [resumeData, currentResumeId])
+  }, [resumeData, currentResumeId, setCurrentId])
 
   // 立即保存函数（用于失焦时）
   const saveImmediately = useCallback(() => {
-    if (!currentResumeId) return
-    
     // 清除防抖定时器
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null
     }
     
-    try {
-      const currentDataStr = JSON.stringify(resumeData)
-      if (currentDataStr !== lastSavedDataRef.current) {
-        saveResume(resumeData, currentResumeId)
-        lastSavedDataRef.current = currentDataStr
-        console.log('立即保存成功')
+    void (async () => {
+      try {
+        const currentDataStr = JSON.stringify(resumeData)
+        if (currentDataStr !== lastSavedDataRef.current) {
+          const saved = await saveResume(resumeData, currentResumeId || undefined)
+          // 如果保存后获得了新的 ID，更新 currentResumeId
+          if (!currentResumeId && saved.id) {
+            setCurrentId(saved.id)
+            setCurrentResumeId(saved.id)
+          }
+          lastSavedDataRef.current = currentDataStr
+          console.log('立即保存成功', saved.id)
+        }
+      } catch (error) {
+        console.error('立即保存失败:', error)
       }
-    } catch (error) {
-      console.error('立即保存失败:', error)
-    }
-  }, [resumeData, currentResumeId])
+    })()
+  }, [resumeData, currentResumeId, setCurrentId])
 
   // 如果路由携带 resumeId，则设置为当前简历 ID，保持与路由一致
   useEffect(() => {
@@ -148,7 +164,7 @@ export default function HTMLWorkspace() {
 
   // 监听简历数据变化，自动保存（防抖）
   useEffect(() => {
-    if (currentResumeId && resumeData) {
+    if (resumeData) {
       autoSave()
     }
     
@@ -158,7 +174,7 @@ export default function HTMLWorkspace() {
         clearTimeout(saveTimerRef.current)
       }
     }
-  }, [resumeData, autoSave, currentResumeId])
+  }, [resumeData, autoSave])
 
   // 全局点击事件：点击任意区域时立即保存（排除交互元素）
   useEffect(() => {
@@ -534,6 +550,45 @@ export default function HTMLWorkspace() {
           </div>
         </div>
       )}
+
+      {/* 左下角登录按钮 */}
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.5 }}
+        className="fixed bottom-6 left-6 z-50"
+      >
+        {isAuthenticated ? (
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl shadow-lg border border-slate-200 hover:border-indigo-300 transition-all cursor-pointer group"
+            onClick={logout}
+          >
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+              <User className="w-4 h-4 text-indigo-600" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-slate-400 font-medium">已登录</span>
+              <span className="text-sm font-bold text-slate-900">{user?.email}</span>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              openModal('login')
+            }}
+            className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl shadow-lg border border-slate-200 hover:border-indigo-300 transition-all group"
+          >
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 transition-colors">
+              <LogIn className="w-4 h-4 text-indigo-600 group-hover:text-white transition-colors" />
+            </div>
+            <span className="text-sm font-bold text-slate-900">登录/注册</span>
+          </motion.button>
+        )}
+      </motion.div>
     </WorkspaceLayout>
   )
 }

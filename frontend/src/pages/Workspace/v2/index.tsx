@@ -3,9 +3,12 @@
  * 使用 WorkspaceLayout 包裹，提供统一的侧边栏布局
  */
 import { useEffect, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
+import { LogIn, User } from 'lucide-react'
 
 // Hooks
 import { useAIImport, usePDFOperations, useResumeData } from './hooks'
+import { useAuth } from '@/contexts/AuthContext'
 
 // 组件
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
@@ -16,6 +19,9 @@ import AIImportModal from './shared/AIImportModal'
 type EditMode = 'click' | 'scroll'
 
 export default function WorkspaceV2() {
+  // 认证状态
+  const { isAuthenticated, user, logout, openModal } = useAuth()
+  
   // 编辑模式状态
   const [editMode, setEditMode] = useState<EditMode>('click')
   
@@ -289,6 +295,45 @@ export default function WorkspaceV2() {
           </div>
         </div>
       )}
+
+      {/* 左下角登录按钮 */}
+      <motion.div
+        initial={{ opacity: 0, x: -20 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ delay: 0.5 }}
+        className="fixed bottom-6 left-6 z-50"
+      >
+        {isAuthenticated ? (
+          <motion.div
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl shadow-lg border border-slate-200 hover:border-indigo-300 transition-all cursor-pointer group"
+            onClick={logout}
+          >
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
+              <User className="w-4 h-4 text-indigo-600" />
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-slate-400 font-medium">已登录</span>
+              <span className="text-sm font-bold text-slate-900">{user?.email}</span>
+            </div>
+          </motion.div>
+        ) : (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              openModal('login')
+            }}
+            className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl shadow-lg border border-slate-200 hover:border-indigo-300 transition-all group"
+          >
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 transition-colors">
+              <LogIn className="w-4 h-4 text-indigo-600 group-hover:text-white transition-colors" />
+            </div>
+            <span className="text-sm font-bold text-slate-900">登录/注册</span>
+          </motion.button>
+        )}
+      </motion.div>
     </WorkspaceLayout>
   )
 }

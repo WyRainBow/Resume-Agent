@@ -138,9 +138,28 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path) -> BytesIO:
         tex_file = Path(temp_dir) / 'resume.tex'
         tex_file.write_text(latex_content, encoding='utf-8')
 
+        # 检查 xelatex 是否可用
+        xelatex_path = shutil.which('xelatex')
+        if not xelatex_path:
+            # 提供安装说明
+            install_hint = """
+LaTeX (XeLaTeX) 未安装。请运行以下命令安装：
+
+通过 Homebrew 安装 BasicTeX（推荐，较小）：
+  brew install --cask basictex
+  然后运行: eval "$(/usr/libexec/path_helper)"
+
+或安装完整版 MacTeX：
+  brew install --cask mactex
+
+安装完成后，需要重新启动终端或运行:
+  eval "$(/usr/libexec/path_helper)"
+"""
+            raise RuntimeError(f"xelatex 命令未找到。{install_hint}")
+        
         # 使用 xelatex 编译
         compile_cmd = [
-            'xelatex',
+            xelatex_path,
             '-interaction=nonstopmode',
             '-output-directory', temp_dir,
             str(tex_file)

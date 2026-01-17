@@ -2,6 +2,7 @@ import React from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Button } from './ui/button'
+import UserMenu from '@/components/UserMenu'
 import { Plus, Upload, Trash2, FileText, LayoutGrid } from './Icons'
 
 interface HeaderProps {
@@ -70,6 +71,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       <div className="flex items-center flex-wrap gap-3">
+        <UserMenu />
         {/* 全选按钮 */}
         {totalCount > 0 && onToggleSelectAll && (
           <Button

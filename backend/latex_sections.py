@@ -265,7 +265,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                             content.append(f"  \\item \\textbf{{{escaped_sub_title}}}")
                             details = sub.get('details') or []
                             if isinstance(details, list) and details:
-                                content.append(r"    \begin{itemize}[label=\textbf{·},parsep=0.2ex,itemsep=0ex,leftmargin=1em,labelsep=0.4em,itemindent=0em]")
+                                content.append(r"    \begin{itemize}[label=\footnotesize$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=1em,labelsep=0.4em,itemindent=0em]")
                                 for detail in details:
                                     if isinstance(detail, str) and detail.strip():
                                         content.append(f"      \\item {escape_latex(detail.strip())}")
@@ -294,7 +294,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                                     # 使用 leftmargin=* 与实习经历对齐（html_to_latex 默认设置）
                                     converted = re.sub(
                                         r'\\begin\{itemize\}(\[[^\]]*\])?',
-                                        r'\\begin{itemize}[label=$\\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]',
+                                        r'\\begin{itemize}[label=\\footnotesize$\\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]',
                                         converted
                                     )
                                     converted = re.sub(
@@ -307,7 +307,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                                 else:
                                     # 否则包装成列表项（与实习经历对齐）
                                     if not has_list_wrapper:
-                                        content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
+                                        content.append(r"\begin{itemize}[label=\footnotesize$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
                                         has_list_wrapper = True
                                     content.append(f"  \\item {converted}")
                                     
@@ -315,7 +315,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                             # Markdown 加粗格式（保留圆点，适度缩进）
                             if not has_list_wrapper:
                                 # 对齐实习经历的列表缩进
-                                content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
+                                content.append(r"\begin{itemize}[label=\footnotesize$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
                                 has_list_wrapper = True
                             converted = _convert_markdown_bold(h)
                             converted = escape_latex(converted.replace('\\textbf{', '<<<TEXTBF>>>').replace('}', '<<<ENDBF>>>')).replace('<<<TEXTBF>>>', '\\textbf{').replace('<<<ENDBF>>>', '}')
@@ -324,7 +324,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                         else:
                             # 普通文本（与实习经历对齐）
                             if not has_list_wrapper:
-                                content.append(r"\begin{itemize}[label=$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
+                                content.append(r"\begin{itemize}[label=\footnotesize$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
                                 has_list_wrapper = True
                             content.append(f"  \\item {escape_latex(h)}")
                             
