@@ -5,7 +5,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Edit, Sparkles, LayoutGrid, FileText, Save, Download, LogIn, User } from 'lucide-react'
+import { Edit, Sparkles, LayoutGrid, FileText, Save, Download, LogIn, User, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -22,6 +22,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
   const navigate = useNavigate()
   const location = useLocation()
   const { isAuthenticated, user, logout, openModal } = useAuth()
+  const [showLogoutMenu, setShowLogoutMenu] = useState(false)
 
   // 根据路径确定当前工作区
   const getCurrentWorkspace = (): WorkspaceType => {
@@ -181,24 +182,52 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
         {/* 底部：登录组件（仅在 dashboard 页面显示）或版本号 */}
         <div className="px-1 py-2 border-t border-slate-100 dark:border-slate-800">
           {currentWorkspace === 'dashboard' ? (
-            <div className="px-2 py-2">
+            <div className="px-2 py-2 relative">
               {isAuthenticated ? (
-                <motion.div
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={logout}
-                  className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all cursor-pointer group"
-                >
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center group-hover:bg-indigo-200 dark:group-hover:bg-indigo-900/60 transition-colors">
-                    <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                  </div>
-                  <div className="flex flex-col items-center w-full">
-                    <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium leading-tight">已登录</span>
-                    <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 leading-tight truncate w-full text-center" title={user?.email}>
-                      {user?.email?.split('@')[0] || user?.email}
-                    </span>
-                  </div>
-                </motion.div>
+                <div className="relative">
+                  <motion.div
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowLogoutMenu(!showLogoutMenu)}
+                    className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all cursor-pointer group"
+                  >
+                    <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center group-hover:bg-indigo-200 dark:group-hover:bg-indigo-900/60 transition-colors">
+                      <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    <div className="flex flex-col items-center w-full">
+                      <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium leading-tight">已登录</span>
+                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 leading-tight truncate w-full text-center" title={user?.email}>
+                        {user?.email?.split('@')[0] || user?.email}
+                      </span>
+                    </div>
+                  </motion.div>
+                  
+                  {/* 退出按钮下拉菜单 */}
+                  <AnimatePresence>
+                    {showLogoutMenu && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                        transition={{ duration: 0.2 }}
+                        className="absolute bottom-full left-0 mb-2 w-full"
+                      >
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => {
+                            setShowLogoutMenu(false)
+                            logout()
+                          }}
+                          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-all shadow-md"
+                        >
+                          <LogOut className="w-3.5 h-3.5" />
+                          <span className="text-[10px] font-medium">退出登录</span>
+                        </motion.button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               ) : (
                 <motion.button
                   whileHover={{ scale: 1.02 }}
