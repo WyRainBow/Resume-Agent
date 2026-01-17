@@ -15,7 +15,7 @@ aptPkgs = [
 ]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt"]
+cmds = ["pip install -r backend/requirements.txt"]
 
 # 启动前运行数据库迁移（如果有 DATABASE_URL）
 [start]
