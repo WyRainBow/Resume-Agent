@@ -9,8 +9,20 @@ echo "Python 版本: $(python --version 2>&1 || echo 'Python not found')"
 echo "Alembic 版本: $(alembic --version 2>&1 || echo 'Alembic not found')"
 
 # 检查 DATABASE_URL，如果没有则尝试从 Railway MySQL 变量构建
+# 优先级：DATABASE_URL > MYSQL_URL > MYSQLHOST等变量
 if [ -z "$DATABASE_URL" ]; then
-    if [ -n "$MYSQLHOST" ]; then
+    # 优先检查 MYSQL_URL（Railway 可能提供这个）
+    if [ -n "$MYSQL_URL" ]; then
+        # 将 mysql:// 转换为 mysql+pymysql://（Railway 的格式需要转换）
+        if [[ "$MYSQL_URL" == mysql://* ]] && [[ "$MYSQL_URL" != mysql+pymysql://* ]]; then
+            export DATABASE_URL=$(echo "$MYSQL_URL" | sed 's|^mysql://|mysql+pymysql://|')
+        else
+            export DATABASE_URL="$MYSQL_URL"
+        fi
+        echo "✅ DATABASE_URL 从 MYSQL_URL 构建"
+        echo "数据库 URL: ${DATABASE_URL:0:50}..."  # 只显示前50个字符，避免泄露密码
+    elif [ -n "$MYSQLHOST" ]; then
+        # 从 MYSQLHOST 等变量构建
         MYSQL_PORT="${MYSQLPORT:-3306}"
         MYSQL_USER="${MYSQLUSER:-root}"
         MYSQL_PASSWORD="${MYSQLPASSWORD:-}"
@@ -23,9 +35,15 @@ if [ -z "$DATABASE_URL" ]; then
         echo "✅ DATABASE_URL 由 Railway MySQL 变量构建"
         echo "数据库 URL: ${DATABASE_URL:0:50}..."  # 只显示前50个字符，避免泄露密码
     else
-        echo "⚠️  警告: DATABASE_URL 未设置，且未检测到 MYSQLHOST，跳过数据库迁移"
+        echo "⚠️  警告: DATABASE_URL、MYSQL_URL 和 MYSQLHOST 均未设置，跳过数据库迁移"
+        echo "   提示: 请在 Railway Variables 中设置 DATABASE_URL 或连接 MySQL 服务"
     fi
 else
+    # DATABASE_URL 已设置，检查是否需要转换格式
+    if [[ "$DATABASE_URL" == mysql://* ]] && [[ "$DATABASE_URL" != mysql+pymysql://* ]]; then
+        export DATABASE_URL=$(echo "$DATABASE_URL" | sed 's|^mysql://|mysql+pymysql://|')
+        echo "✅ DATABASE_URL 格式已转换（mysql:// -> mysql+pymysql://）"
+    fi
     echo "✅ DATABASE_URL 已设置"
     echo "数据库 URL: ${DATABASE_URL:0:50}..."  # 只显示前50个字符，避免泄露密码
 fi
