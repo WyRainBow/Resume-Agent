@@ -2,7 +2,7 @@
  * 工作区布局容器
  * 左侧固定边栏（工作区切换），右侧动态内容区
  */
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Edit, Sparkles, LayoutGrid, FileText, Save, Download, LogIn, User, LogOut } from 'lucide-react'
@@ -23,6 +23,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
   const location = useLocation()
   const { isAuthenticated, user, logout, openModal } = useAuth()
   const [showLogoutMenu, setShowLogoutMenu] = useState(false)
+  const logoutMenuRef = useRef<HTMLDivElement>(null)
 
   // 根据路径确定当前工作区
   const getCurrentWorkspace = (): WorkspaceType => {
@@ -182,7 +183,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
         {/* 底部：登录组件（仅在 dashboard 页面显示）或版本号 */}
         <div className="px-1 py-2 border-t border-slate-100 dark:border-slate-800">
           {currentWorkspace === 'dashboard' ? (
-            <div className="px-2 py-2 relative">
+            <div ref={logoutMenuRef} className="px-2 py-2 relative">
               {isAuthenticated ? (
                 <div className="relative">
                   <motion.div
