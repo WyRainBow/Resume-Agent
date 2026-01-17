@@ -15,7 +15,19 @@ aptPkgs = [
 ]
 
 [phases.install]
-cmds = ["pip install -r backend/requirements.txt"]
+# 确保安装所有依赖，添加调试信息
+cmds = [
+    "echo '=== 安装 Python 依赖 ==='",
+    "pwd",
+    "ls -la",
+    "ls -la backend/ || echo 'backend directory not found'",
+    "pip install --upgrade pip",
+    "pip install -r backend/requirements.txt",
+    "echo '=== 验证关键依赖安装 ==='",
+    "python -c 'import sqlalchemy; print(f\"SQLAlchemy version: {sqlalchemy.__version__}\")' || echo 'SQLAlchemy not installed'",
+    "python -c 'import pymysql; print(\"PyMySQL installed\")' || echo 'PyMySQL not installed'",
+    "python -c 'import alembic; print(\"Alembic installed\")' || echo 'Alembic not installed'"
+]
 
 # 启动前运行数据库迁移（如果有 DATABASE_URL）
 [start]
