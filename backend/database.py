@@ -47,11 +47,19 @@ def get_database_url():
 DATABASE_URL = get_database_url()
 
 # 创建数据库引擎
+# 添加连接参数以确保 MySQL 连接稳定
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,  # 连接前检查连接是否有效
     pool_recycle=3600,    # 1小时后回收连接
-    echo=False           # 设置为 True 可以看到 SQL 日志
+    pool_size=5,          # 连接池大小
+    max_overflow=10,      # 最大溢出连接数
+    echo=False,           # 设置为 True 可以看到 SQL 日志
+    # MySQL 特定参数
+    connect_args={
+        "charset": "utf8mb4",
+        "connect_timeout": 10,
+    } if "mysql" in DATABASE_URL.lower() else {}
 )
 
 # 创建会话工厂
