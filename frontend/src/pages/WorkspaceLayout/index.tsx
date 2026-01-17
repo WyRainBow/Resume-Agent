@@ -46,6 +46,22 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
   const currentWorkspace = getCurrentWorkspace()
 
+  // 点击外部区域关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (logoutMenuRef.current && !logoutMenuRef.current.contains(event.target as Node)) {
+        setShowLogoutMenu(false)
+      }
+    }
+
+    if (showLogoutMenu) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside)
+      }
+    }
+  }, [showLogoutMenu])
+
   const handleWorkspaceChange = (workspace: WorkspaceType) => {
     if (workspace === 'conversation') {
       navigate('/resume-creator')  // 改为导航到 resume-creator
