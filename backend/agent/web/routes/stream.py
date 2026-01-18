@@ -8,8 +8,10 @@ This module provides:
 
 import asyncio
 import json
+import os
 import time
 import uuid
+from contextlib import contextmanager
 from datetime import datetime
 from typing import AsyncGenerator, Optional
 
@@ -38,6 +40,19 @@ _active_sessions: dict[str, dict] = {}
 
 # Heartbeat configuration
 HEARTBEAT_INTERVAL = 30  # seconds
+PROXY_ENV_KEYS = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")
+
+
+@contextmanager
+def _without_proxy():
+    """Temporarily disable proxy env vars to avoid init-time downloads failing."""
+    original = {key: os.environ.pop(key, None) for key in PROXY_ENV_KEYS}
+    try:
+        yield
+    finally:
+        for key, value in original.items():
+            if value is not None:
+                os.environ[key] = value
 
 
 def _get_or_create_session(
@@ -58,8 +73,25 @@ def _get_or_create_session(
         from backend.agent.memory import ChatHistoryManager
         from backend.agent.tool.resume_data_store import ResumeDataStore
 
-        agent = Manus(session_id=conversation_id)
-        chat_history = conversation_manager.get_or_create_history(conversation_id)
+        agent = None
+        chat_history = None
+        last_exc: Exception | None = None
+
+        for attempt in range(1, 4):
+            try:
+                with _without_proxy():
+                    agent = Manus(session_id=conversation_id)
+                chat_history = conversation_manager.get_or_create_history(conversation_id)
+                break
+            except Exception as exc:
+                last_exc = exc
+                logger.warning(
+                    f"[SSE] Agent init failed (attempt {attempt}/3): {exc}"
+                )
+                time.sleep(0.3 * attempt)
+
+        if agent is None or chat_history is None:
+            raise last_exc or RuntimeError("Failed to create agent session")
         # Align agent's internal history with session history
         if hasattr(agent, "_chat_history"):
             agent._chat_history = chat_history
@@ -125,24 +157,29 @@ async def _stream_event_generator(
     Yields:
         SSE formatted strings
     """
-    session = _get_or_create_session(conversation_id, resume_path, resume_data)
-    agent = session["agent"]
-    chat_history = session["chat_history"]
-
-    # Create state machine for this execution
-    state_machine = AgentStateMachine(conversation_id)
-
-    # Track last message time for heartbeat
-    last_message_time = time.time()
-
+    logger.info(f"[SSE Generator] Starting generator for conversation: {conversation_id}")
     try:
+        session = _get_or_create_session(conversation_id, resume_path, resume_data)
+        agent = session["agent"]
+        chat_history = session["chat_history"]
+        logger.info(f"[SSE Generator] Session created/retrieved successfully")
+
+        # Create state machine for this execution
+        state_machine = AgentStateMachine(conversation_id)
+
+        # Track last message time for heartbeat
+        last_message_time = time.time()
+
         # Send initial status event
+        logger.info(f"[SSE Generator] Preparing initial status event")
         status_event = SSEEvent(
             type="status",
             data={"content": "processing", "conversation_id": conversation_id}
         )
+        logger.info(f"[SSE Generator] Yielding initial status event")
         yield status_event.to_sse_format()
         last_message_time = time.time()
+        logger.info(f"[SSE Generator] Initial status event yielded successfully")
 
         # Restore chat history to agent memory if needed
         existing_messages = chat_history.get_messages()
@@ -213,10 +250,17 @@ async def _stream_event_generator(
 
     except Exception as e:
         logger.exception(f"[SSE] Error in stream for session {conversation_id}: {e}")
-        error_event = SSEEvent(
-            type="error",
-            data={"content": str(e), "error_type": type(e).__name__}
-        )
+        error_msg = str(e)
+        if "proxy" in error_msg.lower() or "connection refused" in error_msg.lower():
+            logger.warning(f"[SSE] Proxy connection error detected: {error_msg}")
+            error_payload = {
+                "content": "网络连接失败：请检查代理配置或网络连接",
+                "error_type": type(e).__name__,
+                "error_details": "代理连接失败可能导致 Agent 初始化失败",
+            }
+        else:
+            error_payload = {"content": error_msg, "error_type": type(e).__name__}
+        error_event = SSEEvent(type="error", data=error_payload)
         yield error_event.to_sse_format()
 
     finally:

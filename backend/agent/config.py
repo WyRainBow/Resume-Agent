@@ -39,6 +39,26 @@ class ProxySettings(BaseModel):
     password: Optional[str] = Field(None, description="Proxy password")
 
 
+class ProxyConfig(BaseModel):
+    """Global proxy configuration."""
+    enabled: bool = Field(False, description="Whether to enable proxy")
+    http_proxy: Optional[str] = Field(None, description="HTTP proxy URL")
+    https_proxy: Optional[str] = Field(None, description="HTTPS proxy URL")
+    no_proxy: Optional[str] = Field(None, description="No-proxy list")
+
+    def apply(self) -> None:
+        import os
+
+        if not self.enabled:
+            return
+        if self.http_proxy:
+            os.environ["HTTP_PROXY"] = self.http_proxy
+        if self.https_proxy:
+            os.environ["HTTPS_PROXY"] = self.https_proxy
+        if self.no_proxy:
+            os.environ["NO_PROXY"] = self.no_proxy
+
+
 class SearchSettings(BaseModel):
     engine: str = Field(default="Google", description="Search engine the llm to use")
     fallback_engines: List[str] = Field(
@@ -178,6 +198,9 @@ class MCPSettings(BaseModel):
 
 class AppConfig(BaseModel):
     llm: Dict[str, LLMSettings]
+    proxy_config: Optional[ProxyConfig] = Field(
+        None, description="Global proxy configuration"
+    )
     sandbox: Optional[SandboxSettings] = Field(
         None, description="Sandbox configuration"
     )
@@ -289,6 +312,20 @@ class Config:
             if valid_browser_params:
                 browser_settings = BrowserSettings(**valid_browser_params)
 
+        # handle global proxy config
+        proxy_config = raw_config.get("proxy", {})
+        proxy_settings = None
+        if proxy_config:
+            proxy_settings = ProxyConfig(
+                **{
+                    k: v
+                    for k, v in proxy_config.items()
+                    if k in ["enabled", "http_proxy", "https_proxy", "no_proxy"]
+                    and v is not None
+                }
+            )
+            proxy_settings.apply()
+
         search_config = raw_config.get("search", {})
         search_settings = None
         if search_config:
@@ -326,6 +363,7 @@ class Config:
                     for name, override_config in llm_overrides.items()
                 },
             },
+            "proxy_config": proxy_settings,
             "sandbox": sandbox_settings,
             "browser_config": browser_settings,
             "search_config": search_settings,
