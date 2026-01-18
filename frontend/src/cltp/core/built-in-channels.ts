@@ -43,7 +43,19 @@ export const plainChannel: ChannelRegistration<'plain', PlainChannelPayload> = {
     const chunkPayload = chunk.metadata.payload as PlainChannelPayload;
     const chunkText = chunkPayload.text || '';
 
-    // 简单字符串拼接，保持原样，不进行任何处理
+    // 避免重复：如果新 chunk 是全量内容或包含旧内容，则直接替换
+    if (chunkText) {
+      if (
+        chunkText === prev.text ||
+        chunkText.startsWith(prev.text) ||
+        prev.text.startsWith(chunkText) ||
+        chunkText.includes(prev.text) ||
+        prev.text.includes(chunkText)
+      ) {
+        return { text: chunkText };
+      }
+    }
+
     return {
       text: prev.text + chunkText,
     };
@@ -79,7 +91,19 @@ export const thinkChannel: ChannelRegistration<'think', ThinkChannelPayload> = {
     const chunkPayload = chunk.metadata.payload as ThinkChannelPayload;
     const chunkText = chunkPayload.text || '';
 
-    // 简单字符串拼接，保持原样，不进行任何处理
+    // 避免重复：如果新 chunk 是全量内容或包含旧内容，则直接替换
+    if (chunkText) {
+      if (
+        chunkText === prev.text ||
+        chunkText.startsWith(prev.text) ||
+        prev.text.startsWith(chunkText) ||
+        chunkText.includes(prev.text) ||
+        prev.text.includes(chunkText)
+      ) {
+        return { text: chunkText };
+      }
+    }
+
     return {
       text: prev.text + chunkText,
     };
