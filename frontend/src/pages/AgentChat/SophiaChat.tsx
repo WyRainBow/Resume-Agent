@@ -62,7 +62,23 @@ export default function SophiaChat() {
   const [showSessions, setShowSessions] = useState(false);
   const [loadingSessions, setLoadingSessions] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [conversationId, setConversationId] = useState(`conv-${Date.now()}`);
+  const [conversationId, setConversationId] = useState(() => {
+    // 尝试从 URL 查询参数恢复会话ID
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get('sessionId');
+      if (sessionId) {
+        return sessionId;
+      }
+      // 尝试从 localStorage 恢复最后的会话ID（如果有 resumeId）
+      const lastSessionKey = `last_session_${window.location.pathname}`;
+      const lastSessionId = localStorage.getItem(lastSessionKey);
+      if (lastSessionId) {
+        return lastSessionId;
+      }
+    }
+    return `conv-${Date.now()}`;
+  });
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
@@ -76,6 +92,7 @@ export default function SophiaChat() {
   const currentThoughtRef = useRef('');
   const currentAnswerRef = useRef('');
   const lastCompletedRef = useRef<{ thought: string; answer: string; at: number } | null>(null);
+  const lastHandledAnswerCompleteRef = useRef(0);
 
   const normalizedResume = useMemo(() => {
     if (!resumeData) return null;
@@ -97,9 +114,30 @@ export default function SophiaChat() {
     resumeData: normalizedResume,
   });
 
+  // 保存会话ID到 localStorage
+  useEffect(() => {
+    if (conversationId && typeof window !== 'undefined') {
+      const lastSessionKey = `last_session_${window.location.pathname}`;
+      localStorage.setItem(lastSessionKey, conversationId);
+    }
+  }, [conversationId]);
+
   useEffect(() => {
     if (resumeId) {
-      setConversationId(`conv-${resumeId}`);
+      // 如果有 resumeId，优先使用 resumeId 相关的会话ID
+      const resumeSessionId = `conv-${resumeId}`;
+      // 但如果没有从 URL 或 localStorage 恢复的会话ID，才使用 resumeId
+      // 检查当前 conversationId 是否是之前保存的
+      if (!conversationId || (!conversationId.startsWith(resumeSessionId) && conversationId !== resumeSessionId)) {
+        // 只有当 conversationId 不是 resumeId 相关的时候才设置
+        // 但如果 conversationId 是从 localStorage 恢复的，应该保留它
+        const lastSessionKey = `last_session_${window.location.pathname}`;
+        const lastSessionId = localStorage.getItem(lastSessionKey);
+        if (!lastSessionId || lastSessionId === conversationId) {
+          // 如果没有保存的会话ID，或者保存的会话ID就是当前的，则使用 resumeId
+          setConversationId(resumeSessionId);
+        }
+      }
     }
   }, [resumeId]);
 
@@ -142,6 +180,58 @@ export default function SophiaChat() {
       mounted = false;
     };
   }, [resumeId, user?.id]);
+
+  // 刷新后自动加载历史会话（如果 conversationId 是从 localStorage 恢复的）
+  useEffect(() => {
+    // 如果已经有当前会话ID，不自动加载
+    if (currentSessionId) {
+      return;
+    }
+
+    // 如果 conversationId 是新的时间戳格式（conv-timestamp），不加载历史
+    const isNewConversationId = /^conv-\d{13,}$/.test(conversationId);
+    if (isNewConversationId) {
+      return;
+    }
+
+    let mounted = true;
+    const autoLoadSession = async () => {
+      try {
+        // 尝试加载会话历史
+        const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/${conversationId}`);
+        if (!mounted) return;
+        if (!resp.ok) {
+          // 会话不存在，使用新的会话ID
+          console.log(`[SophiaChat] Session ${conversationId} not found, starting new session`);
+          return;
+        }
+        const data = await resp.json();
+        const loadedMessages: Message[] = (data.messages || []).map((m: any) => ({
+          id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          role: m.role === 'user' ? 'user' : 'assistant',
+          content: m.content || '',
+          timestamp: new Date().toISOString(),
+        }));
+
+        const dedupedMessages = dedupeLoadedMessages(loadedMessages);
+        if (!mounted) return;
+        if (dedupedMessages.length > 0) {
+          setMessages(dedupedMessages);
+          setCurrentSessionId(conversationId);
+          console.log(
+            `[SophiaChat] Auto-loaded session ${conversationId} with ${dedupedMessages.length} messages`
+          );
+        }
+      } catch (error) {
+        console.error('[SophiaChat] Failed to auto-load session:', error);
+      }
+    };
+
+    autoLoadSession();
+    return () => {
+      mounted = false;
+    };
+  }, [conversationId]); // 只在 conversationId 变化时执行一次
 
   useEffect(() => {
     if (answerCompleteCount <= 0 || !resumeId) {
@@ -271,13 +361,6 @@ export default function SophiaChat() {
       console.log('[SophiaChat] Messages updated', { count: updated.length });
       return updated;
     });
-    // Keep streaming state so typewriter can run; cleanup happens on typewriter complete
-    if (!isProcessing) {
-      finalizeStream();
-      setTimeout(() => {
-        isFinalizedRef.current = false;
-      }, 100);
-    }
   }, [finalizeStream, currentAnswer, currentThought]);
 
   const saveCurrentSession = useCallback(() => {
@@ -318,6 +401,11 @@ export default function SophiaChat() {
         method: 'DELETE',
       });
       if (!resp.ok) throw new Error(`Failed to delete session: ${resp.status}`);
+
+      // Clear active session memory on backend
+      fetch(`${HISTORY_BASE}/api/agent/stream/session/${sessionId}`, {
+        method: 'DELETE',
+      }).catch(() => undefined);
       
       // 立即从本地状态中移除，避免等待刷新
       setSessions((prev) => prev.filter((s: any) => s.session_id !== sessionId));
@@ -359,6 +447,13 @@ export default function SophiaChat() {
       if (!resp.ok) throw new Error('Batch delete failed');
       const data = await resp.json();
       console.log(`[SophiaChat] Batch deleted ${data.deleted_count} sessions`);
+
+      // Clear active session memory on backend
+      sessionIds.forEach((id) => {
+        fetch(`${HISTORY_BASE}/api/agent/stream/session/${id}`, {
+          method: 'DELETE',
+        }).catch(() => undefined);
+      });
       
       // 立即从本地状态中移除，避免等待刷新
       setSessions((prev) => prev.filter((s: any) => !sessionIds.includes(s.session_id)));
@@ -395,6 +490,13 @@ export default function SophiaChat() {
       if (!resp.ok) throw new Error('Delete all failed');
       const data = await resp.json();
       console.log(`[SophiaChat] Deleted all ${data.deleted_count} sessions`);
+
+      // Clear active session memory on backend for current session
+      if (currentSessionId) {
+        fetch(`${HISTORY_BASE}/api/agent/stream/session/${currentSessionId}`, {
+          method: 'DELETE',
+        }).catch(() => undefined);
+      }
       
       // 立即清空本地状态
       setSessions([]);
@@ -439,6 +541,68 @@ export default function SophiaChat() {
     }
   };
 
+  const dedupeLoadedMessages = (messages: Message[]) => {
+    if (messages.length <= 1) return messages;
+    
+    const deduped: Message[] = [];
+    const seenByRole = new Map<string, Set<string>>();
+    const getSeenSet = (role: string) => {
+      const key = role || 'unknown';
+      if (!seenByRole.has(key)) {
+        seenByRole.set(key, new Set<string>());
+      }
+      return seenByRole.get(key)!;
+    };
+    
+    for (const msg of messages) {
+      const contentKey = (msg.content || '').trim();
+      const roleKey = msg.role || 'unknown';
+      const seenContents = getSeenSet(roleKey);
+      
+      // 仅在 assistant 消息中进行扩展去重逻辑，避免误伤 user 消息
+      let cleanContent = contentKey;
+      if (roleKey === 'assistant' && contentKey.includes('Response:')) {
+        cleanContent = contentKey.split('Response:').pop()?.trim() || contentKey;
+      }
+      
+      // 检查是否已存在相同或相似的内容
+      // 检查完全匹配
+      if (seenContents.has(contentKey)) {
+        console.log('[SophiaChat] Duplicate message skipped (exact match):', contentKey.slice(0, 50));
+        continue;
+      }
+      
+      if (roleKey === 'assistant') {
+        // 检查 Response 部分匹配
+        if (seenContents.has(cleanContent)) {
+          console.log('[SophiaChat] Duplicate message skipped (response match):', cleanContent.slice(0, 50));
+          continue;
+        }
+        
+        // 检查包含关系：已存在的消息是否包含当前消息的 Response 部分
+        let isDuplicate = false;
+        for (const seen of seenContents) {
+          if (seen.includes(cleanContent) || cleanContent.includes(seen)) {
+            console.log('[SophiaChat] Duplicate message skipped (contains match):', cleanContent.slice(0, 50));
+            isDuplicate = true;
+            break;
+          }
+        }
+        if (isDuplicate) {
+          continue;
+        }
+      }
+      
+      seenContents.add(contentKey);
+      if (roleKey === 'assistant') {
+        seenContents.add(cleanContent);  // 同时记录 Response 部分
+      }
+      deduped.push(msg);
+    }
+    
+    return deduped;
+  };
+
   const startRenameSession = (sessionId: string, title: string) => {
     setEditingSessionId(sessionId);
     setEditingTitle(title);
@@ -477,7 +641,8 @@ export default function SophiaChat() {
         timestamp: new Date().toISOString(),
       }));
 
-      setMessages(loadedMessages);
+      const dedupedMessages = dedupeLoadedMessages(loadedMessages);
+      setMessages(dedupedMessages);
       setCurrentSessionId(sessionId);
       setConversationId(sessionId);
       finalizeStream();
@@ -497,6 +662,10 @@ export default function SophiaChat() {
 
   useEffect(() => {
     if (answerCompleteCount === 0) return;
+    if (answerCompleteCount <= lastHandledAnswerCompleteRef.current) {
+      return;
+    }
+    lastHandledAnswerCompleteRef.current = answerCompleteCount;
 
     shouldFinalizeRef.current = true;
     const hasContent =
@@ -528,8 +697,11 @@ export default function SophiaChat() {
     setTimeout(() => {
       if (isFinalizedRef.current && isProcessing) {
         console.log('[SophiaChat] Fallback finalize timeout');
+        finalizeMessage();
         finalizeStream();
-        isFinalizedRef.current = false;
+        setTimeout(() => {
+          isFinalizedRef.current = false;
+        }, 100);
       }
     }, 1400);
   }, [answerCompleteCount, finalizeMessage]);
@@ -832,8 +1004,11 @@ export default function SophiaChat() {
                   if (shouldFinalizeRef.current) {
                     console.log('[SophiaChat] Typewriter completed, finalize stream');
                     shouldFinalizeRef.current = false;
+                    finalizeMessage();
                     finalizeStream();
-                    isFinalizedRef.current = false;
+                    setTimeout(() => {
+                      isFinalizedRef.current = false;
+                    }, 100);
                   }
                 }}
               />

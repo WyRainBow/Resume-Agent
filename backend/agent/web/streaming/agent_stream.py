@@ -232,11 +232,45 @@ class AgentStream:
         """Ensure the assistant message is present in memory for persistence."""
         if not content or not content.strip():
             return
+        
+        content_clean = content.strip()
+        
+        # 提取 Response 部分（如果存在 Thought: ... Response: 格式）
+        content_response_part = content_clean
+        if "Response:" in content_clean:
+            # 如果 content 包含 Response:，提取 Response: 之后的部分
+            content_response_part = content_clean.split("Response:")[-1].strip()
+        
         for msg in reversed(self.agent.memory.messages):
             if msg.role == Role.ASSISTANT:
-                if (msg.content or "").strip() == content.strip():
+                msg_content = (msg.content or "").strip()
+                
+                # 完全匹配
+                if msg_content == content_clean:
                     return
+                
+                # 检查是否是 Thought + Response 格式，且 Response 部分匹配
+                if "Response:" in msg_content:
+                    msg_response_part = msg_content.split("Response:")[-1].strip()
+                    # 如果 content 的 Response 部分与已存在的 Response 部分相同
+                    if msg_response_part == content_response_part:
+                        return
+                    # 如果 content 完全等于已存在的 Response 部分
+                    if msg_response_part == content_clean:
+                        return
+                
+                # 检查反向：content_clean 是否包含在 msg_content 中（作为子串）
+                if content_clean in msg_content:
+                    return
+                
+                # 检查反向：msg_content 的 Response 部分是否包含 content_clean
+                if "Response:" in msg_content:
+                    msg_response_part = msg_content.split("Response:")[-1].strip()
+                    if content_clean in msg_response_part:
+                        return
+                
                 break
+        
         self.agent.memory.add_message(Message.assistant_message(content))
 
     async def execute(self, user_message: str) -> AsyncIterator[StreamEvent]:
@@ -250,6 +284,7 @@ class AgentStream:
         Yields:
             StreamEvent instances during execution
         """
+        start_memory_len = len(self.agent.memory.messages)
         try:
             # Start state
             await self._state_machine.transition_to(
@@ -760,15 +795,12 @@ class AgentStream:
 
             # 保存到历史记录 - 保存所有类型的消息（包括 Tool 消息）
             if self._chat_history_manager:
-                # 找到本次执行开始前的消息数量（user_message 已经在开头添加过了）
-                # 这里我们保存所有在执行过程中产生的消息
-                user_msg = Message(role=Role.USER, content=user_message)
-                self._chat_history_manager.add_message(user_msg)
+                # 仅保存本次执行过程中新增的消息（避免重复保存历史消息）
+                new_messages = self.agent.memory.messages[start_memory_len:]
 
-                # 保存所有 agent 生成的消息（包括 assistant with tool_calls, tool 结果, 最终答案）
-                for msg in self.agent.memory.messages:
-                    # 跳过用户消息（已经添加过）
+                for msg in new_messages:
                     if msg.role == Role.USER:
+                        # 用户消息已在 stream.py 中写入 history
                         continue
 
                     # 保存 assistant 消息（可能包含 tool_calls）
@@ -788,7 +820,10 @@ class AgentStream:
                         ))
                         logger.debug(f"  💾 保存 Tool 消息: {msg.name}, 长度: {len(msg.content or '')}")
 
-                logger.info(f"📜 已保存对话到 ChatHistory ({len(self.agent.memory.messages)} 条消息)")
+                logger.info(
+                    f"📜 已保存对话到 ChatHistory (新增 {len(new_messages)} 条消息, "
+                    f"总内存 {len(self.agent.memory.messages)} 条)"
+                )
 
             # Completed state
             await self._state_machine.transition_to(
