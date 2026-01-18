@@ -82,7 +82,6 @@ pdf_router = routes_module.pdf_router
 share_router = routes_module.share_router
 auth_router = routes_module.auth_router
 resumes_router = routes_module.resumes_router
-agent_router = routes_module.agent_router
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="Resume API")
@@ -104,7 +103,14 @@ app.include_router(pdf_router)
 app.include_router(share_router)
 app.include_router(auth_router)
 app.include_router(resumes_router)
-app.include_router(agent_router)
+
+# 注册 OpenManus 路由（合并后）
+try:
+    from backend.agent.web.routes import api_router as openmanus_router
+    app.include_router(openmanus_router, prefix="/api/agent")
+    backend_logger.info("[合并] OpenManus 路由已加载，前缀: /api/agent")
+except Exception as exc:
+    backend_logger.warning(f"[合并] OpenManus 路由未加载: {exc}")
 
 
 # 启动时预热 HTTP 连接并配置日志

@@ -10,16 +10,16 @@
  * - 心跳检测和自动重连
  */
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { ArrowUp, MessageSquare, Pencil, Trash2, Check, X } from 'lucide-react';
-import { useParams } from 'react-router-dom';
 import ChatMessage from '@/components/chat/ChatMessage';
-import { Message } from '@/types/chat';
-import { ConnectionStatus } from '@/types/transport';
 import { useCLTP } from '@/hooks/useCLTP';
 import { HTMLTemplateRenderer } from '@/pages/Workspace/v2/HTMLTemplateRenderer';
-import { getResume } from '@/services/resumeStorage';
 import type { ResumeData } from '@/pages/Workspace/v2/types';
+import { getResume } from '@/services/resumeStorage';
+import { Message } from '@/types/chat';
+import { ConnectionStatus } from '@/types/transport';
+import { ArrowUp, Check, MessageSquare, Pencil, Trash2, X } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useParams } from 'react-router-dom';
 
 // ============================================================================
 // 配置
@@ -39,7 +39,7 @@ const SSE_CONFIG = {
   BASE_URL: API_BASE || 'http://localhost:9000',
   HEARTBEAT_TIMEOUT: 60000,  // 60 seconds
 };
-const HISTORY_BASE = 'http://localhost:8080';
+const HISTORY_BASE = 'http://localhost:9000';
 
 function convertResumeDataToOpenManusFormat(resume: ResumeData) {
   return {
@@ -206,7 +206,7 @@ export default function SophiaChat() {
   const fetchSessions = async () => {
     setLoadingSessions(true);
     try {
-      const resp = await fetch(`${HISTORY_BASE}/api/history/sessions/list`);
+      const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/list`);
       const data = await resp.json();
       setSessions(data.sessions || []);
     } catch (error) {
@@ -225,7 +225,7 @@ export default function SophiaChat() {
   const deleteSession = async (sessionId: string) => {
     if (!window.confirm('确定要删除此会话吗？')) return;
     try {
-      await fetch(`${HISTORY_BASE}/api/history/${sessionId}`, { method: 'DELETE' });
+      await fetch(`${HISTORY_BASE}/api/agent/history/${sessionId}`, { method: 'DELETE' });
       if (currentSessionId === sessionId) {
         const newId = `conv-${Date.now()}`;
         setMessages([]);
@@ -253,7 +253,7 @@ export default function SophiaChat() {
     const trimmedTitle = title.trim();
     if (!trimmedTitle) return;
     try {
-      await fetch(`${HISTORY_BASE}/api/history/sessions/${sessionId}/title`, {
+      await fetch(`${HISTORY_BASE}/api/agent/history/sessions/${sessionId}/title`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: trimmedTitle }),
@@ -268,7 +268,7 @@ export default function SophiaChat() {
   const loadSession = async (sessionId: string) => {
     saveCurrentSession();
     try {
-      const resp = await fetch(`${HISTORY_BASE}/api/history/sessions/${sessionId}`);
+      const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/${sessionId}`);
       const data = await resp.json();
       const loadedMessages: Message[] = (data.messages || []).map((m: any) => ({
         id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,

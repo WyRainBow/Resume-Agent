@@ -382,7 +382,7 @@ export class SSETransport {
 // ============================================================================
 
 const DEFAULT_CONFIG: SSEConfig = {
-  baseUrl: 'http://localhost:8080',
+  baseUrl: 'http://localhost:9000',
   heartbeatTimeout: 60000,
 };
 
