@@ -8,6 +8,7 @@ from .auth import router as auth_router
 from .pdf import router as pdf_router
 from .share import router as share_router
 from .resumes import router as resumes_router
+from .agent import router as agent_router
 
 __all__ = [
     'health_router',
@@ -16,5 +17,6 @@ __all__ = [
     'pdf_router',
     'share_router',
     'auth_router',
-    'resumes_router'
+    'resumes_router',
+    'agent_router'
 ]

@@ -1,18 +1,17 @@
-import React from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import LandingPage from './pages/LandingPage'
-import Workspace from './pages/Workspace/v2'
-import LaTeXWorkspace from './pages/Workspace/v2/latex'
-import HTMLWorkspace from './pages/Workspace/v2/html'
-import ResumeDashboard from './pages/ResumeDashboard'
-import TemplateMarket from './pages/TemplateMarket'
-import CreateNew from './pages/CreateNew'
-import ResumeCreator from './pages/ResumeCreator'
-import SharePage from './pages/SharePage'
-import ErrorBoundary from './ErrorBoundary'
-import LoginPage from './pages/Login'
-import ProtectedRoute from './components/ProtectedRoute'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthModal } from './components/AuthModal'
+import ErrorBoundary from './ErrorBoundary'
+import AgentChat from './pages/AgentChat/SophiaChat'
+import CreateNew from './pages/CreateNew'
+import LandingPage from './pages/LandingPage'
+import LoginPage from './pages/Login'
+import ResumeCreator from './pages/ResumeCreator'
+import ResumeDashboard from './pages/ResumeDashboard'
+import SharePage from './pages/SharePage'
+import TemplateMarket from './pages/TemplateMarket'
+import Workspace from './pages/Workspace/v2'
+import HTMLWorkspace from './pages/Workspace/v2/html'
+import LaTeXWorkspace from './pages/Workspace/v2/latex'
 
 function App() {
   try {
@@ -27,6 +26,7 @@ function App() {
             <Route path="/workspace/latex/:resumeId" element={<LaTeXWorkspace />} />
             <Route path="/workspace/html" element={<HTMLWorkspace />} />
             <Route path="/workspace/html/:resumeId" element={<HTMLWorkspace />} />
+            <Route path="/workspace/agent/:resumeId" element={<AgentChat />} />
             {/* 其他路由 */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/dashboard" element={<ResumeDashboard />} />

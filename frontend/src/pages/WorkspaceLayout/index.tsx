@@ -5,12 +5,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Edit, Sparkles, LayoutGrid, FileText, Save, Download, LogIn, User, LogOut } from 'lucide-react'
+import { Edit, Bot, LayoutGrid, FileText, Save, Download, LogIn, User, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import { getCurrentResumeId } from '@/services/resumeStorage'
 
 // 工作区类型
-type WorkspaceType = 'edit' | 'conversation' | 'dashboard' | 'templates'
+type WorkspaceType = 'edit' | 'agent' | 'dashboard' | 'templates'
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode
@@ -28,8 +29,8 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
   // 根据路径确定当前工作区
   const getCurrentWorkspace = (): WorkspaceType => {
     // 检测是否是简历创建页面（保留 resume-creator）
-    if (location.pathname === '/resume-creator') {
-      return 'conversation'
+    if (location.pathname === '/resume-creator' || location.pathname.startsWith('/workspace/agent')) {
+      return 'agent'
     }
     if (location.pathname === '/dashboard') {
       return 'dashboard'
@@ -63,8 +64,13 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
   }, [showLogoutMenu])
 
   const handleWorkspaceChange = (workspace: WorkspaceType) => {
-    if (workspace === 'conversation') {
-      navigate('/resume-creator')  // 改为导航到 resume-creator
+    if (workspace === 'agent') {
+      const currentResumeId = getCurrentResumeId()
+      if (currentResumeId) {
+        navigate(`/workspace/agent/${currentResumeId}`)
+      } else {
+        navigate('/dashboard')
+      }
     } else if (workspace === 'dashboard') {
       navigate('/dashboard')
     } else if (workspace === 'templates') {
@@ -108,19 +114,19 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               <span className="text-[10px] leading-tight">编辑</span>
             </button>
 
-            {/* AI 对话区 */}
+            {/* Agent 对话区 */}
             <button
-              onClick={() => handleWorkspaceChange('conversation')}
+              onClick={() => handleWorkspaceChange('agent')}
               className={cn(
                 "w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg transition-all duration-200",
-                currentWorkspace === 'conversation'
+                currentWorkspace === 'agent'
                   ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
                   : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
               )}
-              title="AI对话区"
+              title="Agent 对话"
             >
-              <Sparkles className="w-5 h-5 shrink-0" />
-              <span className="text-[10px] leading-tight">对话</span>
+              <Bot className="w-5 h-5 shrink-0" />
+              <span className="text-[10px] leading-tight">Agent</span>
             </button>
 
             {/* 简历区 */}

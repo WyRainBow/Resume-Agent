@@ -1,4 +1,6 @@
 /** @type {import('tailwindcss').Config} */
+import typography from "@tailwindcss/typography";
+
 export default {
   darkMode: ["class"],
   content: [
@@ -17,6 +19,18 @@ export default {
       },
     },
     extend: {
+      typography: {
+        DEFAULT: {
+          css: {
+            'ul::marker': {
+              color: '#000000',
+            },
+            'ol::marker': {
+              color: '#000000',
+            },
+          },
+        },
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -73,6 +87,6 @@ export default {
       },
     },
   },
-  plugins: [],
+  plugins: [typography],
 }
 

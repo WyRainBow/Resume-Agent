@@ -64,9 +64,9 @@ export default function ScrollEditMode({
   updateMenuSections,
   handleAIImport,
 }: ScrollEditModeProps) {
-  // 根据 menuSections 的顺序获取启用的模块（排除 basic，因为它在 header 中）
+  // 根据 menuSections 的顺序获取启用的模块
   const enabledSections = menuSections
-    .filter(section => section.id !== 'basic' && section.enabled)
+    .filter(section => section.enabled)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   
   // 跟踪正在编辑的模块 ID
