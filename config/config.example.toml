@@ -111,3 +111,21 @@ server_reference = "app.mcp.server" # default server module reference
 # Your can add additional agents into run-flow workflow to solve different-type tasks.
 [runflow]
 use_data_analysis_agent = false     # The Data Analysi Agent to solve various data analysis tasks
+
+# Optional Network configuration (proxy, agent initialization retries, etc.)
+[network]
+# Whether to enable proxy globally (default: false)
+#use_proxy = false
+
+# HTTP/HTTPS proxy URLs (only used when use_proxy = true)
+#http_proxy = ""
+#https_proxy = ""
+#no_proxy = "localhost,127.0.0.1"
+
+# Disable proxy for tiktoken downloads (default: true, recommended to avoid proxy connection failures)
+disable_proxy_for_tiktoken = true
+
+# Agent initialization retry configuration
+agent_init_max_retries = 3         # Maximum retry attempts for agent initialization
+agent_init_retry_delay = 0.3       # Base delay for retry (seconds)
+agent_init_retry_backoff = 1.5     # Exponential backoff multiplier for retries

@@ -10,6 +10,7 @@ import json
 from backend.agent.tool.base import BaseTool, ToolResult
 from backend.agent.tool.resume_data_store import ResumeDataStore
 from backend.agent.llm import LLM
+from backend.agent.logger import logger
 
 
 class CVEditorAgentTool(BaseTool):
@@ -91,10 +92,18 @@ Execute modifications immediately when user provides specific details.
                 # 同步更新 ResumeDataStore（因为 CVEditor 直接修改了传入的字典引用）
                 ResumeDataStore.set_data(resume_data, session_id=self.session_id)
                 # 尝试写回 AI 简历存储（如有 resume_id/user_id）
-                ResumeDataStore.persist_data(self.session_id)
+                persisted = ResumeDataStore.persist_data(self.session_id)
 
                 # 格式化成功消息
                 output = f"✅ {result.get('message', 'Edit completed')}"
+                if not persisted:
+                    logger.warning(
+                        "[CVEditorAgentTool] Failed to persist data for session: "
+                        f"{self.session_id}. Data is only in memory."
+                    )
+                    output += (
+                        "\n⚠️ 注意：修改已应用，但未保存到数据库，请刷新页面确认。"
+                    )
                 if "new_value" in result:
                     new_val = result["new_value"]
                     if isinstance(new_val, dict):

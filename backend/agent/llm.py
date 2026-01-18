@@ -1,6 +1,6 @@
+from __future__ import annotations
+
 import math
-import os
-from contextlib import contextmanager
 from typing import Dict, List, Optional, Union
 
 import tiktoken
@@ -21,7 +21,7 @@ from tenacity import (
 )
 
 from backend.agent.bedrock import BedrockClient
-from backend.agent.config import LLMSettings, config
+from backend.agent.config import LLMSettings, NetworkConfig, config
 from backend.agent.exceptions import TokenLimitExceeded
 from backend.agent.logger import logger  # Assuming a logger is set up in your app
 from backend.agent.schema import (
@@ -43,29 +43,18 @@ MULTIMODAL_MODELS = [
     "claude-3-haiku-20240307",
 ]
 
-PROXY_ENV_KEYS = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")
 _tiktoken_cache: Dict[str, tiktoken.Encoding] = {}
 
 
-@contextmanager
-def _without_proxy():
-    """Temporarily disable proxy env vars for tiktoken downloads."""
-    original = {key: os.environ.pop(key, None) for key in PROXY_ENV_KEYS}
-    try:
-        yield
-    finally:
-        for key, value in original.items():
-            if value is not None:
-                os.environ[key] = value
-
-
 def _get_tiktoken_encoding(model: str) -> Optional[tiktoken.Encoding]:
-    """Get tiktoken encoding with caching and proxy guard."""
+    """Get tiktoken encoding with caching and network configuration."""
     cache_key = f"model:{model}"
     if cache_key in _tiktoken_cache:
         return _tiktoken_cache[cache_key]
 
-    with _without_proxy():
+    # Use network configuration manager instead of temporary proxy disabling
+    network_config = config.network or NetworkConfig()
+    with network_config.without_proxy():
         try:
             encoding = tiktoken.encoding_for_model(model)
             _tiktoken_cache[cache_key] = encoding

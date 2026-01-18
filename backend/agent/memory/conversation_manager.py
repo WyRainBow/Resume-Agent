@@ -37,6 +37,31 @@ class ConversationManager:
     def delete_session(self, session_id: str) -> bool:
         return self.storage.delete_session(session_id)
 
+    def delete_sessions(self, session_ids: List[str]) -> int:
+        """Delete multiple sessions.
+
+        Args:
+            session_ids: List of session IDs to delete
+
+        Returns:
+            Number of successfully deleted sessions
+        """
+        deleted_count = 0
+        for session_id in session_ids:
+            if self.storage.delete_session(session_id):
+                deleted_count += 1
+        return deleted_count
+
+    def delete_all_sessions(self) -> int:
+        """Delete all sessions.
+
+        Returns:
+            Number of deleted sessions
+        """
+        all_sessions = self.storage.list_sessions()
+        session_ids = [meta.session_id for meta in all_sessions]
+        return self.delete_sessions(session_ids)
+
     def update_session_title(self, session_id: str, title: str) -> Optional[ConversationMeta]:
         return self.storage.update_session_title(session_id, title)
 

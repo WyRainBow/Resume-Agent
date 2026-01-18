@@ -8,6 +8,7 @@
 from typing import Optional, Dict, Any
 
 from backend.agent.agent.shared_state import AgentSharedState
+from backend.agent.logger import logger
 
 
 class ResumeDataStore:
@@ -76,12 +77,19 @@ class ResumeDataStore:
         """将简历数据写回 AI 简历存储（如果具备必要上下文）"""
         resume_data = cls.get_data(session_id)
         if not resume_data:
+            logger.warning(
+                f"[ResumeDataStore] No resume data for session: {session_id}"
+            )
             return False
 
         meta = cls._meta_by_session.get(session_id, {})
         resume_id = meta.get("resume_id")
         user_id = meta.get("user_id")
         if not resume_id or not user_id:
+            logger.warning(
+                "[ResumeDataStore] Missing resume_id or user_id for session: "
+                f"{session_id}, meta={meta}"
+            )
             return False
 
         try:
@@ -94,13 +102,25 @@ class ResumeDataStore:
                     Resume.id == resume_id, Resume.user_id == user_id
                 ).first()
                 if not resume:
+                    logger.warning(
+                        "[ResumeDataStore] Resume not found: "
+                        f"resume_id={resume_id}, user_id={user_id}"
+                    )
                     return False
 
                 resume.name = cls._extract_name(resume_data) or resume.name
                 resume.data = resume_data
                 db.commit()
+                logger.info(
+                    "[ResumeDataStore] Successfully persisted resume: "
+                    f"resume_id={resume_id}, name={resume.name}"
+                )
                 return True
             finally:
                 db.close()
-        except Exception:
+        except Exception as exc:
+            logger.exception(
+                "[ResumeDataStore] Failed to persist resume: "
+                f"session_id={session_id}, resume_id={resume_id}, error={exc}"
+            )
             return False
