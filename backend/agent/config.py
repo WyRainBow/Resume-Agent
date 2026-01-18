@@ -1,5 +1,7 @@
 import json
+import os
 import threading
+from contextlib import contextmanager
 try:
     import tomllib  # Python 3.11+
 except ImportError:
@@ -47,8 +49,6 @@ class ProxyConfig(BaseModel):
     no_proxy: Optional[str] = Field(None, description="No-proxy list")
 
     def apply(self) -> None:
-        import os
-
         if not self.enabled:
             return
         if self.http_proxy:
@@ -57,6 +57,63 @@ class ProxyConfig(BaseModel):
             os.environ["HTTPS_PROXY"] = self.https_proxy
         if self.no_proxy:
             os.environ["NO_PROXY"] = self.no_proxy
+
+
+class NetworkConfig(BaseModel):
+    """Network configuration (proxy, SSL, etc.) for agent operations.
+    
+    Provides structured configuration for network-related operations,
+    including proxy settings and operation-specific overrides (e.g., tiktoken downloads).
+    """
+    use_proxy: bool = Field(False, description="Whether to enable proxy globally")
+    http_proxy: Optional[str] = Field(None, description="HTTP proxy URL")
+    https_proxy: Optional[str] = Field(None, description="HTTPS proxy URL")
+    no_proxy: Optional[str] = Field(None, description="No-proxy list (comma-separated)")
+    
+    # Operation-specific proxy configuration
+    disable_proxy_for_tiktoken: bool = Field(
+        True,
+        description="Disable proxy for tiktoken downloads (default: True, to avoid proxy connection failures)"
+    )
+    
+    # Agent initialization retry configuration
+    agent_init_max_retries: int = Field(3, description="Maximum retry attempts for agent initialization")
+    agent_init_retry_delay: float = Field(0.3, description="Base delay for retry (seconds)")
+    agent_init_retry_backoff: float = Field(1.5, description="Exponential backoff multiplier for retries")
+    
+    def apply(self) -> None:
+        """Apply proxy configuration to environment variables."""
+        if not self.use_proxy:
+            return
+        
+        if self.http_proxy:
+            os.environ["HTTP_PROXY"] = self.http_proxy
+        if self.https_proxy:
+            os.environ["HTTPS_PROXY"] = self.https_proxy
+        if self.no_proxy:
+            os.environ["NO_PROXY"] = self.no_proxy
+    
+    @contextmanager
+    def without_proxy(self):
+        """Context manager to temporarily disable proxy for operations that need direct connection.
+        
+        Useful for tiktoken downloads when proxy is unavailable or causes connection failures.
+        """
+        if not self.disable_proxy_for_tiktoken:
+            yield
+            return
+        
+        original = {}
+        proxy_keys = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")
+        for key in proxy_keys:
+            original[key] = os.environ.pop(key, None)
+        
+        try:
+            yield
+        finally:
+            for key, value in original.items():
+                if value is not None:
+                    os.environ[key] = value
 
 
 class SearchSettings(BaseModel):
@@ -199,7 +256,10 @@ class MCPSettings(BaseModel):
 class AppConfig(BaseModel):
     llm: Dict[str, LLMSettings]
     proxy_config: Optional[ProxyConfig] = Field(
-        None, description="Global proxy configuration"
+        None, description="Global proxy configuration (deprecated, use network instead)"
+    )
+    network: Optional[NetworkConfig] = Field(
+        None, description="Network configuration (proxy, agent init retries, etc.)"
     )
     sandbox: Optional[SandboxSettings] = Field(
         None, description="Sandbox configuration"
@@ -312,7 +372,7 @@ class Config:
             if valid_browser_params:
                 browser_settings = BrowserSettings(**valid_browser_params)
 
-        # handle global proxy config
+        # handle global proxy config (deprecated, kept for backward compatibility)
         proxy_config = raw_config.get("proxy", {})
         proxy_settings = None
         if proxy_config:
@@ -325,6 +385,17 @@ class Config:
                 }
             )
             proxy_settings.apply()
+
+        # handle network config (new, preferred way)
+        network_config_data = raw_config.get("network", {})
+        network_settings = None
+        if network_config_data:
+            network_settings = NetworkConfig(**network_config_data)
+            # Apply proxy configuration to environment variables
+            network_settings.apply()
+        else:
+            # Default configuration: disable proxy for tiktoken downloads
+            network_settings = NetworkConfig(disable_proxy_for_tiktoken=True)
 
         search_config = raw_config.get("search", {})
         search_settings = None
@@ -364,6 +435,7 @@ class Config:
                 },
             },
             "proxy_config": proxy_settings,
+            "network": network_settings,
             "sandbox": sandbox_settings,
             "browser_config": browser_settings,
             "search_config": search_settings,
@@ -410,6 +482,11 @@ class Config:
     @property
     def enable_session_persistence(self) -> bool:
         return bool(self._config.enable_session_persistence)
+
+    @property
+    def network(self) -> Optional[NetworkConfig]:
+        """Get the network configuration"""
+        return self._config.network
 
     @property
     def workspace_root(self) -> Path:

@@ -3,6 +3,8 @@
 Manages agent lifecycle and state transitions.
 """
 
+from __future__ import annotations
+
 import asyncio
 import logging
 from typing import Any, Awaitable, Callable, Optional, Set

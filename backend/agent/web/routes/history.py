@@ -6,6 +6,7 @@ Provides endpoints for chat history management.
 import logging
 from typing import Any
 
+from typing import List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -37,6 +38,10 @@ class HistoryClearResponse(BaseModel):
 
 class SessionTitleUpdateRequest(BaseModel):
     title: str
+
+
+class BatchDeleteRequest(BaseModel):
+    session_ids: List[str]
 
 
 @router.get("/{session_id}", response_model=HistoryResponse)
@@ -79,10 +84,18 @@ async def clear_history(session_id: str) -> HistoryClearResponse:
         HistoryClearResponse with confirmation
     """
     try:
+        # Import _active_sessions from stream module to clean up active session
+        from backend.agent.web.routes.stream import _active_sessions
+        
         history_manager = ChatHistoryManager(session_id=session_id, storage=storage)
         history_manager.clear_messages()
         await history_manager.save_checkpoint()
         conversation_manager.delete_session(session_id)
+        
+        # Clean up active session in memory
+        if session_id in _active_sessions:
+            del _active_sessions[session_id]
+            logger.info(f"[History] Cleared active session: {session_id}")
 
         return HistoryClearResponse(
             session_id=session_id,
@@ -202,3 +215,73 @@ async def export_session(session_id: str, fmt: str = "json") -> dict[str, Any]:
     export_path = f"{export_dir}/{session_id}.{extension}"
     path = conversation_manager.export_session(session_id, export_path, fmt=fmt)
     return {"session_id": session_id, "export_path": path}
+
+
+@router.post("/sessions/batch-delete")
+async def batch_delete_sessions(request: BatchDeleteRequest) -> dict[str, Any]:
+    """Delete multiple sessions.
+
+    Args:
+        request: BatchDeleteRequest with session_ids list
+
+    Returns:
+        dict with deleted_count
+    """
+    try:
+        # Import _active_sessions from stream module to clean up active sessions
+        from backend.agent.web.routes.stream import _active_sessions
+        
+        deleted_count = conversation_manager.delete_sessions(request.session_ids)
+        
+        # Clean up active sessions in memory
+        for session_id in request.session_ids:
+            if session_id in _active_sessions:
+                del _active_sessions[session_id]
+                logger.info(f"[History] Cleared active session: {session_id}")
+        
+        logger.info(f"Batch deleted {deleted_count}/{len(request.session_ids)} sessions")
+        return {
+            "deleted_count": deleted_count,
+            "total_requested": len(request.session_ids),
+            "message": f"Successfully deleted {deleted_count} session(s)"
+        }
+    except Exception as e:
+        logger.error(f"Error batch deleting sessions: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error batch deleting sessions: {e}",
+        )
+
+
+@router.delete("/sessions/all")
+async def delete_all_sessions() -> dict[str, Any]:
+    """Delete all sessions.
+
+    Returns:
+        dict with deleted_count
+    """
+    try:
+        # Import _active_sessions from stream module to clean up active sessions
+        from backend.agent.web.routes.stream import _active_sessions
+        
+        # Get all session IDs before deletion
+        all_sessions = conversation_manager.list_sessions()
+        session_ids = [meta.session_id for meta in all_sessions]
+        
+        deleted_count = conversation_manager.delete_all_sessions()
+        
+        # Clean up all active sessions in memory
+        _active_sessions.clear()
+        logger.info(f"[History] Cleared all active sessions (count: {len(session_ids)})")
+        
+        logger.info(f"Deleted all {deleted_count} sessions")
+        return {
+            "deleted_count": deleted_count,
+            "message": f"Successfully deleted all {deleted_count} session(s)"
+        }
+    except Exception as e:
+        logger.error(f"Error deleting all sessions: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error deleting all sessions: {e}",
+        )

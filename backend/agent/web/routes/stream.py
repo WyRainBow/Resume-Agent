@@ -6,12 +6,12 @@ This module provides:
 - CLTP chunks are generated server-side and adapted to SSE for compatibility
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
-import os
 import time
 import uuid
-from contextlib import contextmanager
 from datetime import datetime
 from typing import AsyncGenerator, Optional
 
@@ -19,6 +19,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
 from backend.agent.agent.manus import Manus
+from backend.agent.config import NetworkConfig, config
 from backend.agent.logger import logger
 from backend.agent.schema import AgentState as SchemaAgentState, Message, Role
 from backend.agent.web.schemas.stream import StreamRequest, SSEEvent, HeartbeatEvent
@@ -40,19 +41,6 @@ _active_sessions: dict[str, dict] = {}
 
 # Heartbeat configuration
 HEARTBEAT_INTERVAL = 30  # seconds
-PROXY_ENV_KEYS = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")
-
-
-@contextmanager
-def _without_proxy():
-    """Temporarily disable proxy env vars to avoid init-time downloads failing."""
-    original = {key: os.environ.pop(key, None) for key in PROXY_ENV_KEYS}
-    try:
-        yield
-    finally:
-        for key, value in original.items():
-            if value is not None:
-                os.environ[key] = value
 
 
 def _get_or_create_session(
@@ -69,6 +57,26 @@ def _get_or_create_session(
     Returns:
         Session dict containing agent and chat history
     """
+    # Check if session exists in memory but file has been deleted
+    if conversation_id in _active_sessions:
+        # Verify file still exists in storage
+        existing_messages = storage.load_messages(conversation_id)
+        if not existing_messages:
+            # File has been deleted, but session still exists in memory
+            # Clean up old session and create a new one
+            logger.info(
+                f"[SSE] Session {conversation_id} exists in memory but file deleted, "
+                "cleaning up and creating new session"
+            )
+            # Clear agent memory before deleting session
+            old_session = _active_sessions.get(conversation_id)
+            if old_session and "agent" in old_session:
+                old_agent = old_session["agent"]
+                if hasattr(old_agent, "memory") and old_agent.memory:
+                    old_agent.memory.messages.clear()
+                    logger.info(f"[SSE] Cleared memory for session: {conversation_id}")
+            del _active_sessions[conversation_id]
+
     if conversation_id not in _active_sessions:
         from backend.agent.memory import ChatHistoryManager
         from backend.agent.tool.resume_data_store import ResumeDataStore
@@ -77,18 +85,27 @@ def _get_or_create_session(
         chat_history = None
         last_exc: Exception | None = None
 
-        for attempt in range(1, 4):
+        # Use network configuration manager for retry settings
+        network_config = config.network or NetworkConfig()
+        max_retries = network_config.agent_init_max_retries
+        retry_delay_base = network_config.agent_init_retry_delay
+        retry_backoff = network_config.agent_init_retry_backoff
+
+        for attempt in range(1, max_retries + 1):
             try:
-                with _without_proxy():
+                # Use network configuration manager's context manager
+                with network_config.without_proxy():
                     agent = Manus(session_id=conversation_id)
                 chat_history = conversation_manager.get_or_create_history(conversation_id)
                 break
             except Exception as exc:
                 last_exc = exc
                 logger.warning(
-                    f"[SSE] Agent init failed (attempt {attempt}/3): {exc}"
+                    f"[SSE] Agent init failed (attempt {attempt}/{max_retries}): {exc}"
                 )
-                time.sleep(0.3 * attempt)
+                # Exponential backoff: delay = delay_base * (backoff ^ (attempt - 1))
+                delay = retry_delay_base * (retry_backoff ** (attempt - 1))
+                time.sleep(delay)
 
         if agent is None or chat_history is None:
             raise last_exc or RuntimeError("Failed to create agent session")
@@ -183,6 +200,16 @@ async def _stream_event_generator(
 
         # Restore chat history to agent memory if needed
         existing_messages = chat_history.get_messages()
+        
+        # If chat_history is empty but agent.memory has messages, clear agent.memory
+        # This can happen when a session file was deleted but the active session still exists in memory
+        if not existing_messages and len(agent.memory.messages) > 0:
+            logger.info(
+                f"[SSE] Chat history is empty but agent.memory has {len(agent.memory.messages)} messages. "
+                "Clearing agent.memory to prevent stale context."
+            )
+            agent.memory.messages.clear()
+        
         if existing_messages and len(agent.memory.messages) == 0:
             logger.info(f"[SSE] Restoring {len(existing_messages)} history messages to agent")
             for msg in existing_messages:
@@ -349,8 +376,9 @@ async def clear_session(conversation_id: str) -> dict:
         del _active_sessions[conversation_id]
         logger.info(f"[SSE] Cleared session: {conversation_id}")
         return {"status": "cleared", "conversation_id": conversation_id}
-    else:
-        raise HTTPException(status_code=404, detail="Session not found")
+    # Idempotent delete: do not 404 for missing session
+    logger.info(f"[SSE] Session not found (already cleared): {conversation_id}")
+    return {"status": "not_found", "conversation_id": conversation_id}
 
 
 

@@ -4,6 +4,8 @@ This module defines the event types that are sent over WebSocket
 during agent execution.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any

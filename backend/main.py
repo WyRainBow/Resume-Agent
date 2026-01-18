@@ -159,23 +159,23 @@ async def startup_event():
     except Exception as e:
         backend_logger.warning(f"[启动优化] 连接预热失败: {e}")
 
-    # 预加载 tiktoken 编码文件，避免首次请求时下载阻塞
+    # 预加载 tiktoken 编码文件，避免首次请求时下载阻塞（使用配置管理器）
     try:
-        import os
         import tiktoken
+        from backend.agent.config import NetworkConfig, config
 
-        proxy_keys = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")
-        original = {key: os.environ.pop(key, None) for key in proxy_keys}
-        try:
+        network_config = config.network if hasattr(config, 'network') and config.network else NetworkConfig()
+        if network_config.disable_proxy_for_tiktoken:
+            backend_logger.info("[启动优化] 预加载 tiktoken 编码文件（禁用代理）...")
+            with network_config.without_proxy():
+                tiktoken.get_encoding("cl100k_base")
+            backend_logger.info("[启动优化] tiktoken 编码文件预加载完成")
+        else:
             backend_logger.info("[启动优化] 预加载 tiktoken 编码文件...")
             tiktoken.get_encoding("cl100k_base")
             backend_logger.info("[启动优化] tiktoken 编码文件预加载完成")
-        finally:
-            for key, value in original.items():
-                if value is not None:
-                    os.environ[key] = value
     except Exception as e:
-        backend_logger.warning(f"[启动优化] tiktoken 预加载失败: {e}")
+        backend_logger.warning(f"[启动优化] tiktoken 预加载失败: {e}（将在首次使用时加载）")
 
 
 """
