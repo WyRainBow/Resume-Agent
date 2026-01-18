@@ -1,4 +1,6 @@
 import math
+import os
+from contextlib import contextmanager
 from typing import Dict, List, Optional, Union
 
 import tiktoken
@@ -40,6 +42,46 @@ MULTIMODAL_MODELS = [
     "claude-3-sonnet-20240229",
     "claude-3-haiku-20240307",
 ]
+
+PROXY_ENV_KEYS = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")
+_tiktoken_cache: Dict[str, tiktoken.Encoding] = {}
+
+
+@contextmanager
+def _without_proxy():
+    """Temporarily disable proxy env vars for tiktoken downloads."""
+    original = {key: os.environ.pop(key, None) for key in PROXY_ENV_KEYS}
+    try:
+        yield
+    finally:
+        for key, value in original.items():
+            if value is not None:
+                os.environ[key] = value
+
+
+def _get_tiktoken_encoding(model: str) -> Optional[tiktoken.Encoding]:
+    """Get tiktoken encoding with caching and proxy guard."""
+    cache_key = f"model:{model}"
+    if cache_key in _tiktoken_cache:
+        return _tiktoken_cache[cache_key]
+
+    with _without_proxy():
+        try:
+            encoding = tiktoken.encoding_for_model(model)
+            _tiktoken_cache[cache_key] = encoding
+            return encoding
+        except KeyError:
+            pass
+        except Exception as exc:
+            logger.warning(f"[LLM] Failed to load model encoding: {exc}")
+
+        try:
+            if "cl100k_base" not in _tiktoken_cache:
+                _tiktoken_cache["cl100k_base"] = tiktoken.get_encoding("cl100k_base")
+            return _tiktoken_cache["cl100k_base"]
+        except Exception as exc:
+            logger.warning(f"[LLM] Failed to load fallback encoding: {exc}")
+            return None
 
 
 class TokenCounter:
@@ -206,12 +248,8 @@ class LLM:
                 else None
             )
 
-            # Initialize tokenizer
-            try:
-                self.tokenizer = tiktoken.encoding_for_model(self.model)
-            except KeyError:
-                # If the model is not in tiktoken's presets, use cl100k_base as default
-                self.tokenizer = tiktoken.get_encoding("cl100k_base")
+            # Initialize tokenizer with cache + proxy guard
+            self.tokenizer = _get_tiktoken_encoding(self.model)
 
             if self.api_type == "azure":
                 self.client = AsyncAzureOpenAI(
@@ -224,15 +262,22 @@ class LLM:
             else:
                 self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
 
-            self.token_counter = TokenCounter(self.tokenizer)
+            if self.tokenizer is not None:
+                self.token_counter = TokenCounter(self.tokenizer)
+            else:
+                self.token_counter = None
 
     def count_tokens(self, text: str) -> int:
         """Calculate the number of tokens in a text"""
         if not text:
             return 0
+        if self.tokenizer is None:
+            return 0
         return len(self.tokenizer.encode(text))
 
     def count_message_tokens(self, messages: List[dict]) -> int:
+        if self.token_counter is None:
+            return 0
         return self.token_counter.count_message_tokens(messages)
 
     def update_token_count(self, input_tokens: int, completion_tokens: int = 0) -> None:
