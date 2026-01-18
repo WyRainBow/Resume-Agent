@@ -11,6 +11,7 @@
  */
 
 import ChatMessage from '@/components/chat/ChatMessage';
+import { useAuth } from '@/contexts/AuthContext';
 import { useCLTP } from '@/hooks/useCLTP';
 import { HTMLTemplateRenderer } from '@/pages/Workspace/v2/HTMLTemplateRenderer';
 import type { ResumeData } from '@/pages/Workspace/v2/types';
@@ -53,6 +54,7 @@ function convertResumeDataToOpenManusFormat(resume: ResumeData) {
 
 export default function SophiaChat() {
   const { resumeId } = useParams();
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
@@ -63,6 +65,7 @@ export default function SophiaChat() {
   const [conversationId, setConversationId] = useState(`conv-${Date.now()}`);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [loadingResume, setLoadingResume] = useState(true);
@@ -72,6 +75,7 @@ export default function SophiaChat() {
   const shouldFinalizeRef = useRef(false); // 标记是否需要完成（等待打字机效果完成）
   const currentThoughtRef = useRef('');
   const currentAnswerRef = useRef('');
+  const lastCompletedRef = useRef<{ thought: string; answer: string; at: number } | null>(null);
 
   const normalizedResume = useMemo(() => {
     if (!resumeData) return null;
@@ -116,7 +120,15 @@ export default function SophiaChat() {
           setResumeError('未找到对应的简历');
           setResumeData(null);
         } else {
-          setResumeData(resume.data as ResumeData);
+          const resumeDataWithMeta = {
+            ...(resume.data || {}),
+            resume_id: resume.id,
+            _meta: {
+              resume_id: resume.id,
+              user_id: user?.id ?? (resume as any).user_id ?? null,
+            },
+          };
+          setResumeData(resumeDataWithMeta as ResumeData);
         }
       } catch (error) {
         if (!mounted) return;
@@ -129,7 +141,39 @@ export default function SophiaChat() {
     return () => {
       mounted = false;
     };
-  }, [resumeId]);
+  }, [resumeId, user?.id]);
+
+  useEffect(() => {
+    if (answerCompleteCount <= 0 || !resumeId) {
+      return;
+    }
+
+    let mounted = true;
+    const refreshResume = async () => {
+      try {
+        const resume = await getResume(resumeId);
+        if (!mounted) return;
+        if (resume) {
+          const resumeDataWithMeta = {
+            ...(resume.data || {}),
+            resume_id: resume.id,
+            _meta: {
+              resume_id: resume.id,
+              user_id: user?.id ?? (resume as any).user_id ?? null,
+            },
+          };
+          setResumeData(resumeDataWithMeta as ResumeData);
+        }
+      } catch {
+        // ignore refresh errors
+      }
+    };
+
+    refreshResume();
+    return () => {
+      mounted = false;
+    };
+  }, [answerCompleteCount, resumeId, user?.id]);
 
   const isHtmlTemplate = resumeData?.templateType === 'html';
 
@@ -140,10 +184,16 @@ export default function SophiaChat() {
 
   useEffect(() => {
     currentThoughtRef.current = currentThought;
+    console.log('[SophiaChat] currentThought updated', {
+      length: currentThought.length,
+    });
   }, [currentThought]);
 
   useEffect(() => {
     currentAnswerRef.current = currentAnswer;
+    console.log('[SophiaChat] currentAnswer updated', {
+      length: currentAnswer.length,
+    });
   }, [currentAnswer]);
 
 
@@ -167,8 +217,24 @@ export default function SophiaChat() {
 
     isFinalizedRef.current = true;
 
-    const thought = currentThoughtRef.current.trim();
-    const answer = currentAnswerRef.current.trim();
+    const thoughtRefValue = currentThoughtRef.current.trim();
+    const answerRefValue = currentAnswerRef.current.trim();
+    const thoughtStateValue = currentThought.trim();
+    const answerStateValue = currentAnswer.trim();
+    const fallback = lastCompletedRef.current;
+    const thought = thoughtRefValue || thoughtStateValue || fallback?.thought || '';
+    const answer = answerRefValue || answerStateValue || fallback?.answer || '';
+
+    console.log('[SophiaChat] finalizeMessage called', {
+      thoughtLength: thought.length,
+      answerLength: answer.length,
+      thoughtRefLength: thoughtRefValue.length,
+      answerRefLength: answerRefValue.length,
+      thoughtStateLength: thoughtStateValue.length,
+      answerStateLength: answerStateValue.length,
+      fallbackThoughtLength: fallback?.thought?.length || 0,
+      fallbackAnswerLength: fallback?.answer?.length || 0,
+    });
 
     if (!thought && !answer) {
       console.log('[SophiaChat] No content to finalize, just resetting state');
@@ -190,12 +256,29 @@ export default function SophiaChat() {
       newMessage.thought = thought;
     }
 
-    setMessages((prev) => [...prev, newMessage]);
-    finalizeStream();
-    setTimeout(() => {
-      isFinalizedRef.current = false;
-    }, 100);
-  }, [finalizeStream]);
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (
+        last &&
+        last.role === 'assistant' &&
+        (last.content || '').trim() === newMessage.content.trim() &&
+        ((last as any).thought || '').trim() === (newMessage.thought || '').trim()
+      ) {
+        console.log('[SophiaChat] Duplicate assistant message skipped');
+        return prev;
+      }
+      const updated = [...prev, newMessage];
+      console.log('[SophiaChat] Messages updated', { count: updated.length });
+      return updated;
+    });
+    // Keep streaming state so typewriter can run; cleanup happens on typewriter complete
+    if (!isProcessing) {
+      finalizeStream();
+      setTimeout(() => {
+        isFinalizedRef.current = false;
+      }, 100);
+    }
+  }, [finalizeStream, currentAnswer, currentThought]);
 
   const saveCurrentSession = useCallback(() => {
     if (isProcessing || currentThoughtRef.current || currentAnswerRef.current) {
@@ -206,7 +289,13 @@ export default function SophiaChat() {
   const fetchSessions = async () => {
     setLoadingSessions(true);
     try {
-      const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/list`);
+      const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/list`, {
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
+      if (!resp.ok) throw new Error(`Failed to fetch sessions: ${resp.status}`);
       const data = await resp.json();
       setSessions(data.sessions || []);
     } catch (error) {
@@ -225,7 +314,19 @@ export default function SophiaChat() {
   const deleteSession = async (sessionId: string) => {
     if (!window.confirm('确定要删除此会话吗？')) return;
     try {
-      await fetch(`${HISTORY_BASE}/api/agent/history/${sessionId}`, { method: 'DELETE' });
+      const resp = await fetch(`${HISTORY_BASE}/api/agent/history/${sessionId}`, { 
+        method: 'DELETE',
+      });
+      if (!resp.ok) throw new Error(`Failed to delete session: ${resp.status}`);
+      
+      // 立即从本地状态中移除，避免等待刷新
+      setSessions((prev) => prev.filter((s: any) => s.session_id !== sessionId));
+      setSelectedSessions((prev) => {
+        const next = new Set(prev);
+        next.delete(sessionId);
+        return next;
+      });
+      
       if (currentSessionId === sessionId) {
         const newId = `conv-${Date.now()}`;
         setMessages([]);
@@ -233,9 +334,108 @@ export default function SophiaChat() {
         setConversationId(newId);
         finalizeStream();
       }
-      await fetchSessions();
+      
+      // 延迟刷新以确保后端操作完成
+      setTimeout(() => {
+        fetchSessions();
+      }, 100);
     } catch (error) {
       console.error('[SophiaChat] Failed to delete session:', error);
+      // 删除失败时重新获取，恢复正确状态
+      await fetchSessions();
+    }
+  };
+
+  const batchDeleteSessions = async (sessionIds: string[]) => {
+    if (sessionIds.length === 0) return;
+    const count = sessionIds.length;
+    if (!window.confirm(`确定要删除选中的 ${count} 个会话吗？`)) return;
+    try {
+      const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/batch-delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_ids: sessionIds }),
+      });
+      if (!resp.ok) throw new Error('Batch delete failed');
+      const data = await resp.json();
+      console.log(`[SophiaChat] Batch deleted ${data.deleted_count} sessions`);
+      
+      // 立即从本地状态中移除，避免等待刷新
+      setSessions((prev) => prev.filter((s: any) => !sessionIds.includes(s.session_id)));
+      setSelectedSessions(new Set());
+      
+      // 如果当前会话被删除，切换到新会话
+      if (sessionIds.includes(currentSessionId || '')) {
+        const newId = `conv-${Date.now()}`;
+        setMessages([]);
+        setCurrentSessionId(newId);
+        setConversationId(newId);
+        finalizeStream();
+      }
+      
+      // 延迟刷新以确保后端操作完成
+      setTimeout(() => {
+        fetchSessions();
+      }, 100);
+    } catch (error) {
+      console.error('[SophiaChat] Failed to batch delete sessions:', error);
+      alert('批量删除失败，请重试');
+      // 删除失败时重新获取，恢复正确状态
+      await fetchSessions();
+    }
+  };
+
+  const deleteAllSessions = async () => {
+    if (sessions.length === 0) return;
+    if (!window.confirm(`确定要删除所有 ${sessions.length} 个会话吗？此操作不可恢复！`)) return;
+    try {
+      const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/all`, {
+        method: 'DELETE',
+      });
+      if (!resp.ok) throw new Error('Delete all failed');
+      const data = await resp.json();
+      console.log(`[SophiaChat] Deleted all ${data.deleted_count} sessions`);
+      
+      // 立即清空本地状态
+      setSessions([]);
+      setSelectedSessions(new Set());
+      
+      // 切换到新会话
+      const newId = `conv-${Date.now()}`;
+      setMessages([]);
+      setCurrentSessionId(newId);
+      setConversationId(newId);
+      finalizeStream();
+      
+      // 延迟刷新以确保后端操作完成
+      setTimeout(() => {
+        fetchSessions();
+      }, 100);
+    } catch (error) {
+      console.error('[SophiaChat] Failed to delete all sessions:', error);
+      alert('删除所有会话失败，请重试');
+      // 删除失败时重新获取，恢复正确状态
+      await fetchSessions();
+    }
+  };
+
+  const toggleSessionSelection = (sessionId: string) => {
+    setSelectedSessions((prev) => {
+      const next = new Set(prev);
+      if (next.has(sessionId)) {
+        next.delete(sessionId);
+      } else {
+        next.add(sessionId);
+      }
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedSessions.size === sessions.length) {
+      setSelectedSessions(new Set());
+    } else {
+      setSelectedSessions(new Set(sessions.map((s: any) => s.session_id)));
     }
   };
 
@@ -299,10 +499,39 @@ export default function SophiaChat() {
     if (answerCompleteCount === 0) return;
 
     shouldFinalizeRef.current = true;
-    // 交给打字机完成回调 finalize，避免中途强制完成导致跳变
-    if (!currentAnswerRef.current.trim() && !currentThoughtRef.current.trim()) {
-      finalizeMessage();
+    const hasContent =
+      currentAnswerRef.current.trim() ||
+      currentThoughtRef.current.trim() ||
+      currentAnswer.trim() ||
+      currentThought.trim();
+    if (hasContent) {
+      lastCompletedRef.current = {
+        thought: currentThoughtRef.current.trim() || currentThought.trim(),
+        answer: currentAnswerRef.current.trim() || currentAnswer.trim(),
+        at: Date.now(),
+      };
     }
+    console.log('[SophiaChat] answerCompleteCount effect', {
+      answerCompleteCount,
+      hasContent,
+      answerRefLength: currentAnswerRef.current.trim().length,
+      thoughtRefLength: currentThoughtRef.current.trim().length,
+      answerStateLength: currentAnswer.trim().length,
+      thoughtStateLength: currentThought.trim().length,
+    });
+    if (!hasContent) {
+      // No content to typewriter, finalize immediately to clear state
+      finalizeMessage();
+      return;
+    }
+    // Fallback: if typewriter doesn't complete, cleanup after a delay
+    setTimeout(() => {
+      if (isFinalizedRef.current && isProcessing) {
+        console.log('[SophiaChat] Fallback finalize timeout');
+        finalizeStream();
+        isFinalizedRef.current = false;
+      }
+    }, 1400);
   }, [answerCompleteCount, finalizeMessage]);
 
   /**
@@ -411,6 +640,37 @@ export default function SophiaChat() {
                     </button>
                   </div>
                 </div>
+                {sessions.length > 0 && (
+                  <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedSessions.size === sessions.length && sessions.length > 0}
+                        onChange={toggleSelectAll}
+                        className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                      />
+                      <span className="text-xs text-gray-600">
+                        {selectedSessions.size > 0 ? `已选中 ${selectedSessions.size} 个` : '全选'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {selectedSessions.size > 0 && (
+                        <button
+                          onClick={() => batchDeleteSessions(Array.from(selectedSessions))}
+                          className="text-xs text-red-600 hover:text-red-700 px-2 py-1 border border-red-200 rounded hover:bg-red-50"
+                        >
+                          删除选中 ({selectedSessions.size})
+                        </button>
+                      )}
+                      <button
+                        onClick={deleteAllSessions}
+                        className="text-xs text-red-600 hover:text-red-700 px-2 py-1 border border-red-200 rounded hover:bg-red-50"
+                      >
+                        全删
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {loadingSessions ? (
                   <div className="text-xs text-gray-500">加载中...</div>
                 ) : sessions.length === 0 ? (
@@ -420,7 +680,14 @@ export default function SophiaChat() {
                     {sessions.map((session: any) => (
                       <div
                         key={session.session_id}
-                        onClick={() => loadSession(session.session_id)}
+                        onClick={(e) => {
+                          // 如果点击的是复选框，不触发加载会话
+                          if ((e.target as HTMLElement).type === 'checkbox') {
+                            e.stopPropagation();
+                            return;
+                          }
+                          loadSession(session.session_id);
+                        }}
                         role="button"
                         tabIndex={0}
                         className={`w-full text-left p-2 rounded border text-xs ${currentSessionId === session.session_id
@@ -429,7 +696,18 @@ export default function SophiaChat() {
                           }`}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            <input
+                              type="checkbox"
+                              checked={selectedSessions.has(session.session_id)}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                toggleSessionSelection(session.session_id);
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                              className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500 shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
                             {editingSessionId === session.session_id ? (
                               <input
                                 value={editingTitle}
@@ -450,6 +728,7 @@ export default function SophiaChat() {
                                 {session.title || session.session_id}
                               </span>
                             )}
+                            </div>
                           </div>
                           <div className="flex items-center gap-1 text-gray-400">
                             {editingSessionId === session.session_id ? (
@@ -549,10 +828,12 @@ export default function SophiaChat() {
                 isLatest={true}
                 isStreaming={true}
                 onTypewriterComplete={() => {
-                  // 打字机效果完成时，如果标记了需要完成，则调用 finalizeMessage
+                  // 打字机效果完成时，清理流式状态
                   if (shouldFinalizeRef.current) {
+                    console.log('[SophiaChat] Typewriter completed, finalize stream');
                     shouldFinalizeRef.current = false;
-                    finalizeMessage();
+                    finalizeStream();
+                    isFinalizedRef.current = false;
                   }
                 }}
               />

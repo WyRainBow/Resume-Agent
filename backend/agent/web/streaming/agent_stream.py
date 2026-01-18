@@ -228,6 +228,17 @@ class AgentStream:
         # CLTP chunk generator
         self._cltp_generator = CLTPChunkGenerator(session_id)
 
+    def _ensure_assistant_message(self, content: Optional[str]) -> None:
+        """Ensure the assistant message is present in memory for persistence."""
+        if not content or not content.strip():
+            return
+        for msg in reversed(self.agent.memory.messages):
+            if msg.role == Role.ASSISTANT:
+                if (msg.content or "").strip() == content.strip():
+                    return
+                break
+        self.agent.memory.add_message(Message.assistant_message(content))
+
     async def execute(self, user_message: str) -> AsyncIterator[StreamEvent]:
         """Execute agent with streaming events.
 
@@ -423,6 +434,9 @@ class AgentStream:
                                 done=True,
                             )
 
+                            # Ensure final response is stored for history persistence
+                            self._ensure_assistant_message(final_content)
+
                             yield AnswerEvent(
                                 content=final_content,
                                 is_complete=True,
@@ -471,7 +485,7 @@ class AgentStream:
                             # 再处理 content（如果有）
                             if msg.content:
                                 # 🚨 去重：跳过已发送过的相同内容
-                                content_hash = hash(msg.content[:200])  # 用前200字符作为指纹
+                                content_hash = hash(msg.content)  # 使用完整内容，避免截断更新被误判
                                 if content_hash in self._sent_thoughts:
                                     logger.debug(f"[跳过重复内容] {msg.content[:50]}...")
                                     continue
@@ -735,6 +749,9 @@ class AgentStream:
                     done=True,
                 )
 
+                # Ensure fallback answer is stored for history persistence
+                self._ensure_assistant_message(final_answer)
+
                 yield AnswerEvent(
                     content=final_answer,
                     is_complete=True,
@@ -791,6 +808,10 @@ class AgentStream:
         except Exception as e:
             logger.exception(f"Error during agent execution: {e}")
             await self._state_machine.handle_error(e)
+            if self._chat_history_manager:
+                self._chat_history_manager.add_message(
+                    Message.assistant_message(f"Agent运行失败：{str(e)}")
+                )
             yield AgentErrorEvent(
                 error_message=str(e),
                 error_type=type(e).__name__,

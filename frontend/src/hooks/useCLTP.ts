@@ -101,6 +101,10 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
                 if (!currentThoughtRef.current && !currentAnswerRef.current) {
                     setIsProcessing(false);
                 }
+                console.log('[useCLTP] onDisconnect state', {
+                    thoughtLength: currentThoughtRef.current.length,
+                    answerLength: currentAnswerRef.current.length,
+                });
             },
             onError: (error) => {
                 console.error('[useCLTP] SSE Error:', error);
@@ -139,6 +143,12 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             const payload = message.metadata.payload;
             const text = typeof payload === 'string' ? payload : (payload as any).text || '';
 
+            console.log('[useCLTP] message:partial received', {
+                channel: message.metadata.channel,
+                textLength: text.length,
+                done: message.metadata.done,
+            });
+
             if (message.metadata.channel === 'think') {
                 // 思考过程：直接替换（避免重复）
                 setCurrentThought(text);
@@ -153,11 +163,21 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             const payload = message.metadata.payload;
             const text = typeof payload === 'string' ? payload : (payload as any).text || '';
 
+            console.log('[useCLTP] message:complete received', {
+                channel: message.metadata.channel,
+                textLength: text.length,
+                done: message.metadata.done,
+            });
+
             if (message.metadata.channel === 'think') {
                 setCurrentThought(text);
             } else if (message.metadata.channel === 'plain') {
                 setCurrentAnswer(text);
-                setAnswerCompleteCount((count) => count + 1);
+                setAnswerCompleteCount((count) => {
+                    const next = count + 1;
+                    console.log('[useCLTP] answerCompleteCount incremented', { from: count, to: next });
+                    return next;
+                });
             }
         });
 
@@ -185,7 +205,16 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
                 console.error('[useCLTP] Error closing session:', error);
             });
         };
-    }, [conversationId, baseUrl, heartbeatTimeout, resumeData]);
+    }, [conversationId, baseUrl, heartbeatTimeout]);
+
+    // Update resume data without resetting the session
+    useEffect(() => {
+        if (!adapterRef.current) return;
+        adapterRef.current.setResumeData(resumeData ?? null);
+        console.log('[useCLTP] resumeData updated', {
+            hasResumeData: !!resumeData,
+        });
+    }, [resumeData]);
 
     useEffect(() => {
         currentThoughtRef.current = currentThought;
@@ -206,6 +235,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
 
         try {
             // Reset state for new message
+            console.log('[useCLTP] sendMessage reset state');
             setCurrentThought('');
             setCurrentAnswer('');
             setIsProcessing(true);
@@ -234,6 +264,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
      * Finalize current stream (clear state and stop processing)
      */
     const finalizeStream = useCallback(() => {
+        console.log('[useCLTP] finalizeStream called');
         setCurrentThought('');
         setCurrentAnswer('');
         setIsProcessing(false);
