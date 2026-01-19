@@ -97,13 +97,30 @@ Execute modifications immediately when user provides specific details.
                 # 格式化成功消息
                 output = f"✅ {result.get('message', 'Edit completed')}"
                 if not persisted:
-                    logger.warning(
-                        "[CVEditorAgentTool] Failed to persist data for session: "
-                        f"{self.session_id}. Data is only in memory."
-                    )
-                    output += (
-                        "\n⚠️ 注意：修改已应用，但未保存到数据库，请刷新页面确认。"
-                    )
+                    # 🔧 改进：检查持久化失败的具体原因
+                    from backend.agent.tool.resume_data_store import ResumeDataStore
+                    meta = ResumeDataStore._meta_by_session.get(self.session_id, {})
+                    resume_id = meta.get("resume_id")
+                    user_id = meta.get("user_id")
+                    
+                    if not resume_id or not user_id:
+                        logger.error(
+                            f"[CVEditorAgentTool] 持久化失败：缺少元数据。"
+                            f"session_id={self.session_id}, resume_id={resume_id}, user_id={user_id}"
+                        )
+                        output += (
+                            f"\n❌ **持久化失败**: 缺少必要的元数据（resume_id 或 user_id）。"
+                            f"请联系管理员或刷新页面重试。"
+                        )
+                    else:
+                        logger.warning(
+                            f"[CVEditorAgentTool] 持久化失败：数据库操作失败。"
+                            f"session_id={self.session_id}, resume_id={resume_id}, user_id={user_id}"
+                        )
+                        output += (
+                            f"\n⚠️ **持久化失败**: 修改已应用在内存中，但未保存到数据库。"
+                            f"请刷新页面确认，或稍后重试。"
+                        )
                 if "new_value" in result:
                     new_val = result["new_value"]
                     if isinstance(new_val, dict):

@@ -9,7 +9,7 @@ import asyncio
 import json
 import logging
 import re
-from typing import Any, AsyncIterator, Callable, Optional, Tuple
+from typing import Any, AsyncIterator, Callable, Optional, Tuple, List, Set
 from datetime import datetime
 
 
@@ -272,6 +272,75 @@ class AgentStream:
                 break
         
         self.agent.memory.add_message(Message.assistant_message(content))
+
+    def _serialize_tool_calls(self, tool_calls: Any) -> str:
+        """Serialize tool calls for deduplication."""
+        if not tool_calls:
+            return ""
+        normalized: List[Any] = []
+        for call in tool_calls:
+            if hasattr(call, "model_dump"):
+                normalized.append(call.model_dump())
+            elif hasattr(call, "dict"):
+                normalized.append(call.dict())
+            elif isinstance(call, dict):
+                normalized.append(call)
+            else:
+                normalized.append(str(call))
+        return json.dumps(normalized, ensure_ascii=False, sort_keys=True, default=str)
+
+    def _dedupe_messages(self, messages: List[Message]) -> List[Message]:
+        """去重消息列表，防止重复保存到历史记录。"""
+        if not messages:
+            return messages
+
+        deduped: List[Message] = []
+        seen_keys: Set[str] = set()
+
+        for msg in messages:
+            if msg.role == Role.USER:
+                # 用户消息已在 stream.py 中写入 history
+                continue
+
+            content = (msg.content or "").strip()
+            if msg.role == Role.ASSISTANT:
+                response_part = content
+                if "Response:" in content:
+                    response_part = content.split("Response:")[-1].strip()
+
+                tool_calls_str = self._serialize_tool_calls(msg.tool_calls)
+                key = f"assistant|||{content}|||{tool_calls_str}"
+                response_key = None
+                if response_part and response_part != content:
+                    response_key = f"assistant|||{response_part}|||{tool_calls_str}"
+
+                if key in seen_keys or (response_key and response_key in seen_keys):
+                    logger.debug(
+                        f"[AgentStream] Skip duplicate assistant message: {content[:50]}..."
+                    )
+                    continue
+
+                seen_keys.add(key)
+                if response_key:
+                    seen_keys.add(response_key)
+
+            elif msg.role == Role.TOOL:
+                key = f"tool|||{msg.name}|||{msg.tool_call_id}|||{content}"
+                if key in seen_keys:
+                    logger.debug(
+                        f"[AgentStream] Skip duplicate tool message: {msg.name}"
+                    )
+                    continue
+                seen_keys.add(key)
+            else:
+                key = f"{msg.role}|||{content}"
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+
+            deduped.append(msg)
+
+        return deduped
 
     async def execute(self, user_message: str) -> AsyncIterator[StreamEvent]:
         """Execute agent with streaming events.
@@ -798,7 +867,9 @@ class AgentStream:
                 # 仅保存本次执行过程中新增的消息（避免重复保存历史消息）
                 new_messages = self.agent.memory.messages[start_memory_len:]
 
-                for msg in new_messages:
+                deduped_messages = self._dedupe_messages(new_messages)
+
+                for msg in deduped_messages:
                     if msg.role == Role.USER:
                         # 用户消息已在 stream.py 中写入 history
                         continue
@@ -821,7 +892,7 @@ class AgentStream:
                         logger.debug(f"  💾 保存 Tool 消息: {msg.name}, 长度: {len(msg.content or '')}")
 
                 logger.info(
-                    f"📜 已保存对话到 ChatHistory (新增 {len(new_messages)} 条消息, "
+                    f"📜 已保存对话到 ChatHistory (新增 {len(deduped_messages)} 条消息, "
                     f"总内存 {len(self.agent.memory.messages)} 条)"
                 )
 

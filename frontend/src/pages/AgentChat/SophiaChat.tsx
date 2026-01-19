@@ -158,12 +158,14 @@ export default function SophiaChat() {
           setResumeError('未找到对应的简历');
           setResumeData(null);
         } else {
+          const resolvedUserId = user?.id ?? (resume as any).user_id ?? null;
           const resumeDataWithMeta = {
             ...(resume.data || {}),
             resume_id: resume.id,
+            user_id: resolvedUserId,
             _meta: {
               resume_id: resume.id,
-              user_id: user?.id ?? (resume as any).user_id ?? null,
+              user_id: resolvedUserId,
             },
           };
           setResumeData(resumeDataWithMeta as ResumeData);
@@ -206,8 +208,23 @@ export default function SophiaChat() {
           return;
         }
         const data = await resp.json();
+        
+        // 🔧 改进：使用内容哈希生成稳定的消息 ID
+        const generateMessageId = (content: string, role: string): string => {
+          // 简单的字符串哈希函数（FNV-1a 变体）
+          let hash = 2166136261;
+          const str = `${role}:${content}`;
+          for (let i = 0; i < str.length; i++) {
+            hash ^= str.charCodeAt(i);
+            hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+          }
+          // 转换为正数并取前12位十六进制
+          const hashStr = (hash >>> 0).toString(16).slice(0, 12);
+          return `msg-${hashStr}`;
+        };
+        
         const loadedMessages: Message[] = (data.messages || []).map((m: any) => ({
-          id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: generateMessageId(m.content || '', m.role || 'unknown'),
           role: m.role === 'user' ? 'user' : 'assistant',
           content: m.content || '',
           timestamp: new Date().toISOString(),
@@ -239,23 +256,33 @@ export default function SophiaChat() {
     }
 
     let mounted = true;
+    
+    // 🔧 改进：延迟刷新，确保后端持久化已完成
     const refreshResume = async () => {
+      // 延迟 500ms 后刷新，给后端持久化时间
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      if (!mounted) return;
+      
       try {
         const resume = await getResume(resumeId);
         if (!mounted) return;
         if (resume) {
+          const resolvedUserId = user?.id ?? (resume as any).user_id ?? null;
           const resumeDataWithMeta = {
             ...(resume.data || {}),
             resume_id: resume.id,
+            user_id: resolvedUserId,
             _meta: {
               resume_id: resume.id,
-              user_id: user?.id ?? (resume as any).user_id ?? null,
+              user_id: resolvedUserId,
             },
           };
           setResumeData(resumeDataWithMeta as ResumeData);
+          console.log('[SophiaChat] Resume data refreshed after agent completion');
         }
-      } catch {
-        // ignore refresh errors
+      } catch (error) {
+        console.error('[SophiaChat] Failed to refresh resume data:', error);
       }
     };
 
@@ -634,8 +661,21 @@ export default function SophiaChat() {
     try {
       const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/${sessionId}`);
       const data = await resp.json();
+      
+      // 🔧 改进：使用内容哈希生成稳定的消息 ID（与 autoLoadSession 保持一致）
+      const generateMessageId = (content: string, role: string): string => {
+        let hash = 2166136261;
+        const str = `${role}:${content}`;
+        for (let i = 0; i < str.length; i++) {
+          hash ^= str.charCodeAt(i);
+          hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+        }
+        const hashStr = (hash >>> 0).toString(16).slice(0, 12);
+        return `msg-${hashStr}`;
+      };
+      
       const loadedMessages: Message[] = (data.messages || []).map((m: any) => ({
-        id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: generateMessageId(m.content || '', m.role || 'unknown'),
         role: m.role === 'user' ? 'user' : 'assistant',
         content: m.content || '',
         timestamp: new Date().toISOString(),
@@ -712,6 +752,17 @@ export default function SophiaChat() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isProcessing || !isHtmlTemplate) return;
+
+    const resumeMetaResumeId =
+      (resumeData as any)?.resume_id ||
+      (resumeData as any)?.id ||
+      (resumeData as any)?._meta?.resume_id;
+    const resumeMetaUserId =
+      (resumeData as any)?.user_id || (resumeData as any)?._meta?.user_id;
+    if (!resumeMetaResumeId || !resumeMetaUserId) {
+      setResumeError('简历数据未就绪，缺少用户信息，请稍后重试');
+      return;
+    }
 
     const userMessage = input.trim();
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
