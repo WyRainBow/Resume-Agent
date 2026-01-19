@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Loader2, MessageSquare, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { Check, Loader2, MessageSquare, Pencil, Plus, RefreshCw, Trash2, X, Trash } from 'lucide-react';
 import { SidebarTooltip } from './SidebarTooltip';
 
 const PAGE_SIZE = 20;
@@ -169,6 +169,45 @@ export function RecentSessions({
     onSelectSession(sessionId);
   };
 
+  const handleDeleteAll = async () => {
+    if (sessions.length === 0) return;
+    
+    const confirmed = window.confirm(
+      `确定要删除所有 ${sessions.length} 个历史会话吗？此操作不可恢复！`
+    );
+    if (!confirmed) return;
+
+    try {
+      setIsLoading(true);
+      const response = await fetch(`${baseUrl}/api/agent/history/sessions/all`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete all sessions: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('[RecentSessions] Deleted all sessions:', data);
+      
+      // 刷新列表
+      await refreshSessions();
+      
+      // 如果当前会话被删除，触发创建新会话
+      if (currentSessionId) {
+        onSelectSession('');
+      }
+    } catch (error) {
+      console.error('[RecentSessions] Failed to delete all sessions:', error);
+      alert('删除失败，请稍后重试');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="h-full flex flex-col">
       {/* Header - 参考 sophia-pro 样式 */}
@@ -195,6 +234,17 @@ export function RecentSessions({
           >
             <RefreshCw className="w-4 h-4" />
           </button>
+          {sessions.length > 0 && (
+            <button
+              type="button"
+              onClick={handleDeleteAll}
+              className="p-1 rounded hover:bg-red-50 transition-colors text-gray-500 hover:text-red-600"
+              title="删除所有会话"
+              aria-label="删除所有会话"
+            >
+              <Trash className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
