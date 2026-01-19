@@ -530,15 +530,35 @@ export default function SophiaChat() {
   };
 
   const loadSession = async (sessionId: string) => {
+    // 先保存当前会话，确保未完成的内容被保存
     saveCurrentSession();
+    
+    // 清理流式状态，避免显示旧会话的流式内容
+    finalizeStream();
+    
     try {
       const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/${sessionId}`);
+      
+      if (!resp.ok) {
+        console.error(`[SophiaChat] Failed to load session: ${resp.status} ${resp.statusText}`);
+        // 如果加载失败，不清空当前消息，保持原状态
+        return;
+      }
+      
       const data = await resp.json();
       
+      // 检查返回的数据格式
+      if (!data || !Array.isArray(data.messages)) {
+        console.error('[SophiaChat] Invalid session data format:', data);
+        return;
+      }
+      
       // 🔧 改进：使用内容哈希生成稳定的消息 ID（与 autoLoadSession 保持一致）
-      const generateMessageId = (content: string, role: string): string => {
+      const generateMessageId = (content: string, role: string, index: number): string => {
+        // 如果内容为空，使用索引作为 ID 的一部分，确保唯一性
+        const contentForHash = content || `empty-${index}`;
         let hash = 2166136261;
-        const str = `${role}:${content}`;
+        const str = `${role}:${contentForHash}:${index}`;
         for (let i = 0; i < str.length; i++) {
           hash ^= str.charCodeAt(i);
           hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
@@ -547,20 +567,31 @@ export default function SophiaChat() {
         return `msg-${hashStr}`;
       };
       
-      const loadedMessages: Message[] = (data.messages || []).map((m: any) => ({
-        id: generateMessageId(m.content || '', m.role || 'unknown'),
+      // 过滤掉 tool 角色的消息（这些是内部消息，不应该显示给用户）
+      const userVisibleMessages = (data.messages || []).filter(
+        (m: any) => m.role === 'user' || m.role === 'assistant'
+      );
+      
+      const loadedMessages: Message[] = userVisibleMessages.map((m: any, index: number) => ({
+        id: generateMessageId(m.content || '', m.role || 'unknown', index),
         role: m.role === 'user' ? 'user' : 'assistant',
         content: m.content || '',
         timestamp: new Date().toISOString(),
       }));
 
       const dedupedMessages = dedupeLoadedMessages(loadedMessages);
-      setMessages(dedupedMessages);
-      setCurrentSessionId(sessionId);
-      setConversationId(sessionId);
-      finalizeStream();
+      
+      // 只有在成功加载到消息时才更新状态
+      if (dedupedMessages.length > 0 || userVisibleMessages.length === 0) {
+        setMessages(dedupedMessages);
+        setCurrentSessionId(sessionId);
+        setConversationId(sessionId);
+      } else {
+        console.warn('[SophiaChat] Loaded session has no valid messages, keeping current state');
+      }
     } catch (error) {
       console.error('[SophiaChat] Failed to load session:', error);
+      // 发生错误时，不清空当前消息，保持原状态
     }
   };
 
