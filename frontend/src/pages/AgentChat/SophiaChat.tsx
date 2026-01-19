@@ -18,9 +18,10 @@ import type { ResumeData } from '@/pages/Workspace/v2/types';
 import { getResume } from '@/services/resumeStorage';
 import { Message } from '@/types/chat';
 import { ConnectionStatus } from '@/types/transport';
-import { ArrowUp, Check, MessageSquare, Pencil, Trash2, X } from 'lucide-react';
+import { ArrowUp, MessageSquare } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { RecentSessions } from '@/components/sidebar/RecentSessions';
 
 // ============================================================================
 // 配置
@@ -58,9 +59,9 @@ export default function SophiaChat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
-  const [sessions, setSessions] = useState([]);
-  const [showSessions, setShowSessions] = useState(false);
-  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(true);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState(() => {
     // 尝试从 URL 查询参数恢复会话ID
@@ -79,9 +80,6 @@ export default function SophiaChat() {
     }
     return `conv-${Date.now()}`;
   });
-  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
-  const [editingTitle, setEditingTitle] = useState('');
-  const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [loadingResume, setLoadingResume] = useState(true);
@@ -182,6 +180,35 @@ export default function SophiaChat() {
       mounted = false;
     };
   }, [resumeId, user?.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) {
+      return;
+    }
+    const media = window.matchMedia('(min-width: 1024px)');
+    const update = () => setIsDesktop(media.matches);
+    update();
+
+    if (media.addEventListener) {
+      media.addEventListener('change', update);
+    } else {
+      media.addListener(update);
+    }
+
+    return () => {
+      if (media.removeEventListener) {
+        media.removeEventListener('change', update);
+      } else {
+        media.removeListener(update);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isDesktop) {
+      setIsSidebarOpen(false);
+    }
+  }, [isDesktop]);
 
   // 刷新后自动加载历史会话（如果 conversationId 是从 localStorage 恢复的）
   useEffect(() => {
@@ -396,33 +423,11 @@ export default function SophiaChat() {
     }
   }, [finalizeMessage, isProcessing]);
 
-  const fetchSessions = async () => {
-    setLoadingSessions(true);
-    try {
-      const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/list`, {
-        cache: 'no-cache',
-        headers: {
-          'Cache-Control': 'no-cache',
-        },
-      });
-      if (!resp.ok) throw new Error(`Failed to fetch sessions: ${resp.status}`);
-      const data = await resp.json();
-      setSessions(data.sessions || []);
-    } catch (error) {
-      console.error('[SophiaChat] Failed to fetch sessions:', error);
-    } finally {
-      setLoadingSessions(false);
-    }
-  };
-
-  useEffect(() => {
-    if (showSessions) {
-      fetchSessions();
-    }
-  }, [showSessions]);
+  const refreshSessions = useCallback(() => {
+    setSessionsRefreshKey((prev) => prev + 1);
+  }, []);
 
   const deleteSession = async (sessionId: string) => {
-    if (!window.confirm('确定要删除此会话吗？')) return;
     try {
       const resp = await fetch(`${HISTORY_BASE}/api/agent/history/${sessionId}`, { 
         method: 'DELETE',
@@ -434,14 +439,6 @@ export default function SophiaChat() {
         method: 'DELETE',
       }).catch(() => undefined);
       
-      // 立即从本地状态中移除，避免等待刷新
-      setSessions((prev) => prev.filter((s: any) => s.session_id !== sessionId));
-      setSelectedSessions((prev) => {
-        const next = new Set(prev);
-        next.delete(sessionId);
-        return next;
-      });
-      
       if (currentSessionId === sessionId) {
         const newId = `conv-${Date.now()}`;
         setMessages([]);
@@ -449,122 +446,9 @@ export default function SophiaChat() {
         setConversationId(newId);
         finalizeStream();
       }
-      
-      // 延迟刷新以确保后端操作完成
-      setTimeout(() => {
-        fetchSessions();
-      }, 100);
+      refreshSessions();
     } catch (error) {
       console.error('[SophiaChat] Failed to delete session:', error);
-      // 删除失败时重新获取，恢复正确状态
-      await fetchSessions();
-    }
-  };
-
-  const batchDeleteSessions = async (sessionIds: string[]) => {
-    if (sessionIds.length === 0) return;
-    const count = sessionIds.length;
-    if (!window.confirm(`确定要删除选中的 ${count} 个会话吗？`)) return;
-    try {
-      const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/batch-delete`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session_ids: sessionIds }),
-      });
-      if (!resp.ok) throw new Error('Batch delete failed');
-      const data = await resp.json();
-      console.log(`[SophiaChat] Batch deleted ${data.deleted_count} sessions`);
-
-      // Clear active session memory on backend
-      sessionIds.forEach((id) => {
-        fetch(`${HISTORY_BASE}/api/agent/stream/session/${id}`, {
-          method: 'DELETE',
-        }).catch(() => undefined);
-      });
-      
-      // 立即从本地状态中移除，避免等待刷新
-      setSessions((prev) => prev.filter((s: any) => !sessionIds.includes(s.session_id)));
-      setSelectedSessions(new Set());
-      
-      // 如果当前会话被删除，切换到新会话
-      if (sessionIds.includes(currentSessionId || '')) {
-        const newId = `conv-${Date.now()}`;
-        setMessages([]);
-        setCurrentSessionId(newId);
-        setConversationId(newId);
-        finalizeStream();
-      }
-      
-      // 延迟刷新以确保后端操作完成
-      setTimeout(() => {
-        fetchSessions();
-      }, 100);
-    } catch (error) {
-      console.error('[SophiaChat] Failed to batch delete sessions:', error);
-      alert('批量删除失败，请重试');
-      // 删除失败时重新获取，恢复正确状态
-      await fetchSessions();
-    }
-  };
-
-  const deleteAllSessions = async () => {
-    if (sessions.length === 0) return;
-    if (!window.confirm(`确定要删除所有 ${sessions.length} 个会话吗？此操作不可恢复！`)) return;
-    try {
-      const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/all`, {
-        method: 'DELETE',
-      });
-      if (!resp.ok) throw new Error('Delete all failed');
-      const data = await resp.json();
-      console.log(`[SophiaChat] Deleted all ${data.deleted_count} sessions`);
-
-      // Clear active session memory on backend for current session
-      if (currentSessionId) {
-        fetch(`${HISTORY_BASE}/api/agent/stream/session/${currentSessionId}`, {
-          method: 'DELETE',
-        }).catch(() => undefined);
-      }
-      
-      // 立即清空本地状态
-      setSessions([]);
-      setSelectedSessions(new Set());
-      
-      // 切换到新会话
-      const newId = `conv-${Date.now()}`;
-      setMessages([]);
-      setCurrentSessionId(newId);
-      setConversationId(newId);
-      finalizeStream();
-      
-      // 延迟刷新以确保后端操作完成
-      setTimeout(() => {
-        fetchSessions();
-      }, 100);
-    } catch (error) {
-      console.error('[SophiaChat] Failed to delete all sessions:', error);
-      alert('删除所有会话失败，请重试');
-      // 删除失败时重新获取，恢复正确状态
-      await fetchSessions();
-    }
-  };
-
-  const toggleSessionSelection = (sessionId: string) => {
-    setSelectedSessions((prev) => {
-      const next = new Set(prev);
-      if (next.has(sessionId)) {
-        next.delete(sessionId);
-      } else {
-        next.add(sessionId);
-      }
-      return next;
-    });
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedSessions.size === sessions.length) {
-      setSelectedSessions(new Set());
-    } else {
-      setSelectedSessions(new Set(sessions.map((s: any) => s.session_id)));
     }
   };
 
@@ -630,16 +514,6 @@ export default function SophiaChat() {
     return deduped;
   };
 
-  const startRenameSession = (sessionId: string, title: string) => {
-    setEditingSessionId(sessionId);
-    setEditingTitle(title);
-  };
-
-  const cancelRenameSession = () => {
-    setEditingSessionId(null);
-    setEditingTitle('');
-  };
-
   const renameSession = async (sessionId: string, title: string) => {
     const trimmedTitle = title.trim();
     if (!trimmedTitle) return;
@@ -649,8 +523,7 @@ export default function SophiaChat() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: trimmedTitle }),
       });
-      cancelRenameSession();
-      await fetchSessions();
+      refreshSessions();
     } catch (error) {
       console.error('[SophiaChat] Failed to rename session:', error);
     }
@@ -698,7 +571,21 @@ export default function SophiaChat() {
     setCurrentSessionId(newId);
     setConversationId(newId);
     finalizeStream();
+    refreshSessions();
   };
+
+  const handleSelectSession = useCallback(
+    (sessionId: string) => {
+      loadSession(sessionId);
+      setIsSidebarOpen(false);
+    },
+    [loadSession]
+  );
+
+  const handleCreateSession = useCallback(() => {
+    createNewSession();
+    setIsSidebarOpen(false);
+  }, [createNewSession]);
 
   useEffect(() => {
     if (answerCompleteCount === 0) return;
@@ -808,16 +695,15 @@ export default function SophiaChat() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowSessions(!showSessions)}
-              className={`flex items-center gap-2 text-sm px-3 py-1 rounded border transition-colors ${showSessions
-                ? 'text-orange-600 border-orange-200 bg-orange-50'
-                : 'text-gray-500 border-gray-200 hover:border-gray-300'
-                }`}
-            >
-              <MessageSquare className="w-4 h-4" />
-              历史会话
-            </button>
+            {!isDesktop && (
+              <button
+                onClick={() => setIsSidebarOpen(true)}
+                className="flex items-center gap-2 text-sm px-3 py-1 rounded border border-gray-200 text-gray-500 hover:border-gray-300 transition-colors"
+              >
+                <MessageSquare className="w-4 h-4" />
+                历史
+              </button>
+            )}
             <button
               onClick={handleClearConversation}
               className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1 rounded border border-gray-200 hover:border-gray-300 transition-colors"
@@ -828,9 +714,47 @@ export default function SophiaChat() {
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
+        {isDesktop && (
+          <aside className="w-[280px] shrink-0 border-r border-gray-200/50 bg-white">
+            <RecentSessions
+              baseUrl={HISTORY_BASE}
+              currentSessionId={currentSessionId}
+              onSelectSession={handleSelectSession}
+              onCreateSession={handleCreateSession}
+              onDeleteSession={deleteSession}
+              onRenameSession={renameSession}
+              refreshKey={sessionsRefreshKey}
+            />
+          </aside>
+        )}
+
+        {!isDesktop && isSidebarOpen && (
+          <div
+            className="absolute inset-0 z-20 bg-black/30"
+            onClick={() => setIsSidebarOpen(false)}
+            role="button"
+            tabIndex={-1}
+          >
+            <aside
+              className="h-full w-[280px] bg-white shadow-xl border-r border-gray-200/50"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <RecentSessions
+                baseUrl={HISTORY_BASE}
+                currentSessionId={currentSessionId}
+                onSelectSession={handleSelectSession}
+                onCreateSession={handleCreateSession}
+                onDeleteSession={deleteSession}
+                onRenameSession={renameSession}
+                refreshKey={sessionsRefreshKey}
+              />
+            </aside>
+          </div>
+        )}
+
         {/* Left: Chat */}
-        <section className="w-1/2 flex flex-col border-r border-gray-100">
+        <section className="flex-1 min-w-0 flex flex-col border-r border-gray-100">
           <main className="flex-1 overflow-y-auto px-6 py-8">
             {loadingResume && (
               <div className="text-sm text-gray-400 mb-4">正在加载简历...</div>
@@ -841,176 +765,6 @@ export default function SophiaChat() {
             {!loadingResume && !resumeError && !isHtmlTemplate && (
               <div className="text-sm text-orange-600 mb-4">
                 当前仅支持 HTML 模板简历的 Agent 对话与预览。
-              </div>
-            )}
-
-            {showSessions && (
-              <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="text-sm font-semibold text-gray-700">历史会话</div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={createNewSession}
-                      className="text-xs text-orange-600 hover:text-orange-700"
-                    >
-                      新建会话
-                    </button>
-                    <button
-                      onClick={fetchSessions}
-                      className="text-xs text-gray-500 hover:text-gray-700"
-                    >
-                      刷新
-                    </button>
-                  </div>
-                </div>
-                {sessions.length > 0 && (
-                  <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-200">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        checked={selectedSessions.size === sessions.length && sessions.length > 0}
-                        onChange={toggleSelectAll}
-                        className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
-                      />
-                      <span className="text-xs text-gray-600">
-                        {selectedSessions.size > 0 ? `已选中 ${selectedSessions.size} 个` : '全选'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {selectedSessions.size > 0 && (
-                        <button
-                          onClick={() => batchDeleteSessions(Array.from(selectedSessions))}
-                          className="text-xs text-red-600 hover:text-red-700 px-2 py-1 border border-red-200 rounded hover:bg-red-50"
-                        >
-                          删除选中 ({selectedSessions.size})
-                        </button>
-                      )}
-                      <button
-                        onClick={deleteAllSessions}
-                        className="text-xs text-red-600 hover:text-red-700 px-2 py-1 border border-red-200 rounded hover:bg-red-50"
-                      >
-                        全删
-                      </button>
-                    </div>
-                  </div>
-                )}
-                {loadingSessions ? (
-                  <div className="text-xs text-gray-500">加载中...</div>
-                ) : sessions.length === 0 ? (
-                  <div className="text-xs text-gray-500">暂无历史会话</div>
-                ) : (
-                  <div className="space-y-2">
-                    {sessions.map((session: any) => (
-                      <div
-                        key={session.session_id}
-                        onClick={(e) => {
-                          // 如果点击的是复选框，不触发加载会话
-                          if ((e.target as HTMLElement).type === 'checkbox') {
-                            e.stopPropagation();
-                            return;
-                          }
-                          loadSession(session.session_id);
-                        }}
-                        role="button"
-                        tabIndex={0}
-                        className={`w-full text-left p-2 rounded border text-xs ${currentSessionId === session.session_id
-                          ? 'bg-orange-50 border-orange-200 text-orange-700'
-                          : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
-                          }`}
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                            <input
-                              type="checkbox"
-                              checked={selectedSessions.has(session.session_id)}
-                              onChange={(e) => {
-                                e.stopPropagation();
-                                toggleSessionSelection(session.session_id);
-                              }}
-                              onClick={(e) => e.stopPropagation()}
-                              className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500 shrink-0"
-                            />
-                            <div className="flex-1 min-w-0">
-                            {editingSessionId === session.session_id ? (
-                              <input
-                                value={editingTitle}
-                                onChange={(e) => setEditingTitle(e.target.value)}
-                                onClick={(e) => e.stopPropagation()}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    renameSession(session.session_id, editingTitle);
-                                  } else if (e.key === 'Escape') {
-                                    cancelRenameSession();
-                                  }
-                                }}
-                                className="w-full px-2 py-1 text-xs border border-gray-200 rounded"
-                                autoFocus
-                              />
-                            ) : (
-                              <span className="font-medium truncate block">
-                                {session.title || session.session_id}
-                              </span>
-                            )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 text-gray-400">
-                            {editingSessionId === session.session_id ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    renameSession(session.session_id, editingTitle);
-                                  }}
-                                  className="p-1 hover:text-green-600"
-                                >
-                                  <Check className="w-3 h-3" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    cancelRenameSession();
-                                  }}
-                                  className="p-1 hover:text-gray-600"
-                                >
-                                  <X className="w-3 h-3" />
-                                </button>
-                              </>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  startRenameSession(session.session_id, session.title || session.session_id);
-                                }}
-                                className="p-1 hover:text-orange-600"
-                              >
-                                <Pencil className="w-3 h-3" />
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                deleteSession(session.session_id);
-                              }}
-                              className="p-1 hover:text-red-500"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                            <span className="ml-1">
-                              {session.message_count || 0} 条
-                            </span>
-                          </div>
-                        </div>
-                        <div className="text-gray-400 mt-1">
-                          {session.updated_at || session.created_at}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
 
@@ -1132,7 +886,7 @@ export default function SophiaChat() {
         </section>
 
         {/* Right: Resume Preview */}
-        <aside className="w-1/2 bg-slate-50 overflow-y-auto">
+        <aside className="w-[45%] min-w-[420px] bg-slate-50 overflow-y-auto">
           <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10">
             <h2 className="text-sm font-semibold text-slate-700">简历预览</h2>
             {resumeData?.basic?.name && (

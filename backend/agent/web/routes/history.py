@@ -141,9 +141,23 @@ async def restore_history(session_id: str) -> dict[str, Any]:
 
 
 @router.get("/sessions/list")
-async def list_sessions() -> dict[str, Any]:
-    """List all conversation sessions."""
+async def list_sessions(page: int = 1, page_size: int = 20) -> dict[str, Any]:
+    """List conversation sessions with pagination."""
     metas = conversation_manager.list_sessions()
+    metas.sort(
+        key=lambda m: (m.updated_at or m.created_at or ""),
+        reverse=True,
+    )
+
+    total = len(metas)
+    page_size = max(1, page_size)
+    page = max(1, page)
+    total_pages = (total + page_size - 1) // page_size if total else 0
+
+    start = (page - 1) * page_size
+    end = start + page_size
+    sliced = metas[start:end]
+
     return {
         "sessions": [
             {
@@ -153,8 +167,14 @@ async def list_sessions() -> dict[str, Any]:
                 "updated_at": m.updated_at,
                 "message_count": m.message_count,
             }
-            for m in metas
-        ]
+            for m in sliced
+        ],
+        "pagination": {
+            "total": total,
+            "page": page,
+            "page_size": page_size,
+            "total_pages": total_pages,
+        },
     }
 
 
