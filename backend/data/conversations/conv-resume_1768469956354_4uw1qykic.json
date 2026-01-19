@@ -1,9 +1,9 @@
 {
   "session_id": "conv-resume_1768469956354_4uw1qykic",
   "created_at": "2026-01-19T19:53:33.814994",
-  "updated_at": "2026-01-19T19:56:32.809797",
-  "title": "测试一",
-  "message_count": 7,
+  "updated_at": "2026-01-19T20:20:56.562426",
+  "title": "你好",
+  "message_count": 6,
   "messages": [
     {
       "role": "user",
@@ -19,37 +19,11 @@
     },
     {
       "role": "assistant",
-      "content": "Thought: 用户想要修改简历中的名字。这是一个简历编辑任务，我需要使用cv_editor_agent工具来修改basic.name字段。用户提供了具体的新名字\"韦宇\"，我可以直接执行修改操作。",
-      "tool_calls": [
-        {
-          "id": "call_00_nbPMDQkkMkTiStvmEawaRnin",
-          "type": "function",
-          "function": {
-            "name": "cv_editor_agent",
-            "arguments": "{\"path\": \"basic.name\", \"action\": \"update\", \"value\": \"韦宇\"}"
-          }
-        }
-      ]
+      "content": "Thought: 用户想要修改简历中的名字。这是一个简历编辑任务，我需要使用cv_editor_agent工具来修改basic.name字段。用户提供了具体的新名字\"韦宇\"，我可以直接执行修改操作。"
     },
     {
       "role": "assistant",
-      "content": "Thought: 用户想要修改简历中的名字。这是一个简历编辑任务，我需要使用cv_editor_agent工具来修改basic.name字段。用户提供了具体的新名字\"韦宇\"，我可以直接执行修改操作。",
-      "tool_calls": [
-        {
-          "id": "call_00_nbPMDQkkMkTiStvmEawaRnin",
-          "type": "function",
-          "function": {
-            "name": "cv_editor_agent",
-            "arguments": "{\"path\": \"basic.name\", \"action\": \"update\", \"value\": \"韦宇\"}"
-          }
-        }
-      ]
-    },
-    {
-      "role": "tool",
-      "content": "Observed output of cmd `cv_editor_agent` executed:\n✅ Successfully updated: basic.name\nNew value: 韦宇",
-      "name": "cv_editor_agent",
-      "tool_call_id": "call_00_nbPMDQkkMkTiStvmEawaRnin"
+      "content": "Observed output of cmd `cv_editor_agent` executed:\n✅ Successfully updated: basic.name\nNew value: 韦宇"
     },
     {
       "role": "assistant",

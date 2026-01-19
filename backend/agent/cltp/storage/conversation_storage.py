@@ -48,13 +48,19 @@ class FileConversationStorage:
         return Message(**data)
 
     def _derive_title(self, messages: List[Message]) -> str:
-        for msg in messages:
-            if msg.role == Role.USER and msg.content:
-                return msg.content.strip()[:40]
-        for msg in messages:
-            if msg.content:
-                return msg.content.strip()[:40]
-        return "New Conversation"
+        def _first_non_empty(contents: List[Message], role: Optional[Role] = None) -> Optional[str]:
+            for msg in contents:
+                if role is not None and msg.role != role:
+                    continue
+                content = (msg.content or "").strip()
+                if content:
+                    return content
+            return None
+
+        title = _first_non_empty(messages, Role.USER)
+        if not title:
+            title = _first_non_empty(messages)
+        return (title or "New Conversation")[:40]
 
     def save_session(self, session_id: str, messages: List[Message]) -> ConversationMeta:
         now = datetime.now().isoformat()
