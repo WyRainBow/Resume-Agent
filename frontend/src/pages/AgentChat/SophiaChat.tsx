@@ -1008,9 +1008,9 @@ export default function SophiaChat() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={isHtmlTemplate ? '输入消息...' : '仅支持 HTML 模板简历'}
+                  placeholder={isHtmlTemplate ? (isProcessing ? '正在处理中，可以继续输入...' : '输入消息...') : '仅支持 HTML 模板简历'}
                   className="flex-1 px-4 py-3 outline-none text-gray-700 placeholder-gray-400 bg-transparent"
-                  disabled={isProcessing || !isHtmlTemplate}
+                  disabled={!isHtmlTemplate}
                 />
                 <div className="pr-2 py-2">
                   <button
@@ -1024,7 +1024,7 @@ export default function SophiaChat() {
                         : 'bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:via-orange-700 hover:to-orange-800 shadow-sm hover:shadow-md'
                       }
                     `}
-                    title="发送消息"
+                    title={isProcessing ? '等待当前消息处理完成' : '发送消息'}
                   >
                     <ArrowUp
                       className={`w-5 h-5 ${!input.trim() || isProcessing || !isHtmlTemplate
