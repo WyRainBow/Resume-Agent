@@ -17,7 +17,7 @@ from backend.agent.memory.langchain.messages.tool import (
 )
 
 
-from typing import TypedDict, NotRequired
+from typing_extensions import TypedDict, NotRequired
 
 
 class UsageMetadata(TypedDict, total=False):

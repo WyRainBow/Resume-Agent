@@ -41,8 +41,10 @@ def get_database_url():
         else:
             return f"mysql+pymysql://{mysql_user}@{mysql_host}:{mysql_port}/{mysql_database}"
     
-    # 3. 默认使用本地 MySQL
-    return "mysql+pymysql://root@localhost:3306/resume_db"
+    # 3. 默认使用 SQLite（开发环境）
+    # 使用绝对路径，确保数据库文件位置固定
+    db_path = PROJECT_ROOT / "backend" / "resume.db"
+    return f"sqlite:///{db_path}"
 
 DATABASE_URL = get_database_url()
 

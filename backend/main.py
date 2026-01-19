@@ -110,7 +110,11 @@ try:
     app.include_router(openmanus_router, prefix="/api/agent")
     backend_logger.info("[合并] OpenManus 路由已加载，前缀: /api/agent")
 except Exception as exc:
-    backend_logger.warning(f"[合并] OpenManus 路由未加载: {exc}")
+    # 如果是缺少可选依赖（如 browser-use），只记录警告，不影响其他功能
+    if "browser_use" in str(exc) or "browser-use" in str(exc):
+        backend_logger.warning(f"[合并] OpenManus 路由未加载（缺少可选依赖）: {exc}")
+    else:
+        backend_logger.warning(f"[合并] OpenManus 路由未加载: {exc}")
 
 
 # 启动时预热 HTTP 连接并配置日志
