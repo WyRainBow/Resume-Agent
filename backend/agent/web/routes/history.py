@@ -26,7 +26,7 @@ class HistoryResponse(BaseModel):
     """Chat history response."""
 
     session_id: str
-    messages: list[dict[str, str]]
+    messages: list[dict[str, Any]]
     count: int
 
 
@@ -65,7 +65,7 @@ async def get_history(session_id: str) -> HistoryResponse:
         return HistoryResponse(
             session_id=session_id,
             messages=[
-                {"role": m.role, "content": m.content}
+                {"role": m.role, "content": m.content, "thought": m.thought}
                 for m in messages
             ],
             count=len(messages),
@@ -195,7 +195,10 @@ async def get_session_messages(
         "offset": offset,
         "limit": limit,
         "total": len(messages),
-        "messages": [{"role": m.role, "content": m.content} for m in sliced],
+        "messages": [
+            {"role": m.role, "content": m.content, "thought": m.thought}
+            for m in sliced
+        ],
     }
 
 

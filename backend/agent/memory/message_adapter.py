@@ -124,28 +124,35 @@ class MessageAdapter:
             LangChain BaseMessage (HumanMessage, AIMessage, SystemMessage, or ToolMessage)
         """
         content = message.content or ""
+        extra = {"thought": message.thought} if message.thought else {}
 
         if message.role == Role.USER:
-            return HumanMessage(content=content, id=getattr(message, 'id', None))
+            return HumanMessage(
+                content=content,
+                id=getattr(message, "id", None),
+                additional_kwargs=extra,
+            )
         elif message.role == Role.ASSISTANT:
             # ✅ 将 OpenManus ToolCall 对象转换为 LangChain 期望的字典格式
             lc_tool_calls = _convert_tool_calls_to_langchain_format(message.tool_calls)
             return AIMessage(
                 content=content,
-                tool_calls=lc_tool_calls
+                tool_calls=lc_tool_calls,
+                additional_kwargs=extra,
             )
         elif message.role == Role.SYSTEM:
-            return SystemMessage(content=content)
+            return SystemMessage(content=content, additional_kwargs=extra)
         elif message.role == Role.TOOL:
             # Preserve tool messages with their metadata
             return ToolMessage(
                 content=content,
                 tool_call_id=message.tool_call_id or "",
-                name=message.name or ""
+                name=message.name or "",
+                additional_kwargs=extra,
             )
         else:
             # Fallback
-            return AIMessage(content=content)
+            return AIMessage(content=content, additional_kwargs=extra)
 
     @staticmethod
     def from_langchain(lc_message: BaseMessage) -> Message:
@@ -158,9 +165,13 @@ class MessageAdapter:
         Returns:
             OpenManus Message object with all metadata preserved
         """
+        thought = None
+        if hasattr(lc_message, "additional_kwargs"):
+            thought = (lc_message.additional_kwargs or {}).get("thought")
+
         if isinstance(lc_message, HumanMessage):
             role = Role.USER
-            return Message(role=role, content=lc_message.content)
+            return Message(role=role, content=lc_message.content, thought=thought)
         elif isinstance(lc_message, AIMessage):
             role = Role.ASSISTANT
             # ✅ 将 LangChain 格式的 tool_calls 转换为 OpenManus ToolCall 对象
@@ -168,22 +179,24 @@ class MessageAdapter:
             return Message(
                 role=role,
                 content=lc_message.content,
-                tool_calls=om_tool_calls if om_tool_calls else None
+                thought=thought,
+                tool_calls=om_tool_calls if om_tool_calls else None,
             )
         elif isinstance(lc_message, SystemMessage):
             role = Role.SYSTEM
-            return Message(role=role, content=lc_message.content)
+            return Message(role=role, content=lc_message.content, thought=thought)
         elif isinstance(lc_message, ToolMessage):
             role = Role.TOOL
             return Message(
                 role=role,
                 content=lc_message.content,
+                thought=thought,
                 tool_call_id=lc_message.tool_call_id or None,
-                name=lc_message.name or None
+                name=lc_message.name or None,
             )
         else:
             # Fallback
-            return Message(role=Role.ASSISTANT, content=lc_message.content)
+            return Message(role=Role.ASSISTANT, content=lc_message.content, thought=thought)
 
     @staticmethod
     def batch_to_langchain(messages: List[Message]) -> List[BaseMessage]:
