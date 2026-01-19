@@ -1,0 +1,13 @@
+{
+  "session_id": "6c29433d-036f-4d82-8000-fee90f6d12cd",
+  "created_at": "2026-01-19T16:38:19.315829",
+  "updated_at": "2026-01-19T16:38:19.315829",
+  "title": "你好",
+  "message_count": 1,
+  "messages": [
+    {
+      "role": "user",
+      "content": "你好"
+    }
+  ]
+}

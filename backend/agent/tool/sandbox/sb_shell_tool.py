@@ -5,7 +5,9 @@ from uuid import uuid4
 
 from backend.agent.daytona.tool_base import Sandbox, SandboxToolsBase
 from backend.agent.tool.base import ToolResult
-from backend.agent.utils.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 Context = TypeVar("Context")

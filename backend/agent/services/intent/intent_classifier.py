@@ -13,7 +13,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.services.intent.rule_matcher import RuleMatcher
 from backend.agent.services.intent.tool_registry import ToolRegistry, get_tool_registry
 from backend.agent.services.intent.weights import IntentScoreWeights

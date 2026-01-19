@@ -4,7 +4,9 @@ from typing import TYPE_CHECKING, Optional
 from pydantic import Field, model_validator
 
 from backend.agent.agent.toolcall import ToolCallAgent
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.prompt.browser import NEXT_STEP_PROMPT, SYSTEM_PROMPT
 from backend.agent.schema import Message, ToolChoice
 from backend.agent.tool import BrowserUseTool, Terminate, ToolCollection

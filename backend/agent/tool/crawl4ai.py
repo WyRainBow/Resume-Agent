@@ -9,7 +9,9 @@ import asyncio
 from typing import List, Union
 from urllib.parse import urlparse
 
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.tool.base import BaseTool, ToolResult
 
 

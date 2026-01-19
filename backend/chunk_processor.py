@@ -286,12 +286,13 @@ def split_resume_text(text: str, max_chunk_size: int = 400) -> List[Dict[str, st
     for i, chunk in enumerate(optimized_chunks, 1):
         print(f"[分块优化] 块 {i}: {len(chunk['content'])} 字符, 段落: {chunk['section']}", file=sys.stderr, flush=True)
     try:
-        from .logger import backend_logger
-        backend_logger.info(f"[分块优化] 原始分块数: {len(chunks)}, 优化后: {len(optimized_chunks)}")
-        for i, chunk in enumerate(optimized_chunks, 1):
-            backend_logger.info(f"[分块优化] 块 {i}: {len(chunk['content'])} 字符, 段落: {chunk['section']}")
+        from backend.core.logger import get_logger
     except ImportError:
-        pass
+        from core.logger import get_logger
+    logger = get_logger(__name__)
+    logger.info(f"[分块优化] 原始分块数: {len(chunks)}, 优化后: {len(optimized_chunks)}")
+    for i, chunk in enumerate(optimized_chunks, 1):
+        logger.info(f"[分块优化] 块 {i}: {len(chunk['content'])} 字符, 段落: {chunk['section']}")
     
     return optimized_chunks
 

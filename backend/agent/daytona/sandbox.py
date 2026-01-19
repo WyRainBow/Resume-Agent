@@ -11,7 +11,9 @@ from daytona import (
 )
 
 from backend.agent.config import config
-from backend.agent.utils.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # load_dotenv()

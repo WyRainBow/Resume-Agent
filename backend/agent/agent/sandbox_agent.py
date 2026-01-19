@@ -7,7 +7,9 @@ from backend.agent.agent.toolcall import ToolCallAgent
 from backend.agent.config import config
 from backend.agent.daytona.sandbox import create_sandbox, delete_sandbox
 from backend.agent.daytona.tool_base import SandboxToolsBase
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT
 from backend.agent.tool import Terminate, ToolCollection
 from backend.agent.tool.ask_human import AskHuman

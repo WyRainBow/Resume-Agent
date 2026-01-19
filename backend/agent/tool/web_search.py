@@ -7,7 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from backend.agent.config import config
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.tool.base import BaseTool, ToolResult
 from backend.agent.tool.search import (
     BaiduSearchEngine,

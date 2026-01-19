@@ -6,7 +6,9 @@ from pydantic import Field
 from backend.agent.daytona.tool_base import Sandbox, SandboxToolsBase
 from backend.agent.tool.base import ToolResult
 from backend.agent.utils.files_utils import clean_path, should_exclude_file
-from backend.agent.utils.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 Context = TypeVar("Context")

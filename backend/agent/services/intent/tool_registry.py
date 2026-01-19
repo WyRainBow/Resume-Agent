@@ -17,7 +17,9 @@ from typing import Any, Dict, FrozenSet, List, Optional
 
 import yaml
 
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.tool.base import BaseTool
 from backend.agent.tool.tool_collection import ToolCollection
 

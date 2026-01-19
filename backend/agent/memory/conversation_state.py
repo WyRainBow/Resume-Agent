@@ -11,7 +11,9 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 import json
 
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 # 可选导入新的意图识别系统
 try:

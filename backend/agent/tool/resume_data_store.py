@@ -8,7 +8,9 @@
 from typing import Optional, Dict, Any
 
 from backend.agent.agent.shared_state import AgentSharedState
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class ResumeDataStore:

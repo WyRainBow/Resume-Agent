@@ -23,7 +23,9 @@ from tenacity import (
 from backend.agent.bedrock import BedrockClient
 from backend.agent.config import LLMSettings, NetworkConfig, config
 from backend.agent.exceptions import TokenLimitExceeded
-from backend.agent.logger import logger  # Assuming a logger is set up in your app
+from backend.core.logger import get_logger  # Assuming a logger is set up in your app
+
+logger = get_logger(__name__)
 from backend.agent.schema import (
     ROLE_VALUES,
     TOOL_CHOICE_TYPE,

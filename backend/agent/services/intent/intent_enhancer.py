@@ -9,7 +9,9 @@ Intent Enhancer - 意图增强器
 import re
 from typing import Any, Dict, Optional, Tuple
 
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.services.intent.intent_classifier import IntentClassifier, IntentResult, IntentType
 
 # 用户显式指定 tool 的正则模式：/[tool:xxx]

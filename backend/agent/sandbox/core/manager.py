@@ -7,7 +7,9 @@ import docker
 from docker.errors import APIError, ImageNotFound
 
 from backend.agent.config import SandboxSettings
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.sandbox.core.sandbox import DockerSandbox
 
 

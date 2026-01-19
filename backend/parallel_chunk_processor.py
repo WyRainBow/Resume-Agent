@@ -34,17 +34,19 @@ try:
     from backend.llm import call_llm
     from backend.chunk_processor import split_resume_text, merge_resume_chunks
     from backend.config.parallel_config import get_parallel_config
-    from backend.logger import backend_logger
+    from backend.core.logger import get_logger, write_llm_debug
 except ImportError:
     try:
         # 方式2：作为顶层模块导入（适用于 backend 目录已在 sys.path）
         from llm import call_llm
         from chunk_processor import split_resume_text, merge_resume_chunks
         from config.parallel_config import get_parallel_config
-        from logger import backend_logger
+        from core.logger import get_logger, write_llm_debug
     except ImportError as e:
         # 如果都失败，抛出错误
         raise ImportError(f"无法导入必要的模块：{e}")
+
+logger = get_logger(__name__)
 
 
 def clean_llm_response(raw: str) -> str:
@@ -188,7 +190,7 @@ class ParallelChunkProcessor:
 
             elapsed = time.time() - start_time
             print(f"[并行处理] 第 {chunk_index+1}/{total_chunks} 块完成，耗时: {elapsed:.2f}秒", file=sys.stderr, flush=True)
-            backend_logger.info(f"第 {chunk_index+1}/{total_chunks} 块完成，耗时: {elapsed:.2f}秒")
+            logger.info(f"第 {chunk_index+1}/{total_chunks} 块完成，耗时: {elapsed:.2f}秒")
 
             return {
                 "index": chunk_index,
@@ -201,7 +203,7 @@ class ParallelChunkProcessor:
             elapsed = time.time() - start_time
             timeout = self.config.get("request_timeout", 15)
             error_msg = f"请求超时（超过 {timeout} 秒）"
-            backend_logger.error(f"第 {chunk_index+1}/{total_chunks} 块失败: {error_msg}, 耗时: {elapsed:.2f}秒")
+            logger.error(f"第 {chunk_index+1}/{total_chunks} 块失败: {error_msg}, 耗时: {elapsed:.2f}秒")
             return {
                 "index": chunk_index,
                 "data": None,
@@ -212,17 +214,9 @@ class ParallelChunkProcessor:
         except Exception as e:
             elapsed = time.time() - start_time
             error_msg = str(e) if str(e) else f"未知错误: {type(e).__name__}"
-            backend_logger.error(f"第 {chunk_index+1}/{total_chunks} 块失败: {error_msg}, 耗时: {elapsed:.2f}秒")
+            logger.error(f"第 {chunk_index+1}/{total_chunks} 块失败: {error_msg}, 耗时: {elapsed:.2f}秒")
 
-            # 记录错误
-            try:
-                try:
-                    from backend.logger import write_llm_debug
-                except ImportError:
-                    from logger import write_llm_debug
-                write_llm_debug(f"Chunk {chunk_index+1} Error: {error_msg}")
-            except ImportError:
-                pass
+            write_llm_debug(f"Chunk {chunk_index+1} Error: {error_msg}")
 
             return {
                 "index": chunk_index,
@@ -249,10 +243,10 @@ class ParallelChunkProcessor:
         print(f"[并行处理] 分块数量: {len(chunks)}", file=sys.stderr, flush=True)
         print(f"[并行处理] 并发数: {self.max_concurrent}", file=sys.stderr, flush=True)
         print(f"[并行处理] 预计轮次: {(len(chunks) + self.max_concurrent - 1) // self.max_concurrent}", file=sys.stderr, flush=True)
-        backend_logger.info("========== 开始并行处理 ==========")
-        backend_logger.info(f"分块数量: {len(chunks)}")
-        backend_logger.info(f"并发数: {self.max_concurrent}")
-        backend_logger.info(f"预计轮次: {(len(chunks) + self.max_concurrent - 1) // self.max_concurrent}")
+        logger.info("========== 开始并行处理 ==========")
+        logger.info(f"分块数量: {len(chunks)}")
+        logger.info(f"并发数: {self.max_concurrent}")
+        logger.info(f"预计轮次: {(len(chunks) + self.max_concurrent - 1) // self.max_concurrent}")
         start_time = time.time()
 
         # 创建任务队列
@@ -284,30 +278,30 @@ class ParallelChunkProcessor:
         print(f"[并行处理] 总耗时: {total_time:.2f}秒", file=sys.stderr, flush=True)
         print(f"[并行处理] 成功: {len(successful)}/{len(chunks)}", file=sys.stderr, flush=True)
         print(f"[并行处理] 失败: {len(failed)}/{len(chunks)}", file=sys.stderr, flush=True)
-        backend_logger.info("========== 并行处理完成 ==========")
-        backend_logger.info(f"总耗时: {total_time:.2f}秒")
-        backend_logger.info(f"成功: {len(successful)}/{len(chunks)}")
-        backend_logger.info(f"失败: {len(failed)}/{len(chunks)}")
+        logger.info("========== 并行处理完成 ==========")
+        logger.info(f"总耗时: {total_time:.2f}秒")
+        logger.info(f"成功: {len(successful)}/{len(chunks)}")
+        logger.info(f"失败: {len(failed)}/{len(chunks)}")
         if exceptions:
-            backend_logger.warning(f"⚠️  异常: {len(exceptions)}/{len(chunks)}")
+            logger.warning(f"⚠️  异常: {len(exceptions)}/{len(chunks)}")
             for i, exc in enumerate(exceptions, 1):
-                backend_logger.warning(f"  异常 {i}: {type(exc).__name__}: {str(exc)[:100]}")
+                logger.warning(f"  异常 {i}: {type(exc).__name__}: {str(exc)[:100]}")
         if failed:
-            backend_logger.warning("⚠️  失败详情:")
+            logger.warning("⚠️  失败详情:")
             for f in failed:
-                backend_logger.warning(f"  块 {f.get('index', '?')+1}: {f.get('error', '未知错误')[:100]}")
+                logger.warning(f"  块 {f.get('index', '?')+1}: {f.get('error', '未知错误')[:100]}")
         if successful:
             avg_time = sum(r['elapsed'] for r in successful) / len(successful)
             max_time = max(r['elapsed'] for r in successful)
             min_time = min(r['elapsed'] for r in successful)
-            backend_logger.info(f"平均单块耗时: {avg_time:.2f}秒 (最快: {min_time:.2f}秒, 最慢: {max_time:.2f}秒)")
+            logger.info(f"平均单块耗时: {avg_time:.2f}秒 (最快: {min_time:.2f}秒, 最慢: {max_time:.2f}秒)")
             if total_time > 0:
                 speedup = (len(chunks) * avg_time / total_time) if total_time > 0 else 0
-                backend_logger.info(f"并行效率提升: {speedup:.1f}x")
+                logger.info(f"并行效率提升: {speedup:.1f}x")
                 if speedup < 1.5:
-                    backend_logger.warning("⚠️  并行效果不佳，可能被限流或网络延迟")
+                    logger.warning("⚠️  并行效果不佳，可能被限流或网络延迟")
         if len(successful) < len(chunks):
-            backend_logger.warning("⚠️  警告: 部分分块处理失败，可能影响结果完整性")
+            logger.warning("⚠️  警告: 部分分块处理失败，可能影响结果完整性")
 
         # 返回按索引排序的数据（只返回成功的结果）
         valid_results = [r for r in results if isinstance(r, dict) and r.get('data')]
@@ -435,12 +429,12 @@ async def parse_resume_text_parallel(text: str, provider: str,
         # 检查是否有成功的结果
         if not chunk_results:
             error_msg = "所有分块处理都失败，请检查 API Key 配置或网络连接"
-            backend_logger.error(error_msg)
+            logger.error(error_msg)
             raise Exception(error_msg)
         
         final_result = merge_resume_chunks(chunk_results)
         print(f"[parse_resume_text_parallel] 合并完成", file=sys.stderr, flush=True)
-        backend_logger.info("分块合并完成")
+        logger.info("分块合并完成")
 
         # 反思和修复：让 AI 检查并修复项目解析中的问题
         print(f"[parse_resume_text_parallel] 开始 AI 反思修复...", file=sys.stderr, flush=True)
@@ -563,7 +557,7 @@ async def reflect_and_fix_projects(provider: str, text: str, current_result: Dic
 
     except Exception as e:
         print(f"[反思] 反思过程出错，使用原始结果: {e}", file=sys.stderr, flush=True)
-        backend_logger.warning(f"反思过程失败: {e}")
+        logger.warning(f"反思过程失败: {e}")
 
     return current_result
 

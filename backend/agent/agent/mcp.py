@@ -3,7 +3,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from pydantic import Field
 
 from backend.agent.agent.toolcall import ToolCallAgent
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.prompt.mcp import MULTIMEDIA_RESPONSE_PROMPT, NEXT_STEP_PROMPT, SYSTEM_PROMPT
 from backend.agent.schema import AgentState, Message
 from backend.agent.tool.base import ToolResult

@@ -2,7 +2,9 @@
 from typing import Any, Dict, List
 
 from backend.agent.exceptions import ToolError
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.tool.base import BaseTool, ToolFailure, ToolResult
 
 

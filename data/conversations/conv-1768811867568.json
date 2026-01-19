@@ -1,0 +1,17 @@
+{
+  "session_id": "conv-1768811867568",
+  "created_at": "2026-01-19T16:37:51.468653",
+  "updated_at": "2026-01-19T16:38:02.446602",
+  "title": "你好",
+  "message_count": 2,
+  "messages": [
+    {
+      "role": "user",
+      "content": "你好"
+    },
+    {
+      "role": "assistant",
+      "content": "Agent运行失败：[Errno 2] No such file or directory: '/Users/wy770/AI/.cursor/debug.log'"
+    }
+  ]
+}

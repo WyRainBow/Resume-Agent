@@ -498,5 +498,20 @@ class Config:
         """Get the root path of the application"""
         return PROJECT_ROOT
 
+    @property
+    def log_level(self) -> str:
+        """Get log level."""
+        return os.getenv("LOG_LEVEL", "INFO")
+
+    @property
+    def log_mode(self) -> str:
+        """Get log mode."""
+        return os.getenv("LOG_MODE", "development")
+
+    @property
+    def log_dir(self) -> str:
+        """Get log directory."""
+        return os.getenv("LOG_DIR", "logs")
+
 
 config = Config()

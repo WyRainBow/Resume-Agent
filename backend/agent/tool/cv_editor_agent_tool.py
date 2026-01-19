@@ -10,7 +10,9 @@ import json
 from backend.agent.tool.base import BaseTool, ToolResult
 from backend.agent.tool.resume_data_store import ResumeDataStore
 from backend.agent.llm import LLM
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class CVEditorAgentTool(BaseTool):

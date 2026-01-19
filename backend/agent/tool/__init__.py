@@ -1,6 +1,10 @@
 from backend.agent.tool.base import BaseTool
 from backend.agent.tool.bash import Bash
-from backend.agent.tool.browser_use_tool import BrowserUseTool
+# BrowserUseTool 可能有额外依赖，设为可选
+try:
+    from backend.agent.tool.browser_use_tool import BrowserUseTool
+except ImportError:
+    BrowserUseTool = None
 from backend.agent.tool.create_chat_completion import CreateChatCompletion
 from backend.agent.tool.cv_analyzer_agent_tool import CVAnalyzerAgentTool
 from backend.agent.tool.cv_editor_agent_tool import CVEditorAgentTool
@@ -23,7 +27,6 @@ except ImportError:
 __all__ = [
     "BaseTool",
     "Bash",
-    "BrowserUseTool",
     "Terminate",
     "StrReplaceEditor",
     "WebSearch",
@@ -37,5 +40,7 @@ __all__ = [
     "EducationAnalyzerTool",
 ]
 
+if BrowserUseTool:
+    __all__.append("BrowserUseTool")
 if Crawl4aiTool:
     __all__.append("Crawl4aiTool")

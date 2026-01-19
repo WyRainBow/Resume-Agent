@@ -5,7 +5,9 @@ from typing import List, Optional
 from pydantic import BaseModel, Field, model_validator
 
 from backend.agent.llm import LLM
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.sandbox.client import SANDBOX_CLIENT
 from backend.agent.schema import ROLE_TYPE, AgentState, Memory, Message
 

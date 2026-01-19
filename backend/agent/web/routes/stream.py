@@ -20,7 +20,9 @@ from fastapi.responses import StreamingResponse
 
 from backend.agent.agent.manus import Manus
 from backend.agent.config import NetworkConfig, config
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.schema import AgentState as SchemaAgentState, Message, Role
 from backend.agent.web.schemas.stream import StreamRequest, SSEEvent, HeartbeatEvent
 from backend.agent.web.streaming.agent_stream import StreamProcessor

@@ -13,7 +13,9 @@ from backend.agent.daytona.tool_base import (  # Ensure Sandbox is imported corr
     ThreadMessage,
 )
 from backend.agent.tool.base import ToolResult
-from backend.agent.utils.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # Context = TypeVar("Context")

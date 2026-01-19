@@ -8,7 +8,9 @@ from pydantic import Field
 from backend.agent.agent.base import BaseAgent
 from backend.agent.flow.base import BaseFlow
 from backend.agent.llm import LLM
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.schema import AgentState, Message, ToolChoice
 from backend.agent.tool import PlanningTool
 

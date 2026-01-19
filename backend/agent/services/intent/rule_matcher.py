@@ -15,7 +15,9 @@ Rule Matcher - 规则匹配器
 import re
 from typing import List, Tuple
 
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.services.intent.tool_registry import ToolRegistry, ToolMetadata
 from backend.agent.services.intent.weights import IntentScoreWeights
 

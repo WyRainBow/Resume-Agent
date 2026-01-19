@@ -9,7 +9,9 @@ from backend.agent.config import config
 from backend.agent.daytona.sandbox import create_sandbox, start_supervisord_session
 from backend.agent.tool.base import BaseTool
 from backend.agent.utils.files_utils import clean_path
-from backend.agent.utils.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # load_dotenv()

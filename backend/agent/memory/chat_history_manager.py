@@ -13,7 +13,9 @@ from backend.agent.memory.langchain.chat_history import InMemoryChatMessageHisto
 from backend.agent.memory.langchain.messages.utils import trim_messages
 from backend.agent.schema import Message
 from backend.agent.memory.message_adapter import MessageAdapter
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.cltp.storage.conversation_storage import FileConversationStorage
 
 

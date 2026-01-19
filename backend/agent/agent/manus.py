@@ -7,9 +7,15 @@ from pydantic import Field, model_validator, PrivateAttr
 from backend.agent.agent.browser import BrowserContextHelper
 from backend.agent.agent.toolcall import ToolCallAgent
 from backend.agent.config import config
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT
-from backend.agent.tool import BrowserUseTool, CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, EducationAnalyzerTool, Terminate, ToolCollection
+from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, EducationAnalyzerTool, Terminate, ToolCollection
+try:
+    from backend.agent.tool import BrowserUseTool
+except ImportError:
+    BrowserUseTool = None
 from backend.agent.tool.ask_human import AskHuman
 from backend.agent.tool.mcp import MCPClients, MCPClientTool
 from backend.agent.tool.python_execute import PythonExecute
@@ -101,11 +107,12 @@ class Manus(ToolCallAgent):
         """Build tool collection based on capability settings."""
         base_tools = [
             PythonExecute(),
-            BrowserUseTool(),
             StrReplaceEditor(),
             AskHuman(),
             Terminate(),
         ]
+        if BrowserUseTool is not None:
+            base_tools.insert(1, BrowserUseTool())
         domain_tools = [
             CVReaderAgentTool(),
             CVAnalyzerAgentTool(),
@@ -619,12 +626,14 @@ class Manus(ToolCallAgent):
 
         # 检查是否需要浏览器上下文
         recent_messages = self.memory.messages[-3:] if self.memory.messages else []
-        browser_in_use = any(
-            tc.function.name == BrowserUseTool().name
-            for msg in recent_messages
-            if msg.tool_calls
-            for tc in msg.tool_calls
-        )
+        browser_in_use = False
+        if BrowserUseTool is not None:
+            browser_in_use = any(
+                tc.function.name == BrowserUseTool().name
+                for msg in recent_messages
+                if msg.tool_calls
+                for tc in msg.tool_calls
+            )
 
         if browser_in_use:
             browser_prompt = await self.browser_context_helper.format_next_step_prompt()

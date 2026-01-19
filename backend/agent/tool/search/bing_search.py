@@ -3,7 +3,9 @@ from typing import List, Optional, Tuple
 import requests
 from bs4 import BeautifulSoup
 
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.tool.search.base import SearchItem, WebSearchEngine
 
 

@@ -1,7 +1,9 @@
 import asyncio
 
 from backend.agent.agent.data_analysis import DataAnalysis
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 prefix = "Help me generate charts and save them locally, specifically:"

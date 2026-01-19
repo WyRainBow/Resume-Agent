@@ -4,7 +4,9 @@ from typing import Any, Dict, Optional, Union
 
 from pydantic import BaseModel, Field
 
-from backend.agent.utils.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 # class BaseTool(ABC, BaseModel):

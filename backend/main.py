@@ -12,7 +12,6 @@ FastAPI 后端入口
 """
 import os
 import sys
-import logging
 import importlib
 from pathlib import Path
 
@@ -34,29 +33,15 @@ try:
 except Exception:
     pass
 
-# 初始化日志系统
-try:
-    from backend.logger import backend_logger, LOGS_DIR, ensure_log_dirs
-except ModuleNotFoundError:
-    # 兼容以脚本方式运行（模块名解析不到 backend）
-    from logger import backend_logger, LOGS_DIR, ensure_log_dirs
-from datetime import datetime
+from backend.core.logger import bridge_std_logging_to_loguru, get_logger, setup_logging
+from backend.agent.config import config
 
-# 日志文件 handler（延迟初始化）
-_log_file_handler = None
-
-def get_log_file_handler():
-    """获取日志文件 handler（单例模式）"""
-    global _log_file_handler
-    if _log_file_handler is None:
-        ensure_log_dirs()
-        log_file = LOGS_DIR / "backend" / f"{datetime.now().strftime('%Y-%m-%d')}.log"
-        _log_file_handler = logging.FileHandler(str(log_file), encoding='utf-8')
-        _log_file_handler.setFormatter(logging.Formatter(
-            fmt="[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s",
-            datefmt="%Y-%m-%d %H:%M:%S"
-        ))
-    return _log_file_handler
+setup_logging(
+    is_production=(config.log_mode == "production"),
+    log_level=config.log_level,
+    log_dir=config.log_dir,
+)
+logger = get_logger(__name__)
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -108,13 +93,13 @@ app.include_router(resumes_router)
 try:
     from backend.agent.web.routes import api_router as openmanus_router
     app.include_router(openmanus_router, prefix="/api/agent")
-    backend_logger.info("[合并] OpenManus 路由已加载，前缀: /api/agent")
+    logger.info("[合并] OpenManus 路由已加载，前缀: /api/agent")
 except Exception as exc:
     # 如果是缺少可选依赖（如 browser-use），只记录警告，不影响其他功能
     if "browser_use" in str(exc) or "browser-use" in str(exc):
-        backend_logger.warning(f"[合并] OpenManus 路由未加载（缺少可选依赖）: {exc}")
+        logger.warning(f"[合并] OpenManus 路由未加载（缺少可选依赖）: {exc}")
     else:
-        backend_logger.warning(f"[合并] OpenManus 路由未加载: {exc}")
+        logger.warning(f"[合并] OpenManus 路由未加载: {exc}")
 
 
 # 启动时预热 HTTP 连接并配置日志
@@ -122,21 +107,20 @@ except Exception as exc:
 async def startup_event():
     """应用启动时预热连接"""
     from pathlib import Path
+    from backend.agent.config import config as agent_config
     ROOT = Path(__file__).resolve().parents[1]
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
     
-    # 配置 uvicorn 日志输出到文件（只配置一次）
-    file_handler = get_log_file_handler()
-    for logger_name in ['uvicorn.access', 'uvicorn.error']:
-        logger = logging.getLogger(logger_name)
-        logger.propagate = False  # 禁止传播到父 logger，避免重复
-        # 移除所有 FileHandler，然后添加我们的
-        logger.handlers = [h for h in logger.handlers if not isinstance(h, logging.FileHandler)]
-        logger.addHandler(file_handler)
-    
-    backend_logger.info("========== 后端服务启动 ==========")
-    backend_logger.info(f"日志目录: {LOGS_DIR}")
+    setup_logging(
+        is_production=(agent_config.log_mode == "production"),
+        log_level=agent_config.log_level,
+        log_dir=agent_config.log_dir,
+    )
+    bridge_std_logging_to_loguru(level=agent_config.log_level)
+
+    logger.info("========== 后端服务启动 ==========")
+    logger.info(f"日志目录: {agent_config.log_dir}")
     
     try:
         simple = import_module_candidates(["backend.simple", "simple"])
@@ -146,22 +130,22 @@ async def startup_event():
             simple.ZHIPU_API_KEY = zhipu_key
             simple._zhipu_client = None  # 重置客户端，使用新的 API Key
             simple._last_zhipu_key = None
-            backend_logger.info(f"[配置] 已从 .env 加载 ZHIPU_API_KEY: {zhipu_key[:10]}...")
+            logger.info(f"[配置] 已从 .env 加载 ZHIPU_API_KEY: {zhipu_key[:10]}...")
         
         doubao_key = os.getenv("DOUBAO_API_KEY", "")
         if doubao_key:
             simple.DOUBAO_API_KEY = doubao_key
-            backend_logger.info(f"[配置] 已从 .env 加载 DOUBAO_API_KEY: {doubao_key[:10]}...")
+            logger.info(f"[配置] 已从 .env 加载 DOUBAO_API_KEY: {doubao_key[:10]}...")
         
         deepseek_key = os.getenv("DEEPSEEK_API_KEY", "")
         if deepseek_key:
             simple.DEEPSEEK_API_KEY = deepseek_key
-            backend_logger.info(f"[配置] 已从 .env 加载 DEEPSEEK_API_KEY: {deepseek_key[:10]}...")
+            logger.info(f"[配置] 已从 .env 加载 DEEPSEEK_API_KEY: {deepseek_key[:10]}...")
         
         simple.warmup_connection()
-        backend_logger.info("[启动优化] HTTP 连接已预热")
+        logger.info("[启动优化] HTTP 连接已预热")
     except Exception as e:
-        backend_logger.warning(f"[启动优化] 连接预热失败: {e}")
+        logger.warning(f"[启动优化] 连接预热失败: {e}")
 
     # 预加载 tiktoken 编码文件，避免首次请求时下载阻塞（使用配置管理器）
     try:
@@ -170,16 +154,16 @@ async def startup_event():
 
         network_config = config.network if hasattr(config, 'network') and config.network else NetworkConfig()
         if network_config.disable_proxy_for_tiktoken:
-            backend_logger.info("[启动优化] 预加载 tiktoken 编码文件（禁用代理）...")
+            logger.info("[启动优化] 预加载 tiktoken 编码文件（禁用代理）...")
             with network_config.without_proxy():
                 tiktoken.get_encoding("cl100k_base")
-            backend_logger.info("[启动优化] tiktoken 编码文件预加载完成")
+            logger.info("[启动优化] tiktoken 编码文件预加载完成")
         else:
-            backend_logger.info("[启动优化] 预加载 tiktoken 编码文件...")
+            logger.info("[启动优化] 预加载 tiktoken 编码文件...")
             tiktoken.get_encoding("cl100k_base")
-            backend_logger.info("[启动优化] tiktoken 编码文件预加载完成")
+            logger.info("[启动优化] tiktoken 编码文件预加载完成")
     except Exception as e:
-        backend_logger.warning(f"[启动优化] tiktoken 预加载失败: {e}（将在首次使用时加载）")
+        logger.warning(f"[启动优化] tiktoken 预加载失败: {e}（将在首次使用时加载）")
 
 
 """

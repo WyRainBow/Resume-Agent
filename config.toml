@@ -1,0 +1,18 @@
+# Agent LLM 配置 - 使用 DeepSeek
+[llm]
+model = "deepseek-chat"
+base_url = "https://api.deepseek.com/v1"
+api_key = "sk-747bd756a3c942109d96998da6bf4049"
+max_tokens = 8192
+temperature = 0.3
+api_type = "openai"
+
+# Vision model (如果需要)
+[llm.vision]
+model = "deepseek-chat"
+base_url = "https://api.deepseek.com/v1"
+api_key = "sk-747bd756a3c942109d96998da6bf4049"
+max_tokens = 8192
+temperature = 0.3
+api_type = "openai"
+

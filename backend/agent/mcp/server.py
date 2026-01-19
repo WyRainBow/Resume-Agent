@@ -13,7 +13,9 @@ from typing import Any, Dict, Optional
 
 from mcp.server.fastmcp import FastMCP
 
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.tool.base import BaseTool
 from backend.agent.tool.bash import Bash
 from backend.agent.tool.browser_use_tool import BrowserUseTool

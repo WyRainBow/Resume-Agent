@@ -6,7 +6,9 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 from mcp.types import ListToolsResult, TextContent
 
-from backend.agent.logger import logger
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
 from backend.agent.tool.base import BaseTool, ToolResult
 from backend.agent.tool.tool_collection import ToolCollection
 
