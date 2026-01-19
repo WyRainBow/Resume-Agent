@@ -879,7 +879,7 @@ export default function SophiaChat() {
 
       <div className="flex-1 flex overflow-hidden relative">
         {isDesktop && (
-          <aside className="w-[280px] shrink-0 border-r border-gray-200/50 bg-white">
+          <aside className="w-[280px] shrink-0 border-r border-gray-200/50 bg-orange-50/50">
             <RecentSessions
               baseUrl={HISTORY_BASE}
               currentSessionId={currentSessionId}
@@ -900,7 +900,7 @@ export default function SophiaChat() {
             tabIndex={-1}
           >
             <aside
-              className="h-full w-[280px] bg-white shadow-xl border-r border-gray-200/50"
+              className="h-full w-[280px] bg-orange-50/50 shadow-xl border-r border-gray-200/50"
               onClick={(event) => event.stopPropagation()}
             >
               <RecentSessions
