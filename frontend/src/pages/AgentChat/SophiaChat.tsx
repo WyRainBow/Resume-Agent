@@ -261,6 +261,7 @@ export default function SophiaChat() {
           id: generateMessageId(m.content || '', m.role || 'unknown'),
           role: m.role === 'user' ? 'user' : 'assistant',
           content: m.content || '',
+          thought: m.thought || undefined,
           timestamp: new Date().toISOString(),
         }));
 
@@ -433,6 +434,7 @@ export default function SophiaChat() {
     return messagesToSave.map((msg) => ({
       role: msg.role,
       content: msg.content,
+      thought: msg.thought,
     }));
   }, []);
 
@@ -691,6 +693,7 @@ export default function SophiaChat() {
         id: generateMessageId(m.content || '', m.role || 'unknown', index),
         role: m.role === 'user' ? 'user' : 'assistant',
         content: m.content || '',
+        thought: m.thought || undefined,
         timestamp: new Date().toISOString(),
       }));
 

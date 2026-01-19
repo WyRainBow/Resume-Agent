@@ -56,6 +56,7 @@ class Message(BaseModel):
 
     role: ROLE_TYPE = Field(...)  # type: ignore
     content: Optional[str] = Field(default=None)
+    thought: Optional[str] = Field(default=None)
     tool_calls: Optional[List[ToolCall]] = Field(default=None)
     name: Optional[str] = Field(default=None)
     tool_call_id: Optional[str] = Field(default=None)
@@ -86,6 +87,8 @@ class Message(BaseModel):
         message = {"role": self.role}
         if self.content is not None:
             message["content"] = self.content
+        if self.thought is not None:
+            message["thought"] = self.thought
         if self.tool_calls is not None:
             message["tool_calls"] = [tool_call.dict() for tool_call in self.tool_calls]
         if self.name is not None:

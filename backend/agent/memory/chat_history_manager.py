@@ -5,7 +5,7 @@ Provides OpenManus-compatible interface for managing conversation history.
 Implements LangChain-compatible sliding window mechanism.
 """
 
-from typing import List, Optional
+from typing import Any, List, Optional
 from pathlib import Path
 from datetime import datetime
 
@@ -166,9 +166,15 @@ class ChatHistoryManager:
         """Backwards-compatible alias for clear()."""
         self.clear()
 
-    def load_messages(self, messages: List[Message]) -> None:
+    def load_messages(self, messages: List[Message | dict[str, Any]]) -> None:
         """Replace current messages with provided list."""
-        lc_messages = MessageAdapter.batch_to_langchain(messages)
+        normalized: List[Message] = []
+        for message in messages:
+            if isinstance(message, Message):
+                normalized.append(message)
+            else:
+                normalized.append(Message(**message))
+        lc_messages = MessageAdapter.batch_to_langchain(normalized)
         self._history._messages = lc_messages
         self._trim_history()
 
