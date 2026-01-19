@@ -62,6 +62,7 @@ export default function SophiaChat() {
   const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(true);
+  const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState(() => {
     // 尝试从 URL 查询参数恢复会话ID
@@ -85,6 +86,12 @@ export default function SophiaChat() {
   const [loadingResume, setLoadingResume] = useState(true);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const saveInFlightRef = useRef<Promise<void> | null>(null);
+  const pendingSaveRef = useRef(false);
+  const queuedSaveRef = useRef<{ sessionId: string; messages: Message[] } | null>(null);
+  const lastSavedKeyRef = useRef<string>('');
+  const refreshAfterSaveRef = useRef(false);
+  const saveRetryRef = useRef<Record<string, number>>({});
   const isFinalizedRef = useRef(false);
   const shouldFinalizeRef = useRef(false); // 标记是否需要完成（等待打字机效果完成）
   const currentThoughtRef = useRef('');
@@ -389,6 +396,7 @@ export default function SophiaChat() {
       return;
     }
 
+    refreshAfterSaveRef.current = true;
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newMessage: Message = {
       id: uniqueId,
@@ -417,15 +425,120 @@ export default function SophiaChat() {
     });
   }, [finalizeStream, currentAnswer, currentThought]);
 
-  const saveCurrentSession = useCallback(() => {
-    if (isProcessing || currentThoughtRef.current || currentAnswerRef.current) {
-      finalizeMessage();
-    }
-  }, [finalizeMessage, isProcessing]);
-
   const refreshSessions = useCallback(() => {
     setSessionsRefreshKey((prev) => prev + 1);
   }, []);
+
+  const buildSavePayload = useCallback((messagesToSave: Message[]) => {
+    return messagesToSave.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    }));
+  }, []);
+
+  const persistSessionSnapshot = useCallback(
+    async (sessionId: string, messagesToSave: Message[], shouldRefresh = false) => {
+      const payload = buildSavePayload(messagesToSave);
+      const payloadKey = JSON.stringify(payload);
+      if (payloadKey === lastSavedKeyRef.current) {
+        return;
+      }
+
+      if (saveInFlightRef.current) {
+        queuedSaveRef.current = { sessionId, messages: messagesToSave };
+        return;
+      }
+
+      saveInFlightRef.current = (async () => {
+        try {
+          const resp = await fetch(
+            `${HISTORY_BASE}/api/agent/history/sessions/${sessionId}/save`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ messages: payload }),
+            }
+          );
+          if (!resp.ok) {
+            console.error(`[SophiaChat] Failed to save session: ${resp.status}`);
+            const retryCount = (saveRetryRef.current[payloadKey] || 0) + 1;
+            if (retryCount <= 2) {
+              saveRetryRef.current[payloadKey] = retryCount;
+              queuedSaveRef.current = { sessionId, messages: messagesToSave };
+              setTimeout(() => {
+                if (!saveInFlightRef.current && queuedSaveRef.current) {
+                  const next = queuedSaveRef.current;
+                  queuedSaveRef.current = null;
+                  void persistSessionSnapshot(next.sessionId, next.messages, shouldRefresh);
+                }
+              }, 800 * retryCount);
+            }
+            return;
+          }
+          lastSavedKeyRef.current = payloadKey;
+          delete saveRetryRef.current[payloadKey];
+          if (shouldRefresh) {
+            refreshSessions();
+          }
+        } catch (error) {
+          console.error('[SophiaChat] Failed to save session snapshot:', error);
+          const retryCount = (saveRetryRef.current[payloadKey] || 0) + 1;
+          if (retryCount <= 2) {
+            saveRetryRef.current[payloadKey] = retryCount;
+            queuedSaveRef.current = { sessionId, messages: messagesToSave };
+            setTimeout(() => {
+              if (!saveInFlightRef.current && queuedSaveRef.current) {
+                const next = queuedSaveRef.current;
+                queuedSaveRef.current = null;
+                void persistSessionSnapshot(next.sessionId, next.messages, shouldRefresh);
+              }
+            }, 800 * retryCount);
+          }
+        } finally {
+          saveInFlightRef.current = null;
+          if (queuedSaveRef.current) {
+            const next = queuedSaveRef.current;
+            queuedSaveRef.current = null;
+            void persistSessionSnapshot(next.sessionId, next.messages, shouldRefresh);
+          }
+        }
+      })();
+      await saveInFlightRef.current;
+    },
+    [buildSavePayload, refreshSessions]
+  );
+
+  const waitForPendingSave = useCallback(async () => {
+    if (saveInFlightRef.current) {
+      await saveInFlightRef.current;
+    }
+    if (pendingSaveRef.current) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (saveInFlightRef.current) {
+        await saveInFlightRef.current;
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!pendingSaveRef.current) {
+      return;
+    }
+    pendingSaveRef.current = false;
+    const shouldRefresh = refreshAfterSaveRef.current;
+    refreshAfterSaveRef.current = false;
+    void persistSessionSnapshot(conversationId, messages, shouldRefresh);
+  }, [conversationId, messages, persistSessionSnapshot]);
+
+  const saveCurrentSession = useCallback(() => {
+    if (isProcessing || currentThoughtRef.current || currentAnswerRef.current) {
+      pendingSaveRef.current = true;
+      finalizeMessage();
+      return;
+    }
+    pendingSaveRef.current = true;
+    void persistSessionSnapshot(conversationId, messages);
+  }, [conversationId, finalizeMessage, isProcessing, messages, persistSessionSnapshot]);
 
   const deleteSession = async (sessionId: string) => {
     try {
@@ -530,15 +643,37 @@ export default function SophiaChat() {
   };
 
   const loadSession = async (sessionId: string) => {
+    if (isLoadingSession) {
+      return;
+    }
+    setIsLoadingSession(true);
+    // 先保存当前会话，确保未完成的内容被保存
     saveCurrentSession();
+    await waitForPendingSave();
+
     try {
       const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/${sessionId}`);
+      
+      if (!resp.ok) {
+        console.error(`[SophiaChat] Failed to load session: ${resp.status} ${resp.statusText}`);
+        // 如果加载失败，不清空当前消息，保持原状态
+        return;
+      }
+      
       const data = await resp.json();
       
+      // 检查返回的数据格式
+      if (!data || !Array.isArray(data.messages)) {
+        console.error('[SophiaChat] Invalid session data format:', data);
+        return;
+      }
+      
       // 🔧 改进：使用内容哈希生成稳定的消息 ID（与 autoLoadSession 保持一致）
-      const generateMessageId = (content: string, role: string): string => {
+      const generateMessageId = (content: string, role: string, index: number): string => {
+        // 如果内容为空，使用索引作为 ID 的一部分，确保唯一性
+        const contentForHash = content || `empty-${index}`;
         let hash = 2166136261;
-        const str = `${role}:${content}`;
+        const str = `${role}:${contentForHash}:${index}`;
         for (let i = 0; i < str.length; i++) {
           hash ^= str.charCodeAt(i);
           hash += (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
@@ -547,20 +682,35 @@ export default function SophiaChat() {
         return `msg-${hashStr}`;
       };
       
-      const loadedMessages: Message[] = (data.messages || []).map((m: any) => ({
-        id: generateMessageId(m.content || '', m.role || 'unknown'),
+      // 过滤掉 tool 角色的消息（这些是内部消息，不应该显示给用户）
+      const userVisibleMessages = (data.messages || []).filter(
+        (m: any) => m.role === 'user' || m.role === 'assistant'
+      );
+      
+      const loadedMessages: Message[] = userVisibleMessages.map((m: any, index: number) => ({
+        id: generateMessageId(m.content || '', m.role || 'unknown', index),
         role: m.role === 'user' ? 'user' : 'assistant',
         content: m.content || '',
         timestamp: new Date().toISOString(),
       }));
 
       const dedupedMessages = dedupeLoadedMessages(loadedMessages);
-      setMessages(dedupedMessages);
-      setCurrentSessionId(sessionId);
-      setConversationId(sessionId);
-      finalizeStream();
+      
+      // 只有在成功加载到消息时才更新状态
+      if (dedupedMessages.length > 0 || userVisibleMessages.length === 0) {
+        setMessages(dedupedMessages);
+        setCurrentSessionId(sessionId);
+        setConversationId(sessionId);
+        // 清理流式状态，避免显示旧会话的流式内容
+        finalizeStream();
+      } else {
+        console.warn('[SophiaChat] Loaded session has no valid messages, keeping current state');
+      }
     } catch (error) {
       console.error('[SophiaChat] Failed to load session:', error);
+      // 发生错误时，不清空当前消息，保持原状态
+    } finally {
+      setIsLoadingSession(false);
     }
   };
 
@@ -654,13 +804,23 @@ export default function SophiaChat() {
     const userMessage = input.trim();
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-    // Add user message to UI
-    setMessages(prev => [...prev, {
+    const userMessageEntry: Message = {
       id: uniqueId,
       role: 'user',
       content: userMessage,
       timestamp: new Date().toISOString(),
-    }]);
+    };
+    const nextMessages = [...messages, userMessageEntry];
+    const isFirstMessage = messages.length === 0;
+
+    // Add user message to UI
+    setMessages(nextMessages);
+    if (isFirstMessage) {
+      if (!currentSessionId) {
+        setCurrentSessionId(conversationId);
+      }
+      void persistSessionSnapshot(conversationId, nextMessages, true);
+    }
 
     isFinalizedRef.current = false;
     shouldFinalizeRef.current = false; // 重置完成标记
@@ -761,6 +921,9 @@ export default function SophiaChat() {
             )}
             {resumeError && (
               <div className="text-sm text-red-500 mb-4">{resumeError}</div>
+            )}
+            {isLoadingSession && (
+              <div className="text-xs text-gray-400 mb-4">正在加载会话...</div>
             )}
             {!loadingResume && !resumeError && !isHtmlTemplate && (
               <div className="text-sm text-orange-600 mb-4">

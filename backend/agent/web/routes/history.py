@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from backend.agent.memory.chat_history_manager import ChatHistoryManager
 from backend.agent.memory.conversation_manager import ConversationManager
 from backend.agent.cltp.storage.conversation_storage import FileConversationStorage
+from backend.agent.schema import Message
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,10 @@ class SessionTitleUpdateRequest(BaseModel):
 
 class BatchDeleteRequest(BaseModel):
     session_ids: List[str]
+
+
+class SessionSaveRequest(BaseModel):
+    messages: List[Message]
 
 
 @router.get("/{session_id}", response_model=HistoryResponse)
@@ -192,6 +197,31 @@ async def get_session_messages(
         "total": len(messages),
         "messages": [{"role": m.role, "content": m.content} for m in sliced],
     }
+
+
+@router.post("/sessions/{session_id}/save")
+async def save_session_messages(
+    session_id: str, request: SessionSaveRequest
+) -> dict[str, Any]:
+    """Save session messages immediately."""
+    try:
+        messages = request.messages or []
+        history_manager = ChatHistoryManager(session_id=session_id, storage=storage)
+        history_manager.load_messages(messages)
+        meta = conversation_manager.save_history(session_id, history_manager)
+        return {
+            "session_id": meta.session_id,
+            "title": meta.title,
+            "created_at": meta.created_at,
+            "updated_at": meta.updated_at,
+            "message_count": meta.message_count,
+        }
+    except Exception as e:
+        logger.error(f"Error saving session: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error saving session: {e}",
+        )
 
 
 @router.put("/sessions/{session_id}/title")
