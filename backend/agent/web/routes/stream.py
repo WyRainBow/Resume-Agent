@@ -115,6 +115,9 @@ def _get_or_create_session(
 
         if resume_data:
             ResumeDataStore.set_data(resume_data, session_id=conversation_id)
+            # 🔍 诊断日志：验证元数据是否正确设置
+            stored_meta = ResumeDataStore._meta_by_session.get(conversation_id, {})
+            logger.info(f"[SSE] ResumeDataStore meta after set_data: {stored_meta}")
             if hasattr(agent, "_conversation_state") and agent._conversation_state:
                 agent._conversation_state.update_resume_loaded(True)
 
@@ -322,6 +325,15 @@ async def stream_events(request: StreamRequest) -> StreamingResponse:
             f"[SSE] Resume requested for conversation: {conversation_id} cursor={request.cursor}"
         )
     logger.info(f"[SSE] Prompt: {prompt[:100]}...")
+    
+    # 🔍 诊断日志：检查 resume_data 元数据
+    if request.resume_data:
+        rd = request.resume_data
+        resume_id = rd.get("resume_id") or rd.get("id") or (rd.get("_meta") or {}).get("resume_id")
+        user_id = rd.get("user_id") or (rd.get("_meta") or {}).get("user_id")
+        logger.info(f"[SSE] resume_data metadata: resume_id={resume_id}, user_id={user_id}")
+    else:
+        logger.warning("[SSE] No resume_data provided in request")
 
     return StreamingResponse(
         _stream_event_generator(

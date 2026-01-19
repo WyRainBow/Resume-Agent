@@ -69,7 +69,13 @@ Execute modifications immediately when user provides specific details.
 
         内部创建 CVEditor Agent 并运行它来处理编辑任务
         """
+        # 🔍 诊断日志
+        logger.info(f"[CVEditorAgentTool] execute called: session_id={self.session_id}, path={path}, action={action}")
+        
         resume_data = ResumeDataStore.get_data(self.session_id)
+        meta = ResumeDataStore._meta_by_session.get(self.session_id, {})
+        logger.info(f"[CVEditorAgentTool] resume_data: {bool(resume_data)}, meta: {meta}")
+        
         if not resume_data:
             return ToolResult(
                 output="No resume data loaded. Please use cv_reader_agent tool first to read resume data."
@@ -98,7 +104,6 @@ Execute modifications immediately when user provides specific details.
                 output = f"✅ {result.get('message', 'Edit completed')}"
                 if not persisted:
                     # 🔧 改进：检查持久化失败的具体原因
-                    from backend.agent.tool.resume_data_store import ResumeDataStore
                     meta = ResumeDataStore._meta_by_session.get(self.session_id, {})
                     resume_id = meta.get("resume_id")
                     user_id = meta.get("user_id")
