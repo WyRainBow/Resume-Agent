@@ -11,6 +11,7 @@
  */
 
 import ChatMessage from '@/components/chat/ChatMessage';
+import { RecentSessions } from '@/components/sidebar/RecentSessions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCLTP } from '@/hooks/useCLTP';
 import { HTMLTemplateRenderer } from '@/pages/Workspace/v2/HTMLTemplateRenderer';
@@ -21,7 +22,6 @@ import { ConnectionStatus } from '@/types/transport';
 import { ArrowUp, MessageSquare } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { RecentSessions } from '@/components/sidebar/RecentSessions';
 
 // ============================================================================
 // 配置
@@ -851,7 +851,7 @@ export default function SophiaChat() {
         <div className="max-w-[1400px] mx-auto px-6 py-4 flex justify-between items-center">
           <div>
             <h1 className="text-xl font-semibold text-gray-800">
-              SophiaPro Chat
+              Resume-AI
             </h1>
             <p className="text-sm text-gray-500">
               Thought Process · Streaming · Markdown · SSE
