@@ -55,10 +55,20 @@ export interface UseCLTPOptions {
  * @param options - 配置选项
  * @returns CLTP 会话状态和控制函数
  */
+// 处理 API_BASE，确保有协议前缀
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || '';
+const defaultApiBase = rawApiBase
+  ? rawApiBase.startsWith('http')
+    ? rawApiBase
+    : `https://${rawApiBase}`
+  : import.meta.env.PROD
+    ? '' // 生产环境使用相对路径
+    : 'http://localhost:9000'; // 开发环境
+
 export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
     const {
         conversationId = `conv-${Date.now()}`,
-        baseUrl = 'http://localhost:9000',
+        baseUrl = defaultApiBase,
         heartbeatTimeout = 60000,
         resumeData,
     } = options;

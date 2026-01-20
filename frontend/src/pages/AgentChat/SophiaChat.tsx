@@ -38,10 +38,10 @@ const API_BASE = rawApiBase
     : 'http://localhost:9000';
 
 const SSE_CONFIG = {
-  BASE_URL: API_BASE || 'http://localhost:9000',
+  BASE_URL: API_BASE || '',
   HEARTBEAT_TIMEOUT: 60000,  // 60 seconds
 };
-const HISTORY_BASE = 'http://localhost:9000';
+const HISTORY_BASE = API_BASE || '';
 
 function convertResumeDataToOpenManusFormat(resume: ResumeData) {
   return {
