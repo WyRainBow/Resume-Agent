@@ -4,8 +4,10 @@ import math
 from typing import Dict, List, Optional, Union
 
 import tiktoken
+import httpx
 from openai import (
     APIError,
+    APIConnectionError,
     AsyncAzureOpenAI,
     AsyncOpenAI,
     AuthenticationError,
@@ -251,7 +253,19 @@ class LLM:
             elif self.api_type == "aws":
                 self.client = BedrockClient()
             else:
-                self.client = AsyncOpenAI(api_key=self.api_key, base_url=self.base_url)
+                # 配置超时和重试，解决 APIConnectionError
+                timeout = httpx.Timeout(
+                    connect=30.0,  # 连接超时 30 秒
+                    read=300.0,    # 读取超时 300 秒（5 分钟）
+                    write=30.0,    # 写入超时 30 秒
+                    pool=30.0,      # 连接池超时 30 秒
+                )
+                self.client = AsyncOpenAI(
+                    api_key=self.api_key,
+                    base_url=self.base_url,
+                    timeout=timeout,
+                    max_retries=3,  # 最大重试 3 次
+                )
 
             if self.tokenizer is not None:
                 self.token_counter = TokenCounter(self.tokenizer)
@@ -544,7 +558,10 @@ class LLM:
             raise
         except OpenAIError as oe:
             logger.exception(f"OpenAI API error")
-            if isinstance(oe, AuthenticationError):
+            if isinstance(oe, APIConnectionError):
+                logger.error(f"API connection failed: {oe}. Check network connection and API endpoint.")
+                logger.error(f"Base URL: {self.base_url}, Model: {self.model}")
+            elif isinstance(oe, AuthenticationError):
                 logger.error("Authentication failed. Check API key.")
             elif isinstance(oe, RateLimitError):
                 logger.error("Rate limit exceeded. Consider increasing retry attempts.")
@@ -700,7 +717,10 @@ class LLM:
             raise
         except OpenAIError as oe:
             logger.error(f"OpenAI API error: {oe}")
-            if isinstance(oe, AuthenticationError):
+            if isinstance(oe, APIConnectionError):
+                logger.error(f"API connection failed: {oe}. Check network connection and API endpoint.")
+                logger.error(f"Base URL: {self.base_url}, Model: {self.model}")
+            elif isinstance(oe, AuthenticationError):
                 logger.error("Authentication failed. Check API key.")
             elif isinstance(oe, RateLimitError):
                 logger.error("Rate limit exceeded. Consider increasing retry attempts.")
@@ -831,7 +851,10 @@ class LLM:
             raise
         except OpenAIError as oe:
             logger.error(f"OpenAI API error: {oe}")
-            if isinstance(oe, AuthenticationError):
+            if isinstance(oe, APIConnectionError):
+                logger.error(f"API connection failed: {oe}. Check network connection and API endpoint.")
+                logger.error(f"Base URL: {self.base_url}, Model: {self.model}")
+            elif isinstance(oe, AuthenticationError):
                 logger.error("Authentication failed. Check API key.")
             elif isinstance(oe, RateLimitError):
                 logger.error("Rate limit exceeded. Consider increasing retry attempts.")
