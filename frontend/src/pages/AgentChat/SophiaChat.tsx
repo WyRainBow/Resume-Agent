@@ -69,13 +69,14 @@ export default function SophiaChat() {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const sessionId = params.get('sessionId');
-      if (sessionId) {
+      if (sessionId && sessionId.trim() !== '') {
         return sessionId;
       }
       // 尝试从 localStorage 恢复最后的会话ID（如果有 resumeId）
       const lastSessionKey = `last_session_${window.location.pathname}`;
       const lastSessionId = localStorage.getItem(lastSessionKey);
-      if (lastSessionId) {
+      // 验证从 localStorage 获取的值不为空字符串
+      if (lastSessionId && lastSessionId.trim() !== '') {
         return lastSessionId;
       }
     }
@@ -234,6 +235,11 @@ export default function SophiaChat() {
     const autoLoadSession = async () => {
       try {
         // 尝试加载会话历史
+        // 防御性检查：确保 conversationId 不为空
+        if (!conversationId || conversationId.trim() === '') {
+          console.warn('[SophiaChat] Cannot load session: conversationId is empty');
+          return;
+        }
         const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/${conversationId}`);
         if (!mounted) return;
         if (!resp.ok) {
@@ -440,6 +446,17 @@ export default function SophiaChat() {
 
   const persistSessionSnapshot = useCallback(
     async (sessionId: string, messagesToSave: Message[], shouldRefresh = false) => {
+      // 验证 sessionId，如果为空则生成新的会话 ID
+      let validSessionId = sessionId;
+      if (!validSessionId || validSessionId.trim() === '') {
+        // 如果为空，使用 conversationId 或生成新的
+        validSessionId = conversationId || `conv-${Date.now()}`;
+        if (validSessionId !== conversationId) {
+          setConversationId(validSessionId);
+        }
+        console.log(`[SophiaChat] Generated new session ID: ${validSessionId}`);
+      }
+
       const payload = buildSavePayload(messagesToSave);
       const payloadKey = JSON.stringify(payload);
       if (payloadKey === lastSavedKeyRef.current) {
@@ -447,14 +464,14 @@ export default function SophiaChat() {
       }
 
       if (saveInFlightRef.current) {
-        queuedSaveRef.current = { sessionId, messages: messagesToSave };
+        queuedSaveRef.current = { sessionId: validSessionId, messages: messagesToSave };
         return;
       }
 
       saveInFlightRef.current = (async () => {
         try {
           const resp = await fetch(
-            `${HISTORY_BASE}/api/agent/history/sessions/${sessionId}/save`,
+            `${HISTORY_BASE}/api/agent/history/sessions/${validSessionId}/save`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -466,7 +483,7 @@ export default function SophiaChat() {
             const retryCount = (saveRetryRef.current[payloadKey] || 0) + 1;
             if (retryCount <= 2) {
               saveRetryRef.current[payloadKey] = retryCount;
-              queuedSaveRef.current = { sessionId, messages: messagesToSave };
+              queuedSaveRef.current = { sessionId: validSessionId, messages: messagesToSave };
               setTimeout(() => {
                 if (!saveInFlightRef.current && queuedSaveRef.current) {
                   const next = queuedSaveRef.current;
@@ -487,7 +504,7 @@ export default function SophiaChat() {
           const retryCount = (saveRetryRef.current[payloadKey] || 0) + 1;
           if (retryCount <= 2) {
             saveRetryRef.current[payloadKey] = retryCount;
-            queuedSaveRef.current = { sessionId, messages: messagesToSave };
+            queuedSaveRef.current = { sessionId: validSessionId, messages: messagesToSave };
             setTimeout(() => {
               if (!saveInFlightRef.current && queuedSaveRef.current) {
                 const next = queuedSaveRef.current;
@@ -507,7 +524,7 @@ export default function SophiaChat() {
       })();
       await saveInFlightRef.current;
     },
-    [buildSavePayload, refreshSessions]
+    [conversationId, buildSavePayload, refreshSessions]
   );
 
   const waitForPendingSave = useCallback(async () => {
@@ -529,7 +546,12 @@ export default function SophiaChat() {
     pendingSaveRef.current = false;
     const shouldRefresh = refreshAfterSaveRef.current;
     refreshAfterSaveRef.current = false;
-    void persistSessionSnapshot(conversationId, messages, shouldRefresh);
+    // 验证 conversationId 不为空
+    if (conversationId && conversationId.trim() !== '') {
+      void persistSessionSnapshot(conversationId, messages, shouldRefresh);
+    } else {
+      console.warn('[SophiaChat] Skipping save: conversationId is empty');
+    }
   }, [conversationId, messages, persistSessionSnapshot]);
 
   const saveCurrentSession = useCallback(() => {
@@ -819,10 +841,16 @@ export default function SophiaChat() {
     // Add user message to UI
     setMessages(nextMessages);
     if (isFirstMessage) {
-      if (!currentSessionId) {
-        setCurrentSessionId(conversationId);
+      // 确保 conversationId 有效
+      let validConversationId = conversationId;
+      if (!validConversationId || validConversationId.trim() === '') {
+        validConversationId = `conv-${Date.now()}`;
+        setConversationId(validConversationId);
       }
-      void persistSessionSnapshot(conversationId, nextMessages, true);
+      if (!currentSessionId) {
+        setCurrentSessionId(validConversationId);
+      }
+      void persistSessionSnapshot(validConversationId, nextMessages, true);
     }
 
     isFinalizedRef.current = false;

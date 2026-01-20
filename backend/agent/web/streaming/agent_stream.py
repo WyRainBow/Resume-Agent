@@ -430,10 +430,40 @@ class AgentStream:
                         # 🔑 关键修复：如果状态是 FINISHED，立即退出循环
                         # 先发送最终答案（如果有）
                         final_answer = None
+                        # 查找 assistant 消息的 content
                         for msg in reversed(self.agent.memory.messages):
                             if msg.role == "assistant" and msg.content:
                                 final_answer = msg.content
                                 break
+                        
+                        # 如果没找到 assistant 消息的 content，查找 terminate 工具的结果
+                        if not final_answer:
+                            for msg in reversed(self.agent.memory.messages):
+                                if msg.role == "tool" and msg.name == "terminate" and msg.content:
+                                    # 从 terminate 工具结果中提取状态信息
+                                    final_answer = msg.content
+                                    logger.info(f"🔍 [DEBUG] 使用 terminate 工具结果作为 final_answer: {final_answer[:100]}...")
+                                    break
+                        
+                        # 如果还是没找到，查找任何有内容的 assistant 消息（即使只有 tool_calls）
+                        if not final_answer:
+                            for msg in reversed(self.agent.memory.messages):
+                                if msg.role == "assistant":
+                                    # 如果有 content，使用它
+                                    if msg.content:
+                                        final_answer = msg.content
+                                        break
+                                    # 如果只有 tool_calls，尝试从 tool 结果中获取
+                                    elif msg.tool_calls:
+                                        # 查找对应的 tool 消息
+                                        for tool_msg in reversed(self.agent.memory.messages):
+                                            if tool_msg.role == "tool" and tool_msg.tool_call_id in [tc.id for tc in msg.tool_calls]:
+                                                if tool_msg.content:
+                                                    final_answer = tool_msg.content
+                                                    logger.info(f"🔍 [DEBUG] 从 tool 消息中获取 final_answer: {final_answer[:100]}...")
+                                                    break
+                                        if final_answer:
+                                            break
 
                         logger.info(f"🔍 [DEBUG] FINISHED 状态检查: final_answer={final_answer[:100] if final_answer else None}..., _answer_sent_in_loop={self._answer_sent_in_loop}")
 
@@ -802,26 +832,44 @@ class AgentStream:
                                 await self._state_machine.transition_to(AgentState.THINKING)
                             content = msg.content
                             tool_call_id = msg.tool_call_id  # ✅ 获取 tool_call_id
+                            tool_name = msg.name or "unknown"
 
                             # 清理前缀
-                            if content.startswith("Observed output of cmd `"):
+                            if content and content.startswith("Observed output of cmd `"):
                                 prefix_pattern = r"Observed output of cmd `[^`]+` executed:\n"
                                 content = re.sub(prefix_pattern, "", content, count=1)
-                            elif content.startswith("Cmd `"):
+                            elif content and content.startswith("Cmd `"):
                                 content = "工具执行完成，无输出内容"
 
                             # 限制显示长度
-                            if len(content) > 5000:
+                            if content and len(content) > 5000:
                                 content = content[:5000] + f"\n...(内容已截断，共{len(msg.content)}字符)"
 
-                            logger.info(f"[工具结果] {msg.name or 'unknown'} | ID: {tool_call_id} | 长度: {len(msg.content)} 字符")
+                            logger.info(f"[工具结果] {tool_name} | ID: {tool_call_id} | 长度: {len(msg.content) if msg.content else 0} 字符")
                             yield ToolResultEvent(
-                                tool_name=msg.name or "unknown",
-                                result=content,
+                                tool_name=tool_name,
+                                result=content or "",
                                 is_error=False,
                                 session_id=self._session_id,
                                 tool_call_id=tool_call_id,  # ✅ 传递 tool_call_id
                             )
+                            
+                            # 🔑 关键修复：如果执行了 terminate 工具，且还没有发送过 answer，将工具结果作为最终答案
+                            if tool_name == "terminate" and not self._answer_sent_in_loop and content:
+                                logger.info(f"🔍 [DEBUG] terminate 工具执行完成，将结果作为最终答案: {content[:100]}...")
+                                # 生成 CLTP content(channel='plain', done=true) chunk
+                                answer_chunk = self._cltp_generator.emit_content(
+                                    channel='plain',
+                                    payload={'text': content},  # 保持原样
+                                    done=True,
+                                )
+                                
+                                yield AnswerEvent(
+                                    content=content,
+                                    is_complete=True,
+                                    session_id=self._session_id,
+                                )
+                                self._answer_sent_in_loop = True
 
                     # 检查是否陷入循环
                     if self.agent.is_stuck():
@@ -854,7 +902,7 @@ class AgentStream:
 
             # 只有在循环中没有发送过 answer 的情况下，才发送最终答案
             if not self._answer_sent_in_loop:
-                final_answer = "任务已完成！"
+                final_answer = "错误：Agent 执行过程中未生成有效回复、请检查任务配置或重试。"
                 for msg in reversed(self.agent.memory.messages):
                     if msg.role == "assistant" and msg.content:
                         final_answer = msg.content

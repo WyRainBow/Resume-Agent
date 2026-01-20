@@ -166,6 +166,7 @@ const RichEditor = ({
         bulletList: false,
         orderedList: false,
         listItem: false,
+        underline: false,  // 禁用 StarterKit 中的 underline，使用单独的 Underline 扩展
         heading: {
           levels: [1, 2, 3],
         },

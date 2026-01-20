@@ -1,0 +1,17 @@
+{
+  "session_id": "conv-resume_html_1768843765278_bd34zy8ls",
+  "created_at": "2026-01-20T10:21:21.028390",
+  "updated_at": "2026-01-20T10:21:21.028390",
+  "title": "你好",
+  "message_count": 2,
+  "messages": [
+    {
+      "role": "user",
+      "content": "你好"
+    },
+    {
+      "role": "assistant",
+      "content": ""
+    }
+  ]
+}
