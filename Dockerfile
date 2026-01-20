@@ -15,13 +15,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && fc-cache -fv
 
-# 复制依赖文件（根目录和 backend 目录）
+# 复制依赖文件
 COPY requirements.txt .
-COPY backend/requirements.txt ./backend/
 
-# 安装 Python 依赖（先根目录，再 backend 目录，确保数据库依赖被安装）
-RUN pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir -r backend/requirements.txt
+# 安装 Python 依赖
+RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制项目文件
 COPY . .

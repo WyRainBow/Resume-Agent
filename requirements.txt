@@ -1,14 +1,66 @@
-fastapi==0.115.6
+fastapi==0.115.11
 uvicorn[standard]==0.34.0
-pydantic==2.10.5
+pydantic==2.10.6
 python-dotenv==1.0.1
 requests==2.32.3
 httpx[http2]==0.28.1
 reportlab==4.2.5
 instructor>=1.5.0
-openai>=1.50.0
+openai~=1.66.3
 json-repair==0.25.2
 zhipuai==2.1.5.20250825
 sse-starlette==1.8.2
-langchain-core>=0.2.0
 
+# Database
+sqlalchemy==2.0.23
+alembic==1.13.1
+pymysql==1.1.0
+
+# Authentication
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+email-validator==2.1.1
+bcrypt==3.2.2
+
+# OpenManus dependencies
+tenacity~=9.0.0
+loguru~=0.7.3
+tiktoken~=0.9.0
+
+# Browser automation
+browser-use~=0.1.40
+playwright~=1.51.0
+browsergym~=0.13.3
+
+# Search engines
+googlesearch-python~=1.3.0
+baidusearch~=1.0.3
+duckduckgo_search~=7.5.3
+
+# Data processing
+numpy<2.0.0
+datasets~=3.4.1
+html2text~=2024.2.26
+pillow~=10.4.0
+gymnasium~=1.1.1
+
+# Infrastructure
+docker~=7.1.0
+mcp~=1.5.0
+boto3~=1.37.18
+beautifulsoup4~=4.13.3
+crawl4ai~=0.6.3
+markdownify
+
+# LangChain
+langchain>=0.3.0,<0.4.0
+langchain-openai==0.3.1
+langchain-core>=0.3.27,<0.4.0
+
+# Utilities
+aiofiles~=24.1.0
+colorama~=0.4.6
+unidiff~=0.7.5
+structlog
+tomli>=2.0.0
+huggingface-hub~=0.29.2

@@ -168,7 +168,7 @@ async def startup_event():
 
 """
 本地运行：
-1) 安装依赖：pip3 install -r backend/requirements.txt --break-system-packages
+1) 安装依赖：pip3 install -r requirements.txt --break-system-packages
 2) 启动服务：uvicorn backend.main:app --reload --port 9000
 3) 测试接口：
    - 健康：curl http://127.0.0.1:9000/api/health | cat

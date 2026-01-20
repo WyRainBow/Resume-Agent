@@ -16,7 +16,6 @@ aptPkgs = [
 
 [phases.install]
 # 确保安装所有依赖，添加调试信息
-# 注意：Railway 可能优先使用根目录的 requirements.txt，所以两个都安装
 cmds = [
     "echo '=== 安装 Python 依赖 ==='",
     "pwd",
@@ -24,8 +23,6 @@ cmds = [
     "pip install --upgrade pip",
     "echo '=== 安装根目录依赖 ==='",
     "pip install -r requirements.txt || echo '根目录 requirements.txt 不存在或安装失败'",
-    "echo '=== 安装 backend 目录依赖（包含数据库依赖）==='",
-    "pip install -r backend/requirements.txt",
     "echo '=== 验证关键依赖安装 ==='",
     "python -c 'import sqlalchemy; print(f\"✅ SQLAlchemy version: {sqlalchemy.__version__}\")' || echo '❌ SQLAlchemy not installed'",
     "python -c 'import pymysql; print(\"✅ PyMySQL installed\")' || echo '❌ PyMySQL not installed'",

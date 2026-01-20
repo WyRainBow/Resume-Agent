@@ -85,7 +85,7 @@ cp .env.example .env
 
 **3、安装依赖**
 ```bash
-pip install -r backend/requirements.txt
+pip install -r requirements.txt
 cd frontend && npm install
 ```
 
