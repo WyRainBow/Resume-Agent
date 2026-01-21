@@ -22,13 +22,18 @@ export async function generatePDFFromJSON(
   resumeData: ResumeData,
   fileName: string
 ) {
+  // 清理文件名：去除首尾空格，将多个连续空格替换为单个空格
+  const cleanFileName = (name: string): string => {
+    return name.trim().replace(/\s+/g, ' ')
+  }
+
   // 构建 HTML 内容
   const htmlContent = buildResumeHTML(resumeData)
 
   // 配置选项
   const options = {
     margin: [10, 10, 10, 10],
-    filename: `${fileName}.pdf`,
+    filename: `${cleanFileName(fileName)}.pdf`,
     image: { type: 'jpeg', quality: 0.98 },
     html2canvas: { scale: 2 },
     jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },

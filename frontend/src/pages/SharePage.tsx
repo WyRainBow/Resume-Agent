@@ -112,10 +112,16 @@ export default function SharePage() {
     }
   }, [resume?.data]) // 只依赖 resume?.data，避免重复渲染
 
+  // 清理文件名：去除首尾空格，将多个连续空格替换为单个空格
+  const cleanFileName = (name: string | undefined): string => {
+    if (!name) return '简历'
+    return name.trim().replace(/\s+/g, ' ')
+  }
+
   const handleDownloadPDF = useCallback(() => {
     if (!pdfBlob || !resume) return
     
-    const name = resume.name || '简历'
+    const name = cleanFileName(resume.name)
     const date = new Date().toISOString().split('T')[0]
     const filename = `${name}_简历_${date}.pdf`
     

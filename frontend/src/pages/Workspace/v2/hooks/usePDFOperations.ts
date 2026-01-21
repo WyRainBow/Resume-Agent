@@ -47,11 +47,17 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
     }
   }, [resumeData])
 
+  // 清理文件名：去除首尾空格，将多个连续空格替换为单个空格
+  const cleanFileName = (name: string | undefined): string => {
+    if (!name) return '简历'
+    return name.trim().replace(/\s+/g, ' ')
+  }
+
   // 下载 PDF
   const handleDownload = useCallback(() => {
     if (!pdfBlob) return
 
-    const name = resumeData.basic.name || '简历'
+    const name = cleanFileName(resumeData.basic.name)
     const date = new Date().toISOString().split('T')[0]
     const filename = `${name}_简历_${date}.pdf`
 

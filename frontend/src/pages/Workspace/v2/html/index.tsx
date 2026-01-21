@@ -387,9 +387,15 @@ export default function HTMLWorkspace() {
       tempContainer.appendChild(clonedElement)
       document.body.appendChild(tempContainer)
 
+      // 清理文件名：去除首尾空格，将多个连续空格替换为单个空格
+      const cleanFileName = (name: string | undefined): string => {
+        if (!name) return '简历'
+        return name.trim().replace(/\s+/g, ' ')
+      }
+      
       const opt = {
         margin: [6, 6, 6, 6],
-        filename: `${resumeData.basic.name || '简历'}.pdf`,
+        filename: `${cleanFileName(resumeData.basic.name)}.pdf`,
         image: { type: 'jpeg', quality: 0.95 },
         html2canvas: { 
           scale: 3.2,
