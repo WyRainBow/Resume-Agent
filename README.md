@@ -63,7 +63,7 @@
 
 
 ### 环境要求
-- Python 3.8+
+- Python 3.12+
 - Node.js 16+
 - XeLaTeX、用于 PDF 编译
 - 中文字体、macOS 自带、Linux 需安装 Noto CJK
