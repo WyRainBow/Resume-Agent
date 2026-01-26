@@ -772,6 +772,15 @@ export async function getDocumentContent(documentId: string): Promise<DocumentCo
 }
 
 /**
+ * 获取报告列表
+ */
+export async function listReports(page: number = 1, pageSize: number = 20): Promise<ReportListResponse> {
+  const url = `${API_BASE}/api/reports/`
+  const { data } = await axios.get(url, { params: { page, page_size: pageSize } })
+  return data as ReportListResponse
+}
+
+/**
  * 更新文档内容
  */
 export async function updateDocumentContent(documentId: string, content: string): Promise<{ success: boolean }> {
