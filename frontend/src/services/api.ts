@@ -716,11 +716,7 @@ export interface DocumentContent {
  */
 export async function createReport(topic: string, title?: string): Promise<CreateReportResponse> {
   const url = `${API_BASE}/api/reports/`
-  const params = new URLSearchParams({ topic })
-  if (title) {
-    params.append('title', title)
-  }
-  const { data } = await axios.post(url, null, { params })
+  const { data } = await axios.post(url, { topic, title })
   return data as CreateReportResponse
 }
 

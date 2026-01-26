@@ -3,7 +3,8 @@
 """
 import uuid
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from backend.database import get_db
 from backend.models import Report, Document, ReportConversation
@@ -11,24 +12,30 @@ from backend.models import Report, Document, ReportConversation
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 
+class CreateReportRequest(BaseModel):
+    topic: str
+    title: Optional[str] = None
+
+
 @router.post("/")
 async def create_report(
-    topic: str,
-    title: Optional[str] = None,
+    request: CreateReportRequest,
     db: Session = Depends(get_db)
 ):
     """
     创建新报告
     
     Args:
-        topic: 报告主题
-        title: 报告标题（可选，默认从 topic 生成）
+        request: 创建报告请求（包含 topic 和可选的 title）
         db: 数据库会话
     
     Returns:
         { reportId, mainId, conversation_id }
     """
     try:
+        topic = request.topic
+        title = request.title
+        
         # 生成报告 ID
         report_id = str(uuid.uuid4())
         
