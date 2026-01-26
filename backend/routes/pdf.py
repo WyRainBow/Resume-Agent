@@ -83,7 +83,7 @@ async def render_pdf_stream(body: RenderPDFRequest):
             # 获取模板目录
             current_dir = Path(__file__).resolve().parent
             root_dir = current_dir.parents[1]  # Go up two levels to reach project root
-            template_dir = root_dir / "LATEX-slager"
+            template_dir = root_dir / "latex-resume-template"
 
             # 生成 LaTeX
             latex_content = json_to_latex(resume_data, body.section_order)

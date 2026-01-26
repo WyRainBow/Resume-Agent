@@ -41,7 +41,7 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     """获取 LaTeX 模板目录路径"""
     current_dir = Path(__file__).resolve().parent
     root_dir = current_dir.parent
-    latex_template_dir = root_dir / "LATEX-slager"
+    latex_template_dir = root_dir / "latex-resume-template"
     
     """构建 LaTeX 文档"""
     latex_content = []
@@ -246,7 +246,7 @@ def render_pdf_from_resume_latex(resume_data: Dict[str, Any], section_order: Lis
     """获取模板目录"""
     current_dir = Path(__file__).resolve().parent
     root_dir = current_dir.parent
-    template_dir = root_dir / "LATEX-slager"
+    template_dir = root_dir / "latex-resume-template"
     
     if not template_dir.exists():
         raise RuntimeError(f"LaTeX 模板目录不存在: {template_dir}")

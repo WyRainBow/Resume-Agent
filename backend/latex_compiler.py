@@ -24,10 +24,10 @@ def compile_latex_raw(latex_content: str) -> BytesIO:
     # 获取 slager 原版模板目录
     current_dir = Path(__file__).resolve().parent
     root_dir = current_dir.parent
-    template_dir = root_dir / "LATEX-slager"
+    template_dir = root_dir / "latex-resume-template"
     
     if not template_dir.exists():
-        raise RuntimeError("LATEX-slager 模板目录不存在")
+        raise RuntimeError("latex-resume-template 模板目录不存在")
     
     if not template_dir.exists():
         raise RuntimeError(f"LaTeX 模板目录不存在: {template_dir}")
