@@ -95,8 +95,9 @@ export default function ReportEdit() {
   }, [pendingPrompt])
 
   // 自动发送 pendingPrompt
+  // 注意：SSE 连接是在 sendMessage() 调用时建立的，不需要等待 isConnected
   useEffect(() => {
-    if (!conversationId || !isConnected || hasSentInitialPrompt || hasHistoryRef.current) {
+    if (!conversationId || hasSentInitialPrompt || hasHistoryRef.current) {
       return
     }
 
@@ -115,7 +116,7 @@ export default function ReportEdit() {
           return
         }
 
-        // 发送消息
+        // 发送消息（这会自动建立 SSE 连接）
         await sendMessage(initialPrompt)
         setHasSentInitialPrompt(true)
         setIsAgentRunning(true)
@@ -131,13 +132,13 @@ export default function ReportEdit() {
       }
     }
 
-    // 延迟发送，确保连接稳定
+    // 延迟发送，确保 conversationId 已设置
     const timer = setTimeout(() => {
       void sendPendingPrompt()
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [conversationId, isConnected, hasSentInitialPrompt, sendMessage])
+  }, [conversationId, hasSentInitialPrompt, sendMessage])
 
   // 监听流式内容并更新编辑器
   useEffect(() => {
