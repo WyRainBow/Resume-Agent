@@ -5,7 +5,7 @@
  * - 有内容时：左右分栏（左侧聊天，右侧报告内容）
  */
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useCLTP } from '@/hooks/useCLTP'
 import { useTextStream } from '@/hooks/useTextStream'
 import EnhancedMarkdown from '@/components/chat/EnhancedMarkdown'
@@ -69,7 +69,6 @@ function DragHandle({
 
 export default function ReportsPage() {
   const { reportId } = useParams<{ reportId?: string }>()
-  const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   
   // 报告列表状态
@@ -129,13 +128,14 @@ export default function ReportsPage() {
     loadReports()
   }, [])
 
-  // 从 URL 参数或选中状态加载报告
+  // 从 URL 参数加载报告
   useEffect(() => {
-    const reportIdFromUrl = reportId || searchParams.get('reportId')
-    if (reportIdFromUrl && reportIdFromUrl !== selectedReportId) {
-      setSelectedReportId(reportIdFromUrl)
+    if (reportId && reportId !== selectedReportId) {
+      setSelectedReportId(reportId)
+    } else if (!reportId) {
+      setSelectedReportId(null)
     }
-  }, [reportId, searchParams, selectedReportId])
+  }, [reportId, selectedReportId])
 
   // 加载选中的报告详情
   useEffect(() => {

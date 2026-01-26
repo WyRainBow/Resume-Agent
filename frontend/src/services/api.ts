@@ -706,6 +706,18 @@ export interface ReportDetail {
   updated_at: string | null
 }
 
+export interface ReportListItem {
+  id: string
+  title: string
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface ReportListResponse {
+  items: ReportListItem[]
+  total: number
+}
+
 export interface DocumentContent {
   content: string
   updated_at: string | null

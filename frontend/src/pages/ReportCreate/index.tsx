@@ -52,8 +52,8 @@ export default function ReportCreate() {
       // 创建报告
       const result = await createReport(topic.trim())
       
-      // 跳转到编辑页面
-      navigate(`/reports/${result.reportId}/edit`)
+      // 跳转到统一报告页面
+      navigate(`/reports/${result.reportId}`)
     } catch (err) {
       console.error('创建报告失败:', err)
       setError(err instanceof Error ? err.message : '创建报告失败，请重试')
