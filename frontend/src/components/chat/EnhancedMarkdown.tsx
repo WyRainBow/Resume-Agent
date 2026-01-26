@@ -157,6 +157,14 @@ export default function EnhancedMarkdown({
   className = '',
   customCodeRenderers = {},
 }: EnhancedMarkdownProps) {
+  // 确保 children 是字符串类型
+  const content = typeof children === 'string' ? children : String(children || '')
+  
+  // 如果内容为空，返回空 div
+  if (!content.trim()) {
+    return <div className={className} />
+  }
+  
   return (
     <div className={className}>
       <div
@@ -177,6 +185,7 @@ export default function EnhancedMarkdown({
       >
         <ReactMarkdown
           remarkPlugins={[remarkGfm, remarkBreaks]}
+          key={content.substring(0, 100)} // 添加 key 避免 React 警告
           components={{
           // 自定义段落样式
           p: ({ node, children, ...props }: any) => {
