@@ -27,12 +27,12 @@ export default function ReportCreate() {
     try {
       // 构建 prompt，引导 agent 使用工具来生成报告
       // 让 agent 知道这是一个报告生成任务，应该使用工具（如 browser_use 的 web_search）来获取信息
-      const prompt = `请生成一份关于"${topic.trim()}"的详细研究报告。
+      const prompt = `请直接生成一份关于"${topic.trim()}"的详细研究报告。不要询问用户需求或确认，直接开始执行任务。
 
-任务要求：
-1. 首先使用 browser_use 工具的 web_search 功能搜索相关信息，获取最新的数据、观点和案例
+执行步骤：
+1. 立即使用 browser_use 工具的 web_search 功能搜索相关信息，获取最新的数据、观点和案例
 2. 分析搜索到的信息，整理关键要点和趋势
-3. 生成一份结构完整、内容详实的 Markdown 格式报告，包括：
+3. 直接生成一份结构完整、内容详实的 Markdown 格式报告，包括：
    - 概述/引言：介绍主题背景和重要性
    - 主要内容和分析：深入分析各个关键方面
    - 关键数据和案例：提供具体的数据支撑和实际案例
@@ -43,8 +43,9 @@ export default function ReportCreate() {
 - 报告应该是结构化的 Markdown 格式，包含标题、段落、列表等
 - 内容要详实、有深度，不能只是简单的概述
 - 使用获取到的真实数据和案例来支撑观点
+- 不要询问用户需求，不要确认报告侧重点，直接开始生成报告
 
-现在开始执行：先搜索相关信息，然后生成报告。`
+现在立即开始执行：先搜索相关信息，然后直接生成完整的报告内容。`
       
       // 保存 pendingPrompt 到 store
       useReportStore.setPendingPrompt(prompt)
