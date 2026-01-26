@@ -96,7 +96,7 @@ export default function ReportEdit() {
     loadReport()
   }, [reportId])
 
-  // 保存 pendingPrompt 到 ref
+  // 保存 pendingPrompt 到 ref，如果没有则从报告标题生成
   useEffect(() => {
     if (pendingPrompt) {
       console.log('[ReportEdit] 获取到 pendingPrompt:', pendingPrompt.substring(0, 50) + '...')
@@ -108,9 +108,14 @@ export default function ReportEdit() {
       if (stored) {
         console.log('[ReportEdit] 从 sessionStorage 恢复 pendingPrompt')
         pendingPromptRef.current = stored
+      } else if (reportDetail && !content.trim()) {
+        // 如果文档为空，从报告标题生成 prompt
+        const generatedPrompt = `请生成一份详细的报告：${reportDetail.title}`
+        console.log('[ReportEdit] 从报告标题生成 prompt:', generatedPrompt)
+        pendingPromptRef.current = generatedPrompt
       }
     }
-  }, [pendingPrompt])
+  }, [pendingPrompt, reportDetail, content])
 
   // 自动发送 pendingPrompt
   // 注意：SSE 连接是在 sendMessage() 调用时建立的，不需要等待 isConnected
