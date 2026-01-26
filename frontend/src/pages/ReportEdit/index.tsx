@@ -66,14 +66,22 @@ export default function ReportEdit() {
         // 加载文档内容
         if (report.main_id) {
           const docContent = await getDocumentContent(report.main_id)
-          setContent(docContent.content || '')
-          lastSavedContentRef.current = docContent.content || ''
+          const savedContent = docContent.content || ''
+          setContent(savedContent)
+          lastSavedContentRef.current = savedContent
+          
+          // 如果文档已有内容，说明之前已经生成过，不需要再次发送 prompt
+          if (savedContent.trim()) {
+            console.log('[ReportEdit] 文档已有内容，跳过自动发送 prompt')
+            hasHistoryRef.current = true
+          }
         }
         
         // 检查是否有历史消息（通过 sessionStorage）
         const key = `autoSendReportPrompt:${convResult.conversation_id}`
         const alreadySent = sessionStorage.getItem(key) === '1'
         if (alreadySent) {
+          console.log('[ReportEdit] 检测到已发送标记，跳过自动发送')
           hasHistoryRef.current = true
         }
         
