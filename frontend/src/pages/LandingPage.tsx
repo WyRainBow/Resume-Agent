@@ -7,7 +7,8 @@ import {
   Zap,
   LogIn,
   User,
-  LogOut
+  LogOut,
+  FileEdit
 } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -141,6 +142,13 @@ export default function LandingPage() {
             >
               开始创建
               <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+            </button>
+            <button
+              onClick={() => navigate('/reports/new')}
+              className="px-12 py-5 bg-violet-600 text-white rounded-2xl font-black text-xl shadow-2xl shadow-violet-600/30 hover:bg-violet-700 hover:-translate-y-1 transition-all flex items-center gap-4 group"
+            >
+              <FileEdit className="w-6 h-6" />
+              生成报告
             </button>
             <div className="text-slate-500 font-bold">
               不再为排版浪费时间。
