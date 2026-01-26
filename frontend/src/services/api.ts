@@ -711,6 +711,18 @@ export interface DocumentContent {
   updated_at: string | null
 }
 
+export interface ReportListItem {
+  id: string
+  title: string
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface ReportListResponse {
+  items: ReportListItem[]
+  total: number
+}
+
 /**
  * 创建报告
  */

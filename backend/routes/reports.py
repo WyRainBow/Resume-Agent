@@ -3,9 +3,10 @@
 """
 import uuid
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 from backend.database import get_db
 from backend.models import Report, Document, ReportConversation
 
@@ -15,6 +16,61 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 class CreateReportRequest(BaseModel):
     topic: str
     title: Optional[str] = None
+
+
+class ReportListItem(BaseModel):
+    id: str
+    title: str
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class ReportListResponse(BaseModel):
+    items: list[ReportListItem]
+    total: int
+
+
+@router.get("/", response_model=ReportListResponse)
+async def list_reports(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    db: Session = Depends(get_db)
+):
+    """
+    获取报告列表
+    
+    Args:
+        page: 页码
+        page_size: 每页数量
+        db: 数据库会话
+    
+    Returns:
+        报告列表
+    """
+    try:
+        # 计算偏移量
+        offset = (page - 1) * page_size
+        
+        # 查询报告总数
+        total = db.query(Report).count()
+        
+        # 查询报告列表（按更新时间倒序）
+        reports = db.query(Report).order_by(desc(Report.updated_at)).offset(offset).limit(page_size).all()
+        
+        return ReportListResponse(
+            items=[
+                ReportListItem(
+                    id=report.id,
+                    title=report.title,
+                    created_at=report.created_at.isoformat() if report.created_at else None,
+                    updated_at=report.updated_at.isoformat() if report.updated_at else None
+                )
+                for report in reports
+            ],
+            total=total
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取报告列表失败: {str(e)}")
 
 
 @router.post("/")
