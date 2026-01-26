@@ -142,8 +142,10 @@ export default function ReportEdit() {
   }, [conversationId, hasSentInitialPrompt, sendMessage])
 
   // 使用 useTextStream 实现打字机效果
+  // 注意：流式输出时使用 currentAnswer，完成后使用 content
+  const textToDisplay = isProcessing ? currentAnswer : content
   const { displayedText: typewriterText, isComplete: typewriterComplete } = useTextStream({
-    textStream: isProcessing ? currentAnswer : content,
+    textStream: textToDisplay || '',
     speed: 15,
     mode: 'typewriter',
   })
@@ -246,15 +248,22 @@ export default function ReportEdit() {
         <div className="flex-1 flex flex-col bg-white">
           <div className="flex-1 overflow-y-auto p-6">
             <div className="max-w-4xl mx-auto">
-              {typewriterText || content || isProcessing ? (
+              {textToDisplay || typewriterText || isProcessing ? (
                 <div className="prose max-w-none">
                   {/* 使用打字机效果显示内容，并用 EnhancedMarkdown 渲染 */}
-                  <EnhancedMarkdown>
-                    {isProcessing ? typewriterText : content}
-                  </EnhancedMarkdown>
-                  {/* 打字机效果进行中时显示光标 */}
-                  {isProcessing && !typewriterComplete && (
-                    <span className="inline-block w-0.5 h-4 bg-gray-400 animate-pulse ml-0.5" />
+                  {isProcessing && typewriterText ? (
+                    <>
+                      <EnhancedMarkdown>{typewriterText}</EnhancedMarkdown>
+                      {!typewriterComplete && (
+                        <span className="inline-block w-0.5 h-4 bg-gray-400 animate-pulse ml-0.5" />
+                      )}
+                    </>
+                  ) : content ? (
+                    <EnhancedMarkdown>{content}</EnhancedMarkdown>
+                  ) : (
+                    <div className="text-gray-400 text-center py-12">
+                      AI 正在生成内容...
+                    </div>
                   )}
                 </div>
               ) : (
