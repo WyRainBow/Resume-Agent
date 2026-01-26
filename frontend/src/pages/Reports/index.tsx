@@ -255,39 +255,54 @@ export default function ReportsPage() {
     mode: 'typewriter',
   })
 
-  // 监听流式内容
+  // 监听流式内容并更新右侧报告内容
   useEffect(() => {
     if (isProcessing && currentAnswer) {
       setContent(currentAnswer)
     } else if (!isProcessing && isAgentRunning && currentAnswer) {
       setContent(currentAnswer)
-      setIsAgentRunning(false)
     }
   }, [currentAnswer, isProcessing, isAgentRunning])
 
   // 监听 AI 回复并添加到消息列表
   useEffect(() => {
-    if (currentAnswer && isProcessing) {
+    if ((currentAnswer || currentThought) && isProcessing) {
       // 更新或添加 assistant 消息
+      setMessages(prev => {
+        const lastMessage = prev[prev.length - 1]
+        // 如果最后一条消息是 assistant 且正在流式输出，更新它
+        if (lastMessage && lastMessage.role === 'assistant' && lastMessage.id.startsWith('assistant-')) {
+          return prev.slice(0, -1).concat({
+            ...lastMessage,
+            content: currentAnswer || lastMessage.content,
+            thought: currentThought || lastMessage.thought
+          })
+        } else {
+          // 否则添加新消息
+          return prev.concat({
+            id: `assistant-${Date.now()}`,
+            role: 'assistant',
+            content: currentAnswer || '',
+            thought: currentThought || undefined
+          })
+        }
+      })
+    } else if (!isProcessing && isAgentRunning && currentAnswer) {
+      // Agent 结束时，确保最后一条消息是最新的
       setMessages(prev => {
         const lastMessage = prev[prev.length - 1]
         if (lastMessage && lastMessage.role === 'assistant') {
           return prev.slice(0, -1).concat({
             ...lastMessage,
             content: currentAnswer,
-            thought: currentThought || undefined
-          })
-        } else {
-          return prev.concat({
-            id: `assistant-${Date.now()}`,
-            role: 'assistant',
-            content: currentAnswer,
-            thought: currentThought || undefined
+            thought: currentThought || lastMessage.thought
           })
         }
+        return prev
       })
+      setIsAgentRunning(false)
     }
-  }, [currentAnswer, currentThought, isProcessing])
+  }, [currentAnswer, currentThought, isProcessing, isAgentRunning])
 
   // 自动保存内容
   useEffect(() => {
@@ -445,19 +460,6 @@ export default function ReportsPage() {
                       isStreaming={idx === messages.length - 1 && isProcessing}
                     />
                   ))}
-                  
-                  {isProcessing && (currentThought || currentAnswer) && (
-                    <ChatMessage
-                      message={{
-                        id: 'current',
-                        role: 'assistant',
-                        thought: currentThought,
-                        content: currentAnswer,
-                      }}
-                      isLatest={true}
-                      isStreaming={true}
-                    />
-                  )}
                 </div>
 
                 {/* 输入框 */}
