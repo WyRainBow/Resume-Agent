@@ -42,6 +42,7 @@ export default function ReportEdit() {
     finalizeStream,
   } = useCLTP({
     conversationId: conversationId || undefined,
+    baseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:9000',
   })
 
   // 加载报告详情
