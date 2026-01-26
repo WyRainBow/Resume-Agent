@@ -182,22 +182,29 @@ export class SSETransport {
    */
   private processSSEEvent(eventText: string): void {
     try {
-      // Parse SSE format: "id: xxx\ndata: {...}"
+      // Parse SSE format: "id: xxx\ndata: {...}" or "event: xxx\ndata: {...}"
       const lines = eventText.split('\n');
       let eventId = '';
+      let eventType = '';
       let eventData = '';
 
       for (const line of lines) {
         if (line.startsWith('id: ')) {
           eventId = line.slice(4).trim();
+        } else if (line.startsWith('event: ')) {
+          eventType = line.slice(7).trim();
         } else if (line.startsWith('data: ')) {
           eventData = line.slice(6);
         }
       }
 
-      if (!eventData) return;
+      if (!eventData) {
+        console.log('[SSETransport] No data in event:', eventText.substring(0, 100));
+        return;
+      }
 
       const parsed = JSON.parse(eventData);
+      console.log('[SSETransport] Parsed event:', { type: eventType || parsed.type, id: eventId || parsed.id, dataType: typeof parsed.data });
 
       // Update heartbeat time
       this.lastHeartbeatTime = Date.now();
