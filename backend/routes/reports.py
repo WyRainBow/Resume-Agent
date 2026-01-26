@@ -13,8 +13,8 @@ router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 @router.post("/")
 async def create_report(
-    topic: str = Query(..., description="报告主题"),
-    title: Optional[str] = Query(None, description="报告标题（可选）"),
+    topic: str,
+    title: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     """
