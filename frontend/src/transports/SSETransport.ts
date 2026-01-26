@@ -140,17 +140,24 @@ export class SSETransport {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let chunkCount = 0;
 
     try {
       while (true) {
         const { done, value } = await reader.read();
 
         if (done) {
-          console.log('[SSETransport] Stream ended');
+          console.log('[SSETransport] Stream ended, total chunks:', chunkCount);
           break;
         }
 
-        buffer += decoder.decode(value, { stream: true });
+        chunkCount++;
+        const decoded = decoder.decode(value, { stream: true });
+        buffer += decoded;
+        
+        if (chunkCount <= 3) {
+          console.log(`[SSETransport] Chunk ${chunkCount} received:`, decoded.substring(0, 200));
+        }
 
         // Process complete events in buffer
         const lines = buffer.split('\n\n');
@@ -158,6 +165,7 @@ export class SSETransport {
 
         for (const eventText of lines) {
           if (eventText.trim()) {
+            console.log('[SSETransport] Processing event:', eventText.substring(0, 200));
             this.processSSEEvent(eventText);
           }
         }
@@ -165,6 +173,7 @@ export class SSETransport {
 
       // Process any remaining data
       if (buffer.trim()) {
+        console.log('[SSETransport] Processing remaining buffer:', buffer.substring(0, 200));
         this.processSSEEvent(buffer);
       }
 
