@@ -3,18 +3,18 @@
 """
 import uuid
 from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from database import get_db
-from models import Report, Document, ReportConversation
+from backend.database import get_db
+from backend.models import Report, Document, ReportConversation
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
 
 @router.post("/")
 async def create_report(
-    topic: str,
-    title: Optional[str] = None,
+    topic: str = Query(..., description="报告主题"),
+    title: Optional[str] = Query(None, description="报告标题（可选）"),
     db: Session = Depends(get_db)
 ):
     """
