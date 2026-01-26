@@ -6,7 +6,7 @@ from typing import Optional, Literal, List, Dict, Any
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from database import Base
+from backend.database import Base
 
 
 class RewriteRequest(BaseModel):
@@ -148,3 +148,45 @@ class Resume(Base):
         lazy="select",
         overlaps="user,resumes",
     )
+
+
+class Document(Base):
+    """文档模型（用于报告内容存储）"""
+    __tablename__ = "documents"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(String(255), primary_key=True, index=True)
+    content = Column(String(10000), nullable=False, default="")  # 文档内容
+    type = Column(String(50), nullable=False, default="main")  # 文档类型：main/outline/other
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class Report(Base):
+    """报告模型"""
+    __tablename__ = "reports"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(String(255), primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)  # 可选，支持匿名用户
+    title = Column(String(255), nullable=False)
+    main_id = Column(String(255), ForeignKey("documents.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+    # 关联关系（暂时不使用，避免复杂配置）
+    # main_document = relationship("Document", foreign_keys=[main_id], lazy="select")
+
+
+class ReportConversation(Base):
+    """报告与对话关联表"""
+    __tablename__ = "report_conversations"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    report_id = Column(String(255), ForeignKey("reports.id", ondelete="CASCADE"), nullable=False, index=True)
+    conversation_id = Column(String(255), nullable=False, index=True)  # 对话 ID（session_id）
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # 关联关系（暂时不使用，避免复杂配置）
+    # report = relationship("Report", lazy="select")

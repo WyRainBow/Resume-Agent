@@ -78,11 +78,11 @@ class BrowserContextHelper:
                 self._current_base64_image = None  # Consume the image after adding
 
         return NEXT_STEP_PROMPT.format(
-            url_placeholder=url_info,
-            tabs_placeholder=tabs_info,
-            content_above_placeholder=content_above_info,
-            content_below_placeholder=content_below_info,
-            results_placeholder=results_info,
+            url=url_info,
+            tabs=tabs_info,
+            above=content_above_info,
+            below=content_below_info,
+            results=results_info,
         )
 
     async def cleanup_browser(self):

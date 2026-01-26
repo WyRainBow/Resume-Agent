@@ -12,7 +12,7 @@ zhipuai==2.1.5.20250825
 sse-starlette==1.8.2
 
 # Database
-sqlalchemy==2.0.23
+sqlalchemy>=2.0.36
 alembic==1.13.1
 pymysql==1.1.0
 

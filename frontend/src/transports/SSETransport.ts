@@ -140,17 +140,24 @@ export class SSETransport {
     const reader = body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+    let chunkCount = 0;
 
     try {
       while (true) {
         const { done, value } = await reader.read();
 
         if (done) {
-          console.log('[SSETransport] Stream ended');
+          console.log('[SSETransport] Stream ended, total chunks:', chunkCount);
           break;
         }
 
-        buffer += decoder.decode(value, { stream: true });
+        chunkCount++;
+        const decoded = decoder.decode(value, { stream: true });
+        buffer += decoded;
+        
+        if (chunkCount <= 3) {
+          console.log(`[SSETransport] Chunk ${chunkCount} received:`, decoded.substring(0, 200));
+        }
 
         // Process complete events in buffer
         const lines = buffer.split('\n\n');
@@ -158,6 +165,7 @@ export class SSETransport {
 
         for (const eventText of lines) {
           if (eventText.trim()) {
+            console.log('[SSETransport] Processing event:', eventText.substring(0, 200));
             this.processSSEEvent(eventText);
           }
         }
@@ -165,6 +173,7 @@ export class SSETransport {
 
       // Process any remaining data
       if (buffer.trim()) {
+        console.log('[SSETransport] Processing remaining buffer:', buffer.substring(0, 200));
         this.processSSEEvent(buffer);
       }
 
@@ -182,22 +191,29 @@ export class SSETransport {
    */
   private processSSEEvent(eventText: string): void {
     try {
-      // Parse SSE format: "id: xxx\ndata: {...}"
+      // Parse SSE format: "id: xxx\ndata: {...}" or "event: xxx\ndata: {...}"
       const lines = eventText.split('\n');
       let eventId = '';
+      let eventType = '';
       let eventData = '';
 
       for (const line of lines) {
         if (line.startsWith('id: ')) {
           eventId = line.slice(4).trim();
+        } else if (line.startsWith('event: ')) {
+          eventType = line.slice(7).trim();
         } else if (line.startsWith('data: ')) {
           eventData = line.slice(6);
         }
       }
 
-      if (!eventData) return;
+      if (!eventData) {
+        console.log('[SSETransport] No data in event:', eventText.substring(0, 100));
+        return;
+      }
 
       const parsed = JSON.parse(eventData);
+      console.log('[SSETransport] Parsed event:', { type: eventType || parsed.type, id: eventId || parsed.id, dataType: typeof parsed.data });
 
       // Update heartbeat time
       this.lastHeartbeatTime = Date.now();

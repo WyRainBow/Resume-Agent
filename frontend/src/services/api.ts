@@ -686,3 +686,105 @@ export async function compileLatexStream(
   
   return blob
 }
+
+// ======================
+// 报告相关 API
+// ======================
+
+export interface CreateReportResponse {
+  reportId: string
+  mainId: string
+  conversation_id: string
+}
+
+export interface ReportDetail {
+  id: string
+  title: string
+  main_id: string
+  conversation_id: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface ReportListItem {
+  id: string
+  title: string
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface ReportListResponse {
+  items: ReportListItem[]
+  total: number
+}
+
+export interface DocumentContent {
+  content: string
+  updated_at: string | null
+}
+
+export interface ReportListItem {
+  id: string
+  title: string
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface ReportListResponse {
+  items: ReportListItem[]
+  total: number
+}
+
+/**
+ * 创建报告
+ */
+export async function createReport(topic: string, title?: string): Promise<CreateReportResponse> {
+  const url = `${API_BASE}/api/reports/`
+  const { data } = await axios.post(url, { topic, title })
+  return data as CreateReportResponse
+}
+
+/**
+ * 获取报告详情
+ */
+export async function getReport(reportId: string): Promise<ReportDetail> {
+  const url = `${API_BASE}/api/reports/${reportId}`
+  const { data } = await axios.get(url)
+  return data as ReportDetail
+}
+
+/**
+ * 确保报告有关联的对话
+ */
+export async function ensureReportConversation(reportId: string): Promise<{ conversation_id: string }> {
+  const url = `${API_BASE}/api/reports/${reportId}/ensure-conversation`
+  const { data } = await axios.post(url)
+  return data as { conversation_id: string }
+}
+
+/**
+ * 获取文档内容
+ */
+export async function getDocumentContent(documentId: string): Promise<DocumentContent> {
+  const url = `${API_BASE}/api/documents/${documentId}/content`
+  const { data } = await axios.get(url)
+  return data as DocumentContent
+}
+
+/**
+ * 获取报告列表
+ */
+export async function listReports(page: number = 1, pageSize: number = 20): Promise<ReportListResponse> {
+  const url = `${API_BASE}/api/reports/`
+  const { data } = await axios.get(url, { params: { page, page_size: pageSize } })
+  return data as ReportListResponse
+}
+
+/**
+ * 更新文档内容
+ */
+export async function updateDocumentContent(documentId: string, content: string): Promise<{ success: boolean }> {
+  const url = `${API_BASE}/api/documents/${documentId}/content`
+  const { data } = await axios.post(url, { content })
+  return data as { success: boolean }
+}
