@@ -4,8 +4,9 @@
  */
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import ReactMarkdown from 'react-markdown'
 import { useCLTP } from '@/hooks/useCLTP'
+import { useTextStream } from '@/hooks/useTextStream'
+import EnhancedMarkdown from '@/components/chat/EnhancedMarkdown'
 import { 
   getReport, 
   ensureReportConversation, 
@@ -140,6 +141,13 @@ export default function ReportEdit() {
     return () => clearTimeout(timer)
   }, [conversationId, hasSentInitialPrompt, sendMessage])
 
+  // 使用 useTextStream 实现打字机效果
+  const { displayedText: typewriterText, isComplete: typewriterComplete } = useTextStream({
+    textStream: isProcessing ? currentAnswer : content,
+    speed: 15,
+    mode: 'typewriter',
+  })
+
   // 监听流式内容并更新编辑器
   useEffect(() => {
     if (!isProcessing && isAgentRunning && currentAnswer) {
@@ -238,13 +246,20 @@ export default function ReportEdit() {
         <div className="flex-1 flex flex-col bg-white">
           <div className="flex-1 overflow-y-auto p-6">
             <div className="max-w-4xl mx-auto">
-              {content ? (
+              {typewriterText || content || isProcessing ? (
                 <div className="prose max-w-none">
-                  <ReactMarkdown>{content}</ReactMarkdown>
+                  {/* 使用打字机效果显示内容，并用 EnhancedMarkdown 渲染 */}
+                  <EnhancedMarkdown>
+                    {isProcessing ? typewriterText : content}
+                  </EnhancedMarkdown>
+                  {/* 打字机效果进行中时显示光标 */}
+                  {isProcessing && !typewriterComplete && (
+                    <span className="inline-block w-0.5 h-4 bg-gray-400 animate-pulse ml-0.5" />
+                  )}
                 </div>
               ) : (
                 <div className="text-gray-400 text-center py-12">
-                  {isProcessing ? 'AI 正在生成内容...' : '等待 AI 生成内容...'}
+                  等待 AI 生成内容...
                 </div>
               )}
             </div>
