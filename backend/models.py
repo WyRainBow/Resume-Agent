@@ -174,8 +174,8 @@ class Report(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    # 关联关系
-    main_document = relationship("Document", foreign_keys=[main_id], lazy="select")
+    # 关联关系（使用 lambda 避免循环导入）
+    main_document = relationship(lambda: Document, foreign_keys=[main_id], lazy="select")
 
 
 class ReportConversation(Base):
@@ -188,5 +188,5 @@ class ReportConversation(Base):
     conversation_id = Column(String(255), nullable=False, index=True)  # 对话 ID（session_id）
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
-    # 关联关系
-    report = relationship("Report", lazy="select")
+    # 关联关系（使用 lambda 避免循环导入）
+    report = relationship(lambda: Report, lazy="select")
