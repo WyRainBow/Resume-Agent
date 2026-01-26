@@ -12,7 +12,6 @@ export default function ReportCreate() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
-  const setPendingPrompt = useReportStore((state) => state.setPendingPrompt)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -30,7 +29,7 @@ export default function ReportCreate() {
       const prompt = `请生成一份详细的报告：${topic.trim()}`
       
       // 保存 pendingPrompt 到 store
-      setPendingPrompt(prompt)
+      useReportStore.setPendingPrompt(prompt)
 
       // 创建报告
       const result = await createReport(topic.trim())
