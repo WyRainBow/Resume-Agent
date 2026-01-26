@@ -91,7 +91,16 @@ export default function ReportEdit() {
   // 保存 pendingPrompt 到 ref
   useEffect(() => {
     if (pendingPrompt) {
+      console.log('[ReportEdit] 获取到 pendingPrompt:', pendingPrompt.substring(0, 50) + '...')
       pendingPromptRef.current = pendingPrompt
+    } else {
+      console.log('[ReportEdit] 没有 pendingPrompt')
+      // 如果没有 pendingPrompt，尝试从 sessionStorage 恢复
+      const stored = sessionStorage.getItem('report-pending-prompt')
+      if (stored) {
+        console.log('[ReportEdit] 从 sessionStorage 恢复 pendingPrompt')
+        pendingPromptRef.current = stored
+      }
     }
   }, [pendingPrompt])
 
@@ -104,6 +113,7 @@ export default function ReportEdit() {
 
     const initialPrompt = pendingPromptRef.current
     if (!initialPrompt) {
+      console.log('[ReportEdit] 没有 pendingPrompt，跳过自动发送')
       return
     }
 
@@ -113,12 +123,16 @@ export default function ReportEdit() {
         const key = `autoSendReportPrompt:${conversationId}`
         const alreadySent = sessionStorage.getItem(key) === '1'
         if (alreadySent) {
+          console.log('[ReportEdit] Prompt 已发送过，跳过')
           hasHistoryRef.current = true
           return
         }
 
+        console.log('[ReportEdit] 准备发送 prompt:', initialPrompt.substring(0, 50) + '...')
+        
         // 发送消息（这会自动建立 SSE 连接）
         await sendMessage(initialPrompt)
+        console.log('[ReportEdit] Prompt 发送成功')
         setHasSentInitialPrompt(true)
         setIsAgentRunning(true)
         
@@ -129,7 +143,8 @@ export default function ReportEdit() {
         // 标记已发送
         sessionStorage.setItem(key, '1')
       } catch (err) {
-        console.error('发送 pendingPrompt 失败:', err)
+        console.error('[ReportEdit] 发送 pendingPrompt 失败:', err)
+        setError(err instanceof Error ? err.message : '发送消息失败')
       }
     }
 
