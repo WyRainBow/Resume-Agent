@@ -248,27 +248,23 @@ export default function ReportEdit() {
         <div className="flex-1 flex flex-col bg-white">
           <div className="flex-1 overflow-y-auto p-6">
             <div className="max-w-4xl mx-auto">
-              {textToDisplay || typewriterText || isProcessing ? (
+              {(isProcessing && typewriterText) || content ? (
                 <div className="prose max-w-none">
                   {/* 使用打字机效果显示内容，并用 EnhancedMarkdown 渲染 */}
                   {isProcessing && typewriterText ? (
                     <>
-                      <EnhancedMarkdown>{typewriterText}</EnhancedMarkdown>
+                      <EnhancedMarkdown>{String(typewriterText || '')}</EnhancedMarkdown>
                       {!typewriterComplete && (
                         <span className="inline-block w-0.5 h-4 bg-gray-400 animate-pulse ml-0.5" />
                       )}
                     </>
                   ) : content ? (
-                    <EnhancedMarkdown>{content}</EnhancedMarkdown>
-                  ) : (
-                    <div className="text-gray-400 text-center py-12">
-                      AI 正在生成内容...
-                    </div>
-                  )}
+                    <EnhancedMarkdown>{String(content || '')}</EnhancedMarkdown>
+                  ) : null}
                 </div>
               ) : (
                 <div className="text-gray-400 text-center py-12">
-                  等待 AI 生成内容...
+                  {isProcessing ? 'AI 正在生成内容...' : '等待 AI 生成内容...'}
                 </div>
               )}
             </div>
