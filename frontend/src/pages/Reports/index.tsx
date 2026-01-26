@@ -18,6 +18,7 @@ import {
   listReports
 } from '@/services/api'
 import { useReportStore } from '@/stores/reportStore'
+import { cn } from '@/lib/utils'
 import type { ReportDetail, ReportListItem } from '@/services/api'
 
 // 拖拽分隔线组件
@@ -58,7 +59,7 @@ function DragHandle({
 
   return (
     <div
-      className={`w-1 cursor-ew-resize transition-all duration-200 group relative shrink-0 hover:bg-indigo-300 ${className || ''}`}
+      className={cn('w-1 cursor-ew-resize transition-all duration-200 group relative shrink-0 hover:bg-indigo-300', className)}
       style={{ cursor: 'ew-resize', touchAction: 'none' }}
       onMouseDown={handleMouseDown}
     >
@@ -396,11 +397,12 @@ export default function ReportsPage() {
                       <button
                         key={report.id}
                         onClick={() => handleReportClick(report.id)}
-                        className={`w-full text-left px-3 py-2 rounded text-sm transition-colors ${
+                        className={cn(
+                          'w-full text-left px-3 py-2 rounded text-sm transition-colors',
                           selectedReportId === report.id
                             ? 'bg-blue-50 text-blue-700 font-medium'
                             : 'text-gray-700 hover:bg-gray-50'
-                        }`}
+                        )}
                       >
                         <div className="truncate">{report.title}</div>
                         {report.updated_at && (
