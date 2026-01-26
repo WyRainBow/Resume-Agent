@@ -22,7 +22,7 @@ try:
 except ImportError:
     HTTPX_AVAILABLE = False
     print("[http_client] httpx 未安装，使用 requests 降级方案")
-    print("[http_client] 安装命令: pip install httpx[http2]")
+    print("[http_client] 安装命令: uv pip install httpx[http2]")
 
 """降级方案：使用 requests"""
 import requests

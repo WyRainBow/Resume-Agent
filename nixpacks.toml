@@ -17,17 +17,18 @@ aptPkgs = [
 [phases.install]
 # 确保安装所有依赖，添加调试信息
 cmds = [
+    "echo '=== 安装 uv ==='",
+    "pip install uv",
     "echo '=== 安装 Python 依赖 ==='",
     "pwd",
     "ls -la",
-    "pip install --upgrade pip",
     "echo '=== 安装根目录依赖 ==='",
-    "pip install -r requirements.txt || echo '根目录 requirements.txt 不存在或安装失败'",
+    "uv pip install --system -r requirements.txt || echo '根目录 requirements.txt 不存在或安装失败'",
     "echo '=== 验证关键依赖安装 ==='",
     "python -c 'import sqlalchemy; print(f\"✅ SQLAlchemy version: {sqlalchemy.__version__}\")' || echo '❌ SQLAlchemy not installed'",
     "python -c 'import pymysql; print(\"✅ PyMySQL installed\")' || echo '❌ PyMySQL not installed'",
     "python -c 'import alembic; print(\"✅ Alembic installed\")' || echo '❌ Alembic not installed'",
-    "pip list | grep -E 'sqlalchemy|pymysql|alembic' || echo '依赖验证完成'"
+    "uv pip list | grep -E 'sqlalchemy|pymysql|alembic' || echo '依赖验证完成'"
 ]
 
 # 启动前运行数据库迁移（如果有 DATABASE_URL）

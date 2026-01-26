@@ -61,7 +61,7 @@ _last_zhipu_key = None  # 记录上次使用的 API Key
 try:
     from zhipuai import ZhipuAI
 except ImportError:
-    print("zhipuai 未安装，请运行: pip install zhipuai")
+    print("zhipuai 未安装，请运行: uv pip install zhipuai")
     ZhipuAI = None
 
 

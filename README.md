@@ -85,7 +85,13 @@ cp .env.example .env
 
 **3、安装依赖**
 ```bash
-pip install -r requirements.txt
+# 安装 uv（如果尚未安装）
+pip install uv
+
+# 使用 uv 安装 Python 依赖
+uv pip install -r requirements.txt
+
+# 安装前端依赖
 cd frontend && npm install
 ```
 

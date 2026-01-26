@@ -54,7 +54,7 @@ def check_dependencies():
     
     if missing:
         print(f"   ⚠️  缺少依赖: {missing}")
-        print("   请运行: pip3 install -r requirements.txt")
+        print("   请运行: uv pip install -r requirements.txt")
         return False
     else:
         print("   ✅ 所有依赖已安装")

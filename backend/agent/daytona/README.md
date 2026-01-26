@@ -5,7 +5,7 @@
 
 ## Prerequisites
 - conda activate 'Your OpenManus python env'
-- pip install daytona==0.21.8 structlog==25.4.0
+- uv pip install daytona==0.21.8 structlog==25.4.0
 
 
 

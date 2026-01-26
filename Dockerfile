@@ -15,11 +15,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && fc-cache -fv
 
+# 安装 uv
+RUN pip install --no-cache-dir uv
+
 # 复制依赖文件
 COPY requirements.txt .
 
-# 安装 Python 依赖
-RUN pip install --no-cache-dir -r requirements.txt
+# 使用 uv 安装 Python 依赖
+RUN uv pip install --system -r requirements.txt
 
 # 复制项目文件
 COPY . .
