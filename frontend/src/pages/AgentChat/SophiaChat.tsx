@@ -1,5 +1,5 @@
 /**
- * SophiaChat - 复刻 sophia-pro 风格的对话页面
+ * AgentChat - 对话页面
  *
  * 使用 SSE (Server-Sent Events) 替代 WebSocket
  *
@@ -237,14 +237,14 @@ export default function SophiaChat() {
         // 尝试加载会话历史
         // 防御性检查：确保 conversationId 不为空
         if (!conversationId || conversationId.trim() === '') {
-          console.warn('[SophiaChat] Cannot load session: conversationId is empty');
+          console.warn('[AgentChat] Cannot load session: conversationId is empty');
           return;
         }
         const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/${conversationId}`);
         if (!mounted) return;
         if (!resp.ok) {
           // 会话不存在，使用新的会话ID
-          console.log(`[SophiaChat] Session ${conversationId} not found, starting new session`);
+          console.log(`[AgentChat] Session ${conversationId} not found, starting new session`);
           return;
         }
         const data = await resp.json();
@@ -277,11 +277,11 @@ export default function SophiaChat() {
           setMessages(dedupedMessages);
           setCurrentSessionId(conversationId);
           console.log(
-            `[SophiaChat] Auto-loaded session ${conversationId} with ${dedupedMessages.length} messages`
+            `[AgentChat] Auto-loaded session ${conversationId} with ${dedupedMessages.length} messages`
           );
         }
       } catch (error) {
-        console.error('[SophiaChat] Failed to auto-load session:', error);
+        console.error('[AgentChat] Failed to auto-load session:', error);
       }
     };
 
@@ -320,10 +320,10 @@ export default function SophiaChat() {
             },
           };
           setResumeData(resumeDataWithMeta as ResumeData);
-          console.log('[SophiaChat] Resume data refreshed after agent completion');
+          console.log('[AgentChat] Resume data refreshed after agent completion');
         }
       } catch (error) {
-        console.error('[SophiaChat] Failed to refresh resume data:', error);
+        console.error('[AgentChat] Failed to refresh resume data:', error);
       }
     };
 
@@ -342,14 +342,14 @@ export default function SophiaChat() {
 
   useEffect(() => {
     currentThoughtRef.current = currentThought;
-    console.log('[SophiaChat] currentThought updated', {
+    console.log('[AgentChat] currentThought updated', {
       length: currentThought.length,
     });
   }, [currentThought]);
 
   useEffect(() => {
     currentAnswerRef.current = currentAnswer;
-    console.log('[SophiaChat] currentAnswer updated', {
+    console.log('[AgentChat] currentAnswer updated', {
       length: currentAnswer.length,
     });
   }, [currentAnswer]);
@@ -369,7 +369,7 @@ export default function SophiaChat() {
   const finalizeMessage = useCallback(() => {
     // 防止重复调用
     if (isFinalizedRef.current) {
-      console.log('[SophiaChat] finalizeMessage already called, skipping');
+      console.log('[AgentChat] finalizeMessage already called, skipping');
       return;
     }
 
@@ -383,7 +383,7 @@ export default function SophiaChat() {
     const thought = thoughtRefValue || thoughtStateValue || fallback?.thought || '';
     const answer = answerRefValue || answerStateValue || fallback?.answer || '';
 
-    console.log('[SophiaChat] finalizeMessage called', {
+    console.log('[AgentChat] finalizeMessage called', {
       thoughtLength: thought.length,
       answerLength: answer.length,
       thoughtRefLength: thoughtRefValue.length,
@@ -395,7 +395,7 @@ export default function SophiaChat() {
     });
 
     if (!thought && !answer) {
-      console.log('[SophiaChat] No content to finalize, just resetting state');
+      console.log('[AgentChat] No content to finalize, just resetting state');
       finalizeStream();
       setTimeout(() => {
         isFinalizedRef.current = false;
@@ -423,11 +423,11 @@ export default function SophiaChat() {
         (last.content || '').trim() === newMessage.content.trim() &&
         ((last as any).thought || '').trim() === (newMessage.thought || '').trim()
       ) {
-        console.log('[SophiaChat] Duplicate assistant message skipped');
+        console.log('[AgentChat] Duplicate assistant message skipped');
         return prev;
       }
       const updated = [...prev, newMessage];
-      console.log('[SophiaChat] Messages updated', { count: updated.length });
+      console.log('[AgentChat] Messages updated', { count: updated.length });
       return updated;
     });
   }, [finalizeStream, currentAnswer, currentThought]);
@@ -454,7 +454,7 @@ export default function SophiaChat() {
         if (validSessionId !== conversationId) {
           setConversationId(validSessionId);
         }
-        console.log(`[SophiaChat] Generated new session ID: ${validSessionId}`);
+        console.log(`[AgentChat] Generated new session ID: ${validSessionId}`);
       }
 
       const payload = buildSavePayload(messagesToSave);
@@ -479,7 +479,7 @@ export default function SophiaChat() {
             }
           );
           if (!resp.ok) {
-            console.error(`[SophiaChat] Failed to save session: ${resp.status}`);
+            console.error(`[AgentChat] Failed to save session: ${resp.status}`);
             const retryCount = (saveRetryRef.current[payloadKey] || 0) + 1;
             if (retryCount <= 2) {
               saveRetryRef.current[payloadKey] = retryCount;
@@ -500,7 +500,7 @@ export default function SophiaChat() {
             refreshSessions();
           }
         } catch (error) {
-          console.error('[SophiaChat] Failed to save session snapshot:', error);
+          console.error('[AgentChat] Failed to save session snapshot:', error);
           const retryCount = (saveRetryRef.current[payloadKey] || 0) + 1;
           if (retryCount <= 2) {
             saveRetryRef.current[payloadKey] = retryCount;
@@ -550,7 +550,7 @@ export default function SophiaChat() {
     if (conversationId && conversationId.trim() !== '') {
       void persistSessionSnapshot(conversationId, messages, shouldRefresh);
     } else {
-      console.warn('[SophiaChat] Skipping save: conversationId is empty');
+      console.warn('[AgentChat] Skipping save: conversationId is empty');
     }
   }, [conversationId, messages, persistSessionSnapshot]);
 
@@ -585,7 +585,7 @@ export default function SophiaChat() {
       }
       refreshSessions();
     } catch (error) {
-      console.error('[SophiaChat] Failed to delete session:', error);
+      console.error('[AgentChat] Failed to delete session:', error);
     }
   };
 
@@ -616,14 +616,14 @@ export default function SophiaChat() {
       // 检查是否已存在相同或相似的内容
       // 检查完全匹配
       if (seenContents.has(contentKey)) {
-        console.log('[SophiaChat] Duplicate message skipped (exact match):', contentKey.slice(0, 50));
+        console.log('[AgentChat] Duplicate message skipped (exact match):', contentKey.slice(0, 50));
         continue;
       }
       
       if (roleKey === 'assistant') {
         // 检查 Response 部分匹配
         if (seenContents.has(cleanContent)) {
-          console.log('[SophiaChat] Duplicate message skipped (response match):', cleanContent.slice(0, 50));
+          console.log('[AgentChat] Duplicate message skipped (response match):', cleanContent.slice(0, 50));
           continue;
         }
         
@@ -631,7 +631,7 @@ export default function SophiaChat() {
         let isDuplicate = false;
         for (const seen of seenContents) {
           if (seen.includes(cleanContent) || cleanContent.includes(seen)) {
-            console.log('[SophiaChat] Duplicate message skipped (contains match):', cleanContent.slice(0, 50));
+            console.log('[AgentChat] Duplicate message skipped (contains match):', cleanContent.slice(0, 50));
             isDuplicate = true;
             break;
           }
@@ -662,7 +662,7 @@ export default function SophiaChat() {
       });
       refreshSessions();
     } catch (error) {
-      console.error('[SophiaChat] Failed to rename session:', error);
+      console.error('[AgentChat] Failed to rename session:', error);
     }
   };
 
@@ -679,7 +679,7 @@ export default function SophiaChat() {
       const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/${sessionId}`);
       
       if (!resp.ok) {
-        console.error(`[SophiaChat] Failed to load session: ${resp.status} ${resp.statusText}`);
+        console.error(`[AgentChat] Failed to load session: ${resp.status} ${resp.statusText}`);
         // 如果加载失败，不清空当前消息，保持原状态
         return;
       }
@@ -688,7 +688,7 @@ export default function SophiaChat() {
       
       // 检查返回的数据格式
       if (!data || !Array.isArray(data.messages)) {
-        console.error('[SophiaChat] Invalid session data format:', data);
+        console.error('[AgentChat] Invalid session data format:', data);
         return;
       }
       
@@ -729,10 +729,10 @@ export default function SophiaChat() {
         // 清理流式状态，避免显示旧会话的流式内容
         finalizeStream();
       } else {
-        console.warn('[SophiaChat] Loaded session has no valid messages, keeping current state');
+        console.warn('[AgentChat] Loaded session has no valid messages, keeping current state');
       }
     } catch (error) {
-      console.error('[SophiaChat] Failed to load session:', error);
+      console.error('[AgentChat] Failed to load session:', error);
       // 发生错误时，不清空当前消息，保持原状态
     } finally {
       setIsLoadingSession(false);
@@ -782,7 +782,7 @@ export default function SophiaChat() {
         at: Date.now(),
       };
     }
-    console.log('[SophiaChat] answerCompleteCount effect', {
+    console.log('[AgentChat] answerCompleteCount effect', {
       answerCompleteCount,
       hasContent,
       answerRefLength: currentAnswerRef.current.trim().length,
@@ -798,7 +798,7 @@ export default function SophiaChat() {
     // Fallback: if typewriter doesn't complete, cleanup after a delay
     setTimeout(() => {
       if (isFinalizedRef.current && isProcessing) {
-        console.log('[SophiaChat] Fallback finalize timeout');
+        console.log('[AgentChat] Fallback finalize timeout');
         finalizeMessage();
         finalizeStream();
         setTimeout(() => {
@@ -860,7 +860,7 @@ export default function SophiaChat() {
     try {
       await sendMessage(userMessage);
     } catch (error) {
-      console.error('[SophiaChat] Failed to send message:', error);
+      console.error('[AgentChat] Failed to send message:', error);
     }
   };
 
@@ -1001,7 +1001,7 @@ export default function SophiaChat() {
                 onTypewriterComplete={() => {
                   // 打字机效果完成时，清理流式状态
                   if (shouldFinalizeRef.current) {
-                    console.log('[SophiaChat] Typewriter completed, finalize stream');
+                    console.log('[AgentChat] Typewriter completed, finalize stream');
                     shouldFinalizeRef.current = false;
                     finalizeMessage();
                     finalizeStream();

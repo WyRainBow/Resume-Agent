@@ -1,7 +1,7 @@
 /**
  * ChatMessage 组件 - 对话消息显示
  *
- * 复刻自 sophia-pro 风格的对话消息组件
+ * 对话消息组件
  * 支持用户消息和助手消息，包含 Thought Process 和 Markdown 渲染
  */
 
@@ -102,7 +102,7 @@ export default function ChatMessage({ message, isLatest = false, isStreaming = f
 
   return (
     <div className="mb-6">
-      {/* Thought Process（如果有）- 复刻 sophia-pro 样式 */}
+      {/* Thought Process（如果有） */}
       {message.thought && (
         <ThoughtProcess
           content={message.thought}

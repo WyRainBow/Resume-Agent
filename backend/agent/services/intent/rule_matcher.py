@@ -9,7 +9,7 @@ Rule Matcher - 规则匹配器
 3. 描述相似度匹配
 4. 应用优先级权重
 
-参考 Sophia-Pro 的规则匹配实现。
+参考规则匹配实现。
 """
 
 import re

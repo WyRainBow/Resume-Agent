@@ -1,7 +1,7 @@
 /**
  * ThoughtProcess 组件 - 显示 AI 的思考过程
  *
- * 完全复刻自 sophia-pro 项目的 ThinkingMessage 组件
+ * ThinkingMessage 组件
  * 样式：灰色文字、可折叠、简洁风格
  * 支持打字机效果
  */
@@ -31,7 +31,7 @@ export interface ThoughtProcessProps {
 /**
  * ThoughtProcess 组件 - 显示 AI 的思考过程
  *
- * 完全复刻自 sophia-pro 的 ThinkingMessage 组件样式
+ * ThinkingMessage 组件样式
  * - 灰色文字（text-neutral-600）
  * - 可折叠/展开
  * - 简洁风格，无边框背景
@@ -86,7 +86,7 @@ export default function ThoughtProcess({
 
     return (
         <div className={`thinking-message rounded-lg px-0 py-1 mb-2 ${className}`}>
-            {/* Trigger - 复刻 sophia-pro 样式 */}
+            {/* Trigger */}
             <div
                 className="cursor-pointer flex items-center gap-2 py-1"
                 onClick={() => setExpanded(!expanded)}
@@ -107,7 +107,7 @@ export default function ThoughtProcess({
                 )}
             </div>
 
-            {/* Content - 复刻 sophia-pro 样式：灰色文字，无背景 */}
+            {/* Content：灰色文字，无背景 */}
             {expanded && (
                 <div className="text-neutral-500 text-sm leading-relaxed pl-0 font-normal">
                     {textToShow}

@@ -16,7 +16,6 @@ from datetime import datetime
 def parse_thought_response(content: str) -> Tuple[Optional[str], Optional[str]]:
     """
     解析 LLM 输出中的 Thought 和 Response 部分
-    复刻自 sophia-pro 的输出格式解析
 
     Deprecated: CLTP 已提供标准的 think/plain content chunks，
     后续在完成前端迁移后移除此函数与相关调用。
@@ -503,7 +502,7 @@ class AgentStream:
             #     }) + '\n')
                             # #endregion
 
-                            # 🎯 解析 Thought 和 Response（复刻自 sophia-pro）
+                            # 🎯 解析 Thought 和 Response
                             thought_part, response_part = parse_thought_response(final_answer)
                             logger.info(f"[FINISHED 解析] thought={thought_part[:50] if thought_part else None}... response={response_part[:50] if response_part else None}...")
 
@@ -639,7 +638,7 @@ class AgentStream:
                                     continue
                                 self._sent_thoughts.add(content_hash)
 
-                                # 🎯 解析 Thought 和 Response 格式（复刻自 sophia-pro）
+                                # 🎯 解析 Thought 和 Response 格式
                                 logger.info(f"[解析前] 原始内容: {msg.content[:150]}...")
 
                                 # #region debug log

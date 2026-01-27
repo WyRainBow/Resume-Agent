@@ -1,7 +1,7 @@
 /**
  * EnhancedMarkdown 组件 - 增强的 Markdown 渲染
  *
- * 复刻自 sophia-pro 项目的 Markdown 渲染功能，支持：
+ * 支持：
  * - 代码高亮
  * - 表格
  * - 链接
@@ -27,7 +27,7 @@ export type CustomCodeRenderer = (code: string) => React.ReactNode;
  * CodeBlock 组件 - 优化的代码块显示组件
  *
  * 特性：
- * - 现代卡片样式（参考 ChatGPT/Sophia-Pro/Claude）
+ * - 现代卡片样式（参考常见聊天界面）
  * - 右上角复制按钮（绝对定位）
  * - 语言标识在左上角
  * - 复制图标和状态反馈
@@ -55,7 +55,7 @@ function CodeBlock({ code, language }: CodeBlockProps) {
 
   return (
     <div className="not-prose relative mb-4 group">
-      {/* 代码块容器 - 现代卡片样式（参考 ChatGPT/Sophia-Pro/Claude） */}
+      {/* 代码块容器 - 现代卡片样式 */}
       <div className="relative overflow-hidden rounded-lg border border-gray-300 bg-[#0d1117] shadow-sm">
         {/* 语言标识 - 左上角 */}
         <div className="absolute top-0 left-0 z-10 px-3 py-2">

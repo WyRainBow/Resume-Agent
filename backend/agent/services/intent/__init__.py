@@ -1,7 +1,7 @@
 """
 Intent Recognition Service - 增强意图识别系统
 
-融合 OpenManus 和 Sophia-Pro 的意图识别架构：
+意图识别架构：
 - 两阶段分类：规则匹配 + LLM 增强
 - 工具注册表：自动发现 + 配置文件覆盖
 - 意图增强器：自动添加工具标记

@@ -6,7 +6,7 @@ Tool Registry - 工具注册中心
 2. 从 YAML 配置文件加载意图识别配置（覆盖自动发现）
 3. 自动提取关键词（如果没有显式配置）
 
-参考 Sophia-Pro 的 SkillRegistry 实现。
+参考 SkillRegistry 实现。
 """
 
 import os

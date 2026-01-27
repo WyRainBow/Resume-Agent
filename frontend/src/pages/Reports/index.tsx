@@ -1,8 +1,6 @@
 /**
  * 报告统一页面
- * 实现类似 sophia-pro 的动态布局：
- * - 默认：Agent 聊天页面（全屏）
- * - 有内容时：左右分栏（左侧聊天，右侧报告内容）
+ * 动态布局：默认 Agent 聊天全屏，有内容时左右分栏（左侧聊天，右侧报告内容）
  */
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'

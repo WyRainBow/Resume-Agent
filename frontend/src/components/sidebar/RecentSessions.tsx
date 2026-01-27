@@ -210,7 +210,7 @@ export function RecentSessions({
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header - 参考 sophia-pro 样式 */}
+      {/* Header */}
       <div className="px-3 pt-6 mb-2 flex items-center justify-between">
         <div className="text-xs font-normal text-gray-500 truncate whitespace-nowrap">
           历史会话

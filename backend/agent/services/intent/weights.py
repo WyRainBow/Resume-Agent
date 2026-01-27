@@ -1,7 +1,7 @@
 """
 Intent Score Weights - 意图识别评分权重配置
 
-参考 Sophia-Pro 的评分权重系统，用于规则匹配时的分数计算。
+参考评分权重系统，用于规则匹配时的分数计算。
 """
 
 from dataclasses import dataclass
