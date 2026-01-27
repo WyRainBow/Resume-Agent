@@ -12,6 +12,7 @@
 
 import ChatMessage from '@/components/chat/ChatMessage';
 import ReportCard from '@/components/chat/ReportCard';
+import { ReportGenerationDetector } from '@/components/chat/ReportGenerationDetector';
 import { RecentSessions } from '@/components/sidebar/RecentSessions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCLTP } from '@/hooks/useCLTP';
@@ -503,7 +504,10 @@ export default function SophiaChat() {
       console.log('[AgentChat] Messages updated', { count: updated.length });
       
       // 检测报告生成：如果消息内容包含报告相关关键词，尝试创建报告
-      detectAndCreateReport(newMessage.content, newMessage.id);
+      // 延迟检测，确保消息已添加到列表
+      setTimeout(() => {
+        detectAndCreateReport(newMessage.content, newMessage.id);
+      }, 500);
       
       return updated;
     });
@@ -515,60 +519,70 @@ export default function SophiaChat() {
 
   // 检测并创建报告
   const detectAndCreateReport = useCallback(async (content: string, messageId: string) => {
-    // 检测报告生成的关键词
-    const reportKeywords = [
-      '报告', 'report', '调研', '分析', '研究', '研究报', '调研报告',
-      '详细报告', '完整报告', '生成报告', '报告已生成', '报告完成'
+    // 检查是否已经为这条消息创建过报告
+    if (generatedReports.some(r => r.messageId === messageId)) {
+      return;
+    }
+    
+    // 检测报告生成的关键词（更精确的匹配）
+    const reportPatterns = [
+      /(?:生成|创建|完成|已生成|已创建)(?:了)?(?:一份|一个)?(?:关于|的)?([^"《\n]+)(?:的|"|》)?(?:详细|完整|研究|调研)?报告/,
+      /(?:报告|调研报告|研究报告)(?:：|:)?\s*(?:关于|主题)?([^"《\n]+)/,
+      /^#+\s*(.+?)(?:报告|调研|研究)/m,
     ];
     
-    const hasReportKeyword = reportKeywords.some(keyword => 
-      content.toLowerCase().includes(keyword.toLowerCase())
-    );
-    
-    // 检测是否包含报告标题（通常在 "关于" 或 "的" 之后）
-    const reportTitleMatch = content.match(/(?:关于|关于"|关于《)([^"》\n]+)(?:的|"|》)报告/);
-    
-    if (hasReportKeyword && content.length > 200) {
-      // 提取报告主题
-      let reportTopic = '';
-      if (reportTitleMatch) {
-        reportTopic = reportTitleMatch[1];
-      } else {
-        // 尝试从内容开头提取主题
-        const topicMatch = content.match(/^(?:#+\s*)?([^\n]+)/);
-        if (topicMatch) {
-          reportTopic = topicMatch[1].replace(/^#+\s*/, '').trim();
-        }
-      }
-      
-      if (reportTopic && reportTopic.length > 5 && reportTopic.length < 100) {
-        try {
-          // 创建报告
-          const result = await createReport(reportTopic);
-          
-          // 保存报告内容
-          if (result.mainId) {
-            await fetch(`${API_BASE}/api/documents/${result.mainId}/content`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ content })
-            });
-          }
-          
-          // 添加到生成的报告列表
-          setGeneratedReports(prev => [...prev, {
-            id: result.reportId,
-            title: reportTopic,
-            messageId
-          }]);
-          
-          console.log('[AgentChat] 检测到报告生成:', result.reportId, reportTopic);
-        } catch (err) {
-          console.error('[AgentChat] 创建报告失败:', err);
+    let reportTopic = '';
+    for (const pattern of reportPatterns) {
+      const match = content.match(pattern);
+      if (match && match[1]) {
+        reportTopic = match[1].trim();
+        if (reportTopic.length > 5 && reportTopic.length < 100) {
+          break;
         }
       }
     }
-  }, []);
+    
+    // 如果没找到标题，但内容很长且包含报告关键词，使用前50个字符作为标题
+    if (!reportTopic && content.length > 500) {
+      const hasReportKeyword = /报告|调研|研究|分析/.test(content);
+      if (hasReportKeyword) {
+        // 尝试从第一个标题提取
+        const titleMatch = content.match(/^#+\s*(.+?)$/m);
+        if (titleMatch) {
+          reportTopic = titleMatch[1].trim().substring(0, 50);
+        } else {
+          reportTopic = content.substring(0, 50).replace(/\n/g, ' ').trim();
+        }
+      }
+    }
+    
+    if (reportTopic && reportTopic.length > 5) {
+      try {
+        // 创建报告
+        const result = await createReport(reportTopic);
+        
+        // 保存报告内容
+        if (result.mainId) {
+          await fetch(`${API_BASE}/api/documents/${result.mainId}/content`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content })
+          });
+        }
+        
+        // 添加到生成的报告列表
+        setGeneratedReports(prev => [...prev, {
+          id: result.reportId,
+          title: reportTopic,
+          messageId
+        }]);
+        
+        console.log('[AgentChat] 检测到报告生成:', result.reportId, reportTopic);
+      } catch (err) {
+        console.error('[AgentChat] 创建报告失败:', err);
+      }
+    }
+  }, [generatedReports]);
 
   const buildSavePayload = useCallback((messagesToSave: Message[]) => {
     return messagesToSave.map((msg) => ({
@@ -947,17 +961,43 @@ export default function SophiaChat() {
    */
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isProcessing || !isHtmlTemplate) return;
+    if (!input.trim() || isProcessing) return;
+    
+    // 检测用户是否要生成报告
+    const isReportRequest = /(?:生成|创建|写)(?:一份|一个)?(?:关于)?(.+?)(?:的|的详细|的完整)?(?:报告|调研报告|研究报告)/.test(input);
+    if (isReportRequest) {
+      const topicMatch = input.match(/(?:生成|创建|写)(?:一份|一个)?(?:关于)?(.+?)(?:的|的详细|的完整)?(?:报告|调研报告|研究报告)/);
+      if (topicMatch && topicMatch[1]) {
+        const topic = topicMatch[1].trim();
+        // 提前创建报告，这样 agent 生成内容时可以保存到报告中
+        try {
+          const result = await createReport(topic);
+          // 将报告 ID 存储到 conversation context 中，以便后续保存内容
+          sessionStorage.setItem(`pendingReport:${conversationId}`, JSON.stringify({
+            reportId: result.reportId,
+            mainId: result.mainId,
+            topic
+          }));
+        } catch (err) {
+          console.error('[AgentChat] 预创建报告失败:', err);
+        }
+      }
+    }
 
-    const resumeMetaResumeId =
-      (resumeData as any)?.resume_id ||
-      (resumeData as any)?.id ||
-      (resumeData as any)?._meta?.resume_id;
-    const resumeMetaUserId =
-      (resumeData as any)?.user_id || (resumeData as any)?._meta?.user_id;
-    if (!resumeMetaResumeId || !resumeMetaUserId) {
-      setResumeError('简历数据未就绪，缺少用户信息，请稍后重试');
-      return;
+    // 报告生成模式不需要 resumeId
+    const isReportMode = isReportRequest;
+    
+    if (!isReportMode) {
+      const resumeMetaResumeId =
+        (resumeData as any)?.resume_id ||
+        (resumeData as any)?.id ||
+        (resumeData as any)?._meta?.resume_id;
+      const resumeMetaUserId =
+        (resumeData as any)?.user_id || (resumeData as any)?._meta?.user_id;
+      if (!resumeMetaResumeId || !resumeMetaUserId) {
+        setResumeError('简历数据未就绪，缺少用户信息，请稍后重试');
+        return;
+      }
     }
 
     const userMessage = input.trim();
@@ -1090,22 +1130,20 @@ export default function SophiaChat() {
             {isLoadingSession && (
               <div className="text-xs text-gray-400 mb-4">正在加载会话...</div>
             )}
-            {!loadingResume && !resumeError && !isHtmlTemplate && (
-              <div className="text-sm text-orange-600 mb-4">
-                当前仅支持 HTML 模板简历的 Agent 对话与预览。
-              </div>
-            )}
 
             {messages.length === 0 && !isProcessing && (
               <div className="text-center py-20">
                 <div className="text-5xl mb-4">✨</div>
                 <p className="text-gray-600 text-lg mb-2">
-                  输入 <span className="font-medium text-orange-500">"你好"</span> 开始对话
+                  输入消息开始对话
                 </p>
-                <p className="text-gray-400 text-sm">
+                <p className="text-gray-400 text-sm mb-2">
                   体验 Thought Process · 流式输出 · Markdown 渲染
                 </p>
-                <p className="text-gray-300 text-xs mt-4">
+                <p className="text-gray-500 text-sm mt-4">
+                  例如：生成一份关于 AI 发展趋势的报告
+                </p>
+                <p className="text-gray-300 text-xs mt-2">
                   使用 SSE + CLTP 传输
                 </p>
               </div>
@@ -1143,28 +1181,51 @@ export default function SophiaChat() {
 
             {/* 当前正在生成的消息 */}
             {isProcessing && (currentThought || currentAnswer) && (
-              <ChatMessage
-                message={{
-                  id: 'current',
-                  role: 'assistant',
-                  thought: currentThought,
-                  content: currentAnswer,
-                }}
-                isLatest={true}
-                isStreaming={true}
-                onTypewriterComplete={() => {
-                  // 打字机效果完成时，清理流式状态
-                  if (shouldFinalizeRef.current) {
-                    console.log('[AgentChat] Typewriter completed, finalize stream');
-                    shouldFinalizeRef.current = false;
-                    finalizeMessage();
-                    finalizeStream();
-                    setTimeout(() => {
-                      isFinalizedRef.current = false;
-                    }, 100);
-                  }
-                }}
-              />
+              <>
+                <ChatMessage
+                  message={{
+                    id: 'current',
+                    role: 'assistant',
+                    thought: currentThought,
+                    content: currentAnswer,
+                  }}
+                  isLatest={true}
+                  isStreaming={true}
+                  onTypewriterComplete={() => {
+                    // 打字机效果完成时，清理流式状态
+                    if (shouldFinalizeRef.current) {
+                      console.log('[AgentChat] Typewriter completed, finalize stream');
+                      shouldFinalizeRef.current = false;
+                      finalizeMessage();
+                      finalizeStream();
+                      setTimeout(() => {
+                        isFinalizedRef.current = false;
+                      }, 100);
+                    }
+                  }}
+                />
+                {/* 如果正在生成报告内容，检测并创建报告 */}
+                {currentAnswer.length > 500 && (
+                  <ReportGenerationDetector
+                    content={currentAnswer}
+                    onReportCreated={(reportId, title) => {
+                      // 当报告创建后，添加到列表（使用临时 ID，finalize 时会更新）
+                      const tempMessageId = `current-${Date.now()}`;
+                      setGeneratedReports(prev => {
+                        // 检查是否已存在
+                        if (prev.some(r => r.id === reportId)) {
+                          return prev;
+                        }
+                        return [...prev, {
+                          id: reportId,
+                          title,
+                          messageId: tempMessageId
+                        }];
+                      });
+                    }}
+                  />
+                )}
+              </>
             )}
 
             {/* Loading */}
@@ -1190,18 +1251,18 @@ export default function SophiaChat() {
                   type="text"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={isHtmlTemplate ? (isProcessing ? '正在处理中，可以继续输入...' : '输入消息...') : '仅支持 HTML 模板简历'}
+                  placeholder={isProcessing ? '正在处理中，可以继续输入...' : '输入消息...（例如：生成一份关于 AI 发展趋势的报告）'}
                   className="flex-1 px-4 py-3 outline-none text-gray-700 placeholder-gray-400 bg-transparent"
-                  disabled={!isHtmlTemplate}
+                  disabled={isProcessing}
                 />
                 <div className="pr-2 py-2">
                   <button
                     type="submit"
-                    disabled={!input.trim() || isProcessing || !isHtmlTemplate}
+                    disabled={!input.trim() || isProcessing}
                     className={`
                       w-8 h-8 rounded-full flex items-center justify-center
                       transition-all duration-200
-                      ${!input.trim() || isProcessing || !isHtmlTemplate
+                      ${!input.trim() || isProcessing
                         ? 'bg-gray-200 cursor-not-allowed'
                         : 'bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:via-orange-700 hover:to-orange-800 shadow-sm hover:shadow-md'
                       }
@@ -1209,7 +1270,7 @@ export default function SophiaChat() {
                     title={isProcessing ? '等待当前消息处理完成' : '发送消息'}
                   >
                     <ArrowUp
-                      className={`w-5 h-5 ${!input.trim() || isProcessing || !isHtmlTemplate
+                      className={`w-5 h-5 ${!input.trim() || isProcessing
                         ? 'text-gray-400'
                         : 'text-white'
                       }`}
