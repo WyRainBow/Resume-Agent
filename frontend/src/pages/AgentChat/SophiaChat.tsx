@@ -511,7 +511,7 @@ export default function SophiaChat() {
       
       return updated;
     });
-  }, [finalizeStream, currentAnswer, currentThought]);
+  }, [finalizeStream, currentAnswer, currentThought, detectAndCreateReport]);
 
   const refreshSessions = useCallback(() => {
     setSessionsRefreshKey((prev) => prev + 1);
