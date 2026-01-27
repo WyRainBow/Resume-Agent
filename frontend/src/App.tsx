@@ -28,6 +28,7 @@ function App() {
             <Route path="/workspace/latex/:resumeId" element={<LaTeXWorkspace />} />
             <Route path="/workspace/html" element={<HTMLWorkspace />} />
             <Route path="/workspace/html/:resumeId" element={<HTMLWorkspace />} />
+            <Route path="/workspace/agent/new" element={<AgentChat />} />
             <Route path="/workspace/agent/:resumeId" element={<AgentChat />} />
             {/* 其他路由 */}
             <Route path="/login" element={<LoginPage />} />

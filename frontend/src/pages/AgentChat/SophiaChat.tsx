@@ -12,13 +12,14 @@
 
 import ChatMessage from '@/components/chat/ChatMessage';
 import ReportCard from '@/components/chat/ReportCard';
+import ResumeCard from '@/components/chat/ResumeCard';
 import { ReportGenerationDetector } from '@/components/chat/ReportGenerationDetector';
 import { RecentSessions } from '@/components/sidebar/RecentSessions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCLTP } from '@/hooks/useCLTP';
 import { HTMLTemplateRenderer } from '@/pages/Workspace/v2/HTMLTemplateRenderer';
 import type { ResumeData } from '@/pages/Workspace/v2/types';
-import { getResume } from '@/services/resumeStorage';
+import { getResume, getAllResumes } from '@/services/resumeStorage';
 import { 
   createReport, 
   getReport, 
@@ -159,6 +160,10 @@ export default function SophiaChat() {
   const [reportTitle, setReportTitle] = useState<string>('');
   const [isLoadingReport, setIsLoadingReport] = useState(false);
   const [generatedReports, setGeneratedReports] = useState<Array<{ id: string; title: string; messageId: string }>>([]);
+  
+  // 简历卡片相关状态
+  const [loadedResumes, setLoadedResumes] = useState<Array<{ id: string; name: string; messageId: string; resumeData?: ResumeData }>>([]);
+  const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const saveInFlightRef = useRef<Promise<void> | null>(null);
@@ -225,8 +230,10 @@ export default function SophiaChat() {
     let mounted = true;
     const loadResume = async () => {
       if (!resumeId) {
-        setResumeError('未找到简历 ID');
+        // 如果没有 resumeId，不报错，只是不加载简历
         setLoadingResume(false);
+        setResumeData(null);
+        setResumeError(null);
         return;
       }
       setLoadingResume(true);
@@ -437,6 +444,86 @@ export default function SophiaChat() {
     setStatus(isProcessing ? 'processing' : 'idle');
   }, [isConnected, isProcessing]);
 
+  // 检测并创建报告（需要在 finalizeMessage 之前定义）
+  const detectAndCreateReport = useCallback(async (content: string, messageId: string) => {
+    // 检查是否已经为这条消息创建过报告
+    if (generatedReports.some(r => r.messageId === messageId)) {
+      return;
+    }
+    
+    // 检查是否有 'current' 消息ID的报告（流式输出时创建的），如果有则更新它
+    const currentReport = generatedReports.find(r => r.messageId === 'current');
+    if (currentReport && messageId !== 'current') {
+      // 更新 'current' 报告的消息ID为真实的消息ID
+      setGeneratedReports(prev => prev.map(r => 
+        r.messageId === 'current' 
+          ? { ...r, messageId }
+          : r
+      ));
+      console.log('[AgentChat] 更新报告消息ID:', currentReport.id, 'from current to', messageId);
+      return;
+    }
+    
+    // 检测报告生成的关键词（更精确的匹配）
+    const reportPatterns = [
+      /(?:生成|创建|完成|已生成|已创建)(?:了)?(?:一份|一个)?(?:关于|的)?([^"《\n]+)(?:的|"|》)?(?:详细|完整|研究|调研)?报告/,
+      /(?:报告|调研报告|研究报告)(?:：|:)?\s*(?:关于|主题)?([^"《\n]+)/,
+      /^#+\s*(.+?)(?:报告|调研|研究)/m,
+    ];
+    
+    let reportTopic = '';
+    for (const pattern of reportPatterns) {
+      const match = content.match(pattern);
+      if (match && match[1]) {
+        reportTopic = match[1].trim();
+        if (reportTopic.length > 5 && reportTopic.length < 100) {
+          break;
+        }
+      }
+    }
+    
+    // 如果没找到标题，但内容很长且包含报告关键词，使用前50个字符作为标题
+    if (!reportTopic && content.length > 500) {
+      const hasReportKeyword = /报告|调研|研究|分析/.test(content);
+      if (hasReportKeyword) {
+        // 尝试从第一个标题提取
+        const titleMatch = content.match(/^#+\s*(.+?)$/m);
+        if (titleMatch) {
+          reportTopic = titleMatch[1].trim().substring(0, 50);
+        } else {
+          reportTopic = content.substring(0, 50).replace(/\n/g, ' ').trim();
+        }
+      }
+    }
+    
+    if (reportTopic && reportTopic.length > 5) {
+      try {
+        // 创建报告
+        const result = await createReport(reportTopic);
+        
+        // 保存报告内容
+        if (result.mainId) {
+          await fetch(`${API_BASE}/api/documents/${result.mainId}/content`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content })
+          });
+        }
+        
+        // 添加到生成的报告列表
+        setGeneratedReports(prev => [...prev, {
+          id: result.reportId,
+          title: reportTopic,
+          messageId
+        }]);
+        
+        console.log('[AgentChat] 检测到报告生成:', result.reportId, reportTopic);
+      } catch (err) {
+        console.error('[AgentChat] 创建报告失败:', err);
+      }
+    }
+  }, [generatedReports, API_BASE]);
+
   /**
    * Finalize current message and add to history
    */
@@ -505,6 +592,7 @@ export default function SophiaChat() {
       
       // 检测报告生成：如果消息内容包含报告相关关键词，尝试创建报告
       // 延迟检测，确保消息已添加到列表
+      // 注意：如果流式输出时已经通过 ReportGenerationDetector 创建了报告，这里会检查并避免重复
       setTimeout(() => {
         detectAndCreateReport(newMessage.content, newMessage.id);
       }, 500);
@@ -517,72 +605,97 @@ export default function SophiaChat() {
     setSessionsRefreshKey((prev) => prev + 1);
   }, []);
 
-  // 检测并创建报告
-  const detectAndCreateReport = useCallback(async (content: string, messageId: string) => {
-    // 检查是否已经为这条消息创建过报告
-    if (generatedReports.some(r => r.messageId === messageId)) {
+  // 检测并加载简历
+  const detectAndLoadResume = useCallback(async (input: string, messageId: string) => {
+    // 检查是否已经为这条消息加载过简历
+    if (loadedResumes.some(r => r.messageId === messageId)) {
       return;
     }
     
-    // 检测报告生成的关键词（更精确的匹配）
-    const reportPatterns = [
-      /(?:生成|创建|完成|已生成|已创建)(?:了)?(?:一份|一个)?(?:关于|的)?([^"《\n]+)(?:的|"|》)?(?:详细|完整|研究|调研)?报告/,
-      /(?:报告|调研报告|研究报告)(?:：|:)?\s*(?:关于|主题)?([^"《\n]+)/,
-      /^#+\s*(.+?)(?:报告|调研|研究)/m,
+    // 检测简历加载的关键词
+    const resumeLoadPatterns = [
+      /(?:加载|打开|查看|显示)(?:我的|这个|一份)?(?:简历|CV)/,
+      /(?:简历|CV)(?:名称|ID)?[:：]\s*([^\n]+)/,
     ];
     
-    let reportTopic = '';
-    for (const pattern of reportPatterns) {
-      const match = content.match(pattern);
-      if (match && match[1]) {
-        reportTopic = match[1].trim();
-        if (reportTopic.length > 5 && reportTopic.length < 100) {
-          break;
-        }
-      }
-    }
-    
-    // 如果没找到标题，但内容很长且包含报告关键词，使用前50个字符作为标题
-    if (!reportTopic && content.length > 500) {
-      const hasReportKeyword = /报告|调研|研究|分析/.test(content);
-      if (hasReportKeyword) {
-        // 尝试从第一个标题提取
-        const titleMatch = content.match(/^#+\s*(.+?)$/m);
-        if (titleMatch) {
-          reportTopic = titleMatch[1].trim().substring(0, 50);
+    let resumeIdOrName: string | null = null;
+    for (const pattern of resumeLoadPatterns) {
+      const match = input.match(pattern);
+      if (match) {
+        if (match[1]) {
+          // 提取了简历名称或ID
+          resumeIdOrName = match[1].trim();
         } else {
-          reportTopic = content.substring(0, 50).replace(/\n/g, ' ').trim();
+          // 只是检测到关键词，没有具体名称
+          resumeIdOrName = '';
         }
+        break;
       }
     }
     
-    if (reportTopic && reportTopic.length > 5) {
-      try {
-        // 创建报告
-        const result = await createReport(reportTopic);
+    // 如果没有检测到关键词，直接返回
+    if (resumeIdOrName === null) {
+      return;
+    }
+    
+    try {
+      let resume: any = null;
+      let resumeName = '';
+      
+      if (resumeIdOrName === '') {
+        // 没有指定具体简历，尝试获取用户的第一份简历
+        const allResumes = await getAllResumes();
+        if (allResumes.length > 0) {
+          resume = allResumes[0];
+          resumeName = resume.name || '我的简历';
+        } else {
+          console.log('[AgentChat] 用户没有简历');
+          return;
+        }
+      } else {
+        // 尝试通过ID或名称查找简历
+        const allResumes = await getAllResumes();
+        resume = allResumes.find(r => r.id === resumeIdOrName || r.name === resumeIdOrName);
         
-        // 保存报告内容
-        if (result.mainId) {
-          await fetch(`${API_BASE}/api/documents/${result.mainId}/content`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content })
-          });
+        if (!resume) {
+          // 如果找不到，尝试直接通过ID获取
+          resume = await getResume(resumeIdOrName);
         }
         
-        // 添加到生成的报告列表
-        setGeneratedReports(prev => [...prev, {
-          id: result.reportId,
-          title: reportTopic,
-          messageId
+        if (resume) {
+          resumeName = resume.name || resumeIdOrName;
+        } else {
+          console.log('[AgentChat] 未找到简历:', resumeIdOrName);
+          return;
+        }
+      }
+      
+      if (resume) {
+        const resolvedUserId = user?.id ?? (resume as any).user_id ?? null;
+        const resumeDataWithMeta = {
+          ...(resume.data || {}),
+          resume_id: resume.id,
+          user_id: resolvedUserId,
+          _meta: {
+            resume_id: resume.id,
+            user_id: resolvedUserId,
+          },
+        };
+        
+        // 添加到加载的简历列表
+        setLoadedResumes(prev => [...prev, {
+          id: resume.id,
+          name: resumeName,
+          messageId,
+          resumeData: resumeDataWithMeta as ResumeData
         }]);
         
-        console.log('[AgentChat] 检测到报告生成:', result.reportId, reportTopic);
-      } catch (err) {
-        console.error('[AgentChat] 创建报告失败:', err);
+        console.log('[AgentChat] 检测到简历加载:', resume.id, resumeName);
       }
+    } catch (err) {
+      console.error('[AgentChat] 加载简历失败:', err);
     }
-  }, [generatedReports]);
+  }, [loadedResumes, user?.id]);
 
   const buildSavePayload = useCallback((messagesToSave: Message[]) => {
     return messagesToSave.map((msg) => ({
@@ -1012,6 +1125,15 @@ export default function SophiaChat() {
     const nextMessages = [...messages, userMessageEntry];
     const isFirstMessage = messages.length === 0;
 
+    // 检测简历加载请求
+    const isResumeLoadRequest = /(?:加载|打开|查看|显示)(?:我的|这个|一份)?(?:简历|CV)/.test(userMessage);
+    if (isResumeLoadRequest) {
+      // 延迟检测，确保消息已添加到列表
+      setTimeout(() => {
+        detectAndLoadResume(userMessage, uniqueId);
+      }, 100);
+    }
+
     // Add user message to UI
     setMessages(nextMessages);
     if (isFirstMessage) {
@@ -1153,6 +1275,8 @@ export default function SophiaChat() {
             {messages.map((msg, idx) => {
               // 检查这条消息是否有关联的报告
               const reportForMessage = generatedReports.find(r => r.messageId === msg.id);
+              // 检查这条消息是否有关联的简历
+              const resumeForMessage = loadedResumes.find(r => r.messageId === msg.id);
               
               return (
                 <Fragment key={msg.id || idx}>
@@ -1171,6 +1295,25 @@ export default function SophiaChat() {
                         onClick={() => {
                           setSelectedReportId(reportForMessage.id);
                           setReportTitle(reportForMessage.title);
+                          setSelectedResumeId(null); // 清除简历选择
+                        }}
+                      />
+                    </div>
+                  )}
+                  {/* 如果这条消息有简历，显示简历卡片 */}
+                  {resumeForMessage && (
+                    <div className="my-4">
+                      <ResumeCard
+                        resumeId={resumeForMessage.id}
+                        title={resumeForMessage.name}
+                        subtitle="点击查看简历"
+                        onClick={() => {
+                          setSelectedResumeId(resumeForMessage.id);
+                          setSelectedReportId(null); // 清除报告选择
+                          // 如果简历数据已加载，更新 resumeData（用于默认视图）
+                          if (resumeForMessage.resumeData) {
+                            setResumeData(resumeForMessage.resumeData);
+                          }
                         }}
                       />
                     </div>
@@ -1209,22 +1352,54 @@ export default function SophiaChat() {
                   <ReportGenerationDetector
                     content={currentAnswer}
                     onReportCreated={(reportId, title) => {
-                      // 当报告创建后，添加到列表（使用临时 ID，finalize 时会更新）
-                      const tempMessageId = `current-${Date.now()}`;
+                      // 当报告创建后，添加到列表
+                      // 使用 'current' 作为临时 messageId，finalize 时会通过 detectAndCreateReport 更新为真实 messageId
                       setGeneratedReports(prev => {
-                        // 检查是否已存在
+                        // 检查是否已存在相同的报告ID
                         if (prev.some(r => r.id === reportId)) {
                           return prev;
                         }
+                        // 检查是否已有 'current' 消息ID的报告（避免重复）
+                        const hasCurrent = prev.some(r => r.messageId === 'current');
+                        if (hasCurrent) {
+                          // 更新现有的 current 报告
+                          return prev.map(r => 
+                            r.messageId === 'current' 
+                              ? { ...r, id: reportId, title }
+                              : r
+                          );
+                        }
+                        // 添加新报告
                         return [...prev, {
                           id: reportId,
                           title,
-                          messageId: tempMessageId
+                          messageId: 'current' // 临时ID，finalize时会更新
                         }];
                       });
                     }}
                   />
                 )}
+                {/* 显示流式输出时的报告卡片 */}
+                {(() => {
+                  const currentReport = generatedReports.find(r => r.messageId === 'current');
+                  if (currentReport && isProcessing) {
+                    return (
+                      <div className="my-4">
+                        <ReportCard
+                          reportId={currentReport.id}
+                          title={currentReport.title}
+                          subtitle="点击查看完整报告"
+                          onClick={() => {
+                            setSelectedReportId(currentReport.id);
+                            setReportTitle(currentReport.title);
+                            setSelectedResumeId(null);
+                          }}
+                        />
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </>
             )}
 
@@ -1294,68 +1469,86 @@ export default function SophiaChat() {
           </div>
         </section>
 
-        {/* Right: Report Preview or Resume Preview */}
-        <aside className="w-[45%] min-w-[420px] bg-slate-50 overflow-y-auto">
-          <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-sm font-semibold text-slate-700">
-                  {selectedReportId ? '报告内容' : '简历预览'}
-                </h2>
-                {selectedReportId && reportTitle && (
-                  <p className="text-xs text-slate-400 mt-1">{reportTitle}</p>
+        {/* Right: Report Preview or Resume Preview - 只在有选中内容时显示 */}
+        {(selectedReportId || selectedResumeId) && (
+          <aside className="w-[45%] min-w-[420px] bg-slate-50 overflow-y-auto">
+            <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-700">
+                    {selectedReportId ? '报告内容' : '简历预览'}
+                  </h2>
+                  {selectedReportId && reportTitle && (
+                    <p className="text-xs text-slate-400 mt-1">{reportTitle}</p>
+                  )}
+                  {selectedResumeId && !selectedReportId && (() => {
+                    const selectedResume = loadedResumes.find(r => r.id === selectedResumeId);
+                    if (selectedResume) {
+                      return <p className="text-xs text-slate-400 mt-1">{selectedResume.name}</p>;
+                    }
+                    return null;
+                  })()}
+                </div>
+                {selectedReportId && (
+                  <button
+                    onClick={() => {
+                      setSelectedReportId(null);
+                      setReportContent('');
+                      setReportTitle('');
+                    }}
+                    className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+                  >
+                    关闭
+                  </button>
                 )}
-                {!selectedReportId && resumeData?.basic?.name && (
-                  <p className="text-xs text-slate-400 mt-1">{resumeData.basic.name}</p>
+                {selectedResumeId && !selectedReportId && (
+                  <button
+                    onClick={() => {
+                      setSelectedResumeId(null);
+                    }}
+                    className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+                  >
+                    关闭
+                  </button>
                 )}
               </div>
-              {selectedReportId && (
-                <button
-                  onClick={() => {
-                    setSelectedReportId(null);
-                    setReportContent('');
-                    setReportTitle('');
+            </div>
+            <div className="p-6">
+              {selectedReportId ? (
+                // 显示报告内容
+                <ReportContentView 
+                  reportId={selectedReportId}
+                  onContentLoaded={(content, title) => {
+                    setReportContent(content);
+                    if (title) setReportTitle(title);
                   }}
-                  className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
-                >
-                  返回简历预览
-                </button>
+                />
+              ) : (
+                // 显示选中的简历卡片内容
+                (() => {
+                  const selectedResume = loadedResumes.find(r => r.id === selectedResumeId);
+                  if (!selectedResume || !selectedResume.resumeData) {
+                    return <div className="text-sm text-slate-500">正在加载简历...</div>;
+                  }
+                  const resumeDataToShow = selectedResume.resumeData;
+                  const isHtmlTemplate = resumeDataToShow.templateType === 'html';
+                  if (!isHtmlTemplate) {
+                    return (
+                      <div className="text-sm text-orange-600">
+                        当前仅支持 HTML 模板简历的预览。
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="bg-white shadow-lg rounded-lg p-6">
+                      <HTMLTemplateRenderer resumeData={resumeDataToShow} />
+                    </div>
+                  );
+                })()
               )}
             </div>
-          </div>
-          <div className="p-6">
-            {selectedReportId ? (
-              // 显示报告内容
-              <ReportContentView 
-                reportId={selectedReportId}
-                onContentLoaded={(content, title) => {
-                  setReportContent(content);
-                  if (title) setReportTitle(title);
-                }}
-              />
-            ) : (
-              // 显示简历预览
-              <>
-                {loadingResume && (
-                  <div className="text-sm text-slate-500">正在加载简历...</div>
-                )}
-                {resumeError && (
-                  <div className="text-sm text-red-500">{resumeError}</div>
-                )}
-                {!loadingResume && !resumeError && !isHtmlTemplate && (
-                  <div className="text-sm text-orange-600">
-                    当前仅支持 HTML 模板简历的预览。
-                  </div>
-                )}
-                {!loadingResume && !resumeError && isHtmlTemplate && resumeData && (
-                  <div className="bg-white shadow-lg rounded-lg p-6">
-                    <HTMLTemplateRenderer resumeData={resumeData} />
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-        </aside>
+          </aside>
+        )}
       </div>
     </div>
   );
