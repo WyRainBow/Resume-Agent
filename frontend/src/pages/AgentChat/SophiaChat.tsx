@@ -37,24 +37,44 @@ import { useTextStream } from '@/hooks/useTextStream';
 // 报告内容视图组件
 function ReportContentView({ 
   reportId, 
+  streamingContent,
+  isStreaming,
   onContentLoaded 
 }: { 
   reportId: string
+  streamingContent?: string
+  isStreaming?: boolean
   onContentLoaded: (content: string, title?: string) => void 
 }) {
   const [content, setContent] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  
+  // 如果正在流式输出，使用打字机效果
+  const { displayedText } = useTextStream({
+    textStream: isStreaming && streamingContent ? streamingContent : content,
+    speed: 30,
+    mode: 'typewriter',
+  })
 
   useEffect(() => {
+    // 如果正在流式输出，不加载 API 内容
+    if (isStreaming && streamingContent) {
+      setIsLoading(false)
+      setContent(streamingContent)
+      return
+    }
+    
+    // 如果流式输出完成，从 API 加载完整内容
     const loadReport = async () => {
       try {
         setIsLoading(true)
         const report = await getReport(reportId)
         if (report.main_id) {
           const docContent = await getDocumentContent(report.main_id)
-          setContent(docContent.content || '')
-          onContentLoaded(docContent.content || '', report.title)
+          const finalContent = docContent.content || ''
+          setContent(finalContent)
+          onContentLoaded(finalContent, report.title)
         } else {
           setContent('')
           onContentLoaded('', report.title)
@@ -68,9 +88,9 @@ function ReportContentView({
       }
     }
     loadReport()
-  }, [reportId, onContentLoaded])
+  }, [reportId, onContentLoaded, isStreaming, streamingContent])
 
-  if (isLoading) {
+  if (isLoading && !isStreaming) {
     return <div className="text-sm text-slate-500">正在加载报告...</div>
   }
 
@@ -78,14 +98,17 @@ function ReportContentView({
     return <div className="text-sm text-red-500">{error}</div>
   }
 
-  if (!content.trim()) {
+  // 如果正在流式输出，使用打字机效果显示；否则直接显示内容
+  const contentToDisplay = isStreaming && streamingContent ? displayedText : content
+
+  if (!contentToDisplay.trim()) {
     return <div className="text-sm text-slate-400">报告内容为空</div>
   }
 
   return (
     <div className="bg-white rounded-lg shadow-sm p-6">
       <div className="prose max-w-none">
-        <EnhancedMarkdown>{content}</EnhancedMarkdown>
+        <EnhancedMarkdown>{contentToDisplay}</EnhancedMarkdown>
       </div>
     </div>
   )
@@ -164,6 +187,11 @@ export default function SophiaChat() {
   // 简历卡片相关状态
   const [loadedResumes, setLoadedResumes] = useState<Array<{ id: string; name: string; messageId: string; resumeData?: ResumeData }>>([]);
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
+  
+  // 报告流式输出相关状态
+  const [shouldHideResponseInChat, setShouldHideResponseInChat] = useState(false);
+  const [streamingReportId, setStreamingReportId] = useState<string | null>(null);
+  const [streamingReportContent, setStreamingReportContent] = useState<string>('');
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const saveInFlightRef = useRef<Promise<void> | null>(null);
@@ -416,6 +444,39 @@ export default function SophiaChat() {
 
   const isHtmlTemplate = resumeData?.templateType === 'html';
 
+  // 同步流式内容到报告文档和右侧面板
+  useEffect(() => {
+    if (!shouldHideResponseInChat || !streamingReportId || !currentAnswer) {
+      return;
+    }
+
+    // 如果用户已选择该报告，更新 streamingReportContent 用于右侧面板显示
+    if (selectedReportId === streamingReportId) {
+      setStreamingReportContent(currentAnswer);
+    }
+
+    // 使用防抖机制，定期保存内容到报告文档
+    const saveTimer = setTimeout(async () => {
+      try {
+        const report = await getReport(streamingReportId);
+        if (report.main_id) {
+          await fetch(`${API_BASE}/api/documents/${report.main_id}/content`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: currentAnswer })
+          });
+          console.log('[AgentChat] 流式内容已保存到报告文档:', streamingReportId);
+        }
+      } catch (err) {
+        console.error('[AgentChat] 保存流式内容失败:', err);
+      }
+    }, 500); // 每 500ms 保存一次
+
+    return () => {
+      clearTimeout(saveTimer);
+    };
+  }, [currentAnswer, shouldHideResponseInChat, streamingReportId, selectedReportId, API_BASE]);
+
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -590,6 +651,25 @@ export default function SophiaChat() {
       const updated = [...prev, newMessage];
       console.log('[AgentChat] Messages updated', { count: updated.length });
       
+      // 如果 shouldHideResponseInChat 为 true，确保最终内容已保存到报告文档
+      if (shouldHideResponseInChat && streamingReportId && answer) {
+        (async () => {
+          try {
+            const report = await getReport(streamingReportId);
+            if (report.main_id) {
+              await fetch(`${API_BASE}/api/documents/${report.main_id}/content`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: answer })
+              });
+              console.log('[AgentChat] 最终内容已保存到报告文档:', streamingReportId);
+            }
+          } catch (err) {
+            console.error('[AgentChat] 保存最终内容失败:', err);
+          }
+        })();
+      }
+      
       // 检测报告生成：如果消息内容包含报告相关关键词，尝试创建报告
       // 延迟检测，确保消息已添加到列表
       // 注意：如果流式输出时已经通过 ReportGenerationDetector 创建了报告，这里会检查并避免重复
@@ -597,9 +677,16 @@ export default function SophiaChat() {
         detectAndCreateReport(newMessage.content, newMessage.id);
       }, 500);
       
+      // 重置流式输出相关状态（为下一次对话准备）
+      if (shouldHideResponseInChat) {
+        setShouldHideResponseInChat(false);
+        setStreamingReportId(null);
+        setStreamingReportContent('');
+      }
+      
       return updated;
     });
-  }, [finalizeStream, currentAnswer, currentThought, detectAndCreateReport]);
+  }, [finalizeStream, currentAnswer, currentThought, detectAndCreateReport, shouldHideResponseInChat, streamingReportId, API_BASE]);
 
   const refreshSessions = useCallback(() => {
     setSessionsRefreshKey((prev) => prev + 1);
@@ -1296,6 +1383,10 @@ export default function SophiaChat() {
                           setSelectedReportId(reportForMessage.id);
                           setReportTitle(reportForMessage.title);
                           setSelectedResumeId(null); // 清除简历选择
+                          // 如果报告还在流式输出中，设置 streamingReportContent
+                          if (streamingReportId === reportForMessage.id && currentAnswer) {
+                            setStreamingReportContent(currentAnswer);
+                          }
                         }}
                       />
                     </div>
@@ -1323,14 +1414,14 @@ export default function SophiaChat() {
             })}
 
             {/* 当前正在生成的消息 */}
-            {isProcessing && (currentThought || currentAnswer) && (
+            {isProcessing && (currentThought || (!shouldHideResponseInChat && currentAnswer)) && (
               <>
                 <ChatMessage
                   message={{
                     id: 'current',
                     role: 'assistant',
                     thought: currentThought,
-                    content: currentAnswer,
+                    content: shouldHideResponseInChat ? '' : currentAnswer, // 如果隐藏，传递空字符串
                   }}
                   isLatest={true}
                   isStreaming={true}
@@ -1352,6 +1443,15 @@ export default function SophiaChat() {
                   <ReportGenerationDetector
                     content={currentAnswer}
                     onReportCreated={(reportId, title) => {
+                      // 当报告创建后，设置隐藏 response 的标志
+                      setShouldHideResponseInChat(true);
+                      setStreamingReportId(reportId);
+                      
+                      // 如果用户已经选择了该报告，立即设置流式内容
+                      if (selectedReportId === reportId) {
+                        setStreamingReportContent(currentAnswer);
+                      }
+                      
                       // 当报告创建后，添加到列表
                       // 使用 'current' 作为临时 messageId，finalize 时会通过 detectAndCreateReport 更新为真实 messageId
                       setGeneratedReports(prev => {
@@ -1393,6 +1493,10 @@ export default function SophiaChat() {
                             setSelectedReportId(currentReport.id);
                             setReportTitle(currentReport.title);
                             setSelectedResumeId(null);
+                            // 如果报告还在流式输出中，设置 streamingReportContent
+                            if (streamingReportId === currentReport.id && currentAnswer) {
+                              setStreamingReportContent(currentAnswer);
+                            }
                           }}
                         />
                       </div>
@@ -1518,6 +1622,8 @@ export default function SophiaChat() {
                 // 显示报告内容
                 <ReportContentView 
                   reportId={selectedReportId}
+                  streamingContent={streamingReportId === selectedReportId ? streamingReportContent : undefined}
+                  isStreaming={streamingReportId === selectedReportId && isProcessing}
                   onContentLoaded={(content, title) => {
                     setReportContent(content);
                     if (title) setReportTitle(title);
