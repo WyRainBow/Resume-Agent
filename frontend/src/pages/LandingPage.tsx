@@ -144,7 +144,7 @@ export default function LandingPage() {
               <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
             </button>
             <button
-              onClick={() => navigate('/reports/new')}
+              onClick={() => navigate('/workspace/agent/new')}
               className="px-12 py-5 bg-violet-600 text-white rounded-2xl font-black text-xl shadow-2xl shadow-violet-600/30 hover:bg-violet-700 hover:-translate-y-1 transition-all flex items-center gap-4 group"
             >
               <FileEdit className="w-6 h-6" />

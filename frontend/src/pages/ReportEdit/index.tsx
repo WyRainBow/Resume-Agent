@@ -253,7 +253,7 @@ export default function ReportEdit() {
       <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/reports/new')}
+            onClick={() => navigate('/workspace/agent/new')}
             className="text-gray-600 hover:text-gray-900"
           >
             返回

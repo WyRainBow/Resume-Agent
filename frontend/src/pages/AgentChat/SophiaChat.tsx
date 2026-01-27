@@ -11,17 +11,83 @@
  */
 
 import ChatMessage from '@/components/chat/ChatMessage';
+import ReportCard from '@/components/chat/ReportCard';
 import { RecentSessions } from '@/components/sidebar/RecentSessions';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCLTP } from '@/hooks/useCLTP';
 import { HTMLTemplateRenderer } from '@/pages/Workspace/v2/HTMLTemplateRenderer';
 import type { ResumeData } from '@/pages/Workspace/v2/types';
 import { getResume } from '@/services/resumeStorage';
+import { 
+  createReport, 
+  getReport, 
+  getDocumentContent,
+  ensureReportConversation
+} from '@/services/api';
 import { Message } from '@/types/chat';
 import { ConnectionStatus } from '@/types/transport';
 import { ArrowUp, MessageSquare } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { useParams } from 'react-router-dom';
+import EnhancedMarkdown from '@/components/chat/EnhancedMarkdown';
+import { useTextStream } from '@/hooks/useTextStream';
+
+// 报告内容视图组件
+function ReportContentView({ 
+  reportId, 
+  onContentLoaded 
+}: { 
+  reportId: string
+  onContentLoaded: (content: string, title?: string) => void 
+}) {
+  const [content, setContent] = useState<string>('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadReport = async () => {
+      try {
+        setIsLoading(true)
+        const report = await getReport(reportId)
+        if (report.main_id) {
+          const docContent = await getDocumentContent(report.main_id)
+          setContent(docContent.content || '')
+          onContentLoaded(docContent.content || '', report.title)
+        } else {
+          setContent('')
+          onContentLoaded('', report.title)
+        }
+        setError(null)
+      } catch (err) {
+        console.error('加载报告失败:', err)
+        setError(err instanceof Error ? err.message : '加载报告失败')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadReport()
+  }, [reportId, onContentLoaded])
+
+  if (isLoading) {
+    return <div className="text-sm text-slate-500">正在加载报告...</div>
+  }
+
+  if (error) {
+    return <div className="text-sm text-red-500">{error}</div>
+  }
+
+  if (!content.trim()) {
+    return <div className="text-sm text-slate-400">报告内容为空</div>
+  }
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-6">
+      <div className="prose max-w-none">
+        <EnhancedMarkdown>{content}</EnhancedMarkdown>
+      </div>
+    </div>
+  )
+}
 
 // ============================================================================
 // 配置
@@ -85,6 +151,13 @@ export default function SophiaChat() {
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [loadingResume, setLoadingResume] = useState(true);
+  
+  // 报告相关状态
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [reportContent, setReportContent] = useState<string>('');
+  const [reportTitle, setReportTitle] = useState<string>('');
+  const [isLoadingReport, setIsLoadingReport] = useState(false);
+  const [generatedReports, setGeneratedReports] = useState<Array<{ id: string; title: string; messageId: string }>>([]);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const saveInFlightRef = useRef<Promise<void> | null>(null);
@@ -428,12 +501,73 @@ export default function SophiaChat() {
       }
       const updated = [...prev, newMessage];
       console.log('[AgentChat] Messages updated', { count: updated.length });
+      
+      // 检测报告生成：如果消息内容包含报告相关关键词，尝试创建报告
+      detectAndCreateReport(newMessage.content, newMessage.id);
+      
       return updated;
     });
   }, [finalizeStream, currentAnswer, currentThought]);
 
   const refreshSessions = useCallback(() => {
     setSessionsRefreshKey((prev) => prev + 1);
+  }, []);
+
+  // 检测并创建报告
+  const detectAndCreateReport = useCallback(async (content: string, messageId: string) => {
+    // 检测报告生成的关键词
+    const reportKeywords = [
+      '报告', 'report', '调研', '分析', '研究', '研究报', '调研报告',
+      '详细报告', '完整报告', '生成报告', '报告已生成', '报告完成'
+    ];
+    
+    const hasReportKeyword = reportKeywords.some(keyword => 
+      content.toLowerCase().includes(keyword.toLowerCase())
+    );
+    
+    // 检测是否包含报告标题（通常在 "关于" 或 "的" 之后）
+    const reportTitleMatch = content.match(/(?:关于|关于"|关于《)([^"》\n]+)(?:的|"|》)报告/);
+    
+    if (hasReportKeyword && content.length > 200) {
+      // 提取报告主题
+      let reportTopic = '';
+      if (reportTitleMatch) {
+        reportTopic = reportTitleMatch[1];
+      } else {
+        // 尝试从内容开头提取主题
+        const topicMatch = content.match(/^(?:#+\s*)?([^\n]+)/);
+        if (topicMatch) {
+          reportTopic = topicMatch[1].replace(/^#+\s*/, '').trim();
+        }
+      }
+      
+      if (reportTopic && reportTopic.length > 5 && reportTopic.length < 100) {
+        try {
+          // 创建报告
+          const result = await createReport(reportTopic);
+          
+          // 保存报告内容
+          if (result.mainId) {
+            await fetch(`${API_BASE}/api/documents/${result.mainId}/content`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ content })
+            });
+          }
+          
+          // 添加到生成的报告列表
+          setGeneratedReports(prev => [...prev, {
+            id: result.reportId,
+            title: reportTopic,
+            messageId
+          }]);
+          
+          console.log('[AgentChat] 检测到报告生成:', result.reportId, reportTopic);
+        } catch (err) {
+          console.error('[AgentChat] 创建报告失败:', err);
+        }
+      }
+    }
   }, []);
 
   const buildSavePayload = useCallback((messagesToSave: Message[]) => {
@@ -978,14 +1112,34 @@ export default function SophiaChat() {
             )}
 
             {/* 历史消息 */}
-            {messages.map((msg, idx) => (
-              <ChatMessage
-                key={msg.id || idx}
-                message={msg}
-                isLatest={idx === messages.length - 1 && msg.role === 'assistant'}
-                isStreaming={false}
-              />
-            ))}
+            {messages.map((msg, idx) => {
+              // 检查这条消息是否有关联的报告
+              const reportForMessage = generatedReports.find(r => r.messageId === msg.id);
+              
+              return (
+                <Fragment key={msg.id || idx}>
+                  <ChatMessage
+                    message={msg}
+                    isLatest={idx === messages.length - 1 && msg.role === 'assistant'}
+                    isStreaming={false}
+                  />
+                  {/* 如果这条消息有报告，显示报告卡片 */}
+                  {reportForMessage && msg.role === 'assistant' && (
+                    <div className="my-4">
+                      <ReportCard
+                        reportId={reportForMessage.id}
+                        title={reportForMessage.title}
+                        subtitle="点击查看完整报告"
+                        onClick={() => {
+                          setSelectedReportId(reportForMessage.id);
+                          setReportTitle(reportForMessage.title);
+                        }}
+                      />
+                    </div>
+                  )}
+                </Fragment>
+              );
+            })}
 
             {/* 当前正在生成的消息 */}
             {isProcessing && (currentThought || currentAnswer) && (
@@ -1079,30 +1233,65 @@ export default function SophiaChat() {
           </div>
         </section>
 
-        {/* Right: Resume Preview */}
+        {/* Right: Report Preview or Resume Preview */}
         <aside className="w-[45%] min-w-[420px] bg-slate-50 overflow-y-auto">
           <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10">
-            <h2 className="text-sm font-semibold text-slate-700">简历预览</h2>
-            {resumeData?.basic?.name && (
-              <p className="text-xs text-slate-400 mt-1">{resumeData.basic.name}</p>
-            )}
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-700">
+                  {selectedReportId ? '报告内容' : '简历预览'}
+                </h2>
+                {selectedReportId && reportTitle && (
+                  <p className="text-xs text-slate-400 mt-1">{reportTitle}</p>
+                )}
+                {!selectedReportId && resumeData?.basic?.name && (
+                  <p className="text-xs text-slate-400 mt-1">{resumeData.basic.name}</p>
+                )}
+              </div>
+              {selectedReportId && (
+                <button
+                  onClick={() => {
+                    setSelectedReportId(null);
+                    setReportContent('');
+                    setReportTitle('');
+                  }}
+                  className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+                >
+                  返回简历预览
+                </button>
+              )}
+            </div>
           </div>
           <div className="p-6">
-            {loadingResume && (
-              <div className="text-sm text-slate-500">正在加载简历...</div>
-            )}
-            {resumeError && (
-              <div className="text-sm text-red-500">{resumeError}</div>
-            )}
-            {!loadingResume && !resumeError && !isHtmlTemplate && (
-              <div className="text-sm text-orange-600">
-                当前仅支持 HTML 模板简历的预览。
-              </div>
-            )}
-            {!loadingResume && !resumeError && isHtmlTemplate && resumeData && (
-              <div className="bg-white shadow-lg rounded-lg p-6">
-                <HTMLTemplateRenderer resumeData={resumeData} />
-              </div>
+            {selectedReportId ? (
+              // 显示报告内容
+              <ReportContentView 
+                reportId={selectedReportId}
+                onContentLoaded={(content, title) => {
+                  setReportContent(content);
+                  if (title) setReportTitle(title);
+                }}
+              />
+            ) : (
+              // 显示简历预览
+              <>
+                {loadingResume && (
+                  <div className="text-sm text-slate-500">正在加载简历...</div>
+                )}
+                {resumeError && (
+                  <div className="text-sm text-red-500">{resumeError}</div>
+                )}
+                {!loadingResume && !resumeError && !isHtmlTemplate && (
+                  <div className="text-sm text-orange-600">
+                    当前仅支持 HTML 模板简历的预览。
+                  </div>
+                )}
+                {!loadingResume && !resumeError && isHtmlTemplate && resumeData && (
+                  <div className="bg-white shadow-lg rounded-lg p-6">
+                    <HTMLTemplateRenderer resumeData={resumeData} />
+                  </div>
+                )}
+              </>
             )}
           </div>
         </aside>
