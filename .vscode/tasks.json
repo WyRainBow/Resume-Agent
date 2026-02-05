@@ -4,7 +4,7 @@
     {
       "label": "⚙️ Backend: Start API Server",
       "type": "shell",
-      "command": "uvicorn backend.main:app --reload --port 9000",
+      "command": "source .venv/bin/activate && PYTHONPATH=$(pwd):$PYTHONPATH python -m uvicorn backend.main:app --reload --port 9000",
       "group": "build",
       "presentation": {
         "reveal": "always",
@@ -64,66 +64,6 @@
       "group": {
         "kind": "build",
         "isDefault": true
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "📦 Frontend: Build Production",
-      "type": "shell",
-      "command": "npm run build",
-      "options": {
-        "cwd": "${workspaceFolder}/frontend"
-      },
-      "group": "build",
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared" 
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "📥 Frontend: Install Dependencies",
-      "type": "shell",
-      "command": "npm install",
-      "options": {
-        "cwd": "${workspaceFolder}/frontend"
-      },
-      "group": "build",
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared"
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "📥 Backend: Install Dependencies",
-      "type": "shell",
-      "command": "pip install -r requirements.txt",
-      "group": "build",
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared"
-      },
-      "problemMatcher": []
-    },
-    {
-      "label": "⬇️ Install All Dependencies",
-      "dependsOn": [
-        "📥 Backend: Install Dependencies",
-        "📥 Frontend: Install Dependencies"
-      ],
-      "dependsOrder": "parallel",
-      "group": "build",
-      "problemMatcher": []
-    },
-    {
-      "label": "🔄 Git: Pull Latest",
-      "type": "shell",
-      "command": "git pull --rebase",
-      "group": "build",
-      "presentation": {
-        "reveal": "always",
-        "panel": "shared"
       },
       "problemMatcher": []
     }

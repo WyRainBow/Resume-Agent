@@ -51,6 +51,7 @@ boto3~=1.37.18
 beautifulsoup4~=4.13.3
 crawl4ai~=0.6.3
 markdownify
+mineru>=2.7.0
 pdfminer-six>=20231228
 
 # LangChain
@@ -65,3 +66,4 @@ unidiff~=0.7.5
 structlog
 tomli>=2.0.0
 huggingface-hub~=0.29.2
+python-multipart~=0.0.22
