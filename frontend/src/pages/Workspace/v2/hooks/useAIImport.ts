@@ -90,7 +90,8 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
     setAiModalOpen(true)
   }, [])
 
-  const formatHighlightsToHtml = (highlights: any): string => {
+  // 根据列表样式格式化为 HTML
+  const formatHighlightsToHtml = (highlights: any, listStyle: string = 'bullet'): string => {
     if (!highlights) return ''
     const items = Array.isArray(highlights)
       ? highlights
@@ -98,16 +99,37 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
         ? highlights.split('\n').filter((line) => line.trim())
         : []
     if (!items.length) return ''
+    
     const highlightsHtml = items.map((h: string) => {
       const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
       return `<li>${formatted}</li>`
     }).join('')
+    
+    // 根据 listStyle 选择不同的列表标签
+    if (listStyle === 'numbered') {
+      return `<ol class="custom-list">${highlightsHtml}</ol>`
+    } else if (listStyle === 'none') {
+      // 无列表样式，用 div 包裹
+      const divHtml = items.map((h: string) => {
+        const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        return `<p>${formatted}</p>`
+      }).join('')
+      return divHtml
+    }
     return `<ul class="custom-list">${highlightsHtml}</ul>`
   }
 
   // AI 解析结果处理
   const handleAISave = useCallback((data: any) => {
     console.log('AI parsed data:', data, 'for section:', aiModalSection)
+
+    // 读取格式信息
+    const format = data.format || {}
+    const experienceFormat = format.experience || {}
+    const projectsFormat = format.projects || {}
+    const skillsFormat = format.skills || {}
+    
+    console.log('Format info:', format)
 
     const hasOpenSourceKey =
       Object.prototype.hasOwnProperty.call(data, 'openSource') ||
@@ -152,21 +174,36 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
           company: e.title || '',
           position: e.subtitle || '',
           date: e.date || '',
-          details: formatHighlightsToHtml(e.highlights),
+          details: formatHighlightsToHtml(e.highlights, experienceFormat.list_style || 'bullet'),
           visible: true,
         })) || prev.experience,
         projects: data.projects?.map((p: any, i: number) => {
           // 合并项目描述和亮点
           let description = p.description || ''
+          const listStyle = projectsFormat.list_style || 'bullet'
 
-          // 将 highlights 数组转换为 HTML 无序列表
+          // 将 highlights 数组转换为 HTML 列表（根据格式信息）
           if (p.highlights && p.highlights.length > 0) {
             const highlightsHtml = p.highlights.map((h: string) => {
               // 转换 Markdown **加粗** 为 HTML <strong>
               const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
               return `<li>${formatted}</li>`
             }).join('')
-            const highlightsList = `<ul class="custom-list">${highlightsHtml}</ul>`
+            
+            // 根据 listStyle 选择列表标签
+            let highlightsList: string
+            if (listStyle === 'numbered') {
+              highlightsList = `<ol class="custom-list">${highlightsHtml}</ol>`
+            } else if (listStyle === 'none') {
+              // 无列表样式，用段落
+              highlightsList = p.highlights.map((h: string) => {
+                const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                return `<p>${formatted}</p>`
+              }).join('')
+            } else {
+              highlightsList = `<ul class="custom-list">${highlightsHtml}</ul>`
+            }
+            
             if (description) {
               description = description + highlightsList
             } else {
@@ -196,9 +233,11 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
           visible: true,
         })) || prev.awards,
         skillContent: (() => {
-          // 强制格式化 skills 为 HTML 列表，并智能拆分 details
+          // 强制格式化 skills 为 HTML 列表，根据格式信息智能渲染
           if (data.skills && data.skills.length > 0) {
             const allItems: string[] = []
+            const hasCategory = skillsFormat.has_category !== false // 默认 true
+            const listStyle = skillsFormat.list_style || 'bullet'
             
             for (const s of data.skills) {
               const category = s.category?.trim() || ''
@@ -209,14 +248,15 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
               // 尝试拆分 details 为多个列表项
               const splitItems = splitSkillDetails(details)
               
-              if (category && splitItems.length === 1) {
+              // 根据格式信息决定渲染方式
+              if (hasCategory && category && splitItems.length === 1) {
                 // 有分类且只有一条描述时，合并在同一行（韦宇格式）
                 allItems.push(`<li><p><strong>${category}</strong>：${splitItems[0]}</p></li>`)
-              } else if (category && splitItems.length > 1) {
+              } else if (hasCategory && category && splitItems.length > 1) {
                 // 有分类且有多条描述时，使用嵌套结构
                 allItems.push(`<li><p><strong>${category}</strong></p><ul class="custom-list">${splitItems.map(item => `<li><p>${item}</p></li>`).join('')}</ul></li>`)
               } else if (splitItems.length > 0) {
-                // 无分类时，直接输出列表项（李俊杰格式）
+                // 无分类或格式信息指示无分类时，直接输出列表项（李俊杰格式）
                 splitItems.forEach(item => {
                   allItems.push(`<li><p>${item}</p></li>`)
                 })
@@ -224,6 +264,10 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
             }
             
             if (allItems.length > 0) {
+              // 根据 listStyle 选择列表标签
+              if (listStyle === 'numbered') {
+                return `<ol class="custom-list">${allItems.join('')}</ol>`
+              }
               return `<ul class="custom-list">${allItems.join('')}</ul>`
             }
           }

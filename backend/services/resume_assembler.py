@@ -140,6 +140,23 @@ def _normalize_highlights(data: Dict[str, Any]) -> Dict[str, Any]:
     return data
 
 
+def _extract_format_info(layout: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """
+    从布局骨架中提取各section的格式信息
+    """
+    format_info = {}
+    sections = layout.get("sections", [])
+    for section in sections:
+        section_type = section.get("type", "")
+        section_format = section.get("format", {})
+        if section_type:
+            format_info[section_type] = {
+                "list_style": section_format.get("list_style", "bullet"),
+                "has_category": section_format.get("has_category", False),
+            }
+    return format_info
+
+
 def assemble_resume_data(
     raw_text: str,
     layout: Dict[str, Any],
@@ -154,20 +171,29 @@ def assemble_resume_data(
     if not layout or "sections" not in layout:
         raise ValueError("布局骨架为空或格式不正确")
 
+    # 提取格式信息
+    format_info = _extract_format_info(layout)
+
     schema_desc = (
         '{"name":"姓名","contact":{"phone":"电话","email":"邮箱","location":"地区"},'
-        '"objective":"求职意向","education":[{"title":"学校","subtitle":"专业","degree":"学位(本科/硕士/博士)",'
+        '"objective":"求职意向",'
+        '"format":{"experience":{"list_style":"bullet|numbered|none"},"skills":{"list_style":"bullet","has_category":true}},'
+        '"education":[{"title":"学校","subtitle":"专业","degree":"学位(本科/硕士/博士)",'
         '"date":"时间","details":["荣誉"]}],"internships":[{"title":"公司","subtitle":"职位","date":"时间",'
         '"highlights":["工作内容"]}],"projects":[{"title":"项目名","subtitle":"角色","date":"时间",'
         '"description":"项目描述(可选)","highlights":["描述"]}],"openSource":[{"title":"开源项目","subtitle":"角色/描述",'
         '"date":"时间(格式: 2023.01-2023.12 或 2023.01-至今)","items":["贡献描述"],"repoUrl":"仓库链接"}],'
-        '"skills":[{"category":"类别","details":"技能描述"}],"awards":["奖项"]}'
+        '"skills":[{"category":"类别(如有)","details":"技能描述"}],"awards":["奖项"]}'
     )
 
     section_text = _split_text_by_headings(raw_text)
+    
+    # 检测原始文本是否是 Markdown 格式（MinerU 输出）
+    is_markdown = "##" in raw_text or "- " in raw_text or "* " in raw_text
+    
     prompt = f"""你是专业的简历结构化解析助手。
 
-任务：根据【布局骨架】与【原始文本】生成结构化简历 JSON。
+任务：根据【布局骨架】与【原始文本】生成结构化简历 JSON，**必须保留原始文档的格式特征**。
 
 必须遵守（非常重要）：
 1. 布局骨架定义了模块顺序和条目顺序，必须严格保持。
@@ -190,13 +216,30 @@ def assemble_resume_data(
 9. **highlights/items 数组格式规则（必须严格遵守）：**
    - internships 和 projects 的 highlights 必须是数组，每个职责/成就是独立的数组元素
    - 禁止将多个职责用换行符(\\n)连接成一个字符串
-   - 如果原文有编号列表（1. 2. 3.）或无序列表，每个列表项应作为数组的独立元素
+   - 如果原文有编号列表（1. 2. 3.）或无序列表（• - *），每个列表项应作为数组的独立元素
    - 正确示例：["构建 Figma-to-Code 自动化交付", "架构前端项目跨框架迁移平台", "机器人写作平台开发"]
    - 错误示例：["构建 Figma-to-Code...\\n架构前端项目...\\n机器人写作平台..."]
-10. 只输出 JSON，不要任何解释或代码块。
+
+10. **格式保留规则（非常重要 - 新增）：**
+    - 在输出 JSON 中必须包含 "format" 字段，记录各模块的格式特征
+    - format.experience.list_style: 实习经历的列表样式 ("bullet"=无序列表, "numbered"=有序列表, "none"=无列表)
+    - format.projects.list_style: 项目经历的列表样式
+    - format.skills.list_style: 专业技能的列表样式
+    - format.skills.has_category: 技能是否有分类标题（如"后端:"、"数据库:"）
+    - 参考布局骨架中的 format 信息：{json.dumps(format_info, ensure_ascii=False)}
+
+11. **技能模块格式规则：**
+    - 如果原文技能有分类（如"后端: xxx"、"数据库: xxx"），则 has_category=true，每个技能项要有 category 字段
+    - 如果原文技能没有分类，直接是列表，则 has_category=false，category 字段留空
+    - 如果一个分类下只有一条描述，details 就是该条描述
+    - 如果一个分类下有多条（用换行或列表符号分隔），details 应包含所有内容，用换行符分隔
+
+12. 只输出 JSON，不要任何解释或代码块。
 
 布局骨架：
 {json.dumps(layout, ensure_ascii=False)}
+
+{"原始文本格式: Markdown（已保留列表格式）" if is_markdown else "原始文本格式: 纯文本"}
 
 分区文本（按标题切分）：
 {json.dumps(section_text, ensure_ascii=False)}
@@ -221,4 +264,7 @@ def assemble_resume_data(
     parsed = _parse_json(content)
     if isinstance(parsed, dict):
         parsed = _normalize_highlights(parsed)
+        # 确保 format 字段存在
+        if "format" not in parsed:
+            parsed["format"] = format_info
     return parsed

@@ -156,7 +156,7 @@ def _parse_json(text: str) -> Dict[str, Any]:
 
 
 def _build_prompt() -> str:
-    return """识别简历结构骨架，按从上到下顺序输出JSON。
+    return """识别简历结构骨架，按从上到下顺序输出JSON。请特别注意识别每个section的**格式特征**。
 
 type值: basic/experience/projects/education/skills/openSource/awards
 
@@ -165,7 +165,31 @@ type值: basic/experience/projects/education/skills/openSource/awards
 - 含GitHub链接→openSource
 - 只输出JSON,不要解释
 
-格式:{"sections":[{"type":"xxx","title":"标题","items":[{"name":"名称","date":"时间"}]}]}"""
+**格式识别规则（非常重要）**:
+- list_style: 观察该section的内容是用什么方式排列的
+  - "bullet": 有圆点(•)、方点(■)或连字符(-)开头的无序列表
+  - "numbered": 有1.2.3.或一二三开头的有序列表
+  - "none": 没有列表符号，是纯文本段落
+- has_category: 技能模块是否有分类标题(如"后端:"、"数据库:"等)
+- item_count: 该section下有多少个条目
+
+格式:
+{
+  "sections": [
+    {
+      "type": "experience",
+      "title": "实习经历",
+      "format": {"list_style": "bullet", "has_category": false},
+      "items": [{"name": "腾讯云", "subtitle": "后端开发", "date": "2025.05-2025.09"}]
+    },
+    {
+      "type": "skills",
+      "title": "专业技能",
+      "format": {"list_style": "bullet", "has_category": true},
+      "items": [{"category": "后端", "content": "熟悉Java..."}]
+    }
+  ]
+}"""
 
 
 def recognize_layout_from_images(
