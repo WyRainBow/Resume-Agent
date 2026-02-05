@@ -63,41 +63,60 @@ def _strip_json_block(text: str) -> str:
     return cleaned.strip()
 
 
+def _fix_json_string(text: str) -> str:
+    """修复常见的 JSON 格式问题"""
+    import re
+    # 移除可能的 BOM 和不可见字符
+    text = text.strip().lstrip('\ufeff')
+    # 修复尾部多余逗号: ,] -> ] 和 ,} -> }
+    text = re.sub(r',\s*]', ']', text)
+    text = re.sub(r',\s*}', '}', text)
+    # 修复中文冒号
+    text = text.replace('：', ':')
+    # 修复中文引号
+    text = text.replace('"', '"').replace('"', '"')
+    text = text.replace(''', "'").replace(''', "'")
+    return text
+
+
 def _parse_json(text: str) -> Dict[str, Any]:
     cleaned = _strip_json_block(text)
+    cleaned = _fix_json_string(cleaned)
+    
+    # 尝试直接解析
     try:
         return json.loads(cleaned)
-    except Exception:
-        start = cleaned.find("{")
-        end = cleaned.rfind("}")
-        if start != -1 and end != -1 and end > start:
-            return json.loads(cleaned[start:end + 1])
-        raise
+    except json.JSONDecodeError:
+        pass
+    
+    # 尝试提取 JSON 对象
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        json_str = cleaned[start:end + 1]
+        json_str = _fix_json_string(json_str)
+        try:
+            return json.loads(json_str)
+        except json.JSONDecodeError as e:
+            # 打印调试信息
+            print(f"[智谱JSON解析] 原始内容前100字符: {json_str[:100]}", flush=True)
+            print(f"[智谱JSON解析] 错误位置附近: {json_str[max(0, e.pos-50):e.pos+50]}", flush=True)
+            raise ValueError(f"JSON 解析失败: {e}")
+    
+    raise ValueError("未找到有效的 JSON 对象")
 
 
 def _build_prompt() -> str:
-    return """识别简历结构，按从上到下顺序，直接输出JSON（不要解释）：
+    return """识别简历结构骨架，按从上到下顺序输出JSON。
 
-type 可选值：
-- basic: 基本信息（姓名、联系方式）
-- experience: 实习经历/工作经历
-- projects: 项目经验/项目经历（公司内的项目）
-- education: 教育经历
-- skills: 专业技能
-- openSource: 开源经历/开源贡献/开源项目（包含GitHub链接的项目、社区贡献、个人开源项目）
-- awards: 获奖/荣誉
+type值: basic/experience/projects/education/skills/openSource/awards
 
-重要区分规则：
-1. 如果模块标题包含"开源"二字，type 必须是 openSource
-2. 如果条目包含 GitHub 仓库链接或社区贡献描述，type 应该是 openSource
-3. 个人项目（如 Resume-Agent）如果有 GitHub 链接，应该放在 openSource 类型
+规则:
+- 标题含"开源"→openSource
+- 含GitHub链接→openSource
+- 只输出JSON,不要解释
 
-输出格式示例：
-{"sections": [
-  {"type": "experience", "title": "实习经历", "items": [{"company": "公司名", "position": "职位", "date": "时间"}]},
-  {"type": "projects", "title": "项目经验", "items": [{"name": "项目名", "role": "角色", "date": "时间"}]},
-  {"type": "openSource", "title": "开源经历", "items": [{"name": "项目名", "role": "贡献者", "repo": "仓库链接"}]}
-]}"""
+格式:{"sections":[{"type":"xxx","title":"标题","items":[{"name":"名称","date":"时间"}]}]}"""
 
 
 def recognize_layout_from_images(
@@ -145,6 +164,14 @@ def recognize_layout_from_images(
         content = msg.reasoning_content
     if not content:
         raise ValueError("智谱未返回布局内容")
+    
+    # 调试日志
+    print(f"[智谱布局] 返回内容长度: {len(content)} 字符", flush=True)
+    if len(content) < 500:
+        print(f"[智谱布局] 完整内容: {content}", flush=True)
+    else:
+        print(f"[智谱布局] 前200字符: {content[:200]}...", flush=True)
+    
     return _parse_json(content)
 
 

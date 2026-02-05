@@ -3,6 +3,7 @@
 """
 import re
 import json as _json
+import os
 import sys
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -310,14 +311,23 @@ async def upload_resume_pdf(
     total_start = time.time()
     
     # 并行执行：文本提取 + 图片转换
-    print("[PDF解析] 开始并行处理...", flush=True)
+    layout_dpi = int(os.getenv("PDF_LAYOUT_DPI", "100"))
+    max_pages_env = os.getenv("PDF_LAYOUT_MAX_PAGES", "").strip()
+    max_pages = None if max_pages_env in ("", "0", "none", "None") else int(max_pages_env)
+    print(f"[PDF解析] 开始并行处理... (DPI={layout_dpi}, max_pages={max_pages})", flush=True)
     step1_start = time.time()
     
     loop = asyncio.get_event_loop()
     with ThreadPoolExecutor(max_workers=2) as executor:
         # 并行任务
         text_future = loop.run_in_executor(executor, extract_markdown_from_pdf, pdf_bytes, True)
-        image_future = loop.run_in_executor(executor, pdf_pages_to_png_bytes, pdf_bytes, 100)  # 降低 DPI: 150 -> 100
+        image_future = loop.run_in_executor(
+            executor,
+            pdf_pages_to_png_bytes,
+            pdf_bytes,
+            layout_dpi,
+            max_pages
+        )
         
         try:
             markdown_text, image_bytes_list = await asyncio.gather(text_future, image_future)
