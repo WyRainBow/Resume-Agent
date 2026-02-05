@@ -38,7 +38,64 @@ import { ArrowUp, MessageSquare } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { useParams } from 'react-router-dom';
 import EnhancedMarkdown from '@/components/chat/EnhancedMarkdown';
+import ThoughtProcess from '@/components/chat/ThoughtProcess';
 import { useTextStream } from '@/hooks/useTextStream';
+
+// Response 流式输出组件（带打字机效果）
+function StreamingResponse({ 
+  content, 
+  canStart,
+  onComplete
+}: { 
+  content: string
+  canStart: boolean
+  onComplete?: () => void
+}) {
+  const completedRef = React.useRef(false);
+  
+  // 只有当 canStart 为 true 时才开始打字机效果
+  const { displayedText, isComplete } = useTextStream({
+    textStream: canStart ? content : '',
+    speed: 15,
+    mode: 'typewriter',
+    onComplete: () => {
+      // 打字机完成时调用 onComplete
+      if (!completedRef.current && onComplete) {
+        completedRef.current = true;
+        console.log('[StreamingResponse] 打字机效果完成');
+        onComplete();
+      }
+    }
+  });
+
+  // 重置 completedRef 当 content 变化时
+  React.useEffect(() => {
+    if (content) {
+      completedRef.current = false;
+    }
+  }, [content]);
+
+  // 如果不能开始或没有内容，不显示
+  if (!canStart || !content) {
+    return null;
+  }
+
+  // 显示打字机效果的文本
+  const textToShow = displayedText;
+
+  if (!textToShow) {
+    return null;
+  }
+
+  return (
+    <div className="text-gray-800 mb-6">
+      <EnhancedMarkdown>{textToShow}</EnhancedMarkdown>
+      {!isComplete && (
+        <span className="inline-block w-0.5 h-4 bg-gray-400 animate-pulse ml-0.5" />
+      )}
+    </div>
+  );
+}
 
 // 报告内容视图组件
 function ReportContentView({ 
@@ -227,6 +284,9 @@ export default function SophiaChat() {
   // 简历选择器状态
   const [showResumeSelector, setShowResumeSelector] = useState(false);
   const [pendingResumeInput, setPendingResumeInput] = useState<string>(''); // 暂存用户输入，选择简历后继续处理
+  
+  // Thought Process 完成状态（用于控制 Response 的显示时机）
+  const [thoughtProcessComplete, setThoughtProcessComplete] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const saveInFlightRef = useRef<Promise<void> | null>(null);
@@ -1375,6 +1435,7 @@ export default function SophiaChat() {
 
     isFinalizedRef.current = false;
     shouldFinalizeRef.current = false; // 重置完成标记
+    setThoughtProcessComplete(false); // 重置 Thought Process 完成状态
     setInput('');
     setSearchResults((prev) => prev.filter((item) => item.messageId !== 'current'));
 
@@ -1565,22 +1626,54 @@ export default function SophiaChat() {
               );
             })}
 
-            {/* 当前正在生成的消息 */}
+            {/* 当前正在生成的消息 - 按顺序：Thought Process → SearchCard → Response */}
             {isProcessing && (currentThought || (!shouldHideResponseInChat && currentAnswer)) && (
               <>
-                <ChatMessage
-                  message={{
-                    id: 'current',
-                    role: 'assistant',
-                    thought: currentThought,
-                    content: shouldHideResponseInChat ? '' : currentAnswer, // 如果隐藏，传递空字符串
-                  }}
-                  isLatest={true}
-                  isStreaming={true}
-                  onTypewriterComplete={() => {
-                    // 打字机效果完成时，清理流式状态
+                {/* 1. Thought Process 优先显示 */}
+                {currentThought && (
+                  <ThoughtProcess
+                    content={currentThought}
+                    isStreaming={true}
+                    isLatest={true}
+                    defaultExpanded={true}
+                    onComplete={() => {
+                      console.log('[AgentChat] ThoughtProcess 打字机效果完成');
+                      setThoughtProcessComplete(true);
+                    }}
+                  />
+                )}
+
+                {/* 2. 搜索卡片在 Thought Process 完成后、Response 之前显示 */}
+                {(() => {
+                  const currentSearch = searchResults.find(r => r.messageId === 'current');
+                  // 只有当 Thought Process 完成（或没有 thought）时才显示 SearchCard
+                  const canShowSearchCard = !currentThought || thoughtProcessComplete;
+                  if (!currentSearch || !isProcessing || !canShowSearchCard) {
+                    return null;
+                  }
+                  return (
+                    <div className="my-4">
+                      <SearchCard
+                        query={currentSearch.data.query}
+                        totalResults={currentSearch.data.total_results}
+                        onOpen={() => setActiveSearchPanel(currentSearch.data)}
+                      />
+                      <SearchSummary
+                        query={currentSearch.data.query}
+                        results={currentSearch.data.results}
+                      />
+                    </div>
+                  );
+                })()}
+
+                {/* 3. Response 最后显示（等待 Thought Process 完成或没有 thought 时），使用打字机效果 */}
+                <StreamingResponse
+                  content={currentAnswer}
+                  canStart={!shouldHideResponseInChat && (!currentThought || thoughtProcessComplete)}
+                  onComplete={() => {
+                    // Response 打字机效果完成时，清理流式状态
                     if (shouldFinalizeRef.current) {
-                      console.log('[AgentChat] Typewriter completed, finalize stream');
+                      console.log('[AgentChat] Response 打字机完成, finalize stream');
                       shouldFinalizeRef.current = false;
                       finalizeMessage();
                       finalizeStream();
@@ -1590,6 +1683,7 @@ export default function SophiaChat() {
                     }
                   }}
                 />
+
                 {/* 如果正在生成报告内容，检测并创建报告 */}
                 {currentAnswer.length > 500 && (
                   <ReportGenerationDetector
@@ -1655,25 +1749,6 @@ export default function SophiaChat() {
                     );
                   }
                   return null;
-                })()}
-                {(() => {
-                  const currentSearch = searchResults.find(r => r.messageId === 'current');
-                  if (!currentSearch || !isProcessing) {
-                    return null;
-                  }
-                  return (
-                    <div className="my-4">
-                      <SearchCard
-                        query={currentSearch.data.query}
-                        totalResults={currentSearch.data.total_results}
-                        onOpen={() => setActiveSearchPanel(currentSearch.data)}
-                      />
-                      <SearchSummary
-                        query={currentSearch.data.query}
-                        results={currentSearch.data.results}
-                      />
-                    </div>
-                  );
                 })()}
               </>
             )}
