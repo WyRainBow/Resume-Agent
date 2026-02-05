@@ -140,14 +140,21 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
           description: a.description || '',
           visible: true,
         })) || prev.awards,
-        skillContent: data.skills?.length > 0 ? `<ul class="custom-list">${data.skills.map((s: any) => {
-          // 如果 category 为空，说明是单行技能描述，直接返回 details
-          if (!s.category || s.category === '') {
-            return `<li><p>${s.details || ''}</p></li>`
+        skillContent: (() => {
+          // 强制格式化 skills 为 HTML 列表
+          if (data.skills && data.skills.length > 0) {
+            const skillItems = data.skills.map((s: any) => {
+              const category = s.category?.trim() || ''
+              const details = s.details?.trim() || ''
+              if (!category) {
+                return `<li><p>${details}</p></li>`
+              }
+              return `<li><p><strong>${category}</strong>: ${details}</p></li>`
+            }).join('')
+            return `<ul class="custom-list">${skillItems}</ul>`
           }
-          // 如果有 category，使用分类格式
-          return `<li><p><strong>${s.category}</strong>: ${s.details || ''}</p></li>`
-        }).join('')}</ul>` : prev.skillContent,
+          return prev.skillContent
+        })(),
       }))
     } else {
       // 分模块导入
@@ -266,24 +273,32 @@ function handleSectionImport(
       break
 
     case 'skills':
-      if (Array.isArray(data)) {
-        const skillHtml = `<ul class="custom-list">${data.map((s: any) => {
-          // 如果 category 为空，说明是单行技能描述，直接返回 details
-          if (!s.category || s.category === '') {
-            return `<li><p>${s.details || ''}</p></li>`
+      if (Array.isArray(data) && data.length > 0) {
+        // 强制替换为格式化的 HTML 列表
+        const skillItems = data.map((s: any) => {
+          const category = s.category?.trim() || ''
+          const details = s.details?.trim() || ''
+          if (!category) {
+            return `<li><p>${details}</p></li>`
           }
-          // 如果有 category，使用分类格式
-          return `<li><p><strong>${s.category}</strong>: ${s.details || ''}</p></li>`
-        }).join('')}</ul>`
+          return `<li><p><strong>${category}</strong>: ${details}</p></li>`
+        }).join('')
+        const skillHtml = `<ul class="custom-list">${skillItems}</ul>`
         setResumeData((prev) => ({
           ...prev,
-          skillContent: prev.skillContent ? prev.skillContent + skillHtml : skillHtml,
+          skillContent: skillHtml, // 强制替换，不追加
         }))
-      } else if (typeof data === 'string') {
-        setResumeData((prev) => ({
-          ...prev,
-          skillContent: prev.skillContent ? prev.skillContent + '<br>' + data : data,
-        }))
+      } else if (typeof data === 'string' && data.trim()) {
+        // 字符串类型也格式化为列表
+        const lines = data.split('\n').filter((line: string) => line.trim())
+        if (lines.length > 0) {
+          const skillItems = lines.map((line: string) => `<li><p>${line.trim()}</p></li>`).join('')
+          const skillHtml = `<ul class="custom-list">${skillItems}</ul>`
+          setResumeData((prev) => ({
+            ...prev,
+            skillContent: skillHtml,
+          }))
+        }
       }
       break
 
