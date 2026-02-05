@@ -51,6 +51,7 @@ boto3~=1.37.18
 beautifulsoup4~=4.13.3
 crawl4ai~=0.6.3
 markdownify
+pdfminer-six>=20231228
 
 # LangChain
 langchain>=0.3.0,<0.4.0

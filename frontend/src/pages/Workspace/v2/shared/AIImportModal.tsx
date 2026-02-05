@@ -2,9 +2,10 @@
  * AI 导入弹窗组件（从 v1 移植）
  * 支持全局导入和分模块导入
  */
-import { ChevronDown, RotateCcw, Save, Wand2, X } from 'lucide-react'
+import { ChevronDown, RotateCcw, Save, Wand2, X, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '../../../../lib/utils'
+import FileUploadZone from './FileUploadZone'
 
 // 可用的 AI 模型列表
 const AI_MODELS = [
@@ -68,6 +69,7 @@ export function AIImportModal({
   const [finalTime, setFinalTime] = useState<number | null>(null)
   const [selectedModel, setSelectedModel] = useState('deepseek-chat')
   const [showModelDropdown, setShowModelDropdown] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef<number>(0)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -112,6 +114,7 @@ export function AIImportModal({
       setText('')
       setParsedData(null)
       setFinalTime(null)
+      setSelectedFile(null)
     }
   }, [isOpen])
 
@@ -166,6 +169,42 @@ export function AIImportModal({
     }
   }
 
+  const handlePdfUpload = async () => {
+    if (!selectedFile) return
+    setParsing(true)
+    setParsedData(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', selectedFile)
+      formData.append('model', selectedModel)
+
+      const response = await fetch(`${API_BASE}/api/resume/upload-pdf`, {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        let errMsg = '解析失败'
+        try {
+          const err = await response.json()
+          errMsg = err.detail || errMsg
+        } catch {
+          errMsg = `HTTP ${response.status}`
+        }
+        throw new Error(errMsg)
+      }
+
+      const result = await response.json()
+      setParsedData(result.resume || result.data || result)
+    } catch (err: any) {
+      console.error('PDF 解析失败:', err)
+      alert('解析失败: ' + err.message)
+    } finally {
+      setParsing(false)
+    }
+  }
+
   // 保存数据
   const handleSave = () => {
     if (parsedData) {
@@ -200,18 +239,18 @@ export function AIImportModal({
         )}
       >
         {/* 头部 */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700 bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20">
+        <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
-              <Wand2 className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-500/20 flex items-center justify-center">
+              <Upload className="w-5 h-5 text-indigo-600 dark:text-indigo-300" />
             </div>
             <div>
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            AI 导入 - {sectionTitle}
-          </h3>
+                {sectionType === 'all' ? '导入简历' : `AI 导入 - ${sectionTitle}`}
+              </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                {sectionType === 'all' 
-                  ? '粘贴完整简历内容：AI 将自动解析各模块并填充'
+                {sectionType === 'all'
+                  ? '上传或粘贴简历内容，系统将自动解析并导入'
                   : '粘贴或输入该模块的文本内容：AI 将自动解析并填充'}
               </p>
             </div>
@@ -312,50 +351,134 @@ export function AIImportModal({
             </div>
           </div>
 
-          {/* 输入框 */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              文本内容
-              <span className="text-xs text-slate-400 dark:text-slate-500 ml-2">
-                （按 Tab 键快速填充示例内容）
-              </span>
-            </label>
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Tab') {
-                  // 处理命名不一致：openSource -> opensource
-                  const normalizedType = sectionType === 'openSource' ? 'opensource' : sectionType
-                  const placeholder = aiImportPlaceholders[normalizedType] || ''
-              if (placeholder && (!text || placeholder.startsWith(text))) {
-                e.preventDefault()
-                setText(placeholder)
-              }
-            }
-          }}
-              placeholder={(() => {
-                // 处理命名不一致：openSource -> opensource
-                const normalizedType = sectionType === 'openSource' ? 'opensource' : sectionType
-                return aiImportPlaceholders[normalizedType] || '请输入文本内容...'
-              })()}
-          className={cn(
-                'w-full min-h-[200px] p-4 rounded-xl resize-y',
-                'bg-slate-50 dark:bg-slate-800/50',
-                'border border-slate-200 dark:border-slate-700',
-                'text-slate-900 dark:text-slate-100 text-sm',
-                'placeholder:text-slate-400 dark:placeholder:text-slate-500',
-                'outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent',
-                'transition-all',
-                'font-mono'
-              )}
-            />
-            {text && (
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                字符数: {text.length}
+          {sectionType === 'all' ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  文件上传
+                </div>
+                <FileUploadZone
+                  file={selectedFile}
+                  onFileSelect={setSelectedFile}
+                />
+                <button
+                  type="button"
+                  onClick={handlePdfUpload}
+                  disabled={!selectedFile || parsing}
+                  className={cn(
+                    'w-full rounded-xl px-4 py-2.5 text-sm font-semibold',
+                    'bg-indigo-500 text-white shadow-lg shadow-indigo-500/30',
+                    'hover:bg-indigo-600',
+                    'disabled:opacity-50 disabled:cursor-not-allowed',
+                    'transition-all'
+                  )}
+                >
+                  {parsing ? '解析中...' : '上传解析 PDF'}
+                </button>
               </div>
+
+              <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+                <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  文本粘贴
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs text-slate-500 dark:text-slate-400">
+                    粘贴简历内容（按 Tab 键快速填充示例内容）
+                  </label>
+                  <textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Tab') {
+                        const normalizedType = sectionType === 'openSource' ? 'opensource' : sectionType
+                        const placeholder = aiImportPlaceholders[normalizedType] || ''
+                        if (placeholder && (!text || placeholder.startsWith(text))) {
+                          e.preventDefault()
+                          setText(placeholder)
+                        }
+                      }
+                    }}
+                    placeholder={(() => {
+                      const normalizedType = sectionType === 'openSource' ? 'opensource' : sectionType
+                      return aiImportPlaceholders[normalizedType] || '请输入文本内容...'
+                    })()}
+                    className={cn(
+                      'w-full min-h-[200px] p-4 rounded-xl resize-y',
+                      'bg-slate-50 dark:bg-slate-800/50',
+                      'border border-slate-200 dark:border-slate-700',
+                      'text-slate-900 dark:text-slate-100 text-sm',
+                      'placeholder:text-slate-400 dark:placeholder:text-slate-500',
+                      'outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent',
+                      'transition-all',
+                      'font-mono'
+                    )}
+                  />
+                  {text && (
+                    <div className="text-xs text-slate-500 dark:text-slate-400">
+                      字符数: {text.length}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleParse}
+                  disabled={!text.trim() || parsing}
+                  className={cn(
+                    'w-full rounded-xl px-4 py-2.5 text-sm font-semibold',
+                    'bg-gradient-to-r from-purple-500 to-indigo-600 text-white',
+                    'hover:from-purple-600 hover:to-indigo-700',
+                    'shadow-lg shadow-purple-500/30',
+                    'disabled:opacity-50 disabled:cursor-not-allowed',
+                    'transition-all'
+                  )}
+                >
+                  {parsing ? '解析中...' : 'AI 解析文本'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                文本内容
+                <span className="text-xs text-slate-400 dark:text-slate-500 ml-2">
+                  （按 Tab 键快速填充示例内容）
+                </span>
+              </label>
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Tab') {
+                    const normalizedType = sectionType === 'openSource' ? 'opensource' : sectionType
+                    const placeholder = aiImportPlaceholders[normalizedType] || ''
+                    if (placeholder && (!text || placeholder.startsWith(text))) {
+                      e.preventDefault()
+                      setText(placeholder)
+                    }
+                  }
+                }}
+                placeholder={(() => {
+                  const normalizedType = sectionType === 'openSource' ? 'opensource' : sectionType
+                  return aiImportPlaceholders[normalizedType] || '请输入文本内容...'
+                })()}
+                className={cn(
+                  'w-full min-h-[200px] p-4 rounded-xl resize-y',
+                  'bg-slate-50 dark:bg-slate-800/50',
+                  'border border-slate-200 dark:border-slate-700',
+                  'text-slate-900 dark:text-slate-100 text-sm',
+                  'placeholder:text-slate-400 dark:placeholder:text-slate-500',
+                  'outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent',
+                  'transition-all',
+                  'font-mono'
+                )}
+              />
+              {text && (
+                <div className="text-xs text-slate-500 dark:text-slate-400">
+                  字符数: {text.length}
+                </div>
+              )}
+            </div>
           )}
-          </div>
         
         {/* 解析结果预览 */}
         {parsedData && (
@@ -414,8 +537,8 @@ export function AIImportModal({
             取消
           </button>
           
-          {/* 解析按钮 */}
-          {!parsedData && (
+          {/* 解析按钮（非全局导入时使用） */}
+          {!parsedData && sectionType !== 'all' && (
             <button
               onClick={handleParse}
               disabled={!text.trim() || parsing}

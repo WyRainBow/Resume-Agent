@@ -5,8 +5,8 @@ import re
 import json as _json
 import sys
 from pathlib import Path
-from typing import Dict, Any
-from fastapi import APIRouter, HTTPException
+from typing import Dict, Any, Optional
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 
 # 统一导入方式：优先使用绝对导入（backend.xxx），失败则使用相对导入
@@ -23,6 +23,7 @@ try:
     from backend.parallel_chunk_processor import parse_resume_text_parallel
     from backend.config.parallel_config import get_parallel_config
     from backend.core.logger import get_logger, write_llm_debug
+    from backend.services.pdf_parser import extract_markdown_from_pdf
 except ImportError:
     # 确保 backend 目录在 sys.path 中
     backend_dir = Path(__file__).resolve().parent.parent
@@ -41,11 +42,13 @@ except ImportError:
     from parallel_chunk_processor import parse_resume_text_parallel
     from config.parallel_config import get_parallel_config
     from core.logger import get_logger, write_llm_debug
+    from services.pdf_parser import extract_markdown_from_pdf
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api", tags=["Resume"])
 
 ROOT = Path(__file__).resolve().parents[2]
+MAX_PDF_SIZE_MB = 10
 
 
 def clean_llm_response(raw: str) -> str:
@@ -275,6 +278,32 @@ async def parse_resume_text(body: ResumeParseRequest):
         "awards": normalized_data.get("awards", [])
     }
     return {"resume": data, "provider": provider}
+
+
+@router.post("/resume/upload-pdf")
+async def upload_resume_pdf(
+    file: UploadFile = File(...),
+    model: Optional[str] = Form(default=None),
+    provider: Optional[str] = Form(default=None)
+):
+    """上传 PDF 简历并解析为结构化简历 JSON"""
+    if file.content_type != "application/pdf":
+        raise HTTPException(status_code=400, detail="仅支持 PDF 文件")
+
+    pdf_bytes = await file.read()
+    if not pdf_bytes:
+        raise HTTPException(status_code=400, detail="文件为空")
+
+    if len(pdf_bytes) > MAX_PDF_SIZE_MB * 1024 * 1024:
+        raise HTTPException(status_code=413, detail=f"文件过大，最大支持 {MAX_PDF_SIZE_MB}MB")
+
+    try:
+        markdown_text = extract_markdown_from_pdf(pdf_bytes)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PDF 解析失败: {e}")
+
+    body = ResumeParseRequest(text=markdown_text, provider=provider, model=model)
+    return await parse_resume_text(body)
 
 
 async def _parse_resume_serial(body: ResumeParseRequest):
