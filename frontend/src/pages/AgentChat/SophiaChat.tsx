@@ -14,6 +14,9 @@ import ChatMessage from '@/components/chat/ChatMessage';
 import ReportCard from '@/components/chat/ReportCard';
 import ResumeCard from '@/components/chat/ResumeCard';
 import ResumeSelector from '@/components/chat/ResumeSelector';
+import SearchCard from '@/components/chat/SearchCard';
+import SearchResultPanel from '@/components/chat/SearchResultPanel';
+import SearchSummary from '@/components/chat/SearchSummary';
 import { ReportGenerationDetector } from '@/components/chat/ReportGenerationDetector';
 import { RecentSessions } from '@/components/sidebar/RecentSessions';
 import { useAuth } from '@/contexts/AuthContext';
@@ -30,6 +33,7 @@ import {
 } from '@/services/api';
 import { Message } from '@/types/chat';
 import { ConnectionStatus } from '@/types/transport';
+import type { SSEEvent } from '@/transports/SSETransport';
 import { ArrowUp, MessageSquare } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { useParams } from 'react-router-dom';
@@ -142,6 +146,27 @@ function convertResumeDataToOpenManusFormat(resume: ResumeData) {
   };
 }
 
+interface SearchResultItem {
+  position?: number
+  url?: string
+  title?: string
+  description?: string
+  source?: string
+  raw_content?: string
+}
+
+interface SearchStructuredData {
+  type: 'search'
+  query: string
+  results: SearchResultItem[]
+  total_results: number
+  metadata?: {
+    total_results?: number
+    language?: string
+    country?: string
+  }
+}
+
 // ============================================================================
 // 主页面组件
 // ============================================================================
@@ -189,6 +214,10 @@ export default function SophiaChat() {
   // 简历卡片相关状态
   const [loadedResumes, setLoadedResumes] = useState<Array<{ id: string; name: string; messageId: string; resumeData?: ResumeData }>>([]);
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
+
+  // 搜索结果相关状态
+  const [searchResults, setSearchResults] = useState<Array<{ messageId: string; data: SearchStructuredData }>>([]);
+  const [activeSearchPanel, setActiveSearchPanel] = useState<SearchStructuredData | null>(null);
   
   // 报告流式输出相关状态
   const [shouldHideResponseInChat, setShouldHideResponseInChat] = useState(false);
@@ -218,6 +247,47 @@ export default function SophiaChat() {
     return convertResumeDataToOpenManusFormat(resumeData);
   }, [resumeData]);
 
+  const upsertSearchResult = useCallback(
+    (messageId: string, data: SearchStructuredData) => {
+      setSearchResults((prev) => {
+        const existingIndex = prev.findIndex((item) => item.messageId === messageId);
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = { messageId, data };
+          return updated;
+        }
+        return [...prev, { messageId, data }];
+      });
+    },
+    []
+  );
+
+  const handleSSEEvent = useCallback(
+    (event: SSEEvent) => {
+      if (event.type !== 'tool_result') return;
+      const toolName = event.data?.tool;
+      if (toolName !== 'web_search') return;
+      const structured = event.data?.structured_data;
+      if (!structured) return;
+
+      const results = Array.isArray(structured.results) ? structured.results : [];
+      const metadata = structured.metadata || {};
+      const totalResults =
+        structured.total_results ?? metadata.total_results ?? results.length;
+
+      const normalized: SearchStructuredData = {
+        type: 'search',
+        query: structured.query || '',
+        results,
+        total_results: totalResults,
+        metadata,
+      };
+
+      upsertSearchResult('current', normalized);
+    },
+    [upsertSearchResult]
+  );
+
   const {
     currentThought,
     currentAnswer,
@@ -231,6 +301,7 @@ export default function SophiaChat() {
     baseUrl: SSE_CONFIG.BASE_URL,
     heartbeatTimeout: SSE_CONFIG.HEARTBEAT_TIMEOUT,
     resumeData: normalizedResume,
+    onSSEEvent: handleSSEEvent,
   });
 
   // 保存会话ID到 localStorage
@@ -643,6 +714,12 @@ export default function SophiaChat() {
       newMessage.thought = thought;
     }
 
+    setSearchResults((prev) =>
+      prev.map((item) =>
+        item.messageId === 'current' ? { ...item, messageId: uniqueId } : item
+      )
+    );
+
     setMessages((prev) => {
       const last = prev[prev.length - 1];
       if (
@@ -680,7 +757,7 @@ export default function SophiaChat() {
       // 延迟检测，确保消息已添加到列表
       // 注意：如果流式输出时已经通过 ReportGenerationDetector 创建了报告，这里会检查并避免重复
       setTimeout(() => {
-        detectAndCreateReport(newMessage.content, newMessage.id);
+        detectAndCreateReport(newMessage.content, uniqueId);
       }, 500);
       
       // 重置流式输出相关状态（为下一次对话准备）
@@ -1299,6 +1376,7 @@ export default function SophiaChat() {
     isFinalizedRef.current = false;
     shouldFinalizeRef.current = false; // 重置完成标记
     setInput('');
+    setSearchResults((prev) => prev.filter((item) => item.messageId !== 'current'));
 
     try {
       await sendMessage(userMessage);
@@ -1424,6 +1502,7 @@ export default function SophiaChat() {
               const reportForMessage = generatedReports.find(r => r.messageId === msg.id);
               // 检查这条消息是否有关联的简历
               const resumeForMessage = loadedResumes.find(r => r.messageId === msg.id);
+              const searchForMessage = searchResults.find(r => r.messageId === msg.id);
               
               return (
                 <Fragment key={msg.id || idx}>
@@ -1466,6 +1545,19 @@ export default function SophiaChat() {
                             setResumeData(resumeForMessage.resumeData);
                           }
                         }}
+                      />
+                    </div>
+                  )}
+                  {searchForMessage && msg.role === 'assistant' && (
+                    <div className="my-4">
+                      <SearchCard
+                        query={searchForMessage.data.query}
+                        totalResults={searchForMessage.data.total_results}
+                        onOpen={() => setActiveSearchPanel(searchForMessage.data)}
+                      />
+                      <SearchSummary
+                        query={searchForMessage.data.query}
+                        results={searchForMessage.data.results}
                       />
                     </div>
                   )}
@@ -1563,6 +1655,25 @@ export default function SophiaChat() {
                     );
                   }
                   return null;
+                })()}
+                {(() => {
+                  const currentSearch = searchResults.find(r => r.messageId === 'current');
+                  if (!currentSearch || !isProcessing) {
+                    return null;
+                  }
+                  return (
+                    <div className="my-4">
+                      <SearchCard
+                        query={currentSearch.data.query}
+                        totalResults={currentSearch.data.total_results}
+                        onOpen={() => setActiveSearchPanel(currentSearch.data)}
+                      />
+                      <SearchSummary
+                        query={currentSearch.data.query}
+                        results={currentSearch.data.results}
+                      />
+                    </div>
+                  );
                 })()}
               </>
             )}
@@ -1723,6 +1834,13 @@ export default function SophiaChat() {
           </aside>
         )}
       </div>
+      <SearchResultPanel
+        isOpen={!!activeSearchPanel}
+        query={activeSearchPanel?.query || ''}
+        totalResults={activeSearchPanel?.total_results || 0}
+        results={activeSearchPanel?.results || []}
+        onClose={() => setActiveSearchPanel(null)}
+      />
     </div>
   );
 }

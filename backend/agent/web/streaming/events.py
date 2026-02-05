@@ -166,6 +166,7 @@ class ToolResultEvent(StreamEvent):
         is_error: bool = False,
         session_id: str | None = None,
         tool_call_id: str | None = None,  # ✅ 添加 tool_call_id 用于上下文关联
+        structured_data: dict[str, Any] | None = None,
     ):
         super().__init__(
             event_type=EventType.TOOL_ERROR if is_error else EventType.TOOL_RESULT,
@@ -174,6 +175,7 @@ class ToolResultEvent(StreamEvent):
                 "result": result,
                 "is_error": is_error,
                 "tool_call_id": tool_call_id,  # ✅ 保存 tool_call_id
+                "structured_data": structured_data,
             },
             session_id=session_id,
         )
@@ -188,6 +190,8 @@ class ToolResultEvent(StreamEvent):
         # ✅ 只有存在 tool_call_id 时才添加该字段
         if self.data.get("tool_call_id"):
             result["tool_call_id"] = self.data["tool_call_id"]
+        if self.data.get("structured_data") is not None:
+            result["structured_data"] = self.data["structured_data"]
         return result
 
 

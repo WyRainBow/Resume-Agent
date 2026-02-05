@@ -37,18 +37,19 @@ def parse_thought_response(content: str) -> Tuple[Optional[str], Optional[str]]:
     response = None
 
     if not content or not content.strip():
-        # #region debug log (已禁用硬编码路径)
-        # with open('/Users/wy770/AI/.cursor/debug.log', 'a') as f:
-        #     f.write(json.dumps({
-        #         "sessionId": "debug-session",
-        #         "runId": "run1",
-        #         "hypothesisId": "C",
-        #         "location": "agent_stream.py:parse_thought_response:EMPTY",
-        #         "message": "content is empty or whitespace",
-        #         "data": {"content": content},
-        #         "timestamp": int(__import__('time').time() * 1000)
-        #     }) + '\n')
-        # #endregion
+        """
+        # debug log (已禁用)
+        with open('/Users/wy770/AI/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "C",
+                "location": "agent_stream.py:parse_thought_response:EMPTY",
+                "message": "content is empty or whitespace",
+                "data": {"content": content},
+                "timestamp": int(__import__('time').time() * 1000)
+            }) + '\n')
+        """
         return None, None
 
     # 使用更严谨的正则表达式匹配 Thought: 和 Response:
@@ -81,48 +82,50 @@ def parse_thought_response(content: str) -> Tuple[Optional[str], Optional[str]]:
         if response_match:
             response = response_match.group(1).strip()
 
-        # #region debug log (已禁用硬编码路径)
-        # if thought_match or response_match:
-        #     with open('/Users/wy770/AI/.cursor/debug.log', 'a') as f:
-        #         f.write(json.dumps({
-        #             "sessionId": "debug-session",
-        #             "runId": "run1",
-        #             "hypothesisId": "B",
-        #             "location": f"agent_stream.py:parse_thought_response:PATTERN_{idx}",
-        #             "message": "pattern matched",
-        #             "data": {
-        #                 "pattern_idx": idx,
-        #                 "thought_matched": thought_match is not None,
-        #                 "response_matched": response_match is not None,
-        #                 "thought_preview": thought[:100] if thought else None,
-        #                 "response_preview": response[:100] if response else None
-        #             },
-        #             "timestamp": int(__import__('time').time() * 1000)
-        #         }) + '\n')
-        # #endregion
+        """
+        # debug log (已禁用)
+        if thought_match or response_match:
+            with open('/Users/wy770/AI/.cursor/debug.log', 'a') as f:
+                f.write(json.dumps({
+                    "sessionId": "debug-session",
+                    "runId": "run1",
+                    "hypothesisId": "B",
+                    "location": f"agent_stream.py:parse_thought_response:PATTERN_{idx}",
+                    "message": "pattern matched",
+                    "data": {
+                        "pattern_idx": idx,
+                        "thought_matched": thought_match is not None,
+                        "response_matched": response_match is not None,
+                        "thought_preview": thought[:100] if thought else None,
+                        "response_preview": response[:100] if response else None
+                    },
+                    "timestamp": int(__import__('time').time() * 1000)
+                }) + '\n')
+        """
 
         if thought or response:
             break
 
     # 如果找到了 Thought 但没找到 Response（还在生成中），或者找到了 Response
     if thought or response:
-        # #region debug log (已禁用硬编码路径)
-        # with open('/Users/wy770/AI/.cursor/debug.log', 'a') as f:
-        #     f.write(json.dumps({
-        #         "sessionId": "debug-session",
-        #         "runId": "run1",
-        #         "hypothesisId": "B",
-        #         "location": "agent_stream.py:parse_thought_response:SUCCESS",
-        #         "message": "parse_thought_response success",
-        #         "data": {
-        #             "thought_found": thought is not None,
-        #             "response_found": response is not None,
-        #             "thought_length": len(thought) if thought else 0,
-        #             "response_length": len(response) if response else 0
-        #         },
-        #         "timestamp": int(__import__('time').time() * 1000)
-        #     }) + '\n')
-        # #endregion
+        """
+        # debug log (已禁用)
+        with open('/Users/wy770/AI/.cursor/debug.log', 'a') as f:
+            f.write(json.dumps({
+                "sessionId": "debug-session",
+                "runId": "run1",
+                "hypothesisId": "B",
+                "location": "agent_stream.py:parse_thought_response:SUCCESS",
+                "message": "parse_thought_response success",
+                "data": {
+                    "thought_found": thought is not None,
+                    "response_found": response is not None,
+                    "thought_length": len(thought) if thought else 0,
+                    "response_length": len(response) if response else 0
+                },
+                "timestamp": int(__import__('time').time() * 1000)
+            }) + '\n')
+        """
         return thought, response
 
     # 如果都没有找到格式化的输出，返回原始内容作为 response
@@ -625,7 +628,8 @@ class AgentStream:
                                     self._sent_tools.add(tool_call_id)
 
                                     tool_args = tool_call.function.arguments
-                                    logger.info(f"[工具调用] {tool_name} | ID: {tool_call_id} | 参数: {str(tool_args)[:100]}...")
+                                    safe_args = str(tool_args).replace("<", r"\<").replace(">", r"\>")
+                                    logger.info(f"[工具调用] {tool_name} | ID: {tool_call_id} | 参数: {safe_args[:100]}...")
                                     yield ToolCallEvent(
                                         tool_name=tool_name,
                                         tool_args=tool_args if isinstance(tool_args, (dict, str)) else {},
@@ -821,7 +825,8 @@ class AgentStream:
                                 self._sent_tools.add(tool_call_id)
 
                                 tool_args = tool_call.function.arguments
-                                logger.info(f"[工具调用] {tool_name} | ID: {tool_call_id} | 参数: {str(tool_args)[:100]}...")
+                                safe_args = str(tool_args).replace("<", r"\<").replace(">", r"\>")
+                                logger.info(f"[工具调用] {tool_name} | ID: {tool_call_id} | 参数: {safe_args[:100]}...")
                                 yield ToolCallEvent(
                                     tool_name=tool_name,
                                     tool_args=tool_args if isinstance(tool_args, (dict, str)) else {},
@@ -849,12 +854,20 @@ class AgentStream:
                                 content = content[:5000] + f"\n...(内容已截断，共{len(msg.content)}字符)"
 
                             logger.info(f"[工具结果] {tool_name} | ID: {tool_call_id} | 长度: {len(msg.content) if msg.content else 0} 字符")
+                            structured_data = None
+                            if tool_name == "web_search" and hasattr(
+                                self.agent, "get_structured_tool_result"
+                            ):
+                                structured_data = self.agent.get_structured_tool_result(
+                                    tool_call_id
+                                )
                             yield ToolResultEvent(
                                 tool_name=tool_name,
                                 result=content or "",
                                 is_error=False,
                                 session_id=self._session_id,
                                 tool_call_id=tool_call_id,  # ✅ 传递 tool_call_id
+                                structured_data=structured_data,
                             )
                             
                             # 🔑 关键修复：如果执行了 terminate 工具，且还没有发送过 answer
