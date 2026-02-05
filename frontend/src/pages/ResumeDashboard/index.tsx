@@ -35,7 +35,7 @@ const ResumeDashboard = () => {
 
   return (
     <WorkspaceLayout>
-      <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617] relative overflow-hidden transition-colors duration-500">
+      <div className="h-full overflow-y-auto bg-[#f8fafc] dark:bg-[#020617] relative transition-colors duration-500">
         {/* 装饰性背景元素 */}
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-400/10 dark:bg-blue-600/5 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-400/10 dark:bg-indigo-600/5 rounded-full blur-[120px] pointer-events-none" />
@@ -127,12 +127,12 @@ const ResumeDashboard = () => {
           />
 
           <motion.div
-            className="flex-1 w-full p-3 sm:p-6"
+            className="flex-1 w-full p-3 sm:p-6 pb-16"
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.3, delay: 0.2 }}
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
               <CreateCard onClick={createResume} />
 
               <AnimatePresence>

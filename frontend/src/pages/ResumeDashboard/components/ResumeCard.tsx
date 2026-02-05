@@ -108,7 +108,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
 
       <Card
         className={cn(
-          "relative overflow-hidden border-none transition-all duration-300 h-[330px] flex flex-col rounded-2xl",
+          "relative overflow-visible border-none transition-all duration-300 h-[380px] flex flex-col rounded-2xl",
           "bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl",
           "shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)]",
           "hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)]",
