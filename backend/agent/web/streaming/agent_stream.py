@@ -468,7 +468,21 @@ class AgentStream:
                                 for msg in self.agent.memory.messages
                             )
                             if has_terminate:
-                                final_answer = "好的，还有什么我可以帮助你的吗？"
+                                # 检查用户最后一条消息是否是问候
+                                last_user_msg = ""
+                                for msg in reversed(self.agent.memory.messages):
+                                    if msg.role == "user":
+                                        last_user_msg = msg.content if hasattr(msg, 'content') else ""
+                                        break
+                                
+                                # 根据用户输入选择合适的默认回复
+                                greeting_patterns = ["你好", "hello", "hi", "嗨", "哈喽", "早上好", "下午好", "晚上好"]
+                                is_greeting = any(p in last_user_msg.lower() for p in greeting_patterns)
+                                
+                                if is_greeting:
+                                    final_answer = "你好！我是 AI 助手，很高兴见到你！我可以帮助你处理各种任务，比如搜索信息、生成报告、优化简历等。有什么我可以帮你的吗？"
+                                else:
+                                    final_answer = "好的，还有什么我可以帮助你的吗？"
                                 logger.info("🔍 [DEBUG] 使用默认友好回复作为 final_answer")
 
                         logger.info(f"🔍 [DEBUG] FINISHED 状态检查: final_answer={final_answer[:100] if final_answer else None}..., _answer_sent_in_loop={self._answer_sent_in_loop}")

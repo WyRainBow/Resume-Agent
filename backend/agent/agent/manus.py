@@ -407,15 +407,24 @@ class Manus(ToolCallAgent):
         """生成下一步提示词
 
         核心设计：
-        1. 对话类意图（GREETING、UNKNOWN）：返回空字符串，让 LLM 自然回答
-        2. 分析完成后：返回结果展示模板
-        3. 其他情况：返回默认的 NEXT_STEP_PROMPT
+        1. GREETING 意图：返回问候提示词，引导 LLM 生成友好回复
+        2. UNKNOWN 意图：返回空字符串，让 LLM 自然回答
+        3. 分析完成后：返回结果展示模板
+        4. 其他情况：返回默认的 NEXT_STEP_PROMPT
 
         这样可以避免每次循环都添加重复的提示词。
         """
-        # 🔑 对话类意图：返回空字符串，避免重复消息
-        # 让 LLM 自然回答用户问题，回答后会自动终止
-        if intent in [Intent.GREETING, Intent.UNKNOWN]:
+        # 🔑 GREETING 意图：引导 LLM 生成友好的问候回复
+        if intent == Intent.GREETING:
+            return """请用中文友好地回应用户的问候。你应该：
+1. 热情、自然地打招呼
+2. 简短介绍自己是一个 AI 助手，可以帮助用户处理各种任务
+3. 询问用户需要什么帮助
+
+注意：直接在 Response 中回复，不需要调用任何工具。"""
+
+        # 🔑 UNKNOWN 意图：返回空字符串，让 LLM 自然回答
+        if intent == Intent.UNKNOWN:
             return ""
 
         # 检查是否有分析工具刚执行完
