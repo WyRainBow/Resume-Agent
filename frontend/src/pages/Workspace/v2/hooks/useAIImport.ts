@@ -4,6 +4,56 @@
 import { useState, useCallback } from 'react'
 import type { ResumeData } from '../types'
 
+// 智能拆分技能描述为多个列表项（模块级函数，供多处复用）
+function splitSkillDetails(details: string): string[] {
+  if (!details || typeof details !== 'string') return []
+  const trimmed = details.trim()
+  if (!trimmed) return []
+
+  // 尝试按"XXX："模式拆分（如"持续输出："、"后端底层夯实："）
+  // 匹配中文标题+冒号的模式
+  const titlePattern = /(?:^|。)([^。：:]+[：:])/g
+  const matches = trimmed.match(titlePattern)
+  
+  if (matches && matches.length > 1) {
+    // 有多个"标题："模式，按这个模式拆分
+    const parts: string[] = []
+    
+    // 使用更简单的方式：按句号分隔后，识别以特定词开头的句子
+    const sentences = trimmed.split(/。(?=[^\s])/).filter(s => s.trim())
+    
+    for (const sentence of sentences) {
+      const s = sentence.trim()
+      if (s) {
+        // 检查是否包含"XXX："格式
+        if (/^[^：:]+[：:]/.test(s)) {
+          // 将"XXX："转换为加粗格式
+          const formatted = s.replace(/^([^：:]+)[：:]/, '<strong>$1</strong>：')
+          parts.push(formatted + (s.endsWith('。') ? '' : '。'))
+        } else {
+          parts.push(s + (s.endsWith('。') ? '' : '。'))
+        }
+      }
+    }
+    
+    if (parts.length > 1) return parts
+  }
+
+  // 尝试按技能关键词拆分（如"熟悉XXX"、"了解XXX"、"掌握XXX"）
+  // 按句号分隔，然后检查每个句子是否以技能关键词开头
+  const sentences = trimmed.split(/。(?=[^\s])/).filter(s => s.trim())
+  if (sentences.length > 1) {
+    const result = sentences.map(s => {
+      const t = s.trim()
+      return t + (t.endsWith('。') ? '' : '。')
+    })
+    return result
+  }
+
+  // 无法拆分，返回原文
+  return [trimmed]
+}
+
 interface UseAIImportProps {
   setResumeData: React.Dispatch<React.SetStateAction<ResumeData>>
 }
@@ -141,17 +191,33 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
           visible: true,
         })) || prev.awards,
         skillContent: (() => {
-          // 强制格式化 skills 为 HTML 列表
+          // 强制格式化 skills 为 HTML 列表，并智能拆分 details
           if (data.skills && data.skills.length > 0) {
-            const skillItems = data.skills.map((s: any) => {
+            const allItems: string[] = []
+            
+            for (const s of data.skills) {
               const category = s.category?.trim() || ''
               const details = s.details?.trim() || ''
-              if (!category) {
-                return `<li><p>${details}</p></li>`
+              
+              if (!details) continue
+              
+              // 尝试拆分 details 为多个列表项
+              const splitItems = splitSkillDetails(details)
+              
+              if (category && splitItems.length > 0) {
+                // 有分类标题时，先输出分类标题，再输出子项
+                allItems.push(`<li><p><strong>${category}</strong></p><ul class="custom-list">${splitItems.map(item => `<li><p>${item}</p></li>`).join('')}</ul></li>`)
+              } else if (splitItems.length > 0) {
+                // 无分类时，直接输出列表项
+                splitItems.forEach(item => {
+                  allItems.push(`<li><p>${item}</p></li>`)
+                })
               }
-              return `<li><p><strong>${category}</strong>: ${details}</p></li>`
-            }).join('')
-            return `<ul class="custom-list">${skillItems}</ul>`
+            }
+            
+            if (allItems.length > 0) {
+              return `<ul class="custom-list">${allItems.join('')}</ul>`
+            }
           }
           return prev.skillContent
         })(),
@@ -274,25 +340,41 @@ function handleSectionImport(
 
     case 'skills':
       if (Array.isArray(data) && data.length > 0) {
-        // 强制替换为格式化的 HTML 列表
-        const skillItems = data.map((s: any) => {
+        // 强制替换为格式化的 HTML 列表，并智能拆分 details
+        const allItems: string[] = []
+        
+        for (const s of data) {
           const category = s.category?.trim() || ''
           const details = s.details?.trim() || ''
-          if (!category) {
-            return `<li><p>${details}</p></li>`
+          
+          if (!details) continue
+          
+          // 尝试拆分 details 为多个列表项
+          const splitItems = splitSkillDetails(details)
+          
+          if (category && splitItems.length > 0) {
+            // 有分类标题时，先输出分类标题，再输出子项
+            allItems.push(`<li><p><strong>${category}</strong></p><ul class="custom-list">${splitItems.map(item => `<li><p>${item}</p></li>`).join('')}</ul></li>`)
+          } else if (splitItems.length > 0) {
+            // 无分类时，直接输出列表项
+            splitItems.forEach(item => {
+              allItems.push(`<li><p>${item}</p></li>`)
+            })
           }
-          return `<li><p><strong>${category}</strong>: ${details}</p></li>`
-        }).join('')
-        const skillHtml = `<ul class="custom-list">${skillItems}</ul>`
-        setResumeData((prev) => ({
-          ...prev,
-          skillContent: skillHtml, // 强制替换，不追加
-        }))
+        }
+        
+        if (allItems.length > 0) {
+          const skillHtml = `<ul class="custom-list">${allItems.join('')}</ul>`
+          setResumeData((prev) => ({
+            ...prev,
+            skillContent: skillHtml, // 强制替换，不追加
+          }))
+        }
       } else if (typeof data === 'string' && data.trim()) {
         // 字符串类型也格式化为列表
-        const lines = data.split('\n').filter((line: string) => line.trim())
-        if (lines.length > 0) {
-          const skillItems = lines.map((line: string) => `<li><p>${line.trim()}</p></li>`).join('')
+        const splitItems = splitSkillDetails(data)
+        if (splitItems.length > 0) {
+          const skillItems = splitItems.map((item: string) => `<li><p>${item}</p></li>`).join('')
           const skillHtml = `<ul class="custom-list">${skillItems}</ul>`
           setResumeData((prev) => ({
             ...prev,
