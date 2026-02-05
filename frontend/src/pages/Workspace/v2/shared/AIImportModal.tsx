@@ -2,7 +2,7 @@
  * AI 导入弹窗组件（从 v1 移植）
  * 支持全局导入和分模块导入
  */
-import { ChevronDown, RotateCcw, Save, Wand2, X, Upload } from 'lucide-react'
+import { ChevronDown, Copy, RotateCcw, Save, Wand2, X, Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { cn } from '../../../../lib/utils'
 import FileUploadZone from './FileUploadZone'
@@ -70,6 +70,7 @@ export function AIImportModal({
   const [selectedModel, setSelectedModel] = useState('deepseek-chat')
   const [showModelDropdown, setShowModelDropdown] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [copied, setCopied] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const startTimeRef = useRef<number>(0)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -210,6 +211,30 @@ export function AIImportModal({
     if (parsedData) {
       onSave(parsedData)
       onClose()
+    }
+  }
+
+  const handleCopyJson = async () => {
+    if (!parsedData) return
+    const jsonText = JSON.stringify(parsedData, null, 2)
+    try {
+      await navigator.clipboard.writeText(jsonText)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      const textarea = document.createElement('textarea')
+      textarea.value = jsonText
+      textarea.style.position = 'fixed'
+      textarea.style.left = '-9999px'
+      document.body.appendChild(textarea)
+      textarea.select()
+      try {
+        document.execCommand('copy')
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+      } finally {
+        document.body.removeChild(textarea)
+      }
     }
   }
 
@@ -488,13 +513,29 @@ export function AIImportModal({
               'border border-green-200 dark:border-green-800',
               'animate-in slide-in-from-top-2 duration-300'
             )}>
-              <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
                   <span className="text-white text-xs">✓</span>
                 </div>
                 <span className="text-green-700 dark:text-green-400 text-sm font-semibold">
                   解析成功！
                 </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyJson}
+                className={cn(
+                  'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium',
+                  'border border-green-200 dark:border-green-800',
+                  'text-green-700 dark:text-green-400',
+                  'hover:bg-green-100 dark:hover:bg-green-900/30',
+                  'transition-colors'
+                )}
+              >
+                <Copy className="w-3.5 h-3.5" />
+                {copied ? '已复制' : '复制 JSON'}
+              </button>
             </div>
               <div className="max-h-[200px] overflow-auto rounded-lg bg-white dark:bg-slate-900 p-3 border border-slate-200 dark:border-slate-700">
                 <pre className="m-0 text-slate-700 dark:text-slate-300 text-xs whitespace-pre-wrap break-words font-mono">

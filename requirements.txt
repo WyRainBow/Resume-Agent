@@ -43,6 +43,7 @@ datasets~=3.4.1
 html2text~=2024.2.26
 pillow~=10.4.0
 gymnasium~=1.1.1
+PyMuPDF>=1.24.0
 
 # Infrastructure
 docker~=7.1.0

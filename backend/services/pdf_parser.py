@@ -67,11 +67,17 @@ def _extract_with_mineru(pdf_bytes: bytes) -> str:
         shutil.rmtree(output_dir, ignore_errors=True)
 
 
-def extract_markdown_from_pdf(pdf_bytes: bytes) -> str:
+def extract_markdown_from_pdf(pdf_bytes: bytes, use_mineru: bool = True) -> str:
     """
-    从 PDF 字节流中提取文本内容（MinerU 优先，失败降级 pdfminer）
+    从 PDF 字节流中提取文本内容
+
+    Args:
+        pdf_bytes: PDF 文件字节流
+        use_mineru: 是否使用 MinerU（默认 True，优先保持高质量解析）
+
+    说明：默认优先使用 MinerU，失败时降级为 pdfminer。
     """
-    if MINERU_AVAILABLE:
+    if use_mineru and MINERU_AVAILABLE:
         try:
             text = _extract_with_mineru(pdf_bytes)
             if text:

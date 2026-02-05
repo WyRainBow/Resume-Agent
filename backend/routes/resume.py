@@ -24,6 +24,9 @@ try:
     from backend.config.parallel_config import get_parallel_config
     from backend.core.logger import get_logger, write_llm_debug
     from backend.services.pdf_parser import extract_markdown_from_pdf
+    from backend.services.pdf_to_image import pdf_pages_to_png_bytes
+    from backend.services.zhipu_layout import recognize_layout_from_images
+    from backend.services.resume_assembler import assemble_resume_data
 except ImportError:
     # 确保 backend 目录在 sys.path 中
     backend_dir = Path(__file__).resolve().parent.parent
@@ -43,6 +46,9 @@ except ImportError:
     from config.parallel_config import get_parallel_config
     from core.logger import get_logger, write_llm_debug
     from services.pdf_parser import extract_markdown_from_pdf
+    from services.pdf_to_image import pdf_pages_to_png_bytes
+    from services.zhipu_layout import recognize_layout_from_images
+    from services.resume_assembler import assemble_resume_data
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api", tags=["Resume"])
@@ -286,7 +292,11 @@ async def upload_resume_pdf(
     model: Optional[str] = Form(default=None),
     provider: Optional[str] = Form(default=None)
 ):
-    """上传 PDF 简历并解析为结构化简历 JSON"""
+    """上传 PDF 简历并解析为结构化简历 JSON（优化版：并行处理）"""
+    import asyncio
+    import time
+    from concurrent.futures import ThreadPoolExecutor
+    
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="仅支持 PDF 文件")
 
@@ -297,13 +307,58 @@ async def upload_resume_pdf(
     if len(pdf_bytes) > MAX_PDF_SIZE_MB * 1024 * 1024:
         raise HTTPException(status_code=413, detail=f"文件过大，最大支持 {MAX_PDF_SIZE_MB}MB")
 
-    try:
-        markdown_text = extract_markdown_from_pdf(pdf_bytes)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PDF 解析失败: {e}")
+    total_start = time.time()
+    
+    # 并行执行：文本提取 + 图片转换
+    print("[PDF解析] 开始并行处理...", flush=True)
+    step1_start = time.time()
+    
+    loop = asyncio.get_event_loop()
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        # 并行任务
+        text_future = loop.run_in_executor(executor, extract_markdown_from_pdf, pdf_bytes, True)
+        image_future = loop.run_in_executor(executor, pdf_pages_to_png_bytes, pdf_bytes, 100)  # 降低 DPI: 150 -> 100
+        
+        try:
+            markdown_text, image_bytes_list = await asyncio.gather(text_future, image_future)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"PDF 预处理失败: {e}")
+    
+    step1_time = time.time() - step1_start
+    print(f"[PDF解析] 步骤1 完成 (文本提取+图片转换): {step1_time:.2f}s", flush=True)
 
-    body = ResumeParseRequest(text=markdown_text, provider=provider, model=model)
-    return await parse_resume_text(body)
+    # 智谱布局识别
+    step2_start = time.time()
+    try:
+        layout = recognize_layout_from_images(image_bytes_list)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"布局识别失败: {e}")
+    step2_time = time.time() - step2_start
+    print(f"[PDF解析] 步骤2 完成 (智谱布局识别): {step2_time:.2f}s", flush=True)
+
+    # DeepSeek 组装
+    step3_start = time.time()
+    try:
+        resume_data = assemble_resume_data(markdown_text, layout, model=model)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"简历结构化失败: {e}")
+    step3_time = time.time() - step3_start
+    print(f"[PDF解析] 步骤3 完成 (DeepSeek组装): {step3_time:.2f}s", flush=True)
+    
+    total_time = time.time() - total_start
+    print(f"[PDF解析] 总耗时: {total_time:.2f}s (步骤1: {step1_time:.2f}s, 步骤2: {step2_time:.2f}s, 步骤3: {step3_time:.2f}s)", flush=True)
+
+    try:
+        from backend.json_normalizer import normalize_resume_json
+    except ImportError:
+        from json_normalizer import normalize_resume_json
+
+    try:
+        normalized = normalize_resume_json(resume_data)
+        return {"resume": normalized, "provider": "zhipu"}
+    except Exception as e:
+        logger.warning(f"JSON 标准化失败: {e}")
+        return {"resume": resume_data, "provider": "zhipu"}
 
 
 async def _parse_resume_serial(body: ResumeParseRequest):

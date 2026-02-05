@@ -16,3 +16,8 @@ max_tokens = 8192
 temperature = 0.3
 api_type = "openai"
 
+# 智谱 GLM-4.6V 视觉模型配置 (用于 PDF 布局识别)
+[zhipu]
+api_key = "7448f886f3a94a88ab0318195c265618.fE76x4mfrs4bDCo9"
+vision_model = "glm-4.6v"
+

@@ -38,7 +38,24 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
   // AI 解析结果处理
   const handleAISave = useCallback((data: any) => {
     console.log('AI parsed data:', data, 'for section:', aiModalSection)
-    
+
+    const hasOpenSourceKey =
+      Object.prototype.hasOwnProperty.call(data, 'openSource') ||
+      Object.prototype.hasOwnProperty.call(data, 'open_source') ||
+      Object.prototype.hasOwnProperty.call(data, 'opensource')
+    const openSourceRaw = data.openSource ?? data.open_source ?? data.opensource
+    const openSourceMapped = Array.isArray(openSourceRaw)
+      ? openSourceRaw.map((o: any, i: number) => ({
+          id: `os_${Date.now()}_${i}`,
+          name: o.title || o.name || '',
+          role: o.subtitle || o.role || '',
+          repo: o.repoUrl || o.repo || '',
+          date: o.date || '',
+          description: o.items?.join('\n') || o.description || '',
+          visible: true,
+        }))
+      : []
+
     if (aiModalSection === 'all') {
       // 全局导入
       setResumeData((prev) => ({
@@ -99,15 +116,7 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
             visible: true,
           }
         }) || prev.projects,
-        openSource: data.open_source?.map((o: any, i: number) => ({
-          id: `os_${Date.now()}_${i}`,
-          name: o.title || '',
-          role: o.subtitle || '',
-          repo: o.repoUrl || '',
-          date: o.date || '',
-          description: o.items?.join('\n') || '',
-          visible: true,
-        })) || prev.openSource,
+        openSource: hasOpenSourceKey ? openSourceMapped : prev.openSource,
         awards: data.awards?.map((a: any, i: number) => ({
           id: `award_${Date.now()}_${i}`,
           title: a.title || '',
