@@ -130,6 +130,13 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
             {resume.name || "未命名简历"}
           </CardTitle>
           
+          {/* 模板类型标签 */}
+          <div className="mb-2">
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+              {resume.templateType === 'html' ? '🌐 HTML' : '✨ LaTeX'}
+            </span>
+          </div>
+          
           {/* 备注/别名区域 */}
           <div 
             className="px-6 mb-2 min-h-[24px] flex items-center justify-center"

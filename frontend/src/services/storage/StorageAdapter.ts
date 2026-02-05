@@ -1,10 +1,13 @@
 import type { Resume } from '@/types/resume'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
 
+export type TemplateType = 'html' | 'latex'
+
 export interface SavedResume {
   id: string
   name: string
   alias?: string  // 备注/别名，用于标识简历用途（如"投递腾讯"）
+  templateType?: TemplateType  // 模板类型：html 或 latex
   data: Resume | ResumeData
   createdAt: number
   updatedAt: number

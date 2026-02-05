@@ -19,6 +19,7 @@ router = APIRouter(prefix="/api/resumes", tags=["Resumes"])
 class ResumePayload(BaseModel):
     id: Optional[str] = None
     name: Optional[str] = None
+    template_type: Optional[str] = None  # html 或 latex
     data: Dict[str, Any]
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -27,6 +28,7 @@ class ResumePayload(BaseModel):
 class ResumeResponse(BaseModel):
     id: str
     name: str
+    template_type: Optional[str] = None  # html 或 latex
     data: Dict[str, Any]
     created_at: Optional[str]
     updated_at: Optional[str]
@@ -34,6 +36,11 @@ class ResumeResponse(BaseModel):
 
 class SyncRequest(BaseModel):
     resumes: List[ResumePayload]
+
+
+def _extract_template_type(data: Dict[str, Any]) -> str:
+    """从简历数据中提取模板类型，默认为 latex"""
+    return data.get("templateType") or "latex"
 
 
 @router.get("", response_model=List[ResumeResponse])
@@ -47,6 +54,7 @@ def list_resumes(
         ResumeResponse(
             id=r.id,
             name=r.name,
+            template_type=_extract_template_type(r.data),
             data=r.data,
             created_at=r.created_at.isoformat() if r.created_at else None,
             updated_at=r.updated_at.isoformat() if r.updated_at else None
@@ -69,6 +77,7 @@ def get_resume(
     return ResumeResponse(
         id=resume.id,
         name=resume.name,
+        template_type=_extract_template_type(resume.data),
         data=resume.data,
         created_at=resume.created_at.isoformat() if resume.created_at else None,
         updated_at=resume.updated_at.isoformat() if resume.updated_at else None
@@ -84,12 +93,17 @@ def create_resume(
     """创建简历"""
     resume_id = payload.id or f"resume_{uuid4().hex}"
     name = payload.name or payload.data.get("basic", {}).get("name") or "未命名简历"
+    
+    # 如果 payload 中有 template_type，确保同步到 data 中
+    data = payload.data.copy()
+    if payload.template_type:
+        data["templateType"] = payload.template_type
 
     resume = Resume(
         id=resume_id,
         user_id=current_user.id,
         name=name,
-        data=payload.data
+        data=data
     )
     db.add(resume)
     db.commit()
@@ -98,6 +112,7 @@ def create_resume(
     return ResumeResponse(
         id=resume.id,
         name=resume.name,
+        template_type=_extract_template_type(resume.data),
         data=resume.data,
         created_at=resume.created_at.isoformat() if resume.created_at else None,
         updated_at=resume.updated_at.isoformat() if resume.updated_at else None
@@ -116,14 +131,20 @@ def update_resume(
     if not resume:
         raise HTTPException(status_code=404, detail="简历不存在")
 
-    resume.name = payload.name or payload.data.get("basic", {}).get("name") or resume.name
-    resume.data = payload.data
+    # 如果 payload 中有 template_type，确保同步到 data 中
+    data = payload.data.copy()
+    if payload.template_type:
+        data["templateType"] = payload.template_type
+
+    resume.name = payload.name or data.get("basic", {}).get("name") or resume.name
+    resume.data = data
     db.commit()
     db.refresh(resume)
 
     return ResumeResponse(
         id=resume.id,
         name=resume.name,
+        template_type=_extract_template_type(resume.data),
         data=resume.data,
         created_at=resume.created_at.isoformat() if resume.created_at else None,
         updated_at=resume.updated_at.isoformat() if resume.updated_at else None
@@ -158,6 +179,7 @@ def sync_resume_data(
         ResumeResponse(
             id=r.id,
             name=r.name,
+            template_type=_extract_template_type(r.data),
             data=r.data,
             created_at=r.created_at.isoformat() if r.created_at else None,
             updated_at=r.updated_at.isoformat() if r.updated_at else None

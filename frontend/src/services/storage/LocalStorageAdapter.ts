@@ -36,6 +36,8 @@ export class LocalStorageAdapter implements StorageAdapter {
     const resumes = await this.getAllResumes()
     const now = Date.now()
     const resumeName = (resume as any).basic?.name || (resume as any).name || '未命名简历'
+    // 从 ResumeData 中提取 templateType，默认为 'latex'
+    const templateType = (resume as ResumeData).templateType || 'latex'
 
     if (id) {
       const index = resumes.findIndex(r => r.id === id)
@@ -43,6 +45,7 @@ export class LocalStorageAdapter implements StorageAdapter {
         resumes[index] = {
           ...resumes[index],
           name: resumeName,
+          templateType,
           data: resume,
           updatedAt: now
         }
@@ -54,6 +57,7 @@ export class LocalStorageAdapter implements StorageAdapter {
     const newResume: SavedResume = {
       id: id || `resume_${now}_${Math.random().toString(36).substr(2, 9)}`,
       name: resumeName,
+      templateType,
       data: resume,
       createdAt: now,
       updatedAt: now

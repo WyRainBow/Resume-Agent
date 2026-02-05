@@ -39,10 +39,13 @@ function getAuthHeaders() {
 }
 
 function toSavedResume(payload: any): SavedResume {
+  // 尝试从 payload 或 data 中获取 templateType
+  const templateType = payload.template_type || payload.data?.templateType || 'latex'
   return {
     id: payload.id,
     name: payload.name,
     alias: payload.alias,
+    templateType,
     data: payload.data,
     createdAt: payload.created_at ? Date.parse(payload.created_at) : Date.now(),
     updatedAt: payload.updated_at ? Date.parse(payload.updated_at) : Date.now()
@@ -78,12 +81,14 @@ export class DatabaseAdapter implements StorageAdapter {
 
   async saveResume(resume: Resume | ResumeData, id?: string): Promise<SavedResume> {
     const name = (resume as any).basic?.name || (resume as any).name || '未命名简历'
+    // 从 ResumeData 中提取 templateType，默认为 'latex'
+    const templateType = (resume as ResumeData).templateType || 'latex'
     try {
       if (id) {
         try {
           const { data } = await apiClient.put(
             `/api/resumes/${id}`,
-            { id, name, data: resume },
+            { id, name, template_type: templateType, data: resume },
             { headers: getAuthHeaders() }
           )
           return toSavedResume(data)
@@ -95,7 +100,7 @@ export class DatabaseAdapter implements StorageAdapter {
           // 如果不存在则创建（允许携带自定义 id）
           const { data } = await apiClient.post(
             '/api/resumes',
-            { id, name, data: resume },
+            { id, name, template_type: templateType, data: resume },
             { headers: getAuthHeaders() }
           )
           this.setCurrentResumeId(data.id)
@@ -105,7 +110,7 @@ export class DatabaseAdapter implements StorageAdapter {
 
       const { data } = await apiClient.post(
         '/api/resumes',
-        { name, data: resume },
+        { name, template_type: templateType, data: resume },
         { headers: getAuthHeaders() }
       )
       this.setCurrentResumeId(data.id)
