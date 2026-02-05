@@ -13,6 +13,7 @@
 import ChatMessage from '@/components/chat/ChatMessage';
 import ReportCard from '@/components/chat/ReportCard';
 import ResumeCard from '@/components/chat/ResumeCard';
+import ResumeSelector from '@/components/chat/ResumeSelector';
 import { ReportGenerationDetector } from '@/components/chat/ReportGenerationDetector';
 import { RecentSessions } from '@/components/sidebar/RecentSessions';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,6 +21,7 @@ import { useCLTP } from '@/hooks/useCLTP';
 import { HTMLTemplateRenderer } from '@/pages/Workspace/v2/HTMLTemplateRenderer';
 import type { ResumeData } from '@/pages/Workspace/v2/types';
 import { getResume, getAllResumes } from '@/services/resumeStorage';
+import type { SavedResume } from '@/services/storage/StorageAdapter';
 import { 
   createReport, 
   getReport, 
@@ -192,6 +194,10 @@ export default function SophiaChat() {
   const [shouldHideResponseInChat, setShouldHideResponseInChat] = useState(false);
   const [streamingReportId, setStreamingReportId] = useState<string | null>(null);
   const [streamingReportContent, setStreamingReportContent] = useState<string>('');
+  
+  // 简历选择器状态
+  const [showResumeSelector, setShowResumeSelector] = useState(false);
+  const [pendingResumeInput, setPendingResumeInput] = useState<string>(''); // 暂存用户输入，选择简历后继续处理
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const saveInFlightRef = useRef<Promise<void> | null>(null);
@@ -1110,6 +1116,59 @@ export default function SophiaChat() {
     setIsSidebarOpen(false);
   }, [createNewSession]);
 
+  // 处理简历选择
+  const handleResumeSelect = useCallback(async (selectedResume: SavedResume) => {
+    setShowResumeSelector(false);
+    
+    // 加载选中的简历数据
+    const resolvedUserId = user?.id ?? (selectedResume as any).user_id ?? null;
+    const resumeDataWithMeta = {
+      ...(selectedResume.data || {}),
+      resume_id: selectedResume.id,
+      user_id: resolvedUserId,
+      _meta: {
+        resume_id: selectedResume.id,
+        user_id: resolvedUserId,
+      },
+    } as unknown as ResumeData;
+    
+    // 设置简历数据
+    setResumeData(resumeDataWithMeta);
+    
+    // 添加到加载的简历列表，以便在右侧显示
+    const messageId = `resume-select-${Date.now()}`;
+    setLoadedResumes(prev => [...prev, {
+      id: selectedResume.id,
+      name: selectedResume.name,
+      messageId,
+      resumeData: resumeDataWithMeta
+    }]);
+    
+    // 自动选中该简历，显示在右侧
+    setSelectedResumeId(selectedResume.id);
+    setSelectedReportId(null);
+    
+    // 添加一条系统消息告知用户简历已加载
+    const systemMessage: Message = {
+      id: messageId,
+      role: 'assistant',
+      content: `已加载简历「${selectedResume.name}」，现在可以对这份简历进行操作了。`,
+      timestamp: new Date().toISOString(),
+    };
+    setMessages(prev => [...prev, systemMessage]);
+    
+    // 清除暂存的输入
+    setPendingResumeInput('');
+    
+    console.log('[AgentChat] 简历已选择并加载:', selectedResume.id, selectedResume.name);
+  }, [user?.id]);
+
+  // 取消简历选择
+  const handleResumeSelectorCancel = useCallback(() => {
+    setShowResumeSelector(false);
+    setPendingResumeInput('');
+  }, []);
+
   useEffect(() => {
     if (answerCompleteCount === 0) return;
     if (answerCompleteCount <= lastHandledAnswerCompleteRef.current) {
@@ -1189,16 +1248,11 @@ export default function SophiaChat() {
     
     // 只有明确的简历操作才需要检查简历数据
     if (isResumeOperation && !resumeData) {
-      const resumeMetaResumeId =
-        (resumeData as any)?.resume_id ||
-        (resumeData as any)?.id ||
-        (resumeData as any)?._meta?.resume_id;
-      const resumeMetaUserId =
-        (resumeData as any)?.user_id || (resumeData as any)?._meta?.user_id;
-      if (!resumeMetaResumeId || !resumeMetaUserId) {
-        setResumeError('请先选择或创建一份简历，再进行简历相关操作');
-        return;
-      }
+      // 显示简历选择器，而不是错误提示
+      setPendingResumeInput(input);
+      setShowResumeSelector(true);
+      setResumeError(null);
+      return;
     }
     
     // 清除之前的错误
@@ -1509,6 +1563,14 @@ export default function SophiaChat() {
                   return null;
                 })()}
               </>
+            )}
+
+            {/* 简历选择器 */}
+            {showResumeSelector && (
+              <ResumeSelector
+                onSelect={handleResumeSelect}
+                onCancel={handleResumeSelectorCancel}
+              />
             )}
 
             {/* Loading */}
