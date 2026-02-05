@@ -435,16 +435,8 @@ class AgentStream:
                                 final_answer = msg.content
                                 break
                         
-                        # 如果没找到 assistant 消息的 content，查找 terminate 工具的结果
-                        if not final_answer:
-                            for msg in reversed(self.agent.memory.messages):
-                                if msg.role == "tool" and msg.name == "terminate" and msg.content:
-                                    # 从 terminate 工具结果中提取状态信息
-                                    final_answer = msg.content
-                                    logger.info(f"🔍 [DEBUG] 使用 terminate 工具结果作为 final_answer: {final_answer[:100]}...")
-                                    break
-                        
                         # 如果还是没找到，查找任何有内容的 assistant 消息（即使只有 tool_calls）
+                        # 注意：排除 terminate 工具的结果，因为它是技术性消息
                         if not final_answer:
                             for msg in reversed(self.agent.memory.messages):
                                 if msg.role == "assistant":
@@ -452,17 +444,29 @@ class AgentStream:
                                     if msg.content:
                                         final_answer = msg.content
                                         break
-                                    # 如果只有 tool_calls，尝试从 tool 结果中获取
+                                    # 如果只有 tool_calls，尝试从 tool 结果中获取（排除 terminate）
                                     elif msg.tool_calls:
                                         # 查找对应的 tool 消息
                                         for tool_msg in reversed(self.agent.memory.messages):
-                                            if tool_msg.role == "tool" and tool_msg.tool_call_id in [tc.id for tc in msg.tool_calls]:
+                                            # 排除 terminate 工具的结果
+                                            if tool_msg.role == "tool" and tool_msg.name != "terminate" and tool_msg.tool_call_id in [tc.id for tc in msg.tool_calls]:
                                                 if tool_msg.content:
                                                     final_answer = tool_msg.content
                                                     logger.info(f"🔍 [DEBUG] 从 tool 消息中获取 final_answer: {final_answer[:100]}...")
                                                     break
                                         if final_answer:
                                             break
+                        
+                        # 🔑 Fallback：如果没有找到 final_answer 且 Agent 已完成，提供一个友好的默认回复
+                        if not final_answer and not self._answer_sent_in_loop:
+                            # 检查是否调用了 terminate 工具
+                            has_terminate = any(
+                                msg.role == "tool" and msg.name == "terminate" 
+                                for msg in self.agent.memory.messages
+                            )
+                            if has_terminate:
+                                final_answer = "好的，还有什么我可以帮助你的吗？"
+                                logger.info("🔍 [DEBUG] 使用默认友好回复作为 final_answer")
 
                         logger.info(f"🔍 [DEBUG] FINISHED 状态检查: final_answer={final_answer[:100] if final_answer else None}..., _answer_sent_in_loop={self._answer_sent_in_loop}")
 
@@ -853,21 +857,11 @@ class AgentStream:
                                 tool_call_id=tool_call_id,  # ✅ 传递 tool_call_id
                             )
                             
-                            # 🔑 关键修复：如果执行了 terminate 工具，且还没有发送过 answer，将工具结果作为最终答案
-                            if tool_name == "terminate" and not self._answer_sent_in_loop and content:
-                                logger.info(f"🔍 [DEBUG] terminate 工具执行完成，将结果作为最终答案: {content[:100]}...")
-                                # 生成 CLTP content(channel='plain', done=true) chunk
-                                answer_chunk = self._cltp_generator.emit_content(
-                                    channel='plain',
-                                    payload={'text': content},  # 保持原样
-                                    done=True,
-                                )
-                                
-                                yield AnswerEvent(
-                                    content=content,
-                                    is_complete=True,
-                                    session_id=self._session_id,
-                                )
+                            # 🔑 关键修复：如果执行了 terminate 工具，且还没有发送过 answer
+                            # 不要将技术性的 terminate 消息作为最终答案，而是跳过或使用友好消息
+                            if tool_name == "terminate" and not self._answer_sent_in_loop:
+                                logger.info(f"🔍 [DEBUG] terminate 工具执行完成，但没有 answer，跳过技术性消息")
+                                # 标记已发送，防止后续再次处理，但不实际发送技术性消息给用户
                                 self._answer_sent_in_loop = True
 
                     # 检查是否陷入循环
