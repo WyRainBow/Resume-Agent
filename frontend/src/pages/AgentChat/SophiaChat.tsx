@@ -1184,10 +1184,11 @@ export default function SophiaChat() {
       }
     }
 
-    // 报告生成模式不需要 resumeId
-    const isReportMode = isReportRequest;
+    // 检测是否是简历操作请求（需要简历数据）
+    const isResumeOperation = /(?:加载|打开|查看|创建|修改|优化|编辑|分析|改进)(?:我的|这个|一份)?(?:简历|CV|履历)/.test(input);
     
-    if (!isReportMode) {
+    // 只有明确的简历操作才需要检查简历数据
+    if (isResumeOperation && !resumeData) {
       const resumeMetaResumeId =
         (resumeData as any)?.resume_id ||
         (resumeData as any)?.id ||
@@ -1195,10 +1196,13 @@ export default function SophiaChat() {
       const resumeMetaUserId =
         (resumeData as any)?.user_id || (resumeData as any)?._meta?.user_id;
       if (!resumeMetaResumeId || !resumeMetaUserId) {
-        setResumeError('简历数据未就绪，缺少用户信息，请稍后重试');
+        setResumeError('请先选择或创建一份简历，再进行简历相关操作');
         return;
       }
     }
+    
+    // 清除之前的错误
+    setResumeError(null);
 
     const userMessage = input.trim();
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;

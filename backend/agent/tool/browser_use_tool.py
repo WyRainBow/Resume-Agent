@@ -1,7 +1,7 @@
 import asyncio
 import base64
 import json
-from typing import Generic, Optional, TypeVar
+from typing import Any, Optional
 
 # browser_use 0.11.x 新 API
 from browser_use import Browser as BrowserUseBrowser
@@ -39,10 +39,7 @@ Key capabilities include:
 Note: When using element indices, refer to the numbered elements shown in the current browser state.
 """
 
-Context = TypeVar("Context")
-
-
-class BrowserUseTool(BaseTool, Generic[Context]):
+class BrowserUseTool(BaseTool):
     name: str = "browser_use"
     description: str = _BROWSER_DESCRIPTION
     parameters: dict = {
@@ -134,7 +131,7 @@ class BrowserUseTool(BaseTool, Generic[Context]):
     web_search_tool: WebSearch = Field(default_factory=WebSearch, exclude=True)
 
     # Context for generic functionality
-    tool_context: Optional[Context] = Field(default=None, exclude=True)
+    tool_context: Optional[Any] = Field(default=None, exclude=True)
 
     llm: Optional[LLM] = Field(default_factory=LLM)
 
@@ -557,7 +554,7 @@ Page content:
                 loop.close()
 
     @classmethod
-    def create_with_context(cls, context: Context) -> "BrowserUseTool[Context]":
+    def create_with_context(cls, context: Any) -> "BrowserUseTool":
         """Factory method to create a BrowserUseTool with a specific context."""
         tool = cls()
         tool.tool_context = context

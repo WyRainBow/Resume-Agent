@@ -1,9 +1,9 @@
 from backend.agent.tool.base import BaseTool
 from backend.agent.tool.bash import Bash
-# BrowserUseTool 可能有额外依赖，设为可选
+# BrowserUseTool 可能有额外依赖或 Pydantic 兼容性问题，设为可选
 try:
     from backend.agent.tool.browser_use_tool import BrowserUseTool
-except ImportError:
+except Exception:
     BrowserUseTool = None
 from backend.agent.tool.create_chat_completion import CreateChatCompletion
 from backend.agent.tool.cv_analyzer_agent_tool import CVAnalyzerAgentTool
