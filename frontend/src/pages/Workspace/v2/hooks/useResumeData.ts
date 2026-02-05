@@ -45,6 +45,12 @@ export function useResumeData() {
           education: data.education || prev.education,
           experience: data.experience || prev.experience,
           projects: data.projects || prev.projects,
+          openSource: data.openSource || prev.openSource,  // 加载开源经历
+          awards: data.awards || prev.awards,  // 加载荣誉奖项
+          skillContent: data.skillContent || prev.skillContent,  // 加载技能内容
+          menuSections: data.menuSections || prev.menuSections,  // 加载菜单配置
+          globalSettings: data.globalSettings ? { ...prev.globalSettings, ...data.globalSettings } : prev.globalSettings,  // 加载全局设置
+          customData: data.customData || prev.customData,  // 加载自定义数据
           templateType: data.templateType || prev.templateType,  // 保留模板类型
           templateId: data.templateId || prev.templateId,  // 保留模板 ID
         }))
