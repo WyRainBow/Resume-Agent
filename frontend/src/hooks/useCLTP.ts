@@ -9,7 +9,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { CLTPSessionImpl } from '@/cltp/core/CLTPSession';
 import { SSETransportAdapter, createSSETransportAdapter } from '@/cltp/adapters/SSETransportAdapter';
-import { SSETransport } from '@/transports/SSETransport';
+import { SSETransport, type SSEEvent } from '@/transports/SSETransport';
 import type { ContentMessage } from '@/cltp/types/messages';
 import type { DefaultPayloads } from '@/cltp/types/channels';
 
@@ -47,6 +47,8 @@ export interface UseCLTPOptions {
     heartbeatTimeout?: number;
     /** 简历数据 */
     resumeData?: any;
+    /** 原始 SSE 事件回调 */
+    onSSEEvent?: (event: SSEEvent) => void;
 }
 
 /**
@@ -71,6 +73,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
         baseUrl = defaultApiBase,
         heartbeatTimeout = 60000,
         resumeData,
+        onSSEEvent,
     } = options;
 
     const [currentThought, setCurrentThought] = useState('');
@@ -101,6 +104,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
         const sseTransport = new SSETransport({
             baseUrl,
             heartbeatTimeout,
+            onMessage: onSSEEvent,
             onConnect: () => {
                 console.log('[useCLTP] SSE Connected');
                 setIsConnected(true);
@@ -215,7 +219,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
                 console.error('[useCLTP] Error closing session:', error);
             });
         };
-    }, [conversationId, baseUrl, heartbeatTimeout]);
+    }, [conversationId, baseUrl, heartbeatTimeout, onSSEEvent]);
 
     // Update resume data without resetting the session
     useEffect(() => {

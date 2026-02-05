@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from typing import Any, List, Optional, Union
 
 from pydantic import Field, PrivateAttr
@@ -47,6 +48,58 @@ class ToolCallAgent(ReActAgent):
     # 🔑 新增：跟踪状态，避免重复处理
     _last_processed_user_input: str = PrivateAttr(default="")
     _pending_next_step: bool = PrivateAttr(default=False)  # 是否有待处理的 next_step
+    _tool_structured_results: dict[str, Any] = PrivateAttr(default_factory=dict)
+
+    @staticmethod
+    def _sanitize_log_text(text: str) -> str:
+        """Escape loguru tag delimiters to avoid log formatting errors."""
+        return text.replace("<", r"\<").replace(">", r"\>")
+
+    @staticmethod
+    def _is_browsing_request(text: str) -> bool:
+        if not text:
+            return False
+        pattern = r"(打开|访问|浏览|搜索|网页|网站|百度|谷歌|google|bing|天气|新闻|地图)"
+        return re.search(pattern, text, re.IGNORECASE) is not None
+
+    def _get_last_user_message(self) -> str:
+        for msg in reversed(self.messages):
+            role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+            if role == "user" and msg.content:
+                return msg.content.strip()
+        return ""
+
+    def _store_structured_tool_result(
+        self, tool_call_id: str, tool_name: str, result: Any
+    ) -> None:
+        if tool_name != "web_search" or not tool_call_id:
+            return
+        if result is None:
+            return
+        if hasattr(result, "model_dump"):
+            data = result.model_dump()
+        elif isinstance(result, dict):
+            data = result
+        else:
+            return
+
+        query = data.get("query")
+        results = data.get("results") or []
+        metadata = data.get("metadata") or {}
+        total_results = metadata.get("total_results")
+        if total_results is None:
+            total_results = len(results)
+
+        self._tool_structured_results[tool_call_id] = {
+            "type": "search",
+            "query": query,
+            "results": results,
+            "total_results": total_results,
+            "metadata": metadata,
+        }
+
+    def get_structured_tool_result(self, tool_call_id: str) -> dict[str, Any] | None:
+        return self._tool_structured_results.get(tool_call_id)
 
     def should_auto_terminate(self, content: str, tool_calls: List[ToolCall]) -> bool:
         """判断是否应该自动终止
@@ -162,7 +215,8 @@ class ToolCallAgent(ReActAgent):
             logger.info(
                 f"🧰 Tools being prepared: {[call.function.name for call in tool_calls]}"
             )
-            logger.info(f"🔧 Tool arguments: {tool_calls[0].function.arguments}")
+            safe_args = self._sanitize_log_text(tool_calls[0].function.arguments or "")
+            logger.info(f"🔧 Tool arguments: {safe_args}")
 
         try:
             if response is None:
@@ -256,12 +310,29 @@ class ToolCallAgent(ReActAgent):
             # Parse arguments
             args = json.loads(command.function.arguments or "{}")
 
+            # Guardrails: prevent file editing or python execution for browsing requests
+            user_input = self._get_last_user_message()
+            if self._is_browsing_request(user_input):
+                if name in {"str_replace_editor", "python_execute"}:
+                    return (
+                        "Error: 该请求属于网页浏览，请改用 browser_use 工具，"
+                        "禁止用 str_replace_editor 或 python_execute 模拟网页。"
+                    )
+                if name == "str_replace_editor" and isinstance(args, dict):
+                    file_text = args.get("file_text", "")
+                    if isinstance(file_text, str) and "<html" in file_text.lower():
+                        return (
+                            "Error: 禁止生成模拟 HTML 页面，请使用 browser_use 进行真实浏览。"
+                        )
+
             # Execute the tool
             logger.info(f"🔧 Activating tool: '{name}'...")
             result = await self.available_tools.execute(name=name, tool_input=args)
 
             # Handle special tools
             await self._handle_special_tool(name=name, result=result)
+
+            self._store_structured_tool_result(command.id, name, result)
 
             # Check if result is a ToolResult with base64_image
             if hasattr(result, "base64_image") and result.base64_image:

@@ -3,15 +3,13 @@ import base64
 import json
 from typing import Any, Optional
 
-# browser_use 0.11.x 新 API
-from browser_use import Browser as BrowserUseBrowser
-# BrowserConfig 已在新版本中移除，现在直接在 Browser 构造函数中传参
+# browser_use 0.11.x 新 API（兼容缺失依赖的情况）
 try:
-    from browser_use.browser.context import BrowserContext
-    from browser_use.dom.service import DomService
-except ImportError:
-    BrowserContext = None
-    DomService = None
+    from browser_use import Browser as BrowserUseBrowser
+    _BROWSER_USE_IMPORT_ERROR = None
+except Exception as exc:
+    BrowserUseBrowser = None
+    _BROWSER_USE_IMPORT_ERROR = exc
 
 from pydantic import Field, field_validator
 from pydantic_core.core_schema import ValidationInfo
@@ -58,6 +56,7 @@ class BrowserUseTool(BaseTool):
                     "get_dropdown_options",
                     "select_dropdown_option",
                     "go_back",
+                    "refresh",
                     "web_search",
                     "wait",
                     "extract_content",
@@ -118,6 +117,7 @@ class BrowserUseTool(BaseTool):
             "get_dropdown_options": ["index"],
             "select_dropdown_option": ["index", "text"],
             "go_back": [],
+            "refresh": [],
             "web_search": ["query"],
             "wait": ["seconds"],
             "extract_content": ["goal"],
@@ -125,9 +125,8 @@ class BrowserUseTool(BaseTool):
     }
 
     lock: asyncio.Lock = Field(default_factory=asyncio.Lock)
-    browser: Optional[BrowserUseBrowser] = Field(default=None, exclude=True)
-    context: Optional[BrowserContext] = Field(default=None, exclude=True)
-    dom_service: Optional[DomService] = Field(default=None, exclude=True)
+    browser: Optional[Any] = Field(default=None, exclude=True)  # BrowserUseBrowser instance
+    _browser_started: bool = Field(default=False, exclude=True)
     web_search_tool: WebSearch = Field(default_factory=WebSearch, exclude=True)
 
     # Context for generic functionality
@@ -140,17 +139,29 @@ class BrowserUseTool(BaseTool):
         if not v:
             raise ValueError("Parameters cannot be empty")
         return v
+    
+    def _ensure_browser_use_available(self) -> Optional[ToolResult]:
+        """Ensure browser_use dependency is available."""
+        if BrowserUseBrowser is None:
+            error_msg = "browser_use 依赖未安装或导入失败，请先安装 browser-use 并确保依赖可用。"
+            if _BROWSER_USE_IMPORT_ERROR:
+                error_msg += f" (导入错误: {_BROWSER_USE_IMPORT_ERROR})"
+            return ToolResult(error=error_msg)
+        return None
 
-    async def _ensure_browser_initialized(self) -> BrowserContext:
-        """Ensure browser and context are initialized."""
+    async def _ensure_browser_initialized(self) -> Any:
+        """Ensure browser is initialized and started (browser-use 0.11.x API)."""
         if self.browser is None:
             browser_config_kwargs = {"headless": False, "disable_security": True}
 
             if config.browser_config:
-                from browser_use.browser.browser import ProxySettings
+                try:
+                    from browser_use.browser.profile import ProxySettings
+                except ImportError:
+                    ProxySettings = None
 
                 # handle proxy settings.
-                if config.browser_config.proxy and config.browser_config.proxy.server:
+                if ProxySettings and config.browser_config.proxy and config.browser_config.proxy.server:
                     browser_config_kwargs["proxy"] = ProxySettings(
                         server=config.browser_config.proxy.server,
                         username=config.browser_config.proxy.username,
@@ -160,9 +171,6 @@ class BrowserUseTool(BaseTool):
                 browser_attrs = [
                     "headless",
                     "disable_security",
-                    "extra_chromium_args",
-                    "chrome_instance_path",
-                    "wss_url",
                     "cdp_url",
                 ]
 
@@ -174,12 +182,12 @@ class BrowserUseTool(BaseTool):
 
             self.browser = BrowserUseBrowser(**browser_config_kwargs)
 
-        if self.context is None:
-            # new_context() 在新版本中不接受参数
-            self.context = await self.browser.new_context()
-            self.dom_service = DomService(await self.context.get_current_page())
+        # browser-use 0.11.x: 需要调用 start() 启动浏览器
+        if not self._browser_started:
+            await self.browser.start()
+            self._browser_started = True
 
-        return self.context
+        return self.browser
 
     async def execute(
         self,
@@ -216,7 +224,10 @@ class BrowserUseTool(BaseTool):
         """
         async with self.lock:
             try:
-                context = await self._ensure_browser_initialized()
+                unavailable_result = self._ensure_browser_use_available()
+                if unavailable_result:
+                    return unavailable_result
+                browser = await self._ensure_browser_initialized()
 
                 # Get max content length from config
                 max_content_length = getattr(
@@ -229,17 +240,19 @@ class BrowserUseTool(BaseTool):
                         return ToolResult(
                             error="URL is required for 'go_to_url' action"
                         )
-                    page = await context.get_current_page()
+                    page = await browser.get_current_page()
                     await page.goto(url)
                     await page.wait_for_load_state()
                     return ToolResult(output=f"Navigated to {url}")
 
                 elif action == "go_back":
-                    await context.go_back()
+                    page = await browser.get_current_page()
+                    await page.go_back()
                     return ToolResult(output="Navigated back")
 
                 elif action == "refresh":
-                    await context.refresh_page()
+                    page = await browser.get_current_page()
+                    await page.reload()
                     return ToolResult(output="Refreshed current page")
 
                 elif action == "web_search":
@@ -255,7 +268,7 @@ class BrowserUseTool(BaseTool):
                     first_search_result = search_response.results[0]
                     url_to_navigate = first_search_result.url
 
-                    page = await context.get_current_page()
+                    page = await browser.get_current_page()
                     await page.goto(url_to_navigate)
                     await page.wait_for_load_state()
 
@@ -267,13 +280,18 @@ class BrowserUseTool(BaseTool):
                         return ToolResult(
                             error="Index is required for 'click_element' action"
                         )
-                    element = await context.get_dom_element_by_index(index)
+                    element = await browser.get_dom_element_by_index(index)
                     if not element:
                         return ToolResult(error=f"Element with index {index} not found")
-                    download_path = await context._click_element_node(element)
+                    # browser-use 0.11.x: 使用 page 点击元素
+                    page = await browser.get_current_page()
+                    if hasattr(element, 'selector'):
+                        await page.click(element.selector)
+                    elif hasattr(element, 'xpath'):
+                        await page.click(f"xpath={element.xpath}")
+                    else:
+                        await page.click(f"[data-index='{index}']")
                     output = f"Clicked element at index {index}"
-                    if download_path:
-                        output += f" - Downloaded file to {download_path}"
                     return ToolResult(output=output)
 
                 elif action == "input_text":
@@ -281,24 +299,26 @@ class BrowserUseTool(BaseTool):
                         return ToolResult(
                             error="Index and text are required for 'input_text' action"
                         )
-                    element = await context.get_dom_element_by_index(index)
+                    element = await browser.get_dom_element_by_index(index)
                     if not element:
                         return ToolResult(error=f"Element with index {index} not found")
-                    await context._input_text_element_node(element, text)
+                    # browser-use 0.11.x: 使用 page 输入文本
+                    page = await browser.get_current_page()
+                    if hasattr(element, 'selector'):
+                        await page.fill(element.selector, text)
+                    elif hasattr(element, 'xpath'):
+                        await page.fill(f"xpath={element.xpath}", text)
+                    else:
+                        await page.fill(f"[data-index='{index}']", text)
                     return ToolResult(
                         output=f"Input '{text}' into element at index {index}"
                     )
 
                 elif action == "scroll_down" or action == "scroll_up":
                     direction = 1 if action == "scroll_down" else -1
-                    amount = (
-                        scroll_amount
-                        if scroll_amount is not None
-                        else context.config.browser_window_size["height"]
-                    )
-                    await context.execute_javascript(
-                        f"window.scrollBy(0, {direction * amount});"
-                    )
+                    amount = scroll_amount if scroll_amount is not None else 500
+                    page = await browser.get_current_page()
+                    await page.evaluate(f"window.scrollBy(0, {direction * amount});")
                     return ToolResult(
                         output=f"Scrolled {'down' if direction > 0 else 'up'} by {amount} pixels"
                     )
@@ -308,7 +328,7 @@ class BrowserUseTool(BaseTool):
                         return ToolResult(
                             error="Text is required for 'scroll_to_text' action"
                         )
-                    page = await context.get_current_page()
+                    page = await browser.get_current_page()
                     try:
                         locator = page.get_by_text(text, exact=False)
                         await locator.scroll_into_view_if_needed()
@@ -321,7 +341,7 @@ class BrowserUseTool(BaseTool):
                         return ToolResult(
                             error="Keys are required for 'send_keys' action"
                         )
-                    page = await context.get_current_page()
+                    page = await browser.get_current_page()
                     await page.keyboard.press(keys)
                     return ToolResult(output=f"Sent keys: {keys}")
 
@@ -330,25 +350,29 @@ class BrowserUseTool(BaseTool):
                         return ToolResult(
                             error="Index is required for 'get_dropdown_options' action"
                         )
-                    element = await context.get_dom_element_by_index(index)
+                    element = await browser.get_dom_element_by_index(index)
                     if not element:
                         return ToolResult(error=f"Element with index {index} not found")
-                    page = await context.get_current_page()
-                    options = await page.evaluate(
-                        """
-                        (xpath) => {
-                            const select = document.evaluate(xpath, document, null,
-                                XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
-                            if (!select) return null;
-                            return Array.from(select.options).map(opt => ({
-                                text: opt.text,
-                                value: opt.value,
-                                index: opt.index
-                            }));
-                        }
-                    """,
-                        element.xpath,
-                    )
+                    page = await browser.get_current_page()
+                    xpath = getattr(element, 'xpath', None)
+                    if xpath:
+                        options = await page.evaluate(
+                            """
+                            (xpath) => {
+                                const select = document.evaluate(xpath, document, null,
+                                    XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue;
+                                if (!select) return null;
+                                return Array.from(select.options).map(opt => ({
+                                    text: opt.text,
+                                    value: opt.value,
+                                    index: opt.index
+                                }));
+                            }
+                        """,
+                            xpath,
+                        )
+                    else:
+                        options = []
                     return ToolResult(output=f"Dropdown options: {options}")
 
                 elif action == "select_dropdown_option":
@@ -356,11 +380,13 @@ class BrowserUseTool(BaseTool):
                         return ToolResult(
                             error="Index and text are required for 'select_dropdown_option' action"
                         )
-                    element = await context.get_dom_element_by_index(index)
+                    element = await browser.get_dom_element_by_index(index)
                     if not element:
                         return ToolResult(error=f"Element with index {index} not found")
-                    page = await context.get_current_page()
-                    await page.select_option(element.xpath, label=text)
+                    page = await browser.get_current_page()
+                    xpath = getattr(element, 'xpath', None)
+                    if xpath:
+                        await page.select_option(f"xpath={xpath}", label=text)
                     return ToolResult(
                         output=f"Selected option '{text}' from dropdown at index {index}"
                     )
@@ -372,7 +398,7 @@ class BrowserUseTool(BaseTool):
                             error="Goal is required for 'extract_content' action"
                         )
 
-                    page = await context.get_current_page()
+                    page = await browser.get_current_page()
                     import markdownify
 
                     content = markdownify.markdownify(await page.content())
@@ -443,19 +469,25 @@ Page content:
                         return ToolResult(
                             error="Tab ID is required for 'switch_tab' action"
                         )
-                    await context.switch_to_tab(tab_id)
-                    page = await context.get_current_page()
+                    # browser-use 0.11.x: 获取所有页面并切换
+                    pages = await browser.get_pages()
+                    if tab_id < len(pages):
+                        await pages[tab_id].bring_to_front()
+                    page = await browser.get_current_page()
                     await page.wait_for_load_state()
                     return ToolResult(output=f"Switched to tab {tab_id}")
 
                 elif action == "open_tab":
                     if not url:
                         return ToolResult(error="URL is required for 'open_tab' action")
-                    await context.create_new_tab(url)
+                    # browser-use 0.11.x: 使用 new_page() 创建新标签
+                    page = await browser.new_page()
+                    await page.goto(url)
                     return ToolResult(output=f"Opened new tab with {url}")
 
                 elif action == "close_tab":
-                    await context.close_current_tab()
+                    page = await browser.get_current_page()
+                    await page.close()
                     return ToolResult(output="Closed current tab")
 
                 # Utility actions
@@ -470,59 +502,42 @@ Page content:
             except Exception as e:
                 return ToolResult(error=f"Browser action '{action}' failed: {str(e)}")
 
-    async def get_current_state(
-        self, context: Optional[BrowserContext] = None
-    ) -> ToolResult:
+    async def get_current_state(self) -> ToolResult:
         """
         Get the current browser state as a ToolResult.
-        If context is not provided, uses self.context.
+        browser-use 0.11.x API.
         """
         try:
-            # Use provided context or fall back to self.context
-            ctx = context or self.context
-            if not ctx:
-                return ToolResult(error="Browser context not initialized")
-
-            state = await ctx.get_state()
-
-            # Create a viewport_info dictionary if it doesn't exist
-            viewport_height = 0
-            if hasattr(state, "viewport_info") and state.viewport_info:
-                viewport_height = state.viewport_info.height
-            elif hasattr(ctx, "config") and hasattr(ctx.config, "browser_window_size"):
-                viewport_height = ctx.config.browser_window_size.get("height", 0)
+            unavailable_result = self._ensure_browser_use_available()
+            if unavailable_result:
+                return unavailable_result
+            if not self.browser or not self._browser_started:
+                return ToolResult(error="Browser not initialized")
 
             # Take a screenshot for the state
-            page = await ctx.get_current_page()
-
+            page = await self.browser.get_current_page()
             await page.bring_to_front()
             await page.wait_for_load_state()
 
             screenshot = await page.screenshot(
                 full_page=True, animations="disabled", type="jpeg", quality=100
             )
-
             screenshot = base64.b64encode(screenshot).decode("utf-8")
 
-            # Build the state info with all required fields
+            # Get basic state info
+            url = page.url
+            title = await page.title()
+            
+            # Get tabs info
+            pages = await self.browser.get_pages()
+            tabs = [{"id": i, "url": p.url, "title": await p.title()} for i, p in enumerate(pages)]
+
+            # Build the state info
             state_info = {
-                "url": state.url,
-                "title": state.title,
-                "tabs": [tab.model_dump() for tab in state.tabs],
+                "url": url,
+                "title": title,
+                "tabs": tabs,
                 "help": "[0], [1], [2], etc., represent clickable indices corresponding to the elements listed. Clicking on these indices will navigate to or interact with the respective content behind them.",
-                "interactive_elements": (
-                    state.element_tree.clickable_elements_to_string()
-                    if state.element_tree
-                    else ""
-                ),
-                "scroll_info": {
-                    "pixels_above": getattr(state, "pixels_above", 0),
-                    "pixels_below": getattr(state, "pixels_below", 0),
-                    "total_height": getattr(state, "pixels_above", 0)
-                    + getattr(state, "pixels_below", 0)
-                    + viewport_height,
-                },
-                "viewport_height": viewport_height,
             }
 
             return ToolResult(
@@ -535,17 +550,17 @@ Page content:
     async def cleanup(self):
         """Clean up browser resources."""
         async with self.lock:
-            if self.context is not None:
-                await self.context.close()
-                self.context = None
-                self.dom_service = None
-            if self.browser is not None:
-                await self.browser.close()
+            if self.browser is not None and self._browser_started:
+                try:
+                    await self.browser.stop()
+                except Exception:
+                    pass
+                self._browser_started = False
                 self.browser = None
 
     def __del__(self):
         """Ensure cleanup when object is destroyed."""
-        if self.browser is not None or self.context is not None:
+        if self.browser is not None and self._browser_started:
             try:
                 asyncio.run(self.cleanup())
             except RuntimeError:
