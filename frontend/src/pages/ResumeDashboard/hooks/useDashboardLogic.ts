@@ -30,7 +30,8 @@ export const useDashboardLogic = () => {
   const loadResumes = async () => {
     setIsLoading(true)
     const list = await getAllResumes()
-    list.sort((a, b) => b.updatedAt - a.updatedAt)
+    // 按创建时间倒序排列（新创建的在前）
+    list.sort((a, b) => b.createdAt - a.createdAt)
     setResumes(list)
     setIsLoading(false)
   }

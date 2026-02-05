@@ -108,7 +108,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
 
       <Card
         className={cn(
-          "relative overflow-hidden border-none transition-all duration-300 h-[310px] flex flex-col rounded-2xl",
+          "relative overflow-hidden border-none transition-all duration-300 h-[330px] flex flex-col rounded-2xl",
           "bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl",
           "shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)]",
           "hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)]",
@@ -169,9 +169,12 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
             )}
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            已保存 · {formatDateTime(resume.updatedAt)}
+          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium space-y-1">
+            <div>创建时间：{formatDateTime(resume.createdAt)}</div>
+            <div className="flex items-center justify-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              已保存 · {formatDateTime(resume.updatedAt)}
+            </div>
           </div>
         </CardContent>
 
