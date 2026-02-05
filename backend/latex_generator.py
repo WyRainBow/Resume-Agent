@@ -46,12 +46,35 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     """构建 LaTeX 文档"""
     latex_content = []
     
+    # 获取全局设置
+    global_settings = resume_data.get('globalSettings') or {}
+    
+    # 字体大小设置 (9, 10, 11, 12)
+    font_size = global_settings.get('latexFontSize', 11)
+    if font_size not in [9, 10, 11, 12]:
+        font_size = 11
+    
+    # 页面边距设置
+    margin_setting = global_settings.get('latexMargin', 'standard')
+    margin_map = {
+        'compact': '0.3in',
+        'standard': '0.4in',
+        'relaxed': '0.5in',
+    }
+    margin = margin_map.get(margin_setting, '0.4in')
+    
+    # 行间距设置
+    line_spacing = global_settings.get('latexLineSpacing', 1.15)
+    if not isinstance(line_spacing, (int, float)) or line_spacing < 1.0 or line_spacing > 2.0:
+        line_spacing = 1.15
+    
     """文档头部"""
     latex_content.append(r"% !TEX TS-program = xelatex")
     latex_content.append(r"% !TEX encoding = UTF-8 Unicode")
     latex_content.append(r'% !Mode:: "TeX:UTF-8"')
     latex_content.append("")
-    latex_content.append(r"\documentclass{resume}")
+    # 使用动态字体大小
+    latex_content.append(f"\\documentclass[{font_size}pt]{{resume}}")
     """使用中文字体配置"""
     latex_content.append(r"\usepackage{zh_CN-Adobefonts_external}")
     latex_content.append(r"\usepackage{linespacing_fix}")
@@ -61,6 +84,11 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     latex_content.append(r"\XeTeXlinebreakskip = 0pt plus 1pt")
     """强制使用 Unicode 编码"""
     latex_content.append(r'\XeTeXinputencoding "utf8"')
+    latex_content.append("")
+    # 覆盖页面边距设置
+    latex_content.append(f"\\geometry{{a4paper,left={margin},right={margin},top={margin},bottom={margin},nohead}}")
+    # 设置行间距
+    latex_content.append(f"\\linespread{{{line_spacing}}}")
     latex_content.append("")
     latex_content.append(r"\begin{document}")
     latex_content.append(r"\pagenumbering{gobble}")
