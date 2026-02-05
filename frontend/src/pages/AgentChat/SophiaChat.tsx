@@ -1243,8 +1243,19 @@ export default function SophiaChat() {
       }
     }
 
-    // 检测是否是简历操作请求（需要简历数据）
-    const isResumeOperation = /(?:加载|打开|查看|创建|修改|优化|编辑|分析|改进)(?:我的|这个|一份)?(?:简历|CV|履历)/.test(input);
+    // 检测是否是简历加载请求（需要弹出选择器）
+    const isResumeLoadRequest = /(?:加载|打开|查看|显示)(?:我的|这个|一份)?(?:简历|CV|履历)/.test(input);
+    
+    // 如果是简历加载请求，弹出选择器让用户选择 HTML 简历
+    if (isResumeLoadRequest) {
+      setPendingResumeInput(input);
+      setShowResumeSelector(true);
+      setResumeError(null);
+      return;
+    }
+    
+    // 检测是否是其他简历操作请求（需要简历数据但不需要选择器）
+    const isResumeOperation = /(?:创建|修改|优化|编辑|分析|改进)(?:我的|这个|一份)?(?:简历|CV|履历)/.test(input);
     
     // 只有明确的简历操作才需要检查简历数据
     if (isResumeOperation && !resumeData) {
@@ -1269,15 +1280,6 @@ export default function SophiaChat() {
     };
     const nextMessages = [...messages, userMessageEntry];
     const isFirstMessage = messages.length === 0;
-
-    // 检测简历加载请求
-    const isResumeLoadRequest = /(?:加载|打开|查看|显示)(?:我的|这个|一份)?(?:简历|CV)/.test(userMessage);
-    if (isResumeLoadRequest) {
-      // 延迟检测，确保消息已添加到列表
-      setTimeout(() => {
-        detectAndLoadResume(userMessage, uniqueId);
-      }, 100);
-    }
 
     // Add user message to UI
     setMessages(nextMessages);
@@ -1598,7 +1600,6 @@ export default function SophiaChat() {
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={isProcessing ? '正在处理中，可以继续输入...' : '输入消息...（例如：生成一份关于 AI 发展趋势的报告）'}
                   className="flex-1 px-4 py-3 outline-none text-gray-700 placeholder-gray-400 bg-transparent"
-                  disabled={isProcessing}
                 />
                 <div className="pr-2 py-2">
                   <button
