@@ -51,6 +51,8 @@ export async function syncLocalToDatabase(): Promise<SavedResume[]> {
     resumes: localResumes.map(r => ({
       id: r.id,
       name: r.name,
+      alias: r.alias,  // 包含备注/别名
+      template_type: r.templateType || (r.data as any)?.templateType || 'latex',  // 包含模板类型
       data: r.data,
       created_at: new Date(r.createdAt).toISOString(),
       updated_at: new Date(r.updatedAt).toISOString()
@@ -62,6 +64,8 @@ export async function syncLocalToDatabase(): Promise<SavedResume[]> {
   const merged: SavedResume[] = Array.isArray(data) ? data.map((item: any) => ({
     id: item.id,
     name: item.name,
+    alias: item.alias,  // 解析备注/别名
+    templateType: item.template_type || (item.data as any)?.templateType || 'latex',  // 解析模板类型
     data: item.data,
     createdAt: item.created_at ? Date.parse(item.created_at) : Date.now(),
     updatedAt: item.updated_at ? Date.parse(item.updated_at) : Date.now()

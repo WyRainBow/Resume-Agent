@@ -19,6 +19,7 @@ router = APIRouter(prefix="/api/resumes", tags=["Resumes"])
 class ResumePayload(BaseModel):
     id: Optional[str] = None
     name: Optional[str] = None
+    alias: Optional[str] = None  # 备注/别名
     template_type: Optional[str] = None  # html 或 latex
     data: Dict[str, Any]
     created_at: Optional[str] = None
@@ -28,6 +29,7 @@ class ResumePayload(BaseModel):
 class ResumeResponse(BaseModel):
     id: str
     name: str
+    alias: Optional[str] = None  # 备注/别名
     template_type: Optional[str] = None  # html 或 latex
     data: Dict[str, Any]
     created_at: Optional[str]
@@ -54,6 +56,7 @@ def list_resumes(
         ResumeResponse(
             id=r.id,
             name=r.name,
+            alias=r.alias,
             template_type=_extract_template_type(r.data),
             data=r.data,
             created_at=r.created_at.isoformat() if r.created_at else None,
@@ -77,6 +80,7 @@ def get_resume(
     return ResumeResponse(
         id=resume.id,
         name=resume.name,
+        alias=resume.alias,
         template_type=_extract_template_type(resume.data),
         data=resume.data,
         created_at=resume.created_at.isoformat() if resume.created_at else None,
@@ -103,6 +107,7 @@ def create_resume(
         id=resume_id,
         user_id=current_user.id,
         name=name,
+        alias=payload.alias,
         data=data
     )
     db.add(resume)
@@ -112,6 +117,7 @@ def create_resume(
     return ResumeResponse(
         id=resume.id,
         name=resume.name,
+        alias=resume.alias,
         template_type=_extract_template_type(resume.data),
         data=resume.data,
         created_at=resume.created_at.isoformat() if resume.created_at else None,
@@ -137,6 +143,7 @@ def update_resume(
         data["templateType"] = payload.template_type
 
     resume.name = payload.name or data.get("basic", {}).get("name") or resume.name
+    resume.alias = payload.alias if payload.alias is not None else resume.alias
     resume.data = data
     db.commit()
     db.refresh(resume)
@@ -144,6 +151,7 @@ def update_resume(
     return ResumeResponse(
         id=resume.id,
         name=resume.name,
+        alias=resume.alias,
         template_type=_extract_template_type(resume.data),
         data=resume.data,
         created_at=resume.created_at.isoformat() if resume.created_at else None,
@@ -179,6 +187,7 @@ def sync_resume_data(
         ResumeResponse(
             id=r.id,
             name=r.name,
+            alias=r.alias,
             template_type=_extract_template_type(r.data),
             data=r.data,
             created_at=r.created_at.isoformat() if r.created_at else None,

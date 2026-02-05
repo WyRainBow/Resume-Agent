@@ -138,6 +138,7 @@ class Resume(Base):
     id = Column(String(255), primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     name = Column(String(255), nullable=False)
+    alias = Column(String(255), nullable=True)  # 备注/别名，用于标识简历用途
     data = Column(JSON, nullable=False)  # MySQL JSON 类型，存储完整简历数据
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

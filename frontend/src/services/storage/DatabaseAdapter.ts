@@ -44,7 +44,7 @@ function toSavedResume(payload: any): SavedResume {
   return {
     id: payload.id,
     name: payload.name,
-    alias: payload.alias,
+    alias: payload.alias || undefined,  // 确保 alias 被正确解析
     templateType,
     data: payload.data,
     createdAt: payload.created_at ? Date.parse(payload.created_at) : Date.now(),

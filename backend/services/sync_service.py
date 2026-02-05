@@ -24,12 +24,18 @@ def sync_resumes(db: Session, user: User, resumes: List[Dict[str, Any]]) -> List
     for item in resumes:
         resume_id = item.get("id")
         name = item.get("name") or "未命名简历"
+        alias = item.get("alias")
         data = item.get("data") or {}
+        template_type = item.get("template_type")
         incoming_updated_at = _parse_iso_datetime(item.get("updated_at"))
 
         if not resume_id:
             # 无 id，跳过
             continue
+
+        # 如果有 template_type，确保同步到 data 中
+        if template_type:
+            data = {**data, "templateType": template_type}
 
         existing = db.query(Resume).filter(Resume.id == resume_id, Resume.user_id == user.id).first()
         if existing:
@@ -37,12 +43,14 @@ def sync_resumes(db: Session, user: User, resumes: List[Dict[str, Any]]) -> List
             if incoming_updated_at and existing.updated_at and incoming_updated_at <= existing.updated_at:
                 continue
             existing.name = name
+            existing.alias = alias
             existing.data = data
         else:
             new_resume = Resume(
                 id=resume_id,
                 user_id=user.id,
                 name=name,
+                alias=alias,
                 data=data
             )
             db.add(new_resume)

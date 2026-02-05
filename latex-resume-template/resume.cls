@@ -1,6 +1,16 @@
 \NeedsTeXFormat{LaTeX2e}
 \ProvidesClass{resume}[2015/05/25 An elegant Résumé class]
-\LoadClass[11pt]{article}
+
+% 声明字体大小选项，并传递给 article 类
+\DeclareOption{9pt}{\PassOptionsToClass{9pt}{article}}
+\DeclareOption{10pt}{\PassOptionsToClass{10pt}{article}}
+\DeclareOption{11pt}{\PassOptionsToClass{11pt}{article}}
+\DeclareOption{12pt}{\PassOptionsToClass{12pt}{article}}
+\DeclareOption*{\PassOptionsToClass{\CurrentOption}{article}}
+\ExecuteOptions{11pt}  % 默认 11pt
+\ProcessOptions\relax
+
+\LoadClass{article}
 
 % disable indent globally
 \setlength{\parindent}{0pt}

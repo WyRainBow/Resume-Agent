@@ -142,6 +142,10 @@ export interface GlobalSettings {
   useIconMode?: boolean
   centerSubtitle?: boolean
   experienceListType?: 'none' | 'unordered' | 'ordered'  // 工作经历列表类型：无列表、无序列表、有序列表
+  // LaTeX 排版设置
+  latexFontSize?: number  // LaTeX 字体大小: 9, 10, 11, 12
+  latexMargin?: 'compact' | 'standard' | 'relaxed'  // 页面边距
+  latexLineSpacing?: number  // 行间距: 1.0, 1.15, 1.3, 1.5
 }
 
 /**
