@@ -22,6 +22,9 @@ export interface TemplateMetadata {
  * 模板元数据列表
  * 包含 LaTeX 和 HTML 模板
  */
+// COS 图片 URL
+const COS_BASE_URL = 'https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com'
+
 export const TEMPLATE_METADATA: TemplateMetadata[] = [
   {
     id: 'default',
@@ -30,7 +33,7 @@ export const TEMPLATE_METADATA: TemplateMetadata[] = [
     type: 'latex',
     category: '通用',
     tags: ['标准', '通用', '经典', '高质量'],
-    thumbnail: '/templates/PNG/classic.png'
+    thumbnail: `${COS_BASE_URL}/classic.png`
   },
   {
     id: 'html-classic',
@@ -39,7 +42,7 @@ export const TEMPLATE_METADATA: TemplateMetadata[] = [
     type: 'html',
     category: '通用',
     tags: ['实时预览', '快速编辑', '经典'],
-    thumbnail: '/templates/PNG/classic.png'
+    thumbnail: `${COS_BASE_URL}/html.png`
   }
 ]
 

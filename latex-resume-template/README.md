@@ -23,7 +23,7 @@
 
 ### 效果输出
 
-![resume-zh_CN.png](./resume.preview.png)
+![resume-zh_CN.png](https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/resume.preview.png)
 
 ## 使用方法
 

@@ -2,14 +2,14 @@ import React from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import type { TemplateMetadata } from '@/data/templates'
-import classicImage from '@/assets/images/templates/classic.png'
-import htmlImage from '@/assets/images/templates/html.png'
+// COS 图片 URL
+const COS_BASE_URL = 'https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com'
 
 // 模板图片映射
 const templateImages: Record<string, string> = {
-  default: classicImage,
-  classic: classicImage,
-  'html-classic': htmlImage,
+  default: `${COS_BASE_URL}/classic.png`,
+  classic: `${COS_BASE_URL}/classic.png`,
+  'html-classic': `${COS_BASE_URL}/html.png`,
 }
 
 interface SimpleTemplateCardProps {

@@ -29,16 +29,16 @@
 ## 前端页面
 
 ### 首页
-![首页](docs/images/首页.png)
+![首页](https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/首页.png)
 
 ### Dashboard 简历管理
-![我的简历](docs/images/我的简历.png)
+![我的简历](https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/我的简历.png)
 
 ### 工作区
-![工作区](docs/images/工作区.png)
+![工作区](https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/工作区.png)
 
 ### AI 对话生成简历
-![AI对话生成简历](docs/images/AI对话生成简历.png)
+![AI对话生成简历](https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/AI对话生成简历.png)
 
 ###  AI 智能生成
 - 支持一句话描述快速生成完整简历

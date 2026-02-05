@@ -9,10 +9,13 @@ interface TemplateSelectorProps {
   onMore: () => void
 }
 
+// COS 图片 URL
+const COS_BASE_URL = 'https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com'
+
 // 模板选择器专用的模板列表（不影响模板市场页面）
 const TEMPLATE_SELECTOR_TEMPLATES: Array<{ id: string; name: string; thumbnail: string; type: 'latex' | 'html' }> = [
-  { id: 'default', name: '经典', thumbnail: '/templates/PNG/classic.png', type: 'latex' },
-  { id: 'html-classic', name: '通用', thumbnail: '/templates/PNG/classic.png', type: 'html' }
+  { id: 'default', name: '经典', thumbnail: `${COS_BASE_URL}/classic.png`, type: 'latex' },
+  { id: 'html-classic', name: '通用', thumbnail: `${COS_BASE_URL}/html.png`, type: 'html' }
 ]
 
 export const TemplateSelector: React.FC<TemplateSelectorProps> = ({ onSelect, onEdit, onMore }) => {
