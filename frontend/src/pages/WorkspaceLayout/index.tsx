@@ -69,7 +69,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
       if (currentResumeId) {
         navigate(`/workspace/agent/${currentResumeId}`)
       } else {
-        navigate('/dashboard')
+        navigate('/workspace/agent/new')
       }
     } else if (workspace === 'dashboard') {
       navigate('/dashboard')

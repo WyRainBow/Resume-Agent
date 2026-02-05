@@ -125,3 +125,15 @@ export async function duplicateResume(id: string): Promise<SavedResume | null> {
   }
   return result
 }
+
+/**
+ * 更新简历备注/别名
+ */
+export async function updateResumeAlias(id: string, alias: string): Promise<boolean> {
+  const adapter = getAdapter()
+  const result = await adapter.updateResumeAlias(id, alias)
+  if (isAuthenticated()) {
+    await localAdapter.updateResumeAlias(id, alias)
+  }
+  return result
+}

@@ -25,7 +25,9 @@ const ResumeDashboard = () => {
     batchDelete,
     selectAll,
     clearSelection,
-    isAllSelected
+    isAllSelected,
+    // 备注/别名
+    updateAlias
   } = useDashboardLogic()
 
   // 登录时数据保存到数据库，未登录时保存到本地存储
@@ -144,6 +146,8 @@ const ResumeDashboard = () => {
                     // 传入选中状态和回调
                     isSelected={selectedIds.has(resume.id)}
                     onSelectChange={toggleSelect}
+                    // 备注/别名
+                    onAliasChange={updateAlias}
                   />
                 ))}
               </AnimatePresence>

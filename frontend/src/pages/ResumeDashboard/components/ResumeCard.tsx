@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Card, CardContent, CardTitle, CardDescription, CardFooter } from './ui/card'
 import { Button } from './ui/button'
@@ -27,6 +27,8 @@ interface ResumeCardProps {
   isSelected?: boolean
   /** 选中状态变化回调 */
   onSelectChange?: (id: string, selected: boolean) => void
+  /** 备注/别名变化回调 */
+  onAliasChange?: (id: string, alias: string) => void
 }
 
 export const ResumeCard: React.FC<ResumeCardProps> = ({
@@ -35,8 +37,40 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
   onDelete,
   onOptimize,
   isSelected = false,
-  onSelectChange
+  onSelectChange,
+  onAliasChange
 }) => {
+  const [isEditingAlias, setIsEditingAlias] = useState(false)
+  const [aliasValue, setAliasValue] = useState(resume.alias || '')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // 当进入编辑模式时，聚焦输入框
+  useEffect(() => {
+    if (isEditingAlias && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [isEditingAlias])
+
+  // 保存备注
+  const saveAlias = () => {
+    const trimmedAlias = aliasValue.trim()
+    if (trimmedAlias !== (resume.alias || '')) {
+      onAliasChange?.(resume.id, trimmedAlias)
+    }
+    setIsEditingAlias(false)
+  }
+
+  // 处理键盘事件
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      saveAlias()
+    } else if (e.key === 'Escape') {
+      setAliasValue(resume.alias || '')
+      setIsEditingAlias(false)
+    }
+  }
+
   return (
     <motion.div
       layout
@@ -74,7 +108,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
 
       <Card
         className={cn(
-          "relative overflow-hidden border-none transition-all duration-300 h-[280px] flex flex-col rounded-2xl",
+          "relative overflow-hidden border-none transition-all duration-300 h-[310px] flex flex-col rounded-2xl",
           "bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl",
           "shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)]",
           "hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)]",
@@ -92,10 +126,49 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
             <FileText className="h-10 w-10" />
           </motion.div>
           
-          <CardTitle className="text-xl font-bold line-clamp-1 text-slate-800 dark:text-slate-100 px-6 mb-2">
+          <CardTitle className="text-xl font-bold line-clamp-1 text-slate-800 dark:text-slate-100 px-6 mb-1">
             {resume.name || "未命名简历"}
           </CardTitle>
           
+          {/* 备注/别名区域 */}
+          <div 
+            className="px-6 mb-2 min-h-[24px] flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {isEditingAlias ? (
+              <input
+                ref={inputRef}
+                type="text"
+                value={aliasValue}
+                onChange={(e) => setAliasValue(e.target.value)}
+                onBlur={saveAlias}
+                onKeyDown={handleKeyDown}
+                placeholder="添加备注..."
+                className={cn(
+                  "w-full max-w-[180px] px-2 py-1 text-sm text-center rounded-lg",
+                  "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm",
+                  "border border-blue-300 dark:border-blue-600",
+                  "text-slate-600 dark:text-slate-300",
+                  "placeholder:text-slate-400 dark:placeholder:text-slate-500",
+                  "focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                )}
+              />
+            ) : (
+              <button
+                onClick={() => setIsEditingAlias(true)}
+                className={cn(
+                  "text-sm px-2 py-0.5 rounded-lg transition-all duration-200",
+                  resume.alias 
+                    ? "text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 font-medium" 
+                    : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50"
+                )}
+                title="点击编辑备注"
+              >
+                {resume.alias || "+ 添加备注"}
+              </button>
+            )}
+          </div>
+
           <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 font-medium">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
             已保存 · {formatDateTime(resume.updatedAt)}
