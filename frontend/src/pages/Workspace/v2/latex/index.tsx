@@ -112,6 +112,10 @@ export default function LaTeXWorkspace() {
   // 防抖保存定时器
   const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
   const lastSavedDataRef = useRef<string>('')
+  
+  // 防抖渲染定时器
+  const renderTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const lastRenderedDataRef = useRef<string>('')
 
   // 自动保存函数（防抖）
   const autoSave = useCallback(() => {
@@ -143,6 +147,25 @@ export default function LaTeXWorkspace() {
     }, 500)
   }, [resumeData, currentResumeId, setCurrentId])
 
+  // 自动渲染函数（防抖）
+  const autoRender = useCallback(() => {
+    // 清除之前的定时器
+    if (renderTimerRef.current) {
+      clearTimeout(renderTimerRef.current)
+    }
+    
+    // 设置新的定时器，1秒后渲染（比保存稍长，确保保存完成）
+    renderTimerRef.current = setTimeout(() => {
+      const currentDataStr = JSON.stringify(resumeData)
+      // 只有当数据真正变化时才渲染
+      if (currentDataStr !== lastRenderedDataRef.current && !loading) {
+        lastRenderedDataRef.current = currentDataStr
+        handleRender()
+        console.log('自动渲染触发')
+      }
+    }, 1000)
+  }, [resumeData, loading, handleRender])
+
   // 监听简历数据变化，自动保存（防抖）
   useEffect(() => {
     if (resumeData) {
@@ -156,6 +179,21 @@ export default function LaTeXWorkspace() {
       }
     }
   }, [resumeData, autoSave])
+
+  // 监听简历数据变化，自动渲染（防抖）
+  useEffect(() => {
+    // 只有数据加载完成后才启用自动渲染
+    if (isDataLoaded && resumeData) {
+      autoRender()
+    }
+    
+    // 清理定时器
+    return () => {
+      if (renderTimerRef.current) {
+        clearTimeout(renderTimerRef.current)
+      }
+    }
+  }, [resumeData, isDataLoaded, autoRender])
 
   // 监听编辑状态：页面加载时保存初始状态
   useEffect(() => {
@@ -193,16 +231,17 @@ export default function LaTeXWorkspace() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [hasUnsavedChanges])
 
-  // 🎯 LaTeX 模板特有：数据加载完成后自动渲染 PDF
+  // 🎯 LaTeX 模板特有：数据加载完成后立即渲染 PDF（首次）
   useEffect(() => {
     if (isDataLoaded && !loading && !pdfBlob) {
-      // 数据已加载完成，延迟一小段时间确保状态更新后再渲染
+      // 首次加载时，初始化 lastRenderedDataRef 并立即渲染
+      lastRenderedDataRef.current = JSON.stringify(resumeData)
       const timer = setTimeout(() => {
         handleRender()
       }, 100)
       return () => clearTimeout(timer)
     }
-  }, [isDataLoaded, loading, pdfBlob, handleRender])
+  }, [isDataLoaded]) // 只在 isDataLoaded 变化时触发
 
   // 导出 JSON
   const handleExportJSON = () => {
