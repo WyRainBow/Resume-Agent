@@ -23,12 +23,19 @@ export function useResumeData() {
   // 简历数据状态
   const [resumeData, setResumeData] = useState<ResumeData>(loadFromStorage)
   const [activeSection, setActiveSection] = useState('basic')
+  
+  // 数据是否已从后端加载完成
+  const [isDataLoaded, setIsDataLoaded] = useState(false)
 
   // 从 Dashboard 进入时加载对应简历
   useEffect(() => {
     const loadResume = async () => {
       const id = getCurrentResumeId()
-      if (!id) return
+      if (!id) {
+        // 没有 ID 表示新建简历，直接标记为已加载
+        setIsDataLoaded(true)
+        return
+      }
       const saved = await getResume(id)
       if (saved && saved.data) {
         const data = saved.data as any
@@ -43,6 +50,8 @@ export function useResumeData() {
         }))
         setCurrentId(id)
       }
+      // 标记数据已加载完成
+      setIsDataLoaded(true)
     }
 
     loadResume()
@@ -221,6 +230,7 @@ export function useResumeData() {
     setActiveSection,
     currentResumeId,
     setCurrentId,
+    isDataLoaded,  // 数据是否已加载完成
     // 基本信息
     updateBasicInfo,
     // 项目
