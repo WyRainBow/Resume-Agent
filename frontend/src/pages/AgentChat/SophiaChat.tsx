@@ -221,6 +221,9 @@ interface SearchStructuredData {
     total_results?: number
     language?: string
     country?: string
+    search_time?: string
+    original_query?: string
+    enhanced_query?: string
   }
 }
 
@@ -1557,7 +1560,7 @@ export default function SophiaChat() {
               </div>
             )}
 
-            {/* 历史消息 */}
+            {/* 历史消息 - 按顺序：Thought Process → SearchCard → Response */}
             {messages.map((msg, idx) => {
               // 检查这条消息是否有关联的报告
               const reportForMessage = generatedReports.find(r => r.messageId === msg.id);
@@ -1565,15 +1568,84 @@ export default function SophiaChat() {
               const resumeForMessage = loadedResumes.find(r => r.messageId === msg.id);
               const searchForMessage = searchResults.find(r => r.messageId === msg.id);
               
+              // 用户消息：直接渲染
+              if (msg.role === 'user') {
+                return (
+                  <div key={msg.id || idx} className="flex justify-end mb-6">
+                    <div className="max-w-[80%]">
+                      <div className="text-right text-xs text-gray-400 mb-1">
+                        {new Date().toLocaleString()}
+                      </div>
+                      <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-800">
+                        {msg.content}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              
+              // Assistant 消息：按顺序渲染 Thought → SearchCard → Response
               return (
                 <Fragment key={msg.id || idx}>
-                  <ChatMessage
-                    message={msg}
-                    isLatest={idx === messages.length - 1 && msg.role === 'assistant'}
-                    isStreaming={false}
-                  />
+                  {/* 1. Thought Process */}
+                  {msg.thought && (
+                    <ThoughtProcess
+                      content={msg.thought}
+                      isStreaming={false}
+                      isLatest={false}
+                      defaultExpanded={false}
+                    />
+                  )}
+                  
+                  {/* 2. SearchCard（在 Thought 和 Response 之间） */}
+                  {searchForMessage && (
+                    <div className="my-4">
+                      <SearchCard
+                        query={searchForMessage.data.query}
+                        totalResults={searchForMessage.data.total_results}
+                        searchTime={searchForMessage.data.metadata?.search_time}
+                        onOpen={() => setActiveSearchPanel(searchForMessage.data)}
+                      />
+                      <SearchSummary
+                        query={searchForMessage.data.query}
+                        results={searchForMessage.data.results}
+                        searchTime={searchForMessage.data.metadata?.search_time}
+                      />
+                    </div>
+                  )}
+                  
+                  {/* 3. Response */}
+                  {msg.content && (
+                    <div className="text-gray-800 mb-6">
+                      <EnhancedMarkdown>{msg.content}</EnhancedMarkdown>
+                    </div>
+                  )}
+                  
+                  {/* 反馈按钮 */}
+                  {msg.content && (
+                    <div className="flex gap-2 mb-6">
+                      <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                        </svg>
+                      </button>
+                      <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+                        </svg>
+                      </button>
+                      <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <circle cx="12" cy="12" r="1.5" />
+                          <circle cx="6" cy="12" r="1.5" />
+                          <circle cx="18" cy="12" r="1.5" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                  
                   {/* 如果这条消息有报告，显示报告卡片 */}
-                  {reportForMessage && msg.role === 'assistant' && (
+                  {reportForMessage && (
                     <div className="my-4">
                       <ReportCard
                         reportId={reportForMessage.id}
@@ -1582,8 +1654,7 @@ export default function SophiaChat() {
                         onClick={() => {
                           setSelectedReportId(reportForMessage.id);
                           setReportTitle(reportForMessage.title);
-                          setSelectedResumeId(null); // 清除简历选择
-                          // 如果报告还在流式输出中，设置 streamingReportContent
+                          setSelectedResumeId(null);
                           if (streamingReportId === reportForMessage.id && currentAnswer) {
                             setStreamingReportContent(currentAnswer);
                           }
@@ -1600,25 +1671,11 @@ export default function SophiaChat() {
                         subtitle="点击查看简历"
                         onClick={() => {
                           setSelectedResumeId(resumeForMessage.id);
-                          setSelectedReportId(null); // 清除报告选择
-                          // 如果简历数据已加载，更新 resumeData（用于默认视图）
+                          setSelectedReportId(null);
                           if (resumeForMessage.resumeData) {
                             setResumeData(resumeForMessage.resumeData);
                           }
                         }}
-                      />
-                    </div>
-                  )}
-                  {searchForMessage && msg.role === 'assistant' && (
-                    <div className="my-4">
-                      <SearchCard
-                        query={searchForMessage.data.query}
-                        totalResults={searchForMessage.data.total_results}
-                        onOpen={() => setActiveSearchPanel(searchForMessage.data)}
-                      />
-                      <SearchSummary
-                        query={searchForMessage.data.query}
-                        results={searchForMessage.data.results}
                       />
                     </div>
                   )}
@@ -1656,11 +1713,13 @@ export default function SophiaChat() {
                       <SearchCard
                         query={currentSearch.data.query}
                         totalResults={currentSearch.data.total_results}
+                        searchTime={currentSearch.data.metadata?.search_time}
                         onOpen={() => setActiveSearchPanel(currentSearch.data)}
                       />
                       <SearchSummary
                         query={currentSearch.data.query}
                         results={currentSearch.data.results}
+                        searchTime={currentSearch.data.metadata?.search_time}
                       />
                     </div>
                   );

@@ -1,4 +1,6 @@
 import asyncio
+import re
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 import requests
@@ -50,6 +52,9 @@ class SearchMetadata(BaseModel):
     total_results: int = Field(description="Total number of results found")
     language: str = Field(description="Language code used for the search")
     country: str = Field(description="Country code used for the search")
+    search_time: str = Field(default="", description="Time when the search was executed")
+    original_query: str = Field(default="", description="Original query before enhancement")
+    enhanced_query: str = Field(default="", description="Enhanced query with date if applicable")
 
 
 class SearchResponse(ToolResult):
@@ -92,9 +97,14 @@ class SearchResponse(ToolResult):
 
         # Add metadata at the bottom if available
         if self.metadata:
+            result_text.append(f"\nMetadata:")
+            if self.metadata.search_time:
+                result_text.append(f"- Search time: {self.metadata.search_time}")
+            if self.metadata.original_query and self.metadata.enhanced_query and self.metadata.original_query != self.metadata.enhanced_query:
+                result_text.append(f"- Original query: {self.metadata.original_query}")
+                result_text.append(f"- Enhanced query: {self.metadata.enhanced_query}")
             result_text.extend(
                 [
-                    f"\nMetadata:",
                     f"- Total results: {self.metadata.total_results}",
                     f"- Language: {self.metadata.language}",
                     f"- Country: {self.metadata.country}",
@@ -200,6 +210,44 @@ class WebSearch(BaseTool):
     }
     content_fetcher: WebContentFetcher = WebContentFetcher()
 
+    def _is_realtime_query(self, query: str) -> bool:
+        """检测是否是需要实时信息的查询"""
+        realtime_patterns = [
+            r'今天', r'今日', r'现在', r'实时', r'最新',
+            r'天气', r'气温', r'温度', r'weather',
+            r'股票', r'股价', r'汇率', r'价格',
+            r'新闻', r'news', r'热搜', r'热点',
+            r'比赛', r'比分', r'赛程',
+            r'几点', r'时间', r'日期',
+        ]
+        query_lower = query.lower()
+        return any(re.search(pattern, query_lower) for pattern in realtime_patterns)
+    
+    def _enhance_query_with_date(self, query: str, lang: str) -> str:
+        """为实时查询添加当前日期"""
+        now = datetime.now()
+        
+        # 根据语言选择日期格式
+        if lang in ['zh', 'zh-cn', 'zh-tw']:
+            date_str = now.strftime("%Y年%m月%d日")
+        else:
+            date_str = now.strftime("%Y-%m-%d")
+        
+        # 检查查询中是否已经包含年份
+        if re.search(r'20\d{2}', query):
+            return query
+        
+        # 添加日期到查询
+        return f"{query} {date_str}"
+    
+    def _get_search_time(self, lang: str) -> str:
+        """获取格式化的搜索时间"""
+        now = datetime.now()
+        if lang in ['zh', 'zh-cn', 'zh-tw']:
+            return now.strftime("%Y年%m月%d日 %H:%M:%S")
+        else:
+            return now.strftime("%Y-%m-%d %H:%M:%S")
+
     async def execute(
         self,
         query: str,
@@ -248,6 +296,18 @@ class WebSearch(BaseTool):
                 else "us"
             )
 
+        # 记录搜索时间
+        search_time = self._get_search_time(lang)
+        original_query = query
+        
+        # 检测是否是实时查询，如果是则增强查询
+        if self._is_realtime_query(query):
+            enhanced_query = self._enhance_query_with_date(query, lang)
+            logger.info(f"🔍 实时查询检测: 原始='{query}' -> 增强='{enhanced_query}'")
+            query = enhanced_query
+        else:
+            enhanced_query = query
+
         search_params = {"lang": lang, "country": country}
 
         # Try searching with retries when all engines fail
@@ -262,12 +322,15 @@ class WebSearch(BaseTool):
                 # Return a successful structured response
                 return SearchResponse(
                     status="success",
-                    query=query,
+                    query=original_query,  # 返回原始查询
                     results=results,
                     metadata=SearchMetadata(
                         total_results=len(results),
                         language=lang,
                         country=country,
+                        search_time=search_time,
+                        original_query=original_query,
+                        enhanced_query=enhanced_query,
                     ),
                 )
 

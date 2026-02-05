@@ -1,9 +1,10 @@
 import React from 'react'
-import { Search, ChevronRight } from 'lucide-react'
+import { Search, ChevronRight, Clock } from 'lucide-react'
 
 interface SearchCardProps {
   query: string
   totalResults: number
+  searchTime?: string
   onOpen?: () => void
   className?: string
 }
@@ -11,6 +12,7 @@ interface SearchCardProps {
 export default function SearchCard({
   query,
   totalResults,
+  searchTime,
   onOpen,
   className = '',
 }: SearchCardProps) {
@@ -37,7 +39,16 @@ export default function SearchCard({
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="text-xs text-slate-500 mb-1">搜索网页</div>
+          <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
+            <span>搜索网页</span>
+            {searchTime && (
+              <>
+                <span className="text-gray-300">•</span>
+                <Clock className="w-3 h-3" />
+                <span className="text-emerald-600 font-medium">{searchTime}</span>
+              </>
+            )}
+          </div>
           <div className="font-semibold text-gray-900 truncate">{query || '搜索结果'}</div>
           <div className="text-xs text-gray-400 mt-1 group-hover:text-gray-600 transition-colors">
             点击查看完整结果列表
