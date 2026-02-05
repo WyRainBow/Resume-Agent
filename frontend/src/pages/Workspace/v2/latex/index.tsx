@@ -2,7 +2,7 @@
  * LaTeX 模板工作区
  * 专门用于 LaTeX 模板的编辑和 PDF 渲染
  */
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LogIn, User, LogOut } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
@@ -10,6 +10,7 @@ import { cn } from '../../../../lib/utils'
 // Hooks
 import { useResumeData, usePDFOperations, useAIImport } from '../hooks'
 import { useAuth } from '@/contexts/AuthContext'
+import { saveResume, setCurrentResumeId } from '@/services/resumeStorage'
 
 // 组件
 import { Header } from '../components'
@@ -106,6 +107,54 @@ export default function LaTeXWorkspace() {
 
   // 文件输入引用（用于导入 JSON）
   const fileInputRef = useRef<HTMLInputElement>(null)
+  
+  // 防抖保存定时器
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const lastSavedDataRef = useRef<string>('')
+
+  // 自动保存函数（防抖）
+  const autoSave = useCallback(() => {
+    // 清除之前的定时器
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+    }
+    
+    // 设置新的定时器，500ms 后保存
+    saveTimerRef.current = setTimeout(() => {
+      void (async () => {
+        try {
+          const currentDataStr = JSON.stringify(resumeData)
+          // 只有当数据真正变化时才保存
+          if (currentDataStr !== lastSavedDataRef.current) {
+            const saved = await saveResume(resumeData as any, currentResumeId || undefined)
+            // 如果保存后获得了新的 ID，更新 currentResumeId
+            if (!currentResumeId && saved.id) {
+              setCurrentId(saved.id)
+              setCurrentResumeId(saved.id)
+            }
+            lastSavedDataRef.current = currentDataStr
+            console.log('自动保存成功', saved.id)
+          }
+        } catch (error) {
+          console.error('自动保存失败:', error)
+        }
+      })()
+    }, 500)
+  }, [resumeData, currentResumeId, setCurrentId])
+
+  // 监听简历数据变化，自动保存（防抖）
+  useEffect(() => {
+    if (resumeData) {
+      autoSave()
+    }
+    
+    // 清理定时器
+    return () => {
+      if (saveTimerRef.current) {
+        clearTimeout(saveTimerRef.current)
+      }
+    }
+  }, [resumeData, autoSave])
 
   // 监听编辑状态：页面加载时保存初始状态
   useEffect(() => {
