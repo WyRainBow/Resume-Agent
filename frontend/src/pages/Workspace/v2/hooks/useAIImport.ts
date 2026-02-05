@@ -10,45 +10,50 @@ function splitSkillDetails(details: string): string[] {
   const trimmed = details.trim()
   if (!trimmed) return []
 
-  // 尝试按"XXX："模式拆分（如"持续输出："、"后端底层夯实："）
-  // 匹配中文标题+冒号的模式
-  const titlePattern = /(?:^|。)([^。：:]+[：:])/g
-  const matches = trimmed.match(titlePattern)
-  
+  const normalizeItem = (text: string) =>
+    text.trim().replace(/^[-•·*●]\s*/, '')
+
+  const cleaned = trimmed.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+
+  // 1) 优先按换行拆分（PDF 常见为每行一条）
+  const byNewline = cleaned
+    .split(/\n+/)
+    .map(normalizeItem)
+    .filter(Boolean)
+  if (byNewline.length > 1) return byNewline
+
+  // 2) 按"XXX："标题模式拆分（如"持续输出："）
+  const titlePattern = /(?:^|。|\n)([^。：:]+[：:])/g
+  const matches = cleaned.match(titlePattern)
   if (matches && matches.length > 1) {
-    // 有多个"标题："模式，按这个模式拆分
     const parts: string[] = []
-    
-    // 使用更简单的方式：按句号分隔后，识别以特定词开头的句子
-    const sentences = trimmed.split(/。(?=[^\s])/).filter(s => s.trim())
-    
+    const sentences = cleaned.split(/。(?=\s*\S)/).filter(s => s.trim())
     for (const sentence of sentences) {
-      const s = sentence.trim()
-      if (s) {
-        // 检查是否包含"XXX："格式
-        if (/^[^：:]+[：:]/.test(s)) {
-          // 将"XXX："转换为加粗格式
-          const formatted = s.replace(/^([^：:]+)[：:]/, '<strong>$1</strong>：')
-          parts.push(formatted + (s.endsWith('。') ? '' : '。'))
-        } else {
-          parts.push(s + (s.endsWith('。') ? '' : '。'))
-        }
+      const s = normalizeItem(sentence)
+      if (!s) continue
+      if (/^[^：:]+[：:]/.test(s)) {
+        const formatted = s.replace(/^([^：:]+)[：:]/, '<strong>$1</strong>：')
+        parts.push(formatted)
+      } else {
+        parts.push(s)
       }
     }
-    
     if (parts.length > 1) return parts
   }
 
-  // 尝试按技能关键词拆分（如"熟悉XXX"、"了解XXX"、"掌握XXX"）
-  // 按句号分隔，然后检查每个句子是否以技能关键词开头
-  const sentences = trimmed.split(/。(?=[^\s])/).filter(s => s.trim())
-  if (sentences.length > 1) {
-    const result = sentences.map(s => {
-      const t = s.trim()
-      return t + (t.endsWith('。') ? '' : '。')
-    })
-    return result
-  }
+  // 3) 按分号拆分
+  const bySemicolon = cleaned
+    .split(/[；;]+/)
+    .map(normalizeItem)
+    .filter(Boolean)
+  if (bySemicolon.length > 1) return bySemicolon
+
+  // 4) 按句号拆分（允许句号后有空白/换行）
+  const bySentence = cleaned
+    .split(/。(?=\s*\S)/)
+    .map(normalizeItem)
+    .filter(Boolean)
+  if (bySentence.length > 1) return bySentence
 
   // 无法拆分，返回原文
   return [trimmed]
@@ -204,11 +209,14 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
               // 尝试拆分 details 为多个列表项
               const splitItems = splitSkillDetails(details)
               
-              if (category && splitItems.length > 0) {
-                // 有分类标题时，先输出分类标题，再输出子项
+              if (category && splitItems.length === 1) {
+                // 有分类且只有一条描述时，合并在同一行（韦宇格式）
+                allItems.push(`<li><p><strong>${category}</strong>：${splitItems[0]}</p></li>`)
+              } else if (category && splitItems.length > 1) {
+                // 有分类且有多条描述时，使用嵌套结构
                 allItems.push(`<li><p><strong>${category}</strong></p><ul class="custom-list">${splitItems.map(item => `<li><p>${item}</p></li>`).join('')}</ul></li>`)
               } else if (splitItems.length > 0) {
-                // 无分类时，直接输出列表项
+                // 无分类时，直接输出列表项（李俊杰格式）
                 splitItems.forEach(item => {
                   allItems.push(`<li><p>${item}</p></li>`)
                 })
@@ -352,11 +360,14 @@ function handleSectionImport(
           // 尝试拆分 details 为多个列表项
           const splitItems = splitSkillDetails(details)
           
-          if (category && splitItems.length > 0) {
-            // 有分类标题时，先输出分类标题，再输出子项
+          if (category && splitItems.length === 1) {
+            // 有分类且只有一条描述时，合并在同一行（韦宇格式）
+            allItems.push(`<li><p><strong>${category}</strong>：${splitItems[0]}</p></li>`)
+          } else if (category && splitItems.length > 1) {
+            // 有分类且有多条描述时，使用嵌套结构
             allItems.push(`<li><p><strong>${category}</strong></p><ul class="custom-list">${splitItems.map(item => `<li><p>${item}</p></li>`).join('')}</ul></li>`)
           } else if (splitItems.length > 0) {
-            // 无分类时，直接输出列表项
+            // 无分类时，直接输出列表项（李俊杰格式）
             splitItems.forEach(item => {
               allItems.push(`<li><p>${item}</p></li>`)
             })
