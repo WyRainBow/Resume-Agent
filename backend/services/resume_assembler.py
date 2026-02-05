@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from typing import Dict, Any, Optional
 
 from openai import OpenAI
@@ -84,6 +85,61 @@ def _split_text_by_headings(text: str) -> Dict[str, str]:
     return segments
 
 
+def _split_list_text(text: str) -> list[str]:
+    if not isinstance(text, str):
+        return []
+    stripped = text.strip()
+    if not stripped:
+        return []
+    if "<li" in stripped or "<ul" in stripped or "<ol" in stripped:
+        return [stripped]
+    lines = [line.strip() for line in stripped.splitlines() if line.strip()]
+    if len(lines) > 1:
+        return lines
+    parts = [p.strip() for p in re.split(r"\s*(?:\d+[\.\、]|[•\-])\s+", stripped) if p.strip()]
+    if len(parts) > 1:
+        return parts
+    return [stripped]
+
+
+def _normalize_highlights(data: Dict[str, Any]) -> Dict[str, Any]:
+    for section in ("internships", "projects"):
+        items = data.get(section)
+        if not isinstance(items, list):
+            continue
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            highlights = item.get("highlights")
+            if isinstance(highlights, str):
+                item["highlights"] = _split_list_text(highlights)
+            elif isinstance(highlights, list):
+                normalized: list[str] = []
+                for h in highlights:
+                    if isinstance(h, str):
+                        normalized.extend(_split_list_text(h))
+                    elif h:
+                        normalized.append(h)
+                item["highlights"] = normalized
+    open_source = data.get("openSource")
+    if isinstance(open_source, list):
+        for item in open_source:
+            if not isinstance(item, dict):
+                continue
+            items = item.get("items")
+            if isinstance(items, str):
+                item["items"] = _split_list_text(items)
+            elif isinstance(items, list):
+                normalized_items: list[str] = []
+                for it in items:
+                    if isinstance(it, str):
+                        normalized_items.extend(_split_list_text(it))
+                    elif it:
+                        normalized_items.append(it)
+                item["items"] = normalized_items
+    return data
+
+
 def assemble_resume_data(
     raw_text: str,
     layout: Dict[str, Any],
@@ -115,6 +171,7 @@ def assemble_resume_data(
 
 必须遵守（非常重要）：
 1. 布局骨架定义了模块顺序和条目顺序，必须严格保持。
+1.1 如果【分区文本】中同一模块出现布局骨架未列出的条目，也需要补充到该模块末尾，保持原文顺序与层级。
 2. 每个条目的描述只能归属到对应条目，不能串条。
 3. 如果骨架中出现 company=腾讯云，那么腾讯云相关描述只能放在对应条目。
 4. **类型映射规则（必须严格遵守）：**
@@ -130,7 +187,13 @@ def assemble_resume_data(
 6. 同一段内容不能在多个模块重复出现。
 7. 项目内容不得出现在 internships 中，实习内容不得出现在 projects 中。
 8. 优先使用【分区文本】中对应模块的内容；只有分区为空时，才可参考原始文本的其他部分。
-9. 只输出 JSON，不要任何解释或代码块。
+9. **highlights/items 数组格式规则（必须严格遵守）：**
+   - internships 和 projects 的 highlights 必须是数组，每个职责/成就是独立的数组元素
+   - 禁止将多个职责用换行符(\\n)连接成一个字符串
+   - 如果原文有编号列表（1. 2. 3.）或无序列表，每个列表项应作为数组的独立元素
+   - 正确示例：["构建 Figma-to-Code 自动化交付", "架构前端项目跨框架迁移平台", "机器人写作平台开发"]
+   - 错误示例：["构建 Figma-to-Code...\\n架构前端项目...\\n机器人写作平台..."]
+10. 只输出 JSON，不要任何解释或代码块。
 
 布局骨架：
 {json.dumps(layout, ensure_ascii=False)}
@@ -155,4 +218,7 @@ def assemble_resume_data(
     content = response.choices[0].message.content
     if not content:
         raise ValueError("DeepSeek 未返回简历 JSON")
-    return _parse_json(content)
+    parsed = _parse_json(content)
+    if isinstance(parsed, dict):
+        parsed = _normalize_highlights(parsed)
+    return parsed

@@ -35,6 +35,21 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
     setAiModalOpen(true)
   }, [])
 
+  const formatHighlightsToHtml = (highlights: any): string => {
+    if (!highlights) return ''
+    const items = Array.isArray(highlights)
+      ? highlights
+      : typeof highlights === 'string'
+        ? highlights.split('\n').filter((line) => line.trim())
+        : []
+    if (!items.length) return ''
+    const highlightsHtml = items.map((h: string) => {
+      const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      return `<li>${formatted}</li>`
+    }).join('')
+    return `<ul class="custom-list">${highlightsHtml}</ul>`
+  }
+
   // AI 解析结果处理
   const handleAISave = useCallback((data: any) => {
     console.log('AI parsed data:', data, 'for section:', aiModalSection)
@@ -82,7 +97,7 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
           company: e.title || '',
           position: e.subtitle || '',
           date: e.date || '',
-          details: e.highlights?.join('\n') || '',
+          details: formatHighlightsToHtml(e.highlights),
           visible: true,
         })) || prev.experience,
         projects: data.projects?.map((p: any, i: number) => {
@@ -184,7 +199,23 @@ function handleSectionImport(
           company: e.title || e.company || '',
           position: e.subtitle || e.position || '',
           date: e.date || '',
-          details: e.highlights?.join('\n') || e.details || '',
+          details: (() => {
+            if (e.highlights) {
+              const items = Array.isArray(e.highlights)
+                ? e.highlights
+                : typeof e.highlights === 'string'
+                  ? e.highlights.split('\n').filter((line: string) => line.trim())
+                  : []
+              if (items.length) {
+                const highlightsHtml = items.map((h: string) => {
+                  const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                  return `<li>${formatted}</li>`
+                }).join('')
+                return `<ul class="custom-list">${highlightsHtml}</ul>`
+              }
+            }
+            return e.details || ''
+          })(),
           visible: true,
         }))
         setResumeData((prev) => ({

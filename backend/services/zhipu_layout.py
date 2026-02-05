@@ -79,6 +79,54 @@ def _fix_json_string(text: str) -> str:
     return text
 
 
+def _balance_json_braces(text: str) -> str:
+    """
+    平衡 JSON 的括号，修复多余或缺失的闭合括号
+    """
+    # 统计括号
+    brace_count = 0  # {}
+    bracket_count = 0  # []
+    in_string = False
+    escape = False
+    last_valid_pos = 0
+    
+    for i, char in enumerate(text):
+        if escape:
+            escape = False
+            continue
+        if char == '\\':
+            escape = True
+            continue
+        if char == '"' and not escape:
+            in_string = not in_string
+            continue
+        if in_string:
+            continue
+            
+        if char == '{':
+            brace_count += 1
+        elif char == '}':
+            brace_count -= 1
+            if brace_count == 0 and bracket_count == 0:
+                # 找到完整的 JSON 对象
+                last_valid_pos = i + 1
+                break
+            elif brace_count < 0:
+                # 多余的 }，截断
+                return text[:i]
+        elif char == '[':
+            bracket_count += 1
+        elif char == ']':
+            bracket_count -= 1
+            if bracket_count < 0:
+                # 多余的 ]，截断
+                return text[:i]
+    
+    if last_valid_pos > 0:
+        return text[:last_valid_pos]
+    return text
+
+
 def _parse_json(text: str) -> Dict[str, Any]:
     cleaned = _strip_json_block(text)
     cleaned = _fix_json_string(cleaned)
@@ -91,10 +139,11 @@ def _parse_json(text: str) -> Dict[str, Any]:
     
     # 尝试提取 JSON 对象
     start = cleaned.find("{")
-    end = cleaned.rfind("}")
-    if start != -1 and end != -1 and end > start:
-        json_str = cleaned[start:end + 1]
+    if start != -1:
+        json_str = cleaned[start:]
         json_str = _fix_json_string(json_str)
+        # 使用括号平衡来截取正确的 JSON
+        json_str = _balance_json_braces(json_str)
         try:
             return json.loads(json_str)
         except json.JSONDecodeError as e:
