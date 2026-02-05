@@ -98,4 +98,16 @@ export class LocalStorageAdapter implements StorageAdapter {
     }
     return null
   }
+
+  async updateResumeAlias(id: string, alias: string): Promise<boolean> {
+    const resumes = await this.getAllResumes()
+    const index = resumes.findIndex(r => r.id === id)
+    if (index >= 0) {
+      resumes[index].alias = alias
+      resumes[index].updatedAt = Date.now()
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(resumes))
+      return true
+    }
+    return false
+  }
 }

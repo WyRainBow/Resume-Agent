@@ -42,6 +42,7 @@ function toSavedResume(payload: any): SavedResume {
   return {
     id: payload.id,
     name: payload.name,
+    alias: payload.alias,
     data: payload.data,
     createdAt: payload.created_at ? Date.parse(payload.created_at) : Date.now(),
     updatedAt: payload.updated_at ? Date.parse(payload.updated_at) : Date.now()
@@ -145,5 +146,20 @@ export class DatabaseAdapter implements StorageAdapter {
     const copied = JSON.parse(JSON.stringify(original.data)) as Resume
     copied.name = `${original.name} (副本)`
     return this.saveResume(copied)
+  }
+
+  async updateResumeAlias(id: string, alias: string): Promise<boolean> {
+    const resume = await this.getResume(id)
+    if (!resume) return false
+    try {
+      await apiClient.put(
+        `/api/resumes/${id}`,
+        { id, name: resume.name, alias, data: resume.data },
+        { headers: getAuthHeaders() }
+      )
+      return true
+    } catch {
+      return false
+    }
   }
 }

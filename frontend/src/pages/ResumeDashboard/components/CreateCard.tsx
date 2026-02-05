@@ -22,7 +22,7 @@ export const CreateCard: React.FC<CreateCardProps> = ({ onClick }) => {
       
       <Card
         className={cn(
-          "relative overflow-hidden cursor-pointer h-[280px] flex flex-col rounded-2xl border-2 border-dashed transition-all duration-300",
+          "relative overflow-hidden cursor-pointer h-[310px] flex flex-col rounded-2xl border-2 border-dashed transition-all duration-300",
           "bg-white/40 dark:bg-slate-900/20 backdrop-blur-md",
           "border-slate-200 dark:border-slate-800",
           "hover:border-blue-400 dark:hover:border-blue-500/50 hover:bg-white/60 dark:hover:bg-slate-900/40",

@@ -6,6 +6,7 @@ import {
   saveResume,
   setCurrentResumeId,
   getResume,
+  updateResumeAlias as updateResumeAliasService,
   type SavedResume 
 } from '@/services/resumeStorage'
 import { useNavigate } from 'react-router-dom'
@@ -228,6 +229,19 @@ export const useDashboardLogic = () => {
    */
   const isAllSelected = resumes.length > 0 && selectedIds.size === resumes.length
 
+  /**
+   * 更新简历备注/别名
+   * @param id 简历 ID
+   * @param alias 新的备注/别名
+   */
+  const updateAlias = useCallback(async (id: string, alias: string) => {
+    await updateResumeAliasService(id, alias)
+    // 更新本地状态，避免重新加载
+    setResumes(prev => prev.map(r => 
+      r.id === id ? { ...r, alias, updatedAt: Date.now() } : r
+    ))
+  }, [])
+
   return {
     resumes,
     isLoading,
@@ -243,6 +257,8 @@ export const useDashboardLogic = () => {
     batchDelete,
     clearSelection,
     selectAll,
-    isAllSelected
+    isAllSelected,
+    // 备注/别名
+    updateAlias
   }
 }
