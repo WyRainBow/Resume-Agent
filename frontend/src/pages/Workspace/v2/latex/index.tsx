@@ -43,6 +43,7 @@ export default function LaTeXWorkspace() {
     setActiveSection,
     currentResumeId,
     setCurrentId,
+    isDataLoaded,
     updateBasicInfo,
     updateProject,
     deleteProject,
@@ -192,15 +193,16 @@ export default function LaTeXWorkspace() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [hasUnsavedChanges])
 
-  // 🎯 LaTeX 模板特有：页面加载时自动渲染 PDF
+  // 🎯 LaTeX 模板特有：数据加载完成后自动渲染 PDF
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!loading && !pdfBlob) {
+    if (isDataLoaded && !loading && !pdfBlob) {
+      // 数据已加载完成，延迟一小段时间确保状态更新后再渲染
+      const timer = setTimeout(() => {
         handleRender()
-      }
-    }, 100)
-    return () => clearTimeout(timer)
-  }, [])
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [isDataLoaded, loading, pdfBlob, handleRender])
 
   // 导出 JSON
   const handleExportJSON = () => {
