@@ -1,6 +1,7 @@
 """
-智谱 GLM-4.6V 布局识别服务
-用于从简历截图中识别结构骨架
+智谱混合识别服务
+- glm-ocr: 直接解析 PDF 获取结构化内容
+- glm-4.6v: 图片布局识别，识别格式特征
 """
 from __future__ import annotations
 
@@ -31,13 +32,15 @@ def _load_zhipu_config() -> Dict[str, str]:
             return {
                 "api_key": zhipu_config.get("api_key", ""),
                 "vision_model": zhipu_config.get("vision_model", "glm-4.6v"),
+                "ocr_model": zhipu_config.get("ocr_model", "glm-ocr"),
             }
-    return {"api_key": "", "vision_model": "glm-4.6v"}
+    return {"api_key": "", "vision_model": "glm-4.6v", "ocr_model": "glm-ocr"}
 
 
 _config = _load_zhipu_config()
 ZHIPU_API_KEY = os.getenv("ZHIPU_API_KEY", "") or _config["api_key"]
 ZHIPU_VISION_MODEL = os.getenv("ZHIPU_VISION_MODEL", "") or _config["vision_model"]
+ZHIPU_OCR_MODEL = os.getenv("ZHIPU_OCR_MODEL", "") or _config.get("ocr_model", "glm-ocr")
 
 _zhipu_client: Optional[ZhipuAI] = None
 _last_key: Optional[str] = None
@@ -156,7 +159,7 @@ def _parse_json(text: str) -> Dict[str, Any]:
 
 
 def _build_prompt() -> str:
-    return """识别简历结构骨架，按从上到下顺序输出JSON。请特别注意识别每个section的**格式特征**。
+    return """识别简历结构骨架，按从上到下顺序输出JSON。请特别注意识别每个section的**格式特征**和**嵌套层级结构**。
 
 type值: basic/experience/projects/education/skills/openSource/awards
 
@@ -173,19 +176,42 @@ type值: basic/experience/projects/education/skills/openSource/awards
 - has_category: 技能模块是否有分类标题(如"后端:"、"数据库:"等)
 - item_count: 该section下有多少个条目
 
+**嵌套层级识别（非常重要 - 项目/经历模块）**:
+- has_nested_groups: 判断该条目的描述是否有嵌套的子分组结构
+  - true: 有加粗的小标题(如"**搜索服务拆分专项**")，下面跟着缩进的子项列表
+  - false: 是扁平的列表，没有分组标题
+- nested_structure: 如果 has_nested_groups=true，描述每个分组的结构
+  - 例如: [{"group_title": "搜索服务拆分专项", "child_count": 3}, {"group_title": "性能优化专项", "child_count": 2}]
+
 格式:
 {
   "sections": [
     {
       "type": "experience",
       "title": "实习经历",
-      "format": {"list_style": "bullet", "has_category": false},
+      "format": {"list_style": "bullet", "has_category": false, "has_nested_groups": false},
       "items": [{"name": "腾讯云", "subtitle": "后端开发", "date": "2025.05-2025.09"}]
+    },
+    {
+      "type": "projects",
+      "title": "项目经历",
+      "format": {"list_style": "bullet", "has_category": false, "has_nested_groups": true},
+      "items": [
+        {
+          "name": "xxx系统",
+          "subtitle": "后端开发",
+          "date": "2024.01-2024.06",
+          "nested_structure": [
+            {"group_title": "搜索服务拆分专项", "child_count": 3},
+            {"group_title": "性能优化", "child_count": 2}
+          ]
+        }
+      ]
     },
     {
       "type": "skills",
       "title": "专业技能",
-      "format": {"list_style": "bullet", "has_category": true},
+      "format": {"list_style": "bullet", "has_category": true, "has_nested_groups": false},
       "items": [{"category": "后端", "content": "熟悉Java..."}]
     }
   ]
@@ -218,17 +244,30 @@ def recognize_layout_from_images(
     content.append({"type": "text", "text": _build_prompt()})
 
     client = _get_client(api_key)
-    response = client.chat.completions.create(
-        model=model or ZHIPU_VISION_MODEL,
-        messages=[
-            {
-                "role": "user",
-                "content": content
-            }
-        ],
-        temperature=0.1,
-        max_tokens=10000
-    )
+    try:
+        print(f"[智谱布局] 开始调用 API，模型: {model or ZHIPU_VISION_MODEL}，图片数: {len(images)}", flush=True)
+        response = client.chat.completions.create(
+            model=model or ZHIPU_VISION_MODEL,
+            messages=[
+                {
+                    "role": "user",
+                    "content": content
+                }
+            ],
+            temperature=0.1,
+            max_tokens=10000
+        )
+    except Exception as e:
+        error_msg = str(e)
+        print(f"[智谱布局] API 调用失败: {error_msg}", flush=True)
+        # 检查是否是 API 密钥问题
+        if "api_key" in error_msg.lower() or "authentication" in error_msg.lower() or "401" in error_msg:
+            raise ValueError(f"智谱 API 密钥无效或已过期: {error_msg}")
+        # 检查是否是限流问题
+        if "rate" in error_msg.lower() or "429" in error_msg:
+            raise ValueError(f"智谱 API 请求过于频繁，请稍后重试: {error_msg}")
+        # 其他错误
+        raise ValueError(f"智谱 API 调用失败: {error_msg}")
 
     msg = response.choices[0].message
     content = msg.content or ""
@@ -257,3 +296,112 @@ def recognize_layout_from_image_bytes(
     使用智谱 GLM-4.6V 识别简历布局骨架（单张图片）
     """
     return recognize_layout_from_images([image_bytes], api_key=api_key, model=model)
+
+
+def recognize_with_ocr(
+    pdf_bytes: bytes,
+    api_key: Optional[str] = None,
+) -> str:
+    """
+    使用智谱 glm-ocr layout_parsing API 直接解析 PDF，返回 Markdown 格式文本
+    glm-ocr 支持 PDF（≤50MB, ≤100页）、JPG、PNG（≤10MB）
+    
+    API 端点: POST /api/paas/v4/layout_parsing
+    参数: {"model": "glm-ocr", "file": "<base64_or_url>"}
+    返回: md_results (Markdown 格式识别结果)
+    """
+    import httpx
+    
+    key = api_key or ZHIPU_API_KEY
+    if not key:
+        raise ValueError("ZHIPU_API_KEY 未配置")
+    
+    # 将 PDF 转为 base64 data URI
+    pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
+    file_data = f"data:application/pdf;base64,{pdf_base64}"
+    
+    api_url = "https://open.bigmodel.cn/api/paas/v4/layout_parsing"
+    headers = {
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": ZHIPU_OCR_MODEL,
+        "file": file_data,
+    }
+    
+    try:
+        print(f"[智谱OCR] 开始调用 layout_parsing API，模型: {ZHIPU_OCR_MODEL}，PDF大小: {len(pdf_bytes)/1024:.1f}KB", flush=True)
+        with httpx.Client(timeout=300) as http_client:
+            resp = http_client.post(api_url, json=payload, headers=headers)
+        
+        if resp.status_code != 200:
+            error_text = resp.text
+            print(f"[智谱OCR] API 返回错误 (HTTP {resp.status_code}): {error_text}", flush=True)
+            raise ValueError(f"智谱 OCR API 返回错误 (HTTP {resp.status_code}): {error_text}")
+        
+        result = resp.json()
+        
+        # 提取 Markdown 结果
+        md_results = result.get("md_results", "")
+        if not md_results:
+            # 尝试从 layout_details 提取文本
+            layout_details = result.get("layout_details", [])
+            texts = []
+            for page in layout_details:
+                for item in page:
+                    content = item.get("content", "")
+                    if content:
+                        texts.append(content)
+            md_results = "\n".join(texts)
+        
+        print(f"[智谱OCR] 返回内容长度: {len(md_results)} 字符", flush=True)
+        if len(md_results) < 200:
+            print(f"[智谱OCR] 完整内容: {md_results}", flush=True)
+        else:
+            print(f"[智谱OCR] 前200字符: {md_results[:200]}...", flush=True)
+        
+        return md_results
+        
+    except httpx.HTTPError as e:
+        error_msg = str(e)
+        print(f"[智谱OCR] HTTP 请求失败: {error_msg}", flush=True)
+        raise ValueError(f"智谱 OCR API 请求失败: {error_msg}")
+    except ValueError:
+        raise
+    except Exception as e:
+        error_msg = str(e)
+        print(f"[智谱OCR] API 调用失败: {error_msg}", flush=True)
+        raise ValueError(f"智谱 OCR API 调用失败: {error_msg}")
+
+
+def hybrid_recognize(
+    pdf_bytes: bytes,
+    image_bytes_list: Iterable[bytes],
+    api_key: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    混合识别策略：
+    1. glm-ocr 解析 PDF 获取完整文本
+    2. glm-4.6v 识别图片获取布局和格式信息
+    返回: {"ocr_text": str, "layout": dict}
+    """
+    result = {"ocr_text": "", "layout": {}}
+    
+    # 1. 尝试 OCR 解析 PDF
+    try:
+        ocr_text = recognize_with_ocr(pdf_bytes, api_key)
+        result["ocr_text"] = ocr_text
+        print(f"[混合识别] OCR 成功，文本长度: {len(ocr_text)}", flush=True)
+    except Exception as e:
+        print(f"[混合识别] OCR 失败，跳过: {e}", flush=True)
+    
+    # 2. 使用视觉模型识别布局
+    try:
+        layout = recognize_layout_from_images(image_bytes_list, api_key, model="glm-4.6v")
+        result["layout"] = layout
+        print(f"[混合识别] 布局识别成功", flush=True)
+    except Exception as e:
+        print(f"[混合识别] 布局识别失败: {e}", flush=True)
+    
+    return result

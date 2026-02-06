@@ -26,7 +26,7 @@ try:
     from backend.core.logger import get_logger, write_llm_debug
     from backend.services.pdf_parser import extract_markdown_from_pdf
     from backend.services.pdf_to_image import pdf_pages_to_png_bytes
-    from backend.services.zhipu_layout import recognize_layout_from_images
+    from backend.services.zhipu_layout import recognize_layout_from_images, recognize_with_ocr
     from backend.services.resume_assembler import assemble_resume_data
 except ImportError:
     # 确保 backend 目录在 sys.path 中
@@ -48,7 +48,7 @@ except ImportError:
     from core.logger import get_logger, write_llm_debug
     from services.pdf_parser import extract_markdown_from_pdf
     from services.pdf_to_image import pdf_pages_to_png_bytes
-    from services.zhipu_layout import recognize_layout_from_images
+    from services.zhipu_layout import recognize_layout_from_images, recognize_with_ocr
     from services.resume_assembler import assemble_resume_data
 
 logger = get_logger(__name__)
@@ -293,7 +293,10 @@ async def upload_resume_pdf(
     model: Optional[str] = Form(default=None),
     provider: Optional[str] = Form(default=None)
 ):
-    """上传 PDF 简历并解析为结构化简历 JSON（优化版：并行处理）"""
+    """
+    上传 PDF 简历并解析为结构化简历 JSON
+    混合增强策略：MinerU + glm-ocr + glm-4.6v + DeepSeek
+    """
     import asyncio
     import time
     from concurrent.futures import ThreadPoolExecutor
@@ -310,16 +313,23 @@ async def upload_resume_pdf(
 
     total_start = time.time()
     
-    # 并行执行：文本提取 + 图片转换
+    # ========== 步骤1: 并行执行三路数据提取 ==========
+    # 1) MinerU 文本提取
+    # 2) PDF 转图片（供 glm-4.6v 使用）
+    # 3) glm-ocr 直接解析 PDF
     layout_dpi = int(os.getenv("PDF_LAYOUT_DPI", "100"))
     max_pages_env = os.getenv("PDF_LAYOUT_MAX_PAGES", "").strip()
     max_pages = None if max_pages_env in ("", "0", "none", "None") else int(max_pages_env)
-    print(f"[PDF解析] 开始并行处理... (DPI={layout_dpi}, max_pages={max_pages})", flush=True)
+    print(f"[PDF解析] 开始混合增强处理... (DPI={layout_dpi}, max_pages={max_pages})", flush=True)
     step1_start = time.time()
     
     loop = asyncio.get_event_loop()
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        # 并行任务
+    markdown_text = ""
+    image_bytes_list = []
+    ocr_text = ""
+    
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        # 并行任务: MinerU + 图片转换 + OCR
         text_future = loop.run_in_executor(executor, extract_markdown_from_pdf, pdf_bytes, True)
         image_future = loop.run_in_executor(
             executor,
@@ -328,35 +338,54 @@ async def upload_resume_pdf(
             layout_dpi,
             max_pages
         )
+        ocr_future = loop.run_in_executor(executor, recognize_with_ocr, pdf_bytes)
         
+        # MinerU + 图片转换（必须成功）
         try:
             markdown_text, image_bytes_list = await asyncio.gather(text_future, image_future)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"PDF 预处理失败: {e}")
+        
+        # OCR（可选，失败不阻塞）
+        try:
+            ocr_text = await ocr_future
+            print(f"[PDF解析] glm-ocr 成功，文本长度: {len(ocr_text)}", flush=True)
+        except Exception as e:
+            print(f"[PDF解析] glm-ocr 失败（不影响流程）: {e}", flush=True)
+            ocr_text = ""
     
     step1_time = time.time() - step1_start
-    print(f"[PDF解析] 步骤1 完成 (文本提取+图片转换): {step1_time:.2f}s", flush=True)
+    print(f"[PDF解析] 步骤1 完成 (MinerU+图片+OCR 并行): {step1_time:.2f}s", flush=True)
 
-    # 智谱布局识别
+    # ========== 步骤2: glm-4.6v 布局识别 ==========
     step2_start = time.time()
+    layout = {}
     try:
-        layout = recognize_layout_from_images(image_bytes_list)
+        layout = recognize_layout_from_images(image_bytes_list, model="glm-4.6v")
+        print(f"[PDF解析] 步骤2 完成 (glm-4.6v 布局识别): {time.time()-step2_start:.2f}s", flush=True)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"布局识别失败: {e}")
+        print(f"[PDF解析] glm-4.6v 布局识别失败: {e}", flush=True)
+        # 如果布局识别失败，构建一个最小布局
+        layout = {"sections": []}
     step2_time = time.time() - step2_start
-    print(f"[PDF解析] 步骤2 完成 (智谱布局识别): {step2_time:.2f}s", flush=True)
 
-    # DeepSeek 组装
+    # ========== 步骤3: DeepSeek 融合组装 ==========
     step3_start = time.time()
     try:
-        resume_data = assemble_resume_data(markdown_text, layout, model=model)
+        resume_data = assemble_resume_data(
+            raw_text=markdown_text,
+            layout=layout,
+            ocr_text=ocr_text,
+            model=model
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"简历结构化失败: {e}")
     step3_time = time.time() - step3_start
-    print(f"[PDF解析] 步骤3 完成 (DeepSeek组装): {step3_time:.2f}s", flush=True)
+    print(f"[PDF解析] 步骤3 完成 (DeepSeek 融合组装): {step3_time:.2f}s", flush=True)
     
     total_time = time.time() - total_start
     print(f"[PDF解析] 总耗时: {total_time:.2f}s (步骤1: {step1_time:.2f}s, 步骤2: {step2_time:.2f}s, 步骤3: {step3_time:.2f}s)", flush=True)
+    print(f"[PDF解析] 数据源: MinerU={len(markdown_text)}字符, OCR={len(ocr_text)}字符, 布局sections={len(layout.get('sections', []))}", flush=True)
 
     try:
         from backend.json_normalizer import normalize_resume_json
@@ -365,10 +394,10 @@ async def upload_resume_pdf(
 
     try:
         normalized = normalize_resume_json(resume_data)
-        return {"resume": normalized, "provider": "zhipu"}
+        return {"resume": normalized, "provider": "hybrid"}
     except Exception as e:
         logger.warning(f"JSON 标准化失败: {e}")
-        return {"resume": resume_data, "provider": "zhipu"}
+        return {"resume": resume_data, "provider": "hybrid"}
 
 
 async def _parse_resume_serial(body: ResumeParseRequest):

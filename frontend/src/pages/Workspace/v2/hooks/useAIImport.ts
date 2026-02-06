@@ -4,6 +4,111 @@
 import { useState, useCallback } from 'react'
 import type { ResumeData } from '../types'
 
+// 检测是否是分组标题（如"**搜索服务拆分专项**"、"**性能优化**"）
+function isGroupTitle(text: string): boolean {
+  const trimmed = text.trim()
+  
+  // 1. 【最重要】以 **xxx** 包裹的文本 = DeepSeek 输出的分组标题
+  if (/^\*\*[^*]+\*\*$/.test(trimmed)) {
+    return true
+  }
+  
+  // 2. 以"专项"或"优化"结尾的短文本（常见的分组名称模式）
+  if ((trimmed.endsWith('专项') || trimmed.endsWith('优化') || trimmed.endsWith('模块')) && trimmed.length < 25) {
+    return true
+  }
+  
+  // 3. 纯中文短文本（<15字符），不含冒号、句号、逗号等描述性标点
+  // 这种情况通常是分组标题，而非具体描述
+  if (trimmed.length < 15 && 
+      /^[\u4e00-\u9fa5A-Za-z0-9\s\-]+$/.test(trimmed) && 
+      !trimmed.includes(':') && 
+      !trimmed.includes('：') && 
+      !trimmed.includes('。') &&
+      !trimmed.includes('，') &&
+      !trimmed.includes(',')) {
+    return true
+  }
+  
+  return false
+}
+
+// 格式化 highlights 为 HTML（支持嵌套层级，模块级函数）
+function formatHighlightsToHtmlModule(highlights: any, listStyle: string = 'bullet'): string {
+  if (!highlights) return ''
+  const items = Array.isArray(highlights)
+    ? highlights
+    : typeof highlights === 'string'
+      ? highlights.split('\n').filter((line: string) => line.trim())
+      : []
+  if (!items.length) return ''
+  
+  // 检测是否有分组标题（层级结构）
+  const hasGroups = items.some((h: string) => isGroupTitle(h))
+  
+  if (hasGroups) {
+    // 有层级结构，生成嵌套列表
+    const groups: { title: string; children: string[] }[] = []
+    let currentGroup: { title: string; children: string[] } | null = null
+    
+    for (const item of items) {
+      const trimmed = item.trim()
+      if (isGroupTitle(trimmed)) {
+        // 保存前一个分组
+        if (currentGroup) {
+          groups.push(currentGroup)
+        }
+        // 开始新分组
+        const formatted = trimmed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        currentGroup = { title: formatted, children: [] }
+      } else if (currentGroup) {
+        // 添加到当前分组
+        const formatted = trimmed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        currentGroup.children.push(formatted)
+      } else {
+        // 没有分组标题的独立项
+        const formatted = trimmed.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        groups.push({ title: formatted, children: [] })
+      }
+    }
+    // 保存最后一个分组
+    if (currentGroup) {
+      groups.push(currentGroup)
+    }
+    
+    // 生成嵌套 HTML
+    const groupsHtml = groups.map(g => {
+      if (g.children.length > 0) {
+        const childrenHtml = g.children.map(c => `<li>${c}</li>`).join('')
+        return `<li><strong>${g.title.replace(/<\/?strong>/g, '')}</strong><ul class="custom-list nested-list">${childrenHtml}</ul></li>`
+      } else {
+        return `<li>${g.title}</li>`
+      }
+    }).join('')
+    
+    return `<ul class="custom-list">${groupsHtml}</ul>`
+  }
+  
+  // 无层级结构，扁平列表
+  const highlightsHtml = items.map((h: string) => {
+    const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    return `<li>${formatted}</li>`
+  }).join('')
+  
+  // 根据 listStyle 选择不同的列表标签
+  if (listStyle === 'numbered') {
+    return `<ol class="custom-list">${highlightsHtml}</ol>`
+  } else if (listStyle === 'none') {
+    // 无列表样式，用 div 包裹
+    const divHtml = items.map((h: string) => {
+      const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      return `<p>${formatted}</p>`
+    }).join('')
+    return divHtml
+  }
+  return `<ul class="custom-list">${highlightsHtml}</ul>`
+}
+
 // 智能拆分技能描述为多个列表项（模块级函数，供多处复用）
 function splitSkillDetails(details: string): string[] {
   if (!details || typeof details !== 'string') return []
@@ -90,34 +195,8 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
     setAiModalOpen(true)
   }, [])
 
-  // 根据列表样式格式化为 HTML
-  const formatHighlightsToHtml = (highlights: any, listStyle: string = 'bullet'): string => {
-    if (!highlights) return ''
-    const items = Array.isArray(highlights)
-      ? highlights
-      : typeof highlights === 'string'
-        ? highlights.split('\n').filter((line) => line.trim())
-        : []
-    if (!items.length) return ''
-    
-    const highlightsHtml = items.map((h: string) => {
-      const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      return `<li>${formatted}</li>`
-    }).join('')
-    
-    // 根据 listStyle 选择不同的列表标签
-    if (listStyle === 'numbered') {
-      return `<ol class="custom-list">${highlightsHtml}</ol>`
-    } else if (listStyle === 'none') {
-      // 无列表样式，用 div 包裹
-      const divHtml = items.map((h: string) => {
-        const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-        return `<p>${formatted}</p>`
-      }).join('')
-      return divHtml
-    }
-    return `<ul class="custom-list">${highlightsHtml}</ul>`
-  }
+  // 使用模块级函数的别名，保持代码兼容性
+  const formatHighlightsToHtml = formatHighlightsToHtmlModule
 
   // AI 解析结果处理
   const handleAISave = useCallback((data: any) => {
@@ -159,16 +238,32 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
           phone: data.contact?.phone || prev.basic.phone,
           location: data.contact?.location || prev.basic.location,
         },
-        education: data.education?.map((e: any, i: number) => ({
-          id: `edu_${Date.now()}_${i}`,
-          school: e.title || '',
-          major: e.subtitle || '',
-          degree: e.degree || '',
-          startDate: e.date?.split(' - ')[0] || '',
-          endDate: e.date?.split(' - ')[1] || '',
-          description: e.details?.join('\n') || '',
-          visible: true,
-        })) || prev.education,
+        education: data.education?.map((e: any, i: number) => {
+          // 智能分割日期：支持 "2022.09 - 2026.06"、"2022.09-2026.06"、"2022.09–2026.06" 等格式
+          let startDate = ''
+          let endDate = ''
+          if (e.date) {
+            const dateStr = e.date.trim()
+            // 尝试多种分隔符：" - "、"-"、"–"、"~"
+            const dateMatch = dateStr.match(/^(.+?)\s*[-–~]\s*(.+)$/)
+            if (dateMatch) {
+              startDate = dateMatch[1].trim()
+              endDate = dateMatch[2].trim()
+            } else {
+              startDate = dateStr
+            }
+          }
+          return {
+            id: `edu_${Date.now()}_${i}`,
+            school: e.title || '',
+            major: e.subtitle || '',
+            degree: e.degree || '',
+            startDate,
+            endDate,
+            description: e.details?.join('\n') || '',
+            visible: true,
+          }
+        }) || prev.education,
         experience: data.internships?.map((e: any, i: number) => ({
           id: `exp_${Date.now()}_${i}`,
           company: e.title || '',
@@ -182,27 +277,9 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
           let description = p.description || ''
           const listStyle = projectsFormat.list_style || 'bullet'
 
-          // 将 highlights 数组转换为 HTML 列表（根据格式信息）
+          // 将 highlights 数组转换为 HTML 列表（使用统一的嵌套层级逻辑）
           if (p.highlights && p.highlights.length > 0) {
-            const highlightsHtml = p.highlights.map((h: string) => {
-              // 转换 Markdown **加粗** 为 HTML <strong>
-              const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-              return `<li>${formatted}</li>`
-            }).join('')
-            
-            // 根据 listStyle 选择列表标签
-            let highlightsList: string
-            if (listStyle === 'numbered') {
-              highlightsList = `<ol class="custom-list">${highlightsHtml}</ol>`
-            } else if (listStyle === 'none') {
-              // 无列表样式，用段落
-              highlightsList = p.highlights.map((h: string) => {
-                const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                return `<p>${formatted}</p>`
-              }).join('')
-            } else {
-              highlightsList = `<ul class="custom-list">${highlightsHtml}</ul>`
-            }
+            const highlightsList = formatHighlightsToHtml(p.highlights, listStyle)
             
             if (description) {
               description = description + highlightsList
@@ -233,41 +310,40 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
           visible: true,
         })) || prev.awards,
         skillContent: (() => {
-          // 强制格式化 skills 为 HTML 列表，根据格式信息智能渲染
+          // 强制格式化 skills 为标准 HTML 列表
+          // 目标格式: <ul><li><p><strong>分类</strong>：描述</p></li>...</ul>
           if (data.skills && data.skills.length > 0) {
             const allItems: string[] = []
-            const hasCategory = skillsFormat.has_category !== false // 默认 true
-            const listStyle = skillsFormat.list_style || 'bullet'
             
             for (const s of data.skills) {
               const category = s.category?.trim() || ''
               const details = s.details?.trim() || ''
               
-              if (!details) continue
+              if (!details && !category) continue
               
-              // 尝试拆分 details 为多个列表项
-              const splitItems = splitSkillDetails(details)
+              // 过滤掉明显不是技能的内容（如项目描述混入技能）
+              if (!category && details.length > 100 && (
+                details.includes('参与') || details.includes('负责') || details.includes('开发') ||
+                details.includes('主导') || details.includes('构建')
+              )) {
+                continue // 跳过混入的项目描述
+              }
               
-              // 根据格式信息决定渲染方式
-              if (hasCategory && category && splitItems.length === 1) {
-                // 有分类且只有一条描述时，合并在同一行（韦宇格式）
-                allItems.push(`<li><p><strong>${category}</strong>：${splitItems[0]}</p></li>`)
-              } else if (hasCategory && category && splitItems.length > 1) {
-                // 有分类且有多条描述时，使用嵌套结构
-                allItems.push(`<li><p><strong>${category}</strong></p><ul class="custom-list">${splitItems.map(item => `<li><p>${item}</p></li>`).join('')}</ul></li>`)
-              } else if (splitItems.length > 0) {
-                // 无分类或格式信息指示无分类时，直接输出列表项（李俊杰格式）
-                splitItems.forEach(item => {
-                  allItems.push(`<li><p>${item}</p></li>`)
-                })
+              if (category) {
+                // 有分类：统一为 <strong>分类</strong>：描述 格式
+                allItems.push(`<li><p><strong>${category}</strong>：${details}</p></li>`)
+              } else if (details) {
+                // 无分类：尝试从 details 提取 "分类：描述" 格式
+                const match = details.match(/^([^：:]{1,15})[：:](.+)$/)
+                if (match) {
+                  allItems.push(`<li><p><strong>${match[1].trim()}</strong>：${match[2].trim()}</p></li>`)
+                } else {
+                  allItems.push(`<li><p>${details}</p></li>`)
+                }
               }
             }
             
             if (allItems.length > 0) {
-              // 根据 listStyle 选择列表标签
-              if (listStyle === 'numbered') {
-                return `<ol class="custom-list">${allItems.join('')}</ol>`
-              }
               return `<ul class="custom-list">${allItems.join('')}</ul>`
             }
           }
@@ -300,16 +376,31 @@ function handleSectionImport(
   switch (section) {
     case 'education':
       if (Array.isArray(data)) {
-        const newEducations = data.map((e: any, i: number) => ({
-          id: `edu_${Date.now()}_${i}`,
-          school: e.title || e.school || '',
-          major: e.subtitle || e.major || '',
-          degree: e.degree || '',
-          startDate: e.date?.split(' - ')[0] || e.startDate || '',
-          endDate: e.date?.split(' - ')[1] || e.endDate || '',
-          description: e.details?.join('\n') || '',
-          visible: true,
-        }))
+        const newEducations = data.map((e: any, i: number) => {
+          // 智能分割日期
+          let startDate = e.startDate || ''
+          let endDate = e.endDate || ''
+          if (e.date && !startDate) {
+            const dateStr = e.date.trim()
+            const dateMatch = dateStr.match(/^(.+?)\s*[-–~]\s*(.+)$/)
+            if (dateMatch) {
+              startDate = dateMatch[1].trim()
+              endDate = dateMatch[2].trim()
+            } else {
+              startDate = dateStr
+            }
+          }
+          return {
+            id: `edu_${Date.now()}_${i}`,
+            school: e.title || e.school || '',
+            major: e.subtitle || e.major || '',
+            degree: e.degree || '',
+            startDate,
+            endDate,
+            description: e.details?.join('\n') || '',
+            visible: true,
+          }
+        })
         setResumeData((prev) => ({
           ...prev,
           education: [...prev.education, ...newEducations],
@@ -326,18 +417,8 @@ function handleSectionImport(
           date: e.date || '',
           details: (() => {
             if (e.highlights) {
-              const items = Array.isArray(e.highlights)
-                ? e.highlights
-                : typeof e.highlights === 'string'
-                  ? e.highlights.split('\n').filter((line: string) => line.trim())
-                  : []
-              if (items.length) {
-                const highlightsHtml = items.map((h: string) => {
-                  const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-                  return `<li>${formatted}</li>`
-                }).join('')
-                return `<ul class="custom-list">${highlightsHtml}</ul>`
-              }
+              // 使用支持嵌套层级的函数
+              return formatHighlightsToHtmlModule(e.highlights, 'bullet')
             }
             return e.details || ''
           })(),
@@ -356,14 +437,9 @@ function handleSectionImport(
           // 合并项目描述和亮点
           let description = p.description || ''
 
-          // 将 highlights 数组转换为 HTML 无序列表
+          // 将 highlights 数组转换为 HTML 列表（支持嵌套层级）
           if (p.highlights && p.highlights.length > 0) {
-            const highlightsHtml = p.highlights.map((h: string) => {
-              // 转换 Markdown **加粗** 为 HTML <strong>
-              const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-              return `<li>${formatted}</li>`
-            }).join('')
-            const highlightsList = `<ul class="custom-list">${highlightsHtml}</ul>`
+            const highlightsList = formatHighlightsToHtmlModule(p.highlights, 'bullet')
             if (description) {
               description = description + highlightsList
             } else {
@@ -392,29 +468,32 @@ function handleSectionImport(
 
     case 'skills':
       if (Array.isArray(data) && data.length > 0) {
-        // 强制替换为格式化的 HTML 列表，并智能拆分 details
+        // 强制标准化为: <ul><li><p><strong>分类</strong>：描述</p></li>...</ul>
         const allItems: string[] = []
         
         for (const s of data) {
           const category = s.category?.trim() || ''
           const details = s.details?.trim() || ''
           
-          if (!details) continue
+          if (!details && !category) continue
           
-          // 尝试拆分 details 为多个列表项
-          const splitItems = splitSkillDetails(details)
+          // 过滤掉明显不是技能的内容
+          if (!category && details.length > 100 && (
+            details.includes('参与') || details.includes('负责') || details.includes('开发') ||
+            details.includes('主导') || details.includes('构建')
+          )) {
+            continue
+          }
           
-          if (category && splitItems.length === 1) {
-            // 有分类且只有一条描述时，合并在同一行（韦宇格式）
-            allItems.push(`<li><p><strong>${category}</strong>：${splitItems[0]}</p></li>`)
-          } else if (category && splitItems.length > 1) {
-            // 有分类且有多条描述时，使用嵌套结构
-            allItems.push(`<li><p><strong>${category}</strong></p><ul class="custom-list">${splitItems.map(item => `<li><p>${item}</p></li>`).join('')}</ul></li>`)
-          } else if (splitItems.length > 0) {
-            // 无分类时，直接输出列表项（李俊杰格式）
-            splitItems.forEach(item => {
-              allItems.push(`<li><p>${item}</p></li>`)
-            })
+          if (category) {
+            allItems.push(`<li><p><strong>${category}</strong>：${details}</p></li>`)
+          } else if (details) {
+            const match = details.match(/^([^：:]{1,15})[：:](.+)$/)
+            if (match) {
+              allItems.push(`<li><p><strong>${match[1].trim()}</strong>：${match[2].trim()}</p></li>`)
+            } else {
+              allItems.push(`<li><p>${details}</p></li>`)
+            }
           }
         }
         
@@ -422,20 +501,24 @@ function handleSectionImport(
           const skillHtml = `<ul class="custom-list">${allItems.join('')}</ul>`
           setResumeData((prev) => ({
             ...prev,
-            skillContent: skillHtml, // 强制替换，不追加
-          }))
-        }
-      } else if (typeof data === 'string' && data.trim()) {
-        // 字符串类型也格式化为列表
-        const splitItems = splitSkillDetails(data)
-        if (splitItems.length > 0) {
-          const skillItems = splitItems.map((item: string) => `<li><p>${item}</p></li>`).join('')
-          const skillHtml = `<ul class="custom-list">${skillItems}</ul>`
-          setResumeData((prev) => ({
-            ...prev,
             skillContent: skillHtml,
           }))
         }
+      } else if (typeof data === 'string' && data.trim()) {
+        // 字符串类型：按行拆分并格式化
+        const lines = data.split(/\n+/).map((l: string) => l.trim()).filter(Boolean)
+        const skillItems = lines.map((line: string) => {
+          const match = line.replace(/^[-•·*●]\s*/, '').match(/^([^：:]{1,15})[：:](.+)$/)
+          if (match) {
+            return `<li><p><strong>${match[1].trim()}</strong>：${match[2].trim()}</p></li>`
+          }
+          return `<li><p>${line}</p></li>`
+        }).join('')
+        const skillHtml = `<ul class="custom-list">${skillItems}</ul>`
+        setResumeData((prev) => ({
+          ...prev,
+          skillContent: skillHtml,
+        }))
       }
       break
 

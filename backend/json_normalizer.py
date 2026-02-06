@@ -322,11 +322,13 @@ class ResumeNormalizer:
                     # 时间映射
                     elif key_lower == 'date' or any(k in key_lower for k in ['时间', 'duration', 'period']):
                         standardized_item['date'] = value
-                    # 贡献列表映射到description
+                    # 贡献列表：同时保留 items 数组和 description 文本
                     elif key_lower == 'items' or any(k in key_lower for k in ['贡献', 'contribution', 'item']):
                         if isinstance(value, list):
-                            # 将列表转换为描述文本
-                            standardized_item['description'] = ' | '.join(str(v) for v in value)
+                            # 保留原始 items 数组（供前端 join('\n') 使用）
+                            standardized_item['items'] = value
+                            # 同时生成 HTML 格式的 description（用换行分隔）
+                            standardized_item['description'] = '\n'.join(str(v) for v in value)
                         else:
                             standardized_item['description'] = str(value)
                     else:

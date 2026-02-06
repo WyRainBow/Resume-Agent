@@ -1,7 +1,7 @@
 """
 简历组装服务
-根据布局骨架 + 原始文字生成结构化 Resume JSON
-使用 DeepSeek 作为文本模型
+根据布局骨架 + MinerU文本 + OCR文本 融合生成结构化 Resume JSON
+使用 DeepSeek 作为文本模型，Prompt 模板来自 agent/prompt/pdf_parser.py
 """
 from __future__ import annotations
 
@@ -11,6 +11,31 @@ import re
 from typing import Dict, Any, Optional
 
 from openai import OpenAI
+
+try:
+    from backend.agent.prompt.pdf_parser import (
+        SYSTEM_PROMPT,
+        OUTPUT_SCHEMA,
+        DATA_FUSION_RULES,
+        SECTION_MAPPING_RULES,
+        HIGHLIGHTS_RULES,
+        NESTED_RULES,
+        SKILLS_RULES,
+        FORMAT_RULES,
+        ASSEMBLER_PROMPT,
+    )
+except ImportError:
+    from agent.prompt.pdf_parser import (
+        SYSTEM_PROMPT,
+        OUTPUT_SCHEMA,
+        DATA_FUSION_RULES,
+        SECTION_MAPPING_RULES,
+        HIGHLIGHTS_RULES,
+        NESTED_RULES,
+        SKILLS_RULES,
+        FORMAT_RULES,
+        ASSEMBLER_PROMPT,
+    )
 
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
@@ -153,110 +178,153 @@ def _extract_format_info(layout: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
             format_info[section_type] = {
                 "list_style": section_format.get("list_style", "bullet"),
                 "has_category": section_format.get("has_category", False),
+                "has_nested_groups": section_format.get("has_nested_groups", False),
             }
+            # 提取每个条目的嵌套结构信息
+            items = section.get("items", [])
+            nested_items = []
+            for item in items:
+                if isinstance(item, dict) and item.get("nested_structure"):
+                    nested_items.append({
+                        "name": item.get("name", ""),
+                        "nested_structure": item.get("nested_structure", [])
+                    })
+            if nested_items:
+                format_info[section_type]["nested_items"] = nested_items
     return format_info
+
+
+def _build_data_sources_desc(raw_text: str, ocr_text: str, has_layout: bool) -> str:
+    """构建多源数据说明"""
+    lines = ["你有以下多个数据源（按精确度从高到低排列）："]
+    idx = 0
+    if ocr_text:
+        idx += 1
+        lines.append(f"{idx}. 【OCR文本】（glm-ocr 从 PDF 直接提取，格式最精确，内容最完整）")
+    if raw_text:
+        idx += 1
+        lines.append(f"{idx}. 【MinerU文本】（Markdown 格式，保留了列表结构）")
+    if has_layout:
+        idx += 1
+        lines.append(f"{idx}. 【布局骨架】（glm-4.6v 视觉识别，提供模块顺序和格式特征）")
+    return "\n".join(lines)
+
+
+def _build_data_content(
+    raw_text: str,
+    ocr_text: str,
+    layout: Dict[str, Any],
+    has_layout: bool,
+    section_text: Dict[str, str],
+) -> str:
+    """构建各数据源的实际内容块"""
+    is_markdown = "##" in raw_text or "- " in raw_text or "* " in raw_text
+    parts = []
+
+    if has_layout:
+        parts.append(f"布局骨架（glm-4.6v 识别）：\n{json.dumps(layout, ensure_ascii=False)}")
+
+    if ocr_text:
+        parts.append(f"OCR文本（glm-ocr 直接从 PDF 提取，最精确）：\n{ocr_text}")
+
+    if raw_text:
+        label = "MinerU文本（Markdown 格式）" if is_markdown else "MinerU文本（纯文本）"
+        parts.append(f"{label}：\n{raw_text}")
+
+    parts.append(f"分区文本（按标题切分，用于辅助定位）：\n{json.dumps(section_text, ensure_ascii=False)}")
+
+    return "\n\n".join(parts)
 
 
 def assemble_resume_data(
     raw_text: str,
     layout: Dict[str, Any],
+    ocr_text: str = "",
     api_key: Optional[str] = None,
     model: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    根据布局骨架 + 原始文本生成简历 JSON
+    混合增强组装：根据布局骨架 + MinerU文本 + OCR文本 生成简历 JSON
+
+    使用 PromptTemplate 模板系统构建 prompt，确保：
+    - system/user 角色分离
+    - 规则模块化（独立的模板片段，便于维护）
+    - 变量验证（缺少变量时快速报错）
+    
+    数据源优先级：OCR文本(最精确) > MinerU Markdown > 布局骨架
     """
-    if not raw_text:
-        raise ValueError("原始文本为空")
-    if not layout or "sections" not in layout:
-        raise ValueError("布局骨架为空或格式不正确")
+    if not raw_text and not ocr_text:
+        raise ValueError("原始文本为空（MinerU 和 OCR 均无输出）")
+    
+    # 布局骨架可以为空（降级处理）
+    has_layout = layout and "sections" in layout and len(layout.get("sections", [])) > 0
 
     # 提取格式信息
-    format_info = _extract_format_info(layout)
+    format_info = _extract_format_info(layout) if has_layout else {}
 
-    schema_desc = (
-        '{"name":"姓名","contact":{"phone":"电话","email":"邮箱","location":"地区"},'
-        '"objective":"求职意向",'
-        '"format":{"experience":{"list_style":"bullet|numbered|none"},"skills":{"list_style":"bullet","has_category":true}},'
-        '"education":[{"title":"学校","subtitle":"专业","degree":"学位(本科/硕士/博士)",'
-        '"date":"时间","details":["荣誉"]}],"internships":[{"title":"公司","subtitle":"职位","date":"时间",'
-        '"highlights":["工作内容"]}],"projects":[{"title":"项目名","subtitle":"角色","date":"时间",'
-        '"description":"项目描述(可选)","highlights":["描述"]}],"openSource":[{"title":"开源项目","subtitle":"角色/描述",'
-        '"date":"时间(格式: 2023.01-2023.12 或 2023.01-至今)","items":["贡献描述"],"repoUrl":"仓库链接"}],'
-        '"skills":[{"category":"类别(如有)","details":"技能描述"}],"awards":["奖项"]}'
+    # ---- 使用模板系统构建 prompt ----
+
+    # 1) 数据源说明
+    data_sources_desc = _build_data_sources_desc(raw_text, ocr_text, has_layout)
+
+    # 2) 数据融合规则
+    data_fusion_rules = DATA_FUSION_RULES.format()
+
+    # 3) 模块归属规则
+    layout_hint = (
+        "布局骨架定义了模块顺序和条目顺序，必须严格保持。"
+        if has_layout
+        else "没有布局骨架，请根据文本内容自行判断模块划分。"
+    )
+    section_mapping_rules = SECTION_MAPPING_RULES.format(has_layout_hint=layout_hint)
+
+    # 4) Highlights 规则
+    highlights_rules = HIGHLIGHTS_RULES.format()
+
+    # 5) 嵌套规则
+    nested_rules = NESTED_RULES.format()
+
+    # 6) 技能规则
+    skills_rules = SKILLS_RULES.format()
+
+    # 7) 格式保留规则
+    format_hint = (
+        f"- 参考布局骨架中的 format 信息：{json.dumps(format_info, ensure_ascii=False)}"
+        if format_info
+        else "- 请根据文本内容自行判断格式特征"
+    )
+    format_rules = FORMAT_RULES.format(format_info_hint=format_hint)
+
+    # 8) 数据内容
+    primary_text = ocr_text if ocr_text else raw_text
+    section_text = _split_text_by_headings(primary_text)
+    data_content = _build_data_content(raw_text, ocr_text, layout, has_layout, section_text)
+
+    # 9) 组装最终 prompt
+    user_prompt = ASSEMBLER_PROMPT.format(
+        data_sources_desc=data_sources_desc,
+        data_fusion_rules=data_fusion_rules,
+        section_mapping_rules=section_mapping_rules,
+        highlights_rules=highlights_rules,
+        nested_rules=nested_rules,
+        skills_rules=skills_rules,
+        format_rules=format_rules,
+        data_content=data_content,
+        schema=OUTPUT_SCHEMA,
     )
 
-    section_text = _split_text_by_headings(raw_text)
-    
-    # 检测原始文本是否是 Markdown 格式（MinerU 输出）
-    is_markdown = "##" in raw_text or "- " in raw_text or "* " in raw_text
-    
-    prompt = f"""你是专业的简历结构化解析助手。
-
-任务：根据【布局骨架】与【原始文本】生成结构化简历 JSON，**必须保留原始文档的格式特征**。
-
-必须遵守（非常重要）：
-1. 布局骨架定义了模块顺序和条目顺序，必须严格保持。
-1.1 如果【分区文本】中同一模块出现布局骨架未列出的条目，也需要补充到该模块末尾，保持原文顺序与层级。
-2. 每个条目的描述只能归属到对应条目，不能串条。
-3. 如果骨架中出现 company=腾讯云，那么腾讯云相关描述只能放在对应条目。
-4. **类型映射规则（必须严格遵守）：**
-   - 布局骨架中 type="experience" → 输出到 internships 数组
-   - 布局骨架中 type="projects" → 输出到 projects 数组
-   - 布局骨架中 type="openSource" → 输出到 openSource 数组（不是 projects！）
-   - 布局骨架中 type="education" → 输出到 education 数组
-   - 布局骨架中 type="skills" → 输出到 skills 数组
-5. **开源项目规则（必须严格遵守）：**
-   - 如果布局骨架中有 type="openSource" 的模块，该模块下的所有条目必须输出到 openSource 数组
-   - 开源项目不能放到 projects 数组中！
-   - 个人项目（如 Resume-Agent）如果在骨架的 openSource 模块中，必须放到 openSource 数组
-6. 同一段内容不能在多个模块重复出现。
-7. 项目内容不得出现在 internships 中，实习内容不得出现在 projects 中。
-8. 优先使用【分区文本】中对应模块的内容；只有分区为空时，才可参考原始文本的其他部分。
-9. **highlights/items 数组格式规则（必须严格遵守）：**
-   - internships 和 projects 的 highlights 必须是数组，每个职责/成就是独立的数组元素
-   - 禁止将多个职责用换行符(\\n)连接成一个字符串
-   - 如果原文有编号列表（1. 2. 3.）或无序列表（• - *），每个列表项应作为数组的独立元素
-   - 正确示例：["构建 Figma-to-Code 自动化交付", "架构前端项目跨框架迁移平台", "机器人写作平台开发"]
-   - 错误示例：["构建 Figma-to-Code...\\n架构前端项目...\\n机器人写作平台..."]
-
-10. **格式保留规则（非常重要 - 新增）：**
-    - 在输出 JSON 中必须包含 "format" 字段，记录各模块的格式特征
-    - format.experience.list_style: 实习经历的列表样式 ("bullet"=无序列表, "numbered"=有序列表, "none"=无列表)
-    - format.projects.list_style: 项目经历的列表样式
-    - format.skills.list_style: 专业技能的列表样式
-    - format.skills.has_category: 技能是否有分类标题（如"后端:"、"数据库:"）
-    - 参考布局骨架中的 format 信息：{json.dumps(format_info, ensure_ascii=False)}
-
-11. **技能模块格式规则：**
-    - 如果原文技能有分类（如"后端: xxx"、"数据库: xxx"），则 has_category=true，每个技能项要有 category 字段
-    - 如果原文技能没有分类，直接是列表，则 has_category=false，category 字段留空
-    - 如果一个分类下只有一条描述，details 就是该条描述
-    - 如果一个分类下有多条（用换行或列表符号分隔），details 应包含所有内容，用换行符分隔
-
-12. 只输出 JSON，不要任何解释或代码块。
-
-布局骨架：
-{json.dumps(layout, ensure_ascii=False)}
-
-{"原始文本格式: Markdown（已保留列表格式）" if is_markdown else "原始文本格式: 纯文本"}
-
-分区文本（按标题切分）：
-{json.dumps(section_text, ensure_ascii=False)}
-
-原始文本：
-{raw_text}
-
-输出格式：
-{schema_desc}
-"""
+    # ---- 调用 DeepSeek ----
+    system_msg = SYSTEM_PROMPT.format()
 
     client = _get_client(api_key)
     response = client.chat.completions.create(
         model=model or DEEPSEEK_MODEL,
-        messages=[{"role": "user", "content": prompt}],
+        messages=[
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_prompt},
+        ],
         temperature=0.1,
-        max_tokens=4000
+        max_tokens=8000
     )
     content = response.choices[0].message.content
     if not content:
