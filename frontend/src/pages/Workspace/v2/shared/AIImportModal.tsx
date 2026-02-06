@@ -20,13 +20,8 @@ import FileUploadZone from "./FileUploadZone";
 const AI_MODELS = [
   {
     id: "deepseek-chat",
-    name: "DeepSeek Chat",
-    description: "快速响应：适合简单任务",
-  },
-  {
-    id: "deepseek-reasoner",
-    name: "DeepSeek Reasoner",
-    description: "深度推理：适合复杂任务",
+    name: "DeepSeek",
+    description: "智能解析简历内容",
   },
 ];
 
