@@ -146,7 +146,7 @@ export function AIImportModal({
       setParsedData(null);
       setFinalTime(null);
       setSelectedFile(null);
-      setImportMode("text");
+      setImportMode("file");
     }
   }, [isOpen]);
 

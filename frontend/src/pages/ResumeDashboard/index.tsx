@@ -1,5 +1,6 @@
-import React from 'react'
+import React, { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useNavigate } from 'react-router-dom'
 import { Header } from './components/Header'
 import { CreateCard } from './components/CreateCard'
 import { ResumeCard } from './components/ResumeCard'
@@ -9,8 +10,12 @@ import { AlertCircle, Settings } from './components/Icons'
 import { Button } from './components/ui/button'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import { useAuth } from '@/contexts/AuthContext'
+import AIImportModal from '@/pages/Workspace/v2/shared/AIImportModal'
+import { saveResume, setCurrentResumeId } from '@/services/resumeStorage'
+import type { ResumeData } from '@/pages/Workspace/v2/types'
 
 const ResumeDashboard = () => {
+  const navigate = useNavigate()
   const { isAuthenticated, user, logout, openModal } = useAuth()
   const {
     resumes,
@@ -28,11 +33,153 @@ const ResumeDashboard = () => {
     batchDelete,
     clearSelection,
     // 备注/别名
-    updateAlias
+    updateAlias,
+    // 刷新列表
+    loadResumes
   } = useDashboardLogic()
 
   // 登录时数据保存到数据库，未登录时保存到本地存储
   const hasConfiguredFolder = true // 总是有存储配置（本地或云端）
+
+  // AI 智能导入相关状态
+  const [aiModalOpen, setAiModalOpen] = useState(false)
+
+  // 打开 AI 导入弹窗
+  const handleOpenAIImport = useCallback(() => {
+    setAiModalOpen(true)
+  }, [])
+
+  // AI 解析完成后，创建新简历并跳转到工作区
+  const handleAISave = useCallback(async (data: any) => {
+    // 将 AI 解析的数据转换为 ResumeData 格式
+    const newResumeData: ResumeData = {
+      basic: {
+        name: data.name || '',
+        title: data.objective || '',
+        email: data.contact?.email || '',
+        phone: data.contact?.phone || '',
+        location: data.contact?.location || '',
+      },
+      education: data.education?.map((e: any, i: number) => {
+        let startDate = ''
+        let endDate = ''
+        if (e.date) {
+          const dateStr = e.date.trim()
+          const dateMatch = dateStr.match(/^(.+?)\s*[-–~]\s*(.+)$/)
+          if (dateMatch) {
+            startDate = dateMatch[1].trim()
+            endDate = dateMatch[2].trim()
+          } else {
+            startDate = dateStr
+          }
+        }
+        return {
+          id: `edu_${Date.now()}_${i}`,
+          school: e.title || '',
+          major: e.subtitle || '',
+          degree: e.degree || '',
+          startDate,
+          endDate,
+          description: e.details?.join('\n') || '',
+          visible: true,
+        }
+      }) || [],
+      experience: data.internships?.map((e: any, i: number) => ({
+        id: `exp_${Date.now()}_${i}`,
+        company: e.title || '',
+        position: e.subtitle || '',
+        date: e.date || '',
+        details: formatHighlightsToHtml(e.highlights),
+        visible: true,
+      })) || [],
+      projects: data.projects?.map((p: any, i: number) => {
+        let description = p.description || ''
+        if (p.highlights && p.highlights.length > 0) {
+          const highlightsList = formatHighlightsToHtml(p.highlights)
+          description = description ? description + highlightsList : highlightsList
+        }
+        description = description.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        return {
+          id: `proj_${Date.now()}_${i}`,
+          name: p.title || '',
+          role: p.subtitle || '',
+          date: p.date || '',
+          description: description,
+          visible: true,
+        }
+      }) || [],
+      openSource: data.openSource?.map((o: any, i: number) => ({
+        id: `os_${Date.now()}_${i}`,
+        name: o.title || o.name || '',
+        role: o.subtitle || o.role || '',
+        repo: o.repoUrl || o.repo || '',
+        date: o.date || '',
+        description: o.items?.length > 0 ? formatHighlightsToHtml(o.items) : o.description || '',
+        visible: true,
+      })) || [],
+      awards: data.awards?.map((a: any, i: number) => ({
+        id: `award_${Date.now()}_${i}`,
+        title: a.title || '',
+        issuer: a.issuer || '',
+        date: a.date || '',
+        description: a.description || '',
+        visible: true,
+      })) || [],
+      skillContent: (() => {
+        if (data.skills && data.skills.length > 0) {
+          const allItems: string[] = []
+          for (const s of data.skills) {
+            const category = s.category?.trim() || ''
+            const details = s.details?.trim() || ''
+            if (!details && !category) continue
+            if (category) {
+              allItems.push(`<li><p><strong>${category}</strong>：${details}</p></li>`)
+            } else if (details) {
+              const match = details.match(/^([^：:]{1,15})[：:](.+)$/)
+              if (match) {
+                allItems.push(`<li><p><strong>${match[1].trim()}</strong>：${match[2].trim()}</p></li>`)
+              } else {
+                allItems.push(`<li><p>${details}</p></li>`)
+              }
+            }
+          }
+          return allItems.length > 0 ? `<ul class="custom-list">${allItems.join('')}</ul>` : ''
+        }
+        return ''
+      })(),
+      templateType: 'html',
+    }
+
+    // 保存为新简历
+    const resumeId = `resume_html_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+    const saved = await saveResume(newResumeData, resumeId)
+    setCurrentResumeId(saved.id)
+
+    // 关闭弹窗
+    setAiModalOpen(false)
+
+    // 刷新列表
+    await loadResumes()
+
+    // 跳转到工作区编辑
+    navigate(`/workspace/html/${saved.id}`)
+  }, [navigate, loadResumes])
+
+  // 格式化 highlights 为 HTML
+  function formatHighlightsToHtml(highlights: any): string {
+    if (!highlights) return ''
+    const items = Array.isArray(highlights)
+      ? highlights
+      : typeof highlights === 'string'
+        ? highlights.split('\n').filter((line: string) => line.trim())
+        : []
+    if (!items.length) return ''
+    const highlightsHtml = items.map((h: string) => {
+      const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      return `<li>${formatted}</li>`
+    }).join('')
+    return `<ul class="custom-list">${highlightsHtml}</ul>`
+  }
 
   return (
     <WorkspaceLayout>
@@ -120,6 +267,7 @@ const ResumeDashboard = () => {
           <Header
             onImport={importJson}
             onCreate={createResume}
+            onAIImport={handleOpenAIImport}
             selectedCount={selectedIds.size}
             onBatchDelete={batchDelete}
             totalCount={resumes.length}
@@ -158,6 +306,14 @@ const ResumeDashboard = () => {
           </motion.div>
         </motion.div>
       </div>
+      {/* AI 智能导入弹窗 */}
+      <AIImportModal
+        isOpen={aiModalOpen}
+        sectionType="all"
+        sectionTitle="AI 智能导入"
+        onClose={() => setAiModalOpen(false)}
+        onSave={handleAISave}
+      />
     </WorkspaceLayout>
   )
 }

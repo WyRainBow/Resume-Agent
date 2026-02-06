@@ -273,6 +273,8 @@ export const useDashboardLogic = () => {
     batchDelete,
     clearSelection,
     // 备注/别名
-    updateAlias
+    updateAlias,
+    // 刷新列表
+    loadResumes
   }
 }
