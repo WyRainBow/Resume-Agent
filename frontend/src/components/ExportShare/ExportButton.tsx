@@ -126,16 +126,31 @@ export function ExportButton({
     }
   }
 
-  // 复制分享链接
+  // 复制分享链接（支持 HTTP 环境）
   const handleCopyLink = async () => {
     if (shareUrl) {
       try {
-        await navigator.clipboard.writeText(shareUrl)
+        // 优先使用 Clipboard API
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(shareUrl)
+        } else {
+          // 备用方案：使用临时文本框
+          const textArea = document.createElement('textarea')
+          textArea.value = shareUrl
+          textArea.style.position = 'fixed'
+          textArea.style.left = '-9999px'
+          textArea.style.top = '-9999px'
+          document.body.appendChild(textArea)
+          textArea.focus()
+          textArea.select()
+          document.execCommand('copy')
+          document.body.removeChild(textArea)
+        }
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
       } catch (error) {
         console.error('复制失败:', error)
-        alert('复制失败，请重试')
+        prompt('请手动复制分享链接:', shareUrl)
       }
     }
   }

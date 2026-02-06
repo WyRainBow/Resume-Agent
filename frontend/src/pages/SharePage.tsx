@@ -132,12 +132,27 @@ export default function SharePage() {
   const handleCopyLink = async () => {
     const currentUrl = window.location.href
     try {
-      await navigator.clipboard.writeText(currentUrl)
+      // 优先使用 Clipboard API
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(currentUrl)
+      } else {
+        // 备用方案：使用临时文本框
+        const textArea = document.createElement('textarea')
+        textArea.value = currentUrl
+        textArea.style.position = 'fixed'
+        textArea.style.left = '-9999px'
+        textArea.style.top = '-9999px'
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+      }
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
       console.error('复制失败:', error)
-      alert('复制失败，请重试')
+      prompt('请手动复制链接:', currentUrl)
     }
   }
 
