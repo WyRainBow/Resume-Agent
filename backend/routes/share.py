@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any
+from loguru import logger
 
 # 与其他接口保持一致，使用 /api 前缀
 router = APIRouter(prefix="/api/resume", tags=["resume-share"])
@@ -18,6 +19,7 @@ share_store: Dict[str, Dict[str, Any]] = {}
 
 # 获取前端域名（从环境变量读取，默认为生产环境域名）
 FRONTEND_URL = os.getenv("FRONTEND_URL", "https://resume-agent-staging.pages.dev")
+logger.info(f"[Share] FRONTEND_URL 配置: {FRONTEND_URL}")
 
 
 class ShareResumeRequest(BaseModel):
@@ -59,6 +61,10 @@ async def create_share_link(request: ShareResumeRequest):
     # 生产环境：从环境变量 FRONTEND_URL 读取
     share_url = f"{FRONTEND_URL}/share/{share_id}"
 
+    logger.info(f"[Share] 创建分享链接: share_id={share_id}, name={request.resume_name}")
+    logger.info(f"[Share] 生成的链接: {share_url}")
+    logger.info(f"[Share] 当前存储的所有 share_id: {list(share_store.keys())}")
+
     return ShareResumeResponse(
         share_url=share_url,
         share_id=share_id,
@@ -69,7 +75,11 @@ async def create_share_link(request: ShareResumeRequest):
 @router.get("/share/{share_id}")
 async def get_shared_resume(share_id: str):
     """获取分享的简历"""
+    logger.info(f"[Share] 访问分享链接: share_id={share_id}")
+    logger.info(f"[Share] 当前存储的所有 share_id: {list(share_store.keys())}")
+    
     if share_id not in share_store:
+        logger.warning(f"[Share] 分享链接不存在: share_id={share_id}")
         raise HTTPException(status_code=404, detail="分享链接不存在或已过期")
 
     share_data = share_store[share_id]
@@ -77,11 +87,13 @@ async def get_shared_resume(share_id: str):
     # 检查是否过期
     expires_at = datetime.fromisoformat(share_data["expires_at"])
     if datetime.now() > expires_at:
+        logger.warning(f"[Share] 分享链接已过期: share_id={share_id}")
         del share_store[share_id]
         raise HTTPException(status_code=404, detail="分享链接已过期")
 
     # 增加浏览次数
     share_data["views"] += 1
+    logger.info(f"[Share] 获取成功: share_id={share_id}, views={share_data['views']}")
 
     return {
         "success": True,
