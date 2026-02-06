@@ -14,10 +14,12 @@ interface HeaderProps {
   onBatchDelete?: () => void
   /** 简历总数 */
   totalCount?: number
-  /** 是否全选 */
-  isAllSelected?: boolean
-  /** 全选/取消全选回调 */
-  onToggleSelectAll?: () => void
+  /** 是否处于多选模式 */
+  isMultiSelectMode?: boolean
+  /** 切换多选模式 */
+  onToggleMultiSelectMode?: () => void
+  /** 退出多选模式 */
+  onExitMultiSelectMode?: () => void
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
@@ -26,8 +28,9 @@ export const Header: React.FC<HeaderProps> = ({
   selectedCount = 0,
   onBatchDelete,
   totalCount = 0,
-  isAllSelected = false,
-  onToggleSelectAll
+  isMultiSelectMode = false,
+  onToggleMultiSelectMode,
+  onExitMultiSelectMode
 }) => {
   const navigate = useNavigate()
   
@@ -72,14 +75,18 @@ export const Header: React.FC<HeaderProps> = ({
 
       <div className="flex items-center flex-wrap gap-3">
         <UserMenu />
-        {/* 全选按钮 */}
-        {totalCount > 0 && onToggleSelectAll && (
+        {/* 多选模式按钮 */}
+        {totalCount > 0 && onToggleMultiSelectMode && (
           <Button
-            onClick={onToggleSelectAll}
-            variant="ghost"
-            className="rounded-xl h-12 px-6 font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300"
+            onClick={onToggleMultiSelectMode}
+            variant={isMultiSelectMode ? "default" : "ghost"}
+            className={`rounded-xl h-12 px-6 font-bold transition-all duration-300 ${
+              isMultiSelectMode 
+                ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                : 'hover:bg-slate-100 dark:hover:bg-slate-800'
+            }`}
           >
-            {isAllSelected ? '取消全选' : '全选全部'}
+            {isMultiSelectMode ? '退出多选' : '多选'}
           </Button>
         )}
 

@@ -19,13 +19,14 @@ const ResumeDashboard = () => {
     editResume,
     optimizeResume,
     importJson,
-    // 批量删除相关
+    // 多选模式相关
+    isMultiSelectMode,
+    toggleMultiSelectMode,
+    exitMultiSelectMode,
     selectedIds,
     toggleSelect,
     batchDelete,
-    selectAll,
     clearSelection,
-    isAllSelected,
     // 备注/别名
     updateAlias
   } = useDashboardLogic()
@@ -115,15 +116,16 @@ const ResumeDashboard = () => {
             )}
           </motion.div>
 
-          {/* 顶部标题栏 - 传入批量删除相关 props */}
+          {/* 顶部标题栏 - 传入多选模式相关 props */}
           <Header
             onImport={importJson}
             onCreate={createResume}
             selectedCount={selectedIds.size}
             onBatchDelete={batchDelete}
             totalCount={resumes.length}
-            isAllSelected={isAllSelected}
-            onToggleSelectAll={isAllSelected ? clearSelection : selectAll}
+            isMultiSelectMode={isMultiSelectMode}
+            onToggleMultiSelectMode={toggleMultiSelectMode}
+            onExitMultiSelectMode={exitMultiSelectMode}
           />
 
           <motion.div
@@ -143,7 +145,8 @@ const ResumeDashboard = () => {
                     onEdit={editResume}
                     onDelete={deleteResume}
                     onOptimize={optimizeResume}
-                    // 传入选中状态和回调
+                    // 多选模式相关
+                    isMultiSelectMode={isMultiSelectMode}
                     isSelected={selectedIds.has(resume.id)}
                     onSelectChange={toggleSelect}
                     // 备注/别名
