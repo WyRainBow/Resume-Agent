@@ -187,51 +187,51 @@ export default function SharePage() {
       'w-full h-screen flex flex-col',
       'bg-gradient-to-br from-slate-50 via-blue-50/50 to-indigo-100 dark:from-slate-950 dark:via-slate-900 dark:to-indigo-950'
     )}>
-      {/* 顶部工具栏 */}
+      {/* 顶部工具栏 - 居中布局 */}
       <div
         className={cn(
-          'flex items-center justify-between px-6 py-4',
+          'flex flex-col items-center justify-center px-6 py-4',
           'bg-white/70 dark:bg-slate-800/70',
           'backdrop-blur-md',
           'border-b border-slate-200/50 dark:border-slate-700/50',
           'shadow-sm'
         )}
       >
-        <div>
-          <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100">{resume.name}</h1>
-          <div className="flex items-center gap-4 mt-1 text-xs text-slate-500 dark:text-slate-400">
-            <span className="flex items-center gap-1">
-              <Eye className="w-3.5 h-3.5" />
-              {resume.views} 次查看
-            </span>
-            <span>•</span>
-            <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" />
-              到期: {new Date(resume.expires_at).toLocaleDateString()}
-            </span>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3">
+        {/* 标题 */}
+        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">{resume.name}</h1>
+        
+        {/* 信息和按钮 */}
+        <div className="flex items-center gap-4 mt-2">
+          <span className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+            <Eye className="w-3.5 h-3.5" />
+            {resume.views} 次查看
+          </span>
+          <span className="text-slate-300 dark:text-slate-600">•</span>
+          <span className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+            <Calendar className="w-3.5 h-3.5" />
+            到期: {new Date(resume.expires_at).toLocaleDateString()}
+          </span>
+          <span className="text-slate-300 dark:text-slate-600">•</span>
+          
           {/* 复制链接按钮 */}
           <button
             onClick={handleCopyLink}
             className={cn(
-              'px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium',
+              'px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-medium',
               'transition-all duration-200',
               copied
                 ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400'
-                : 'bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm border border-slate-200/80 dark:border-slate-600/80 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-500 shadow-sm hover:shadow-md'
+                : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
             )}
           >
             {copied ? (
               <>
-                <Check className="w-4 h-4" />
+                <Check className="w-3.5 h-3.5" />
                 已复制
               </>
             ) : (
               <>
-                <Copy className="w-4 h-4" />
+                <Copy className="w-3.5 h-3.5" />
                 复制链接
               </>
             )}
@@ -242,17 +242,14 @@ export default function SharePage() {
             onClick={handleDownloadPDF}
             disabled={!pdfBlob || pdfLoading}
             className={cn(
-              'px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium',
+              'px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-medium',
               'bg-blue-600 text-white',
               'hover:bg-blue-700',
-              'shadow-sm hover:shadow-md',
               'disabled:opacity-50 disabled:cursor-not-allowed',
-              'transition-all duration-200',
-              'hover:scale-[1.02] active:scale-[0.98]',
-              'disabled:hover:scale-100'
+              'transition-all duration-200'
             )}
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5" />
             下载 PDF
           </button>
         </div>
