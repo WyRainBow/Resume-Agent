@@ -63,10 +63,10 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     }
     margin = margin_map.get(margin_setting, '0.4in')
     
-    # 行间距设置
-    line_spacing = global_settings.get('latexLineSpacing', 1.15)
+    # 行间距设置 - 默认 1.0 与原始模板保持一致
+    line_spacing = global_settings.get('latexLineSpacing', 1.0)
     if not isinstance(line_spacing, (int, float)) or line_spacing < 1.0 or line_spacing > 2.0:
-        line_spacing = 1.15
+        line_spacing = 1.0
     
     """文档头部"""
     latex_content.append(r"% !TEX TS-program = xelatex")
@@ -85,10 +85,12 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     """强制使用 Unicode 编码"""
     latex_content.append(r'\XeTeXinputencoding "utf8"')
     latex_content.append("")
-    # 覆盖页面边距设置
-    latex_content.append(f"\\geometry{{a4paper,left={margin},right={margin},top={margin},bottom={margin},nohead}}")
-    # 设置行间距
-    latex_content.append(f"\\linespread{{{line_spacing}}}")
+    # 只有当用户明确设置了非默认值时才覆盖（保持与原始模板一致）
+    # 原始模板默认: 11pt 字体, 0.4in 边距, 无 linespread 设置
+    if margin_setting != 'standard':
+        latex_content.append(f"\\geometry{{a4paper,left={margin},right={margin},top={margin},bottom={margin},nohead}}")
+    if line_spacing != 1.0:
+        latex_content.append(f"\\linespread{{{line_spacing}}}")
     latex_content.append("")
     latex_content.append(r"\begin{document}")
     latex_content.append(r"\pagenumbering{gobble}")
