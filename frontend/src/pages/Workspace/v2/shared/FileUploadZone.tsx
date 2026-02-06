@@ -45,10 +45,10 @@ export function FileUploadZone({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="h-full flex flex-col space-y-3">
       <div
         className={cn(
-          'rounded-2xl border-2 border-dashed p-6 transition-colors',
+          'flex-1 flex flex-col justify-center rounded-2xl border-2 border-dashed p-6 transition-colors',
           dragging
             ? 'border-indigo-400 bg-indigo-50/60 dark:border-indigo-400 dark:bg-indigo-500/10'
             : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40'

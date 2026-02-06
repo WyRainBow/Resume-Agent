@@ -85,27 +85,15 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
         <button
           onClick={onGlobalAIImport}
           className={cn(
-            "group flex items-center gap-4",
-            "px-5 py-3 rounded-2xl",
-            "bg-white dark:bg-slate-900",
-            "border border-slate-200/80 dark:border-slate-700/80",
-            "shadow-sm hover:shadow-md",
-            "transition-all duration-300",
-            "hover:scale-[1.01] active:scale-[0.99]"
+            "px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2",
+            "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/80",
+            "text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800",
+            "hover:border-slate-300 dark:hover:border-slate-600 shadow-sm hover:shadow-md",
+            "hover:scale-[1.02] active:scale-[0.98]"
           )}
         >
-          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300">
-            <Upload className="h-5 w-5" />
-          </span>
-          <span className="flex flex-col items-start text-left">
-            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-              AI 智能导入
-            </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              上传或粘贴简历，AI 自动解析
-            </span>
-          </span>
-          <ChevronRight className="ml-2 h-5 w-5 text-slate-400 transition-transform group-hover:translate-x-0.5" />
+          <Upload className="w-4 h-4 text-indigo-500" />
+          AI 智能导入
         </button>
         
         {/* 保存按钮 */}

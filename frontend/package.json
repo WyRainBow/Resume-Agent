@@ -15,6 +15,7 @@
     "@pdf-lib/fontkit": "^1.1.1",
     "@radix-ui/react-slot": "^1.2.4",
     "@tailwindcss/typography": "^0.5.19",
+    "@tiptap/core": "^3.19.0",
     "@tiptap/extension-bullet-list": "^3.13.0",
     "@tiptap/extension-color": "^3.13.0",
     "@tiptap/extension-highlight": "^3.13.0",
