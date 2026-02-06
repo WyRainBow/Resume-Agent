@@ -6,7 +6,11 @@ from typing import Optional, Literal, List, Dict, Any
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from backend.database import Base
+
+try:
+    from backend.database import Base
+except ImportError:
+    from database import Base
 
 
 class RewriteRequest(BaseModel):

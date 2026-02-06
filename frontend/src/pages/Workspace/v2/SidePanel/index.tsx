@@ -3,33 +3,10 @@
  * 包含模块选择和布局管理
  */
 import { motion } from 'framer-motion'
-import { Layout, Settings } from 'lucide-react'
+import { Layout } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { MenuSection, GlobalSettings } from '../types'
 import LayoutSetting from './LayoutSetting'
-
-// 字体大小选项
-const FONT_SIZE_OPTIONS = [
-  { value: 9, label: '9pt (紧凑)' },
-  { value: 10, label: '10pt (较小)' },
-  { value: 11, label: '11pt (标准)' },
-  { value: 12, label: '12pt (较大)' },
-]
-
-// 页面边距选项
-const PAGE_MARGIN_OPTIONS = [
-  { value: 'compact', label: '紧凑 (0.3in)' },
-  { value: 'standard', label: '标准 (0.4in)' },
-  { value: 'relaxed', label: '宽松 (0.5in)' },
-]
-
-// 行间距选项
-const LINE_SPACING_OPTIONS = [
-  { value: 1.0, label: '紧凑 (1.0)' },
-  { value: 1.15, label: '较紧 (1.15)' },
-  { value: 1.3, label: '标准 (1.3)' },
-  { value: 1.5, label: '宽松 (1.5)' },
-]
 
 interface SidePanelProps {
   menuSections: MenuSection[]
@@ -117,69 +94,6 @@ export function SidePanel({
             >
               添加自定义模块
             </motion.button>
-          </div>
-        </SettingCard>
-
-        {/* 排版设置 */}
-        <SettingCard icon={Settings} title="排版设置">
-          <div className="space-y-4">
-            {/* 字体大小 */}
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                字体大小
-              </label>
-              <select
-                value={globalSettings.latexFontSize || 11}
-                onChange={(e) => updateGlobalSettings({ latexFontSize: Number(e.target.value) })}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-              >
-                {FONT_SIZE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 页面边距 */}
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                页面边距
-              </label>
-              <select
-                value={globalSettings.latexMargin || 'standard'}
-                onChange={(e) => updateGlobalSettings({ latexMargin: e.target.value as 'compact' | 'standard' | 'relaxed' })}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-              >
-                {PAGE_MARGIN_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 行间距 */}
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                行间距
-              </label>
-              <select
-                value={globalSettings.latexLineSpacing || 1.15}
-                onChange={(e) => updateGlobalSettings({ latexLineSpacing: Number(e.target.value) })}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-              >
-                {LINE_SPACING_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-2">
-              提示：调整设置后，简历会自动重新渲染
-            </p>
           </div>
         </SettingCard>
 

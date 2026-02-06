@@ -16,3 +16,11 @@ max_tokens = 8192
 temperature = 0.3
 api_type = "openai"
 
+# 智谱模型配置 (混合增强策略)
+# vision_model: glm-4.6v (视觉布局识别)
+# ocr_model: glm-ocr (PDF 文档精确解析)
+[zhipu]
+api_key = "7448f886f3a94a88ab0318195c265618.fE76x4mfrs4bDCo9"
+vision_model = "glm-4.6v"
+ocr_model = "glm-ocr"
+

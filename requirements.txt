@@ -43,6 +43,7 @@ datasets~=3.4.1
 html2text~=2024.2.26
 pillow~=10.4.0
 gymnasium~=1.1.1
+PyMuPDF>=1.24.0
 
 # Infrastructure
 docker~=7.1.0
@@ -51,6 +52,8 @@ boto3~=1.37.18
 beautifulsoup4~=4.13.3
 crawl4ai~=0.6.3
 markdownify
+mineru>=2.7.0
+pdfminer-six>=20231228
 
 # LangChain
 langchain>=0.3.0,<0.4.0
@@ -64,3 +67,4 @@ unidiff~=0.7.5
 structlog
 tomli>=2.0.0
 huggingface-hub~=0.29.2
+python-multipart~=0.0.22

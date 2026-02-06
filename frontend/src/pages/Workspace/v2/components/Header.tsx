@@ -2,7 +2,7 @@
  * 顶部导航栏组件（仅包含右侧操作按钮）
  */
 import { motion } from 'framer-motion'
-import { Check, Sparkles, BookmarkPlus, Upload, LayoutGrid, List } from 'lucide-react'
+import { Check, BookmarkPlus, Upload, LayoutGrid, List, ChevronRight } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { ExportButton } from './ExportButton'
 
@@ -85,20 +85,27 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
         <button
           onClick={onGlobalAIImport}
           className={cn(
-            "group relative px-5 py-2.5 rounded-xl overflow-hidden",
-            "bg-gradient-to-r from-rose-400 via-fuchsia-400 to-indigo-400",
-            "hover:from-rose-300 hover:via-fuchsia-300 hover:to-indigo-300",
-            "text-white text-sm font-semibold",
-            "shadow-lg shadow-fuchsia-300/40 hover:shadow-xl hover:shadow-fuchsia-300/50",
-            "transition-all duration-300 ease-out",
-            "hover:scale-[1.02] active:scale-[0.98]"
+            "group flex items-center gap-4",
+            "px-5 py-3 rounded-2xl",
+            "bg-white dark:bg-slate-900",
+            "border border-slate-200/80 dark:border-slate-700/80",
+            "shadow-sm hover:shadow-md",
+            "transition-all duration-300",
+            "hover:scale-[1.01] active:scale-[0.99]"
           )}
         >
-          <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-          <span className="relative flex items-center gap-2">
-            <Sparkles className="w-4 h-4" />
-            AI 智能导入
+          <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300">
+            <Upload className="h-5 w-5" />
           </span>
+          <span className="flex flex-col items-start text-left">
+            <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+              AI 智能导入
+            </span>
+            <span className="text-xs text-slate-500 dark:text-slate-400">
+              上传或粘贴简历，AI 自动解析
+            </span>
+          </span>
+          <ChevronRight className="ml-2 h-5 w-5 text-slate-400 transition-transform group-hover:translate-x-0.5" />
         </button>
         
         {/* 保存按钮 */}

@@ -57,6 +57,14 @@ from backend.agent.prompt.swe import (
 from backend.agent.prompt.visualization import (
     SYSTEM_PROMPT as VISUALIZATION_SYSTEM_PROMPT,
 )
+from backend.agent.prompt.pdf_parser import (
+    SYSTEM_PROMPT as PDF_PARSER_SYSTEM_PROMPT,
+    ASSEMBLER_PROMPT as PDF_ASSEMBLER_PROMPT,
+    SKILLS_RULES as PDF_SKILLS_RULES,
+    HIGHLIGHTS_RULES as PDF_HIGHLIGHTS_RULES,
+    NESTED_RULES as PDF_NESTED_RULES,
+    OUTPUT_SCHEMA as PDF_OUTPUT_SCHEMA,
+)
 
 __all__.extend([
     "MANUS_SYSTEM_PROMPT",
@@ -84,4 +92,10 @@ __all__.extend([
     "PLANNING_SYSTEM_PROMPT",
     "SWE_SYSTEM_PROMPT",
     "VISUALIZATION_SYSTEM_PROMPT",
+    "PDF_PARSER_SYSTEM_PROMPT",
+    "PDF_ASSEMBLER_PROMPT",
+    "PDF_SKILLS_RULES",
+    "PDF_HIGHLIGHTS_RULES",
+    "PDF_NESTED_RULES",
+    "PDF_OUTPUT_SCHEMA",
 ])
