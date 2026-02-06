@@ -101,21 +101,8 @@ export const EditableText: React.FC<EditableTextProps> = ({
     // 遮盖宽度 = max(原文字宽度, 新文字宽度)
     const coverWidth = Math.max(edit.position.width || 100, newTextWidth + 4)
     
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EditableText.tsx:94',message:'非编辑状态渲染',data:{editId:edit.id,text:edit.newText,originalText:edit.originalText,positionLeft:edit.position.left,positionTop:edit.position.top,positionWidth:edit.position.width,newTextWidth,coverWidth,fontSize:edit.position.fontSize,textLengthDiff:edit.newText.length-edit.originalText.length,prefixAdded:!edit.newText.startsWith(edit.originalText)&&edit.newText.includes(edit.originalText)},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A-B-C-D'})}).catch(()=>{});
-    // #endregion
-    
     return (
       <div
-        ref={(el) => {
-          // #region agent log
-          if (el) {
-            const rect = el.getBoundingClientRect();
-            const parentRect = el.parentElement?.getBoundingClientRect();
-            fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'EditableText.tsx:DOM',message:'实际DOM位置',data:{editId:edit.id,domLeft:rect.left,domTop:rect.top,domWidth:rect.width,domHeight:rect.height,parentLeft:parentRect?.left,parentTop:parentRect?.top,offsetLeft:el.offsetLeft,scrollWidth:el.scrollWidth,clientWidth:el.clientWidth,textOverflow:el.scrollWidth>el.clientWidth},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E-F'})}).catch(()=>{});
-          }
-          // #endregion
-        }}
         style={{
           position: 'absolute',
           left: edit.position.left || 0,

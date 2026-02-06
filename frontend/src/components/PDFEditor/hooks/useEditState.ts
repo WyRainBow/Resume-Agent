@@ -44,10 +44,6 @@ export const useEditState = (): UseEditStateResult => {
   }): string => {
     const id = generateId()
     
-    // #region agent log
-    fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useEditState.ts:startEdit',message:'开始编辑',data:{id,originalText:params.originalText,position:params.position,fontName:params.fontName,pageNumber:params.pageNumber},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A-B'})}).catch(()=>{});
-    // #endregion
-    
     const newEdit: EditItem = {
       id,
       pageNumber: params.pageNumber,

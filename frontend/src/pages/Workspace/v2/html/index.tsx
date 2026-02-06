@@ -284,16 +284,6 @@ export default function HTMLWorkspace() {
 
   // HTML 转 PDF 下载
   const handleDownloadPDF = useCallback(() => {
-    // #region agent log helper
-    const logDebug = (msg: string, data: any, hypothesisId: string) => {
-      fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'html/index.tsx:handleDownloadPDF',message:msg,data,timestamp:Date.now(),sessionId:'debug-session',runId:'html-pdf-download',hypothesisId})}).catch(()=>{});
-    };
-    // #endregion agent log helper
-
-    // #region agent log H1 H2
-    logDebug('handleDownloadPDF called', { templateType: resumeData.templateType }, 'H1-H2');
-    // #endregion agent log H1 H2
-
     try {
       // 直接从当前页面获取已渲染的 HTML 模板容器
       const sourceElement = document.querySelector('.html-template-container') as HTMLElement

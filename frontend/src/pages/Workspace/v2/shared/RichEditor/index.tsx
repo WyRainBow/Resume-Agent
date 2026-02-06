@@ -39,24 +39,8 @@ import AIWriteDialog from '../AIWriteDialog'
 import type { ResumeData, Education } from '../../types'
 import './tiptap.css'
 
-// #region agent log helper
-const logDebug = (message: string, data?: Record<string, any>) => {
-  try {
-    fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        sessionId: 'debug-session',
-        runId: 'rich-editor',
-        hypothesisId: 'H-indent',
-        location: 'RichEditor/index.tsx',
-        message,
-        data,
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-  } catch (_) {}
-}
+// Debug logging disabled in production
+const logDebug = (_message: string, _data?: Record<string, any>) => {}
 // #endregion agent log helper
 
 interface RichEditorProps {

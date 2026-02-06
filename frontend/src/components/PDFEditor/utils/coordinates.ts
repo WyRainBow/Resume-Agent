@@ -67,10 +67,6 @@ export const calculateTextPosition = (
     fontSize: isNaN(height) ? 12 : height,
   }
 
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'coordinates.ts:46',message:'calculateTextPosition',data:{text:item.str,rawX:x,rawY:y,rawWidth:item.width,scale,pageHeight,computedLeft:left,computedTop:top,computedWidth:width,fontSize:fontSize*scale,scaleX,scaleY,finalPosition:position},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-  // #endregion
-
   return position
 }
 

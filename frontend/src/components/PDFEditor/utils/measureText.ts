@@ -49,9 +49,5 @@ export const measureTextWidth = (
   ctx.font = `${fontSize}px ${fontFamily}`
   const measuredWidth = ctx.measureText(text).width
   
-  // #region agent log
-  fetch('http://127.0.0.1:7243/ingest/1e500651-6ec2-4818-b441-0e92d146bc59',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'measureText.ts:44',message:'measureTextWidth',data:{text,fontSize,fontFamily,measuredWidth},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-  // #endregion
-  
   return measuredWidth
 }
