@@ -8,6 +8,8 @@ import { Plus, Upload, Trash2, FileText, LayoutGrid } from './Icons'
 interface HeaderProps {
   onImport: () => void
   onCreate: () => void
+  /** AI 智能导入回调 */
+  onAIImport?: () => void
   /** 选中的简历数量（用于批量删除） */
   selectedCount?: number
   /** 批量删除回调 */
@@ -25,6 +27,7 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ 
   onImport, 
   onCreate,
+  onAIImport,
   selectedCount = 0,
   onBatchDelete,
   totalCount = 0,
@@ -99,6 +102,18 @@ export const Header: React.FC<HeaderProps> = ({
           <LayoutGrid className="mr-2 h-5 w-5" />
           简历市场
         </Button>
+
+        {/* AI 智能导入按钮 */}
+        {onAIImport && (
+          <Button
+            onClick={onAIImport}
+            variant="outline"
+            className="rounded-xl h-12 px-6 font-bold border-2 border-slate-200 dark:border-slate-800 hover:border-violet-400 dark:hover:border-violet-600 hover:text-violet-600 dark:hover:text-violet-400 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm transition-all duration-300"
+          >
+            <Upload className="mr-2 h-5 w-5 text-violet-500" />
+            AI 智能导入
+          </Button>
+        )}
 
         {/* 导入按钮 */}
         <Button
