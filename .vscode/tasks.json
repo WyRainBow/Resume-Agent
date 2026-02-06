@@ -4,7 +4,7 @@
     {
       "label": "⚙️ Backend: Start API Server",
       "type": "shell",
-      "command": "source .venv/bin/activate && PYTHONPATH=$(pwd):$PYTHONPATH python -m uvicorn backend.main:app --reload --port 9000",
+      "command": "PYTHONPATH=$(pwd):$PYTHONPATH python3.11 -m uvicorn backend.main:app --reload --port 9000",
       "group": "build",
       "presentation": {
         "reveal": "always",

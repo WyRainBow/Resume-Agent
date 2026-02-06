@@ -1,0 +1,181 @@
+{
+  "id": "resume_1768886834184",
+  "title": "我的简历",
+  "createdAt": "2026-01-20T05:27:14.184Z",
+  "updatedAt": "2026-02-04T15:51:34.596Z",
+  "templateId": "default",
+  "templateType": "latex",
+  "basic": {
+    "name": "韦宇最新",
+    "title": "大模型应用开发/后端开发",
+    "email": "3658043236@qq.com",
+    "phone": "18933549212",
+    "location": ""
+  },
+  "education": [
+    {
+      "id": "edu_1768582597009_0",
+      "major": "计算机科学与技术专业",
+      "degree": "本科",
+      "school": "广东药科大学",
+      "endDate": "",
+      "visible": true,
+      "startDate": "2022.09-2026.06",
+      "description": "<ul class=\"custom-list\"><li><p>数学建模国二</p></li><li><p>人工智能与大数据建模省二</p></li><li><p>软著：优化YoLoV5 算法识别森林火灾场景</p></li></ul><p></p>"
+    }
+  ],
+  "experience": [
+    {
+      "id": "exp_1768582597009_0",
+      "date": "2025.06 - 2025.10",
+      "company": "腾讯云",
+      "details": "",
+      "visible": true,
+      "position": "后端开发实习生"
+    },
+    {
+      "id": "exp_1768582597009_1",
+      "date": "2025.03 - 2025.06",
+      "company": "深言科技",
+      "details": "",
+      "visible": true,
+      "position": "AI 应用开发实习生"
+    },
+    {
+      "id": "exp_1768582597009_2",
+      "date": "2024.12 - 2025.03",
+      "company": "美的",
+      "details": "",
+      "visible": true,
+      "position": "Java 开发实习生"
+    }
+  ],
+  "projects": [
+    {
+      "id": "proj_1768582597009_0",
+      "date": "",
+      "name": "腾讯云域名注册业务",
+      "role": "",
+      "visible": true,
+      "description": "<p><strong>项目描述: </strong>负责腾讯云域名注册业务的开发：参与实现了域名注册⿊⽩名单的专项设计、搜索服务的拆分、⻛险SQL专项治理</p><ul class=\"custom-list\"><li><p><strong>搜索服务拆分专项</strong></p><ul class=\"custom-list\"><li><p>针对域名Check查询挤占连接资源导致核⼼业务超时问题、主导服务架构拆分。</p></li><li><p><strong>⽅案设计</strong>: 按读/写属性垂直拆分EPP服务为读写两个独⽴集群、配置物理隔离连接池</p></li><li><p><strong>容灾设计</strong>: 设计公共备⽤集群作为容灾⽅案.增加命令路由切换、根据命令类型分发⾄对应集群，实现故障隔离</p></li></ul></li><li><p><strong>域名⿊⽩名单专项</strong></p><ul class=\"custom-list\"><li><p>针对<span style=\"color: rgb(216, 57, 49);\">域名秒杀抢注</span>、溢价域名交易、<span style=\"color: rgb(216, 57, 49);\">恶意API攻击</span>等核⼼业务场景、从0到1实现了域名⿊⽩名单模块，提供统⼀的名单管控</p></li><li><p><strong>多级缓存架构</strong>： 构建\"SDK本地缓存 + Redis分布式缓存\"架构、通过Guava Cache和5秒过期策略，⽀撑近万QPS 峰值、本地缓存命中率97%以上</p></li><li><p> <strong>数据⼀致性保障</strong>： 实现\"准实时-增量-全量\"多重保障、通过写DB+发MQ、Binlog监听、定时任务确保数据⼀致性</p></li></ul></li><li><p><strong>⻛险SQL治理专项</strong></p><ul class=\"custom-list\"><li><p>优化100余条⾼⻛险SQL、扫描⾏数从超百万⾏降⾄万⾏以下、执⾏时间提升80%。</p></li><li><p>API优化: 通过强制索引、JOIN优化等⼿段、确保查询毫秒级响应</p></li><li><p>统计查询优化: 采⽤代码解耦、游标分⻚处理⼤数据量查询</p></li><li><p>RO迁移: 推动复杂查询向RO只读实例迁移、降低主库负载</p></li></ul></li></ul><p></p>"
+    },
+    {
+      "id": "project_1768583145454_bwjs4mjat",
+      "date": "",
+      "name": "深言科技 - 语鲸 DeepResearch - AI Agent 智能搜索系统",
+      "role": "",
+      "visible": true,
+      "description": "<ul class=\"custom-list\"><li><p><strong>项目描述:</strong>基于清华大模型构建的自主式深度研究（DeepResearch）智能体。具备复杂意图识别、多源混合检索、长文本深度阅读与结构化研报生成能力、解决传统搜索信息碎片化痛点。</p></li><li><p><strong>核心职责与产出:</strong>参与 AI 搜索链路并主导广告投放系统开发。从用户提问 → 多源检索 → 长文阅读 → 报告输出全流程上、将用户模糊问题拆解为可执行任务、打通各类数据源、让模型读懂并输出可用结果、并建设配套的投放与数据反馈体系。</p><ul class=\"custom-list\"><li><p><code>Agent</code><strong> 推理与规划（Reasoning &amp; Planning）</strong><br> 设计基于 LLM 的意图拆解模块、将复杂长查询转化为 <strong>CoT（思维链）任务序列</strong>。实现 <strong>基于推理的查询扩展、</strong>结合行业知识库与用户行为日志、利用 LLM 自动生成并校验同义词和行业术语、显著提升长尾查询召回。</p></li><li><p><strong>多源融合检索架构（Hybrid Search）</strong><br> 基于 <strong>BGE-M3</strong> 实现稠密向量 + 稀疏关键词的混合检索。并行编排 Bing Search API（广度）、垂类教育库/知识图谱（深度）、Milvus 向量库、结合 LLM 查询改写与结果重排、提升信息召回率与准确性</p></li><li><p><strong>RAG 深度阅读与抗幻觉生成</strong><br> 构建上下文感知生成模块、利用 RAG 将高置信度证据片段注入 LLM <code>Context</code>。通过 <code>Prompt Engineering</code> 引导模型进行多源信息比对、事实核查、最终输出结构化 Markdown 格式的深度研报（摘要、提纲、引用溯源）。</p></li><li><p><strong>广告数据闭环链路</strong><br> 主导搜索结果页广告投放系统建设、实现曝光、点击（CTR）、转化的全链路埋点追踪、基于用户行为数据做闭环反馈、持续优化搜索排序算法与推荐策略</p></li></ul></li></ul><p></p>"
+    }
+  ],
+  "openSource": [
+    {
+      "id": "os_1768886834184_0",
+      "name": "Seata-go 社区（开源贡献）",
+      "role": "",
+      "repo": "",
+      "date": "",
+      "description": "<ul class=\"custom-list\"><li><p>仓库：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://github.com/apache/incubator-seata-go\">https://github.com/apache/incubator-seata-go</a></p></li><li><p>简介：阿里开源的分布式事务框架，已服务阿里云、蚂蚁、滴滴等 150+ 企业</p></li><li><p>个人职责：主要负责社区日常 Issue 维护与答疑、问题复现与定位</p></li><li><p>实现本地缓存计数器 PR：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://github.com/apache/dubbo-admin/issues/1338\">https://github.com/apache/dubbo-admin/issues/1338</a></p></li><li><p>实现多注册隔离中心 PR：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://github.com/apache/dubbo-admin/pull/1390\">https://github.com/apache/dubbo-admin/pull/1390</a></p></li></ul><p></p>",
+      "visible": true
+    },
+    {
+      "id": "os_1768886834184_1",
+      "name": "Resume-Agent - 简历优化 AI Agent（开源 100Star+）",
+      "role": "",
+      "repo": "",
+      "date": "2025.11 - 至今",
+      "description": "<p>在线地址：106.53.113.137 &nbsp; &nbsp; &nbsp; &nbsp;Github ：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://github.com/WyRainBow/Resume-Agent\">https://github.com/WyRainBow/Resume-Agent</a></p><p><strong>项目介绍：</strong>提供一站式简历分析、优化和对话式交互体验。支持 AI 对话创建简历、自然语言调用工具修改简历。采用多智能体架构、封装 STAR 法则优化、浏览器工具调用、模型上下文协议等核心能力。</p><p><strong>技术难点：</strong></p><ul class=\"custom-list\"><li><p><strong>意图识别：</strong>两阶段分类策略：规则快速匹配 + 大语言模型增强分类。构建工具注册表和意图增强器、提升工具调用准确率</p></li><li><p><strong>提示词管理：</strong>轻量级模板系统，支持变量插值、部分填充、模板组合。场景化提示词管理、构建简历专用模板</p></li><li><p><strong>引导性对话：</strong>基于记忆系统实现多轮对话上下文管理。设计对话状态机、实现主动引导机制和流式输出</p></li><li><p><strong>前端交互体验优化：</strong>实现打字机效果和增强的 Markdown 渲染系统。支持流式输出与打字机效果协同、优化用户体验</p></li><li><p><strong>CLTP 协议架构：</strong>前端：主会话类、块处理器、消息聚合器、跨度管理器等核心组。后端：事件处理器和会话状态管理：支持流式传输和增量更新</p></li><li><p>工具系统集成：集成浏览器自动化工具和模型上下文协议客户端</p></li></ul><p></p>",
+      "visible": true
+    }
+  ],
+  "awards": [
+    {
+      "id": "award_1768927314603_0",
+      "title": "",
+      "issuer": "",
+      "date": "",
+      "description": "",
+      "visible": true
+    },
+    {
+      "id": "award_1768927314603_1",
+      "title": "",
+      "issuer": "",
+      "date": "",
+      "description": "",
+      "visible": true
+    },
+    {
+      "id": "award_1768927314603_2",
+      "title": "",
+      "issuer": "",
+      "date": "",
+      "description": "",
+      "visible": true
+    }
+  ],
+  "customData": {},
+  "skillContent": "<ul class=\"custom-list\"><li><p><strong>后端</strong>：熟悉 Java 编程语言、Golang 编程语言等原理</p></li><li><p><strong>数据库</strong>：熟悉 MySQL、MongoDB、ES、Milvus 等主流数据库原理。有非常优秀的 SQL 调优经验</p></li><li><p><strong>Redis</strong>：熟悉 Redis 底层数据结构、分布式锁等机制。熟悉缓存击穿、穿透、雪崩概念</p></li><li><p><strong>计算机网络</strong>：熟悉 TCP、UDP、HTTP、HTTPS 等网络协议。掌握 TCP 三次握手、四次挥手等机制</p></li><li><p><strong>操作系统</strong>：熟悉进程、线程、虚拟内存、I/O 多路复用等。掌握进程间通信和多线程同步技术</p></li><li><p><strong>AI</strong>：了解 AI Agent、RAG、FunctionCall、LLM（如阿里百炼、DeepSeek）Prompt 提示词工程</p></li></ul><p></p>",
+  "activeSection": "basic",
+  "draggingProjectId": null,
+  "menuSections": [
+    {
+      "id": "basic",
+      "title": "基本信息",
+      "icon": "👤",
+      "enabled": true,
+      "order": 0
+    },
+    {
+      "id": "experience",
+      "title": "实习经历",
+      "icon": "💼",
+      "enabled": true,
+      "order": 1
+    },
+    {
+      "id": "projects",
+      "title": "项目经历",
+      "icon": "🚀",
+      "enabled": true,
+      "order": 2
+    },
+    {
+      "id": "openSource",
+      "title": "开源经历",
+      "icon": "🔗",
+      "enabled": true,
+      "order": 3
+    },
+    {
+      "id": "skills",
+      "title": "专业技能",
+      "icon": "⚡",
+      "enabled": true,
+      "order": 4
+    },
+    {
+      "id": "education",
+      "title": "教育经历",
+      "icon": "🎓",
+      "enabled": true,
+      "order": 5
+    },
+    {
+      "id": "awards",
+      "title": "荣誉奖项",
+      "icon": "🏆",
+      "enabled": false,
+      "order": 6
+    }
+  ],
+  "globalSettings": {
+    "lineHeight": 1.5,
+    "baseFontSize": 16,
+    "headerSize": 18,
+    "pagePadding": 40,
+    "sectionSpacing": 20,
+    "paragraphSpacing": 10,
+    "experienceListType": "none"
+  }
+}

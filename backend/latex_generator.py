@@ -57,15 +57,17 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     # 页面边距设置
     margin_setting = global_settings.get('latexMargin', 'standard')
     margin_map = {
+        'tight': '0.25in',
         'compact': '0.3in',
         'standard': '0.4in',
         'relaxed': '0.5in',
+        'wide': '0.6in',
     }
     margin = margin_map.get(margin_setting, '0.4in')
     
     # 行间距设置 - 默认 1.0 与原始模板保持一致
     line_spacing = global_settings.get('latexLineSpacing', 1.0)
-    if not isinstance(line_spacing, (int, float)) or line_spacing < 1.0 or line_spacing > 2.0:
+    if not isinstance(line_spacing, (int, float)) or line_spacing < 0.8 or line_spacing > 2.0:
         line_spacing = 1.0
     
     """文档头部"""
