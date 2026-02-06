@@ -1,7 +1,16 @@
 """
 简历组装服务
-根据布局骨架 + MinerU文本 + OCR文本 融合生成结构化 Resume JSON
+根据 MinerU文本 + OCR文本 融合生成结构化 Resume JSON
 使用 DeepSeek 作为文本模型，Prompt 模板来自 agent/prompt/pdf_parser.py
+
+数据流（简化版）：
+1. MinerU：PDF → Markdown（基础文本结构）
+2. glm-ocr：PDF → Markdown（高质量 OCR + 结构识别）
+3. DeepSeek：融合两路数据 → 结构化 JSON
+
+说明：glm-ocr 的 Markdown 输出已包含完整的结构信息（标题层级、列表格式、
+嵌套结构如 "## · xxx专项"、技能分类如 "后端：xxx"），DeepSeek 可从文本
+直接推断格式特征，无需额外的布局骨架。
 """
 from __future__ import annotations
 
@@ -217,21 +226,34 @@ def _build_data_content(
     has_layout: bool,
     section_text: Dict[str, str],
 ) -> str:
-    """构建各数据源的实际内容块"""
+    """
+    构建各数据源的实际内容块
+    
+    数据源优先级：
+    1. OCR文本（glm-ocr）：最精确，包含完整结构信息
+    2. MinerU文本：快速提取，作为补充和校验
+    3. 分区文本：辅助定位
+    
+    注意：布局骨架（glm-4.6v）已移除，DeepSeek 从文本直接推断结构
+    """
     is_markdown = "##" in raw_text or "- " in raw_text or "* " in raw_text
     parts = []
 
+    # 布局骨架（保留兼容性，但通常为空）
     if has_layout:
-        parts.append(f"布局骨架（glm-4.6v 识别）：\n{json.dumps(layout, ensure_ascii=False)}")
+        parts.append(f"布局骨架（可选）：\n{json.dumps(layout, ensure_ascii=False)}")
 
+    # OCR文本：主要数据源，包含结构信息如 "## · xxx专项"、"后端：xxx" 等
     if ocr_text:
-        parts.append(f"OCR文本（glm-ocr 直接从 PDF 提取，最精确）：\n{ocr_text}")
+        parts.append(f"OCR文本（glm-ocr，主要数据源，已包含结构信息）：\n{ocr_text}")
 
+    # MinerU文本：补充数据源
     if raw_text:
-        label = "MinerU文本（Markdown 格式）" if is_markdown else "MinerU文本（纯文本）"
+        label = "MinerU文本（Markdown 格式，补充）" if is_markdown else "MinerU文本（纯文本，补充）"
         parts.append(f"{label}：\n{raw_text}")
 
-    parts.append(f"分区文本（按标题切分，用于辅助定位）：\n{json.dumps(section_text, ensure_ascii=False)}")
+    # 分区文本：辅助定位
+    parts.append(f"分区文本（按标题切分，辅助定位）：\n{json.dumps(section_text, ensure_ascii=False)}")
 
     return "\n\n".join(parts)
 
@@ -244,14 +266,17 @@ def assemble_resume_data(
     model: Optional[str] = None
 ) -> Dict[str, Any]:
     """
-    混合增强组装：根据布局骨架 + MinerU文本 + OCR文本 生成简历 JSON
+    混合增强组装：根据 MinerU文本 + OCR文本 生成简历 JSON
 
     使用 PromptTemplate 模板系统构建 prompt，确保：
     - system/user 角色分离
     - 规则模块化（独立的模板片段，便于维护）
     - 变量验证（缺少变量时快速报错）
     
-    数据源优先级：OCR文本(最精确) > MinerU Markdown > 布局骨架
+    数据源优先级：OCR文本(最精确，含结构信息) > MinerU Markdown
+    
+    注意：layout 参数保留以兼容旧调用，但通常为空字典。
+    DeepSeek 从 OCR/MinerU 的 Markdown 文本直接推断格式特征。
     """
     if not raw_text and not ocr_text:
         raise ValueError("原始文本为空（MinerU 和 OCR 均无输出）")

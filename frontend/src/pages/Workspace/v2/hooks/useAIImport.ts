@@ -222,7 +222,10 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
           role: o.subtitle || o.role || '',
           repo: o.repoUrl || o.repo || '',
           date: o.date || '',
-          description: o.items?.join('\n') || o.description || '',
+          // 使用支持嵌套层级的函数渲染 items（支持 **标题** 格式）
+          description: o.items && o.items.length > 0
+            ? formatHighlightsToHtmlModule(o.items, 'bullet')
+            : o.description || '',
           visible: true,
         }))
       : []
@@ -530,7 +533,10 @@ function handleSectionImport(
           role: o.subtitle || o.role || '',
           repo: o.repoUrl || o.repo || '',
           date: o.date || '',
-          description: o.items?.join('\n') || o.description || '',
+          // 使用支持嵌套层级的函数渲染 items（支持 **标题** 格式）
+          description: o.items && o.items.length > 0
+            ? formatHighlightsToHtmlModule(o.items, 'bullet')
+            : o.description || '',
           visible: true,
         }))
         setResumeData((prev) => ({
