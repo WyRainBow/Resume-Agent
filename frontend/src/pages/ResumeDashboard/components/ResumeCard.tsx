@@ -23,6 +23,8 @@ interface ResumeCardProps {
   onEdit: (id: string) => void
   onDelete: (id: string) => void
   onOptimize?: (id: string) => void
+  /** 是否处于多选模式 */
+  isMultiSelectMode?: boolean
   /** 是否被选中（用于批量删除） */
   isSelected?: boolean
   /** 选中状态变化回调 */
@@ -36,6 +38,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
   onEdit,
   onDelete,
   onOptimize,
+  isMultiSelectMode = false,
   isSelected = false,
   onSelectChange,
   onAliasChange
@@ -80,16 +83,19 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
       whileHover={{ y: -8, transition: { duration: 0.2 } }}
       className="relative group"
     >
-      {/* 选中状态的发光背景 */}
-      {isSelected && (
+      {/* 选中状态的发光背景 - 只在多选模式下显示 */}
+      {isMultiSelectMode && isSelected && (
         <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl blur opacity-30 dark:opacity-50 animate-pulse" />
       )}
 
-      {/* 复选框容器 */}
-      {onSelectChange && (
-        <div 
+      {/* 复选框容器 - 只在多选模式下显示 */}
+      {isMultiSelectMode && onSelectChange && (
+        <motion.div 
           className="absolute top-4 left-4 z-20"
           onClick={(e) => e.stopPropagation()}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2 }}
         >
           <input
             type="checkbox"
@@ -103,7 +109,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
             )}
             title="选择此简历"
           />
-        </div>
+        </motion.div>
       )}
 
       <Card
@@ -112,7 +118,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
           "bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl",
           "shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)]",
           "hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)]",
-          isSelected && "ring-2 ring-blue-500/50"
+          isMultiSelectMode && isSelected && "ring-2 ring-blue-500/50"
         )}
       >
         {/* 背景渐变装饰 */}

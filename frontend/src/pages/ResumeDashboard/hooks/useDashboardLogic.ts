@@ -24,6 +24,9 @@ export const useDashboardLogic = () => {
   const [isLoading, setIsLoading] = useState(true)
   const navigate = useNavigate()
 
+  /** 是否处于多选模式 */
+  const [isMultiSelectMode, setIsMultiSelectMode] = useState(false)
+
   /** 选中的简历 ID 集合（用于批量删除） */
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
@@ -219,16 +222,25 @@ export const useDashboardLogic = () => {
   }, [])
 
   /**
-   * 全选所有简历
+   * 切换多选模式
    */
-  const selectAll = useCallback(() => {
-    setSelectedIds(new Set(resumes.map(r => r.id)))
-  }, [resumes])
+  const toggleMultiSelectMode = useCallback(() => {
+    setIsMultiSelectMode(prev => {
+      if (prev) {
+        // 退出多选模式时清空选中状态
+        setSelectedIds(new Set())
+      }
+      return !prev
+    })
+  }, [])
 
   /**
-   * 判断是否全选
+   * 退出多选模式
    */
-  const isAllSelected = resumes.length > 0 && selectedIds.size === resumes.length
+  const exitMultiSelectMode = useCallback(() => {
+    setIsMultiSelectMode(false)
+    setSelectedIds(new Set())
+  }, [])
 
   /**
    * 更新简历备注/别名
@@ -252,13 +264,14 @@ export const useDashboardLogic = () => {
     editResume,
     optimizeResume,
     importJson,
-    // 批量删除相关
+    // 多选模式相关
+    isMultiSelectMode,
+    toggleMultiSelectMode,
+    exitMultiSelectMode,
     selectedIds,
     toggleSelect,
     batchDelete,
     clearSelection,
-    selectAll,
-    isAllSelected,
     // 备注/别名
     updateAlias
   }
