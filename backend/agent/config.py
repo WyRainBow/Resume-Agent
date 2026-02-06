@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import threading
 from contextlib import contextmanager
 try:
@@ -7,14 +8,39 @@ try:
 except ImportError:
     import tomli as tomllib  # Python < 3.11
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
+
+# 加载 .env 文件
+try:
+    from dotenv import load_dotenv
+    _env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+    if _env_path.exists():
+        load_dotenv(dotenv_path=str(_env_path), override=True)
+except ImportError:
+    pass  # dotenv 未安装则跳过
 
 
 def get_project_root() -> Path:
     """Get the project root directory"""
     return Path(__file__).resolve().parent.parent.parent
+
+
+def _expand_env_vars(value: Any) -> Any:
+    """递归替换配置中的环境变量占位符 ${VAR_NAME}"""
+    if isinstance(value, str):
+        # 匹配 ${VAR_NAME} 格式
+        pattern = r'\$\{([^}]+)\}'
+        def replacer(match):
+            var_name = match.group(1)
+            return os.environ.get(var_name, match.group(0))
+        return re.sub(pattern, replacer, value)
+    elif isinstance(value, dict):
+        return {k: _expand_env_vars(v) for k, v in value.items()}
+    elif isinstance(value, list):
+        return [_expand_env_vars(item) for item in value]
+    return value
 
 
 PROJECT_ROOT = get_project_root()
@@ -308,18 +334,17 @@ class Config:
     @staticmethod
     def _get_config_path() -> Path:
         root = PROJECT_ROOT
-        config_path = root / "config" / "config.toml"
+        config_path = root / "config.toml"
         if config_path.exists():
             return config_path
-        example_path = root / "config" / "config.example.toml"
-        if example_path.exists():
-            return example_path
-        raise FileNotFoundError("No configuration file found in config directory")
+        raise FileNotFoundError("No config.toml found in project root")
 
     def _load_config(self) -> dict:
         config_path = self._get_config_path()
         with config_path.open("rb") as f:
-            return tomllib.load(f)
+            raw_config = tomllib.load(f)
+        # 展开环境变量 ${VAR_NAME}
+        return _expand_env_vars(raw_config)
 
     def _load_initial_config(self):
         raw_config = self._load_config()

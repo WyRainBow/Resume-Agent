@@ -1,8 +1,9 @@
 # Agent LLM 配置 - 使用 DeepSeek
+# API key 从环境变量读取，请在 .env 文件中配置
 [llm]
 model = "deepseek-chat"
 base_url = "https://api.deepseek.com/v1"
-api_key = "sk-747bd756a3c942109d96998da6bf4049"
+api_key = "${DEEPSEEK_API_KEY}"
 max_tokens = 8192
 temperature = 0.3
 api_type = "openai"
@@ -11,7 +12,7 @@ api_type = "openai"
 [llm.vision]
 model = "deepseek-chat"
 base_url = "https://api.deepseek.com/v1"
-api_key = "sk-747bd756a3c942109d96998da6bf4049"
+api_key = "${DEEPSEEK_API_KEY}"
 max_tokens = 8192
 temperature = 0.3
 api_type = "openai"
@@ -20,7 +21,7 @@ api_type = "openai"
 # vision_model: glm-4.6v (视觉布局识别)
 # ocr_model: glm-ocr (PDF 文档精确解析)
 [zhipu]
-api_key = "7448f886f3a94a88ab0318195c265618.fE76x4mfrs4bDCo9"
+api_key = "${ZHIPU_API_KEY}"
 vision_model = "glm-4.6v"
 ocr_model = "glm-ocr"
 
