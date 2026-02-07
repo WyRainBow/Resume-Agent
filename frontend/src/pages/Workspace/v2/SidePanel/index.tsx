@@ -2,6 +2,7 @@
  * 侧边面板组件（编辑区的第一列）
  * 包含模块选择和布局管理
  */
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Layout, Settings2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
@@ -44,6 +45,55 @@ const PAGE_PADDING_OPTIONS = [
   { value: 40, label: '标准 (40px)' },
   { value: 50, label: '宽松 (50px)' },
 ]
+
+// 行间距控件：预设选项 + 自定义输入
+function LineSpacingControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const isPreset = LINE_SPACING_OPTIONS.some(opt => opt.value === value)
+  const [customMode, setCustomMode] = useState(!isPreset)
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+        行间距
+      </label>
+      <div className="flex gap-2">
+        <select
+          value={customMode ? 'custom' : value}
+          onChange={(e) => {
+            if (e.target.value === 'custom') {
+              setCustomMode(true)
+            } else {
+              setCustomMode(false)
+              onChange(Number(e.target.value))
+            }
+          }}
+          className="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+        >
+          {LINE_SPACING_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+          <option value="custom">自定义...</option>
+        </select>
+        {customMode && (
+          <input
+            type="number"
+            step="0.05"
+            min="0.5"
+            max="3.0"
+            value={value}
+            onChange={(e) => {
+              const v = parseFloat(e.target.value)
+              if (!isNaN(v) && v >= 0.5 && v <= 3.0) onChange(v)
+            }}
+            className="w-20 px-2 py-2 text-sm rounded-lg border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+          />
+        )}
+      </div>
+    </div>
+  )
+}
 
 interface SidePanelProps {
   menuSections: MenuSection[]
@@ -179,22 +229,10 @@ export function SidePanel({
             </div>
 
             {/* 行间距 */}
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                行间距
-              </label>
-              <select
-                value={globalSettings.latexLineSpacing || 1.0}
-                onChange={(e) => updateGlobalSettings({ latexLineSpacing: Number(e.target.value) })}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
-              >
-                {LINE_SPACING_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <LineSpacingControl
+              value={globalSettings.latexLineSpacing || 1.0}
+              onChange={(v) => updateGlobalSettings({ latexLineSpacing: v })}
+            />
 
             {/* 页面内边距 */}
             <div>
