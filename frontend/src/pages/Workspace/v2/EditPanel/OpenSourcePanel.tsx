@@ -141,7 +141,7 @@ function OpenSourceItem({
                           <div className="flex items-center gap-1 bg-gray-100 dark:bg-neutral-800 rounded-md p-0.5">
                             {([
                               { value: 'below', label: '下方' },
-                              { value: 'inline', label: '文字' },
+                              { value: 'inline', label: '右侧' },
                               { value: 'icon', label: '图标' },
                             ] as const).map((opt) => (
                               <button
