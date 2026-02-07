@@ -5,7 +5,7 @@ import { useState, useCallback } from 'react'
 import { motion, Reorder, useDragControls, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
-import type { Experience, ResumeData } from '../types'
+import type { Experience, ResumeData, GlobalSettings } from '../types'
 import Field from './Field'
 
 // 将 Markdown 格式转换为 HTML（用于预览）
@@ -32,16 +32,30 @@ interface ExperienceItemProps {
   onDelete: (id: string) => void
   setDraggingId: (id: string | null) => void
   resumeData?: ResumeData  // 简历数据，用于 AI 润色
+  globalSettings?: GlobalSettings
+  updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }
+
+const COMPANY_FONT_SIZE_OPTIONS = [
+  { value: 14, label: '14' },
+  { value: 15, label: '15' },
+  { value: 16, label: '16' },
+  { value: 17, label: '17' },
+  { value: 18, label: '18' },
+]
 
 const ExperienceEditor = ({
   experience,
   onSave,
   resumeData,
+  globalSettings,
+  updateGlobalSettings,
 }: {
   experience: Experience
   onSave: (experience: Experience) => void
   resumeData?: ResumeData
+  globalSettings?: GlobalSettings
+  updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }) => {
   const handleChange = (field: keyof Experience, value: string | boolean) => {
     onSave({
@@ -59,13 +73,31 @@ const ExperienceEditor = ({
     <div className="space-y-5">
       <div className="grid gap-5">
         <div className="grid grid-cols-2 gap-4">
-          <Field
-            label="公司名称"
-            value={experience.company}
-            onChange={(value) => handleChange('company', value)}
-            placeholder="请输入公司名称"
-            formatButtons={['bold']}
-          />
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-medium text-gray-500 dark:text-neutral-400">公司名称</label>
+              {updateGlobalSettings && (
+                <div className="flex items-center gap-1">
+                  <span className="text-[10px] text-gray-400 dark:text-neutral-500">字号</span>
+                  <select
+                    value={globalSettings?.companyNameFontSize || 15}
+                    onChange={(e) => updateGlobalSettings({ companyNameFontSize: Number(e.target.value) })}
+                    className="px-1.5 py-0.5 text-[10px] rounded border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-600 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  >
+                    {COMPANY_FONT_SIZE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}px</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+            <Field
+              value={experience.company}
+              onChange={(value) => handleChange('company', value)}
+              placeholder="请输入公司名称"
+              formatButtons={['bold']}
+            />
+          </div>
           <Field
             label="职位"
             value={experience.position}
@@ -100,6 +132,8 @@ const ExperienceItem = ({
   onDelete,
   setDraggingId,
   resumeData,
+  globalSettings,
+  updateGlobalSettings,
 }: ExperienceItemProps) => {
   const dragControls = useDragControls()
   const [expanded, setExpanded] = useState(false)
@@ -215,7 +249,7 @@ const ExperienceItem = ({
             >
               <div className="px-4 pb-4 space-y-4" onClick={(e) => e.stopPropagation()}>
                 <div className={cn('h-px w-full', 'bg-gray-100 dark:bg-neutral-800')} />
-                <ExperienceEditor experience={experience} onSave={onUpdate} resumeData={resumeData} />
+                <ExperienceEditor experience={experience} onSave={onUpdate} resumeData={resumeData} globalSettings={globalSettings} updateGlobalSettings={updateGlobalSettings} />
               </div>
             </motion.div>
           )}

@@ -44,8 +44,10 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
         </section>
       `
 
-    case 'experience':
+    case 'experience': {
       if (experience.length === 0) return ''
+      const companyFontSize = resumeData.globalSettings?.companyNameFontSize
+      const companyStyle = companyFontSize ? ` style="font-size:${companyFontSize}px"` : ''
       return `
         <section class="template-section">
           <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
@@ -54,7 +56,7 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
               <div class="item">
                 <div class="item-header">
                   <div class="item-title-group">
-                    <h3 class="item-title">${escapeHtml(exp.company)}</h3>
+                    <h3 class="item-title"${companyStyle}>${escapeHtml(exp.company)}</h3>
                     <span class="item-subtitle">${escapeHtml(exp.position)}</span>
                   </div>
                   <span class="item-date">${escapeHtml(exp.date)}</span>
@@ -65,6 +67,7 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
           </div>
         </section>
       `
+    }
 
     case 'projects':
       if (projects.length === 0) return ''

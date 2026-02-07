@@ -118,6 +118,8 @@ const ExperiencePanel = ({
             onDelete={onDelete}
             setDraggingId={setDraggingId}
             resumeData={resumeData}
+            globalSettings={globalSettings}
+            updateGlobalSettings={updateGlobalSettings}
           />
         ))}
       </Reorder.Group>

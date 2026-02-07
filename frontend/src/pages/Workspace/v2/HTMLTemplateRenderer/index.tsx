@@ -61,8 +61,9 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
         </section>
       )
 
-    case 'experience':
+    case 'experience': {
       if (experience.length === 0) return null
+      const companyFontSize = resumeData.globalSettings?.companyNameFontSize
       return (
         <section key="experience" className="template-section">
           <h2 className="section-title">{sectionTitle}</h2>
@@ -71,7 +72,7 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
               <div key={exp.id} className="item">
                 <div className="item-header">
                   <div className="item-title-group">
-                    <h3 className="item-title">{exp.company}</h3>
+                    <h3 className="item-title" style={companyFontSize ? { fontSize: `${companyFontSize}px` } : undefined}>{exp.company}</h3>
                     <span className="item-subtitle">{exp.position}</span>
                   </div>
                   <span className="item-date">{exp.date}</span>
@@ -85,6 +86,7 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
           </div>
         </section>
       )
+    }
 
     case 'projects':
       if (projects.length === 0) return null
