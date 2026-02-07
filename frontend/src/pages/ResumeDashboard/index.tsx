@@ -34,6 +34,8 @@ const ResumeDashboard = () => {
     clearSelection,
     // 备注/别名
     updateAlias,
+    // 置顶
+    togglePin,
     // 刷新列表
     loadResumes
   } = useDashboardLogic()
@@ -147,11 +149,11 @@ const ResumeDashboard = () => {
         }
         return ''
       })(),
-      templateType: 'html',
+      templateType: 'latex',
     }
 
     // 保存为新简历
-    const resumeId = `resume_html_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
+    const resumeId = `resume_latex_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`
     const saved = await saveResume(newResumeData, resumeId)
     setCurrentResumeId(saved.id)
 
@@ -161,8 +163,8 @@ const ResumeDashboard = () => {
     // 刷新列表
     await loadResumes()
 
-    // 跳转到工作区编辑
-    navigate(`/workspace/html/${saved.id}`)
+    // 跳转到工作区编辑（LaTeX 模板）
+    navigate(`/workspace/latex/${saved.id}`)
   }, [navigate, loadResumes])
 
   // 格式化 highlights 为 HTML
@@ -299,6 +301,8 @@ const ResumeDashboard = () => {
                     onSelectChange={toggleSelect}
                     // 备注/别名
                     onAliasChange={updateAlias}
+                    // 置顶
+                    onTogglePin={togglePin}
                   />
                 ))}
               </AnimatePresence>

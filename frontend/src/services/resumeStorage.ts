@@ -137,3 +137,10 @@ export async function updateResumeAlias(id: string, alias: string): Promise<bool
   }
   return result
 }
+
+/**
+ * 更新简历置顶状态（仅本地存储）
+ */
+export async function updateResumePinned(id: string, pinned: boolean): Promise<boolean> {
+  return await localAdapter.updateResumePinned(id, pinned)
+}

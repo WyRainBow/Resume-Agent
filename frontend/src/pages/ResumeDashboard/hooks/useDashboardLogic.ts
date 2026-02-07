@@ -7,6 +7,7 @@ import {
   setCurrentResumeId,
   getResume,
   updateResumeAlias as updateResumeAliasService,
+  updateResumePinned as updateResumePinnedService,
   type SavedResume 
 } from '@/services/resumeStorage'
 import { useNavigate } from 'react-router-dom'
@@ -33,8 +34,14 @@ export const useDashboardLogic = () => {
   const loadResumes = async () => {
     setIsLoading(true)
     const list = await getAllResumes()
-    // 按创建时间倒序排列（新创建的在前）
-    list.sort((a, b) => b.createdAt - a.createdAt)
+    // 置顶优先，然后按创建时间倒序排列
+    list.sort((a, b) => {
+      // 置顶的排在前面
+      if (a.pinned && !b.pinned) return -1
+      if (!a.pinned && b.pinned) return 1
+      // 同级别按创建时间倒序
+      return b.createdAt - a.createdAt
+    })
     setResumes(list)
     setIsLoading(false)
   }
@@ -255,6 +262,30 @@ export const useDashboardLogic = () => {
     ))
   }, [])
 
+  /**
+   * 切换简历置顶状态
+   */
+  const togglePin = useCallback(async (id: string) => {
+    // 找到当前简历的 pinned 状态
+    const resume = resumes.find(r => r.id === id)
+    if (!resume) return
+    const newPinned = !resume.pinned
+    await updateResumePinnedService(id, newPinned)
+    // 更新本地状态并重新排序
+    setResumes(prev => {
+      const updated = prev.map(r => 
+        r.id === id ? { ...r, pinned: newPinned } : r
+      )
+      // 重新排序：置顶优先，然后按创建时间倒序
+      updated.sort((a, b) => {
+        if (a.pinned && !b.pinned) return -1
+        if (!a.pinned && b.pinned) return 1
+        return b.createdAt - a.createdAt
+      })
+      return updated
+    })
+  }, [resumes])
+
   return {
     resumes,
     isLoading,
@@ -274,6 +305,8 @@ export const useDashboardLogic = () => {
     clearSelection,
     // 备注/别名
     updateAlias,
+    // 置顶
+    togglePin,
     // 刷新列表
     loadResumes
   }

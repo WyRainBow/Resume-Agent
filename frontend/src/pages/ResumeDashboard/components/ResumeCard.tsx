@@ -31,6 +31,8 @@ interface ResumeCardProps {
   onSelectChange?: (id: string, selected: boolean) => void
   /** 备注/别名变化回调 */
   onAliasChange?: (id: string, alias: string) => void
+  /** 置顶切换回调 */
+  onTogglePin?: (id: string) => void
 }
 
 export const ResumeCard: React.FC<ResumeCardProps> = ({
@@ -41,7 +43,8 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
   isMultiSelectMode = false,
   isSelected = false,
   onSelectChange,
-  onAliasChange
+  onAliasChange,
+  onTogglePin
 }) => {
   const [isEditingAlias, setIsEditingAlias] = useState(false)
   const [aliasValue, setAliasValue] = useState(resume.alias || '')
@@ -83,6 +86,11 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
       whileHover={{ y: -8, transition: { duration: 0.2 } }}
       className="relative group"
     >
+      {/* 置顶状态的发光背景 */}
+      {resume.pinned && (
+        <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-400 to-orange-400 rounded-2xl blur opacity-20 dark:opacity-30" />
+      )}
+
       {/* 选中状态的发光背景 - 只在多选模式下显示 */}
       {isMultiSelectMode && isSelected && (
         <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-2xl blur opacity-30 dark:opacity-50 animate-pulse" />
@@ -192,6 +200,27 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
         </CardContent>
 
         <CardFooter className="relative z-10 pt-0 pb-6 px-6 gap-3">
+          {/* 置顶按钮 */}
+          {onTogglePin && (
+            <Button
+              variant="ghost"
+              className={cn(
+                "h-11 w-11 p-0 rounded-xl transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50",
+                resume.pinned
+                  ? "bg-amber-100/80 hover:bg-amber-200/80 dark:bg-amber-900/40 dark:hover:bg-amber-900/60 text-amber-600 dark:text-amber-400"
+                  : "bg-slate-100/50 hover:bg-amber-100/50 dark:bg-slate-800/50 dark:hover:bg-amber-900/30 text-slate-400 hover:text-amber-600 dark:text-slate-500 dark:hover:text-amber-400"
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                onTogglePin(resume.id);
+              }}
+              title={resume.pinned ? '取消置顶' : '置顶'}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="h-5 w-5">
+                <path d="M4.146.146A.5.5 0 0 1 4.5 0h7a.5.5 0 0 1 .5.5c0 .68-.342 1.174-.646 1.479-.126.125-.25.224-.354.298v4.431l.078.048c.203.127.476.314.751.555C12.36 7.775 13 8.527 13 9.5a.5.5 0 0 1-.5.5h-4v4.5c0 .276-.224 1.5-.5 1.5s-.5-1.224-.5-1.5V10h-4a.5.5 0 0 1-.5-.5c0-.973.64-1.725 1.17-2.189A6 6 0 0 1 5 6.708V2.277a3 3 0 0 1-.354-.298C4.342 1.674 4 1.179 4 .5a.5.5 0 0 1 .146-.354" />
+              </svg>
+            </Button>
+          )}
           <Button
             variant="ghost"
             className="flex-1 h-11 rounded-xl font-semibold bg-slate-100/50 hover:bg-blue-100/50 dark:bg-slate-800/50 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50"

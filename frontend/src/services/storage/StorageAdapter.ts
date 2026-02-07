@@ -7,6 +7,7 @@ export interface SavedResume {
   id: string
   name: string
   alias?: string  // 备注/别名，用于标识简历用途（如"投递腾讯"）
+  pinned?: boolean  // 是否置顶
   templateType?: TemplateType  // 模板类型：html 或 latex
   data: Resume | ResumeData
   createdAt: number
@@ -23,4 +24,5 @@ export interface StorageAdapter {
   renameResume(id: string, newName: string): Promise<boolean>
   duplicateResume(id: string): Promise<SavedResume | null>
   updateResumeAlias(id: string, alias: string): Promise<boolean>
+  updateResumePinned(id: string, pinned: boolean): Promise<boolean>
 }

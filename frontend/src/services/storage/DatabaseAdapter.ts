@@ -167,4 +167,10 @@ export class DatabaseAdapter implements StorageAdapter {
       return false
     }
   }
+
+  async updateResumePinned(id: string, pinned: boolean): Promise<boolean> {
+    // 置顶状态仅存储在本地，不同步到数据库
+    // 通过 LocalStorageAdapter 实现
+    return false
+  }
 }

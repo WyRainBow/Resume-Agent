@@ -114,4 +114,15 @@ export class LocalStorageAdapter implements StorageAdapter {
     }
     return false
   }
+
+  async updateResumePinned(id: string, pinned: boolean): Promise<boolean> {
+    const resumes = await this.getAllResumes()
+    const index = resumes.findIndex(r => r.id === id)
+    if (index >= 0) {
+      resumes[index].pinned = pinned
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(resumes))
+      return true
+    }
+    return false
+  }
 }
