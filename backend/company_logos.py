@@ -126,10 +126,10 @@ def _scan_cos_logos() -> list[dict]:
     try:
         from qcloud_cos import CosConfig, CosS3Client
 
-        secret_id = os.getenv('secret_id', '')
-        secret_key = os.getenv('secret_key', '')
-        region = os.getenv('region', 'ap-guangzhou')
-        bucket = os.getenv('bucket', 'resumecos-1327706280')
+        secret_id = os.getenv('COS_SECRET_ID', '')
+        secret_key = os.getenv('COS_SECRET_KEY', '')
+        region = os.getenv('COS_REGION', 'ap-guangzhou')
+        bucket = os.getenv('COS_BUCKET', 'resumecos-1327706280')
 
         if not secret_id or not secret_key:
             print("[Logo] COS 凭证未配置，使用已知 Logo 列表")
