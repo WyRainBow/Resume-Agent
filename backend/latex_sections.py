@@ -542,7 +542,11 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
                 subtitle = f"{subtitle} ({date})" if subtitle else date
 
             # 根据设置决定仓库链接位置
-            if repo_display == 'inline' and repo_url:
+            if repo_display == 'icon' and repo_url:
+                # 图标模式：在标题旁放一个链接符号
+                escaped_url = escape_latex(repo_url)
+                subsection_title = f"\\textbf{{{item_title}}}\\hspace{{0.3em}}\\href{{{repo_url}}}{{\\faGithub}}"
+            elif repo_display == 'inline' and repo_url:
                 escaped_url = escape_latex(repo_url)
                 escaped_label = escape_latex(repo_label) if repo_label else ''
                 label_prefix = f"{escaped_label}: " if escaped_label else ''
@@ -557,7 +561,7 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
             # 准备要显示的内容
             item_contents = []
 
-            if repo_url and repo_display != 'inline':
+            if repo_url and repo_display not in ('inline', 'icon'):
                 escaped_url = escape_latex(repo_url)
                 escaped_label = escape_latex(repo_label) if repo_label else ''
                 label_prefix = f"{escaped_label}: " if escaped_label else ''

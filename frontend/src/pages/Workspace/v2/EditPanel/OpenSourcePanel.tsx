@@ -139,34 +139,30 @@ function OpenSourceItem({
                         <label className="text-xs font-medium text-gray-500 dark:text-neutral-400">仓库地址</label>
                         {updateGlobalSettings && (
                           <div className="flex items-center gap-1 bg-gray-100 dark:bg-neutral-800 rounded-md p-0.5">
-                            <button
-                              onClick={() => updateGlobalSettings({ openSourceRepoDisplay: 'below' })}
-                              className={cn(
-                                'px-2 py-0.5 text-[10px] font-medium rounded transition-all',
-                                (globalSettings?.openSourceRepoDisplay || 'below') === 'below'
-                                  ? 'bg-white dark:bg-neutral-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                                  : 'text-gray-400 dark:text-neutral-500 hover:text-gray-600'
-                              )}
-                            >
-                              下方
-                            </button>
-                            <button
-                              onClick={() => updateGlobalSettings({ openSourceRepoDisplay: 'inline' })}
-                              className={cn(
-                                'px-2 py-0.5 text-[10px] font-medium rounded transition-all',
-                                globalSettings?.openSourceRepoDisplay === 'inline'
-                                  ? 'bg-white dark:bg-neutral-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                                  : 'text-gray-400 dark:text-neutral-500 hover:text-gray-600'
-                              )}
-                            >
-                              标题旁
-                            </button>
+                            {([
+                              { value: 'below', label: '下方' },
+                              { value: 'inline', label: '文字' },
+                              { value: 'icon', label: '图标' },
+                            ] as const).map((opt) => (
+                              <button
+                                key={opt.value}
+                                onClick={() => updateGlobalSettings({ openSourceRepoDisplay: opt.value })}
+                                className={cn(
+                                  'px-2 py-0.5 text-[10px] font-medium rounded transition-all',
+                                  (globalSettings?.openSourceRepoDisplay || 'below') === opt.value
+                                    ? 'bg-white dark:bg-neutral-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                    : 'text-gray-400 dark:text-neutral-500 hover:text-gray-600'
+                                )}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
                           </div>
                         )}
                       </div>
                       <Field value={openSource.repo || ''} onChange={(v) => handleChange('repo', v)} placeholder="GitHub 链接" />
-                      {/* 链接前缀设置 */}
-                      {updateGlobalSettings && (
+                      {/* 链接前缀设置（图标模式下不显示） */}
+                      {updateGlobalSettings && globalSettings?.openSourceRepoDisplay !== 'icon' && (
                         <div className="mt-2">
                           <label className="text-[10px] text-gray-400 dark:text-neutral-500 mb-1 block">链接前缀</label>
                           <div className="flex items-center gap-1 flex-wrap">
