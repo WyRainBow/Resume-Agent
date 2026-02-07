@@ -172,6 +172,11 @@ def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dic
     content = []
     exp = resume_data.get('experience') or []
     title = (section_titles or {}).get('experience', '工作经历')
+    
+    # 获取公司名称字号设置
+    global_settings = resume_data.get('globalSettings') or {}
+    company_font_size = global_settings.get('companyNameFontSize')
+    
     if isinstance(exp, list) and exp:
         content.append(f"\\section{{{escape_latex(title)}}}")
         for e in exp:
@@ -179,6 +184,13 @@ def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dic
             company = escape_latex(e.get('company') or '')
             position = escape_latex(e.get('position') or '')
             duration = escape_latex(e.get('duration') or e.get('date') or '')
+            
+            # 如果设置了自定义公司名称字号，用 \fontsize 包裹
+            if company_font_size and company_font_size != 15:
+                # LaTeX pt ≈ CSS px * 0.75，但这里直接用 pt 近似
+                pt_size = round(company_font_size * 0.75, 1)
+                baseline = round(pt_size * 1.2, 1)
+                company = f"{{\\fontsize{{{pt_size}pt}}{{{baseline}pt}}\\selectfont {company}}}"
             
             # 自动组合：{company} – {position}（使用 \textendash 并显式空隙让破折号居中）
             if company and position:
