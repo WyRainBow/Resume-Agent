@@ -161,7 +161,8 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
 }
 
 export function generateHTMLFile(resumeData: ResumeData): string {
-  const { basic } = resumeData
+  const { basic, globalSettings } = resumeData
+  const pagePadding = globalSettings?.pagePadding ?? 40
 
   // 读取 CSS 样式（内联）
   const css = `
@@ -170,7 +171,7 @@ export function generateHTMLFile(resumeData: ResumeData): string {
         width: 100%;
         max-width: 850px;
         background: white;
-        padding: 40px;
+        padding: ${pagePadding}px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
           'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
         line-height: 1.6;
@@ -352,7 +353,7 @@ export function generateHTMLFile(resumeData: ResumeData): string {
       @media print {
         .html-template-container {
           box-shadow: none;
-          padding: 20px;
+          padding: ${Math.max(15, pagePadding - 10)}px;
         }
       }
     </style>

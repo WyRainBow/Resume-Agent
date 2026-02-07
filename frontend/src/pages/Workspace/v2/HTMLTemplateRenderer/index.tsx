@@ -202,7 +202,8 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
 }
 
 export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resumeData }) => {
-  const { basic } = resumeData
+  const { basic, globalSettings } = resumeData
+  const pagePadding = globalSettings?.pagePadding ?? 40
 
   // 根据 menuSections 的顺序渲染模块（排除 basic，因为它在 header 中）
   const sectionsToRender = resumeData.menuSections
@@ -210,7 +211,7 @@ export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resu
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
 
   return (
-    <div className="html-template-container">
+    <div className="html-template-container" style={{ padding: `${pagePadding}px` }}>
       {/* 顶部 - 基本信息 */}
       <header className="template-header">
         <div className="header-main">

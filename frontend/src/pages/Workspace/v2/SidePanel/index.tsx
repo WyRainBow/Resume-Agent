@@ -36,6 +36,15 @@ const LINE_SPACING_OPTIONS = [
   { value: 1.5, label: '1.5 (宽松)' },
 ]
 
+// 页面内边距选项 (HTML 模板)
+const PAGE_PADDING_OPTIONS = [
+  { value: 15, label: '极紧凑 (15px)' },
+  { value: 20, label: '紧凑 (20px)' },
+  { value: 30, label: '适中 (30px)' },
+  { value: 40, label: '标准 (40px)' },
+  { value: 50, label: '宽松 (50px)' },
+]
+
 interface SidePanelProps {
   menuSections: MenuSection[]
   activeSection: string
@@ -180,6 +189,24 @@ export function SidePanel({
                 className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               >
                 {LINE_SPACING_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 页面内边距 */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+                页面内边距
+              </label>
+              <select
+                value={globalSettings.pagePadding || 40}
+                onChange={(e) => updateGlobalSettings({ pagePadding: Number(e.target.value) })}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              >
+                {PAGE_PADDING_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>
