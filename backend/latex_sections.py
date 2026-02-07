@@ -558,14 +558,14 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
                     if '\\begin{itemize}' in converted_desc or '\\begin{enumerate}' in converted_desc:
                         item_contents.append(converted_desc)
                     else:
-                        # 否则作为普通文本，按行拆分
+                        # html_to_latex 已经处理了转义，不需要再次 escape_latex
                         if '\n' in converted_desc:
                             for desc in converted_desc.split('\n'):
                                 if desc.strip():
-                                    item_contents.append(escape_latex(desc.strip()))
+                                    item_contents.append(desc.strip())
                         else:
                             if converted_desc.strip():
-                                item_contents.append(escape_latex(converted_desc.strip()))
+                                item_contents.append(converted_desc.strip())
 
             # 如果有内容，生成itemize（除非已经包含列表）
             if item_contents:
