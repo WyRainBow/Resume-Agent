@@ -47,7 +47,11 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
     case 'experience': {
       if (experience.length === 0) return ''
       const companyFontSize = resumeData.globalSettings?.companyNameFontSize
-      const companyStyle = companyFontSize ? ` style="font-size:${companyFontSize}px"` : ''
+      const companyColor = resumeData.globalSettings?.companyNameColor
+      const styleParts: string[] = []
+      if (companyFontSize) styleParts.push(`font-size:${companyFontSize}px`)
+      if (companyColor) styleParts.push(`color:${companyColor}`)
+      const companyStyle = styleParts.length ? ` style="${styleParts.join(';')}"` : ''
       return `
         <section class="template-section">
           <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>

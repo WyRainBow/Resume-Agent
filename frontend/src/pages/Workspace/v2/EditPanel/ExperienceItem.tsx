@@ -83,17 +83,37 @@ const ExperienceEditor = ({
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-medium text-gray-500 dark:text-neutral-400">公司名称</label>
               {updateGlobalSettings && (
-                <div className="flex items-center gap-1">
-                  <span className="text-[10px] text-gray-400 dark:text-neutral-500">字号</span>
-                  <select
-                    value={globalSettings?.companyNameFontSize || 15}
-                    onChange={(e) => updateGlobalSettings({ companyNameFontSize: Number(e.target.value) })}
-                    className="px-1.5 py-0.5 text-[10px] rounded border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-600 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                  >
-                    {COMPANY_FONT_SIZE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}px</option>
-                    ))}
-                  </select>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-gray-400 dark:text-neutral-500">字号</span>
+                    <select
+                      value={globalSettings?.companyNameFontSize || 15}
+                      onChange={(e) => updateGlobalSettings({ companyNameFontSize: Number(e.target.value) })}
+                      className="px-1.5 py-0.5 text-[10px] rounded border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-600 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    >
+                      {COMPANY_FONT_SIZE_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}px</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-gray-400 dark:text-neutral-500">颜色</span>
+                    <input
+                      type="color"
+                      value={globalSettings?.companyNameColor || '#1f2937'}
+                      onChange={(e) => updateGlobalSettings({ companyNameColor: e.target.value })}
+                      className="w-5 h-5 rounded border border-gray-200 dark:border-neutral-700 cursor-pointer p-0"
+                    />
+                    {globalSettings?.companyNameColor && (
+                      <button
+                        onClick={() => updateGlobalSettings({ companyNameColor: undefined })}
+                        className="text-[9px] text-gray-400 hover:text-red-400 transition-colors"
+                        title="重置颜色"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
