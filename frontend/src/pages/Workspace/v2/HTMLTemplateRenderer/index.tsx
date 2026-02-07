@@ -116,8 +116,9 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
         </section>
       )
 
-    case 'openSource':
+    case 'openSource': {
       if (openSource.length === 0) return null
+      const repoDisplay = resumeData.globalSettings?.openSourceRepoDisplay || 'below'
       return (
         <section key="openSource" className="template-section">
           <h2 className="section-title">{sectionTitle}</h2>
@@ -126,7 +127,19 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
               <div key={os.id} className="item">
                 <div className="item-header">
                   <div className="item-title-group">
-                    <h3 className="item-title">{os.name}</h3>
+                    <h3 className="item-title">
+                      {os.name}
+                      {repoDisplay === 'inline' && os.repo && (
+                        <a
+                          href={os.repo}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ fontWeight: 'normal', fontSize: '12px', marginLeft: '8px', color: '#2563eb' }}
+                        >
+                          {os.repo}
+                        </a>
+                      )}
+                    </h3>
                     {os.role && <span className="item-subtitle">{os.role}</span>}
                   </div>
                   {os.date && <span className="item-date">{os.date}</span>}
@@ -135,7 +148,7 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
                   className="item-description"
                   dangerouslySetInnerHTML={{ __html: os.description }}
                 />
-                {os.repo && (
+                {repoDisplay === 'below' && os.repo && (
                   <a href={os.repo} target="_blank" rel="noopener noreferrer" className="item-link">
                     查看仓库 →
                   </a>
@@ -145,6 +158,7 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
           </div>
         </section>
       )
+    }
 
     case 'awards':
       if (awards.length === 0) return null

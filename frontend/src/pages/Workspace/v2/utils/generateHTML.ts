@@ -89,8 +89,9 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
         </section>
       `
 
-    case 'openSource':
+    case 'openSource': {
       if (openSource.length === 0) return ''
+      const repoDisplay = resumeData.globalSettings?.openSourceRepoDisplay || 'below'
       return `
         <section class="template-section">
           <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
@@ -99,18 +100,22 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
               <div class="item">
                 <div class="item-header">
                   <div class="item-title-group">
-                    <h3 class="item-title">${escapeHtml(os.name)}</h3>
+                    <h3 class="item-title">
+                      ${escapeHtml(os.name)}
+                      ${repoDisplay === 'inline' && os.repo ? `<a href="${escapeHtml(os.repo)}" target="_blank" rel="noopener noreferrer" style="font-weight:normal;font-size:12px;margin-left:8px;color:#2563eb">${escapeHtml(os.repo)}</a>` : ''}
+                    </h3>
                     ${os.role ? `<span class="item-subtitle">${escapeHtml(os.role)}</span>` : ''}
                   </div>
                   ${os.date ? `<span class="item-date">${escapeHtml(os.date)}</span>` : ''}
                 </div>
                 <div class="item-description">${os.description}</div>
-                ${os.repo ? `<a href="${escapeHtml(os.repo)}" target="_blank" rel="noopener noreferrer" class="item-link">查看仓库 →</a>` : ''}
+                ${repoDisplay === 'below' && os.repo ? `<a href="${escapeHtml(os.repo)}" target="_blank" rel="noopener noreferrer" class="item-link">查看仓库 →</a>` : ''}
               </div>
             `).join('')}
           </div>
         </section>
       `
+    }
 
     case 'awards':
       if (awards.length === 0) return ''

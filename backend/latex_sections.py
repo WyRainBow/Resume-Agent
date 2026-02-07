@@ -515,6 +515,10 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
     # 兼容 openSource、opensource、open_source 三种字段名
     open_source = resume_data.get('openSource') or resume_data.get('opensource') or resume_data.get('open_source') or []
     title = (section_titles or {}).get('openSource', '开源经历')
+    # 获取全局设置
+    global_settings = resume_data.get('globalSettings') or {}
+    repo_display = global_settings.get('openSourceRepoDisplay', 'below')
+    
     if isinstance(open_source, list) and open_source:
         content.append(f"\\section{{{escape_latex(title)}}}")
         for os_item in open_source:
@@ -536,7 +540,12 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
             if date:
                 subtitle = f"{subtitle} ({date})" if subtitle else date
 
-            subsection_title = f"\\textbf{{{item_title}}}"
+            # 根据设置决定仓库链接位置
+            if repo_display == 'inline' and repo_url:
+                escaped_url = escape_latex(repo_url)
+                subsection_title = f"\\textbf{{{item_title}}}\\hspace{{0.5em}}\\textit{{\\small {escaped_url}}}"
+            else:
+                subsection_title = f"\\textbf{{{item_title}}}"
             content.append(f"\\datedsubsection{{{subsection_title}}}{{{subtitle}}}")
 
             # 处理贡献描述 - description 是 HTML 格式
@@ -545,7 +554,7 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
             # 准备要显示的内容
             item_contents = []
 
-            if repo_url:
+            if repo_url and repo_display != 'inline':
                 escaped_url = escape_latex(repo_url)
                 item_contents.append(f"仓库: \\textit{{{escaped_url}}}")
 
