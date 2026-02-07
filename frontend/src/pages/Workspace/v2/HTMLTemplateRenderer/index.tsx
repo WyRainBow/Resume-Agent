@@ -5,6 +5,7 @@
 import React from 'react'
 import { cn } from '@/lib/utils'
 import type { ResumeData } from '../types'
+import { getLogoUrl } from '../constants/companyLogos'
 import './styles.css'
 
 interface HTMLTemplateRendererProps {
@@ -64,27 +65,45 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
     case 'experience': {
       if (experience.length === 0) return null
       const companyFontSize = resumeData.globalSettings?.companyNameFontSize
+      const logoSize = resumeData.globalSettings?.companyLogoSize || 20
       const companyStyle: React.CSSProperties = {}
       if (companyFontSize) companyStyle.fontSize = `${companyFontSize}px`
       return (
         <section key="experience" className="template-section">
           <h2 className="section-title">{sectionTitle}</h2>
           <div className="section-content">
-            {experience.map((exp) => (
-              <div key={exp.id} className="item">
-                <div className="item-header">
-                  <div className="item-title-group">
-                    <h3 className="item-title" style={Object.keys(companyStyle).length ? companyStyle : undefined}>{exp.company}</h3>
-                    <span className="item-subtitle">{exp.position}</span>
+            {experience.map((exp) => {
+              const logoUrl = exp.companyLogo ? getLogoUrl(exp.companyLogo) : null
+              return (
+                <div key={exp.id} className="item">
+                  <div className="item-header">
+                    <div className="item-title-group">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {logoUrl && (
+                          <img
+                            src={logoUrl}
+                            alt=""
+                            style={{
+                              height: `${logoSize}px`,
+                              width: `${logoSize}px`,
+                              objectFit: 'contain',
+                              flexShrink: 0,
+                            }}
+                          />
+                        )}
+                        <h3 className="item-title" style={Object.keys(companyStyle).length ? companyStyle : undefined}>{exp.company}</h3>
+                      </div>
+                      <span className="item-subtitle">{exp.position}</span>
+                    </div>
+                    <span className="item-date">{exp.date}</span>
                   </div>
-                  <span className="item-date">{exp.date}</span>
+                  <div
+                    className="item-description"
+                    dangerouslySetInnerHTML={{ __html: exp.details }}
+                  />
                 </div>
-                <div
-                  className="item-description"
-                  dangerouslySetInnerHTML={{ __html: exp.details }}
-                />
-              </div>
-            ))}
+              )
+            })}
           </div>
         </section>
       )

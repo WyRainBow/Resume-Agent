@@ -37,6 +37,17 @@ const LINE_SPACING_OPTIONS = [
   { value: 1.5, label: '1.5 (宽松)' },
 ]
 
+// 公司 Logo 大小选项
+const LOGO_SIZE_OPTIONS = [
+  { value: 14, label: '14px (小)' },
+  { value: 16, label: '16px' },
+  { value: 18, label: '18px' },
+  { value: 20, label: '20px (默认)' },
+  { value: 24, label: '24px' },
+  { value: 28, label: '28px' },
+  { value: 32, label: '32px (大)' },
+]
+
 // 经历项间距选项 (LaTeX ex)
 const EXPERIENCE_GAP_OPTIONS = [
   { value: 0, label: '无间距 (标准)' },
@@ -254,6 +265,24 @@ export function SidePanel({
                 className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               >
                 {EXPERIENCE_GAP_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 公司 Logo 大小 */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+                公司 Logo 大小
+              </label>
+              <select
+                value={globalSettings.companyLogoSize ?? 20}
+                onChange={(e) => updateGlobalSettings({ companyLogoSize: Number(e.target.value) })}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              >
+                {LOGO_SIZE_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
                     {opt.label}
                   </option>

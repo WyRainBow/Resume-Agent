@@ -35,6 +35,8 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
     list_type = global_settings.get('experienceListType', 'none')
     company_font_size = global_settings.get('companyNameFontSize')
     experience_gap = global_settings.get('experienceGap', 0)  # 经历项间距，默认 0（无间距，标准样式）
+    logo_size_px = global_settings.get('companyLogoSize', 20)  # Logo 大小（px），默认 20
+    logo_size_pt = round(logo_size_px * 0.75, 1)  # 转换为 pt
     
     if isinstance(internships, list) and internships:
         content.append(f"\\section{{{escape_latex(title)}}}")
@@ -53,6 +55,13 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
                 pt_size = round(company_font_size * 0.75, 1)
                 baseline = round(pt_size * 1.2, 1)
                 company = f"{{\\fontsize{{{pt_size}pt}}{{{baseline}pt}}\\selectfont {company}}}"
+            
+            # 如果有公司 Logo，在公司名称前插入图片
+            logo_key = it.get('logo')
+            if logo_key:
+                logo_file = f"logos/logo_{idx}.png"
+                logo_latex = f"\\raisebox{{-0.2em}}{{\\includegraphics[height={logo_size_pt}pt]{{{logo_file}}}}}\\hspace{{0.3em}}"
+                company = f"{logo_latex}{company}"
             
             if company and position:
                 title_text = f"{company}\\hspace{{0.2em}}\\textendash\\hspace{{0.2em}}{position}"

@@ -95,7 +95,7 @@ async def render_pdf_stream(body: RenderPDFRequest):
             yield dict(event="progress", data="正在编译PDF（可能需要几秒）...")
 
             try:
-                pdf_io = compile_latex_to_pdf(latex_content, template_dir)
+                pdf_io = compile_latex_to_pdf(latex_content, template_dir, resume_data=resume_data)
                 compile_time = time.time() - compile_start
                 yield dict(event="progress", data=f"PDF编译完成 ({compile_time:.1f}s)")
 

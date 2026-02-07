@@ -1,12 +1,13 @@
 /**
  * 工作经历条目组件
  */
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { motion, Reorder, useDragControls, AnimatePresence } from 'framer-motion'
-import { ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
+import { ChevronDown, Eye, GripVertical, Trash2, X, Image } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { Experience, ResumeData, GlobalSettings } from '../types'
 import Field from './Field'
+import { PRESET_COMPANY_LOGOS, getLogoUrl, matchCompanyLogo } from '../constants/companyLogos'
 
 // 将 Markdown 格式转换为 HTML（用于预览）
 const markdownToHtml = (text: string): string => {
@@ -34,6 +35,154 @@ interface ExperienceItemProps {
   resumeData?: ResumeData  // 简历数据，用于 AI 润色
   globalSettings?: GlobalSettings
   updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
+}
+
+/**
+ * Logo 选择器组件
+ */
+function LogoSelector({
+  selectedKey,
+  onSelect,
+  onClear,
+}: {
+  selectedKey?: string
+  onSelect: (key: string) => void
+  onClear: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
+  const panelRef = useRef<HTMLDivElement>(null)
+
+  // 点击外部关闭
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const filteredLogos = search
+    ? PRESET_COMPANY_LOGOS.filter(
+        (l) =>
+          l.name.toLowerCase().includes(search.toLowerCase()) ||
+          l.keywords.some((k) => k.toLowerCase().includes(search.toLowerCase()))
+      )
+    : PRESET_COMPANY_LOGOS
+
+  const selectedLogoUrl = selectedKey ? getLogoUrl(selectedKey) : null
+
+  return (
+    <div className="relative" ref={panelRef}>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className={cn(
+            'flex items-center gap-1.5 px-2 py-1 text-[10px] rounded-md border transition-colors',
+            selectedKey
+              ? 'border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+              : 'border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-500 dark:text-neutral-400 hover:border-gray-300 dark:hover:border-neutral-600'
+          )}
+        >
+          {selectedLogoUrl ? (
+            <img src={selectedLogoUrl} alt="" className="w-4 h-4 object-contain" />
+          ) : (
+            <Image className="w-3 h-3" />
+          )}
+          <span>{selectedKey ? 'Logo' : '+ Logo'}</span>
+        </button>
+        {selectedKey && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onClear()
+            }}
+            className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/30"
+            title="移除 Logo"
+          >
+            <X className="w-3 h-3 text-red-400" />
+          </button>
+        )}
+      </div>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.95 }}
+            transition={{ duration: 0.15 }}
+            className={cn(
+              'absolute z-50 top-full left-0 mt-1 w-72 rounded-lg shadow-lg border overflow-hidden',
+              'bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-700'
+            )}
+          >
+            {/* 搜索框 */}
+            <div className="p-2 border-b border-gray-100 dark:border-neutral-800">
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="搜索公司..."
+                autoFocus
+                className="w-full px-2 py-1.5 text-xs rounded border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 text-gray-700 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-gray-400"
+              />
+            </div>
+
+            {/* Logo 网格 */}
+            <div className="p-2 max-h-48 overflow-y-auto">
+              <div className="grid grid-cols-4 gap-1.5">
+                {filteredLogos.map((logo) => {
+                  const url = getLogoUrl(logo.key)
+                  const isSelected = selectedKey === logo.key
+                  return (
+                    <button
+                      key={logo.key}
+                      type="button"
+                      onClick={() => {
+                        onSelect(logo.key)
+                        setOpen(false)
+                        setSearch('')
+                      }}
+                      className={cn(
+                        'flex flex-col items-center gap-1 p-2 rounded-lg transition-all text-center',
+                        isSelected
+                          ? 'bg-indigo-50 dark:bg-indigo-900/30 ring-1 ring-indigo-400'
+                          : 'hover:bg-gray-50 dark:hover:bg-neutral-800'
+                      )}
+                      title={logo.name}
+                    >
+                      {url && (
+                        <img
+                          src={url}
+                          alt={logo.name}
+                          className="w-8 h-8 object-contain"
+                          loading="lazy"
+                        />
+                      )}
+                      <span className="text-[10px] text-gray-600 dark:text-neutral-400 truncate w-full leading-tight">
+                        {logo.name}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+              {filteredLogos.length === 0 && (
+                <div className="text-center text-xs text-gray-400 py-4">
+                  未找到匹配的公司
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
 }
 
 const COMPANY_FONT_SIZE_OPTIONS = [
@@ -64,10 +213,12 @@ const ExperienceEditor = ({
   updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }) => {
   const handleChange = (field: keyof Experience, value: string | boolean) => {
-    onSave({
-      ...experience,
-      [field]: value,
-    })
+    const updated = { ...experience, [field]: value }
+    // 清除空字符串的 companyLogo
+    if (field === 'companyLogo' && value === '') {
+      delete updated.companyLogo
+    }
+    onSave(updated)
   }
 
   // 构建 polishPath，使用方括号格式：experience[0].details
@@ -75,13 +226,23 @@ const ExperienceEditor = ({
     ? `experience[${resumeData.experience.findIndex(e => e.id === experience.id)}].details`
     : undefined
 
+  // 自动匹配 Logo 提示
+  const autoMatchedKey = !experience.companyLogo ? matchCompanyLogo(experience.company) : null
+
   return (
     <div className="space-y-5">
       <div className="grid gap-5">
         <div className="grid grid-cols-2 gap-4">
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="text-xs font-medium text-gray-500 dark:text-neutral-400">公司名称</label>
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-medium text-gray-500 dark:text-neutral-400">公司名称</label>
+                <LogoSelector
+                  selectedKey={experience.companyLogo}
+                  onSelect={(key) => handleChange('companyLogo', key)}
+                  onClear={() => handleChange('companyLogo', '')}
+                />
+              </div>
               {updateGlobalSettings && (
                 <div className="flex items-center gap-2">
                   <div className="flex items-center gap-1">
@@ -99,6 +260,22 @@ const ExperienceEditor = ({
                 </div>
               )}
             </div>
+            {/* 自动匹配提示 */}
+            {autoMatchedKey && (
+              <div className="flex items-center gap-1.5 mb-1 px-2 py-1 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                <img src={getLogoUrl(autoMatchedKey)!} alt="" className="w-4 h-4 object-contain" />
+                <span className="text-[10px] text-amber-700 dark:text-amber-400">
+                  检测到匹配 Logo - {PRESET_COMPANY_LOGOS.find(l => l.key === autoMatchedKey)?.name}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => handleChange('companyLogo', autoMatchedKey)}
+                  className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-medium ml-auto"
+                >
+                  使用
+                </button>
+              </div>
+            )}
             <Field
               value={experience.company}
               onChange={(value) => handleChange('company', value)}
@@ -212,7 +389,14 @@ const ExperienceItem = ({
           )}
           onClick={() => setExpanded(!expanded)}
         >
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            {experience.companyLogo && getLogoUrl(experience.companyLogo) && (
+              <img
+                src={getLogoUrl(experience.companyLogo)!}
+                alt=""
+                className="w-5 h-5 object-contain shrink-0"
+              />
+            )}
             <h3 
               className={cn('font-medium truncate', 'text-gray-700 dark:text-neutral-200')}
               dangerouslySetInnerHTML={{ 

@@ -18,6 +18,7 @@ export interface BackendResumeData {
     subtitle: string
     date: string
     highlights: string[]
+    logo?: string  // 公司 Logo key
   }[]
   projects: {
     title: string
@@ -68,6 +69,7 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
       subtitle: e.position,
       date: e.date,
       highlights: [e.details],
+      ...(e.companyLogo ? { logo: e.companyLogo } : {}),
     })),
     projects: data.projects.filter(p => p.visible !== false).map((p) => ({
       title: p.name,

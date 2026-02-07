@@ -15,6 +15,7 @@ from io import BytesIO
 
 from .latex_utils import escape_latex, normalize_resume_data
 from .latex_sections import SECTION_GENERATORS, DEFAULT_SECTION_ORDER
+from .company_logos import download_logos_to_dir
 
 
 def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) -> str:
@@ -81,6 +82,8 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     latex_content.append(r"\usepackage{zh_CN-Adobefonts_external}")
     latex_content.append(r"\usepackage{linespacing_fix}")
     latex_content.append(r"\usepackage{cite}")
+    latex_content.append(r"\usepackage{graphicx}")
+    latex_content.append(r"\graphicspath{{logos/}}")
     """确保中文字体正确加载和 Unicode 支持"""
     latex_content.append(r'\XeTeXlinebreaklocale "zh"')
     latex_content.append(r"\XeTeXlinebreakskip = 0pt plus 1pt")
@@ -133,13 +136,14 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     return "\n".join(latex_content)
 
 
-def compile_latex_to_pdf(latex_content: str, template_dir: Path) -> BytesIO:
+def compile_latex_to_pdf(latex_content: str, template_dir: Path, resume_data: Dict[str, Any] = None) -> BytesIO:
     """
     编译 LaTeX 代码为 PDF（简化版本）
 
     参数:
         latex_content: LaTeX 代码字符串
         template_dir: LaTeX 模板目录（包含 resume.cls 等文件）
+        resume_data: 简历数据（用于下载 Logo 等资源）
 
     返回:
         PDF 文件的 BytesIO 对象
@@ -166,6 +170,13 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path) -> BytesIO:
         fonts_dir = template_dir / 'fonts'
         if fonts_dir.exists():
             shutil.copytree(fonts_dir, Path(temp_dir) / 'fonts', dirs_exist_ok=True)
+
+        # 下载公司 Logo 到临时目录
+        if resume_data:
+            internships = resume_data.get('internships') or []
+            if any(it.get('logo') for it in internships):
+                logo_map = download_logos_to_dir(internships, temp_dir)
+                print(f"[Logo] 下载完成，共 {len(logo_map)} 个 Logo")
 
         # 写入 LaTeX 文件
         tex_file = Path(temp_dir) / 'resume.tex'
@@ -292,7 +303,7 @@ def render_pdf_from_resume_latex(resume_data: Dict[str, Any], section_order: Lis
     
     """编译为 PDF"""
     compile_start = time.time()
-    pdf_io = compile_latex_to_pdf(latex_content, template_dir)
+    pdf_io = compile_latex_to_pdf(latex_content, template_dir, resume_data=resume_data)
     compile_time = time.time() - compile_start
     print(f"[性能] LaTeX 编译 PDF: {compile_time*1000:.0f}ms")
     

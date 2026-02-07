@@ -2,6 +2,7 @@
  * 生成完整的 HTML 文件内容（包含内联 CSS）
  */
 import type { ResumeData } from '../types'
+import { getLogoUrl } from '../constants/companyLogos'
 
 // 生成单个模块的 HTML
 function generateSectionHTML(section: { id: string; title: string }, resumeData: ResumeData): string {
@@ -47,6 +48,7 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
     case 'experience': {
       if (experience.length === 0) return ''
       const companyFontSize = resumeData.globalSettings?.companyNameFontSize
+      const logoSize = resumeData.globalSettings?.companyLogoSize || 20
       const styleParts: string[] = []
       if (companyFontSize) styleParts.push(`font-size:${companyFontSize}px`)
       const companyStyle = styleParts.length ? ` style="${styleParts.join(';')}"` : ''
@@ -54,18 +56,26 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
         <section class="template-section">
           <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
           <div class="section-content">
-            ${experience.map(exp => `
+            ${experience.map(exp => {
+              const logoUrl = exp.companyLogo ? getLogoUrl(exp.companyLogo) : null
+              const logoHtml = logoUrl
+                ? `<img src="${escapeHtml(logoUrl)}" alt="" style="height:${logoSize}px;width:${logoSize}px;object-fit:contain;flex-shrink:0" />`
+                : ''
+              return `
               <div class="item">
                 <div class="item-header">
                   <div class="item-title-group">
-                    <h3 class="item-title"${companyStyle}>${escapeHtml(exp.company)}</h3>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      ${logoHtml}
+                      <h3 class="item-title"${companyStyle}>${escapeHtml(exp.company)}</h3>
+                    </div>
                     <span class="item-subtitle">${escapeHtml(exp.position)}</span>
                   </div>
                   <span class="item-date">${escapeHtml(exp.date)}</span>
                 </div>
                 <div class="item-description">${exp.details}</div>
               </div>
-            `).join('')}
+            `}).join('')}
           </div>
         </section>
       `
