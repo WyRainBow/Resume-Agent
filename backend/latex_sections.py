@@ -33,6 +33,9 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
     # 获取列表类型，默认为 'none'
     global_settings = resume_data.get('globalSettings') or {}
     list_type = global_settings.get('experienceListType', 'none')
+    company_font_size = global_settings.get('companyNameFontSize')
+    print(f"[DEBUG] internships globalSettings: {global_settings}")
+    print(f"[DEBUG] company_font_size: {company_font_size}")
     
     if isinstance(internships, list) and internships:
         content.append(f"\\section{{{escape_latex(title)}}}")
@@ -45,6 +48,12 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
             if date and date.strip() in ['未提及', '未知', 'N/A', '-', '']:
                 date = ''
             date = escape_latex(date)
+            
+            # 如果设置了自定义公司名称字号，用 \fontsize 包裹
+            if company and company_font_size and company_font_size != 15:
+                pt_size = round(company_font_size * 0.75, 1)
+                baseline = round(pt_size * 1.2, 1)
+                company = f"{{\\fontsize{{{pt_size}pt}}{{{baseline}pt}}\\selectfont {company}}}"
             
             if company and position:
                 title_text = f"{company}\\hspace{{0.2em}}\\textendash\\hspace{{0.2em}}{position}"
