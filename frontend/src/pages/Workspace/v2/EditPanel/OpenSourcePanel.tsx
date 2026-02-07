@@ -42,6 +42,7 @@ function OpenSourceItem({
 }) {
   const dragControls = useDragControls()
   const [expanded, setExpanded] = useState(false)
+  const [showCustomLabel, setShowCustomLabel] = useState(false)
 
   const handleChange = (field: keyof OpenSource, value: string | boolean) => {
     onUpdate({ ...openSource, [field]: value })
@@ -164,6 +165,59 @@ function OpenSourceItem({
                         )}
                       </div>
                       <Field value={openSource.repo || ''} onChange={(v) => handleChange('repo', v)} placeholder="GitHub 链接" />
+                      {/* 链接前缀设置 */}
+                      {updateGlobalSettings && (
+                        <div className="mt-2">
+                          <label className="text-[10px] text-gray-400 dark:text-neutral-500 mb-1 block">链接前缀</label>
+                          <div className="flex items-center gap-1 flex-wrap">
+                            {[
+                              { value: '', label: '无前缀' },
+                              { value: '仓库', label: '仓库' },
+                              { value: 'GitHub', label: 'GitHub' },
+                            ].map((opt) => {
+                              const current = globalSettings?.openSourceRepoLabel ?? '仓库'
+                              const isActive = !showCustomLabel && current === opt.value
+                              return (
+                                <button
+                                  key={opt.value}
+                                  onClick={() => {
+                                    setShowCustomLabel(false)
+                                    updateGlobalSettings({ openSourceRepoLabel: opt.value })
+                                  }}
+                                  className={cn(
+                                    'px-2 py-0.5 text-[10px] font-medium rounded transition-all border',
+                                    isActive
+                                      ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400'
+                                      : 'border-gray-200 dark:border-neutral-700 text-gray-400 dark:text-neutral-500 hover:border-gray-300'
+                                  )}
+                                >
+                                  {opt.label}
+                                </button>
+                              )
+                            })}
+                            <button
+                              onClick={() => setShowCustomLabel(true)}
+                              className={cn(
+                                'px-2 py-0.5 text-[10px] font-medium rounded transition-all border',
+                                showCustomLabel
+                                  ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400'
+                                  : 'border-gray-200 dark:border-neutral-700 text-gray-400 dark:text-neutral-500 hover:border-gray-300'
+                              )}
+                            >
+                              自定义
+                            </button>
+                            {showCustomLabel && (
+                              <input
+                                type="text"
+                                value={globalSettings?.openSourceRepoLabel ?? '仓库'}
+                                onChange={(e) => updateGlobalSettings({ openSourceRepoLabel: e.target.value })}
+                                placeholder="输入前缀"
+                                className="px-2 py-0.5 text-[10px] w-20 rounded border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-neutral-800 text-gray-700 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <Field label="时间" value={openSource.date || ''} onChange={(v) => handleChange('date', v)} placeholder="如：2024.01 - 至今" />
                   </div>

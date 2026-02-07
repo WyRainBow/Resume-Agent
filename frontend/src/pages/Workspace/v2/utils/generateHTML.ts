@@ -92,6 +92,8 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
     case 'openSource': {
       if (openSource.length === 0) return ''
       const repoDisplay = resumeData.globalSettings?.openSourceRepoDisplay || 'below'
+      const repoLabel = resumeData.globalSettings?.openSourceRepoLabel ?? '仓库'
+      const repoPrefix = repoLabel ? `${escapeHtml(repoLabel)}: ` : ''
       return `
         <section class="template-section">
           <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
@@ -102,14 +104,14 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
                   <div class="item-title-group">
                     <h3 class="item-title">
                       ${escapeHtml(os.name)}
-                      ${repoDisplay === 'inline' && os.repo ? `<a href="${escapeHtml(os.repo)}" target="_blank" rel="noopener noreferrer" style="font-weight:normal;font-size:12px;margin-left:8px;color:#2563eb">${escapeHtml(os.repo)}</a>` : ''}
+                      ${repoDisplay === 'inline' && os.repo ? `<span style="font-weight:normal;font-size:12px;margin-left:8px">${repoPrefix ? `<span style="color:#475569">${repoPrefix}</span>` : ''}<a href="${escapeHtml(os.repo)}" target="_blank" rel="noopener noreferrer" style="color:#2563eb">${escapeHtml(os.repo)}</a></span>` : ''}
                     </h3>
                     ${os.role ? `<span class="item-subtitle">${escapeHtml(os.role)}</span>` : ''}
                   </div>
                   ${os.date ? `<span class="item-date">${escapeHtml(os.date)}</span>` : ''}
                 </div>
                 <div class="item-description">${os.description}</div>
-                ${repoDisplay === 'below' && os.repo ? `<a href="${escapeHtml(os.repo)}" target="_blank" rel="noopener noreferrer" class="item-link">查看仓库 →</a>` : ''}
+                ${repoDisplay === 'below' && os.repo ? `<a href="${escapeHtml(os.repo)}" target="_blank" rel="noopener noreferrer" class="item-link">${repoPrefix ? repoPrefix + escapeHtml(os.repo) : escapeHtml(os.repo)}</a>` : ''}
               </div>
             `).join('')}
           </div>

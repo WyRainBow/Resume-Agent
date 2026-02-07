@@ -518,6 +518,7 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
     # 获取全局设置
     global_settings = resume_data.get('globalSettings') or {}
     repo_display = global_settings.get('openSourceRepoDisplay', 'below')
+    repo_label = global_settings.get('openSourceRepoLabel', '仓库')  # 前缀：'' 无前缀 | '仓库' | 'GitHub' | 自定义
     
     if isinstance(open_source, list) and open_source:
         content.append(f"\\section{{{escape_latex(title)}}}")
@@ -543,7 +544,9 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
             # 根据设置决定仓库链接位置
             if repo_display == 'inline' and repo_url:
                 escaped_url = escape_latex(repo_url)
-                subsection_title = f"\\textbf{{{item_title}}}\\hspace{{0.5em}}\\textit{{\\small {escaped_url}}}"
+                escaped_label = escape_latex(repo_label) if repo_label else ''
+                label_prefix = f"{escaped_label}: " if escaped_label else ''
+                subsection_title = f"\\textbf{{{item_title}}}\\hspace{{0.5em}}\\textit{{\\small {label_prefix}{escaped_url}}}"
             else:
                 subsection_title = f"\\textbf{{{item_title}}}"
             content.append(f"\\datedsubsection{{{subsection_title}}}{{{subtitle}}}")
@@ -556,7 +559,9 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
 
             if repo_url and repo_display != 'inline':
                 escaped_url = escape_latex(repo_url)
-                item_contents.append(f"仓库: \\textit{{{escaped_url}}}")
+                escaped_label = escape_latex(repo_label) if repo_label else ''
+                label_prefix = f"{escaped_label}: " if escaped_label else ''
+                item_contents.append(f"{label_prefix}\\textit{{{escaped_url}}}")
 
             if description:
                 # description 是 HTML 格式，需要转换

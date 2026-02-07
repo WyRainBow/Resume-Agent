@@ -119,6 +119,8 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
     case 'openSource': {
       if (openSource.length === 0) return null
       const repoDisplay = resumeData.globalSettings?.openSourceRepoDisplay || 'below'
+      const repoLabel = resumeData.globalSettings?.openSourceRepoLabel ?? '仓库'
+      const repoPrefix = repoLabel ? `${repoLabel}: ` : ''
       return (
         <section key="openSource" className="template-section">
           <h2 className="section-title">{sectionTitle}</h2>
@@ -130,14 +132,17 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
                     <h3 className="item-title">
                       {os.name}
                       {repoDisplay === 'inline' && os.repo && (
-                        <a
-                          href={os.repo}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{ fontWeight: 'normal', fontSize: '12px', marginLeft: '8px', color: '#2563eb' }}
-                        >
-                          {os.repo}
-                        </a>
+                        <span style={{ fontWeight: 'normal', fontSize: '12px', marginLeft: '8px' }}>
+                          {repoPrefix && <span style={{ color: '#475569' }}>{repoPrefix}</span>}
+                          <a
+                            href={os.repo}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: '#2563eb' }}
+                          >
+                            {os.repo}
+                          </a>
+                        </span>
                       )}
                     </h3>
                     {os.role && <span className="item-subtitle">{os.role}</span>}
@@ -150,7 +155,7 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
                 />
                 {repoDisplay === 'below' && os.repo && (
                   <a href={os.repo} target="_blank" rel="noopener noreferrer" className="item-link">
-                    查看仓库 →
+                    {repoPrefix ? `${repoPrefix}${os.repo}` : os.repo}
                   </a>
                 )}
               </div>
