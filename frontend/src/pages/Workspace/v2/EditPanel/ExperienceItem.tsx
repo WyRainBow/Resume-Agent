@@ -230,11 +230,16 @@ const ExperienceEditor = ({
   globalSettings?: GlobalSettings
   updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }) => {
-  const handleChange = (field: keyof Experience, value: string | boolean) => {
+  const handleChange = (field: keyof Experience, value: string | boolean | number | undefined) => {
     const updated = { ...experience, [field]: value }
     // 清除空字符串的 companyLogo
     if (field === 'companyLogo' && value === '') {
       delete updated.companyLogo
+      delete updated.companyLogoSize // 同时清除单独设置的大小
+    }
+    // 清除 undefined 值
+    if (value === undefined) {
+      delete (updated as any)[field]
     }
     onSave(updated)
   }
@@ -260,6 +265,34 @@ const ExperienceEditor = ({
                   onSelect={(key) => handleChange('companyLogo', key)}
                   onClear={() => handleChange('companyLogo', '')}
                 />
+                {experience.companyLogo && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] text-gray-400 dark:text-neutral-500">大小</span>
+                    <input
+                      type="range"
+                      min={10}
+                      max={48}
+                      step={1}
+                      value={experience.companyLogoSize || globalSettings?.companyLogoSize || 20}
+                      onChange={(e) => handleChange('companyLogoSize', Number(e.target.value))}
+                      className="w-14 h-3 accent-indigo-500"
+                      title={`Logo 大小: ${experience.companyLogoSize || globalSettings?.companyLogoSize || 20}px`}
+                    />
+                    <span className="text-[10px] text-gray-500 dark:text-neutral-400 min-w-[28px]">
+                      {experience.companyLogoSize || globalSettings?.companyLogoSize || 20}px
+                    </span>
+                    {experience.companyLogoSize && (
+                      <button
+                        type="button"
+                        onClick={() => handleChange('companyLogoSize', undefined)}
+                        className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-neutral-800"
+                        title="恢复默认大小"
+                      >
+                        <X className="w-2.5 h-2.5 text-gray-400" />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
               {updateGlobalSettings && (
                 <div className="flex items-center gap-2">

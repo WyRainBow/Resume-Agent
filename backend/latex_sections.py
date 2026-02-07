@@ -60,7 +60,11 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
             logo_key = it.get('logo')
             if logo_key:
                 logo_file = f"logos/logo_{idx}.png"
-                logo_latex = f"\\raisebox{{-0.2em}}{{\\includegraphics[height={logo_size_pt}pt]{{{logo_file}}}}}\\hspace{{0.3em}}"
+                # 优先使用单条经历的 logoSize，否则用全局设置
+                item_logo_px = it.get('logoSize') or logo_size_px
+                item_logo_pt = round(item_logo_px * 0.75, 1)
+                max_width_pt = round(item_logo_pt * 4, 1)
+                logo_latex = f"\\raisebox{{-0.2em}}{{\\includegraphics[height={item_logo_pt}pt,width={max_width_pt}pt,keepaspectratio]{{{logo_file}}}}}\\hspace{{0.3em}}"
                 company = f"{logo_latex}{company}"
             
             if company and position:

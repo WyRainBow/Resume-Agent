@@ -58,8 +58,9 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
           <div class="section-content">
             ${experience.map(exp => {
               const logoUrl = exp.companyLogo ? getLogoUrl(exp.companyLogo) : null
+              const expLogoSize = exp.companyLogoSize || logoSize
               const logoHtml = logoUrl
-                ? `<img src="${escapeHtml(logoUrl)}" alt="" style="height:${logoSize}px;width:${logoSize}px;object-fit:contain;flex-shrink:0" />`
+                ? `<img src="${escapeHtml(logoUrl)}" alt="" style="height:${expLogoSize}px;max-width:${expLogoSize * 4}px;object-fit:contain;flex-shrink:0" />`
                 : ''
               return `
               <div class="item">

@@ -19,6 +19,7 @@ export interface BackendResumeData {
     date: string
     highlights: string[]
     logo?: string  // 公司 Logo key
+    logoSize?: number  // 单条经历 Logo 大小（px）
   }[]
   projects: {
     title: string
@@ -70,6 +71,7 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
       date: e.date,
       highlights: [e.details],
       ...(e.companyLogo ? { logo: e.companyLogo } : {}),
+      ...(e.companyLogoSize ? { logoSize: e.companyLogoSize } : {}),
     })),
     projects: data.projects.filter(p => p.visible !== false).map((p) => ({
       title: p.name,

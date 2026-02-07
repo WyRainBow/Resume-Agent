@@ -74,6 +74,7 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
           <div className="section-content">
             {experience.map((exp) => {
               const logoUrl = exp.companyLogo ? getLogoUrl(exp.companyLogo) : null
+              const expLogoSize = exp.companyLogoSize || logoSize
               return (
                 <div key={exp.id} className="item">
                   <div className="item-header">
@@ -84,8 +85,8 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
                             src={logoUrl}
                             alt=""
                             style={{
-                              height: `${logoSize}px`,
-                              width: `${logoSize}px`,
+                              height: `${expLogoSize}px`,
+                              maxWidth: `${expLogoSize * 4}px`,
                               objectFit: 'contain',
                               flexShrink: 0,
                             }}
