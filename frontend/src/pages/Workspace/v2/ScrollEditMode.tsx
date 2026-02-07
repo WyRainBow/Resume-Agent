@@ -176,6 +176,8 @@ export default function ScrollEditMode({
             onDelete={deleteOpenSource}
             onReorder={reorderOpenSources}
             onAIImport={handleAIImport ? () => handleAIImport('openSource') : undefined}
+            globalSettings={resumeData.globalSettings}
+            updateGlobalSettings={updateGlobalSettings}
           />
         )
 

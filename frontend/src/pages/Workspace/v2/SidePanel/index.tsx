@@ -214,37 +214,6 @@ export function SidePanel({
               </select>
             </div>
 
-            {/* 开源经历仓库链接位置 */}
-            <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                开源仓库链接位置
-              </label>
-              <div className="flex gap-1.5">
-                <button
-                  onClick={() => updateGlobalSettings({ openSourceRepoDisplay: 'below' })}
-                  className={cn(
-                    'flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
-                    (globalSettings.openSourceRepoDisplay || 'below') === 'below'
-                      ? 'bg-indigo-500 text-white shadow-sm'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-                  )}
-                >
-                  描述下方
-                </button>
-                <button
-                  onClick={() => updateGlobalSettings({ openSourceRepoDisplay: 'inline' })}
-                  className={cn(
-                    'flex-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
-                    globalSettings.openSourceRepoDisplay === 'inline'
-                      ? 'bg-indigo-500 text-white shadow-sm'
-                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-                  )}
-                >
-                  标题右侧
-                </button>
-              </div>
-            </div>
-
             <p className="text-xs text-slate-400 dark:text-slate-500">
               调整后简历会自动重新渲染
             </p>

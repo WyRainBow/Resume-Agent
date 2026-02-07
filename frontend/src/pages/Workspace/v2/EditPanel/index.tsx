@@ -168,6 +168,8 @@ export function EditPanel({
             onDelete={deleteOpenSource}
             onReorder={reorderOpenSources}
             onAIImport={onAIImport ? () => onAIImport('openSource') : undefined}
+            globalSettings={resumeData.globalSettings}
+            updateGlobalSettings={updateGlobalSettings}
           />
         )
 

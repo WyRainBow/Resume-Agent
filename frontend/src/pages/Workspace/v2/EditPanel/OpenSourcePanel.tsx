@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { Reorder, motion, AnimatePresence, useDragControls } from 'framer-motion'
 import { PlusCircle, Wand2, ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
-import type { OpenSource } from '../types'
+import type { OpenSource, GlobalSettings } from '../types'
 import Field from './Field'
 
 interface OpenSourcePanelProps {
@@ -14,6 +14,8 @@ interface OpenSourcePanelProps {
   onDelete: (id: string) => void
   onReorder: (openSources: OpenSource[]) => void
   onAIImport?: () => void
+  globalSettings?: GlobalSettings
+  updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }
 
 const generateId = () => {
@@ -27,12 +29,16 @@ function OpenSourceItem({
   onDelete,
   setDraggingId,
   resumeData,
+  globalSettings,
+  updateGlobalSettings,
 }: {
   openSource: OpenSource
   onUpdate: (openSource: OpenSource) => void
   onDelete: (id: string) => void
   setDraggingId: (id: string | null) => void
   resumeData?: ResumeData
+  globalSettings?: GlobalSettings
+  updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }) {
   const dragControls = useDragControls()
   const [expanded, setExpanded] = useState(false)
@@ -127,7 +133,38 @@ function OpenSourceItem({
                     <Field label="角色" value={openSource.role || ''} onChange={(v) => handleChange('role', v)} placeholder="如：贡献者" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
-                    <Field label="仓库地址" value={openSource.repo || ''} onChange={(v) => handleChange('repo', v)} placeholder="GitHub 链接" />
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs font-medium text-gray-500 dark:text-neutral-400">仓库地址</label>
+                        {updateGlobalSettings && (
+                          <div className="flex items-center gap-1 bg-gray-100 dark:bg-neutral-800 rounded-md p-0.5">
+                            <button
+                              onClick={() => updateGlobalSettings({ openSourceRepoDisplay: 'below' })}
+                              className={cn(
+                                'px-2 py-0.5 text-[10px] font-medium rounded transition-all',
+                                (globalSettings?.openSourceRepoDisplay || 'below') === 'below'
+                                  ? 'bg-white dark:bg-neutral-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                  : 'text-gray-400 dark:text-neutral-500 hover:text-gray-600'
+                              )}
+                            >
+                              下方
+                            </button>
+                            <button
+                              onClick={() => updateGlobalSettings({ openSourceRepoDisplay: 'inline' })}
+                              className={cn(
+                                'px-2 py-0.5 text-[10px] font-medium rounded transition-all',
+                                globalSettings?.openSourceRepoDisplay === 'inline'
+                                  ? 'bg-white dark:bg-neutral-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                  : 'text-gray-400 dark:text-neutral-500 hover:text-gray-600'
+                              )}
+                            >
+                              标题旁
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      <Field value={openSource.repo || ''} onChange={(v) => handleChange('repo', v)} placeholder="GitHub 链接" />
+                    </div>
                     <Field label="时间" value={openSource.date || ''} onChange={(v) => handleChange('date', v)} placeholder="如：2024.01 - 至今" />
                   </div>
                   <Field 
@@ -149,7 +186,7 @@ function OpenSourceItem({
   )
 }
 
-export default function OpenSourcePanel({ openSources, onUpdate, onDelete, onReorder, onAIImport, resumeData }: OpenSourcePanelProps) {
+export default function OpenSourcePanel({ openSources, onUpdate, onDelete, onReorder, onAIImport, resumeData, globalSettings, updateGlobalSettings }: OpenSourcePanelProps) {
   const [draggingId, setDraggingId] = useState<string | null>(null)
 
   const handleCreate = () => {
@@ -179,7 +216,7 @@ export default function OpenSourcePanel({ openSources, onUpdate, onDelete, onReo
 
       <Reorder.Group axis="y" values={openSources} onReorder={onReorder} className="space-y-3">
         {openSources.map((item) => (
-          <OpenSourceItem key={item.id} openSource={item} onUpdate={onUpdate} onDelete={onDelete} setDraggingId={setDraggingId} resumeData={resumeData} />
+          <OpenSourceItem key={item.id} openSource={item} onUpdate={onUpdate} onDelete={onDelete} setDraggingId={setDraggingId} resumeData={resumeData} globalSettings={globalSettings} updateGlobalSettings={updateGlobalSettings} />
         ))}
       </Reorder.Group>
 
