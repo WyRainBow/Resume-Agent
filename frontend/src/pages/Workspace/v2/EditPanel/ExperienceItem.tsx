@@ -3,7 +3,7 @@
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { motion, Reorder, useDragControls, AnimatePresence } from 'framer-motion'
-import { ChevronDown, Eye, GripVertical, Trash2, X, Image } from 'lucide-react'
+import { ChevronDown, Eye, GripVertical, Trash2, X, Image, Plus, Loader2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { Experience, ResumeData, GlobalSettings } from '../types'
 import Field from './Field'
@@ -14,6 +14,8 @@ import {
   getLogoUrl,
   getLogoByKey,
   matchCompanyLogo,
+  uploadLogo,
+  refreshLogos,
 } from '../constants/companyLogos'
 
 // 将 Markdown 格式转换为 HTML（用于预览）
@@ -59,6 +61,8 @@ function LogoSelector({
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [logos, setLogos] = useState<CompanyLogo[]>(getCachedLogos())
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
 
   // 加载 Logo 列表
@@ -67,6 +71,30 @@ function LogoSelector({
       if (list.length > 0) setLogos(list)
     })
   }, [])
+
+  // 上传 Logo
+  const handleUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    // 重置 input，允许重复选择同一文件
+    e.target.value = ''
+
+    setUploading(true)
+    try {
+      const newLogo = await uploadLogo(file)
+      // 刷新列表
+      const updated = await refreshLogos()
+      setLogos(updated)
+      // 自动选中刚上传的
+      onSelect(newLogo.key)
+      setOpen(false)
+      setSearch('')
+    } catch (err: any) {
+      alert(err.message || '上传失败')
+    } finally {
+      setUploading(false)
+    }
+  }, [onSelect])
 
   // 点击外部关闭
   useEffect(() => {
@@ -188,6 +216,35 @@ function LogoSelector({
                       </button>
                     )
                   })}
+                  {/* 上传自定义 Logo */}
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className={cn(
+                      'flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-all text-center border-2 border-dashed',
+                      uploading
+                        ? 'border-gray-200 dark:border-neutral-700 opacity-50 cursor-wait'
+                        : 'border-gray-200 dark:border-neutral-700 hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 cursor-pointer'
+                    )}
+                    title="上传自定义 Logo"
+                  >
+                    {uploading ? (
+                      <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+                    ) : (
+                      <Plus className="w-5 h-5 text-gray-400 dark:text-neutral-500" />
+                    )}
+                    <span className="text-[10px] text-gray-400 dark:text-neutral-500 leading-tight">
+                      {uploading ? '上传中' : '上传'}
+                    </span>
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                    onChange={handleUpload}
+                    className="hidden"
+                  />
                 </div>
               )}
               {logos.length > 0 && filteredLogos.length === 0 && (

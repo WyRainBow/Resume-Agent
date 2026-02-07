@@ -100,5 +100,42 @@ export function getLogoByKey(key: string): CompanyLogo | null {
   return _cachedLogos.find((l) => l.key === key) || null
 }
 
+/**
+ * 强制刷新 Logo 列表（清除缓存后重新获取）
+ */
+export async function refreshLogos(): Promise<CompanyLogo[]> {
+  _loaded = false
+  _fetchPromise = null
+  _cachedLogos = []
+  return fetchLogos()
+}
+
+/**
+ * 上传自定义 Logo 到 COS
+ * 返回上传后的 Logo 信息
+ */
+export async function uploadLogo(file: File): Promise<CompanyLogo> {
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const resp = await fetch('/api/logos/upload', {
+    method: 'POST',
+    body: formData,
+  })
+
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({ detail: '上传失败' }))
+    throw new Error(err.detail || '上传失败')
+  }
+
+  const data = await resp.json()
+  if (!data.success) throw new Error('上传失败')
+
+  // 刷新列表
+  await refreshLogos()
+
+  return data.logo as CompanyLogo
+}
+
 // 模块被导入时自动预加载 Logo 列表
 fetchLogos()

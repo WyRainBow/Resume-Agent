@@ -115,6 +115,13 @@ _COS_CACHE_TTL = 300
 _key_to_file: dict[str, str] = {}
 
 
+def clear_cache():
+    """清除 COS 扫描缓存，下次调用会重新扫描"""
+    global _cos_cache, _cos_cache_time
+    _cos_cache = None
+    _cos_cache_time = 0
+
+
 def _scan_cos_logos() -> list[dict]:
     """扫描 COS 获取所有 Logo 文件，排除非 Logo 文件"""
     global _cos_cache, _cos_cache_time, _key_to_file
