@@ -35,6 +35,7 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
     list_type = global_settings.get('experienceListType', 'none')
     company_font_size = global_settings.get('companyNameFontSize')
     company_color = global_settings.get('companyNameColor')
+    experience_gap = global_settings.get('experienceGap', 0)  # 经历项间距，默认 0（无间距，标准样式）
     
     if isinstance(internships, list) and internships:
         content.append(f"\\section{{{escape_latex(title)}}}")
@@ -53,11 +54,11 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
                 pt_size = round(company_font_size * 0.75, 1)
                 baseline = round(pt_size * 1.2, 1)
                 company = f"{{\\fontsize{{{pt_size}pt}}{{{baseline}pt}}\\selectfont {company}}}"
-            # 如果设置了自定义颜色，用 \textcolor 包裹
+            # 如果设置了自定义颜色，用 \textcolor{companycolor} 包裹
+            # 注意：companycolor 在 latex_generator.py 中通过 \definecolor 定义
+            # 避免在 \datedsubsection 参数中使用 \textcolor[HTML]{} 导致方括号冲突
             if company and company_color:
-                # 去掉 # 号，转为 LaTeX 颜色格式
-                hex_color = company_color.lstrip('#')
-                company = f"\\textcolor[HTML]{{{hex_color}}}{{{company}}}"
+                company = f"\\textcolor{{companycolor}}{{{company}}}"
             
             if company and position:
                 title_text = f"{company}\\hspace{{0.2em}}\\textendash\\hspace{{0.2em}}{position}"
@@ -172,6 +173,10 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
                 pass
 
             content.append("")
+            # 在经历项之间插入可配置间距（最后一项不需要）
+            if idx < len(internships) - 1 and experience_gap and experience_gap > 0:
+                content.append(f"\\vspace{{{experience_gap}ex}}")
+                content.append("")
         # 不再开启列表环境，避免额外缩进和字号差异
         content.append("")
     return content
@@ -186,9 +191,10 @@ def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dic
     exp = resume_data.get('experience') or []
     title = (section_titles or {}).get('experience', '工作经历')
     
-    # 获取公司名称字号设置
+    # 获取公司名称字号和颜色设置
     global_settings = resume_data.get('globalSettings') or {}
     company_font_size = global_settings.get('companyNameFontSize')
+    company_color = global_settings.get('companyNameColor')
     
     if isinstance(exp, list) and exp:
         content.append(f"\\section{{{escape_latex(title)}}}")
@@ -204,6 +210,9 @@ def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dic
                 pt_size = round(company_font_size * 0.75, 1)
                 baseline = round(pt_size * 1.2, 1)
                 company = f"{{\\fontsize{{{pt_size}pt}}{{{baseline}pt}}\\selectfont {company}}}"
+            # 如果设置了自定义颜色，用 \textcolor{companycolor} 包裹
+            if company and company_color:
+                company = f"\\textcolor{{companycolor}}{{{company}}}"
             
             # 自动组合：{company} – {position}（使用 \textendash 并显式空隙让破折号居中）
             if company and position:
@@ -254,12 +263,13 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
     content = []
     projects = resume_data.get('projects') or []
     section_title = (section_titles or {}).get('projects', '项目经验')
+    global_settings = resume_data.get('globalSettings') or {}
     if isinstance(projects, list) and projects:
         content.append(f"\\section{{{escape_latex(section_title)}}}")
         content.append("")
         content.append("")
         
-        for p in projects:
+        for pidx, p in enumerate(projects):
             # 兼容多种字段名
             title = p.get('title') or p.get('name') or ''
             role = p.get('role') or p.get('subtitle') or ''
@@ -547,7 +557,7 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
     
     if isinstance(open_source, list) and open_source:
         content.append(f"\\section{{{escape_latex(title)}}}")
-        for os_item in open_source:
+        for os_idx, os_item in enumerate(open_source):
             # 兼容两种字段名
             item_title = escape_latex(
                 os_item.get('title') or os_item.get('name') or ''

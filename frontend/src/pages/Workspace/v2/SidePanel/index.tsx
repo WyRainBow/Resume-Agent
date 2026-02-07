@@ -37,6 +37,15 @@ const LINE_SPACING_OPTIONS = [
   { value: 1.5, label: '1.5 (宽松)' },
 ]
 
+// 经历项间距选项 (LaTeX ex)
+const EXPERIENCE_GAP_OPTIONS = [
+  { value: 0, label: '无间距 (标准)' },
+  { value: 1, label: '1ex' },
+  { value: 1.2, label: '1.2ex' },
+  { value: 1.5, label: '1.5ex' },
+  { value: 2, label: '2ex (宽松)' },
+]
+
 // 页面内边距选项 (HTML 模板)
 const PAGE_PADDING_OPTIONS = [
   { value: 15, label: '极紧凑 (15px)' },
@@ -233,6 +242,24 @@ export function SidePanel({
               value={globalSettings.latexLineSpacing || 1.0}
               onChange={(v) => updateGlobalSettings({ latexLineSpacing: v })}
             />
+
+            {/* 经历项间距 */}
+            <div>
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
+                实习经历间距
+              </label>
+              <select
+                value={globalSettings.experienceGap ?? 0}
+                onChange={(e) => updateGlobalSettings({ experienceGap: Number(e.target.value) })}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+              >
+                {EXPERIENCE_GAP_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
             {/* 页面内边距 */}
             <div>

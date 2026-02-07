@@ -146,6 +146,7 @@ export interface GlobalSettings {
   experienceListType?: 'none' | 'unordered' | 'ordered'  // 工作经历列表类型：无列表、无序列表、有序列表
   openSourceRepoDisplay?: 'below' | 'inline' | 'icon'  // 开源经历仓库链接显示位置：下方 | 标题右侧 | 图标
   openSourceRepoLabel?: string  // 开源仓库链接前缀：'' 无前缀 | '仓库' | 'GitHub' | 自定义文字
+  experienceGap?: number  // 经历项之间的间距（ex），默认 1，0 表示无间距
   // LaTeX 排版设置
   latexFontSize?: number  // LaTeX 字体大小: 9, 10, 11, 12
   latexMargin?: 'tight' | 'compact' | 'standard' | 'relaxed' | 'wide'  // 页面边距
