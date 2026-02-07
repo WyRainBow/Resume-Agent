@@ -96,24 +96,6 @@ const ExperienceEditor = ({
                       ))}
                     </select>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] text-gray-400 dark:text-neutral-500">颜色</span>
-                    <input
-                      type="color"
-                      value={globalSettings?.companyNameColor || '#1f2937'}
-                      onChange={(e) => updateGlobalSettings({ companyNameColor: e.target.value })}
-                      className="w-5 h-5 rounded border border-gray-200 dark:border-neutral-700 cursor-pointer p-0"
-                    />
-                    {globalSettings?.companyNameColor && (
-                      <button
-                        onClick={() => updateGlobalSettings({ companyNameColor: undefined })}
-                        className="text-[9px] text-gray-400 hover:text-red-400 transition-colors"
-                        title="重置颜色"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
                 </div>
               )}
             </div>

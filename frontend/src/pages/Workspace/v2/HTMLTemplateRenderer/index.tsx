@@ -64,10 +64,8 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
     case 'experience': {
       if (experience.length === 0) return null
       const companyFontSize = resumeData.globalSettings?.companyNameFontSize
-      const companyColor = resumeData.globalSettings?.companyNameColor
       const companyStyle: React.CSSProperties = {}
       if (companyFontSize) companyStyle.fontSize = `${companyFontSize}px`
-      if (companyColor) companyStyle.color = companyColor
       return (
         <section key="experience" className="template-section">
           <h2 className="section-title">{sectionTitle}</h2>

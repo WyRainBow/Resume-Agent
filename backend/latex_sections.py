@@ -34,7 +34,6 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
     global_settings = resume_data.get('globalSettings') or {}
     list_type = global_settings.get('experienceListType', 'none')
     company_font_size = global_settings.get('companyNameFontSize')
-    company_color = global_settings.get('companyNameColor')
     experience_gap = global_settings.get('experienceGap', 0)  # 经历项间距，默认 0（无间距，标准样式）
     
     if isinstance(internships, list) and internships:
@@ -54,11 +53,6 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
                 pt_size = round(company_font_size * 0.75, 1)
                 baseline = round(pt_size * 1.2, 1)
                 company = f"{{\\fontsize{{{pt_size}pt}}{{{baseline}pt}}\\selectfont {company}}}"
-            # 如果设置了自定义颜色，用 \textcolor{companycolor} 包裹
-            # 注意：companycolor 在 latex_generator.py 中通过 \definecolor 定义
-            # 避免在 \datedsubsection 参数中使用 \textcolor[HTML]{} 导致方括号冲突
-            if company and company_color:
-                company = f"\\textcolor{{companycolor}}{{{company}}}"
             
             if company and position:
                 title_text = f"{company}\\hspace{{0.2em}}\\textendash\\hspace{{0.2em}}{position}"
@@ -191,10 +185,9 @@ def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dic
     exp = resume_data.get('experience') or []
     title = (section_titles or {}).get('experience', '工作经历')
     
-    # 获取公司名称字号和颜色设置
+    # 获取公司名称字号设置
     global_settings = resume_data.get('globalSettings') or {}
     company_font_size = global_settings.get('companyNameFontSize')
-    company_color = global_settings.get('companyNameColor')
     
     if isinstance(exp, list) and exp:
         content.append(f"\\section{{{escape_latex(title)}}}")
@@ -210,9 +203,6 @@ def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dic
                 pt_size = round(company_font_size * 0.75, 1)
                 baseline = round(pt_size * 1.2, 1)
                 company = f"{{\\fontsize{{{pt_size}pt}}{{{baseline}pt}}\\selectfont {company}}}"
-            # 如果设置了自定义颜色，用 \textcolor{companycolor} 包裹
-            if company and company_color:
-                company = f"\\textcolor{{companycolor}}{{{company}}}"
             
             # 自动组合：{company} – {position}（使用 \textendash 并显式空隙让破折号居中）
             if company and position:

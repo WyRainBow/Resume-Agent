@@ -94,12 +94,6 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     if line_spacing != 1.0:
         latex_content.append(f"\\linespread{{{line_spacing}}}")
     
-    # 自定义公司名称颜色 - 使用 definecolor 避免方括号与 \datedsubsection 冲突
-    company_color = global_settings.get('companyNameColor')
-    if company_color:
-        hex_color = company_color.lstrip('#')
-        latex_content.append(f"\\definecolor{{companycolor}}{{HTML}}{{{hex_color}}}")
-    
     latex_content.append("")
     latex_content.append(r"\begin{document}")
     latex_content.append(r"\pagenumbering{gobble}")
