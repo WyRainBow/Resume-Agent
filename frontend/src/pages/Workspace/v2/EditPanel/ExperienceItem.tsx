@@ -7,7 +7,14 @@ import { ChevronDown, Eye, GripVertical, Trash2, X, Image } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { Experience, ResumeData, GlobalSettings } from '../types'
 import Field from './Field'
-import { PRESET_COMPANY_LOGOS, getLogoUrl, matchCompanyLogo } from '../constants/companyLogos'
+import {
+  type CompanyLogo,
+  fetchLogos,
+  getCachedLogos,
+  getLogoUrl,
+  getLogoByKey,
+  matchCompanyLogo,
+} from '../constants/companyLogos'
 
 // 将 Markdown 格式转换为 HTML（用于预览）
 const markdownToHtml = (text: string): string => {
@@ -51,7 +58,15 @@ function LogoSelector({
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [logos, setLogos] = useState<CompanyLogo[]>(getCachedLogos())
   const panelRef = useRef<HTMLDivElement>(null)
+
+  // 加载 Logo 列表
+  useEffect(() => {
+    fetchLogos().then((list) => {
+      if (list.length > 0) setLogos(list)
+    })
+  }, [])
 
   // 点击外部关闭
   useEffect(() => {
@@ -66,12 +81,12 @@ function LogoSelector({
   }, [open])
 
   const filteredLogos = search
-    ? PRESET_COMPANY_LOGOS.filter(
+    ? logos.filter(
         (l) =>
           l.name.toLowerCase().includes(search.toLowerCase()) ||
           l.keywords.some((k) => k.toLowerCase().includes(search.toLowerCase()))
       )
-    : PRESET_COMPANY_LOGOS
+    : logos
 
   const selectedLogoUrl = selectedKey ? getLogoUrl(selectedKey) : null
 
@@ -136,43 +151,46 @@ function LogoSelector({
 
             {/* Logo 网格 */}
             <div className="p-2 max-h-48 overflow-y-auto">
-              <div className="grid grid-cols-4 gap-1.5">
-                {filteredLogos.map((logo) => {
-                  const url = getLogoUrl(logo.key)
-                  const isSelected = selectedKey === logo.key
-                  return (
-                    <button
-                      key={logo.key}
-                      type="button"
-                      onClick={() => {
-                        onSelect(logo.key)
-                        setOpen(false)
-                        setSearch('')
-                      }}
-                      className={cn(
-                        'flex flex-col items-center gap-1 p-2 rounded-lg transition-all text-center',
-                        isSelected
-                          ? 'bg-indigo-50 dark:bg-indigo-900/30 ring-1 ring-indigo-400'
-                          : 'hover:bg-gray-50 dark:hover:bg-neutral-800'
-                      )}
-                      title={logo.name}
-                    >
-                      {url && (
+              {logos.length === 0 ? (
+                <div className="text-center text-xs text-gray-400 py-4">
+                  正在加载 Logo 列表...
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 gap-1.5">
+                  {filteredLogos.map((logo) => {
+                    const isSelected = selectedKey === logo.key
+                    return (
+                      <button
+                        key={logo.key}
+                        type="button"
+                        onClick={() => {
+                          onSelect(logo.key)
+                          setOpen(false)
+                          setSearch('')
+                        }}
+                        className={cn(
+                          'flex flex-col items-center gap-1 p-2 rounded-lg transition-all text-center',
+                          isSelected
+                            ? 'bg-indigo-50 dark:bg-indigo-900/30 ring-1 ring-indigo-400'
+                            : 'hover:bg-gray-50 dark:hover:bg-neutral-800'
+                        )}
+                        title={logo.name}
+                      >
                         <img
-                          src={url}
+                          src={logo.url}
                           alt={logo.name}
                           className="w-8 h-8 object-contain"
                           loading="lazy"
                         />
-                      )}
-                      <span className="text-[10px] text-gray-600 dark:text-neutral-400 truncate w-full leading-tight">
-                        {logo.name}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-              {filteredLogos.length === 0 && (
+                        <span className="text-[10px] text-gray-600 dark:text-neutral-400 truncate w-full leading-tight">
+                          {logo.name}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              {logos.length > 0 && filteredLogos.length === 0 && (
                 <div className="text-center text-xs text-gray-400 py-4">
                   未找到匹配的公司
                 </div>
@@ -265,7 +283,7 @@ const ExperienceEditor = ({
               <div className="flex items-center gap-1.5 mb-1 px-2 py-1 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
                 <img src={getLogoUrl(autoMatchedKey)!} alt="" className="w-4 h-4 object-contain" />
                 <span className="text-[10px] text-amber-700 dark:text-amber-400">
-                  检测到匹配 Logo - {PRESET_COMPANY_LOGOS.find(l => l.key === autoMatchedKey)?.name}
+                  检测到匹配 Logo - {getLogoByKey(autoMatchedKey)?.name}
                 </span>
                 <button
                   type="button"

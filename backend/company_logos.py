@@ -1,6 +1,7 @@
 """
-公司 Logo 映射配置
-Logo 图片托管在腾讯云 COS，编译 LaTeX 时按需下载
+公司 Logo 配置 - 唯一数据源
+Logo 图片托管在腾讯云 COS，后端提供 /api/logos 接口供前端获取
+新增 Logo 只需：1) 上传到 COS  2) 在此文件添加一条记录
 """
 import os
 import urllib.request
@@ -8,35 +9,162 @@ from pathlib import Path
 
 COS_BASE_URL = 'https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com'
 
-# Logo key -> COS 文件名映射
-LOGO_FILE_MAP = {
-    'bytedance': '字节跳动.png',
-    'tencent': '腾讯.png',
-    'alibaba': '阿里巴巴.png',
-    'meituan': '美团.png',
-    'kuaishou': '快手.png',
-    'baidu': '百度.png',
-    'jd': '京东.png',
-    'huawei': '华为.png',
-    'xiaohongshu': '小红书.png',
-    'netease': '网易.png',
-    'xiaomi': '小米.png',
-    'didi': '滴滴.png',
-    'pinduoduo': '拼多多.png',
-    'bilibili': 'bilibili.png',
-    'antgroup': '蚂蚁集团.png',
-    'microsoft': '微软.png',
-    'google': '谷歌.png',
-    'apple': '苹果.png',
-}
+# Logo 完整配置列表
+# key: 唯一标识（英文）
+# name: 显示名称（中文）
+# file: COS 上的文件名
+# keywords: 用于模糊匹配公司名称的关键词列表
+LOGO_LIST = [
+    {
+        'key': 'bytedance',
+        'name': '字节跳动',
+        'file': '字节跳动.png',
+        'keywords': ['字节', '跳动', 'bytedance', 'tiktok', '抖音', '飞书', '头条'],
+    },
+    {
+        'key': 'tencent',
+        'name': '腾讯',
+        'file': '腾讯.png',
+        'keywords': ['腾讯', 'tencent', '微信', 'wechat', 'qq'],
+    },
+    {
+        'key': 'tencentcloud',
+        'name': '腾讯云',
+        'file': '腾讯云.png',
+        'keywords': ['腾讯云', 'tencent cloud', 'tencentcloud'],
+    },
+    {
+        'key': 'alibaba',
+        'name': '阿里巴巴',
+        'file': '阿里巴巴.png',
+        'keywords': ['阿里', 'alibaba', '淘宝', '天猫', '达摩院', '钉钉'],
+    },
+    {
+        'key': 'meituan',
+        'name': '美团',
+        'file': '美团.png',
+        'keywords': ['美团', 'meituan'],
+    },
+    {
+        'key': 'kuaishou',
+        'name': '快手',
+        'file': '快手.png',
+        'keywords': ['快手', 'kuaishou'],
+    },
+    {
+        'key': 'baidu',
+        'name': '百度',
+        'file': '百度.png',
+        'keywords': ['百度', 'baidu'],
+    },
+    {
+        'key': 'jd',
+        'name': '京东',
+        'file': '京东.png',
+        'keywords': ['京东', 'jd', 'jingdong'],
+    },
+    {
+        'key': 'huawei',
+        'name': '华为',
+        'file': '华为.png',
+        'keywords': ['华为', 'huawei'],
+    },
+    {
+        'key': 'xiaohongshu',
+        'name': '小红书',
+        'file': '小红书.png',
+        'keywords': ['小红书', 'xiaohongshu', 'red'],
+    },
+    {
+        'key': 'netease',
+        'name': '网易',
+        'file': '网易.png',
+        'keywords': ['网易', 'netease'],
+    },
+    {
+        'key': 'xiaomi',
+        'name': '小米',
+        'file': '小米.png',
+        'keywords': ['小米', 'xiaomi', 'mi'],
+    },
+    {
+        'key': 'didi',
+        'name': '滴滴',
+        'file': '滴滴.png',
+        'keywords': ['滴滴', 'didi'],
+    },
+    {
+        'key': 'pinduoduo',
+        'name': '拼多多',
+        'file': '拼多多.png',
+        'keywords': ['拼多多', 'pinduoduo', 'pdd'],
+    },
+    {
+        'key': 'bilibili',
+        'name': 'bilibili',
+        'file': 'bilibili.png',
+        'keywords': ['bilibili', 'b站', '哔哩'],
+    },
+    {
+        'key': 'antgroup',
+        'name': '蚂蚁集团',
+        'file': '蚂蚁集团.png',
+        'keywords': ['蚂蚁集团', '蚂蚁金服', 'ant', '支付宝'],
+    },
+    {
+        'key': 'microsoft',
+        'name': '微软',
+        'file': '微软.png',
+        'keywords': ['微软', 'microsoft', 'msft'],
+    },
+    {
+        'key': 'google',
+        'name': '谷歌',
+        'file': '谷歌.png',
+        'keywords': ['谷歌', 'google'],
+    },
+    {
+        'key': 'apple',
+        'name': '苹果',
+        'file': '苹果.png',
+        'keywords': ['苹果', 'apple'],
+    },
+    {
+        'key': 'deeplang',
+        'name': '深言科技',
+        'file': '深言科技.png',
+        'keywords': ['深言', 'deeplang', '深言科技'],
+    },
+]
+
+# 构建 key -> 配置 的快速查找表
+_LOGO_MAP = {item['key']: item for item in LOGO_LIST}
+
+
+def get_logo_by_key(key: str) -> dict | None:
+    """根据 key 获取 Logo 完整配置"""
+    return _LOGO_MAP.get(key)
 
 
 def get_logo_cos_url(key: str) -> str | None:
     """根据 key 获取 Logo 的 COS URL"""
-    filename = LOGO_FILE_MAP.get(key)
-    if not filename:
+    item = _LOGO_MAP.get(key)
+    if not item:
         return None
-    return f"{COS_BASE_URL}/{urllib.request.quote(filename)}"
+    return f"{COS_BASE_URL}/{urllib.request.quote(item['file'])}"
+
+
+def get_all_logos_with_urls() -> list[dict]:
+    """获取所有 Logo 列表（含完整 COS URL），供 API 返回"""
+    result = []
+    for item in LOGO_LIST:
+        result.append({
+            'key': item['key'],
+            'name': item['name'],
+            'url': f"{COS_BASE_URL}/{urllib.request.quote(item['file'])}",
+            'keywords': item['keywords'],
+        })
+    return result
 
 
 def download_logos_to_dir(internships: list, target_dir: str) -> dict[int, str]:

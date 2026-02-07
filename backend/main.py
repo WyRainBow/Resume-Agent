@@ -69,6 +69,7 @@ auth_router = routes_module.auth_router
 resumes_router = routes_module.resumes_router
 reports_router = routes_module.reports_router
 documents_router = routes_module.documents_router
+logos_router = routes_module.logos_router
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="Resume API")
@@ -92,6 +93,7 @@ app.include_router(auth_router)
 app.include_router(resumes_router)
 app.include_router(reports_router)
 app.include_router(documents_router)
+app.include_router(logos_router)
 
 # 注册 OpenManus 路由（合并后）
 try:
