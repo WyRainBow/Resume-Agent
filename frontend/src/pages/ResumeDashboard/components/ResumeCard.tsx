@@ -129,6 +129,13 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
           isMultiSelectMode && isSelected && "ring-2 ring-blue-500/50"
         )}
       >
+        {/* 模板类型标签 - 左上角 */}
+        <div className="absolute top-3 left-3 z-10">
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+            {resume.templateType === 'html' ? '🌐 HTML' : '✨ LaTeX'}
+          </span>
+        </div>
+
         {/* 背景渐变装饰 */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/5 to-transparent rounded-bl-[100px] pointer-events-none" />
 
@@ -143,13 +150,6 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
           <CardTitle className="text-xl font-bold line-clamp-1 text-slate-800 dark:text-slate-100 px-6 mb-1">
             {resume.name || "未命名简历"}
           </CardTitle>
-          
-          {/* 模板类型标签 */}
-          <div className="mb-2">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-              {resume.templateType === 'html' ? '🌐 HTML' : '✨ LaTeX'}
-            </span>
-          </div>
           
           {/* 备注/别名区域 */}
           <div 
