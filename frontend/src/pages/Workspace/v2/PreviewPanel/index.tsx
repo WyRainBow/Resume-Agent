@@ -3,7 +3,7 @@
  * 支持 LaTeX PDF 渲染和 HTML 模板实时预览
  */
 import { useState, useRef, useEffect } from 'react'
-import { Download, RefreshCw, FileText, Sparkles } from 'lucide-react'
+import { Download, RefreshCw, FileText, Sparkles, Minus, Plus } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { PDFViewerSelector } from '../../../../components/PDFEditor'
 import { HTMLTemplateRenderer } from '../HTMLTemplateRenderer'
@@ -27,32 +27,51 @@ export function PreviewPanel({
   onDownload,
 }: PreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null)
-  const [scale, setScale] = useState(1.0)
+  const [autoScale, setAutoScale] = useState(1.0)
+  const [userScale, setUserScale] = useState<number | null>(null)
+  const [scaleStep, setScaleStep] = useState(0.25)
+  const [customStepInput, setCustomStepInput] = useState('')
 
-  // 判断是否为 HTML 模板
   const isHTMLTemplate = resumeData.templateType === 'html'
 
+  const MIN_SCALE = 0.5
+  const MAX_SCALE = 2.5
+  const STEP_OPTIONS = [0.1, 0.25, 0.5] as const
+  const effectiveScale = userScale !== null ? userScale : autoScale
 
-  // 根据容器宽度自适应计算缩放比例
+  // 根据容器宽度计算「适应宽度」缩放
   useEffect(() => {
     if (!containerRef.current || !pdfBlob || isHTMLTemplate) return
-
     const updateScale = () => {
       const container = containerRef.current
       if (!container) return
-
-      const containerWidth = container.clientWidth - 16 // 减去内边距
-      // A4 比例：宽度约 595 单位，高度约 842 单位
-      // 基础 scale=1 时宽度约为 595px
+      const containerWidth = container.clientWidth - 16
       const baseWidth = 595
       const newScale = containerWidth / baseWidth
-      setScale(Math.max(0.5, Math.min(newScale, 2.5))) // 限制在合理范围
+      setAutoScale(Math.max(MIN_SCALE, Math.min(newScale, MAX_SCALE)))
     }
-
     updateScale()
+    const ro = new ResizeObserver(updateScale)
+    ro.observe(containerRef.current)
     window.addEventListener('resize', updateScale)
-    return () => window.removeEventListener('resize', updateScale)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', updateScale)
+    }
   }, [pdfBlob, isHTMLTemplate])
+
+  const currentStep = customStepInput !== '' ? parseFloat(customStepInput) || scaleStep : scaleStep
+  const safeStep = Math.max(0.05, Math.min(1, Number.isFinite(currentStep) ? currentStep : scaleStep))
+
+  const handleZoomOut = () => {
+    const next = Math.max(MIN_SCALE, effectiveScale - safeStep)
+    setUserScale(next)
+  }
+  const handleZoomIn = () => {
+    const next = Math.min(MAX_SCALE, effectiveScale + safeStep)
+    setUserScale(next)
+  }
+  const handleFitWidth = () => setUserScale(null)
 
   return (
     <div className="h-full flex flex-col">
@@ -140,7 +159,7 @@ export function PreviewPanel({
 
       {/* 预览区域 */}
       <div
-        ref={containerRef}
+        ref={isHTMLTemplate || !pdfBlob ? containerRef : undefined}
         className="flex-1 overflow-auto p-2 bg-slate-100/80 dark:bg-slate-900/50"
       >
         {isHTMLTemplate ? (
@@ -149,11 +168,111 @@ export function PreviewPanel({
             <HTMLTemplateRenderer resumeData={resumeData} />
           </div>
         ) : (
-          // LaTeX 模板：PDF 预览
+          // LaTeX 模板：PDF 预览 + 底部缩放栏（− / + / 适应宽度 / 步长可自定义）
           <>
             {pdfBlob ? (
-              <div className="flex justify-center w-full">
-                <PDFViewerSelector pdfBlob={pdfBlob} scale={scale} />
+              <div className="flex-1 flex flex-col min-h-0 bg-slate-100/80 dark:bg-slate-900/50">
+                <div
+                  ref={containerRef}
+                  className="flex-1 min-h-0 overflow-auto p-2"
+                >
+                  <div className="flex justify-center w-full">
+                    <PDFViewerSelector pdfBlob={pdfBlob} scale={effectiveScale} />
+                  </div>
+                </div>
+                <div
+                  className={cn(
+                    'flex items-center justify-center gap-3 py-2 px-3 shrink-0 flex-wrap',
+                    'bg-slate-200/80 dark:bg-slate-700/80',
+                    'border-t border-slate-300/50 dark:border-slate-600/50'
+                  )}
+                >
+                  <button
+                    type="button"
+                    onClick={handleZoomOut}
+                    disabled={effectiveScale <= MIN_SCALE}
+                    className={cn(
+                      'p-2 rounded-lg border transition-colors',
+                      'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600',
+                      'hover:bg-slate-100 dark:hover:bg-slate-700',
+                      'disabled:opacity-50 disabled:cursor-not-allowed'
+                    )}
+                    title="缩小"
+                  >
+                    <Minus className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                  </button>
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400 min-w-[3.5rem] text-center">
+                    {Math.round(effectiveScale * 100)}%
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleZoomIn}
+                    disabled={effectiveScale >= MAX_SCALE}
+                    className={cn(
+                      'p-2 rounded-lg border transition-colors',
+                      'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600',
+                      'hover:bg-slate-100 dark:hover:bg-slate-700',
+                      'disabled:opacity-50 disabled:cursor-not-allowed'
+                    )}
+                    title="放大"
+                  >
+                    <Plus className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                  </button>
+                  {userScale !== null && (
+                    <button
+                      type="button"
+                      onClick={handleFitWidth}
+                      className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                    >
+                      适应宽度
+                    </button>
+                  )}
+                  <span className="text-xs text-slate-500 dark:text-slate-400">步长</span>
+                  <select
+                    value={STEP_OPTIONS.includes(scaleStep) ? String(scaleStep) : 'custom'}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      if (v === 'custom') {
+                        setCustomStepInput(String(Math.round(scaleStep * 100)))
+                        return
+                      }
+                      setCustomStepInput('')
+                      setScaleStep(parseFloat(v))
+                    }}
+                    className={cn(
+                      'text-xs rounded border bg-white dark:bg-slate-800',
+                      'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200',
+                      'py-1 px-2 focus:outline-none focus:ring-1 focus:ring-indigo-500'
+                    )}
+                  >
+                    {STEP_OPTIONS.map((s) => (
+                      <option key={s} value={s}>{Math.round(s * 100)}%</option>
+                    ))}
+                    <option value="custom">自定义</option>
+                  </select>
+                  {(customStepInput !== '' || !STEP_OPTIONS.includes(scaleStep)) && (
+                    <input
+                      type="number"
+                      min={5}
+                      max={100}
+                      step={5}
+                      value={customStepInput !== '' ? customStepInput : String(Math.round(scaleStep * 100))}
+                      onChange={(e) => setCustomStepInput(e.target.value)}
+                      onBlur={() => {
+                        if (customStepInput === '') return
+                        const n = parseFloat(customStepInput)
+                        if (Number.isFinite(n) && n >= 5 && n <= 100) setScaleStep(n / 100)
+                        setCustomStepInput('')
+                      }}
+                      placeholder="%"
+                      className={cn(
+                        'w-12 text-xs rounded border text-center',
+                        'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600',
+                        'text-slate-700 dark:text-slate-200 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500'
+                      )}
+                    />
+                  )}
+                </div>
               </div>
             ) : (
               <div className="h-full flex items-center justify-center">
