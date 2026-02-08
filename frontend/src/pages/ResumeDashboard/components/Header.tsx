@@ -22,6 +22,10 @@ interface HeaderProps {
   onToggleMultiSelectMode?: () => void
   /** 退出多选模式 */
   onExitMultiSelectMode?: () => void
+  /** 全选当前列表 */
+  onSelectAll?: () => void
+  /** 取消全选 */
+  onClearSelection?: () => void
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
@@ -33,9 +37,12 @@ export const Header: React.FC<HeaderProps> = ({
   totalCount = 0,
   isMultiSelectMode = false,
   onToggleMultiSelectMode,
-  onExitMultiSelectMode
+  onExitMultiSelectMode,
+  onSelectAll,
+  onClearSelection
 }) => {
   const navigate = useNavigate()
+  const allSelected = totalCount > 0 && selectedCount === totalCount
   
   return (
     <motion.div
@@ -90,6 +97,17 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             {isMultiSelectMode ? '退出多选' : '多选'}
+          </Button>
+        )}
+
+        {/* 多选模式下：全选 / 取消全选 */}
+        {isMultiSelectMode && totalCount > 0 && onSelectAll && onClearSelection && (
+          <Button
+            onClick={allSelected ? onClearSelection : onSelectAll}
+            variant="outline"
+            className="rounded-xl h-12 px-6 font-bold border-2 border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400 bg-white/50 dark:bg-slate-900/50"
+          >
+            {allSelected ? '取消全选' : '全选'}
           </Button>
         )}
 

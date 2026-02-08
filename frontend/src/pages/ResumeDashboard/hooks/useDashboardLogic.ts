@@ -229,6 +229,13 @@ export const useDashboardLogic = () => {
   }, [])
 
   /**
+   * 全选：选中当前列表全部简历
+   */
+  const selectAll = useCallback(() => {
+    setSelectedIds(new Set(resumes.map(r => r.id)))
+  }, [resumes])
+
+  /**
    * 切换多选模式
    */
   const toggleMultiSelectMode = useCallback(() => {
@@ -303,6 +310,7 @@ export const useDashboardLogic = () => {
     toggleSelect,
     batchDelete,
     clearSelection,
+    selectAll,
     // 备注/别名
     updateAlias,
     // 置顶

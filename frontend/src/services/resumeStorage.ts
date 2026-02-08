@@ -7,12 +7,30 @@ import { DatabaseAdapter } from './storage/DatabaseAdapter'
 const localAdapter = new LocalStorageAdapter()
 const databaseAdapter = new DatabaseAdapter()
 
+/** 登录用户置顶 ID 列表（仅前端持久化，刷新后合并到列表） */
+const PINNED_IDS_KEY = 'resume_pinned_ids'
+
 function isAuthenticated() {
   return Boolean(localStorage.getItem('auth_token'))
 }
 
 function getAdapter() {
   return isAuthenticated() ? databaseAdapter : localAdapter
+}
+
+function getPinnedIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(PINNED_IDS_KEY)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw) as string[]
+    return new Set(Array.isArray(arr) ? arr : [])
+  } catch {
+    return new Set()
+  }
+}
+
+function setPinnedIds(ids: Set<string>): void {
+  localStorage.setItem(PINNED_IDS_KEY, JSON.stringify([...ids]))
 }
 
 async function syncLocalCache(resumes: SavedResume[]) {
@@ -42,9 +60,14 @@ export { SavedResume }
  */
 export async function getAllResumes(): Promise<SavedResume[]> {
   const adapter = getAdapter()
-  const list = await adapter.getAllResumes()
+  let list = await adapter.getAllResumes()
   if (isAuthenticated()) {
     await syncLocalCache(list)
+    // 登录用户：置顶状态存在 localStorage，合并到从数据库拉取的列表
+    const pinnedIds = getPinnedIds()
+    if (pinnedIds.size > 0) {
+      list = list.map(r => ({ ...r, pinned: pinnedIds.has(r.id) }))
+    }
   }
   return list
 }
@@ -139,8 +162,17 @@ export async function updateResumeAlias(id: string, alias: string): Promise<bool
 }
 
 /**
- * 更新简历置顶状态（仅本地存储）
+ * 更新简历置顶状态
+ * - 未登录：写入本地列表（localStorage）
+ * - 已登录：写入 resume_pinned_ids，刷新后 getAllResumes 会合并到列表
  */
 export async function updateResumePinned(id: string, pinned: boolean): Promise<boolean> {
+  if (isAuthenticated()) {
+    const ids = getPinnedIds()
+    if (pinned) ids.add(id)
+    else ids.delete(id)
+    setPinnedIds(ids)
+    return true
+  }
   return await localAdapter.updateResumePinned(id, pinned)
 }

@@ -32,6 +32,7 @@ const ResumeDashboard = () => {
     toggleSelect,
     batchDelete,
     clearSelection,
+    selectAll,
     // 备注/别名
     updateAlias,
     // 置顶
@@ -276,6 +277,8 @@ const ResumeDashboard = () => {
             isMultiSelectMode={isMultiSelectMode}
             onToggleMultiSelectMode={toggleMultiSelectMode}
             onExitMultiSelectMode={exitMultiSelectMode}
+            onSelectAll={selectAll}
+            onClearSelection={clearSelection}
           />
 
           <motion.div
