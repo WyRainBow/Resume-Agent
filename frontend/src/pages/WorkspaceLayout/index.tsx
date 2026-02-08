@@ -202,69 +202,69 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
           </nav>
         </div>
 
-        {/* 底部：登录组件（侧边栏内，所有工作区统一展示） */}
+        {/* 底部：登录组件（与导航风格统一，图标+用户名一行，简洁不抢眼） */}
         <div className="px-1 py-2 border-t border-slate-100 dark:border-slate-800">
-          <div ref={logoutMenuRef} className="px-2 py-2 relative">
-              {isAuthenticated ? (
-                <div className="relative">
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setShowLogoutMenu(!showLogoutMenu)}
-                    className="flex flex-col items-center gap-1.5 px-2 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 transition-all cursor-pointer group"
-                  >
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center group-hover:bg-indigo-200 dark:group-hover:bg-indigo-900/60 transition-colors">
-                      <User className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-                    </div>
-                    <div className="flex flex-col items-center w-full">
-                      <span className="text-[9px] text-slate-400 dark:text-slate-500 font-medium leading-tight">已登录</span>
-                      <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 leading-tight truncate w-full text-center" title={user?.email}>
-                        {user?.email?.split('@')[0] || user?.email}
-                      </span>
-                    </div>
-                  </motion.div>
-                  
-                  {/* 退出按钮下拉菜单 */}
-                  <AnimatePresence>
-                    {showLogoutMenu && (
-                      <motion.div
-                        initial={{ opacity: 0, y: -10, scale: 0.95 }}
-                        animate={{ opacity: 1, y: 0, scale: 1 }}
-                        exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                        transition={{ duration: 0.2 }}
-                        className="absolute bottom-full left-0 mb-2 w-full"
-                      >
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => {
-                            setShowLogoutMenu(false)
-                            logout()
-                          }}
-                          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 transition-all shadow-md"
-                        >
-                          <LogOut className="w-3.5 h-3.5" />
-                          <span className="text-[10px] font-medium">退出登录</span>
-                        </motion.button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ) : (
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => openModal('login')}
-                  className="w-full flex flex-col items-center gap-1.5 px-2 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all group"
+          <div ref={logoutMenuRef} className="relative">
+            {isAuthenticated ? (
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => setShowLogoutMenu(!showLogoutMenu)}
+                  className={cn(
+                    'w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg transition-all duration-200',
+                    'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  )}
+                  title={user?.email}
                 >
-                  <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center group-hover:bg-indigo-600 dark:group-hover:bg-indigo-700 transition-colors">
-                    <LogIn className="w-4 h-4 text-indigo-600 dark:text-indigo-400 group-hover:text-white transition-colors" />
-                  </div>
-                  <span className="text-[10px] font-bold leading-tight">登录/注册</span>
-                </motion.button>
-              )}
+                  <User className="w-5 h-5 shrink-0" />
+                  <span className="text-[10px] leading-tight truncate w-full text-center max-w-[4.5rem]">
+                    {user?.email?.split('@')[0] || user?.email}
+                  </span>
+                </button>
+                <AnimatePresence>
+                  {showLogoutMenu && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 4 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute bottom-full left-0 right-0 mb-1"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowLogoutMenu(false)
+                          logout()
+                        }}
+                        className={cn(
+                          'w-full flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg',
+                          'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700',
+                          'text-red-600 dark:text-red-400 hover:bg-red-50/80 dark:hover:bg-red-900/20 text-[10px] font-medium transition-colors'
+                        )}
+                      >
+                        <LogOut className="w-3.5 h-3.5 shrink-0" />
+                        退出登录
+                      </button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => openModal('login')}
+                className={cn(
+                  'w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg transition-all duration-200',
+                  'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                )}
+                title="登录 / 注册"
+              >
+                <LogIn className="w-5 h-5 shrink-0" />
+                <span className="text-[10px] leading-tight">登录</span>
+              </button>
+            )}
           </div>
-          <div className="text-[9px] text-slate-400 dark:text-slate-500 text-center leading-tight mt-1">
+          <div className="text-[9px] text-slate-400 dark:text-slate-500 text-center leading-tight mt-1.5">
             v2.0
           </div>
         </div>
