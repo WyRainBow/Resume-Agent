@@ -29,14 +29,13 @@ export function PreviewPanel({
   const containerRef = useRef<HTMLDivElement>(null)
   const [autoScale, setAutoScale] = useState(1.0)
   const [userScale, setUserScale] = useState<number | null>(null)
-  const [scaleStep, setScaleStep] = useState(0.25)
-  const [customStepInput, setCustomStepInput] = useState('')
+  const [scalePercentInput, setScalePercentInput] = useState('')
 
   const isHTMLTemplate = resumeData.templateType === 'html'
 
   const MIN_SCALE = 0.5
   const MAX_SCALE = 2.5
-  const STEP_OPTIONS = [0.1, 0.25, 0.5] as const
+  const ZOOM_STEP = 0.25
   const effectiveScale = userScale !== null ? userScale : autoScale
 
   // 根据容器宽度计算「适应宽度」缩放
@@ -60,18 +59,29 @@ export function PreviewPanel({
     }
   }, [pdfBlob, isHTMLTemplate])
 
-  const currentStep = customStepInput !== '' ? parseFloat(customStepInput) || scaleStep : scaleStep
-  const safeStep = Math.max(0.05, Math.min(1, Number.isFinite(currentStep) ? currentStep : scaleStep))
-
   const handleZoomOut = () => {
-    const next = Math.max(MIN_SCALE, effectiveScale - safeStep)
+    const next = Math.max(MIN_SCALE, effectiveScale - ZOOM_STEP)
     setUserScale(next)
+    setScalePercentInput('')
   }
   const handleZoomIn = () => {
-    const next = Math.min(MAX_SCALE, effectiveScale + safeStep)
+    const next = Math.min(MAX_SCALE, effectiveScale + ZOOM_STEP)
     setUserScale(next)
+    setScalePercentInput('')
   }
-  const handleFitWidth = () => setUserScale(null)
+  const handleFitWidth = () => {
+    setUserScale(null)
+    setScalePercentInput('')
+  }
+
+  const displayPercent = Math.round(effectiveScale * 100)
+  const applyPercentInput = (raw: string) => {
+    const n = parseFloat(raw.replace(/[^\d.]/g, ''))
+    if (!Number.isFinite(n)) return
+    const scale = Math.max(50, Math.min(250, n)) / 100
+    setUserScale(scale)
+    setScalePercentInput('')
+  }
 
   return (
     <div className="h-full flex flex-col">
@@ -157,10 +167,13 @@ export function PreviewPanel({
         </div>
       )}
 
-      {/* 预览区域 */}
+      {/* 预览区域：PDF 时仅 PDF 区域滚动，缩放栏固定在底部；HTML/空状态时整区可滚动 */}
       <div
         ref={isHTMLTemplate || !pdfBlob ? containerRef : undefined}
-        className="flex-1 overflow-auto p-2 bg-slate-100/80 dark:bg-slate-900/50"
+        className={cn(
+          'flex-1 p-2 bg-slate-100/80 dark:bg-slate-900/50',
+          pdfBlob && !isHTMLTemplate ? 'flex flex-col min-h-0 overflow-hidden' : 'overflow-auto'
+        )}
       >
         {isHTMLTemplate ? (
           // HTML 模板：实时预览
@@ -168,10 +181,10 @@ export function PreviewPanel({
             <HTMLTemplateRenderer resumeData={resumeData} />
           </div>
         ) : (
-          // LaTeX 模板：PDF 预览 + 底部缩放栏（− / + / 适应宽度 / 步长可自定义）
+          // LaTeX 模板：PDF 预览 + 底部缩放栏（− / 百分比可编辑 / + / 适应宽度）
           <>
             {pdfBlob ? (
-              <div className="flex-1 flex flex-col min-h-0 bg-slate-100/80 dark:bg-slate-900/50">
+              <div className="flex-1 flex flex-col min-h-0 bg-slate-100/80 dark:bg-slate-900/50 overflow-hidden">
                 <div
                   ref={containerRef}
                   className="flex-1 min-h-0 overflow-auto p-2"
@@ -201,9 +214,25 @@ export function PreviewPanel({
                   >
                     <Minus className="w-4 h-4 text-slate-600 dark:text-slate-300" />
                   </button>
-                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400 min-w-[3.5rem] text-center">
-                    {Math.round(effectiveScale * 100)}%
-                  </span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={scalePercentInput !== '' ? scalePercentInput : String(displayPercent)}
+                    onChange={(e) => setScalePercentInput(e.target.value)}
+                    onBlur={() => scalePercentInput !== '' && applyPercentInput(scalePercentInput)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.currentTarget.blur()
+                      }
+                    }}
+                    className={cn(
+                      'w-12 text-sm font-medium text-center rounded border bg-transparent',
+                      'border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500',
+                      'text-slate-600 dark:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500'
+                    )}
+                    title="点击输入缩放比例（50–250）"
+                  />
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">%</span>
                   <button
                     type="button"
                     onClick={handleZoomIn}
@@ -226,51 +255,6 @@ export function PreviewPanel({
                     >
                       适应宽度
                     </button>
-                  )}
-                  <span className="text-xs text-slate-500 dark:text-slate-400">步长</span>
-                  <select
-                    value={STEP_OPTIONS.includes(scaleStep) ? String(scaleStep) : 'custom'}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      if (v === 'custom') {
-                        setCustomStepInput(String(Math.round(scaleStep * 100)))
-                        return
-                      }
-                      setCustomStepInput('')
-                      setScaleStep(parseFloat(v))
-                    }}
-                    className={cn(
-                      'text-xs rounded border bg-white dark:bg-slate-800',
-                      'border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200',
-                      'py-1 px-2 focus:outline-none focus:ring-1 focus:ring-indigo-500'
-                    )}
-                  >
-                    {STEP_OPTIONS.map((s) => (
-                      <option key={s} value={s}>{Math.round(s * 100)}%</option>
-                    ))}
-                    <option value="custom">自定义</option>
-                  </select>
-                  {(customStepInput !== '' || !STEP_OPTIONS.includes(scaleStep)) && (
-                    <input
-                      type="number"
-                      min={5}
-                      max={100}
-                      step={5}
-                      value={customStepInput !== '' ? customStepInput : String(Math.round(scaleStep * 100))}
-                      onChange={(e) => setCustomStepInput(e.target.value)}
-                      onBlur={() => {
-                        if (customStepInput === '') return
-                        const n = parseFloat(customStepInput)
-                        if (Number.isFinite(n) && n >= 5 && n <= 100) setScaleStep(n / 100)
-                        setCustomStepInput('')
-                      }}
-                      placeholder="%"
-                      className={cn(
-                        'w-12 text-xs rounded border text-center',
-                        'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600',
-                        'text-slate-700 dark:text-slate-200 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500'
-                      )}
-                    />
                   )}
                 </div>
               </div>
