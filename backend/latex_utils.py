@@ -6,12 +6,28 @@ import re
 from typing import Dict, Any
 
 
+def strip_html_tags(text: str) -> str:
+    """移除 HTML 标签，保留纯文本内容"""
+    if not text:
+        return text
+    # 将 <br>, <br/>, <div>, </div> 等块级标签替换为空格（避免文字粘连）
+    text = re.sub(r'<\s*(?:br|div|p)\s*/?\s*>', ' ', text, flags=re.IGNORECASE)
+    # 移除所有剩余 HTML 标签
+    text = re.sub(r'<[^>]+>', '', text)
+    # 合并多余空格
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
+
+
 def escape_latex(text: str) -> str:
     """
     转义 LaTeX 特殊字符，并处理 Markdown 加粗语法
     """
     if not isinstance(text, str):
         text = str(text)
+    
+    """先清理 HTML 标签（来自富文本编辑器的残留）"""
+    text = strip_html_tags(text)
     
     """先处理 **text** -> \textbf{text} (在转义之前)"""
     bold_pattern = re.compile(r'\*\*(.+?)\*\*')

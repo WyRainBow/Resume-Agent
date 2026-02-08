@@ -2,6 +2,7 @@
  * 将前端 ResumeData 转换为后端需要的格式
  */
 import type { ResumeData } from '../types'
+import { stripHtmlTags } from './textUtils'
 
 export interface BackendResumeData {
   name: string
@@ -66,36 +67,36 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
     skillContent: data.skillContent || '',  // 直接传递 HTML 内容
     skills: data.skillContent ? [{ category: '', details: data.skillContent }] : [],  // 兼容旧格式
     internships: data.experience.filter(e => e.visible !== false).map((e) => ({
-      title: e.company,
-      subtitle: e.position,
+      title: stripHtmlTags(e.company),
+      subtitle: stripHtmlTags(e.position),
       date: e.date,
       highlights: [e.details],
       ...(e.companyLogo ? { logo: e.companyLogo } : {}),
       ...(e.companyLogoSize ? { logoSize: e.companyLogoSize } : {}),
     })),
     projects: data.projects.filter(p => p.visible !== false).map((p) => ({
-      title: p.name,
-      subtitle: p.role,
+      title: stripHtmlTags(p.name),
+      subtitle: stripHtmlTags(p.role),
       date: p.date,
       highlights: [p.description],
     })),
     open_source: (data.openSource || []).filter(o => o.visible !== false).map((o) => ({
-      title: o.name,
-      subtitle: o.role || '',
+      title: stripHtmlTags(o.name),
+      subtitle: stripHtmlTags(o.role || ''),
       repoUrl: o.repo || '',
       date: o.date || '',
       items: [o.description],
     })),
     awards: (data.awards || []).filter(a => a.visible !== false).map((a) => ({
-      title: a.title,
-      issuer: a.issuer || '',
+      title: stripHtmlTags(a.title),
+      issuer: stripHtmlTags(a.issuer || ''),
       date: a.date || '',
       description: a.description || '',
     })),
     education: data.education.filter(e => e.visible !== false).map((e) => ({
-      title: e.school,
-      subtitle: e.major,
-      degree: e.degree,
+      title: stripHtmlTags(e.school),
+      subtitle: stripHtmlTags(e.major),
+      degree: stripHtmlTags(e.degree),
       date: e.endDate ? `${e.startDate} - ${e.endDate}` : e.startDate,
       details: e.description ? [e.description] : [],
     })),

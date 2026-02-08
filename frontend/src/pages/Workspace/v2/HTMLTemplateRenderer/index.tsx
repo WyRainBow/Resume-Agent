@@ -6,6 +6,7 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 import type { ResumeData } from '../types'
 import { getLogoUrl } from '../constants/companyLogos'
+import { stripHtmlTags } from '../utils'
 import './styles.css'
 
 interface HTMLTemplateRendererProps {
@@ -45,8 +46,8 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
               <div key={edu.id} className="item">
                 <div className="item-header">
                   <div className="item-title-group">
-                    <h3 className="item-title">{edu.school}</h3>
-                    <span className="item-subtitle">{edu.degree} · {edu.major}</span>
+                    <h3 className="item-title">{stripHtmlTags(edu.school)}</h3>
+                    <span className="item-subtitle">{stripHtmlTags(edu.degree)} · {stripHtmlTags(edu.major)}</span>
                   </div>
                   <span className="item-date">{edu.startDate} ~ {edu.endDate}</span>
                 </div>
@@ -92,9 +93,9 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
                             }}
                           />
                         )}
-                        <h3 className="item-title" style={Object.keys(companyStyle).length ? companyStyle : undefined}>{exp.company}</h3>
+                        <h3 className="item-title" style={Object.keys(companyStyle).length ? companyStyle : undefined}>{stripHtmlTags(exp.company)}</h3>
                       </div>
-                      <span className="item-subtitle">{exp.position}</span>
+                      <span className="item-subtitle">{stripHtmlTags(exp.position)}</span>
                     </div>
                     <span className="item-date">{exp.date}</span>
                   </div>
@@ -120,8 +121,8 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
               <div key={proj.id} className="item">
                 <div className="item-header">
                   <div className="item-title-group">
-                    <h3 className="item-title">{proj.name}</h3>
-                    <span className="item-subtitle">{proj.role}</span>
+                    <h3 className="item-title">{stripHtmlTags(proj.name)}</h3>
+                    <span className="item-subtitle">{stripHtmlTags(proj.role)}</span>
                   </div>
                   <span className="item-date">{proj.date}</span>
                 </div>
@@ -154,7 +155,7 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
                 <div className="item-header">
                   <div className="item-title-group">
                     <h3 className="item-title">
-                      {os.name}
+                      {stripHtmlTags(os.name)}
                       {repoDisplay === 'icon' && os.repo && (
                         <a
                           href={os.repo}
@@ -182,7 +183,7 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
                         </span>
                       )}
                     </h3>
-                    {os.role && <span className="item-subtitle">{os.role}</span>}
+                    {os.role && <span className="item-subtitle">{stripHtmlTags(os.role)}</span>}
                   </div>
                   {os.date && <span className="item-date">{os.date}</span>}
                 </div>
@@ -212,8 +213,8 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
               <div key={award.id} className="item">
                 <div className="item-header">
                   <div className="item-title-group">
-                    <h3 className="item-title">{award.title}</h3>
-                    {award.issuer && <span className="item-subtitle">{award.issuer}</span>}
+                    <h3 className="item-title">{stripHtmlTags(award.title)}</h3>
+                    {award.issuer && <span className="item-subtitle">{stripHtmlTags(award.issuer)}</span>}
                   </div>
                   {award.date && <span className="item-date">{award.date}</span>}
                 </div>
@@ -238,8 +239,8 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
               <div key={item.id} className="item">
                 <div className="item-header">
                   <div className="item-title-group">
-                    <h3 className="item-title">{item.title}</h3>
-                    {item.subtitle && <span className="item-subtitle">{item.subtitle}</span>}
+                    <h3 className="item-title">{stripHtmlTags(item.title)}</h3>
+                    {item.subtitle && <span className="item-subtitle">{stripHtmlTags(item.subtitle)}</span>}
                   </div>
                   {item.dateRange && <span className="item-date">{item.dateRange}</span>}
                 </div>

@@ -3,6 +3,7 @@
  */
 import type { ResumeData } from '../types'
 import { getLogoUrl } from '../constants/companyLogos'
+import { stripHtmlTags } from './textUtils'
 
 // 生成单个模块的 HTML
 function generateSectionHTML(section: { id: string; title: string }, resumeData: ResumeData): string {
@@ -33,8 +34,8 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
               <div class="item">
                 <div class="item-header">
                   <div class="item-title-group">
-                    <h3 class="item-title">${escapeHtml(edu.school)}</h3>
-                    <span class="item-subtitle">${escapeHtml(edu.degree)} · ${escapeHtml(edu.major)}</span>
+                    <h3 class="item-title">${escapeHtml(stripHtmlTags(edu.school))}</h3>
+                    <span class="item-subtitle">${escapeHtml(stripHtmlTags(edu.degree))} · ${escapeHtml(stripHtmlTags(edu.major))}</span>
                   </div>
                   <span class="item-date">${escapeHtml(edu.startDate)} ~ ${escapeHtml(edu.endDate)}</span>
                 </div>
@@ -68,9 +69,9 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
                   <div class="item-title-group">
                     <div style="display:flex;align-items:center;gap:6px">
                       ${logoHtml}
-                      <h3 class="item-title"${companyStyle}>${escapeHtml(exp.company)}</h3>
+                      <h3 class="item-title"${companyStyle}>${escapeHtml(stripHtmlTags(exp.company))}</h3>
                     </div>
-                    <span class="item-subtitle">${escapeHtml(exp.position)}</span>
+                    <span class="item-subtitle">${escapeHtml(stripHtmlTags(exp.position))}</span>
                   </div>
                   <span class="item-date">${escapeHtml(exp.date)}</span>
                 </div>
@@ -92,8 +93,8 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
               <div class="item">
                 <div class="item-header">
                   <div class="item-title-group">
-                    <h3 class="item-title">${escapeHtml(proj.name)}</h3>
-                    <span class="item-subtitle">${escapeHtml(proj.role)}</span>
+                    <h3 class="item-title">${escapeHtml(stripHtmlTags(proj.name))}</h3>
+                    <span class="item-subtitle">${escapeHtml(stripHtmlTags(proj.role))}</span>
                   </div>
                   <span class="item-date">${escapeHtml(proj.date)}</span>
                 </div>
@@ -119,11 +120,11 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
                 <div class="item-header">
                   <div class="item-title-group">
                     <h3 class="item-title">
-                      ${escapeHtml(os.name)}
+                      ${escapeHtml(stripHtmlTags(os.name))}
                       ${repoDisplay === 'icon' && os.repo ? `<a href="${escapeHtml(os.repo)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(os.repo)}" style="margin-left:6px;vertical-align:middle;display:inline-block"><svg viewBox="0 0 16 16" width="14" height="14" style="fill:#24292f;vertical-align:middle"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>` : ''}
                       ${repoDisplay === 'inline' && os.repo ? `<span style="font-weight:normal;font-size:12px;margin-left:8px">${repoPrefix ? `<span style="color:#475569">${repoPrefix}</span>` : ''}<a href="${escapeHtml(os.repo)}" target="_blank" rel="noopener noreferrer" style="color:#2563eb">${escapeHtml(os.repo)}</a></span>` : ''}
                     </h3>
-                    ${os.role ? `<span class="item-subtitle">${escapeHtml(os.role)}</span>` : ''}
+                    ${os.role ? `<span class="item-subtitle">${escapeHtml(stripHtmlTags(os.role))}</span>` : ''}
                   </div>
                   ${os.date ? `<span class="item-date">${escapeHtml(os.date)}</span>` : ''}
                 </div>
@@ -146,8 +147,8 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
               <div class="item">
                 <div class="item-header">
                   <div class="item-title-group">
-                    <h3 class="item-title">${escapeHtml(award.title)}</h3>
-                    ${award.issuer ? `<span class="item-subtitle">${escapeHtml(award.issuer)}</span>` : ''}
+                    <h3 class="item-title">${escapeHtml(stripHtmlTags(award.title))}</h3>
+                    ${award.issuer ? `<span class="item-subtitle">${escapeHtml(stripHtmlTags(award.issuer))}</span>` : ''}
                   </div>
                   ${award.date ? `<span class="item-date">${escapeHtml(award.date)}</span>` : ''}
                 </div>
@@ -170,8 +171,8 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
               <div class="item">
                 <div class="item-header">
                   <div class="item-title-group">
-                    <h3 class="item-title">${escapeHtml(item.title)}</h3>
-                    ${item.subtitle ? `<span class="item-subtitle">${escapeHtml(item.subtitle)}</span>` : ''}
+                    <h3 class="item-title">${escapeHtml(stripHtmlTags(item.title))}</h3>
+                    ${item.subtitle ? `<span class="item-subtitle">${escapeHtml(stripHtmlTags(item.subtitle))}</span>` : ''}
                   </div>
                   ${item.dateRange ? `<span class="item-date">${escapeHtml(item.dateRange)}</span>` : ''}
                 </div>
@@ -389,8 +390,8 @@ export function generateHTMLFile(resumeData: ResumeData): string {
       <header class="template-header">
         <div class="header-main">
           <div class="header-left">
-            <h1 class="candidate-name">${escapeHtml(basic.name || '未命名')}</h1>
-            <p class="candidate-title">${escapeHtml(basic.title || '求职者')}</p>
+            <h1 class="candidate-name">${escapeHtml(stripHtmlTags(basic.name || '未命名'))}</h1>
+            <p class="candidate-title">${escapeHtml(stripHtmlTags(basic.title || '求职者'))}</p>
           </div>
           <div class="header-right">
             ${basic.phone ? `<div class="info-item">📞 ${escapeHtml(basic.phone)}</div>` : ''}
@@ -423,7 +424,7 @@ export function generateHTMLFile(resumeData: ResumeData): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(basic.name || '简历')} - 简历</title>
+  <title>${escapeHtml(stripHtmlTags(basic.name || '简历'))} - 简历</title>
   ${css}
 </head>
 <body>
