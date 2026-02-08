@@ -202,10 +202,9 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
           </nav>
         </div>
 
-        {/* 底部：登录组件（仅在 dashboard 页面显示）或版本号 */}
+        {/* 底部：登录组件（侧边栏内，所有工作区统一展示） */}
         <div className="px-1 py-2 border-t border-slate-100 dark:border-slate-800">
-          {currentWorkspace === 'dashboard' ? (
-            <div ref={logoutMenuRef} className="px-2 py-2 relative">
+          <div ref={logoutMenuRef} className="px-2 py-2 relative">
               {isAuthenticated ? (
                 <div className="relative">
                   <motion.div
@@ -264,12 +263,10 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                   <span className="text-[10px] font-bold leading-tight">登录/注册</span>
                 </motion.button>
               )}
-            </div>
-          ) : (
-            <div className="text-[9px] text-slate-400 dark:text-slate-600 text-center leading-tight">
-              v2.0
-            </div>
-          )}
+          </div>
+          <div className="text-[9px] text-slate-400 dark:text-slate-500 text-center leading-tight mt-1">
+            v2.0
+          </div>
         </div>
       </aside>
 
