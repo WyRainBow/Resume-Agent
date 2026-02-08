@@ -5,6 +5,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { motion, Reorder, useDragControls, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Eye, GripVertical, Trash2, X, Image, Plus, Loader2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
+import { useAuth } from '@/contexts/AuthContext'
 import type { Experience, ResumeData, GlobalSettings } from '../types'
 import Field from './Field'
 import {
@@ -17,6 +18,9 @@ import {
   uploadLogo,
   refreshLogos,
 } from '../constants/companyLogos'
+
+/** 仅允许该用户上传/修改 Logo（按邮箱 @ 前部分匹配） */
+const ALLOWED_LOGO_UPLOAD_USER = 'cocoyu'
 
 // 将 Markdown 格式转换为 HTML（用于预览）
 const markdownToHtml = (text: string): string => {
@@ -48,15 +52,18 @@ interface ExperienceItemProps {
 
 /**
  * Logo 选择器组件
+ * canUploadLogo: 仅允许指定用户（如 cocoyu）时显示上传按钮
  */
 function LogoSelector({
   selectedKey,
   onSelect,
   onClear,
+  canUploadLogo = false,
 }: {
   selectedKey?: string
   onSelect: (key: string) => void
   onClear: () => void
+  canUploadLogo?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -216,35 +223,39 @@ function LogoSelector({
                       </button>
                     )
                   })}
-                  {/* 上传自定义 Logo */}
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className={cn(
-                      'flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-all text-center border-2 border-dashed',
-                      uploading
-                        ? 'border-gray-200 dark:border-neutral-700 opacity-50 cursor-wait'
-                        : 'border-gray-200 dark:border-neutral-700 hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 cursor-pointer'
-                    )}
-                    title="上传自定义 Logo"
-                  >
-                    {uploading ? (
-                      <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
-                    ) : (
-                      <Plus className="w-5 h-5 text-gray-400 dark:text-neutral-500" />
-                    )}
-                    <span className="text-[10px] text-gray-400 dark:text-neutral-500 leading-tight">
-                      {uploading ? '上传中' : '上传'}
-                    </span>
-                  </button>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                    onChange={handleUpload}
-                    className="hidden"
-                  />
+                  {/* 上传自定义 Logo：仅允许指定用户 */}
+                  {canUploadLogo && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className={cn(
+                          'flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-all text-center border-2 border-dashed',
+                          uploading
+                            ? 'border-gray-200 dark:border-neutral-700 opacity-50 cursor-wait'
+                            : 'border-gray-200 dark:border-neutral-700 hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 cursor-pointer'
+                        )}
+                        title="上传自定义 Logo"
+                      >
+                        {uploading ? (
+                          <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
+                        ) : (
+                          <Plus className="w-5 h-5 text-gray-400 dark:text-neutral-500" />
+                        )}
+                        <span className="text-[10px] text-gray-400 dark:text-neutral-500 leading-tight">
+                          {uploading ? '上传中' : '上传'}
+                        </span>
+                      </button>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                        onChange={handleUpload}
+                        className="hidden"
+                      />
+                    </>
+                  )}
                 </div>
               )}
               {logos.length > 0 && filteredLogos.length === 0 && (
@@ -287,6 +298,9 @@ const ExperienceEditor = ({
   globalSettings?: GlobalSettings
   updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }) => {
+  const { user } = useAuth()
+  const canUploadLogo = (user?.email?.split('@')[0] ?? '') === ALLOWED_LOGO_UPLOAD_USER
+
   const handleChange = (field: keyof Experience, value: string | boolean | number | undefined) => {
     const updated = { ...experience, [field]: value }
     // 清除空字符串的 companyLogo
@@ -321,6 +335,7 @@ const ExperienceEditor = ({
                   selectedKey={experience.companyLogo}
                   onSelect={(key) => handleChange('companyLogo', key)}
                   onClear={() => handleChange('companyLogo', '')}
+                  canUploadLogo={canUploadLogo}
                 />
                 {experience.companyLogo && (
                   <div className="flex items-center gap-1">

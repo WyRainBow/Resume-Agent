@@ -1,4 +1,4 @@
-import { defineConfig, createLogger } from 'vite'
+import { defineConfig, createLogger, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import fs from 'fs'
@@ -43,7 +43,11 @@ customLogger.error = (msg, options) => {
 writeToLog('INFO', '========== 前端服务启动 ==========')
 writeToLog('INFO', `日志文件: ${logFile}`)
 
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, __dirname, '')
+  const apiBase = env.VITE_API_BASE_URL || 'http://localhost:9000'
+
+  return {
   plugins: [
     react(),
     {
@@ -122,7 +126,7 @@ export default defineConfig({
     },
     proxy: {
       '/api': {
-        target: 'http://localhost:9000',
+        target: apiBase,
         changeOrigin: true
       }
     }
@@ -132,6 +136,7 @@ export default defineConfig({
   },
   worker: {
     format: 'es'
+  }
   }
 })
 
