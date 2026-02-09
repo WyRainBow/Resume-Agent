@@ -47,17 +47,17 @@ except ImportError:
     )
 
 
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
-DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
-DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+DEEPSEEK_MODEL = "deepseek-chat"
+DEEPSEEK_BASE_URL = "https://api.deepseek.com"
 
 _deepseek_client: Optional[OpenAI] = None
 _last_key: Optional[str] = None
 
 
-def _get_client(api_key: Optional[str] = None) -> OpenAI:
+def _get_client() -> OpenAI:
+    """仅从根目录 .env 读取 DEEPSEEK_API_KEY（main 启动时已 load_dotenv）"""
     global _deepseek_client, _last_key
-    key = api_key or DEEPSEEK_API_KEY
+    key = os.getenv("DEEPSEEK_API_KEY", "").strip()
     if not key:
         raise ValueError("DEEPSEEK_API_KEY 未配置")
     if _deepseek_client is None or _last_key != key:
@@ -262,7 +262,6 @@ def assemble_resume_data(
     raw_text: str,
     layout: Dict[str, Any],
     ocr_text: str = "",
-    api_key: Optional[str] = None,
     model: Optional[str] = None
 ) -> Dict[str, Any]:
     """
@@ -341,7 +340,7 @@ def assemble_resume_data(
     # ---- 调用 DeepSeek ----
     system_msg = SYSTEM_PROMPT.format()
 
-    client = _get_client(api_key)
+    client = _get_client()
     response = client.chat.completions.create(
         model=model or DEEPSEEK_MODEL,
         messages=[
