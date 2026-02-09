@@ -29,7 +29,11 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
   // 根据路径确定当前工作区
   const getCurrentWorkspace = (): WorkspaceType => {
     // 检测是否是简历创建页面（保留 resume-creator）
-    if (location.pathname === '/resume-creator' || location.pathname.startsWith('/workspace/agent')) {
+    if (
+      location.pathname === '/resume-creator' || 
+      location.pathname.startsWith('/workspace/agent') ||
+      location.pathname.startsWith('/agent')
+    ) {
       return 'agent'
     }
     if (location.pathname === '/dashboard') {
@@ -67,9 +71,9 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
     if (workspace === 'agent') {
       const currentResumeId = getCurrentResumeId()
       if (currentResumeId) {
-        navigate(`/workspace/agent/${currentResumeId}`)
+        navigate(`/agent/${currentResumeId}`)
       } else {
-        navigate('/workspace/agent/new')
+        navigate('/agent/new')
       }
     } else if (workspace === 'dashboard') {
       navigate('/dashboard')

@@ -41,6 +41,8 @@ import EnhancedMarkdown from '@/components/chat/EnhancedMarkdown';
 import ThoughtProcess from '@/components/chat/ThoughtProcess';
 import { useTextStream } from '@/hooks/useTextStream';
 
+import WorkspaceLayout from '@/pages/WorkspaceLayout';
+
 // Response 流式输出组件（带打字机效果）
 function StreamingResponse({ 
   content, 
@@ -56,7 +58,7 @@ function StreamingResponse({
   // 只有当 canStart 为 true 时才开始打字机效果
   const { displayedText, isComplete } = useTextStream({
     textStream: canStart ? content : '',
-    speed: 15,
+    speed: 5,
     mode: 'typewriter',
     onComplete: () => {
       // 打字机完成时调用 onComplete
@@ -116,7 +118,7 @@ function ReportContentView({
   // 如果正在流式输出，使用打字机效果
   const { displayedText } = useTextStream({
     textStream: isStreaming && streamingContent ? streamingContent : content,
-    speed: 30,
+    speed: 10,
     mode: 'typewriter',
   })
 
@@ -1458,64 +1460,11 @@ export default function SophiaChat() {
   };
 
   return (
-    <div className="h-screen bg-gradient-to-b from-orange-50 to-white flex flex-col">
-      {/* Header */}
-      <header className="border-b border-gray-100 bg-white/80 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-[1400px] mx-auto px-6 py-4 flex justify-between items-center">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-800">
-              Resume-AI
-            </h1>
-            <p className="text-sm text-gray-500">
-              Thought Process · Streaming · Markdown · SSE
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            {!isDesktop && (
-              <button
-                onClick={() => setIsSidebarOpen(true)}
-                className="flex items-center gap-2 text-sm px-3 py-1 rounded border border-gray-200 text-gray-500 hover:border-gray-300 transition-colors"
-              >
-                <MessageSquare className="w-4 h-4" />
-                历史
-              </button>
-            )}
-            <button
-              onClick={handleClearConversation}
-              className="text-sm text-gray-500 hover:text-gray-700 px-3 py-1 rounded border border-gray-200 hover:border-gray-300 transition-colors"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex-1 flex overflow-hidden relative">
-        {isDesktop && (
-          <aside className="w-[280px] shrink-0 border-r border-gray-200/50 bg-orange-50/50">
-            <RecentSessions
-              baseUrl={HISTORY_BASE}
-              currentSessionId={currentSessionId}
-              onSelectSession={handleSelectSession}
-              onCreateSession={handleCreateSession}
-              onDeleteSession={deleteSession}
-              onRenameSession={renameSession}
-              refreshKey={sessionsRefreshKey}
-            />
-          </aside>
-        )}
-
-        {!isDesktop && isSidebarOpen && (
-          <div
-            className="absolute inset-0 z-20 bg-black/30"
-            onClick={() => setIsSidebarOpen(false)}
-            role="button"
-            tabIndex={-1}
-          >
-            <aside
-              className="h-full w-[280px] bg-orange-50/50 shadow-xl border-r border-gray-200/50"
-              onClick={(event) => event.stopPropagation()}
-            >
+    <WorkspaceLayout>
+      <div className="h-full bg-slate-50 dark:bg-slate-950 flex flex-col overflow-hidden">
+        <div className="flex-1 flex overflow-hidden relative">
+          {isDesktop && (
+            <aside className="w-[280px] shrink-0 border-r border-slate-200/50 dark:border-slate-800/50 bg-white dark:bg-slate-900">
               <RecentSessions
                 baseUrl={HISTORY_BASE}
                 currentSessionId={currentSessionId}
@@ -1526,455 +1475,479 @@ export default function SophiaChat() {
                 refreshKey={sessionsRefreshKey}
               />
             </aside>
-          </div>
-        )}
+          )}
 
-        {/* Left: Chat */}
-        <section className="flex-1 min-w-0 flex flex-col border-r border-gray-100">
-          <main className="flex-1 overflow-y-auto px-6 py-8">
-            {loadingResume && (
-              <div className="text-sm text-gray-400 mb-4">正在加载简历...</div>
-            )}
-            {resumeError && (
-              <div className="text-sm text-red-500 mb-4">{resumeError}</div>
-            )}
-            {isLoadingSession && (
-              <div className="text-xs text-gray-400 mb-4">正在加载会话...</div>
-            )}
+          {!isDesktop && isSidebarOpen && (
+            <div
+              className="absolute inset-0 z-20 bg-black/30"
+              onClick={() => setIsSidebarOpen(false)}
+              role="button"
+              tabIndex={-1}
+            >
+              <aside
+                className="h-full w-[280px] bg-white dark:bg-slate-900 shadow-xl border-r border-slate-200/50 dark:border-slate-800/50"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <RecentSessions
+                  baseUrl={HISTORY_BASE}
+                  currentSessionId={currentSessionId}
+                  onSelectSession={handleSelectSession}
+                  onCreateSession={handleCreateSession}
+                  onDeleteSession={deleteSession}
+                  onRenameSession={renameSession}
+                  refreshKey={sessionsRefreshKey}
+                />
+              </aside>
+            </div>
+          )}
 
-            {messages.length === 0 && !isProcessing && (
-              <div className="text-center py-20">
-                <div className="text-5xl mb-4">✨</div>
-                <p className="text-gray-600 text-lg mb-2">
-                  输入消息开始对话
-                </p>
-                <p className="text-gray-400 text-sm mb-2">
-                  体验 Thought Process · 流式输出 · Markdown 渲染
-                </p>
-                <p className="text-gray-500 text-sm mt-4">
-                  例如：生成一份关于 AI 发展趋势的报告
-                </p>
-                <p className="text-gray-300 text-xs mt-2">
-                  使用 SSE + CLTP 传输
-                </p>
-              </div>
-            )}
+          {/* Left: Chat */}
+          <section className="flex-1 min-w-0 flex flex-col border-r border-gray-100">
+            <main className="flex-1 overflow-y-auto px-6 py-8">
+              {loadingResume && (
+                <div className="text-sm text-gray-400 mb-4">正在加载简历...</div>
+              )}
+              {resumeError && (
+                <div className="text-sm text-red-500 mb-4">{resumeError}</div>
+              )}
+              {isLoadingSession && (
+                <div className="text-xs text-gray-400 mb-4">正在加载会话...</div>
+              )}
 
-            {/* 历史消息 - 按顺序：Thought Process → SearchCard → Response */}
-            {messages.map((msg, idx) => {
-              // 检查这条消息是否有关联的报告
-              const reportForMessage = generatedReports.find(r => r.messageId === msg.id);
-              // 检查这条消息是否有关联的简历
-              const resumeForMessage = loadedResumes.find(r => r.messageId === msg.id);
-              const searchForMessage = searchResults.find(r => r.messageId === msg.id);
-              
-              // 用户消息：直接渲染
-              if (msg.role === 'user') {
-                return (
-                  <div key={msg.id || idx} className="flex justify-end mb-6">
-                    <div className="max-w-[80%]">
-                      <div className="text-right text-xs text-gray-400 mb-1">
-                        {new Date().toLocaleString()}
-                      </div>
-                      <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-800">
-                        {msg.content}
-                      </div>
-                    </div>
-                  </div>
-                );
-              }
-              
-              // Assistant 消息：按顺序渲染 Thought → SearchCard → Response
-              return (
-                <Fragment key={msg.id || idx}>
-                  {/* 1. Thought Process */}
-                  {msg.thought && (
-                    <ThoughtProcess
-                      content={msg.thought}
-                      isStreaming={false}
-                      isLatest={false}
-                      defaultExpanded={false}
-                    />
-                  )}
-                  
-                  {/* 2. SearchCard（在 Thought 和 Response 之间） */}
-                  {searchForMessage && (
-                    <div className="my-4">
-                      <SearchCard
-                        query={searchForMessage.data.query}
-                        totalResults={searchForMessage.data.total_results}
-                        searchTime={searchForMessage.data.metadata?.search_time}
-                        onOpen={() => setActiveSearchPanel(searchForMessage.data)}
-                      />
-                      <SearchSummary
-                        query={searchForMessage.data.query}
-                        results={searchForMessage.data.results}
-                        searchTime={searchForMessage.data.metadata?.search_time}
-                      />
-                    </div>
-                  )}
-                  
-                  {/* 3. Response */}
-                  {msg.content && (
-                    <div className="text-gray-800 mb-6">
-                      <EnhancedMarkdown>{msg.content}</EnhancedMarkdown>
-                    </div>
-                  )}
-                  
-                  {/* 反馈按钮 */}
-                  {msg.content && (
-                    <div className="flex gap-2 mb-6">
-                      <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
-                        </svg>
-                      </button>
-                      <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
-                        </svg>
-                      </button>
-                      <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <circle cx="12" cy="12" r="1.5" />
-                          <circle cx="6" cy="12" r="1.5" />
-                          <circle cx="18" cy="12" r="1.5" />
-                        </svg>
-                      </button>
-                    </div>
-                  )}
-                  
-                  {/* 如果这条消息有报告，显示报告卡片 */}
-                  {reportForMessage && (
-                    <div className="my-4">
-                      <ReportCard
-                        reportId={reportForMessage.id}
-                        title={reportForMessage.title}
-                        subtitle="点击查看完整报告"
-                        onClick={() => {
-                          setSelectedReportId(reportForMessage.id);
-                          setReportTitle(reportForMessage.title);
-                          setSelectedResumeId(null);
-                          if (streamingReportId === reportForMessage.id && currentAnswer) {
-                            setStreamingReportContent(currentAnswer);
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-                  {/* 如果这条消息有简历，显示简历卡片 */}
-                  {resumeForMessage && (
-                    <div className="my-4">
-                      <ResumeCard
-                        resumeId={resumeForMessage.id}
-                        title={resumeForMessage.name}
-                        subtitle="点击查看简历"
-                        onClick={() => {
-                          setSelectedResumeId(resumeForMessage.id);
-                          setSelectedReportId(null);
-                          if (resumeForMessage.resumeData) {
-                            setResumeData(resumeForMessage.resumeData);
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-                </Fragment>
-              );
-            })}
+              {messages.length === 0 && !isProcessing && (
+                <div className="text-center py-20">
+                  <div className="text-5xl mb-4">✨</div>
+                  <p className="text-gray-600 text-lg mb-2">
+                    输入消息开始对话
+                  </p>
+                  <p className="text-gray-400 text-sm mb-2">
+                    体验 Thought Process · 流式输出 · Markdown 渲染
+                  </p>
+                  <p className="text-gray-500 text-sm mt-4">
+                    例如：生成一份关于 AI 发展趋势的报告
+                  </p>
+                  <p className="text-gray-300 text-xs mt-2">
+                    使用 SSE + CLTP 传输
+                  </p>
+                </div>
+              )}
 
-            {/* 当前正在生成的消息 - 按顺序：Thought Process → SearchCard → Response */}
-            {isProcessing && (currentThought || (!shouldHideResponseInChat && currentAnswer)) && (
-              <>
-                {/* 1. Thought Process 优先显示 */}
-                {currentThought && (
-                  <ThoughtProcess
-                    content={currentThought}
-                    isStreaming={true}
-                    isLatest={true}
-                    defaultExpanded={true}
-                    onComplete={() => {
-                      console.log('[AgentChat] ThoughtProcess 打字机效果完成');
-                      setThoughtProcessComplete(true);
-                    }}
-                  />
-                )}
-
-                {/* 2. 搜索卡片在 Thought Process 完成后、Response 之前显示 */}
-                {(() => {
-                  const currentSearch = searchResults.find(r => r.messageId === 'current');
-                  // 只有当 Thought Process 完成（或没有 thought）时才显示 SearchCard
-                  const canShowSearchCard = !currentThought || thoughtProcessComplete;
-                  if (!currentSearch || !isProcessing || !canShowSearchCard) {
-                    return null;
-                  }
+              {/* 历史消息 - 按顺序：Thought Process → SearchCard → Response */}
+              {messages.map((msg, idx) => {
+                // 检查这条消息是否有关联的报告
+                const reportForMessage = generatedReports.find(r => r.messageId === msg.id);
+                // 检查这条消息是否有关联的简历
+                const resumeForMessage = loadedResumes.find(r => r.messageId === msg.id);
+                const searchForMessage = searchResults.find(r => r.messageId === msg.id);
+                
+                // 用户消息：直接渲染
+                if (msg.role === 'user') {
                   return (
-                    <div className="my-4">
-                      <SearchCard
-                        query={currentSearch.data.query}
-                        totalResults={currentSearch.data.total_results}
-                        searchTime={currentSearch.data.metadata?.search_time}
-                        onOpen={() => setActiveSearchPanel(currentSearch.data)}
-                      />
-                      <SearchSummary
-                        query={currentSearch.data.query}
-                        results={currentSearch.data.results}
-                        searchTime={currentSearch.data.metadata?.search_time}
-                      />
+                    <div key={msg.id || idx} className="flex justify-end mb-6">
+                      <div className="max-w-[80%]">
+                        <div className="text-right text-xs text-gray-400 mb-1">
+                          {new Date().toLocaleString()}
+                        </div>
+                        <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-800">
+                          {msg.content}
+                        </div>
+                      </div>
                     </div>
                   );
-                })()}
-
-                {/* 3. Response 最后显示（等待 Thought Process 完成或没有 thought 时），使用打字机效果 */}
-                <StreamingResponse
-                  content={currentAnswer}
-                  canStart={!shouldHideResponseInChat && (!currentThought || thoughtProcessComplete)}
-                  onComplete={() => {
-                    // Response 打字机效果完成时，清理流式状态
-                    if (shouldFinalizeRef.current) {
-                      console.log('[AgentChat] Response 打字机完成, finalize stream');
-                      shouldFinalizeRef.current = false;
-                      finalizeMessage();
-                      finalizeStream();
-                      setTimeout(() => {
-                        isFinalizedRef.current = false;
-                      }, 100);
-                    }
-                  }}
-                />
-
-                {/* 如果正在生成报告内容，检测并创建报告 */}
-                {currentAnswer.length > 500 && (
-                  <ReportGenerationDetector
-                    content={currentAnswer}
-                    onReportCreated={(reportId, title) => {
-                      // 当报告创建后，设置隐藏 response 的标志
-                      setShouldHideResponseInChat(true);
-                      setStreamingReportId(reportId);
-                      
-                      // 如果用户已经选择了该报告，立即设置流式内容
-                      if (selectedReportId === reportId) {
-                        setStreamingReportContent(currentAnswer);
-                      }
-                      
-                      // 当报告创建后，添加到列表
-                      // 使用 'current' 作为临时 messageId，finalize 时会通过 detectAndCreateReport 更新为真实 messageId
-                      setGeneratedReports(prev => {
-                        // 检查是否已存在相同的报告ID
-                        if (prev.some(r => r.id === reportId)) {
-                          return prev;
-                        }
-                        // 检查是否已有 'current' 消息ID的报告（避免重复）
-                        const hasCurrent = prev.some(r => r.messageId === 'current');
-                        if (hasCurrent) {
-                          // 更新现有的 current 报告
-                          return prev.map(r => 
-                            r.messageId === 'current' 
-                              ? { ...r, id: reportId, title }
-                              : r
-                          );
-                        }
-                        // 添加新报告
-                        return [...prev, {
-                          id: reportId,
-                          title,
-                          messageId: 'current' // 临时ID，finalize时会更新
-                        }];
-                      });
-                    }}
-                  />
-                )}
-                {/* 显示流式输出时的报告卡片 */}
-                {(() => {
-                  const currentReport = generatedReports.find(r => r.messageId === 'current');
-                  if (currentReport && isProcessing) {
-                    return (
+                }
+                
+                // Assistant 消息：按顺序渲染 Thought → SearchCard → Response
+                return (
+                  <Fragment key={msg.id || idx}>
+                    {/* 1. Thought Process */}
+                    {msg.thought && (
+                      <ThoughtProcess
+                        content={msg.thought}
+                        isStreaming={false}
+                        isLatest={false}
+                        defaultExpanded={false}
+                      />
+                    )}
+                    
+                    {/* 2. SearchCard（在 Thought 和 Response 之间） */}
+                    {searchForMessage && (
+                      <div className="my-4">
+                        <SearchCard
+                          query={searchForMessage.data.query}
+                          totalResults={searchForMessage.data.total_results}
+                          searchTime={searchForMessage.data.metadata?.search_time}
+                          onOpen={() => setActiveSearchPanel(searchForMessage.data)}
+                        />
+                        <SearchSummary
+                          query={searchForMessage.data.query}
+                          results={searchForMessage.data.results}
+                          searchTime={searchForMessage.data.metadata?.search_time}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* 3. Response */}
+                    {msg.content && (
+                      <div className="text-gray-800 mb-6">
+                        <EnhancedMarkdown>{msg.content}</EnhancedMarkdown>
+                      </div>
+                    )}
+                    
+                    {/* 反馈按钮 */}
+                    {msg.content && (
+                      <div className="flex gap-2 mb-6">
+                        <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+                          </svg>
+                        </button>
+                        <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+                          </svg>
+                        </button>
+                        <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="1.5" />
+                            <circle cx="6" cy="12" r="1.5" />
+                            <circle cx="18" cy="12" r="1.5" />
+                          </svg>
+                        </button>
+                      </div>
+                    )}
+                    
+                    {/* 如果这条消息有报告，显示报告卡片 */}
+                    {reportForMessage && (
                       <div className="my-4">
                         <ReportCard
-                          reportId={currentReport.id}
-                          title={currentReport.title}
+                          reportId={reportForMessage.id}
+                          title={reportForMessage.title}
                           subtitle="点击查看完整报告"
                           onClick={() => {
-                            setSelectedReportId(currentReport.id);
-                            setReportTitle(currentReport.title);
+                            setSelectedReportId(reportForMessage.id);
+                            setReportTitle(reportForMessage.title);
                             setSelectedResumeId(null);
-                            // 如果报告还在流式输出中，设置 streamingReportContent
-                            if (streamingReportId === currentReport.id && currentAnswer) {
+                            if (streamingReportId === reportForMessage.id && currentAnswer) {
                               setStreamingReportContent(currentAnswer);
                             }
                           }}
                         />
                       </div>
-                    );
-                  }
-                  return null;
-                })()}
-              </>
-            )}
+                    )}
+                    {/* 如果这条消息有简历，显示简历卡片 */}
+                    {resumeForMessage && (
+                      <div className="my-4">
+                        <ResumeCard
+                          resumeId={resumeForMessage.id}
+                          title={resumeForMessage.name}
+                          subtitle="点击查看简历"
+                          onClick={() => {
+                            setSelectedResumeId(resumeForMessage.id);
+                            setSelectedReportId(null);
+                            if (resumeForMessage.resumeData) {
+                              setResumeData(resumeForMessage.resumeData);
+                            }
+                          }}
+                        />
+                      </div>
+                    )}
+                  </Fragment>
+                );
+              })}
 
-            {/* 简历选择器 */}
-            {showResumeSelector && (
-              <ResumeSelector
-                onSelect={handleResumeSelect}
-                onCancel={handleResumeSelectorCancel}
-              />
-            )}
-
-            {/* Loading */}
-            {isProcessing && !currentThought && !currentAnswer && (
-              <div className="flex items-center gap-2 text-gray-400 text-sm mb-6">
-                <div className="flex gap-1">
-                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
-                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '100ms' }}></span>
-                  <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></span>
-                </div>
-                <span className="animate-bounce" style={{ animationDelay: '300ms' }}>Thinking...</span>
-              </div>
-            )}
-
-            <div ref={messagesEndRef} />
-          </main>
-
-          {/* Input Area */}
-          <div className="border-t border-gray-100 bg-white px-6 py-4">
-            <form onSubmit={handleSubmit}>
-              <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden flex items-center">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={isProcessing ? '正在处理中，可以继续输入...' : '输入消息...（例如：生成一份关于 AI 发展趋势的报告）'}
-                  className="flex-1 px-4 py-3 outline-none text-gray-700 placeholder-gray-400 bg-transparent"
-                />
-                <div className="pr-2 py-2">
-                  <button
-                    type="submit"
-                    disabled={!input.trim() || isProcessing}
-                    className={`
-                      w-8 h-8 rounded-full flex items-center justify-center
-                      transition-all duration-200
-                      ${!input.trim() || isProcessing
-                        ? 'bg-gray-200 cursor-not-allowed'
-                        : 'bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 hover:from-orange-600 hover:via-orange-700 hover:to-orange-800 shadow-sm hover:shadow-md'
-                      }
-                    `}
-                    title={isProcessing ? '等待当前消息处理完成' : '发送消息'}
-                  >
-                    <ArrowUp
-                      className={`w-5 h-5 ${!input.trim() || isProcessing
-                        ? 'text-gray-400'
-                        : 'text-white'
-                      }`}
+              {/* 当前正在生成的消息 - 按顺序：Thought Process → SearchCard → Response */}
+              {isProcessing && (currentThought || (!shouldHideResponseInChat && currentAnswer)) && (
+                <>
+                  {/* 1. Thought Process 优先显示 */}
+                  {currentThought && (
+                    <ThoughtProcess
+                      content={currentThought}
+                      isStreaming={true}
+                      isLatest={true}
+                      defaultExpanded={true}
+                      onComplete={() => {
+                        console.log('[AgentChat] ThoughtProcess 打字机效果完成');
+                        setThoughtProcessComplete(true);
+                      }}
                     />
-                  </button>
-                </div>
-              </div>
-            </form>
-
-            {/* Status */}
-            <div className="text-center mt-3 text-xs text-gray-400">
-              <span className={`inline-flex items-center gap-1.5 ${status === 'idle' ? 'text-green-500' :
-                status === 'processing' ? 'text-orange-500' : 'text-gray-400'
-                }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${status === 'idle' ? 'bg-green-500' :
-                  status === 'processing' ? 'bg-orange-500 animate-pulse' : 'bg-gray-400'
-                  }`}></span>
-                {status === 'idle' ? 'Ready (SSE)' : status === 'processing' ? 'Processing...' : 'Connecting...'}
-              </span>
-            </div>
-          </div>
-        </section>
-
-        {/* Right: Report Preview or Resume Preview - 只在有选中内容时显示 */}
-        {(selectedReportId || selectedResumeId) && (
-          <aside className="w-[45%] min-w-[420px] bg-slate-50 overflow-y-auto">
-            <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-700">
-                    {selectedReportId ? '报告内容' : '简历预览'}
-                  </h2>
-                  {selectedReportId && reportTitle && (
-                    <p className="text-xs text-slate-400 mt-1">{reportTitle}</p>
                   )}
-                  {selectedResumeId && !selectedReportId && (() => {
-                    const selectedResume = loadedResumes.find(r => r.id === selectedResumeId);
-                    if (selectedResume) {
-                      return <p className="text-xs text-slate-400 mt-1">{selectedResume.name}</p>;
+
+                  {/* 2. 搜索卡片在 Thought Process 完成后、Response 之前显示 */}
+                  {(() => {
+                    const currentSearch = searchResults.find(r => r.messageId === 'current');
+                    // 只有当 Thought Process 完成（或没有 thought）时才显示 SearchCard
+                    const canShowSearchCard = !currentThought || thoughtProcessComplete;
+                    if (!currentSearch || !isProcessing || !canShowSearchCard) {
+                      return null;
+                    }
+                    return (
+                      <div className="my-4">
+                        <SearchCard
+                          query={currentSearch.data.query}
+                          totalResults={currentSearch.data.total_results}
+                          searchTime={currentSearch.data.metadata?.search_time}
+                          onOpen={() => setActiveSearchPanel(currentSearch.data)}
+                        />
+                        <SearchSummary
+                          query={currentSearch.data.query}
+                          results={currentSearch.data.results}
+                          searchTime={currentSearch.data.metadata?.search_time}
+                        />
+                      </div>
+                    );
+                  })()}
+
+                  {/* 3. Response 最后显示（等待 Thought Process 完成或没有 thought 时），使用打字机效果 */}
+                  <StreamingResponse
+                    content={currentAnswer}
+                    canStart={!shouldHideResponseInChat && (!currentThought || thoughtProcessComplete)}
+                    onComplete={() => {
+                      // Response 打字机效果完成时，清理流式状态
+                      if (shouldFinalizeRef.current) {
+                        console.log('[AgentChat] Response 打字机完成, finalize stream');
+                        shouldFinalizeRef.current = false;
+                        finalizeMessage();
+                        finalizeStream();
+                        setTimeout(() => {
+                          isFinalizedRef.current = false;
+                        }, 100);
+                      }
+                    }}
+                  />
+
+                  {/* 如果正在生成报告内容，检测并创建报告 */}
+                  {currentAnswer.length > 500 && (
+                    <ReportGenerationDetector
+                      content={currentAnswer}
+                      onReportCreated={(reportId, title) => {
+                        // 当报告创建后，设置隐藏 response 的标志
+                        setShouldHideResponseInChat(true);
+                        setStreamingReportId(reportId);
+                        
+                        // 如果用户已经选择了该报告，立即设置流式内容
+                        if (selectedReportId === reportId) {
+                          setStreamingReportContent(currentAnswer);
+                        }
+                        
+                        // 当报告创建后，添加到列表
+                        // 使用 'current' 作为临时 messageId，finalize 时会通过 detectAndCreateReport 更新为真实 messageId
+                        setGeneratedReports(prev => {
+                          // 检查是否已存在相同的报告ID
+                          if (prev.some(r => r.id === reportId)) {
+                            return prev;
+                          }
+                          // 检查是否已有 'current' 消息ID的报告（避免重复）
+                          const hasCurrent = prev.some(r => r.messageId === 'current');
+                          if (hasCurrent) {
+                            // 更新现有的 current 报告
+                            return prev.map(r => 
+                              r.messageId === 'current' 
+                                ? { ...r, id: reportId, title }
+                                : r
+                            );
+                          }
+                          // 添加新报告
+                          return [...prev, {
+                            id: reportId,
+                            title,
+                            messageId: 'current' // 临时ID，finalize时会更新
+                          }];
+                        });
+                      }}
+                    />
+                  )}
+                  {/* 显示流式输出时的报告卡片 */}
+                  {(() => {
+                    const currentReport = generatedReports.find(r => r.messageId === 'current');
+                    if (currentReport && isProcessing) {
+                      return (
+                        <div className="my-4">
+                          <ReportCard
+                            reportId={currentReport.id}
+                            title={currentReport.title}
+                            subtitle="点击查看完整报告"
+                            onClick={() => {
+                              setSelectedReportId(currentReport.id);
+                              setReportTitle(currentReport.title);
+                              setSelectedResumeId(null);
+                              // 如果报告还在流式输出中，设置 streamingReportContent
+                              if (streamingReportId === currentReport.id && currentAnswer) {
+                                setStreamingReportContent(currentAnswer);
+                              }
+                            }}
+                          />
+                        </div>
+                      );
                     }
                     return null;
                   })()}
+                </>
+              )}
+
+              {/* 简历选择器 */}
+              {showResumeSelector && (
+                <ResumeSelector
+                  onSelect={handleResumeSelect}
+                  onCancel={handleResumeSelectorCancel}
+                />
+              )}
+
+              {/* Loading */}
+              {isProcessing && !currentThought && !currentAnswer && (
+                <div className="flex items-center gap-2 text-gray-400 text-sm mb-6">
+                  <div className="flex gap-1">
+                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '100ms' }}></span>
+                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '200ms' }}></span>
+                  </div>
+                  <span className="animate-bounce" style={{ animationDelay: '300ms' }}>Thinking...</span>
                 </div>
-                {selectedReportId && (
-                  <button
-                    onClick={() => {
-                      setSelectedReportId(null);
-                      setReportContent('');
-                      setReportTitle('');
-                    }}
-                    className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
-                  >
-                    关闭
-                  </button>
-                )}
-                {selectedResumeId && !selectedReportId && (
-                  <button
-                    onClick={() => {
-                      setSelectedResumeId(null);
-                    }}
-                    className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
-                  >
-                    关闭
-                  </button>
-                )}
+              )}
+
+              <div ref={messagesEndRef} />
+            </main>
+
+            {/* Input Area */}
+            <div className="border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4">
+              <form onSubmit={handleSubmit}>
+                <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden flex items-center">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    placeholder={isProcessing ? '正在处理中，可以继续输入...' : '输入消息...（例如：生成一份关于 AI 发展趋势的报告）'}
+                    className="flex-1 px-4 py-3 outline-none text-slate-700 dark:text-slate-200 placeholder-slate-400 bg-transparent"
+                  />
+                  <div className="pr-2 py-2">
+                    <button
+                      type="submit"
+                      disabled={!input.trim() || isProcessing}
+                      className={`
+                        w-8 h-8 rounded-full flex items-center justify-center
+                        transition-all duration-200
+                        ${!input.trim() || isProcessing
+                          ? 'bg-slate-200 dark:bg-slate-700 cursor-not-allowed'
+                          : 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-indigo-700 hover:from-indigo-600 hover:via-indigo-700 hover:to-indigo-800 shadow-sm hover:shadow-md'
+                        }
+                      `}
+                      title={isProcessing ? '等待当前消息处理完成' : '发送消息'}
+                    >
+                      <ArrowUp
+                        className={`w-5 h-5 ${!input.trim() || isProcessing
+                          ? 'text-slate-400'
+                          : 'text-white'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              {/* Status */}
+              <div className="text-center mt-3 text-xs text-gray-400">
+                <span className={`inline-flex items-center gap-1.5 ${status === 'idle' ? 'text-green-500' :
+                  status === 'processing' ? 'text-orange-500' : 'text-gray-400'
+                  }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${status === 'idle' ? 'bg-green-500' :
+                    status === 'processing' ? 'bg-orange-500 animate-pulse' : 'bg-gray-400'
+                    }`}></span>
+                  {status === 'idle' ? 'Ready (SSE)' : status === 'processing' ? 'Processing...' : 'Connecting...'}
+                </span>
               </div>
             </div>
-            <div className="p-6">
-              {selectedReportId ? (
-                // 显示报告内容
-                <ReportContentView 
-                  reportId={selectedReportId}
-                  streamingContent={streamingReportId === selectedReportId ? streamingReportContent : undefined}
-                  isStreaming={streamingReportId === selectedReportId && isProcessing}
-                  onContentLoaded={(content, title) => {
-                    setReportContent(content);
-                    if (title) setReportTitle(title);
-                  }}
-                />
-              ) : (
-                // 显示选中的简历卡片内容
-                (() => {
-                  const selectedResume = loadedResumes.find(r => r.id === selectedResumeId);
-                  if (!selectedResume || !selectedResume.resumeData) {
-                    return <div className="text-sm text-slate-500">正在加载简历...</div>;
-                  }
-                  const resumeDataToShow = selectedResume.resumeData;
-                  const isHtmlTemplate = resumeDataToShow.templateType === 'html';
-                  if (!isHtmlTemplate) {
+          </section>
+
+          {/* Right: Report Preview or Resume Preview - 只格在有选中内容时显示 */}
+          {(selectedReportId || selectedResumeId) && (
+            <aside className="w-[45%] min-w-[420px] bg-slate-50 overflow-y-auto">
+              <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold text-slate-700">
+                      {selectedReportId ? '报告内容' : '简历预览'}
+                    </h2>
+                    {selectedReportId && reportTitle && (
+                      <p className="text-xs text-slate-400 mt-1">{reportTitle}</p>
+                    )}
+                    {selectedResumeId && !selectedReportId && (() => {
+                      const selectedResume = loadedResumes.find(r => r.id === selectedResumeId);
+                      if (selectedResume) {
+                        return <p className="text-xs text-slate-400 mt-1">{selectedResume.name}</p>;
+                      }
+                      return null;
+                    })()}
+                  </div>
+                  {selectedReportId && (
+                    <button
+                      onClick={() => {
+                        setSelectedReportId(null);
+                        setReportContent('');
+                        setReportTitle('');
+                      }}
+                      className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+                    >
+                      关闭
+                    </button>
+                  )}
+                  {selectedResumeId && !selectedReportId && (
+                    <button
+                      onClick={() => {
+                        setSelectedResumeId(null);
+                      }}
+                      className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+                    >
+                      关闭
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="p-6">
+                {selectedReportId ? (
+                  // 显示报告内容
+                  <ReportContentView 
+                    reportId={selectedReportId}
+                    streamingContent={streamingReportId === selectedReportId ? streamingReportContent : undefined}
+                    isStreaming={streamingReportId === selectedReportId && isProcessing}
+                    onContentLoaded={(content, title) => {
+                      setReportContent(content);
+                      if (title) setReportTitle(title);
+                    }}
+                  />
+                ) : (
+                  // 显示选中的简历卡片内容
+                  (() => {
+                    const selectedResume = loadedResumes.find(r => r.id === selectedResumeId);
+                    if (!selectedResume || !selectedResume.resumeData) {
+                      return <div className="text-sm text-slate-500">正在加载简历...</div>;
+                    }
+                    const resumeDataToShow = selectedResume.resumeData;
+                    const isHtmlTemplate = resumeDataToShow.templateType === 'html';
+                    if (!isHtmlTemplate) {
+                      return (
+                        <div className="text-sm text-orange-600">
+                          当前仅支持 HTML 模板简历的预览。
+                        </div>
+                      );
+                    }
                     return (
-                      <div className="text-sm text-orange-600">
-                        当前仅支持 HTML 模板简历的预览。
+                      <div className="bg-white shadow-lg rounded-lg p-6">
+                        <HTMLTemplateRenderer resumeData={resumeDataToShow} />
                       </div>
                     );
-                  }
-                  return (
-                    <div className="bg-white shadow-lg rounded-lg p-6">
-                      <HTMLTemplateRenderer resumeData={resumeDataToShow} />
-                    </div>
-                  );
-                })()
-              )}
-            </div>
-          </aside>
-        )}
+                  })()
+                )}
+              </div>
+            </aside>
+          )}
+        </div>
+        <SearchResultPanel
+          isOpen={!!activeSearchPanel}
+          query={activeSearchPanel?.query || ''}
+          totalResults={activeSearchPanel?.total_results || 0}
+          results={activeSearchPanel?.results || []}
+          onClose={() => setActiveSearchPanel(null)}
+        />
       </div>
-      <SearchResultPanel
-        isOpen={!!activeSearchPanel}
-        query={activeSearchPanel?.query || ''}
-        totalResults={activeSearchPanel?.total_results || 0}
-        results={activeSearchPanel?.results || []}
-        onClose={() => setActiveSearchPanel(null)}
-      />
-    </div>
+    </WorkspaceLayout>
   );
 }

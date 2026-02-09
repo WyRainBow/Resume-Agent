@@ -15,6 +15,8 @@ import LaTeXWorkspace from './pages/Workspace/v2/latex'
 import ReportEdit from './pages/ReportEdit'
 import ReportsPage from './pages/Reports'
 
+import WorkspaceLayout from './pages/WorkspaceLayout'
+
 function App() {
   try {
     return (
@@ -28,6 +30,8 @@ function App() {
             <Route path="/workspace/latex/:resumeId" element={<LaTeXWorkspace />} />
             <Route path="/workspace/html" element={<HTMLWorkspace />} />
             <Route path="/workspace/html/:resumeId" element={<HTMLWorkspace />} />
+            <Route path="/agent/new" element={<AgentChat />} />
+            <Route path="/agent/:resumeId" element={<AgentChat />} />
             <Route path="/workspace/agent/new" element={<AgentChat />} />
             <Route path="/workspace/agent/:resumeId" element={<AgentChat />} />
             {/* 其他路由 */}

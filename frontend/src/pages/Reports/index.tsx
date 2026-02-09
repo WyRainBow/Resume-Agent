@@ -370,7 +370,7 @@ export default function ReportsPage() {
 
   // 处理创建新报告
   const handleCreateNew = useCallback(() => {
-    navigate('/workspace/agent/new')
+    navigate('/agent/new')
   }, [navigate])
 
   return (
