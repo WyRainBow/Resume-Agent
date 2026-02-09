@@ -464,7 +464,7 @@ export function AIImportModal({
               </div>
 
               {/* 内容区域 */}
-              <div className="h-[400px]">
+              <div className="h-[350px]">
                 {importMode === "file" && (
                   <div className="h-full flex flex-col space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
