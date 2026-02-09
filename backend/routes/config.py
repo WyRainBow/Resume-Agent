@@ -32,9 +32,39 @@ async def get_ai_config_endpoint():
 @router.get("/config/keys")
 async def get_keys_status():
     """获取 API Key 配置状态（不返回完整 Key，只返回是否已配置）"""
-    zhipu_key = os.getenv("ZHIPU_API_KEY", "")
-    doubao_key = os.getenv("DOUBAO_API_KEY", "")
-    deepseek_key = os.getenv("DEEPSEEK_API_KEY", "")
+    # 直接从 .env 文件读取，不依赖环境变量
+    env_path = ROOT_DIR / ".env"
+    zhipu_key = ""
+    doubao_key = ""
+    deepseek_key = ""
+    
+    if env_path.exists():
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if "=" in line:
+                        key, value = line.split("=", 1)
+                        key = key.strip()
+                        value = value.strip().strip('"').strip("'")
+                        if key == "ZHIPU_API_KEY":
+                            zhipu_key = value
+                        elif key == "DOUBAO_API_KEY":
+                            doubao_key = value
+                        elif key == "DEEPSEEK_API_KEY":
+                            deepseek_key = value
+        except Exception:
+            # 如果读取失败，回退到环境变量
+            zhipu_key = os.getenv("ZHIPU_API_KEY", "")
+            doubao_key = os.getenv("DOUBAO_API_KEY", "")
+            deepseek_key = os.getenv("DEEPSEEK_API_KEY", "")
+    else:
+        # 如果 .env 不存在，回退到环境变量
+        zhipu_key = os.getenv("ZHIPU_API_KEY", "")
+        doubao_key = os.getenv("DOUBAO_API_KEY", "")
+        deepseek_key = os.getenv("DEEPSEEK_API_KEY", "")
 
     return {
         "zhipu": {

@@ -21,7 +21,7 @@ try:
     from dotenv import load_dotenv
     from pathlib import Path
     # 确保从项目根目录加载 .env 文件
-    ROOT_DIR = Path(__file__).resolve().parent
+    ROOT_DIR = Path(__file__).resolve().parent.parent  # backend -> 项目根目录
     env_path = ROOT_DIR / ".env"
     if env_path.exists():
         load_dotenv(dotenv_path=str(env_path), override=True)

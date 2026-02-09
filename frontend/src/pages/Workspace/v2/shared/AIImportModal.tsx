@@ -92,6 +92,7 @@ export function AIImportModal({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [copied, setCopied] = useState(false);
   const [importMode, setImportMode] = useState<"file" | "text">("file");
+  const [currentStep, setCurrentStep] = useState<"input" | "results">("input");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -142,6 +143,7 @@ export function AIImportModal({
       setFinalTime(null);
       setSelectedFile(null);
       setImportMode("file");
+      setCurrentStep("input");
     }
   }, [isOpen]);
 
@@ -195,6 +197,7 @@ export function AIImportModal({
       } else {
         setParsedData(result.data || result);
       }
+      setCurrentStep("results");
     } catch (err: any) {
       console.error("AI 解析失败:", err);
       alert("解析失败: " + err.message);
@@ -231,6 +234,7 @@ export function AIImportModal({
 
       const result = await response.json();
       setParsedData(result.resume || result.data || result);
+      setCurrentStep("results");
     } catch (err: any) {
       console.error("PDF 解析失败:", err);
       alert("解析失败: " + err.message);
@@ -288,7 +292,9 @@ export function AIImportModal({
       <div
         onClick={(e) => e.stopPropagation()}
         className={cn(
-          "relative w-full max-w-2xl",
+          "relative w-full transition-all duration-300",
+          currentStep === "results" ? "max-w-4xl" : "max-w-2xl",
+          "max-h-[90vh] flex flex-col",
           "bg-white dark:bg-slate-900",
           "rounded-2xl shadow-2xl",
           "border border-slate-200 dark:border-slate-700",
@@ -304,14 +310,22 @@ export function AIImportModal({
             </div>
             <div>
               <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                {sectionType === "all"
-                  ? "导入简历"
-                  : `AI 导入 - ${sectionTitle}`}
+                {parsing
+                  ? "正在解析内容"
+                  : currentStep === "results"
+                    ? "解析结果预览"
+                    : sectionType === "all"
+                      ? "导入简历"
+                      : `AI 导入 - ${sectionTitle}`}
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                {sectionType === "all"
-                  ? "上传或粘贴简历内容，系统将自动解析并导入"
-                  : "粘贴或输入该模块的文本内容：AI 将自动解析并填充"}
+                {parsing
+                  ? "AI 正在处理您的请求，请稍候..."
+                  : currentStep === "results"
+                    ? "请检查解析出的数据是否准确，点击下方按钮填充到表单"
+                    : sectionType === "all"
+                      ? "上传或粘贴简历内容，系统将自动解析并导入"
+                      : "粘贴或输入该模块的文本内容：AI 将自动解析并填充"}
               </p>
             </div>
           </div>
@@ -329,412 +343,458 @@ export function AIImportModal({
         </div>
 
         {/* 内容区域 */}
-        <div className="p-6 space-y-4">
-          {/* 模型选择器 */}
-          <div className="relative" ref={dropdownRef}>
-            <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
-              选择 AI 模型
-            </label>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowModelDropdown(!showModelDropdown)}
-                className={cn(
-                  "w-full px-4 py-3 rounded-xl",
-                  "bg-slate-50 dark:bg-slate-800",
-                  "border border-slate-200 dark:border-slate-700",
-                  "text-slate-900 dark:text-slate-100",
-                  "text-left",
-                  "focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent",
-                  "transition-all",
-                  "flex items-center justify-between",
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-                    <Wand2 className="w-4 h-4 text-white" />
+        <div className="flex-1 overflow-hidden p-6 flex flex-col min-h-[450px]">
+          {/* 第一步：输入视图 */}
+          {currentStep === "input" && !parsing && (
+            <div className="space-y-4 animate-in fade-in duration-300 flex-1 flex flex-col overflow-y-auto custom-scrollbar pr-2">
+              {/* 如果已经有解析结果，显示一个提示条 */}
+              {parsedData && (
+                <div className="mb-4 p-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 flex items-center justify-between animate-in slide-in-from-top-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                    <span className="text-sm text-indigo-700 dark:text-indigo-300 font-medium">
+                      已有解析好的数据
+                    </span>
                   </div>
-                  <div>
-                    <div className="font-semibold">
-                      {AI_MODELS.find((m) => m.id === selectedModel)?.name}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">
-                      {
-                        AI_MODELS.find((m) => m.id === selectedModel)
-                          ?.description
-                      }
-                    </div>
-                  </div>
-                </div>
-                <ChevronDown
-                  className={cn(
-                    "w-5 h-5 text-slate-400 transition-transform",
-                    showModelDropdown && "rotate-180",
-                  )}
-                />
-              </button>
-
-              {/* 下拉菜单 */}
-              {showModelDropdown && (
-                <div className="absolute z-10 w-full mt-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden">
-                  {AI_MODELS.map((model) => (
-                    <button
-                      key={model.id}
-                      type="button"
-                      onClick={() => {
-                        setSelectedModel(model.id);
-                        setShowModelDropdown(false);
-                      }}
-                      className={cn(
-                        "w-full px-4 py-3 text-left transition-colors",
-                        "hover:bg-slate-50 dark:hover:bg-slate-700",
-                        selectedModel === model.id &&
-                          "bg-purple-50 dark:bg-purple-900/20",
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className={cn(
-                            "w-8 h-8 rounded-lg flex items-center justify-center",
-                            selectedModel === model.id
-                              ? "bg-gradient-to-br from-purple-500 to-indigo-600"
-                              : "bg-slate-200 dark:bg-slate-700",
-                          )}
-                        >
-                          <Wand2
-                            className={cn(
-                              "w-4 h-4",
-                              selectedModel === model.id
-                                ? "text-white"
-                                : "text-slate-500 dark:text-slate-400",
-                            )}
-                          />
-                        </div>
-                        <div>
-                          <div
-                            className={cn(
-                              "font-semibold",
-                              selectedModel === model.id
-                                ? "text-purple-700 dark:text-purple-400"
-                                : "text-slate-900 dark:text-slate-100",
-                            )}
-                          >
-                            {model.name}
-                          </div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">
-                            {model.description}
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                  <button
+                    onClick={() => setCurrentStep("results")}
+                    className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                  >
+                    查看结果
+                    <ChevronDown className="w-3 h-3 -rotate-90" />
+                  </button>
                 </div>
               )}
-            </div>
-          </div>
 
-          {sectionType === "all" ? (
-            <div className="space-y-4">
-              {/* Tab 切换 */}
-              <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl">
-                <button
-                  onClick={() => setImportMode("file")}
-                  className={cn(
-                    "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all",
-                    importMode === "file"
-                      ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
-                  )}
-                >
-                  <Upload className="w-4 h-4" />
-                  文件上传
-                </button>
-                <button
-                  onClick={() => setImportMode("text")}
-                  className={cn(
-                    "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all",
-                    importMode === "text"
-                      ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                      : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
-                  )}
-                >
-                  <FileText className="w-4 h-4" />
-                  文本粘贴
-                </button>
-              </div>
-
-              {/* 内容区域 */}
-              <div className="h-[350px]">
-                {importMode === "file" && (
-                  <div className="h-full flex flex-col space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                      文件上传
-                    </div>
-                    <div className="flex-1 overflow-hidden">
-                      <FileUploadZone
-                        file={selectedFile}
-                        onFileSelect={setSelectedFile}
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handlePdfUpload}
-                      disabled={!selectedFile || parsing}
-                      className={cn(
-                        "w-full rounded-xl px-4 py-2.5 text-sm font-semibold flex-shrink-0",
-                        "bg-indigo-500 text-white shadow-lg shadow-indigo-500/30",
-                        "hover:bg-indigo-600",
-                        "disabled:opacity-50 disabled:cursor-not-allowed",
-                        "transition-all",
-                      )}
-                    >
-                      {parsing ? "解析中..." : "上传解析 PDF"}
-                    </button>
-                  </div>
-                )}
-
-                {importMode === "text" && (
-                  <div className="h-full flex flex-col space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                      文本粘贴
-                    </div>
-                    <div className="flex-1 flex flex-col space-y-2 overflow-hidden">
-                      <label className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">
-                        粘贴简历内容（按 Tab 键快速填充示例内容）
-                      </label>
-                      <textarea
-                        value={text}
-                        onChange={(e) => setText(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Tab") {
-                            const normalizedType =
-                              sectionType === "openSource"
-                                ? "opensource"
-                                : sectionType;
-                            const placeholder =
-                              aiImportPlaceholders[normalizedType] || "";
-                            if (
-                              placeholder &&
-                              (!text || placeholder.startsWith(text))
-                            ) {
-                              e.preventDefault();
-                              setText(placeholder);
-                            }
-                          }
-                        }}
-                        placeholder={(() => {
-                          const normalizedType =
-                            sectionType === "openSource"
-                              ? "opensource"
-                              : sectionType;
-                          return (
-                            aiImportPlaceholders[normalizedType] ||
-                            "请输入文本内容..."
-                          );
-                        })()}
-                        className={cn(
-                          "w-full flex-1 p-4 rounded-xl resize-none",
-                          "bg-slate-50 dark:bg-slate-800/50",
-                          "border border-slate-200 dark:border-slate-700",
-                          "text-slate-900 dark:text-slate-100 text-sm",
-                          "placeholder:text-slate-400 dark:placeholder:text-slate-500",
-                          "outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent",
-                          "transition-all",
-                          "font-mono",
-                        )}
-                      />
-                      {text && (
-                        <div className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">
-                          字符数: {text.length}
+              {/* 模型选择器 */}
+              <div className="relative" ref={dropdownRef}>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+                  选择 AI 模型
+                </label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowModelDropdown(!showModelDropdown)}
+                    className={cn(
+                      "w-full px-4 py-3 rounded-xl",
+                      "bg-slate-50 dark:bg-slate-800",
+                      "border border-slate-200 dark:border-slate-700",
+                      "text-slate-900 dark:text-slate-100",
+                      "text-left",
+                      "focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent",
+                      "transition-all",
+                      "flex items-center justify-between",
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
+                        <Wand2 className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                        <div className="font-semibold">
+                          {AI_MODELS.find((m) => m.id === selectedModel)?.name}
                         </div>
-                      )}
+                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                          {
+                            AI_MODELS.find((m) => m.id === selectedModel)
+                              ?.description
+                          }
+                        </div>
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleParse}
-                      disabled={!text.trim() || parsing}
+                    <ChevronDown
                       className={cn(
-                        "w-full rounded-xl px-4 py-2.5 text-sm font-semibold flex-shrink-0",
-                        "bg-gradient-to-r from-purple-500 to-indigo-600 text-white",
-                        "hover:from-purple-600 hover:to-indigo-700",
-                        "shadow-lg shadow-purple-500/30",
-                        "disabled:opacity-50 disabled:cursor-not-allowed",
-                        "transition-all",
+                        "w-5 h-5 text-slate-400 transition-transform",
+                        showModelDropdown && "rotate-180",
+                      )}
+                    />
+                  </button>
+
+                  {/* 下拉菜单 */}
+                  {showModelDropdown && (
+                    <div className="absolute z-10 w-full mt-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden">
+                      {AI_MODELS.map((model) => (
+                        <button
+                          key={model.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedModel(model.id);
+                            setShowModelDropdown(false);
+                          }}
+                          className={cn(
+                            "w-full px-4 py-3 text-left transition-colors",
+                            "hover:bg-slate-50 dark:hover:bg-slate-700",
+                            selectedModel === model.id &&
+                              "bg-purple-50 dark:bg-purple-900/20",
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className={cn(
+                                "w-8 h-8 rounded-lg flex items-center justify-center",
+                                selectedModel === model.id
+                                  ? "bg-gradient-to-br from-purple-500 to-indigo-600"
+                                  : "bg-slate-200 dark:bg-slate-700",
+                              )}
+                            >
+                              <Wand2
+                                className={cn(
+                                  "w-4 h-4",
+                                  selectedModel === model.id
+                                    ? "text-white"
+                                    : "text-slate-500 dark:text-slate-400",
+                                )}
+                              />
+                            </div>
+                            <div>
+                              <div
+                                className={cn(
+                                  "font-semibold",
+                                  selectedModel === model.id
+                                    ? "text-purple-700 dark:text-purple-400"
+                                    : "text-slate-900 dark:text-slate-100",
+                                )}
+                              >
+                                {model.name}
+                              </div>
+                              <div className="text-xs text-slate-500 dark:text-slate-400">
+                                {model.description}
+                              </div>
+                            </div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {sectionType === "all" ? (
+                <div className="space-y-4 flex-1 flex flex-col">
+                  {/* Tab 切换 */}
+                  <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl flex-shrink-0">
+                    <button
+                      onClick={() => setImportMode("file")}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all",
+                        importMode === "file"
+                          ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
                       )}
                     >
-                      {parsing ? "解析中..." : "AI 解析文本"}
+                      <Upload className="w-4 h-4" />
+                      文件上传
+                    </button>
+                    <button
+                      onClick={() => setImportMode("text")}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all",
+                        importMode === "text"
+                          ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
+                      )}
+                    >
+                      <FileText className="w-4 h-4" />
+                      文本粘贴
                     </button>
                   </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                文本内容
-                <span className="text-xs text-slate-400 dark:text-slate-500 ml-2">
-                  （按 Tab 键快速填充示例内容）
-                </span>
-              </label>
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Tab") {
-                    const normalizedType =
-                      sectionType === "openSource" ? "opensource" : sectionType;
-                    const placeholder =
-                      aiImportPlaceholders[normalizedType] || "";
-                    if (
-                      placeholder &&
-                      (!text || placeholder.startsWith(text))
-                    ) {
-                      e.preventDefault();
-                      setText(placeholder);
-                    }
-                  }
-                }}
-                placeholder={(() => {
-                  const normalizedType =
-                    sectionType === "openSource" ? "opensource" : sectionType;
-                  return (
-                    aiImportPlaceholders[normalizedType] || "请输入文本内容..."
-                  );
-                })()}
-                className={cn(
-                  "w-full min-h-[200px] p-4 rounded-xl resize-y",
-                  "bg-slate-50 dark:bg-slate-800/50",
-                  "border border-slate-200 dark:border-slate-700",
-                  "text-slate-900 dark:text-slate-100 text-sm",
-                  "placeholder:text-slate-400 dark:placeholder:text-slate-500",
-                  "outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent",
-                  "transition-all",
-                  "font-mono",
-                )}
-              />
-              {text && (
-                <div className="text-xs text-slate-500 dark:text-slate-400">
-                  字符数: {text.length}
+
+                  {/* 内容区域 */}
+                  <div className="flex-1 flex flex-col min-h-[350px]">
+                    {importMode === "file" && (
+                      <div className="flex-1 flex flex-col space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex-shrink-0">
+                          文件上传
+                        </div>
+                        <div className="flex-1 min-h-0 overflow-hidden">
+                          <FileUploadZone
+                            file={selectedFile}
+                            onFileSelect={setSelectedFile}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handlePdfUpload}
+                          disabled={!selectedFile || parsing}
+                          className={cn(
+                            "w-full rounded-xl px-4 py-2.5 text-sm font-semibold flex-shrink-0",
+                            "bg-indigo-500 text-white shadow-lg shadow-indigo-500/30",
+                            "hover:bg-indigo-600",
+                            "disabled:opacity-50 disabled:cursor-not-allowed",
+                            "transition-all",
+                          )}
+                        >
+                          {parsing ? "解析中..." : "上传解析 PDF"}
+                        </button>
+                      </div>
+                    )}
+
+                    {importMode === "text" && (
+                      <div className="flex-1 flex flex-col space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex-shrink-0">
+                          文本粘贴
+                        </div>
+                        <div className="flex-1 min-h-0 flex flex-col space-y-2 overflow-hidden">
+                          <label className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">
+                            粘贴简历内容（按 Tab 键快速填充示例内容）
+                          </label>
+                          <textarea
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Tab") {
+                                const placeholder =
+                                  aiImportPlaceholders["all"] || "";
+                                if (
+                                  placeholder &&
+                                  (!text || placeholder.startsWith(text))
+                                ) {
+                                  e.preventDefault();
+                                  setText(placeholder);
+                                }
+                              }
+                            }}
+                            placeholder={aiImportPlaceholders["all"] || "请输入文本内容..."}
+                            className={cn(
+                              "w-full flex-1 p-4 rounded-xl resize-none",
+                              "bg-slate-50 dark:bg-slate-800/50",
+                              "border border-slate-200 dark:border-slate-700",
+                              "text-slate-900 dark:text-slate-100 text-sm",
+                              "placeholder:text-slate-400 dark:placeholder:text-slate-500",
+                              "outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent",
+                              "transition-all",
+                              "font-mono",
+                            )}
+                          />
+                          {text && (
+                            <div className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">
+                              字符数: {text.length}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleParse}
+                          disabled={!text.trim() || parsing}
+                          className={cn(
+                            "w-full rounded-xl px-4 py-2.5 text-sm font-semibold flex-shrink-0",
+                            "bg-gradient-to-r from-purple-500 to-indigo-600 text-white",
+                            "hover:from-purple-600 hover:to-indigo-700",
+                            "shadow-lg shadow-purple-500/30",
+                            "disabled:opacity-50 disabled:cursor-not-allowed",
+                            "transition-all",
+                          )}
+                        >
+                          {parsing ? "解析中..." : "AI 解析文本"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2 flex-1 flex flex-col">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex-shrink-0">
+                    文本内容
+                    <span className="text-xs text-slate-400 dark:text-slate-500 ml-2">
+                      （按 Tab 键快速填充示例内容）
+                    </span>
+                  </label>
+                  <textarea
+                    value={text}
+                    onChange={(e) => setText(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Tab") {
+                        const normalizedType =
+                          sectionType === "openSource" ? "opensource" : sectionType;
+                        const placeholder =
+                          aiImportPlaceholders[normalizedType] || "";
+                        if (
+                          placeholder &&
+                          (!text || placeholder.startsWith(text))
+                        ) {
+                          e.preventDefault();
+                          setText(placeholder);
+                        }
+                      }
+                    }}
+                    placeholder={(() => {
+                      const normalizedType =
+                        sectionType === "openSource" ? "opensource" : sectionType;
+                      return (
+                        aiImportPlaceholders[normalizedType] || "请输入文本内容..."
+                      );
+                    })()}
+                    className={cn(
+                      "w-full flex-1 p-4 rounded-xl resize-none",
+                      "bg-slate-50 dark:bg-slate-800/50",
+                      "border border-slate-200 dark:border-slate-700",
+                      "text-slate-900 dark:text-slate-100 text-sm",
+                      "placeholder:text-slate-400 dark:placeholder:text-slate-500",
+                      "outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent",
+                      "transition-all",
+                      "font-mono",
+                    )}
+                  />
+                  {text && (
+                    <div className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">
+                      字符数: {text.length}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
           )}
 
           {/* 解析结果预览 */}
-          {parsedData && (
+          {currentStep === "results" && !parsing && parsedData && (
             <div
               className={cn(
-                "p-4 rounded-xl",
-                "bg-green-50 dark:bg-green-900/20",
-                "border border-green-200 dark:border-green-800",
-                "animate-in slide-in-from-top-2 duration-300",
+                "flex-1 flex flex-col p-6 rounded-2xl overflow-hidden",
+                "bg-green-50/50 dark:bg-green-900/10",
+                "border border-green-200 dark:border-green-800/50",
+                "animate-in zoom-in-95 duration-300",
               )}
             >
-              <div className="flex items-center justify-between gap-2 mb-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center">
-                    <span className="text-white text-xs">✓</span>
+              <div className="flex items-center justify-between gap-2 mb-4 flex-shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center shadow-lg shadow-green-500/20">
+                    <span className="text-white text-lg font-bold">✓</span>
                   </div>
-                  <span className="text-green-700 dark:text-green-400 text-sm font-semibold">
-                    解析成功！
-                  </span>
+                  <div>
+                    <span className="text-green-800 dark:text-green-300 text-base font-bold block">
+                      解析成功！
+                    </span>
+                    <span className="text-green-600/80 dark:text-green-400/80 text-xs">
+                      共解析出 {Object.keys(parsedData).length} 个核心数据项
+                    </span>
+                  </div>
                 </div>
                 <button
                   type="button"
                   onClick={handleCopyJson}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium",
+                    "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold",
+                    "bg-white dark:bg-slate-800",
                     "border border-green-200 dark:border-green-800",
                     "text-green-700 dark:text-green-400",
-                    "hover:bg-green-100 dark:hover:bg-green-900/30",
-                    "transition-colors",
+                    "hover:bg-green-50 dark:hover:bg-green-900/30",
+                    "transition-all shadow-sm",
                   )}
                 >
                   <Copy className="w-3.5 h-3.5" />
-                  {copied ? "已复制" : "复制 JSON"}
+                  {copied ? "已复制" : "复制结果"}
                 </button>
               </div>
-              <div className="max-h-[200px] overflow-auto rounded-lg bg-white dark:bg-slate-900 p-3 border border-slate-200 dark:border-slate-700">
-                <pre className="m-0 text-slate-700 dark:text-slate-300 text-xs whitespace-pre-wrap break-words font-mono">
-                  {JSON.stringify(parsedData, null, 2)}
-                </pre>
+              
+              <div className="flex-1 min-h-0 overflow-hidden rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-inner">
+                <div className="h-full overflow-auto p-4 custom-scrollbar">
+                  <pre className="m-0 text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap break-words font-mono leading-relaxed">
+                    {JSON.stringify(parsedData, null, 2)}
+                  </pre>
+                </div>
+              </div>
+
+              <div className="mt-4 p-3 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-green-100 dark:border-green-900/20 text-xs text-green-700/70 dark:text-green-400/70 flex items-center gap-2 flex-shrink-0">
+                <FileText className="w-3.5 h-3.5" />
+                提示：您可以点击右下角的“填充到表单”按钮，将这些数据自动填写到简历编辑器中。
               </div>
             </div>
           )}
 
           {/* 加载状态 */}
           {parsing && (
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
-              <div className="w-5 h-5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-              <div className="flex-1">
-                <div className="text-sm font-medium text-purple-700 dark:text-purple-400">
-                  AI 正在解析中...
-                </div>
-                <div className="text-xs text-purple-600 dark:text-purple-500 mt-1">
-                  预计需要几秒钟：请稍候
+            <div className="flex-1 flex flex-col items-center justify-center py-12 px-6 animate-in fade-in duration-300">
+              <div className="relative mb-8">
+                <div className="w-20 h-20 border-4 border-purple-100 dark:border-purple-900/30 rounded-full" />
+                <div className="absolute inset-0 w-20 h-20 border-4 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Wand2 className="w-8 h-8 text-purple-500 animate-pulse" />
                 </div>
               </div>
-              <span
-                className={cn(
-                  "text-sm font-medium min-w-[50px] text-right",
-                  getTimeColor(elapsedTime),
-                )}
-              >
+              
+              <div className="text-center space-y-3 max-w-xs">
+                <div className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                  AI 正在深度解析...
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                  我们的 AI 正在提取关键信息并进行结构化处理，这通常需要 3-10 秒钟。
+                </p>
+              </div>
+
+              <div className="mt-8 w-full max-w-[240px] bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-purple-500 h-full w-full animate-pulse" />
+              </div>
+
+              <div className={cn(
+                "mt-6 px-4 py-1.5 rounded-full text-sm font-bold shadow-sm",
+                "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700",
+                getTimeColor(elapsedTime)
+              )}>
                 {formatTime(elapsedTime)}
-              </span>
+              </div>
             </div>
           )}
         </div>
 
         {/* 底部按钮 */}
         <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-          <button
-            onClick={onClose}
-            className={cn(
-              "px-4 py-2 rounded-lg text-sm font-medium",
-              "text-slate-700 dark:text-slate-300",
-              "hover:bg-slate-100 dark:hover:bg-slate-700",
-              "transition-colors",
-            )}
-          >
-            取消
-          </button>
+          {currentStep === "input" ? (
+            <>
+              <button
+                onClick={onClose}
+                className={cn(
+                  "px-4 py-2 rounded-lg text-sm font-medium",
+                  "text-slate-700 dark:text-slate-300",
+                  "hover:bg-slate-100 dark:hover:bg-slate-700",
+                  "transition-colors",
+                )}
+              >
+                取消
+              </button>
 
-          {/* 解析按钮（非全局导入时使用） */}
-          {!parsedData && sectionType !== "all" && (
-            <button
-              onClick={handleParse}
-              disabled={!text.trim() || parsing}
-              className={cn(
-                "px-6 py-2.5 rounded-lg text-sm font-semibold",
-                "bg-gradient-to-r from-purple-500 to-indigo-600 text-white",
-                "hover:from-purple-600 hover:to-indigo-700",
-                "shadow-lg shadow-purple-500/30",
-                "disabled:opacity-50 disabled:cursor-not-allowed",
-                "flex items-center gap-2 transition-all",
+              {/* 解析按钮（非全局导入时显示，全局导入时按钮在内容区） */}
+              {sectionType !== "all" && (
+                <div className="flex items-center gap-2">
+                  {parsedData && (
+                    <button
+                      onClick={() => setCurrentStep("results")}
+                      className="px-4 py-2.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      查看已有结果
+                    </button>
+                  )}
+                  <button
+                    onClick={handleParse}
+                    disabled={!text.trim() || parsing}
+                    className={cn(
+                      "px-6 py-2.5 rounded-lg text-sm font-semibold",
+                      "bg-gradient-to-r from-purple-500 to-indigo-600 text-white",
+                      "hover:from-purple-600 hover:to-indigo-700",
+                      "shadow-lg shadow-purple-500/30",
+                      "disabled:opacity-50 disabled:cursor-not-allowed",
+                      "flex items-center gap-2 transition-all",
+                    )}
+                  >
+                    {parsing ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        解析中...
+                      </>
+                    ) : (
+                      <>
+                        <Wand2 className="w-4 h-4" />
+                        {parsedData ? "重新解析" : "AI 解析"}
+                      </>
+                    )}
+                  </button>
+                </div>
               )}
-            >
-              {parsing ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  解析中...
-                </>
-              ) : (
-                <>
-                  <Wand2 className="w-4 h-4" />
-                  AI 解析
-                </>
-              )}
-            </button>
-          )}
-
-          {/* 保存按钮 */}
-          {parsedData && (
+            </>
+          ) : (
             <>
               <button
                 onClick={() => {
-                  setParsedData(null);
-                  setFinalTime(null);
+                  setCurrentStep("input");
                 }}
                 className={cn(
                   "px-4 py-2.5 rounded-lg text-sm font-medium",
@@ -745,7 +805,7 @@ export function AIImportModal({
                 )}
               >
                 <RotateCcw className="w-4 h-4" />
-                重新解析
+                返回修改
               </button>
               <button
                 onClick={handleSave}
@@ -758,12 +818,11 @@ export function AIImportModal({
                 )}
               >
                 <Save className="w-4 h-4" />
-                填充到表单
+                确认并填充
                 {finalTime !== null && (
                   <span
                     className={cn(
-                      "text-xs font-medium ml-1",
-                      getTimeColor(finalTime),
+                      "text-xs font-medium ml-1 opacity-70",
                     )}
                   >
                     ({formatTime(finalTime)})
