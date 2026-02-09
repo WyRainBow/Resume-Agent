@@ -83,22 +83,24 @@ export default function LandingPage() {
             <a href="#ai" className="text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors">AI 引擎</a>
           </div>
 
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => navigate('/dashboard')}
-            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-all"
-          >
-            我的简历
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={() => navigate('/create-new')}
-            className="hidden md:block px-5 py-2.5 bg-white text-blue-600 rounded-xl font-bold shadow-lg hover:bg-blue-50 transition-all border border-blue-100"
-          >
-            创建简历
-          </motion.button>
+          <div className="flex items-center gap-4">
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => navigate('/create-new')}
+              className="hidden md:block px-5 py-2.5 bg-white text-blue-600 rounded-xl font-bold shadow-lg hover:bg-blue-50 transition-all border border-blue-100"
+            >
+              创建简历
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => navigate('/dashboard')}
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-all"
+            >
+              我的简历
+            </motion.button>
+          </div>
         </div>
       </nav>
 
