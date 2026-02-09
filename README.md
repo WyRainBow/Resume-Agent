@@ -80,7 +80,7 @@ cd Resume-Agent
 创建 `.env` 文件，填入 DeepSeek API Key：
 ```bash
 cp .env.example .env
-# 编辑 .env 文件，填入 DEEPSEEK_API_KEY=your_api_key_here
+# 编辑 .env 文件，填入 DASHSCOPE_API_KEY=your_api_key_here
 ```
 
 **3、安装依赖**

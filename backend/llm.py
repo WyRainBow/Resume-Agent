@@ -38,12 +38,12 @@ except ImportError:
 # 全局 AI 配置
 DEFAULT_AI_PROVIDER = "deepseek"
 DEFAULT_AI_MODEL = {
-    "deepseek": "deepseek-chat"  # 可选: deepseek-chat, deepseek-reasoner
+    "deepseek": "deepseek-v3.2"  # 默认使用 deepseek-v3.2
 }
 
 # 支持的模型列表
 SUPPORTED_MODELS = {
-    "deepseek-chat": "DeepSeek Chat (快速)",
+    "deepseek-v3.2": "DeepSeek V3.2 (快速)",
     "deepseek-reasoner": "DeepSeek Reasoner (深度推理)"
 }
 
@@ -57,18 +57,18 @@ def call_llm(provider: str, prompt: str, return_usage: bool = False, model: str 
         provider: AI 提供商 ("deepseek")
         prompt: 提示词
         return_usage: 是否返回 token 使用信息，默认 False（向后兼容）
-        model: 可选，指定具体模型（如 "deepseek-chat" 或 "deepseek-reasoner"）
+        model: 可选，指定具体模型（如 "deepseek-v3.2" 或 "deepseek-reasoner"）
 
     返回:
         如果 return_usage=False: 返回字符串（内容）
         如果 return_usage=True: 返回字典 {"content": str, "usage": dict}
     """
     if provider == "deepseek":
-        key = os.getenv("DEEPSEEK_API_KEY") or getattr(simple, "DEEPSEEK_API_KEY", "")
+        key = os.getenv("DASHSCOPE_API_KEY") or getattr(simple, "DEEPSEEK_API_KEY", "")
         if not key:
             raise HTTPException(
                 status_code=400,
-                detail="缺少 DEEPSEEK_API_KEY，请在项目根目录 .env 或系统环境中配置 DEEPSEEK_API_KEY"
+                detail="缺少 DASHSCOPE_API_KEY，请在项目根目录 .env 或系统环境中配置 DASHSCOPE_API_KEY"
             )
         simple.DEEPSEEK_API_KEY = key
         # 如果指定了模型，使用指定的模型，否则使用环境变量或默认值
@@ -135,11 +135,11 @@ def call_llm_stream(provider: str, prompt: str):
             yield chunk
 
     elif provider == "deepseek":
-        key = os.getenv("DEEPSEEK_API_KEY") or getattr(simple, "DEEPSEEK_API_KEY", "")
+        key = os.getenv("DASHSCOPE_API_KEY") or getattr(simple, "DEEPSEEK_API_KEY", "")
         if not key:
             raise HTTPException(
                 status_code=400,
-                detail="缺少 DEEPSEEK_API_KEY"
+                detail="缺少 DASHSCOPE_API_KEY"
             )
         simple.DEEPSEEK_API_KEY = key
         simple.DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", simple.DEEPSEEK_MODEL)

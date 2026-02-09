@@ -328,7 +328,7 @@ async def parse_resume_text_parallel(text: str, provider: str,
         chunk_threshold: 分块阈值
         max_chunk_size: 最大分块大小
         max_concurrent: 最大并发数
-        model: 可选，指定具体模型（如 deepseek-chat, deepseek-reasoner）
+        model: 可选，指定具体模型（如 deepseek-v3.2, deepseek-reasoner）
 
     Returns:
         解析后的简历数据

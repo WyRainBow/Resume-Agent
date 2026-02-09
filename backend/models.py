@@ -85,14 +85,14 @@ class SectionParseRequest(BaseModel):
     text: str = Field(..., description="用户粘贴的模块文本")
     section_type: str = Field(..., description="模块类型: contact/education/experience/projects/skills/awards/summary/opensource")
     provider: Optional[Literal["zhipu", "doubao", "deepseek"]] = Field(default=None)
-    model: Optional[str] = Field(default=None, description="可选，指定具体模型 (如 deepseek-chat, deepseek-reasoner)")
+    model: Optional[str] = Field(default=None, description="可选，指定具体模型 (如 deepseek-v3.2, deepseek-reasoner)")
 
 
 class ResumeParseRequest(BaseModel):
     """简历解析请求"""
     text: str = Field(..., description="用户粘贴的简历文本")
     provider: Optional[Literal["zhipu", "doubao", "deepseek"]] = Field(default=None)
-    model: Optional[str] = Field(default=None, description="可选，指定具体模型 (如 deepseek-chat, deepseek-reasoner)")
+    model: Optional[str] = Field(default=None, description="可选，指定具体模型 (如 deepseek-v3.2, deepseek-reasoner)")
 
 
 class FormatTextRequest(BaseModel):

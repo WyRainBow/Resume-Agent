@@ -12,6 +12,7 @@
 嵌套结构如 "## · xxx专项"、技能分类如 "后端：xxx"），DeepSeek 可从文本
 直接推断格式特征，无需额外的布局骨架。
 """
+
 from __future__ import annotations
 
 import json
@@ -47,19 +48,19 @@ except ImportError:
     )
 
 
-DEEPSEEK_MODEL = "deepseek-chat"
-DEEPSEEK_BASE_URL = "https://api.deepseek.com"
+DEEPSEEK_MODEL = "deepseek-v3.2"
+DEEPSEEK_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 _deepseek_client: Optional[OpenAI] = None
 _last_key: Optional[str] = None
 
 
 def _get_client() -> OpenAI:
-    """仅从根目录 .env 读取 DEEPSEEK_API_KEY（main 启动时已 load_dotenv）"""
+    """仅从根目录 .env 读取 DASHSCOPE_API_KEY（main 启动时已 load_dotenv）"""
     global _deepseek_client, _last_key
-    key = os.getenv("DEEPSEEK_API_KEY", "").strip()
+    key = os.getenv("DASHSCOPE_API_KEY", "").strip()
     if not key:
-        raise ValueError("DEEPSEEK_API_KEY 未配置")
+        raise ValueError("DASHSCOPE_API_KEY 未配置")
     if _deepseek_client is None or _last_key != key:
         _deepseek_client = OpenAI(api_key=key, base_url=DEEPSEEK_BASE_URL)
         _last_key = key
@@ -83,7 +84,7 @@ def _parse_json(text: str) -> Dict[str, Any]:
         start = cleaned.find("{")
         end = cleaned.rfind("}")
         if start != -1 and end != -1 and end > start:
-            return json.loads(cleaned[start:end + 1])
+            return json.loads(cleaned[start : end + 1])
         raise
 
 
@@ -111,7 +112,9 @@ def _split_text_by_headings(text: str) -> Dict[str, str]:
     if not positions:
         return {}
 
-    ordered = sorted(((idx, key, kw) for key, (idx, kw) in positions.items()), key=lambda x: x[0])
+    ordered = sorted(
+        ((idx, key, kw) for key, (idx, kw) in positions.items()), key=lambda x: x[0]
+    )
     segments: Dict[str, str] = {}
     for i, (start_idx, key, kw) in enumerate(ordered):
         end_idx = ordered[i + 1][0] if i + 1 < len(ordered) else len(text)
@@ -130,7 +133,11 @@ def _split_list_text(text: str) -> list[str]:
     lines = [line.strip() for line in stripped.splitlines() if line.strip()]
     if len(lines) > 1:
         return lines
-    parts = [p.strip() for p in re.split(r"\s*(?:\d+[\.\、]|[•\-])\s+", stripped) if p.strip()]
+    parts = [
+        p.strip()
+        for p in re.split(r"\s*(?:\d+[\.\、]|[•\-])\s+", stripped)
+        if p.strip()
+    ]
     if len(parts) > 1:
         return parts
     return [stripped]
@@ -194,10 +201,12 @@ def _extract_format_info(layout: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
             nested_items = []
             for item in items:
                 if isinstance(item, dict) and item.get("nested_structure"):
-                    nested_items.append({
-                        "name": item.get("name", ""),
-                        "nested_structure": item.get("nested_structure", [])
-                    })
+                    nested_items.append(
+                        {
+                            "name": item.get("name", ""),
+                            "nested_structure": item.get("nested_structure", []),
+                        }
+                    )
             if nested_items:
                 format_info[section_type]["nested_items"] = nested_items
     return format_info
@@ -209,13 +218,17 @@ def _build_data_sources_desc(raw_text: str, ocr_text: str, has_layout: bool) -> 
     idx = 0
     if ocr_text:
         idx += 1
-        lines.append(f"{idx}. 【OCR文本】（glm-ocr 从 PDF 直接提取，格式最精确，内容最完整）")
+        lines.append(
+            f"{idx}. 【OCR文本】（glm-ocr 从 PDF 直接提取，格式最精确，内容最完整）"
+        )
     if raw_text:
         idx += 1
         lines.append(f"{idx}. 【MinerU文本】（Markdown 格式，保留了列表结构）")
     if has_layout:
         idx += 1
-        lines.append(f"{idx}. 【布局骨架】（glm-4.6v 视觉识别，提供模块顺序和格式特征）")
+        lines.append(
+            f"{idx}. 【布局骨架】（glm-4.6v 视觉识别，提供模块顺序和格式特征）"
+        )
     return "\n".join(lines)
 
 
@@ -228,12 +241,12 @@ def _build_data_content(
 ) -> str:
     """
     构建各数据源的实际内容块
-    
+
     数据源优先级：
     1. OCR文本（glm-ocr）：最精确，包含完整结构信息
     2. MinerU文本：快速提取，作为补充和校验
     3. 分区文本：辅助定位
-    
+
     注意：布局骨架（glm-4.6v）已移除，DeepSeek 从文本直接推断结构
     """
     is_markdown = "##" in raw_text or "- " in raw_text or "* " in raw_text
@@ -249,11 +262,17 @@ def _build_data_content(
 
     # MinerU文本：补充数据源
     if raw_text:
-        label = "MinerU文本（Markdown 格式，补充）" if is_markdown else "MinerU文本（纯文本，补充）"
+        label = (
+            "MinerU文本（Markdown 格式，补充）"
+            if is_markdown
+            else "MinerU文本（纯文本，补充）"
+        )
         parts.append(f"{label}：\n{raw_text}")
 
     # 分区文本：辅助定位
-    parts.append(f"分区文本（按标题切分，辅助定位）：\n{json.dumps(section_text, ensure_ascii=False)}")
+    parts.append(
+        f"分区文本（按标题切分，辅助定位）：\n{json.dumps(section_text, ensure_ascii=False)}"
+    )
 
     return "\n\n".join(parts)
 
@@ -262,7 +281,7 @@ def assemble_resume_data(
     raw_text: str,
     layout: Dict[str, Any],
     ocr_text: str = "",
-    model: Optional[str] = None
+    model: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     混合增强组装：根据 MinerU文本 + OCR文本 生成简历 JSON
@@ -271,15 +290,15 @@ def assemble_resume_data(
     - system/user 角色分离
     - 规则模块化（独立的模板片段，便于维护）
     - 变量验证（缺少变量时快速报错）
-    
+
     数据源优先级：OCR文本(最精确，含结构信息) > MinerU Markdown
-    
+
     注意：layout 参数保留以兼容旧调用，但通常为空字典。
     DeepSeek 从 OCR/MinerU 的 Markdown 文本直接推断格式特征。
     """
     if not raw_text and not ocr_text:
         raise ValueError("原始文本为空（MinerU 和 OCR 均无输出）")
-    
+
     # 布局骨架可以为空（降级处理）
     has_layout = layout and "sections" in layout and len(layout.get("sections", [])) > 0
 
@@ -322,7 +341,9 @@ def assemble_resume_data(
     # 8) 数据内容
     primary_text = ocr_text if ocr_text else raw_text
     section_text = _split_text_by_headings(primary_text)
-    data_content = _build_data_content(raw_text, ocr_text, layout, has_layout, section_text)
+    data_content = _build_data_content(
+        raw_text, ocr_text, layout, has_layout, section_text
+    )
 
     # 9) 组装最终 prompt
     user_prompt = ASSEMBLER_PROMPT.format(
@@ -348,7 +369,7 @@ def assemble_resume_data(
             {"role": "user", "content": user_prompt},
         ],
         temperature=0.1,
-        max_tokens=8000
+        max_tokens=8000,
     )
     content = response.choices[0].message.content
     if not content:

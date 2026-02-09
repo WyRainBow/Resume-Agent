@@ -9,9 +9,9 @@
 - DOUBAO_API_KEY
 - DOUBAO_MODEL（默认 doubao-seed-1-6-lite-251015）
 - DOUBAO_BASE_URL（默认 https://ark.cn-beijing.volces.com/api/v3）
-- DEEPSEEK_API_KEY
-- DEEPSEEK_MODEL（默认 deepseek-chat）
-- DEEPSEEK_BASE_URL（默认 https://api.deepseek.com）
+- DASHSCOPE_API_KEY
+- DEEPSEEK_MODEL（默认 deepseek-v3.2）
+- DEEPSEEK_BASE_URL（默认 https://dashscope.aliyuncs.com/compatible-mode/v1）
 """
 import os
 """
@@ -46,9 +46,9 @@ DOUBAO_MODEL = os.getenv("DOUBAO_MODEL", "doubao-seed-1-6-lite-251015")
 DOUBAO_BASE_URL = os.getenv("DOUBAO_BASE_URL", "https://ark.cn-beijing.volces.com/api/v3")
 
 """DeepSeek 配置"""
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY", "")
-DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
-DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+DEEPSEEK_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v3.2")
+DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
 
 
 """
@@ -408,7 +408,7 @@ def call_deepseek_api(prompt: str, model: str = None) -> str:
     """
     # 检查 API Key 是否配置
     if not DEEPSEEK_API_KEY:
-        raise Exception("DEEPSEEK_API_KEY 未配置。请在 Railway 环境变量或本地 .env 文件中设置 DEEPSEEK_API_KEY")
+        raise Exception("DASHSCOPE_API_KEY 未配置。请在 Railway 环境变量或本地 .env 文件中设置 DASHSCOPE_API_KEY")
     
     if model is None:
         model = DEEPSEEK_MODEL

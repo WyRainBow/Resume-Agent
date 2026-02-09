@@ -53,18 +53,18 @@ async def get_keys_status():
                             zhipu_key = value
                         elif key == "DOUBAO_API_KEY":
                             doubao_key = value
-                        elif key == "DEEPSEEK_API_KEY":
+                        elif key == "DASHSCOPE_API_KEY":
                             deepseek_key = value
         except Exception:
             # 如果读取失败，回退到环境变量
             zhipu_key = os.getenv("ZHIPU_API_KEY", "")
             doubao_key = os.getenv("DOUBAO_API_KEY", "")
-            deepseek_key = os.getenv("DEEPSEEK_API_KEY", "")
+            deepseek_key = os.getenv("DASHSCOPE_API_KEY", "")
     else:
         # 如果 .env 不存在，回退到环境变量
         zhipu_key = os.getenv("ZHIPU_API_KEY", "")
         doubao_key = os.getenv("DOUBAO_API_KEY", "")
-        deepseek_key = os.getenv("DEEPSEEK_API_KEY", "")
+        deepseek_key = os.getenv("DASHSCOPE_API_KEY", "")
 
     return {
         "zhipu": {
@@ -105,8 +105,8 @@ async def save_keys(body: SaveKeysRequest):
             elif line.startswith("DOUBAO_API_KEY=") and body.doubao_key:
                 new_lines.append(f"DOUBAO_API_KEY={body.doubao_key}\n")
                 doubao_found = True
-            elif line.startswith("DEEPSEEK_API_KEY=") and body.deepseek_key:
-                new_lines.append(f"DEEPSEEK_API_KEY={body.deepseek_key}\n")
+            elif line.startswith("DASHSCOPE_API_KEY=") and body.deepseek_key:
+                new_lines.append(f"DASHSCOPE_API_KEY={body.deepseek_key}\n")
                 deepseek_found = True
             else:
                 new_lines.append(line)
@@ -116,7 +116,7 @@ async def save_keys(body: SaveKeysRequest):
         if body.doubao_key and not doubao_found:
             new_lines.append(f"DOUBAO_API_KEY={body.doubao_key}\n")
         if body.deepseek_key and not deepseek_found:
-            new_lines.append(f"DEEPSEEK_API_KEY={body.deepseek_key}\n")
+            new_lines.append(f"DASHSCOPE_API_KEY={body.deepseek_key}\n")
 
         with open(env_path, "w", encoding="utf-8") as f:
             f.writelines(new_lines)
@@ -193,14 +193,14 @@ async def chat_api(body: ChatRequest):
         provider = body.provider
         if not provider:
             # 默认使用 deepseek
-            if os.getenv("DEEPSEEK_API_KEY"):
+            if os.getenv("DASHSCOPE_API_KEY"):
                 provider = "deepseek"
             elif os.getenv("ZHIPU_API_KEY"):
                 provider = "zhipu"
             elif os.getenv("DOUBAO_API_KEY"):
                 provider = "doubao"
             else:
-                raise HTTPException(status_code=400, detail="未配置 AI 服务 API Key，请在环境变量中配置 DEEPSEEK_API_KEY")
+                raise HTTPException(status_code=400, detail="未配置 AI 服务 API Key，请在环境变量中配置 DASHSCOPE_API_KEY")
 
         result = call_llm(provider, prompt)
         return {"content": result, "provider": provider}

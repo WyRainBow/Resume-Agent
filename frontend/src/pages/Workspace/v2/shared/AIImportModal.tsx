@@ -19,7 +19,7 @@ import FileUploadZone from "./FileUploadZone";
 // 可用的 AI 模型列表
 const AI_MODELS = [
   {
-    id: "deepseek-chat",
+    id: "deepseek-v3.2",
     name: "DeepSeek",
     description: "智能解析简历内容",
   },
@@ -87,7 +87,7 @@ export function AIImportModal({
   const [parsedData, setParsedData] = useState<any>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [finalTime, setFinalTime] = useState<number | null>(null);
-  const [selectedModel, setSelectedModel] = useState("deepseek-chat");
+  const [selectedModel, setSelectedModel] = useState("deepseek-v3.2");
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [copied, setCopied] = useState(false);
