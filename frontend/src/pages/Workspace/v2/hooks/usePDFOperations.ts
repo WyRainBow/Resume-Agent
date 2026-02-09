@@ -3,7 +3,7 @@
  */
 import { saveAs } from 'file-saver'
 import { useCallback, useState } from 'react'
-import { renderPDFStream } from '../../../../services/api'
+import { renderPDFStream, renderPDF } from '../../../../services/api'
 import { saveResume, setCurrentResumeId } from '../../../../services/resumeStorage'
 import type { ResumeData } from '../types'
 import { convertToBackendFormat } from '../utils/convertToBackend'
@@ -29,13 +29,24 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
       const backendData = convertToBackendFormat(resumeData)
       setProgress('正在渲染 PDF...')
 
-      const blob = await renderPDFStream(
-        backendData as any,
-        backendData.sectionOrder,
-        (p) => setProgress(p),
-        () => setProgress('渲染完成！'),
-        (err) => setProgress(`错误: ${err}`)
-      )
+      let blob: Blob
+      try {
+        blob = await renderPDFStream(
+          backendData as any,
+          backendData.sectionOrder,
+          (p) => setProgress(p),
+          () => setProgress('渲染完成！'),
+          (err) => setProgress(`错误: ${err}`)
+        )
+      } catch (streamError) {
+        console.error('PDF 流式渲染失败，尝试普通渲染:', streamError)
+        setProgress('流式渲染失败，正在切换为普通渲染...')
+        blob = await renderPDF(
+          backendData as any,
+          false,
+          backendData.sectionOrder
+        )
+      }
 
       setPdfBlob(blob)
       setProgress('')
