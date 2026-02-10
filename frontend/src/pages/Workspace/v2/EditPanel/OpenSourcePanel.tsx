@@ -7,6 +7,7 @@ import { PlusCircle, Wand2, ChevronDown, Eye, GripVertical, Trash2 } from 'lucid
 import { cn } from '../../../../lib/utils'
 import type { OpenSource, GlobalSettings } from '../types'
 import Field from './Field'
+import { MonthYearRangePicker } from '../shared/MonthYearRangePicker'
 
 interface OpenSourcePanelProps {
   openSources: OpenSource[]
@@ -215,7 +216,14 @@ function OpenSourceItem({
                         </div>
                       )}
                     </div>
-                    <Field label="时间" value={openSource.date || ''} onChange={(v) => handleChange('date', v)} placeholder="如：2024.01 - 至今" />
+                    <MonthYearRangePicker
+                      label="时间"
+                      value={(openSource.date || '')
+                        .split(' - ')
+                        .map((s) => (s && s !== '至今' ? s.trim().replace(/\./g, '-') : s?.trim() || ''))
+                        .join(' - ')}
+                      onChange={(v) => handleChange('date', v)}
+                    />
                   </div>
                   <Field 
                     label="贡献描述" 
