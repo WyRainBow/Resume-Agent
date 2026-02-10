@@ -1585,38 +1585,40 @@ export default function SophiaChat() {
           )}
 
           {/* Left: Chat */}
-          <section className="flex-1 min-w-0 flex flex-col border-r border-gray-100">
-            <main className="flex-1 overflow-y-auto px-6 py-8">
-              {loadingResume && (
-                <div className="text-sm text-gray-400 mb-4">正在加载简历...</div>
-              )}
-              {resumeError && (
-                <div className="text-sm text-red-500 mb-4">{resumeError}</div>
-              )}
-              {isLoadingSession && (
-                <div className="text-xs text-gray-400 mb-4">正在加载会话...</div>
-              )}
+          <section className="flex-1 min-w-0 flex flex-col">
+            <main className="flex-1 overflow-y-auto px-4 py-8">
+              <div className="max-w-3xl mx-auto w-full">
+                {loadingResume && (
+                  <div className="text-sm text-gray-400 mb-4">正在加载简历...</div>
+                )}
+                {resumeError && (
+                  <div className="text-sm text-red-500 mb-4">{resumeError}</div>
+                )}
+                {isLoadingSession && (
+                  <div className="text-xs text-gray-400 mb-4">正在加载会话...</div>
+                )}
 
-              {messages.length === 0 && !isProcessing && (
-                <div className="text-center py-20">
-                  <div className="text-5xl mb-4">✨</div>
-                  <p className="text-gray-600 text-lg mb-2">
-                    输入消息开始对话
-                  </p>
-                  <p className="text-gray-400 text-sm mb-2">
-                    体验 Thought Process · 流式输出 · Markdown 渲染
-                  </p>
-                  <p className="text-gray-500 text-sm mt-4">
-                    例如：生成一份关于 AI 发展趋势的报告
-                  </p>
-                  <p className="text-gray-300 text-xs mt-2">
-                    使用 SSE + CLTP 传输
-                  </p>
-                </div>
-              )}
+                {messages.length === 0 && !isProcessing && (
+                  <div className="text-center py-20">
+                    <div className="text-5xl mb-4">✨</div>
+                    <p className="text-gray-600 text-lg mb-2">
+                      输入消息开始对话
+                    </p>
+                    <p className="text-gray-400 text-sm mb-2">
+                      体验 Thought Process · 流式输出 · Markdown 渲染
+                    </p>
+                    <p className="text-gray-500 text-sm mt-4">
+                      例如：生成一份关于 AI 发展趋势的报告
+                    </p>
+                    <p className="text-gray-300 text-xs mt-2">
+                      使用 SSE + CLTP 传输
+                    </p>
+                  </div>
+                )}
 
-              {/* 历史消息 - 按顺序：Thought Process → SearchCard → Response */}
-              {messages.map((msg, idx) => {
+                {/* 历史消息 - 按顺序：Thought Process → SearchCard → Response */}
+                {messages.map((msg, idx) => {
+                  // ... (保留原有逻辑)
                 // 检查这条消息是否有关联的报告
                 const reportForMessage = generatedReports.find(r => r.messageId === msg.id);
                 // 检查这条消息是否有关联的简历
@@ -1887,12 +1889,14 @@ export default function SophiaChat() {
                 </div>
               )}
 
-              <div ref={messagesEndRef} />
+                <div ref={messagesEndRef} />
+              </div>
             </main>
 
             {/* Input Area */}
-            <div className="border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4">
-              <form onSubmit={handleSubmit}>
+            <div className="bg-white dark:bg-slate-900 px-4 py-4 pb-8">
+              <div className="max-w-3xl mx-auto w-full">
+                <form onSubmit={handleSubmit}>
                 <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden flex items-center">
                   <input
                     ref={fileInputRef}
@@ -1948,16 +1952,17 @@ export default function SophiaChat() {
                 </div>
               </form>
 
-              {/* Status */}
-              <div className="text-center mt-3 text-xs text-gray-400">
-                <span className={`inline-flex items-center gap-1.5 ${status === 'idle' ? 'text-green-500' :
-                  status === 'processing' ? 'text-indigo-500' : 'text-gray-400'
-                  }`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${status === 'idle' ? 'bg-green-500' :
-                    status === 'processing' ? 'bg-indigo-500 animate-pulse' : 'bg-gray-400'
-                    }`}></span>
-                  {status === 'idle' ? 'Ready (SSE)' : status === 'processing' ? 'Processing...' : 'Connecting...'}
-                </span>
+                {/* Status */}
+                <div className="text-center mt-3 text-xs text-gray-400">
+                  <span className={`inline-flex items-center gap-1.5 ${status === 'idle' ? 'text-green-500' :
+                    status === 'processing' ? 'text-indigo-500' : 'text-gray-400'
+                    }`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${status === 'idle' ? 'bg-green-500' :
+                      status === 'processing' ? 'bg-indigo-500 animate-pulse' : 'bg-gray-400'
+                      }`}></span>
+                    {status === 'idle' ? 'Ready (SSE)' : status === 'processing' ? 'Processing...' : 'Connecting...'}
+                  </span>
+                </div>
               </div>
             </div>
           </section>
