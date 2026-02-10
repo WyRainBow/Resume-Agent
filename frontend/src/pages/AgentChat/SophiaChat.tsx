@@ -1464,6 +1464,19 @@ export default function SophiaChat() {
       answerStateLength: currentAnswer.trim().length,
       thoughtStateLength: currentThought.trim().length,
     });
+
+    // 隐藏回答模式下不会渲染 Response 打字机，收到 answerComplete 后直接 finalize
+    if (shouldHideResponseInChat) {
+      console.log('[AgentChat] Hidden response mode, finalize immediately on answerComplete');
+      shouldFinalizeRef.current = false;
+      finalizeMessage();
+      finalizeStream();
+      setTimeout(() => {
+        isFinalizedRef.current = false;
+      }, 100);
+      return;
+    }
+
     if (!hasContent) {
       // No content to typewriter, finalize immediately to clear state
       finalizeMessage();
@@ -1471,8 +1484,9 @@ export default function SophiaChat() {
     }
     // Fallback: if typewriter doesn't complete, cleanup after a delay
     setTimeout(() => {
-      if (isFinalizedRef.current && isProcessing) {
+      if (shouldFinalizeRef.current && isProcessing) {
         console.log('[AgentChat] Fallback finalize timeout');
+        shouldFinalizeRef.current = false;
         finalizeMessage();
         finalizeStream();
         setTimeout(() => {
@@ -1480,7 +1494,7 @@ export default function SophiaChat() {
         }, 100);
       }
     }, 1400);
-  }, [answerCompleteCount, finalizeMessage]);
+  }, [answerCompleteCount, finalizeMessage, finalizeStream, shouldHideResponseInChat]);
 
   /**
    * Send message to backend via SSE
