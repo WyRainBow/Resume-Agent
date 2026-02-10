@@ -1224,15 +1224,20 @@ export default function SophiaChat() {
     }
   };
 
-  const createNewSession = () => {
+  const createNewSession = useCallback(async () => {
+    // 先尽量保存当前会话，避免切换后丢失上下文
     saveCurrentSession();
+    await waitForPendingSave();
+
     const newId = `conv-${Date.now()}`;
     setMessages([]);
     setCurrentSessionId(newId);
     setConversationId(newId);
     finalizeStream();
-    refreshSessions();
-  };
+
+    // 关键：立即持久化一个空会话，让侧边栏立刻可见并可独立切换
+    await persistSessionSnapshot(newId, [], true);
+  }, [finalizeStream, persistSessionSnapshot, saveCurrentSession, waitForPendingSave]);
 
   const handleSelectSession = useCallback(
     (sessionId: string) => {
@@ -1243,7 +1248,7 @@ export default function SophiaChat() {
   );
 
   const handleCreateSession = useCallback(() => {
-    createNewSession();
+    void createNewSession();
     setIsSidebarOpen(false);
   }, [createNewSession]);
 
