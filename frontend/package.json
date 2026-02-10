@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host",
+    "clean:vite": "node -e \"try{require('fs').rmSync('node_modules/.vite',{recursive:true})}catch(e){}\"",
+    "dev": "npm run clean:vite && vite --host",
     "build": "vite build",
     "preview": "vite preview --port 5174"
   },

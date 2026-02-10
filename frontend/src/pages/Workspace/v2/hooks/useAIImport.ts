@@ -33,6 +33,14 @@ function isGroupTitle(text: string): boolean {
   return false
 }
 
+/** AI 导入时公司名默认加粗：用 ** 包裹，与编辑区 BoldInput 一致，导出/预览也会加粗 */
+function defaultBoldCompany(s: string): string {
+  const raw = (s || '').trim()
+  if (!raw) return ''
+  if (raw.startsWith('**') && raw.endsWith('**')) return raw
+  return `**${raw}**`
+}
+
 // 格式化 highlights 为 HTML（支持嵌套层级，模块级函数）
 function formatHighlightsToHtmlModule(highlights: any, listStyle: string = 'bullet'): string {
   if (!highlights) return ''
@@ -269,7 +277,7 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
         }) || prev.education,
         experience: data.internships?.map((e: any, i: number) => ({
           id: `exp_${Date.now()}_${i}`,
-          company: e.title || '',
+          company: defaultBoldCompany(e.title || ''),
           position: e.subtitle || '',
           date: e.date || '',
           details: formatHighlightsToHtml(e.highlights, experienceFormat.list_style || 'bullet'),
@@ -415,7 +423,7 @@ function handleSectionImport(
       if (Array.isArray(data)) {
         const newExps = data.map((e: any, i: number) => ({
           id: `exp_${Date.now()}_${i}`,
-          company: e.title || e.company || '',
+          company: defaultBoldCompany(e.title || e.company || ''),
           position: e.subtitle || e.position || '',
           date: e.date || '',
           details: (() => {

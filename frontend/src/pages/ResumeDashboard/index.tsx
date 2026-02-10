@@ -89,7 +89,12 @@ const ResumeDashboard = () => {
       }) || [],
       experience: data.internships?.map((e: any, i: number) => ({
         id: `exp_${Date.now()}_${i}`,
-        company: e.title || '',
+        company: (() => {
+          const raw = (e.title || '').trim()
+          if (!raw) return ''
+          if (raw.startsWith('**') && raw.endsWith('**')) return raw
+          return `**${raw}**`
+        })(),
         position: e.subtitle || '',
         date: e.date || '',
         details: formatHighlightsToHtml(e.highlights),
