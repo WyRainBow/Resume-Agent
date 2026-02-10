@@ -34,7 +34,7 @@ import {
 import { Message } from '@/types/chat';
 import { ConnectionStatus } from '@/types/transport';
 import type { SSEEvent } from '@/transports/SSETransport';
-import { ArrowUp, MessageSquare } from 'lucide-react';
+import { ArrowUp, MessageSquare, Paperclip } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef, useState, Fragment } from 'react';
 import { useParams } from 'react-router-dom';
 import EnhancedMarkdown from '@/components/chat/EnhancedMarkdown';
@@ -292,8 +292,10 @@ export default function SophiaChat() {
   
   // Thought Process 完成状态（用于控制 Response 的显示时机）
   const [thoughtProcessComplete, setThoughtProcessComplete] = useState(false);
+  const [isUploadingFile, setIsUploadingFile] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const saveInFlightRef = useRef<Promise<void> | null>(null);
   const pendingSaveRef = useRef(false);
   const queuedSaveRef = useRef<{ sessionId: string; messages: Message[] } | null>(null);
@@ -1316,6 +1318,124 @@ export default function SophiaChat() {
     setPendingResumeInput('');
   }, []);
 
+  const sendUserTextMessage = useCallback(
+    async (userMessage: string) => {
+      if (!userMessage.trim() || isProcessing) return;
+
+      const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const userMessageEntry: Message = {
+        id: uniqueId,
+        role: 'user',
+        content: userMessage,
+        timestamp: new Date().toISOString(),
+      };
+      const nextMessages = [...messages, userMessageEntry];
+      const isFirstMessage = messages.length === 0;
+
+      setMessages(nextMessages);
+      if (isFirstMessage) {
+        let validConversationId = conversationId;
+        if (!validConversationId || validConversationId.trim() === '') {
+          validConversationId = `conv-${Date.now()}`;
+          setConversationId(validConversationId);
+        }
+        if (!currentSessionId) {
+          setCurrentSessionId(validConversationId);
+        }
+        void persistSessionSnapshot(validConversationId, nextMessages, true);
+      }
+
+      isFinalizedRef.current = false;
+      shouldFinalizeRef.current = false;
+      setThoughtProcessComplete(false);
+      setSearchResults((prev) => prev.filter((item) => item.messageId !== 'current'));
+
+      await sendMessage(userMessage);
+    },
+    [
+      isProcessing,
+      messages,
+      conversationId,
+      currentSessionId,
+      persistSessionSnapshot,
+      sendMessage,
+    ]
+  );
+
+  const handleUploadFile = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (isProcessing) {
+      alert('当前正在处理消息，请稍后再上传。');
+      event.target.value = '';
+      return;
+    }
+
+    setIsUploadingFile(true);
+    try {
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      if (isPdf) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(`${API_BASE}/api/resume/upload-pdf`, {
+          method: 'POST',
+          body: formData,
+        });
+        if (!response.ok) {
+          throw new Error(`PDF 解析失败: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const parsedResume = data?.resume;
+        if (!parsedResume || typeof parsedResume !== 'object') {
+          throw new Error('PDF 解析结果为空');
+        }
+
+        const resolvedUserId = user?.id ?? null;
+        const resumeDataWithMeta = {
+          ...parsedResume,
+          _meta: {
+            user_id: resolvedUserId,
+          },
+        } as ResumeData;
+        setResumeData(resumeDataWithMeta);
+
+        await sendUserTextMessage(
+          `我刚上传了文件《${file.name}》，请基于这份简历内容进行分析并给出优化建议。`
+        );
+      } else {
+        const isTextLike =
+          file.type.startsWith('text/') ||
+          /\.(txt|md|json|csv)$/i.test(file.name);
+
+        if (!isTextLike) {
+          throw new Error('仅支持 pdf/txt/md/json/csv 文件');
+        }
+
+        const rawText = await file.text();
+        const maxLen = 12000;
+        const clipped = rawText.slice(0, maxLen);
+        const truncatedNote =
+          rawText.length > maxLen ? '\n\n[文件内容过长，已截断为前 12000 字符]' : '';
+
+        await sendUserTextMessage(
+          `我上传了文件《${file.name}》，请先提炼关键信息并给出下一步建议。\n\n文件内容：\n${clipped}${truncatedNote}`
+        );
+      }
+    } catch (error) {
+      console.error('[AgentChat] 文件上传失败:', error);
+      alert(error instanceof Error ? error.message : '文件上传失败，请稍后重试');
+    } finally {
+      setIsUploadingFile(false);
+      event.target.value = '';
+    }
+  }, [API_BASE, isProcessing, sendUserTextMessage, user?.id]);
+
+  const handleClickUpload = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
   useEffect(() => {
     if (answerCompleteCount === 0) return;
     if (answerCompleteCount <= lastHandledAnswerCompleteRef.current) {
@@ -1417,40 +1537,9 @@ export default function SophiaChat() {
     setResumeError(null);
 
     const userMessage = input.trim();
-    const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-    const userMessageEntry: Message = {
-      id: uniqueId,
-      role: 'user',
-      content: userMessage,
-      timestamp: new Date().toISOString(),
-    };
-    const nextMessages = [...messages, userMessageEntry];
-    const isFirstMessage = messages.length === 0;
-
-    // Add user message to UI
-    setMessages(nextMessages);
-    if (isFirstMessage) {
-      // 确保 conversationId 有效
-      let validConversationId = conversationId;
-      if (!validConversationId || validConversationId.trim() === '') {
-        validConversationId = `conv-${Date.now()}`;
-        setConversationId(validConversationId);
-      }
-      if (!currentSessionId) {
-        setCurrentSessionId(validConversationId);
-      }
-      void persistSessionSnapshot(validConversationId, nextMessages, true);
-    }
-
-    isFinalizedRef.current = false;
-    shouldFinalizeRef.current = false; // 重置完成标记
-    setThoughtProcessComplete(false); // 重置 Thought Process 完成状态
     setInput('');
-    setSearchResults((prev) => prev.filter((item) => item.messageId !== 'current'));
-
     try {
-      await sendMessage(userMessage);
+      await sendUserTextMessage(userMessage);
     } catch (error) {
       console.error('[AgentChat] Failed to send message:', error);
     }
@@ -1816,6 +1905,28 @@ export default function SophiaChat() {
             <div className="border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 px-6 py-4">
               <form onSubmit={handleSubmit}>
                 <div className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm overflow-hidden flex items-center">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".pdf,.txt,.md,.json,.csv,text/plain,text/markdown,application/json,text/csv,application/pdf"
+                    className="hidden"
+                    onChange={handleUploadFile}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleClickUpload}
+                    disabled={isProcessing || isUploadingFile}
+                    className={`
+                      ml-2 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200
+                      ${isProcessing || isUploadingFile
+                        ? 'bg-slate-200 dark:bg-slate-700 cursor-not-allowed text-slate-400'
+                        : 'bg-white dark:bg-slate-700 text-slate-500 hover:text-indigo-600 border border-slate-200 dark:border-slate-600'}
+                    `}
+                    title={isUploadingFile ? '上传中...' : '上传文件'}
+                    aria-label="上传文件"
+                  >
+                    <Paperclip className="w-4 h-4" />
+                  </button>
                   <input
                     type="text"
                     value={input}
