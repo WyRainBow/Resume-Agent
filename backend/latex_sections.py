@@ -283,11 +283,11 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                 date = ''
             date = escape_latex(date)
             
-            # 构建标题 - 不显示日期，与 wy.tex 一致
+            # 构建标题；第二参数为时间，与实习/教育经历一致
             full_title = escape_latex(title)
             
             if full_title:
-                content.append(f"\\datedsubsection{{\\textbf{{{full_title}}}}}{{}}")
+                content.append(f"\\datedsubsection{{\\textbf{{{full_title}}}}}{{{date}}}")
 
                 # 检查是否有 items（子项目结构）
                 items = p.get('items') or []
