@@ -8,6 +8,7 @@ import { motion, useDragControls, AnimatePresence } from 'framer-motion'
 import { cn } from '../../../../lib/utils'
 import type { Education } from '../types'
 import Field from './Field'
+import { MonthYearRangePicker } from '../shared/MonthYearRangePicker'
 
 interface EducationPanelProps {
   educations: Education[]
@@ -149,18 +150,16 @@ const EducationItem = ({
                     placeholder="如：3.8/4.0"
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <Field
-                    label="入学时间"
-                    value={education.startDate}
-                    onChange={(v) => onUpdate({ ...education, startDate: v })}
-                    placeholder="如：2019.09"
-                  />
-                  <Field
-                    label="毕业时间"
-                    value={education.endDate}
-                    onChange={(v) => onUpdate({ ...education, endDate: v })}
-                    placeholder="如：2023.06"
+                <div className="grid grid-cols-1 gap-4">
+                  <MonthYearRangePicker
+                    label="入学 / 毕业时间"
+                    value={[education.startDate, education.endDate]
+                      .map((s) => (!s || s === '至今' ? s : s.replace(/\./g, '-').trim()))
+                      .join(' - ')}
+                    onChange={(v) => {
+                      const [start, end] = (v || '').split(' - ').map((p) => (p || '').trim())
+                      onUpdate({ ...education, startDate: start, endDate: end })
+                    }}
                   />
                 </div>
                 <Field
