@@ -93,6 +93,11 @@ export function AIImportModal({
   const [copied, setCopied] = useState(false);
   const [importMode, setImportMode] = useState<"file" | "text">("file");
   const [currentStep, setCurrentStep] = useState<"input" | "results">("input");
+  const [testKeysLoading, setTestKeysLoading] = useState(false);
+  const [testKeysResult, setTestKeysResult] = useState<Record<
+    string,
+    { configured: boolean; ok?: boolean; error?: string }
+  > | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -368,9 +373,71 @@ export function AIImportModal({
 
               {/* 模型选择器 */}
               <div className="relative" ref={dropdownRef}>
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
-                  选择 AI 模型
-                </label>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    选择 AI 模型
+                  </label>
+                  <button
+                    type="button"
+                    disabled={testKeysLoading}
+                    onClick={async () => {
+                      setTestKeysLoading(true);
+                      setTestKeysResult(null);
+                      try {
+                        const res = await fetch(`${API_BASE}/api/ai/test-keys`);
+                        const data = await res.json();
+                        if (res.ok) setTestKeysResult(data);
+                        else setTestKeysResult({ _: { configured: false, ok: false, error: "请求失败" } });
+                      } catch (e) {
+                        setTestKeysResult({
+                          _: { configured: false, ok: false, error: (e as Error).message },
+                        });
+                      } finally {
+                        setTestKeysLoading(false);
+                      }
+                    }}
+                    className={cn(
+                      "text-xs px-3 py-1.5 rounded-lg border transition-colors",
+                      "border-slate-200 dark:border-slate-600",
+                      "text-slate-600 dark:text-slate-400",
+                      "hover:bg-slate-100 dark:hover:bg-slate-700",
+                      testKeysLoading && "opacity-60 pointer-events-none",
+                    )}
+                  >
+                    {testKeysLoading ? "检测中…" : "测试 AI"}
+                  </button>
+                </div>
+                {testKeysResult && !("_" in testKeysResult) && (
+                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                    {(["zhipu", "doubao", "deepseek"] as const).map((key) => {
+                      const r = testKeysResult[key];
+                      if (!r) return null;
+                      const label = { zhipu: "智谱", doubao: "豆包", deepseek: "DeepSeek" }[key];
+                      const text = !r.configured
+                        ? `${label}: 未配置`
+                        : r.ok
+                          ? `${label}: 可用`
+                          : `${label}: 不可用${r.error ? ` (${r.error})` : ""}`;
+                      return (
+                        <div
+                          key={key}
+                          className={cn(
+                            !r.configured && "text-slate-400 dark:text-slate-500",
+                            r.configured && r.ok && "text-green-600 dark:text-green-400",
+                            r.configured && !r.ok && "text-amber-600 dark:text-amber-400",
+                          )}
+                        >
+                          {text}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {testKeysResult && "_" in testKeysResult && (
+                  <div className="mb-2 text-xs text-amber-600 dark:text-amber-400">
+                    检测失败: {(testKeysResult as Record<string, { error?: string }>)._?.error ?? "未知错误"}
+                  </div>
+                )}
                 <div className="relative">
                   <button
                     type="button"

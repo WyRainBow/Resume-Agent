@@ -155,6 +155,61 @@ async def save_keys(body: SaveKeysRequest):
         raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
 
 
+@router.get("/ai/test-keys")
+async def test_ai_keys():
+    """检测各 API Key 是否可用：对已配置的 Key 分别发起一次最小调用"""
+    env_path = ROOT_DIR / ".env"
+    zhipu_key = ""
+    doubao_key = ""
+    deepseek_key = ""
+    if env_path.exists():
+        try:
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    key, value = line.split("=", 1)
+                    key, value = key.strip(), value.strip().strip('"').strip("'")
+                    if key == "ZHIPU_API_KEY":
+                        zhipu_key = value
+                    elif key == "DOUBAO_API_KEY":
+                        doubao_key = value
+                    elif key == "DASHSCOPE_API_KEY":
+                        deepseek_key = value
+        except Exception:
+            zhipu_key = os.getenv("ZHIPU_API_KEY", "")
+            doubao_key = os.getenv("DOUBAO_API_KEY", "")
+            deepseek_key = os.getenv("DASHSCOPE_API_KEY", "")
+    else:
+        zhipu_key = os.getenv("ZHIPU_API_KEY", "")
+        doubao_key = os.getenv("DOUBAO_API_KEY", "")
+        deepseek_key = os.getenv("DASHSCOPE_API_KEY", "")
+
+    configured = {
+        "zhipu": bool(zhipu_key and len(zhipu_key) > 10),
+        "doubao": bool(doubao_key and len(doubao_key) > 10),
+        "deepseek": bool(deepseek_key and len(deepseek_key) > 10),
+    }
+    result = {}
+    for provider in ["zhipu", "doubao", "deepseek"]:
+        if not configured[provider]:
+            result[provider] = {"configured": False}
+            continue
+        try:
+            call_llm(provider, "你好", return_usage=False)
+            result[provider] = {"configured": True, "ok": True}
+        except HTTPException as he:
+            result[provider] = {
+                "configured": True,
+                "ok": False,
+                "error": str(he.detail) if he.detail else f"HTTP {he.status_code}",
+            }
+        except Exception as e:
+            result[provider] = {"configured": True, "ok": False, "error": str(e)}
+    return result
+
+
 @router.post("/ai/test")
 async def ai_test(body: AITestRequest):
     """测试已有 AI 接口是否可用"""
