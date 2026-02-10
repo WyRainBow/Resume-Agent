@@ -16,7 +16,6 @@ from backend.agent.memory.message_adapter import MessageAdapter
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
-from backend.agent.cltp.storage.conversation_storage import FileConversationStorage
 
 
 class ChatHistoryManager:
@@ -35,7 +34,7 @@ class ChatHistoryManager:
         k: int = 10,
         include_system: bool = True,
         session_id: Optional[str] = None,
-        storage: Optional[FileConversationStorage] = None,
+        storage: Optional[Any] = None,
     ):
         """
         Initialize the chat history manager.

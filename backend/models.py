@@ -3,7 +3,7 @@ Pydantic 数据模型定义
 """
 from pydantic import BaseModel, Field
 from typing import Optional, Literal, List, Dict, Any
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON, Text, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -195,3 +195,45 @@ class ReportConversation(Base):
 
     # 关联关系（暂时不使用，避免复杂配置）
     # report = relationship("Report", lazy="select")
+
+
+class AgentConversation(Base):
+    """Agent 对话会话模型"""
+    __tablename__ = "agent_conversations"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    session_id = Column(String(255), nullable=False, unique=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    title = Column(String(255), nullable=False, default="New Conversation")
+    message_count = Column(Integer, nullable=False, default=0)
+    meta = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), index=True)
+    last_message_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class AgentMessage(Base):
+    """Agent 对话消息模型"""
+    __tablename__ = "agent_messages"
+    __table_args__ = (
+        UniqueConstraint("conversation_id", "seq", name="uq_agent_messages_conversation_seq"),
+        {'extend_existing': True},
+    )
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    conversation_id = Column(
+        Integer,
+        ForeignKey("agent_conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    seq = Column(Integer, nullable=False)
+    role = Column(String(20), nullable=False)
+    content = Column(Text, nullable=True)
+    thought = Column(Text, nullable=True)
+    name = Column(String(255), nullable=True)
+    tool_call_id = Column(String(255), nullable=True, index=True)
+    tool_calls = Column(JSON, nullable=True)
+    base64_image = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
