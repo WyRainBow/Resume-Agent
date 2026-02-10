@@ -68,14 +68,30 @@
   {}
 \titlespacing*{\subsection}{0cm}{*1}{*0.5}
 
+% 时间列统一固定宽度（使用绝对单位，避免不同字号导致列宽漂移）
+\newcommand{\daterightcolwidth}{4.6cm}
+\newcommand{\dateleftcolwidth}{\dimexpr\textwidth-\daterightcolwidth\relax}
 \newcommand{\datedsection}[2]{%
-  \section[#1]{#1 \hfill #2}%
+  \section[#1]{%
+    \parbox[t]{\dateleftcolwidth}{\raggedright #1}%
+    \hfill
+    {\normalsize\makebox[\daterightcolwidth][r]{#2}}%
+  }%
 }
+% 时间线固定宽度右对齐，各模块（教育/实习/项目/开源）严格共用同一列
 \newcommand{\datedsubsection}[2]{%
-  \subsection[#1]{#1 \hfill #2}%
+  \subsection[#1]{%
+    \parbox[t]{\dateleftcolwidth}{\raggedright #1}%
+    \hfill
+    {\normalsize\makebox[\daterightcolwidth][r]{#2}}%
+  }%
 }
 \newcommand{\datedline}[2]{%
-  {\par #1 \hfill #2 \par}%
+  {\par
+    \parbox[t]{\dateleftcolwidth}{\raggedright #1}%
+    \hfill
+    {\normalsize\makebox[\daterightcolwidth][r]{#2}}
+  \par}%
 }
 
 \newcommand{\name}[1]{

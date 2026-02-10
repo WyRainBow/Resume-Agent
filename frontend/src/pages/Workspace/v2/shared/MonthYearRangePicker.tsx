@@ -13,11 +13,23 @@ const MONTHS = ['01月', '02月', '03月', '04月', '05月', '06月', '07月', '
 
 /** 仅使用一种格式：YYYY-MM - YYYY-MM / YYYY-MM - 至今 */
 function parseDateRange(dateStr: string): { start: string; end: string } {
-  const raw = dateStr.trim()
+  const raw = String(dateStr || '').trim()
   if (!raw) return { start: '', end: '' }
   if (!raw.includes(' - ')) return { start: raw, end: '' }
   const [start, end] = raw.split(' - ')
   return { start: (start || '').trim(), end: (end || '').trim() }
+}
+
+const VALID_START = /^\d{4}-\d{2}$/
+function normalizeToken(token: string): string {
+  const t = String(token || '').trim()
+  if (!t || t === 'undefined' || t === 'null') return ''
+  if (t === '至今') return t
+  return VALID_START.test(t) ? t : ''
+}
+
+function isValidEnd(e: string): boolean {
+  return e === '至今' || VALID_START.test(e)
 }
 
 interface MonthYearRangePickerProps {
@@ -28,22 +40,37 @@ interface MonthYearRangePickerProps {
 }
 
 export function MonthYearRangePicker({ value, onChange, label = '起止时间', className }: MonthYearRangePickerProps) {
-  const { start, end } = parseDateRange(value || '')
+  const parsed = parseDateRange(value || '')
+  const start = normalizeToken(parsed.start)
+  const end = normalizeToken(parsed.end)
+  const [draftStart, setDraftStart] = useState(start)
+  const [draftEnd, setDraftEnd] = useState(end)
+  const currentYear = new Date().getFullYear()
+  const parseYear = (s: string): number => {
+    if (!s || s.length < 4) return currentYear
+    const y = parseInt(s.slice(0, 4), 10)
+    return Number.isNaN(y) ? currentYear : y
+  }
   const [startOpen, setStartOpen] = useState(false)
   const [endOpen, setEndOpen] = useState(false)
-  const [yearStart, setYearStart] = useState(() => (start ? parseInt(start.slice(0, 4), 10) : new Date().getFullYear()))
-  const [yearEnd, setYearEnd] = useState(() => (end && end !== '至今' ? parseInt(end.slice(0, 4), 10) : new Date().getFullYear()))
+  const [yearStart, setYearStart] = useState(() => (start ? parseYear(start) : currentYear))
+  const [yearEnd, setYearEnd] = useState(() => (end && end !== '至今' ? parseYear(end) : currentYear))
   const [startPos, setStartPos] = useState({ top: 0, left: 0 })
   const [endPos, setEndPos] = useState({ top: 0, left: 0 })
   const startTriggerRef = useRef<HTMLDivElement>(null)
   const endTriggerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (start) setYearStart(parseInt(start.slice(0, 4), 10))
-  }, [start])
+    setDraftStart(start)
+    setDraftEnd(end)
+  }, [start, end])
+
   useEffect(() => {
-    if (end && end !== '至今') setYearEnd(parseInt(end.slice(0, 4), 10))
-  }, [end])
+    if (draftStart) setYearStart(parseYear(draftStart))
+  }, [draftStart])
+  useEffect(() => {
+    if (draftEnd && draftEnd !== '至今') setYearEnd(parseYear(draftEnd))
+  }, [draftEnd])
 
   useLayoutEffect(() => {
     if (startOpen && startTriggerRef.current) {
@@ -72,6 +99,20 @@ export function MonthYearRangePicker({ value, onChange, label = '起止时间', 
   }, [])
 
   const commit = (newStart: string, newEnd: string) => {
+    setDraftStart(newStart)
+    setDraftEnd(newEnd)
+
+    const shouldBlock =
+      !!newStart &&
+      !!newEnd &&
+      newEnd !== '至今' &&
+      VALID_START.test(newStart) &&
+      VALID_START.test(newEnd) &&
+      newStart > newEnd
+
+    // 保持红色错误提示，但不写回父级数据，避免触发自动渲染
+    if (shouldBlock) return
+
     if (!newStart && !newEnd) {
       onChange('')
       return
@@ -85,31 +126,42 @@ export function MonthYearRangePicker({ value, onChange, label = '起止时间', 
 
   const handleSelectStart = (month: number) => {
     const m = month.toString().padStart(2, '0')
-    const newStart = `${yearStart}-${m}`
-    commit(newStart, end)
+    const y = Number.isNaN(yearStart) ? currentYear : yearStart
+    const newStart = `${y}-${m}`
+    commit(newStart, draftEnd)
     setStartOpen(false)
   }
 
   const handleSelectEnd = (month: number | '至今') => {
     if (month === '至今') {
-      commit(start, '至今')
+      commit(draftStart, '至今')
       setEndOpen(false)
       return
     }
     const m = month.toString().padStart(2, '0')
-    const newEnd = `${yearEnd}-${m}`
-    commit(start, newEnd)
+    const y = Number.isNaN(yearEnd) ? currentYear : yearEnd
+    const newEnd = `${y}-${m}`
+    commit(draftStart, newEnd)
     setEndOpen(false)
   }
 
   const clearStart = (e: React.MouseEvent) => {
     e.stopPropagation()
-    commit('', end)
+    commit('', draftEnd)
   }
   const clearEnd = (e: React.MouseEvent) => {
     e.stopPropagation()
-    commit(start, '')
+    commit(draftStart, '')
   }
+
+  // 开始时间不能晚于结束时间（结束为「至今」时不做比较；仅当两端均为合法 YYYY-MM 时比较）
+  const isInvalidRange =
+    !!draftStart &&
+    !!draftEnd &&
+    draftEnd !== '至今' &&
+    VALID_START.test(draftStart) &&
+    VALID_START.test(draftEnd) &&
+    draftStart > draftEnd
 
   return (
     <div className={cn('space-y-2', className)}>
@@ -129,16 +181,17 @@ export function MonthYearRangePicker({ value, onChange, label = '起止时间', 
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStartOpen((o) => !o) } }}
             className={cn(
               'w-full px-3 py-2.5 rounded-lg border text-sm flex items-center justify-between transition-colors',
+              isInvalidRange && 'border-red-500 dark:border-red-500',
               startOpen
-                ? 'border-blue-500 ring-2 ring-blue-100 dark:ring-blue-900/30'
-                : 'border-gray-200 dark:border-neutral-600 hover:border-gray-300 dark:hover:border-neutral-500',
+                ? !isInvalidRange && 'border-blue-500 ring-2 ring-blue-100 dark:ring-blue-900/30'
+                : !isInvalidRange && 'border-gray-200 dark:border-neutral-600 hover:border-gray-300 dark:hover:border-neutral-500',
               'bg-white dark:bg-neutral-800 text-gray-900 dark:text-neutral-100 cursor-pointer'
             )}
           >
-            <span className={cn(!start && 'text-gray-400 dark:text-neutral-500')}>
-              {start || '选择开始'}
+            <span className={cn((!draftStart || !VALID_START.test(draftStart)) && 'text-gray-400 dark:text-neutral-500')}>
+              {draftStart && VALID_START.test(draftStart) ? draftStart : '选择开始'}
             </span>
-            {start && (
+            {draftStart && (
               <button type="button" onClick={clearStart} className="p-0.5 rounded-full hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400">
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -157,16 +210,17 @@ export function MonthYearRangePicker({ value, onChange, label = '起止时间', 
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEndOpen((o) => !o) } }}
             className={cn(
               'w-full px-3 py-2.5 rounded-lg border text-sm flex items-center justify-between transition-colors',
+              isInvalidRange && 'border-red-500 dark:border-red-500',
               endOpen
-                ? 'border-blue-500 ring-2 ring-blue-100 dark:ring-blue-900/30'
-                : 'border-gray-200 dark:border-neutral-600 hover:border-gray-300 dark:hover:border-neutral-500',
+                ? !isInvalidRange && 'border-blue-500 ring-2 ring-blue-100 dark:ring-blue-900/30'
+                : !isInvalidRange && 'border-gray-200 dark:border-neutral-600 hover:border-gray-300 dark:hover:border-neutral-500',
               'bg-white dark:bg-neutral-800 text-gray-900 dark:text-neutral-100 cursor-pointer'
             )}
           >
-            <span className={cn((!end) && 'text-gray-400 dark:text-neutral-500')}>
-              {end || '选择结束'}
+            <span className={cn((!draftEnd || !isValidEnd(draftEnd)) && 'text-gray-400 dark:text-neutral-500')}>
+              {draftEnd && isValidEnd(draftEnd) ? draftEnd : '选择结束'}
             </span>
-            {end && (
+            {draftEnd && (
               <button type="button" onClick={clearEnd} className="p-0.5 rounded-full hover:bg-gray-100 dark:hover:bg-neutral-700 text-gray-400">
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -174,6 +228,9 @@ export function MonthYearRangePicker({ value, onChange, label = '起止时间', 
           </div>
         </div>
       </div>
+      {isInvalidRange && (
+        <p className="text-sm text-red-500 dark:text-red-400">开始时间不能晚于结束时间</p>
+      )}
 
       {/* 弹层挂到 body，避免被父级 overflow 裁剪 */}
       {typeof document !== 'undefined' && createPortal(
@@ -201,7 +258,7 @@ export function MonthYearRangePicker({ value, onChange, label = '起止时间', 
                   <div className="grid grid-cols-3 gap-2">
                     {MONTHS.map((label, i) => {
                       const month = i + 1
-                      const isSelected = start === `${yearStart}-${month.toString().padStart(2, '0')}`
+                      const isSelected = draftStart === `${yearStart}-${month.toString().padStart(2, '0')}`
                       return (
                         <button
                           key={month}
@@ -244,7 +301,7 @@ export function MonthYearRangePicker({ value, onChange, label = '起止时间', 
                   <div className="grid grid-cols-3 gap-2">
                     {MONTHS.map((label, i) => {
                       const month = i + 1
-                      const val = end === '至今' ? '' : end
+                      const val = draftEnd === '至今' ? '' : draftEnd
                       const isSelected = val === `${yearEnd}-${month.toString().padStart(2, '0')}`
                       return (
                         <button
@@ -268,7 +325,7 @@ export function MonthYearRangePicker({ value, onChange, label = '起止时间', 
                     onClick={() => handleSelectEnd('至今')}
                     className={cn(
                       'w-full mt-3 py-2.5 rounded-lg text-sm font-medium border transition-all',
-                      end === '至今'
+                      draftEnd === '至今'
                         ? 'bg-blue-600 text-white border-blue-600'
                         : 'border-gray-200 dark:border-neutral-600 text-gray-600 dark:text-neutral-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:hover:border-blue-300'
                     )}

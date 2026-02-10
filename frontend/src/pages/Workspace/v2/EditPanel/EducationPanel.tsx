@@ -25,6 +25,15 @@ const generateId = () => {
 /** 学历选项：仅 大专、本科、硕士 */
 const DEGREE_OPTIONS = ['大专', '本科', '硕士'] as const
 
+function normalizeMonthValue(raw: unknown): string {
+  const s = String(raw ?? '').trim()
+  if (!s || s === 'undefined' || s === 'null') return ''
+  if (s === '至今') return '至今'
+  const m = s.match(/^(\d{4})[.\-/](\d{1,2})$/)
+  if (m) return `${m[1]}-${m[2].padStart(2, '0')}`
+  return /^\d{4}-\d{2}$/.test(s) ? s : ''
+}
+
 /**
  * 教育经历条目
  */
@@ -220,9 +229,7 @@ const EducationItem = ({
                 <div className="grid grid-cols-1 gap-4">
                   <MonthYearRangePicker
                     label="入学 / 毕业时间"
-                    value={[education.startDate, education.endDate]
-                      .map((s) => (!s || s === '至今' ? s : s.replace(/\./g, '-').trim()))
-                      .join(' - ')}
+                    value={`${normalizeMonthValue(education.startDate)} - ${normalizeMonthValue(education.endDate)}`}
                     onChange={(v) => {
                       const [start, end] = (v || '').split(' - ').map((p) => (p || '').trim())
                       onUpdate({ ...education, startDate: start, endDate: end })
