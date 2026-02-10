@@ -358,12 +358,16 @@ def assemble_resume_data(
         schema=OUTPUT_SCHEMA,
     )
 
-    # ---- 调用 DeepSeek ----
+    # ---- 调用 DeepSeek（DashScope 兼容接口仅支持 deepseek-v3 / deepseek-v3.2 等，不支持 deepseek-chat）----
     system_msg = SYSTEM_PROMPT.format()
+    # 前端或旧版可能传 deepseek-chat，DashScope 需用 deepseek-v3.2
+    model_name = (model or "").strip() or DEEPSEEK_MODEL
+    if model_name in ("deepseek-chat", "deepseek-reasoner") or not model_name.startswith("deepseek-v"):
+        model_name = DEEPSEEK_MODEL
 
     client = _get_client()
     response = client.chat.completions.create(
-        model=model or DEEPSEEK_MODEL,
+        model=model_name,
         messages=[
             {"role": "system", "content": system_msg},
             {"role": "user", "content": user_prompt},
