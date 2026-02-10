@@ -1,8 +1,10 @@
 /**
  * 支持加粗显示的输入组件
  * 内部存储为 Markdown 格式（**文本**），但用户看到的是加粗效果
+ *
+ * 点击 B 按钮：整段内容在"加粗 ↔ 非加粗"之间切换，并触发 onChange（驱动 PDF 渲染）
  */
-import React, { useRef, useEffect, useState } from 'react'
+import React, { useRef, useEffect, useState, useCallback } from 'react'
 import { Bold } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 
@@ -12,6 +14,22 @@ interface BoldInputProps {
   placeholder?: string
   className?: string
   label?: string
+}
+
+/** 去除 Markdown 加粗标记，返回纯文本 */
+const stripBoldMarkers = (text: string): string =>
+  text.replace(/\*\*(.+?)\*\*/g, '$1')
+
+/** 判断整段文本是否处于加粗状态（整段被 ** 包裹，或无纯文本部分在 ** 之外） */
+const isFullyBold = (text: string): boolean => {
+  if (!text || !text.trim()) return false
+  const trimmed = text.trim()
+  // 整段被 ** 包裹
+  if (trimmed.startsWith('**') && trimmed.endsWith('**') && trimmed.length > 4) {
+    return true
+  }
+  // 也检查已有 <strong>/<b> 标签的场景（理论上存储是 markdown，但兜底）
+  return false
 }
 
 const BoldInput: React.FC<BoldInputProps> = ({
@@ -24,17 +42,30 @@ const BoldInput: React.FC<BoldInputProps> = ({
   const editorRef = useRef<HTMLDivElement>(null)
   const [isFocused, setIsFocused] = useState(false)
 
-  // 将 Markdown 格式转换为 HTML（用于显示）
+  // ---------- Markdown ↔ HTML 转换 ----------
   const markdownToHtml = (text: string): string => {
     if (!text) return ''
-    // 将 **文本** 转换为 <strong>文本</strong>
     return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
   }
 
-  // 初始化：首次加载时设置内容
+  const htmlToMarkdown = (html: string): string => {
+    if (!html) return ''
+    return html
+      .replace(/<strong>(.+?)<\/strong>/g, '**$1**')
+      .replace(/<b>(.+?)<\/b>/g, '**$1**')
+  }
+
+  // ---------- 加粗状态 ----------
+  const [isBold, setIsBold] = useState(() => isFullyBold(value))
+
+  // value 变化时同步 isBold
+  useEffect(() => {
+    setIsBold(isFullyBold(value))
+  }, [value])
+
+  // ---------- 初始化编辑器内容 ----------
   useEffect(() => {
     if (!editorRef.current) return
-    // 只在编辑器为空时初始化，避免覆盖用户正在输入的内容
     const currentHtml = editorRef.current.innerHTML.trim()
     if (!currentHtml || currentHtml === '<br>') {
       const html = markdownToHtml(value || '')
@@ -42,146 +73,63 @@ const BoldInput: React.FC<BoldInputProps> = ({
         editorRef.current.innerHTML = html
       }
     }
-  }, []) // 只在组件挂载时执行一次
+  }, [])
 
-  // 将 HTML 格式转换回 Markdown（用于存储）
-  const htmlToMarkdown = (html: string): string => {
-    if (!html) return ''
-    // 将 <strong>文本</strong> 转换为 **文本**
-    return html
-      .replace(/<strong>(.+?)<\/strong>/g, '**$1**')
-      .replace(/<b>(.+?)<\/b>/g, '**$1**')
-  }
-
-  // 同步 value 到编辑器显示
+  // ---------- 非聚焦时同步 value → 编辑器 ----------
   useEffect(() => {
-    if (!editorRef.current) return
-    // 只在失去焦点时同步，避免在输入时打断用户
-    if (!isFocused) {
-      const html = markdownToHtml(value || '')
-      const currentHtml = editorRef.current.innerHTML.trim()
-      // 如果内容为空，清空编辑器（保持为空以便显示 placeholder）
-      if (!value || !value.trim()) {
-        if (currentHtml && currentHtml !== '<br>') {
-          editorRef.current.innerHTML = ''
-        }
-      } else {
-        // 有内容时，同步显示（只有当内容不同时才更新，避免不必要的 DOM 操作）
-        if (currentHtml !== html) {
-          editorRef.current.innerHTML = html
-        }
+    if (!editorRef.current || isFocused) return
+    const html = markdownToHtml(value || '')
+    const currentHtml = editorRef.current.innerHTML.trim()
+    if (!value || !value.trim()) {
+      if (currentHtml && currentHtml !== '<br>') {
+        editorRef.current.innerHTML = ''
       }
+    } else if (currentHtml !== html) {
+      editorRef.current.innerHTML = html
     }
   }, [value, isFocused])
 
-  // 处理输入
-  const handleInput = () => {
+  // ---------- 用户输入 → 同步到 value ----------
+  const handleInput = useCallback(() => {
     if (!editorRef.current) return
-    
-    // 获取当前 HTML 内容
     const html = editorRef.current.innerHTML
-    
-    // 转换为 Markdown 格式存储
     const markdown = htmlToMarkdown(html)
-    
-    // 如果内容变化，更新 value
     if (markdown !== value) {
       onChange(markdown)
     }
-  }
+  }, [value, onChange])
 
-  // 处理加粗按钮点击
-  const handleBoldClick = () => {
-    if (!editorRef.current) return
+  // ---------- B 按钮点击：数据层 toggle ----------
+  const handleBoldClick = useCallback(() => {
+    // 拿到纯文本（去掉 ** 标记）
+    const plainText = stripBoldMarkers(value).trim()
+    if (!plainText) return // 没有内容，不操作
 
-    const selection = window.getSelection()
-    if (!selection || selection.rangeCount === 0) return
-
-    const range = selection.getRangeAt(0)
-    
-    // 检查是否在编辑器内
-    if (!editorRef.current.contains(range.commonAncestorContainer)) {
-      return
-    }
-
-    // 检查选中文本是否已经是加粗
-    let isBold = false
-    let node = range.commonAncestorContainer
-    
-    // 向上查找 strong 或 b 标签
-    while (node && node !== editorRef.current) {
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        const element = node as HTMLElement
-        if (element.tagName === 'STRONG' || element.tagName === 'B') {
-          isBold = true
-          break
-        }
-      }
-      node = node.parentNode
-    }
-
-    // 如果已经是加粗，则取消加粗
-    if (isBold) {
-      document.execCommand('removeFormat', false)
-      document.execCommand('unlink', false)
+    let newValue: string
+    if (isFullyBold(value)) {
+      // 当前是加粗 → 去掉加粗
+      newValue = plainText
     } else {
-      // 应用加粗
-      document.execCommand('bold', false)
+      // 当前非加粗 → 加粗整段
+      newValue = `**${plainText}**`
     }
 
-    // 触发输入事件以更新存储
-    handleInput()
-    
-    // 保持焦点
-    editorRef.current.focus()
-  }
+    // 同步编辑器显示
+    if (editorRef.current) {
+      editorRef.current.innerHTML = markdownToHtml(newValue)
+    }
 
-  // 处理粘贴，清理格式
+    // 调用 onChange → 触发上层状态更新 → 触发 PDF 渲染
+    onChange(newValue)
+  }, [value, onChange])
+
+  // ---------- 粘贴：只保留纯文本 ----------
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault()
     const text = e.clipboardData.getData('text/plain')
     document.execCommand('insertText', false, text)
     handleInput()
   }
-
-  // 检查当前选中文本是否加粗
-  const isSelectionBold = (): boolean => {
-    if (!editorRef.current) return false
-    
-    const selection = window.getSelection()
-    if (!selection || selection.rangeCount === 0) return false
-
-    const range = selection.getRangeAt(0)
-    if (!editorRef.current.contains(range.commonAncestorContainer)) {
-      return false
-    }
-
-    let node = range.commonAncestorContainer
-    while (node && node !== editorRef.current) {
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        const element = node as HTMLElement
-        if (element.tagName === 'STRONG' || element.tagName === 'B') {
-          return true
-        }
-      }
-      node = node.parentNode
-    }
-    return false
-  }
-
-  const [isBold, setIsBold] = useState(false)
-
-  // 监听选择变化，更新加粗按钮状态
-  useEffect(() => {
-    const updateBoldState = () => {
-      setIsBold(isSelectionBold())
-    }
-
-    document.addEventListener('selectionchange', updateBoldState)
-    return () => {
-      document.removeEventListener('selectionchange', updateBoldState)
-    }
-  }, [])
 
   return (
     <div className="space-y-2">
@@ -208,14 +156,12 @@ const BoldInput: React.FC<BoldInputProps> = ({
             'dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-200',
             'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
             '[&_strong]:font-bold [&_b]:font-bold',
-            'pr-10', // 为按钮留出空间
+            'pr-10',
             className
           )}
           style={{
             ...(placeholder && !value && !isFocused
-              ? {
-                  position: 'relative' as const,
-                }
+              ? { position: 'relative' as const }
               : {}),
           }}
           suppressContentEditableWarning
@@ -228,19 +174,22 @@ const BoldInput: React.FC<BoldInputProps> = ({
             {placeholder}
           </div>
         )}
+        {/* B 按钮：onMouseDown preventDefault 防止抢焦点 */}
         <button
           type="button"
+          onMouseDown={(e) => e.preventDefault()}
           onClick={handleBoldClick}
           className={cn(
-            'absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded',
+            'absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded border transition-colors',
             'hover:bg-gray-100 dark:hover:bg-neutral-800',
             'text-gray-600 dark:text-neutral-400',
-            'transition-colors',
-            isBold && 'bg-gray-100 dark:bg-neutral-800 text-primary'
+            isBold
+              ? 'bg-primary/10 dark:bg-primary/15 text-primary border-primary/30'
+              : 'border-transparent'
           )}
-          title="加粗"
+          title={isBold ? '取消加粗' : '加粗'}
         >
-          <Bold className="w-4 h-4" />
+          <Bold className={cn('w-4 h-4', isBold && 'stroke-[2.5]')} />
         </button>
       </div>
     </div>
@@ -248,4 +197,3 @@ const BoldInput: React.FC<BoldInputProps> = ({
 }
 
 export default BoldInput
-

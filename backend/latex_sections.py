@@ -95,23 +95,21 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
                     content.append(r"\begin{enumerate}[label={},parsep=0.2ex,itemsep=0.2ex,topsep=0.2ex]")
                     for ach in achievements:
                         if isinstance(ach, str) and ach.strip():
-                            # 直接添加内容，不使用额外的列表环境
-                            content.append(f"  {html_to_latex(ach.strip()).strip()}")
+                            content.append(f"  \\item {html_to_latex(ach.strip()).strip()}")
                         elif isinstance(ach, dict):
                             text = ach.get('text') or ach.get('content') or ''
                             if text and text.strip():
-                                content.append(f"  {html_to_latex(text.strip()).strip()}")
+                                content.append(f"  \\item {html_to_latex(text.strip()).strip()}")
                     content.append(r"\end{enumerate}")
                 elif list_type == 'unordered':
                     content.append(r"\begin{itemize}[label={},parsep=0.2ex,itemsep=0.2ex,topsep=0.2ex]")
                     for ach in achievements:
                         if isinstance(ach, str) and ach.strip():
-                            # 直接添加内容，不使用额外的列表环境
-                            content.append(f"  {html_to_latex(ach.strip()).strip()}")
+                            content.append(f"  \\item {html_to_latex(ach.strip()).strip()}")
                         elif isinstance(ach, dict):
                             text = ach.get('text') or ach.get('content') or ''
                             if text and text.strip():
-                                content.append(f"  {html_to_latex(text.strip()).strip()}")
+                                content.append(f"  \\item {html_to_latex(text.strip()).strip()}")
                     content.append(r"\end{itemize}")
                 else:
                     # list_type == 'none' 或其他情况，使用段落格式
