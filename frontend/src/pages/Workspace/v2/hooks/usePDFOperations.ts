@@ -2,7 +2,7 @@
  * PDF 操作 Hook
  */
 import { saveAs } from 'file-saver'
-import { useCallback, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import { renderPDFStream, renderPDF } from '../../../../services/api'
 import { saveResume, setCurrentResumeId } from '../../../../services/resumeStorage'
 import type { ResumeData } from '../types'
@@ -19,14 +19,17 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const resumeDataRef = useRef(resumeData)
+  resumeDataRef.current = resumeData
 
-  // 渲染 PDF
+  // 渲染 PDF：始终用 ref 取最新数据，供防抖/延迟调用时使用
   const handleRender = useCallback(async () => {
     setLoading(true)
     setProgress('正在准备数据...')
 
     try {
-      const backendData = convertToBackendFormat(resumeData)
+      const data = resumeDataRef.current
+      const backendData = convertToBackendFormat(data)
       setProgress('正在渲染 PDF...')
 
       let blob: Blob
@@ -56,7 +59,7 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
     } finally {
       setLoading(false)
     }
-  }, [resumeData])
+  }, [])
 
   // 清理文件名：去除首尾空格，将多个连续空格替换为单个空格
   const cleanFileName = (name: string | undefined): string => {

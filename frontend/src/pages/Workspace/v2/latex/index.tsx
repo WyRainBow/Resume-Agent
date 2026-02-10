@@ -92,6 +92,8 @@ export default function LaTeXWorkspace() {
   // 防抖渲染定时器
   const renderTimerRef = useRef<NodeJS.Timeout | null>(null)
   const lastRenderedDataRef = useRef<string>('')
+  const resumeDataRef = useRef(resumeData)
+  resumeDataRef.current = resumeData
 
   // 自动保存函数（防抖）
   const autoSave = useCallback(() => {
@@ -123,24 +125,17 @@ export default function LaTeXWorkspace() {
     }, 500)
   }, [resumeData, currentResumeId, setCurrentId])
 
-  // 自动渲染函数（防抖）
+  // 自动渲染函数（防抖）：timeout 内用 ref 取最新 resumeData，避免闭包旧数据
   const autoRender = useCallback(() => {
-    // 清除之前的定时器
-    if (renderTimerRef.current) {
-      clearTimeout(renderTimerRef.current)
-    }
-    
-    // 设置新的定时器，1秒后渲染（比保存稍长，确保保存完成）
+    if (renderTimerRef.current) clearTimeout(renderTimerRef.current)
     renderTimerRef.current = setTimeout(() => {
-      const currentDataStr = JSON.stringify(resumeData)
-      // 只有当数据真正变化时才渲染
+      const currentDataStr = JSON.stringify(resumeDataRef.current)
       if (currentDataStr !== lastRenderedDataRef.current && !loading) {
         lastRenderedDataRef.current = currentDataStr
         handleRender()
-        console.log('自动渲染触发')
       }
-    }, 1000)
-  }, [resumeData, loading, handleRender])
+    }, 800)
+  }, [loading, handleRender])
 
   // 监听简历数据变化，自动保存（防抖）
   useEffect(() => {

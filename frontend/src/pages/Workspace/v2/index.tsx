@@ -119,17 +119,17 @@ export default function WorkspaceV2() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [hasUnsavedChanges])
 
-  // 页面加载时自动渲染 PDF（仅对 LaTeX 模板）
+  const renderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // 简历数据变化时自动触发 PDF 渲染（仅 LaTeX，防抖）
   useEffect(() => {
-    // 延迟100ms，确保页面完全渲染
-    const timer = setTimeout(() => {
-      // 只有 LaTeX 模板时才自动渲染 PDF
-      if (!loading && !pdfBlob && resumeData.templateType !== 'html') {
-        handleRender()
-      }
-    }, 100)
-    return () => clearTimeout(timer)
-  }, [])
+    if (resumeData.templateType === 'html' || loading) return
+    if (renderTimerRef.current) clearTimeout(renderTimerRef.current)
+    renderTimerRef.current = setTimeout(() => handleRender(), 600)
+    return () => {
+      if (renderTimerRef.current) clearTimeout(renderTimerRef.current)
+    }
+  }, [resumeData])
 
   // 导出 JSON
   const handleExportJSON = () => {
