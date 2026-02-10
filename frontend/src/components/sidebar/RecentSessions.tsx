@@ -265,23 +265,23 @@ export function RecentSessions({
               const timestamp = formatTime(session.updated_at || session.created_at);
 
               return (
-                <SidebarTooltip key={session.session_id} content={name} side="right">
-                  <div
-                    className={`group w-full min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left cursor-pointer ${
-                      isActive
-                        ? 'bg-indigo-50/80 text-indigo-700'
-                        : 'text-neutral-900 hover:text-gray-900 hover:bg-gray-100/50'
-                    }`}
-                    onClick={() => handleSelectSession(session.session_id)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' || event.key === ' ') {
-                        event.preventDefault();
-                        handleSelectSession(session.session_id);
-                      }
-                    }}
-                  >
+                <div
+                  key={session.session_id}
+                  className={`group w-full min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left cursor-pointer ${
+                    isActive
+                      ? 'bg-indigo-50/80 text-indigo-700'
+                      : 'text-neutral-900 hover:text-gray-900 hover:bg-gray-100/50'
+                  }`}
+                  onClick={() => handleSelectSession(session.session_id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      handleSelectSession(session.session_id);
+                    }
+                  }}
+                >
                     <MessageSquare
                       className={`w-4 h-4 shrink-0 ${
                         isActive
@@ -370,7 +370,6 @@ export function RecentSessions({
                       )}
                     </div>
                   </div>
-                </SidebarTooltip>
               );
             })}
           </div>
