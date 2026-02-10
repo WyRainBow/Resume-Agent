@@ -8,6 +8,7 @@ import { ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { Project } from '../types'
 import Field from './Field'
+import { MonthYearRangePicker } from '../shared/MonthYearRangePicker'
 
 interface ProjectItemProps {
   project: Project
@@ -64,11 +65,13 @@ const ProjectEditor = ({
             onChange={(value) => handleChange('link', value)}
             placeholder="项目链接（可选）"
           />
-          <Field
+          <MonthYearRangePicker
             label="项目时间"
-            value={project.date}
+            value={(project.date || '')
+              .split(' - ')
+              .map((s) => (s && s !== '至今' ? s.trim().replace(/\./g, '-') : s?.trim() || ''))
+              .join(' - ')}
             onChange={(value) => handleChange('date', value)}
-            placeholder="如：2023.01 - 2023.06"
           />
         </div>
         <Field
