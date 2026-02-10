@@ -1,9 +1,9 @@
 /**
  * 教育经历面板
  */
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Reorder } from 'framer-motion'
-import { PlusCircle, Wand2, ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
+import { PlusCircle, Wand2, ChevronDown, Eye, GripVertical, Trash2, Check } from 'lucide-react'
 import { motion, useDragControls, AnimatePresence } from 'framer-motion'
 import { cn } from '../../../../lib/utils'
 import type { Education } from '../types'
@@ -22,6 +22,9 @@ const generateId = () => {
   return `edu_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 }
 
+/** 学历选项：仅 大专、本科、硕士 */
+const DEGREE_OPTIONS = ['大专', '本科', '硕士'] as const
+
 /**
  * 教育经历条目
  */
@@ -38,6 +41,18 @@ const EducationItem = ({
 }) => {
   const dragControls = useDragControls()
   const [expanded, setExpanded] = useState(false)
+  const [degreeOpen, setDegreeOpen] = useState(false)
+  const degreeWrapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!degreeOpen) return
+    const handler = (e: MouseEvent) => {
+      if (degreeWrapRef.current?.contains(e.target as Node)) return
+      setDegreeOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [degreeOpen])
 
   return (
     <Reorder.Item
@@ -137,12 +152,64 @@ const EducationItem = ({
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <Field
-                    label="学位"
-                    value={education.degree}
-                    onChange={(v) => onUpdate({ ...education, degree: v })}
-                    placeholder="如：本科、硕士"
-                  />
+                  <div className="space-y-2" ref={degreeWrapRef}>
+                    <label className="text-sm text-gray-600 dark:text-neutral-300">
+                      学历<span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDegreeOpen((v) => !v)
+                        }}
+                        className={cn(
+                          'w-full px-3 py-2 rounded-md border text-left flex items-center justify-between',
+                          'bg-white border-gray-200 text-gray-700',
+                          'dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-200',
+                          'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+                          degreeOpen && 'border-primary ring-2 ring-primary/20'
+                        )}
+                      >
+                        <span className={education.degree ? '' : 'text-gray-400 dark:text-neutral-500'}>
+                          {education.degree || '请选择学历'}
+                        </span>
+                        <ChevronDown className={cn('w-4 h-4 text-gray-400 shrink-0', degreeOpen && 'rotate-180')} />
+                      </button>
+                      <AnimatePresence>
+                        {degreeOpen && (
+                          <motion.ul
+                            initial={{ opacity: 0, y: -4 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -4 }}
+                            className="absolute z-50 mt-1 w-full rounded-md border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-lg py-1 max-h-48 overflow-auto"
+                          >
+                            {DEGREE_OPTIONS.map((opt) => (
+                              <li key={opt}>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    onUpdate({ ...education, degree: opt })
+                                    setDegreeOpen(false)
+                                  }}
+                                  className={cn(
+                                    'w-full px-3 py-2 text-left flex items-center justify-between text-sm',
+                                    education.degree === opt
+                                      ? 'bg-gray-100 dark:bg-neutral-800 text-primary'
+                                      : 'hover:bg-gray-50 dark:hover:bg-neutral-800/50 text-gray-700 dark:text-neutral-200'
+                                  )}
+                                >
+                                  {opt}
+                                  {education.degree === opt && <Check className="w-4 h-4 text-primary shrink-0" />}
+                                </button>
+                              </li>
+                            ))}
+                          </motion.ul>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  </div>
                   <Field
                     label="GPA"
                     value={education.gpa || ''}
