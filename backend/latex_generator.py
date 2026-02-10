@@ -162,7 +162,6 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path, resume_data: Di
             if src_file.exists():
                 dest_file = Path(temp_dir) / file_name
                 shutil.copy2(src_file, dest_file)
-                print(f"[调试] 复制文件: {file_name} -> {dest_file}")
             else:
                 print(f"[警告] 文件不存在: {file_name}")
 
