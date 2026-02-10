@@ -1,11 +1,21 @@
 /**
  * 布局模块项组件
- * 支持拖拽排序、显示/隐藏、删除
+ * 支持拖拽排序、显示/隐藏；默认模块不显示删除按钮（仅支持隐藏），自定义模块可删除
  */
 import { motion, Reorder, useDragControls } from 'framer-motion'
-import { Eye, EyeOff, GripVertical, Trash2 } from 'lucide-react'
+import { Eye, GripVertical, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { MenuSection } from '../types'
+
+/** 默认模块 id：不允许删除，仅支持隐藏 */
+const DEFAULT_SECTION_IDS = new Set([
+  'education',
+  'experience',
+  'projects',
+  'openSource',
+  'skills',
+  'awards',
+])
 
 interface LayoutItemProps {
   item: MenuSection
@@ -120,7 +130,8 @@ const LayoutItem = ({
               toggleSectionVisibility(item.id)
             }}
             className={cn(
-              'p-1.5 rounded-md mr-2',
+              'p-1.5 rounded-md',
+              DEFAULT_SECTION_IDS.has(item.id) ? 'mr-0' : 'mr-2',
               'hover:bg-gray-100 text-gray-600',
               'dark:hover:bg-neutral-700 dark:text-neutral-300'
             )}
@@ -128,29 +139,30 @@ const LayoutItem = ({
             <Eye className={cn('w-4 h-4', item.enabled ? 'text-primary' : 'text-gray-300')} />
           </motion.button>
 
-          {/* 删除按钮 */}
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            onClick={(e) => {
-              e.stopPropagation()
-              const currentIndex = menuSections.findIndex((s) => s.id === item.id)
-              updateMenuSections(
-                menuSections.filter((section) => section.id !== item.id)
-              )
-              // 删除后选中上一个模块
-              if (currentIndex > 0) {
-                setActiveSection(menuSections[currentIndex - 1].id)
-              }
-            }}
-            className={cn(
-              'p-1.5 rounded-md',
-              'hover:bg-gray-100 text-gray-600',
-              'dark:hover:bg-neutral-700 dark:text-neutral-300'
-            )}
-          >
-            <Trash2 className="w-4 h-4 text-red-400" />
-          </motion.button>
+          {/* 删除按钮：仅自定义模块显示，默认模块不允许删除 */}
+          {!DEFAULT_SECTION_IDS.has(item.id) && (
+            <motion.button
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              onClick={(e) => {
+                e.stopPropagation()
+                const currentIndex = menuSections.findIndex((s) => s.id === item.id)
+                updateMenuSections(
+                  menuSections.filter((section) => section.id !== item.id)
+                )
+                if (currentIndex > 0) {
+                  setActiveSection(menuSections[currentIndex - 1].id)
+                }
+              }}
+              className={cn(
+                'p-1.5 rounded-md',
+                'hover:bg-gray-100 text-gray-600',
+                'dark:hover:bg-neutral-700 dark:text-neutral-300'
+              )}
+            >
+              <Trash2 className="w-4 h-4 text-red-400" />
+            </motion.button>
+          )}
         </div>
       </div>
     </Reorder.Item>
