@@ -250,7 +250,7 @@ export function RecentSessions({
 
       {/* Loading state */}
       {isLoading ? (
-        <div className="mt-2 flex items-center justify-center gap-1.5 py-2 text-xs text-orange-600">
+        <div className="mt-2 flex items-center justify-center gap-1.5 py-2 text-xs text-indigo-600">
           <Loader2 className="w-3 h-3 animate-spin" />
           <span>加载中</span>
         </div>
@@ -269,7 +269,7 @@ export function RecentSessions({
                   <div
                     className={`group w-full min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left cursor-pointer ${
                       isActive
-                        ? 'bg-orange-50/80 text-orange-700'
+                        ? 'bg-indigo-50/80 text-indigo-700'
                         : 'text-neutral-900 hover:text-gray-900 hover:bg-gray-100/50'
                     }`}
                     onClick={() => handleSelectSession(session.session_id)}
@@ -285,7 +285,7 @@ export function RecentSessions({
                     <MessageSquare
                       className={`w-4 h-4 shrink-0 ${
                         isActive
-                          ? 'text-orange-600 opacity-80'
+                          ? 'text-indigo-600 opacity-80'
                           : 'text-gray-400 opacity-70 group-hover:opacity-100'
                       }`}
                     />
@@ -304,7 +304,7 @@ export function RecentSessions({
                               handleCancelRename();
                             }
                           }}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-orange-500"
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           autoFocus
                         />
                       ) : (
@@ -351,7 +351,7 @@ export function RecentSessions({
                           <button
                             type="button"
                             onClick={() => handleStartRename(session)}
-                            className="p-1 rounded hover:bg-orange-50 text-gray-400 hover:text-orange-600 transition-colors"
+                            className="p-1 rounded hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition-colors"
                             title="重命名"
                             aria-label="重命名"
                           >
@@ -376,7 +376,7 @@ export function RecentSessions({
           </div>
           <div ref={loadMoreRef} className="h-1" />
           {isLoadingMore && (
-            <div className="flex items-center justify-center gap-1.5 py-2 text-xs text-orange-600">
+            <div className="flex items-center justify-center gap-1.5 py-2 text-xs text-indigo-600">
               <Loader2 className="w-3 h-3 animate-spin" />
               <span>加载中</span>
             </div>

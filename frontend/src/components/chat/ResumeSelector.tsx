@@ -73,10 +73,10 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl p-6 my-4 shadow-sm border border-orange-100"
+        className="bg-gradient-to-br from-indigo-50 to-violet-50 rounded-2xl p-6 my-4 shadow-sm border border-indigo-100"
       >
-        <div className="flex items-center gap-3 text-orange-600">
-          <div className="w-5 h-5 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center gap-3 text-indigo-600">
+          <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
           <span className="text-sm">正在加载简历列表...</span>
         </div>
       </motion.div>
@@ -125,12 +125,12 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 rounded-2xl p-5 my-4 shadow-lg border border-orange-100/50"
+      className="bg-gradient-to-br from-indigo-50 via-violet-50 to-slate-50 rounded-2xl p-5 my-4 shadow-lg border border-indigo-100/50"
     >
       {/* 标题 */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center shadow-sm">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center shadow-sm">
             <FileText className="w-4 h-4 text-white" />
           </div>
           <div>
@@ -173,15 +173,15 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: index * 0.05 }}
               onClick={() => onSelect(resume)}
-              className="flex-shrink-0 w-[200px] bg-white rounded-xl p-4 shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-orange-200 hover:-translate-y-1 transition-all duration-200 group"
+              className="flex-shrink-0 w-[200px] bg-white rounded-xl p-4 shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-indigo-200 hover:-translate-y-1 transition-all duration-200 group"
             >
               {/* 简历图标 */}
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-100 to-amber-100 flex items-center justify-center mb-3 group-hover:from-orange-200 group-hover:to-amber-200 transition-colors">
-                <FileText className="w-6 h-6 text-orange-500" />
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center mb-3 group-hover:from-indigo-200 group-hover:to-violet-200 transition-colors">
+                <FileText className="w-6 h-6 text-indigo-500" />
               </div>
 
               {/* 简历名称 */}
-              <h4 className="text-sm font-medium text-slate-700 truncate mb-1 group-hover:text-orange-600 transition-colors">
+              <h4 className="text-sm font-medium text-slate-700 truncate mb-1 group-hover:text-indigo-600 transition-colors">
                 {resume.name || '未命名简历'}
               </h4>
 

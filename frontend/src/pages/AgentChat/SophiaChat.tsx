@@ -1846,10 +1846,10 @@ export default function SophiaChat() {
               {/* Status */}
               <div className="text-center mt-3 text-xs text-gray-400">
                 <span className={`inline-flex items-center gap-1.5 ${status === 'idle' ? 'text-green-500' :
-                  status === 'processing' ? 'text-orange-500' : 'text-gray-400'
+                  status === 'processing' ? 'text-indigo-500' : 'text-gray-400'
                   }`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${status === 'idle' ? 'bg-green-500' :
-                    status === 'processing' ? 'bg-orange-500 animate-pulse' : 'bg-gray-400'
+                    status === 'processing' ? 'bg-indigo-500 animate-pulse' : 'bg-gray-400'
                     }`}></span>
                   {status === 'idle' ? 'Ready (SSE)' : status === 'processing' ? 'Processing...' : 'Connecting...'}
                 </span>
@@ -1924,7 +1924,7 @@ export default function SophiaChat() {
                     const isHtmlTemplate = resumeDataToShow.templateType === 'html';
                     if (!isHtmlTemplate) {
                       return (
-                        <div className="text-sm text-orange-600">
+                        <div className="text-sm text-indigo-600">
                           当前仅支持 HTML 模板简历的预览。
                         </div>
                       );
