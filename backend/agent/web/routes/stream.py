@@ -28,14 +28,14 @@ from backend.agent.web.schemas.stream import StreamRequest, SSEEvent, HeartbeatE
 from backend.agent.web.streaming.agent_stream import StreamProcessor
 from backend.agent.web.streaming.state_machine import AgentStateMachine
 from backend.agent.web.streaming.events import StreamEvent
-from backend.agent.cltp.storage.conversation_storage import FileConversationStorage
+from backend.agent.cltp.storage.factory import get_conversation_storage
 from backend.agent.memory.conversation_manager import ConversationManager
 
 router = APIRouter()
 
 # Create stream processor for agent execution
 stream_processor = StreamProcessor()
-storage = FileConversationStorage()
+storage = get_conversation_storage()
 conversation_manager = ConversationManager(storage=storage)
 
 # Store active sessions (conversation_id -> agent instance)

@@ -1,0 +1,212 @@
+# Resume-Agent 项目规则
+
+## 通用规则
+
+### 文档生成
+- **禁止自主生成 Markdown 文档**：除非用户明确要求，否则不要创建或修改任何 .md 文件
+- 不要主动创建 README、文档、架构说明等文件
+- 如果用户需要文档，等待用户明确请求
+
+### 代码风格
+
+#### Python
+- 使用类型提示（Type Hints）
+- 遵循 PEP 8 代码风格
+- 使用 f-string 进行字符串格式化
+- 异步函数使用 `async/await`
+- 导入顺序：标准库 → 第三方库 → 本地模块
+
+#### TypeScript/React
+- 使用函数式组件和 Hooks
+- 优先使用 TypeScript 类型定义
+- 使用 ES6+ 语法
+- 组件文件使用 PascalCase 命名
+- Hook 文件使用 camelCase 命名，以 `use` 开头
+
+### 项目结构
+
+#### 后端 (backend/)
+- `models.py`: 数据库模型定义
+- `routes/`: API 路由
+- `services/`: 业务逻辑服务
+- `agent/`: Agent 相关代码
+- `alembic/`: 数据库迁移
+
+#### 前端 (frontend/src/)
+- `pages/`: 页面组件
+- `components/`: 可复用组件
+- `services/`: API 服务
+- `hooks/`: 自定义 Hooks
+- `types/`: TypeScript 类型定义
+
+### 数据库
+
+#### 数据库选择
+- 开发环境：默认使用 SQLite (`backend/resume.db`)
+- 生产环境：使用 MySQL（通过 `DATABASE_URL` 环境变量配置）
+- 数据库切换：修改 `.env` 文件中的 `DATABASE_URL`
+
+#### 数据库迁移
+- 使用 Alembic 进行数据库迁移
+- 迁移文件位于 `backend/alembic/versions/`
+- 执行迁移：`alembic upgrade head`
+
+### Agent 架构
+
+#### Agent 层次结构
+```
+BaseAgent → ReActAgent → ToolCallAgent → Manus
+```
+
+#### 关键组件
+- `Manus`: 主 Agent 实现
+- `ToolCallAgent`: 工具调用基类
+- `AgentStream`: 流式输出处理
+- `ConversationManager`: 对话管理
+
+#### 工具系统
+- 所有工具继承自 `BaseTool`
+- 工具注册在 `ToolCollection` 中
+- 支持本地工具和 MCP 远程工具
+
+### API 设计
+
+#### RESTful 规范
+- GET: 查询资源
+- POST: 创建资源
+- PUT: 更新资源
+- DELETE: 删除资源
+
+#### 响应格式
+- 成功：返回数据对象或列表
+- 错误：使用 HTTPException，返回错误信息
+
+### 错误处理
+
+#### Python
+- 使用 try-except 捕获异常
+- 记录错误日志：`logger.exception()`
+- 向用户返回友好的错误信息
+
+#### TypeScript
+- 使用 try-catch 处理异步错误
+- 显示用户友好的错误提示
+- 记录错误到控制台（开发环境）
+
+### 环境变量
+
+#### 必需的环境变量
+- `DATABASE_URL`: 数据库连接字符串（可选，默认使用 SQLite）
+- `DASHSCOPE_API_KEY`: 阿里云 DashScope API Key
+- `DEEPSEEK_API_KEY`: DeepSeek API Key
+- `ZHIPU_API_KEY`: 智谱 AI API Key
+
+#### 环境变量文件
+- 使用 `.env` 文件存储环境变量
+- `.env` 文件已添加到 `.gitignore`，不会提交到版本控制
+
+### 测试
+
+#### 代码修改原则
+- 修改代码前先理解现有逻辑
+- 保持向后兼容性
+- 修改后检查相关功能是否正常
+
+#### 调试
+- 使用日志记录关键信息
+- Python: 使用 `logger.info()`, `logger.debug()`, `logger.error()`
+- TypeScript: 使用 `console.log()`, `console.error()`
+
+### Git 提交
+
+#### 提交信息
+- 使用清晰的中文或英文描述
+- 格式：`类型: 简短描述`
+- 类型：feat, fix, docs, style, refactor, test, chore
+
+### 性能优化
+
+#### 数据库查询
+- 避免 N+1 查询问题
+- 使用批量操作（bulk operations）
+- 合理使用索引
+
+#### 前端优化
+- 使用 React.memo 避免不必要的重渲染
+- 使用 useMemo 和 useCallback 优化性能
+- 懒加载大型组件
+
+### 安全
+
+#### 认证授权
+- 使用 JWT Token 进行用户认证
+- 保护敏感 API 端点
+- 验证用户输入
+
+#### 数据安全
+- 密码使用哈希存储
+- 敏感信息不记录到日志
+- SQL 注入防护（使用 ORM）
+
+### 代码审查要点
+
+#### 提交前检查
+- 代码格式正确
+- 没有语法错误
+- 导入的模块都已安装
+- 环境变量已配置
+- 数据库迁移已执行（如需要）
+
+### 特殊注意事项
+
+#### Agent 执行
+- Agent 使用流式输出（SSE）
+- 会话管理使用文件系统存储（`data/conversations/`）
+- 简历数据存储在数据库中
+
+#### 文件存储
+- 对话历史：`data/conversations/{session_id}.json`
+- 数据库文件：`backend/resume.db` (SQLite)
+- PDF 文件：临时生成，不持久化存储
+
+### 常用命令
+
+#### 后端
+```bash
+# 启动后端服务
+python -m uvicorn backend.main:app --host 0.0.0.0 --port 9000 --reload
+
+# 数据库迁移
+alembic upgrade head
+
+# 初始化数据库
+python -c "from backend.database import init_db; init_db()"
+```
+
+#### 前端
+```bash
+# 安装依赖
+npm install
+
+# 启动开发服务器
+npm run dev
+
+# 构建生产版本
+npm run build
+```
+
+### 禁止事项
+
+1. **不要自主生成 Markdown 文档**（除非用户明确要求）
+2. 不要修改 `.gitignore` 中已忽略的文件
+3. 不要硬编码敏感信息（API Key、密码等）
+4. 不要删除重要的数据库迁移文件
+5. 不要修改核心 Agent 架构（除非用户要求）
+
+### 代码修改建议
+
+- 修改前先阅读相关代码
+- 保持代码风格一致
+- 添加必要的注释（中文或英文）
+- 考虑向后兼容性
+- 测试修改后的功能
