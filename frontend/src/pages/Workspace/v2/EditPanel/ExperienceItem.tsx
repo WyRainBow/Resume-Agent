@@ -8,6 +8,7 @@ import { cn } from '../../../../lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import type { Experience, ResumeData, GlobalSettings } from '../types'
 import Field from './Field'
+import { MonthYearRangePicker } from '../shared/MonthYearRangePicker'
 import {
   type CompanyLogo,
   fetchLogos,
@@ -414,11 +415,10 @@ const ExperienceEditor = ({
             formatButtons={['bold']}
           />
         </div>
-        <Field
+        <MonthYearRangePicker
           label="在职时间"
-          value={experience.date}
+          value={experience.date ?? ''}
           onChange={(value) => handleChange('date', value)}
-          placeholder="如：2022.01 - 2023.06"
         />
         <Field
           label="工作内容"
