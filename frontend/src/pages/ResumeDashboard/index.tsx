@@ -13,6 +13,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import AIImportModal from '@/pages/Workspace/v2/shared/AIImportModal'
 import { saveResume, setCurrentResumeId } from '@/services/resumeStorage'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
+import { matchCompanyLogo } from '@/pages/Workspace/v2/constants/companyLogos'
 
 const ResumeDashboard = () => {
   const navigate = useNavigate()
@@ -87,19 +88,20 @@ const ResumeDashboard = () => {
           visible: true,
         }
       }) || [],
-      experience: data.internships?.map((e: any, i: number) => ({
-        id: `exp_${Date.now()}_${i}`,
-        company: (() => {
-          const raw = (e.title || '').trim()
-          if (!raw) return ''
-          if (raw.startsWith('**') && raw.endsWith('**')) return raw
-          return `**${raw}**`
-        })(),
-        position: e.subtitle || '',
-        date: e.date || '',
-        details: formatHighlightsToHtml(e.highlights),
-        visible: true,
-      })) || [],
+      experience: data.internships?.map((e: any, i: number) => {
+        const raw = (e.title || '').trim()
+        const company = !raw ? '' : raw.startsWith('**') && raw.endsWith('**') ? raw : `**${raw}**`
+        const logoKey = matchCompanyLogo(e.title || '')
+        return {
+          id: `exp_${Date.now()}_${i}`,
+          company,
+          position: e.subtitle || '',
+          date: e.date || '',
+          details: formatHighlightsToHtml(e.highlights),
+          visible: true,
+          ...(logoKey ? { companyLogo: logoKey } : {}),
+        }
+      }) || [],
       projects: data.projects?.map((p: any, i: number) => {
         let description = p.description || ''
         if (p.highlights && p.highlights.length > 0) {

@@ -3,6 +3,7 @@
  */
 import { useState, useCallback } from 'react'
 import type { ResumeData } from '../types'
+import { matchCompanyLogo } from '../constants/companyLogos'
 
 // 检测是否是分组标题（如"**搜索服务拆分专项**"、"**性能优化**"）
 function isGroupTitle(text: string): boolean {
@@ -275,14 +276,19 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
             visible: true,
           }
         }) || prev.education,
-        experience: data.internships?.map((e: any, i: number) => ({
-          id: `exp_${Date.now()}_${i}`,
-          company: defaultBoldCompany(e.title || ''),
-          position: e.subtitle || '',
-          date: e.date || '',
-          details: formatHighlightsToHtml(e.highlights, experienceFormat.list_style || 'bullet'),
-          visible: true,
-        })) || prev.experience,
+        experience: data.internships?.map((e: any, i: number) => {
+          const companyName = e.title || ''
+          const logoKey = matchCompanyLogo(companyName)
+          return {
+            id: `exp_${Date.now()}_${i}`,
+            company: defaultBoldCompany(companyName),
+            position: e.subtitle || '',
+            date: e.date || '',
+            details: formatHighlightsToHtml(e.highlights, experienceFormat.list_style || 'bullet'),
+            visible: true,
+            ...(logoKey ? { companyLogo: logoKey } : {}),
+          }
+        }) || prev.experience,
         projects: data.projects?.map((p: any, i: number) => {
           // 合并项目描述和亮点
           let description = p.description || ''
@@ -421,20 +427,24 @@ function handleSectionImport(
 
     case 'experience':
       if (Array.isArray(data)) {
-        const newExps = data.map((e: any, i: number) => ({
-          id: `exp_${Date.now()}_${i}`,
-          company: defaultBoldCompany(e.title || e.company || ''),
-          position: e.subtitle || e.position || '',
-          date: e.date || '',
-          details: (() => {
-            if (e.highlights) {
-              // 使用支持嵌套层级的函数
-              return formatHighlightsToHtmlModule(e.highlights, 'bullet')
-            }
-            return e.details || ''
-          })(),
-          visible: true,
-        }))
+        const newExps = data.map((e: any, i: number) => {
+          const companyName = e.title || e.company || ''
+          const logoKey = matchCompanyLogo(companyName)
+          return {
+            id: `exp_${Date.now()}_${i}`,
+            company: defaultBoldCompany(companyName),
+            position: e.subtitle || e.position || '',
+            date: e.date || '',
+            details: (() => {
+              if (e.highlights) {
+                return formatHighlightsToHtmlModule(e.highlights, 'bullet')
+              }
+              return e.details || ''
+            })(),
+            visible: true,
+            ...(logoKey ? { companyLogo: logoKey } : {}),
+          }
+        })
         setResumeData((prev) => ({
           ...prev,
           experience: [...prev.experience, ...newExps],
