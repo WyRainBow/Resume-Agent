@@ -57,6 +57,8 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
   const hasPhoto = Boolean(basic?.photo)
   const photoOffsetX = basic?.photoOffsetX ?? 0
   const photoOffsetY = basic?.photoOffsetY ?? -2
+  // 以当前正确渲染位置作为 UI 的 0 点（内部绝对值 +2）
+  const photoOffsetYDisplay = photoOffsetY + 2
   const photoWidthCm = basic?.photoWidthCm ?? 3
   const photoHeightCm = basic?.photoHeightCm ?? 3
 
@@ -193,8 +195,8 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
                   <input
                     type="number"
                     step="0.1"
-                    value={photoOffsetY}
-                    onChange={(e) => onUpdate({ photoOffsetY: Number(e.target.value) })}
+                    value={photoOffsetYDisplay}
+                    onChange={(e) => onUpdate({ photoOffsetY: Number(e.target.value) - 2 })}
                     className="w-full px-2 py-1 text-xs rounded border border-neutral-200 bg-white"
                   />
                 </div>
