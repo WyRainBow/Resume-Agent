@@ -55,6 +55,13 @@ const PAGE_PADDING_OPTIONS = [
   { value: 50, label: '宽松 (50px)' },
 ]
 
+// 头部空白参数基准（UI 显示 0 对应的内部值）
+const HEADER_TOP_GAP_BASELINE = -4
+const HEADER_NAME_CONTACT_GAP_BASELINE = 0
+const HEADER_BOTTOM_GAP_BASELINE = -1
+
+const normalizeDecimal = (value: number, digits = 2) => Number(value.toFixed(digits))
+
 // 行间距控件：预设选项 + 自定义输入
 function LineSpacingControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const isPreset = LINE_SPACING_OPTIONS.some(opt => opt.value === value)
@@ -100,6 +107,33 @@ function LineSpacingControl({ value, onChange }: { value: number; onChange: (v: 
           />
         )}
       </div>
+    </div>
+  )
+}
+
+function HeaderGapControl({
+  label,
+  value,
+  onChange,
+}: {
+  label: string
+  value: number
+  onChange: (v: number) => void
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
+        {label}
+      </label>
+      <input
+        type="number"
+        step="0.5"
+        min="-80"
+        max="80"
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+      />
     </div>
   )
 }
@@ -277,6 +311,31 @@ export function SidePanel({
                   </option>
                 ))}
               </select>
+            </div>
+
+            {/* 头部空白（LaTeX） */}
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
+                头部空白（px）
+              </label>
+              <HeaderGapControl
+                label="顶部空白"
+                value={normalizeDecimal((globalSettings.latexHeaderTopGapPx ?? HEADER_TOP_GAP_BASELINE) - HEADER_TOP_GAP_BASELINE)}
+                onChange={(v) => updateGlobalSettings({ latexHeaderTopGapPx: normalizeDecimal(HEADER_TOP_GAP_BASELINE + v) })}
+              />
+              <HeaderGapControl
+                label="姓名与联系信息间距"
+                value={normalizeDecimal((globalSettings.latexHeaderNameContactGapPx ?? HEADER_NAME_CONTACT_GAP_BASELINE) - HEADER_NAME_CONTACT_GAP_BASELINE)}
+                onChange={(v) => updateGlobalSettings({ latexHeaderNameContactGapPx: normalizeDecimal(HEADER_NAME_CONTACT_GAP_BASELINE + v) })}
+              />
+              <HeaderGapControl
+                label="联系信息下方空白"
+                value={normalizeDecimal((globalSettings.latexHeaderBottomGapPx ?? HEADER_BOTTOM_GAP_BASELINE) - HEADER_BOTTOM_GAP_BASELINE)}
+                onChange={(v) => updateGlobalSettings({ latexHeaderBottomGapPx: normalizeDecimal(HEADER_BOTTOM_GAP_BASELINE + v) })}
+              />
+              <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                支持负值，用于压缩顶部留白
+              </p>
             </div>
 
             <p className="text-xs text-slate-400 dark:text-slate-500">

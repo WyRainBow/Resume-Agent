@@ -119,6 +119,9 @@ export const DEFAULT_RESUME_TEMPLATE: ResumeData = {
     pagePadding: 40,
     sectionSpacing: 20,
     paragraphSpacing: 10,
-    experienceListType: "none"
+    experienceListType: "none",
+    latexHeaderTopGapPx: -4,
+    latexHeaderNameContactGapPx: 0,
+    latexHeaderBottomGapPx: -1
   }
 }

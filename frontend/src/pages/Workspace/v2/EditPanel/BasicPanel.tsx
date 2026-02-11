@@ -57,8 +57,9 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
   const hasPhoto = Boolean(basic?.photo)
   const photoOffsetX = basic?.photoOffsetX ?? 0
   const photoOffsetY = basic?.photoOffsetY ?? -2
+  const normalizeDecimal = (value: number, digits = 2) => Number(value.toFixed(digits))
   // 以当前正确渲染位置作为 UI 的 0 点（内部绝对值 +2）
-  const photoOffsetYDisplay = photoOffsetY + 2
+  const photoOffsetYDisplay = normalizeDecimal(photoOffsetY + 2, 2)
   const photoWidthCm = basic?.photoWidthCm ?? 3
   const photoHeightCm = basic?.photoHeightCm ?? 3
 
@@ -201,7 +202,11 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
                         type="number"
                         step="0.1"
                         value={photoOffsetYDisplay}
-                        onChange={(e) => onUpdate({ photoOffsetY: Number(e.target.value) - 2 })}
+                        onChange={(e) => {
+                          const uiValue = e.target.valueAsNumber
+                          if (Number.isNaN(uiValue)) return
+                          onUpdate({ photoOffsetY: normalizeDecimal(uiValue - 2, 2) })
+                        }}
                         className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
                       />
                     </div>

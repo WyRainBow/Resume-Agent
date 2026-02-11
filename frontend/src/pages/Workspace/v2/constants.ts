@@ -53,6 +53,9 @@ export const initialResumeData: ResumeData = {
     latexFontSize: 11,       // 默认 11pt
     latexMargin: 'standard', // 默认标准边距
     latexLineSpacing: 1.15,  // 默认行间距 1.15
+    latexHeaderTopGapPx: -4,
+    latexHeaderNameContactGapPx: 0,
+    latexHeaderBottomGapPx: -1,
   },
 }
 
@@ -218,4 +221,3 @@ export const loadFromStorage = (): ResumeData => {
   // DEFAULT_RESUME_TEMPLATE 已经是 ResumeData 格式，直接返回
   return structuredClone(DEFAULT_RESUME_TEMPLATE)
 }
-

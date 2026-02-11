@@ -157,6 +157,9 @@ export interface GlobalSettings {
   latexFontSize?: number  // LaTeX 字体大小: 9, 10, 11, 12
   latexMargin?: 'tight' | 'compact' | 'standard' | 'relaxed' | 'wide'  // 页面边距
   latexLineSpacing?: number  // 行间距: 0.9 - 1.5
+  latexHeaderTopGapPx?: number  // 头部顶部空白（px，可为负）
+  latexHeaderNameContactGapPx?: number  // 姓名与联系信息间距调整（px，可为负）
+  latexHeaderBottomGapPx?: number  // 联系信息下方空白（px，可为负）
 }
 
 /**
@@ -208,4 +211,3 @@ export const DEFAULT_FIELD_ORDER: BasicFieldType[] = [
   { id: '6', key: 'phone', label: '电话', type: 'text', visible: true },
   { id: '7', key: 'location', label: '地址', type: 'text', visible: true },
 ]
-

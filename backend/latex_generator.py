@@ -29,6 +29,14 @@ def _safe_float(value: Any, default: float, min_value: float, max_value: float) 
     return max(min_value, min(max_value, num))
 
 
+def _px_to_pt(px: float) -> float:
+    """
+    将 UI 的“px 调整量”映射到 TeX pt。
+    为保证 0.5 步进在 PDF 预览中可感知，这里使用增强系数。
+    """
+    return px * 4.0
+
+
 def _download_user_photo_to_dir(photo_url: str, temp_dir: str) -> str | None:
     """
     下载用户照片到临时目录，固定命名为 photo.<ext>
@@ -109,6 +117,11 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     line_spacing = global_settings.get('latexLineSpacing', 1.0)
     if not isinstance(line_spacing, (int, float)) or line_spacing < 0.8 or line_spacing > 2.0:
         line_spacing = 1.0
+
+    # 头部三段间距（px，可为负）
+    header_top_gap_px = _safe_float(global_settings.get('latexHeaderTopGapPx'), 0.0, -80.0, 80.0)
+    header_name_contact_gap_px = _safe_float(global_settings.get('latexHeaderNameContactGapPx'), 0.0, -80.0, 80.0)
+    header_bottom_gap_px = _safe_float(global_settings.get('latexHeaderBottomGapPx'), 0.0, -80.0, 80.0)
     
     """文档头部"""
     latex_content.append(r"% !TEX TS-program = xelatex")
@@ -141,6 +154,9 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     latex_content.append(r"\pagenumbering{gobble}")
     latex_content.append("")
 
+    if abs(header_top_gap_px) > 0.01:
+        latex_content.append(f"\\vspace*{{{_px_to_pt(header_top_gap_px):.2f}pt}}")
+
     """姓名/联系信息"""
     name = resume_data.get('name') or '姓名'
     contact = resume_data.get('contact') or {}
@@ -165,11 +181,15 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
 
     latex_content.append(f"\\name{{{escape_latex(name)}}}")
     latex_content.append("")
+    # 姓名与联系信息间距调节：保留有照片时的默认压缩，再叠加用户设置
     if resume_data.get("photo"):
-        # 有照片时收紧姓名与联系信息间距，贴近原始效果
         latex_content.append(r"\vspace{-0.8ex}")
+    if abs(header_name_contact_gap_px) > 0.01:
+        latex_content.append(f"\\vspace{{{_px_to_pt(header_name_contact_gap_px):.2f}pt}}")
     """contactInfo 格式: {phone}{email}{role} - 与 slager.link 保持一致"""
     latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{role}}}")
+    if abs(header_bottom_gap_px) > 0.01:
+        latex_content.append(f"\\vspace{{{_px_to_pt(header_bottom_gap_px):.2f}pt}}")
     latex_content.append("")
     
     """获取自定义模块标题"""
