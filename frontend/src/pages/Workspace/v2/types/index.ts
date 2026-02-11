@@ -25,6 +25,10 @@ export interface BasicInfo {
   birthDate?: string
   employementStatus?: string
   photo?: string
+  photoOffsetX?: number  // 照片横向偏移（cm，正值向左）
+  photoOffsetY?: number  // 照片纵向偏移（cm，正值向上）
+  photoWidthCm?: number  // 照片宽度（cm）
+  photoHeightCm?: number  // 照片高度（cm）
   icons?: Record<string, string>
   layout?: 'left' | 'center' | 'right'
   customFields?: CustomFieldType[]
@@ -204,5 +208,4 @@ export const DEFAULT_FIELD_ORDER: BasicFieldType[] = [
   { id: '6', key: 'phone', label: '电话', type: 'text', visible: true },
   { id: '7', key: 'location', label: '地址', type: 'text', visible: true },
 ]
-
 

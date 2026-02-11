@@ -40,7 +40,13 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
     setUploading(true)
     try {
       const result = await uploadUserPhoto(file, token)
-      onUpdate({ photo: result.url })
+      onUpdate({
+        photo: result.url,
+        photoOffsetX: basic?.photoOffsetX ?? 0,
+        photoOffsetY: basic?.photoOffsetY ?? -2,
+        photoWidthCm: basic?.photoWidthCm ?? 3,
+        photoHeightCm: basic?.photoHeightCm ?? 3,
+      })
     } catch (err: any) {
       alert(err?.message || '上传失败')
     } finally {
@@ -49,6 +55,10 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
   }
 
   const hasPhoto = Boolean(basic?.photo)
+  const photoOffsetX = basic?.photoOffsetX ?? 0
+  const photoOffsetY = basic?.photoOffsetY ?? -2
+  const photoWidthCm = basic?.photoWidthCm ?? 3
+  const photoHeightCm = basic?.photoHeightCm ?? 3
 
   return (
     <div className="space-y-6 p-6">
@@ -157,15 +167,62 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
             </button>
 
             {hasPhoto && (
-              <button
-                type="button"
-                onClick={() => onUpdate({ photo: '' })}
-                className="mt-2 flex items-center gap-1 text-xs text-red-500 hover:text-red-600"
-                title="移除照片"
-              >
-                <X className="w-3 h-3" />
-                移除
-              </button>
+              <div className="mt-2 space-y-2">
+                <button
+                  type="button"
+                  onClick={() => onUpdate({ photo: '' })}
+                  className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600"
+                  title="移除照片"
+                >
+                  <X className="w-3 h-3" />
+                  移除
+                </button>
+
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] text-neutral-500">X 偏移(cm，正数向左)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={photoOffsetX}
+                    onChange={(e) => onUpdate({ photoOffsetX: Number(e.target.value) })}
+                    className="w-full px-2 py-1 text-xs rounded border border-neutral-200 bg-white"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] text-neutral-500">Y 偏移(cm，正数向上)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={photoOffsetY}
+                    onChange={(e) => onUpdate({ photoOffsetY: Number(e.target.value) })}
+                    className="w-full px-2 py-1 text-xs rounded border border-neutral-200 bg-white"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] text-neutral-500">宽(cm)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="1.2"
+                    max="5"
+                    value={photoWidthCm}
+                    onChange={(e) => onUpdate({ photoWidthCm: Number(e.target.value) })}
+                    className="w-full px-2 py-1 text-xs rounded border border-neutral-200 bg-white"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] text-neutral-500">高(cm)</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    min="1.2"
+                    max="6"
+                    value={photoHeightCm}
+                    onChange={(e) => onUpdate({ photoHeightCm: Number(e.target.value) })}
+                    className="w-full px-2 py-1 text-xs rounded border border-neutral-200 bg-white"
+                  />
+                </div>
+              </div>
             )}
 
             {!isAuthenticated && (

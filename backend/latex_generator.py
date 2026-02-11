@@ -20,6 +20,15 @@ from .latex_sections import SECTION_GENERATORS, DEFAULT_SECTION_ORDER
 from .company_logos import download_logos_to_dir
 
 
+def _safe_float(value: Any, default: float, min_value: float, max_value: float) -> float:
+    """读取并限制浮点参数范围，避免异常值破坏排版。"""
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return default
+    return max(min_value, min(max_value, num))
+
+
 def _download_user_photo_to_dir(photo_url: str, temp_dir: str) -> str | None:
     """
     下载用户照片到临时目录，固定命名为 photo.<ext>
@@ -38,7 +47,9 @@ def _download_user_photo_to_dir(photo_url: str, temp_dir: str) -> str | None:
             ext = ".png"
 
         local_name = f"photo{ext}"
-        local_path = Path(temp_dir) / local_name
+        logos_dir = Path(temp_dir) / "logos"
+        logos_dir.mkdir(parents=True, exist_ok=True)
+        local_path = logos_dir / local_name
         urllib.request.urlretrieve(photo_url, str(local_path))
         return local_name
     except Exception as exc:
@@ -138,26 +149,28 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     """求职意向：优先从 objective 获取，其次从 contact.role 获取"""
     role = escape_latex(resume_data.get('objective') or contact.get('role') or '')
 
-    # 有照片时，将照片放在姓名旁边；无照片保持原模板布局
+    # 有照片时，右侧叠加照片，不改变姓名/联系信息的居中布局
     if resume_data.get("photo"):
-        latex_content.append(r"\begin{minipage}[c]{0.76\textwidth}")
-        latex_content.append(r"\centering")
-        latex_content.append(f"\\name{{{escape_latex(name)}}}")
-        latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{role}}}")
-        latex_content.append(r"\end{minipage}")
-        latex_content.append(r"\hfill")
-        latex_content.append(r"\begin{minipage}[c]{0.20\textwidth}")
-        latex_content.append(r"\raggedleft")
-        latex_content.append(r"\includegraphics[width=2.2cm,height=2.8cm,keepaspectratio]{photo}")
-        latex_content.append(r"\end{minipage}")
-        latex_content.append(r"\vspace{0.5ex}")
-        latex_content.append("")
-    else:
-        latex_content.append(f"\\name{{{escape_latex(name)}}}")
-        latex_content.append("")
-        """contactInfo 格式: {phone}{email}{role} - 与 slager.link 保持一致"""
-        latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{role}}}")
-        latex_content.append("")
+        photo_offset_x = _safe_float(resume_data.get("photoOffsetX"), 0.0, -6.0, 6.0)
+        photo_offset_y = _safe_float(resume_data.get("photoOffsetY"), -2.0, -6.0, 6.0)
+        photo_width_cm = _safe_float(resume_data.get("photoWidthCm"), 3.0, 1.2, 6.0)
+        photo_height_cm = _safe_float(resume_data.get("photoHeightCm"), 3.0, 1.2, 8.0)
+        # 右对齐锚点：x 正值代表向左偏移
+        x_shift_cm = -photo_offset_x
+        latex_content.append(
+            f"\\noindent\\makebox[\\textwidth][r]{{\\hspace*{{{x_shift_cm:.2f}cm}}\\raisebox{{{photo_offset_y:.2f}cm}}[0pt][0pt]{{\\includegraphics[width={photo_width_cm:.2f}cm,height={photo_height_cm:.2f}cm,keepaspectratio]{{photo}}}}}}"
+        )
+        # 覆盖浮层不应拉开标题区高度
+        latex_content.append(r"\vspace{-1.1\baselineskip}")
+
+    latex_content.append(f"\\name{{{escape_latex(name)}}}")
+    latex_content.append("")
+    if resume_data.get("photo"):
+        # 有照片时收紧姓名与联系信息间距，贴近原始效果
+        latex_content.append(r"\vspace{-0.8ex}")
+    """contactInfo 格式: {phone}{email}{role} - 与 slager.link 保持一致"""
+    latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{role}}}")
+    latex_content.append("")
     
     """获取自定义模块标题"""
     section_titles = resume_data.get('sectionTitles') or {}
@@ -212,6 +225,7 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path, resume_data: Di
             shutil.copytree(fonts_dir, Path(temp_dir) / 'fonts', dirs_exist_ok=True)
 
         # 下载公司 Logo 到临时目录
+        local_photo = None
         if resume_data:
             internships = resume_data.get('internships') or []
             if any(it.get('logo') for it in internships):
@@ -222,6 +236,19 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path, resume_data: Di
                 local_photo = _download_user_photo_to_dir(photo_url, temp_dir)
                 if local_photo:
                     print(f"[Photo] 下载完成: {local_photo}")
+                else:
+                    print("[Photo] 下载失败，已自动降级为无照片渲染")
+                    # 避免 LaTeX includegraphics{photo} 找不到文件导致编译失败
+                    stripped_lines = []
+                    for line in latex_content.splitlines():
+                        if "{photo}" in line:
+                            continue
+                        if r"\vspace{-1.1\baselineskip}" in line:
+                            continue
+                        if r"\vspace{-0.8ex}" in line:
+                            continue
+                        stripped_lines.append(line)
+                    latex_content = "\n".join(stripped_lines)
 
         # 写入 LaTeX 文件
         tex_file = Path(temp_dir) / 'resume.tex'
