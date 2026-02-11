@@ -7,6 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import or_
+from typing import Optional
 
 from database import get_db
 from models import User
@@ -18,18 +20,19 @@ router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
 
 class RegisterRequest(BaseModel):
-    email: str  # 改为普通字符串，支持任意格式的账户名
+    username: str
     password: str
 
 
 class LoginRequest(BaseModel):
-    email: str  # 改为普通字符串，支持任意格式的账户名
+    username: str
     password: str
 
 
 class UserResponse(BaseModel):
     id: int
-    email: str  # 改为普通字符串
+    username: str
+    email: Optional[str] = None
 
 
 class TokenResponse(BaseModel):
@@ -42,14 +45,14 @@ class TokenResponse(BaseModel):
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
     """用户注册"""
     try:
-        logger.info(f"[注册] 收到注册请求，邮箱: {body.email}")
+        logger.info(f"[注册] 收到注册请求，账号: {body.username}")
         
-        # 检查邮箱是否已存在
-        logger.debug(f"[注册] 检查邮箱是否已注册: {body.email}")
-        existing = db.query(User).filter(User.email == body.email).first()
+        # 检查账号是否已存在
+        logger.debug(f"[注册] 检查账号是否已注册: {body.username}")
+        existing = db.query(User).filter(User.username == body.username).first()
         if existing:
-            logger.warning(f"[注册] 邮箱已注册: {body.email}")
-            raise HTTPException(status_code=400, detail="该邮箱已注册")
+            logger.warning(f"[注册] 账号已注册: {body.username}")
+            raise HTTPException(status_code=400, detail="该账号已注册")
 
         # 加密密码
         logger.debug(f"[注册] 开始加密密码")
@@ -64,7 +67,8 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         # 创建用户
         logger.debug(f"[注册] 创建用户对象")
         try:
-            user = User(email=body.email, password_hash=password_hash)
+            # email 字段保留兼容：默认与 username 相同
+            user = User(username=body.username, email=body.username, password_hash=password_hash)
             logger.debug(f"[注册] 用户对象创建成功")
         except Exception as e:
             logger.error(f"[注册] 创建用户对象失败: {str(e)}")
@@ -98,8 +102,8 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         # 生成 token
         logger.debug(f"[注册] 生成访问令牌")
         try:
-            token = create_access_token({"sub": str(user.id), "email": user.email})
-            logger.info(f"[注册] 注册成功，用户ID: {user.id}, 邮箱: {user.email}")
+            token = create_access_token({"sub": str(user.id), "username": user.username})
+            logger.info(f"[注册] 注册成功，用户ID: {user.id}, 账号: {user.username}")
         except Exception as e:
             logger.error(f"[注册] 生成token失败: {str(e)}")
             logger.error(f"[注册] 错误堆栈:\n{traceback.format_exc()}")
@@ -107,7 +111,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
 
         return TokenResponse(
             access_token=token,
-            user=UserResponse(id=user.id, email=user.email)
+            user=UserResponse(id=user.id, username=user.username, email=user.email)
         )
     
     except HTTPException:
@@ -124,18 +128,20 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, db: Session = Depends(get_db)):
     """用户登录"""
-    user = db.query(User).filter(User.email == body.email).first()
+    user = db.query(User).filter(
+        or_(User.username == body.username, User.email == body.username)
+    ).first()
     if not user or not verify_password(body.password, user.password_hash):
-        raise HTTPException(status_code=401, detail="邮箱或密码错误")
+        raise HTTPException(status_code=401, detail="账号或密码错误")
 
-    token = create_access_token({"sub": str(user.id), "email": user.email})
+    token = create_access_token({"sub": str(user.id), "username": user.username})
     return TokenResponse(
         access_token=token,
-        user=UserResponse(id=user.id, email=user.email)
+        user=UserResponse(id=user.id, username=user.username, email=user.email)
     )
 
 
 @router.get("/me", response_model=UserResponse)
 def me(current_user: User = Depends(get_current_user)):
     """获取当前用户信息"""
-    return UserResponse(id=current_user.id, email=current_user.email)
+    return UserResponse(id=current_user.id, username=current_user.username, email=current_user.email)

@@ -6,6 +6,7 @@ import { stripHtmlTags } from './textUtils'
 
 export interface BackendResumeData {
   name: string
+  photo?: string
   contact: {
     phone: string
     email: string
@@ -58,6 +59,7 @@ export interface BackendResumeData {
 export function convertToBackendFormat(data: ResumeData): BackendResumeData {
   return {
     name: data.basic.name,
+    ...(data.basic.photo ? { photo: data.basic.photo } : {}),
     contact: {
       phone: data.basic.phone,
       email: data.basic.email,
@@ -116,4 +118,3 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
     globalSettings: data.globalSettings,  // 传递全局设置
   }
 }
-

@@ -218,11 +218,11 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                     'w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg transition-all duration-200',
                     'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
                   )}
-                  title={user?.email}
+                  title={user?.username || user?.email}
                 >
                   <User className="w-5 h-5 shrink-0" />
                   <span className="text-[10px] leading-tight truncate w-full text-center max-w-[4.5rem]">
-                    {user?.email?.split('@')[0] || user?.email}
+                    {user?.username || user?.email}
                   </span>
                 </button>
                 <AnimatePresence>

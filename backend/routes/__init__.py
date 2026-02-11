@@ -11,6 +11,7 @@ from .resumes import router as resumes_router
 from .reports import router as reports_router
 from .documents import router as documents_router
 from .logos import router as logos_router
+from .photos import router as photos_router
 
 __all__ = [
     'health_router',
@@ -23,4 +24,5 @@ __all__ = [
     'reports_router',
     'documents_router',
     'logos_router',
+    'photos_router',
 ]

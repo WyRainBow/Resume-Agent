@@ -18,7 +18,7 @@ export default function UserMenu() {
 
   return (
     <div className="flex items-center gap-3">
-      <span className="text-sm text-gray-700">{user?.email}</span>
+      <span className="text-sm text-gray-700">{user?.username || user?.email}</span>
       <button
         className="text-sm text-gray-600 hover:text-gray-900"
         onClick={logout}

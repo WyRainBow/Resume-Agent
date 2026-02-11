@@ -20,7 +20,7 @@ import {
   refreshLogos,
 } from '../constants/companyLogos'
 
-/** 仅允许该用户上传/修改 Logo（按邮箱 @ 前部分匹配） */
+/** 仅允许该用户上传/修改 Logo（按 username 匹配） */
 const ALLOWED_LOGO_UPLOAD_USER = 'cocoyu'
 
 // 将 Markdown 格式转换为 HTML（用于预览）
@@ -300,7 +300,7 @@ const ExperienceEditor = ({
   updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }) => {
   const { user } = useAuth()
-  const canUploadLogo = (user?.email?.split('@')[0] ?? '') === ALLOWED_LOGO_UPLOAD_USER
+  const canUploadLogo = (user?.username ?? '') === ALLOWED_LOGO_UPLOAD_USER
 
   const handleChange = (field: keyof Experience, value: string | boolean | number | undefined) => {
     const updated = { ...experience, [field]: value }
@@ -575,5 +575,4 @@ const ExperienceItem = ({
 }
 
 export default ExperienceItem
-
 

@@ -4,7 +4,8 @@ import { syncLocalToDatabase } from '@/services/syncService'
 
 type User = {
   id: number
-  email: string
+  username: string
+  email?: string
 }
 
 type AuthContextValue = {
@@ -12,8 +13,8 @@ type AuthContextValue = {
   token: string | null
   loading: boolean
   isAuthenticated: boolean
-  login: (email: string, password: string) => Promise<void>
-  register: (email: string, password: string) => Promise<void>
+  login: (username: string, password: string) => Promise<void>
+  register: (username: string, password: string) => Promise<void>
   logout: () => void
   isModalOpen: boolean
   openModal: (mode?: 'login' | 'register') => void
@@ -54,8 +55,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     init()
   }, [])
 
-  const login = async (email: string, password: string) => {
-    const result = await loginApi(email, password)
+  const login = async (username: string, password: string) => {
+    const result = await loginApi(username, password)
     localStorage.setItem(TOKEN_KEY, result.access_token)
     setAuthToken(result.access_token)
     setUser(result.user)
@@ -67,8 +68,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const register = async (email: string, password: string) => {
-    const result = await registerApi(email, password)
+  const register = async (username: string, password: string) => {
+    const result = await registerApi(username, password)
     localStorage.setItem(TOKEN_KEY, result.access_token)
     setAuthToken(result.access_token)
     setUser(result.user)

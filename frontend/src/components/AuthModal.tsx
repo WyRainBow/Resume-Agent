@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 export const AuthModal: React.FC = () => {
   const { isModalOpen, closeModal, modalMode, login, register } = useAuth()
   const [mode, setMode] = useState<'login' | 'register'>('login')
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -16,7 +16,7 @@ export const AuthModal: React.FC = () => {
     if (isModalOpen) {
       setMode(modalMode)
       setError(null)
-      setEmail('')
+      setUsername('')
       setPassword('')
     }
   }, [isModalOpen, modalMode])
@@ -27,9 +27,9 @@ export const AuthModal: React.FC = () => {
     setLoading(true)
     try {
       if (mode === 'login') {
-        await login(email, password)
+        await login(username, password)
       } else {
-        await register(email, password)
+        await register(username, password)
       }
       closeModal()
     } catch (err) {
@@ -127,8 +127,8 @@ export const AuthModal: React.FC = () => {
                     <input
                       type="text"
                       required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
                       placeholder="请输入账号"
                       className="block w-full pl-11 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-2xl text-slate-900 text-sm font-medium placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                     />

@@ -19,7 +19,8 @@ const authClient = axios.create({
 
 export type AuthUser = {
   id: number
-  email: string
+  username: string
+  email?: string
 }
 
 export type TokenResponse = {
@@ -47,13 +48,13 @@ authClient.interceptors.response.use(
   }
 )
 
-export async function register(email: string, password: string): Promise<TokenResponse> {
-  const { data } = await authClient.post('/api/auth/register', { email, password })
+export async function register(username: string, password: string): Promise<TokenResponse> {
+  const { data } = await authClient.post('/api/auth/register', { username, password })
   return data as TokenResponse
 }
 
-export async function login(email: string, password: string): Promise<TokenResponse> {
-  const { data } = await authClient.post('/api/auth/login', { email, password })
+export async function login(username: string, password: string): Promise<TokenResponse> {
+  const { data } = await authClient.post('/api/auth/login', { username, password })
   return data as TokenResponse
 }
 

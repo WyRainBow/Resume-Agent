@@ -9,6 +9,8 @@ import shutil
 import time
 import hashlib
 import json
+import urllib.request
+import urllib.parse
 from pathlib import Path
 from typing import Dict, Any, List
 from io import BytesIO
@@ -16,6 +18,32 @@ from io import BytesIO
 from .latex_utils import escape_latex, normalize_resume_data
 from .latex_sections import SECTION_GENERATORS, DEFAULT_SECTION_ORDER
 from .company_logos import download_logos_to_dir
+
+
+def _download_user_photo_to_dir(photo_url: str, temp_dir: str) -> str | None:
+    """
+    下载用户照片到临时目录，固定命名为 photo.<ext>
+    返回本地文件名（不含路径），下载失败返回 None。
+    """
+    if not photo_url or not isinstance(photo_url, str):
+        return None
+    if not (photo_url.startswith("http://") or photo_url.startswith("https://")):
+        return None
+
+    try:
+        parsed = urllib.parse.urlparse(photo_url)
+        ext = Path(parsed.path).suffix.lower()
+        allowed_ext = {".png", ".jpg", ".jpeg", ".webp"}
+        if ext not in allowed_ext:
+            ext = ".png"
+
+        local_name = f"photo{ext}"
+        local_path = Path(temp_dir) / local_name
+        urllib.request.urlretrieve(photo_url, str(local_path))
+        return local_name
+    except Exception as exc:
+        print(f"[Photo] 下载失败: {exc}")
+        return None
 
 
 def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) -> str:
@@ -101,22 +129,35 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     latex_content.append(r"\begin{document}")
     latex_content.append(r"\pagenumbering{gobble}")
     latex_content.append("")
-    
-    """姓名"""
+
+    """姓名/联系信息"""
     name = resume_data.get('name') or '姓名'
-    latex_content.append(f"\\name{{{escape_latex(name)}}}")
-    latex_content.append("")
-    
-    """联系信息"""
     contact = resume_data.get('contact') or {}
     phone = escape_latex(contact.get('phone') or '')
     email = escape_latex(contact.get('email') or '')
     """求职意向：优先从 objective 获取，其次从 contact.role 获取"""
     role = escape_latex(resume_data.get('objective') or contact.get('role') or '')
-    
-    """contactInfo 格式: {phone}{email}{role} - 与 slager.link 保持一致"""
-    latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{role}}}")
-    latex_content.append("")
+
+    # 有照片时，将照片放在姓名旁边；无照片保持原模板布局
+    if resume_data.get("photo"):
+        latex_content.append(r"\begin{minipage}[c]{0.76\textwidth}")
+        latex_content.append(r"\centering")
+        latex_content.append(f"\\name{{{escape_latex(name)}}}")
+        latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{role}}}")
+        latex_content.append(r"\end{minipage}")
+        latex_content.append(r"\hfill")
+        latex_content.append(r"\begin{minipage}[c]{0.20\textwidth}")
+        latex_content.append(r"\raggedleft")
+        latex_content.append(r"\includegraphics[width=2.2cm,height=2.8cm,keepaspectratio]{photo}")
+        latex_content.append(r"\end{minipage}")
+        latex_content.append(r"\vspace{0.5ex}")
+        latex_content.append("")
+    else:
+        latex_content.append(f"\\name{{{escape_latex(name)}}}")
+        latex_content.append("")
+        """contactInfo 格式: {phone}{email}{role} - 与 slager.link 保持一致"""
+        latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{role}}}")
+        latex_content.append("")
     
     """获取自定义模块标题"""
     section_titles = resume_data.get('sectionTitles') or {}
@@ -176,6 +217,11 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path, resume_data: Di
             if any(it.get('logo') for it in internships):
                 logo_map = download_logos_to_dir(internships, temp_dir)
                 print(f"[Logo] 下载完成，共 {len(logo_map)} 个 Logo")
+            photo_url = resume_data.get("photo")
+            if photo_url:
+                local_photo = _download_user_photo_to_dir(photo_url, temp_dir)
+                if local_photo:
+                    print(f"[Photo] 下载完成: {local_photo}")
 
         # 写入 LaTeX 文件
         tex_file = Path(temp_dir) / 'resume.tex'

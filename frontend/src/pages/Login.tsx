@@ -6,7 +6,7 @@ export default function LoginPage() {
   const { login, register } = useAuth()
   const navigate = useNavigate()
   const [mode, setMode] = useState<'login' | 'register'>('login')
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -17,9 +17,9 @@ export default function LoginPage() {
     setLoading(true)
     try {
       if (mode === 'login') {
-        await login(email, password)
+        await login(username, password)
       } else {
-        await register(email, password)
+        await register(username, password)
       }
       navigate('/dashboard')
     } catch (err) {
@@ -49,12 +49,12 @@ export default function LoginPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm mb-1 text-gray-700">邮箱</label>
+            <label className="block text-sm mb-1 text-gray-700">账号</label>
             <input
-              type="email"
+              type="text"
               className="w-full border rounded-md px-3 py-2"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
             />
           </div>

@@ -234,7 +234,7 @@ export default function LandingPage() {
               </div>
               <div className="flex flex-col">
                 <span className="text-xs text-slate-400 font-medium">已登录</span>
-                <span className="text-sm font-bold text-slate-900">{user?.email}</span>
+                <span className="text-sm font-bold text-slate-900">{user?.username || user?.email}</span>
               </div>
             </motion.div>
             
