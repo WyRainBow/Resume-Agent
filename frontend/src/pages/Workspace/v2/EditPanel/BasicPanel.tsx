@@ -70,7 +70,7 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
           基础字段
         </h3>
 
-        <div className="flex items-start gap-6">
+        <div className="flex flex-col xl:flex-row items-start gap-6">
           <div className="flex-1 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Field
@@ -125,113 +125,123 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
             />
           </div>
 
-          <div className="w-28">
-            <div className="text-sm font-medium text-neutral-700 dark:text-neutral-300 mb-2">
-              照片
+          <div className="w-full xl:w-[300px] shrink-0">
+            <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-3">
+                <div className="text-sm font-semibold text-slate-800">
+                  照片设置
+                </div>
+                {hasPhoto && (
+                  <button
+                    type="button"
+                    onClick={() => onUpdate({ photo: '' })}
+                    className="flex items-center gap-1 text-xs text-rose-500 hover:text-rose-600"
+                    title="移除照片"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    移除
+                  </button>
+                )}
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={handleSelectPhoto}
+                disabled={uploading}
+                className={cn(
+                  'w-full h-36 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all',
+                  isAuthenticated
+                    ? 'border-indigo-400/90 text-indigo-600 hover:bg-indigo-50/60'
+                    : 'border-slate-300 text-slate-400',
+                  uploading && 'opacity-60'
+                )}
+                title={isAuthenticated ? '上传照片' : '登录后可上传'}
+              >
+                {hasPhoto ? (
+                  <img
+                    src={basic.photo}
+                    alt="照片"
+                    className="w-full h-full object-contain rounded-xl bg-white"
+                  />
+                ) : (
+                  <>
+                    {uploading ? (
+                      <Loader2 className="w-6 h-6 animate-spin" />
+                    ) : (
+                      <Upload className="w-6 h-6" />
+                    )}
+                    <span className="text-sm font-medium">点击上传照片</span>
+                  </>
+                )}
+              </button>
+
+              {hasPhoto && (
+                <div className="mt-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-slate-500">X 偏移（正向左）</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={photoOffsetX}
+                        onChange={(e) => onUpdate({ photoOffsetX: Number(e.target.value) })}
+                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-slate-500">Y 偏移（正向上）</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={photoOffsetYDisplay}
+                        onChange={(e) => onUpdate({ photoOffsetY: Number(e.target.value) - 2 })}
+                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-slate-500">宽（cm）</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="1.2"
+                        max="5"
+                        value={photoWidthCm}
+                        onChange={(e) => onUpdate({ photoWidthCm: Number(e.target.value) })}
+                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="block text-xs font-medium text-slate-500">高（cm）</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="1.2"
+                        max="6"
+                        value={photoHeightCm}
+                        onChange={(e) => onUpdate({ photoHeightCm: Number(e.target.value) })}
+                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-2 text-[11px] text-slate-400">
+                    当前 Y 的 0 点是你的默认起始位置
+                  </div>
+                </div>
+              )}
+
+              {!isAuthenticated && (
+                <div className="mt-3 text-xs text-slate-400">
+                  登录后可上传
+                </div>
+              )}
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-            <button
-              type="button"
-              onClick={handleSelectPhoto}
-              disabled={uploading}
-              className={cn(
-                'w-24 h-24 rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1',
-                'transition-colors',
-                isAuthenticated
-                  ? 'border-indigo-400 text-indigo-600 hover:bg-indigo-50'
-                  : 'border-neutral-300 text-neutral-400',
-                uploading && 'opacity-60'
-              )}
-              title={isAuthenticated ? '上传照片' : '登录后可上传'}
-            >
-              {hasPhoto ? (
-                <img
-                  src={basic.photo}
-                  alt="照片"
-                  className="w-full h-full object-cover rounded-lg"
-                />
-              ) : (
-                <>
-                  {uploading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                  ) : (
-                    <Upload className="w-5 h-5" />
-                  )}
-                  <span className="text-xs">上传</span>
-                </>
-              )}
-            </button>
-
-            {hasPhoto && (
-              <div className="mt-2 space-y-2">
-                <button
-                  type="button"
-                  onClick={() => onUpdate({ photo: '' })}
-                  className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600"
-                  title="移除照片"
-                >
-                  <X className="w-3 h-3" />
-                  移除
-                </button>
-
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] text-neutral-500">X 偏移(cm，正数向左)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={photoOffsetX}
-                    onChange={(e) => onUpdate({ photoOffsetX: Number(e.target.value) })}
-                    className="w-full px-2 py-1 text-xs rounded border border-neutral-200 bg-white"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] text-neutral-500">Y 偏移(cm，正数向上)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={photoOffsetYDisplay}
-                    onChange={(e) => onUpdate({ photoOffsetY: Number(e.target.value) - 2 })}
-                    className="w-full px-2 py-1 text-xs rounded border border-neutral-200 bg-white"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] text-neutral-500">宽(cm)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="1.2"
-                    max="5"
-                    value={photoWidthCm}
-                    onChange={(e) => onUpdate({ photoWidthCm: Number(e.target.value) })}
-                    className="w-full px-2 py-1 text-xs rounded border border-neutral-200 bg-white"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="block text-[11px] text-neutral-500">高(cm)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    min="1.2"
-                    max="6"
-                    value={photoHeightCm}
-                    onChange={(e) => onUpdate({ photoHeightCm: Number(e.target.value) })}
-                    className="w-full px-2 py-1 text-xs rounded border border-neutral-200 bg-white"
-                  />
-                </div>
-              </div>
-            )}
-
-            {!isAuthenticated && (
-              <div className="mt-2 text-[11px] text-neutral-400">
-                登录后可上传
-              </div>
-            )}
           </div>
         </div>
       </div>
