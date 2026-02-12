@@ -78,6 +78,9 @@ test_api.sh
 # 参考目录
 reference/
 
+# 项目根目录
+README.md
+
 # 文档目录（但保留图片和截图以及配置文档）
 docs/**
 !docs/images/
