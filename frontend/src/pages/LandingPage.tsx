@@ -66,15 +66,10 @@ export default function LandingPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-[#F0F4F8] text-[#1E293B] font-sans selection:bg-blue-100 selection:text-blue-900 overflow-x-hidden">
-      {/* 动态背景：中心柔光创意，营造空间纵深感 */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1000px] h-[600px] bg-blue-400/5 rounded-full blur-[120px] -z-10" />
-      </div>
-
-      {/* 顶部导航 */}
+    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-slate-200 selection:text-slate-900 overflow-x-hidden">
+      {/* 顶部导航 - 白底风格 */}
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        isScrolled ? 'bg-white/80 backdrop-blur-md shadow-sm py-3' : 'bg-transparent py-5'
+        isScrolled ? 'bg-white shadow-sm py-3' : 'bg-white py-5'
       }`}>
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
         <div className="flex items-center gap-2.5 cursor-pointer group shrink-0 min-w-0" onClick={() => navigate('/')}>
@@ -85,25 +80,25 @@ export default function LandingPage() {
         </div>
 
           <div className="hidden md:flex items-center gap-10">
-            <a href="#features" className="text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors">核心技术</a>
-            <a href="#market" className="text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors">简历市场</a>
-            <a href="#ai" className="text-sm font-bold text-slate-500 hover:text-indigo-600 transition-colors">AI 引擎</a>
+            <a href="#features" className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">核心技术</a>
+            <a href="#market" className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">简历市场</a>
+            <a href="#ai" className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">AI 引擎</a>
           </div>
 
           <div className="flex items-center gap-4">
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => navigate('/create-new')}
-              className="hidden md:block px-5 py-2.5 bg-white text-blue-600 rounded-xl font-bold shadow-lg hover:bg-blue-50 transition-all border border-blue-100"
+              className="hidden md:block px-5 py-2.5 bg-white text-slate-900 rounded-xl font-bold border border-slate-300 hover:bg-slate-50 transition-all"
             >
               创建简历
             </motion.button>
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => navigate('/dashboard')}
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-500/30 hover:bg-blue-700 transition-all"
+              className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
             >
               我的简历
             </motion.button>
@@ -117,7 +112,7 @@ export default function LandingPage() {
           <motion.div
             {...popIn}
             transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-xs font-black mb-10 border border-indigo-100 tracking-widest uppercase shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-2 text-blue-600 rounded-full text-xs font-bold mb-10 tracking-widest uppercase"
           >
             <Sparkles className="w-3 h-3 fill-current animate-spin-slow" />
             Neural Stream v2.0 Online
@@ -138,7 +133,8 @@ export default function LandingPage() {
             transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.35 }}
             className="text-lg md:text-xl text-slate-600 font-medium mb-14 max-w-2xl mx-auto leading-relaxed"
           >
-            最简洁、自动化的 AI 简历工具。Resume.AI 用 AI 为每份简历节省约 60 分钟，写出让人事眼前一亮的版本。
+            最简洁、自动化的 AI 简历工具。Resume.AI 用 AI 为每份简历节省约 60 分钟
+            绝对写出让HR眼前一亮的版本。
           </motion.p>
 
           <motion.div
@@ -150,14 +146,14 @@ export default function LandingPage() {
           >
             <button
               onClick={() => navigate('/create-new')}
-              className="px-12 py-5 bg-indigo-600 text-white rounded-2xl font-black text-xl shadow-2xl shadow-indigo-600/30 hover:bg-indigo-700 hover:-translate-y-1 transition-all flex items-center gap-4 group"
+              className="px-12 py-5 bg-slate-900 text-white rounded-2xl font-black text-xl hover:bg-slate-800 transition-all flex items-center gap-4 group"
             >
               开始创建
               <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
             </button>
             <button
               onClick={() => navigate('/agent/new')}
-              className="px-12 py-5 bg-violet-600 text-white rounded-2xl font-black text-xl shadow-2xl shadow-violet-600/30 hover:bg-violet-700 hover:-translate-y-1 transition-all flex items-center gap-4 group"
+              className="px-12 py-5 bg-white text-slate-900 rounded-2xl font-black text-xl border-2 border-slate-300 hover:bg-slate-50 transition-all flex items-center gap-4 group"
             >
               <FileEdit className="w-6 h-6" />
               生成报告
@@ -167,25 +163,39 @@ export default function LandingPage() {
             </div>
           </motion.div>
           </div>
+
+          {/* 产品预览图：居中，略大 */}
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.6 }}
+            className="mt-16 w-[98%] max-w-[1400px] mx-auto px-2"
+          >
+            <img
+              src="https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/landing/product-preview.png"
+              alt="产品界面预览"
+              className="w-full h-auto rounded-2xl border border-slate-200 shadow-[0_25px_80px_-12px_rgba(0,0,0,0.12)]"
+            />
+          </motion.div>
       </section>
 
       {/* 特性展示 */}
-      <section id="features" className="py-32 bg-white/50 backdrop-blur-sm relative">
+      <section id="features" className="py-32 bg-slate-50/80 relative">
         <div className="max-w-7xl mx-auto px-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             {[
               { 
-                icon: <Zap className="w-8 h-8 text-indigo-600" />, 
+                icon: <Zap className="w-8 h-8 text-slate-600" />, 
                 title: "Neural Streaming", 
                 desc: "基于 SSE 的流式渲染技术。看着简历内容实时流转、AI 在毫秒内完成内容润色与逻辑构建。" 
               },
               { 
-                icon: <FileText className="w-8 h-8 text-violet-600" />, 
+                icon: <FileText className="w-8 h-8 text-slate-600" />, 
                 title: "LaTeX Foundry", 
                 desc: "告别 PDF 错位。原生集成 LaTeX 编译引擎、为程序员提供最严谨的对齐、间距与字体渲染。" 
               },
               { 
-                icon: <Layout className="w-8 h-8 text-emerald-600" />, 
+                icon: <Layout className="w-8 h-8 text-slate-600" />, 
                 title: "智能逻辑", 
                 desc: "它懂你的项目亮点、也懂你的复杂场景。智能识别关键词、自动优化工作描述的动作词与数据产出。" 
               }
@@ -200,10 +210,10 @@ export default function LandingPage() {
                   y: -12,
                   transition: { type: "spring", stiffness: 300 }
                 }}
-                className="p-10 rounded-[32px] bg-white border border-slate-100 hover:border-indigo-200 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_20px_50px_rgba(79,70,229,0.08)] transition-all group relative overflow-hidden"
+                className="p-10 rounded-[32px] bg-white border border-slate-100 hover:border-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.06)] transition-all group relative overflow-hidden"
               >
                 {/* 卡片装饰：角落的微弱光晕 */}
-                <div className="absolute top-[-20%] right-[-20%] w-32 h-32 bg-indigo-50 rounded-full blur-2xl group-hover:bg-indigo-100 transition-colors" />
+                <div className="absolute top-[-20%] right-[-20%] w-32 h-32 bg-slate-100 rounded-full blur-2xl group-hover:bg-slate-200 transition-colors" />
                 
                 <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center mb-10 group-hover:scale-110 group-hover:bg-white transition-all shadow-sm">
                   {feature.icon}
@@ -236,11 +246,11 @@ export default function LandingPage() {
             <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl shadow-lg border border-slate-200 hover:border-indigo-300 transition-all cursor-pointer group"
+              className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl shadow-lg border border-slate-200 hover:border-slate-300 transition-all cursor-pointer group"
               onClick={() => setShowLogoutMenu(!showLogoutMenu)}
             >
-              <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-200 transition-colors">
-                <User className="w-4 h-4 text-indigo-600" />
+              <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-slate-200 transition-colors">
+                <User className="w-4 h-4 text-slate-600" />
               </div>
               <div className="flex flex-col">
                 <span className="text-xs text-slate-400 font-medium">已登录</span>
@@ -279,10 +289,10 @@ export default function LandingPage() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => openModal('login')}
-            className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl shadow-lg border border-slate-200 hover:border-indigo-300 transition-all group"
+            className="flex items-center gap-3 px-4 py-2.5 bg-white rounded-xl shadow-lg border border-slate-200 hover:border-slate-300 transition-all group"
           >
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center group-hover:bg-indigo-600 transition-colors">
-              <LogIn className="w-4 h-4 text-indigo-600 group-hover:text-white transition-colors" />
+            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center group-hover:bg-slate-700 transition-colors">
+              <LogIn className="w-4 h-4 text-slate-600 group-hover:text-white transition-colors" />
             </div>
             <span className="text-sm font-bold text-slate-900">登录/注册</span>
           </motion.button>

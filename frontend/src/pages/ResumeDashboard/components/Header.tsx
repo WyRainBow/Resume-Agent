@@ -53,17 +53,14 @@ export const Header: React.FC<HeaderProps> = ({
     >
       <div className="flex items-center space-x-6">
         <div className="flex items-center gap-4 cursor-pointer group" onClick={() => navigate('/')}>
-          <div className="relative">
-            <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-2xl shadow-xl shadow-indigo-500/20 group-hover:rotate-12 transition-all duration-300">
-              <span className="text-white font-black text-2xl italic tracking-tighter">RA</span>
-            </div>
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-emerald-500 rounded-full border-2 border-white dark:border-slate-950 animate-pulse" />
+          <div className="w-12 h-12 bg-white dark:bg-slate-800 rounded-xl flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm group-hover:scale-105 transition-transform">
+            <span className="text-slate-900 dark:text-white font-black text-xl italic">RA</span>
           </div>
           <div className="flex flex-col">
-            <h1 className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white leading-none">
-              Resume Agent
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">
+              Resume.AI
             </h1>
-            <span className="text-xs text-indigo-500 dark:text-indigo-400 font-bold tracking-[0.2em] uppercase mt-1">
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-bold tracking-[0.2em] uppercase mt-1">
               Dashboard
             </span>
           </div>
