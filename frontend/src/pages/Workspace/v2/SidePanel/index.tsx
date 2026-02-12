@@ -62,6 +62,11 @@ const HEADER_BOTTOM_GAP_BASELINE = -1
 
 const normalizeDecimal = (value: number, digits = 2) => Number(value.toFixed(digits))
 
+const inputBaseClass =
+  'w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/30 focus:border-slate-400 dark:focus:ring-slate-500/30 dark:focus:border-slate-500 transition-colors'
+
+const labelClass = 'block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5'
+
 // 行间距控件：预设选项 + 自定义输入
 function LineSpacingControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const isPreset = LINE_SPACING_OPTIONS.some(opt => opt.value === value)
@@ -69,9 +74,7 @@ function LineSpacingControl({ value, onChange }: { value: number; onChange: (v: 
 
   return (
     <div>
-      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-        行间距
-      </label>
+      <label className={labelClass}>行间距</label>
       <div className="flex gap-2">
         <select
           value={customMode ? 'custom' : value}
@@ -83,7 +86,7 @@ function LineSpacingControl({ value, onChange }: { value: number; onChange: (v: 
               onChange(Number(e.target.value))
             }
           }}
-          className="flex-1 px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+          className={cn(inputBaseClass, 'flex-1')}
         >
           {LINE_SPACING_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
@@ -103,7 +106,7 @@ function LineSpacingControl({ value, onChange }: { value: number; onChange: (v: 
               const v = parseFloat(e.target.value)
               if (!isNaN(v) && v >= 0.5 && v <= 3.0) onChange(v)
             }}
-            className="w-20 px-2 py-2 text-sm rounded-lg border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+            className={cn(inputBaseClass, 'w-20')}
           />
         )}
       </div>
@@ -121,10 +124,8 @@ function HeaderGapControl({
   onChange: (v: number) => void
 }) {
   return (
-    <div className="space-y-1.5">
-      <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-        {label}
-      </label>
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-slate-600 dark:text-slate-400">{label}</label>
       <input
         type="number"
         step="0.5"
@@ -132,7 +133,7 @@ function HeaderGapControl({
         max="80"
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+        className={inputBaseClass}
       />
     </div>
   )
@@ -166,25 +167,24 @@ function SettingCard({
     <div
       className={cn(
         'rounded-xl overflow-hidden',
-        'bg-white/70 dark:bg-slate-800/70',
-        'backdrop-blur-sm',
-        'border border-white/50 dark:border-slate-700/50',
-        'shadow-sm shadow-slate-200/50 dark:shadow-slate-900/50'
+        'bg-white dark:bg-slate-800/80',
+        'border border-slate-200/80 dark:border-slate-700/80',
+        'shadow-sm'
       )}
     >
       {title && (
-        <div className="px-4 pt-4 pb-2">
+        <div className="px-4 pt-4 pb-3 border-b border-slate-100 dark:border-slate-700/80">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-500/10 to-purple-500/10 flex items-center justify-center">
-              <Icon className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700/80 flex items-center justify-center">
+              <Icon className="w-4 h-4 text-slate-600 dark:text-slate-300" />
             </div>
-            <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 tracking-tight">
               {title}
             </span>
           </div>
         </div>
       )}
-      <div className={cn("px-4", title ? "pb-4" : "pt-4 pb-4")}>{children}</div>
+      <div className={cn('px-4', title ? 'py-4' : 'pt-4 pb-4')}>{children}</div>
     </div>
   )
 }
@@ -229,39 +229,39 @@ export function SidePanel({
 
         {/* 排版设置 */}
         <SettingCard icon={Settings2} title="排版设置">
-          <div className="space-y-4">
+          <div className="space-y-5">
             {/* 字体大小 */}
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                字体大小
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {FONT_SIZE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => updateGlobalSettings({ latexFontSize: opt.value })}
-                    className={cn(
-                      'px-3 py-1.5 text-xs font-medium rounded-lg transition-all',
-                      (globalSettings.latexFontSize || 11) === opt.value
-                        ? 'bg-indigo-500 text-white shadow-sm'
-                        : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <label className={labelClass}>字体大小</label>
+              <div className="flex flex-wrap gap-2">
+                {FONT_SIZE_OPTIONS.map((opt) => {
+                  const isActive = (globalSettings.latexFontSize || 11) === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => updateGlobalSettings({ latexFontSize: opt.value })}
+                      className={cn(
+                        'px-3.5 py-2 text-sm font-medium rounded-lg border transition-all',
+                        isActive
+                          ? 'bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 border-slate-800 dark:border-slate-200 shadow-sm'
+                          : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/80'
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
             {/* 页面边距 */}
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                页面边距
-              </label>
+              <label className={labelClass}>页面边距</label>
               <select
                 value={globalSettings.latexMargin || 'standard'}
                 onChange={(e) => updateGlobalSettings({ latexMargin: e.target.value as any })}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                className={inputBaseClass}
               >
                 {PAGE_MARGIN_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -279,13 +279,11 @@ export function SidePanel({
 
             {/* 经历项间距 */}
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                实习经历间距
-              </label>
+              <label className={labelClass}>实习经历间距</label>
               <select
                 value={globalSettings.experienceGap ?? 0}
                 onChange={(e) => updateGlobalSettings({ experienceGap: Number(e.target.value) })}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                className={inputBaseClass}
               >
                 {EXPERIENCE_GAP_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -297,13 +295,11 @@ export function SidePanel({
 
             {/* 页面内边距 */}
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400 mb-2">
-                页面内边距
-              </label>
+              <label className={labelClass}>页面内边距</label>
               <select
                 value={globalSettings.pagePadding || 40}
                 onChange={(e) => updateGlobalSettings({ pagePadding: Number(e.target.value) })}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                className={inputBaseClass}
               >
                 {PAGE_PADDING_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -314,10 +310,8 @@ export function SidePanel({
             </div>
 
             {/* 头部空白（LaTeX） */}
-            <div className="space-y-2">
-              <label className="block text-xs font-medium text-slate-600 dark:text-slate-400">
-                头部空白（px）
-              </label>
+            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 p-3 space-y-3">
+              <label className={labelClass}>头部空白（px）</label>
               <HeaderGapControl
                 label="顶部空白"
                 value={normalizeDecimal((globalSettings.latexHeaderTopGapPx ?? HEADER_TOP_GAP_BASELINE) - HEADER_TOP_GAP_BASELINE)}
@@ -333,12 +327,12 @@ export function SidePanel({
                 value={normalizeDecimal((globalSettings.latexHeaderBottomGapPx ?? HEADER_BOTTOM_GAP_BASELINE) - HEADER_BOTTOM_GAP_BASELINE)}
                 onChange={(v) => updateGlobalSettings({ latexHeaderBottomGapPx: normalizeDecimal(HEADER_BOTTOM_GAP_BASELINE + v) })}
               />
-              <p className="text-[11px] text-slate-400 dark:text-slate-500">
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
                 支持负值，用于压缩顶部留白
               </p>
             </div>
 
-            <p className="text-xs text-slate-400 dark:text-slate-500">
+            <p className="text-xs text-slate-500 dark:text-slate-400 pt-1">
               调整后简历会自动重新渲染
             </p>
           </div>
