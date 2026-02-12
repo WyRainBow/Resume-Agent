@@ -8,6 +8,7 @@ import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/Login'
 import ResumeCreator from './pages/ResumeCreator'
 import ResumeDashboard from './pages/ResumeDashboard'
+import ResumeEntryPage from './pages/ResumeEntry'
 import SettingsPage from './pages/Settings'
 import SharePage from './pages/SharePage'
 import TemplateMarket from './pages/TemplateMarket'
@@ -27,6 +28,8 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<LandingPage />} />
+            {/* 简历入口（侧栏「简历」点击后） */}
+            <Route path="/resume-entry" element={<ResumeEntryPage />} />
             {/* 工作区路由 */}
             <Route path="/workspace" element={<Workspace />} />
             <Route path="/workspace/latex" element={<LaTeXWorkspace />} />

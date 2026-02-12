@@ -5,13 +5,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Edit, LayoutDashboard, Settings, Save, Download, LogIn, User, LogOut } from 'lucide-react'
+import { Edit, FileText, LayoutDashboard, Settings, Save, Download, LogIn, User, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentResumeId } from '@/services/resumeStorage'
 
 // 工作区类型
-type WorkspaceType = 'edit' | 'agent' | 'dashboard' | 'settings' | 'templates'
+type WorkspaceType = 'resume' | 'edit' | 'agent' | 'dashboard' | 'settings' | 'templates'
 
 /** 复刻参考图：圆角矩形 + 内竖线（左窄右宽），细描边 */
 function SidebarToggleIcon({ expand = false, className }: { expand?: boolean; className?: string }) {
@@ -86,6 +86,9 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
   // 根据路径确定当前工作区
   const getCurrentWorkspace = (): WorkspaceType => {
+    if (location.pathname === '/resume-entry') {
+      return 'resume'
+    }
     // 检测是否是简历创建页面（保留 resume-creator）
     if (
       location.pathname === '/resume-creator' || 
@@ -129,7 +132,9 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
   }, [showLogoutMenu])
 
   const handleWorkspaceChange = (workspace: WorkspaceType) => {
-    if (workspace === 'agent') {
+    if (workspace === 'resume') {
+      navigate('/resume-entry')
+    } else if (workspace === 'agent') {
       const currentResumeId = getCurrentResumeId()
       if (currentResumeId) {
         navigate(`/agent/${currentResumeId}`)
@@ -193,6 +198,22 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
         {/* 工作区切换：收缩时仅隐藏文字，图标与 padding 不变 */}
         <div className="flex-1 py-3 px-2">
           <nav className={cn('space-y-0.5 flex flex-col', sidebarCollapsed ? 'items-center' : '')}>
+            {/* 简历入口：图一样式，文档图标 + 简历 */}
+            <button
+              onClick={() => handleWorkspaceChange('resume')}
+              className={cn(
+                'w-full rounded-lg transition-all duration-200',
+                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
+                currentWorkspace === 'resume'
+                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+              )}
+              title="简历"
+            >
+              <FileText className="w-6 h-6 shrink-0" />
+              {!sidebarCollapsed && <span className="text-base font-medium">简历</span>}
+            </button>
+
             {/* 编辑区 */}
             <button
               onClick={() => handleWorkspaceChange('edit')}
