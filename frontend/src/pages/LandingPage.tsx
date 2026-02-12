@@ -70,11 +70,11 @@ export default function LandingPage() {
         isScrolled ? 'bg-white/80 backdrop-blur-md shadow-sm py-3' : 'bg-transparent py-5'
       }`}>
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-        <div className="flex items-center gap-3 cursor-pointer group" onClick={() => navigate('/')}>
-          <div className="flex items-center justify-center w-9 h-9 bg-blue-600 rounded-lg shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
-            <span className="text-white font-black text-sm italic tracking-tighter">RA</span>
+        <div className="flex items-center gap-2.5 cursor-pointer group shrink-0 min-w-0" onClick={() => navigate('/')}>
+          <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center border border-slate-200 shadow-sm group-hover:scale-105 transition-transform shrink-0">
+            <span className="text-slate-900 font-black text-sm italic">RA</span>
           </div>
-          <span className="text-2xl font-black tracking-tight text-slate-900">Resume</span>
+          <span className="text-slate-900 font-bold text-base truncate">Resume.AI</span>
         </div>
 
           <div className="hidden md:flex items-center gap-10">
