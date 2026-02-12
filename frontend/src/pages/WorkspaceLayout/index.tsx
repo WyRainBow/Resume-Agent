@@ -148,7 +148,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
       <aside
         className={cn(
           'bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 transition-[width] duration-200',
-          sidebarCollapsed ? 'w-16' : 'w-[150px]'
+          sidebarCollapsed ? 'w-20' : 'w-[150px]'
         )}
       >
         {/* Logo + 收缩按钮：始终同一行，RA 左、按钮右 */}
@@ -162,13 +162,9 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
             className="cursor-pointer group shrink-0"
             onClick={() => navigate('/')}
           >
-            <div
-              className={cn(
-                'bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform',
-                sidebarCollapsed ? 'w-6 h-6' : 'w-8 h-8'
-              )}
-            >
-              <span className={cn('text-white font-black italic', sidebarCollapsed ? 'text-[8px]' : 'text-xs')}>RA</span>
+            {/* 收缩时只收窄侧栏宽度，Logo 尺寸保持不变 */}
+            <div className="w-8 h-8 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
+              <span className="text-white font-black text-xs italic">RA</span>
             </div>
           </div>
           <button
@@ -177,12 +173,13 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
             className={cn(
               'rounded-lg transition-colors shrink-0',
               'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300',
-              sidebarCollapsed ? 'p-1.5' : 'p-2'
+              'p-1.5'
             )}
             title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
           >
+            {/* 收缩/展开图标尺寸一致，仅方向不同 */}
             {sidebarCollapsed ? (
-              <SidebarToggleIcon expand className="w-4 h-4" />
+              <SidebarToggleIcon expand className="w-5 h-5" />
             ) : (
               <SidebarToggleIcon className="w-5 h-5" />
             )}
