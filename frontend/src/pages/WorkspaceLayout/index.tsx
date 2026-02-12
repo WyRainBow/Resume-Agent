@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Edit, Bot, LayoutGrid, FileText, Save, Download, LogIn, User, LogOut } from 'lucide-react'
+import { Edit, LayoutGrid, FileText, Save, Download, LogIn, User, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentResumeId } from '@/services/resumeStorage'
@@ -28,6 +28,28 @@ function SidebarToggleIcon({ expand = false, className }: { expand?: boolean; cl
     >
       <rect x="2" y="4" width="20" height="16" rx="3" ry="3" />
       <line x1={lineX} y1="6" x2={lineX} y2="18" />
+    </svg>
+  )
+}
+
+/** Agent 按钮图标：对话气泡轮廓 + 气泡内三点（参考图样式） */
+function AgentIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      {/* 气泡轮廓：圆角矩形 */}
+      <rect x="3" y="3" width="18" height="14" rx="2.5" />
+      {/* 气泡内三点（省略号） */}
+      <circle cx="8.5" cy="10" r="1.2" fill="currentColor" />
+      <circle cx="12" cy="10" r="1.2" fill="currentColor" />
+      <circle cx="15.5" cy="10" r="1.2" fill="currentColor" />
     </svg>
   )
 }
@@ -126,7 +148,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
       <aside
         className={cn(
           'bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 transition-[width] duration-200',
-          sidebarCollapsed ? 'w-16' : 'w-56'
+          sidebarCollapsed ? 'w-16' : 'w-[150px]'
         )}
       >
         {/* Logo + 收缩按钮：始终同一行，RA 左、按钮右 */}
@@ -175,7 +197,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               onClick={() => handleWorkspaceChange('edit')}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
-                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5',
+                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5',
                 currentWorkspace === 'edit'
                   ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -191,14 +213,14 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               onClick={() => handleWorkspaceChange('agent')}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
-                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5',
+                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5',
                 currentWorkspace === 'agent'
                   ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
               )}
               title="Agent 对话"
             >
-              <Bot className="w-5 h-5 shrink-0" />
+              <AgentIcon className="w-5 h-5 shrink-0" />
               {!sidebarCollapsed && <span className="text-sm font-medium">Agent</span>}
             </button>
 
@@ -207,7 +229,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               onClick={() => handleWorkspaceChange('dashboard')}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
-                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5',
+                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5',
                 currentWorkspace === 'dashboard'
                   ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -223,7 +245,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               onClick={() => handleWorkspaceChange('templates')}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
-                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5',
+                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5',
                 currentWorkspace === 'templates'
                   ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -246,7 +268,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                 onClick={onSave}
                 className={cn(
                   'w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all',
-                  sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5'
+                  sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5'
                 )}
                 title="保存简历"
               >
@@ -261,7 +283,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                 onClick={onDownload}
                 className={cn(
                   'w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all',
-                  sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5'
+                  sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5'
                 )}
                 title="下载PDF"
               >
@@ -274,7 +296,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               onClick={() => navigate('/create-new')}
               className={cn(
                 'w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all',
-                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5'
+                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5'
               )}
               title="新建简历"
             >
@@ -296,7 +318,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                   onClick={() => setShowLogoutMenu(!showLogoutMenu)}
                   className={cn(
                     'w-full rounded-lg transition-all duration-200 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800',
-                    sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5'
+                    sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5'
                   )}
                   title={user?.username || user?.email}
                 >
@@ -341,7 +363,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                 onClick={() => openModal('login')}
                 className={cn(
                   'w-full rounded-lg transition-all duration-200 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800',
-                  sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5'
+                  sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5'
                 )}
                 title="登录 / 注册"
               >
