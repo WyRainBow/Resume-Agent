@@ -21,6 +21,13 @@ const fadeInUp = {
   transition: { duration: 0.6 }
 }
 
+// 刷新时标题/副标题轻微弹出（偏慢）
+const popIn = {
+  initial: { opacity: 0, scale: 0.96 },
+  animate: { opacity: 1, scale: 1 },
+  transition: { type: 'spring', stiffness: 120, damping: 20 }
+}
+
 const staggerContainer = {
   animate: {
     transition: {
@@ -108,34 +115,37 @@ export default function LandingPage() {
       <section className="relative pt-48 pb-32 px-6">
         <div className="max-w-5xl mx-auto text-center">
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
+            {...popIn}
+            transition={{ type: 'spring', stiffness: 120, damping: 20 }}
             className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-full text-xs font-black mb-10 border border-indigo-100 tracking-widest uppercase shadow-sm"
           >
             <Sparkles className="w-3 h-3 fill-current animate-spin-slow" />
             Neural Stream v2.0 Online
           </motion.div>
 
-          <motion.h1 
-            {...fadeInUp}
-            className="text-6xl md:text-8xl font-black tracking-tighter text-slate-950 mb-10 leading-[0.9] relative"
+          <motion.h1
+            {...popIn}
+            transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.15 }}
+            className="text-4xl md:text-6xl font-black tracking-tight text-slate-950 mb-6 leading-tight"
           >
-            写简历：就像和 AI 对话
+            从零写简历或一键针对不同岗位定制
           </motion.h1>
 
-          <motion.p 
-            {...fadeInUp}
-            transition={{ delay: 0.1 }}
-            className="text-xl md:text-2xl text-slate-500 font-medium mb-14 max-w-3xl mx-auto leading-relaxed"
+          <motion.p
+            {...popIn}
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.35 }}
+            className="text-lg md:text-xl text-slate-600 font-medium mb-14 max-w-2xl mx-auto leading-relaxed"
           >
-            Resume 是一款为开发者打造的简历工具。
-            <br />
-            通过 <span className="text-slate-800 font-bold">一句话指令</span> 触发：实时流式生成具有 <span className="text-slate-800 font-bold">LaTeX 像素级精度</span> 的专业简历。
+            最简洁、自动化的 AI 简历工具。Resume.AI 用 AI 为每份简历节省约 60 分钟，写出让人事眼前一亮的版本。
           </motion.p>
 
-          <motion.div 
-            {...fadeInUp}
-            transition={{ delay: 0.2 }}
+          <motion.div
+            {...popIn}
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.55 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-6"
           >
             <button
