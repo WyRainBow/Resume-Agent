@@ -144,28 +144,28 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
   return (
     <div className="h-screen flex overflow-hidden bg-[#F8F9FA] dark:bg-slate-950">
-      {/* 左侧固定边栏：aside 始终 165px 占位，内部 div 实际收缩，确保 main 宽度不变 */}
-      <aside className="w-[165px] shrink-0 flex">
+      {/* 左侧固定边栏：aside 始终 192px 占位，内部 div 实际收缩，确保 main 宽度不变 */}
+      <aside className="w-[192px] shrink-0 flex">
         <div
           className={cn(
             'h-full flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shrink-0 overflow-hidden transition-[width] duration-200',
-            sidebarCollapsed ? 'w-24' : 'w-[165px]'
+            sidebarCollapsed ? 'w-24' : 'w-[192px]'
           )}
         >
         {/* Logo + 收缩按钮：白底黑字 logo + Resume.AI，风格同图 2 */}
         <div className="border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 p-2 gap-1">
           <div
             className={cn(
-              'cursor-pointer group shrink-0 flex items-center gap-2 min-w-0',
+              'cursor-pointer group shrink-0 flex items-center gap-2.5 min-w-0',
               sidebarCollapsed ? 'justify-center' : ''
             )}
             onClick={() => navigate('/')}
           >
-            <div className="w-8 h-8 bg-white dark:bg-white rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-600 shadow-sm group-hover:scale-105 transition-transform shrink-0">
-              <span className="text-slate-900 font-black text-xs italic">RA</span>
+            <div className="w-9 h-9 bg-white dark:bg-white rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-600 shadow-sm group-hover:scale-105 transition-transform shrink-0">
+              <span className="text-slate-900 font-black text-sm italic">RA</span>
             </div>
             {!sidebarCollapsed && (
-              <span className="text-slate-900 dark:text-slate-100 font-bold text-sm truncate">Resume.AI</span>
+              <span className="text-slate-900 dark:text-slate-100 font-bold text-base truncate">Resume.AI</span>
             )}
           </div>
           <button
@@ -178,11 +178,10 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
             )}
             title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
           >
-            {/* 收缩/展开图标尺寸一致，仅方向不同 */}
             {sidebarCollapsed ? (
-              <SidebarToggleIcon expand className="w-5 h-5" />
+              <SidebarToggleIcon expand className="w-6 h-6" />
             ) : (
-              <SidebarToggleIcon className="w-5 h-5" />
+              <SidebarToggleIcon className="w-6 h-6" />
             )}
           </button>
         </div>
@@ -202,8 +201,8 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               )}
               title="编辑区"
             >
-              <Edit className="w-5 h-5 shrink-0" />
-              {!sidebarCollapsed && <span className="text-sm font-medium">编辑</span>}
+              <Edit className="w-6 h-6 shrink-0" />
+              {!sidebarCollapsed && <span className="text-base font-medium">编辑</span>}
             </button>
 
             {/* AI 对话区 */}
@@ -218,8 +217,8 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               )}
               title="AI 对话"
             >
-              <AgentIcon className="w-5 h-5 shrink-0" />
-              {!sidebarCollapsed && <span className="text-sm font-medium">AI</span>}
+              <AgentIcon className="w-6 h-6 shrink-0" />
+              {!sidebarCollapsed && <span className="text-base font-medium">AI</span>}
             </button>
 
             {/* 简历区 */}
@@ -234,8 +233,8 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               )}
               title="我的简历"
             >
-              <FileText className="w-5 h-5 shrink-0" />
-              {!sidebarCollapsed && <span className="text-sm font-medium">简历</span>}
+              <FileText className="w-6 h-6 shrink-0" />
+              {!sidebarCollapsed && <span className="text-base font-medium">简历</span>}
             </button>
 
             {/* 简历模板区 */}
@@ -250,8 +249,8 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               )}
               title="简历模板区"
             >
-              <LayoutGrid className="w-5 h-5 shrink-0" />
-              {!sidebarCollapsed && <span className="text-sm font-medium">模板</span>}
+              <LayoutGrid className="w-6 h-6 shrink-0" />
+              {!sidebarCollapsed && <span className="text-base font-medium">模板</span>}
             </button>
           </nav>
 
@@ -270,8 +269,8 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                 )}
                 title="保存简历"
               >
-                <Save className="w-5 h-5 shrink-0" />
-                {!sidebarCollapsed && <span className="text-sm font-medium">保存</span>}
+                <Save className="w-6 h-6 shrink-0" />
+                {!sidebarCollapsed && <span className="text-base font-medium">保存</span>}
               </button>
             )}
 
@@ -285,8 +284,8 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                 )}
                 title="下载PDF"
               >
-                <Download className="w-5 h-5 shrink-0" />
-                {!sidebarCollapsed && <span className="text-sm font-medium">下载</span>}
+                <Download className="w-6 h-6 shrink-0" />
+                {!sidebarCollapsed && <span className="text-base font-medium">下载</span>}
               </button>
             )}
 
@@ -298,10 +297,10 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               )}
               title="新建简历"
             >
-              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              {!sidebarCollapsed && <span className="text-sm font-medium">新建</span>}
+              {!sidebarCollapsed && <span className="text-base font-medium">新建</span>}
             </button>
           </nav>
         </div>
@@ -320,9 +319,9 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                   )}
                   title={user?.username || user?.email}
                 >
-                  <User className="w-5 h-5 shrink-0" />
+                  <User className="w-6 h-6 shrink-0" />
                   {!sidebarCollapsed && (
-                    <span className="text-sm font-medium truncate text-left">
+                    <span className="text-base font-medium truncate text-left">
                       {user?.username || user?.email}
                     </span>
                   )}
@@ -365,8 +364,8 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                 )}
                 title="登录 / 注册"
               >
-                <LogIn className="w-5 h-5 shrink-0" />
-                {!sidebarCollapsed && <span className="text-sm font-medium">登录</span>}
+                <LogIn className="w-6 h-6 shrink-0" />
+                {!sidebarCollapsed && <span className="text-base font-medium">登录</span>}
               </button>
             )}
           </div>
