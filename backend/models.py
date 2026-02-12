@@ -126,6 +126,11 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
+    # 管理用字段：最近登录 IP、API 额度、角色权限
+    last_login_ip = Column(String(45), nullable=True)   # 最近一次登录 IP，IPv6 最长约 45 字符
+    api_quota = Column(Integer, nullable=True)         # API 调用额度上限，NULL 表示不限制
+    role = Column(String(32), nullable=False, server_default="user")  # 角色：user / admin 等
+
     resumes = relationship(
         lambda: Resume,
         back_populates="user",

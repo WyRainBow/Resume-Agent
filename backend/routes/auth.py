@@ -3,7 +3,7 @@
 """
 import logging
 import traceback
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -125,14 +125,32 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"注册失败: {str(e)}")
 
 
+def _client_ip(request: Request) -> str:
+    """从请求中获取客户端 IP（兼容代理 X-Forwarded-For）"""
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    if request.client:
+        return request.client.host or ""
+    return ""
+
+
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)):
+def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """用户登录"""
     user = db.query(User).filter(
         or_(User.username == body.username, User.email == body.username)
     ).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=401, detail="账号或密码错误")
+
+    # 记录本次登录 IP
+    try:
+        user.last_login_ip = _client_ip(request)
+        db.commit()
+    except Exception as e:
+        logger.warning(f"[登录] 更新 last_login_ip 失败: {e}")
+        db.rollback()
 
     token = create_access_token({"sub": str(user.id), "username": user.username})
     return TokenResponse(
