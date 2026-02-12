@@ -144,24 +144,29 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
   return (
     <div className="h-screen flex overflow-hidden bg-[#F8F9FA] dark:bg-slate-950">
-      {/* 左侧固定边栏：aside 始终 150px 占位，内部 div 实际收缩，确保 main 宽度不变 */}
-      <aside className="w-[150px] shrink-0 flex">
+      {/* 左侧固定边栏：aside 始终 165px 占位，内部 div 实际收缩，确保 main 宽度不变 */}
+      <aside className="w-[165px] shrink-0 flex">
         <div
           className={cn(
             'h-full flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shrink-0 overflow-hidden transition-[width] duration-200',
-            sidebarCollapsed ? 'w-24' : 'w-[150px]'
+            sidebarCollapsed ? 'w-24' : 'w-[165px]'
           )}
         >
-        {/* Logo + 收缩按钮：始终同一行，RA 左、按钮右 */}
+        {/* Logo + 收缩按钮：白底黑字 logo + Resume.AI，风格同图 2 */}
         <div className="border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 p-2 gap-1">
           <div
-            className="cursor-pointer group shrink-0"
+            className={cn(
+              'cursor-pointer group shrink-0 flex items-center gap-2 min-w-0',
+              sidebarCollapsed ? 'justify-center' : ''
+            )}
             onClick={() => navigate('/')}
           >
-            {/* 收缩时只收窄侧栏宽度，Logo 尺寸保持不变 */}
-            <div className="w-8 h-8 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-              <span className="text-white font-black text-xs italic">RA</span>
+            <div className="w-8 h-8 bg-white dark:bg-white rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-600 shadow-sm group-hover:scale-105 transition-transform shrink-0">
+              <span className="text-slate-900 font-black text-xs italic">RA</span>
             </div>
+            {!sidebarCollapsed && (
+              <span className="text-slate-900 dark:text-slate-100 font-bold text-sm truncate">Resume.AI</span>
+            )}
           </div>
           <button
             type="button"

@@ -59,35 +59,55 @@ interface EditPreviewLayoutProps {
   handleDownload: () => void;
 }
 
-// 拖拽分隔线组件
+// 拖拽分隔线组件（用 RAF 节流，避免高频 setState 导致抖动）
 function DragHandle({
   onDrag,
+  onDragStart,
+  onDragEnd,
   className,
 }: {
   onDrag: (delta: number) => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
   className?: string;
 }) {
   const isDragging = useRef(false);
   const startX = useRef(0);
+  const rafId = useRef(0);
+  const pendingDelta = useRef(0);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       isDragging.current = true;
       startX.current = e.clientX;
+      pendingDelta.current = 0;
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
+      onDragStart?.();
+
+      const flush = () => {
+        if (pendingDelta.current !== 0) {
+          onDrag(pendingDelta.current);
+          pendingDelta.current = 0;
+        }
+      };
 
       const handleMouseMove = (e: MouseEvent) => {
         if (!isDragging.current) return;
         const delta = e.clientX - startX.current;
         startX.current = e.clientX;
-        onDrag(delta);
+        pendingDelta.current += delta;
+        cancelAnimationFrame(rafId.current);
+        rafId.current = requestAnimationFrame(flush);
       };
 
       const handleMouseUp = () => {
         isDragging.current = false;
+        cancelAnimationFrame(rafId.current);
+        flush(); // 确保最后一帧被应用
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
+        onDragEnd?.();
         document.removeEventListener("mousemove", handleMouseMove);
         document.removeEventListener("mouseup", handleMouseUp);
       };
@@ -95,13 +115,13 @@ function DragHandle({
       document.addEventListener("mousemove", handleMouseMove);
       document.addEventListener("mouseup", handleMouseUp);
     },
-    [onDrag],
+    [onDrag, onDragStart, onDragEnd],
   );
 
   return (
     <div
       className={cn(
-        "w-1 cursor-ew-resize transition-all duration-200 group relative shrink-0",
+        "w-1 cursor-ew-resize group relative shrink-0",
         "hover:bg-indigo-300 dark:hover:bg-indigo-600",
         "active:bg-indigo-400 dark:active:bg-indigo-500",
         className,
@@ -157,11 +177,14 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
   // 列宽状态
   const [sidePanelWidth] = useState(300); // 模块选择列宽度（固定）
   const [editPanelWidth, setEditPanelWidth] = useState(900); // 编辑面板宽度（可拖动调整，范围 400-1400px）
+  const [isDragging, setIsDragging] = useState(false);
 
   // 拖拽处理 - 调整编辑面板宽度
   const handleDrag = useCallback((delta: number) => {
     setEditPanelWidth((w) => Math.max(400, Math.min(1400, w + delta)));
   }, []);
+  const handleDragStart = useCallback(() => setIsDragging(true), []);
+  const handleDragEnd = useCallback(() => setIsDragging(false), []);
 
   return (
     <div className="h-[calc(100vh-64px)] flex relative z-10 overflow-hidden">
@@ -195,14 +218,18 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
             {/* 分隔线 1 */}
             <div className="w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
 
-            {/* 第二列：编辑面板（固定宽度） */}
+            {/* 第二列：编辑面板（固定宽度，拖拽时启用 GPU 合成避免抖动） */}
             <div
               className={cn(
                 "h-full overflow-y-auto shrink-0",
                 "bg-white/80 dark:bg-slate-900/80",
                 "backdrop-blur-sm border-r border-slate-200 dark:border-slate-800",
               )}
-              style={{ width: editPanelWidth }}
+              style={{
+                width: editPanelWidth,
+                willChange: isDragging ? "width" : "auto",
+                pointerEvents: isDragging ? "none" : "auto",
+              }}
             >
               <EditPanel
                 activeSection={activeSection}
@@ -232,7 +259,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
             </div>
 
             {/* 分隔线 2（可拖拽调整编辑面板宽度） */}
-            <DragHandle onDrag={handleDrag} />
+            <DragHandle onDrag={handleDrag} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
           </>
         ) : (
           <>
@@ -244,7 +271,11 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                 "bg-white/80 dark:bg-slate-900/80",
                 "backdrop-blur-sm border-r border-slate-200 dark:border-slate-800",
               )}
-              style={{ width: editPanelWidth }}
+              style={{
+                width: editPanelWidth,
+                willChange: isDragging ? "width" : "auto",
+                pointerEvents: isDragging ? "none" : "auto",
+              }}
             >
               <ScrollEditMode
                 menuSections={resumeData.menuSections}
@@ -273,17 +304,18 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
             </div>
 
             {/* 分隔线（可拖拽调整编辑面板宽度） */}
-            <DragHandle onDrag={handleDrag} />
+            <DragHandle onDrag={handleDrag} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
           </>
         )}
 
-        {/* 预览面板（始终显示） */}
+        {/* 预览面板（始终显示；拖拽时禁用指针避免 iframe 抢占事件） */}
         <div
           className={cn(
             "h-full overflow-hidden flex-1",
             "bg-slate-100/80 dark:bg-slate-800/80",
             "backdrop-blur-sm",
           )}
+          style={{ pointerEvents: isDragging ? "none" : "auto" }}
         >
           <PreviewPanel
             resumeData={resumeData}
