@@ -201,7 +201,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               {!sidebarCollapsed && <span className="text-sm font-medium">编辑</span>}
             </button>
 
-            {/* Agent 对话区 */}
+            {/* AI 对话区 */}
             <button
               onClick={() => handleWorkspaceChange('agent')}
               className={cn(
@@ -211,10 +211,10 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                   ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
               )}
-              title="Agent 对话"
+              title="AI 对话"
             >
               <AgentIcon className="w-5 h-5 shrink-0" />
-              {!sidebarCollapsed && <span className="text-sm font-medium">Agent</span>}
+              {!sidebarCollapsed && <span className="text-sm font-medium">AI</span>}
             </button>
 
             {/* 简历区 */}
