@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Edit, Bot, LayoutGrid, FileText, Save, Download, LogIn, User, LogOut } from 'lucide-react'
+import { Edit, Bot, LayoutGrid, FileText, Save, Download, LogIn, User, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentResumeId } from '@/services/resumeStorage'
@@ -25,6 +25,23 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
   const { isAuthenticated, user, logout, openModal } = useAuth()
   const [showLogoutMenu, setShowLogoutMenu] = useState(false)
   const logoutMenuRef = useRef<HTMLDivElement>(null)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('workspace-sidebar-collapsed') === '1'
+    } catch {
+      return false
+    }
+  })
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem('workspace-sidebar-collapsed', next ? '1' : '0')
+      } catch {}
+      return next
+    })
+  }
 
   // 根据路径确定当前工作区
   const getCurrentWorkspace = (): WorkspaceType => {
@@ -87,9 +104,14 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
   return (
     <div className="h-screen flex overflow-hidden bg-[#F8F9FA] dark:bg-slate-950">
       {/* 左侧固定边栏 */}
-      <aside className="w-[100px] bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0">
-        {/* Logo */}
-        <div className="p-2 border-b border-slate-100 dark:border-slate-800 flex justify-center">
+      <aside
+        className={cn(
+          'bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 transition-[width] duration-200',
+          sidebarCollapsed ? 'w-16' : 'w-[100px]'
+        )}
+      >
+        {/* Logo + 收缩按钮 */}
+        <div className="p-2 border-b border-slate-100 dark:border-slate-800 flex flex-col items-center gap-1">
           <div
             className="cursor-pointer group"
             onClick={() => navigate('/')}
@@ -98,6 +120,21 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               <span className="text-white font-black text-xs italic">RA</span>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            className={cn(
+              'p-1.5 rounded-lg transition-colors',
+              'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300'
+            )}
+            title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
+          >
+            {sidebarCollapsed ? (
+              <PanelLeftOpen className="w-4 h-4" />
+            ) : (
+              <PanelLeftClose className="w-4 h-4" />
+            )}
+          </button>
         </div>
 
         {/* 工作区切换 */}
@@ -115,7 +152,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               title="编辑区"
             >
               <Edit className="w-5 h-5 shrink-0" />
-              <span className="text-[10px] leading-tight">编辑</span>
+              {!sidebarCollapsed && <span className="text-[10px] leading-tight">编辑</span>}
             </button>
 
             {/* Agent 对话区 */}
@@ -130,7 +167,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               title="Agent 对话"
             >
               <Bot className="w-5 h-5 shrink-0" />
-              <span className="text-[10px] leading-tight">Agent</span>
+              {!sidebarCollapsed && <span className="text-[10px] leading-tight">Agent</span>}
             </button>
 
             {/* 简历区 */}
@@ -145,7 +182,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               title="我的简历"
             >
               <FileText className="w-5 h-5 shrink-0" />
-              <span className="text-[10px] leading-tight">简历</span>
+              {!sidebarCollapsed && <span className="text-[10px] leading-tight">简历</span>}
             </button>
 
             {/* 简历模板区 */}
@@ -160,7 +197,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               title="简历模板区"
             >
               <LayoutGrid className="w-5 h-5 shrink-0" />
-              <span className="text-[10px] leading-tight">模板</span>
+              {!sidebarCollapsed && <span className="text-[10px] leading-tight">模板</span>}
             </button>
           </nav>
 
@@ -177,7 +214,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                 title="保存简历"
               >
                 <Save className="w-5 h-5 shrink-0" />
-                <span className="text-[10px] leading-tight">保存</span>
+                {!sidebarCollapsed && <span className="text-[10px] leading-tight">保存</span>}
               </button>
             )}
 
@@ -189,7 +226,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                 title="下载PDF"
             >
                 <Download className="w-5 h-5 shrink-0" />
-                <span className="text-[10px] leading-tight">下载</span>
+                {!sidebarCollapsed && <span className="text-[10px] leading-tight">下载</span>}
             </button>
             )}
 
@@ -201,7 +238,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              <span className="text-[10px] leading-tight">新建</span>
+              {!sidebarCollapsed && <span className="text-[10px] leading-tight">新建</span>}
             </button>
           </nav>
         </div>
@@ -221,9 +258,11 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                   title={user?.username || user?.email}
                 >
                   <User className="w-5 h-5 shrink-0" />
-                  <span className="text-[10px] leading-tight truncate w-full text-center max-w-[4.5rem]">
-                    {user?.username || user?.email}
-                  </span>
+                  {!sidebarCollapsed && (
+                    <span className="text-[10px] leading-tight truncate w-full text-center max-w-[4.5rem]">
+                      {user?.username || user?.email}
+                    </span>
+                  )}
                 </button>
                 <AnimatePresence>
                   {showLogoutMenu && (
@@ -264,13 +303,15 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                 title="登录 / 注册"
               >
                 <LogIn className="w-5 h-5 shrink-0" />
-                <span className="text-[10px] leading-tight">登录</span>
+                {!sidebarCollapsed && <span className="text-[10px] leading-tight">登录</span>}
               </button>
             )}
           </div>
-          <div className="text-[9px] text-slate-400 dark:text-slate-500 text-center leading-tight mt-1.5">
-            v2.0
-          </div>
+          {!sidebarCollapsed && (
+            <div className="text-[9px] text-slate-400 dark:text-slate-500 text-center leading-tight mt-1.5">
+              v2.0
+            </div>
+          )}
         </div>
       </aside>
 
