@@ -241,15 +241,15 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               {!sidebarCollapsed && <span className="text-base font-medium">仪表盘</span>}
             </button>
 
-            {/* 设置：图一风格 - 浅灰底、齿轮图标、设置文案 */}
+            {/* 设置：未选中与编辑/仪表盘一致无背景，选中时高亮，避免与其它项同时显亮 */}
             <button
               onClick={() => handleWorkspaceChange('settings')}
               className={cn(
-                'w-full rounded-lg transition-all duration-200 shadow-sm',
+                'w-full rounded-lg transition-all duration-200',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
                 currentWorkspace === 'settings'
-                  ? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
               )}
               title="设置"
             >
