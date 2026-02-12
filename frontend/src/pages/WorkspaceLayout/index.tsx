@@ -148,16 +148,12 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
       <aside
         className={cn(
           'bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 transition-[width] duration-200',
-          sidebarCollapsed ? 'w-20' : 'w-[150px]'
+          sidebarCollapsed ? 'w-24' : 'w-[150px]'
         )}
       >
         {/* Logo + 收缩按钮：始终同一行，RA 左、按钮右 */}
-        <div
-          className={cn(
-            'border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0',
-            sidebarCollapsed ? 'p-1 gap-0.5' : 'p-2 gap-1'
-          )}
-        >
+        {/* 收缩/展开时 padding 一致，只收窄宽度 */}
+        <div className="border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 p-2 gap-1">
           <div
             className="cursor-pointer group shrink-0"
             onClick={() => navigate('/')}
@@ -186,15 +182,15 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
           </button>
         </div>
 
-        {/* 工作区切换 */}
-        <div className={cn('flex-1 py-3', sidebarCollapsed ? 'px-1' : 'px-2')}>
+        {/* 工作区切换：收缩时仅隐藏文字，图标与 padding 不变 */}
+        <div className="flex-1 py-3 px-2">
           <nav className={cn('space-y-0.5 flex flex-col', sidebarCollapsed ? 'items-center' : '')}>
             {/* 编辑区 */}
             <button
               onClick={() => handleWorkspaceChange('edit')}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
-                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5',
+                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
                 currentWorkspace === 'edit'
                   ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -210,7 +206,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               onClick={() => handleWorkspaceChange('agent')}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
-                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5',
+                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
                 currentWorkspace === 'agent'
                   ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -226,7 +222,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               onClick={() => handleWorkspaceChange('dashboard')}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
-                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5',
+                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
                 currentWorkspace === 'dashboard'
                   ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -242,7 +238,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               onClick={() => handleWorkspaceChange('templates')}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
-                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5',
+                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
                 currentWorkspace === 'templates'
                   ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
@@ -265,7 +261,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                 onClick={onSave}
                 className={cn(
                   'w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all',
-                  sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5'
+                  sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5'
                 )}
                 title="保存简历"
               >
@@ -280,7 +276,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                 onClick={onDownload}
                 className={cn(
                   'w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all',
-                  sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5'
+                  sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5'
                 )}
                 title="下载PDF"
               >
@@ -293,7 +289,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               onClick={() => navigate('/create-new')}
               className={cn(
                 'w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all',
-                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5'
+                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5'
               )}
               title="新建简历"
             >
@@ -306,7 +302,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
         </div>
 
         {/* 底部：登录组件（与导航风格统一，图标+用户名一行） */}
-        <div className={cn('py-2 border-t border-slate-100 dark:border-slate-800', sidebarCollapsed ? 'px-1' : 'px-2')}>
+        <div className="py-2 px-2 border-t border-slate-100 dark:border-slate-800">
           <div ref={logoutMenuRef} className="relative">
             {isAuthenticated ? (
               <div className="relative">
@@ -315,7 +311,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                   onClick={() => setShowLogoutMenu(!showLogoutMenu)}
                   className={cn(
                     'w-full rounded-lg transition-all duration-200 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800',
-                    sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5'
+                    sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5'
                   )}
                   title={user?.username || user?.email}
                 >
@@ -360,7 +356,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                 onClick={() => openModal('login')}
                 className={cn(
                   'w-full rounded-lg transition-all duration-200 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800',
-                  sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-2.5 py-2.5'
+                  sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5'
                 )}
                 title="登录 / 注册"
               >
