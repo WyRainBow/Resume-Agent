@@ -411,7 +411,7 @@ const RichEditor = ({
           {/* AI 智能排版按钮 */}
           <button
             onClick={handleFormat}
-            className="ml-2 px-3 py-1.5 text-sm rounded-md bg-gradient-to-r from-blue-400 to-indigo-500 hover:from-indigo-500 hover:to-blue-400 text-white shadow-md transition-all duration-300 flex items-center gap-1"
+            className="ml-2 px-3 py-1.5 text-sm rounded-md bg-white text-black border border-slate-300 hover:bg-slate-50 shadow-sm transition-all duration-200 flex items-center gap-1"
           >
             <Layout className="h-4 w-4" />
             AI 智能排版
@@ -432,7 +432,7 @@ const RichEditor = ({
           {(resumeData || onPolish) && (
             <button
               onClick={handlePolish}
-              className="ml-2 px-3 py-1.5 text-sm rounded-md bg-gradient-to-r from-purple-400 to-pink-500 hover:from-pink-500 hover:to-purple-400 text-white shadow-md transition-all duration-300 flex items-center gap-1"
+              className="ml-2 px-3 py-1.5 text-sm rounded-md bg-white text-black border border-slate-300 hover:bg-slate-50 shadow-sm transition-all duration-200 flex items-center gap-1"
             >
               <Wand2 className="h-4 w-4" />
               AI 润色

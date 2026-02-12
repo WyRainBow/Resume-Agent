@@ -2,12 +2,90 @@
  * 侧边面板组件（编辑区的第一列）
  * 包含模块选择和布局管理
  */
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Layout, Settings2, ChevronDown } from 'lucide-react'
+import { Layout, Settings2, ChevronDown, Check } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { MenuSection, GlobalSettings } from '../types'
 import LayoutSetting from './LayoutSetting'
+
+// 自定义下拉：选项在触发按钮下方展开，不占居中弹层（类似图三）
+function DropdownSelect<T extends string | number>({
+  options,
+  value,
+  onChange,
+  className,
+  placeholder,
+}: {
+  options: { value: T; label: string }[]
+  value: T
+  onChange: (v: T) => void
+  className?: string
+  placeholder?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const currentLabel = options.find((o) => o.value === value)?.label ?? placeholder ?? String(value)
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    if (open) {
+      document.addEventListener('mousedown', handleClickOutside)
+      return () => document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [open])
+
+  return (
+    <div ref={ref} className={cn('relative', className)}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={cn(
+          'w-full px-3 py-2.5 text-sm rounded-lg border text-left flex items-center justify-between gap-2',
+          'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200',
+          'hover:border-slate-300 dark:hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-slate-400/30 transition-colors',
+          open && 'ring-2 ring-slate-400/30 border-slate-400 dark:border-slate-500'
+        )}
+      >
+        <span className="truncate">{currentLabel}</span>
+        <ChevronDown className={cn('w-4 h-4 shrink-0 text-slate-400 dark:text-slate-500 transition-transform', open && 'rotate-180')} />
+      </button>
+      {open && (
+        <div
+          className="absolute top-full left-0 right-0 z-50 mt-1 py-1 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 shadow-lg max-h-56 overflow-y-auto"
+          role="listbox"
+        >
+          {options.map((opt) => {
+            const isSelected = opt.value === value
+            return (
+              <button
+                key={String(opt.value)}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => {
+                  onChange(opt.value)
+                  setOpen(false)
+                }}
+                className={cn(
+                  'w-full px-3 py-2 text-sm text-left flex items-center justify-between gap-2',
+                  isSelected
+                    ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/80'
+                )}
+              >
+                <span className="truncate">{opt.label}</span>
+                {isSelected && <Check className="w-4 h-4 shrink-0" />}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 // 字体大小选项 (LaTeX pt)
 const FONT_SIZE_OPTIONS = [
@@ -17,13 +95,13 @@ const FONT_SIZE_OPTIONS = [
   { value: 12, label: '12PT' },
 ]
 
-// 页面边距选项
-const PAGE_MARGIN_OPTIONS = [
-  { value: 'tight', label: '极紧 (0.25in)' },
-  { value: 'compact', label: '紧凑 (0.3in)' },
-  { value: 'standard', label: '标准 (0.4in)' },
-  { value: 'relaxed', label: '宽松 (0.5in)' },
-  { value: 'wide', label: '很宽 (0.6in)' },
+// 页面边距选项（单位用「英寸」更易读）
+const PAGE_MARGIN_OPTIONS: { value: 'tight' | 'compact' | 'standard' | 'relaxed' | 'wide'; label: string }[] = [
+  { value: 'tight', label: '极紧 (0.25 英寸)' },
+  { value: 'compact', label: '紧凑 (0.3 英寸)' },
+  { value: 'standard', label: '标准 (0.4 英寸)' },
+  { value: 'relaxed', label: '宽松 (0.5 英寸)' },
+  { value: 'wide', label: '很宽 (0.6 英寸)' },
 ]
 
 // 行间距选项
@@ -67,34 +145,36 @@ const inputBaseClass =
 
 const labelClass = 'block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5'
 
-// 行间距控件：预设选项 + 自定义输入
+const LINE_SPACING_CUSTOM_VALUE = -1
+const LINE_SPACING_WITH_CUSTOM = [
+  ...LINE_SPACING_OPTIONS,
+  { value: LINE_SPACING_CUSTOM_VALUE as number, label: '自定义...' },
+]
+
+// 行间距控件：自定义下拉 + 自定义输入
 function LineSpacingControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const isPreset = LINE_SPACING_OPTIONS.some(opt => opt.value === value)
+  const isPreset = LINE_SPACING_OPTIONS.some((opt) => opt.value === value)
   const [customMode, setCustomMode] = useState(!isPreset)
+  const dropdownValue = customMode ? LINE_SPACING_CUSTOM_VALUE : value
 
   return (
     <div>
       <label className={labelClass}>行间距</label>
       <div className="flex gap-2">
-        <select
-          value={customMode ? 'custom' : value}
-          onChange={(e) => {
-            if (e.target.value === 'custom') {
-              setCustomMode(true)
-            } else {
-              setCustomMode(false)
-              onChange(Number(e.target.value))
-            }
-          }}
-          className={cn(inputBaseClass, 'flex-1')}
-        >
-          {LINE_SPACING_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-          <option value="custom">自定义...</option>
-        </select>
+        <div className="flex-1 min-w-0">
+          <DropdownSelect<number>
+            options={LINE_SPACING_WITH_CUSTOM}
+            value={dropdownValue}
+            onChange={(v) => {
+              if (v === LINE_SPACING_CUSTOM_VALUE) {
+                setCustomMode(true)
+              } else {
+                setCustomMode(false)
+                onChange(v)
+              }
+            }}
+          />
+        </div>
         {customMode && (
           <input
             type="number"
@@ -152,17 +232,22 @@ interface SidePanelProps {
 }
 
 /**
- * 设置卡片容器
+ * 设置卡片容器，可选折叠（collapsible + defaultExpanded）
  */
 function SettingCard({
   icon: Icon,
   title,
   children,
+  collapsible = false,
+  defaultExpanded = true,
 }: {
   icon: React.ElementType
   title: string
   children: React.ReactNode
+  collapsible?: boolean
+  defaultExpanded?: boolean
 }) {
+  const [expanded, setExpanded] = useState(defaultExpanded)
   return (
     <div
       className={cn(
@@ -174,17 +259,31 @@ function SettingCard({
     >
       {title && (
         <div className="px-4 pt-4 pb-3 border-b border-slate-100 dark:border-slate-700/80">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700/80 flex items-center justify-center">
-              <Icon className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700/80 flex items-center justify-center">
+                <Icon className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+              </div>
+              <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 tracking-tight">
+                {title}
+              </span>
             </div>
-            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 tracking-tight">
-              {title}
-            </span>
+            {collapsible && (
+              <button
+                type="button"
+                onClick={() => setExpanded((e) => !e)}
+                className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
+                title={expanded ? '收起' : '展开'}
+              >
+                <ChevronDown className={cn('w-4 h-4 transition-transform', expanded && 'rotate-180')} />
+              </button>
+            )}
           </div>
         </div>
       )}
-      <div className={cn('px-4', title ? 'py-4' : 'pt-4 pb-4')}>{children}</div>
+      {(!collapsible || expanded) && (
+        <div className={cn('px-4', title ? 'py-4' : 'pt-4 pb-4')}>{children}</div>
+      )}
     </div>
   )
 }
@@ -229,7 +328,7 @@ export function SidePanel({
         </SettingCard>
 
         {/* 排版设置 */}
-        <SettingCard icon={Settings2} title="排版设置">
+        <SettingCard icon={Settings2} title="排版设置" collapsible defaultExpanded={false}>
           <div className="space-y-5">
             {/* 字体大小 */}
             <div>
@@ -259,17 +358,11 @@ export function SidePanel({
             {/* 页面边距 */}
             <div>
               <label className={labelClass}>页面边距</label>
-              <select
+              <DropdownSelect
+                options={PAGE_MARGIN_OPTIONS}
                 value={globalSettings.latexMargin || 'standard'}
-                onChange={(e) => updateGlobalSettings({ latexMargin: e.target.value as any })}
-                className={inputBaseClass}
-              >
-                {PAGE_MARGIN_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => updateGlobalSettings({ latexMargin: v })}
+              />
             </div>
 
             {/* 行间距 */}
@@ -281,33 +374,21 @@ export function SidePanel({
             {/* 经历项间距 */}
             <div>
               <label className={labelClass}>实习经历间距</label>
-              <select
+              <DropdownSelect
+                options={EXPERIENCE_GAP_OPTIONS}
                 value={globalSettings.experienceGap ?? 0}
-                onChange={(e) => updateGlobalSettings({ experienceGap: Number(e.target.value) })}
-                className={inputBaseClass}
-              >
-                {EXPERIENCE_GAP_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => updateGlobalSettings({ experienceGap: v })}
+              />
             </div>
 
             {/* 页面内边距 */}
             <div>
               <label className={labelClass}>页面内边距</label>
-              <select
-                value={globalSettings.pagePadding || 40}
-                onChange={(e) => updateGlobalSettings({ pagePadding: Number(e.target.value) })}
-                className={inputBaseClass}
-              >
-                {PAGE_PADDING_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+              <DropdownSelect
+                options={PAGE_PADDING_OPTIONS}
+                value={globalSettings.pagePadding ?? 40}
+                onChange={(v) => updateGlobalSettings({ pagePadding: v })}
+              />
             </div>
 
             {/* 头部空白（LaTeX） */}
