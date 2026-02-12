@@ -5,7 +5,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Edit, LayoutGrid, LayoutDashboard, FileText, Save, Download, LogIn, User, LogOut } from 'lucide-react'
+import { Edit, LayoutDashboard, Save, Download, LogIn, User, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentResumeId } from '@/services/resumeStorage'
@@ -219,22 +219,6 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
             >
               <AgentIcon className="w-6 h-6 shrink-0" />
               {!sidebarCollapsed && <span className="text-base font-medium">AI</span>}
-            </button>
-
-            {/* 简历区 */}
-            <button
-              onClick={() => handleWorkspaceChange('dashboard')}
-              className={cn(
-                'w-full rounded-lg transition-all duration-200',
-                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
-                currentWorkspace === 'dashboard'
-                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-              )}
-              title="我的简历"
-            >
-              <FileText className="w-6 h-6 shrink-0" />
-              {!sidebarCollapsed && <span className="text-base font-medium">简历</span>}
             </button>
 
             {/* 仪表盘 */}
