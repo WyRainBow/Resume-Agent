@@ -198,22 +198,6 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
         {/* 工作区切换：收缩时仅隐藏文字，图标与 padding 不变 */}
         <div className="flex-1 py-3 px-2">
           <nav className={cn('space-y-0.5 flex flex-col', sidebarCollapsed ? 'items-center' : '')}>
-            {/* 简历入口：图一样式，文档图标 + 简历 */}
-            <button
-              onClick={() => handleWorkspaceChange('resume')}
-              className={cn(
-                'w-full rounded-lg transition-all duration-200',
-                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
-                currentWorkspace === 'resume'
-                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-              )}
-              title="简历"
-            >
-              <FileText className="w-6 h-6 shrink-0" />
-              {!sidebarCollapsed && <span className="text-base font-medium">简历</span>}
-            </button>
-
             {/* 编辑区 */}
             <button
               onClick={() => handleWorkspaceChange('edit')}
@@ -228,6 +212,22 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
             >
               <Edit className="w-6 h-6 shrink-0" />
               {!sidebarCollapsed && <span className="text-base font-medium">编辑</span>}
+            </button>
+
+            {/* 简历入口：图一样式，文档图标 + 简历 */}
+            <button
+              onClick={() => handleWorkspaceChange('resume')}
+              className={cn(
+                'w-full rounded-lg transition-all duration-200',
+                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
+                currentWorkspace === 'resume'
+                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+              )}
+              title="简历"
+            >
+              <FileText className="w-6 h-6 shrink-0" />
+              {!sidebarCollapsed && <span className="text-base font-medium">简历</span>}
             </button>
 
             {/* AI 对话区 */}
