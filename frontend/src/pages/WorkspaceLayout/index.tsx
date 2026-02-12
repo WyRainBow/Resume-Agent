@@ -107,13 +107,18 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
       <aside
         className={cn(
           'bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 transition-[width] duration-200',
-          sidebarCollapsed ? 'w-16' : 'w-[100px]'
+          sidebarCollapsed ? 'w-16' : 'w-56'
         )}
       >
         {/* Logo + 收缩按钮 */}
-        <div className="p-2 border-b border-slate-100 dark:border-slate-800 flex flex-col items-center gap-1">
+        <div
+          className={cn(
+            'p-2 border-b border-slate-100 dark:border-slate-800 flex gap-1',
+            sidebarCollapsed ? 'flex-col items-center' : 'items-center justify-between'
+          )}
+        >
           <div
-            className="cursor-pointer group"
+            className="cursor-pointer group shrink-0"
             onClick={() => navigate('/')}
           >
             <div className="w-8 h-8 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
@@ -124,7 +129,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
             type="button"
             onClick={toggleSidebar}
             className={cn(
-              'p-1.5 rounded-lg transition-colors',
+              'p-1.5 rounded-lg transition-colors shrink-0',
               'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300'
             )}
             title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
@@ -138,66 +143,70 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
         </div>
 
         {/* 工作区切换 */}
-        <div className="flex-1 px-1 py-3">
-          <nav className="space-y-1 flex flex-col items-center">
+        <div className={cn('flex-1 py-3', sidebarCollapsed ? 'px-1' : 'px-2')}>
+          <nav className={cn('space-y-0.5 flex flex-col', sidebarCollapsed ? 'items-center' : '')}>
             {/* 编辑区 */}
             <button
               onClick={() => handleWorkspaceChange('edit')}
               className={cn(
-                "w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg transition-all duration-200",
+                'w-full rounded-lg transition-all duration-200',
+                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5',
                 currentWorkspace === 'edit'
-                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
               )}
               title="编辑区"
             >
               <Edit className="w-5 h-5 shrink-0" />
-              {!sidebarCollapsed && <span className="text-[10px] leading-tight">编辑</span>}
+              {!sidebarCollapsed && <span className="text-sm font-medium">编辑</span>}
             </button>
 
             {/* Agent 对话区 */}
             <button
               onClick={() => handleWorkspaceChange('agent')}
               className={cn(
-                "w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg transition-all duration-200",
+                'w-full rounded-lg transition-all duration-200',
+                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5',
                 currentWorkspace === 'agent'
-                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
               )}
               title="Agent 对话"
             >
               <Bot className="w-5 h-5 shrink-0" />
-              {!sidebarCollapsed && <span className="text-[10px] leading-tight">Agent</span>}
+              {!sidebarCollapsed && <span className="text-sm font-medium">Agent</span>}
             </button>
 
             {/* 简历区 */}
             <button
               onClick={() => handleWorkspaceChange('dashboard')}
               className={cn(
-                "w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg transition-all duration-200",
+                'w-full rounded-lg transition-all duration-200',
+                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5',
                 currentWorkspace === 'dashboard'
-                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
               )}
               title="我的简历"
             >
               <FileText className="w-5 h-5 shrink-0" />
-              {!sidebarCollapsed && <span className="text-[10px] leading-tight">简历</span>}
+              {!sidebarCollapsed && <span className="text-sm font-medium">简历</span>}
             </button>
 
             {/* 简历模板区 */}
             <button
               onClick={() => handleWorkspaceChange('templates')}
               className={cn(
-                "w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg transition-all duration-200",
+                'w-full rounded-lg transition-all duration-200',
+                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5',
                 currentWorkspace === 'templates'
-                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
               )}
               title="简历模板区"
             >
               <LayoutGrid className="w-5 h-5 shrink-0" />
-              {!sidebarCollapsed && <span className="text-[10px] leading-tight">模板</span>}
+              {!sidebarCollapsed && <span className="text-sm font-medium">模板</span>}
             </button>
           </nav>
 
@@ -205,46 +214,55 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
           <div className="my-3 border-t border-slate-100 dark:border-slate-800" />
 
           {/* 其他导航 */}
-          <nav className="space-y-1 flex flex-col items-center">
+          <nav className={cn('space-y-0.5 flex flex-col', sidebarCollapsed ? 'items-center' : '')}>
             {/* 保存按钮 - 仅在编辑区显示 */}
             {currentWorkspace === 'edit' && onSave && (
               <button
                 onClick={onSave}
-                className="w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
+                className={cn(
+                  'w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all',
+                  sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5'
+                )}
                 title="保存简历"
               >
                 <Save className="w-5 h-5 shrink-0" />
-                {!sidebarCollapsed && <span className="text-[10px] leading-tight">保存</span>}
+                {!sidebarCollapsed && <span className="text-sm font-medium">保存</span>}
               </button>
             )}
 
             {/* 下载按钮 - 仅在编辑区显示 */}
             {currentWorkspace === 'edit' && onDownload && (
-            <button
+              <button
                 onClick={onDownload}
-                className="w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
+                className={cn(
+                  'w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all',
+                  sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5'
+                )}
                 title="下载PDF"
-            >
+              >
                 <Download className="w-5 h-5 shrink-0" />
-                {!sidebarCollapsed && <span className="text-[10px] leading-tight">下载</span>}
-            </button>
+                {!sidebarCollapsed && <span className="text-sm font-medium">下载</span>}
+              </button>
             )}
 
             <button
               onClick={() => navigate('/create-new')}
-              className="w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+              className={cn(
+                'w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all',
+                sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5'
+              )}
               title="新建简历"
             >
               <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              {!sidebarCollapsed && <span className="text-[10px] leading-tight">新建</span>}
+              {!sidebarCollapsed && <span className="text-sm font-medium">新建</span>}
             </button>
           </nav>
         </div>
 
-        {/* 底部：登录组件（与导航风格统一，图标+用户名一行，简洁不抢眼） */}
-        <div className="px-1 py-2 border-t border-slate-100 dark:border-slate-800">
+        {/* 底部：登录组件（与导航风格统一，图标+用户名一行） */}
+        <div className={cn('py-2 border-t border-slate-100 dark:border-slate-800', sidebarCollapsed ? 'px-1' : 'px-2')}>
           <div ref={logoutMenuRef} className="relative">
             {isAuthenticated ? (
               <div className="relative">
@@ -252,14 +270,14 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                   type="button"
                   onClick={() => setShowLogoutMenu(!showLogoutMenu)}
                   className={cn(
-                    'w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg transition-all duration-200',
-                    'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                    'w-full rounded-lg transition-all duration-200 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800',
+                    sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5'
                   )}
                   title={user?.username || user?.email}
                 >
                   <User className="w-5 h-5 shrink-0" />
                   {!sidebarCollapsed && (
-                    <span className="text-[10px] leading-tight truncate w-full text-center max-w-[4.5rem]">
+                    <span className="text-sm font-medium truncate text-left">
                       {user?.username || user?.email}
                     </span>
                   )}
@@ -297,18 +315,18 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                 type="button"
                 onClick={() => openModal('login')}
                 className={cn(
-                  'w-full flex flex-col items-center gap-1 px-1 py-2 rounded-lg transition-all duration-200',
-                  'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  'w-full rounded-lg transition-all duration-200 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800',
+                  sidebarCollapsed ? 'flex flex-col items-center gap-1 px-1 py-2' : 'flex items-center gap-2.5 px-3 py-2.5'
                 )}
                 title="登录 / 注册"
               >
                 <LogIn className="w-5 h-5 shrink-0" />
-                {!sidebarCollapsed && <span className="text-[10px] leading-tight">登录</span>}
+                {!sidebarCollapsed && <span className="text-sm font-medium">登录</span>}
               </button>
             )}
           </div>
           {!sidebarCollapsed && (
-            <div className="text-[9px] text-slate-400 dark:text-slate-500 text-center leading-tight mt-1.5">
+            <div className="text-xs text-slate-400 dark:text-slate-500 text-center leading-tight mt-1.5 px-1">
               v2.0
             </div>
           )}
