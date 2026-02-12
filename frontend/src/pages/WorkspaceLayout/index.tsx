@@ -5,13 +5,32 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Edit, Bot, LayoutGrid, FileText, Save, Download, LogIn, User, LogOut, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
+import { Edit, Bot, LayoutGrid, FileText, Save, Download, LogIn, User, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentResumeId } from '@/services/resumeStorage'
 
 // 工作区类型
 type WorkspaceType = 'edit' | 'agent' | 'dashboard' | 'templates'
+
+/** 复刻参考图：圆角矩形 + 内竖线（左窄右宽），细描边 */
+function SidebarToggleIcon({ expand = false, className }: { expand?: boolean; className?: string }) {
+  const lineX = expand ? 17 : 7 // 展开态：线偏右；收起态：线偏左
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      <rect x="2" y="4" width="20" height="16" rx="3" ry="3" />
+      <line x1={lineX} y1="6" x2={lineX} y2="18" />
+    </svg>
+  )
+}
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode
@@ -110,34 +129,40 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
           sidebarCollapsed ? 'w-16' : 'w-56'
         )}
       >
-        {/* Logo + 收缩按钮 */}
+        {/* Logo + 收缩按钮：始终同一行，RA 左、按钮右 */}
         <div
           className={cn(
-            'p-2 border-b border-slate-100 dark:border-slate-800 flex gap-1',
-            sidebarCollapsed ? 'flex-col items-center' : 'items-center justify-between'
+            'border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0',
+            sidebarCollapsed ? 'p-1 gap-0.5' : 'p-2 gap-1'
           )}
         >
           <div
             className="cursor-pointer group shrink-0"
             onClick={() => navigate('/')}
           >
-            <div className="w-8 h-8 bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform">
-              <span className="text-white font-black text-xs italic">RA</span>
+            <div
+              className={cn(
+                'bg-gradient-to-tr from-indigo-600 to-violet-600 rounded-lg flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-105 transition-transform',
+                sidebarCollapsed ? 'w-6 h-6' : 'w-8 h-8'
+              )}
+            >
+              <span className={cn('text-white font-black italic', sidebarCollapsed ? 'text-[8px]' : 'text-xs')}>RA</span>
             </div>
           </div>
           <button
             type="button"
             onClick={toggleSidebar}
             className={cn(
-              'p-1.5 rounded-lg transition-colors shrink-0',
-              'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300'
+              'rounded-lg transition-colors shrink-0',
+              'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300',
+              sidebarCollapsed ? 'p-1.5' : 'p-2'
             )}
             title={sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'}
           >
             {sidebarCollapsed ? (
-              <PanelLeftOpen className="w-4 h-4" />
+              <SidebarToggleIcon expand className="w-4 h-4" />
             ) : (
-              <PanelLeftClose className="w-4 h-4" />
+              <SidebarToggleIcon className="w-5 h-5" />
             )}
           </button>
         </div>
