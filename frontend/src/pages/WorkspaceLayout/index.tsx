@@ -360,20 +360,25 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
         </div>
       </aside>
 
-      {/* 右侧内容区 */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentWorkspace}
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.2 }}
-            className="h-full"
-          >
-            {children}
-          </motion.div>
-        </AnimatePresence>
+      {/* 右侧内容区：限制最大宽度 = 展开侧边栏时的可用宽度，避免收缩时第三列 PDF 被拉宽 */}
+      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+        <div
+          className="h-full w-full flex flex-col overflow-hidden"
+          style={{ maxWidth: 'calc(100vw - 192px)' }}
+        >
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentWorkspace}
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              transition={{ duration: 0.2 }}
+              className="h-full"
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </main>
     </div>
   )
