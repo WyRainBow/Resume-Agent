@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthModal } from './components/AuthModal'
+import { ThemeInit } from './components/ThemeInit'
 import ErrorBoundary from './ErrorBoundary'
 import AgentChat from './pages/AgentChat/SophiaChat'
 import CreateNew from './pages/CreateNew'
@@ -7,6 +8,7 @@ import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/Login'
 import ResumeCreator from './pages/ResumeCreator'
 import ResumeDashboard from './pages/ResumeDashboard'
+import SettingsPage from './pages/Settings'
 import SharePage from './pages/SharePage'
 import TemplateMarket from './pages/TemplateMarket'
 import Workspace from './pages/Workspace/v2'
@@ -21,6 +23,7 @@ function App() {
   try {
     return (
       <ErrorBoundary>
+        <ThemeInit />
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<LandingPage />} />
@@ -37,6 +40,7 @@ function App() {
             {/* 其他路由 */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/dashboard" element={<ResumeDashboard />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="/templates" element={<TemplateMarket />} />
             <Route path="/create-new" element={<CreateNew />} />
             {/* 简历创建路由 */}

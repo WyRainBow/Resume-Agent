@@ -4,17 +4,17 @@
  */
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Layout, Settings2 } from 'lucide-react'
+import { Layout, Settings2, ChevronDown } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { MenuSection, GlobalSettings } from '../types'
 import LayoutSetting from './LayoutSetting'
 
 // 字体大小选项 (LaTeX pt)
 const FONT_SIZE_OPTIONS = [
-  { value: 9, label: '9pt' },
-  { value: 10, label: '10pt' },
-  { value: 11, label: '11pt (默认)' },
-  { value: 12, label: '12pt' },
+  { value: 9, label: '9PT' },
+  { value: 10, label: '10PT' },
+  { value: 11, label: '11PT (默认)' },
+  { value: 12, label: '12PT' },
 ]
 
 // 页面边距选项
@@ -48,11 +48,11 @@ const EXPERIENCE_GAP_OPTIONS = [
 
 // 页面内边距选项 (HTML 模板)
 const PAGE_PADDING_OPTIONS = [
-  { value: 15, label: '极紧凑 (15px)' },
-  { value: 20, label: '紧凑 (20px)' },
-  { value: 30, label: '适中 (30px)' },
-  { value: 40, label: '标准 (40px)' },
-  { value: 50, label: '宽松 (50px)' },
+  { value: 15, label: '极紧凑 (15PX)' },
+  { value: 20, label: '紧凑 (20PX)' },
+  { value: 30, label: '适中 (30PX)' },
+  { value: 40, label: '标准 (40PX)' },
+  { value: 50, label: '宽松 (50PX)' },
 ]
 
 // 头部空白参数基准（UI 显示 0 对应的内部值）
@@ -200,6 +200,7 @@ export function SidePanel({
   updateGlobalSettings,
   addCustomSection,
 }: SidePanelProps) {
+  const [headerGapExpanded, setHeaderGapExpanded] = useState(true)
   return (
     <div className="h-full overflow-y-auto">
       <div className="p-4 space-y-4">
@@ -233,7 +234,7 @@ export function SidePanel({
             {/* 字体大小 */}
             <div>
               <label className={labelClass}>字体大小</label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-nowrap gap-1">
                 {FONT_SIZE_OPTIONS.map((opt) => {
                   const isActive = (globalSettings.latexFontSize || 11) === opt.value
                   return (
@@ -242,7 +243,7 @@ export function SidePanel({
                       type="button"
                       onClick={() => updateGlobalSettings({ latexFontSize: opt.value })}
                       className={cn(
-                        'px-3.5 py-2 text-sm font-medium rounded-lg border transition-all',
+                        'flex-1 min-w-0 px-1.5 py-1 text-[11px] font-medium rounded-md border transition-all',
                         isActive
                           ? 'bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 border-slate-800 dark:border-slate-200 shadow-sm'
                           : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:border-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/80'
@@ -311,8 +312,20 @@ export function SidePanel({
 
             {/* 头部空白（LaTeX） */}
             <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/50 p-3 space-y-3">
-              <label className={labelClass}>头部空白（px）</label>
-              <HeaderGapControl
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">头部空白（PX）</label>
+                <button
+                  type="button"
+                  onClick={() => setHeaderGapExpanded((v) => !v)}
+                  className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
+                  title={headerGapExpanded ? '收起' : '展开'}
+                >
+                  <ChevronDown className={cn('w-4 h-4 transition-transform', headerGapExpanded && 'rotate-180')} />
+                </button>
+              </div>
+              {headerGapExpanded && (
+                <>
+                  <HeaderGapControl
                 label="顶部空白"
                 value={normalizeDecimal((globalSettings.latexHeaderTopGapPx ?? HEADER_TOP_GAP_BASELINE) - HEADER_TOP_GAP_BASELINE)}
                 onChange={(v) => updateGlobalSettings({ latexHeaderTopGapPx: normalizeDecimal(HEADER_TOP_GAP_BASELINE + v) })}
@@ -328,8 +341,10 @@ export function SidePanel({
                 onChange={(v) => updateGlobalSettings({ latexHeaderBottomGapPx: normalizeDecimal(HEADER_BOTTOM_GAP_BASELINE + v) })}
               />
               <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
-                支持负值，用于压缩顶部留白
+                支持负值用于压缩顶部留白
               </p>
+                </>
+              )}
             </div>
 
             <p className="text-xs text-slate-500 dark:text-slate-400 pt-1">

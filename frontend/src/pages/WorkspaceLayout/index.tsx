@@ -5,13 +5,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Edit, LayoutDashboard, Save, Download, LogIn, User, LogOut } from 'lucide-react'
+import { Edit, LayoutDashboard, Settings, Save, Download, LogIn, User, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentResumeId } from '@/services/resumeStorage'
 
 // 工作区类型
-type WorkspaceType = 'edit' | 'agent' | 'dashboard' | 'templates'
+type WorkspaceType = 'edit' | 'agent' | 'dashboard' | 'settings' | 'templates'
 
 /** 复刻参考图：圆角矩形 + 内竖线（左窄右宽），细描边 */
 function SidebarToggleIcon({ expand = false, className }: { expand?: boolean; className?: string }) {
@@ -97,6 +97,9 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
     if (location.pathname === '/dashboard') {
       return 'dashboard'
     }
+    if (location.pathname === '/settings') {
+      return 'settings'
+    }
     if (location.pathname === '/templates') {
       return 'templates'
     }
@@ -135,6 +138,8 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
       }
     } else if (workspace === 'dashboard') {
       navigate('/dashboard')
+    } else if (workspace === 'settings') {
+      navigate('/settings')
     } else if (workspace === 'templates') {
       navigate('/templates')
     } else {
@@ -234,6 +239,22 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
             >
               <LayoutDashboard className="w-6 h-6 shrink-0" />
               {!sidebarCollapsed && <span className="text-base font-medium">仪表盘</span>}
+            </button>
+
+            {/* 设置：图一风格 - 浅灰底、齿轮图标、设置文案 */}
+            <button
+              onClick={() => handleWorkspaceChange('settings')}
+              className={cn(
+                'w-full rounded-lg transition-all duration-200 shadow-sm',
+                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
+                currentWorkspace === 'settings'
+                  ? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-100'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+              )}
+              title="设置"
+            >
+              <Settings className="w-6 h-6 shrink-0 text-violet-500 dark:text-violet-400" />
+              {!sidebarCollapsed && <span className="text-base font-medium">设置</span>}
             </button>
           </nav>
 
