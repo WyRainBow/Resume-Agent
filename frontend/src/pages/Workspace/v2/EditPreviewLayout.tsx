@@ -1,6 +1,6 @@
 /**
  * 编辑区三列布局（在 WorkspaceLayout 的基础上）：
- * 第一列：模块选择（窄，约 280px）
+ * 第一列：模块选择（窄，约 150px）
  * 第二列：详细编辑面板
  * 第三列：预览面板（可拖拽调整宽度）
  */
@@ -155,7 +155,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
   } = props;
 
   // 列宽状态
-  const [sidePanelWidth, setSidePanelWidth] = useState(350); // 模块选择列宽度（固定）
+  const [sidePanelWidth] = useState(300); // 模块选择列宽度（固定）
   const [editPanelWidth, setEditPanelWidth] = useState(900); // 编辑面板宽度（可拖动调整，范围 400-1400px）
 
   // 拖拽处理 - 调整编辑面板宽度

@@ -144,15 +144,15 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
   return (
     <div className="h-screen flex overflow-hidden bg-[#F8F9FA] dark:bg-slate-950">
-      {/* 左侧固定边栏 */}
-      <aside
-        className={cn(
-          'bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 transition-[width] duration-200',
-          sidebarCollapsed ? 'w-24' : 'w-[150px]'
-        )}
-      >
+      {/* 左侧固定边栏：aside 始终 150px 占位，内部 div 实际收缩，确保 main 宽度不变 */}
+      <aside className="w-[150px] shrink-0 flex">
+        <div
+          className={cn(
+            'h-full flex flex-col bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 shrink-0 overflow-hidden transition-[width] duration-200',
+            sidebarCollapsed ? 'w-24' : 'w-[150px]'
+          )}
+        >
         {/* Logo + 收缩按钮：始终同一行，RA 左、按钮右 */}
-        {/* 收缩/展开时 padding 一致，只收窄宽度 */}
         <div className="border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0 p-2 gap-1">
           <div
             className="cursor-pointer group shrink-0"
@@ -370,6 +370,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               v2.0
             </div>
           )}
+        </div>
         </div>
       </aside>
 
