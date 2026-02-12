@@ -156,7 +156,7 @@ export default function AwardPanel({ awards, onUpdate, onDelete, onReorder, onAI
       {onAIImport && (
         <button
           onClick={onAIImport}
-          className="w-full px-4 py-2 rounded-lg bg-gradient-to-r from-purple-400 to-pink-500 hover:from-pink-500 hover:to-purple-400 text-white shadow-md transition-all duration-300 flex items-center justify-center gap-2"
+          className="w-full px-4 py-2 rounded-lg bg-white text-black border border-slate-300 hover:bg-slate-50 shadow-sm transition-all duration-300 flex items-center justify-center gap-2"
         >
           <Wand2 className="w-4 h-4" />
           AI 导入荣誉奖项
