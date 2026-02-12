@@ -262,7 +262,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               {!sidebarCollapsed && <span className="text-base font-medium">仪表盘</span>}
             </button>
 
-            {/* 设置：未选中与编辑/仪表盘一致无背景，选中时高亮，避免与其它项同时显亮 */}
+            {/* 设置：仅当前在设置页时高亮，未选中时图标与文字与其它项一致（灰） */}
             <button
               onClick={() => handleWorkspaceChange('settings')}
               className={cn(
@@ -274,7 +274,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               )}
               title="设置"
             >
-              <Settings className="w-6 h-6 shrink-0 text-violet-500 dark:text-violet-400" />
+              <Settings className="w-6 h-6 shrink-0" />
               {!sidebarCollapsed && <span className="text-base font-medium">设置</span>}
             </button>
           </nav>
