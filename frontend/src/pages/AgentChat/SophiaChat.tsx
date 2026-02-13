@@ -264,6 +264,14 @@ interface SearchStructuredData {
   };
 }
 
+interface ResumeStructuredData {
+  type: "resume";
+  resume_id?: string;
+  user_id?: string;
+  name?: string;
+  resume_data?: ResumeData;
+}
+
 // ============================================================================
 // 主页面组件
 // ============================================================================
@@ -488,32 +496,72 @@ export default function SophiaChat() {
     [],
   );
 
+  const upsertLoadedResume = useCallback(
+    (messageId: string, payload: ResumeStructuredData) => {
+      const resumeData = payload.resume_data;
+      if (!resumeData) return;
+
+      const rawId = payload.resume_id;
+      const resumeId =
+        typeof rawId === "string" && rawId.trim().length > 0
+          ? rawId
+          : `resume-${Date.now()}`;
+      const resumeName =
+        typeof payload.name === "string" && payload.name.trim().length > 0
+          ? payload.name
+          : "我的简历";
+
+      setLoadedResumes((prev) => {
+        const existingIndex = prev.findIndex((item) => item.messageId === messageId);
+        const entry = {
+          id: resumeId,
+          name: resumeName,
+          messageId,
+          resumeData,
+        };
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = entry;
+          return updated;
+        }
+        return [...prev, entry];
+      });
+    },
+    [],
+  );
+
   const handleSSEEvent = useCallback(
     (event: SSEEvent) => {
       if (event.type !== "tool_result") return;
       const toolName = event.data?.tool;
-      if (toolName !== "web_search") return;
       const structured = event.data?.structured_data;
-      if (!structured) return;
+      if (!structured || typeof structured !== "object") return;
 
-      const results = Array.isArray(structured.results)
-        ? structured.results
-        : [];
-      const metadata = structured.metadata || {};
-      const totalResults =
-        structured.total_results ?? metadata.total_results ?? results.length;
+      if (toolName === "web_search") {
+        const results = Array.isArray(structured.results)
+          ? structured.results
+          : [];
+        const metadata = structured.metadata || {};
+        const totalResults =
+          structured.total_results ?? metadata.total_results ?? results.length;
 
-      const normalized: SearchStructuredData = {
-        type: "search",
-        query: structured.query || "",
-        results,
-        total_results: totalResults,
-        metadata,
-      };
+        const normalized: SearchStructuredData = {
+          type: "search",
+          query: structured.query || "",
+          results,
+          total_results: totalResults,
+          metadata,
+        };
 
-      upsertSearchResult("current", normalized);
+        upsertSearchResult("current", normalized);
+        return;
+      }
+
+      if (toolName === "show_resume") {
+        upsertLoadedResume("current", structured as ResumeStructuredData);
+      }
     },
-    [upsertSearchResult],
+    [upsertSearchResult, upsertLoadedResume],
   );
 
   const {
@@ -986,6 +1034,11 @@ export default function SophiaChat() {
     }
 
     setSearchResults((prev) =>
+      prev.map((item) =>
+        item.messageId === "current" ? { ...item, messageId: uniqueId } : item,
+      ),
+    );
+    setLoadedResumes((prev) =>
       prev.map((item) =>
         item.messageId === "current" ? { ...item, messageId: uniqueId } : item,
       ),
@@ -2007,7 +2060,7 @@ export default function SophiaChat() {
 
           {/* Left: Chat */}
           <section className="flex-1 min-w-0 flex flex-col">
-            <main className="flex-1 overflow-y-auto px-4 py-8">
+            <main className="flex-1 overflow-y-auto px-4 py-8 custom-scrollbar">
               <div className="max-w-3xl mx-auto w-full">
                 {loadingResume && (
                   <div className="text-sm text-gray-400 mb-4">
@@ -2502,7 +2555,7 @@ export default function SophiaChat() {
 
           {/* Right: Report Preview or Resume Preview - 只格在有选中内容时显示 */}
           {(selectedReportId || selectedResumeId) && (
-            <aside className="w-[45%] min-w-[420px] bg-slate-50 overflow-y-auto border-l border-slate-200">
+            <aside className="w-[45%] min-w-[420px] bg-slate-50 overflow-y-auto border-l border-slate-200 custom-scrollbar">
               <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10">
                 <div className="flex items-center justify-between">
                   <div>

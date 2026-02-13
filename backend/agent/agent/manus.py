@@ -11,7 +11,7 @@ from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
 from backend.agent.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT
-from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, EducationAnalyzerTool, Terminate, ToolCollection, WebSearch
+from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, EducationAnalyzerTool, ShowResumeTool, Terminate, ToolCollection, WebSearch
 try:
     from backend.agent.tool import BrowserUseTool
 except ImportError:
@@ -116,6 +116,7 @@ class Manus(ToolCallAgent):
             base_tools.insert(1, BrowserUseTool())
         domain_tools = [
             CVReaderAgentTool(),
+            ShowResumeTool(),
             CVAnalyzerAgentTool(),
             CVEditorAgentTool(),
             EducationAnalyzerTool(),
