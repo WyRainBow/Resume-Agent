@@ -82,6 +82,7 @@ admin_permissions_router = routes_module.admin_permissions_router
 admin_logs_router = routes_module.admin_logs_router
 admin_traces_router = routes_module.admin_traces_router
 admin_overview_router = routes_module.admin_overview_router
+asr_router = routes_module.asr_router
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="Resume API")
@@ -128,6 +129,7 @@ app.include_router(admin_permissions_router)
 app.include_router(admin_logs_router)
 app.include_router(admin_traces_router)
 app.include_router(admin_overview_router)
+app.include_router(asr_router)
 
 # 注册 OpenManus 路由（合并后）
 try:

@@ -12,7 +12,8 @@
 
 import ChatMessage from "@/components/chat/ChatMessage";
 import TTSButton from "@/components/chat/TTSButton";
-import { Copy, RotateCcw, Check } from "lucide-react";
+import { Copy, RotateCcw, Check, Mic, StopCircle, Loader2 } from "lucide-react";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import ReportCard from "@/components/chat/ReportCard";
 import ResumeCard from "@/components/chat/ResumeCard";
 import ResumeSelector from "@/components/chat/ResumeSelector";
@@ -159,7 +160,7 @@ function ReportContentView({
     // 如果流式输出完成，从 API 加载完整内容
     const loadReport = async () => {
       try {
-        setIsLoading(true);
+        setIsLoadingChat(true);
         const report = await getReport(reportId);
         if (report.main_id) {
           const docContent = await getDocumentContent(report.main_id);
@@ -175,7 +176,7 @@ function ReportContentView({
         console.error("加载报告失败:", err);
         setError(err instanceof Error ? err.message : "加载报告失败");
       } finally {
-        setIsLoading(false);
+        setIsLoadingChat(false);
       }
     };
     loadReport();
@@ -583,6 +584,21 @@ export default function SophiaChat() {
   const [streamingReportContent, setStreamingReportContent] =
     useState<string>("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // 语音输入
+  const {
+    isRecording: isVoiceRecording,
+    isSpeaking: isVoiceSpeaking,
+    isProcessing: isVoiceProcessing,
+    startRecording: startVoiceRecording,
+    stopRecording: stopVoiceRecording,
+  } = useSpeechRecognition({
+    onTextChange: (text, isFinal) => {
+      if (isFinal) {
+        setInput((prev) => (prev ? `${prev} ${text}` : text));
+      }
+    },
+  });
 
   // 初始化会话：有 sessionId 用指定会话；否则默认加载“最新会话”
   useEffect(() => {
@@ -3153,27 +3169,58 @@ export default function SophiaChat() {
                           <span className="text-sm font-medium">展示简历</span>
                         </button>
                       </div>
-                      <button
-                        type="submit"
-                        disabled={
-                          (!input.trim() && pendingAttachments.length === 0) ||
-                          isProcessing ||
-                          isUploadingFile
-                        }
-                        className={`size-8 rounded-full flex items-center justify-center transition-colors ${
-                          (!input.trim() && pendingAttachments.length === 0) ||
-                          isProcessing ||
-                          isUploadingFile
-                            ? "bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed"
-                            : "bg-indigo-600 text-white hover:bg-indigo-700"
-                        }`}
-                        title={
-                          isProcessing ? "等待当前消息处理完成" : "发送消息"
-                        }
-                        aria-label="发送消息"
-                      >
-                        <ArrowUp className="size-4" />
-                      </button>
+                      {input.trim() || pendingAttachments.length > 0 ? (
+                        <button
+                          type="submit"
+                          disabled={isProcessing || isUploadingFile}
+                          className={`size-8 rounded-full flex items-center justify-center transition-colors ${
+                            isProcessing || isUploadingFile
+                              ? "bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed"
+                              : "bg-indigo-600 text-white hover:bg-indigo-700"
+                          }`}
+                          title={
+                            isProcessing ? "等待当前消息处理完成" : "发送消息"
+                          }
+                          aria-label="发送消息"
+                        >
+                          <ArrowUp className="size-4" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={
+                            isVoiceRecording
+                              ? stopVoiceRecording
+                              : startVoiceRecording
+                          }
+                          disabled={isProcessing || isVoiceProcessing}
+                          className={`size-8 rounded-full flex items-center justify-center transition-all ${
+                            isVoiceRecording
+                              ? "bg-red-500 text-white animate-pulse"
+                              : isVoiceSpeaking
+                              ? "bg-green-500 text-white"
+                              : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
+                          } ${
+                            isVoiceProcessing ? "cursor-not-allowed opacity-50" : ""
+                          }`}
+                          title={
+                            isVoiceProcessing
+                              ? "识别中..."
+                              : isVoiceRecording
+                              ? "正在录音，点击停止"
+                              : "语音输入"
+                          }
+                          aria-label="语音输入"
+                        >
+                          {isVoiceProcessing ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : isVoiceRecording ? (
+                            <StopCircle className="size-4" />
+                          ) : (
+                            <Mic className="size-4" />
+                          )}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </form>

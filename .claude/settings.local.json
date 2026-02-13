@@ -6,7 +6,8 @@
       "Bash(PYTHONPATH=:*)",
       "Bash(PYTHONPATH=.:/c/Users/10245/Desktop/Resume-Agent python:*)",
       "Bash(pip uninstall:*)",
-      "Bash(pip install:*)"
+      "Bash(pip install:*)",
+      "Bash(curl:*)"
     ]
   }
 }
