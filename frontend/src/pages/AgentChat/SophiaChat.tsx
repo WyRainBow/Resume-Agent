@@ -35,7 +35,7 @@ import {
 } from "@/services/api";
 import { Message } from "@/types/chat";
 import type { SSEEvent } from "@/transports/SSETransport";
-import { ArrowUp, FileText, Plus, X } from "lucide-react";
+import { ArrowUp, FileText, Plus, X, Sparkles, Wand2, Zap, Briefcase, Search, MessageSquare, Bot } from "lucide-react";
 import React, {
   useCallback,
   useEffect,
@@ -2449,20 +2449,71 @@ export default function SophiaChat() {
                 )}
 
                 {messages.length === 0 && !isProcessing && (
-                  <div className="text-center py-20">
-                    <div className="text-5xl mb-4">✨</div>
-                    <p className="text-gray-600 text-lg mb-2">
-                      输入消息开始对话
-                    </p>
-                    <p className="text-gray-400 text-sm mb-2">
-                      体验 Thought Process · 流式输出 · Markdown 渲染
-                    </p>
-                    <p className="text-gray-500 text-sm mt-4">
-                      例如：生成一份关于 AI 发展趋势的报告
-                    </p>
-                    <p className="text-gray-300 text-xs mt-2">
-                      使用 SSE + CLTP 传输
-                    </p>
+                  <div className="max-w-2xl mx-auto py-12 px-4 transition-all duration-500 ease-in-out">
+                    <div className="text-center mb-12">
+                      <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">
+                        你好，我是你的 Resume AI 助手
+                      </h1>
+                      <p className="text-slate-500 dark:text-slate-400 text-lg max-w-md mx-auto">
+                        我可以帮你优化简历、分析岗位匹配度，或者进行模拟面试。
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
+                      {[
+                        {
+                          icon: <Wand2 className="w-5 h-5 text-amber-500" />,
+                          title: "简历润色",
+                          desc: "“帮我优化这段工作描述，突出我的领导力。”",
+                          color: "bg-amber-50 dark:bg-amber-900/20",
+                        },
+                        {
+                          icon: <Search className="w-5 h-5 text-blue-500" />,
+                          title: "岗位分析",
+                          desc: "“分析这个 JD，看我的简历还需要补充什么？”",
+                          color: "bg-blue-50 dark:bg-blue-900/20",
+                        },
+                        {
+                          icon: <Briefcase className="w-5 h-5 text-emerald-500" />,
+                          title: "模拟面试",
+                          desc: "“针对我的简历，问我几个后端开发的技术问题。”",
+                          color: "bg-emerald-50 dark:bg-emerald-900/20",
+                        },
+                        {
+                          icon: <Zap className="w-5 h-5 text-indigo-500" />,
+                          title: "快速问答",
+                          desc: "“如何写出一份让 HR 眼前一亮的简历总结？”",
+                          color: "bg-indigo-50 dark:bg-indigo-900/20",
+                        },
+                      ].map((item, i) => (
+                        <button
+                          key={i}
+                          onClick={() => setInput(item.desc.replace(/[“”]/g, ""))}
+                          className="flex flex-col items-start p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-md transition-all text-left group"
+                        >
+                          <div className={`p-2 rounded-lg ${item.color} mb-3 group-hover:scale-110 transition-transform`}>
+                            {item.icon}
+                          </div>
+                          <h3 className="font-semibold text-slate-900 dark:text-white mb-1">{item.title}</h3>
+                          <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">{item.desc}</p>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-slate-400 dark:text-slate-500">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Thought Process 深度思考</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Zap className="w-3.5 h-3.5" />
+                        <span>流式输出 · 实时响应</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Markdown 渲染</span>
+                      </div>
+                    </div>
                   </div>
                 )}
 

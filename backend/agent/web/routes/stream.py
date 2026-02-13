@@ -234,8 +234,8 @@ async def _stream_event_generator(
                         tool_call_id=msg.tool_call_id or ""
                     ))
 
-        # Add user message to chat history
-        chat_history.add_message(Message(role=Role.USER, content=prompt))
+        # Add user message to chat history (don't persist yet, wait for agent to complete)
+        chat_history.add_message(Message(role=Role.USER, content=prompt), persist=False)
 
         # Execute agent and stream events
         async for event in stream_processor.start_stream(
