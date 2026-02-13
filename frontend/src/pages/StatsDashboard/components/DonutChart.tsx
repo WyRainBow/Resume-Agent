@@ -70,12 +70,12 @@ export function DonutChart({ data }: { data: ProgressDistributionItem[] }) {
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.25, delay: 0.14 + idx * 0.04 }}
               >
-                <div className="inline-flex items-center gap-2 whitespace-nowrap">
+                <div className="inline-flex min-w-0 flex-1 items-center gap-2 whitespace-nowrap">
                   <span className="h-3.5 w-3.5 rounded-full" style={{ backgroundColor: item.color }} />
                   <span className="text-base font-semibold text-slate-700">{item.label}</span>
                   <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-                  <span className="text-lg font-black text-slate-900">{item.value}</span>
                 </div>
+                <span className="w-8 text-right text-lg font-black tabular-nums text-slate-900">{item.value}</span>
               </motion.div>
             ))}
           </div>
