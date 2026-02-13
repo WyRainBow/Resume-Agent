@@ -115,8 +115,6 @@ class DBConversationStorage:
             else:
                 conversation.title = self._derive_title(messages)
                 conversation.message_count = len(messages)
-                # Only update updated_at if messages actually changed
-                # or use a more specific last_message_at for sorting
                 conversation.updated_at = now
                 conversation.last_message_at = now if messages else conversation.last_message_at
 
