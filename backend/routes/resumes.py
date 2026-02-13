@@ -187,6 +187,9 @@ def sync_resume_data(
     """同步简历数据（localStorage ↔ 数据库）"""
     t0 = time.perf_counter()
     logger.info(f"[同步] 开始同步简历 user_id={current_user.id} 本地条数={len(payload.resumes)}")
+    if not payload.resumes:
+        logger.info(f"[同步] 跳过同步（本地条数=0）user_id={current_user.id}")
+        return []
     merged = sync_resumes(db, current_user, [r.dict() for r in payload.resumes])
     logger.info(
         f"[同步] 同步完成 user_id={current_user.id} 数据库返回条数={len(merged)} 耗时={(time.perf_counter() - t0) * 1000:.1f}ms"

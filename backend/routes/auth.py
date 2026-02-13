@@ -9,7 +9,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, OperationalError
-from sqlalchemy import or_
 from typing import Optional
 
 from database import get_db
@@ -147,11 +146,18 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
     t_query_start = time.perf_counter()
     user = None
     query_error: Optional[Exception] = None
+    login_identifier = body.username.strip()
     for attempt in range(1, 3):
         try:
-            user = db.query(User).filter(
-                or_(User.username == body.username, User.email == body.username)
-            ).first()
+            # 避免 OR 条件导致索引利用不稳定：优先按输入形态走单索引查询
+            if "@" in login_identifier:
+                user = db.query(User).filter(User.email == login_identifier).first()
+                if not user:
+                    user = db.query(User).filter(User.username == login_identifier).first()
+            else:
+                user = db.query(User).filter(User.username == login_identifier).first()
+                if not user:
+                    user = db.query(User).filter(User.email == login_identifier).first()
             query_error = None
             break
         except OperationalError as exc:
