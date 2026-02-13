@@ -72,31 +72,62 @@ class ToolCallAgent(ReActAgent):
     def _store_structured_tool_result(
         self, tool_call_id: str, tool_name: str, result: Any
     ) -> None:
-        if tool_name != "web_search" or not tool_call_id:
+        if tool_name not in {"web_search", "show_resume"} or not tool_call_id:
             return
-        if result is None:
-            return
-        if hasattr(result, "model_dump"):
-            data = result.model_dump()
-        elif isinstance(result, dict):
-            data = result
-        else:
+        if tool_name == "web_search":
+            if result is None:
+                return
+            if hasattr(result, "model_dump"):
+                data = result.model_dump()
+            elif isinstance(result, dict):
+                data = result
+            else:
+                return
+
+            query = data.get("query")
+            results = data.get("results") or []
+            metadata = data.get("metadata") or {}
+            total_results = metadata.get("total_results")
+            if total_results is None:
+                total_results = len(results)
+
+            self._tool_structured_results[tool_call_id] = {
+                "type": "search",
+                "query": query,
+                "results": results,
+                "total_results": total_results,
+                "metadata": metadata,
+            }
             return
 
-        query = data.get("query")
-        results = data.get("results") or []
-        metadata = data.get("metadata") or {}
-        total_results = metadata.get("total_results")
-        if total_results is None:
-            total_results = len(results)
+        # show_resume
+        try:
+            from backend.agent.tool.resume_data_store import ResumeDataStore
 
-        self._tool_structured_results[tool_call_id] = {
-            "type": "search",
-            "query": query,
-            "results": results,
-            "total_results": total_results,
-            "metadata": metadata,
-        }
+            resume_data = ResumeDataStore.get_data(getattr(self, "session_id", None))
+            if not resume_data:
+                self._tool_structured_results[tool_call_id] = {
+                    "type": "resume_selector",
+                    "required": True,
+                    "message": "Please choose a resume: create new or select existing.",
+                }
+                return
+
+            meta = resume_data.get("_meta") or {}
+            basics = resume_data.get("basic") or resume_data.get("basics") or {}
+            resume_name = basics.get("name") or "我的简历"
+            resume_id = resume_data.get("resume_id") or resume_data.get("id") or meta.get("resume_id")
+            user_id = resume_data.get("user_id") or meta.get("user_id")
+
+            self._tool_structured_results[tool_call_id] = {
+                "type": "resume",
+                "resume_id": resume_id,
+                "user_id": user_id,
+                "name": resume_name,
+                "resume_data": resume_data,
+            }
+        except Exception:
+            return
 
     def get_structured_tool_result(self, tool_call_id: str) -> dict[str, Any] | None:
         return self._tool_structured_results.get(tool_call_id)

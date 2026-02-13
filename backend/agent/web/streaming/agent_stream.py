@@ -869,7 +869,7 @@ class AgentStream:
 
                             logger.info(f"[工具结果] {tool_name} | ID: {tool_call_id} | 长度: {len(msg.content) if msg.content else 0} 字符")
                             structured_data = None
-                            if tool_name == "web_search" and hasattr(
+                            if tool_name in {"web_search", "show_resume"} and hasattr(
                                 self.agent, "get_structured_tool_result"
                             ):
                                 structured_data = self.agent.get_structured_tool_result(
@@ -959,11 +959,21 @@ class AgentStream:
 
                     # 保存 assistant 消息（可能包含 tool_calls）
                     if msg.role == Role.ASSISTANT:
-                        self._chat_history_manager.add_message(Message(
-                            role=Role.ASSISTANT,
-                            content=msg.content,
-                            tool_calls=msg.tool_calls
-                        ))
+                        # 🔑 关键修复：只保存有实际内容的 assistant 消息
+                        # 过滤掉只有 tool_calls 但 content 为空的消息（技术性消息）
+                        has_content = msg.content and len(msg.content.strip()) > 0
+                        has_tool_calls = msg.tool_calls and len(msg.tool_calls) > 0
+
+                        if has_content or has_tool_calls:
+                            self._chat_history_manager.add_message(Message(
+                                role=Role.ASSISTANT,
+                                content=msg.content,
+                                tool_calls=msg.tool_calls
+                            ), persist=False)
+                        else:
+                            logger.debug(
+                                f"[AgentStream] 跳过空的 assistant 消息 (无 content 且无 tool_calls)"
+                            )
                     # 保存 tool 消息（关键：包含 optimization_suggestions JSON）
                     elif msg.role == Role.TOOL:
                         self._chat_history_manager.add_message(Message(
@@ -971,8 +981,12 @@ class AgentStream:
                             content=msg.content,
                             name=msg.name,
                             tool_call_id=msg.tool_call_id
-                        ))
+                        ), persist=False)
                         logger.debug(f"  💾 保存 Tool 消息: {msg.name}, 长度: {len(msg.content or '')}")
+
+                # 🔑 关键修复：在所有消息添加完成后，手动触发一次持久化
+                # 这确保用户消息（在 stream.py 中添加 persist=False）和所有其他消息都被保存
+                self._chat_history_manager._persist_if_needed()
 
                 logger.info(
                     f"📜 已保存对话到 ChatHistory (新增 {len(deduped_messages)} 条消息, "

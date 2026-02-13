@@ -29,7 +29,7 @@ export interface UseCLTPResult {
     /** 答案完成信号（用于触发 finalize） */
     answerCompleteCount: number;
     /** 发送用户消息 */
-    sendMessage: (message: string) => Promise<void>;
+    sendMessage: (message: string, resumeDataOverride?: any) => Promise<void>;
     /** 完成当前流式消息并清理状态 */
     finalizeStream: () => void;
     /** 断开连接 */
@@ -232,13 +232,17 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
     /**
      * Send user message
      */
-    const sendMessage = useCallback(async (message: string) => {
+    const sendMessage = useCallback(async (message: string, resumeDataOverride?: any) => {
         if (!sessionRef.current || !adapterRef.current) {
             console.error('[useCLTP] Session not initialized');
             return;
         }
 
         try {
+            // 允许调用方在本次发送前显式注入最新 resume_data，避免 setState 异步导致的竞态
+            if (resumeDataOverride !== undefined) {
+                adapterRef.current.setResumeData(resumeDataOverride ?? null);
+            }
             // Reset state for new message
             console.log('[useCLTP] sendMessage reset state');
             setCurrentThought('');

@@ -1,219 +1,259 @@
-/**
- * ResumeSelector - 简历选择组件
- * 
- * 在聊天区域显示可选择的简历卡片（仅 HTML 类型）
- * 支持水平滚动，用户点击后加载简历到右侧预览
- */
-
-import React, { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
-import { FileText, ChevronLeft, ChevronRight } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
+import { ArrowLeft, ChevronLeft, ChevronRight, FilePlus2, FileText } from 'lucide-react'
 import { getAllResumes } from '@/services/resumeStorage'
 import type { SavedResume } from '@/services/storage/StorageAdapter'
 
 interface ResumeSelectorProps {
-  /** 选择简历后的回调 */
   onSelect: (resume: SavedResume) => void
-  /** 取消选择的回调 */
+  onCreateResume?: () => void
   onCancel?: () => void
 }
 
+type SelectorStep = 'entry' | 'existing'
+
 export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
   onSelect,
-  onCancel
+  onCreateResume,
+  onCancel,
 }) => {
   const [resumes, setResumes] = useState<SavedResume[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const scrollContainerRef = React.useRef<HTMLDivElement>(null)
+  const [step, setStep] = useState<SelectorStep>('entry')
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const loadResumes = async () => {
       try {
         setLoading(true)
         const allResumes = await getAllResumes()
-        // 只显示 HTML 类型的简历
-        const htmlResumes = allResumes.filter(r => {
-          // 检查 templateType 字段或从 data 中获取
-          const templateType = r.templateType || (r.data as any)?.templateType
-          return templateType === 'html'
-        })
-        setResumes(htmlResumes)
+        setResumes(allResumes)
         setError(null)
       } catch (err) {
-        console.error('加载简历列表失败:', err)
-        setError('加载简历列表失败')
+        console.error('Failed to load resumes:', err)
+        setError('加载简历列表失败，请稍后重试。')
       } finally {
         setLoading(false)
       }
     }
-    loadResumes()
+
+    void loadResumes()
   }, [])
 
-  const scrollLeft = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: -220, behavior: 'smooth' })
-    }
-  }
-
-  const scrollRight = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: 220, behavior: 'smooth' })
-    }
-  }
-
-  // 格式化时间
   const formatDate = (timestamp: number) => {
     const date = new Date(timestamp)
     return `${date.getMonth() + 1}/${date.getDate()}`
   }
 
+  const scrollByOffset = (offset: number) => {
+    scrollContainerRef.current?.scrollBy({
+      left: offset,
+      behavior: 'smooth',
+    })
+  }
+
+  if (step === 'entry') {
+    return (
+      <div className="bg-white rounded-2xl p-5 my-4 shadow-sm border border-slate-200">
+        <div className="flex items-start justify-between mb-4 gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-700 text-balance">加载简历</h3>
+            <p className="text-xs text-slate-400 mt-1 text-pretty">
+              请选择下一步：创建新简历，或从已有简历中选择。
+            </p>
+          </div>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 transition-colors"
+            >
+              取消
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => onCreateResume?.()}
+            className="w-full text-left rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <FilePlus2 className="size-4 text-indigo-500" />
+              <span className="text-sm font-medium text-slate-800">创建一份简历</span>
+            </div>
+            <p className="text-xs text-slate-500 mt-2 text-pretty">
+              跳转到编辑区创建并完善新简历。
+            </p>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setStep('existing')}
+            className="w-full text-left rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <FileText className="size-4 text-indigo-500" />
+              <span className="text-sm font-medium text-slate-800">选择已有简历</span>
+            </div>
+            <p className="text-xs text-slate-500 mt-2 text-pretty">
+              从已保存简历中选择并加载到当前对话。
+            </p>
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   if (loading) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-indigo-50 to-violet-50 rounded-2xl p-6 my-4 shadow-sm border border-indigo-100"
-      >
+      <div className="bg-white rounded-2xl p-6 my-4 shadow-sm border border-slate-200">
         <div className="flex items-center gap-3 text-indigo-600">
-          <div className="w-5 h-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+          <div className="size-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
           <span className="text-sm">正在加载简历列表...</span>
         </div>
-      </motion.div>
+      </div>
     )
   }
 
   if (error) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-red-50 rounded-2xl p-6 my-4 shadow-sm border border-red-100"
-      >
+      <div className="bg-red-50 rounded-2xl p-6 my-4 shadow-sm border border-red-100">
         <p className="text-red-600 text-sm">{error}</p>
-      </motion.div>
+      </div>
     )
   }
 
   if (resumes.length === 0) {
     return (
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-gradient-to-br from-slate-50 to-gray-50 rounded-2xl p-6 my-4 shadow-sm border border-slate-200"
-      >
+      <div className="bg-white rounded-2xl p-6 my-4 shadow-sm border border-slate-200">
         <div className="text-center py-4">
-          <div className="text-4xl mb-3">📄</div>
-          <p className="text-slate-600 text-sm mb-2">暂无 HTML 格式的简历</p>
-          <p className="text-slate-400 text-xs">
-            请先在工作区创建一份 HTML 格式的简历
+          <div className="mx-auto mb-3 size-10 rounded-xl bg-slate-100 flex items-center justify-center">
+            <FileText className="size-5 text-slate-500" />
+          </div>
+          <p className="text-slate-600 text-sm mb-2">暂无可用简历</p>
+          <p className="text-slate-400 text-xs text-pretty">
+            请先创建一份简历，再回到 Agent 中加载。
           </p>
         </div>
-        {onCancel && (
+        <div className="mt-4 flex items-center gap-2">
+          {onCreateResume && (
+            <button
+              type="button"
+              onClick={onCreateResume}
+              className="flex-1 text-sm text-white bg-indigo-600 hover:bg-indigo-700 py-2 rounded-lg transition-colors"
+            >
+              去创建
+            </button>
+          )}
           <button
-            onClick={onCancel}
-            className="mt-4 w-full text-sm text-slate-500 hover:text-slate-700 py-2 rounded-lg hover:bg-slate-100 transition-colors"
+            type="button"
+            onClick={() => setStep('entry')}
+            className="flex-1 text-sm text-slate-600 hover:text-slate-800 py-2 rounded-lg hover:bg-slate-100 transition-colors"
           >
-            取消
+            返回
           </button>
-        )}
-      </motion.div>
+        </div>
+      </div>
     )
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-gradient-to-br from-indigo-50 via-violet-50 to-slate-50 rounded-2xl p-5 my-4 shadow-lg border border-indigo-100/50"
-    >
-      {/* 标题 */}
+    <div className="bg-white rounded-2xl p-5 my-4 shadow-sm border border-slate-200">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center shadow-sm">
-            <FileText className="w-4 h-4 text-white" />
+          <div className="size-8 rounded-full bg-indigo-500 flex items-center justify-center shadow-sm">
+            <FileText className="size-4 text-white" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-slate-700">选择一份简历</h3>
-            <p className="text-xs text-slate-400">点击卡片加载到预览区</p>
+            <h3 className="text-sm font-semibold text-slate-700 text-balance">选择一份简历</h3>
+            <p className="text-xs text-slate-400 text-pretty">
+              点击卡片后会在右侧展示 PDF 预览。
+            </p>
           </div>
         </div>
-        {onCancel && (
+
+        <div className="flex items-center gap-2">
           <button
-            onClick={onCancel}
-            className="text-xs text-slate-400 hover:text-slate-600 px-3 py-1.5 rounded-lg hover:bg-white/50 transition-colors"
+            type="button"
+            onClick={() => setStep('entry')}
+            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 px-2 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
           >
-            取消
+            <ArrowLeft className="size-3.5" />
+            返回
           </button>
-        )}
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              取消
+            </button>
+          )}
+        </div>
       </div>
 
-      {/* 简历卡片滚动区域 */}
       <div className="relative">
-        {/* 左滚动按钮 */}
         {resumes.length > 2 && (
           <button
-            onClick={scrollLeft}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/90 shadow-md flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-white transition-all -ml-2"
+            type="button"
+            onClick={() => scrollByOffset(-240)}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 size-8 rounded-full bg-white/90 shadow-md flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-white transition-all -ml-2"
+            aria-label="向左滚动简历列表"
+            title="向左滚动"
           >
-            <ChevronLeft className="w-5 h-5" />
+            <ChevronLeft className="size-5" />
           </button>
         )}
 
-        {/* 卡片容器 */}
         <div
           ref={scrollContainerRef}
           className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 px-1"
           style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
         >
-          {resumes.map((resume, index) => (
-            <motion.div
+          {resumes.map((resume) => (
+            <button
               key={resume.id}
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: index * 0.05 }}
+              type="button"
               onClick={() => onSelect(resume)}
-              className="flex-shrink-0 w-[200px] bg-white rounded-xl p-4 shadow-sm border border-slate-100 cursor-pointer hover:shadow-md hover:border-indigo-200 hover:-translate-y-1 transition-all duration-200 group"
+              className="flex-shrink-0 w-[200px] bg-white rounded-xl p-4 shadow-sm border border-slate-100 text-left cursor-pointer hover:shadow-md hover:border-indigo-200 hover:-translate-y-1 transition-all duration-200"
             >
-              {/* 简历图标 */}
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-100 to-violet-100 flex items-center justify-center mb-3 group-hover:from-indigo-200 group-hover:to-violet-200 transition-colors">
-                <FileText className="w-6 h-6 text-indigo-500" />
+              <div className="size-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-3">
+                <FileText className="size-6 text-indigo-500" />
               </div>
 
-              {/* 简历名称 */}
-              <h4 className="text-sm font-medium text-slate-700 truncate mb-1 group-hover:text-indigo-600 transition-colors">
+              <h4 className="text-sm font-medium text-slate-700 truncate mb-1">
                 {resume.name || '未命名简历'}
               </h4>
 
-              {/* 模板类型标签 */}
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">
-                🌐 HTML
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                {(resume.templateType || (resume.data as any)?.templateType || 'resume').toUpperCase()}
               </span>
 
-              {/* 更新时间 */}
-              <p className="text-xs text-slate-400 mt-2">
-                更新于 {formatDate(resume.updatedAt)}
-              </p>
-            </motion.div>
+              <p className="text-xs text-slate-400 mt-2 tabular-nums">更新于 {formatDate(resume.updatedAt)}</p>
+            </button>
           ))}
         </div>
 
-        {/* 右滚动按钮 */}
         {resumes.length > 2 && (
           <button
-            onClick={scrollRight}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/90 shadow-md flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-white transition-all -mr-2"
+            type="button"
+            onClick={() => scrollByOffset(240)}
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 size-8 rounded-full bg-white/90 shadow-md flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-white transition-all -mr-2"
+            aria-label="向右滚动简历列表"
+            title="向右滚动"
           >
-            <ChevronRight className="w-5 h-5" />
+            <ChevronRight className="size-5" />
           </button>
         )}
       </div>
 
-      {/* 提示文字 */}
-      <p className="text-xs text-slate-400 text-center mt-3">
-        共 {resumes.length} 份 HTML 简历可选
+      <p className="text-xs text-slate-400 text-center mt-3 tabular-nums">
+        共 {resumes.length} 份简历可选
       </p>
-    </motion.div>
+    </div>
   )
 }
 

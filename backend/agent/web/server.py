@@ -191,10 +191,10 @@ def get_chat_history_sync():
     global _global_chat_history
     if _global_chat_history is None:
         from backend.agent.memory import ChatHistoryManager
-        from backend.agent.cltp.storage.conversation_storage import FileConversationStorage
+        from backend.agent.cltp.storage.factory import get_conversation_storage
         _global_chat_history = ChatHistoryManager(
             session_id="default",
-            storage=FileConversationStorage(),
+            storage=get_conversation_storage(),
         )
     return _global_chat_history
 
