@@ -2,7 +2,7 @@
  * 工作区布局容器
  * 左侧固定边栏（工作区切换），右侧动态内容区
  */
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type MouseEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Edit, FileText, LayoutDashboard, Table2, Settings, Save, Download, LogIn, User, LogOut } from 'lucide-react'
@@ -134,27 +134,26 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
     }
   }, [showLogoutMenu])
 
-  const handleWorkspaceChange = (workspace: WorkspaceType) => {
-    if (workspace === 'resume') {
-      navigate('/resume-entry')
-    } else if (workspace === 'agent') {
+  const resolveWorkspacePath = (workspace: WorkspaceType): string => {
+    if (workspace === 'resume') return '/resume-entry'
+    if (workspace === 'agent') {
       const currentResumeId = getCurrentResumeId()
-      if (currentResumeId) {
-        navigate(`/agent/${currentResumeId}`)
-      } else {
-        navigate('/agent/new')
-      }
-    } else if (workspace === 'dashboard') {
-      navigate('/dashboard')
-    } else if (workspace === 'applications') {
-      navigate('/applications')
-    } else if (workspace === 'settings') {
-      navigate('/settings')
-    } else if (workspace === 'templates') {
-      navigate('/templates')
-    } else {
-      navigate('/workspace')
+      return currentResumeId ? `/agent/${currentResumeId}` : '/agent/new'
     }
+    if (workspace === 'dashboard') return '/dashboard'
+    if (workspace === 'applications') return '/applications'
+    if (workspace === 'settings') return '/settings'
+    if (workspace === 'templates') return '/templates'
+    return '/workspace'
+  }
+
+  const handleWorkspaceChange = (workspace: WorkspaceType, e?: MouseEvent<HTMLButtonElement>) => {
+    const targetPath = resolveWorkspacePath(workspace)
+    if (e?.metaKey || e?.ctrlKey) {
+      window.open(targetPath, '_blank', 'noopener,noreferrer')
+      return
+    }
+    navigate(targetPath)
   }
 
   return (
@@ -205,7 +204,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
           <nav className={cn('space-y-0.5 flex flex-col', sidebarCollapsed ? 'items-center' : '')}>
             {/* 编辑区 */}
             <button
-              onClick={() => handleWorkspaceChange('edit')}
+              onClick={(e) => handleWorkspaceChange('edit', e)}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
@@ -221,7 +220,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
             {/* 简历入口：图一样式，文档图标 + 简历 */}
             <button
-              onClick={() => handleWorkspaceChange('resume')}
+              onClick={(e) => handleWorkspaceChange('resume', e)}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
@@ -237,7 +236,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
             {/* AI 对话区 */}
             <button
-              onClick={() => handleWorkspaceChange('agent')}
+              onClick={(e) => handleWorkspaceChange('agent', e)}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
@@ -253,7 +252,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
             {/* 仪表盘 */}
             <button
-              onClick={() => handleWorkspaceChange('dashboard')}
+              onClick={(e) => handleWorkspaceChange('dashboard', e)}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
@@ -269,7 +268,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
             {/* 投递进展表 */}
             <button
-              onClick={() => handleWorkspaceChange('applications')}
+              onClick={(e) => handleWorkspaceChange('applications', e)}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
@@ -285,7 +284,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
             {/* 设置：仅当前在设置页时高亮，未选中时图标与文字与其它项一致（灰） */}
             <button
-              onClick={() => handleWorkspaceChange('settings')}
+              onClick={(e) => handleWorkspaceChange('settings', e)}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
@@ -336,7 +335,13 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
             )}
 
             <button
-              onClick={() => navigate('/create-new')}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey) {
+                  window.open('/create-new', '_blank', 'noopener,noreferrer')
+                  return
+                }
+                navigate('/create-new')
+              }}
               className={cn(
                 'w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5'
