@@ -920,27 +920,24 @@ export default function ResumeCreator() {
 
   // 更多模板
   const handleMoreTemplates = () => {
-    navigate('/templates')
+    navigate('/create-new')
   }
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col font-sans">
       {/* 顶部导航栏 */}
       <div className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          {/* 新版 RA Logo */}
-          <div className="relative w-9 h-9">
-            <div className="absolute inset-0 bg-violet-600 rounded-xl flex items-center justify-center shadow-sm">
-              <span className="text-white font-black italic text-lg pr-0.5 transform -skew-x-6">RA</span>
+        <div className="flex items-center gap-2.5">
+          {/* RA Logo - 与首页一致 */}
+          <div className="w-11 h-11 bg-white rounded-lg flex items-center justify-center border border-slate-200 shadow-sm">
+            <span className="text-slate-900 font-black text-base italic">RA</span>
           </div>
-            <div className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white" />
-          </div>
-          <span className="font-bold text-gray-900 text-lg tracking-tight">RA 智能简历</span>
+          <span className="text-slate-900 font-bold text-lg">Resume.AI</span>
         </div>
-        
+
           <button
           className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-          onClick={() => setMessages([])} 
+          onClick={() => setMessages([])}
           >
           <Trash2 className="w-4 h-4" />
           清除历史记录
@@ -970,7 +967,7 @@ export default function ResumeCreator() {
                   >
                       {message.role === 'user' ? (
                     // 用户消息样式
-                    <div className="bg-violet-600 text-white px-6 py-3 rounded-2xl rounded-tr-sm max-w-[80%] shadow-md shadow-violet-200 text-[15px] leading-relaxed">
+                    <div className="bg-blue-600 text-white px-6 py-3 rounded-2xl rounded-tr-sm max-w-[80%] shadow-md shadow-blue-200 text-[15px] leading-relaxed">
                       {message.content as string}
                     </div>
                   ) : (

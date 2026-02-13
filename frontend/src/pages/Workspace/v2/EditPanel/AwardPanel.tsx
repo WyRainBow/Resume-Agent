@@ -120,12 +120,17 @@ function AwardItem({
               <div className="px-4 pb-4 space-y-4" onClick={(e) => e.stopPropagation()}>
                 <div className="h-px w-full bg-gray-100 dark:bg-neutral-800" />
                 <div className="space-y-5">
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="奖项名称" value={award.title} onChange={(v) => handleChange('title', v)} placeholder="如：国家奖学金" />
-                    <Field label="颁发机构" value={award.issuer || ''} onChange={(v) => handleChange('issuer', v)} placeholder="如：教育部" />
-                  </div>
-                  <Field label="获奖时间" value={award.date || ''} onChange={(v) => handleChange('date', v)} placeholder="如：2023.09" />
-                  <Field label="奖项描述" value={award.description || ''} onChange={(v) => handleChange('description', v)} type="textarea" placeholder="简要描述..." />
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: 0 * 0.05, ease: 'easeOut' }}
+                    className="grid grid-cols-2 gap-4"
+                  >
+                    <Field index={0} label="奖项名称" value={award.title} onChange={(v) => handleChange('title', v)} placeholder="如：国家奖学金" />
+                    <Field index={1} label="颁发机构" value={award.issuer || ''} onChange={(v) => handleChange('issuer', v)} placeholder="如：教育部" />
+                  </motion.div>
+                  <Field index={2} label="获奖时间" value={award.date || ''} onChange={(v) => handleChange('date', v)} placeholder="如：2023.09" />
+                  <Field index={3} label="奖项描述" value={award.description || ''} onChange={(v) => handleChange('description', v)} type="textarea" placeholder="简要描述..." />
                 </div>
               </div>
             </motion.div>

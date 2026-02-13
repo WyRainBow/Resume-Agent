@@ -231,3 +231,37 @@ def build_application_progress_parse_prompt(text: str, intent_hint: str = "") ->
 {intent_line}用户输入：
 {text}
 """
+
+
+def build_calendar_event_parse_prompt(text: str, intent_hint: str = "", now_iso: str = "") -> str:
+    """
+    面试日历 AI 导入提示词模板（结构化抽取）
+    """
+    intent_line = f"意图识别结果（来自系统）：{intent_hint}\n" if intent_hint else ""
+    now_line = f"当前时间（系统）：{now_iso}\n" if now_iso else ""
+    return f"""你是“面试日历”的意图识别与信息抽取助手。
+目标：将用户的一句话解析成日程 JSON，并尽可能补全结束时间。
+
+只输出 JSON（不要 markdown、不要解释），严格使用以下 schema：
+{{
+  "title": "string|null",
+  "starts_at": "ISO8601 datetime|null",
+  "ends_at": "ISO8601 datetime|null",
+  "is_all_day": "boolean",
+  "location": "string|null",
+  "notes": "string|null"
+}}
+
+规则：
+1) 自动识别：日期、开始时间、结束时间、时长、公司/轮次、部门、地点。
+2) 标题 title 优先使用“公司+轮次/面试类型”，如“腾讯一面”“快手一面”。
+3) 若文本包含“部门/团队/平台”等信息，写入 notes（不要丢）。
+4) 若只给了开始时间没给结束时间，但给了“一个小时/30分钟”等时长，要推导 ends_at。
+5) 若只给了开始时间且没有时长，默认时长 60 分钟。
+6) 若出现“今天/明天/后天”，按当前时间换算为具体日期。
+7) 若字段无法确定填 null，不要臆造。
+8) ends_at 必须晚于 starts_at。
+
+{now_line}{intent_line}用户输入：
+{text}
+"""

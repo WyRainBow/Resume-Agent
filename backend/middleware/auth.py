@@ -74,7 +74,7 @@ def get_current_user(
             break
 
     if db_error is not None:
-        raise HTTPException(status_code=503, detail="数据库连接异常，请稍后重试")
+        raise HTTPException(status_code=503, detail="数据库连接异常、请稍后重试")
     if not user:
         raise HTTPException(status_code=401, detail="用户不存在")
     return user

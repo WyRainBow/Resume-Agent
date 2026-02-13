@@ -5,13 +5,13 @@
 import { useState, useEffect, useRef, type MouseEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Edit, FileText, LayoutDashboard, Table2, Settings, Save, Download, LogIn, User, LogOut } from 'lucide-react'
+import { Edit, FileText, LayoutDashboard, Table2, Settings, Save, Download, LogIn, User, LogOut, CalendarDays } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentResumeId } from '@/services/resumeStorage'
 
 // 工作区类型
-type WorkspaceType = 'resume' | 'edit' | 'agent' | 'dashboard' | 'myResumes' | 'applications' | 'settings' | 'templates'
+type WorkspaceType = 'resume' | 'edit' | 'agent' | 'dashboard' | 'myResumes' | 'applications' | 'calendar' | 'settings'
 
 /** 复刻参考图：圆角矩形 + 内竖线（左窄右宽），细描边 */
 function SidebarToggleIcon({ expand = false, className }: { expand?: boolean; className?: string }) {
@@ -106,11 +106,11 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
     if (location.pathname === '/applications') {
       return 'applications'
     }
+    if (location.pathname === '/calendar') {
+      return 'calendar'
+    }
     if (location.pathname === '/settings') {
       return 'settings'
-    }
-    if (location.pathname === '/templates') {
-      return 'templates'
     }
     // workspace/html 或 workspace/latex 都算编辑区
     if (location.pathname.startsWith('/workspace')) {
@@ -147,8 +147,8 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
     if (workspace === 'dashboard') return '/dashboard'
     if (workspace === 'myResumes') return '/my-resumes'
     if (workspace === 'applications') return '/applications'
+    if (workspace === 'calendar') return '/calendar'
     if (workspace === 'settings') return '/settings'
-    if (workspace === 'templates') return '/templates'
     return '/workspace'
   }
 
@@ -285,6 +285,22 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
             >
               <Table2 className="w-6 h-6 shrink-0" />
               {!sidebarCollapsed && <span className="text-base font-medium">投递进展表</span>}
+            </button>
+
+            {/* 仪表盘 */}
+            <button
+              onClick={(e) => handleWorkspaceChange('calendar', e)}
+              className={cn(
+                'w-full rounded-lg transition-all duration-200',
+                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
+                currentWorkspace === 'calendar'
+                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+              )}
+              title="面试日历"
+            >
+              <CalendarDays className="w-6 h-6 shrink-0" />
+              {!sidebarCollapsed && <span className="text-base font-medium">面试日历</span>}
             </button>
 
             {/* 仪表盘 */}

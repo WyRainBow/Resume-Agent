@@ -146,22 +146,39 @@ const EducationItem = ({
             >
               <div className="px-4 pb-4 space-y-4" onClick={(e) => e.stopPropagation()}>
                 <div className="h-px w-full bg-gray-100 dark:bg-neutral-800" />
-                <div className="grid grid-cols-2 gap-4">
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: 0 * 0.05, ease: 'easeOut' }}
+                  className="grid grid-cols-2 gap-4"
+                >
                   <Field
+                    index={0}
                     label="学校"
                     value={education.school}
                     onChange={(v) => onUpdate({ ...education, school: v })}
                     placeholder="请输入学校名称"
                   />
                   <Field
+                    index={1}
                     label="专业"
                     value={education.major}
                     onChange={(v) => onUpdate({ ...education, major: v })}
                     placeholder="请输入专业"
                   />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2" ref={degreeWrapRef}>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: 2 * 0.05, ease: 'easeOut' }}
+                  className="grid grid-cols-2 gap-4"
+                >
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: 2 * 0.05, ease: 'easeOut' }}
+                    className="space-y-2" ref={degreeWrapRef}
+                  >
                     <label className="text-sm text-gray-600 dark:text-neutral-300">
                       学历<span className="text-red-500">*</span>
                     </label>
@@ -218,15 +235,20 @@ const EducationItem = ({
                         )}
                       </AnimatePresence>
                     </div>
-                  </div>
+                  </motion.div>
                   <Field
+                    index={3}
                     label="GPA"
                     value={education.gpa || ''}
                     onChange={(v) => onUpdate({ ...education, gpa: v })}
                     placeholder="如：3.8/4.0"
                   />
-                </div>
-                <div className="grid grid-cols-1 gap-4">
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.2, delay: 4 * 0.05, ease: 'easeOut' }}
+                >
                   <MonthYearRangePicker
                     label="入学 / 毕业时间"
                     value={`${normalizeMonthValue(education.startDate)} - ${normalizeMonthValue(education.endDate)}`}
@@ -235,8 +257,9 @@ const EducationItem = ({
                       onUpdate({ ...education, startDate: start, endDate: end })
                     }}
                   />
-                </div>
+                </motion.div>
                 <Field
+                  index={5}
                   label="补充说明"
                   value={education.description || ''}
                   onChange={(v) => onUpdate({ ...education, description: v })}

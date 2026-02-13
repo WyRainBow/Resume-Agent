@@ -176,7 +176,7 @@ export const ProjectForm: React.FC<ProjectFormProps> = ({ onSkip, onSubmit }) =>
                 <button className="p-1.5 hover:bg-white rounded text-gray-600"><AlignCenter className="w-4 h-4" /></button>
                 <button className="p-1.5 hover:bg-white rounded text-gray-600"><Link2 className="w-4 h-4" /></button>
               </div>
-              <button className="flex items-center gap-1.5 px-3 py-1 bg-violet-50 text-violet-600 rounded-lg text-xs font-bold hover:bg-violet-100 transition-colors">
+              <button className="flex items-center gap-1.5 px-3 py-1 bg-white border border-slate-300 text-black rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors">
                 <Sparkles className="w-3 h-3" />
                 AI 帮写
               </button>

@@ -242,17 +242,17 @@ export const EducationForm: React.FC<EducationFormProps> = ({
               <button
                 type="button"
                 onClick={() => setShowAIImport(true)}
-                className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 text-blue-700 hover:from-blue-100 hover:to-indigo-100 transition-all shadow-sm group"
+                className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-slate-300 text-black hover:bg-slate-50 transition-all shadow-sm group"
               >
-                <Upload className="w-4 h-4 text-blue-600 group-hover:scale-110 transition-transform" />
+                <Upload className="w-4 h-4 text-gray-600 group-hover:scale-110 transition-transform" />
                 <span className="text-sm font-medium">AI 导入</span>
               </button>
               <button
                 type="button"
                 onClick={() => setShowAIWrite(true)}
-                className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-100 text-purple-700 hover:from-purple-100 hover:to-pink-100 transition-all shadow-sm group"
+                className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-slate-300 text-black hover:bg-slate-50 transition-all shadow-sm group"
               >
-                <Sparkles className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform" />
+                <Sparkles className="w-4 h-4 text-gray-600 group-hover:scale-110 transition-transform" />
                 <span className="text-sm font-medium">AI 帮写</span>
               </button>
             </div>

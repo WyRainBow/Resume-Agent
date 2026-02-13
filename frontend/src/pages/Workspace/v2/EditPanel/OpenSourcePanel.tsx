@@ -130,12 +130,26 @@ function OpenSourceItem({
               <div className="px-4 pb-4 space-y-4" onClick={(e) => e.stopPropagation()}>
                 <div className="h-px w-full bg-gray-100 dark:bg-neutral-800" />
                 <div className="space-y-5">
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="项目名称" value={openSource.name} onChange={(v) => handleChange('name', v)} placeholder="如：Seata-go" />
-                    <Field label="角色" value={openSource.role || ''} onChange={(v) => handleChange('role', v)} placeholder="如：贡献者" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: 0 * 0.05, ease: 'easeOut' }}
+                    className="grid grid-cols-2 gap-4"
+                  >
+                    <Field index={0} label="项目名称" value={openSource.name} onChange={(v) => handleChange('name', v)} placeholder="如：Seata-go" />
+                    <Field index={1} label="角色" value={openSource.role || ''} onChange={(v) => handleChange('role', v)} placeholder="如：贡献者" />
+                  </motion.div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: 2 * 0.05, ease: 'easeOut' }}
+                    className="grid grid-cols-2 gap-4"
+                  >
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: 2 * 0.05, ease: 'easeOut' }}
+                    >
                       <div className="flex items-center justify-between mb-1">
                         <label className="text-xs font-medium text-gray-500 dark:text-neutral-400">仓库地址</label>
                         {updateGlobalSettings && (
@@ -161,7 +175,7 @@ function OpenSourceItem({
                           </div>
                         )}
                       </div>
-                      <Field value={openSource.repo || ''} onChange={(v) => handleChange('repo', v)} placeholder="GitHub 链接" />
+                      <Field index={2} value={openSource.repo || ''} onChange={(v) => handleChange('repo', v)} placeholder="GitHub 链接" />
                       {/* 链接前缀设置（图标模式下不显示） */}
                       {updateGlobalSettings && globalSettings?.openSourceRepoDisplay !== 'icon' && (
                         <div className="mt-2">
@@ -215,21 +229,28 @@ function OpenSourceItem({
                           </div>
                         </div>
                       )}
-                    </div>
-                    <MonthYearRangePicker
-                      label="时间"
-                      value={(openSource.date || '')
-                        .split(' - ')
-                        .map((s) => (s && s !== '至今' ? s.trim().replace(/\./g, '-') : s?.trim() || ''))
-                        .join(' - ')}
-                      onChange={(v) => handleChange('date', v)}
-                    />
-                  </div>
-                  <Field 
-                    label="贡献描述" 
-                    value={openSource.description} 
-                    onChange={(v) => handleChange('description', v)} 
-                    type="editor" 
+                    </motion.div>
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: 3 * 0.05, ease: 'easeOut' }}
+                    >
+                      <MonthYearRangePicker
+                        label="时间"
+                        value={(openSource.date || '')
+                          .split(' - ')
+                          .map((s) => (s && s !== '至今' ? s.trim().replace(/\./g, '-') : s?.trim() || ''))
+                          .join(' - ')}
+                        onChange={(v) => handleChange('date', v)}
+                      />
+                    </motion.div>
+                  </motion.div>
+                  <Field
+                    index={4}
+                    label="贡献描述"
+                    value={openSource.description}
+                    onChange={(v) => handleChange('description', v)}
+                    type="editor"
                     placeholder="描述你的开源贡献..."
                     resumeData={resumeData}
                     polishPath={resumeData?.openSource ? `openSource[${resumeData.openSource.findIndex(os => os.id === openSource.id)}].description` : undefined}

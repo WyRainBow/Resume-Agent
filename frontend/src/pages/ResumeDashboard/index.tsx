@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Header } from './components/Header'
 import { CreateCard } from './components/CreateCard'
 import { ResumeCard } from './components/ResumeCard'
@@ -17,6 +17,7 @@ import { matchCompanyLogo } from '@/pages/Workspace/v2/constants/companyLogos'
 
 const ResumeDashboard = () => {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { isAuthenticated, user, logout, openModal } = useAuth()
   const {
     resumes,
@@ -51,6 +52,18 @@ const ResumeDashboard = () => {
   // 打开 AI 导入弹窗
   const handleOpenAIImport = useCallback(() => {
     setAiModalOpen(true)
+  }, [])
+
+  // 从 /create-new 带 ?openAIImport=1 进入时自动打开 AI 导入弹窗
+  useEffect(() => {
+    if (searchParams.get('openAIImport') === '1') {
+      setAiModalOpen(true)
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('openAIImport')
+        return next
+      }, { replace: true })
+    }
   }, [])
 
   // AI 解析完成后，创建新简历并跳转到工作区

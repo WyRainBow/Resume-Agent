@@ -58,14 +58,15 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         const maxDeviceRatio = isMobile ? 1 : 2
         const renderScale = scale * Math.min(devicePixelRatio, maxDeviceRatio)
 
-        const viewport = page.getViewport({ scale: renderScale })
+        // 强制 rotation: 0，避免 PDF 内嵌 /Rotate 180 导致整页倒置
+        const viewport = page.getViewport({ scale: renderScale, rotation: 0 })
 
         // 保存 PDF 原始高度（用于坐标转换）
-        const originalViewport = page.getViewport({ scale: 1 })
+        const originalViewport = page.getViewport({ scale: 1, rotation: 0 })
         setPageHeight(originalViewport.height)
 
         // 设置显示尺寸（使用原始 scale）
-        const displayViewport = page.getViewport({ scale })
+        const displayViewport = page.getViewport({ scale, rotation: 0 })
         setDimensions({
           width: displayViewport.width,
           height: displayViewport.height
