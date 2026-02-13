@@ -3125,7 +3125,7 @@ export default function SophiaChat() {
                           type="button"
                           onClick={handleClickUpload}
                           disabled={isProcessing || isUploadingFile}
-                          className={`size-7 rounded-full border flex items-center justify-center transition-colors ${
+                          className={`size-8 rounded-full border flex items-center justify-center transition-colors ${
                             isProcessing || isUploadingFile
                               ? "border-slate-200 dark:border-slate-600 text-slate-300 dark:text-slate-500 cursor-not-allowed"
                               : "border-slate-300 dark:border-slate-600 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 dark:hover:border-indigo-500"
@@ -3141,7 +3141,7 @@ export default function SophiaChat() {
                           type="button"
                           onClick={() => setShowResumeSelector(true)}
                           disabled={isProcessing}
-                          className={`h-7 px-2 rounded-md border flex items-center gap-1.5 transition-colors ${
+                          className={`h-8 px-2.5 rounded-md border flex items-center gap-1.5 transition-colors ${
                             isProcessing
                               ? "border-slate-200 dark:border-slate-600 text-slate-300 dark:text-slate-500 cursor-not-allowed"
                               : "border-slate-300 dark:border-slate-600 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 dark:hover:border-indigo-500"
@@ -3150,7 +3150,7 @@ export default function SophiaChat() {
                           aria-label="展示简历"
                         >
                           <FileText className="size-4" />
-                          <span className="text-xs font-medium">展示简历</span>
+                          <span className="text-sm font-medium">展示简历</span>
                         </button>
                       </div>
                       <button
@@ -3160,7 +3160,7 @@ export default function SophiaChat() {
                           isProcessing ||
                           isUploadingFile
                         }
-                        className={`size-7 rounded-full flex items-center justify-center transition-colors ${
+                        className={`size-8 rounded-full flex items-center justify-center transition-colors ${
                           (!input.trim() && pendingAttachments.length === 0) ||
                           isProcessing ||
                           isUploadingFile
