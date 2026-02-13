@@ -1,23 +1,11 @@
 import axios from 'axios'
+import { getApiBaseUrl } from '@/lib/runtimeEnv'
 import type { Resume } from '@/types/resume'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
 import type { SavedResume, StorageAdapter } from './StorageAdapter'
 
-// 处理 API_BASE，确保有协议前缀
-const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || ''
-let API_BASE = ''
-if (rawApiBase) {
-  API_BASE = rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`
-} else {
-  if (import.meta.env.PROD) {
-    API_BASE = ''
-  } else {
-    API_BASE = 'http://localhost:9000'
-  }
-}
-
 const apiClient = axios.create({
-  baseURL: API_BASE
+  baseURL: getApiBaseUrl(),
 })
 
 const CURRENT_KEY = 'resume_current'
@@ -32,6 +20,11 @@ apiClient.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
+apiClient.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl()
+  return config
+})
 
 function getAuthHeaders() {
   const token = localStorage.getItem(TOKEN_KEY)

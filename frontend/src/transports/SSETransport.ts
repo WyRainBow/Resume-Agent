@@ -7,6 +7,7 @@
  * - Simpler architecture
  * - Heartbeat detection
  */
+import { getApiBaseUrl } from '@/lib/runtimeEnv';
 
 export interface SSEEvent {
   id: string;
@@ -397,30 +398,14 @@ export class SSETransport {
 // Default instance factory
 // ============================================================================
 
-// 处理 API_BASE，确保有协议前缀
-const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || '';
-const defaultApiBase = rawApiBase
-  ? rawApiBase.startsWith('http')
-    ? rawApiBase
-    : `https://${rawApiBase}`
-  : import.meta.env.PROD
-    ? '' // 生产环境使用相对路径
-    : 'http://localhost:9000'; // 开发环境
-
-const DEFAULT_CONFIG: SSEConfig = {
-  baseUrl: defaultApiBase,
-  heartbeatTimeout: 60000,
-};
-
 /**
  * Create SSE transport with default configuration
  */
 export function createSSETransport(config?: Partial<SSEConfig>): SSETransport {
   return new SSETransport({
-    ...DEFAULT_CONFIG,
+    baseUrl: getApiBaseUrl(),
+    heartbeatTimeout: 60000,
     ...config,
   });
 }
-
-
 

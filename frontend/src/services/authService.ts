@@ -1,20 +1,8 @@
 import axios from 'axios'
-
-// 处理 API_BASE，确保有协议前缀
-const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || ''
-let API_BASE = ''
-if (rawApiBase) {
-  API_BASE = rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`
-} else {
-  if (import.meta.env.PROD) {
-    API_BASE = ''
-  } else {
-    API_BASE = 'http://localhost:9000'
-  }
-}
+import { getApiBaseUrl } from '@/lib/runtimeEnv'
 
 const authClient = axios.create({
-  baseURL: API_BASE
+  baseURL: getApiBaseUrl(),
 })
 
 export type AuthUser = {
@@ -36,6 +24,11 @@ export function setAuthToken(token: string | null) {
     delete authClient.defaults.headers.common['Authorization']
   }
 }
+
+authClient.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl()
+  return config
+})
 
 authClient.interceptors.response.use(
   response => response,

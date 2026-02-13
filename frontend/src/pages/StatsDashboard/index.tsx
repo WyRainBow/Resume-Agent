@@ -9,12 +9,11 @@ import { KpiCard } from './components/KpiCard'
 import { MiniLineChart } from './components/MiniLineChart'
 import { DonutChart } from './components/DonutChart'
 import { buildDailyTrend, buildKpisFromCount, buildProgressDistribution } from './utils/metrics'
+import { getApiBaseUrl } from '@/lib/runtimeEnv'
 
-const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || ''
-const API_BASE = rawApiBase
-  ? (rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`)
-  : (import.meta.env.PROD ? '' : 'http://localhost:9000')
-const DASHBOARD_PERF_ENDPOINT = `${API_BASE}/api/dashboard/perf-log`
+function getDashboardPerfEndpoint() {
+  return `${getApiBaseUrl()}/api/dashboard/perf-log`
+}
 
 function reportDashboardPerf(message: string, step?: string, elapsedMs?: number) {
   try {
@@ -27,10 +26,10 @@ function reportDashboardPerf(message: string, step?: string, elapsedMs?: number)
     })
     if (navigator.sendBeacon) {
       const blob = new Blob([payload], { type: 'application/json' })
-      navigator.sendBeacon(DASHBOARD_PERF_ENDPOINT, blob)
+      navigator.sendBeacon(getDashboardPerfEndpoint(), blob)
       return
     }
-    void fetch(DASHBOARD_PERF_ENDPOINT, {
+    void fetch(getDashboardPerfEndpoint(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: payload,

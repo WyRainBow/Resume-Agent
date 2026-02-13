@@ -78,3 +78,21 @@ def get_current_user(
     if not user:
         raise HTTPException(status_code=401, detail="用户不存在")
     return user
+
+
+def require_admin_only(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """仅允许 admin 角色访问。"""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可访问")
+    return current_user
+
+
+def require_admin_or_member(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """允许 admin/member 访问。"""
+    if current_user.role not in {"admin", "member"}:
+        raise HTTPException(status_code=403, detail="仅管理员或成员可访问")
+    return current_user

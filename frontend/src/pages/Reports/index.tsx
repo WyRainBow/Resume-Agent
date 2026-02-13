@@ -17,6 +17,7 @@ import {
 } from '@/services/api'
 import { useReportStore } from '@/stores/reportStore'
 import { cn } from '@/lib/utils'
+import { getApiBaseUrl } from '@/lib/runtimeEnv'
 import type { ReportDetail, ReportListItem } from '@/services/api'
 
 // 拖拽分隔线组件
@@ -108,7 +109,7 @@ export default function ReportsPage() {
     finalizeStream,
   } = useCLTP({
     conversationId: conversationId || undefined,
-    baseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:9000',
+    baseUrl: getApiBaseUrl(),
   })
 
   // 加载报告列表

@@ -15,6 +15,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../../../../lib/utils";
 import FileUploadZone from "./FileUploadZone";
+import { getApiBaseUrl } from "@/lib/runtimeEnv";
 
 // 可用的 AI 模型列表
 const AI_MODELS = [
@@ -24,17 +25,6 @@ const AI_MODELS = [
     description: "智能解析简历内容",
   },
 ];
-
-// 处理 API_BASE，确保有协议前缀
-const rawApiBase =
-  import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "";
-const API_BASE = rawApiBase
-  ? rawApiBase.startsWith("http")
-    ? rawApiBase
-    : `https://${rawApiBase}`
-  : import.meta.env.PROD
-    ? "" // 生产环境使用相对路径
-    : "http://localhost:9000"; // 开发环境
 
 export type SectionType =
   | "contact"
@@ -164,10 +154,11 @@ export function AIImportModal({
         sectionType === "openSource" ? "opensource" : sectionType;
 
       // 根据是否全局导入选择不同的 API
+      const apiBase = getApiBaseUrl();
       const endpoint =
         sectionType === "all"
-          ? `${API_BASE}/api/resume/parse` // 全局解析
-          : `${API_BASE}/api/resume/parse-section`; // 分模块解析
+          ? `${apiBase}/api/resume/parse` // 全局解析
+          : `${apiBase}/api/resume/parse-section`; // 分模块解析
 
       const body =
         sectionType === "all"
@@ -221,7 +212,7 @@ export function AIImportModal({
       formData.append("file", selectedFile);
       formData.append("model", selectedModel);
 
-      const response = await fetch(`${API_BASE}/api/resume/upload-pdf`, {
+      const response = await fetch(`${getApiBaseUrl()}/api/resume/upload-pdf`, {
         method: "POST",
         body: formData,
       });
@@ -384,7 +375,7 @@ export function AIImportModal({
                       setTestKeysLoading(true);
                       setTestKeysResult(null);
                       try {
-                        const res = await fetch(`${API_BASE}/api/ai/test-keys`);
+                        const res = await fetch(`${getApiBaseUrl()}/api/ai/test-keys`);
                         const data = await res.json();
                         if (res.ok) setTestKeysResult(data);
                         else setTestKeysResult({ _: { configured: false, ok: false, error: "请求失败" } });

@@ -466,7 +466,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
       </aside>
 
       {/* 右侧内容区：限制最大宽度 = 展开侧边栏时的可用宽度，避免收缩时第三列 PDF 被拉宽 */}
-      <main className="flex-1 flex flex-col overflow-hidden min-w-0">
+      <main className="relative flex-1 flex flex-col overflow-hidden min-w-0">
         <div
           className="h-full w-full flex flex-col overflow-hidden"
           style={{
