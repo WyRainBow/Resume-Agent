@@ -1599,6 +1599,11 @@ export default function SophiaChat() {
       messagesToSave: Message[],
       shouldRefresh = false,
     ) => {
+      // 如果消息列表为空，则不执行持久化，避免在数据库中产生空会话
+      if (!messagesToSave || messagesToSave.length === 0) {
+        return;
+      }
+
       // 验证 sessionId，如果为空则生成新的会话 ID
       let validSessionId = sessionId;
       if (!validSessionId || validSessionId.trim() === "") {
@@ -1720,11 +1725,11 @@ export default function SophiaChat() {
     pendingSaveRef.current = false;
     const shouldRefresh = refreshAfterSaveRef.current;
     refreshAfterSaveRef.current = false;
-    // 验证 conversationId 不为空
-    if (conversationId && conversationId.trim() !== "") {
+    // 验证 conversationId 不为空且消息不为空
+    if (conversationId && conversationId.trim() !== "" && messages.length > 0) {
       void persistSessionSnapshot(conversationId, messages, shouldRefresh);
     } else {
-      console.warn("[AgentChat] Skipping save: conversationId is empty");
+      console.log("[AgentChat] Skipping save: conversationId is empty or no messages");
     }
   }, [conversationId, messages, persistSessionSnapshot]);
 
@@ -1734,8 +1739,11 @@ export default function SophiaChat() {
       finalizeMessage();
       return;
     }
-    pendingSaveRef.current = true;
-    void persistSessionSnapshot(conversationId, messages);
+    // 只有当有消息时才标记需要保存
+    if (messages && messages.length > 0) {
+      pendingSaveRef.current = true;
+      void persistSessionSnapshot(conversationId, messages);
+    }
   }, [
     conversationId,
     finalizeMessage,
