@@ -182,9 +182,13 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
     # 记录本次登录 IP
     t_ip_start = time.perf_counter()
     try:
-        user.last_login_ip = _client_ip(request)
-        db.commit()
-        logger.info(f"[登录] 更新 last_login_ip 耗时 {(time.perf_counter() - t_ip_start) * 1000:.1f}ms")
+        current_ip = _client_ip(request)
+        if current_ip and user.last_login_ip != current_ip:
+            user.last_login_ip = current_ip
+            db.commit()
+            logger.info(f"[登录] 更新 last_login_ip 耗时 {(time.perf_counter() - t_ip_start) * 1000:.1f}ms")
+        else:
+            logger.info(f"[登录] 跳过 last_login_ip 更新（IP 未变化）耗时 {(time.perf_counter() - t_ip_start) * 1000:.1f}ms")
     except Exception as e:
         logger.warning(f"[登录] 更新 last_login_ip 失败: {e}")
         db.rollback()

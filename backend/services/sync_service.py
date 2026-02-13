@@ -29,6 +29,16 @@ def sync_resumes(db: Session, user: User, resumes: List[Dict[str, Any]]) -> List
     updated = 0
     skipped = 0
 
+    resume_ids = [item.get("id") for item in resumes if item.get("id")]
+    existing_map: Dict[str, Resume] = {}
+    if resume_ids:
+        existing_rows = (
+            db.query(Resume)
+            .filter(Resume.user_id == user.id, Resume.id.in_(resume_ids))
+            .all()
+        )
+        existing_map = {r.id: r for r in existing_rows}
+
     for item in resumes:
         resume_id = item.get("id")
         name = item.get("name") or "未命名简历"
@@ -46,7 +56,7 @@ def sync_resumes(db: Session, user: User, resumes: List[Dict[str, Any]]) -> List
         if template_type:
             data = {**data, "templateType": template_type}
 
-        existing = db.query(Resume).filter(Resume.id == resume_id, Resume.user_id == user.id).first()
+        existing = existing_map.get(resume_id)
         if existing:
             # 比较时间戳，只有更新更晚才覆盖
             if incoming_updated_at and existing.updated_at and incoming_updated_at <= existing.updated_at:
