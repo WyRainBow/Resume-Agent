@@ -4,7 +4,7 @@
  */
 import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { Pencil, Check, X } from 'lucide-react'
+import { Pencil, Check, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '../../../lib/utils'
 import type { ResumeData, MenuSection, GlobalSettings, BasicInfo, Project, Experience, Education, OpenSource, Award } from './types'
 import BasicPanel from './EditPanel/BasicPanel'
@@ -69,10 +69,22 @@ export default function ScrollEditMode({
     .filter(section => section.enabled)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   
+  // 折叠状态：只包含已展开的模块 id，默认全部收缩
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
   // 跟踪正在编辑的模块 ID
   const [editingSectionId, setEditingSectionId] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState<string>('')
   const inputRef = useRef<HTMLInputElement>(null)
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => {
+      const next = new Set(prev)
+      if (next.has(sectionId)) next.delete(sectionId)
+      else next.add(sectionId)
+      return next
+    })
+  }
+  const isExpanded = (sectionId: string) => expandedSections.has(sectionId)
 
   // 当进入编辑模式时，聚焦输入框
   useEffect(() => {
@@ -213,18 +225,29 @@ export default function ScrollEditMode({
               'hover:shadow-md transition-shadow duration-200'
             )}
           >
-            {/* 模块标题 */}
-            <div className={cn(
-              'px-8 py-5 border-b',
-              'bg-gradient-to-r from-slate-50 to-white',
-              'dark:from-slate-800 dark:to-slate-900',
-              'border-slate-200 dark:border-slate-700'
-            )}>
+            {/* 模块标题：整栏可点击折叠/展开 */}
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={() => toggleSection(section.id)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection(section.id) } }}
+              className={cn(
+                'px-8 py-5 border-b cursor-pointer select-none',
+                'bg-gradient-to-r from-slate-50 to-white',
+                'dark:from-slate-800 dark:to-slate-900',
+                'border-slate-200 dark:border-slate-700',
+                'hover:from-slate-100 hover:to-slate-50 dark:hover:from-slate-700 dark:hover:to-slate-800',
+                'transition-colors'
+              )}
+            >
               <div className="flex items-center gap-3">
-                <span className="text-2xl">{section.icon}</span>
+                <span className="text-slate-500 dark:text-slate-400 shrink-0">
+                  {isExpanded(section.id) ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                </span>
+                <span className="text-2xl shrink-0">{section.icon}</span>
                 {editingSectionId === section.id ? (
-                  // 编辑模式
-                  <div className="flex items-center gap-2 flex-1">
+                  // 编辑模式：阻止点击冒泡，避免触发展开/收起
+                  <div className="flex items-center gap-2 flex-1 min-w-0" onClick={e => e.stopPropagation()}>
                     <input
                       ref={inputRef}
                       type="text"
@@ -240,16 +263,18 @@ export default function ScrollEditMode({
                         }
                       }}
                       onBlur={() => handleSaveTitle(section.id)}
+                      onClick={e => e.stopPropagation()}
                       className={cn(
-                        'flex-1 text-xl font-bold bg-transparent outline-none',
+                        'flex-1 text-xl font-bold bg-transparent outline-none min-w-0',
                         'text-slate-900 dark:text-slate-100',
                         'border-b-2 border-primary pb-1'
                       )}
                     />
                     <button
-                      onClick={() => handleSaveTitle(section.id)}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleSaveTitle(section.id) }}
                       className={cn(
-                        'p-1.5 rounded-md',
+                        'p-1.5 rounded-md shrink-0',
                         'hover:bg-green-100 dark:hover:bg-green-900/30',
                         'text-green-600 dark:text-green-400',
                         'transition-colors'
@@ -258,9 +283,10 @@ export default function ScrollEditMode({
                       <Check className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={() => handleCancelEdit(section.id)}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleCancelEdit(section.id) }}
                       className={cn(
-                        'p-1.5 rounded-md',
+                        'p-1.5 rounded-md shrink-0',
                         'hover:bg-red-100 dark:hover:bg-red-900/30',
                         'text-red-600 dark:text-red-400',
                         'transition-colors'
@@ -271,15 +297,16 @@ export default function ScrollEditMode({
                   </div>
                 ) : (
                   // 显示模式
-                  <div className="flex items-center gap-2 flex-1">
-                    <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex-1">
-                  {section.title}
-                </h2>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 flex-1 truncate">
+                      {section.title}
+                    </h2>
                     {section.id !== 'basic' && (
                       <button
-                        onClick={() => handleStartEdit(section)}
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); handleStartEdit(section) }}
                         className={cn(
-                          'p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity',
+                          'p-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity shrink-0',
                           'hover:bg-slate-100 dark:hover:bg-slate-700',
                           'text-slate-600 dark:text-slate-400'
                         )}
@@ -293,10 +320,12 @@ export default function ScrollEditMode({
               </div>
             </div>
 
-            {/* 模块内容 */}
-            <div className="p-8">
-              {renderSection(section)}
-            </div>
+            {/* 模块内容：仅展开时显示 */}
+            {isExpanded(section.id) && (
+              <div className="p-8">
+                {renderSection(section)}
+              </div>
+            )}
           </motion.div>
         ))}
         
