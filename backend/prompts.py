@@ -215,7 +215,7 @@ def build_application_progress_parse_prompt(text: str, intent_hint: str = "") ->
   "industry": "互联网|金融|制造业|null",
   "position": "string|null",
   "location": "深圳|北京|上海|广州|null",
-  "progress": "已投递|笔试|一面|二面|三面|offer|null",
+  "progress": "已投简历|简历挂|测评未做|测评完成|等待一面|一面完成|一面被刷|等待二面|二面完成|二面被刷|null",
   "notes": "string|null",
   "application_date": "YYYY-MM-DD|null",
   "referral_code": "string|null"

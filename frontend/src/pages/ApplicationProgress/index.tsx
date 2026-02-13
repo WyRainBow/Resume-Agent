@@ -90,7 +90,30 @@ const COLUMNS = [
   { key: 'resume_id', label: '使用的 PDF', width: '200px' },
 ] as const
 
-const PROGRESS_OPTIONS = ['已投递', '笔试', '一面', '二面', '三面', 'offer', '简历挂']
+const PROGRESS_OPTIONS = [
+  '已投简历',
+  '简历挂',
+  '测评未做',
+  '测评完成',
+  '等待一面',
+  '一面完成',
+  '一面被刷',
+  '等待二面',
+  '二面完成',
+  '二面被刷',
+]
+const PROGRESS_BADGE_CLASS: Record<string, string> = {
+  已投简历: 'bg-[#E7EDF8] text-[#44506A]',
+  简历挂: 'bg-[#FF7373] text-white',
+  测评未做: 'bg-[#BDE8FF] text-[#1F3B4D]',
+  测评完成: 'bg-[#F7EABD] text-[#4B4122]',
+  等待一面: 'bg-[#BEEBE3] text-[#1E4A43]',
+  一面完成: 'bg-[#F7DFE1] text-[#53333A]',
+  一面被刷: 'bg-[#BFE8B9] text-[#234624]',
+  等待二面: 'bg-[#E3DAF6] text-[#39334E]',
+  二面完成: 'bg-[#F0D9EE] text-[#4A3347]',
+  二面被刷: 'bg-[#D3E68D] text-[#3B4A1F]',
+}
 const INDUSTRY_OPTIONS = ['互联网', '金融', '制造业']
 const LOCATION_OPTIONS = ['深圳', '北京', '上海', '广州']
 const POSITION_OPTIONS_DEFAULT = ['后端开发工程师', '前端开发工程师']
@@ -185,7 +208,7 @@ function parseAIImportText(rawText: string): ApplicationProgressPayload | null {
     location,
     application_link: url,
     application_date: applicationDate,
-    progress: '已投递',
+    progress: '已投简历',
     notes: department ? `部门：${department}` : null,
   }
 
@@ -432,6 +455,8 @@ function InlineDropdown({
   onCreateOption,
   dropdownClassName,
   selectedIcon,
+  badgeClassByValue,
+  renderBadgeOption,
 }: {
   value: string | null
   options: DropdownOption[]
@@ -446,6 +471,8 @@ function InlineDropdown({
   onCreateOption?: (label: string) => string | null
   dropdownClassName?: string
   selectedIcon?: React.ReactNode
+  badgeClassByValue?: Record<string, string>
+  renderBadgeOption?: boolean
 }) {
   const [open, setOpen] = useState(Boolean(autoOpen) && !disabled)
   const [createValue, setCreateValue] = useState('')
@@ -494,9 +521,24 @@ function InlineDropdown({
       >
         <span className="flex items-center gap-2 min-w-0">
           {selected && selectedIcon}
-          <span className={cn('truncate text-[17px]', selected ? 'font-medium' : 'text-slate-400')}>
-            {selected ? selected.label : placeholder}
-          </span>
+          {selected ? (
+            renderBadgeOption ? (
+              <span
+                className={cn(
+                  'inline-flex items-center rounded-full px-3 py-1.5 text-[16px] leading-none font-semibold',
+                  badgeClassByValue?.[selected.value] || 'bg-slate-100 text-slate-700'
+                )}
+              >
+                {selected.label}
+              </span>
+            ) : (
+              <span className={cn('truncate text-[17px] font-medium')}>
+                {selected.label}
+              </span>
+            )
+          ) : (
+            <span className="truncate text-[17px] text-slate-400">{placeholder}</span>
+          )}
         </span>
         <ChevronDown className={cn('w-4 h-4 shrink-0 text-slate-500 transition-transform', open && 'rotate-180')} />
       </button>
@@ -539,7 +581,18 @@ function InlineDropdown({
                     {active ? <Check className="w-3.5 h-3.5" /> : <span className="inline-block w-3.5 h-3.5" />}
                   </span>
                   <span className="min-w-0">
+                    {renderBadgeOption ? (
+                      <span
+                        className={cn(
+                          'inline-flex items-center rounded-full px-3 py-1.5 text-[16px] leading-none font-semibold',
+                          badgeClassByValue?.[opt.value] || 'bg-slate-100 text-slate-700'
+                        )}
+                      >
+                        {opt.label}
+                      </span>
+                    ) : (
                       <span className="block truncate">{opt.label}</span>
+                    )}
                     {opt.hint && (
                       <span className="block text-base text-slate-500 dark:text-slate-400 truncate">{opt.hint}</span>
                     )}
@@ -984,6 +1037,8 @@ export default function ApplicationProgressPage() {
             options={options}
             placeholder="请设置状态"
             dropdownClassName="max-h-[320px] overflow-auto"
+            renderBadgeOption
+            badgeClassByValue={PROGRESS_BADGE_CLASS}
             onSelect={(val) => handleCellChange(row.id, col.key, val)}
           />
         )
@@ -1003,7 +1058,7 @@ export default function ApplicationProgressPage() {
           <input
             type="text"
             className="w-full h-10 border rounded-lg px-3 text-[17px] bg-white dark:bg-slate-800"
-            defaultValue={String((row as Record<string, unknown>)[col.key] ?? '')}
+            defaultValue={String((row as unknown as Record<string, unknown>)[col.key] ?? '')}
             onBlur={(e) => {
               const v = e.target.value.trim() || null
               handleCellChange(row.id, col.key, v)
@@ -1016,7 +1071,7 @@ export default function ApplicationProgressPage() {
         )
       }
       if (col.key === 'application_link') {
-        const val = (row as Record<string, unknown>)[col.key]
+        const val = (row as unknown as Record<string, unknown>)[col.key]
         return val ? (
           <a
             href={val as string}
@@ -1031,12 +1086,10 @@ export default function ApplicationProgressPage() {
           <EmptyEditableCell />
         )
       }
+      const val = (row as unknown as Record<string, unknown>)[col.key]
       return (
         <span className="text-slate-700 dark:text-slate-300">
-          {(row as Record<string, unknown>)[col.key] != null
-            ? String((row as Record<string, unknown>)[col.key])
-            : ''}
-          {(row as Record<string, unknown>)[col.key] == null && <EmptyEditableCell />}
+          {val != null ? String(val) : <EmptyEditableCell />}
         </span>
       )
     },

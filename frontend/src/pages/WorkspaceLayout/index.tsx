@@ -11,7 +11,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentResumeId } from '@/services/resumeStorage'
 
 // 工作区类型
-type WorkspaceType = 'resume' | 'edit' | 'agent' | 'dashboard' | 'applications' | 'settings' | 'templates'
+type WorkspaceType = 'resume' | 'edit' | 'agent' | 'dashboard' | 'myResumes' | 'applications' | 'settings' | 'templates'
 
 /** 复刻参考图：圆角矩形 + 内竖线（左窄右宽），细描边 */
 function SidebarToggleIcon({ expand = false, className }: { expand?: boolean; className?: string }) {
@@ -100,6 +100,9 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
     if (location.pathname === '/dashboard') {
       return 'dashboard'
     }
+    if (location.pathname === '/my-resumes') {
+      return 'myResumes'
+    }
     if (location.pathname === '/applications') {
       return 'applications'
     }
@@ -141,6 +144,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
       return currentResumeId ? `/agent/${currentResumeId}` : '/agent/new'
     }
     if (workspace === 'dashboard') return '/dashboard'
+    if (workspace === 'myResumes') return '/my-resumes'
     if (workspace === 'applications') return '/applications'
     if (workspace === 'settings') return '/settings'
     if (workspace === 'templates') return '/templates'
@@ -250,20 +254,20 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               {!sidebarCollapsed && <span className="text-base font-medium">AI</span>}
             </button>
 
-            {/* 仪表盘 */}
+            {/* 我的简历 */}
             <button
-              onClick={(e) => handleWorkspaceChange('dashboard', e)}
+              onClick={(e) => handleWorkspaceChange('myResumes', e)}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
-                currentWorkspace === 'dashboard'
+                currentWorkspace === 'myResumes'
                   ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
               )}
-              title="仪表盘"
+              title="我的简历"
             >
-              <LayoutDashboard className="w-6 h-6 shrink-0" />
-              {!sidebarCollapsed && <span className="text-base font-medium">仪表盘</span>}
+              <FileText className="w-6 h-6 shrink-0" />
+              {!sidebarCollapsed && <span className="text-base font-medium">我的简历</span>}
             </button>
 
             {/* 投递进展表 */}
@@ -280,6 +284,22 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
             >
               <Table2 className="w-6 h-6 shrink-0" />
               {!sidebarCollapsed && <span className="text-base font-medium">投递进展表</span>}
+            </button>
+
+            {/* 仪表盘 */}
+            <button
+              onClick={(e) => handleWorkspaceChange('dashboard', e)}
+              className={cn(
+                'w-full rounded-lg transition-all duration-200',
+                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
+                currentWorkspace === 'dashboard'
+                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+              )}
+              title="仪表盘"
+            >
+              <LayoutDashboard className="w-6 h-6 shrink-0" />
+              {!sidebarCollapsed && <span className="text-base font-medium">仪表盘</span>}
             </button>
 
             {/* 设置：仅当前在设置页时高亮，未选中时图标与文字与其它项一致（灰） */}
