@@ -256,11 +256,11 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
             {/* 仪表盘 */}
             <button
-              onClick={(e) => handleWorkspaceChange('myResumes', e)}
+              onClick={(e) => handleWorkspaceChange('dashboard', e)}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
-                currentWorkspace === 'myResumes'
+                currentWorkspace === 'dashboard'
                   ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
               )}
@@ -272,11 +272,11 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
             {/* 我的简历 */}
             <button
-              onClick={(e) => handleWorkspaceChange('dashboard', e)}
+              onClick={(e) => handleWorkspaceChange('myResumes', e)}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
-                currentWorkspace === 'dashboard'
+                currentWorkspace === 'myResumes'
                   ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
               )}
