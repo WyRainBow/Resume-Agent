@@ -2466,7 +2466,15 @@ export default function SophiaChat() {
                           title: "简历润色",
                           desc: "“帮我优化这段工作描述，突出我的领导力。”",
                           color: "bg-amber-50 dark:bg-amber-900/20",
-                          onClick: () => setShowResumeSelector(true),
+                          onClick: () => {
+                            const message = "帮我优化这段工作描述，突出我的领导力。";
+                            setInput(message);
+                            // 自动发送消息
+                            setTimeout(() => {
+                              const sendButton = document.querySelector('button[type="submit"]');
+                              sendButton?.click();
+                            }, 100);
+                          },
                         },
                         {
                           icon: <Search className="w-5 h-5 text-blue-500" />,
