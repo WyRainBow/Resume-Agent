@@ -8,6 +8,7 @@ import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/Login'
 import ResumeCreator from './pages/ResumeCreator'
 import ResumeDashboard from './pages/ResumeDashboard'
+import StatsDashboardPage from './pages/StatsDashboard'
 import ResumeEntryPage from './pages/ResumeEntry'
 import ApplicationProgressPage from './pages/ApplicationProgress'
 import SettingsPage from './pages/Settings'
@@ -43,7 +44,8 @@ function App() {
             <Route path="/workspace/agent/:resumeId" element={<AgentChat />} />
             {/* 其他路由 */}
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/dashboard" element={<ResumeDashboard />} />
+            <Route path="/dashboard" element={<StatsDashboardPage />} />
+            <Route path="/my-resumes" element={<ResumeDashboard />} />
             <Route path="/applications" element={<ApplicationProgressPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/templates" element={<TemplateMarket />} />

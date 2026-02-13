@@ -54,7 +54,7 @@ export default function CreateNew() {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate('/my-resumes')}
           className="flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full text-sm font-medium text-slate-600 hover:text-slate-900 shadow-sm hover:shadow-md transition-all"
         >
           <ArrowRight className="w-4 h-4 rotate-180" />

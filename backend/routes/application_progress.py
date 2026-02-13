@@ -433,7 +433,25 @@ def ai_parse_entry(
     if data.get("location") not in allowed_location:
         data["location"] = None
 
-    allowed_progress = {"已投递", "笔试", "一面", "二面", "三面", "offer", "简历挂"}
+    allowed_progress = {
+        "已投简历",
+        "简历挂",
+        "测评未做",
+        "测评完成",
+        "等待一面",
+        "一面完成",
+        "一面被刷",
+        "等待二面",
+        "二面完成",
+        "二面被刷",
+        # 兼容历史值
+        "已投递",
+        "笔试",
+        "一面",
+        "二面",
+        "三面",
+        "offer",
+    }
     if data.get("progress") not in allowed_progress:
         data["progress"] = None
 
