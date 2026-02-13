@@ -3,6 +3,7 @@
 """
 import logging
 import traceback
+import time
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -138,21 +139,37 @@ def _client_ip(request: Request) -> str:
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """用户登录"""
+    t0 = time.perf_counter()
+    logger.info(f"[登录] 开始登录流程 username={body.username}")
+
+    t_query_start = time.perf_counter()
     user = db.query(User).filter(
         or_(User.username == body.username, User.email == body.username)
     ).first()
+    logger.info(f"[登录] 查询用户耗时 {(time.perf_counter() - t_query_start) * 1000:.1f}ms")
+
+    t_verify_start = time.perf_counter()
     if not user or not verify_password(body.password, user.password_hash):
+        logger.warning(
+            f"[登录] 账号或密码错误 username={body.username} verify耗时 {(time.perf_counter() - t_verify_start) * 1000:.1f}ms"
+        )
         raise HTTPException(status_code=401, detail="账号或密码错误")
+    logger.info(f"[登录] 密码校验耗时 {(time.perf_counter() - t_verify_start) * 1000:.1f}ms")
 
     # 记录本次登录 IP
+    t_ip_start = time.perf_counter()
     try:
         user.last_login_ip = _client_ip(request)
         db.commit()
+        logger.info(f"[登录] 更新 last_login_ip 耗时 {(time.perf_counter() - t_ip_start) * 1000:.1f}ms")
     except Exception as e:
         logger.warning(f"[登录] 更新 last_login_ip 失败: {e}")
         db.rollback()
 
+    t_token_start = time.perf_counter()
     token = create_access_token({"sub": str(user.id), "username": user.username})
+    logger.info(f"[登录] 生成 token 耗时 {(time.perf_counter() - t_token_start) * 1000:.1f}ms")
+    logger.info(f"[登录] 登录流程完成 user_id={user.id} 总耗时 {(time.perf_counter() - t0) * 1000:.1f}ms")
     return TokenResponse(
         access_token=token,
         user=UserResponse(id=user.id, username=user.username, email=user.email)

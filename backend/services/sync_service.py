@@ -3,10 +3,13 @@
 """
 from datetime import datetime
 from typing import List, Dict, Any
+import logging
+import time
 from sqlalchemy.orm import Session
 
 from models import Resume, User
 
+logger = logging.getLogger("backend")
 
 def _parse_iso_datetime(value: str) -> datetime:
     if not value:
@@ -21,6 +24,11 @@ def _parse_iso_datetime(value: str) -> datetime:
 
 def sync_resumes(db: Session, user: User, resumes: List[Dict[str, Any]]) -> List[Resume]:
     """根据 updated_at 合并简历数据，返回合并后的数据库记录"""
+    t0 = time.perf_counter()
+    inserted = 0
+    updated = 0
+    skipped = 0
+
     for item in resumes:
         resume_id = item.get("id")
         name = item.get("name") or "未命名简历"
@@ -31,6 +39,7 @@ def sync_resumes(db: Session, user: User, resumes: List[Dict[str, Any]]) -> List
 
         if not resume_id:
             # 无 id，跳过
+            skipped += 1
             continue
 
         # 如果有 template_type，确保同步到 data 中
@@ -41,10 +50,12 @@ def sync_resumes(db: Session, user: User, resumes: List[Dict[str, Any]]) -> List
         if existing:
             # 比较时间戳，只有更新更晚才覆盖
             if incoming_updated_at and existing.updated_at and incoming_updated_at <= existing.updated_at:
+                skipped += 1
                 continue
             existing.name = name
             existing.alias = alias
             existing.data = data
+            updated += 1
         else:
             new_resume = Resume(
                 id=resume_id,
@@ -54,7 +65,12 @@ def sync_resumes(db: Session, user: User, resumes: List[Dict[str, Any]]) -> List
                 data=data
             )
             db.add(new_resume)
+            inserted += 1
 
     db.commit()
 
-    return db.query(Resume).filter(Resume.user_id == user.id).order_by(Resume.updated_at.desc()).all()
+    merged = db.query(Resume).filter(Resume.user_id == user.id).order_by(Resume.updated_at.desc()).all()
+    logger.info(
+        f"[同步] merge统计 user_id={user.id} incoming={len(resumes)} inserted={inserted} updated={updated} skipped={skipped} total={len(merged)} 耗时={(time.perf_counter() - t0) * 1000:.1f}ms"
+    )
+    return merged

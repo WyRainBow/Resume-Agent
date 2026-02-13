@@ -3,6 +3,8 @@
 """
 from typing import List, Optional, Dict, Any
 from uuid import uuid4
+import logging
+import time
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -14,6 +16,7 @@ from middleware.auth import get_current_user
 from services.sync_service import sync_resumes
 
 router = APIRouter(prefix="/api/resumes", tags=["Resumes"])
+logger = logging.getLogger("backend")
 
 
 class ResumePayload(BaseModel):
@@ -182,7 +185,12 @@ def sync_resume_data(
     db: Session = Depends(get_db)
 ):
     """同步简历数据（localStorage ↔ 数据库）"""
+    t0 = time.perf_counter()
+    logger.info(f"[同步] 开始同步简历 user_id={current_user.id} 本地条数={len(payload.resumes)}")
     merged = sync_resumes(db, current_user, [r.dict() for r in payload.resumes])
+    logger.info(
+        f"[同步] 同步完成 user_id={current_user.id} 数据库返回条数={len(merged)} 耗时={(time.perf_counter() - t0) * 1000:.1f}ms"
+    )
     return [
         ResumeResponse(
             id=r.id,
