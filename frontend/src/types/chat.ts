@@ -8,6 +8,12 @@ export interface Message {
   content: string;
   thought?: string;
   timestamp?: string;
+  attachments?: {
+    name: string;
+    type: string;
+    url?: string;
+    size?: number;
+  }[];
 }
 
 export interface ChatMessageProps {
