@@ -1,5 +1,5 @@
 import type { CalendarEvent } from '../types'
-import { addDays, formatDateLabel, getMonthGridRange, startOfDay } from '../dateUtils'
+import { addDays, formatChinaTime, formatDateLabel, getMonthGridRange, isSameChinaDay, startOfDay } from '../dateUtils'
 
 type MonthGridViewProps = {
   currentDate: Date
@@ -9,10 +9,6 @@ type MonthGridViewProps = {
 }
 
 const WEEK_HEADER = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-
-function inSameDay(lhs: Date, rhs: Date): boolean {
-  return lhs.getFullYear() === rhs.getFullYear() && lhs.getMonth() === rhs.getMonth() && lhs.getDate() === rhs.getDate()
-}
 
 export function MonthGridView({ currentDate, events, onSelectDate, onEventClick }: MonthGridViewProps) {
   const { start } = getMonthGridRange(currentDate)
@@ -28,11 +24,11 @@ export function MonthGridView({ currentDate, events, onSelectDate, onEventClick 
       <div className="grid grid-cols-7">
         {Array.from({ length: 42 }).map((_, idx) => {
           const day = addDays(start, idx)
-          const dayEvents = events.filter((event) => inSameDay(new Date(event.starts_at), day))
+          const dayEvents = events.filter((event) => isSameChinaDay(new Date(event.starts_at), day))
           const dateEvents = dayEvents.slice(0, 4)
           const remainingCount = Math.max(0, dayEvents.length - dateEvents.length)
           const isCurrentMonth = day.getMonth() === currentDate.getMonth()
-          const isToday = inSameDay(day, today)
+          const isToday = isSameChinaDay(day, today)
 
           return (
             <div
@@ -60,11 +56,7 @@ export function MonthGridView({ currentDate, events, onSelectDate, onEventClick 
                     <div className="flex items-center gap-1.5">
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400" />
                       <span className="shrink-0 text-[13px] font-medium text-slate-500">
-                        {new Date(event.starts_at).toLocaleTimeString('zh-CN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          hour12: false,
-                        })}
+                        {formatChinaTime(new Date(event.starts_at))}
                       </span>
                       <span className="truncate text-[13px] font-medium text-slate-700">
                         {event.title}

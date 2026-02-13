@@ -215,11 +215,18 @@ export default function CalendarPage() {
         }}
         onDelete={async () => {
           if (!selectedEvent) return
-          await deleteCalendarEvent(selectedEvent.id)
-          setDetailOpen(false)
-          setDetailAnchorRect(null)
-          setSelectedEvent(null)
-          await refreshEvents()
+          if (!window.confirm(`确定删除日程「${selectedEvent.title}」吗？`)) return
+          try {
+            await deleteCalendarEvent(selectedEvent.id)
+            setDetailOpen(false)
+            setDetailAnchorRect(null)
+            setSelectedEvent(null)
+            await refreshEvents()
+          } catch (error: unknown) {
+            const maybeAxios = error as { response?: { data?: { detail?: string } }; message?: string }
+            const detail = maybeAxios.response?.data?.detail
+            alert(typeof detail === 'string' && detail.trim() ? `删除失败：${detail}` : `删除失败：${maybeAxios.message || '请稍后重试'}`)
+          }
         }}
       />
 

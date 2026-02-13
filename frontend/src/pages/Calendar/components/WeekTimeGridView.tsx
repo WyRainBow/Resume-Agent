@@ -1,5 +1,5 @@
 import type { CalendarEvent } from '../types'
-import { addDays, startOfDay, startOfWeek } from '../dateUtils'
+import { addDays, formatChinaTime, getChinaHourMinute, isSameChinaDay, startOfDay, startOfWeek, toDateInputValue } from '../dateUtils'
 
 type WeekTimeGridViewProps = {
   currentDate: Date
@@ -13,10 +13,6 @@ const START_HOUR = 7
 const END_HOUR = 23
 const HOUR_HEIGHT = 66
 
-function sameDay(a: Date, b: Date): boolean {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-}
-
 function formatHour(hour: number) {
   return `${String(hour).padStart(2, '0')}:00`
 }
@@ -29,13 +25,13 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex border-b border-slate-200 bg-white">
-        <div className="w-20 shrink-0 px-2 py-2 text-center text-sm font-semibold text-slate-400">GMT+8</div>
+        <div className="w-20 shrink-0 px-2 py-2 text-center text-xs font-semibold text-slate-400">GMT：中国时区</div>
         <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dayDates.length}, minmax(0, 1fr))` }}>
           {dayDates.map((day) => (
-            <div key={day.toISOString()} className="border-l border-slate-200 px-3 py-2">
-              <div className="text-sm text-slate-400">{['周日', '周一', '周二', '周三', '周四', '周五', '周六'][day.getDay()]}</div>
-              <div className="text-[34px] font-semibold text-slate-800">{day.getDate()}</div>
-            </div>
+              <div key={day.toISOString()} className="border-l border-slate-200 px-3 py-2">
+                <div className="text-sm text-slate-400">{['周日', '周一', '周二', '周三', '周四', '周五', '周六'][day.getDay()]}</div>
+                <div className="text-[34px] font-semibold text-slate-800">{Number(toDateInputValue(day).slice(-2))}</div>
+              </div>
           ))}
         </div>
       </div>
@@ -78,14 +74,16 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
           {/* 事件层：独立叠放上下文，保证盖在槽位之上 */}
           <div className="absolute inset-0 grid pointer-events-none z-20 isolate" style={{ gridTemplateColumns: `repeat(${dayDates.length}, minmax(0, 1fr))` }}>
             {dayDates.map((day) => {
-              const dayEvents = events.filter((event) => sameDay(new Date(event.starts_at), day))
+              const dayEvents = events.filter((event) => isSameChinaDay(new Date(event.starts_at), day))
               return (
                 <div key={`${day.toISOString()}-events`} className="relative border-l border-transparent pointer-events-none">
                   {dayEvents.map((event) => {
                     const start = new Date(event.starts_at)
                     const end = new Date(event.ends_at)
-                    const startMinutes = (start.getHours() - START_HOUR) * 60 + start.getMinutes()
-                    const endMinutes = (end.getHours() - START_HOUR) * 60 + end.getMinutes()
+                    const startChina = getChinaHourMinute(start)
+                    const endChina = getChinaHourMinute(end)
+                    const startMinutes = (startChina.hour - START_HOUR) * 60 + startChina.minute
+                    const endMinutes = (endChina.hour - START_HOUR) * 60 + endChina.minute
                     const top = Math.max(0, (startMinutes / 60) * HOUR_HEIGHT)
                     const durationMinutes = endMinutes - startMinutes
                     const height = Math.max(48, (durationMinutes / 60) * HOUR_HEIGHT)
@@ -99,9 +97,9 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
                       >
                         <div className="truncate font-semibold leading-tight">{event.title}</div>
                         <div className="text-xs text-blue-700 leading-tight whitespace-nowrap">
-                          {start.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                          {formatChinaTime(start)}
                           {' - '}
-                          {end.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}
+                          {formatChinaTime(end)}
                         </div>
                       </button>
                     )

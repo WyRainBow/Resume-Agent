@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
 import { InlineDatePicker } from '@/components/InlineDatePicker'
+import { InlineTimePicker } from '@/components/InlineTimePicker'
 import { parseDateTimeInput, toDateInputValue, toTimeInputValue } from '../dateUtils'
 
 type CreateScheduleModalProps = {
@@ -100,8 +101,20 @@ export function CreateScheduleModal({
               portalId="calendar-create-end-date"
               onSelect={(value) => setEndDate(value || '')}
             />
-            <input disabled={isAllDay} value={startTime} onChange={(e) => setStartTime(e.target.value)} type="time" className="rounded-xl border border-slate-200 px-4 py-3 disabled:bg-slate-100" />
-            <input disabled={isAllDay} value={endTime} onChange={(e) => setEndTime(e.target.value)} type="time" className="rounded-xl border border-slate-200 px-4 py-3 disabled:bg-slate-100" />
+            <InlineTimePicker
+              value={startTime || null}
+              placeholder="开始时间"
+              disabled={isAllDay}
+              portalId="calendar-create-start-time"
+              onSelect={(value) => setStartTime(value || '')}
+            />
+            <InlineTimePicker
+              value={endTime || null}
+              placeholder="结束时间"
+              disabled={isAllDay}
+              portalId="calendar-create-end-time"
+              onSelect={(value) => setEndTime(value || '')}
+            />
           </div>
 
           <label className="flex items-center gap-2 text-base text-slate-700">

@@ -297,10 +297,10 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
                   ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
                   : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
               )}
-              title="日历"
+              title="面试日历"
             >
               <CalendarDays className="w-6 h-6 shrink-0" />
-              {!sidebarCollapsed && <span className="text-base font-medium">日历</span>}
+              {!sidebarCollapsed && <span className="text-base font-medium">面试日历</span>}
             </button>
 
             {/* 仪表盘 */}
