@@ -1,6 +1,7 @@
 import asyncio
 import json
 from typing import Any, Dict, List, Optional
+from pathlib import Path
 
 from pydantic import Field, model_validator, PrivateAttr
 
@@ -81,6 +82,7 @@ class Manus(ToolCallAgent):
     _current_resume_path: Optional[str] = PrivateAttr(default=None)
     _just_applied_optimization: bool = PrivateAttr(default=False)  # 标记是否刚应用了优化
     _shared_state: AgentSharedState = PrivateAttr(default=None)
+    _skills_cache: Dict[str, str] = PrivateAttr(default_factory=dict)
 
     @model_validator(mode="after")
     def initialize_helper(self) -> "Manus":
@@ -397,12 +399,88 @@ class Manus(ToolCallAgent):
         capability = CapabilityRegistry.get(self.capability)
         if capability.instructions_addendum:
             system_prompt = f"{system_prompt}\n\n{capability.instructions_addendum}"
+        # 根据用户输入动态注入 skills 指导（backend/agent/skills）
+        skills_addendum = self._build_skill_addendum(user_input or "")
+        if skills_addendum:
+            system_prompt = f"{system_prompt}\n\n{skills_addendum}"
 
         # 生成下一步提示词（传入 intent 用于判断是否需要决策逻辑）
         next_step = await self._generate_next_step_prompt(intent)
 
         logger.info(f"💭 提示词已生成，当前状态: {context}")
         return system_prompt, next_step
+
+    def _build_skill_addendum(self, user_input: str) -> str:
+        """
+        根据用户输入匹配 backend/agent/skills 下的技能文档，并注入指导。
+
+        当前支持：
+        - office-files 总入口
+        - office-files 子技能：pdf/docx/pptx/xlsx
+        """
+        text = (user_input or "").lower()
+        if not text:
+            return ""
+
+        # 关键词触发：文档处理相关请求才加载 skills，避免污染普通对话
+        office_keywords = [
+            ".pdf", "pdf", "docx", ".docx", "ppt", ".pptx", "pptx",
+            "xlsx", ".xlsx", "word", "excel", "powerpoint",
+            "文档", "表格", "电子表格", "幻灯片", "演示文稿", "文件处理",
+        ]
+        if not any(k in text for k in office_keywords):
+            return ""
+
+        skills_root = Path(__file__).resolve().parents[2] / "skills" / "office-files"
+        guidance_parts: list[str] = []
+
+        # 1) 先加载 office-files 总路由技能
+        root_guidance = self._read_skill_excerpt(skills_root / "SKILL.md", max_chars=1800)
+        if root_guidance:
+            guidance_parts.append(f"[Skill: office-files]\n{root_guidance}")
+
+        # 2) 再根据输入匹配子技能
+        sub_skill_map = {
+            "pdf": [".pdf", "pdf", "合并pdf", "拆分pdf", "提取pdf", "表单pdf"],
+            "docx": [".docx", "docx", "word", "文档"],
+            "pptx": [".pptx", "pptx", "ppt", "powerpoint", "幻灯片", "演示文稿"],
+            "xlsx": [".xlsx", "xlsx", "excel", "表格", "电子表格"],
+        }
+
+        for sub_skill, keys in sub_skill_map.items():
+            if any(k in text for k in keys):
+                sub_guidance = self._read_skill_excerpt(
+                    skills_root / sub_skill / "SKILL.md",
+                    max_chars=2200,
+                )
+                if sub_guidance:
+                    guidance_parts.append(f"[Sub-Skill: {sub_skill}]\n{sub_guidance}")
+
+        if not guidance_parts:
+            return ""
+
+        return (
+            "## Skills Guidance (from backend/agent/skills)\n"
+            "When handling office/document requests, follow the guidance below before choosing tools:\n\n"
+            + "\n\n".join(guidance_parts)
+        )
+
+    def _read_skill_excerpt(self, file_path: Path, max_chars: int = 2000) -> str:
+        """读取技能文档并做截断缓存，避免每轮重复 I/O。"""
+        key = str(file_path)
+        if key in self._skills_cache:
+            return self._skills_cache[key]
+
+        try:
+            if not file_path.exists():
+                return ""
+            content = file_path.read_text(encoding="utf-8", errors="ignore").strip()
+            excerpt = content[:max_chars]
+            self._skills_cache[key] = excerpt
+            return excerpt
+        except Exception as e:
+            logger.warning(f"[Skills] Failed to read skill file {file_path}: {e}")
+            return ""
 
     async def _generate_next_step_prompt(self, intent: "Intent" = None) -> str:
         """生成下一步提示词
