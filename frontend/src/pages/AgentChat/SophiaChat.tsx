@@ -2466,6 +2466,7 @@ export default function SophiaChat() {
                           title: "简历润色",
                           desc: "“帮我优化这段工作描述，突出我的领导力。”",
                           color: "bg-amber-50 dark:bg-amber-900/20",
+                          onClick: () => setShowResumeSelector(true),
                         },
                         {
                           icon: <Search className="w-5 h-5 text-blue-500" />,
@@ -2956,7 +2957,7 @@ export default function SophiaChat() {
                           type="button"
                           onClick={() => setShowResumeSelector(true)}
                           disabled={isProcessing}
-                          className={`size-7 rounded-full border flex items-center justify-center transition-colors ${
+                          className={`h-7 px-2 rounded-md border flex items-center gap-1.5 transition-colors ${
                             isProcessing
                               ? "border-slate-200 dark:border-slate-600 text-slate-300 dark:text-slate-500 cursor-not-allowed"
                               : "border-slate-300 dark:border-slate-600 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 dark:hover:border-indigo-500"
@@ -2965,6 +2966,7 @@ export default function SophiaChat() {
                           aria-label="展示简历"
                         >
                           <FileText className="size-4" />
+                          <span className="text-xs font-medium">展示简历</span>
                         </button>
                       </div>
                       <button
