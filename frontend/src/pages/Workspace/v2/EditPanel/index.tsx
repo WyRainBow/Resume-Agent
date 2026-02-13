@@ -199,6 +199,9 @@ export function EditPanel({
 
   return (
     <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
       className={cn(
         'h-full border-r overflow-y-auto',
         'bg-gray-50 border-gray-100',
@@ -208,6 +211,9 @@ export function EditPanel({
       <div className="p-4">
         {/* 模块标题 */}
         <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.25, delay: 0.1, ease: "easeOut" }}
           className={cn(
             'mb-4 p-4 rounded-lg border',
             'bg-white border-gray-100',
@@ -282,6 +288,9 @@ export function EditPanel({
 
         {/* 编辑面板内容 */}
         <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.15, ease: "easeOut" }}
           className={cn(
             'rounded-lg',
             'bg-white border-gray-100',

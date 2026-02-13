@@ -3,7 +3,7 @@ Pydantic 数据模型定义
 """
 from pydantic import BaseModel, Field
 from typing import Optional, Literal, List, Dict, Any
-from sqlalchemy import Column, Integer, String, DateTime, Date, ForeignKey, JSON, Text
+from sqlalchemy import Column, Integer, String, DateTime, Date, ForeignKey, JSON, Text, Boolean
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -225,5 +225,23 @@ class ApplicationProgress(Base):
     referral_code = Column(String(64), nullable=True)
     link2 = Column(String(512), nullable=True)
     resume_id = Column(String(255), ForeignKey("resumes.id", ondelete="SET NULL"), nullable=True, index=True)  # 使用的 PDF
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class CalendarEvent(Base):
+    """日历日程模型"""
+    __tablename__ = "calendar_events"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String(255), nullable=False)
+    starts_at = Column(DateTime(timezone=True), nullable=False, index=True)
+    ends_at = Column(DateTime(timezone=True), nullable=False)
+    is_all_day = Column(Boolean, nullable=False, default=False)
+    location = Column(String(255), nullable=True)
+    notes = Column(Text, nullable=True)
+    color = Column(String(32), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

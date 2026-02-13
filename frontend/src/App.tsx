@@ -11,11 +11,11 @@ const LoginPage = lazy(() => import('./pages/Login'))
 const ResumeCreator = lazy(() => import('./pages/ResumeCreator'))
 const ResumeDashboard = lazy(() => import('./pages/ResumeDashboard'))
 const StatsDashboardPage = lazy(() => import('./pages/StatsDashboard'))
+const CalendarPage = lazy(() => import('./pages/Calendar'))
 const ResumeEntryPage = lazy(() => import('./pages/ResumeEntry'))
 const ApplicationProgressPage = lazy(() => import('./pages/ApplicationProgress'))
 const SettingsPage = lazy(() => import('./pages/Settings'))
 const SharePage = lazy(() => import('./pages/SharePage'))
-const TemplateMarket = lazy(() => import('./pages/TemplateMarket'))
 const Workspace = lazy(() => import('./pages/Workspace/v2'))
 const HTMLWorkspace = lazy(() => import('./pages/Workspace/v2/html'))
 const LaTeXWorkspace = lazy(() => import('./pages/Workspace/v2/latex'))
@@ -52,8 +52,8 @@ function App() {
               <Route path="/dashboard" element={<StatsDashboardPage />} />
               <Route path="/my-resumes" element={<ResumeDashboard />} />
               <Route path="/applications" element={<ApplicationProgressPage />} />
+              <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/settings" element={<SettingsPage />} />
-              <Route path="/templates" element={<TemplateMarket />} />
               <Route path="/create-new" element={<CreateNew />} />
               {/* 简历创建路由 */}
               <Route path="/resume-creator" element={<ResumeCreator />} /> {/* 新手创建简历 */}

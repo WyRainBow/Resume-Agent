@@ -44,37 +44,57 @@ const ProjectEditor = ({
   return (
     <div className="space-y-5">
       <div className="grid gap-5">
-        <div className="grid grid-cols-2 gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, delay: 0 * 0.05, ease: 'easeOut' }}
+          className="grid grid-cols-2 gap-4"
+        >
           <Field
+            index={0}
             label="项目名称"
             value={project.name}
             onChange={(value) => handleChange('name', value)}
             placeholder="请输入项目名称"
           />
           <Field
+            index={1}
             label="项目角色"
             value={project.role}
             onChange={(value) => handleChange('role', value)}
             placeholder="请输入你的角色"
           />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, delay: 2 * 0.05, ease: 'easeOut' }}
+          className="grid grid-cols-2 gap-4"
+        >
           <Field
+            index={2}
             label="项目链接"
             value={project.link || ''}
             onChange={(value) => handleChange('link', value)}
             placeholder="项目链接（可选）"
           />
-          <MonthYearRangePicker
-            label="项目时间"
-            value={(project.date || '')
-              .split(' - ')
-              .map((s) => (s && s !== '至今' ? s.trim().replace(/\./g, '-') : s?.trim() || ''))
-              .join(' - ')}
-            onChange={(value) => handleChange('date', value)}
-          />
-        </div>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, delay: 3 * 0.05, ease: 'easeOut' }}
+          >
+            <MonthYearRangePicker
+              label="项目时间"
+              value={(project.date || '')
+                .split(' - ')
+                .map((s) => (s && s !== '至今' ? s.trim().replace(/\./g, '-') : s?.trim() || ''))
+                .join(' - ')}
+              onChange={(value) => handleChange('date', value)}
+            />
+          </motion.div>
+        </motion.div>
         <Field
+          index={4}
           label="项目描述"
           value={project.description}
           onChange={(value) => handleChange('description', value)}

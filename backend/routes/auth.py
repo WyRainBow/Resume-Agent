@@ -175,7 +175,7 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
 
     logger.info(f"[登录] 查询用户耗时 {(time.perf_counter() - t_query_start) * 1000:.1f}ms")
     if query_error is not None:
-        raise HTTPException(status_code=503, detail="数据库连接异常，请稍后重试")
+        raise HTTPException(status_code=503, detail="数据库连接异常、请稍后重试")
 
     t_verify_start = time.perf_counter()
     if not user or not verify_password(body.password, user.password_hash):

@@ -5,6 +5,7 @@
  * 第三列：预览面板（可拖拽调整宽度）
  */
 import { useState, useCallback, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "../../../lib/utils";
 import EditPanel from "./EditPanel";
 import PreviewPanel from "./PreviewPanel";
@@ -190,123 +191,140 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
     <div className="h-[calc(100vh-64px)] flex relative z-10 overflow-hidden">
       {/* 内容区域 */}
       <div className="flex-1 flex overflow-hidden">
-        {editMode === "click" ? (
-          <>
-            {/* 点击编辑模式：三列布局 */}
-            {/* 第一列：模块选择（窄） */}
-            <div
-              className={cn(
-                "h-full overflow-y-auto shrink-0",
-                "bg-white/80 dark:bg-slate-900/80",
-                "backdrop-blur-sm border-r border-slate-200 dark:border-slate-800",
-              )}
-              style={{ width: sidePanelWidth }}
+        <AnimatePresence mode="wait">
+          {editMode === "click" ? (
+            <motion.div
+              key="click-mode"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.25, ease: "easeInOut" }}
+              className="flex"
             >
-              <SidePanel
-                menuSections={resumeData.menuSections}
-                activeSection={activeSection}
-                globalSettings={resumeData.globalSettings}
-                setActiveSection={setActiveSection}
-                toggleSectionVisibility={toggleSectionVisibility}
-                updateMenuSections={updateMenuSections}
-                reorderSections={reorderSections}
-                updateGlobalSettings={updateGlobalSettings}
-                addCustomSection={addCustomSection}
-              />
-            </div>
+              {/* 点击编辑模式：三列布局 */}
+              {/* 第一列：模块选择（窄） */}
+              <div
+                className={cn(
+                  "h-full overflow-y-auto shrink-0",
+                  "bg-white/80 dark:bg-slate-900/80",
+                  "backdrop-blur-sm border-r border-slate-200 dark:border-slate-800",
+                )}
+                style={{ width: sidePanelWidth }}
+              >
+                <SidePanel
+                  menuSections={resumeData.menuSections}
+                  activeSection={activeSection}
+                  globalSettings={resumeData.globalSettings}
+                  setActiveSection={setActiveSection}
+                  toggleSectionVisibility={toggleSectionVisibility}
+                  updateMenuSections={updateMenuSections}
+                  reorderSections={reorderSections}
+                  updateGlobalSettings={updateGlobalSettings}
+                  addCustomSection={addCustomSection}
+                />
+              </div>
 
-            {/* 分隔线 1 */}
-            <div className="w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
+              {/* 分隔线 1 */}
+              <div className="w-px bg-slate-200 dark:bg-slate-700 shrink-0" />
 
-            {/* 第二列：编辑面板（固定宽度，拖拽时启用 GPU 合成避免抖动） */}
-            <div
-              className={cn(
-                "h-full overflow-y-auto shrink-0",
-                "bg-white/80 dark:bg-slate-900/80",
-                "backdrop-blur-sm border-r border-slate-200 dark:border-slate-800",
-              )}
-              style={{
-                width: editPanelWidth,
-                willChange: isDragging ? "width" : "auto",
-                pointerEvents: isDragging ? "none" : "auto",
-              }}
+              {/* 第二列：编辑面板（固定宽度，拖拽时启用 GPU 合成避免抖动） */}
+              <div
+                className={cn(
+                  "h-full overflow-y-auto shrink-0",
+                  "bg-white/80 dark:bg-slate-900/80",
+                  "backdrop-blur-sm border-r border-slate-200 dark:border-slate-800",
+                )}
+                style={{
+                  width: editPanelWidth,
+                  willChange: isDragging ? "width" : "auto",
+                  pointerEvents: isDragging ? "none" : "auto",
+                }}
+              >
+                <EditPanel
+                  key={activeSection}
+                  activeSection={activeSection}
+                  menuSections={resumeData.menuSections}
+                  resumeData={resumeData}
+                  updateBasicInfo={updateBasicInfo}
+                  updateProject={updateProject}
+                  deleteProject={deleteProject}
+                  reorderProjects={reorderProjects}
+                  updateExperience={updateExperience}
+                  deleteExperience={deleteExperience}
+                  reorderExperiences={reorderExperiences}
+                  updateEducation={updateEducation}
+                  deleteEducation={deleteEducation}
+                  reorderEducations={reorderEducations}
+                  updateOpenSource={updateOpenSource}
+                  deleteOpenSource={deleteOpenSource}
+                  reorderOpenSources={reorderOpenSources}
+                  updateAward={updateAward}
+                  deleteAward={deleteAward}
+                  reorderAwards={reorderAwards}
+                  updateSkillContent={updateSkillContent}
+                  updateMenuSections={updateMenuSections}
+                  updateGlobalSettings={updateGlobalSettings}
+                  onAIImport={handleAIImport}
+                />
+              </div>
+
+              {/* 分隔线 2（可拖拽调整编辑面板宽度） */}
+              <DragHandle onDrag={handleDrag} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="scroll-mode"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.25, ease: "easeInOut" }}
+              className="flex"
             >
-              <EditPanel
-                activeSection={activeSection}
-                menuSections={resumeData.menuSections}
-                resumeData={resumeData}
-                updateBasicInfo={updateBasicInfo}
-                updateProject={updateProject}
-                deleteProject={deleteProject}
-                reorderProjects={reorderProjects}
-                updateExperience={updateExperience}
-                deleteExperience={deleteExperience}
-                reorderExperiences={reorderExperiences}
-                updateEducation={updateEducation}
-                deleteEducation={deleteEducation}
-                reorderEducations={reorderEducations}
-                updateOpenSource={updateOpenSource}
-                deleteOpenSource={deleteOpenSource}
-                reorderOpenSources={reorderOpenSources}
-                updateAward={updateAward}
-                deleteAward={deleteAward}
-                reorderAwards={reorderAwards}
-                updateSkillContent={updateSkillContent}
-                updateMenuSections={updateMenuSections}
-                updateGlobalSettings={updateGlobalSettings}
-                onAIImport={handleAIImport}
-              />
-            </div>
+              {/* 滚动编辑模式：两列布局 */}
+              {/* 第一列：滚动编辑区域 */}
+              <div
+                className={cn(
+                  "h-full overflow-hidden shrink-0",
+                  "bg-white/80 dark:bg-slate-900/80",
+                  "backdrop-blur-sm border-r border-slate-200 dark:border-slate-800",
+                )}
+                style={{
+                  width: editPanelWidth,
+                  willChange: isDragging ? "width" : "auto",
+                  pointerEvents: isDragging ? "none" : "auto",
+                }}
+              >
+                <ScrollEditMode
+                  menuSections={resumeData.menuSections}
+                  resumeData={resumeData}
+                  updateBasicInfo={updateBasicInfo}
+                  updateProject={updateProject}
+                  deleteProject={deleteProject}
+                  reorderProjects={reorderProjects}
+                  updateExperience={updateExperience}
+                  deleteExperience={deleteExperience}
+                  reorderExperiences={reorderExperiences}
+                  updateEducation={updateEducation}
+                  deleteEducation={deleteEducation}
+                  reorderEducations={reorderEducations}
+                  updateOpenSource={updateOpenSource}
+                  deleteOpenSource={deleteOpenSource}
+                  reorderOpenSources={reorderOpenSources}
+                  updateAward={updateAward}
+                  deleteAward={deleteAward}
+                  reorderAwards={reorderAwards}
+                  updateSkillContent={updateSkillContent}
+                  updateGlobalSettings={updateGlobalSettings}
+                  updateMenuSections={updateMenuSections}
+                  handleAIImport={handleAIImport}
+                />
+              </div>
 
-            {/* 分隔线 2（可拖拽调整编辑面板宽度） */}
-            <DragHandle onDrag={handleDrag} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
-          </>
-        ) : (
-          <>
-            {/* 滚动编辑模式：两列布局 */}
-            {/* 第一列：滚动编辑区域 */}
-            <div
-              className={cn(
-                "h-full overflow-hidden shrink-0",
-                "bg-white/80 dark:bg-slate-900/80",
-                "backdrop-blur-sm border-r border-slate-200 dark:border-slate-800",
-              )}
-              style={{
-                width: editPanelWidth,
-                willChange: isDragging ? "width" : "auto",
-                pointerEvents: isDragging ? "none" : "auto",
-              }}
-            >
-              <ScrollEditMode
-                menuSections={resumeData.menuSections}
-                resumeData={resumeData}
-                updateBasicInfo={updateBasicInfo}
-                updateProject={updateProject}
-                deleteProject={deleteProject}
-                reorderProjects={reorderProjects}
-                updateExperience={updateExperience}
-                deleteExperience={deleteExperience}
-                reorderExperiences={reorderExperiences}
-                updateEducation={updateEducation}
-                deleteEducation={deleteEducation}
-                reorderEducations={reorderEducations}
-                updateOpenSource={updateOpenSource}
-                deleteOpenSource={deleteOpenSource}
-                reorderOpenSources={reorderOpenSources}
-                updateAward={updateAward}
-                deleteAward={deleteAward}
-                reorderAwards={reorderAwards}
-                updateSkillContent={updateSkillContent}
-                updateGlobalSettings={updateGlobalSettings}
-                updateMenuSections={updateMenuSections}
-                handleAIImport={handleAIImport}
-              />
-            </div>
-
-            {/* 分隔线（可拖拽调整编辑面板宽度） */}
-            <DragHandle onDrag={handleDrag} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
-          </>
-        )}
+              {/* 分隔线（可拖拽调整编辑面板宽度） */}
+              <DragHandle onDrag={handleDrag} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* 预览面板（始终显示；拖拽时禁用指针避免 iframe 抢占事件） */}
         <div

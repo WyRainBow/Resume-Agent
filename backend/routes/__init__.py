@@ -14,6 +14,7 @@ from .logos import router as logos_router
 from .photos import router as photos_router
 from .application_progress import router as application_progress_router
 from .dashboard_perf import router as dashboard_perf_router
+from .calendar import router as calendar_router
 
 __all__ = [
     'health_router',
@@ -29,4 +30,5 @@ __all__ = [
     'photos_router',
     'application_progress_router',
     'dashboard_perf_router',
+    'calendar_router',
 ]

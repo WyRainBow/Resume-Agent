@@ -4,6 +4,7 @@
  * 支持 formatButtons 添加格式按钮（如加粗）
  */
 import React, { useRef } from 'react'
+import { motion } from 'framer-motion'
 import { Bold } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import RichEditor from '../shared/RichEditor'
@@ -22,6 +23,7 @@ interface FieldProps {
   resumeData?: ResumeData  // 简历数据，用于 AI 润色
   polishPath?: string  // JSON 路径，例如 "projects.0.description"
   educationData?: Partial<Education>  // 教育经历数据，用于 AI 帮写
+  index?: number  // 用于级联动画延迟
 }
 
 const Field = ({
@@ -35,12 +37,21 @@ const Field = ({
   resumeData,
   polishPath,
   educationData,
+  index = 0,
 }: FieldProps) => {
   const inputRef = useRef<HTMLInputElement>(null)
+
+  // 级联入场动画
+  const fieldAnimation = {
+    initial: { opacity: 0, y: 15 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.25, delay: index * 0.04, ease: 'easeOut' }
+  }
+
   // 富文本编辑器
   if (type === 'editor') {
     return (
-      <div className="space-y-2">
+      <motion.div {...fieldAnimation} className="space-y-2">
         {label && (
           <label className="text-sm text-gray-600 dark:text-neutral-300">
             {label}
@@ -54,14 +65,14 @@ const Field = ({
           polishPath={polishPath}
           educationData={educationData}
         />
-      </div>
+      </motion.div>
     )
   }
 
   // 多行文本
   if (type === 'textarea') {
     return (
-      <div className="space-y-2">
+      <motion.div {...fieldAnimation} className="space-y-2">
         {label && (
           <label className="text-sm text-gray-600 dark:text-neutral-300">
             {label}
@@ -80,14 +91,14 @@ const Field = ({
             className
           )}
         />
-      </div>
+      </motion.div>
     )
   }
 
   // 日期
   if (type === 'date') {
     return (
-      <div className="space-y-2">
+      <motion.div {...fieldAnimation} className="space-y-2">
         {label && (
           <label className="text-sm text-gray-600 dark:text-neutral-300">
             {label}
@@ -105,7 +116,7 @@ const Field = ({
             className
           )}
         />
-      </div>
+      </motion.div>
     )
   }
 
@@ -113,18 +124,20 @@ const Field = ({
   // 如果支持加粗格式，使用 BoldInput 组件
   if (formatButtons?.includes('bold')) {
     return (
-      <BoldInput
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        className={className}
-        label={label}
-      />
+      <motion.div {...fieldAnimation}>
+        <BoldInput
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          className={className}
+          label={label}
+        />
+      </motion.div>
     )
   }
-  
+
   return (
-    <div className="space-y-2">
+    <motion.div {...fieldAnimation} className="space-y-2">
       {label && (
         <label className="text-sm text-gray-600 dark:text-neutral-300">
           {label}
@@ -144,7 +157,7 @@ const Field = ({
           className
         )}
       />
-    </div>
+    </motion.div>
   )
 }
 

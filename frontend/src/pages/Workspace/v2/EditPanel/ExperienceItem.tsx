@@ -327,7 +327,12 @@ const ExperienceEditor = ({
   return (
     <div className="space-y-5">
       <div className="grid gap-5">
-        <div className="grid grid-cols-2 gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, delay: 0 * 0.05, ease: 'easeOut' }}
+          className="grid grid-cols-2 gap-4"
+        >
           <div>
             <div className="flex items-center justify-between mb-1">
               <div className="flex items-center gap-2">
@@ -401,6 +406,7 @@ const ExperienceEditor = ({
               </div>
             )}
             <Field
+              index={0}
               value={experience.company}
               onChange={(value) => handleChange('company', value)}
               placeholder="请输入公司名称"
@@ -408,19 +414,27 @@ const ExperienceEditor = ({
             />
           </div>
           <Field
+            index={1}
             label="职位"
             value={experience.position}
             onChange={(value) => handleChange('position', value)}
             placeholder="请输入职位"
             formatButtons={['bold']}
           />
-        </div>
-        <MonthYearRangePicker
-          label="在职时间"
-          value={experience.date ?? ''}
-          onChange={(value) => handleChange('date', value)}
-        />
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2, delay: 2 * 0.05, ease: 'easeOut' }}
+        >
+          <MonthYearRangePicker
+            label="在职时间"
+            value={experience.date ?? ''}
+            onChange={(value) => handleChange('date', value)}
+          />
+        </motion.div>
         <Field
+          index={3}
           label="工作内容"
           value={experience.details}
           onChange={(value) => handleChange('details', value)}

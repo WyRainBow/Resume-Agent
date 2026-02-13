@@ -2,10 +2,12 @@
  * 基本信息编辑面板
  */
 import { useRef, useState, type ChangeEvent } from 'react'
+import { motion } from 'framer-motion'
 import { Upload, Loader2, X } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { uploadUserPhoto } from '@/services/photoService'
+import { InlineDatePicker } from '@/components/InlineDatePicker'
 import type { BasicInfo } from '../types'
 import Field from './Field'
 
@@ -66,7 +68,12 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
   return (
     <div className="space-y-6 p-6">
       {/* 资料 */}
-      <div className="space-y-4">
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
+        className="space-y-4"
+      >
         <h3 className="font-medium text-neutral-900 dark:text-neutral-200">
           基础字段
         </h3>
@@ -75,12 +82,14 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
           <div className="flex-1 space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <Field
+                index={0}
                 label="姓名"
                 value={basic?.name || ''}
                 onChange={(value) => onUpdate({ name: value })}
                 placeholder="请输入姓名"
               />
               <Field
+                index={1}
                 label="职位"
                 value={basic?.title || ''}
                 onChange={(value) => onUpdate({ title: value })}
@@ -90,27 +99,37 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
 
             <div className="grid grid-cols-2 gap-4">
               <Field
+                index={2}
                 label="状态"
                 value={basic?.employementStatus || ''}
                 onChange={(value) => onUpdate({ employementStatus: value })}
                 placeholder="如：在职、离职"
               />
-              <Field
-                label="生日"
-                value={basic?.birthDate || ''}
-                onChange={(value) => onUpdate({ birthDate: value })}
-                type="date"
-              />
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25, delay: 3 * 0.04, ease: 'easeOut' }}
+                className="space-y-2"
+              >
+                <label className="text-sm text-gray-600 dark:text-neutral-300">生日</label>
+                <InlineDatePicker
+                  value={basic?.birthDate || null}
+                  placeholder="选择日期"
+                  onSelect={(value) => onUpdate({ birthDate: value ?? '' })}
+                />
+              </motion.div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <Field
+                index={4}
                 label="邮箱"
                 value={basic?.email || ''}
                 onChange={(value) => onUpdate({ email: value })}
                 placeholder="请输入邮箱"
               />
               <Field
+                index={5}
                 label="电话"
                 value={basic?.phone || ''}
                 onChange={(value) => onUpdate({ phone: value })}
@@ -119,6 +138,7 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
             </div>
 
             <Field
+              index={6}
               label="地址"
               value={basic?.location || ''}
               onChange={(value) => onUpdate({ location: value })}
@@ -126,7 +146,12 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
             />
           </div>
 
-          <div className="w-full xl:w-[300px] shrink-0">
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, delay: 7 * 0.04, ease: 'easeOut' }}
+            className="w-full xl:w-[300px] shrink-0"
+          >
             <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm font-semibold text-slate-800">
@@ -247,9 +272,9 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
                 </div>
               )}
             </div>
-          </div>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
     </div>
   )
 }

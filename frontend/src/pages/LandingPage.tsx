@@ -73,10 +73,10 @@ export default function LandingPage() {
       }`}>
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
         <div className="flex items-center gap-2.5 cursor-pointer group shrink-0 min-w-0" onClick={() => navigate('/')}>
-          <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center border border-slate-200 shadow-sm group-hover:scale-105 transition-transform shrink-0">
-            <span className="text-slate-900 font-black text-sm italic">RA</span>
+          <div className="w-11 h-11 bg-white rounded-lg flex items-center justify-center border border-slate-200 shadow-sm group-hover:scale-105 transition-transform shrink-0">
+            <span className="text-slate-900 font-black text-base italic">RA</span>
           </div>
-          <span className="text-slate-900 font-bold text-base truncate">Resume.AI</span>
+          <span className="text-slate-900 font-bold text-lg truncate">Resume.AI</span>
         </div>
 
           <div className="hidden md:flex items-center gap-10">

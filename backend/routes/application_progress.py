@@ -58,7 +58,7 @@ def _run_with_db_retry(db: Session, fn: Callable[[], T], retries: int = 1) -> T:
             last_error = exc
             db.rollback()
             break
-    raise HTTPException(status_code=503, detail="数据库连接异常，请稍后重试") from last_error
+    raise HTTPException(status_code=503, detail="数据库连接异常、请稍后重试") from last_error
 
 
 class ApplicationProgressPayload(BaseModel):

@@ -325,7 +325,7 @@ function InlineDatePicker({
         onClick={() => setOpen((v) => !v)}
         className={cn(
           'w-full h-11 rounded-xl border px-4 text-left flex items-center justify-between gap-2 transition-colors',
-          'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500'
+          'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500'
         )}
       >
         <span className={cn('truncate text-[17px]', selectedDate ? 'font-medium text-slate-800 dark:text-slate-200' : 'text-slate-400')}>
@@ -389,7 +389,7 @@ function InlineDatePicker({
                       className={cn(
                         'h-8 rounded-md text-sm transition-colors',
                         active
-                          ? 'bg-indigo-600 text-white'
+                          ? 'bg-blue-600 text-white'
                           : cell.inMonth
                             ? 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
                             : 'text-slate-300 dark:text-slate-600 hover:bg-slate-100/60'
