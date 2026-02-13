@@ -2449,7 +2449,7 @@ export default function SophiaChat() {
                 )}
 
                 {messages.length === 0 && !isProcessing && (
-                  <div className="max-w-2xl mx-auto py-12 px-4 transition-all duration-500 ease-in-out">
+                  <div className="max-w-2xl mx-auto py-24 px-4 transition-all duration-500 ease-in-out">
                     <div className="text-center mb-12">
                       <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">
                         你好，我是你的 Resume AI 助手
@@ -2501,20 +2501,6 @@ export default function SophiaChat() {
                       ))}
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-slate-400 dark:text-slate-500">
-                      <div className="flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>Thought Process 深度思考</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <Zap className="w-3.5 h-3.5" />
-                        <span>流式输出 · 实时响应</span>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <MessageSquare className="w-3.5 h-3.5" />
-                        <span>Markdown 渲染</span>
-                      </div>
-                    </div>
                   </div>
                 )}
 
