@@ -18,6 +18,13 @@ build/
 # Environment
 .env
 .env.local
+.env.remote
+.env.production
+frontend/.env.local
+frontend/.env.remote
+frontend/.env.production
+!.env.example
+!frontend/.env.example
 
 # IDE
 .vscode/
@@ -95,3 +102,4 @@ docs/**
 !docs/screenshots/**
 !docs/*-setup.md
 !docs/*-guide.md
+!docs/ENVIRONMENT_SETUP.md

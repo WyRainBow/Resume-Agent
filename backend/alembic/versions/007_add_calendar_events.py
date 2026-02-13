@@ -16,6 +16,11 @@ depends_on = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if "calendar_events" in inspector.get_table_names():
+        return
+
     op.create_table(
         "calendar_events",
         sa.Column("id", sa.String(length=36), primary_key=True),
@@ -36,6 +41,11 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    if "calendar_events" not in inspector.get_table_names():
+        return
+
     op.drop_index("ix_calendar_events_user_starts", table_name="calendar_events")
     op.drop_index("ix_calendar_events_starts_at", table_name="calendar_events")
     op.drop_index("ix_calendar_events_user_id", table_name="calendar_events")

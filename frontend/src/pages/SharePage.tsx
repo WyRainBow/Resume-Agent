@@ -7,6 +7,7 @@ import { renderPDFStream } from '../services/api'
 import { convertToBackendFormat } from './Workspace/v2/utils/convertToBackend'
 import { saveAs } from 'file-saver'
 import type { ResumeData } from './Workspace/v2/types'
+import { getApiBaseUrl } from '@/lib/runtimeEnv'
 
 interface SharedResume {
   success: boolean
@@ -30,22 +31,7 @@ export default function SharePage() {
   useEffect(() => {
     const fetchSharedResume = async () => {
       try {
-        // 获取 API 基础 URL
-        const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || ''
-        let API_BASE = ''
-        
-        if (rawApiBase) {
-          API_BASE = rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`
-        } else {
-          // 如果没有配置，根据当前环境判断
-          if (import.meta.env.PROD) {
-            API_BASE = '' // 生产环境使用相对路径，由代理处理
-          } else {
-            API_BASE = 'http://localhost:9000' // 开发环境
-          }
-        }
-        
-        const response = await fetch(`${API_BASE}/api/resume/share/${shareId}`)
+        const response = await fetch(`${getApiBaseUrl()}/api/resume/share/${shareId}`)
         
         if (!response.ok) {
           if (response.status === 404) {

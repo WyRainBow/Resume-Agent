@@ -13,9 +13,9 @@ from sse_starlette.sse import EventSourceResponse
 from pydantic import BaseModel
 
 try:
-    from backend.models import RenderPDFRequest
-except ImportError:
     from models import RenderPDFRequest
+except ImportError:
+    from backend.models import RenderPDFRequest
 
 router = APIRouter(prefix="/api", tags=["PDF"])
 

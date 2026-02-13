@@ -20,8 +20,18 @@ import {
   refreshLogos,
 } from '../constants/companyLogos'
 
-/** 仅允许该用户上传/修改 Logo（按 username 匹配） */
-const ALLOWED_LOGO_UPLOAD_USER = 'cocoyu'
+function getAuthRoleFromToken(): string {
+  try {
+    const token = localStorage.getItem('auth_token')
+    if (!token) return ''
+    const payload = token.split('.')[1]
+    if (!payload) return ''
+    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
+    return String(decoded?.role || '').toLowerCase()
+  } catch {
+    return ''
+  }
+}
 
 // 将 Markdown 格式转换为 HTML（用于预览）
 const markdownToHtml = (text: string): string => {
@@ -53,7 +63,7 @@ interface ExperienceItemProps {
 
 /**
  * Logo 选择器组件
- * canUploadLogo: 仅允许指定用户（如 cocoyu）时显示上传按钮
+ * canUploadLogo: 仅允许 member/admin 显示上传按钮
  */
 function LogoSelector({
   selectedKey,
@@ -300,7 +310,8 @@ const ExperienceEditor = ({
   updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }) => {
   const { user } = useAuth()
-  const canUploadLogo = (user?.username ?? '') === ALLOWED_LOGO_UPLOAD_USER
+  const roleFromToken = getAuthRoleFromToken()
+  const canUploadLogo = !!user && (roleFromToken === 'admin' || roleFromToken === 'member')
 
   const handleChange = (field: keyof Experience, value: string | boolean | number | undefined) => {
     const updated = { ...experience, [field]: value }
@@ -589,4 +600,3 @@ const ExperienceItem = ({
 }
 
 export default ExperienceItem
-

@@ -5,6 +5,7 @@ import { ArrowLeft, Send, Bot } from 'lucide-react'
 import { useTypewriter } from '@/hooks/useTypewriter'
 import { getResume } from '@/services/resumeStorage'
 import type { SavedResume } from '@/services/resumeStorage'
+import { getApiBaseUrl } from '@/lib/runtimeEnv'
 
 type Role = 'user' | 'assistant'
 
@@ -22,16 +23,6 @@ interface StreamEnvelope {
   data?: any
   timestamp?: string | number
 }
-
-const rawApiBase =
-  import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || ''
-const API_BASE = rawApiBase
-  ? rawApiBase.startsWith('http')
-    ? rawApiBase
-    : `https://${rawApiBase}`
-  : import.meta.env.PROD
-    ? ''
-    : 'http://localhost:9000'
 
 export default function AgentChat() {
   const { resumeId } = useParams()
@@ -218,7 +209,7 @@ export default function AgentChat() {
     }
 
     try {
-      const streamUrl = API_BASE ? `${API_BASE}/api/agent/stream` : '/api/agent/stream'
+      const streamUrl = `${getApiBaseUrl()}/api/agent/stream`
       const response = await fetch(streamUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

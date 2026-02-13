@@ -1,31 +1,17 @@
 import axios from 'axios'
+import { getApiBaseUrl } from '@/lib/runtimeEnv'
 import type { Resume } from '@/types/resume'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
 import { DEFAULT_RESUME_TEMPLATE } from '@/data/defaultTemplate'
 
-// 处理 API_BASE，确保有协议前缀
-// 生产环境如果没有配置，使用相对路径（由代理处理）
-const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || ''
-let API_BASE = ''
-if (rawApiBase) {
-  API_BASE = rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`
-  } else {
-    // 如果没有配置环境变量，根据环境判断
-    if (import.meta.env.PROD) {
-      API_BASE = '' // 生产环境使用相对路径，由代理处理
-    } else {
-      API_BASE = 'http://localhost:9000' // 开发环境
-    }
-  }
-
 export async function aiTest(provider: 'zhipu' | 'doubao', prompt: string) {
-  const url = `${API_BASE}/api/ai/test`
+  const url = `${getApiBaseUrl()}/api/ai/test`
   const { data } = await axios.post(url, { provider, prompt })
   return data as { provider: string; result: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }
 }
 
 export async function generateResume(provider: 'zhipu' | 'doubao', instruction: string, locale: 'zh' | 'en' = 'zh') {
-  const url = `${API_BASE}/api/resume/generate`
+  const url = `${getApiBaseUrl()}/api/resume/generate`
   const { data } = await axios.post(url, { provider, instruction, locale })
   return data as { provider: string; resume: Resume }
 }
@@ -44,7 +30,7 @@ export async function generateResumeStream(
     onError: (error: string) => void
   }
 ) {
-  const url = `${API_BASE}/api/resume/generate/stream`
+  const url = `${getApiBaseUrl()}/api/resume/generate/stream`
   
   try {
     const response = await fetch(url, {
@@ -140,7 +126,7 @@ export async function renderPDF(resume: Resume, _useDemo: boolean = false, secti
   }
 
   // 使用非流式端点进行简单的PDF渲染
-  const url = `${API_BASE}/api/pdf/render`
+  const url = `${getApiBaseUrl()}/api/pdf/render`
   // 将 experience 映射为 internships（因为数据存在 internships 字段）
   const mappedOrder = sectionOrder?.map(s => s === 'experience' ? 'internships' : s)
   const { data } = await axios.post(url, { resume, section_order: mappedOrder }, { responseType: 'blob' })
@@ -174,7 +160,7 @@ export async function renderPDFStream(
 
   onProgress?.('开始生成PDF...')
 
-  const url = `${API_BASE}/api/pdf/render/stream`
+  const url = `${getApiBaseUrl()}/api/pdf/render/stream`
   // 将 experience 映射为 internships（因为数据存在 internships 字段）
   const mappedOrder = sectionOrder?.map(s => s === 'experience' ? 'internships' : s)
 
@@ -358,7 +344,7 @@ export async function renderPDFStream(
 }
 
 export async function rewriteResume(provider: 'zhipu' | 'doubao', resume: Resume, path: string, instruction: string) {
-  const url = `${API_BASE}/api/resume/rewrite`
+  const url = `${getApiBaseUrl()}/api/resume/rewrite`
   const { data } = await axios.post(url, { provider, resume, path, instruction })
   return data as { resume: Resume }
 }
@@ -376,7 +362,7 @@ export async function rewriteResumeStream(
   onError?: (error: string) => void,
   signal?: AbortSignal
 ) {
-  const url = `${API_BASE}/api/resume/rewrite/stream`
+  const url = `${getApiBaseUrl()}/api/resume/rewrite/stream`
 
   try {
     const response = await fetch(url, {
@@ -459,7 +445,7 @@ export async function rewriteResumeStream(
 }
 
 export async function formatResumeText(provider: 'zhipu' | 'doubao', text: string, useAi: boolean = true) {
-  const url = `${API_BASE}/api/resume/format`
+  const url = `${getApiBaseUrl()}/api/resume/format`
   const { data } = await axios.post(url, { text, provider, use_ai: useAi })
   return data as { success: boolean; data: Resume | null; method: string; error: string | null }
 }
@@ -562,7 +548,7 @@ export async function compileLatexStream(
   
   onProgress?.('开始编译 LaTeX...')
   
-  const url = `${API_BASE}/api/pdf/compile-latex/stream`
+  const url = `${getApiBaseUrl()}/api/pdf/compile-latex/stream`
   
   const response = await fetch(url, {
     method: 'POST',
@@ -739,7 +725,7 @@ export interface ReportListResponse {
  * 创建报告
  */
 export async function createReport(topic: string, title?: string): Promise<CreateReportResponse> {
-  const url = `${API_BASE}/api/reports/`
+  const url = `${getApiBaseUrl()}/api/reports/`
   const { data } = await axios.post(url, { topic, title })
   return data as CreateReportResponse
 }
@@ -748,7 +734,7 @@ export async function createReport(topic: string, title?: string): Promise<Creat
  * 获取报告详情
  */
 export async function getReport(reportId: string): Promise<ReportDetail> {
-  const url = `${API_BASE}/api/reports/${reportId}`
+  const url = `${getApiBaseUrl()}/api/reports/${reportId}`
   const { data } = await axios.get(url)
   return data as ReportDetail
 }
@@ -757,7 +743,7 @@ export async function getReport(reportId: string): Promise<ReportDetail> {
  * 确保报告有关联的对话
  */
 export async function ensureReportConversation(reportId: string): Promise<{ conversation_id: string }> {
-  const url = `${API_BASE}/api/reports/${reportId}/ensure-conversation`
+  const url = `${getApiBaseUrl()}/api/reports/${reportId}/ensure-conversation`
   const { data } = await axios.post(url)
   return data as { conversation_id: string }
 }
@@ -766,7 +752,7 @@ export async function ensureReportConversation(reportId: string): Promise<{ conv
  * 获取文档内容
  */
 export async function getDocumentContent(documentId: string): Promise<DocumentContent> {
-  const url = `${API_BASE}/api/documents/${documentId}/content`
+  const url = `${getApiBaseUrl()}/api/documents/${documentId}/content`
   const { data } = await axios.get(url)
   return data as DocumentContent
 }
@@ -775,7 +761,7 @@ export async function getDocumentContent(documentId: string): Promise<DocumentCo
  * 获取报告列表
  */
 export async function listReports(page: number = 1, pageSize: number = 20): Promise<ReportListResponse> {
-  const url = `${API_BASE}/api/reports/`
+  const url = `${getApiBaseUrl()}/api/reports/`
   const { data } = await axios.get(url, { params: { page, page_size: pageSize } })
   return data as ReportListResponse
 }
@@ -784,7 +770,7 @@ export async function listReports(page: number = 1, pageSize: number = 20): Prom
  * 更新文档内容
  */
 export async function updateDocumentContent(documentId: string, content: string): Promise<{ success: boolean }> {
-  const url = `${API_BASE}/api/documents/${documentId}/content`
+  const url = `${getApiBaseUrl()}/api/documents/${documentId}/content`
   const { data } = await axios.post(url, { content })
   return data as { success: boolean }
 }

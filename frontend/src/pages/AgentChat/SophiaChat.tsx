@@ -20,6 +20,7 @@ import SearchSummary from '@/components/chat/SearchSummary';
 import { ReportGenerationDetector } from '@/components/chat/ReportGenerationDetector';
 import { RecentSessions } from '@/components/sidebar/RecentSessions';
 import { useAuth } from '@/contexts/AuthContext';
+import { getApiBaseUrl } from '@/lib/runtimeEnv';
 import { useCLTP } from '@/hooks/useCLTP';
 import { HTMLTemplateRenderer } from '@/pages/Workspace/v2/HTMLTemplateRenderer';
 import type { ResumeData } from '@/pages/Workspace/v2/types';
@@ -183,21 +184,9 @@ function ReportContentView({
 // 配置
 // ============================================================================
 
-const rawApiBase =
-  import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || '';
-const API_BASE = rawApiBase
-  ? rawApiBase.startsWith('http')
-    ? rawApiBase
-    : `https://${rawApiBase}`
-  : import.meta.env.PROD
-    ? ''
-    : 'http://localhost:9000';
-
 const SSE_CONFIG = {
-  BASE_URL: API_BASE || '',
   HEARTBEAT_TIMEOUT: 60000,  // 60 seconds
 };
-const HISTORY_BASE = API_BASE || '';
 
 function convertResumeDataToOpenManusFormat(resume: ResumeData) {
   return {
@@ -363,7 +352,7 @@ export default function SophiaChat() {
     finalizeStream,
   } = useCLTP({
     conversationId,
-    baseUrl: SSE_CONFIG.BASE_URL,
+    baseUrl: getApiBaseUrl(),
     heartbeatTimeout: SSE_CONFIG.HEARTBEAT_TIMEOUT,
     resumeData: normalizedResume,
     onSSEEvent: handleSSEEvent,
@@ -491,7 +480,7 @@ export default function SophiaChat() {
           console.warn('[AgentChat] Cannot load session: conversationId is empty');
           return;
         }
-        const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/${conversationId}`);
+        const resp = await fetch(`${getApiBaseUrl()}/api/agent/history/sessions/${conversationId}`);
         if (!mounted) return;
         if (!resp.ok) {
           // 会话不存在，使用新的会话ID
@@ -602,7 +591,7 @@ export default function SophiaChat() {
       try {
         const report = await getReport(streamingReportId);
         if (report.main_id) {
-          await fetch(`${API_BASE}/api/documents/${report.main_id}/content`, {
+          await fetch(`${getApiBaseUrl()}/api/documents/${report.main_id}/content`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content: currentAnswer })
@@ -617,7 +606,7 @@ export default function SophiaChat() {
     return () => {
       clearTimeout(saveTimer);
     };
-  }, [currentAnswer, shouldHideResponseInChat, streamingReportId, selectedReportId, API_BASE]);
+  }, [currentAnswer, shouldHideResponseInChat, streamingReportId, selectedReportId]);
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -706,7 +695,7 @@ export default function SophiaChat() {
         
         // 保存报告内容
         if (result.mainId) {
-          await fetch(`${API_BASE}/api/documents/${result.mainId}/content`, {
+          await fetch(`${getApiBaseUrl()}/api/documents/${result.mainId}/content`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content })
@@ -725,7 +714,7 @@ export default function SophiaChat() {
         console.error('[AgentChat] 创建报告失败:', err);
       }
     }
-  }, [generatedReports, API_BASE]);
+  }, [generatedReports]);
 
   /**
    * Finalize current message and add to history
@@ -805,7 +794,7 @@ export default function SophiaChat() {
           try {
             const report = await getReport(streamingReportId);
             if (report.main_id) {
-              await fetch(`${API_BASE}/api/documents/${report.main_id}/content`, {
+              await fetch(`${getApiBaseUrl()}/api/documents/${report.main_id}/content`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content: answer })
@@ -834,7 +823,7 @@ export default function SophiaChat() {
       
       return updated;
     });
-  }, [finalizeStream, currentAnswer, currentThought, detectAndCreateReport, shouldHideResponseInChat, streamingReportId, API_BASE]);
+  }, [finalizeStream, currentAnswer, currentThought, detectAndCreateReport, shouldHideResponseInChat, streamingReportId]);
 
   const refreshSessions = useCallback(() => {
     setSessionsRefreshKey((prev) => prev + 1);
@@ -967,7 +956,7 @@ export default function SophiaChat() {
       saveInFlightRef.current = (async () => {
         try {
           const resp = await fetch(
-            `${HISTORY_BASE}/api/agent/history/sessions/${validSessionId}/save`,
+            `${getApiBaseUrl()}/api/agent/history/sessions/${validSessionId}/save`,
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -1062,13 +1051,13 @@ export default function SophiaChat() {
 
   const deleteSession = async (sessionId: string) => {
     try {
-      const resp = await fetch(`${HISTORY_BASE}/api/agent/history/${sessionId}`, { 
+      const resp = await fetch(`${getApiBaseUrl()}/api/agent/history/${sessionId}`, { 
         method: 'DELETE',
       });
       if (!resp.ok) throw new Error(`Failed to delete session: ${resp.status}`);
 
       // Clear active session memory on backend
-      fetch(`${HISTORY_BASE}/api/agent/stream/session/${sessionId}`, {
+      fetch(`${getApiBaseUrl()}/api/agent/stream/session/${sessionId}`, {
         method: 'DELETE',
       }).catch(() => undefined);
       
@@ -1151,7 +1140,7 @@ export default function SophiaChat() {
     const trimmedTitle = title.trim();
     if (!trimmedTitle) return;
     try {
-      await fetch(`${HISTORY_BASE}/api/agent/history/sessions/${sessionId}/title`, {
+      await fetch(`${getApiBaseUrl()}/api/agent/history/sessions/${sessionId}/title`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title: trimmedTitle }),
@@ -1172,7 +1161,7 @@ export default function SophiaChat() {
     await waitForPendingSave();
 
     try {
-      const resp = await fetch(`${HISTORY_BASE}/api/agent/history/sessions/${sessionId}`);
+      const resp = await fetch(`${getApiBaseUrl()}/api/agent/history/sessions/${sessionId}`);
       
       if (!resp.ok) {
         console.error(`[AgentChat] Failed to load session: ${resp.status} ${resp.statusText}`);
@@ -1466,7 +1455,7 @@ export default function SophiaChat() {
           {isDesktop && (
             <aside className="w-[280px] shrink-0 border-r border-slate-200/50 dark:border-slate-800/50 bg-white dark:bg-slate-900">
               <RecentSessions
-                baseUrl={HISTORY_BASE}
+                baseUrl={getApiBaseUrl()}
                 currentSessionId={currentSessionId}
                 onSelectSession={handleSelectSession}
                 onCreateSession={handleCreateSession}
@@ -1489,7 +1478,7 @@ export default function SophiaChat() {
                 onClick={(event) => event.stopPropagation()}
               >
                 <RecentSessions
-                  baseUrl={HISTORY_BASE}
+                  baseUrl={getApiBaseUrl()}
                   currentSessionId={currentSessionId}
                   onSelectSession={handleSelectSession}
                   onCreateSession={handleCreateSession}

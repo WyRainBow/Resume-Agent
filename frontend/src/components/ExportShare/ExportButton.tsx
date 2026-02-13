@@ -6,6 +6,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Download, FileJson, Share2, ChevronDown, Copy, Check, FileText } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
+import { getApiBaseUrl } from '@/lib/runtimeEnv'
 
 interface ExportButtonProps {
   resumeData: Record<string, any>
@@ -88,10 +89,7 @@ export function ExportButton({
       // 开启分享，生成链接
       try {
         setIsExporting(true)
-        const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || ''
-        const apiBase = rawApiBase
-          ? (rawApiBase.startsWith('http') ? rawApiBase : `http://${rawApiBase}`)
-          : ''
+        const apiBase = getApiBaseUrl()
         const url = apiBase ? `${apiBase}/api/resume/share` : `/api/resume/share`
 
         const response = await fetch(url, {
