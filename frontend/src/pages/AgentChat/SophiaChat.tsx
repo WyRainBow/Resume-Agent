@@ -3117,7 +3117,7 @@ export default function SophiaChat() {
                           ? "正在处理中，可以继续输入..."
                           : "输入消息...（例如：生成一份关于 AI 发展趋势的报告）"
                       }
-                      className="w-full min-h-[92px] resize-none bg-transparent px-4 pt-3 text-sm text-slate-700 dark:text-slate-200 placeholder-slate-400 outline-none"
+                      className="w-full min-h-[92px] resize-none bg-transparent px-4 pt-3 text-base text-slate-700 dark:text-slate-200 placeholder-slate-400 outline-none"
                     />
                     <div className="flex items-center justify-between px-3 pb-3">
                       <div className="flex items-center gap-2">
