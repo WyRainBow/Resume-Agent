@@ -120,6 +120,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
   }
 
   const currentWorkspace = getCurrentWorkspace()
+  const sidebarWidthPx = sidebarCollapsed ? 96 : 192
 
   // 点击外部区域关闭下拉菜单
   useEffect(() => {
@@ -138,7 +139,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
   }, [showLogoutMenu])
 
   const resolveWorkspacePath = (workspace: WorkspaceType): string => {
-    if (workspace === 'resume') return '/resume-entry'
+    if (workspace === 'resume') return '/workspace'
     if (workspace === 'agent') {
       const currentResumeId = getCurrentResumeId()
       return currentResumeId ? `/agent/${currentResumeId}` : '/agent/new'
@@ -452,7 +453,10 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
         <div
           className="h-full w-full flex flex-col overflow-hidden"
-          style={{ maxWidth: 'calc(100vw - 192px)' }}
+          style={{
+            width: '100%',
+            maxWidth: `calc(100vw - ${sidebarWidthPx}px)`,
+          }}
         >
           <AnimatePresence mode="wait">
             <motion.div
