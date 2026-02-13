@@ -254,22 +254,6 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               {!sidebarCollapsed && <span className="text-base font-medium">AI</span>}
             </button>
 
-            {/* 仪表盘 */}
-            <button
-              onClick={(e) => handleWorkspaceChange('dashboard', e)}
-              className={cn(
-                'w-full rounded-lg transition-all duration-200',
-                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
-                currentWorkspace === 'dashboard'
-                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-              )}
-              title="仪表盘"
-            >
-              <LayoutDashboard className="w-6 h-6 shrink-0" />
-              {!sidebarCollapsed && <span className="text-base font-medium">仪表盘</span>}
-            </button>
-
             {/* 我的简历 */}
             <button
               onClick={(e) => handleWorkspaceChange('myResumes', e)}
@@ -300,6 +284,22 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
             >
               <Table2 className="w-6 h-6 shrink-0" />
               {!sidebarCollapsed && <span className="text-base font-medium">投递进展表</span>}
+            </button>
+
+            {/* 仪表盘 */}
+            <button
+              onClick={(e) => handleWorkspaceChange('dashboard', e)}
+              className={cn(
+                'w-full rounded-lg transition-all duration-200',
+                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
+                currentWorkspace === 'dashboard'
+                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+              )}
+              title="仪表盘"
+            >
+              <LayoutDashboard className="w-6 h-6 shrink-0" />
+              {!sidebarCollapsed && <span className="text-base font-medium">仪表盘</span>}
             </button>
 
             {/* 设置：仅当前在设置页时高亮，未选中时图标与文字与其它项一致（灰） */}

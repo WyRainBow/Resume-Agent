@@ -11,6 +11,45 @@ import { MiniLineChart } from './components/MiniLineChart'
 import { DonutChart } from './components/DonutChart'
 import { buildDailyTrend, buildKpis, buildProgressDistribution } from './utils/metrics'
 
+const DASHBOARD_CACHE_TTL_MS = 60 * 1000
+const DASHBOARD_CACHE_KEY_PREFIX = 'stats-dashboard-cache-v1'
+
+type DashboardCachePayload = {
+  timestamp: number
+  resumes: SavedResume[]
+  entries: ApplicationProgressEntry[]
+}
+
+function buildCacheKey(userIdOrName: string) {
+  return `${DASHBOARD_CACHE_KEY_PREFIX}:${userIdOrName}`
+}
+
+function readDashboardCache(userIdOrName: string): DashboardCachePayload | null {
+  try {
+    const raw = sessionStorage.getItem(buildCacheKey(userIdOrName))
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as DashboardCachePayload
+    if (!parsed || !Array.isArray(parsed.resumes) || !Array.isArray(parsed.entries)) return null
+    if (Date.now() - parsed.timestamp > DASHBOARD_CACHE_TTL_MS) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function writeDashboardCache(userIdOrName: string, resumes: SavedResume[], entries: ApplicationProgressEntry[]) {
+  try {
+    const payload: DashboardCachePayload = {
+      timestamp: Date.now(),
+      resumes,
+      entries,
+    }
+    sessionStorage.setItem(buildCacheKey(userIdOrName), JSON.stringify(payload))
+  } catch {
+    // ignore cache write errors
+  }
+}
+
 export default function StatsDashboardPage() {
   const { isAuthenticated, user, openModal } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -23,22 +62,35 @@ export default function StatsDashboardPage() {
       openModal('login')
       return
     }
+    const userCacheKey = String(user?.id || user?.username || user?.email || 'anonymous')
+    const cached = readDashboardCache(userCacheKey)
+    if (cached) {
+      setResumes(cached.resumes)
+      setEntries(cached.entries)
+      setLoading(false)
+    }
+
     let alive = true
     const load = async () => {
-      setLoading(true)
+      if (!cached) setLoading(true)
       try {
-        const [resumeList, progressList] = await Promise.all([
+        const [resumeRes, progressRes] = await Promise.allSettled([
           getAllResumes(),
           listApplicationProgress(),
         ])
         if (!alive) return
-        setResumes(resumeList)
-        setEntries(progressList)
+        const nextResumes = resumeRes.status === 'fulfilled' ? resumeRes.value : (cached?.resumes ?? [])
+        const nextEntries = progressRes.status === 'fulfilled' ? progressRes.value : (cached?.entries ?? [])
+        setResumes(nextResumes)
+        setEntries(nextEntries)
+        writeDashboardCache(userCacheKey, nextResumes, nextEntries)
       } catch (err) {
         console.error(err)
         if (!alive) return
-        setResumes([])
-        setEntries([])
+        if (!cached) {
+          setResumes([])
+          setEntries([])
+        }
       } finally {
         if (alive) setLoading(false)
       }
@@ -47,11 +99,22 @@ export default function StatsDashboardPage() {
     return () => {
       alive = false
     }
-  }, [isAuthenticated, openModal])
+  }, [isAuthenticated, openModal, user?.email, user?.id, user?.username])
 
   const kpis = useMemo(() => buildKpis(resumes, entries), [resumes, entries])
   const trend = useMemo(() => buildDailyTrend(entries), [entries])
   const distribution = useMemo(() => buildProgressDistribution(entries), [entries])
+  const sectionStagger = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.08, delayChildren: 0.05 },
+    },
+  }
+  const sectionItem = {
+    hidden: { opacity: 0, y: 14 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+  }
 
   if (!isAuthenticated) {
     return (
@@ -66,12 +129,14 @@ export default function StatsDashboardPage() {
   return (
     <WorkspaceLayout>
       <div className="relative h-full overflow-y-auto bg-[#EEF4FF]">
-        <div
+        <motion.div
           className="pointer-events-none absolute inset-0"
           style={{
             backgroundImage:
               'radial-gradient(circle at 12% 8%, rgba(14,165,233,0.16), transparent 34%), radial-gradient(circle at 92% 0%, rgba(37,99,235,0.22), transparent 30%), linear-gradient(transparent 95%, rgba(37,99,235,0.06) 100%)',
           }}
+          animate={{ opacity: [0.8, 1, 0.8] }}
+          transition={{ duration: 5.2, repeat: Infinity, ease: 'easeInOut' }}
         />
         <div className="pointer-events-none absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'linear-gradient(90deg, #1e3a8a 1px, transparent 1px), linear-gradient(#1e3a8a 1px, transparent 1px)', backgroundSize: '42px 42px' }} />
         <motion.div
@@ -81,7 +146,12 @@ export default function StatsDashboardPage() {
           className="relative z-10 mx-auto max-w-[1660px] p-6 sm:p-9"
           style={{ fontFamily: "'Space Grotesk','Sora','PingFang SC','Noto Sans SC',sans-serif" }}
         >
-          <div className="mb-7 rounded-3xl border border-white/70 bg-white/75 p-6 shadow-[0_24px_60px_rgba(30,64,175,0.16)] backdrop-blur-xl">
+          <motion.div
+            className="mb-7 rounded-3xl border border-white/70 bg-white/75 p-6 shadow-[0_24px_60px_rgba(30,64,175,0.16)] backdrop-blur-xl"
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: 0.05 }}
+          >
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
                 <div className="mb-2 inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-sky-700">
@@ -99,18 +169,18 @@ export default function StatsDashboardPage() {
                 </p>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           {loading ? (
             <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-500">统计数据加载中...</div>
           ) : (
             <>
-              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
-                <KpiCard title="简历总数" value={kpis.resumeCount} hint="当前账号下简历数量" icon={FileText} index={0} />
-                <KpiCard title="投递总数" value={kpis.applicationCount} hint="累计投递记录数量" icon={Send} index={1} />
-                <KpiCard title="近7天投递" value={kpis.last7DaysCount} hint="按投递时间统计" icon={CalendarRange} index={2} />
-                <KpiCard title="活跃流程中" value={kpis.activePipelineCount} hint="已排除刷掉与简历挂" icon={Activity} index={3} />
-              </div>
+              <motion.div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4" variants={sectionStagger} initial="hidden" animate="show">
+                <motion.div variants={sectionItem}><KpiCard title="简历总数" value={kpis.resumeCount} hint="当前账号下简历数量" icon={FileText} index={0} /></motion.div>
+                <motion.div variants={sectionItem}><KpiCard title="投递总数" value={kpis.applicationCount} hint="累计投递记录数量" icon={Send} index={1} /></motion.div>
+                <motion.div variants={sectionItem}><KpiCard title="近7天投递" value={kpis.last7DaysCount} hint="按投递时间统计" icon={CalendarRange} index={2} /></motion.div>
+                <motion.div variants={sectionItem}><KpiCard title="活跃流程中" value={kpis.activePipelineCount} hint="已排除刷掉与简历挂" icon={Activity} index={3} /></motion.div>
+              </motion.div>
 
               <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
                 <motion.div
@@ -144,16 +214,18 @@ export default function StatsDashboardPage() {
                   {distribution.length === 0 ? (
                     <span className="rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-500">暂无状态数据</span>
                   ) : (
-                    distribution.slice(0, 8).map((item) => (
-                      <span
+                    distribution.slice(0, 8).map((item, idx) => (
+                      <motion.span
                         key={item.label}
                         className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-700"
+                        initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.22, delay: 0.34 + idx * 0.04 }}
                       >
                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
                         <span>{item.label}</span>
-                        <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
                         <span>{item.value}</span>
-                      </span>
+                      </motion.span>
                     ))
                   )}
                 </div>

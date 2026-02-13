@@ -26,8 +26,16 @@ export function MiniLineChart({ data }: { data: DailyTrendPoint[] }) {
       ? `${linePath} L ${points[points.length - 1].x} ${height - paddingY} L ${points[0].x} ${height - paddingY} Z`
       : ''
 
+  const last = points[points.length - 1]
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_14px_30px_rgba(15,23,42,0.08)]">
+    <motion.div
+      className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_14px_30px_rgba(15,23,42,0.08)]"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      whileHover={{ y: -2 }}
+      transition={{ duration: 0.35 }}
+    >
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-2xl font-bold tracking-tight text-slate-900">近7天投递趋势</h3>
         <span className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-600">application_date</span>
@@ -59,9 +67,10 @@ export function MiniLineChart({ data }: { data: DailyTrendPoint[] }) {
           <motion.path
             d={areaPath}
             fill="url(#trend-fill)"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            initial={{ opacity: 0, scaleY: 0.94 }}
+            animate={{ opacity: 1, scaleY: 1 }}
             transition={{ duration: 0.45 }}
+            style={{ transformOrigin: `${width / 2}px ${height - paddingY}px` }}
           />
           <motion.path
             d={linePath}
@@ -85,6 +94,18 @@ export function MiniLineChart({ data }: { data: DailyTrendPoint[] }) {
             </motion.g>
           ))}
 
+          {last && (
+            <motion.circle
+              cx={last.x}
+              cy={last.y}
+              r="8.5"
+              fill="#4F7CFF"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0.25, 0, 0.25], scale: [0.95, 1.5, 0.95] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+            />
+          )}
+
           {points.map((p, idx) => (
             <text
               key={`label-${idx}`}
@@ -98,6 +119,6 @@ export function MiniLineChart({ data }: { data: DailyTrendPoint[] }) {
           ))}
         </svg>
       )}
-    </div>
+    </motion.div>
   )
 }
