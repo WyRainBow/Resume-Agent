@@ -2436,9 +2436,9 @@ export default function SophiaChat() {
           )}
 
           {/* Left: Chat */}
-          <section className="flex-1 min-w-0 flex flex-col">
-            <main className="flex-1 overflow-y-auto px-4 py-8 custom-scrollbar">
-              <div className="max-w-3xl mx-auto w-full">
+          <section className="flex-1 min-w-0 flex flex-col h-full">
+            <main className="flex-1 overflow-y-auto px-4 py-8 custom-scrollbar flex flex-col">
+              <div className="max-w-3xl mx-auto w-full flex-1 flex flex-col">
                 {loadingResume && (
                   <div className="text-sm text-gray-400 mb-4">
                     正在加载简历...
@@ -2454,7 +2454,10 @@ export default function SophiaChat() {
                 )}
 
                 {messages.length === 0 && !isProcessing && !showResumeSelector && (
-                  <div className="max-w-2xl mx-auto py-24 px-4 transition-all duration-500 ease-in-out">
+                  <div className="max-w-2xl mx-auto px-4 transition-all duration-500 ease-in-out flex-1 flex flex-col">
+                    {/* 顶部占位，控制下移比例 - 增大比例使内容更靠下 */}
+                    <div className="flex-[0.8]" />
+                    
                     <div className="text-center mb-12">
                       <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">
                         你好，我是你的 Resume AI 助手
@@ -3125,6 +3128,9 @@ export default function SophiaChat() {
                         </div>
                       )}
                     </div>
+                    
+                    {/* 底部占位 - 减小比例 */}
+                    <div className="flex-[0.2]" />
                   </div>
                 )}
               </div>
