@@ -54,7 +54,10 @@ def list_resumes(
     db: Session = Depends(get_db)
 ):
     """获取当前用户所有简历"""
+    t0 = time.perf_counter()
     resumes = db.query(Resume).filter(Resume.user_id == current_user.id).order_by(Resume.updated_at.desc()).all()
+    elapsed_ms = (time.perf_counter() - t0) * 1000
+    logger.info(f"[DashboardPerf] /api/resumes user_id={current_user.id} count={len(resumes)} 耗时 {elapsed_ms:.1f}ms")
     return [
         ResumeResponse(
             id=r.id,

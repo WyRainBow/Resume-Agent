@@ -1,26 +1,30 @@
+import { Suspense, lazy } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthModal } from './components/AuthModal'
 import { ThemeInit } from './components/ThemeInit'
 import ErrorBoundary from './ErrorBoundary'
-import AgentChat from './pages/AgentChat/SophiaChat'
-import CreateNew from './pages/CreateNew'
-import LandingPage from './pages/LandingPage'
-import LoginPage from './pages/Login'
-import ResumeCreator from './pages/ResumeCreator'
-import ResumeDashboard from './pages/ResumeDashboard'
-import StatsDashboardPage from './pages/StatsDashboard'
-import ResumeEntryPage from './pages/ResumeEntry'
-import ApplicationProgressPage from './pages/ApplicationProgress'
-import SettingsPage from './pages/Settings'
-import SharePage from './pages/SharePage'
-import TemplateMarket from './pages/TemplateMarket'
-import Workspace from './pages/Workspace/v2'
-import HTMLWorkspace from './pages/Workspace/v2/html'
-import LaTeXWorkspace from './pages/Workspace/v2/latex'
-import ReportEdit from './pages/ReportEdit'
-import ReportsPage from './pages/Reports'
 
-import WorkspaceLayout from './pages/WorkspaceLayout'
+const AgentChat = lazy(() => import('./pages/AgentChat/SophiaChat'))
+const CreateNew = lazy(() => import('./pages/CreateNew'))
+const LandingPage = lazy(() => import('./pages/LandingPage'))
+const LoginPage = lazy(() => import('./pages/Login'))
+const ResumeCreator = lazy(() => import('./pages/ResumeCreator'))
+const ResumeDashboard = lazy(() => import('./pages/ResumeDashboard'))
+const StatsDashboardPage = lazy(() => import('./pages/StatsDashboard'))
+const ResumeEntryPage = lazy(() => import('./pages/ResumeEntry'))
+const ApplicationProgressPage = lazy(() => import('./pages/ApplicationProgress'))
+const SettingsPage = lazy(() => import('./pages/Settings'))
+const SharePage = lazy(() => import('./pages/SharePage'))
+const TemplateMarket = lazy(() => import('./pages/TemplateMarket'))
+const Workspace = lazy(() => import('./pages/Workspace/v2'))
+const HTMLWorkspace = lazy(() => import('./pages/Workspace/v2/html'))
+const LaTeXWorkspace = lazy(() => import('./pages/Workspace/v2/latex'))
+const ReportEdit = lazy(() => import('./pages/ReportEdit'))
+const ReportsPage = lazy(() => import('./pages/Reports'))
+
+function RouteFallback() {
+  return <div className="h-screen w-full bg-white" />
+}
 
 function App() {
   try {
@@ -28,36 +32,38 @@ function App() {
       <ErrorBoundary>
         <ThemeInit />
         <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            {/* 简历入口（侧栏「简历」点击后） */}
-            <Route path="/resume-entry" element={<ResumeEntryPage />} />
-            {/* 工作区路由 */}
-            <Route path="/workspace" element={<Workspace />} />
-            <Route path="/workspace/latex" element={<LaTeXWorkspace />} />
-            <Route path="/workspace/latex/:resumeId" element={<LaTeXWorkspace />} />
-            <Route path="/workspace/html" element={<HTMLWorkspace />} />
-            <Route path="/workspace/html/:resumeId" element={<HTMLWorkspace />} />
-            <Route path="/agent/new" element={<AgentChat />} />
-            <Route path="/agent/:resumeId" element={<AgentChat />} />
-            <Route path="/workspace/agent/new" element={<AgentChat />} />
-            <Route path="/workspace/agent/:resumeId" element={<AgentChat />} />
-            {/* 其他路由 */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/dashboard" element={<StatsDashboardPage />} />
-            <Route path="/my-resumes" element={<ResumeDashboard />} />
-            <Route path="/applications" element={<ApplicationProgressPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/templates" element={<TemplateMarket />} />
-            <Route path="/create-new" element={<CreateNew />} />
-            {/* 简历创建路由 */}
-            <Route path="/resume-creator" element={<ResumeCreator />} /> {/* 新手创建简历 */}
-            <Route path="/share/:shareId" element={<SharePage />} />
-            {/* 报告相关路由 */}
-            <Route path="/reports/:reportId?" element={<ReportsPage />} />
-            {/* 保留旧的编辑路由以兼容 */}
-            <Route path="/reports/:reportId/edit" element={<ReportEdit />} />
-          </Routes>
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route path="/" element={<LandingPage />} />
+              {/* 简历入口（侧栏「简历」点击后） */}
+              <Route path="/resume-entry" element={<ResumeEntryPage />} />
+              {/* 工作区路由 */}
+              <Route path="/workspace" element={<Workspace />} />
+              <Route path="/workspace/latex" element={<LaTeXWorkspace />} />
+              <Route path="/workspace/latex/:resumeId" element={<LaTeXWorkspace />} />
+              <Route path="/workspace/html" element={<HTMLWorkspace />} />
+              <Route path="/workspace/html/:resumeId" element={<HTMLWorkspace />} />
+              <Route path="/agent/new" element={<AgentChat />} />
+              <Route path="/agent/:resumeId" element={<AgentChat />} />
+              <Route path="/workspace/agent/new" element={<AgentChat />} />
+              <Route path="/workspace/agent/:resumeId" element={<AgentChat />} />
+              {/* 其他路由 */}
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/dashboard" element={<StatsDashboardPage />} />
+              <Route path="/my-resumes" element={<ResumeDashboard />} />
+              <Route path="/applications" element={<ApplicationProgressPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/templates" element={<TemplateMarket />} />
+              <Route path="/create-new" element={<CreateNew />} />
+              {/* 简历创建路由 */}
+              <Route path="/resume-creator" element={<ResumeCreator />} /> {/* 新手创建简历 */}
+              <Route path="/share/:shareId" element={<SharePage />} />
+              {/* 报告相关路由 */}
+              <Route path="/reports/:reportId?" element={<ReportsPage />} />
+              {/* 保留旧的编辑路由以兼容 */}
+              <Route path="/reports/:reportId/edit" element={<ReportEdit />} />
+            </Routes>
+          </Suspense>
           <AuthModal />
         </BrowserRouter>
       </ErrorBoundary>

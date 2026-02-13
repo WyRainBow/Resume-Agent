@@ -1,110 +1,125 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { FileText, Send, CalendarRange, Activity } from 'lucide-react'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import { useAuth } from '@/contexts/AuthContext'
-import { getAllResumes } from '@/services/resumeStorage'
-import { listApplicationProgress, type ApplicationProgressEntry } from '@/services/applicationProgressApi'
-import type { SavedResume } from '@/services/storage/StorageAdapter'
+import type { ApplicationProgressEntry } from '@/services/applicationProgressApi'
+import { getDashboardSummary } from '@/services/dashboardApi'
 import { KpiCard } from './components/KpiCard'
 import { MiniLineChart } from './components/MiniLineChart'
 import { DonutChart } from './components/DonutChart'
-import { buildDailyTrend, buildKpis, buildProgressDistribution } from './utils/metrics'
+import { buildDailyTrend, buildKpisFromCount, buildProgressDistribution } from './utils/metrics'
 
-const DASHBOARD_CACHE_TTL_MS = 60 * 1000
-const DASHBOARD_CACHE_KEY_PREFIX = 'stats-dashboard-cache-v1'
+const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || ''
+const API_BASE = rawApiBase
+  ? (rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`)
+  : (import.meta.env.PROD ? '' : 'http://localhost:9000')
+const DASHBOARD_PERF_ENDPOINT = `${API_BASE}/api/dashboard/perf-log`
 
-type DashboardCachePayload = {
-  timestamp: number
-  resumes: SavedResume[]
-  entries: ApplicationProgressEntry[]
-}
-
-function buildCacheKey(userIdOrName: string) {
-  return `${DASHBOARD_CACHE_KEY_PREFIX}:${userIdOrName}`
-}
-
-function readDashboardCache(userIdOrName: string): DashboardCachePayload | null {
+function reportDashboardPerf(message: string, step?: string, elapsedMs?: number) {
   try {
-    const raw = sessionStorage.getItem(buildCacheKey(userIdOrName))
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as DashboardCachePayload
-    if (!parsed || !Array.isArray(parsed.resumes) || !Array.isArray(parsed.entries)) return null
-    if (Date.now() - parsed.timestamp > DASHBOARD_CACHE_TTL_MS) return null
-    return parsed
-  } catch {
-    return null
-  }
-}
-
-function writeDashboardCache(userIdOrName: string, resumes: SavedResume[], entries: ApplicationProgressEntry[]) {
-  try {
-    const payload: DashboardCachePayload = {
-      timestamp: Date.now(),
-      resumes,
-      entries,
+    const payload = JSON.stringify({
+      message,
+      step,
+      elapsed_ms: elapsedMs,
+      pathname: window.location.pathname,
+      ts: Date.now(),
+    })
+    if (navigator.sendBeacon) {
+      const blob = new Blob([payload], { type: 'application/json' })
+      navigator.sendBeacon(DASHBOARD_PERF_ENDPOINT, blob)
+      return
     }
-    sessionStorage.setItem(buildCacheKey(userIdOrName), JSON.stringify(payload))
+    void fetch(DASHBOARD_PERF_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      keepalive: true,
+    })
   } catch {
-    // ignore cache write errors
+    // ignore report failures
   }
 }
 
 export default function StatsDashboardPage() {
   const { isAuthenticated, user, openModal, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
-  const [resumes, setResumes] = useState<SavedResume[]>([])
-  const [entries, setEntries] = useState<ApplicationProgressEntry[]>([])
+  const [resumeCount, setResumeCount] = useState(0)
+  const [entries, setEntries] = useState<Array<Pick<ApplicationProgressEntry, 'progress' | 'application_date'>>>([])
+  const pageEnterAtRef = useRef<number>(performance.now())
+  const hasReportedEnterRef = useRef(false)
+  const hasRequestedSummaryRef = useRef(false)
 
   useEffect(() => {
+    const effectStartAt = performance.now()
+    const userLabel = String(user?.id || user?.username || user?.email || 'anonymous')
+    if (!hasReportedEnterRef.current) {
+      reportDashboardPerf(`进入 /dashboard user=${userLabel}`, 'enter')
+      hasReportedEnterRef.current = true
+    }
     if (authLoading) {
+      const elapsed = Math.round(performance.now() - effectStartAt)
+      reportDashboardPerf(`等待鉴权初始化中... ${elapsed}ms`, 'auth_init_wait', elapsed)
       return
     }
     if (!isAuthenticated) {
       setLoading(false)
+      const elapsed = Math.round(performance.now() - effectStartAt)
+      reportDashboardPerf(`未登录，触发登录弹窗 ${elapsed}ms`, 'auth_modal', elapsed)
       openModal('login')
       return
     }
-    const userCacheKey = String(user?.id || user?.username || user?.email || 'anonymous')
-    const cached = readDashboardCache(userCacheKey)
-    if (cached) {
-      setResumes(cached.resumes)
-      setEntries(cached.entries)
-      setLoading(false)
+    if (hasRequestedSummaryRef.current) {
+      return
     }
+    hasRequestedSummaryRef.current = true
+    pageEnterAtRef.current = performance.now()
+    const cacheElapsed = Math.round(performance.now() - effectStartAt)
+    reportDashboardPerf(`缓存未命中（缓存关闭） ${cacheElapsed}ms`, 'cache_miss', cacheElapsed)
 
     let alive = true
     const load = async () => {
-      if (!cached) setLoading(true)
+      const loadStartAt = performance.now()
+      setLoading(true)
       try {
-        const [resumeRes, progressRes] = await Promise.allSettled([
-          getAllResumes(),
-          listApplicationProgress(),
-        ])
+        const summaryStartAt = performance.now()
+        const summaryRes = await getDashboardSummary()
         if (!alive) return
-        const nextResumes = resumeRes.status === 'fulfilled' ? resumeRes.value : (cached?.resumes ?? [])
-        const nextEntries = progressRes.status === 'fulfilled' ? progressRes.value : (cached?.entries ?? [])
-        setResumes(nextResumes)
-        setEntries(nextEntries)
-        writeDashboardCache(userCacheKey, nextResumes, nextEntries)
+        setResumeCount(summaryRes.resume_count || 0)
+        setEntries(summaryRes.entries || [])
+        const totalElapsed = Math.round(performance.now() - loadStartAt)
+        const summaryElapsed = Math.round(performance.now() - summaryStartAt)
+        const resumeMs = summaryRes.metrics?.resume_query_ms ?? summaryElapsed
+        const progressMs = summaryRes.metrics?.progress_query_ms ?? summaryElapsed
+        reportDashboardPerf(
+          `resumes接口 ${resumeMs}ms, ` +
+            `progress接口 ${progressMs}ms, ` +
+            `数据刷新总耗时=${totalElapsed}ms`,
+          'data_refresh',
+          totalElapsed
+        )
       } catch (err) {
         console.error(err)
         if (!alive) return
-        if (!cached) {
-          setResumes([])
-          setEntries([])
-        }
+        setResumeCount(0)
+        setEntries([])
       } finally {
-        if (alive) setLoading(false)
+        if (alive) {
+          setLoading(false)
+          requestAnimationFrame(() => {
+            const total = Math.round(performance.now() - pageEnterAtRef.current)
+            reportDashboardPerf(`页面可用耗时=${total}ms（含渲染）`, 'page_ready', total)
+          })
+        }
       }
     }
     void load()
     return () => {
       alive = false
     }
-  }, [authLoading, isAuthenticated, openModal, user?.email, user?.id, user?.username])
+  }, [authLoading, isAuthenticated, openModal])
 
-  const kpis = useMemo(() => buildKpis(resumes, entries), [resumes, entries])
+  const kpis = useMemo(() => buildKpisFromCount(resumeCount, entries), [resumeCount, entries])
   const trend = useMemo(() => buildDailyTrend(entries), [entries])
   const distribution = useMemo(() => buildProgressDistribution(entries), [entries])
   const sectionStagger = {

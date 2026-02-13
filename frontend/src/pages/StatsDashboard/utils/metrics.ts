@@ -1,6 +1,8 @@
 import type { SavedResume } from '@/services/storage/StorageAdapter'
 import type { ApplicationProgressEntry } from '@/services/applicationProgressApi'
 
+type MetricsEntry = Pick<ApplicationProgressEntry, 'progress' | 'application_date'>
+
 export type DashboardKpis = {
   resumeCount: number
   applicationCount: number
@@ -67,7 +69,8 @@ function startOfDay(dt: Date): Date {
   return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate())
 }
 
-export function buildKpis(resumes: SavedResume[], entries: ApplicationProgressEntry[]): DashboardKpis {
+export function buildKpis(resumes: SavedResume[], entries: MetricsEntry[]): DashboardKpis {
+  const resumeCount = Array.isArray(resumes) ? resumes.length : 0
   const today = startOfDay(new Date())
   const start = new Date(today)
   start.setDate(start.getDate() - 6)
@@ -88,14 +91,42 @@ export function buildKpis(resumes: SavedResume[], entries: ApplicationProgressEn
   }, 0)
 
   return {
-    resumeCount: resumes.length,
+    resumeCount,
     applicationCount: entries.length,
     last7DaysCount,
     activePipelineCount,
   }
 }
 
-export function buildDailyTrend(entries: ApplicationProgressEntry[]): DailyTrendPoint[] {
+export function buildKpisFromCount(resumeCount: number, entries: MetricsEntry[]): DashboardKpis {
+  const today = startOfDay(new Date())
+  const start = new Date(today)
+  start.setDate(start.getDate() - 6)
+
+  const last7DaysCount = entries.reduce((sum, entry) => {
+    const dt = parseDate(entry.application_date)
+    if (!dt) return sum
+    const day = startOfDay(dt)
+    if (day >= start && day <= today) return sum + 1
+    return sum
+  }, 0)
+
+  const activePipelineCount = entries.reduce((sum, entry) => {
+    const status = normalizeStatus(entry.progress)
+    if (status === '未设置') return sum
+    if (INACTIVE_STATUSES.has(status)) return sum
+    return sum + 1
+  }, 0)
+
+  return {
+    resumeCount,
+    applicationCount: entries.length,
+    last7DaysCount,
+    activePipelineCount,
+  }
+}
+
+export function buildDailyTrend(entries: MetricsEntry[]): DailyTrendPoint[] {
   const today = startOfDay(new Date())
   const days = Array.from({ length: 7 }, (_, idx) => {
     const dt = new Date(today)
@@ -120,7 +151,7 @@ export function buildDailyTrend(entries: ApplicationProgressEntry[]): DailyTrend
   })
 }
 
-export function buildProgressDistribution(entries: ApplicationProgressEntry[]): ProgressDistributionItem[] {
+export function buildProgressDistribution(entries: MetricsEntry[]): ProgressDistributionItem[] {
   const grouped = new Map<string, number>()
   for (const entry of entries) {
     const status = normalizeStatus(entry.progress)

@@ -7,6 +7,8 @@ from datetime import date, datetime
 import json as _json
 import re
 import os
+import logging
+import time
 from time import sleep
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -34,6 +36,7 @@ except Exception:
     ZhipuAI = None
 
 router = APIRouter(prefix="/api/application-progress", tags=["ApplicationProgress"])
+logger = logging.getLogger("backend")
 T = TypeVar("T")
 _zhipu_client: Optional[Any] = None
 _zhipu_key_cache: Optional[str] = None
@@ -131,6 +134,7 @@ def list_entries(
     db: Session = Depends(get_db),
 ):
     """获取当前用户所有投递记录，按 sort_order、updated_at 排序"""
+    t0 = time.perf_counter()
     rows = _run_with_db_retry(
         db,
         lambda: (
@@ -140,6 +144,8 @@ def list_entries(
             .all()
         ),
     )
+    elapsed_ms = (time.perf_counter() - t0) * 1000
+    logger.info(f"[DashboardPerf] /api/application-progress user_id={current_user.id} count={len(rows)} 耗时 {elapsed_ms:.1f}ms")
     return [_row_to_response(r) for r in rows]
 
 

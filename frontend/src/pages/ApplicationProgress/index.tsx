@@ -1058,7 +1058,7 @@ export default function ApplicationProgressPage() {
           <input
             type="text"
             className="w-full h-10 border rounded-lg px-3 text-[17px] bg-white dark:bg-slate-800"
-            defaultValue={String((row as Record<string, unknown>)[col.key] ?? '')}
+            defaultValue={String((row as unknown as Record<string, unknown>)[col.key] ?? '')}
             onBlur={(e) => {
               const v = e.target.value.trim() || null
               handleCellChange(row.id, col.key, v)
@@ -1071,7 +1071,7 @@ export default function ApplicationProgressPage() {
         )
       }
       if (col.key === 'application_link') {
-        const val = (row as Record<string, unknown>)[col.key]
+        const val = (row as unknown as Record<string, unknown>)[col.key]
         return val ? (
           <a
             href={val as string}
@@ -1086,12 +1086,10 @@ export default function ApplicationProgressPage() {
           <EmptyEditableCell />
         )
       }
+      const val = (row as unknown as Record<string, unknown>)[col.key]
       return (
         <span className="text-slate-700 dark:text-slate-300">
-          {(row as Record<string, unknown>)[col.key] != null
-            ? String((row as Record<string, unknown>)[col.key])
-            : ''}
-          {(row as Record<string, unknown>)[col.key] == null && <EmptyEditableCell />}
+          {val != null ? String(val) : <EmptyEditableCell />}
         </span>
       )
     },
