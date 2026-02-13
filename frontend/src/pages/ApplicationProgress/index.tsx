@@ -41,6 +41,9 @@ import {
   Calendar,
   X,
   FileText,
+  Keyboard,
+  Type,
+  ImageIcon,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { getAllResumes } from '@/services/resumeStorage'
@@ -671,6 +674,10 @@ export default function ApplicationProgressPage() {
   const [aiImportText, setAiImportText] = useState('')
   const [aiImportLoading, setAiImportLoading] = useState(false)
   const [aiImportImageDataUrl, setAiImportImageDataUrl] = useState<string | null>(null)
+  const pasteShortcutLabel =
+    typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+      ? 'Cmd+V'
+      : 'Ctrl+V'
 
   const loadData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -1245,15 +1252,34 @@ export default function ApplicationProgressPage() {
                 </button>
               </div>
               <div className="px-5 py-4 space-y-3">
-                <p className="text-sm text-slate-500">
-                  支持文字粘贴或 Cmd+V 粘贴截图（智谱 glm-4.6v），系统会自动提取公司、职位、时间、链接并写入投递记录
-                </p>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <Keyboard className="w-4 h-4 text-indigo-600" />
+                    两种导入方式，任选其一
+                  </div>
+                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                      <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                        <Type className="w-4 h-4 text-slate-500" />
+                        文字粘贴
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">粘贴投递描述，自动识别公司/职位/时间/链接</p>
+                    </div>
+                    <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
+                      <div className="flex items-center gap-2 text-sm font-medium text-indigo-700">
+                        <ImageIcon className="w-4 h-4" />
+                        截图粘贴
+                      </div>
+                      <p className="mt-1 text-xs text-indigo-600">点击下方输入框后按 <span className="rounded bg-white px-1.5 py-0.5 font-semibold text-indigo-700">{pasteShortcutLabel}</span></p>
+                    </div>
+                  </div>
+                </div>
                 <textarea
                   value={aiImportText}
                   onChange={(e) => setAiImportText(e.target.value)}
                   onPaste={handleAiImportPasteImage}
                   placeholder="例如：我投递了字节跳动的机器审核部门、后端开发工程师、时间为今天、链接为https://join.qq.com/"
-                  className="w-full min-h-[180px] resize-y rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-950 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="w-full min-h-[180px] resize-y rounded-xl border-2 border-indigo-200 bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-300"
                 />
                 {aiImportImageDataUrl && (
                   <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
