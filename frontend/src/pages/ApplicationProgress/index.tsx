@@ -1,9 +1,10 @@
 /**
  * 投递进展表：多维表格形式，白底 UI
  * 工具栏：撤销/重做/插入新行/置顶选中/删除选中/导出表格
- * 列：公司、投递链接、行业、标签、职位、地点、进展、进展状态、进展时间、备注、投递时间、内推码、使用的 PDF
+ * 列：公司、投递链接、行业、职位、地点、进展、备注、投递时间、内推码、使用的 PDF
  */
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import {
   DndContext,
@@ -31,9 +32,14 @@ import {
   Download,
   GripVertical,
   ExternalLink,
-  FileText,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Check,
+  MousePointer2,
+  Calendar,
+  X,
+  FileText,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { getAllResumes } from '@/services/resumeStorage'
@@ -49,29 +55,284 @@ import {
 } from '@/services/applicationProgressApi'
 import { cn } from '@/lib/utils'
 
+function loadCachedResumes(): SavedResume[] {
+  try {
+    const raw = localStorage.getItem('resume_resumes')
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? (parsed as SavedResume[]) : []
+  } catch {
+    return []
+  }
+}
+
+function extractErrorMessage(error: unknown): string {
+  if (!error || typeof error !== 'object') return '请求失败，请稍后重试'
+  const err = error as { response?: { data?: { detail?: string } }; message?: string }
+  return err.response?.data?.detail || err.message || '请求失败，请稍后重试'
+}
+
 const COLUMNS = [
   { key: 'company', label: '公司', width: '120px' },
   { key: 'application_link', label: '投递链接', width: '100px' },
   { key: 'industry', label: '行业', width: '90px' },
-  { key: 'tags', label: '标签', width: '120px' },
   { key: 'position', label: '职位', width: '140px' },
   { key: 'location', label: '地点', width: '80px' },
   { key: 'progress', label: '进展', width: '90px' },
-  { key: 'progress_status', label: '进展状态', width: '90px' },
-  { key: 'progress_time', label: '进展时间', width: '110px' },
   { key: 'notes', label: '备注', width: '160px' },
   { key: 'application_date', label: '投递时间', width: '100px' },
   { key: 'referral_code', label: '内推码', width: '90px' },
   { key: 'resume_id', label: '使用的 PDF', width: '200px' },
 ] as const
 
-const PROGRESS_OPTIONS = ['已投递', '笔试', '一面', '二面', '三面', 'AI面', '测评', 'HR终面']
-const PROGRESS_STATUS_OPTIONS = ['等消息', '已过', '未过', '已放弃', '等我回复', '被调剂']
+const PROGRESS_OPTIONS = ['已投递', '笔试', '一面', '二面', '三面', 'offer']
+const INDUSTRY_OPTIONS = ['互联网', '金融', '制造业']
+const LOCATION_OPTIONS = ['深圳', '北京', '上海', '广州']
+const POSITION_OPTIONS_DEFAULT = ['后端开发工程师', '前端开发工程师']
+const POSITION_OPTIONS_STORAGE_KEY = 'application_progress_position_options'
+
+function EmptyEditableCell({
+  label = '可编辑',
+  title = '点击可编辑',
+}: {
+  label?: string
+  title?: string
+}) {
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 text-slate-400"
+      title={title}
+      aria-label={title}
+    >
+      <MousePointer2 className="w-3.5 h-3.5" />
+      <span className="text-base">{label}</span>
+    </span>
+  )
+}
+
+function loadPositionOptions(): string[] {
+  try {
+    const raw = localStorage.getItem(POSITION_OPTIONS_STORAGE_KEY)
+    if (!raw) return POSITION_OPTIONS_DEFAULT
+    const parsed = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return POSITION_OPTIONS_DEFAULT
+    const cleaned = parsed
+      .map((item) => (typeof item === 'string' ? item.trim() : ''))
+      .filter(Boolean)
+    const merged = Array.from(new Set([...POSITION_OPTIONS_DEFAULT, ...cleaned]))
+    return merged.length > 0 ? merged : POSITION_OPTIONS_DEFAULT
+  } catch {
+    return POSITION_OPTIONS_DEFAULT
+  }
+}
 
 type DropdownOption = {
   value: string
   label: string
   hint?: string
+}
+
+function parseDateString(value: string | null | undefined): Date | null {
+  if (!value) return null
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
+  if (!m) return null
+  const y = Number(m[1])
+  const mo = Number(m[2]) - 1
+  const d = Number(m[3])
+  const dt = new Date(y, mo, d)
+  if (dt.getFullYear() !== y || dt.getMonth() !== mo || dt.getDate() !== d) return null
+  return dt
+}
+
+function formatDateString(dt: Date): string {
+  const y = dt.getFullYear()
+  const m = String(dt.getMonth() + 1).padStart(2, '0')
+  const d = String(dt.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
+function InlineDatePicker({
+  value,
+  placeholder,
+  onSelect,
+}: {
+  value: string | null
+  placeholder: string
+  onSelect: (value: string | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement | null>(null)
+  const [popupPos, setPopupPos] = useState({ top: 0, left: 0, width: 0 })
+  const selectedDate = parseDateString(value)
+  const today = new Date()
+  const [currentYear, setCurrentYear] = useState(selectedDate?.getFullYear() ?? today.getFullYear())
+  const [currentMonth, setCurrentMonth] = useState(selectedDate?.getMonth() ?? today.getMonth())
+
+  useEffect(() => {
+    if (!open) return
+    const handler = (event: MouseEvent) => {
+      const target = event.target as Node
+      const portalRoot = document.getElementById('application-progress-date-picker-portal')
+      if (triggerRef.current?.contains(target)) return
+      if (portalRoot?.contains(target)) return
+      setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return
+    const rect = triggerRef.current.getBoundingClientRect()
+    setPopupPos({
+      top: rect.bottom + 6,
+      left: rect.left,
+      width: Math.max(rect.width, 280),
+    })
+  }, [open, currentYear, currentMonth])
+
+  const firstDay = new Date(currentYear, currentMonth, 1)
+  const startWeekday = firstDay.getDay()
+  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
+  const prevDays = new Date(currentYear, currentMonth, 0).getDate()
+
+  const dayCells: Array<{ day: number; inMonth: boolean; date: Date }> = []
+  for (let i = startWeekday - 1; i >= 0; i -= 1) {
+    const day = prevDays - i
+    dayCells.push({ day, inMonth: false, date: new Date(currentYear, currentMonth - 1, day) })
+  }
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    dayCells.push({ day, inMonth: true, date: new Date(currentYear, currentMonth, day) })
+  }
+  while (dayCells.length < 42) {
+    const day = dayCells.length - (startWeekday + daysInMonth) + 1
+    dayCells.push({ day, inMonth: false, date: new Date(currentYear, currentMonth + 1, day) })
+  }
+
+  const selectedStr = selectedDate ? formatDateString(selectedDate) : ''
+
+  return (
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          'w-full h-11 rounded-xl border px-4 text-left flex items-center justify-between gap-2 transition-colors',
+          'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500'
+        )}
+      >
+        <span className={cn('truncate text-[17px]', selectedDate ? 'font-medium text-slate-800 dark:text-slate-200' : 'text-slate-400')}>
+          {selectedDate ? formatDateString(selectedDate) : placeholder}
+        </span>
+        <Calendar className="w-4 h-4 shrink-0 text-slate-500" />
+      </button>
+      {open && typeof document !== 'undefined' &&
+        createPortal(
+          <div id="application-progress-date-picker-portal" className="fixed inset-0 z-[10000]" style={{ pointerEvents: 'none' }}>
+            <div
+              className="absolute rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-3"
+              style={{ top: popupPos.top, left: popupPos.left, width: popupPos.width, pointerEvents: 'auto' }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <button
+                  type="button"
+                  className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
+                  onClick={() => {
+                    if (currentMonth === 0) {
+                      setCurrentYear((y) => y - 1)
+                      setCurrentMonth(11)
+                    } else {
+                      setCurrentMonth((m) => m - 1)
+                    }
+                  }}
+                >
+                  <ChevronLeft className="w-4 h-4 text-slate-600" />
+                </button>
+                <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  {currentYear}年 {String(currentMonth + 1).padStart(2, '0')}月
+                </div>
+                <button
+                  type="button"
+                  className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
+                  onClick={() => {
+                    if (currentMonth === 11) {
+                      setCurrentYear((y) => y + 1)
+                      setCurrentMonth(0)
+                    } else {
+                      setCurrentMonth((m) => m + 1)
+                    }
+                  }}
+                >
+                  <ChevronRight className="w-4 h-4 text-slate-600" />
+                </button>
+              </div>
+              <div className="grid grid-cols-7 text-xs text-slate-500 px-1 mb-1">
+                {['日', '一', '二', '三', '四', '五', '六'].map((w) => (
+                  <span key={w} className="text-center py-1">{w}</span>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {dayCells.map((cell, idx) => {
+                  const dateStr = formatDateString(cell.date)
+                  const active = dateStr === selectedStr
+                  return (
+                    <button
+                      key={`${dateStr}-${idx}`}
+                      type="button"
+                      className={cn(
+                        'h-8 rounded-md text-sm transition-colors',
+                        active
+                          ? 'bg-indigo-600 text-white'
+                          : cell.inMonth
+                            ? 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                            : 'text-slate-300 dark:text-slate-600 hover:bg-slate-100/60'
+                      )}
+                      onClick={() => {
+                        onSelect(dateStr)
+                        setOpen(false)
+                      }}
+                    >
+                      {cell.day}
+                    </button>
+                  )
+                })}
+              </div>
+              <div className="mt-3 flex justify-between gap-2">
+                <button
+                  type="button"
+                  className="h-8 px-3 rounded-md border border-slate-300 text-sm text-slate-600 hover:bg-slate-50"
+                  onClick={() => {
+                    onSelect(null)
+                    setOpen(false)
+                  }}
+                >
+                  清空
+                </button>
+                <button
+                  type="button"
+                  className="h-8 px-3 rounded-md border border-slate-300 text-sm text-slate-600 hover:bg-slate-50"
+                  onClick={() => {
+                    onSelect(formatDateString(new Date()))
+                    setOpen(false)
+                  }}
+                >
+                  今天
+                </button>
+                <button
+                  type="button"
+                  className="h-8 px-3 rounded-md text-sm text-slate-500 hover:bg-slate-50"
+                  onClick={() => setOpen(false)}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
+  )
 }
 
 function InlineDropdown({
@@ -82,6 +343,12 @@ function InlineDropdown({
   autoOpen,
   onSelect,
   onClose,
+  onOpen,
+  allowCreate,
+  createPlaceholder,
+  onCreateOption,
+  dropdownClassName,
+  selectedIcon,
 }: {
   value: string | null
   options: DropdownOption[]
@@ -90,15 +357,23 @@ function InlineDropdown({
   autoOpen?: boolean
   onSelect: (value: string | null) => void
   onClose?: () => void
+  onOpen?: () => void
+  allowCreate?: boolean
+  createPlaceholder?: string
+  onCreateOption?: (label: string) => string | null
+  dropdownClassName?: string
+  selectedIcon?: React.ReactNode
 }) {
   const [open, setOpen] = useState(Boolean(autoOpen) && !disabled)
+  const [createValue, setCreateValue] = useState('')
   const rootRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (autoOpen && !disabled) {
       setOpen(true)
+      onOpen?.()
     }
-  }, [autoOpen, disabled])
+  }, [autoOpen, disabled, onOpen])
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
@@ -118,25 +393,38 @@ function InlineDropdown({
       <button
         type="button"
         disabled={disabled}
-        onClick={() => !disabled && setOpen((v) => !v)}
+        onClick={() => {
+          if (disabled) return
+          setOpen((prev) => {
+            const next = !prev
+            if (next) onOpen?.()
+            return next
+          })
+        }}
         className={cn(
-          'w-full h-9 rounded-lg border px-3 text-left flex items-center justify-between gap-2 transition-colors',
+          'w-full h-11 rounded-xl border px-4 text-left flex items-center justify-between gap-2 transition-colors',
           'bg-white dark:bg-slate-900',
           disabled
             ? 'border-slate-200 dark:border-slate-700 text-slate-400 cursor-not-allowed'
             : 'border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-500'
         )}
       >
-        <span className={cn('truncate text-sm', selected ? 'font-medium' : 'text-slate-400')}>
-          {selected ? selected.label : placeholder}
+        <span className="flex items-center gap-2 min-w-0">
+          {selected && selectedIcon}
+          <span className={cn('truncate text-[17px]', selected ? 'font-medium' : 'text-slate-400')}>
+            {selected ? selected.label : placeholder}
+          </span>
         </span>
         <ChevronDown className={cn('w-4 h-4 shrink-0 text-slate-500 transition-transform', open && 'rotate-180')} />
       </button>
       {open && !disabled && (
-        <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
+        <div className={cn(
+          "absolute left-0 right-0 top-[calc(100%+6px)] z-[70] rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl overflow-hidden",
+          dropdownClassName
+        )}>
           <button
             type="button"
-            className="w-full text-left px-3 py-2.5 hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors text-sm text-slate-500"
+            className="w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800/70 transition-colors text-[17px] text-slate-500"
             onClick={() => {
               onSelect(null)
               setOpen(false)
@@ -153,7 +441,7 @@ function InlineDropdown({
                   type="button"
                   key={opt.value}
                   className={cn(
-                    'w-full text-left px-3 py-2.5 transition-colors text-sm flex items-start gap-2',
+                    'w-full text-left px-4 py-3 transition-colors text-[17px] flex items-start gap-2',
                     active
                       ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
                       : 'hover:bg-slate-50 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-200'
@@ -168,15 +456,51 @@ function InlineDropdown({
                     {active ? <Check className="w-3.5 h-3.5" /> : <span className="inline-block w-3.5 h-3.5" />}
                   </span>
                   <span className="min-w-0">
-                    <span className="block truncate">{opt.label}</span>
+                      <span className="block truncate">{opt.label}</span>
                     {opt.hint && (
-                      <span className="block text-xs text-slate-500 dark:text-slate-400 truncate">{opt.hint}</span>
+                      <span className="block text-base text-slate-500 dark:text-slate-400 truncate">{opt.hint}</span>
                     )}
                   </span>
                 </button>
               )
             })}
           </div>
+          {allowCreate && (
+            <div className="border-t border-slate-200 dark:border-slate-700 p-2.5">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  value={createValue}
+                  onChange={(e) => setCreateValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key !== 'Enter') return
+                    const created = onCreateOption?.(createValue.trim())
+                    if (!created) return
+                    onSelect(created)
+                    setCreateValue('')
+                    setOpen(false)
+                    onClose?.()
+                  }}
+                  placeholder={createPlaceholder || '新增选项'}
+                  className="flex-1 h-9 border border-slate-300 dark:border-slate-600 rounded-lg px-3 text-sm bg-white dark:bg-slate-900"
+                />
+                <button
+                  type="button"
+                  className="h-9 px-3 rounded-lg border border-slate-300 dark:border-slate-600 text-sm hover:bg-slate-50 dark:hover:bg-slate-800/70"
+                  onClick={() => {
+                    const created = onCreateOption?.(createValue.trim())
+                    if (!created) return
+                    onSelect(created)
+                    setCreateValue('')
+                    setOpen(false)
+                    onClose?.()
+                  }}
+                >
+                  新增
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -221,7 +545,7 @@ function SortableTableRow({
         isDragging && 'opacity-50 bg-slate-100 dark:bg-slate-800'
       )}
     >
-      <td className="p-2">
+      <td className="p-3">
         <input
           type="checkbox"
           checked={selectedIds.has(row.id)}
@@ -229,14 +553,20 @@ function SortableTableRow({
           className="rounded"
         />
       </td>
-      <td className="p-2 text-slate-400 cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
+      <td className="p-3 text-slate-400 cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
         <GripVertical className="w-4 h-4" />
       </td>
       {columns.map((col) => (
         <td
           key={col.key}
-          className="p-2 border-r border-slate-100 dark:border-slate-800 align-top"
-          onDoubleClick={() => onEditingCell({ id: row.id, key: col.key })}
+          className="p-3 border-r border-slate-100 dark:border-slate-800 align-middle"
+          onClick={() => {
+            // 下拉列单击直接由组件处理，不进入文本编辑态
+            if (col.key === 'resume_id' || col.key === 'position' || col.key === 'industry' || col.key === 'location' || col.key === 'progress' || col.key === 'application_date') {
+              return
+            }
+            onEditingCell({ id: row.id, key: col.key })
+          }}
         >
           {renderCell(row, col)}
         </td>
@@ -249,11 +579,14 @@ export default function ApplicationProgressPage() {
   const { isAuthenticated, openModal } = useAuth()
   const [entries, setEntries] = useState<ApplicationProgressEntry[]>([])
   const [resumes, setResumes] = useState<SavedResume[]>([])
+  const [resumesLoaded, setResumesLoaded] = useState(false)
+  const [resumesLoading, setResumesLoading] = useState(false)
   const [loading, setLoading] = useState(true)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [editingCell, setEditingCell] = useState<{ id: string; key: string } | null>(null)
   const [history, setHistory] = useState<ApplicationProgressEntry[][]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
+  const [positionOptions, setPositionOptions] = useState<string[]>(() => loadPositionOptions())
 
   const loadData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -262,39 +595,22 @@ export default function ApplicationProgressPage() {
     }
     setLoading(true)
     try {
-      const [listResult, resumesResult] = await Promise.allSettled([
-        listApplicationProgress(),
-        getAllResumes(),
-      ])
-
-      if (listResult.status === 'fulfilled') {
-        let nextEntries = listResult.value
-        if (nextEntries.length === 0) {
-          try {
-            const seeded = await createApplicationProgress({
-              sort_order: 0,
-              company: '字节跳动',
-              application_link: 'https://jobs.bytedance.com/campus/position/application',
-            })
-            nextEntries = [seeded]
-          } catch (seedError) {
-            console.error(seedError)
-          }
+      let nextEntries = await listApplicationProgress()
+      if (nextEntries.length === 0) {
+        try {
+          const seeded = await createApplicationProgress({
+            sort_order: 0,
+            company: '字节跳动',
+            application_link: 'https://jobs.bytedance.com/campus/position/application',
+          })
+          nextEntries = [seeded]
+        } catch (seedError) {
+          console.error(seedError)
         }
-        setEntries(nextEntries)
-        setHistory([nextEntries])
-        setHistoryIndex(0)
-      } else {
-        console.error(listResult.reason)
-        setEntries([])
       }
-
-      if (resumesResult.status === 'fulfilled') {
-        setResumes(resumesResult.value)
-      } else {
-        console.error(resumesResult.reason)
-        setResumes([])
-      }
+      setEntries(nextEntries)
+      setHistory([nextEntries])
+      setHistoryIndex(0)
     } catch (e) {
       console.error(e)
       setEntries([])
@@ -306,6 +622,21 @@ export default function ApplicationProgressPage() {
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  const ensureResumesLoaded = useCallback(async () => {
+    if (!isAuthenticated || resumesLoading || resumesLoaded) return
+    setResumesLoading(true)
+    try {
+      const loaded = await getAllResumes()
+      setResumes(loaded.length > 0 ? loaded : loadCachedResumes())
+    } catch (e) {
+      console.error(e)
+      setResumes(loadCachedResumes())
+    } finally {
+      setResumesLoaded(true)
+      setResumesLoading(false)
+    }
+  }, [isAuthenticated, resumesLoading, resumesLoaded])
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -332,27 +663,57 @@ export default function ApplicationProgressPage() {
       openModal('login')
       return
     }
+    const tempId = `tmp_${Date.now()}`
+    const tempRow: ApplicationProgressEntry = {
+      id: tempId,
+      user_id: 0,
+      sort_order: 0,
+      company: null,
+      application_link: null,
+      industry: null,
+      position: null,
+      location: null,
+      progress: null,
+      notes: null,
+      application_date: null,
+      referral_code: null,
+      resume_id: null,
+    }
+    setEntries((prev) => [tempRow, ...prev])
+    setEditingCell({ id: tempId, key: 'company' })
     try {
       const created = await createApplicationProgress({ sort_order: 0 })
-      setEntries((prev) => [created, ...prev])
+      setEntries((prev) => [created, ...prev.filter((row) => row.id !== tempId)])
       setEditingCell({ id: created.id, key: 'company' })
       // 后台拉取一次，确保与服务端排序/数据一致
       void loadData()
     } catch (e) {
       console.error(e)
+      setEntries((prev) => prev.filter((row) => row.id !== tempId))
+      setEditingCell(null)
+      alert(`插入新行失败：${extractErrorMessage(e)}`)
     }
   }
 
   const handleDeleteSelected = async () => {
     if (!isAuthenticated || selectedIds.size === 0) return
+    const idsToDelete = Array.from(selectedIds)
+    const prevEntries = entries
+    setEntries((prev) => prev.filter((item) => !selectedIds.has(item.id)))
+    setSelectedIds(new Set())
     try {
-      for (const id of selectedIds) {
-        await deleteApplicationProgress(id)
+      const results = await Promise.allSettled(idsToDelete.map((id) => deleteApplicationProgress(id)))
+      const failed = results.filter((r) => r.status === 'rejected')
+      if (failed.length > 0) {
+        setEntries(prevEntries)
+        alert(`删除失败：${failed.length} 条记录删除失败，请重试`)
+        return
       }
-      setSelectedIds(new Set())
       await loadData()
     } catch (e) {
       console.error(e)
+      setEntries(prevEntries)
+      alert(`删除失败：${extractErrorMessage(e)}`)
     }
   }
 
@@ -392,76 +753,111 @@ export default function ApplicationProgressPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   )
 
+  const handleCreatePositionOption = useCallback((label: string): string | null => {
+    const next = label.trim()
+    if (!next) return null
+    if (positionOptions.includes(next)) return next
+    const merged = [...positionOptions, next]
+    setPositionOptions(merged)
+    localStorage.setItem(POSITION_OPTIONS_STORAGE_KEY, JSON.stringify(merged))
+    return next
+  }, [positionOptions])
+
   const renderCell = useCallback(
     (row: ApplicationProgressEntry, col: { key: string; label: string; width: string }) => {
+      if (col.key === 'resume_id') {
+        const hasResumes = resumes.length > 0
+        const resumeOptions: DropdownOption[] = resumes.map((r) => ({
+          value: r.id,
+          label: r.alias || r.name,
+          hint: r.alias && r.alias !== r.name ? r.name : undefined,
+        }))
+        return (
+          <InlineDropdown
+            value={row.resume_id ?? null}
+            options={resumeOptions}
+            placeholder={
+              resumesLoading
+                ? '加载 PDF 中...'
+                : hasResumes
+                  ? '未选择（不使用 PDF）'
+                  : resumesLoaded
+                    ? '无可选 PDF'
+                    : '点击加载 PDF 列表'
+            }
+            disabled={resumesLoading}
+            onOpen={ensureResumesLoaded}
+            selectedIcon={<FileText className="w-4 h-4 text-slate-500 shrink-0" />}
+            onSelect={(val) => handleCellChange(row.id, col.key, val)}
+          />
+        )
+      }
+      if (col.key === 'position') {
+        const mergedPositionOptions = Array.from(
+          new Set([...positionOptions, ...(row.position ? [row.position] : [])])
+        )
+        const options: DropdownOption[] = mergedPositionOptions.map((o) => ({ value: o, label: o }))
+        return (
+          <InlineDropdown
+            value={row.position ?? null}
+            options={options}
+            placeholder="请选择职位"
+            allowCreate
+            createPlaceholder="输入自定义职位"
+            onCreateOption={handleCreatePositionOption}
+            onSelect={(val) => handleCellChange(row.id, col.key, val)}
+          />
+        )
+      }
+      if (col.key === 'industry') {
+        const options: DropdownOption[] = INDUSTRY_OPTIONS.map((o) => ({ value: o, label: o }))
+        return (
+          <InlineDropdown
+            value={row.industry ?? null}
+            options={options}
+            placeholder="请选择行业"
+            onSelect={(val) => handleCellChange(row.id, col.key, val)}
+          />
+        )
+      }
+      if (col.key === 'location') {
+        const options: DropdownOption[] = LOCATION_OPTIONS.map((o) => ({ value: o, label: o }))
+        return (
+          <InlineDropdown
+            value={row.location ?? null}
+            options={options}
+            placeholder="请选择地点"
+            onSelect={(val) => handleCellChange(row.id, col.key, val)}
+          />
+        )
+      }
+      if (col.key === 'progress') {
+        const options: DropdownOption[] = PROGRESS_OPTIONS.map((o) => ({ value: o, label: o }))
+        return (
+          <InlineDropdown
+            value={row.progress ?? null}
+            options={options}
+            placeholder="请设置状态"
+            dropdownClassName="max-h-[320px] overflow-auto"
+            onSelect={(val) => handleCellChange(row.id, col.key, val)}
+          />
+        )
+      }
+      if (col.key === 'application_date') {
+        return (
+          <InlineDatePicker
+            value={row.application_date ?? null}
+            placeholder="请选择日期"
+            onSelect={(val) => handleCellChange(row.id, col.key, val)}
+          />
+        )
+      }
+
       if (editingCell?.id === row.id && editingCell?.key === col.key) {
-        if (col.key === 'resume_id') {
-          const hasResumes = resumes.length > 0
-          const resumeOptions: DropdownOption[] = resumes.map((r) => ({
-            value: r.id,
-            label: r.alias || r.name,
-            hint: r.alias && r.alias !== r.name ? r.name : undefined,
-          }))
-          return (
-            <InlineDropdown
-              value={row.resume_id ?? null}
-              options={resumeOptions}
-              placeholder={hasResumes ? '未选择（不使用 PDF）' : '暂无可选 PDF'}
-              disabled={!hasResumes}
-              autoOpen
-              onSelect={(val) => handleCellChange(row.id, col.key, val)}
-              onClose={() => setEditingCell(null)}
-            />
-          )
-        }
-        if (col.key === 'tags') {
-          return (
-            <input
-              type="text"
-              className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800"
-              defaultValue={((row.tags ?? []) as string[]).join(', ')}
-              onBlur={(e) => {
-                const raw = e.target.value.trim()
-                const value = raw ? raw.split(/[,，;；\s]+/).map((s) => s.trim()).filter(Boolean) : []
-                handleCellChange(row.id, col.key, value)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur()
-              }}
-              autoFocus
-            />
-          )
-        }
-        if (col.key === 'progress') {
-          const options: DropdownOption[] = PROGRESS_OPTIONS.map((o) => ({ value: o, label: o }))
-          return (
-            <InlineDropdown
-              value={row.progress ?? null}
-              options={options}
-              placeholder="未设置"
-              autoOpen
-              onSelect={(val) => handleCellChange(row.id, col.key, val)}
-              onClose={() => setEditingCell(null)}
-            />
-          )
-        }
-        if (col.key === 'progress_status') {
-          const options: DropdownOption[] = PROGRESS_STATUS_OPTIONS.map((o) => ({ value: o, label: o }))
-          return (
-            <InlineDropdown
-              value={row.progress_status ?? null}
-              options={options}
-              placeholder="未设置"
-              autoOpen
-              onSelect={(val) => handleCellChange(row.id, col.key, val)}
-              onClose={() => setEditingCell(null)}
-            />
-          )
-        }
         return (
           <input
             type="text"
-            className="w-full border rounded px-2 py-1 text-sm bg-white dark:bg-slate-800"
+            className="w-full h-10 border rounded-lg px-3 text-[17px] bg-white dark:bg-slate-800"
             defaultValue={String((row as Record<string, unknown>)[col.key] ?? '')}
             onBlur={(e) => {
               const v = e.target.value.trim() || null
@@ -487,92 +883,30 @@ export default function ApplicationProgressPage() {
             前往链接 <ExternalLink className="w-3 h-3" />
           </a>
         ) : (
-          <span className="text-slate-400">-</span>
-        )
-      }
-      if (col.key === 'progress') {
-        const value = row.progress
-        return value ? (
-          <span className="inline-flex items-center rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
-            {value}
-          </span>
-        ) : (
-          <span className="text-slate-400">-</span>
-        )
-      }
-      if (col.key === 'progress_status') {
-        const value = row.progress_status
-        if (!value) return <span className="text-slate-400">-</span>
-        const toneClass =
-          value === '已过'
-            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-            : value === '未过' || value === '已放弃'
-              ? 'border-rose-200 bg-rose-50 text-rose-700'
-              : 'border-slate-200 bg-slate-100 text-slate-700'
-        return (
-          <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium border', toneClass)}>
-            {value}
-          </span>
-        )
-      }
-      if (col.key === 'tags') {
-        return (
-          <div className="flex flex-wrap gap-1">
-            {((row.tags ?? []) as string[]).map((t) => (
-              <span
-                key={t}
-                className="px-1.5 py-0.5 rounded text-xs bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200"
-              >
-                {t}
-              </span>
-            ))}
-            {(!row.tags || row.tags.length === 0) && <span className="text-slate-400">-</span>}
-          </div>
-        )
-      }
-      if (col.key === 'resume_id') {
-        const matchedResume = row.resume_id ? resumes.find((r) => r.id === row.resume_id) : null
-        if (!matchedResume) {
-          return <span className="text-slate-400">未选择 PDF</span>
-        }
-        const primary = matchedResume.alias || matchedResume.name
-        const secondary =
-          matchedResume.alias && matchedResume.alias !== matchedResume.name ? matchedResume.name : ''
-        return (
-          <div className="inline-flex items-center gap-2 max-w-full rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 px-2 py-1">
-            <FileText className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
-            <div className="min-w-0">
-              <div className="text-slate-800 dark:text-slate-200 truncate font-medium">{primary}</div>
-              {secondary && (
-                <div className="text-xs text-slate-500 dark:text-slate-400 truncate">{secondary}</div>
-              )}
-            </div>
-          </div>
+          <EmptyEditableCell />
         )
       }
       return (
         <span className="text-slate-700 dark:text-slate-300">
           {(row as Record<string, unknown>)[col.key] != null
             ? String((row as Record<string, unknown>)[col.key])
-            : '-'}
+            : ''}
+          {(row as Record<string, unknown>)[col.key] == null && <EmptyEditableCell />}
         </span>
       )
     },
-    [editingCell, resumes, handleCellChange, setEditingCell]
+    [editingCell, resumes, resumesLoaded, resumesLoading, ensureResumesLoaded, handleCreatePositionOption, handleCellChange, positionOptions, setEditingCell]
   )
 
   const handleExportCsv = () => {
-    const headers = ['公司', '投递链接', '行业', '标签', '职位', '地点', '进展', '进展状态', '进展时间', '备注', '投递时间', '内推码', '使用的 PDF']
+    const headers = ['公司', '投递链接', '行业', '职位', '地点', '进展', '备注', '投递时间', '内推码', '使用的 PDF']
     const rows = entries.map((e) => [
       e.company ?? '',
       e.application_link ?? '',
       e.industry ?? '',
-      (e.tags ?? []).join(';'),
       e.position ?? '',
       e.location ?? '',
       e.progress ?? '',
-      e.progress_status ?? '',
-      e.progress_time ?? '',
       e.notes ?? '',
       e.application_date ?? '',
       e.referral_code ?? '',
@@ -591,17 +925,22 @@ export default function ApplicationProgressPage() {
     const entry = entries.find((e) => e.id === id)
     if (!entry) return
     setEditingCell(null)
+    const optimisticValue = value ?? null
+    setEntries((prev) =>
+      prev.map((row) =>
+        row.id === id ? ({ ...row, [key]: optimisticValue } as ApplicationProgressEntry) : row
+      )
+    )
+
     const payload: ApplicationProgressPayload = {}
-    if (key === 'tags') {
-      payload.tags = Array.isArray(value) ? value : (value ? [value] : [])
-    } else {
-      (payload as Record<string, unknown>)[key] = value ?? null
-    }
+    ;(payload as Record<string, unknown>)[key] = optimisticValue
     try {
-      await updateApplicationProgress(id, payload)
-      await loadData()
+      const updated = await updateApplicationProgress(id, payload)
+      setEntries((prev) => prev.map((row) => (row.id === id ? updated : row)))
     } catch (e) {
       console.error(e)
+      setEntries((prev) => prev.map((row) => (row.id === id ? entry : row)))
+      alert(`更新失败：${extractErrorMessage(e)}`)
     }
   }
 
@@ -673,7 +1012,7 @@ export default function ApplicationProgressPage() {
         {/* 标题 */}
         <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
           <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-            我的投递进展记录表（双击可编辑）
+            我的投递进展记录表
           </h1>
         </div>
 
@@ -687,11 +1026,11 @@ export default function ApplicationProgressPage() {
               collisionDetection={closestCenter}
               onDragEnd={handleDragEnd}
             >
-              <div className="rounded-2xl border border-slate-200/90 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 shadow-sm">
-                <table className="w-full border-collapse text-sm">
+              <div className="rounded-2xl border border-slate-200/90 dark:border-slate-700 overflow-visible bg-white dark:bg-slate-900 shadow-sm">
+                <table className="w-full border-collapse text-[17px]">
                 <thead className="sticky top-0 bg-slate-100/95 dark:bg-slate-800 z-10 backdrop-blur">
                   <tr>
-                    <th className="border-b border-slate-200 dark:border-slate-700 p-2 w-10">
+                    <th className="border-b border-slate-200 dark:border-slate-700 p-3 w-12">
                       <input
                         type="checkbox"
                         checked={entries.length > 0 && selectedIds.size === entries.length}
@@ -699,11 +1038,11 @@ export default function ApplicationProgressPage() {
                         className="rounded"
                       />
                     </th>
-                    <th className="border-b border-slate-200 dark:border-slate-700 p-2 w-10" />
+                    <th className="border-b border-slate-200 dark:border-slate-700 p-3 w-12" />
                     {COLUMNS.map((col) => (
                       <th
                         key={col.key}
-                        className="border-b border-slate-200 dark:border-slate-700 p-2.5 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap"
+                        className="border-b border-slate-200 dark:border-slate-700 p-3.5 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap text-[18px]"
                         style={{ minWidth: col.width }}
                       >
                         {col.label}

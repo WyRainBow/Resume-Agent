@@ -232,7 +232,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               title="简历"
             >
               <FileText className="w-6 h-6 shrink-0" />
-              {!sidebarCollapsed && <span className="text-base font-medium">简历</span>}
+              {!sidebarCollapsed && <span className="text-base font-medium">应用</span>}
             </button>
 
             {/* AI 对话区 */}

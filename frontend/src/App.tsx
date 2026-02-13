@@ -9,6 +9,7 @@ import LoginPage from './pages/Login'
 import ResumeCreator from './pages/ResumeCreator'
 import ResumeDashboard from './pages/ResumeDashboard'
 import ResumeEntryPage from './pages/ResumeEntry'
+import ApplicationProgressPage from './pages/ApplicationProgress'
 import SettingsPage from './pages/Settings'
 import SharePage from './pages/SharePage'
 import TemplateMarket from './pages/TemplateMarket'
@@ -43,6 +44,7 @@ function App() {
             {/* 其他路由 */}
             <Route path="/login" element={<LoginPage />} />
             <Route path="/dashboard" element={<ResumeDashboard />} />
+            <Route path="/applications" element={<ApplicationProgressPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/templates" element={<TemplateMarket />} />
             <Route path="/create-new" element={<CreateNew />} />

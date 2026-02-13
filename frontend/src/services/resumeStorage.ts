@@ -3,6 +3,7 @@ import type { ResumeData } from '../pages/Workspace/v2/types'
 import type { SavedResume } from './storage/StorageAdapter'
 import { LocalStorageAdapter } from './storage/LocalStorageAdapter'
 import { DatabaseAdapter } from './storage/DatabaseAdapter'
+import { stripPhotoFromSavedResume } from './storage/sanitizeResume'
 
 const localAdapter = new LocalStorageAdapter()
 const databaseAdapter = new DatabaseAdapter()
@@ -39,10 +40,10 @@ async function syncLocalCache(resumes: SavedResume[]) {
   const merged = new Map<string, SavedResume>()
 
   for (const item of existing) {
-    merged.set(item.id, item)
+    merged.set(item.id, stripPhotoFromSavedResume(item))
   }
   for (const item of resumes) {
-    merged.set(item.id, item)
+    merged.set(item.id, stripPhotoFromSavedResume(item))
   }
 
   const list = Array.from(merged.values())
