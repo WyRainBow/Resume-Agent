@@ -51,12 +51,15 @@ function writeDashboardCache(userIdOrName: string, resumes: SavedResume[], entri
 }
 
 export default function StatsDashboardPage() {
-  const { isAuthenticated, user, openModal } = useAuth()
+  const { isAuthenticated, user, openModal, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [resumes, setResumes] = useState<SavedResume[]>([])
   const [entries, setEntries] = useState<ApplicationProgressEntry[]>([])
 
   useEffect(() => {
+    if (authLoading) {
+      return
+    }
     if (!isAuthenticated) {
       setLoading(false)
       openModal('login')
@@ -99,7 +102,7 @@ export default function StatsDashboardPage() {
     return () => {
       alive = false
     }
-  }, [isAuthenticated, openModal, user?.email, user?.id, user?.username])
+  }, [authLoading, isAuthenticated, openModal, user?.email, user?.id, user?.username])
 
   const kpis = useMemo(() => buildKpis(resumes, entries), [resumes, entries])
   const trend = useMemo(() => buildDailyTrend(entries), [entries])
@@ -114,6 +117,16 @@ export default function StatsDashboardPage() {
   const sectionItem = {
     hidden: { opacity: 0, y: 14 },
     show: { opacity: 1, y: 0, transition: { duration: 0.3 } },
+  }
+
+  if (authLoading) {
+    return (
+      <WorkspaceLayout>
+        <div className="h-full flex items-center justify-center bg-white text-slate-600">
+          正在验证登录状态...
+        </div>
+      </WorkspaceLayout>
+    )
   }
 
   if (!isAuthenticated) {
