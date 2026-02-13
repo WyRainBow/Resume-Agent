@@ -21,7 +21,8 @@ import { ReportGenerationDetector } from "@/components/chat/ReportGenerationDete
 import { RecentSessions } from "@/components/sidebar/RecentSessions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCLTP } from "@/hooks/useCLTP";
-import { HTMLTemplateRenderer } from "@/pages/Workspace/v2/HTMLTemplateRenderer";
+import { PDFViewerSelector } from "@/components/PDFEditor";
+import { convertToBackendFormat } from "@/pages/Workspace/v2/utils/convertToBackend";
 import type { ResumeData } from "@/pages/Workspace/v2/types";
 import { getResume, getAllResumes } from "@/services/resumeStorage";
 import type { SavedResume } from "@/services/storage/StorageAdapter";
@@ -30,6 +31,7 @@ import {
   getReport,
   getDocumentContent,
   ensureReportConversation,
+  renderPDFStream,
 } from "@/services/api";
 import { Message } from "@/types/chat";
 import type { SSEEvent } from "@/transports/SSETransport";
@@ -42,7 +44,7 @@ import React, {
   useState,
   Fragment,
 } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import EnhancedMarkdown from "@/components/chat/EnhancedMarkdown";
 import ThoughtProcess from "@/components/chat/ThoughtProcess";
 import { useTextStream } from "@/hooks/useTextStream";
@@ -212,6 +214,32 @@ function convertResumeDataToOpenManusFormat(resume: ResumeData) {
   };
 }
 
+interface ResumePdfPreviewState {
+  blob: Blob | null;
+  loading: boolean;
+  progress: string;
+  error: string | null;
+}
+
+const EMPTY_RESUME_PDF_STATE: ResumePdfPreviewState = {
+  blob: null,
+  loading: false,
+  progress: "",
+  error: null,
+};
+
+function isWorkspaceResumeData(data: unknown): data is ResumeData {
+  if (!data || typeof data !== "object") return false;
+  const candidate = data as Partial<ResumeData>;
+  return (
+    !!candidate.basic &&
+    Array.isArray(candidate.education) &&
+    Array.isArray(candidate.experience) &&
+    Array.isArray(candidate.projects) &&
+    Array.isArray(candidate.menuSections)
+  );
+}
+
 interface SearchResultItem {
   position?: number;
   url?: string;
@@ -241,6 +269,7 @@ interface SearchStructuredData {
 // ============================================================================
 
 export default function SophiaChat() {
+  const navigate = useNavigate();
   const { resumeId } = useParams();
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -291,6 +320,9 @@ export default function SophiaChat() {
     }>
   >([]);
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
+  const [resumePdfPreview, setResumePdfPreview] = useState<
+    Record<string, ResumePdfPreviewState>
+  >({});
 
   // 搜索结果相关状态
   const [searchResults, setSearchResults] = useState<
@@ -343,6 +375,101 @@ export default function SophiaChat() {
     if (!resumeData) return null;
     return convertResumeDataToOpenManusFormat(resumeData);
   }, [resumeData]);
+
+  const selectedLoadedResume = useMemo(() => {
+    if (!selectedResumeId) return null;
+    for (let i = loadedResumes.length - 1; i >= 0; i -= 1) {
+      if (loadedResumes[i].id === selectedResumeId) {
+        return loadedResumes[i];
+      }
+    }
+    return null;
+  }, [loadedResumes, selectedResumeId]);
+
+  const selectedResumePdfState = selectedResumeId
+    ? resumePdfPreview[selectedResumeId] || EMPTY_RESUME_PDF_STATE
+    : EMPTY_RESUME_PDF_STATE;
+
+  const updateResumePdfState = useCallback(
+    (id: string, patch: Partial<ResumePdfPreviewState>) => {
+      setResumePdfPreview((prev) => ({
+        ...prev,
+        [id]: {
+          ...(prev[id] || EMPTY_RESUME_PDF_STATE),
+          ...patch,
+        },
+      }));
+    },
+    [],
+  );
+
+  const renderResumePdfPreview = useCallback(
+    async (
+      resumeEntry: {
+        id: string;
+        resumeData?: ResumeData;
+      },
+      force = false,
+    ) => {
+      if (!resumeEntry.resumeData) return;
+
+      const currentState = resumePdfPreview[resumeEntry.id];
+      if (!force && (currentState?.loading || currentState?.blob)) {
+        return;
+      }
+
+      if (!isWorkspaceResumeData(resumeEntry.resumeData)) {
+        updateResumePdfState(resumeEntry.id, {
+          blob: null,
+          loading: false,
+          progress: "",
+          error: "当前简历数据格式不支持 PDF 预览。",
+        });
+        return;
+      }
+
+      updateResumePdfState(resumeEntry.id, {
+        loading: true,
+        progress: "正在渲染 PDF...",
+        error: null,
+      });
+
+      try {
+        const backendData = convertToBackendFormat(resumeEntry.resumeData);
+        const blob = await renderPDFStream(
+          backendData as any,
+          backendData.sectionOrder,
+          (progress) => {
+            updateResumePdfState(resumeEntry.id, { progress });
+          },
+          () => {
+            updateResumePdfState(resumeEntry.id, { progress: "渲染完成" });
+          },
+          (error) => {
+            updateResumePdfState(resumeEntry.id, { error });
+          },
+        );
+
+        updateResumePdfState(resumeEntry.id, {
+          blob,
+          loading: false,
+          progress: "",
+          error: null,
+        });
+      } catch (error) {
+        updateResumePdfState(resumeEntry.id, {
+          blob: null,
+          loading: false,
+          progress: "",
+          error:
+            error instanceof Error
+              ? error.message
+              : "PDF 渲染失败，请稍后重试。",
+        });
+      }
+    },
+    [resumePdfPreview, updateResumePdfState],
+  );
 
   const upsertSearchResult = useCallback(
     (messageId: string, data: SearchStructuredData) => {
@@ -508,6 +635,12 @@ export default function SophiaChat() {
       setIsSidebarOpen(false);
     }
   }, [isDesktop]);
+
+  useEffect(() => {
+    if (!selectedLoadedResume) return;
+    if (selectedReportId) return;
+    void renderResumePdfPreview(selectedLoadedResume);
+  }, [selectedLoadedResume, selectedReportId, renderResumePdfPreview]);
 
   // 刷新后自动加载历史会话（如果 conversationId 是从 localStorage 恢复的）
   useEffect(() => {
@@ -1492,6 +1625,12 @@ export default function SophiaChat() {
     setPendingResumeInput("");
   }, []);
 
+  const handleCreateResume = useCallback(() => {
+    setShowResumeSelector(false);
+    setPendingResumeInput("");
+    navigate("/workspace/html");
+  }, [navigate]);
+
   const sendUserTextMessage = useCallback(
     async (userMessage: string) => {
       if (!userMessage.trim() || isProcessing) return;
@@ -2233,6 +2372,7 @@ export default function SophiaChat() {
                 {showResumeSelector && (
                   <ResumeSelector
                     onSelect={handleResumeSelect}
+                    onCreateResume={handleCreateResume}
                     onCancel={handleResumeSelectorCancel}
                   />
                 )}
@@ -2362,12 +2502,12 @@ export default function SophiaChat() {
 
           {/* Right: Report Preview or Resume Preview - 只格在有选中内容时显示 */}
           {(selectedReportId || selectedResumeId) && (
-            <aside className="w-[45%] min-w-[420px] bg-slate-50 overflow-y-auto">
+            <aside className="w-[45%] min-w-[420px] bg-slate-50 overflow-y-auto border-l border-slate-200">
               <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-sm font-semibold text-slate-700">
-                      {selectedReportId ? "报告内容" : "简历预览"}
+                      {selectedReportId ? "报告内容" : "简历 PDF 预览"}
                     </h2>
                     {selectedReportId && reportTitle && (
                       <p className="text-xs text-slate-400 mt-1">
@@ -2376,19 +2516,11 @@ export default function SophiaChat() {
                     )}
                     {selectedResumeId &&
                       !selectedReportId &&
-                      (() => {
-                        const selectedResume = loadedResumes.find(
-                          (r) => r.id === selectedResumeId,
-                        );
-                        if (selectedResume) {
-                          return (
-                            <p className="text-xs text-slate-400 mt-1">
-                              {selectedResume.name}
-                            </p>
-                          );
-                        }
-                        return null;
-                      })()}
+                      selectedLoadedResume && (
+                        <p className="text-xs text-slate-400 mt-1">
+                          {selectedLoadedResume.name}
+                        </p>
+                      )}
                   </div>
                   {selectedReportId && (
                     <button
@@ -2416,7 +2548,6 @@ export default function SophiaChat() {
               </div>
               <div className="p-6">
                 {selectedReportId ? (
-                  // 显示报告内容
                   <ReportContentView
                     reportId={selectedReportId}
                     streamingContent={
@@ -2433,34 +2564,73 @@ export default function SophiaChat() {
                     }}
                   />
                 ) : (
-                  // 显示选中的简历卡片内容
-                  (() => {
-                    const selectedResume = loadedResumes.find(
-                      (r) => r.id === selectedResumeId,
-                    );
-                    if (!selectedResume || !selectedResume.resumeData) {
-                      return (
-                        <div className="text-sm text-slate-500">
-                          正在加载简历...
+                  <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                      <p className="text-xs text-slate-500 text-pretty">
+                        {selectedResumePdfState.progress || "简历 PDF 预览"}
+                      </p>
+                      {selectedLoadedResume && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void renderResumePdfPreview(selectedLoadedResume, true)
+                          }
+                          disabled={selectedResumePdfState.loading}
+                          className="text-xs text-indigo-600 hover:text-indigo-700 disabled:text-slate-400 disabled:cursor-not-allowed"
+                        >
+                          重新渲染
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="h-[calc(100dvh-210px)] bg-slate-100/70 overflow-auto p-3">
+                      {!selectedLoadedResume && (
+                        <div className="text-sm text-slate-500">正在加载简历...</div>
+                      )}
+
+                      {selectedLoadedResume &&
+                        selectedResumePdfState.loading &&
+                        !selectedResumePdfState.blob && (
+                          <div className="h-full flex items-center justify-center">
+                            <div className="text-center">
+                              <div className="mx-auto mb-3 size-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                              <p className="text-sm text-slate-500 text-pretty">
+                                {selectedResumePdfState.progress ||
+                                  "正在渲染简历 PDF..."}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+
+                      {selectedLoadedResume && selectedResumePdfState.error && (
+                        <div className="h-full flex items-center justify-center">
+                          <div className="max-w-sm text-center">
+                            <p className="text-sm text-red-500 text-pretty">
+                              {selectedResumePdfState.error}
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void renderResumePdfPreview(selectedLoadedResume, true)
+                              }
+                              className="mt-3 text-xs text-indigo-600 hover:text-indigo-700"
+                            >
+                              点击重试
+                            </button>
+                          </div>
                         </div>
-                      );
-                    }
-                    const resumeDataToShow = selectedResume.resumeData;
-                    const isHtmlTemplate =
-                      resumeDataToShow.templateType === "html";
-                    if (!isHtmlTemplate) {
-                      return (
-                        <div className="text-sm text-indigo-600">
-                          当前仅支持 HTML 模板简历的预览。
+                      )}
+
+                      {selectedLoadedResume && selectedResumePdfState.blob && (
+                        <div className="flex justify-center">
+                          <PDFViewerSelector
+                            pdfBlob={selectedResumePdfState.blob}
+                            scale={1}
+                          />
                         </div>
-                      );
-                    }
-                    return (
-                      <div className="bg-white shadow-lg rounded-lg p-6">
-                        <HTMLTemplateRenderer resumeData={resumeDataToShow} />
-                      </div>
-                    );
-                  })()
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             </aside>
