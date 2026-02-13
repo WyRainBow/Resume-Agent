@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Loader2, MessageSquare, Pencil, Plus, RefreshCw, Trash2, X, Trash } from 'lucide-react';
+import { Check, Loader2, MessageSquare, Pencil, Plus, RefreshCw, Trash2, X, Trash, AlertTriangle } from 'lucide-react';
 import { SidebarTooltip } from './SidebarTooltip';
 
 const PAGE_SIZE = 20;
@@ -60,6 +60,9 @@ export function RecentSessions({
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [deleteConfirmSessionId, setDeleteConfirmSessionId] = useState<string | null>(null);
+  const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
 
@@ -159,24 +162,28 @@ export function RecentSessions({
     refreshSessions();
   };
 
-  const handleDelete = async (sessionId: string) => {
-    if (!window.confirm('确定要删除此会话吗？')) return;
-    await onDeleteSession(sessionId);
-    refreshSessions();
+  const handleDeleteClick = (sessionId: string) => {
+    setDeleteConfirmSessionId(sessionId);
   };
 
-  const handleSelectSession = (sessionId: string) => {
-    onSelectSession(sessionId);
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmSessionId) return;
+    setIsDeleting(true);
+    try {
+      await onDeleteSession(deleteConfirmSessionId);
+      refreshSessions();
+      setDeleteConfirmSessionId(null);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
-  const handleDeleteAll = async () => {
+  const handleDeleteAllClick = () => {
     if (sessions.length === 0) return;
-    
-    const confirmed = window.confirm(
-      `确定要删除所有 ${sessions.length} 个历史会话吗？此操作不可恢复！`
-    );
-    if (!confirmed) return;
+    setDeleteAllConfirmOpen(true);
+  };
 
+  const handleConfirmDeleteAll = async () => {
     try {
       setIsLoading(true);
       const response = await fetch(`${baseUrl}/api/agent/history/sessions/all`, {
@@ -192,11 +199,10 @@ export function RecentSessions({
 
       const data = await response.json();
       console.log('[RecentSessions] Deleted all sessions:', data);
-      
-      // 刷新列表
+
       await refreshSessions();
-      
-      // 如果当前会话被删除，触发创建新会话
+      setDeleteAllConfirmOpen(false);
+
       if (currentSessionId) {
         onSelectSession('');
       }
@@ -208,8 +214,124 @@ export function RecentSessions({
     }
   };
 
+  const handleSelectSession = (sessionId: string) => {
+    onSelectSession(sessionId);
+  };
+
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
+      {/* 删除单个会话 - 自定义确认弹窗 */}
+      {deleteConfirmSessionId != null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-session-title"
+        >
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => !isDeleting && setDeleteConfirmSessionId(null)}
+            aria-hidden="true"
+          />
+          <div className="relative w-full max-w-sm rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 id="delete-session-title" className="text-base font-semibold text-slate-900 dark:text-white">
+                  删除会话
+                </h3>
+                <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
+                  确定要删除此会话吗？删除后无法恢复。
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => !isDeleting && setDeleteConfirmSessionId(null)}
+                disabled={isDeleting}
+                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    删除中
+                  </span>
+                ) : (
+                  '确定删除'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 删除全部会话 - 自定义确认弹窗 */}
+      {deleteAllConfirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-all-title"
+        >
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => !isLoading && setDeleteAllConfirmOpen(false)}
+            aria-hidden="true"
+          />
+          <div className="relative w-full max-w-sm rounded-2xl border border-slate-200/80 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h3 id="delete-all-title" className="text-base font-semibold text-slate-900 dark:text-white">
+                  删除全部会话
+                </h3>
+                <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
+                  确定要删除所有 {sessions.length} 个历史会话吗？此操作不可恢复。
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => !isLoading && setDeleteAllConfirmOpen(false)}
+                disabled={isLoading}
+                className="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteAll}
+                disabled={isLoading}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+              >
+                {isLoading ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    删除中
+                  </span>
+                ) : (
+                  '确定删除'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="px-3 pt-6 mb-2 flex items-center justify-between">
         <div className="text-xs font-normal text-gray-500 truncate whitespace-nowrap">
@@ -237,7 +359,7 @@ export function RecentSessions({
           {sessions.length > 0 && (
             <button
               type="button"
-              onClick={handleDeleteAll}
+              onClick={handleDeleteAllClick}
               className="p-1 rounded hover:bg-red-50 transition-colors text-gray-500 hover:text-red-600"
               title="删除所有会话"
               aria-label="删除所有会话"
@@ -359,7 +481,7 @@ export function RecentSessions({
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDelete(session.session_id)}
+                            onClick={() => handleDeleteClick(session.session_id)}
                             className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
                             title="删除"
                             aria-label="删除"

@@ -503,7 +503,7 @@ export default function SophiaChat() {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [sessionsRefreshKey, setSessionsResumeKey] = useState(0);
+  const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(true);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
@@ -1392,6 +1392,7 @@ export default function SophiaChat() {
     }
 
     refreshAfterSaveRef.current = true;
+    pendingSaveRef.current = true;
     const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newMessage: Message = {
       id: uniqueId,
@@ -1994,11 +1995,10 @@ export default function SophiaChat() {
     setAllowPdfAutoRender(false);
     finalizeStream();
 
-    // 关键：立即持久化一个空会话，让侧边栏立刻可见并可独立切换
-    await persistSessionSnapshot(newId, [], true);
+    // 不再立即持久化空会话，只在用户发送第一条消息时才真正创建并入库
+    // 这样可以避免用户点击+按钮后没有输入消息就产生空会话
   }, [
     finalizeStream,
-    persistSessionSnapshot,
     saveCurrentSession,
     waitForPendingSave,
   ]);
@@ -2126,7 +2126,9 @@ export default function SophiaChat() {
         if (!currentSessionId) {
           setCurrentSessionId(validConversationId);
         }
-        void persistSessionSnapshot(validConversationId, nextMessages, true);
+        // 持久化并刷新会话列表（确保新会话在侧边栏显示）
+        // 只有在发送第一条消息时才设置 shouldRefresh 为 true，从而触发侧边栏更新
+        await persistSessionSnapshot(validConversationId, nextMessages, true);
       }
 
       isFinalizedRef.current = false;
