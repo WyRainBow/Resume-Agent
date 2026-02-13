@@ -115,6 +115,8 @@ class DBConversationStorage:
             else:
                 conversation.title = self._derive_title(messages)
                 conversation.message_count = len(messages)
+                # Only update updated_at if messages actually changed
+                # or use a more specific last_message_at for sorting
                 conversation.updated_at = now
                 conversation.last_message_at = now if messages else conversation.last_message_at
 
@@ -177,7 +179,7 @@ class DBConversationStorage:
         try:
             rows = (
                 db.query(AgentConversation)
-                .order_by(AgentConversation.updated_at.desc())
+                .order_by(AgentConversation.last_message_at.desc(), AgentConversation.updated_at.desc())
                 .all()
             )
             metas: List[ConversationMeta] = []
@@ -186,7 +188,7 @@ class DBConversationStorage:
                     ConversationMeta(
                         session_id=row.session_id,
                         created_at=row.created_at.isoformat() if row.created_at else "",
-                        updated_at=row.updated_at.isoformat() if row.updated_at else "",
+                        updated_at=(row.last_message_at or row.updated_at or row.created_at).isoformat(),
                         title=row.title or "Conversation",
                         message_count=row.message_count or 0,
                     )
@@ -236,7 +238,7 @@ class DBConversationStorage:
             return ConversationMeta(
                 session_id=conversation.session_id,
                 created_at=conversation.created_at.isoformat() if conversation.created_at else "",
-                updated_at=conversation.updated_at.isoformat() if conversation.updated_at else "",
+                updated_at=(conversation.last_message_at or conversation.updated_at or conversation.created_at).isoformat(),
                 title=conversation.title or "Conversation",
                 message_count=conversation.message_count or 0,
             )
