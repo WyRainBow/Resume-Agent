@@ -117,46 +117,62 @@ export async function generateResumeStream(
 }
 
 export async function renderPDF(resume: Resume, _useDemo: boolean = false, sectionOrder?: string[]): Promise<Blob> {
-  // 检查缓存
-  const cacheKey = getCacheKey(resume, sectionOrder)
-  const cached = getPdfCache(cacheKey)
-  if (cached) {
-    console.log('[PDF Cache] 命中缓存，直接返回')
-    return cached
-  }
+  const traceId = `pdf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const mappedOrder = sectionOrder?.map(s => s === 'experience' ? 'internships' : s)
+  console.log('[PDF TRACE][renderPDF:start]', {
+    traceId,
+    sectionOrder: mappedOrder,
+    resumeKeys: Object.keys((resume || {}) as any).slice(0, 20),
+  })
 
   // 使用非流式端点进行简单的PDF渲染
   const url = `${getApiBaseUrl()}/api/pdf/render`
-  // 将 experience 映射为 internships（因为数据存在 internships 字段）
-  const mappedOrder = sectionOrder?.map(s => s === 'experience' ? 'internships' : s)
-  const { data } = await axios.post(url, { resume, section_order: mappedOrder }, { responseType: 'blob' })
-
-  // 存入缓存
-  const blob = data as Blob
-  setPdfCache(cacheKey, blob)
-  console.log('[PDF Cache] 新PDF已缓存')
-
-  return blob
+  const { data } = await axios.post(
+    url,
+    { resume, section_order: mappedOrder },
+    {
+      responseType: 'blob',
+      headers: {
+        'X-PDF-Trace-Id': traceId,
+        'X-PDF-Trace-Source': 'api.renderPDF',
+      },
+    }
+  )
+  console.log('[PDF TRACE][renderPDF:done]', { traceId, size: (data as Blob).size })
+  return data as Blob
 }
 
 /**
- * 流式渲染PDF，提供实时进度（带缓存支持）
+ * 流式渲染PDF，提供实时进度
  */
 export async function renderPDFStream(
   resume: Resume,
   sectionOrder?: string[],
   onProgress?: (progress: string) => void,
   onPdf?: (pdfData: ArrayBuffer) => void,
-  onError?: (error: string) => void
+  onError?: (error: string) => void,
+  context?: {
+    sessionId?: string
+    resumeId?: string
+    traceId?: string
+    source?: string
+    trigger?: string
+  }
 ): Promise<Blob> {
-  console.log('[API] 开始流式渲染PDF', { resume, sectionOrder })
-  // 暂时禁用缓存，确保每次都重新渲染
-  // const cacheKey = getCacheKey(resume, sectionOrder)
-  // const cached = getPdfCache(cacheKey)
-  // if (cached) {
-  //   onProgress?.('从缓存加载...')
-  //   return cached
-  // }
+  const traceId = context?.traceId || `pdfs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+  const traceSource = context?.source || 'api.renderPDFStream'
+  const traceTrigger = context?.trigger || 'unknown'
+  const callerStack = new Error().stack?.split('\n').slice(2, 6).join(' <- ')
+
+  console.log('[PDF TRACE][stream:start]', {
+    traceId,
+    traceSource,
+    traceTrigger,
+    sessionId: context?.sessionId,
+    resumeId: context?.resumeId,
+    sectionOrder,
+    callerStack,
+  })
 
   onProgress?.('开始生成PDF...')
 
@@ -164,23 +180,39 @@ export async function renderPDFStream(
   // 将 experience 映射为 internships（因为数据存在 internships 字段）
   const mappedOrder = sectionOrder?.map(s => s === 'experience' ? 'internships' : s)
 
-  console.log('[API] 发送请求到:', url)
-  console.log('[API] 请求数据:', { resume, section_order: mappedOrder })
+  console.log('[PDF TRACE][stream:request]', {
+    traceId,
+    traceSource,
+    traceTrigger,
+    url,
+    sessionId: context?.sessionId,
+    resumeId: context?.resumeId,
+    mappedOrder,
+  })
 
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache'
+      'Cache-Control': 'no-cache',
+      ...(context?.sessionId ? { 'X-Agent-Session-Id': context.sessionId } : {}),
+      ...(context?.resumeId ? { 'X-Agent-Resume-Id': context.resumeId } : {}),
+      'X-PDF-Trace-Id': traceId,
+      'X-PDF-Trace-Source': traceSource,
+      'X-PDF-Trace-Trigger': traceTrigger,
     },
     body: JSON.stringify({ resume, section_order: mappedOrder })
   })
 
-  console.log('[API] 响应状态:', response.status, response.statusText)
+  console.log('[PDF TRACE][stream:response]', {
+    traceId,
+    status: response.status,
+    statusText: response.statusText,
+  })
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('[API] 响应错误:', errorText)
+    console.error('[PDF TRACE][stream:http-error]', { traceId, errorText })
     throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
   }
 
@@ -191,7 +223,7 @@ export async function renderPDFStream(
     throw new Error('无法获取响应流')
   }
 
-  console.log('[API] 开始读取响应流')
+  console.log('[PDF TRACE][stream:read-start]', { traceId })
 
   let buffer = ''
   let pdfData: Uint8Array | null = null
@@ -201,15 +233,14 @@ export async function renderPDFStream(
     if (done) break
 
     const chunk = decoder.decode(value, { stream: true })
-    console.log('[API] 收到数据块:', chunk.length, '字节')
+    console.log('[PDF TRACE][stream:chunk]', { traceId, chunkBytes: chunk.length })
     buffer += chunk
 
     // SSE格式：事件之间用双换行符分隔
     // 但单个事件可能跨越多个数据块
     const events = buffer.split('\n\n')
     buffer = events.pop() || ''  // 保留最后一个可能不完整的事件
-    console.log('[API] 发现事件数:', events.length)
-    console.log('[API] 剩余缓冲区长度:', buffer.length)
+    console.log('[PDF TRACE][stream:buffer]', { traceId, events: events.length, bufferLen: buffer.length })
 
     for (const event of events) {
       // SSE 格式：先解析 event: 行，再解析 data: 行
@@ -234,17 +265,17 @@ export async function renderPDFStream(
             onProgress?.(eventData)
           } else if (eventType === 'error') {
             // error 事件的 data 是纯字符串
-            console.error('[API] 收到错误事件:', eventData)
+            console.error('[PDF TRACE][stream:event-error]', { traceId, eventData })
             onError?.(eventData)
             throw new Error(eventData)
           } else if (eventType === 'pdf') {
             // pdf 事件的 data 是十六进制字符串
             const hexData = eventData
-            console.log('[API] 收到PDF事件，数据长度:', hexData?.length || 0)
+            console.log('[PDF TRACE][stream:event-pdf]', { traceId, hexLen: hexData?.length || 0 })
 
             // 验证hex数据
             if (!hexData || hexData.length === 0) {
-              console.error('[API] PDF数据为空')
+              console.error('[PDF TRACE][stream:pdf-empty]', { traceId })
               throw new Error('PDF数据为空')
             }
 
@@ -253,14 +284,14 @@ export async function renderPDFStream(
               const normalizedHex = hexData.length % 2 === 0 ? hexData : '0' + hexData
               const matches = normalizedHex.match(/.{2}/g)
               if (!matches) {
-                console.error('[API] PDF数据格式错误，无法分割成字节')
+                console.error('[PDF TRACE][stream:pdf-format-invalid]', { traceId })
                 throw new Error('PDF数据格式错误')
               }
 
               pdfData = new Uint8Array(matches.map(byte => parseInt(byte, 16)))
-              console.log('[API] PDF数据转换完成，大小:', pdfData.length, '字节')
+              console.log('[PDF TRACE][stream:pdf-parsed]', { traceId, bytes: pdfData.length })
             } catch (error) {
-              console.error('[API] PDF数据转换失败:', error)
+              console.error('[PDF TRACE][stream:pdf-parse-failed]', { traceId, error })
               throw new Error(`PDF数据转换失败: ${error instanceof Error ? error.message : String(error)}`)
             }
           }
@@ -269,7 +300,7 @@ export async function renderPDFStream(
           if (eventType === 'error') {
             throw e
           }
-          console.error('解析SSE数据失败:', e)
+          console.error('[PDF TRACE][stream:sse-parse-failed]', { traceId, error: e })
         }
       }
     }
@@ -277,8 +308,11 @@ export async function renderPDFStream(
 
   // 处理缓冲区中剩余的数据（可能是不完整的最后一个事件）
   if (buffer && buffer.length > 0) {
-    console.log('[API] 处理剩余缓冲区数据，长度:', buffer.length)
-    console.log('[API] 缓冲区内容前500字符:', buffer.substring(0, 500))
+    console.log('[PDF TRACE][stream:tail-buffer]', {
+      traceId,
+      length: buffer.length,
+      preview: buffer.substring(0, 200),
+    })
 
     // 解析剩余缓冲区中的事件
     const lines = buffer.split('\n')
@@ -295,33 +329,33 @@ export async function renderPDFStream(
 
     if (eventType === 'error' && eventData) {
       // 处理错误事件
-      console.error('[API] 收到错误事件:', eventData)
+      console.error('[PDF TRACE][stream:tail-error]', { traceId, eventData })
       onError?.(eventData)
       throw new Error(eventData)
     } else if (eventType === 'pdf' && eventData) {
       // 处理PDF事件
       const hexData = eventData
-      console.log('[API] 收到PDF事件，数据长度:', hexData.length)
+      console.log('[PDF TRACE][stream:tail-pdf]', { traceId, hexLen: hexData.length })
 
       try {
         const normalizedHex = hexData.length % 2 === 0 ? hexData : '0' + hexData
         const matches = normalizedHex.match(/.{2}/g)
         if (!matches) {
-          console.error('[API] PDF数据格式错误')
+          console.error('[PDF TRACE][stream:tail-pdf-format-invalid]', { traceId })
           throw new Error('PDF数据格式错误')
         }
 
         pdfData = new Uint8Array(matches.map(byte => parseInt(byte, 16)))
-        console.log('[API] PDF数据转换完成，大小:', pdfData.length, '字节')
+        console.log('[PDF TRACE][stream:tail-pdf-parsed]', { traceId, bytes: pdfData.length })
       } catch (error) {
-        console.error('[API] PDF数据转换失败:', error)
+        console.error('[PDF TRACE][stream:tail-pdf-parse-failed]', { traceId, error })
         throw new Error(`PDF数据转换失败: ${error instanceof Error ? error.message : String(error)}`)
       }
     } else if (eventType === 'progress' && eventData) {
       // 处理进度事件
       onProgress?.(eventData)
     } else {
-      console.log('[API] 未找到完整的事件数据')
+      console.log('[PDF TRACE][stream:tail-no-event]', { traceId })
     }
   }
 
@@ -329,16 +363,12 @@ export async function renderPDFStream(
     throw new Error('未收到PDF数据')
   }
 
-  console.log('[API] PDF数据处理完成，创建Blob')
-  onPdf?.(pdfData.buffer)
+  console.log('[PDF TRACE][stream:pdf-ready]', { traceId })
+  onPdf?.(pdfData.buffer as ArrayBuffer)
 
-  // 创建blob并缓存
-  const blob = new Blob([pdfData], { type: 'application/pdf' })
-  console.log('[API] Blob创建成功，大小:', blob.size, '字节')
-
-  // 暂时禁用缓存
-  // setPdfCache(cacheKey, blob)
-  // console.log('[PDF Cache] 新PDF已缓存')
+  // 创建 blob 返回
+  const blob = new Blob([pdfData.buffer as ArrayBuffer], { type: 'application/pdf' })
+  console.log('[PDF TRACE][stream:done]', { traceId, blobSize: blob.size })
 
   return blob
 }
@@ -448,80 +478,6 @@ export async function formatResumeText(provider: 'zhipu' | 'doubao', text: strin
   const url = `${getApiBaseUrl()}/api/resume/format`
   const { data } = await axios.post(url, { text, provider, use_ai: useAi })
   return data as { success: boolean; data: Resume | null; method: string; error: string | null }
-}
-
-/**
- * PDF 缓存管理（使用 Map 实现简单的内存缓存）
- */
-const pdfCache = new Map<string, { blob: Blob; timestamp: number }>()
-const PDF_CACHE_MAX_SIZE = 10
-const PDF_CACHE_TTL = 10 * 60 * 1000 // 10分钟
-
-function getCacheKey(resume: Resume, sectionOrder?: string[]): string {
-  const data = {
-    resume,
-    sectionOrder: sectionOrder || []
-  }
-  // 先用 encodeURIComponent 处理中文字符，再使用 btoa
-  const jsonString = JSON.stringify(data)
-  try {
-    return btoa(encodeURIComponent(jsonString)).slice(0, 100)
-  } catch (error) {
-    // 如果 btoa 仍然失败，使用简单哈希
-    let hash = 0
-    for (let i = 0; i < jsonString.length; i++) {
-      const char = jsonString.charCodeAt(i)
-      hash = ((hash << 5) - hash) + char
-      hash = hash & hash // 转换为32位整数
-    }
-    return `hash_${Math.abs(hash)}`
-  }
-}
-
-/**
- * 清理过期的PDF缓存
- */
-function cleanExpiredCache(): void {
-  const now = Date.now()
-  for (const [key, value] of pdfCache.entries()) {
-    if (now - value.timestamp > PDF_CACHE_TTL) {
-      pdfCache.delete(key)
-    }
-  }
-}
-
-/**
- * 添加或更新PDF缓存
- */
-function setPdfCache(key: string, blob: Blob): void {
-  cleanExpiredCache()
-
-  // 如果缓存已满，删除最旧的条目
-  if (pdfCache.size >= PDF_CACHE_MAX_SIZE) {
-    const oldestKey = pdfCache.keys().next().value
-    pdfCache.delete(oldestKey)
-  }
-
-  pdfCache.set(key, {
-    blob,
-    timestamp: Date.now()
-  })
-}
-
-/**
- * 获取缓存的PDF
- */
-function getPdfCache(key: string): Blob | null {
-  const cached = pdfCache.get(key)
-  if (!cached) return null
-
-  const now = Date.now()
-  if (now - cached.timestamp > PDF_CACHE_TTL) {
-    pdfCache.delete(key)
-    return null
-  }
-
-  return cached.blob
 }
 
 /**
@@ -665,9 +621,9 @@ export async function compileLatexStream(
     throw new Error('未收到 PDF 数据')
   }
   
-  onPdf?.(pdfData.buffer)
+  onPdf?.(pdfData.buffer as ArrayBuffer)
   
-  const blob = new Blob([pdfData], { type: 'application/pdf' })
+  const blob = new Blob([pdfData.buffer as ArrayBuffer], { type: 'application/pdf' })
   console.log('[API] LaTeX 编译完成，PDF 大小:', blob.size, '字节')
   
   return blob

@@ -65,7 +65,12 @@ class ShowResumeTool(BaseTool):
                 return ToolResult(error=f"Failed to load resume from file: {str(e)}")
 
         if not resume_data:
-            return ToolResult(output="No resume data loaded. Please load resume data first.")
+            return ToolResult(
+                output=(
+                    "No resume data loaded. "
+                    "Please ask user to choose one: create a new resume or select an existing resume."
+                )
+            )
 
         try:
             if output_mode == "structure":
@@ -107,4 +112,3 @@ class ShowResumeTool(BaseTool):
 
         walk(resume_data)
         return "Resume structure:\n\n" + "\n".join(lines)
-

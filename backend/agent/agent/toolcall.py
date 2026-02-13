@@ -106,6 +106,11 @@ class ToolCallAgent(ReActAgent):
 
             resume_data = ResumeDataStore.get_data(getattr(self, "session_id", None))
             if not resume_data:
+                self._tool_structured_results[tool_call_id] = {
+                    "type": "resume_selector",
+                    "required": True,
+                    "message": "Please choose a resume: create new or select existing.",
+                }
                 return
 
             meta = resume_data.get("_meta") or {}

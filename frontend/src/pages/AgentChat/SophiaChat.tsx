@@ -23,7 +23,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCLTP } from "@/hooks/useCLTP";
 import { PDFViewerSelector } from "@/components/PDFEditor";
 import { convertToBackendFormat } from "@/pages/Workspace/v2/utils/convertToBackend";
-import type { ResumeData } from "@/pages/Workspace/v2/types";
+import { DEFAULT_MENU_SECTIONS, type ResumeData } from "@/pages/Workspace/v2/types";
 import { getResume, getAllResumes } from "@/services/resumeStorage";
 import type { SavedResume } from "@/services/storage/StorageAdapter";
 import {
@@ -228,6 +228,204 @@ const EMPTY_RESUME_PDF_STATE: ResumePdfPreviewState = {
   error: null,
 };
 
+function toText(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number") return String(value);
+  return "";
+}
+
+function toStringList(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => toText(item))
+      .filter((item) => item.length > 0);
+  }
+  const text = toText(value);
+  return text ? [text] : [];
+}
+
+function listToHtml(items: string[]): string {
+  if (!items.length) return "";
+  return `<ul>${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
+}
+
+function splitDateRange(rawDate: string): { startDate: string; endDate: string } {
+  const date = rawDate.trim();
+  if (!date) return { startDate: "", endDate: "" };
+  const parts = date.split(/\s*[-~至]\s*/).filter(Boolean);
+  if (parts.length >= 2) {
+    return { startDate: parts[0], endDate: parts.slice(1).join(" - ") };
+  }
+  return { startDate: date, endDate: "" };
+}
+
+function normalizeImportedResumeToCanonical(
+  source: Record<string, any>,
+  opts: { resumeId: string; title: string },
+): ResumeData {
+  const now = new Date().toISOString();
+  const contact = (source.contact || {}) as Record<string, unknown>;
+  const educationRaw = Array.isArray(source.education) ? source.education : [];
+  const internshipsRaw = Array.isArray(source.internships)
+    ? source.internships
+    : [];
+  const experienceRaw = Array.isArray(source.experience) ? source.experience : [];
+  const projectsRaw = Array.isArray(source.projects) ? source.projects : [];
+  const openSourceRaw = Array.isArray(source.openSource)
+    ? source.openSource
+    : Array.isArray(source.opensource)
+      ? source.opensource
+      : Array.isArray(source.open_source)
+        ? source.open_source
+        : [];
+  const awardsRaw = Array.isArray(source.awards) ? source.awards : [];
+  const skillsRaw = Array.isArray(source.skills) ? source.skills : [];
+  const workList = internshipsRaw.length > 0 ? internshipsRaw : experienceRaw;
+
+  const education = educationRaw.map((item: any, index: number) => {
+    const title = toText(item?.title || item?.school || item?.name);
+    const subtitle = toText(item?.subtitle || item?.major || item?.field);
+    const degree = toText(item?.degree);
+    const date = toText(item?.date);
+    const details = toStringList(item?.details || item?.highlights);
+    const range = splitDateRange(date);
+    return {
+      id: item?.id || `edu_${opts.resumeId}_${index}`,
+      school: title,
+      major: subtitle,
+      degree,
+      startDate: range.startDate,
+      endDate: range.endDate,
+      description: listToHtml(details),
+      visible: true,
+    };
+  });
+
+  const experience = workList.map((item: any, index: number) => {
+    const company = toText(item?.title || item?.company || item?.organization);
+    const position = toText(item?.subtitle || item?.position || item?.role);
+    const date = toText(item?.date || item?.duration);
+    const highlights = toStringList(item?.highlights || item?.details);
+    return {
+      id: item?.id || `exp_${opts.resumeId}_${index}`,
+      company,
+      position,
+      date,
+      details: listToHtml(highlights),
+      visible: true,
+      companyLogo: toText(item?.logo) || undefined,
+      companyLogoSize:
+        typeof item?.logoSize === "number" ? item.logoSize : undefined,
+    };
+  });
+
+  const projects = projectsRaw.map((item: any, index: number) => {
+    const name = toText(item?.title || item?.name);
+    const role = toText(item?.subtitle || item?.role);
+    const date = toText(item?.date);
+    const highlights = toStringList(item?.highlights);
+    const description = toText(item?.description);
+    const htmlParts = [
+      description ? `<p>${description}</p>` : "",
+      highlights.length ? listToHtml(highlights) : "",
+    ].filter(Boolean);
+    return {
+      id: item?.id || `proj_${opts.resumeId}_${index}`,
+      name,
+      role,
+      date,
+      description: htmlParts.join(""),
+      visible: true,
+      link: toText(item?.link || item?.repoUrl || item?.repo) || undefined,
+    };
+  });
+
+  const openSource = openSourceRaw.map((item: any, index: number) => {
+    const repoItems = toStringList(item?.items || item?.highlights);
+    const baseDescription = toText(item?.description);
+    const description = [
+      baseDescription ? `<p>${baseDescription}</p>` : "",
+      repoItems.length ? listToHtml(repoItems) : "",
+    ]
+      .filter(Boolean)
+      .join("");
+    return {
+      id: item?.id || `os_${opts.resumeId}_${index}`,
+      name: toText(item?.title || item?.name),
+      repo: toText(item?.repoUrl || item?.repo) || undefined,
+      role: toText(item?.subtitle || item?.role) || undefined,
+      date: toText(item?.date) || undefined,
+      description,
+      visible: true,
+    };
+  });
+
+  const awards = awardsRaw.map((item: any, index: number) => {
+    if (typeof item === "string") {
+      return {
+        id: `award_${opts.resumeId}_${index}`,
+        title: item,
+        issuer: "",
+        date: "",
+        description: "",
+        visible: true,
+      };
+    }
+    return {
+      id: item?.id || `award_${opts.resumeId}_${index}`,
+      title: toText(item?.title || item?.name),
+      issuer: toText(item?.issuer || item?.organization),
+      date: toText(item?.date),
+      description: toText(item?.description),
+      visible: true,
+    };
+  });
+
+  const skillContentFromArray = skillsRaw
+    .map((item: any) => {
+      if (typeof item === "string") return `<p>${item}</p>`;
+      const category = toText(item?.category || item?.name);
+      const details = toText(item?.details || item?.description);
+      if (category && details) return `<p><strong>${category}：</strong>${details}</p>`;
+      if (details) return `<p>${details}</p>`;
+      if (category) return `<p>${category}</p>`;
+      return "";
+    })
+    .filter(Boolean)
+    .join("");
+
+  return {
+    id: opts.resumeId,
+    title: opts.title,
+    createdAt: toText(source.createdAt) || now,
+    updatedAt: now,
+    templateId: null,
+    templateType: "latex",
+    basic: {
+      name: toText(source.name),
+      title: toText(source.objective || source.summary),
+      email: toText(contact.email),
+      phone: toText(contact.phone),
+      location: toText(contact.location),
+    },
+    education,
+    experience,
+    projects,
+    openSource,
+    awards,
+    customData: {},
+    skillContent:
+      toText(source.skillContent) || toText(source.skills) || skillContentFromArray,
+    activeSection: "basic",
+    draggingProjectId: null,
+    menuSections: DEFAULT_MENU_SECTIONS.map((section, index) => ({
+      ...section,
+      order: index,
+    })),
+    globalSettings: {},
+  };
+}
+
 function isWorkspaceResumeData(data: unknown): data is ResumeData {
   if (!data || typeof data !== "object") return false;
   const candidate = data as Partial<ResumeData>;
@@ -265,11 +463,13 @@ interface SearchStructuredData {
 }
 
 interface ResumeStructuredData {
-  type: "resume";
+  type: "resume" | "resume_selector";
   resume_id?: string;
   user_id?: string;
   name?: string;
   resume_data?: ResumeData;
+  required?: boolean;
+  message?: string;
 }
 
 // ============================================================================
@@ -287,20 +487,14 @@ export default function SophiaChat() {
   const [isDesktop, setIsDesktop] = useState(true);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [initialSessionResolved, setInitialSessionResolved] = useState(false);
   const [conversationId, setConversationId] = useState(() => {
-    // 尝试从 URL 查询参数恢复会话ID
+    // 优先从 URL 恢复会话ID；否则先给一个临时ID，后续会在初始化阶段替换为“最新会话”
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const sessionId = params.get("sessionId");
       if (sessionId && sessionId.trim() !== "") {
         return sessionId;
-      }
-      // 尝试从 localStorage 恢复最后的会话ID（如果有 resumeId）
-      const lastSessionKey = `last_session_${window.location.pathname}`;
-      const lastSessionId = localStorage.getItem(lastSessionKey);
-      // 验证从 localStorage 获取的值不为空字符串
-      if (lastSessionId && lastSessionId.trim() !== "") {
-        return lastSessionId;
       }
     }
     return `conv-${Date.now()}`;
@@ -328,6 +522,7 @@ export default function SophiaChat() {
     }>
   >([]);
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
+  const [allowPdfAutoRender, setAllowPdfAutoRender] = useState(false);
   const [resumePdfPreview, setResumePdfPreview] = useState<
     Record<string, ResumePdfPreviewState>
   >({});
@@ -339,6 +534,19 @@ export default function SophiaChat() {
   const [activeSearchPanel, setActiveSearchPanel] =
     useState<SearchStructuredData | null>(null);
 
+  // 🔧 自动同步选中的简历数据到全局 resumeData，确保右侧 PDF 渲染（用于恢复持久化状态）
+  useEffect(() => {
+    if (selectedResumeId) {
+      const loaded = loadedResumes.find((r) => r.id === selectedResumeId);
+      if (loaded?.resumeData) {
+        setResumeData(loaded.resumeData);
+      }
+    } else if (!selectedReportId) {
+      // 仅在没有报告时才清除简历数据，避免预览冲突
+      setResumeData(null);
+    }
+  }, [selectedResumeId, loadedResumes, selectedReportId]);
+
   // 报告流式输出相关状态
   const [shouldHideResponseInChat, setShouldHideResponseInChat] =
     useState(false);
@@ -347,6 +555,56 @@ export default function SophiaChat() {
   );
   const [streamingReportContent, setStreamingReportContent] =
     useState<string>("");
+
+  // 初始化会话：有 sessionId 用指定会话；否则默认加载“最新会话”
+  useEffect(() => {
+    let mounted = true;
+    const params = new URLSearchParams(window.location.search);
+    const explicitSessionId = params.get("sessionId");
+    const hasExplicitId = !!explicitSessionId?.trim();
+
+    if (hasExplicitId) {
+      // URL 显式指定会话时，不做额外探测
+      setConversationId(explicitSessionId!.trim());
+      setInitialSessionResolved(true);
+      return () => {
+        mounted = false;
+      };
+    }
+
+    const bootstrapLatestSession = async () => {
+      try {
+        const resp = await fetch(
+          `${HISTORY_BASE}/api/agent/history/sessions/list?page=1&page_size=1`,
+        );
+        if (!mounted) return;
+        if (resp.ok) {
+          const data = await resp.json();
+          const latest = Array.isArray(data?.sessions) ? data.sessions[0] : null;
+          const latestId =
+            typeof latest?.session_id === "string" ? latest.session_id : "";
+          if (latestId) {
+            setConversationId(latestId);
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set("sessionId", latestId);
+            window.history.replaceState({}, "", newUrl.toString());
+          }
+        }
+      } catch (error) {
+        console.error("[AgentChat] Failed to bootstrap latest session:", error);
+      } finally {
+        if (mounted) {
+          setInitialSessionResolved(true);
+        }
+      }
+    };
+
+    void bootstrapLatestSession();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   // 简历选择器状态
   const [showResumeSelector, setShowResumeSelector] = useState(false);
@@ -419,10 +677,12 @@ export default function SophiaChat() {
       },
       force = false,
     ) => {
+      console.log("[DEBUG] renderResumePdfPreview called for:", resumeEntry.id, "force:", force, "stack:", new Error().stack?.split('\n').slice(2, 5).join(' <- '));
       if (!resumeEntry.resumeData) return;
 
       const currentState = resumePdfPreview[resumeEntry.id];
       if (!force && (currentState?.loading || currentState?.blob)) {
+        console.log("[DEBUG] renderResumePdfPreview skipped (already loading or has blob)");
         return;
       }
 
@@ -444,6 +704,17 @@ export default function SophiaChat() {
 
       try {
         const backendData = convertToBackendFormat(resumeEntry.resumeData);
+        const renderSessionId = currentSessionId || conversationId;
+        const traceId = `sophia-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        console.log("[PDF TRACE] 准备渲染PDF", {
+          traceId,
+          sessionId: renderSessionId,
+          resumeId: resumeEntry.id,
+          force,
+          selectedResumeId,
+          selectedReportId,
+          allowPdfAutoRender,
+        });
         const blob = await renderPDFStream(
           backendData as any,
           backendData.sectionOrder,
@@ -455,6 +726,13 @@ export default function SophiaChat() {
           },
           (error) => {
             updateResumePdfState(resumeEntry.id, { error });
+          },
+          {
+            sessionId: renderSessionId,
+            resumeId: resumeEntry.id,
+            traceId,
+            source: "SophiaChat.renderResumePdfPreview",
+            trigger: force ? "manual-retry" : "auto-effect",
           },
         );
 
@@ -476,7 +754,15 @@ export default function SophiaChat() {
         });
       }
     },
-    [resumePdfPreview, updateResumePdfState],
+    [
+      resumePdfPreview,
+      updateResumePdfState,
+      currentSessionId,
+      conversationId,
+      selectedResumeId,
+      selectedReportId,
+      allowPdfAutoRender,
+    ],
   );
 
   const upsertSearchResult = useCallback(
@@ -558,7 +844,13 @@ export default function SophiaChat() {
       }
 
       if (toolName === "show_resume") {
-        upsertLoadedResume("current", structured as ResumeStructuredData);
+        const resumePayload = structured as ResumeStructuredData;
+        if (resumePayload.type === "resume_selector") {
+          setResumeError(null);
+          setShowResumeSelector(true);
+          return;
+        }
+        upsertLoadedResume("current", resumePayload);
       }
     },
     [upsertSearchResult, upsertLoadedResume],
@@ -588,28 +880,30 @@ export default function SophiaChat() {
     }
   }, [conversationId]);
 
+  // 🔧 持久化 UI 预览状态（简历、报告等）
   useEffect(() => {
-    if (resumeId) {
-      // 如果有 resumeId，优先使用 resumeId 相关的会话ID
-      const resumeSessionId = `conv-${resumeId}`;
-      // 但如果没有从 URL 或 localStorage 恢复的会话ID，才使用 resumeId
-      // 检查当前 conversationId 是否是之前保存的
-      if (
-        !conversationId ||
-        (!conversationId.startsWith(resumeSessionId) &&
-          conversationId !== resumeSessionId)
-      ) {
-        // 只有当 conversationId 不是 resumeId 相关的时候才设置
-        // 但如果 conversationId 是从 localStorage 恢复的，应该保留它
-        const lastSessionKey = `last_session_${window.location.pathname}`;
-        const lastSessionId = localStorage.getItem(lastSessionKey);
-        if (!lastSessionId || lastSessionId === conversationId) {
-          // 如果没有保存的会话ID，或者保存的会话ID就是当前的，则使用 resumeId
-          setConversationId(resumeSessionId);
-        }
-      }
-    }
-  }, [resumeId]);
+    // 仅针对已保存的真实会话进行持久化
+    if (!conversationId || conversationId.startsWith("conv-")) return;
+
+    const uiState = {
+      selectedResumeId,
+      selectedReportId,
+      // 仅存元数据，避免 localStorage 过大
+      loadedResumes: loadedResumes.map((r) => ({
+        id: r.id,
+        name: r.name,
+        messageId: r.messageId,
+        resumeData: r.resumeData, // 这里的简历数据是必需的，用于右侧 PDF 预览渲染
+      })),
+    };
+    localStorage.setItem(`ui_state:${conversationId}`, JSON.stringify(uiState));
+  }, [conversationId, selectedResumeId, selectedReportId, loadedResumes]);
+
+  // 说明：
+  // 进入 AI 页面时，conversationId 只允许由两处决定：
+  // 1) URL 中的 sessionId
+  // 2) 初始化时探测到的“最新会话”
+  // 这里明确不再使用 resumeId 覆盖 conversationId，避免初始化阶段发生会话抖动。
 
   useEffect(() => {
     let mounted = true;
@@ -685,13 +979,32 @@ export default function SophiaChat() {
   }, [isDesktop]);
 
   useEffect(() => {
+    console.log("[PDF TRACE] effect-check", {
+      selectedLoadedResume: selectedLoadedResume?.id,
+      selectedReportId,
+      allowPdfAutoRender,
+      selectedResumeId,
+      currentSessionId,
+      conversationId,
+    });
+    if (!allowPdfAutoRender) return;
     if (!selectedLoadedResume) return;
     if (selectedReportId) return;
     void renderResumePdfPreview(selectedLoadedResume);
-  }, [selectedLoadedResume, selectedReportId, renderResumePdfPreview]);
+  }, [
+    selectedLoadedResume,
+    selectedReportId,
+    renderResumePdfPreview,
+    allowPdfAutoRender,
+  ]);
 
-  // 刷新后自动加载历史会话（如果 conversationId 是从 localStorage 恢复的）
+  // 会话ID确定后，仅加载“当前选中会话”的消息内容
   useEffect(() => {
+    // 等待初始化阶段确定最终会话ID后再加载
+    if (!initialSessionResolved) {
+      return;
+    }
+
     // 如果已经有当前会话ID，不自动加载
     if (currentSessionId) {
       return;
@@ -727,6 +1040,28 @@ export default function SophiaChat() {
         }
         const data = await resp.json();
 
+        // 🔧 恢复 UI 数据（懒加载模式）
+        // 仅恢复可点击的数据，不自动恢复右侧选中态（selectedResumeId/selectedReportId），
+        // 以避免进入页面就触发 PDF/报告加载。右侧预览改为用户点击卡片后再打开。
+        try {
+          const savedUiState = localStorage.getItem(`ui_state:${conversationId}`);
+          if (savedUiState) {
+            const {
+              loadedResumes: sLrs,
+            } = JSON.parse(savedUiState);
+            // 恢复已加载列表的元数据，数据会在后续逻辑中通过消息或重新加载补齐
+            if (Array.isArray(sLrs) && sLrs.length > 0) {
+              setLoadedResumes(sLrs);
+            }
+            // 懒加载：进入页面默认关闭右侧预览，等待用户点击卡片再恢复
+            setSelectedResumeId(null);
+            setSelectedReportId(null);
+            setAllowPdfAutoRender(false);
+          }
+        } catch (e) {
+          console.warn("[AgentChat] Failed to restore UI state:", e);
+        }
+
         // 🔧 改进：使用内容哈希生成稳定的消息 ID
         const generateMessageId = (content: string, role: string): string => {
           // 简单的字符串哈希函数（FNV-1a 变体）
@@ -758,13 +1093,11 @@ export default function SophiaChat() {
 
         const dedupedMessages = dedupeLoadedMessages(loadedMessages);
         if (!mounted) return;
-        if (dedupedMessages.length > 0) {
-          setMessages(dedupedMessages);
-          setCurrentSessionId(conversationId);
-          console.log(
-            `[AgentChat] Auto-loaded session ${conversationId} with ${dedupedMessages.length} messages`,
-          );
-        }
+        setMessages(dedupedMessages);
+        setCurrentSessionId(conversationId);
+        console.log(
+          `[AgentChat] Auto-loaded session ${conversationId} with ${dedupedMessages.length} messages`,
+        );
       } catch (error) {
         console.error("[AgentChat] Failed to auto-load session:", error);
       }
@@ -774,7 +1107,7 @@ export default function SophiaChat() {
     return () => {
       mounted = false;
     };
-  }, [conversationId]); // 只在 conversationId 变化时执行一次
+  }, [conversationId, currentSessionId, initialSessionResolved]); // 仅在会话确定后加载
 
   useEffect(() => {
     if (answerCompleteCount <= 0 || !resumeId) {
@@ -1495,10 +1828,25 @@ export default function SophiaChat() {
     if (isLoadingSession) {
       return;
     }
+    if (sessionId === currentSessionId) {
+      return;
+    }
     setIsLoadingSession(true);
     // 先保存当前会话，确保未完成的内容被保存
     saveCurrentSession();
     await waitForPendingSave();
+
+    // 切换会话时先清理右侧和会话关联状态，避免旧会话数据串到新会话
+    setSelectedResumeId(null);
+    setSelectedReportId(null);
+    setAllowPdfAutoRender(false);
+    setLoadedResumes([]);
+    setGeneratedReports([]);
+    setSearchResults([]);
+    setActiveSearchPanel(null);
+    setResumePdfPreview({});
+    setReportContent("");
+    setReportTitle("");
 
     try {
       const resp = await fetch(
@@ -1549,6 +1897,19 @@ export default function SophiaChat() {
         (m: any) => m.role === "user" || m.role === "assistant",
       );
 
+      // 懒加载模式：恢复会话级“可点击数据”，但不自动恢复右侧选中态
+      try {
+        const savedUiState = localStorage.getItem(`ui_state:${sessionId}`);
+        if (savedUiState) {
+          const { loadedResumes: sLrs } = JSON.parse(savedUiState);
+          if (Array.isArray(sLrs) && sLrs.length > 0) {
+            setLoadedResumes(sLrs);
+          }
+        }
+      } catch (e) {
+        console.warn("[AgentChat] Failed to restore session ui data:", e);
+      }
+
       const loadedMessages: Message[] = userVisibleMessages.map(
         (m: any, index: number) => ({
           id: generateMessageId(m.content || "", m.role || "unknown", index),
@@ -1566,6 +1927,7 @@ export default function SophiaChat() {
         setMessages(dedupedMessages);
         setCurrentSessionId(sessionId);
         setConversationId(sessionId);
+        setAllowPdfAutoRender(false);
         // 清理流式状态，避免显示旧会话的流式内容
         finalizeStream();
       } else {
@@ -1590,6 +1952,9 @@ export default function SophiaChat() {
     setMessages([]);
     setCurrentSessionId(newId);
     setConversationId(newId);
+    setSelectedResumeId(null);
+    setSelectedReportId(null);
+    setAllowPdfAutoRender(false);
     finalizeStream();
 
     // 关键：立即持久化一个空会话，让侧边栏立刻可见并可独立切换
@@ -1648,6 +2013,7 @@ export default function SophiaChat() {
       ]);
 
       // 自动选中该简历，显示在右侧
+      setAllowPdfAutoRender(true);
       setSelectedResumeId(selectedResume.id);
       setSelectedReportId(null);
 
@@ -1875,35 +2241,6 @@ export default function SophiaChat() {
       }
     }
 
-    // 检测是否是简历加载请求（需要弹出选择器）
-    const isResumeLoadRequest =
-      /(?:加载|打开|查看|显示)(?:我的|这个|一份)?(?:简历|CV|履历)/.test(
-        trimmedInput,
-      );
-
-    // 如果是简历加载请求，弹出选择器让用户选择 HTML 简历
-    if (isResumeLoadRequest && !hasAttachments) {
-      setPendingResumeInput(trimmedInput);
-      setShowResumeSelector(true);
-      setResumeError(null);
-      return;
-    }
-
-    // 检测是否是其他简历操作请求（需要简历数据但不需要选择器）
-    const isResumeOperation =
-      /(?:创建|修改|优化|编辑|分析|改进)(?:我的|这个|一份)?(?:简历|CV|履历)/.test(
-        trimmedInput,
-      );
-
-    // 只有明确的简历操作才需要检查简历数据
-    if (isResumeOperation && !resumeData && !hasAttachments) {
-      // 显示简历选择器，而不是错误提示
-      setPendingResumeInput(trimmedInput);
-      setShowResumeSelector(true);
-      setResumeError(null);
-      return;
-    }
-
     // 清除之前的错误
     setResumeError(null);
 
@@ -1940,13 +2277,48 @@ export default function SophiaChat() {
           const parsedResume = data?.resume;
           if (parsedResume && typeof parsedResume === "object") {
             const resolvedUserId = user?.id ?? null;
+            const resumeEntryId = `uploaded-pdf-${file.lastModified}-${file.size}`;
+            const resumeDisplayName =
+              file.name.replace(/\.pdf$/i, "") || "上传简历";
+            const uploadMessageId = `upload-pdf-${file.lastModified}-${file.size}`;
+            const canonical = normalizeImportedResumeToCanonical(
+              parsedResume as Record<string, any>,
+              {
+                resumeId: resumeEntryId,
+                title: resumeDisplayName,
+              },
+            );
             const resumeDataWithMeta = {
-              ...parsedResume,
+              ...canonical,
+              user_id: resolvedUserId,
+              resume_id: resumeEntryId,
               _meta: {
+                ...(canonical as any)._meta,
                 user_id: resolvedUserId,
+                resume_id: resumeEntryId,
               },
             } as ResumeData;
             setResumeData(resumeDataWithMeta);
+            setLoadedResumes((prev) => {
+              const nextEntry = {
+                id: resumeEntryId,
+                name: resumeDisplayName,
+                messageId: uploadMessageId,
+                resumeData: resumeDataWithMeta,
+              };
+              const existingIndex = prev.findIndex(
+                (item) => item.id === resumeEntryId,
+              );
+              if (existingIndex >= 0) {
+                const updated = [...prev];
+                updated[existingIndex] = nextEntry;
+                return updated;
+              }
+              return [...prev, nextEntry];
+            });
+            setAllowPdfAutoRender(true);
+            setSelectedResumeId(resumeEntryId);
+            setSelectedReportId(null);
             attachmentBlocks.push(
               `已上传并解析 PDF 文件《${file.name}》。请基于这份简历内容进行分析并给出优化建议。`,
             );
@@ -2024,7 +2396,7 @@ export default function SophiaChat() {
             <aside className="w-[280px] shrink-0 border-r border-slate-200/50 dark:border-slate-800/50 bg-white dark:bg-slate-900">
               <RecentSessions
                 baseUrl={HISTORY_BASE}
-                currentSessionId={currentSessionId}
+                currentSessionId={currentSessionId || conversationId}
                 onSelectSession={handleSelectSession}
                 onCreateSession={handleCreateSession}
                 onDeleteSession={deleteSession}
@@ -2047,7 +2419,7 @@ export default function SophiaChat() {
               >
                 <RecentSessions
                   baseUrl={HISTORY_BASE}
-                  currentSessionId={currentSessionId}
+                  currentSessionId={currentSessionId || conversationId}
                   onSelectSession={handleSelectSession}
                   onCreateSession={handleCreateSession}
                   onDeleteSession={deleteSession}
@@ -2226,6 +2598,7 @@ export default function SophiaChat() {
                             title={reportForMessage.title}
                             subtitle="点击查看完整报告"
                             onClick={() => {
+                              setAllowPdfAutoRender(false);
                               setSelectedReportId(reportForMessage.id);
                               setReportTitle(reportForMessage.title);
                               setSelectedResumeId(null);
@@ -2247,6 +2620,7 @@ export default function SophiaChat() {
                             title={resumeForMessage.name}
                             subtitle="点击查看简历"
                             onClick={() => {
+                              setAllowPdfAutoRender(true);
                               setSelectedResumeId(resumeForMessage.id);
                               setSelectedReportId(null);
                               if (resumeForMessage.resumeData) {
@@ -2401,6 +2775,7 @@ export default function SophiaChat() {
                                 title={currentReport.title}
                                 subtitle="点击查看完整报告"
                                 onClick={() => {
+                                  setAllowPdfAutoRender(false);
                                   setSelectedReportId(currentReport.id);
                                   setReportTitle(currentReport.title);
                                   setSelectedResumeId(null);
@@ -2524,6 +2899,22 @@ export default function SophiaChat() {
                         >
                           <Plus className="size-4" />
                         </button>
+
+                        {/* 展示简历按钮 */}
+                        <button
+                          type="button"
+                          onClick={() => setShowResumeSelector(true)}
+                          disabled={isProcessing}
+                          className={`size-7 rounded-full border flex items-center justify-center transition-colors ${
+                            isProcessing
+                              ? "border-slate-200 dark:border-slate-600 text-slate-300 dark:text-slate-500 cursor-not-allowed"
+                              : "border-slate-300 dark:border-slate-600 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 dark:hover:border-indigo-500"
+                          }`}
+                          title="展示简历"
+                          aria-label="展示简历"
+                        >
+                          <FileText className="size-4" />
+                        </button>
                       </div>
                       <button
                         type="submit"
@@ -2590,6 +2981,7 @@ export default function SophiaChat() {
                   {selectedResumeId && !selectedReportId && (
                     <button
                       onClick={() => {
+                        setAllowPdfAutoRender(false);
                         setSelectedResumeId(null);
                       }}
                       className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
