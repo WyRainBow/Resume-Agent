@@ -3230,8 +3230,8 @@ export default function SophiaChat() {
 
           {/* Right: Report Preview or Resume Preview - 只格在有选中内容时显示 */}
           {(selectedReportId || selectedResumeId) && (
-            <CustomScrollbar as="aside" className="w-[45%] min-w-[420px] bg-slate-50 border-l border-slate-200">
-              <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10">
+            <CustomScrollbar as="aside" className="w-[45%] min-w-[420px] bg-slate-50 border-l border-slate-200 flex flex-col">
+              <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10 shrink-0">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-sm font-semibold text-slate-700">
@@ -3250,32 +3250,49 @@ export default function SophiaChat() {
                         </p>
                       )}
                   </div>
-                  {selectedReportId && (
-                    <button
-                      onClick={() => {
-                        setSelectedReportId(null);
-                        setReportContent("");
-                        setReportTitle("");
-                      }}
-                      className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
-                    >
-                      关闭
-                    </button>
-                  )}
-                  {selectedResumeId && !selectedReportId && (
-                    <button
-                      onClick={() => {
-                        setAllowPdfAutoRender(false);
-                        setSelectedResumeId(null);
-                      }}
-                      className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
-                    >
-                      关闭
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {selectedResumeId && !selectedReportId && selectedLoadedResume && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void renderResumePdfPreview(
+                            selectedLoadedResume,
+                            true,
+                          )
+                        }
+                        disabled={selectedResumePdfState.loading}
+                        className="text-xs text-indigo-600 hover:text-indigo-700 disabled:text-slate-400 disabled:cursor-not-allowed px-2 py-1 rounded hover:bg-indigo-50"
+                      >
+                        重新渲染
+                      </button>
+                    )}
+                    {selectedReportId && (
+                      <button
+                        onClick={() => {
+                          setSelectedReportId(null);
+                          setReportContent("");
+                          setReportTitle("");
+                        }}
+                        className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+                      >
+                        关闭
+                      </button>
+                    )}
+                    {selectedResumeId && !selectedReportId && (
+                      <button
+                        onClick={() => {
+                          setAllowPdfAutoRender(false);
+                          setSelectedResumeId(null);
+                        }}
+                        className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+                      >
+                        关闭
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="p-6">
+              <div className="flex-1 min-h-0 flex flex-col">
                 {selectedReportId ? (
                   <ReportContentView
                     reportId={selectedReportId}
@@ -3293,29 +3310,8 @@ export default function SophiaChat() {
                     }}
                   />
                 ) : (
-                  <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-                    <div className="px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-                      <p className="text-xs text-slate-500 text-pretty">
-                        {selectedResumePdfState.progress || "简历 PDF 预览"}
-                      </p>
-                      {selectedLoadedResume && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            void renderResumePdfPreview(
-                              selectedLoadedResume,
-                              true,
-                            )
-                          }
-                          disabled={selectedResumePdfState.loading}
-                          className="text-xs text-indigo-600 hover:text-indigo-700 disabled:text-slate-400 disabled:cursor-not-allowed"
-                        >
-                          重新渲染
-                        </button>
-                      )}
-                    </div>
-
-                    <CustomScrollbar className="h-[calc(100dvh-210px)] bg-slate-100/70 p-3">
+                  <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                    <CustomScrollbar className="flex-1 bg-slate-100/70 p-4">
                       {!selectedLoadedResume && (
                         <div className="text-sm text-slate-500">
                           正在加载简历...
@@ -3367,9 +3363,6 @@ export default function SophiaChat() {
                         </div>
                       )}
                     </CustomScrollbar>
-
-                    {/* 底部占位 - 减小比例 */}
-                    <div className="flex-[0.2]" />
                   </div>
                 )}
               </div>
