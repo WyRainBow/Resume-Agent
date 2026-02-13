@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Loader2, MessageSquare, Pencil, Plus, RefreshCw, Trash2, X, Trash, AlertTriangle } from 'lucide-react';
 import { SidebarTooltip } from './SidebarTooltip';
+import CustomScrollbar from '../common/CustomScrollbar';
 
 const PAGE_SIZE = 20;
 
@@ -379,7 +380,11 @@ export function RecentSessions({
       ) : sessions.length === 0 ? (
         <div className="px-3 py-4 text-xs text-gray-400">暂无历史会话</div>
       ) : (
-        <div ref={listContainerRef} className="flex-1 overflow-y-auto overflow-x-hidden">
+        <CustomScrollbar 
+          ref={listContainerRef as any} 
+          id="sessions-list" 
+          className="flex-1 overflow-x-hidden"
+        >
           <div className="mt-2 space-y-1 px-2 w-full">
             {sessions.map((session) => {
               const name = toSingleLine(session.title || session.session_id);
@@ -502,7 +507,7 @@ export function RecentSessions({
               <span>加载中</span>
             </div>
           )}
-        </div>
+        </CustomScrollbar>
       )}
     </div>
   );

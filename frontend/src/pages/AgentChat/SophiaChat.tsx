@@ -65,6 +65,7 @@ import ThoughtProcess from "@/components/chat/ThoughtProcess";
 import { useTextStream } from "@/hooks/useTextStream";
 
 import WorkspaceLayout from "@/pages/WorkspaceLayout";
+import CustomScrollbar from "@/components/common/CustomScrollbar";
 
 // Response 流式输出组件（带打字机效果）
 function StreamingResponse({
@@ -1729,7 +1730,9 @@ export default function SophiaChat() {
     if (conversationId && conversationId.trim() !== "" && messages.length > 0) {
       void persistSessionSnapshot(conversationId, messages, shouldRefresh);
     } else {
-      console.log("[AgentChat] Skipping save: conversationId is empty or no messages");
+      console.log(
+        "[AgentChat] Skipping save: conversationId is empty or no messages",
+      );
     }
   }, [conversationId, messages, persistSessionSnapshot]);
 
@@ -2005,11 +2008,7 @@ export default function SophiaChat() {
 
     // 不再立即持久化空会话，只在用户发送第一条消息时才真正创建并入库
     // 这样可以避免用户点击+按钮后没有输入消息就产生空会话
-  }, [
-    finalizeStream,
-    saveCurrentSession,
-    waitForPendingSave,
-  ]);
+  }, [finalizeStream, saveCurrentSession, waitForPendingSave]);
 
   const handleSelectSession = useCallback(
     (sessionId: string) => {
@@ -2341,7 +2340,9 @@ export default function SophiaChat() {
               name: resumeDisplayName,
               messageId: uploadMessageId,
             };
-            const existingIndex = prev.findIndex((item) => item.id === resumeEntryId);
+            const existingIndex = prev.findIndex(
+              (item) => item.id === resumeEntryId,
+            );
             if (existingIndex >= 0) {
               const updated = [...prev];
               updated[existingIndex] = {
@@ -2547,7 +2548,7 @@ export default function SophiaChat() {
 
           {/* Left: Chat */}
           <section className="flex-1 min-w-0 flex flex-col h-full">
-            <main className="flex-1 overflow-y-auto px-4 py-8 custom-scrollbar flex flex-col">
+            <CustomScrollbar as="main" className="flex-1 px-4 py-8 flex flex-col">
               <div className="max-w-3xl mx-auto w-full flex-1 flex flex-col">
                 {loadingResume && (
                   <div className="text-sm text-gray-400 mb-4">
@@ -3029,7 +3030,7 @@ export default function SophiaChat() {
 
                 <div ref={messagesEndRef} />
               </div>
-            </main>
+            </CustomScrollbar>
 
             {/* Input Area */}
             <div className="bg-slate-50 dark:bg-slate-950 px-4 py-4 pb-8">
@@ -3143,7 +3144,7 @@ export default function SophiaChat() {
 
           {/* Right: Report Preview or Resume Preview - 只格在有选中内容时显示 */}
           {(selectedReportId || selectedResumeId) && (
-            <aside className="w-[45%] min-w-[420px] bg-slate-50 overflow-y-auto border-l border-slate-200 custom-scrollbar">
+            <CustomScrollbar as="aside" className="w-[45%] min-w-[420px] bg-slate-50 border-l border-slate-200">
               <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10">
                 <div className="flex items-center justify-between">
                   <div>
@@ -3228,7 +3229,7 @@ export default function SophiaChat() {
                       )}
                     </div>
 
-                    <div className="h-[calc(100dvh-210px)] bg-slate-100/70 overflow-auto p-3">
+                    <CustomScrollbar className="h-[calc(100dvh-210px)] bg-slate-100/70 p-3">
                       {!selectedLoadedResume && (
                         <div className="text-sm text-slate-500">
                           正在加载简历...
@@ -3279,14 +3280,14 @@ export default function SophiaChat() {
                           />
                         </div>
                       )}
-                    </div>
+                    </CustomScrollbar>
 
                     {/* 底部占位 - 减小比例 */}
                     <div className="flex-[0.2]" />
                   </div>
                 )}
               </div>
-            </aside>
+            </CustomScrollbar>
           )}
         </div>
         <SearchResultPanel
