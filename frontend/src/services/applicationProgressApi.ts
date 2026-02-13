@@ -114,13 +114,14 @@ export async function reorderApplicationProgress(order: string[]): Promise<void>
 }
 
 export async function aiParseApplicationProgress(
-  text: string,
+  text?: string,
   provider?: string,
-  model?: string
+  model?: string,
+  imageDataUrl?: string
 ): Promise<ApplicationProgressAIParsePayload> {
   const { data } = await apiClient.post<ApplicationProgressAIParsePayload>(
     '/api/application-progress/ai-parse',
-    { text, provider, model },
+    { text, provider, model, image_data_url: imageDataUrl },
     { headers: getAuthHeaders() }
   )
   return data

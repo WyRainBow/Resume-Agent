@@ -1,20 +1,23 @@
 """
 投递进展表 API
 """
-from typing import List, Optional, Any
+from typing import List, Optional, Any, Callable, TypeVar
 from uuid import uuid4
 from datetime import date, datetime
 import json as _json
 import re
+import os
+from time import sleep
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 from database import get_db
 from models import ApplicationProgress, User
 from middleware.auth import get_current_user
-from llm import call_llm, DEFAULT_AI_PROVIDER
+from llm import call_llm
 try:
     from backend.prompts import build_application_progress_parse_prompt
 except Exception:
@@ -25,7 +28,34 @@ try:
 except Exception:
     IntentClassifier = None
 
+try:
+    from zhipuai import ZhipuAI
+except Exception:
+    ZhipuAI = None
+
 router = APIRouter(prefix="/api/application-progress", tags=["ApplicationProgress"])
+T = TypeVar("T")
+_zhipu_client: Optional[Any] = None
+_zhipu_key_cache: Optional[str] = None
+
+
+def _run_with_db_retry(db: Session, fn: Callable[[], T], retries: int = 1) -> T:
+    """数据库短暂断连时重试，最终返回 503 而不是 500。"""
+    last_error: Optional[Exception] = None
+    for attempt in range(retries + 1):
+        try:
+            return fn()
+        except OperationalError as exc:
+            last_error = exc
+            db.rollback()
+            if attempt < retries:
+                sleep(0.1)
+                continue
+        except SQLAlchemyError as exc:
+            last_error = exc
+            db.rollback()
+            break
+    raise HTTPException(status_code=503, detail="数据库连接异常，请稍后重试") from last_error
 
 
 class ApplicationProgressPayload(BaseModel):
@@ -101,11 +131,14 @@ def list_entries(
     db: Session = Depends(get_db),
 ):
     """获取当前用户所有投递记录，按 sort_order、updated_at 排序"""
-    rows = (
-        db.query(ApplicationProgress)
-        .filter(ApplicationProgress.user_id == current_user.id)
-        .order_by(ApplicationProgress.sort_order.asc(), ApplicationProgress.updated_at.desc())
-        .all()
+    rows = _run_with_db_retry(
+        db,
+        lambda: (
+            db.query(ApplicationProgress)
+            .filter(ApplicationProgress.user_id == current_user.id)
+            .order_by(ApplicationProgress.sort_order.asc(), ApplicationProgress.updated_at.desc())
+            .all()
+        ),
     )
     return [_row_to_response(r) for r in rows]
 
@@ -117,10 +150,13 @@ def create_entry(
     db: Session = Depends(get_db),
 ):
     """创建一条投递记录"""
-    max_order = (
-        db.query(ApplicationProgress)
-        .filter(ApplicationProgress.user_id == current_user.id)
-        .count()
+    max_order = _run_with_db_retry(
+        db,
+        lambda: (
+            db.query(ApplicationProgress)
+            .filter(ApplicationProgress.user_id == current_user.id)
+            .count()
+        ),
     )
     progress_time = None
     if payload.progress_time:
@@ -153,9 +189,12 @@ def create_entry(
         link2=payload.link2,
         resume_id=payload.resume_id,
     )
-    db.add(row)
-    db.commit()
-    db.refresh(row)
+    def _save_and_refresh() -> None:
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+
+    _run_with_db_retry(db, _save_and_refresh)
     return _row_to_response(row)
 
 
@@ -167,10 +206,13 @@ def update_entry(
     db: Session = Depends(get_db),
 ):
     """更新单条投递记录（部分字段）"""
-    row = (
-        db.query(ApplicationProgress)
-        .filter(ApplicationProgress.id == entry_id, ApplicationProgress.user_id == current_user.id)
-        .first()
+    row = _run_with_db_retry(
+        db,
+        lambda: (
+            db.query(ApplicationProgress)
+            .filter(ApplicationProgress.id == entry_id, ApplicationProgress.user_id == current_user.id)
+            .first()
+        ),
     )
     if not row:
         raise HTTPException(status_code=404, detail="记录不存在")
@@ -210,8 +252,11 @@ def update_entry(
         row.resume_id = payload.resume_id
     if payload.sort_order is not None:
         row.sort_order = payload.sort_order
-    db.commit()
-    db.refresh(row)
+    def _commit_and_refresh() -> None:
+        db.commit()
+        db.refresh(row)
+
+    _run_with_db_retry(db, _commit_and_refresh)
     return _row_to_response(row)
 
 
@@ -222,15 +267,21 @@ def delete_entry(
     db: Session = Depends(get_db),
 ):
     """删除单条投递记录"""
-    row = (
-        db.query(ApplicationProgress)
-        .filter(ApplicationProgress.id == entry_id, ApplicationProgress.user_id == current_user.id)
-        .first()
+    row = _run_with_db_retry(
+        db,
+        lambda: (
+            db.query(ApplicationProgress)
+            .filter(ApplicationProgress.id == entry_id, ApplicationProgress.user_id == current_user.id)
+            .first()
+        ),
     )
     if not row:
         raise HTTPException(status_code=404, detail="记录不存在")
-    db.delete(row)
-    db.commit()
+    def _delete_and_commit() -> None:
+        db.delete(row)
+        db.commit()
+
+    _run_with_db_retry(db, _delete_and_commit)
     return {"success": True}
 
 
@@ -239,7 +290,8 @@ class ReorderPayload(BaseModel):
 
 
 class ApplicationProgressAIParseRequest(BaseModel):
-    text: str
+    text: Optional[str] = None
+    image_data_url: Optional[str] = None
     provider: Optional[str] = None
     model: Optional[str] = None
 
@@ -275,6 +327,57 @@ def _parse_json_response(cleaned: str) -> dict:
         raise
 
 
+def _get_zhipu_client() -> Any:
+    global _zhipu_client, _zhipu_key_cache
+    key = os.getenv("ZHIPU_API_KEY", "")
+    if not key:
+        raise HTTPException(status_code=400, detail="缺少 ZHIPU_API_KEY")
+    if ZhipuAI is None:
+        raise HTTPException(status_code=500, detail="zhipuai 未安装")
+    if _zhipu_client is None or _zhipu_key_cache != key:
+        _zhipu_client = ZhipuAI(api_key=key)
+        _zhipu_key_cache = key
+    return _zhipu_client
+
+
+def _zhipu_vision_parse(image_data_url: str, prompt: str, model: str) -> str:
+    if not image_data_url.startswith("data:image/"):
+        raise HTTPException(status_code=400, detail="image_data_url 必须是 data:image/... base64")
+    client = _get_zhipu_client()
+    try:
+        resp = client.chat.completions.create(
+            model=model,
+            messages=[
+                {
+                    "role": "user",
+                    "content": [
+                        {"type": "image_url", "image_url": {"url": image_data_url}},
+                        {"type": "text", "text": prompt},
+                    ],
+                }
+            ],
+            temperature=0.1,
+            max_tokens=1200,
+        )
+        msg = resp.choices[0].message
+        content = msg.content or ""
+        if isinstance(content, list):
+            text_parts = []
+            for item in content:
+                if isinstance(item, dict):
+                    text = item.get("text")
+                    if isinstance(text, str):
+                        text_parts.append(text)
+            content = "\n".join(text_parts)
+        if not isinstance(content, str) or not content.strip():
+            raise ValueError("智谱未返回可解析内容")
+        return content
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"智谱图片解析失败: {e}")
+
+
 @router.post("/ai-parse", response_model=ApplicationProgressAIParseResponse)
 def ai_parse_entry(
     body: ApplicationProgressAIParseRequest,
@@ -284,12 +387,14 @@ def ai_parse_entry(
     使用 LLM 对自然语言做意图识别与结构化抽取，返回投递记录字段。
     """
     text = (body.text or "").strip()
-    if not text:
-        raise HTTPException(status_code=400, detail="text 不能为空")
+    image_data_url = (body.image_data_url or "").strip()
+    if not text and not image_data_url:
+        raise HTTPException(status_code=400, detail="text 或 image_data_url 至少提供一个")
 
-    provider = body.provider or DEFAULT_AI_PROVIDER
+    provider = body.provider or "zhipu"
+    model = body.model or "glm-4.6v"
     intent_hint = ""
-    if IntentClassifier is not None:
+    if text and IntentClassifier is not None:
         try:
             classifier = IntentClassifier(use_llm=False)
             intent_result = classifier.classify_sync(text)
@@ -297,11 +402,21 @@ def ai_parse_entry(
         except Exception:
             intent_hint = ""
 
-    prompt = build_application_progress_parse_prompt(text=text, intent_hint=intent_hint)
+    prompt = build_application_progress_parse_prompt(
+        text=text or "（用户仅上传了截图，请仅根据图片内容提取）",
+        intent_hint=intent_hint,
+    )
     try:
-        raw = call_llm(provider, prompt, model=body.model)
+        if image_data_url:
+            if provider != "zhipu":
+                raise HTTPException(status_code=400, detail="图片解析仅支持 zhipu provider")
+            raw = _zhipu_vision_parse(image_data_url=image_data_url, prompt=prompt, model=model)
+        else:
+            raw = call_llm(provider, prompt, model=model)
         cleaned = _clean_llm_response(raw)
         data = _parse_json_response(cleaned)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI 解析失败: {e}")
 
@@ -342,13 +457,16 @@ def reorder_entries(
     db: Session = Depends(get_db),
 ):
     """批量更新 sort_order（拖拽后）"""
-    for i, entry_id in enumerate(payload.order):
-        row = (
-            db.query(ApplicationProgress)
-            .filter(ApplicationProgress.id == entry_id, ApplicationProgress.user_id == current_user.id)
-            .first()
-        )
-        if row:
-            row.sort_order = i
-    db.commit()
+    def _do_reorder() -> None:
+        for i, entry_id in enumerate(payload.order):
+            row = (
+                db.query(ApplicationProgress)
+                .filter(ApplicationProgress.id == entry_id, ApplicationProgress.user_id == current_user.id)
+                .first()
+            )
+            if row:
+                row.sort_order = i
+        db.commit()
+
+    _run_with_db_retry(db, _do_reorder)
     return {"success": True}

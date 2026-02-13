@@ -3,7 +3,7 @@
  * 工具栏：撤销/重做/插入新行/置顶选中/删除选中/导出表格
  * 列：公司、投递链接、行业、职位、地点、进展、备注、投递时间、内推码、使用的 PDF
  */
-import { useState, useEffect, useCallback, useRef, useLayoutEffect } from 'react'
+import { useState, useEffect, useCallback, useRef, useLayoutEffect, type ClipboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import {
@@ -216,6 +216,19 @@ function formatDateString(dt: Date): string {
   const m = String(dt.getMonth() + 1).padStart(2, '0')
   const d = String(dt.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = reader.result
+      if (typeof result === 'string') resolve(result)
+      else reject(new Error('读取图片失败'))
+    }
+    reader.onerror = () => reject(new Error('读取图片失败'))
+    reader.readAsDataURL(file)
+  })
 }
 
 function InlineDatePicker({
@@ -657,6 +670,7 @@ export default function ApplicationProgressPage() {
   const [aiImportOpen, setAiImportOpen] = useState(false)
   const [aiImportText, setAiImportText] = useState('')
   const [aiImportLoading, setAiImportLoading] = useState(false)
+  const [aiImportImageDataUrl, setAiImportImageDataUrl] = useState<string | null>(null)
 
   const loadData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -774,8 +788,16 @@ export default function ApplicationProgressPage() {
     try {
       let payload = null as ApplicationProgressPayload | null
       try {
-        payload = await aiParseApplicationProgress(aiImportText)
+        payload = await aiParseApplicationProgress(
+          aiImportText.trim() || undefined,
+          'zhipu',
+          'glm-4.6v',
+          aiImportImageDataUrl || undefined
+        )
       } catch (apiError) {
+        if (aiImportImageDataUrl) {
+          throw apiError
+        }
         console.error('[AI导入] 后端 AI 解析失败，回退本地解析:', apiError)
         payload = parseAIImportText(aiImportText)
       }
@@ -790,6 +812,7 @@ export default function ApplicationProgressPage() {
       setEntries((prev) => [created, ...prev])
       setAiImportOpen(false)
       setAiImportText('')
+      setAiImportImageDataUrl(null)
     } catch (e) {
       console.error(e)
       alert(`AI 导入失败：${extractErrorMessage(e)}`)
@@ -797,6 +820,18 @@ export default function ApplicationProgressPage() {
       setAiImportLoading(false)
     }
   }
+
+  const handleAiImportPasteImage = useCallback((event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = Array.from(event.clipboardData?.items || [])
+    const imageItem = items.find((item) => item.type.startsWith('image/'))
+    if (!imageItem) return
+    const file = imageItem.getAsFile()
+    if (!file) return
+    event.preventDefault()
+    void fileToDataUrl(file)
+      .then((dataUrl) => setAiImportImageDataUrl(dataUrl))
+      .catch((err) => alert(extractErrorMessage(err)))
+  }, [])
 
   const handleDeleteSelected = async () => {
     if (!isAuthenticated || selectedIds.size === 0) return
@@ -1202,6 +1237,8 @@ export default function ApplicationProgressPage() {
                   onClick={() => {
                     if (aiImportLoading) return
                     setAiImportOpen(false)
+                    setAiImportText('')
+                    setAiImportImageDataUrl(null)
                   }}
                 >
                   <X className="w-4 h-4" />
@@ -1209,20 +1246,40 @@ export default function ApplicationProgressPage() {
               </div>
               <div className="px-5 py-4 space-y-3">
                 <p className="text-sm text-slate-500">
-                  粘贴自然语言描述、AI系统会自动提取公司、职位、时间、链接并写入投递记录
+                  支持文字粘贴或 Cmd+V 粘贴截图（智谱 glm-4.6v），系统会自动提取公司、职位、时间、链接并写入投递记录
                 </p>
                 <textarea
                   value={aiImportText}
                   onChange={(e) => setAiImportText(e.target.value)}
+                  onPaste={handleAiImportPasteImage}
                   placeholder="例如：我投递了字节跳动的机器审核部门、后端开发工程师、时间为今天、链接为https://join.qq.com/"
                   className="w-full min-h-[180px] resize-y rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-950 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-200"
                 />
+                {aiImportImageDataUrl && (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-sm text-slate-600">已粘贴图片</span>
+                      <button
+                        type="button"
+                        className="text-xs text-slate-500 hover:text-slate-700"
+                        onClick={() => setAiImportImageDataUrl(null)}
+                      >
+                        移除
+                      </button>
+                    </div>
+                    <img src={aiImportImageDataUrl} alt="AI导入截图" className="max-h-44 rounded-lg border border-slate-200 object-contain bg-white" />
+                  </div>
+                )}
               </div>
               <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   className="h-10 px-4 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                  onClick={() => setAiImportOpen(false)}
+                  onClick={() => {
+                    setAiImportOpen(false)
+                    setAiImportText('')
+                    setAiImportImageDataUrl(null)
+                  }}
                   disabled={aiImportLoading}
                 >
                   取消
@@ -1231,7 +1288,7 @@ export default function ApplicationProgressPage() {
                   type="button"
                   className="h-10 px-4 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:from-indigo-600 hover:to-violet-600 disabled:opacity-60"
                   onClick={handleAIImport}
-                  disabled={aiImportLoading || !aiImportText.trim()}
+                  disabled={aiImportLoading || (!aiImportText.trim() && !aiImportImageDataUrl)}
                 >
                   {aiImportLoading ? '导入中...' : '导入到表格'}
                 </button>
