@@ -20,7 +20,7 @@ export default function UsersPage() {
 
   const load = async () => {
     setLoading(true)
-    const data = await getUsers({ page: 1, page_size: 50, keyword })
+    const data = await getUsers({ page: 1, page_size: 50, keyword, with_total: 0 })
     setItems(data.items)
     setLoading(false)
   }
@@ -37,9 +37,9 @@ export default function UsersPage() {
       return
     }
     try {
-      await updateUserRole(user.id, nextRole)
+      const updated = await updateUserRole(user.id, nextRole)
       setActionMsg(`已将 ${user.username} 角色更新为 ${nextRole}`)
-      await load()
+      setItems((prev) => prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)))
     } catch (err: any) {
       setActionErr(err?.response?.data?.detail || '角色更新失败，请稍后重试')
     }
@@ -52,9 +52,9 @@ export default function UsersPage() {
     if (next === null) return
     const val = next.trim() === '' ? null : Number(next)
     try {
-      await updateUserQuota(user.id, Number.isNaN(val as number) ? null : val)
+      const updated = await updateUserQuota(user.id, Number.isNaN(val as number) ? null : val)
       setActionMsg(`已更新 ${user.username} 的 API 配额`)
-      await load()
+      setItems((prev) => prev.map((x) => (x.id === updated.id ? { ...x, ...updated } : x)))
     } catch (err: any) {
       setActionErr(err?.response?.data?.detail || '配额更新失败，请稍后重试')
     }

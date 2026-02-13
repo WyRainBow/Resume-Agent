@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from time import sleep
 
@@ -69,10 +69,23 @@ def list_users(
     keyword: Optional[str] = None,
     role: Optional[str] = None,
     ip: Optional[str] = None,
+    with_total: bool = Query(default=False),
     current_user: User = Depends(require_admin_or_member),
     db: Session = Depends(get_db),
 ):
     query = db.query(User)
+    query = query.options(
+        load_only(
+            User.id,
+            User.username,
+            User.email,
+            User.role,
+            User.last_login_ip,
+            User.api_quota,
+            User.created_at,
+            User.updated_at,
+        )
+    )
     if keyword:
         like = f"%{keyword}%"
         query = query.filter(or_(User.username.like(like), User.email.like(like)))
@@ -81,7 +94,6 @@ def list_users(
     if ip:
         query = query.filter(User.last_login_ip == ip.strip())
 
-    total = _run_with_db_retry(db, lambda: query.count())
     rows = _run_with_db_retry(
         db,
         lambda: (
@@ -91,6 +103,8 @@ def list_users(
             .all()
         ),
     )
+    # total count 在数据量大时开销明显，默认关闭；仅在前端显式需要时计算
+    total = _run_with_db_retry(db, lambda: query.count()) if with_total else 0
     return AdminUsersListResponse(
         items=[
             AdminUserItem(
@@ -122,7 +136,26 @@ def update_user_role(
     if new_role not in {"admin", "member", "user"}:
         raise HTTPException(status_code=400, detail="不支持的角色")
 
-    row = _run_with_db_retry(db, lambda: db.query(User).filter(User.id == user_id).first())
+    row = _run_with_db_retry(
+        db,
+        lambda: (
+            db.query(User)
+            .options(
+                load_only(
+                    User.id,
+                    User.username,
+                    User.email,
+                    User.role,
+                    User.last_login_ip,
+                    User.api_quota,
+                    User.created_at,
+                    User.updated_at,
+                )
+            )
+            .filter(User.id == user_id)
+            .first()
+        ),
+    )
     if not row:
         raise HTTPException(status_code=404, detail="用户不存在")
 
@@ -143,7 +176,6 @@ def update_user_role(
             )
         )
         _run_with_db_retry(db, db.commit)
-        _run_with_db_retry(db, lambda: db.refresh(row))
 
     return AdminUserItem(
         id=row.id,

@@ -48,15 +48,31 @@ def get_database_url():
 
 DATABASE_URL = get_database_url()
 
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+IS_MYSQL = "mysql" in DATABASE_URL.lower()
+DB_POOL_PRE_PING = _env_bool("DB_POOL_PRE_PING", False)
+DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "1800"))
+DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "20"))
+DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "40"))
+DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "3"))
+
 # 创建数据库引擎
 # 添加连接参数以确保 MySQL 连接稳定
 engine = create_engine(
     DATABASE_URL,
-    pool_pre_ping=True,  # 连接前检查连接是否有效
-    pool_recycle=120,     # 2分钟回收连接，降低陈旧连接概率
-    pool_size=5,          # 连接池大小
-    max_overflow=10,      # 最大溢出连接数
-    pool_timeout=5,       # 连接池获取超时，避免长时间阻塞
+    # 远程数据库高延迟场景下，pre_ping 会在每次取连接时增加额外往返，默认关闭。
+    pool_pre_ping=DB_POOL_PRE_PING,
+    pool_recycle=DB_POOL_RECYCLE,
+    pool_size=DB_POOL_SIZE,
+    max_overflow=DB_MAX_OVERFLOW,
+    pool_timeout=DB_POOL_TIMEOUT,
     pool_use_lifo=True,   # 优先复用最近连接，减少命中陈旧连接
     pool_reset_on_return="rollback",  # 连接归还时重置事务状态，减少脏连接影响
     echo=False,           # 设置为 True 可以看到 SQL 日志
@@ -66,7 +82,7 @@ engine = create_engine(
         "connect_timeout": 8,
         "read_timeout": 15,
         "write_timeout": 10,
-    } if "mysql" in DATABASE_URL.lower() else {}
+    } if IS_MYSQL else {}
 )
 
 # 创建会话工厂
