@@ -97,7 +97,7 @@ export default function LandingPage() {
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
-              onClick={() => navigate('/dashboard')}
+              onClick={() => navigate('/workspace')}
               className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
             >
               我的简历
