@@ -23,7 +23,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCLTP } from "@/hooks/useCLTP";
 import { PDFViewerSelector } from "@/components/PDFEditor";
 import { convertToBackendFormat } from "@/pages/Workspace/v2/utils/convertToBackend";
-import { DEFAULT_MENU_SECTIONS, type ResumeData } from "@/pages/Workspace/v2/types";
+import {
+  DEFAULT_MENU_SECTIONS,
+  type ResumeData,
+} from "@/pages/Workspace/v2/types";
 import { getResume, getAllResumes } from "@/services/resumeStorage";
 import type { SavedResume } from "@/services/storage/StorageAdapter";
 import {
@@ -35,7 +38,19 @@ import {
 } from "@/services/api";
 import { Message } from "@/types/chat";
 import type { SSEEvent } from "@/transports/SSETransport";
-import { ArrowUp, FileText, Plus, X, Sparkles, Wand2, Zap, Briefcase, Search, MessageSquare, Bot } from "lucide-react";
+import {
+  ArrowUp,
+  FileText,
+  Plus,
+  X,
+  Sparkles,
+  Wand2,
+  Zap,
+  Briefcase,
+  Search,
+  MessageSquare,
+  Bot,
+} from "lucide-react";
 import React, {
   useCallback,
   useEffect,
@@ -236,9 +251,7 @@ function toText(value: unknown): string {
 
 function toStringList(value: unknown): string[] {
   if (Array.isArray(value)) {
-    return value
-      .map((item) => toText(item))
-      .filter((item) => item.length > 0);
+    return value.map((item) => toText(item)).filter((item) => item.length > 0);
   }
   const text = toText(value);
   return text ? [text] : [];
@@ -249,7 +262,10 @@ function listToHtml(items: string[]): string {
   return `<ul>${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
 }
 
-function splitDateRange(rawDate: string): { startDate: string; endDate: string } {
+function splitDateRange(rawDate: string): {
+  startDate: string;
+  endDate: string;
+} {
   const date = rawDate.trim();
   if (!date) return { startDate: "", endDate: "" };
   const parts = date.split(/\s*[-~至]\s*/).filter(Boolean);
@@ -269,7 +285,9 @@ function normalizeImportedResumeToCanonical(
   const internshipsRaw = Array.isArray(source.internships)
     ? source.internships
     : [];
-  const experienceRaw = Array.isArray(source.experience) ? source.experience : [];
+  const experienceRaw = Array.isArray(source.experience)
+    ? source.experience
+    : [];
   const projectsRaw = Array.isArray(source.projects) ? source.projects : [];
   const openSourceRaw = Array.isArray(source.openSource)
     ? source.openSource
@@ -386,7 +404,8 @@ function normalizeImportedResumeToCanonical(
       if (typeof item === "string") return `<p>${item}</p>`;
       const category = toText(item?.category || item?.name);
       const details = toText(item?.details || item?.description);
-      if (category && details) return `<p><strong>${category}：</strong>${details}</p>`;
+      if (category && details)
+        return `<p><strong>${category}：</strong>${details}</p>`;
       if (details) return `<p>${details}</p>`;
       if (category) return `<p>${category}</p>`;
       return "";
@@ -415,7 +434,9 @@ function normalizeImportedResumeToCanonical(
     awards,
     customData: {},
     skillContent:
-      toText(source.skillContent) || toText(source.skills) || skillContentFromArray,
+      toText(source.skillContent) ||
+      toText(source.skills) ||
+      skillContentFromArray,
     activeSection: "basic",
     draggingProjectId: null,
     menuSections: DEFAULT_MENU_SECTIONS.map((section, index) => ({
@@ -583,7 +604,9 @@ export default function SophiaChat() {
         if (!mounted) return;
         if (resp.ok) {
           const data = await resp.json();
-          const latest = Array.isArray(data?.sessions) ? data.sessions[0] : null;
+          const latest = Array.isArray(data?.sessions)
+            ? data.sessions[0]
+            : null;
           const latestId =
             typeof latest?.session_id === "string" ? latest.session_id : "";
           if (latestId) {
@@ -680,12 +703,21 @@ export default function SophiaChat() {
       },
       force = false,
     ) => {
-      console.log("[DEBUG] renderResumePdfPreview called for:", resumeEntry.id, "force:", force, "stack:", new Error().stack?.split('\n').slice(2, 5).join(' <- '));
+      console.log(
+        "[DEBUG] renderResumePdfPreview called for:",
+        resumeEntry.id,
+        "force:",
+        force,
+        "stack:",
+        new Error().stack?.split("\n").slice(2, 5).join(" <- "),
+      );
       if (!resumeEntry.resumeData) return;
 
       const currentState = resumePdfPreview[resumeEntry.id];
       if (!force && (currentState?.loading || currentState?.blob)) {
-        console.log("[DEBUG] renderResumePdfPreview skipped (already loading or has blob)");
+        console.log(
+          "[DEBUG] renderResumePdfPreview skipped (already loading or has blob)",
+        );
         return;
       }
 
@@ -801,7 +833,9 @@ export default function SophiaChat() {
           : "我的简历";
 
       setLoadedResumes((prev) => {
-        const existingIndex = prev.findIndex((item) => item.messageId === messageId);
+        const existingIndex = prev.findIndex(
+          (item) => item.messageId === messageId,
+        );
         const entry = {
           id: resumeId,
           name: resumeName,
@@ -1047,11 +1081,11 @@ export default function SophiaChat() {
         // 仅恢复可点击的数据，不自动恢复右侧选中态（selectedResumeId/selectedReportId），
         // 以避免进入页面就触发 PDF/报告加载。右侧预览改为用户点击卡片后再打开。
         try {
-          const savedUiState = localStorage.getItem(`ui_state:${conversationId}`);
+          const savedUiState = localStorage.getItem(
+            `ui_state:${conversationId}`,
+          );
           if (savedUiState) {
-            const {
-              loadedResumes: sLrs,
-            } = JSON.parse(savedUiState);
+            const { loadedResumes: sLrs } = JSON.parse(savedUiState);
             // 恢复已加载列表的元数据，数据会在后续逻辑中通过消息或重新加载补齐
             if (Array.isArray(sLrs) && sLrs.length > 0) {
               setLoadedResumes(sLrs);
@@ -2055,15 +2089,19 @@ export default function SophiaChat() {
 
   const sendUserTextMessage = useCallback(
     async (userMessage: string, attachments?: File[]) => {
-      if ((!userMessage.trim() && (!attachments || attachments.length === 0)) || isProcessing) return;
+      if (
+        (!userMessage.trim() && (!attachments || attachments.length === 0)) ||
+        isProcessing
+      )
+        return;
 
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
+
       // 处理附件元数据
-      const attachmentMeta = attachments?.map(file => ({
+      const attachmentMeta = attachments?.map((file) => ({
         name: file.name,
         type: file.type,
-        size: file.size
+        size: file.size,
       }));
 
       const userMessageEntry: Message = {
@@ -2272,7 +2310,7 @@ export default function SophiaChat() {
       const attachmentBlocks: string[] = [];
 
       // ... (中间处理逻辑保持不变)
-      
+
       const baseMessage =
         userMessage || "我上传了附件，请先提炼关键信息并给出下一步建议。";
       const finalMessage = attachmentBlocks.length
@@ -2372,70 +2410,79 @@ export default function SophiaChat() {
                   </div>
                 )}
 
-                {messages.length === 0 && !isProcessing && !showResumeSelector && (
-                  <div className="max-w-2xl mx-auto px-4 transition-all duration-500 ease-in-out flex-1 flex flex-col">
-                    {/* 顶部占位，控制下移比例 - 增大比例使内容更靠下 */}
-                    <div className="flex-[0.8]" />
-                    
-                    <div className="text-center mb-12">
-                      <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">
-                        你好，我是你的 Resume AI 助手
-                      </h1>
-                      <p className="text-slate-500 dark:text-slate-400 text-lg max-w-md mx-auto">
-                        我可以帮你优化简历、分析岗位匹配度，或者进行模拟面试。
-                      </p>
-                    </div>
+                {messages.length === 0 &&
+                  !isProcessing &&
+                  !showResumeSelector && (
+                    <div className="max-w-2xl mx-auto px-4 transition-all duration-500 ease-in-out flex-1 flex flex-col">
+                      {/* 顶部占位，控制下移比例 - 增大比例使内容更靠下 */}
+                      <div className="flex-[0.8]" />
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
-                      {[
-                        {
-                          icon: <Wand2 className="w-5 h-5 text-amber-500" />,
-                          title: "简历润色",
-                          desc: "“帮我优化这段工作描述，突出我的领导力。”",
-                          color: "bg-amber-50 dark:bg-amber-900/20",
-                          onClick: () => setShowResumeSelector(true),
-                        },
-                        {
-                          icon: <Search className="w-5 h-5 text-blue-500" />,
-                          title: "岗位分析",
-                          desc: "“分析这个 JD，看我的简历还需要补充什么？”",
-                          color: "bg-blue-50 dark:bg-blue-900/20",
-                        },
-                        {
-                          icon: <Briefcase className="w-5 h-5 text-emerald-500" />,
-                          title: "模拟面试",
-                          desc: "“针对我的简历，问我几个后端开发的技术问题。”",
-                          color: "bg-emerald-50 dark:bg-emerald-900/20",
-                        },
-                        {
-                          icon: <Zap className="w-5 h-5 text-indigo-500" />,
-                          title: "快速问答",
-                          desc: "“如何写出一份让 HR 眼前一亮的简历总结？”",
-                          color: "bg-indigo-50 dark:bg-indigo-900/20",
-                        },
-                      ].map((item, i) => (
-                        <button
-                          key={i}
-                          onClick={() => {
-                            if (item.onClick) {
-                              item.onClick();
-                            } else {
-                              setInput(item.desc.replace(/[“”]/g, ""));
-                            }
-                          }}
-                          className="flex flex-col items-start p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-md transition-all text-left group"
-                        >
-                          <div className={`p-2 rounded-lg ${item.color} mb-3 group-hover:scale-110 transition-transform`}>
-                            {item.icon}
-                          </div>
-                          <h3 className="font-semibold text-slate-900 dark:text-white mb-1">{item.title}</h3>
-                          <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">{item.desc}</p>
-                        </button>
-                      ))}
-                    </div>
+                      <div className="text-center mb-12">
+                        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">
+                          你好，我是你的 Resume AI 助手
+                        </h1>
+                        <p className="text-slate-500 dark:text-slate-400 text-lg max-w-md mx-auto">
+                          我可以帮你优化简历、分析岗位匹配度，或者进行模拟面试。
+                        </p>
+                      </div>
 
-                  </div>
-                )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-12">
+                        {[
+                          {
+                            icon: <Wand2 className="w-5 h-5 text-amber-500" />,
+                            title: "简历润色",
+                            desc: "“帮我优化这段工作描述，突出我的领导力。”",
+                            color: "bg-amber-50 dark:bg-amber-900/20",
+                            onClick: () => setShowResumeSelector(true),
+                          },
+                          {
+                            icon: <Search className="w-5 h-5 text-blue-500" />,
+                            title: "岗位分析",
+                            desc: "“分析这个 JD，看我的简历还需要补充什么？”",
+                            color: "bg-blue-50 dark:bg-blue-900/20",
+                          },
+                          {
+                            icon: (
+                              <Briefcase className="w-5 h-5 text-emerald-500" />
+                            ),
+                            title: "模拟面试",
+                            desc: "“针对我的简历，问我几个后端开发的技术问题。”",
+                            color: "bg-emerald-50 dark:bg-emerald-900/20",
+                          },
+                          {
+                            icon: <Zap className="w-5 h-5 text-indigo-500" />,
+                            title: "快速问答",
+                            desc: "“如何写出一份让 HR 眼前一亮的简历总结？”",
+                            color: "bg-indigo-50 dark:bg-indigo-900/20",
+                          },
+                        ].map((item, i) => (
+                          <button
+                            key={i}
+                            onClick={() => {
+                              if (item.onClick) {
+                                item.onClick();
+                              } else {
+                                setInput(item.desc.replace(/[“”]/g, ""));
+                              }
+                            }}
+                            className="flex flex-col items-start p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-md transition-all text-left group"
+                          >
+                            <div
+                              className={`p-2 rounded-lg ${item.color} mb-3 group-hover:scale-110 transition-transform`}
+                            >
+                              {item.icon}
+                            </div>
+                            <h3 className="font-semibold text-slate-900 dark:text-white mb-1">
+                              {item.title}
+                            </h3>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">
+                              {item.desc}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                 {/* 历史消息 - 按顺序：Thought Process → SearchCard → Response */}
                 {messages.map((msg, idx) => {
@@ -2485,7 +2532,11 @@ export default function SophiaChat() {
                             </div>
                           )}
                           <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-800">
-                            {msg.content.split("\n\n已上传并解析 PDF 文件")[0].split("\n\n文件《")[0]}
+                            {
+                              msg.content
+                                .split("\n\n已上传并解析 PDF 文件")[0]
+                                .split("\n\n文件《")[0]
+                            }
                           </div>
                         </div>
                       </div>
@@ -3011,7 +3062,10 @@ export default function SophiaChat() {
                         <button
                           type="button"
                           onClick={() =>
-                            void renderResumePdfPreview(selectedLoadedResume, true)
+                            void renderResumePdfPreview(
+                              selectedLoadedResume,
+                              true,
+                            )
                           }
                           disabled={selectedResumePdfState.loading}
                           className="text-xs text-indigo-600 hover:text-indigo-700 disabled:text-slate-400 disabled:cursor-not-allowed"
@@ -3023,7 +3077,9 @@ export default function SophiaChat() {
 
                     <div className="h-[calc(100dvh-210px)] bg-slate-100/70 overflow-auto p-3">
                       {!selectedLoadedResume && (
-                        <div className="text-sm text-slate-500">正在加载简历...</div>
+                        <div className="text-sm text-slate-500">
+                          正在加载简历...
+                        </div>
                       )}
 
                       {selectedLoadedResume &&
@@ -3049,7 +3105,10 @@ export default function SophiaChat() {
                             <button
                               type="button"
                               onClick={() =>
-                                void renderResumePdfPreview(selectedLoadedResume, true)
+                                void renderResumePdfPreview(
+                                  selectedLoadedResume,
+                                  true,
+                                )
                               }
                               className="mt-3 text-xs text-indigo-600 hover:text-indigo-700"
                             >
@@ -3068,7 +3127,7 @@ export default function SophiaChat() {
                         </div>
                       )}
                     </div>
-                    
+
                     {/* 底部占位 - 减小比例 */}
                     <div className="flex-[0.2]" />
                   </div>

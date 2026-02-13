@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(sqlite3:*)"
+      "Bash(sqlite3:*)",
+      "Bash(ls:*)",
+      "Bash(PYTHONPATH=:*)",
+      "Bash(PYTHONPATH=.:/c/Users/10245/Desktop/Resume-Agent python:*)"
     ]
   }
 }
