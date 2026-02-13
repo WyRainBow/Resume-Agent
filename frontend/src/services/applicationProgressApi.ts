@@ -56,6 +56,18 @@ export interface ApplicationProgressPayload {
   sort_order?: number | null
 }
 
+export interface ApplicationProgressAIParsePayload {
+  company?: string | null
+  application_link?: string | null
+  industry?: string | null
+  position?: string | null
+  location?: string | null
+  progress?: string | null
+  notes?: string | null
+  application_date?: string | null
+  referral_code?: string | null
+}
+
 export async function listApplicationProgress(): Promise<ApplicationProgressEntry[]> {
   const { data } = await apiClient.get<ApplicationProgressEntry[]>(
     '/api/application-progress',
@@ -99,4 +111,17 @@ export async function reorderApplicationProgress(order: string[]): Promise<void>
     { order },
     { headers: getAuthHeaders() }
   )
+}
+
+export async function aiParseApplicationProgress(
+  text: string,
+  provider?: string,
+  model?: string
+): Promise<ApplicationProgressAIParsePayload> {
+  const { data } = await apiClient.post<ApplicationProgressAIParsePayload>(
+    '/api/application-progress/ai-parse',
+    { text, provider, model },
+    { headers: getAuthHeaders() }
+  )
+  return data
 }

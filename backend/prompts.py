@@ -197,3 +197,37 @@ SECTION_PROMPTS = {
     "summary": '提取个人总结,输出JSON:{"summary":"总结内容"}',
     "opensource": '提取开源经历,输出JSON数组:[{"title":"项目名","subtitle":"角色/描述","date":"时间(格式: 2023.01-2023.12 或 2023.01-至今)","items":["贡献描述"],"repoUrl":"仓库链接"}]'
 }
+
+
+def build_application_progress_parse_prompt(text: str, intent_hint: str = "") -> str:
+    """
+    投递进展 AI 导入提示词模板（结构化抽取）
+    统一放在 prompts.py 便于后续集中管理。
+    """
+    intent_line = f"意图识别结果（来自系统）：{intent_hint}\n" if intent_hint else ""
+    return f"""你是“投递进展表”的意图识别与信息抽取助手。
+目标：将用户的自然语言描述解析成投递记录 JSON。
+
+只输出 JSON（不要 markdown、不要解释），严格使用以下 schema：
+{{
+  "company": "string|null",
+  "application_link": "string|null",
+  "industry": "互联网|金融|制造业|null",
+  "position": "string|null",
+  "location": "深圳|北京|上海|广州|null",
+  "progress": "已投递|笔试|一面|二面|三面|offer|null",
+  "notes": "string|null",
+  "application_date": "YYYY-MM-DD|null",
+  "referral_code": "string|null"
+}}
+
+规则：
+1) 自动做意图识别与实体抽取：公司、职位、时间、链接、地点、行业、备注。
+2) 时间表达“今天”请转换为当前日期（格式 YYYY-MM-DD）。
+3) 如果文本出现“部门/团队”等信息，放到 notes。
+4) 若无法确定字段，填 null，不要臆造。
+5) application_link 必须是完整 http/https URL。
+
+{intent_line}用户输入：
+{text}
+"""

@@ -32,6 +32,7 @@ import {
   Download,
   GripVertical,
   ExternalLink,
+  Wand2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -47,6 +48,7 @@ import type { SavedResume } from '@/services/storage/StorageAdapter'
 import {
   listApplicationProgress,
   createApplicationProgress,
+  aiParseApplicationProgress,
   updateApplicationProgress,
   deleteApplicationProgress,
   reorderApplicationProgress,
@@ -124,6 +126,71 @@ function loadPositionOptions(): string[] {
   } catch {
     return POSITION_OPTIONS_DEFAULT
   }
+}
+
+function parseAIImportText(rawText: string): ApplicationProgressPayload | null {
+  const text = String(rawText || '').trim()
+  if (!text) return null
+
+  const urlMatch = text.match(/https?:\/\/[^\s，,；;。)）]+/i)
+  const url = urlMatch?.[0] || null
+  const firstLine = text.split('\n').map((s) => s.trim()).find(Boolean) || ''
+
+  // 公司：优先匹配「投递了X的...」/「投递X」
+  const companyMatch =
+    text.match(/投递了?\s*([^，,。；;、\s]+?)\s*的/) ||
+    text.match(/投递了?\s*([^，,。；;、\s]+)/)
+  let company = companyMatch?.[1]?.trim() || null
+  // 兜底：支持“快手 Java 开发工程师”这类简写句式，取首行首词作为公司
+  if (!company && firstLine) {
+    const fallbackCompany = firstLine.match(/^([^\s，,。；;、:：]+)(?=\s|，|,|。|；|;|$)/)
+    company = fallbackCompany?.[1]?.trim() || null
+  }
+
+  // 部门：匹配「X的Y部门」
+  const deptMatch = text.match(/投递了?\s*[^，,。；;、\s]+\s*的([^，,。；;、]+?(?:部门|组|团队))/)
+  const department = deptMatch?.[1]?.trim() || null
+
+  // 职位：优先常见选项，再兜底「xxx工程师」
+  const positionMatch =
+    text.match(/(后端开发工程师|前端开发工程师|AI\s*应用开发工程师|Java\s*开发工程师|Golang\s*开发工程师|Python\s*开发工程师|开发工程师)/i) ||
+    text.match(/([A-Za-z\u4e00-\u9fa5\s]{2,40}工程师)/)
+  const position = positionMatch?.[1]?.replace(/\s+/g, ' ').trim() || null
+
+  // 投递时间：今天 / YYYY-MM-DD / YYYY/MM/DD / YYYY.MM.DD
+  let applicationDate: string | null = null
+  if (/今天/.test(text)) {
+    applicationDate = formatDateString(new Date())
+  } else {
+    const d = text.match(/(20\d{2})[-/.年](\d{1,2})[-/.月](\d{1,2})/)
+    if (d) {
+      const y = d[1]
+      const m = String(Number(d[2])).padStart(2, '0')
+      const day = String(Number(d[3])).padStart(2, '0')
+      applicationDate = `${y}-${m}-${day}`
+    }
+  }
+
+  // 行业/地点按关键字匹配
+  const industry = INDUSTRY_OPTIONS.find((i) => text.includes(i)) || null
+  const location = LOCATION_OPTIONS.find((l) => text.includes(l)) || null
+
+  const payload: ApplicationProgressPayload = {
+    company,
+    position,
+    industry,
+    location,
+    application_link: url,
+    application_date: applicationDate,
+    progress: '已投递',
+    notes: department ? `部门：${department}` : null,
+  }
+
+  // 至少要有核心字段之一
+  if (!payload.company && !payload.position && !payload.application_link) {
+    return null
+  }
+  return payload
 }
 
 type DropdownOption = {
@@ -587,6 +654,9 @@ export default function ApplicationProgressPage() {
   const [history, setHistory] = useState<ApplicationProgressEntry[][]>([])
   const [historyIndex, setHistoryIndex] = useState(-1)
   const [positionOptions, setPositionOptions] = useState<string[]>(() => loadPositionOptions())
+  const [aiImportOpen, setAiImportOpen] = useState(false)
+  const [aiImportText, setAiImportText] = useState('')
+  const [aiImportLoading, setAiImportLoading] = useState(false)
 
   const loadData = useCallback(async () => {
     if (!isAuthenticated) {
@@ -692,6 +762,39 @@ export default function ApplicationProgressPage() {
       setEntries((prev) => prev.filter((row) => row.id !== tempId))
       setEditingCell(null)
       alert(`插入新行失败：${extractErrorMessage(e)}`)
+    }
+  }
+
+  const handleAIImport = async () => {
+    if (!isAuthenticated) {
+      openModal('login')
+      return
+    }
+    setAiImportLoading(true)
+    try {
+      let payload = null as ApplicationProgressPayload | null
+      try {
+        payload = await aiParseApplicationProgress(aiImportText)
+      } catch (apiError) {
+        console.error('[AI导入] 后端 AI 解析失败，回退本地解析:', apiError)
+        payload = parseAIImportText(aiImportText)
+      }
+
+      if (!payload || (!payload.company && !payload.position && !payload.application_link)) {
+        alert('未识别到可导入信息，请至少包含公司/职位/链接中的一项')
+        setAiImportLoading(false)
+        return
+      }
+
+      const created = await createApplicationProgress({ sort_order: 0, ...payload })
+      setEntries((prev) => [created, ...prev])
+      setAiImportOpen(false)
+      setAiImportText('')
+    } catch (e) {
+      console.error(e)
+      alert(`AI 导入失败：${extractErrorMessage(e)}`)
+    } finally {
+      setAiImportLoading(false)
     }
   }
 
@@ -983,6 +1086,14 @@ export default function ApplicationProgressPage() {
           </button>
           <button
             type="button"
+            onClick={() => setAiImportOpen(true)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 hover:bg-slate-50 text-sm font-semibold"
+          >
+            <Wand2 className="w-4 h-4 text-slate-700" />
+            AI 导入
+          </button>
+          <button
+            type="button"
             onClick={handlePinSelected}
             disabled={selectedIds.size === 0}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 text-sm"
@@ -1076,6 +1187,58 @@ export default function ApplicationProgressPage() {
             </DndContext>
           )}
         </div>
+
+        {aiImportOpen && (
+          <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/45 px-4">
+            <div className="w-full max-w-2xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <Wand2 className="w-5 h-5 text-indigo-600" />
+                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">AI 导入</h3>
+                </div>
+                <button
+                  type="button"
+                  className="p-1 rounded-md text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  onClick={() => {
+                    if (aiImportLoading) return
+                    setAiImportOpen(false)
+                  }}
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <div className="px-5 py-4 space-y-3">
+                <p className="text-sm text-slate-500">
+                  粘贴自然语言描述、AI系统会自动提取公司、职位、时间、链接并写入投递记录
+                </p>
+                <textarea
+                  value={aiImportText}
+                  onChange={(e) => setAiImportText(e.target.value)}
+                  placeholder="例如：我投递了字节跳动的机器审核部门、后端开发工程师、时间为今天、链接为https://join.qq.com/"
+                  className="w-full min-h-[180px] resize-y rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-950 px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+              <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  className="h-10 px-4 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  onClick={() => setAiImportOpen(false)}
+                  disabled={aiImportLoading}
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  className="h-10 px-4 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:from-indigo-600 hover:to-violet-600 disabled:opacity-60"
+                  onClick={handleAIImport}
+                  disabled={aiImportLoading || !aiImportText.trim()}
+                >
+                  {aiImportLoading ? '导入中...' : '导入到表格'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </WorkspaceLayout>
   )

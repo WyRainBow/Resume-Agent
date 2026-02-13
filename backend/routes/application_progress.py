@@ -4,6 +4,8 @@
 from typing import List, Optional, Any
 from uuid import uuid4
 from datetime import date, datetime
+import json as _json
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -12,6 +14,16 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models import ApplicationProgress, User
 from middleware.auth import get_current_user
+from llm import call_llm, DEFAULT_AI_PROVIDER
+try:
+    from backend.prompts import build_application_progress_parse_prompt
+except Exception:
+    from prompts import build_application_progress_parse_prompt
+
+try:
+    from backend.agent.services.intent.intent_classifier import IntentClassifier
+except Exception:
+    IntentClassifier = None
 
 router = APIRouter(prefix="/api/application-progress", tags=["ApplicationProgress"])
 
@@ -224,6 +236,103 @@ def delete_entry(
 
 class ReorderPayload(BaseModel):
     order: List[str]  # list of entry ids in new order
+
+
+class ApplicationProgressAIParseRequest(BaseModel):
+    text: str
+    provider: Optional[str] = None
+    model: Optional[str] = None
+
+
+class ApplicationProgressAIParseResponse(BaseModel):
+    company: Optional[str] = None
+    application_link: Optional[str] = None
+    industry: Optional[str] = None
+    position: Optional[str] = None
+    location: Optional[str] = None
+    progress: Optional[str] = None
+    notes: Optional[str] = None
+    application_date: Optional[str] = None
+    referral_code: Optional[str] = None
+
+
+def _clean_llm_response(raw: str) -> str:
+    cleaned = re.sub(r"<\|begin_of_box\|>", "", raw)
+    cleaned = re.sub(r"<\|end_of_box\|>", "", cleaned)
+    cleaned = re.sub(r"```json\s*", "", cleaned)
+    cleaned = re.sub(r"```\s*", "", cleaned)
+    return cleaned.strip()
+
+
+def _parse_json_response(cleaned: str) -> dict:
+    try:
+        return _json.loads(cleaned)
+    except Exception:
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return _json.loads(cleaned[start : end + 1])
+        raise
+
+
+@router.post("/ai-parse", response_model=ApplicationProgressAIParseResponse)
+def ai_parse_entry(
+    body: ApplicationProgressAIParseRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    使用 LLM 对自然语言做意图识别与结构化抽取，返回投递记录字段。
+    """
+    text = (body.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text 不能为空")
+
+    provider = body.provider or DEFAULT_AI_PROVIDER
+    intent_hint = ""
+    if IntentClassifier is not None:
+        try:
+            classifier = IntentClassifier(use_llm=False)
+            intent_result = classifier.classify_sync(text)
+            intent_hint = f"{intent_result.intent_type.value}; confidence={intent_result.confidence:.2f}; reasoning={intent_result.reasoning}"
+        except Exception:
+            intent_hint = ""
+
+    prompt = build_application_progress_parse_prompt(text=text, intent_hint=intent_hint)
+    try:
+        raw = call_llm(provider, prompt, model=body.model)
+        cleaned = _clean_llm_response(raw)
+        data = _parse_json_response(cleaned)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI 解析失败: {e}")
+
+    if isinstance(data.get("application_date"), str):
+        val = data["application_date"].strip()
+        if val in ("今天", "today", "Today"):
+            data["application_date"] = date.today().isoformat()
+
+    allowed_industry = {"互联网", "金融", "制造业"}
+    if data.get("industry") not in allowed_industry:
+        data["industry"] = None
+
+    allowed_location = {"深圳", "北京", "上海", "广州"}
+    if data.get("location") not in allowed_location:
+        data["location"] = None
+
+    allowed_progress = {"已投递", "笔试", "一面", "二面", "三面", "offer"}
+    if data.get("progress") not in allowed_progress:
+        data["progress"] = None
+
+    return ApplicationProgressAIParseResponse(
+        company=data.get("company"),
+        application_link=data.get("application_link"),
+        industry=data.get("industry"),
+        position=data.get("position"),
+        location=data.get("location"),
+        progress=data.get("progress"),
+        notes=data.get("notes"),
+        application_date=data.get("application_date"),
+        referral_code=data.get("referral_code"),
+    )
 
 
 @router.patch("/reorder")
