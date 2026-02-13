@@ -90,7 +90,7 @@ const COLUMNS = [
   { key: 'resume_id', label: '使用的 PDF', width: '200px' },
 ] as const
 
-const PROGRESS_OPTIONS = ['已投递', '笔试', '一面', '二面', '三面', 'offer']
+const PROGRESS_OPTIONS = ['已投递', '笔试', '一面', '二面', '三面', 'offer', '简历挂']
 const INDUSTRY_OPTIONS = ['互联网', '金融', '制造业']
 const LOCATION_OPTIONS = ['深圳', '北京', '上海', '广州']
 const POSITION_OPTIONS_DEFAULT = ['后端开发工程师', '前端开发工程师']
@@ -1231,16 +1231,25 @@ export default function ApplicationProgressPage() {
         </div>
 
         {aiImportOpen && (
-          <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/45 px-4">
-            <div className="w-full max-w-2xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl">
-              <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-2">
-                  <Wand2 className="w-5 h-5 text-indigo-600" />
-                  <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">AI 导入</h3>
+          <div className="fixed inset-0 z-[1200] flex items-center justify-center bg-slate-900/50 backdrop-blur-[3px] px-4">
+            <div
+              className="w-full max-w-3xl overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_28px_80px_rgba(15,23,42,0.28)]"
+              style={{ fontFamily: "'Space Grotesk','PingFang SC','Noto Sans SC',sans-serif" }}
+            >
+              <div className="relative flex items-center justify-between px-6 py-5 border-b border-slate-100">
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#2457FF] via-[#06B6D4] to-[#8B5CF6]" />
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#2457FF]/10">
+                    <Wand2 className="h-5 w-5 text-[#2457FF]" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold tracking-tight text-slate-900">AI 导入投递记录</h3>
+                    <p className="text-xs font-medium text-slate-500">支持文字粘贴和截图识别，自动填充表格字段</p>
+                  </div>
                 </div>
                 <button
                   type="button"
-                  className="p-1 rounded-md text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800"
+                  className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100 transition-colors"
                   onClick={() => {
                     if (aiImportLoading) return
                     setAiImportOpen(false)
@@ -1251,56 +1260,81 @@ export default function ApplicationProgressPage() {
                   <X className="w-4 h-4" />
                 </button>
               </div>
-              <div className="px-5 py-4 space-y-3">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
-                    <Keyboard className="w-4 h-4 text-indigo-600" />
-                    两种导入方式，任选其一
+              <div
+                className="px-6 py-5 space-y-4"
+                style={{ backgroundImage: "radial-gradient(circle at 100% 0%, rgba(36,87,255,0.08), transparent 45%)" }}
+              >
+                <div className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 via-sky-50/40 to-white p-4">
+                  <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-800">
+                    <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700">步骤 1</span>
+                    <Keyboard className="w-4 h-4 text-[#2457FF]" />
+                    选择导入方式
                   </div>
-                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-                    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-                      <div className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                  <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm transition-transform hover:-translate-y-0.5">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
                         <Type className="w-4 h-4 text-slate-500" />
                         文字粘贴
                       </div>
-                      <p className="mt-1 text-xs text-slate-500">粘贴投递描述，自动识别公司/职位/时间/链接</p>
+                      <p className="mt-1 text-xs text-slate-500">粘贴投递描述：AI 自动识别公司/职位/时间/链接</p>
                     </div>
-                    <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
-                      <div className="flex items-center gap-2 text-sm font-medium text-indigo-700">
+                    <div className="rounded-xl border border-[#2457FF]/30 bg-[#2457FF]/5 px-3 py-3 shadow-sm transition-transform hover:-translate-y-0.5">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-[#1D4ED8]">
                         <ImageIcon className="w-4 h-4" />
                         截图粘贴
                       </div>
-                      <p className="mt-1 text-xs text-indigo-600">点击下方输入框后按 <span className="rounded bg-white px-1.5 py-0.5 font-semibold text-indigo-700">{pasteShortcutLabel}</span></p>
+                      <p className="mt-1 text-xs text-[#1D4ED8]">
+                        点击下方输入框后按
+                        <span className="ml-1 rounded-md border border-[#2457FF]/25 bg-white px-1.5 py-0.5 font-bold text-[#2457FF]">{pasteShortcutLabel}</span>
+                      </p>
                     </div>
                   </div>
                 </div>
-                <textarea
-                  value={aiImportText}
-                  onChange={(e) => setAiImportText(e.target.value)}
-                  onPaste={handleAiImportPasteImage}
-                  placeholder="例如：我投递了字节跳动的机器审核部门、后端开发工程师、时间为今天、链接为https://join.qq.com/"
-                  className="w-full min-h-[180px] resize-y rounded-xl border-2 border-indigo-200 bg-white px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-indigo-300"
-                />
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.06)]">
+                  <div className="mb-2 flex items-center justify-between">
+                    <div className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-700">步骤 2</span>
+                      粘贴文字或截图
+                    </div>
+                    <button
+                      type="button"
+                      className="text-xs font-semibold text-[#2457FF] hover:text-[#1D4ED8]"
+                      onClick={() => setAiImportText('我投递了字节跳动机器审核部门后端开发工程师，时间为今天，链接为https://join.qq.com/')}
+                    >
+                      填入示例
+                    </button>
+                  </div>
+                  <textarea
+                    value={aiImportText}
+                    onChange={(e) => setAiImportText(e.target.value)}
+                    onPaste={handleAiImportPasteImage}
+                    placeholder={`在这里粘贴文字、或直接按 ${pasteShortcutLabel} 粘贴截图`}
+                    className="w-full min-h-[188px] resize-y rounded-2xl border-2 border-[#2457FF]/25 bg-white px-4 py-3 text-base leading-7 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#2457FF]/30"
+                  />
+                </div>
                 {aiImportImageDataUrl && (
-                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50/50 p-3">
                     <div className="mb-2 flex items-center justify-between">
-                      <span className="text-sm text-slate-600">已粘贴图片</span>
+                      <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700">
+                        <Check className="h-4 w-4" />
+                        已粘贴图片：导入时将优先识别截图内容
+                      </span>
                       <button
                         type="button"
-                        className="text-xs text-slate-500 hover:text-slate-700"
+                        className="text-xs text-emerald-700 hover:text-emerald-800"
                         onClick={() => setAiImportImageDataUrl(null)}
                       >
                         移除
                       </button>
                     </div>
-                    <img src={aiImportImageDataUrl} alt="AI导入截图" className="max-h-44 rounded-lg border border-slate-200 object-contain bg-white" />
+                    <img src={aiImportImageDataUrl} alt="AI导入截图" className="max-h-44 rounded-lg border border-emerald-200 object-contain bg-white" />
                   </div>
                 )}
               </div>
-              <div className="px-5 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
+              <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-end gap-2 bg-slate-50/50">
                 <button
                   type="button"
-                  className="h-10 px-4 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  className="h-11 px-5 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
                   onClick={() => {
                     setAiImportOpen(false)
                     setAiImportText('')
@@ -1312,7 +1346,7 @@ export default function ApplicationProgressPage() {
                 </button>
                 <button
                   type="button"
-                  className="h-10 px-4 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 text-white hover:from-indigo-600 hover:to-violet-600 disabled:opacity-60"
+                  className="h-11 px-5 rounded-xl bg-gradient-to-r from-[#2457FF] to-[#7C3AED] text-white font-semibold shadow-[0_10px_22px_rgba(36,87,255,0.28)] hover:from-[#1D4ED8] hover:to-[#6D28D9] disabled:opacity-60"
                   onClick={handleAIImport}
                   disabled={aiImportLoading || (!aiImportText.trim() && !aiImportImageDataUrl)}
                 >
