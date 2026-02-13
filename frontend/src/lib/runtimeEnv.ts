@@ -2,7 +2,7 @@ export type RuntimeEnv = 'local' | 'remote-dev'
 
 const ENV_STORAGE_KEY = 'resume_agent_env'
 const DEFAULT_LOCAL_API_BASE = 'http://localhost:9000'
-const DEFAULT_REMOTE_API_BASE = 'http://106.53.113.137:9000'
+const DEFAULT_REMOTE_API_BASE = 'https://resumegenkk.xyz'
 
 function normalizeBaseUrl(url: string): string {
   const raw = String(url || '').trim()
