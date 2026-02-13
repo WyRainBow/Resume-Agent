@@ -103,7 +103,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         # 生成 token
         logger.debug(f"[注册] 生成访问令牌")
         try:
-            token = create_access_token({"sub": str(user.id), "username": user.username})
+            token = create_access_token({"sub": str(user.id), "username": user.username, "role": user.role})
             logger.info(f"[注册] 注册成功，用户ID: {user.id}, 账号: {user.username}")
         except Exception as e:
             logger.error(f"[注册] 生成token失败: {str(e)}")
@@ -200,7 +200,7 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
         db.rollback()
 
     t_token_start = time.perf_counter()
-    token = create_access_token({"sub": str(user.id), "username": user.username})
+    token = create_access_token({"sub": str(user.id), "username": user.username, "role": user.role})
     token_cost_ms = (time.perf_counter() - t_token_start) * 1000
     logger.info(f"[登录] 生成 token 耗时 {token_cost_ms:.1f}ms")
     logger.info(f"[登录] 登录流程完成 user_id={user.id} 总耗时 {(time.perf_counter() - t0) * 1000:.1f}ms")

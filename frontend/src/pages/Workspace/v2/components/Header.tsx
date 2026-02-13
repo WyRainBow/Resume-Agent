@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import { Check, BookmarkPlus, Upload, LayoutGrid, List, ChevronRight } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { ExportButton } from './ExportButton'
+import EnvironmentSwitcher from '@/components/EnvironmentSwitcher'
 
 type EditMode = 'click' | 'scroll'
 
@@ -81,6 +82,8 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4, delay: 0.3 }}
       >
+        <EnvironmentSwitcher />
+
         {/* AI 全局导入按钮 */}
         <button
           onClick={onGlobalAIImport}
@@ -150,4 +153,3 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
     </motion.header>
   )
 }
-

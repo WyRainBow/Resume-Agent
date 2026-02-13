@@ -4,8 +4,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from backend.database import get_db
-from backend.models import Document
+from database import get_db
+from models import Document
 
 router = APIRouter(prefix="/api/documents", tags=["documents"])
 

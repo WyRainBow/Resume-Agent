@@ -11,38 +11,8 @@ from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 
-# 统一导入方式：优先使用绝对导入（backend.xxx），失败则使用相对导入
+# 统一导入方式：优先使用顶层模块，避免重复加载 backend.models
 try:
-    from backend.models import (
-        ResumeGenerateRequest,
-        ResumeGenerateResponse,
-        ResumeParseRequest,
-        SectionParseRequest,
-        RewriteRequest,
-        FormatTextRequest,
-        FormatTextResponse,
-    )
-    from backend.llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
-    from backend.prompts import (
-        build_resume_prompt,
-        build_resume_markdown_prompt,
-        build_rewrite_prompt,
-        SECTION_PROMPTS,
-    )
-    from backend.json_path import parse_path, get_by_path, set_by_path
-    from backend.chunk_processor import split_resume_text, merge_resume_chunks
-    from backend.parallel_chunk_processor import parse_resume_text_parallel
-    from backend.config.parallel_config import get_parallel_config
-    from backend.core.logger import get_logger, write_llm_debug
-    from backend.services.pdf_parser import extract_markdown_from_pdf
-    from backend.services.zhipu_layout import recognize_with_ocr
-    from backend.services.resume_assembler import assemble_resume_data
-except ImportError:
-    # 确保 backend 目录在 sys.path 中
-    backend_dir = Path(__file__).resolve().parent.parent
-    if str(backend_dir) not in sys.path:
-        sys.path.insert(0, str(backend_dir))
-
     from models import (
         ResumeGenerateRequest,
         ResumeGenerateResponse,
@@ -63,10 +33,40 @@ except ImportError:
     from chunk_processor import split_resume_text, merge_resume_chunks
     from parallel_chunk_processor import parse_resume_text_parallel
     from config.parallel_config import get_parallel_config
-    from core.logger import get_logger, write_llm_debug
+    from backend.core.logger import get_logger, write_llm_debug
     from services.pdf_parser import extract_markdown_from_pdf
     from services.zhipu_layout import recognize_with_ocr
     from services.resume_assembler import assemble_resume_data
+except ImportError:
+    # 确保 backend 目录在 sys.path 中
+    backend_dir = Path(__file__).resolve().parent.parent
+    if str(backend_dir) not in sys.path:
+        sys.path.insert(0, str(backend_dir))
+
+    from backend.models import (
+        ResumeGenerateRequest,
+        ResumeGenerateResponse,
+        ResumeParseRequest,
+        SectionParseRequest,
+        RewriteRequest,
+        FormatTextRequest,
+        FormatTextResponse,
+    )
+    from backend.llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
+    from backend.prompts import (
+        build_resume_prompt,
+        build_resume_markdown_prompt,
+        build_rewrite_prompt,
+        SECTION_PROMPTS,
+    )
+    from backend.json_path import parse_path, get_by_path, set_by_path
+    from backend.chunk_processor import split_resume_text, merge_resume_chunks
+    from backend.parallel_chunk_processor import parse_resume_text_parallel
+    from backend.config.parallel_config import get_parallel_config
+    from core.logger import get_logger, write_llm_debug
+    from backend.services.pdf_parser import extract_markdown_from_pdf
+    from backend.services.zhipu_layout import recognize_with_ocr
+    from backend.services.resume_assembler import assemble_resume_data
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api", tags=["Resume"])

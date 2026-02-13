@@ -5,6 +5,7 @@
  */
 import { useEffect, useRef } from 'react'
 import { createReport } from '@/services/api'
+import { getApiBaseUrl } from '@/lib/runtimeEnv'
 
 interface ReportGenerationDetectorProps {
   content: string
@@ -63,8 +64,7 @@ export function ReportGenerationDetector({
         .then(result => {
           // 保存报告内容
           if (result.mainId) {
-            const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:9000'
-            return fetch(`${API_BASE}/api/documents/${result.mainId}/content`, {
+            return fetch(`${getApiBaseUrl()}/api/documents/${result.mainId}/content`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ content })

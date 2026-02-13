@@ -7,8 +7,10 @@
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import FileResponse
+from middleware.auth import require_admin_or_member
+from models import User
 
 router = APIRouter(prefix="/api", tags=["Logos"])
 
@@ -54,7 +56,10 @@ async def get_logos():
 
 
 @router.post("/logos/upload")
-async def upload_logo(file: UploadFile = File(...)):
+async def upload_logo(
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_admin_or_member),
+):
     """
     上传自定义 Logo 到 COS
     - 支持 png/jpg/jpeg/webp/svg 格式

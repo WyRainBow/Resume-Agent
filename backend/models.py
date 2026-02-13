@@ -3,14 +3,14 @@ Pydantic 数据模型定义
 """
 from pydantic import BaseModel, Field
 from typing import Optional, Literal, List, Dict, Any
-from sqlalchemy import Column, Integer, String, DateTime, Date, ForeignKey, JSON, Text, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Date, ForeignKey, JSON, Text, Boolean, Float
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
 try:
-    from backend.database import Base
-except ImportError:
     from database import Base
+except ImportError:
+    from backend.database import Base
 
 
 class RewriteRequest(BaseModel):
@@ -124,12 +124,12 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), index=True)
 
     # 管理用字段：最近登录 IP、API 额度、角色权限
-    last_login_ip = Column(String(45), nullable=True)   # 最近一次登录 IP，IPv6 最长约 45 字符
+    last_login_ip = Column(String(45), nullable=True, index=True)   # 最近一次登录 IP，IPv6 最长约 45 字符
     api_quota = Column(Integer, nullable=True)         # API 调用额度上限，NULL 表示不限制
-    role = Column(String(32), nullable=False, server_default="user")  # 角色：user / admin 等
+    role = Column(String(32), nullable=False, server_default="user", index=True)  # 角色：user / admin 等
 
     resumes = relationship(
         lambda: Resume,
@@ -245,3 +245,86 @@ class CalendarEvent(Base):
     color = Column(String(32), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class Member(Base):
+    """平台内部成员模型"""
+    __tablename__ = "members"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    name = Column(String(128), nullable=False)
+    email = Column(String(255), nullable=True, index=True)
+    position = Column(String(128), nullable=True)
+    team = Column(String(128), nullable=True)
+    status = Column(String(32), nullable=False, server_default="active")
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+class APIRequestLog(Base):
+    """接口请求日志"""
+    __tablename__ = "api_request_logs"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    trace_id = Column(String(64), nullable=False, index=True)
+    request_id = Column(String(64), nullable=False, index=True)
+    method = Column(String(16), nullable=False)
+    path = Column(String(512), nullable=False, index=True)
+    status_code = Column(Integer, nullable=False)
+    latency_ms = Column(Float, nullable=False, default=0)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    ip = Column(String(64), nullable=True, index=True)
+    user_agent = Column(String(512), nullable=True)
+    request_size = Column(Integer, nullable=True)
+    response_size = Column(Integer, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class APIErrorLog(Base):
+    """接口错误日志"""
+    __tablename__ = "api_error_logs"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    request_log_id = Column(Integer, ForeignKey("api_request_logs.id", ondelete="SET NULL"), nullable=True, index=True)
+    trace_id = Column(String(64), nullable=False, index=True)
+    error_type = Column(String(128), nullable=True)
+    error_message = Column(Text, nullable=False)
+    error_stack = Column(Text, nullable=True)
+    service = Column(String(128), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class APITraceSpan(Base):
+    """接口链路 span"""
+    __tablename__ = "api_trace_spans"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    trace_id = Column(String(64), nullable=False, index=True)
+    span_id = Column(String(64), nullable=False, index=True)
+    parent_span_id = Column(String(64), nullable=True, index=True)
+    span_name = Column(String(255), nullable=False)
+    start_time = Column(DateTime(timezone=True), nullable=False, index=True)
+    end_time = Column(DateTime(timezone=True), nullable=False)
+    duration_ms = Column(Float, nullable=False, default=0)
+    status = Column(String(32), nullable=False, server_default="ok")
+    tags = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class PermissionAuditLog(Base):
+    """权限修改审计日志"""
+    __tablename__ = "permission_audit_logs"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    operator_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    target_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    from_role = Column(String(32), nullable=True)
+    to_role = Column(String(32), nullable=True)
+    action = Column(String(128), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)

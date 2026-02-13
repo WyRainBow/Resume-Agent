@@ -1,18 +1,19 @@
 import axios from 'axios'
+import { getApiBaseUrl } from '@/lib/runtimeEnv'
 import type { ApplicationProgressEntry } from './applicationProgressApi'
 
-const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || ''
-const API_BASE = rawApiBase
-  ? (rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`)
-  : (import.meta.env.PROD ? '' : 'http://localhost:9000')
-
-const apiClient = axios.create({ baseURL: API_BASE })
+const apiClient = axios.create({ baseURL: getApiBaseUrl() })
 const TOKEN_KEY = 'auth_token'
 
 function getAuthHeaders() {
   const token = localStorage.getItem(TOKEN_KEY)
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
+
+apiClient.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl()
+  return config
+})
 
 type DashboardSummaryMetrics = {
   resume_query_ms: number
@@ -32,4 +33,3 @@ export async function getDashboardSummary(): Promise<DashboardSummaryResponse> {
   })
   return data
 }
-

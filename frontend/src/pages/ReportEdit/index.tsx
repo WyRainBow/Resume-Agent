@@ -14,6 +14,7 @@ import {
   updateDocumentContent 
 } from '@/services/api'
 import { useReportStore } from '@/stores/reportStore'
+import { getApiBaseUrl } from '@/lib/runtimeEnv'
 import type { ReportDetail } from '@/services/api'
 
 export default function ReportEdit() {
@@ -43,7 +44,7 @@ export default function ReportEdit() {
     finalizeStream,
   } = useCLTP({
     conversationId: conversationId || undefined,
-    baseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:9000',
+    baseUrl: getApiBaseUrl(),
   })
 
   // 加载报告详情

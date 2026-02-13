@@ -1,17 +1,5 @@
 // 用户照片上传服务
-
-// 处理 API_BASE，确保有协议前缀
-const rawApiBase = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || ''
-let API_BASE = ''
-if (rawApiBase) {
-  API_BASE = rawApiBase.startsWith('http') ? rawApiBase : `https://${rawApiBase}`
-} else {
-  if (import.meta.env.PROD) {
-    API_BASE = ''
-  } else {
-    API_BASE = 'http://localhost:9000'
-  }
-}
+import { getApiBaseUrl } from '@/lib/runtimeEnv'
 
 export type UploadPhotoResult = {
   url: string
@@ -22,7 +10,7 @@ export async function uploadUserPhoto(file: File, token: string): Promise<Upload
   const formData = new FormData()
   formData.append('file', file)
 
-  const resp = await fetch(`${API_BASE}/api/photos/upload`, {
+  const resp = await fetch(`${getApiBaseUrl()}/api/photos/upload`, {
     method: 'POST',
     body: formData,
     headers: {
