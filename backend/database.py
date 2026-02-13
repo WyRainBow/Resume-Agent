@@ -63,9 +63,9 @@ engine = create_engine(
     # MySQL 特定参数
     connect_args={
         "charset": "utf8mb4",
-        "connect_timeout": 3,
-        "read_timeout": 3,
-        "write_timeout": 5,
+        "connect_timeout": 8,
+        "read_timeout": 15,
+        "write_timeout": 10,
     } if "mysql" in DATABASE_URL.lower() else {}
 )
 
