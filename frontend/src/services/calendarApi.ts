@@ -39,6 +39,15 @@ export interface CalendarEventPayload {
   color?: string | null
 }
 
+export interface CalendarEventAIParsePayload {
+  title?: string | null
+  starts_at?: string | null
+  ends_at?: string | null
+  is_all_day?: boolean
+  location?: string | null
+  notes?: string | null
+}
+
 export async function listCalendarEvents(start: string, end: string): Promise<CalendarEvent[]> {
   const { data } = await apiClient.get<CalendarEvent[]>('/api/calendar/events', {
     params: { start, end },
@@ -65,4 +74,17 @@ export async function deleteCalendarEvent(id: string): Promise<void> {
   await apiClient.delete(`/api/calendar/events/${id}`, {
     headers: getAuthHeaders(),
   })
+}
+
+export async function aiParseCalendarEvent(
+  text: string,
+  provider: string = 'deepseek',
+  model?: string
+): Promise<CalendarEventAIParsePayload> {
+  const { data } = await apiClient.post<CalendarEventAIParsePayload>(
+    '/api/calendar/events/ai-parse',
+    { text, provider, model },
+    { headers: getAuthHeaders() }
+  )
+  return data
 }

@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import { useAuth } from '@/contexts/AuthContext'
 import { createCalendarEvent, deleteCalendarEvent, listCalendarEvents, updateCalendarEvent, type CalendarView } from '@/services/calendarApi'
+import { CalendarAIImportModal } from './components/CalendarAIImportModal'
 import { CalendarShell } from './components/CalendarShell'
 import { CreateScheduleModal } from './components/CreateScheduleModal'
 import { DayTimeGridView } from './components/DayTimeGridView'
@@ -40,6 +41,7 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
+  const [aiImportOpen, setAiImportOpen] = useState(false)
   const [editMode, setEditMode] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -50,6 +52,12 @@ export default function CalendarPage() {
     end.setMinutes(end.getMinutes() + 30)
     return { start, end }
   })
+  const [draftPrefill, setDraftPrefill] = useState<{
+    title?: string
+    location?: string
+    notes?: string
+    isAllDay?: boolean
+  } | null>(null)
 
   const range = useMemo(() => getRangeForView(view, cursor), [view, cursor])
   const rangeTitle = useMemo(() => formatRangeTitle(view, cursor), [view, cursor])
@@ -105,6 +113,7 @@ export default function CalendarPage() {
       end.setMinutes(end.getMinutes() + 30)
       setDraftSlot({ start, end })
     }
+    setDraftPrefill(null)
     setEditMode(false)
     setModalOpen(true)
   }
@@ -132,6 +141,7 @@ export default function CalendarPage() {
           onNext={() => changePeriod(1)}
           onToday={() => setCursor(new Date())}
           onOpenCreate={() => openCreateWithSlot()}
+          onOpenAiImport={() => setAiImportOpen(true)}
           left={
             <MiniMonthPanel
               currentDate={cursor}
@@ -218,10 +228,10 @@ export default function CalendarPage() {
         defaultStart={draftSlot.start}
         defaultEnd={draftSlot.end}
         mode={editMode ? 'edit' : 'create'}
-        initialTitle={selectedEvent?.title || ''}
-        initialLocation={selectedEvent?.location || ''}
-        initialNotes={selectedEvent?.notes || ''}
-        initialIsAllDay={selectedEvent?.is_all_day || false}
+        initialTitle={(editMode ? selectedEvent?.title : draftPrefill?.title) || ''}
+        initialLocation={(editMode ? selectedEvent?.location : draftPrefill?.location) || ''}
+        initialNotes={(editMode ? selectedEvent?.notes : draftPrefill?.notes) || ''}
+        initialIsAllDay={Boolean((editMode ? selectedEvent?.is_all_day : draftPrefill?.isAllDay) || false)}
         onClose={() => setModalOpen(false)}
         onSubmit={async ({ title, startsAt, endsAt, isAllDay, location, notes }) => {
           try {
@@ -249,11 +259,24 @@ export default function CalendarPage() {
             await refreshEvents()
             setModalOpen(false)
             setEditMode(false)
+            setDraftPrefill(null)
           } catch (error: unknown) {
             const maybeAxios = error as { response?: { data?: { detail?: string } }; message?: string }
             const detail = maybeAxios.response?.data?.detail
             throw new Error(typeof detail === 'string' && detail.trim() ? detail : maybeAxios.message || '保存失败')
           }
+        }}
+      />
+
+      <CalendarAIImportModal
+        open={aiImportOpen}
+        onClose={() => setAiImportOpen(false)}
+        onApply={({ title, startsAt, endsAt, isAllDay, location, notes }) => {
+          setDraftSlot({ start: startsAt, end: endsAt })
+          setDraftPrefill({ title, location, notes, isAllDay })
+          setEditMode(false)
+          setAiImportOpen(false)
+          setModalOpen(true)
         }}
       />
     </WorkspaceLayout>

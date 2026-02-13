@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { addDays, formatMonthTitle, getMonthGridRange, startOfDay } from '../dateUtils'
 
 type MiniMonthPanelProps = {
@@ -64,18 +64,6 @@ export function MiniMonthPanel({ currentDate, onPickDate, onNavigateMonth }: Min
               </button>
             )
           })}
-        </div>
-      </div>
-
-      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
-        <div className="mb-2 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-          <Search className="h-4 w-4" />
-          搜索联系人、公共日历
-        </div>
-        <div className="space-y-2 text-sm">
-          <div className="font-semibold text-slate-500">我管理的</div>
-          <label className="flex items-center gap-2 text-slate-700"><input type="checkbox" checked readOnly /> 求职日历</label>
-          <label className="flex items-center gap-2 text-slate-700"><input type="checkbox" checked readOnly /> 我的任务</label>
         </div>
       </div>
     </aside>

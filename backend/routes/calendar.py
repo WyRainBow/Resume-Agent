@@ -1,9 +1,12 @@
 """
 日历日程 API
 """
-from datetime import datetime
+from datetime import datetime, timedelta
+import json as _json
+import os
+import re
 from time import sleep
-from typing import Callable, Optional, TypeVar
+from typing import Any, Callable, Optional, TypeVar
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -16,6 +19,16 @@ import logging
 from database import get_db
 from middleware.auth import get_current_user
 from models import CalendarEvent, User
+from llm import call_llm
+try:
+    from backend.prompts import build_calendar_event_parse_prompt
+except Exception:
+    from prompts import build_calendar_event_parse_prompt
+
+try:
+    from backend.agent.services.intent.intent_classifier import IntentClassifier
+except Exception:
+    IntentClassifier = None
 
 router = APIRouter(prefix="/api/calendar/events", tags=["Calendar"])
 T = TypeVar("T")
@@ -101,6 +114,21 @@ class CalendarEventPatchPayload(BaseModel):
     color: Optional[str] = Field(default=None, max_length=32)
 
 
+class CalendarEventAIParseRequest(BaseModel):
+    text: Optional[str] = None
+    provider: Optional[str] = "deepseek"
+    model: Optional[str] = None
+
+
+class CalendarEventAIParseResponse(BaseModel):
+    title: Optional[str] = None
+    starts_at: Optional[str] = None
+    ends_at: Optional[str] = None
+    is_all_day: bool = False
+    location: Optional[str] = None
+    notes: Optional[str] = None
+
+
 class CalendarEventResponse(BaseModel):
     id: str
     user_id: int
@@ -144,6 +172,27 @@ def _to_response(row: CalendarEvent) -> CalendarEventResponse:
     )
 
 
+def _clean_llm_response(raw: Any) -> str:
+    text = raw if isinstance(raw, str) else str(raw)
+    cleaned = text.strip()
+    if cleaned.startswith("```"):
+        cleaned = re.sub(r"^```[a-zA-Z]*", "", cleaned).strip()
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3].strip()
+    return cleaned
+
+
+def _parse_json_response(cleaned: str) -> dict:
+    try:
+        return _json.loads(cleaned)
+    except Exception:
+        start = cleaned.find("{")
+        end = cleaned.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return _json.loads(cleaned[start : end + 1])
+        raise
+
+
 @router.get("", response_model=list[CalendarEventResponse])
 def list_events(
     start: str = Query(..., description="ISO datetime"),
@@ -168,6 +217,75 @@ def list_events(
         ),
     )
     return [_to_response(row) for row in rows]
+
+
+@router.post("/ai-parse", response_model=CalendarEventAIParseResponse)
+def ai_parse_calendar_event(
+    body: CalendarEventAIParseRequest,
+    current_user: User = Depends(get_current_user),
+):
+    text = (body.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text 不能为空")
+
+    provider = body.provider or "deepseek"
+    model = body.model or os.getenv("DEEPSEEK_MODEL") or "deepseek-v3.2"
+    intent_hint = ""
+    if IntentClassifier is not None:
+        try:
+            classifier = IntentClassifier(use_llm=False)
+            intent_result = classifier.classify_sync(text)
+            intent_hint = f"{intent_result.intent_type.value}; confidence={intent_result.confidence:.2f}; reasoning={intent_result.reasoning}"
+        except Exception:
+            intent_hint = ""
+
+    prompt = build_calendar_event_parse_prompt(
+        text=text,
+        intent_hint=intent_hint,
+        now_iso=datetime.now().astimezone().isoformat(),
+    )
+    try:
+        raw = call_llm(provider, prompt, model=model)
+        cleaned = _clean_llm_response(raw)
+        data = _parse_json_response(cleaned)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"AI 解析失败: {exc}") from exc
+
+    parsed_title = data.get("title")
+    parsed_start = data.get("starts_at")
+    parsed_end = data.get("ends_at")
+    parsed_notes = data.get("notes")
+    parsed_location = data.get("location")
+    parsed_is_all_day = bool(data.get("is_all_day") is True)
+
+    if not isinstance(parsed_title, str) or not parsed_title.strip():
+        raise HTTPException(status_code=422, detail="AI 未能提取标题，请补充公司或面试轮次")
+    parsed_title = parsed_title.strip()
+
+    if not isinstance(parsed_start, str) or not parsed_start.strip():
+        raise HTTPException(status_code=422, detail="AI 未能提取开始时间，请补充具体日期和时间")
+    start_dt = _parse_iso_datetime(parsed_start.strip(), "starts_at")
+
+    if isinstance(parsed_end, str) and parsed_end.strip():
+        end_dt = _parse_iso_datetime(parsed_end.strip(), "ends_at")
+    else:
+        end_dt = start_dt + timedelta(hours=1)
+    if end_dt <= start_dt:
+        end_dt = start_dt + timedelta(hours=1)
+
+    normalized_notes = parsed_notes.strip() if isinstance(parsed_notes, str) and parsed_notes.strip() else None
+    normalized_location = parsed_location.strip() if isinstance(parsed_location, str) and parsed_location.strip() else None
+
+    return CalendarEventAIParseResponse(
+        title=parsed_title,
+        starts_at=start_dt.isoformat(),
+        ends_at=end_dt.isoformat(),
+        is_all_day=parsed_is_all_day,
+        location=normalized_location,
+        notes=normalized_notes,
+    )
 
 
 @router.post("", response_model=CalendarEventResponse)

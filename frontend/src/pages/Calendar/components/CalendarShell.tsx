@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
 import type { CalendarView } from '../types'
 
 type CalendarShellProps = {
@@ -10,6 +10,7 @@ type CalendarShellProps = {
   onNext: () => void
   onToday: () => void
   onOpenCreate: () => void
+  onOpenAiImport: () => void
   left: ReactNode
   content: ReactNode
 }
@@ -22,6 +23,7 @@ export function CalendarShell({
   onNext,
   onToday,
   onOpenCreate,
+  onOpenAiImport,
   left,
   content,
 }: CalendarShellProps) {
@@ -40,13 +42,23 @@ export function CalendarShell({
               <span className="text-xl leading-none">🗓</span> 面试日历
             </button>
           </div>
-          <button
-            type="button"
-            onClick={onOpenCreate}
-            className="rounded-xl bg-blue-600 px-7 py-2.5 text-xl font-semibold text-white hover:bg-blue-700"
-          >
-            创建日程
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onOpenAiImport}
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-lg font-semibold text-slate-800 hover:bg-slate-50"
+            >
+              <Sparkles className="h-5 w-5 text-blue-600" />
+              AI 导入日程
+            </button>
+            <button
+              type="button"
+              onClick={onOpenCreate}
+              className="rounded-xl bg-blue-600 px-7 py-2.5 text-xl font-semibold text-white hover:bg-blue-700"
+            >
+              创建日程
+            </button>
+          </div>
         </div>
       </header>
 
