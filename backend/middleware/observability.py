@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import time
 import traceback
+import threading
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -38,17 +39,22 @@ class RequestObservabilityMiddleware(BaseHTTPMiddleware):
         finally:
             elapsed_ms = round((time.perf_counter() - start_perf) * 1000, 2)
             end_at = datetime.now(timezone.utc)
-            _persist_observability(
-                request=request,
-                response=response,
-                user_id=user_id,
-                trace_id=trace_id,
-                request_id=request_id,
-                start_at=start_at,
-                end_at=end_at,
-                elapsed_ms=elapsed_ms,
-                captured_error=captured_error,
-            )
+            # 异步写日志，避免观测落库阻塞主请求。
+            threading.Thread(
+                target=_persist_observability,
+                kwargs={
+                    "request": request,
+                    "response": response,
+                    "user_id": user_id,
+                    "trace_id": trace_id,
+                    "request_id": request_id,
+                    "start_at": start_at,
+                    "end_at": end_at,
+                    "elapsed_ms": elapsed_ms,
+                    "captured_error": captured_error,
+                },
+                daemon=True,
+            ).start()
             if response is not None:
                 response.headers["X-Trace-Id"] = trace_id
                 response.headers["X-Request-Id"] = request_id
@@ -102,9 +108,11 @@ def _persist_observability(
             response_size=response_size,
         )
         db.add(row)
-        db.flush()
 
         if captured_error is not None:
+            # 仅在需要关联错误日志时才强制 flush 获取 request_log_id，
+            # 避免每个请求都产生额外往返，降低接口尾延迟。
+            db.flush()
             db.add(
                 APIErrorLog(
                     request_log_id=row.id,
