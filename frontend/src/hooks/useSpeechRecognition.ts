@@ -160,6 +160,7 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions) {
       websocketRef.current = websocket;
 
       websocket.onopen = () => {
+        console.log('[Speech] WebSocket connected');
         setIsProcessing(false);
       };
 
@@ -175,9 +176,19 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions) {
         }
       };
 
-      websocket.onerror = () => {
+      websocket.onerror = (error) => {
+        console.error('[Speech] WebSocket error:', error);
+        alert('语音服务连接失败，请检查网络或稍后重试');
         setIsProcessing(false);
         setIsRecording(false);
+        onSpeakingChange?.(false);
+      };
+
+      websocket.onclose = (event) => {
+        console.log('[Speech] WebSocket closed:', event.code, event.reason);
+        if (event.code !== 1000) { // 1000 = 正常关闭
+          console.warn('[Speech] Abnormal closure');
+        }
       };
 
       mediaRecorder.start(250);
