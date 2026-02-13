@@ -5,13 +5,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Edit, FileText, LayoutDashboard, Settings, Save, Download, LogIn, User, LogOut } from 'lucide-react'
+import { Edit, FileText, LayoutDashboard, Table2, Settings, Save, Download, LogIn, User, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentResumeId } from '@/services/resumeStorage'
 
 // 工作区类型
-type WorkspaceType = 'resume' | 'edit' | 'agent' | 'dashboard' | 'settings' | 'templates'
+type WorkspaceType = 'resume' | 'edit' | 'agent' | 'dashboard' | 'applications' | 'settings' | 'templates'
 
 /** 复刻参考图：圆角矩形 + 内竖线（左窄右宽），细描边 */
 function SidebarToggleIcon({ expand = false, className }: { expand?: boolean; className?: string }) {
@@ -100,6 +100,9 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
     if (location.pathname === '/dashboard') {
       return 'dashboard'
     }
+    if (location.pathname === '/applications') {
+      return 'applications'
+    }
     if (location.pathname === '/settings') {
       return 'settings'
     }
@@ -143,6 +146,8 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
       }
     } else if (workspace === 'dashboard') {
       navigate('/dashboard')
+    } else if (workspace === 'applications') {
+      navigate('/applications')
     } else if (workspace === 'settings') {
       navigate('/settings')
     } else if (workspace === 'templates') {
@@ -227,7 +232,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               title="简历"
             >
               <FileText className="w-6 h-6 shrink-0" />
-              {!sidebarCollapsed && <span className="text-base font-medium">简历</span>}
+              {!sidebarCollapsed && <span className="text-base font-medium">应用</span>}
             </button>
 
             {/* AI 对话区 */}
@@ -260,6 +265,22 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
             >
               <LayoutDashboard className="w-6 h-6 shrink-0" />
               {!sidebarCollapsed && <span className="text-base font-medium">仪表盘</span>}
+            </button>
+
+            {/* 投递进展表 */}
+            <button
+              onClick={() => handleWorkspaceChange('applications')}
+              className={cn(
+                'w-full rounded-lg transition-all duration-200',
+                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
+                currentWorkspace === 'applications'
+                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+              )}
+              title="投递进展表"
+            >
+              <Table2 className="w-6 h-6 shrink-0" />
+              {!sidebarCollapsed && <span className="text-base font-medium">投递进展表</span>}
             </button>
 
             {/* 设置：仅当前在设置页时高亮，未选中时图标与文字与其它项一致（灰） */}

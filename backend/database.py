@@ -53,14 +53,18 @@ DATABASE_URL = get_database_url()
 engine = create_engine(
     DATABASE_URL,
     pool_pre_ping=True,  # 连接前检查连接是否有效
-    pool_recycle=3600,    # 1小时后回收连接
+    pool_recycle=300,     # 5分钟回收连接，降低陈旧连接概率
     pool_size=5,          # 连接池大小
     max_overflow=10,      # 最大溢出连接数
+    pool_timeout=5,       # 连接池获取超时，避免长时间阻塞
+    pool_use_lifo=True,   # 优先复用最近连接，减少命中陈旧连接
     echo=False,           # 设置为 True 可以看到 SQL 日志
     # MySQL 特定参数
     connect_args={
         "charset": "utf8mb4",
-        "connect_timeout": 10,
+        "connect_timeout": 5,
+        "read_timeout": 10,
+        "write_timeout": 10,
     } if "mysql" in DATABASE_URL.lower() else {}
 )
 
@@ -88,4 +92,3 @@ def init_db():
     初始化数据库（创建所有表）
     """
     Base.metadata.create_all(bind=engine)
-

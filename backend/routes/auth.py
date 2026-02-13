@@ -3,11 +3,12 @@
 """
 import logging
 import traceback
+import time
+from time import sleep
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import or_
+from sqlalchemy.exc import SQLAlchemyError, OperationalError
 from typing import Optional
 
 from database import get_db
@@ -138,21 +139,71 @@ def _client_ip(request: Request) -> str:
 @router.post("/login", response_model=TokenResponse)
 def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """用户登录"""
-    user = db.query(User).filter(
-        or_(User.username == body.username, User.email == body.username)
-    ).first()
+    t0 = time.perf_counter()
+    logger.info(f"[登录] 开始登录流程 username={body.username}")
+
+    # 数据库连接偶发中断时，允许一次快速重试，避免直接 500
+    t_query_start = time.perf_counter()
+    user = None
+    query_error: Optional[Exception] = None
+    login_identifier = body.username.strip()
+    for attempt in range(1, 3):
+        try:
+            # 避免 OR 条件导致索引利用不稳定：优先按输入形态走单索引查询
+            if "@" in login_identifier:
+                user = db.query(User).filter(User.email == login_identifier).first()
+                if not user:
+                    user = db.query(User).filter(User.username == login_identifier).first()
+            else:
+                user = db.query(User).filter(User.username == login_identifier).first()
+                if not user:
+                    user = db.query(User).filter(User.email == login_identifier).first()
+            query_error = None
+            break
+        except OperationalError as exc:
+            query_error = exc
+            db.rollback()
+            logger.warning(f"[登录] 查询用户失败(尝试{attempt}/2): {exc}")
+            if attempt < 2:
+                sleep(0.1)
+                continue
+        except SQLAlchemyError as exc:
+            query_error = exc
+            db.rollback()
+            logger.error(f"[登录] 查询用户发生数据库错误: {exc}")
+            break
+
+    logger.info(f"[登录] 查询用户耗时 {(time.perf_counter() - t_query_start) * 1000:.1f}ms")
+    if query_error is not None:
+        raise HTTPException(status_code=503, detail="数据库连接异常，请稍后重试")
+
+    t_verify_start = time.perf_counter()
     if not user or not verify_password(body.password, user.password_hash):
+        logger.warning(
+            f"[登录] 账号或密码错误 username={body.username} verify耗时 {(time.perf_counter() - t_verify_start) * 1000:.1f}ms"
+        )
         raise HTTPException(status_code=401, detail="账号或密码错误")
+    logger.info(f"[登录] 密码校验耗时 {(time.perf_counter() - t_verify_start) * 1000:.1f}ms")
 
     # 记录本次登录 IP
+    t_ip_start = time.perf_counter()
     try:
-        user.last_login_ip = _client_ip(request)
-        db.commit()
+        current_ip = _client_ip(request)
+        if current_ip and user.last_login_ip != current_ip:
+            user.last_login_ip = current_ip
+            db.commit()
+            logger.info(f"[登录] 更新 last_login_ip 耗时 {(time.perf_counter() - t_ip_start) * 1000:.1f}ms")
+        else:
+            logger.info(f"[登录] 跳过 last_login_ip 更新（IP 未变化）耗时 {(time.perf_counter() - t_ip_start) * 1000:.1f}ms")
     except Exception as e:
         logger.warning(f"[登录] 更新 last_login_ip 失败: {e}")
         db.rollback()
 
+    t_token_start = time.perf_counter()
     token = create_access_token({"sub": str(user.id), "username": user.username})
+    token_cost_ms = (time.perf_counter() - t_token_start) * 1000
+    logger.info(f"[登录] 生成 token 耗时 {token_cost_ms:.1f}ms")
+    logger.info(f"[登录] 登录流程完成 user_id={user.id} 总耗时 {(time.perf_counter() - t0) * 1000:.1f}ms")
     return TokenResponse(
         access_token=token,
         user=UserResponse(id=user.id, username=user.username, email=user.email)

@@ -61,11 +61,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthToken(result.access_token)
     setUser(result.user)
     setToken(result.access_token)
-    try {
-      await syncLocalToDatabase()
-    } catch {
+    // 登录成功后异步同步本地数据，不阻塞登录完成体验
+    void syncLocalToDatabase().catch(() => {
       // 同步失败不影响登录流程
-    }
+    })
   }
 
   const register = async (username: string, password: string) => {
@@ -74,11 +73,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthToken(result.access_token)
     setUser(result.user)
     setToken(result.access_token)
-    try {
-      await syncLocalToDatabase()
-    } catch {
+    // 注册成功后异步同步本地数据，不阻塞注册完成体验
+    void syncLocalToDatabase().catch(() => {
       // 同步失败不影响注册流程
-    }
+    })
   }
 
   const logout = () => {

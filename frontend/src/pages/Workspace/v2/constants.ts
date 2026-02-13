@@ -189,6 +189,11 @@ export const loadFromStorage = (): ResumeData => {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (saved) {
       const data = JSON.parse(saved) as ResumeData
+      let storageUpdated = false
+      if (data.basic?.photo) {
+        delete data.basic.photo
+        storageUpdated = true
+      }
 
       // 如果存量数据为空白（无姓名、无标题且核心板块全空），回退到默认模板
       const isBlank =
@@ -211,6 +216,9 @@ export const loadFromStorage = (): ResumeData => {
       if (!data.openSource) data.openSource = []
       if (!data.awards) data.awards = []
       if (!data.templateType) data.templateType = 'latex'  // 默认 LaTeX 模板
+      if (storageUpdated) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+      }
       return data
     }
   } catch (e) {

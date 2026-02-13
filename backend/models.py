@@ -3,7 +3,7 @@ Pydantic 数据模型定义
 """
 from pydantic import BaseModel, Field
 from typing import Optional, Literal, List, Dict, Any
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Date, ForeignKey, JSON, Text
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -201,3 +201,29 @@ class ReportConversation(Base):
 
     # 关联关系（暂时不使用，避免复杂配置）
     # report = relationship("Report", lazy="select")
+
+
+class ApplicationProgress(Base):
+    """投递进展表：用户每条投递记录"""
+    __tablename__ = "application_progress"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(String(36), primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    company = Column(String(255), nullable=True)
+    application_link = Column(String(512), nullable=True)
+    industry = Column(String(128), nullable=True)
+    tags = Column(JSON, nullable=True)  # ["上市","民营"]
+    position = Column(String(255), nullable=True)
+    location = Column(String(128), nullable=True)
+    progress = Column(String(64), nullable=True)  # 已投递/笔试/一面/二面/三面/AI面/测评/HR终面
+    progress_status = Column(String(64), nullable=True)  # 等消息/已过/未过/已放弃/等我回复/被调剂
+    progress_time = Column(DateTime(timezone=True), nullable=True)
+    notes = Column(Text, nullable=True)
+    application_date = Column(Date, nullable=True)
+    referral_code = Column(String(64), nullable=True)
+    link2 = Column(String(512), nullable=True)
+    resume_id = Column(String(255), ForeignKey("resumes.id", ondelete="SET NULL"), nullable=True, index=True)  # 使用的 PDF
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -1,6 +1,7 @@
 import type { Resume } from '@/types/resume'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
 import type { SavedResume, StorageAdapter } from './StorageAdapter'
+import { stripPhotoFromResumeData, stripPhotoFromSavedResume } from './sanitizeResume'
 
 const STORAGE_KEY = 'resume_resumes'
 const CURRENT_KEY = 'resume_current'
@@ -9,7 +10,12 @@ export class LocalStorageAdapter implements StorageAdapter {
   async getAllResumes(): Promise<SavedResume[]> {
     try {
       const data = localStorage.getItem(STORAGE_KEY)
-      return data ? JSON.parse(data) : []
+      const parsed = data ? (JSON.parse(data) as SavedResume[]) : []
+      const sanitized = parsed.map(stripPhotoFromSavedResume)
+      if (data && JSON.stringify(parsed) !== JSON.stringify(sanitized)) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(sanitized))
+      }
+      return sanitized
     } catch {
       return []
     }
@@ -38,6 +44,7 @@ export class LocalStorageAdapter implements StorageAdapter {
     const resumeName = (resume as any).basic?.name || (resume as any).name || '未命名简历'
     // 从 ResumeData 中提取 templateType，默认为 'latex'
     const templateType = (resume as ResumeData).templateType || 'latex'
+    const sanitizedResume = stripPhotoFromResumeData(resume)
 
     if (id) {
       const index = resumes.findIndex(r => r.id === id)
@@ -46,7 +53,7 @@ export class LocalStorageAdapter implements StorageAdapter {
           ...resumes[index],
           name: resumeName,
           templateType,
-          data: resume,
+          data: sanitizedResume,
           updatedAt: now
         }
         localStorage.setItem(STORAGE_KEY, JSON.stringify(resumes))
@@ -58,7 +65,7 @@ export class LocalStorageAdapter implements StorageAdapter {
       id: id || `resume_${now}_${Math.random().toString(36).substr(2, 9)}`,
       name: resumeName,
       templateType,
-      data: resume,
+      data: sanitizedResume,
       createdAt: now,
       updatedAt: now
     }
