@@ -120,7 +120,7 @@ function ReportContentView({
   onContentLoaded: (content: string, title?: string) => void;
 }) {
   const [content, setContent] = useState<string>("");
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingChat, setIsLoadingChat] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // 如果正在流式输出，使用打字机效果
@@ -133,7 +133,7 @@ function ReportContentView({
   useEffect(() => {
     // 如果正在流式输出，不加载 API 内容
     if (isStreaming && streamingContent) {
-      setIsLoading(false);
+      setIsLoadingChat(false);
       setContent(streamingContent);
       return;
     }
@@ -163,7 +163,7 @@ function ReportContentView({
     loadReport();
   }, [reportId, onContentLoaded, isStreaming, streamingContent]);
 
-  if (isLoading && !isStreaming) {
+  if (isLoadingChat && !isStreaming) {
     return <div className="text-sm text-slate-500">正在加载报告...</div>;
   }
 
@@ -482,14 +482,17 @@ export default function SophiaChat() {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
+  const [sessionsRefreshKey, setSessionsResumeKey] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(true);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [initialSessionResolved, setInitialSessionResolved] = useState(false);
+  const [isLoadingResume, setIsLoadingResume] = useState(false);
+  const [isLoadingChat, setIsLoadingChat] = useState(false);
+
   const [conversationId, setConversationId] = useState(() => {
-    // 优先从 URL 恢复会话ID；否则先给一个临时ID，后续会在初始化阶段替换为“最新会话”
+    // 优先从 URL 恢复会话ID；否则先给一个临时ID，后续会在初始化阶段替换为"最新会话"
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       const sessionId = params.get("sessionId");
@@ -1825,7 +1828,7 @@ export default function SophiaChat() {
   };
 
   const loadSession = async (sessionId: string) => {
-    if (isLoadingSession) {
+    if (isLoadingChat) {
       return;
     }
     if (sessionId === currentSessionId) {
@@ -2450,7 +2453,7 @@ export default function SophiaChat() {
                   </div>
                 )}
 
-                {messages.length === 0 && !isProcessing && (
+                {messages.length === 0 && !isProcessing && !showResumeSelector && (
                   <div className="max-w-2xl mx-auto py-24 px-4 transition-all duration-500 ease-in-out">
                     <div className="text-center mb-12">
                       <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">
@@ -2468,15 +2471,7 @@ export default function SophiaChat() {
                           title: "简历润色",
                           desc: "“帮我优化这段工作描述，突出我的领导力。”",
                           color: "bg-amber-50 dark:bg-amber-900/20",
-                          onClick: () => {
-                            const message = "帮我优化这段工作描述，突出我的领导力。";
-                            setInput(message);
-                            // 自动发送消息
-                            setTimeout(() => {
-                              const sendButton = document.querySelector('button[type="submit"]');
-                              sendButton?.click();
-                            }, 100);
-                          },
+                          onClick: () => setShowResumeSelector(true),
                         },
                         {
                           icon: <Search className="w-5 h-5 text-blue-500" />,
@@ -2499,7 +2494,13 @@ export default function SophiaChat() {
                       ].map((item, i) => (
                         <button
                           key={i}
-                          onClick={() => setInput(item.desc.replace(/[“”]/g, ""))}
+                          onClick={() => {
+                            if (item.onClick) {
+                              item.onClick();
+                            } else {
+                              setInput(item.desc.replace(/[“”]/g, ""));
+                            }
+                          }}
                           className="flex flex-col items-start p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-md transition-all text-left group"
                         >
                           <div className={`p-2 rounded-lg ${item.color} mb-3 group-hover:scale-110 transition-transform`}>
