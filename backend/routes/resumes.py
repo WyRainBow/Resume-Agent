@@ -135,10 +135,39 @@ def update_resume(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """更新简历"""
+    """更新简历（不存在时自动创建）"""
     resume = db.query(Resume).filter(Resume.id == resume_id, Resume.user_id == current_user.id).first()
+
+    # 如果当前用户下不存在，尝试按 ID 创建（避免前端首次云端保存时 404）
     if not resume:
-        raise HTTPException(status_code=404, detail="简历不存在")
+        # 若该 ID 已被其他用户占用，避免越权覆盖
+        occupied = db.query(Resume).filter(Resume.id == resume_id).first()
+        if occupied and occupied.user_id != current_user.id:
+            raise HTTPException(status_code=409, detail="简历ID已存在，请重试")
+
+        data = payload.data.copy()
+        if payload.template_type:
+            data["templateType"] = payload.template_type
+
+        created = Resume(
+            id=resume_id,
+            user_id=current_user.id,
+            name=payload.name or data.get("basic", {}).get("name") or "未命名简历",
+            alias=payload.alias,
+            data=data,
+        )
+        db.add(created)
+        db.commit()
+        db.refresh(created)
+        return ResumeResponse(
+            id=created.id,
+            name=created.name,
+            alias=created.alias,
+            template_type=_extract_template_type(created.data),
+            data=created.data,
+            created_at=created.created_at.isoformat() if created.created_at else None,
+            updated_at=created.updated_at.isoformat() if created.updated_at else None
+        )
 
     # 如果 payload 中有 template_type，确保同步到 data 中
     data = payload.data.copy()
