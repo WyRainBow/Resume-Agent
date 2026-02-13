@@ -12,6 +12,8 @@ from .reports import router as reports_router
 from .documents import router as documents_router
 from .logos import router as logos_router
 from .photos import router as photos_router
+from .application_progress import router as application_progress_router
+from .dashboard_perf import router as dashboard_perf_router
 
 __all__ = [
     'health_router',
@@ -25,4 +27,6 @@ __all__ = [
     'documents_router',
     'logos_router',
     'photos_router',
+    'application_progress_router',
+    'dashboard_perf_router',
 ]

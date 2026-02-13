@@ -2,12 +2,24 @@
 JWT 认证依赖
 """
 from typing import Optional
+from time import sleep
+import logging
 from fastapi import Depends, HTTPException, Header
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import (
+    DBAPIError,
+    DisconnectionError,
+    InterfaceError,
+    OperationalError,
+    SQLAlchemyError,
+)
 
 from database import get_db
 from models import User
 from auth import decode_access_token
+
+logger = logging.getLogger("backend")
+MAX_AUTH_DB_RETRIES = 4
 
 
 def get_current_user(
@@ -30,7 +42,39 @@ def get_current_user(
             user_id = int(user_id)
         except ValueError:
             raise HTTPException(status_code=401, detail="Token 格式错误")
-    user = db.query(User).filter(User.id == user_id).first()
+    user = None
+    db_error: Optional[Exception] = None
+    # MySQL 偶发断连/接口层异常时做短重试，降低瞬时抖动导致的 503
+    for attempt in range(1, MAX_AUTH_DB_RETRIES + 1):
+        try:
+            user = db.query(User).filter(User.id == user_id).first()
+            db_error = None
+            break
+        except (OperationalError, InterfaceError, DisconnectionError, DBAPIError) as exc:
+            db_error = exc
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            # 显式标记连接无效，避免重试复用坏连接
+            try:
+                db.invalidate()
+            except Exception:
+                pass
+            logger.warning(
+                f"[鉴权] get_current_user 数据库连接异常，重试 {attempt}/{MAX_AUTH_DB_RETRIES}: {exc}"
+            )
+            if attempt < MAX_AUTH_DB_RETRIES:
+                sleep(0.15 * attempt)
+                continue
+        except SQLAlchemyError as exc:
+            db_error = exc
+            db.rollback()
+            logger.error(f"[鉴权] get_current_user 数据库查询失败: {exc}")
+            break
+
+    if db_error is not None:
+        raise HTTPException(status_code=503, detail="数据库连接异常，请稍后重试")
     if not user:
         raise HTTPException(status_code=401, detail="用户不存在")
     return user

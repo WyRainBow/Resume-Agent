@@ -81,7 +81,7 @@ const TemplateMarket = () => {
             >
               <Button
                 variant="outline"
-                onClick={() => navigate('/dashboard')}
+                onClick={() => navigate('/my-resumes')}
                 className="flex items-center gap-2"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -266,4 +266,3 @@ const TemplateMarket = () => {
 }
 
 export default TemplateMarket
-

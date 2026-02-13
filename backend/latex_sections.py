@@ -495,11 +495,46 @@ def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict
                 # 使用 \normalsize 字体，确保与实习经历一致
                 latex_line = f"\\datedsubsection{{\\normalsize {title_str}}}{{\\normalsize {duration}}}"
                 content.append(latex_line)
-                                # 荣誉信息 - 与 wy.tex 格式一致
+                # 荣誉信息 - 与 wy.tex 格式一致
                 honors = ed.get('honors')
                 if honors:
                     escaped_honors = escape_latex(honors)
                     content.append(f"\\ \\textbf{{荣誉:}} {escaped_honors}")
+                # 补充说明 details/description（富文本 HTML，与实习经历列表风格一致）
+                details = ed.get('details') or ([ed.get('description')] if ed.get('description') else [])
+                if isinstance(details, list) and details:
+                    has_list_wrapper = False
+                    for d in details:
+                        if not isinstance(d, str) or not d.strip():
+                            continue
+                        d = d.strip()
+                        if '<' in d and '>' in d:
+                            converted = html_to_latex(d)
+                            if converted.strip():
+                                if '\\begin{itemize}' in converted or '\\begin{enumerate}' in converted:
+                                    converted = re.sub(
+                                        r'\\begin\{itemize\}(\[[^\]]*\])?',
+                                        r'\\begin{itemize}[label=\\footnotesize$\\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]',
+                                        converted
+                                    )
+                                    converted = re.sub(
+                                        r'\\begin\{enumerate\}(\[[^\]]*\])?',
+                                        r'\\begin{enumerate}[leftmargin=*,labelsep=0.5em,topsep=0ex,partopsep=0ex]',
+                                        converted
+                                    )
+                                    content.append(converted)
+                                else:
+                                    if not has_list_wrapper:
+                                        content.append(r"\begin{itemize}[label=\footnotesize$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
+                                        has_list_wrapper = True
+                                    content.append(f"  \\item {converted}")
+                        else:
+                            if not has_list_wrapper:
+                                content.append(r"\begin{itemize}[label=\footnotesize$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
+                                has_list_wrapper = True
+                            content.append(f"  \\item {escape_latex(d)}")
+                    if has_list_wrapper:
+                        content.append(r"\end{itemize}")
             content.append("")
     return content
 

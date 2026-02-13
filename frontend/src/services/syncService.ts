@@ -47,6 +47,9 @@ function readLocalResumes(): SavedResume[] {
 
 export async function syncLocalToDatabase(): Promise<SavedResume[]> {
   const localResumes = readLocalResumes()
+  if (localResumes.length === 0) {
+    return []
+  }
   const payload = {
     resumes: localResumes.map(r => ({
       id: r.id,

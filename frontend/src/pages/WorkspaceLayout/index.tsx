@@ -2,16 +2,16 @@
  * 工作区布局容器
  * 左侧固定边栏（工作区切换），右侧动态内容区
  */
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type MouseEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Edit, FileText, LayoutDashboard, Settings, Save, Download, LogIn, User, LogOut } from 'lucide-react'
+import { Edit, FileText, LayoutDashboard, Table2, Settings, Save, Download, LogIn, User, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCurrentResumeId } from '@/services/resumeStorage'
 
 // 工作区类型
-type WorkspaceType = 'resume' | 'edit' | 'agent' | 'dashboard' | 'settings' | 'templates'
+type WorkspaceType = 'resume' | 'edit' | 'agent' | 'dashboard' | 'myResumes' | 'applications' | 'settings' | 'templates'
 
 /** 复刻参考图：圆角矩形 + 内竖线（左窄右宽），细描边 */
 function SidebarToggleIcon({ expand = false, className }: { expand?: boolean; className?: string }) {
@@ -100,6 +100,12 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
     if (location.pathname === '/dashboard') {
       return 'dashboard'
     }
+    if (location.pathname === '/my-resumes') {
+      return 'myResumes'
+    }
+    if (location.pathname === '/applications') {
+      return 'applications'
+    }
     if (location.pathname === '/settings') {
       return 'settings'
     }
@@ -131,25 +137,27 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
     }
   }, [showLogoutMenu])
 
-  const handleWorkspaceChange = (workspace: WorkspaceType) => {
-    if (workspace === 'resume') {
-      navigate('/resume-entry')
-    } else if (workspace === 'agent') {
+  const resolveWorkspacePath = (workspace: WorkspaceType): string => {
+    if (workspace === 'resume') return '/resume-entry'
+    if (workspace === 'agent') {
       const currentResumeId = getCurrentResumeId()
-      if (currentResumeId) {
-        navigate(`/agent/${currentResumeId}`)
-      } else {
-        navigate('/agent/new')
-      }
-    } else if (workspace === 'dashboard') {
-      navigate('/dashboard')
-    } else if (workspace === 'settings') {
-      navigate('/settings')
-    } else if (workspace === 'templates') {
-      navigate('/templates')
-    } else {
-      navigate('/workspace')
+      return currentResumeId ? `/agent/${currentResumeId}` : '/agent/new'
     }
+    if (workspace === 'dashboard') return '/dashboard'
+    if (workspace === 'myResumes') return '/my-resumes'
+    if (workspace === 'applications') return '/applications'
+    if (workspace === 'settings') return '/settings'
+    if (workspace === 'templates') return '/templates'
+    return '/workspace'
+  }
+
+  const handleWorkspaceChange = (workspace: WorkspaceType, e?: MouseEvent<HTMLButtonElement>) => {
+    const targetPath = resolveWorkspacePath(workspace)
+    if (e?.metaKey || e?.ctrlKey) {
+      window.open(targetPath, '_blank', 'noopener,noreferrer')
+      return
+    }
+    navigate(targetPath)
   }
 
   return (
@@ -200,7 +208,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
           <nav className={cn('space-y-0.5 flex flex-col', sidebarCollapsed ? 'items-center' : '')}>
             {/* 编辑区 */}
             <button
-              onClick={() => handleWorkspaceChange('edit')}
+              onClick={(e) => handleWorkspaceChange('edit', e)}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
@@ -216,7 +224,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
 
             {/* 简历入口：图一样式，文档图标 + 简历 */}
             <button
-              onClick={() => handleWorkspaceChange('resume')}
+              onClick={(e) => handleWorkspaceChange('resume', e)}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
@@ -227,12 +235,12 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               title="简历"
             >
               <FileText className="w-6 h-6 shrink-0" />
-              {!sidebarCollapsed && <span className="text-base font-medium">简历</span>}
+              {!sidebarCollapsed && <span className="text-base font-medium">应用</span>}
             </button>
 
             {/* AI 对话区 */}
             <button
-              onClick={() => handleWorkspaceChange('agent')}
+              onClick={(e) => handleWorkspaceChange('agent', e)}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
@@ -246,9 +254,41 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               {!sidebarCollapsed && <span className="text-base font-medium">AI</span>}
             </button>
 
+            {/* 我的简历 */}
+            <button
+              onClick={(e) => handleWorkspaceChange('myResumes', e)}
+              className={cn(
+                'w-full rounded-lg transition-all duration-200',
+                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
+                currentWorkspace === 'myResumes'
+                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+              )}
+              title="我的简历"
+            >
+              <FileText className="w-6 h-6 shrink-0" />
+              {!sidebarCollapsed && <span className="text-base font-medium">我的简历</span>}
+            </button>
+
+            {/* 投递进展表 */}
+            <button
+              onClick={(e) => handleWorkspaceChange('applications', e)}
+              className={cn(
+                'w-full rounded-lg transition-all duration-200',
+                sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
+                currentWorkspace === 'applications'
+                  ? 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800'
+              )}
+              title="投递进展表"
+            >
+              <Table2 className="w-6 h-6 shrink-0" />
+              {!sidebarCollapsed && <span className="text-base font-medium">投递进展表</span>}
+            </button>
+
             {/* 仪表盘 */}
             <button
-              onClick={() => handleWorkspaceChange('dashboard')}
+              onClick={(e) => handleWorkspaceChange('dashboard', e)}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
@@ -262,9 +302,9 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               {!sidebarCollapsed && <span className="text-base font-medium">仪表盘</span>}
             </button>
 
-            {/* 设置：未选中与编辑/仪表盘一致无背景，选中时高亮，避免与其它项同时显亮 */}
+            {/* 设置：仅当前在设置页时高亮，未选中时图标与文字与其它项一致（灰） */}
             <button
-              onClick={() => handleWorkspaceChange('settings')}
+              onClick={(e) => handleWorkspaceChange('settings', e)}
               className={cn(
                 'w-full rounded-lg transition-all duration-200',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5',
@@ -274,7 +314,7 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
               )}
               title="设置"
             >
-              <Settings className="w-6 h-6 shrink-0 text-violet-500 dark:text-violet-400" />
+              <Settings className="w-6 h-6 shrink-0" />
               {!sidebarCollapsed && <span className="text-base font-medium">设置</span>}
             </button>
           </nav>
@@ -315,7 +355,13 @@ export default function WorkspaceLayout({ children, onSave, onDownload }: Worksp
             )}
 
             <button
-              onClick={() => navigate('/create-new')}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey) {
+                  window.open('/create-new', '_blank', 'noopener,noreferrer')
+                  return
+                }
+                navigate('/create-new')
+              }}
               className={cn(
                 'w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all',
                 sidebarCollapsed ? 'flex flex-col items-center justify-center gap-1 py-2.5' : 'flex items-center gap-2.5 py-2.5 px-2.5'

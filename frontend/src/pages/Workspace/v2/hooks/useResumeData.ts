@@ -4,6 +4,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { getCurrentResumeId, setCurrentResumeId, getResume } from '../../../../services/resumeStorage'
 import { loadFromStorage, STORAGE_KEY } from '../constants'
+import { stripPhotoFromResumeData } from '@/services/storage/sanitizeResume'
 import type {
   ResumeData,
   MenuSection,
@@ -65,7 +66,10 @@ export function useResumeData() {
 
   // 自动保存到 localStorage
   useEffect(() => {
-    const saveData = { ...resumeData, updatedAt: new Date().toISOString() }
+    const saveData = {
+      ...stripPhotoFromResumeData(resumeData),
+      updatedAt: new Date().toISOString(),
+    }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(saveData))
   }, [resumeData])
 
@@ -270,4 +274,3 @@ export function useResumeData() {
     addCustomSection,
   }
 }
-

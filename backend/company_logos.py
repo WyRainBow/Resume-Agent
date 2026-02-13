@@ -1,12 +1,17 @@
 """
 公司 Logo 管理
-从腾讯云 COS 动态获取 Logo 列表，支持关键词匹配
-新增 Logo 只需上传到 COS，无需改代码
+优先使用仓库本地 images/logo/ 目录下的 Logo；若无则从腾讯云 COS 动态获取
+新增 Logo：放入 images/logo/*.png 或上传到 COS
 """
 import os
+import shutil
 import time
 import urllib.request
 from pathlib import Path
+
+# 仓库根目录下的 images/logo（与 .gitignore 中的 images/ 对应）
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+LOCAL_LOGO_DIR = _REPO_ROOT / "images" / "logo"
 
 COS_BASE_URL = 'https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com'
 
@@ -106,20 +111,46 @@ KNOWN_LOGO_META = {
     },
 }
 
-# ── COS 扫描结果缓存 ──
+# ── COS / 本地扫描结果缓存 ──
 _cos_cache: list[dict] | None = None
 _cos_cache_time: float = 0
-_COS_CACHE_TTL = 300  
+_COS_CACHE_TTL = 300
+_using_local = False  # True 表示当前使用 images/logo 本地目录
 
 # 同时构建 key -> 文件名 查找表（在扫描后更新）
 _key_to_file: dict[str, str] = {}
 
 
 def clear_cache():
-    """清除 COS 扫描缓存，下次调用会重新扫描"""
-    global _cos_cache, _cos_cache_time
+    """清除扫描缓存，下次调用会重新扫描（本地或 COS）"""
+    global _cos_cache, _cos_cache_time, _using_local
     _cos_cache = None
     _cos_cache_time = 0
+    _using_local = False
+
+
+def _scan_local_logos() -> list[dict] | None:
+    """若存在 images/logo/ 且含 .png，则返回本地 Logo 列表，否则返回 None"""
+    global _key_to_file
+    if not LOCAL_LOGO_DIR.is_dir():
+        return None
+    files = sorted(LOCAL_LOGO_DIR.glob("*.png"))
+    if not files:
+        return None
+    logos = []
+    key_map = {}
+    for f in files:
+        stem = f.stem
+        key_map[stem] = f.name
+        logos.append({
+            "key": stem,
+            "name": stem,
+            "url": f"/api/logos/file/{stem}",
+            "keywords": [stem],
+        })
+    _key_to_file = key_map
+    print(f"[Logo] 本地 images/logo 扫描完成，发现 {len(logos)} 个 Logo")
+    return logos
 
 
 def _scan_cos_logos() -> list[dict]:
@@ -202,24 +233,43 @@ def _fallback_logos() -> list[dict]:
 
 
 def get_all_logos_with_urls() -> list[dict]:
-    """获取所有 Logo 列表（从 COS 动态扫描），供 API 返回"""
+    """获取所有 Logo 列表：优先 images/logo/ 本地目录，否则从 COS 扫描"""
+    global _cos_cache, _using_local
+    local = _scan_local_logos()
+    if local:
+        _cos_cache = local
+        _using_local = True
+        return local
+    _using_local = False
     return _scan_cos_logos()
 
 
 def get_logo_cos_url(key: str) -> str | None:
-    """根据 key 获取 Logo 的 COS URL"""
+    """根据 key 获取 Logo URL（本地时为 /api/logos/file/{key}，COS 时为公网 URL）"""
     # 确保缓存已加载
-    _scan_cos_logos()
+    get_all_logos_with_urls()
 
+    if _using_local:
+        if key in _key_to_file:
+            return f"/api/logos/file/{key}"
+        return None
     filename = _key_to_file.get(key)
     if not filename:
         return None
     return f"{COS_BASE_URL}/{urllib.request.quote(filename)}"
 
 
+def get_logo_local_path(key: str) -> Path | None:
+    """本地模式下根据 key 返回 Logo 文件路径，供 PDF 生成时复制用"""
+    if not _using_local:
+        return None
+    p = LOCAL_LOGO_DIR / f"{key}.png"
+    return p if p.is_file() else None
+
+
 def download_logos_to_dir(internships: list, target_dir: str) -> dict[int, str]:
     """
-    将 internships 中用到的 Logo 下载到目标目录
+    将 internships 中用到的 Logo 写入目标目录：本地模式为复制，否则从 COS 下载
 
     返回: { index: local_filename } 映射，如 { 0: 'logo_0.png', 2: 'logo_2.png' }
     """
@@ -231,17 +281,27 @@ def download_logos_to_dir(internships: list, target_dir: str) -> dict[int, str]:
         if not logo_key:
             continue
 
+        logos_dir.mkdir(parents=True, exist_ok=True)
+        local_filename = f'logo_{idx}.png'
+        local_path = logos_dir / local_filename
+
+        if _using_local:
+            src = get_logo_local_path(logo_key)
+            if src:
+                try:
+                    shutil.copy2(src, local_path)
+                    logo_map[idx] = local_filename
+                    print(f"[Logo] 复制: {src.name} -> {local_filename}")
+                except Exception as e:
+                    print(f"[Logo] 复制失败 ({logo_key}): {e}")
+            else:
+                print(f"[Logo] 本地未找到 Logo key: {logo_key}")
+            continue
+
         cos_url = get_logo_cos_url(logo_key)
         if not cos_url:
             print(f"[Logo] 未知的 Logo key: {logo_key}")
             continue
-
-        # 创建 logos 子目录
-        logos_dir.mkdir(exist_ok=True)
-
-        local_filename = f'logo_{idx}.png'
-        local_path = logos_dir / local_filename
-
         try:
             print(f"[Logo] 下载: {cos_url} -> {local_path}")
             urllib.request.urlretrieve(cos_url, str(local_path))

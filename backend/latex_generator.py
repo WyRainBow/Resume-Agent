@@ -60,8 +60,7 @@ def _download_user_photo_to_dir(photo_url: str, temp_dir: str) -> str | None:
         local_path = logos_dir / local_name
         urllib.request.urlretrieve(photo_url, str(local_path))
         return local_name
-    except Exception as exc:
-        print(f"[Photo] 下载失败: {exc}")
+    except Exception:
         return None
 
 
@@ -81,9 +80,7 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     try:
         from backend.json_normalizer import normalize_resume_json
         resume_data = normalize_resume_json(resume_data)
-        print("[通用标准化] 成功")
-    except Exception as e:
-        print(f"[通用标准化] 失败: {e}，降级到固定映射")
+    except Exception:
         resume_data = normalize_resume_data(resume_data)
     
     """获取 LaTeX 模板目录路径"""
@@ -197,8 +194,6 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     
     """按顺序生成各 section"""
     order = section_order if section_order else DEFAULT_SECTION_ORDER
-    print(f"[DEBUG] section_order received: {section_order}")
-    print(f"[DEBUG] using order: {order}")
     for section_id in order:
         generator = SECTION_GENERATORS.get(section_id)
         if generator:
@@ -254,9 +249,7 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path, resume_data: Di
             photo_url = resume_data.get("photo")
             if photo_url:
                 local_photo = _download_user_photo_to_dir(photo_url, temp_dir)
-                if local_photo:
-                    print(f"[Photo] 下载完成: {local_photo}")
-                else:
+                if not local_photo:
                     print("[Photo] 下载失败，已自动降级为无照片渲染")
                     # 避免 LaTeX includegraphics{photo} 找不到文件导致编译失败
                     stripped_lines = []

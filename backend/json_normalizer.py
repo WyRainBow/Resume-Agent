@@ -115,9 +115,6 @@ class ResumeNormalizer:
                     """
                     找到了语义匹配
                     """
-                    import sys
-                    print(f"[Normalizer] Found semantic type: {semantic_type} for key: {key}", file=sys.stderr, flush=True)
-
                     if semantic_type in ['phone', 'email', 'location']:
                         """
                         联系信息：放入 contact
@@ -143,7 +140,6 @@ class ResumeNormalizer:
                             )
                         else:
                             normalized[semantic_type] = value
-                            print(f"[Normalizer] Set normalized[{semantic_type}] = {value}", file=sys.stderr, flush=True)
                 else:
                     """
                     没有找到语义匹配

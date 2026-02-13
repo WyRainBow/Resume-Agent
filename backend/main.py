@@ -13,6 +13,7 @@ FastAPI 后端入口
 import os
 import sys
 import importlib
+import time
 from pathlib import Path
 
 # 兼容多种启动方式（uvicorn backend.main:app 或 uvicorn main:app）
@@ -71,6 +72,8 @@ reports_router = routes_module.reports_router
 documents_router = routes_module.documents_router
 logos_router = routes_module.logos_router
 photos_router = routes_module.photos_router
+application_progress_router = routes_module.application_progress_router
+dashboard_perf_router = routes_module.dashboard_perf_router
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="Resume API")
@@ -96,6 +99,8 @@ app.include_router(reports_router)
 app.include_router(documents_router)
 app.include_router(logos_router)
 app.include_router(photos_router)
+app.include_router(application_progress_router)
+app.include_router(dashboard_perf_router)
 
 # 注册 OpenManus 路由（合并后）
 try:
@@ -154,6 +159,32 @@ async def startup_event():
         logger.info("[启动优化] HTTP 连接已预热")
     except Exception as e:
         logger.warning(f"[启动优化] 连接预热失败: {e}")
+
+    # 预热数据库连接，避免首次打开仪表盘时卡在连接建立（通常会额外耗时数秒）
+    try:
+        from sqlalchemy import text
+        from database import engine as db_engine
+
+        warmup_ok = False
+        last_error = None
+        for attempt in range(1, 5):
+            try:
+                t0 = time.perf_counter()
+                with db_engine.connect() as conn:
+                    conn.execute(text("SELECT 1"))
+                elapsed = (time.perf_counter() - t0) * 1000
+                logger.info(f"[启动优化] 数据库连接已预热 attempt={attempt} 耗时 {elapsed:.1f}ms")
+                warmup_ok = True
+                break
+            except Exception as exc:
+                last_error = exc
+                logger.warning(f"[启动优化] 数据库连接预热失败 attempt={attempt}/4: {exc}")
+                if attempt < 4:
+                    time.sleep(0.6 * attempt)
+        if not warmup_ok:
+            logger.warning(f"[启动优化] 数据库连接预热最终失败: {last_error}")
+    except Exception as e:
+        logger.warning(f"[启动优化] 数据库连接预热失败: {e}")
 
     # 预加载 tiktoken 编码文件，避免首次请求时下载阻塞（使用配置管理器）
     try:

@@ -1,10 +1,14 @@
 """
 公司 Logo 路由
-- GET  /api/logos         获取所有可用的 Logo 列表
-- POST /api/logos/upload  上传自定义 Logo 到 COS
+- GET  /api/logos           获取所有可用的 Logo 列表
+- GET  /api/logos/file/{key}  获取本地 Logo 图片（当使用 images/logo 时）
+- POST /api/logos/upload    上传自定义 Logo 到 COS
 """
 import os
+from pathlib import Path
+
 from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse
 
 router = APIRouter(prefix="/api", tags=["Logos"])
 
@@ -16,6 +20,26 @@ def _import_logos():
     except ModuleNotFoundError:
         import company_logos as m
     return m
+
+
+@router.get("/logos/file/{key}")
+async def get_logo_file(key: str):
+    """提供本地 images/logo 目录下的 Logo 图片（防止路径穿越）"""
+    m = _import_logos()
+    if not getattr(m, "LOCAL_LOGO_DIR", None):
+        raise HTTPException(status_code=404, detail="本地 Logo 未启用")
+    # 仅允许 .png 文件名，且必须在 LOCAL_LOGO_DIR 内
+    if ".." in key or "/" in key or "\\" in key:
+        raise HTTPException(status_code=400, detail="无效的 key")
+    base = m.LOCAL_LOGO_DIR.resolve()
+    path = (m.LOCAL_LOGO_DIR / f"{key}.png").resolve()
+    try:
+        path.relative_to(base)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Logo 不存在")
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="Logo 不存在")
+    return FileResponse(path, media_type="image/png")
 
 
 @router.get("/logos")
