@@ -98,6 +98,17 @@ register_observability_handlers(app)
 
 # 注册路由
 app.include_router(health_router)
+
+# TTS 路由（可选，如果 TTS 依赖已安装）
+try:
+    tts_router = routes_module.tts_router
+    if tts_router is not None:
+        app.include_router(tts_router)
+        logger.info("[TTS] TTS 路由已注册，前缀: /api/tts")
+    else:
+        logger.warning("[TTS] TTS 路由未加载（TTS 依赖未安装）")
+except Exception as exc:
+    logger.warning(f"[TTS] TTS 路由注册失败: {exc}")
 app.include_router(config_router)
 app.include_router(resume_router)
 app.include_router(pdf_router)

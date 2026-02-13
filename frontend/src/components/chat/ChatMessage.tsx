@@ -10,6 +10,7 @@ import { ChatMessageProps } from '@/types/chat';
 import ThoughtProcess from './ThoughtProcess';
 import EnhancedMarkdown from './EnhancedMarkdown';
 import { useTextStream } from './ResponseStream';
+import TTSButton from './TTSButton';
 
 /**
  * ChatMessage 组件 - 对话消息显示组件
@@ -141,6 +142,7 @@ export default function ChatMessage({ message, isLatest = false, isStreaming = f
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
             </svg>
           </button>
+          <TTSButton text={message.content} />
           <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
             <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
               <circle cx="12" cy="12" r="1.5" />

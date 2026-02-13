@@ -11,6 +11,8 @@
  */
 
 import ChatMessage from "@/components/chat/ChatMessage";
+import TTSButton from "@/components/chat/TTSButton";
+import { Copy, RotateCcw } from "lucide-react";
 import ReportCard from "@/components/chat/ReportCard";
 import ResumeCard from "@/components/chat/ResumeCard";
 import ResumeSelector from "@/components/chat/ResumeSelector";
@@ -2743,7 +2745,20 @@ export default function SophiaChat() {
                       {/* 反馈按钮 */}
                       {msg.content && (
                         <div className="flex gap-2 mb-6">
-                          <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(msg.content);
+                              // 可以添加一个简单的提示，或者改变图标颜色
+                            }}
+                            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                            title="复制内容"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+                          <button
+                            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                            title="赞"
+                          >
                             <svg
                               className="w-4 h-4"
                               fill="none"
@@ -2758,7 +2773,10 @@ export default function SophiaChat() {
                               />
                             </svg>
                           </button>
-                          <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
+                          <button
+                            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                            title="踩"
+                          >
                             <svg
                               className="w-4 h-4"
                               fill="none"
@@ -2772,6 +2790,21 @@ export default function SophiaChat() {
                                 d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5"
                               />
                             </svg>
+                          </button>
+                          <TTSButton text={msg.content} />
+                          <button
+                            onClick={() => {
+                              // 重新生成逻辑：重新发送上一条用户消息
+                              const userMessages = messages.filter(m => m.role === 'user');
+                              const lastUserMsg = userMessages[userMessages.length - 1];
+                              if (lastUserMsg) {
+                                sendUserTextMessage(lastUserMsg.content);
+                              }
+                            }}
+                            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                            title="重新生成"
+                          >
+                            <RotateCcw className="w-4 h-4" />
                           </button>
                           <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
                             <svg

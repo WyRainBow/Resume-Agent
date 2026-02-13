@@ -69,3 +69,12 @@ tomli>=2.0.0
 huggingface-hub~=0.29.2
 python-multipart~=0.0.22
 cos-python-sdk-v5>=1.9.30
+
+# TTS (Text-to-Speech) - Edge TTS（推荐）或 Coqui TTS
+edge-tts>=6.1.0
+# 如果需要使用 Coqui TTS（需要声音克隆），取消下面的注释
+# coqui-tts>=0.22.0
+# torch>=2.0.0
+# torchaudio>=2.0.0
+# librosa>=0.10.0
+# soundfile>=0.12.0

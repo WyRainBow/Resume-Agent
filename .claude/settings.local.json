@@ -4,7 +4,9 @@
       "Bash(sqlite3:*)",
       "Bash(ls:*)",
       "Bash(PYTHONPATH=:*)",
-      "Bash(PYTHONPATH=.:/c/Users/10245/Desktop/Resume-Agent python:*)"
+      "Bash(PYTHONPATH=.:/c/Users/10245/Desktop/Resume-Agent python:*)",
+      "Bash(pip uninstall:*)",
+      "Bash(pip install:*)"
     ]
   }
 }

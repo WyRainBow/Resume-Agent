@@ -22,6 +22,23 @@ from .admin_logs import router as admin_logs_router
 from .admin_traces import router as admin_traces_router
 from .admin_overview import router as admin_overview_router
 
+# TTS 路由（优先使用 edge-tts，如果不可用则尝试 Coqui TTS）
+try:
+    from .tts_edge import router as tts_router
+    _tts_available = True
+    _tts_type = "edge-tts"
+except ImportError:
+    # edge-tts 不可用，尝试 Coqui TTS
+    try:
+        from .tts import router as tts_router
+        _tts_available = True
+        _tts_type = "coqui-tts"
+    except ImportError:
+        # TTS 依赖未安装，创建一个占位符
+        tts_router = None
+        _tts_available = False
+        _tts_type = None
+
 __all__ = [
     'health_router',
     'config_router',
@@ -43,4 +60,5 @@ __all__ = [
     'admin_logs_router',
     'admin_traces_router',
     'admin_overview_router',
+    'tts_router',
 ]
