@@ -12,7 +12,7 @@
 
 import ChatMessage from "@/components/chat/ChatMessage";
 import TTSButton from "@/components/chat/TTSButton";
-import { Copy, RotateCcw } from "lucide-react";
+import { Copy, RotateCcw, Check } from "lucide-react";
 import ReportCard from "@/components/chat/ReportCard";
 import ResumeCard from "@/components/chat/ResumeCard";
 import ResumeSelector from "@/components/chat/ResumeSelector";
@@ -582,6 +582,7 @@ export default function SophiaChat() {
   );
   const [streamingReportContent, setStreamingReportContent] =
     useState<string>("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // 初始化会话：有 sessionId 用指定会话；否则默认加载“最新会话”
   useEffect(() => {
@@ -2748,12 +2749,17 @@ export default function SophiaChat() {
                           <button
                             onClick={() => {
                               navigator.clipboard.writeText(msg.content);
-                              // 可以添加一个简单的提示，或者改变图标颜色
+                              setCopiedId(msg.id || String(idx));
+                              setTimeout(() => setCopiedId(null), 2000);
                             }}
                             className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
                             title="复制内容"
                           >
-                            <Copy className="w-4 h-4" />
+                            {copiedId === (msg.id || String(idx)) ? (
+                              <Check className="w-4 h-4 text-green-500" />
+                            ) : (
+                              <Copy className="w-4 h-4" />
+                            )}
                           </button>
                           <button
                             className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
