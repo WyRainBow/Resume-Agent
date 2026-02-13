@@ -2066,6 +2066,8 @@ export default function SophiaChat() {
 
       setMessages(nextMessages);
       if (isFirstMessage) {
+        // 保持当前会话，不创建新的 conversationId
+        // 只有当确实没有 conversationId 时才创建新的
         let validConversationId = conversationId;
         if (!validConversationId || validConversationId.trim() === "") {
           validConversationId = `conv-${Date.now()}`;
