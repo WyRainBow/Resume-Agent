@@ -86,11 +86,11 @@ export default function CreateNew() {
           animate="animate"
           className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl w-full"
         >
-          {/* 1. AI 对话创建 */}
+          {/* 1. 默认模板 LaTeX（推荐） */}
           <motion.div
             variants={fadeInUp}
             whileHover={{ y: -8 }}
-            onClick={handleAIChat}
+            onClick={handleLatexTemplate}
             className="group relative cursor-pointer"
           >
             <div className="absolute -top-3 left-4 z-10">
@@ -100,72 +100,6 @@ export default function CreateNew() {
               </div>
             </div>
             <div className="relative h-full p-6 bg-white rounded-2xl border-2 border-indigo-100 hover:border-indigo-300 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(79,70,229,0.12)] transition-all duration-300">
-              <div className="flex flex-col h-full">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg shadow-indigo-500/30">
-                  <Sparkles className="w-7 h-7 text-white" />
-                </div>
-                <h3 className="text-xl font-black text-slate-900 mb-2">AI 对话创建</h3>
-                <p className="text-slate-500 font-medium text-sm mb-4 leading-relaxed">
-                  与 AI 对话收集信息，自动生成专业简历
-                </p>
-                <div className="space-y-2 mb-4">
-                  {['智能对话引导', '5 分钟出初稿'].map((text, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="w-4 h-4 text-indigo-500 flex-shrink-0" />
-                      <span className="text-slate-600 font-medium">{text}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-auto">
-                  <div className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-indigo-500 to-blue-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-indigo-500/30 group-hover:shadow-xl transition-all">
-                    开始创建 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* 2. AI 智能导入 */}
-          <motion.div
-            variants={fadeInUp}
-            whileHover={{ y: -8 }}
-            onClick={handleAIImport}
-            className="group relative cursor-pointer"
-          >
-            <div className="relative h-full p-6 bg-white rounded-2xl border-2 border-slate-100 hover:border-slate-300 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] transition-all duration-300">
-              <div className="flex flex-col h-full">
-                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg">
-                  <Upload className="w-7 h-7 text-white" />
-                </div>
-                <h3 className="text-xl font-black text-slate-900 mb-2">AI 智能导入</h3>
-                <p className="text-slate-500 font-medium text-sm mb-4 leading-relaxed">
-                  导入 PDF 等文件，AI 解析后进入编辑
-                </p>
-                <div className="space-y-2 mb-4">
-                  {['支持 PDF 解析', '与编辑页同款导入'].map((text, i) => (
-                    <div key={i} className="flex items-center gap-2 text-sm">
-                      <CheckCircle className="w-4 h-4 text-violet-500 flex-shrink-0" />
-                      <span className="text-slate-600 font-medium">{text}</span>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-auto">
-                  <div className="flex items-center justify-center gap-2 w-full py-3 bg-slate-700 text-white rounded-xl font-bold text-sm shadow-lg group-hover:bg-slate-800 transition-all">
-                    去导入 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* 3. 使用默认模板 LaTeX */}
-          <motion.div
-            variants={fadeInUp}
-            whileHover={{ y: -8 }}
-            onClick={handleLatexTemplate}
-            className="group relative cursor-pointer"
-          >
-            <div className="relative h-full p-6 bg-white rounded-2xl border-2 border-slate-100 hover:border-slate-300 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] transition-all duration-300">
               <div className="flex flex-col h-full">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg">
                   <FileCode className="w-7 h-7 text-white" />
@@ -185,6 +119,72 @@ export default function CreateNew() {
                 <div className="mt-auto">
                   <div className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-lg group-hover:bg-emerald-700 transition-all">
                     使用模板 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* 2. AI 对话创建 */}
+          <motion.div
+            variants={fadeInUp}
+            whileHover={{ y: -8 }}
+            onClick={handleAIChat}
+            className="group relative cursor-pointer"
+          >
+            <div className="relative h-full p-6 bg-white rounded-2xl border-2 border-slate-100 hover:border-slate-300 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] transition-all duration-300">
+              <div className="flex flex-col h-full">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-500 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg">
+                  <Sparkles className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 mb-2">AI 对话创建</h3>
+                <p className="text-slate-500 font-medium text-sm mb-4 leading-relaxed">
+                  与 AI 对话收集信息、自动生成专业简历
+                </p>
+                <div className="space-y-2 mb-4">
+                  {['智能对话引导', '5 分钟出初稿'].map((text, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      <CheckCircle className="w-4 h-4 text-indigo-500 flex-shrink-0" />
+                      <span className="text-slate-600 font-medium">{text}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-auto">
+                  <div className="flex items-center justify-center gap-2 w-full py-3 bg-indigo-600 text-white rounded-xl font-bold text-sm shadow-lg group-hover:bg-indigo-700 transition-all">
+                    开始创建 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+
+          {/* 3. AI 智能导入 */}
+          <motion.div
+            variants={fadeInUp}
+            whileHover={{ y: -8 }}
+            onClick={handleAIImport}
+            className="group relative cursor-pointer"
+          >
+            <div className="relative h-full p-6 bg-white rounded-2xl border-2 border-slate-100 hover:border-slate-300 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.08)] transition-all duration-300">
+              <div className="flex flex-col h-full">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg">
+                  <Upload className="w-7 h-7 text-white" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900 mb-2">AI 智能导入</h3>
+                <p className="text-slate-500 font-medium text-sm mb-4 leading-relaxed">
+                  导入 PDF 等文件、AI 解析后进入编辑
+                </p>
+                <div className="space-y-2 mb-4">
+                  {['支持 PDF 解析', '与编辑页同款导入'].map((text, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      <CheckCircle className="w-4 h-4 text-violet-500 flex-shrink-0" />
+                      <span className="text-slate-600 font-medium">{text}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-auto">
+                  <div className="flex items-center justify-center gap-2 w-full py-3 bg-slate-700 text-white rounded-xl font-bold text-sm shadow-lg group-hover:bg-slate-800 transition-all">
+                    去导入 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
               </div>

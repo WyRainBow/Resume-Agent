@@ -49,8 +49,9 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
           ))}
         </div>
 
-        <div className="relative flex-1" style={{ height: `${totalHeight}px` }}>
-          <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${dayDates.length}, minmax(0, 1fr))` }}>
+        <div className="relative flex-1 isolate" style={{ height: `${totalHeight}px` }}>
+          {/* 槽位网格：仅背景与点击，置于底层 */}
+          <div className="absolute inset-0 grid z-0" style={{ gridTemplateColumns: `repeat(${dayDates.length}, minmax(0, 1fr))` }}>
             {dayDates.map((day) => (
               <div key={`${day.toISOString()}-col`} className="relative border-l border-slate-200">
                 {Array.from({ length: END_HOUR - START_HOUR + 1 }).map((_, i) => {
@@ -74,28 +75,30 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
             ))}
           </div>
 
-          <div className="absolute inset-0 grid pointer-events-none z-10" style={{ gridTemplateColumns: `repeat(${dayDates.length}, minmax(0, 1fr))` }}>
+          {/* 事件层：独立叠放上下文，保证盖在槽位之上 */}
+          <div className="absolute inset-0 grid pointer-events-none z-20 isolate" style={{ gridTemplateColumns: `repeat(${dayDates.length}, minmax(0, 1fr))` }}>
             {dayDates.map((day) => {
               const dayEvents = events.filter((event) => sameDay(new Date(event.starts_at), day))
               return (
-                <div key={`${day.toISOString()}-events`} className="relative border-l border-transparent">
+                <div key={`${day.toISOString()}-events`} className="relative border-l border-transparent pointer-events-none">
                   {dayEvents.map((event) => {
                     const start = new Date(event.starts_at)
                     const end = new Date(event.ends_at)
                     const startMinutes = (start.getHours() - START_HOUR) * 60 + start.getMinutes()
                     const endMinutes = (end.getHours() - START_HOUR) * 60 + end.getMinutes()
                     const top = Math.max(0, (startMinutes / 60) * HOUR_HEIGHT)
-                    const height = Math.max(28, ((endMinutes - startMinutes) / 60) * HOUR_HEIGHT)
+                    const durationMinutes = endMinutes - startMinutes
+                    const height = Math.max(48, (durationMinutes / 60) * HOUR_HEIGHT)
                     return (
                       <button
                         key={event.id}
                         type="button"
                         onClick={(e) => onEventClick(event, (e.currentTarget as HTMLButtonElement).getBoundingClientRect())}
-                        className="pointer-events-auto absolute left-1 right-1 rounded-md border-l-4 border-blue-400 bg-blue-100/70 p-2 text-sm text-blue-800 shadow-sm text-left"
-                        style={{ top: `${top}px`, height: `${height}px` }}
+                        className="pointer-events-auto absolute left-1 right-1 z-10 min-h-[48px] overflow-visible rounded-md border-l-4 border-blue-400 bg-blue-100/70 p-2 text-sm text-blue-800 shadow-sm text-left"
+                        style={{ top: `${top}px`, height: `${height}px`, minHeight: '48px' }}
                       >
-                        <div className="truncate font-semibold">{event.title}</div>
-                        <div className="text-xs text-blue-700">
+                        <div className="truncate font-semibold leading-tight">{event.title}</div>
+                        <div className="text-xs text-blue-700 leading-tight whitespace-nowrap">
                           {start.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}
                           {' - '}
                           {end.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}
