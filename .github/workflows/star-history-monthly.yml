@@ -219,4 +219,4 @@ jobs:
           cp ../Resume-Agent/.github/stats/star-history-monthly.svg stats/
           git add stats/star-history-monthly.svg
           git diff --staged --quiet || git commit -m "chore: update monthly star history chart [skip ci]"
-          git push -f origin gh-pages
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${REPO}.git" gh-pages

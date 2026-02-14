@@ -397,4 +397,4 @@ jobs:
           cp -r ../Resume-Agent/.github/stats/* stats/
           git add stats
           git diff --staged --quiet || git commit -m "chore: update code statistics [skip ci]"
-          git push -f origin gh-pages
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${REPO}.git" gh-pages
