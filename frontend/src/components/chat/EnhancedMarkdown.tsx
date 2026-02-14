@@ -102,7 +102,7 @@ function CodeBlock({ code, language }: CodeBlockProps) {
               margin: 0,
               padding: '0 1rem',
               backgroundColor: 'transparent',
-              fontSize: '13px',
+              fontSize: '15px',
               lineHeight: '1.6',
             }}
             codeTagProps={{
@@ -168,18 +168,18 @@ export default function EnhancedMarkdown({
   return (
     <div className={className}>
       <div
-        className="prose max-w-none
-          prose-headings:text-gray-900 prose-headings:font-bold prose-headings:mt-3 prose-headings:mb-2
-          prose-h1:text-base prose-h2:text-sm prose-h3:text-xs
-          prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-2 prose-p:text-sm
+        className="prose prose-base max-w-none
+          prose-headings:text-gray-900 prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
+          prose-h1:text-xl prose-h2:text-lg prose-h3:text-base
+          prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-2 prose-p:text-[16px]
           prose-strong:text-gray-900 prose-strong:font-semibold
-          prose-ul:list-disc prose-ul:ml-3 prose-ul:mb-2 prose-ul:text-sm prose-ul:space-y-0.5
-          prose-ol:list-decimal prose-ol:ml-3 prose-ol:mb-2 prose-ol:text-sm prose-ol:space-y-0.5
+          prose-ul:list-disc prose-ul:ml-4 prose-ul:mb-2 prose-ul:text-[16px] prose-ul:space-y-0.5
+          prose-ol:list-decimal prose-ol:ml-4 prose-ol:mb-2 prose-ol:text-[16px] prose-ol:space-y-0.5
           prose-li:text-gray-700 prose-li:mb-1
-          prose-code:text-sm prose-code:bg-gray-200 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
-          prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-3 prose-blockquote:italic prose-blockquote:text-sm
+          prose-code:text-[16px] prose-code:bg-gray-200 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+          prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-3 prose-blockquote:italic prose-blockquote:text-[16px]
           prose-a:text-indigo-600 prose-a:underline hover:prose-a:text-indigo-800
-          prose-table:border-collapse prose-table:border prose-table:border-gray-300
+          prose-table:border-collapse prose-table:border prose-table:border-gray-300 prose-table:text-[16px]
           prose-th:border prose-th:border-gray-300 prose-th:px-2 prose-th:py-1 prose-th:bg-gray-100
           prose-td:border prose-td:border-gray-300 prose-td:px-2 prose-td:py-1"
       >
@@ -194,7 +194,7 @@ export default function EnhancedMarkdown({
             if (text.includes('summary') || text.includes('keywords') || text.match(/^[a-z_]+$/)) {
               return (
                 <div className="bg-gray-100 border border-gray-300 rounded px-3 py-2 my-2 inline-block">
-                  <code className="text-gray-600 text-sm">{text}</code>
+                  <code className="text-gray-600 text-[16px]">{text}</code>
                 </div>
               );
             }
@@ -249,7 +249,7 @@ export default function EnhancedMarkdown({
 
             // 内联代码
             return (
-              <code className="bg-gray-200 rounded-sm px-1 font-mono text-sm" {...props}>
+              <code className="bg-gray-200 rounded-sm px-1 font-mono text-[16px]" {...props}>
                 {children}
               </code>
             );

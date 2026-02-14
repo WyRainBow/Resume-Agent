@@ -3,7 +3,7 @@ Pydantic 数据模型定义
 """
 from pydantic import BaseModel, Field
 from typing import Optional, Literal, List, Dict, Any
-from sqlalchemy import Column, Integer, String, DateTime, Date, ForeignKey, JSON, Text, Boolean, Float
+from sqlalchemy import Column, Integer, String, DateTime, Date, ForeignKey, JSON, Text, Boolean, Float, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -328,3 +328,67 @@ class PermissionAuditLog(Base):
     to_role = Column(String(32), nullable=True)
     action = Column(String(128), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+
+class AgentConversation(Base):
+    """Agent 对话会话模型"""
+    __tablename__ = "agent_conversations"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    session_id = Column(String(255), nullable=False, unique=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    title = Column(String(255), nullable=False, default="New Conversation")
+    message_count = Column(Integer, nullable=False, default=0)
+    meta = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), index=True)
+    last_message_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class AgentMessage(Base):
+    """Agent 对话消息模型"""
+    __tablename__ = "agent_messages"
+    __table_args__ = (
+        UniqueConstraint("conversation_id", "seq", name="uq_agent_messages_conversation_seq"),
+        {'extend_existing': True},
+    )
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    conversation_id = Column(
+        Integer,
+        ForeignKey("agent_conversations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    seq = Column(Integer, nullable=False)
+    role = Column(String(20), nullable=False)
+    content = Column(Text, nullable=True)
+    thought = Column(Text, nullable=True)
+    name = Column(String(255), nullable=True)
+    tool_call_id = Column(String(255), nullable=True, index=True)
+    tool_calls = Column(JSON, nullable=True)
+    base64_image = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class ResumeEmbedding(Base):
+    """简历向量嵌入模型 - 用于语义搜索"""
+    __tablename__ = "resume_embeddings"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    resume_id = Column(String(255), ForeignKey("resumes.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
+    # 向量维度（1536 对应 OpenAI text-embedding-ada-002）
+    embedding = Column(JSON, nullable=False)  # PostgreSQL 中将使用 vector(1536) 类型
+
+    # 用于生成向量的文本内容摘要
+    content_type = Column(String(50), nullable=False)  # summary/experience/projects/skills 等
+    content = Column(Text, nullable=False)  # 原始文本内容
+
+    # 元数据（Python 属性名不用 metadata，避免与 SQLAlchemy 保留名冲突）
+    extra_metadata = Column("metadata", JSON, nullable=True)  # 额外信息，如职位名称、公司等
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(sqlite3:*)",
+      "Bash(ls:*)",
+      "Bash(PYTHONPATH=:*)",
+      "Bash(PYTHONPATH=.:/c/Users/10245/Desktop/Resume-Agent python:*)",
+      "Bash(pip uninstall:*)",
+      "Bash(pip install:*)",
+      "Bash(curl:*)",
+      "Bash(mysql:*)",
+      "Bash(grep:*)",
+      "Bash(alembic current:*)",
+      "Bash(alembic upgrade:*)",
+      "Bash(tasklist:*)"
+    ]
+  }
+}

@@ -28,14 +28,14 @@ from backend.agent.web.schemas.stream import StreamRequest, SSEEvent, HeartbeatE
 from backend.agent.web.streaming.agent_stream import StreamProcessor
 from backend.agent.web.streaming.state_machine import AgentStateMachine
 from backend.agent.web.streaming.events import StreamEvent
-from backend.agent.cltp.storage.conversation_storage import FileConversationStorage
+from backend.agent.cltp.storage.factory import get_conversation_storage
 from backend.agent.memory.conversation_manager import ConversationManager
 
 router = APIRouter()
 
 # Create stream processor for agent execution
 stream_processor = StreamProcessor()
-storage = FileConversationStorage()
+storage = get_conversation_storage()
 conversation_manager = ConversationManager(storage=storage)
 
 # Store active sessions (conversation_id -> agent instance)
@@ -234,8 +234,8 @@ async def _stream_event_generator(
                         tool_call_id=msg.tool_call_id or ""
                     ))
 
-        # Add user message to chat history
-        chat_history.add_message(Message(role=Role.USER, content=prompt))
+        # Add user message to chat history (don't persist yet, wait for agent to complete)
+        chat_history.add_message(Message(role=Role.USER, content=prompt), persist=False)
 
         # Execute agent and stream events
         async for event in stream_processor.start_stream(

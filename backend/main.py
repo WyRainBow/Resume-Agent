@@ -82,6 +82,8 @@ admin_permissions_router = routes_module.admin_permissions_router
 admin_logs_router = routes_module.admin_logs_router
 admin_traces_router = routes_module.admin_traces_router
 admin_overview_router = routes_module.admin_overview_router
+asr_router = routes_module.asr_router
+semantic_search_router = routes_module.semantic_search_router
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="Resume API")
@@ -98,6 +100,17 @@ register_observability_handlers(app)
 
 # 注册路由
 app.include_router(health_router)
+
+# TTS 路由（可选，如果 TTS 依赖已安装）
+try:
+    tts_router = routes_module.tts_router
+    if tts_router is not None:
+        app.include_router(tts_router)
+        logger.info("[TTS] TTS 路由已注册，前缀: /api/tts")
+    else:
+        logger.warning("[TTS] TTS 路由未加载（TTS 依赖未安装）")
+except Exception as exc:
+    logger.warning(f"[TTS] TTS 路由注册失败: {exc}")
 app.include_router(config_router)
 app.include_router(resume_router)
 app.include_router(pdf_router)
@@ -117,6 +130,8 @@ app.include_router(admin_permissions_router)
 app.include_router(admin_logs_router)
 app.include_router(admin_traces_router)
 app.include_router(admin_overview_router)
+app.include_router(asr_router)
+app.include_router(semantic_search_router)
 
 # 注册 OpenManus 路由（合并后）
 try:

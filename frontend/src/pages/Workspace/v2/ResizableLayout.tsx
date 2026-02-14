@@ -3,6 +3,7 @@
  */
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { cn } from '../../../lib/utils'
+import CustomScrollbar from '../../../components/common/CustomScrollbar'
 import SidePanel from './SidePanel'
 import EditPanel from './EditPanel'
 import PreviewPanel from './PreviewPanel'
@@ -205,9 +206,9 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
   return (
     <div className="h-[calc(100vh-64px)] flex relative z-10 overflow-hidden">
       {/* 第一列：SidePanel */}
-      <div 
+      <CustomScrollbar 
         className={cn(
-          "h-full overflow-y-auto shrink-0",
+          "h-full shrink-0",
           "bg-white/60 dark:bg-slate-900/60",
           "backdrop-blur-sm",
           "border-r border-white/30 dark:border-slate-700/30"
@@ -225,15 +226,15 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
           updateGlobalSettings={updateGlobalSettings}
           addCustomSection={addCustomSection}
         />
-      </div>
+      </CustomScrollbar>
 
       {/* 分隔线1 */}
       <DragHandle onDrag={handleDrag1} />
 
       {/* 第二列：EditPanel - 改为固定宽度 */}
-      <div
+      <CustomScrollbar
         className={cn(
-          "h-full overflow-y-auto shrink-0",
+          "h-full shrink-0",
           "bg-white/80 dark:bg-slate-900/80",
           "backdrop-blur-sm"
         )}
@@ -264,7 +265,7 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
           updateGlobalSettings={updateGlobalSettings}
           onAIImport={handleAIImport}
         />
-      </div>
+      </CustomScrollbar>
 
       {/* 分隔线2（第二列和第三列之间） */}
       <DragHandle onDrag={handleDrag2} />

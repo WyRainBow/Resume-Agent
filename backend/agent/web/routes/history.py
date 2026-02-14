@@ -12,13 +12,13 @@ from pydantic import BaseModel
 
 from backend.agent.memory.chat_history_manager import ChatHistoryManager
 from backend.agent.memory.conversation_manager import ConversationManager
-from backend.agent.cltp.storage.conversation_storage import FileConversationStorage
+from backend.agent.cltp.storage.factory import get_conversation_storage
 from backend.agent.schema import Message
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/history", tags=["history"])
-storage = FileConversationStorage()
+storage = get_conversation_storage()
 conversation_manager = ConversationManager(storage=storage)
 
 

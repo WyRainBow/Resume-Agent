@@ -66,17 +66,24 @@ class FileConversationStorage:
         now = datetime.now().isoformat()
         path = self._session_path(session_id)
         created_at = now
+        updated_at = now
         if path.exists():
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
                 created_at = data.get("created_at", now)
+                # If messages are the same, we might want to keep the old updated_at
+                # But for simplicity, we'll use the file's last modified time or a dedicated field
+                updated_at = data.get("updated_at", now)
+                if messages:
+                    # If there are messages, we update the timestamp
+                    updated_at = now
             except Exception:
                 created_at = now
 
         meta = ConversationMeta(
             session_id=session_id,
             created_at=created_at,
-            updated_at=now,
+            updated_at=updated_at,
             title=self._derive_title(messages),
             message_count=len(messages),
         )

@@ -15,6 +15,8 @@ sse-starlette==1.8.2
 sqlalchemy>=2.0.36
 alembic==1.13.1
 pymysql==1.1.0
+psycopg[binary]==3.1.19  # PostgreSQL driver
+pgvector>=0.2.0  # PostgreSQL vector extension support
 
 # Authentication
 python-jose[cryptography]==3.3.0
@@ -69,3 +71,12 @@ tomli>=2.0.0
 huggingface-hub~=0.29.2
 python-multipart~=0.0.22
 cos-python-sdk-v5>=1.9.30
+
+# TTS (Text-to-Speech) - Edge TTS（推荐）或 Coqui TTS
+edge-tts>=6.1.0
+# 如果需要使用 Coqui TTS（需要声音克隆），取消下面的注释
+# coqui-tts>=0.22.0
+# torch>=2.0.0
+# torchaudio>=2.0.0
+# librosa>=0.10.0
+# soundfile>=0.12.0

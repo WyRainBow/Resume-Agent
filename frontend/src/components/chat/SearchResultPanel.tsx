@@ -1,5 +1,6 @@
 import React from 'react'
 import { X, ExternalLink } from 'lucide-react'
+import CustomScrollbar from '../common/CustomScrollbar'
 
 interface SearchResultItem {
   position?: number
@@ -51,7 +52,7 @@ export default function SearchResultPanel({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        <CustomScrollbar className="flex-1 px-5 py-4 space-y-4">
           {results.map((item, index) => (
             <div key={`${item.url || index}`} className="border-b border-gray-100 pb-4">
               <div className="text-sm font-medium text-gray-900">
@@ -81,7 +82,7 @@ export default function SearchResultPanel({
           {results.length === 0 && (
             <div className="text-sm text-gray-400">暂无搜索结果</div>
           )}
-        </div>
+        </CustomScrollbar>
       </aside>
     </div>
   )

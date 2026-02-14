@@ -1,12 +1,9 @@
 """
 PDF 渲染路由 - 使用 LaTeX 生成专业简历 PDF
 """
-import json
 import time
-from io import BytesIO
 from pathlib import Path
-from typing import Dict, Any, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
@@ -19,27 +16,42 @@ except ImportError:
 
 router = APIRouter(prefix="/api", tags=["PDF"])
 
+def _resume_brief(resume_data):
+    if not isinstance(resume_data, dict):
+        return {"type": type(resume_data).__name__}
+    return {
+        "keys": list(resume_data.keys())[:20],
+        "name": resume_data.get("name"),
+        "has_basic": "basic" in resume_data,
+        "has_experience": "experience" in resume_data,
+        "has_projects": "projects" in resume_data,
+    }
 
 class CompileLatexRequest(BaseModel):
     """LaTeX 编译请求"""
     latex_content: str
 
-ROOT = Path(__file__).resolve().parents[2]
-
-
 @router.post("/pdf/render")
-async def render_pdf(body: RenderPDFRequest):
+async def render_pdf(body: RenderPDFRequest, request: Request):
     """
     将简历 JSON 渲染为 PDF 并返回
     使用 LaTeX (xelatex) 生成专业排版的简历
-    优化版本：快速渲染，使用缓存
+    直接渲染 PDF（不使用缓存）
     """
-    import time
     start_time = time.time()
-
     resume_data = body.resume
+    trace_id = request.headers.get("X-PDF-Trace-Id") or f"backend-{int(start_time * 1000)}"
+    trace_source = request.headers.get("X-PDF-Trace-Source") or "-"
+    trace_trigger = request.headers.get("X-PDF-Trace-Trigger") or "-"
+    client = request.client.host if request.client else "-"
+    print(
+        f"[PDF TRACE][render:request] trace_id={trace_id} source={trace_source} trigger={trace_trigger} "
+        f"session_id={request.headers.get('X-Agent-Session-Id') or '-'} "
+        f"resume_id={request.headers.get('X-Agent-Resume-Id') or '-'} client={client} "
+        f"origin={request.headers.get('origin') or '-'} referer={request.headers.get('referer') or '-'} "
+        f"section_order={body.section_order} resume_brief={_resume_brief(resume_data)}"
+    )
 
-    # 使用 LaTeX 渲染
     try:
         try:
             from backend.latex_generator import render_pdf_from_resume_latex
@@ -48,27 +60,50 @@ async def render_pdf(body: RenderPDFRequest):
         pdf_io = render_pdf_from_resume_latex(resume_data, body.section_order)
 
         render_time = time.time() - start_time
-        print(f"[性能] PDF渲染完成，耗时: {render_time:.2f}秒")
+        print(
+            f"[PDF TRACE][render:done] trace_id={trace_id} elapsed={render_time:.2f}s "
+            f"bytes={len(pdf_io.getvalue())}"
+        )
 
-        return StreamingResponse(pdf_io, media_type='application/pdf', headers={
-            'Content-Disposition': 'inline; filename="resume.pdf"',
-            'X-Render-Time': str(render_time)
-        })
+        return StreamingResponse(
+            pdf_io,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": 'inline; filename="resume.pdf"',
+                "X-Render-Time": str(render_time),
+                "X-PDF-Trace-Id": trace_id,
+            },
+        )
     except Exception as e:
-        print(f"[错误] LaTeX 渲染失败: {e}")
+        print(f"[PDF TRACE][render:error] trace_id={trace_id} error={e}")
         raise HTTPException(status_code=500, detail=f"PDF 渲染失败: {e}")
 
 
 @router.post("/pdf/render/stream")
-async def render_pdf_stream(body: RenderPDFRequest):
+async def render_pdf_stream(body: RenderPDFRequest, request: Request):
     """
     流式渲染PDF，提供实时进度反馈
     """
+
+    session_id = request.headers.get("X-Agent-Session-Id")
+    resume_id = request.headers.get("X-Agent-Resume-Id")
+    trace_id = request.headers.get("X-PDF-Trace-Id") or f"backend-s-{int(time.time() * 1000)}"
+    trace_source = request.headers.get("X-PDF-Trace-Source") or "-"
+    trace_trigger = request.headers.get("X-PDF-Trace-Trigger") or "-"
+    client = request.client.host if request.client else "-"
+
     async def generate_pdf():
         resume_data = body.resume
+        print(
+            f"[PDF TRACE][stream:request] trace_id={trace_id} source={trace_source} trigger={trace_trigger} "
+            f"session_id={session_id or '-'} resume_id={resume_id or '-'} client={client} "
+            f"origin={request.headers.get('origin') or '-'} referer={request.headers.get('referer') or '-'} "
+            f"section_order={body.section_order} resume_brief={_resume_brief(resume_data)}"
+        )
 
         try:
             # 发送开始事件
+            print(f"[PDF TRACE][stream:start] trace_id={trace_id}")
             yield dict(event="start", data="开始生成PDF...")
 
             # 转换为 LaTeX
@@ -88,6 +123,10 @@ async def render_pdf_stream(body: RenderPDFRequest):
             # 生成 LaTeX
             latex_content = json_to_latex(resume_data, body.section_order)
             latex_time = time.time() - latex_start
+            print(
+                f"[PDF TRACE][stream:latex-ready] trace_id={trace_id} "
+                f"elapsed={latex_time:.2f}s latex_chars={len(latex_content)}"
+            )
             yield dict(event="progress", data=f"LaTeX代码生成完成 ({latex_time:.1f}s)")
 
             # 编译PDF
@@ -97,17 +136,26 @@ async def render_pdf_stream(body: RenderPDFRequest):
             try:
                 pdf_io = compile_latex_to_pdf(latex_content, template_dir, resume_data=resume_data)
                 compile_time = time.time() - compile_start
+                pdf_bytes = pdf_io.getvalue()
+                print(
+                    f"[PDF TRACE][stream:compile-done] trace_id={trace_id} "
+                    f"elapsed={compile_time:.2f}s pdf_bytes={len(pdf_bytes)}"
+                )
                 yield dict(event="progress", data=f"PDF编译完成 ({compile_time:.1f}s)")
 
                 # 发送PDF
-                pdf_hex = pdf_io.getvalue().hex()
+                pdf_hex = pdf_bytes.hex()
+
                 yield dict(event="pdf", data=pdf_hex)
-                print(f"[PDF] 成功生成PDF，大小: {len(pdf_hex)/2} 字节")
+                print(
+                    f"[PDF TRACE][stream:done] trace_id={trace_id} session_id={session_id or '-'} "
+                    f"resume_id={resume_id or '-'} size={len(pdf_hex)/2} bytes"
+                )
 
             except Exception as e:
                 import traceback
                 error_msg = f"LaTeX编译错误: {str(e)}\n{traceback.format_exc()}"
-                print(f"[PDF错误] {error_msg}")
+                print(f"[PDF TRACE][stream:compile-error] trace_id={trace_id} detail={error_msg}")
                 # 发送完整的错误信息（最多5000字符，避免过长）
                 error_data = str(e) if len(str(e)) <= 5000 else str(e)[:5000] + "...(错误信息过长，已截断)"
                 yield dict(event="error", data=error_data)
@@ -115,7 +163,7 @@ async def render_pdf_stream(body: RenderPDFRequest):
         except Exception as e:
             import traceback
             error_msg = f"PDF生成失败: {str(e)}\n{traceback.format_exc()}"
-            print(f"[PDF错误] {error_msg}")
+            print(f"[PDF TRACE][stream:error] trace_id={trace_id} detail={error_msg}")
             # 发送完整的错误信息（最多5000字符）
             error_data = str(e) if len(str(e)) <= 5000 else str(e)[:5000] + "...(错误信息过长，已截断)"
             yield dict(event="error", data=error_data)

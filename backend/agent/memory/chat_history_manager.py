@@ -16,7 +16,6 @@ from backend.agent.memory.message_adapter import MessageAdapter
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
-from backend.agent.cltp.storage.conversation_storage import FileConversationStorage
 
 
 class ChatHistoryManager:
@@ -35,7 +34,7 @@ class ChatHistoryManager:
         k: int = 10,
         include_system: bool = True,
         session_id: Optional[str] = None,
-        storage: Optional[FileConversationStorage] = None,
+        storage: Optional[Any] = None,
     ):
         """
         Initialize the chat history manager.
@@ -74,10 +73,15 @@ class ChatHistoryManager:
                 f"✂️ ChatHistory[{self.session_id}]: Trimmed to {len(trimmed)} messages (k={self.k})"
             )
 
-    def add_message(self, message: Message) -> None:
+    def add_message(self, message: Message, persist: bool = True) -> None:
         """Add an OpenManus Message to the history.
 
         After adding, automatically trims history if it exceeds k messages.
+
+        Args:
+            message: The message to add
+            persist: Whether to persist after adding (default: True).
+                    Set to False to batch multiple adds before persisting.
         """
         lc_message = MessageAdapter.to_langchain(message)
         self._history.add_message(lc_message)
@@ -88,12 +92,18 @@ class ChatHistoryManager:
 
         # Apply sliding window
         self._trim_history()
-        self._persist_if_needed()
+        if persist:
+            self._persist_if_needed()
 
-    def add_messages(self, messages: List[Message]) -> None:
+    def add_messages(self, messages: List[Message], persist: bool = True) -> None:
         """Add multiple OpenManus Messages to the history.
 
         After adding, automatically trims history if it exceeds k messages.
+
+        Args:
+            messages: List of messages to add
+            persist: Whether to persist after adding (default: True).
+                    Set to False to batch multiple adds before persisting.
         """
         lc_messages = MessageAdapter.batch_to_langchain(messages)
         self._history.add_messages(lc_messages)
@@ -103,7 +113,8 @@ class ChatHistoryManager:
 
         # Apply sliding window
         self._trim_history()
-        self._persist_if_needed()
+        if persist:
+            self._persist_if_needed()
 
     def get_messages(self, max_messages: Optional[int] = None) -> List[Message]:
         """

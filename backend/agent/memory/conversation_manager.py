@@ -2,12 +2,9 @@
 Conversation manager for handling session history persistence.
 """
 
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from backend.agent.cltp.storage.conversation_storage import (
-    FileConversationStorage,
-    ConversationMeta,
-)
+from backend.agent.cltp.storage.conversation_storage import ConversationMeta
 from backend.agent.memory.chat_history_manager import ChatHistoryManager
 from backend.agent.schema import Message
 
@@ -15,8 +12,13 @@ from backend.agent.schema import Message
 class ConversationManager:
     """Manage conversation sessions and persistence."""
 
-    def __init__(self, storage: Optional[FileConversationStorage] = None):
-        self.storage = storage or FileConversationStorage()
+    def __init__(self, storage: Optional[Any] = None):
+        if storage is None:
+            from backend.agent.cltp.storage.factory import get_conversation_storage
+
+            self.storage = get_conversation_storage()
+        else:
+            self.storage = storage
 
     def list_sessions(self) -> List[ConversationMeta]:
         return self.storage.list_sessions()
