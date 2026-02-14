@@ -11,7 +11,8 @@
       "Bash(mysql:*)",
       "Bash(grep:*)",
       "Bash(alembic current:*)",
-      "Bash(alembic upgrade:*)"
+      "Bash(alembic upgrade:*)",
+      "Bash(tasklist:*)"
     ]
   }
 }
