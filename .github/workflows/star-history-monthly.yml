@@ -205,11 +205,18 @@ jobs:
           print(f"已生成按月统计的 Star 趋势图，共 {len(chart_data)} 个月的数据")
           EOF
       
-      - name: Commit star chart
+      # 推送到 gh-pages 分支，与 code-stats 共用 stats/ 目录
+      - name: Deploy star chart to gh-pages
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .github/stats/star-history-monthly.svg
+          REPO="${{ github.repository }}"
+          mkdir -p ../gh-pages-out && cd ../gh-pages-out
+          git init
+          git remote add origin "https://github.com/${REPO}.git"
+          git fetch origin gh-pages 2>/dev/null && git checkout -B gh-pages origin/gh-pages || git checkout -b gh-pages
+          mkdir -p stats
+          cp ../Resume-Agent/.github/stats/star-history-monthly.svg stats/
+          git add stats/star-history-monthly.svg
           git diff --staged --quiet || git commit -m "chore: update monthly star history chart [skip ci]"
-          git pull --no-rebase origin staging || true
-          git push || echo "推送失败，可能有冲突，跳过本次更新"
+          git push -f origin gh-pages

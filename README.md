@@ -6,20 +6,20 @@
 
 ## 项目代码统计
 
-
+<!-- 统计由 Action 更新到 gh-pages 分支，main 不受影响 -->
 <!-- 代码行数趋势图 - 每日自动更新 -->
-![Code History](.github/stats/chart.svg)
+![Code History](https://raw.githubusercontent.com/WyRainBow/Resume-Agent/gh-pages/stats/chart.svg)
 
 <!-- 每日代码变化图 -->
-![Daily Changes](.github/stats/daily.svg)
+![Daily Changes](https://raw.githubusercontent.com/WyRainBow/Resume-Agent/gh-pages/stats/daily.svg)
 
 ## 贡献者统计
 
-![Contributors](.github/stats/contributors.svg)
+![Contributors](https://raw.githubusercontent.com/WyRainBow/Resume-Agent/gh-pages/stats/contributors.svg)
 
 ## Star 趋势
 
-![Star History Monthly](.github/stats/star-history-monthly.svg)
+![Star History Monthly](https://raw.githubusercontent.com/WyRainBow/Resume-Agent/gh-pages/stats/star-history-monthly.svg)
 
 <!-- 备用链接：按日期显示的 Star 趋势 -->
 <!-- [![Star History Chart](https://api.star-history.com/svg?repos=WyRainBow/Resume-Agent&type=Date)](https://star-history.com/#WyRainBow/Resume-Agent&Date) -->
