@@ -291,7 +291,7 @@ jobs:
           
           contributors = []
           # 允许的用户名列表（提前定义，在收集时就过滤）
-          allowed_names = ['wy770', 'WyRainBow']
+          allowed_names = ['wy770', 'WyRainBow', 'tangtao']
           
           for line in result.stdout.strip().split('\n'):
               if '|' in line:
@@ -316,13 +316,12 @@ jobs:
                           'net': int(added or 0) - int(deleted or 0)
                       })
           
-          # 合并同一用户的多个账号
+          # wy770 与 WyRainBow 合并为一行 WyRainBow，tangtao 单独一行
           merged = {}
+          name_to_display = {'wy770': 'WyRainBow', 'WyRainBow': 'WyRainBow', 'tangtao': 'tangtao'}
           
           for c in contributors:
-              key = c['name']
-              # 统一使用 WyRainBow 作为显示名称
-              display_name = 'WyRainBow'
+              display_name = name_to_display.get(c['name'], c['name'])
               
               if display_name in merged:
                   merged[display_name]['added'] += c['added']
@@ -387,11 +386,11 @@ jobs:
       # 推送到 gh-pages 分支，不修改 main
       - name: Deploy stats to gh-pages
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
           REPO="${{ github.repository }}"
           mkdir -p ../gh-pages-out && cd ../gh-pages-out
           git init
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
           git remote add origin "https://github.com/${REPO}.git"
           git fetch origin gh-pages 2>/dev/null && git checkout -B gh-pages origin/gh-pages || git checkout -b gh-pages
           rm -rf stats && mkdir -p stats
