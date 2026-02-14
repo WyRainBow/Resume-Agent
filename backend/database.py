@@ -16,32 +16,43 @@ if env_path.exists():
 load_dotenv(override=True)
 
 # 从环境变量获取数据库 URL
-# 优先级：DATABASE_URL > 从 Railway MySQL 变量构建 > 默认本地 MySQL
 def get_database_url():
-    # 1. 优先使用 DATABASE_URL（如果已设置）
+    # 1. 检查是否使用 PostgreSQL
+    use_postgresql = os.getenv("USE_POSTGRESQL", "").lower() in {"1", "true", "yes", "on"}
+
+    if use_postgresql:
+        # 使用 PostgreSQL
+        postgresql_url = os.getenv("POSTGRESQL_URL")
+        if postgresql_url:
+            # 转换 postgresql:// 到 postgresql+psycopg://
+            if postgresql_url.startswith("postgresql://") and not postgresql_url.startswith("postgresql+psycopg://"):
+                postgresql_url = postgresql_url.replace("postgresql://", "postgresql+psycopg://", 1)
+            return postgresql_url
+
+    # 2. 使用 DATABASE_URL（MySQL 或其他）
     database_url = os.getenv("DATABASE_URL")
-    
+
     if database_url:
         # Railway 的 MYSQL_URL 格式可能是 mysql://，需要转换为 mysql+pymysql://
         if database_url.startswith("mysql://") and not database_url.startswith("mysql+pymysql://"):
             database_url = database_url.replace("mysql://", "mysql+pymysql://", 1)
         return database_url
-    
-    # 2. 尝试从 Railway MySQL 环境变量构建（如果存在）
+
+    # 3. 尝试从 Railway MySQL 环境变量构建（如果存在）
     mysql_host = os.getenv("MYSQLHOST")
     mysql_port = os.getenv("MYSQLPORT", "3306")
     mysql_user = os.getenv("MYSQLUSER", "root")
     mysql_password = os.getenv("MYSQLPASSWORD", "")
     mysql_database = os.getenv("MYSQLDATABASE", "resume_db")
-    
+
     if mysql_host:
         # 构建连接字符串
         if mysql_password:
             return f"mysql+pymysql://{mysql_user}:{mysql_password}@{mysql_host}:{mysql_port}/{mysql_database}"
         else:
             return f"mysql+pymysql://{mysql_user}@{mysql_host}:{mysql_port}/{mysql_database}"
-    
-    # 3. 默认使用 SQLite（开发环境）
+
+    # 4. 默认使用 SQLite（开发环境）
     # 使用绝对路径，确保数据库文件位置固定
     db_path = PROJECT_ROOT / "backend" / "resume.db"
     return f"sqlite:///{db_path}"
@@ -57,14 +68,17 @@ def _env_bool(name: str, default: bool) -> bool:
 
 
 IS_MYSQL = "mysql" in DATABASE_URL.lower()
+IS_POSTGRESQL = "postgresql" in DATABASE_URL.lower()
 DB_POOL_PRE_PING = _env_bool("DB_POOL_PRE_PING", False)
 DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "1800"))
 DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "20"))
 DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "40"))
 DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "3"))
 
+# PostgreSQL 连接超时（秒），启动时若连不上可快速回退到文件存储，避免长时间卡住
+PG_CONNECT_TIMEOUT = int(os.getenv("PG_CONNECT_TIMEOUT", "5"))
+
 # 创建数据库引擎
-# 添加连接参数以确保 MySQL 连接稳定
 engine = create_engine(
     DATABASE_URL,
     # 远程数据库高延迟场景下，pre_ping 会在每次取连接时增加额外往返，默认关闭。
@@ -76,13 +90,16 @@ engine = create_engine(
     pool_use_lifo=True,   # 优先复用最近连接，减少命中陈旧连接
     pool_reset_on_return="rollback",  # 连接归还时重置事务状态，减少脏连接影响
     echo=False,           # 设置为 True 可以看到 SQL 日志
-    # MySQL 特定参数
-    connect_args={
-        "charset": "utf8mb4",
-        "connect_timeout": 8,
-        "read_timeout": 15,
-        "write_timeout": 10,
-    } if IS_MYSQL else {}
+    connect_args=(
+        {
+            "charset": "utf8mb4",
+            "connect_timeout": 8,
+            "read_timeout": 15,
+            "write_timeout": 10,
+        }
+        if IS_MYSQL
+        else ({"connect_timeout": PG_CONNECT_TIMEOUT} if IS_POSTGRESQL else {})
+    ),
 )
 
 # 创建会话工厂
