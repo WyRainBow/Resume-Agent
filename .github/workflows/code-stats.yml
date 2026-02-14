@@ -291,7 +291,7 @@ jobs:
           
           contributors = []
           # 允许的用户名列表（提前定义，在收集时就过滤）
-          allowed_names = ['wy770', 'WyRainBow', 'tangtao']
+          allowed_names = ['wy770', 'WyRainBow', 'wyRainBow', 'tangtao']
           
           for line in result.stdout.strip().split('\n'):
               if '|' in line:
@@ -318,7 +318,7 @@ jobs:
           
           # wy770 与 WyRainBow 合并为一行 WyRainBow，tangtao 单独一行
           merged = {}
-          name_to_display = {'wy770': 'WyRainBow', 'WyRainBow': 'WyRainBow', 'tangtao': 'tangtao'}
+          name_to_display = {'wy770': 'WyRainBow', 'WyRainBow': 'WyRainBow', 'wyRainBow': 'WyRainBow', 'tangtao': 'tangtao'}
           
           for c in contributors:
               display_name = name_to_display.get(c['name'], c['name'])
