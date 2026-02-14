@@ -159,7 +159,7 @@ export default function WorkspaceLayout({
   };
 
   const currentWorkspace = getCurrentWorkspace();
-  const sidebarWidthPx = sidebarCollapsed ? 96 : 240;
+  const sidebarWidthPx = sidebarCollapsed ? 96 : 260;
 
   // 点击外部区域关闭下拉菜单
   useEffect(() => {
@@ -251,7 +251,7 @@ export default function WorkspaceLayout({
       <aside
         className={cn(
           "shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-[width] duration-200",
-          sidebarCollapsed ? "w-24" : "w-[240px]",
+          sidebarCollapsed ? "w-24" : "w-[260px]",
         )}
       >
         {/* Logo + 收缩按钮：收起时合并，展开时并列 */}
