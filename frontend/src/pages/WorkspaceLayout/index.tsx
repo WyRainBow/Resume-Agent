@@ -18,10 +18,13 @@ import {
   LogOut,
   CalendarDays,
   LayoutTemplate,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentResumeId } from "@/services/resumeStorage";
+import { RecentSessions } from "@/components/sidebar/RecentSessions";
+import { getApiBaseUrl } from "@/lib/runtimeEnv";
 
 // 工作区类型
 type WorkspaceType =
@@ -97,6 +100,7 @@ export default function WorkspaceLayout({
   const location = useLocation();
   const { isAuthenticated, user, logout, openModal } = useAuth();
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
+  const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
   const logoutMenuRef = useRef<HTMLDivElement>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try {
@@ -155,7 +159,7 @@ export default function WorkspaceLayout({
   };
 
   const currentWorkspace = getCurrentWorkspace();
-  const sidebarWidthPx = sidebarCollapsed ? 96 : 192;
+  const sidebarWidthPx = sidebarCollapsed ? 96 : 240;
 
   // 点击外部区域关闭下拉菜单
   useEffect(() => {
@@ -203,13 +207,51 @@ export default function WorkspaceLayout({
     navigate(targetPath);
   };
 
+  const handleSelectSession = (sessionId: string) => {
+    navigate(`/agent/new?sessionId=${sessionId}`, { replace: true });
+  };
+
+  const handleCreateSession = () => {
+    navigate("/agent/new");
+  };
+
+  const deleteSession = async (sessionId: string) => {
+    try {
+      const resp = await fetch(
+        `${getApiBaseUrl()}/api/agent/history/${sessionId}`,
+        { method: "DELETE" },
+      );
+      if (!resp.ok) throw new Error(`Failed to delete session: ${resp.status}`);
+      setSessionsRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error("Failed to delete session:", error);
+    }
+  };
+
+  const renameSession = async (sessionId: string, title: string) => {
+    try {
+      const resp = await fetch(
+        `${getApiBaseUrl()}/api/agent/history/sessions/${sessionId}/title`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title }),
+        },
+      );
+      if (!resp.ok) throw new Error(`Failed to rename session: ${resp.status}`);
+      setSessionsRefreshKey((prev) => prev + 1);
+    } catch (error) {
+      console.error("Failed to rename session:", error);
+    }
+  };
+
   return (
     <div className="h-screen flex overflow-hidden bg-[#F8F9FA] dark:bg-slate-950">
       {/* 左侧固定边栏：收缩时 aside 宽度跟着变，第一列紧贴侧边栏 */}
       <aside
         className={cn(
           "shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-[width] duration-200",
-          sidebarCollapsed ? "w-24" : "w-[192px]",
+          sidebarCollapsed ? "w-24" : "w-[240px]",
         )}
       >
         {/* Logo + 收缩按钮：收起时合并，展开时并列 */}
@@ -266,10 +308,10 @@ export default function WorkspaceLayout({
         </div>
 
         {/* 工作区切换：收缩时仅隐藏文字，图标与 padding 不变 */}
-        <div className="flex-1 py-3 px-2">
+        <div className="flex-1 flex flex-col min-h-0 py-3 px-2 overflow-hidden">
           <nav
             className={cn(
-              "space-y-0.5 flex flex-col",
+              "space-y-0.5 flex flex-col shrink-0",
               sidebarCollapsed ? "items-center" : "",
             )}
           >
@@ -412,55 +454,15 @@ export default function WorkspaceLayout({
                 <span className="text-base font-medium">仪表盘</span>
               )}
             </button>
-
-            {/* 模板 */}
-            <button
-              onClick={(e) => handleWorkspaceChange("templates", e)}
-              className={cn(
-                "w-full rounded-lg transition-all duration-200",
-                sidebarCollapsed
-                  ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                  : "flex items-center gap-2.5 py-2.5 px-2.5",
-                currentWorkspace === "templates"
-                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-              )}
-              title="模板"
-            >
-              <LayoutTemplate className="w-6 h-6 shrink-0" />
-              {!sidebarCollapsed && (
-                <span className="text-base font-medium">模板</span>
-              )}
-            </button>
-
-            {/* 设置：仅当前在设置页时高亮，未选中时图标与文字与其它项一致（灰） */}
-            <button
-              onClick={(e) => handleWorkspaceChange("settings", e)}
-              className={cn(
-                "w-full rounded-lg transition-all duration-200",
-                sidebarCollapsed
-                  ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                  : "flex items-center gap-2.5 py-2.5 px-2.5",
-                currentWorkspace === "settings"
-                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-              )}
-              title="设置"
-            >
-              <Settings className="w-6 h-6 shrink-0 text-violet-500 dark:text-violet-400" />
-              {!sidebarCollapsed && (
-                <span className="text-base font-medium">设置</span>
-              )}
-            </button>
           </nav>
 
           {/* 分隔线 */}
-          <div className="my-3 border-t border-slate-100 dark:border-slate-800" />
+          <div className="border-t border-slate-100 dark:border-slate-800 my-1 shrink-0" />
 
           {/* 其他导航 */}
           <nav
             className={cn(
-              "space-y-0.5 flex flex-col",
+              "space-y-0.5 flex flex-col shrink-0",
               sidebarCollapsed ? "items-center" : "",
             )}
           >
@@ -501,41 +503,30 @@ export default function WorkspaceLayout({
                 )}
               </button>
             )}
-
-            <button
-              onClick={(e) => {
-                if (e.metaKey || e.ctrlKey) {
-                  window.open("/create-new", "_blank", "noopener,noreferrer");
-                  return;
-                }
-                navigate("/create-new");
-              }}
-              className={cn(
-                "w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all",
-                sidebarCollapsed
-                  ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                  : "flex items-center gap-2.5 py-2.5 px-2.5",
-              )}
-              title="新建简历"
-            >
-              <svg
-                className="w-6 h-6 shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              {!sidebarCollapsed && (
-                <span className="text-base font-medium">新建</span>
-              )}
-            </button>
           </nav>
+
+          {/* 分隔线 */}
+          <div className="border-t border-slate-100 dark:border-slate-800 my-1 shrink-0" />
+
+          {/* 历史会话 - 常驻显示 */}
+          {!sidebarCollapsed && (
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+              <RecentSessions
+                baseUrl={getApiBaseUrl()}
+                currentSessionId={
+                  (new URLSearchParams(location.search).get("sessionId") ||
+                  (location.pathname.startsWith("/agent/")
+                    ? location.pathname.split("/").pop()
+                    : null)) as string | null
+                }
+                onSelectSession={handleSelectSession}
+                onCreateSession={handleCreateSession}
+                onDeleteSession={deleteSession}
+                onRenameSession={renameSession}
+                refreshKey={sessionsRefreshKey}
+              />
+            </div>
+          )}
         </div>
 
         {/* 底部：登录组件（与导航风格统一，图标+用户名一行） */}
@@ -568,8 +559,23 @@ export default function WorkspaceLayout({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 4 }}
                       transition={{ duration: 0.15 }}
-                      className="absolute bottom-full left-0 right-0 mb-1"
+                      className="absolute bottom-full left-0 right-0 mb-1 space-y-1"
                     >
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          setShowLogoutMenu(false);
+                          handleWorkspaceChange("settings");
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg",
+                          "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700",
+                          "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 text-[10px] font-medium transition-colors",
+                        )}
+                      >
+                        <Settings className="w-3.5 h-3.5 shrink-0 text-violet-500" />
+                        设置
+                      </button>
                       <button
                         type="button"
                         onClick={() => {

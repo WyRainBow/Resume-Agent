@@ -394,7 +394,7 @@ export function RecentSessions({
               return (
                 <div
                   key={session.session_id}
-                  className={`group w-full min-w-0 flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors text-left cursor-pointer ${
+                  className={`group w-full min-w-0 flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors text-left cursor-pointer ${
                     isActive
                       ? 'bg-indigo-50/80 text-indigo-700'
                       : 'text-neutral-900 hover:text-gray-900 hover:bg-gray-100/50'
@@ -410,7 +410,7 @@ export function RecentSessions({
                   }}
                 >
                     <MessageSquare
-                      className={`w-4 h-4 shrink-0 ${
+                      className={`w-3.5 h-3.5 shrink-0 ${
                         isActive
                           ? 'text-indigo-600 opacity-80'
                           : 'text-gray-400 opacity-70 group-hover:opacity-100'
@@ -431,14 +431,14 @@ export function RecentSessions({
                               handleCancelRename();
                             }
                           }}
-                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="w-full px-2 py-0.5 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           autoFocus
                         />
                       ) : (
-                        <div className="truncate text-sm pr-2" title={name}>{name}</div>
+                        <div className="truncate text-xs pr-2" title={name}>{name}</div>
                       )}
                       {timestamp && !editingSessionId && (
-                        <div className="text-[10px] text-gray-400 mt-0.5 truncate">
+                        <div className="text-[9px] text-gray-400 mt-0.5 truncate">
                           {timestamp}
                         </div>
                       )}

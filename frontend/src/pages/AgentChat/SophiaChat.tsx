@@ -2527,44 +2527,6 @@ export default function SophiaChat() {
     <WorkspaceLayout>
       <div className="h-full bg-slate-50 dark:bg-slate-950 flex flex-col overflow-hidden">
         <div className="flex-1 flex overflow-hidden relative">
-          {isDesktop && (
-            <aside className="w-[280px] shrink-0 border-r border-slate-200/50 dark:border-slate-800/50 bg-white dark:bg-slate-900">
-              <RecentSessions
-                baseUrl={HISTORY_BASE}
-                currentSessionId={currentSessionId || conversationId}
-                onSelectSession={handleSelectSession}
-                onCreateSession={handleCreateSession}
-                onDeleteSession={deleteSession}
-                onRenameSession={renameSession}
-                refreshKey={sessionsRefreshKey}
-              />
-            </aside>
-          )}
-
-          {!isDesktop && isSidebarOpen && (
-            <div
-              className="absolute inset-0 z-20 bg-black/30"
-              onClick={() => setIsSidebarOpen(false)}
-              role="button"
-              tabIndex={-1}
-            >
-              <aside
-                className="h-full w-[280px] bg-white dark:bg-slate-900 shadow-xl border-r border-slate-200/50 dark:border-slate-800/50"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <RecentSessions
-                  baseUrl={HISTORY_BASE}
-                  currentSessionId={currentSessionId || conversationId}
-                  onSelectSession={handleSelectSession}
-                  onCreateSession={handleCreateSession}
-                  onDeleteSession={deleteSession}
-                  onRenameSession={renameSession}
-                  refreshKey={sessionsRefreshKey}
-                />
-              </aside>
-            </div>
-          )}
-
           {/* Left: Chat */}
           <section className="flex-1 min-w-0 flex flex-col h-full">
             <CustomScrollbar as="main" className="flex-1 px-4 py-8 flex flex-col">
