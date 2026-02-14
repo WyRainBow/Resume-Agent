@@ -15,7 +15,8 @@ sse-starlette==1.8.2
 sqlalchemy>=2.0.36
 alembic==1.13.1
 pymysql==1.1.0
-psycopg[binary]==3.1.19  # PostgreSQL driver
+psycopg[binary]==3.1.19  # PostgreSQL driver (psycopg3)
+psycopg2-binary>=2.9.0  # PostgreSQL driver (psycopg2，postgresql+psycopg2:// 时使用)
 pgvector>=0.2.0  # PostgreSQL vector extension support
 
 # Authentication
