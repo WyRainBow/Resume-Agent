@@ -620,6 +620,7 @@ export default function SophiaChat() {
     at: number;
   } | null>(null);
   const lastHandledAnswerCompleteRef = useRef(0);
+  const prevRouteSessionIdRef = useRef<string | null>(null);
 
   const normalizedResume = useMemo(() => {
     if (!resumeData) return null;
@@ -1982,14 +1983,33 @@ export default function SophiaChat() {
     setIsSidebarOpen(false);
   }, [createNewSession]);
 
-  // 监听 URL sessionId 变化并加载对应会话（侧边栏点击会触发）
+  // 监听 URL sessionId 变化并同步会话：
+  // - 有 sessionId: 加载该历史会话
+  // - 从有 sessionId 切换到无 sessionId（点击左侧 +）: 创建新会话
   useEffect(() => {
-    const sessionId = new URLSearchParams(location.search).get("sessionId")?.trim();
-    if (!sessionId) return;
-    if (sessionId === currentSessionId) return;
-    if (isLoadingSession) return;
-    void loadSession(sessionId);
-  }, [location.search, currentSessionId, isLoadingSession, loadSession]);
+    const routeSessionId =
+      new URLSearchParams(location.search).get("sessionId")?.trim() || null;
+    const previousRouteSessionId = prevRouteSessionIdRef.current;
+    prevRouteSessionIdRef.current = routeSessionId;
+
+    if (routeSessionId) {
+      if (routeSessionId === currentSessionId) return;
+      if (isLoadingSession) return;
+      void loadSession(routeSessionId);
+      return;
+    }
+
+    // 从历史会话URL切回 /agent/new（无 sessionId）时，主动创建空白新会话
+    if (previousRouteSessionId && !isLoadingSession) {
+      void createNewSession();
+    }
+  }, [
+    location.search,
+    currentSessionId,
+    isLoadingSession,
+    loadSession,
+    createNewSession,
+  ]);
 
   // 处理简历选择
   const handleResumeSelect = useCallback(
