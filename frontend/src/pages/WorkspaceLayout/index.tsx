@@ -512,7 +512,6 @@ export default function WorkspaceLayout({
           {!sidebarCollapsed && (
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <RecentSessions
-                baseUrl={getApiBaseUrl()}
                 currentSessionId={
                   (new URLSearchParams(location.search).get("sessionId") ||
                   (location.pathname.startsWith("/agent/")

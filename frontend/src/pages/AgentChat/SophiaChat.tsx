@@ -23,6 +23,7 @@ import SearchSummary from "@/components/chat/SearchSummary";
 import { ReportGenerationDetector } from "@/components/chat/ReportGenerationDetector";
 import { RecentSessions } from "@/components/sidebar/RecentSessions";
 import { useAuth } from "@/contexts/AuthContext";
+import { useEnvironment } from "@/contexts/EnvironmentContext";
 import { useCLTP } from "@/hooks/useCLTP";
 import { PDFViewerSelector } from "@/components/PDFEditor";
 import { convertToBackendFormat } from "@/pages/Workspace/v2/utils/convertToBackend";
@@ -208,24 +209,10 @@ function ReportContentView({
 }
 
 // ============================================================================
-// 配置
+// 配置（运行时 API 基地址由 useEnvironment 提供，不再使用构建时常量）
 // ============================================================================
 
-const rawApiBase =
-  import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_BASE || "";
-const API_BASE = rawApiBase
-  ? rawApiBase.startsWith("http")
-    ? rawApiBase
-    : `https://${rawApiBase}`
-  : import.meta.env.PROD
-    ? ""
-    : "http://localhost:9000";
-
-const SSE_CONFIG = {
-  BASE_URL: API_BASE || "",
-  HEARTBEAT_TIMEOUT: 60000, // 60 seconds
-};
-const HISTORY_BASE = API_BASE || "";
+const SSE_HEARTBEAT_TIMEOUT = 60000; // 60 seconds
 
 function convertResumeDataToOpenManusFormat(resume: ResumeData) {
   return {
@@ -505,6 +492,7 @@ export default function SophiaChat() {
   const navigate = useNavigate();
   const { resumeId } = useParams();
   const { user } = useAuth();
+  const { apiBaseUrl } = useEnvironment();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
@@ -619,7 +607,7 @@ export default function SophiaChat() {
     const bootstrapLatestSession = async () => {
       try {
         const resp = await fetch(
-          `${HISTORY_BASE}/api/agent/history/sessions/list?page=1&page_size=1`,
+          `${apiBaseUrl}/api/agent/history/sessions/list?page=1&page_size=1`,
         );
         if (!mounted) return;
         if (resp.ok) {
@@ -650,7 +638,7 @@ export default function SophiaChat() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [apiBaseUrl]);
 
   // 简历选择器状态
   const [showResumeSelector, setShowResumeSelector] = useState(false);
@@ -923,8 +911,8 @@ export default function SophiaChat() {
     finalizeStream,
   } = useCLTP({
     conversationId,
-    baseUrl: SSE_CONFIG.BASE_URL,
-    heartbeatTimeout: SSE_CONFIG.HEARTBEAT_TIMEOUT,
+    baseUrl: apiBaseUrl,
+    heartbeatTimeout: SSE_HEARTBEAT_TIMEOUT,
     resumeData: normalizedResume,
     onSSEEvent: handleSSEEvent,
   });
@@ -1085,7 +1073,7 @@ export default function SophiaChat() {
           return;
         }
         const resp = await fetch(
-          `${HISTORY_BASE}/api/agent/history/sessions/${conversationId}`,
+          `${apiBaseUrl}/api/agent/history/sessions/${conversationId}`,
         );
         if (!mounted) return;
         if (!resp.ok) {
@@ -1228,7 +1216,7 @@ export default function SophiaChat() {
       try {
         const report = await getReport(streamingReportId);
         if (report.main_id) {
-          await fetch(`${API_BASE}/api/documents/${report.main_id}/content`, {
+          await fetch(`${apiBaseUrl}/api/documents/${report.main_id}/content`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ content: currentAnswer }),
@@ -1251,7 +1239,7 @@ export default function SophiaChat() {
     shouldHideResponseInChat,
     streamingReportId,
     selectedReportId,
-    API_BASE,
+    apiBaseUrl,
   ]);
 
   // Auto-scroll to bottom
@@ -1340,7 +1328,7 @@ export default function SophiaChat() {
 
           // 保存报告内容
           if (result.mainId) {
-            await fetch(`${API_BASE}/api/documents/${result.mainId}/content`, {
+            await fetch(`${apiBaseUrl}/api/documents/${result.mainId}/content`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ content }),
@@ -1367,7 +1355,7 @@ export default function SophiaChat() {
         }
       }
     },
-    [generatedReports, API_BASE],
+    [generatedReports, apiBaseUrl],
   );
 
   /**
@@ -1457,7 +1445,7 @@ export default function SophiaChat() {
             const report = await getReport(streamingReportId);
             if (report.main_id) {
               await fetch(
-                `${API_BASE}/api/documents/${report.main_id}/content`,
+                `${apiBaseUrl}/api/documents/${report.main_id}/content`,
                 {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
@@ -1498,7 +1486,7 @@ export default function SophiaChat() {
     detectAndCreateReport,
     shouldHideResponseInChat,
     streamingReportId,
-    API_BASE,
+    apiBaseUrl,
   ]);
 
   const refreshSessions = useCallback(() => {
@@ -1652,7 +1640,7 @@ export default function SophiaChat() {
       saveInFlightRef.current = (async () => {
         try {
           const resp = await fetch(
-            `${HISTORY_BASE}/api/agent/history/sessions/${validSessionId}/save`,
+            `${apiBaseUrl}/api/agent/history/sessions/${validSessionId}/save`,
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -1777,7 +1765,7 @@ export default function SophiaChat() {
   const deleteSession = async (sessionId: string) => {
     try {
       const resp = await fetch(
-        `${HISTORY_BASE}/api/agent/history/${sessionId}`,
+        `${apiBaseUrl}/api/agent/history/${sessionId}`,
         {
           method: "DELETE",
         },
@@ -1785,7 +1773,7 @@ export default function SophiaChat() {
       if (!resp.ok) throw new Error(`Failed to delete session: ${resp.status}`);
 
       // Clear active session memory on backend
-      fetch(`${HISTORY_BASE}/api/agent/stream/session/${sessionId}`, {
+      fetch(`${apiBaseUrl}/api/agent/stream/session/${sessionId}`, {
         method: "DELETE",
       }).catch(() => undefined);
 
@@ -1879,7 +1867,7 @@ export default function SophiaChat() {
     if (!trimmedTitle) return;
     try {
       await fetch(
-        `${HISTORY_BASE}/api/agent/history/sessions/${sessionId}/title`,
+        `${apiBaseUrl}/api/agent/history/sessions/${sessionId}/title`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -1918,7 +1906,7 @@ export default function SophiaChat() {
 
     try {
       const resp = await fetch(
-        `${HISTORY_BASE}/api/agent/history/sessions/${sessionId}`,
+        `${apiBaseUrl}/api/agent/history/sessions/${sessionId}`,
       );
 
       if (!resp.ok) {
@@ -2386,7 +2374,7 @@ export default function SophiaChat() {
           const formData = new FormData();
           formData.append("file", file);
 
-          const response = await fetch(`${API_BASE}/api/resume/upload-pdf`, {
+          const response = await fetch(`${apiBaseUrl}/api/resume/upload-pdf`, {
             method: "POST",
             body: formData,
           });

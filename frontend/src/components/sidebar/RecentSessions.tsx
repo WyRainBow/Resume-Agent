@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Loader2, MessageSquare, Pencil, Plus, RefreshCw, Trash2, X, Trash, AlertTriangle } from 'lucide-react';
 import { SidebarTooltip } from './SidebarTooltip';
 import CustomScrollbar from '../common/CustomScrollbar';
+import { useEnvironment } from '@/contexts/EnvironmentContext';
 
 const PAGE_SIZE = 20;
 
@@ -21,7 +22,6 @@ type Pagination = {
 };
 
 interface RecentSessionsProps {
-  baseUrl: string;
   currentSessionId: string | null;
   onSelectSession: (sessionId: string) => void;
   onCreateSession: () => void;
@@ -47,7 +47,6 @@ function formatTime(value?: string) {
 }
 
 export function RecentSessions({
-  baseUrl,
   currentSessionId,
   onSelectSession,
   onCreateSession,
@@ -55,6 +54,7 @@ export function RecentSessions({
   onRenameSession,
   refreshKey = 0,
 }: RecentSessionsProps) {
+  const { apiBaseUrl } = useEnvironment();  // 动态获取 API 地址
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,7 +76,7 @@ export function RecentSessions({
     async (page: number, mode: 'replace' | 'append' = 'replace') => {
       try {
         const resp = await fetch(
-          `${baseUrl}/api/agent/history/sessions/list?page=${page}&page_size=${PAGE_SIZE}`,
+          `${apiBaseUrl}/api/agent/history/sessions/list?page=${page}&page_size=${PAGE_SIZE}`,
           {
             cache: 'no-cache',
             headers: {
@@ -102,7 +102,7 @@ export function RecentSessions({
         console.error('[RecentSessions] Failed to fetch sessions:', error);
       }
     },
-    [baseUrl]
+    [apiBaseUrl]
   );
 
   const refreshSessions = useCallback(async () => {
@@ -122,6 +122,11 @@ export function RecentSessions({
   useEffect(() => {
     refreshSessions();
   }, [refreshKey, refreshSessions]);
+
+  // 当 apiBaseUrl 变化时（切换环境），自动刷新会话列表
+  useEffect(() => {
+    refreshSessions();
+  }, [apiBaseUrl, refreshSessions]);
 
   useEffect(() => {
     if (!loadMoreRef.current || !listContainerRef.current) return;
@@ -187,7 +192,7 @@ export function RecentSessions({
   const handleConfirmDeleteAll = async () => {
     try {
       setIsLoading(true);
-      const response = await fetch(`${baseUrl}/api/agent/history/sessions/all`, {
+      const response = await fetch(`${apiBaseUrl}/api/agent/history/sessions/all`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
