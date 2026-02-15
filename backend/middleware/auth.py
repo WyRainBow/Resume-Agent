@@ -21,17 +21,6 @@ from auth import decode_access_token
 logger = logging.getLogger("backend")
 MAX_AUTH_DB_RETRIES = 4
 
-
-class AuthenticatedUser:
-    """轻量认证用户对象，避免不必要的 ORM 依赖。"""
-
-    def __init__(self, user_id: int, username: str = "", role: str = "user", email: Optional[str] = None):
-        self.id = user_id
-        self.username = username
-        self.role = role
-        self.email = email
-
-
 def get_current_user(
     request: Request,
     authorization: Optional[str] = Header(default=None),
@@ -53,17 +42,6 @@ def get_current_user(
             user_id = int(user_id)
         except ValueError:
             raise HTTPException(status_code=401, detail="Token 格式错误")
-
-    # 管理端高频接口优先走 JWT claim，避免每次鉴权都阻塞数据库。
-    # 仍保留非管理接口的数据库校验逻辑。
-    req_path = request.url.path or ""
-    if req_path.startswith("/api/admin/"):
-        return AuthenticatedUser(
-            user_id=user_id,
-            username=str(payload.get("username") or ""),
-            role=str(payload.get("role") or "user"),
-            email=(str(payload.get("email")) if payload.get("email") else None),
-        )
 
     user = None
     db_error: Optional[Exception] = None

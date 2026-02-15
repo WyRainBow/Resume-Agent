@@ -55,34 +55,6 @@
         }
       },
       {
-        "label": "🖥️ Admin Console: Start Dev Server (5175)",
-        "type": "shell",
-        "command": "lsof -ti tcp:5175 | xargs kill -9 2>/dev/null || true; test -d node_modules || npm install; npm run dev -- --host --port 5175",
-        "options": {
-          "cwd": "${workspaceFolder}/admin-console"
-        },
-        "group": "build",
-        "presentation": {
-          "reveal": "always",
-          "panel": "new",
-          "group": "dev-servers"
-        },
-        "isBackground": true,
-        "problemMatcher": {
-          "pattern": {
-            "regexp": "^(.*)$",
-            "file": 1,
-            "line": 2,
-            "message": 3
-          },
-          "background": {
-            "activeOnStart": true,
-            "beginsPattern": "^.*VITE.*$",
-            "endsPattern": "^.*ready in.*$"
-          }
-        }
-      },
-      {
         "label": "Start All (Backend + Frontend)",
         "dependsOn": [
           "⚙️ Backend: Start API Server",
@@ -93,17 +65,6 @@
           "kind": "build",
           "isDefault": true
         },
-        "problemMatcher": []
-      },
-      {
-        "label": "🚀 Start All (Backend + Frontend + Admin Console)",
-        "dependsOn": [
-          "⚙️ Backend: Start API Server",
-          "⚛️ Frontend: Start Dev Server",
-          "🖥️ Admin Console: Start Dev Server (5175)"
-        ],
-        "dependsOrder": "parallel",
-        "group": "build",
         "problemMatcher": []
       }
     ]
