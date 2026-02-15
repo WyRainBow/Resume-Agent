@@ -68,6 +68,7 @@ aiofiles~=24.1.0
 colorama~=0.4.6
 unidiff~=0.7.5
 structlog
+paramiko==3.4.0
 tomli>=2.0.0
 huggingface-hub~=0.29.2
 python-multipart~=0.0.22
