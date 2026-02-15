@@ -28,6 +28,7 @@ def get_database_url():
             if postgresql_url.startswith("postgresql://") and not postgresql_url.startswith("postgresql+psycopg://"):
                 postgresql_url = postgresql_url.replace("postgresql://", "postgresql+psycopg://", 1)
             return postgresql_url
+        raise RuntimeError("USE_POSTGRESQL=true 但未设置 POSTGRESQL_URL")
 
     # 2. 使用 DATABASE_URL（MySQL 或其他）
     database_url = os.getenv("DATABASE_URL")
