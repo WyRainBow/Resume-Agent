@@ -63,69 +63,15 @@ import React, {
   useState,
   Fragment,
 } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import EnhancedMarkdown from "@/components/chat/EnhancedMarkdown";
 import ThoughtProcess from "@/components/chat/ThoughtProcess";
+import StreamingResponse from "@/components/chat/StreamingResponse";
+import StreamingOutputPanel from "@/components/chat/StreamingOutputPanel";
 import { useTextStream } from "@/hooks/useTextStream";
 
 import WorkspaceLayout from "@/pages/WorkspaceLayout";
 import CustomScrollbar from "@/components/common/CustomScrollbar";
-
-// Response 流式输出组件（带打字机效果）
-function StreamingResponse({
-  content,
-  canStart,
-  onComplete,
-}: {
-  content: string;
-  canStart: boolean;
-  onComplete?: () => void;
-}) {
-  const completedRef = React.useRef(false);
-
-  // 只有当 canStart 为 true 时才开始打字机效果
-  const { displayedText, isComplete } = useTextStream({
-    textStream: canStart ? content : "",
-    speed: 5,
-    mode: "typewriter",
-    onComplete: () => {
-      // 打字机完成时调用 onComplete
-      if (!completedRef.current && onComplete) {
-        completedRef.current = true;
-        console.log("[StreamingResponse] 打字机效果完成");
-        onComplete();
-      }
-    },
-  });
-
-  // 重置 completedRef 当 content 变化时
-  React.useEffect(() => {
-    if (content) {
-      completedRef.current = false;
-    }
-  }, [content]);
-
-  // 如果不能开始或没有内容，不显示
-  if (!canStart || !content) {
-    return null;
-  }
-
-  // 显示打字机效果的文本
-  const textToShow = displayedText;
-
-  if (!textToShow) {
-    return null;
-  }
-
-  return (
-    <div className="text-gray-800 mb-6">
-      <EnhancedMarkdown>{textToShow}</EnhancedMarkdown>
-      {!isComplete && (
-        <span className="inline-block w-0.5 h-4 bg-gray-400 animate-pulse ml-0.5" />
-      )}
-    </div>
-  );
-}
 
 // 报告内容视图组件
 function ReportContentView({
@@ -489,6 +435,7 @@ interface ResumeStructuredData {
 // ============================================================================
 
 export default function SophiaChat() {
+  const location = useLocation();
   const navigate = useNavigate();
   const { resumeId } = useParams();
   const { user } = useAuth();
@@ -597,7 +544,10 @@ export default function SophiaChat() {
 
     if (hasExplicitId) {
       // URL 显式指定会话时，不做额外探测
-      setConversationId(explicitSessionId!.trim());
+      const sid = explicitSessionId!.trim();
+      if (conversationId !== sid) {
+        setConversationId(sid);
+      }
       setInitialSessionResolved(true);
       return () => {
         mounted = false;
@@ -1050,14 +1000,16 @@ export default function SophiaChat() {
       return;
     }
 
-    // 如果已经有当前会话ID，不自动加载
-    if (currentSessionId) {
+    // 如果已经加载了当前会话ID，不重复加载
+    if (currentSessionId === conversationId) {
       return;
     }
 
     // 如果 conversationId 是新的时间戳格式（conv-timestamp），不加载历史
     const isNewConversationId = /^conv-\d{13,}$/.test(conversationId);
     if (isNewConversationId) {
+      // 即使是新会话，也需要同步 currentSessionId 以标记已初始化
+      setCurrentSessionId(conversationId);
       return;
     }
 
@@ -1152,7 +1104,7 @@ export default function SophiaChat() {
     return () => {
       mounted = false;
     };
-  }, [conversationId, currentSessionId, initialSessionResolved]); // 仅在会话确定后加载
+  }, [conversationId, currentSessionId, initialSessionResolved, apiBaseUrl]); // 仅在会话确定后加载
 
   useEffect(() => {
     if (answerCompleteCount <= 0 || !resumeId) {
@@ -2030,6 +1982,15 @@ export default function SophiaChat() {
     setIsSidebarOpen(false);
   }, [createNewSession]);
 
+  // 监听 URL sessionId 变化并加载对应会话（侧边栏点击会触发）
+  useEffect(() => {
+    const sessionId = new URLSearchParams(location.search).get("sessionId")?.trim();
+    if (!sessionId) return;
+    if (sessionId === currentSessionId) return;
+    if (isLoadingSession) return;
+    void loadSession(sessionId);
+  }, [location.search, currentSessionId, isLoadingSession, loadSession]);
+
   // 处理简历选择
   const handleResumeSelect = useCallback(
     async (selectedResume: SavedResume) => {
@@ -2837,166 +2798,123 @@ export default function SophiaChat() {
                 })}
 
                 {/* 当前正在生成的消息 - 按顺序：Thought Process → SearchCard → Response */}
-                {isProcessing &&
-                  (currentThought ||
-                    (!shouldHideResponseInChat && currentAnswer)) && (
+                <StreamingOutputPanel
+                  currentThought={currentThought}
+                  currentAnswer={currentAnswer}
+                  isProcessing={isProcessing}
+                  thoughtProcessComplete={thoughtProcessComplete}
+                  shouldHideResponseInChat={shouldHideResponseInChat}
+                  currentSearch={searchResults.find((r) => r.messageId === "current")}
+                  onThoughtComplete={() => {
+                    console.log("[AgentChat] ThoughtProcess 打字机效果完成");
+                    setThoughtProcessComplete(true);
+                  }}
+                  onResponseComplete={() => {
+                    // Response 打字机效果完成时，清理流式状态
+                    if (shouldFinalizeRef.current) {
+                      console.log("[AgentChat] Response 打字机完成, finalize stream");
+                      shouldFinalizeRef.current = false;
+                      finalizeMessage();
+                      finalizeStream();
+                      setTimeout(() => {
+                        isFinalizedRef.current = false;
+                      }, 100);
+                    }
+                  }}
+                  renderSearchCard={(searchData) => (
                     <>
-                      {/* 1. Thought Process 优先显示 */}
-                      {currentThought && (
-                        <ThoughtProcess
-                          content={currentThought}
-                          isStreaming={true}
-                          isLatest={true}
-                          defaultExpanded={true}
-                          onComplete={() => {
-                            console.log(
-                              "[AgentChat] ThoughtProcess 打字机效果完成",
-                            );
-                            setThoughtProcessComplete(true);
-                          }}
-                        />
-                      )}
-
-                      {/* 2. 搜索卡片在 Thought Process 完成后、Response 之前显示 */}
-                      {(() => {
-                        const currentSearch = searchResults.find(
-                          (r) => r.messageId === "current",
-                        );
-                        // 只有当 Thought Process 完成（或没有 thought）时才显示 SearchCard
-                        const canShowSearchCard =
-                          !currentThought || thoughtProcessComplete;
-                        if (
-                          !currentSearch ||
-                          !isProcessing ||
-                          !canShowSearchCard
-                        ) {
-                          return null;
-                        }
-                        return (
-                          <div className="my-4">
-                            <SearchCard
-                              query={currentSearch.data.query}
-                              totalResults={currentSearch.data.total_results}
-                              searchTime={
-                                currentSearch.data.metadata?.search_time
-                              }
-                              onOpen={() =>
-                                setActiveSearchPanel(currentSearch.data)
-                              }
-                            />
-                            <SearchSummary
-                              query={currentSearch.data.query}
-                              results={currentSearch.data.results}
-                              searchTime={
-                                currentSearch.data.metadata?.search_time
-                              }
-                            />
-                          </div>
-                        );
-                      })()}
-
-                      {/* 3. Response 最后显示（等待 Thought Process 完成或没有 thought 时），使用打字机效果 */}
-                      <StreamingResponse
-                        content={currentAnswer}
-                        canStart={
-                          !shouldHideResponseInChat &&
-                          (!currentThought || thoughtProcessComplete)
-                        }
-                        onComplete={() => {
-                          // Response 打字机效果完成时，清理流式状态
-                          if (shouldFinalizeRef.current) {
-                            console.log(
-                              "[AgentChat] Response 打字机完成, finalize stream",
-                            );
-                            shouldFinalizeRef.current = false;
-                            finalizeMessage();
-                            finalizeStream();
-                            setTimeout(() => {
-                              isFinalizedRef.current = false;
-                            }, 100);
-                          }
-                        }}
+                      <SearchCard
+                        query={searchData.query}
+                        totalResults={searchData.total_results}
+                        searchTime={searchData.metadata?.search_time}
+                        onOpen={() => setActiveSearchPanel(searchData)}
                       />
-
-                      {/* 如果正在生成报告内容，检测并创建报告 */}
-                      {currentAnswer.length > 500 && (
-                        <ReportGenerationDetector
-                          content={currentAnswer}
-                          onReportCreated={(reportId, title) => {
-                            // 当报告创建后，设置隐藏 response 的标志
-                            setShouldHideResponseInChat(true);
-                            setStreamingReportId(reportId);
-
-                            // 如果用户已经选择了该报告，立即设置流式内容
-                            if (selectedReportId === reportId) {
-                              setStreamingReportContent(currentAnswer);
-                            }
-
-                            // 当报告创建后，添加到列表
-                            // 使用 'current' 作为临时 messageId，finalize 时会通过 detectAndCreateReport 更新为真实 messageId
-                            setGeneratedReports((prev) => {
-                              // 检查是否已存在相同的报告ID
-                              if (prev.some((r) => r.id === reportId)) {
-                                return prev;
-                              }
-                              // 检查是否已有 'current' 消息ID的报告（避免重复）
-                              const hasCurrent = prev.some(
-                                (r) => r.messageId === "current",
-                              );
-                              if (hasCurrent) {
-                                // 更新现有的 current 报告
-                                return prev.map((r) =>
-                                  r.messageId === "current"
-                                    ? { ...r, id: reportId, title }
-                                    : r,
-                                );
-                              }
-                              // 添加新报告
-                              return [
-                                ...prev,
-                                {
-                                  id: reportId,
-                                  title,
-                                  messageId: "current", // 临时ID，finalize时会更新
-                                },
-                              ];
-                            });
-                          }}
-                        />
-                      )}
-                      {/* 显示流式输出时的报告卡片 */}
-                      {(() => {
-                        const currentReport = generatedReports.find(
-                          (r) => r.messageId === "current",
-                        );
-                        if (currentReport && isProcessing) {
-                          return (
-                            <div className="my-4">
-                              <ReportCard
-                                reportId={currentReport.id}
-                                title={currentReport.title}
-                                subtitle="点击查看完整报告"
-                                onClick={() => {
-                                  setAllowPdfAutoRender(false);
-                                  setSelectedReportId(currentReport.id);
-                                  setReportTitle(currentReport.title);
-                                  setSelectedResumeId(null);
-                                  // 如果报告还在流式输出中，设置 streamingReportContent
-                                  if (
-                                    streamingReportId === currentReport.id &&
-                                    currentAnswer
-                                  ) {
-                                    setStreamingReportContent(currentAnswer);
-                                  }
-                                }}
-                              />
-                            </div>
-                          );
-                        }
-                        return null;
-                      })()}
+                      <SearchSummary
+                        query={searchData.query}
+                        results={searchData.results}
+                        searchTime={searchData.metadata?.search_time}
+                      />
                     </>
                   )}
+                >
+                  {/* 如果正在生成报告内容，检测并创建报告 */}
+                  {currentAnswer.length > 500 && (
+                    <ReportGenerationDetector
+                      content={currentAnswer}
+                      onReportCreated={(reportId, title) => {
+                        // 当报告创建后，设置隐藏 response 的标志
+                        setShouldHideResponseInChat(true);
+                        setStreamingReportId(reportId);
+
+                        // 如果用户已经选择了该报告，立即设置流式内容
+                        if (selectedReportId === reportId) {
+                          setStreamingReportContent(currentAnswer);
+                        }
+
+                        // 当报告创建后，添加到列表
+                        // 使用 'current' 作为临时 messageId，finalize 时会通过 detectAndCreateReport 更新为真实 messageId
+                        setGeneratedReports((prev) => {
+                          // 检查是否已存在相同的报告ID
+                          if (prev.some((r) => r.id === reportId)) {
+                            return prev;
+                          }
+                          // 检查是否已有 'current' 消息ID的报告（避免重复）
+                          const hasCurrent = prev.some(
+                            (r) => r.messageId === "current",
+                          );
+                          if (hasCurrent) {
+                            // 更新现有的 current 报告
+                            return prev.map((r) =>
+                              r.messageId === "current"
+                                ? { ...r, id: reportId, title }
+                                : r,
+                            );
+                          }
+                          // 添加新报告
+                          return [
+                            ...prev,
+                            {
+                              id: reportId,
+                              title,
+                              messageId: "current", // 临时ID，finalize时会更新
+                            },
+                          ];
+                        });
+                      }}
+                    />
+                  )}
+                  {/* 显示流式输出时的报告卡片 */}
+                  {(() => {
+                    const currentReport = generatedReports.find(
+                      (r) => r.messageId === "current",
+                    );
+                    if (currentReport && isProcessing) {
+                      return (
+                        <div className="my-4">
+                          <ReportCard
+                            reportId={currentReport.id}
+                            title={currentReport.title}
+                            subtitle="点击查看完整报告"
+                            onClick={() => {
+                              setAllowPdfAutoRender(false);
+                              setSelectedReportId(currentReport.id);
+                              setReportTitle(currentReport.title);
+                              setSelectedResumeId(null);
+                              // 如果报告还在流式输出中，设置 streamingReportContent
+                              if (
+                                streamingReportId === currentReport.id &&
+                                currentAnswer
+                              ) {
+                                setStreamingReportContent(currentAnswer);
+                              }
+                            }}
+                          />
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </StreamingOutputPanel>
 
                 {/* 简历选择器 */}
                 {showResumeSelector && (
