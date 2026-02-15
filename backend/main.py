@@ -82,6 +82,7 @@ admin_permissions_router = routes_module.admin_permissions_router
 admin_logs_router = routes_module.admin_logs_router
 admin_traces_router = routes_module.admin_traces_router
 admin_overview_router = routes_module.admin_overview_router
+admin_runtime_router = routes_module.admin_runtime_router
 asr_router = routes_module.asr_router
 semantic_search_router = routes_module.semantic_search_router
 
@@ -130,6 +131,7 @@ app.include_router(admin_permissions_router)
 app.include_router(admin_logs_router)
 app.include_router(admin_traces_router)
 app.include_router(admin_overview_router)
+app.include_router(admin_runtime_router)
 app.include_router(asr_router)
 app.include_router(semantic_search_router)
 
