@@ -1,4 +1,4 @@
-import { Activity, ClipboardList, ShieldCheck, Users, Waypoints, UserCog } from 'lucide-react'
+import { Activity, ClipboardList, ShieldCheck, Users, Waypoints, UserCog, TerminalSquare } from 'lucide-react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { clearToken, getToken, parseJwtRole } from '../lib/auth'
 
@@ -10,6 +10,7 @@ const menus = [
   { to: '/logs/errors', label: '报错日志', icon: ShieldCheck },
   { to: '/traces', label: '链路追踪', icon: Waypoints },
   { to: '/permissions', label: '权限审计', icon: ShieldCheck },
+  { to: '/runtime', label: '运行状态', icon: TerminalSquare },
 ]
 
 const roleMap: Record<string, string> = {

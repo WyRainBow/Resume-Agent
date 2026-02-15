@@ -1,0 +1,8 @@
+host = "106.53.113.137"
+port = 2222
+user = "root"
+key_path = "~/.ssh/id_rsa"
+connect_timeout = 10
+command_timeout = 120
+allowlist = ["pm2", "journalctl", "tail", "grep", "cat", "systemctl", "ls", "df", "du", "echo", "uname", "uptime"]
+denylist = ["rm -rf /", "mkfs", "dd if=/dev/zero"]

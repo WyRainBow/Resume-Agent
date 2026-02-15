@@ -21,6 +21,7 @@ from .admin_permissions import router as admin_permissions_router
 from .admin_logs import router as admin_logs_router
 from .admin_traces import router as admin_traces_router
 from .admin_overview import router as admin_overview_router
+from .admin_runtime import router as admin_runtime_router
 from .asr import router as asr_router
 from .semantic_search import router as semantic_search_router
 
@@ -62,6 +63,7 @@ __all__ = [
     'admin_logs_router',
     'admin_traces_router',
     'admin_overview_router',
+    'admin_runtime_router',
     'tts_router',
     'asr_router',
     'semantic_search_router',

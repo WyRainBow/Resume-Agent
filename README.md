@@ -114,6 +114,18 @@ cd frontend && npm run dev
 
 **详细配置说明请查看 [LOCAL_SETUP.md](LOCAL_SETUP.md)**
 
+## 远程运维模块（SSH）
+
+配置文件：`remote/remote.toml`
+
+示例命令：
+```bash
+python -m remote.exec "echo OK"
+python -m remote.logs --service resume-backend --lines 200
+python -m remote.upload --local ./foo.txt --remote /tmp/foo.txt
+python -m remote.download --remote /tmp/foo.txt --local ./foo.txt
+```
+
 ## 🛠️ 技术栈
 
 ### 前端
