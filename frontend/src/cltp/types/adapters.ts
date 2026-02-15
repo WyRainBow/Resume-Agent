@@ -1,9 +1,9 @@
 // 适配器接口定义
 // TransportAdapter, StorageAdapter 等接口
 
-import type { CLChunk, ContentCLChunk } from './chunks';
-import type { CLMessage, UserMessage } from './messages';
-import type { SessionState, HistoryPayload } from './session';
+import type { CLChunk, ContentCLChunk } from "./chunks";
+import type { CLMessage, UserMessage } from "./messages";
+import type { SessionState, HistoryPayload } from "./session";
 
 /**
  * 频道注册接口
@@ -17,7 +17,7 @@ export interface ChannelRegistration<
   validate: (payload: unknown) => asserts payload is Payload;
   reduce: (
     prev: Payload,
-    chunk: ContentCLChunk<Record<string, any>>
+    chunk: ContentCLChunk<Record<string, any>>,
   ) => Payload;
 }
 
@@ -44,9 +44,7 @@ export interface TransportAdapter<Payloads = Record<string, any>> {
   onError(callback: (error: Error) => void): () => void;
 
   /** 监听连接状态变化 */
-  onConnectionChange(
-    callback: (connected: boolean) => void
-  ): () => void;
+  onConnectionChange(callback: (connected: boolean) => void): () => void;
 }
 
 /**
