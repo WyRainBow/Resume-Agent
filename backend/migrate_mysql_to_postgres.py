@@ -50,6 +50,8 @@ PREFERRED_TABLE_ORDER = [
     "resume_embeddings",
 ]
 
+SYSTEM_TABLES_SKIP_DEFAULT = {"alembic_version"}
+
 
 def normalize_postgres_url(url: str) -> str:
     """兼容 postgresql:// 前缀，默认切到 psycopg2 驱动。"""
@@ -86,7 +88,11 @@ def get_ordered_tables(
     mysql_tables: list[str],
     only_tables: list[str] | None,
 ) -> list[str]:
-    table_set = set(mysql_tables)
+    table_set = set(mysql_tables) - SYSTEM_TABLES_SKIP_DEFAULT
+    skipped_system_tables = sorted(set(mysql_tables) & SYSTEM_TABLES_SKIP_DEFAULT)
+    if skipped_system_tables:
+        print(f"[INFO] 默认跳过系统表: {', '.join(skipped_system_tables)}")
+
     if only_tables:
         picked = [t for t in only_tables if t in table_set]
         missing = [t for t in only_tables if t not in table_set]
@@ -197,7 +203,7 @@ def _flush_batch(pg_conn: Any, insert_sql: Any, batch: list[dict[str, Any]]) -> 
         return int(result.rowcount or 0)
     except SQLAlchemyError as exc:
         # 回退到逐行写入，尽量完成迁移
-        print(f"  [WARN] 批量写入失败，回退逐行写入: {exc}")
+        print(f"  [WARN] 批量写入失败，回退逐行写入: {exc.__class__.__name__}")
         ok = 0
         for row in batch:
             try:
@@ -205,7 +211,7 @@ def _flush_batch(pg_conn: Any, insert_sql: Any, batch: list[dict[str, Any]]) -> 
                     single_result = pg_conn.execute(insert_sql, row)
                 ok += int(single_result.rowcount or 0)
             except SQLAlchemyError as row_exc:
-                print(f"  [WARN] 单条写入失败，已跳过: {row_exc}")
+                print(f"  [WARN] 单条写入失败，已跳过: {row_exc.__class__.__name__}")
         return ok
 
 
