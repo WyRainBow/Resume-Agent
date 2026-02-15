@@ -10,6 +10,7 @@ import RequestLogsPage from './pages/RequestLogsPage'
 import TraceDetailPage from './pages/TraceDetailPage'
 import TracesPage from './pages/TracesPage'
 import UsersPage from './pages/UsersPage'
+import RuntimePage from './pages/RuntimePage'
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="traces" element={<TracesPage />} />
           <Route path="traces/:traceId" element={<TraceDetailPage />} />
           <Route path="permissions" element={<PermissionsPage />} />
+          <Route path="runtime" element={<RuntimePage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

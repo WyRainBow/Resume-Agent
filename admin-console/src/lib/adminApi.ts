@@ -111,3 +111,29 @@ export async function getPermissionAudits(params: Record<string, string | number
     page_size: number
   }
 }
+
+export async function getRuntimeStatus(params?: { service?: string }) {
+  const { data } = await http.get('/api/admin/runtime/status', { params })
+  return data as any
+}
+
+export async function getRuntimeLogs(params?: { service?: string; stream?: 'out' | 'error'; lines?: number }) {
+  const { data } = await http.get('/api/admin/runtime/logs', { params })
+  return data as {
+    service: string
+    stream: 'out' | 'error'
+    lines: number
+    path: string
+    content: string
+  }
+}
+
+export async function restartRuntimeService(payload?: { service?: string }) {
+  const { data } = await http.post('/api/admin/runtime/actions/restart', payload || {})
+  return data as { ok: boolean; service: string; result: any }
+}
+
+export async function execRuntimeCommand(payload: { command: string; timeout_sec?: number }) {
+  const { data } = await http.post('/api/admin/runtime/actions/exec', payload)
+  return data as { exit_code: number; stdout: string; stderr: string; duration_ms: number; argv?: string[] }
+}

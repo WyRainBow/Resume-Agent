@@ -6,8 +6,10 @@ requests==2.32.3
 httpx[http2]==0.28.1
 reportlab==4.2.5
 instructor>=1.5.0
-openai~=1.66.3
-json-repair==0.25.2
+# mineru requires openai>=1.70.0
+openai>=1.70.0,<3
+# mineru requires json-repair>=0.46.2
+json-repair>=0.46.2
 zhipuai==2.1.5.20250825
 sse-starlette==1.8.2
 
@@ -44,7 +46,8 @@ duckduckgo_search~=7.5.3
 numpy<2.0.0
 datasets~=3.4.1
 html2text~=2024.2.26
-pillow~=10.4.0
+# mineru requires pillow>=11.0.0; crawl4ai>=0.8.0 supports pillow>=10.4
+pillow>=11.0.0,<13
 gymnasium~=1.1.1
 PyMuPDF>=1.24.0
 
@@ -53,10 +56,11 @@ docker~=7.1.0
 mcp~=1.5.0
 boto3~=1.37.18
 beautifulsoup4~=4.13.3
-crawl4ai~=0.6.3
+crawl4ai~=0.8.0
 markdownify
 mineru>=2.7.0
-pdfminer-six>=20231228
+# mineru requires pdfminer.six>=20251230
+pdfminer-six>=20251230
 
 # LangChain
 langchain>=0.3.0,<0.4.0
@@ -70,7 +74,8 @@ unidiff~=0.7.5
 structlog
 paramiko==3.4.0
 tomli>=2.0.0
-huggingface-hub~=0.29.2
+# mineru requires huggingface-hub>=0.32.4
+huggingface-hub>=0.32.4,<1
 python-multipart~=0.0.22
 cos-python-sdk-v5>=1.9.30
 
