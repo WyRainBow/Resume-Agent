@@ -3,13 +3,13 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AuthModal } from './components/AuthModal'
 import { ThemeInit } from './components/ThemeInit'
 import ErrorBoundary from './ErrorBoundary'
+import ResumeDashboard from './pages/ResumeDashboard'
 
 const AgentChat = lazy(() => import('./pages/AgentChat/SophiaChat'))
 const CreateNew = lazy(() => import('./pages/CreateNew'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const LoginPage = lazy(() => import('./pages/Login'))
 const ResumeCreator = lazy(() => import('./pages/ResumeCreator'))
-const ResumeDashboard = lazy(() => import('./pages/ResumeDashboard'))
 const StatsDashboardPage = lazy(() => import('./pages/StatsDashboard'))
 const CalendarPage = lazy(() => import('./pages/Calendar'))
 const ResumeEntryPage = lazy(() => import('./pages/ResumeEntry'))

@@ -21,11 +21,12 @@ def get_database_url():
     use_postgresql = os.getenv("USE_POSTGRESQL", "").lower() in {"1", "true", "yes", "on"}
 
     if use_postgresql:
-        # 使用 PostgreSQL
+        # 使用 PostgreSQL（统一用 psycopg3，与 requirements 里 psycopg[binary] 一致）
         postgresql_url = os.getenv("POSTGRESQL_URL")
         if postgresql_url:
-            # 转换 postgresql:// 到 postgresql+psycopg://
-            if postgresql_url.startswith("postgresql://") and not postgresql_url.startswith("postgresql+psycopg://"):
+            if postgresql_url.startswith("postgresql+psycopg2"):
+                postgresql_url = postgresql_url.replace("postgresql+psycopg2", "postgresql+psycopg", 1)
+            elif postgresql_url.startswith("postgresql://") and not postgresql_url.startswith("postgresql+psycopg://"):
                 postgresql_url = postgresql_url.replace("postgresql://", "postgresql+psycopg://", 1)
             return postgresql_url
         raise RuntimeError("USE_POSTGRESQL=true 但未设置 POSTGRESQL_URL")
