@@ -90,6 +90,9 @@ images/
 # 参考目录
 reference/
 
+# 飞书剪藏等本地工具目录
+feishu-clipper/
+
 # 项目根目录
 README.md
 
@@ -105,3 +108,11 @@ docs/**
 !docs/*-setup.md
 !docs/*-guide.md
 !docs/ENVIRONMENT_SETUP.md
+
+# Local-only files
+config/
+image.png
+.cursor/mcp.json
+.vscode/settings.json
+backend/agent/tool/feishu_remote_mcp.py
+backend/scripts/ocr_image_zhipu.py
