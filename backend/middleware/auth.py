@@ -21,7 +21,6 @@ from auth import decode_access_token
 logger = logging.getLogger("backend")
 MAX_AUTH_DB_RETRIES = 4
 
-
 def get_current_user(
     authorization: Optional[str] = Header(default=None),
     db: Session = Depends(get_db)

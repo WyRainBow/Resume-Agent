@@ -42,7 +42,8 @@ export default function EnvironmentSwitcher() {
       setHasAccess(false)
       return
     }
-    void fetch(`${getApiBaseUrl()}/api/admin/overview`, {
+    // Token 校验：用 /api/auth/me 探活。
+    void fetch(`${getApiBaseUrl()}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((resp) => {
