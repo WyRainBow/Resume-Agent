@@ -15,13 +15,6 @@ from .photos import router as photos_router
 from .application_progress import router as application_progress_router
 from .dashboard_perf import router as dashboard_perf_router
 from .calendar import router as calendar_router
-from .admin_users import router as admin_users_router
-from .admin_members import router as admin_members_router
-from .admin_permissions import router as admin_permissions_router
-from .admin_logs import router as admin_logs_router
-from .admin_traces import router as admin_traces_router
-from .admin_overview import router as admin_overview_router
-from .admin_runtime import router as admin_runtime_router
 from .asr import router as asr_router
 from .semantic_search import router as semantic_search_router
 
@@ -57,13 +50,6 @@ __all__ = [
     'application_progress_router',
     'dashboard_perf_router',
     'calendar_router',
-    'admin_users_router',
-    'admin_members_router',
-    'admin_permissions_router',
-    'admin_logs_router',
-    'admin_traces_router',
-    'admin_overview_router',
-    'admin_runtime_router',
     'tts_router',
     'asr_router',
     'semantic_search_router',

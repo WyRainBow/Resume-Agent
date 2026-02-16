@@ -124,7 +124,8 @@ def _persist_observability(
                 )
             )
 
-        if request.url.path.startswith("/api/admin"):
+        # 管理端接口已迁移到 ops-portal，这里保留对所有业务 API 的链路采样。
+        if request.url.path.startswith("/api/"):
             db.add(
                 APITraceSpan(
                     trace_id=trace_id,
