@@ -5,13 +5,13 @@
  * 支持用户消息和助手消息，包含 Thought Process 和 Markdown 渲染
  */
 
-import React, { useState, useEffect, useRef } from 'react';
-import { ChatMessageProps } from '@/types/chat';
-import ThoughtProcess from './ThoughtProcess';
-import EnhancedMarkdown from './EnhancedMarkdown';
-import { useTextStream } from './ResponseStream';
-import TTSButton from './TTSButton';
-import { Copy, RotateCcw, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef } from "react";
+import { ChatMessageProps } from "@/types/chat";
+import ThoughtProcess from "./ThoughtProcess";
+import EnhancedMarkdown from "./EnhancedMarkdown";
+import { useTextStream } from "./ResponseStream";
+import TTSButton from "./TTSButton";
+import { Copy, RotateCcw, Check } from "lucide-react";
 
 /**
  * ChatMessage 组件 - 对话消息显示组件
@@ -35,14 +35,20 @@ import { Copy, RotateCcw, Check } from 'lucide-react';
  * />
  * ```
  */
-export default function ChatMessage({ message, isLatest = false, isStreaming = false, onTypewriterComplete }: ChatMessageProps) {
+export default function ChatMessage({
+  message,
+  isLatest = false,
+  isStreaming = false,
+  onTypewriterComplete,
+}: ChatMessageProps) {
   // 跟踪 thought process 是否完成
   const [thoughtProcessComplete, setThoughtProcessComplete] = useState(false);
   const [copied, setCopied] = useState(false);
   const thoughtProcessStartedRef = useRef(false);
 
   // 如果有 thought process，需要等待它完成
-  const hasThoughtProcess = message.thought && message.thought.trim().length > 0;
+  const hasThoughtProcess =
+    message.thought && message.thought.trim().length > 0;
 
   // 当 thought process 内容变化时，重置完成状态
   useEffect(() => {
@@ -66,7 +72,7 @@ export default function ChatMessage({ message, isLatest = false, isStreaming = f
     }
   }, [hasThoughtProcess, isLatest, isStreaming]);
 
-  if (message.role === 'user') {
+  if (message.role === "user") {
     return (
       <div className="flex justify-end mb-6">
         <div className="max-w-[80%]">
@@ -84,13 +90,15 @@ export default function ChatMessage({ message, isLatest = false, isStreaming = f
   // Assistant 消息
   // 流式传输时使用打字机效果，非流式传输时直接显示
   // 如果有 thought process，需要等待它完成后再开始 response 的打字机效果
-  const shouldUseTypewriter = message.role === 'assistant' && isLatest && isStreaming;
-  const canStartResponseTypewriter = shouldUseTypewriter && (!hasThoughtProcess || thoughtProcessComplete);
+  const shouldUseTypewriter =
+    message.role === "assistant" && isLatest && isStreaming;
+  const canStartResponseTypewriter =
+    shouldUseTypewriter && (!hasThoughtProcess || thoughtProcessComplete);
 
   const { displayedText, isComplete } = useTextStream({
-    textStream: canStartResponseTypewriter ? message.content : '',
+    textStream: canStartResponseTypewriter ? message.content : "",
     speed: 15, // 降低速度，让打字机效果更明显
-    mode: 'typewriter',
+    mode: "typewriter",
     onComplete: () => {
       // 打字机效果完成时，通知父组件
       if (canStartResponseTypewriter && onTypewriterComplete) {
@@ -101,7 +109,11 @@ export default function ChatMessage({ message, isLatest = false, isStreaming = f
 
   // 流式传输时使用打字机效果显示，否则直接显示完整内容
   // 如果 thought process 还没完成，不显示 response 内容
-  const textToShow = canStartResponseTypewriter ? displayedText : (shouldUseTypewriter ? '' : message.content);
+  const textToShow = canStartResponseTypewriter
+    ? displayedText
+    : shouldUseTypewriter
+      ? ""
+      : message.content;
 
   return (
     <div className="mb-6">
@@ -114,7 +126,9 @@ export default function ChatMessage({ message, isLatest = false, isStreaming = f
           defaultExpanded={true}
           onComplete={() => {
             // Thought process 打字机效果完成，允许 response 开始
-            console.log('[ChatMessage] Thought Process 打字机效果完成，允许 Response 开始');
+            console.log(
+              "[ChatMessage] Thought Process 打字机效果完成，允许 Response 开始",
+            );
             setThoughtProcessComplete(true);
           }}
         />
@@ -122,14 +136,15 @@ export default function ChatMessage({ message, isLatest = false, isStreaming = f
 
       {/* Response 内容 */}
       {/* 关键：如果有 thought process，必须等待它完成后再显示 response */}
-      {(!hasThoughtProcess || thoughtProcessComplete || !isStreaming) && textToShow && (
-        <div className="text-gray-800">
-          <EnhancedMarkdown>{textToShow}</EnhancedMarkdown>
-          {canStartResponseTypewriter && !isComplete && (
-            <span className="inline-block w-0.5 h-4 bg-gray-400 animate-pulse ml-0.5" />
-          )}
-        </div>
-      )}
+      {(!hasThoughtProcess || thoughtProcessComplete || !isStreaming) &&
+        textToShow && (
+          <div className="text-gray-800">
+            <EnhancedMarkdown>{textToShow}</EnhancedMarkdown>
+            {canStartResponseTypewriter && !isComplete && (
+              <span className="inline-block w-0.5 h-4 bg-gray-400 animate-pulse ml-0.5" />
+            )}
+          </div>
+        )}
 
       {/* 反馈按钮 */}
       {!isStreaming && message.content && (
@@ -149,18 +164,47 @@ export default function ChatMessage({ message, isLatest = false, isStreaming = f
               <Copy className="w-4 h-4" />
             )}
           </button>
-          <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" title="赞">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5" />
+          <button
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            title="赞"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
+              />
             </svg>
           </button>
-          <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" title="踩">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5" />
+          <button
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            title="踩"
+          >
+            <svg
+              className="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5"
+              />
             </svg>
           </button>
           <TTSButton text={message.content} />
-          <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors" title="重新生成">
+          <button
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+            title="重新生成"
+          >
             <RotateCcw className="w-4 h-4" />
           </button>
           <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
@@ -175,4 +219,3 @@ export default function ChatMessage({ message, isLatest = false, isStreaming = f
     </div>
   );
 }
-

@@ -40,25 +40,27 @@ export const plainChannel: ChannelRegistration<'plain', PlainChannelPayload> = {
     chunk: ContentCLChunk<P>
   ): PlainChannelPayload => {
     // 关键：直接提取文本内容，保持原样
-    const chunkPayload = chunk.metadata.payload as PlainChannelPayload;
+    const chunkPayload = chunk.metadata.payload as PlainChannelPayload & {
+      is_delta?: boolean;
+    };
     const chunkText = chunkPayload.text || '';
+    const isDelta = chunkPayload.is_delta === true;
 
-    // 避免重复：如果新 chunk 是全量内容或包含旧内容，则直接替换
-    if (chunkText) {
-      if (
-        chunkText === prev.text ||
-        chunkText.startsWith(prev.text) ||
-        prev.text.startsWith(chunkText) ||
-        chunkText.includes(prev.text) ||
-        prev.text.includes(chunkText)
-      ) {
-        return { text: chunkText };
+    // True streaming path: append delta tokens only.
+    if (isDelta) {
+      if (!chunkText) {
+        return prev;
       }
+      return {
+        text: prev.text + chunkText,
+      };
     }
 
-    return {
-      text: prev.text + chunkText,
-    };
+    // 非 delta 视为快照：直接替换，避免把两次全量内容拼接成重复段落
+    if (chunkText) {
+      return { text: chunkText };
+    }
+    return prev;
   },
 };
 
@@ -88,25 +90,26 @@ export const thinkChannel: ChannelRegistration<'think', ThinkChannelPayload> = {
     chunk: ContentCLChunk<P>
   ): ThinkChannelPayload => {
     // 关键：直接提取文本内容，保持原样
-    const chunkPayload = chunk.metadata.payload as ThinkChannelPayload;
+    const chunkPayload = chunk.metadata.payload as ThinkChannelPayload & {
+      is_delta?: boolean;
+    };
     const chunkText = chunkPayload.text || '';
+    const isDelta = chunkPayload.is_delta === true;
 
-    // 避免重复：如果新 chunk 是全量内容或包含旧内容，则直接替换
-    if (chunkText) {
-      if (
-        chunkText === prev.text ||
-        chunkText.startsWith(prev.text) ||
-        prev.text.startsWith(chunkText) ||
-        chunkText.includes(prev.text) ||
-        prev.text.includes(chunkText)
-      ) {
-        return { text: chunkText };
+    if (isDelta) {
+      if (!chunkText) {
+        return prev;
       }
+      return {
+        text: prev.text + chunkText,
+      };
     }
 
-    return {
-      text: prev.text + chunkText,
-    };
+    // 非 delta 视为快照：直接替换
+    if (chunkText) {
+      return { text: chunkText };
+    }
+    return prev;
   },
 };
 

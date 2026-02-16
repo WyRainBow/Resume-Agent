@@ -594,8 +594,6 @@ export default function SophiaChat() {
   const [showResumeSelector, setShowResumeSelector] = useState(false);
   const [pendingResumeInput, setPendingResumeInput] = useState<string>(""); // 暂存用户输入，选择简历后继续处理
 
-  // Thought Process 完成状态（用于控制 Response 的显示时机）
-  const [thoughtProcessComplete, setThoughtProcessComplete] = useState(false);
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
 
@@ -611,7 +609,6 @@ export default function SophiaChat() {
   const refreshAfterSaveRef = useRef(false);
   const saveRetryRef = useRef<Record<string, number>>({});
   const isFinalizedRef = useRef(false);
-  const shouldFinalizeRef = useRef(false); // 标记是否需要完成（等待打字机效果完成）
   const currentThoughtRef = useRef("");
   const currentAnswerRef = useRef("");
   const lastCompletedRef = useRef<{
@@ -621,7 +618,7 @@ export default function SophiaChat() {
   } | null>(null);
   const lastHandledAnswerCompleteRef = useRef(0);
   const prevRouteSessionIdRef = useRef<string | null>(null);
-
+  
   const normalizedResume = useMemo(() => {
     if (!resumeData) return null;
     return convertResumeDataToOpenManusFormat(resumeData);
@@ -1061,10 +1058,14 @@ export default function SophiaChat() {
         }
 
         // 🔧 改进：使用内容哈希生成稳定的消息 ID
-        const generateMessageId = (content: string, role: string): string => {
+        const generateMessageId = (
+          content: string,
+          role: string,
+          index: number,
+        ): string => {
           // 简单的字符串哈希函数（FNV-1a 变体）
           let hash = 2166136261;
-          const str = `${role}:${content}`;
+          const str = `${role}:${content}:${index}`;
           for (let i = 0; i < str.length; i++) {
             hash ^= str.charCodeAt(i);
             hash +=
@@ -1080,8 +1081,8 @@ export default function SophiaChat() {
         };
 
         const loadedMessages: Message[] = (data.messages || []).map(
-          (m: any) => ({
-            id: generateMessageId(m.content || "", m.role || "unknown"),
+          (m: any, index: number) => ({
+            id: generateMessageId(m.content || "", m.role || "unknown", index),
             role: m.role === "user" ? "user" : "assistant",
             content: m.content || "",
             thought: m.thought || undefined,
@@ -1344,6 +1345,9 @@ export default function SophiaChat() {
     });
 
     if (!thought && !answer) {
+      if (isProcessing) {
+        console.warn("[AgentChat] finalizeMessage called with NO content while still processing. This might be a race condition.");
+      }
       console.log("[AgentChat] No content to finalize, just resetting state");
       finalizeStream();
       setTimeout(() => {
@@ -1761,6 +1765,12 @@ export default function SophiaChat() {
       const roleKey = msg.role || "unknown";
       const seenContents = getSeenSet(roleKey);
 
+      // 用户多次发送相同文本属于正常行为，不能在加载时去重。
+      if (roleKey === "user") {
+        deduped.push(msg);
+        continue;
+      }
+
       // 仅在 assistant 消息中进行扩展去重逻辑，避免误伤 user 消息
       let cleanContent = contentKey;
       if (roleKey === "assistant" && contentKey.includes("Response:")) {
@@ -1768,7 +1778,7 @@ export default function SophiaChat() {
           contentKey.split("Response:").pop()?.trim() || contentKey;
       }
 
-      // 检查是否已存在相同或相似的内容
+      // 检查是否已存在相同或相似的内容（assistant）
       // 检查完全匹配
       if (seenContents.has(contentKey)) {
         console.log(
@@ -1844,6 +1854,9 @@ export default function SophiaChat() {
     // 先保存当前会话，确保未完成的内容被保存
     saveCurrentSession();
     await waitForPendingSave();
+
+    // 确保切换会话前清除任何待保存标记，防止将新加载的消息误存回服务器
+    pendingSaveRef.current = false;
 
     // 切换会话时先清理右侧和会话关联状态，避免旧会话数据串到新会话
     setSelectedResumeId(null);
@@ -1956,6 +1969,9 @@ export default function SophiaChat() {
     // 先尽量保存当前会话，避免切换后丢失上下文
     saveCurrentSession();
     await waitForPendingSave();
+
+    // 确保切换会话前清除任何待保存标记
+    pendingSaveRef.current = false;
 
     const newId = `conv-${Date.now()}`;
     setMessages([]);
@@ -2131,8 +2147,6 @@ export default function SophiaChat() {
       }
 
       isFinalizedRef.current = false;
-      shouldFinalizeRef.current = false;
-      setThoughtProcessComplete(false);
       setSearchResults((prev) =>
         prev.filter((item) => item.messageId !== "current"),
       );
@@ -2195,7 +2209,6 @@ export default function SophiaChat() {
     }
     lastHandledAnswerCompleteRef.current = answerCompleteCount;
 
-    shouldFinalizeRef.current = true;
     const hasContent =
       currentAnswerRef.current.trim() ||
       currentThoughtRef.current.trim() ||
@@ -2217,42 +2230,41 @@ export default function SophiaChat() {
       thoughtStateLength: currentThought.trim().length,
     });
 
-    // 隐藏回答模式下不会渲染 Response 打字机，收到 answerComplete 后直接 finalize
-    if (shouldHideResponseInChat) {
-      console.log(
-        "[AgentChat] Hidden response mode, finalize immediately on answerComplete",
-      );
-      shouldFinalizeRef.current = false;
+    // True-streaming path: finalize immediately when backend marks answer complete.
+    // Use a small delay to ensure refs are fully synchronized with the latest chunks.
+    const finalizeWithRetry = (retryCount = 0) => {
+      const currentAnswerValue = currentAnswerRef.current.trim() || currentAnswer.trim();
+      const currentThoughtValue = currentThoughtRef.current.trim() || currentThought.trim();
+      const hasAnyContent = currentAnswerValue || currentThoughtValue;
+
+      if (!hasAnyContent && retryCount < 3) {
+        console.log(`[AgentChat] No content detected in effect, retrying finalize... (${retryCount + 1}/3)`);
+        setTimeout(() => finalizeWithRetry(retryCount + 1), 50 * (retryCount + 1));
+        return;
+      }
+
+      if (hasAnyContent) {
+        lastCompletedRef.current = {
+          thought: currentThoughtValue,
+          answer: currentAnswerValue,
+          at: Date.now(),
+        };
+      }
+
+      console.log("[AgentChat] Executing finalization", { hasAnyContent, retryCount });
       finalizeMessage();
       finalizeStream();
+      
       setTimeout(() => {
         isFinalizedRef.current = false;
-      }, 100);
-      return;
-    }
+      }, 150);
+    };
 
-    if (!hasContent) {
-      // No content to typewriter, finalize immediately to clear state
-      finalizeMessage();
-      return;
-    }
-    // Fallback: if typewriter doesn't complete, cleanup after a delay
-    setTimeout(() => {
-      if (shouldFinalizeRef.current && isProcessing) {
-        console.log("[AgentChat] Fallback finalize timeout");
-        shouldFinalizeRef.current = false;
-        finalizeMessage();
-        finalizeStream();
-        setTimeout(() => {
-          isFinalizedRef.current = false;
-        }, 100);
-      }
-    }, 1400);
+    finalizeWithRetry();
   }, [
     answerCompleteCount,
     finalizeMessage,
     finalizeStream,
-    shouldHideResponseInChat,
   ]);
 
   /**
@@ -2822,25 +2834,8 @@ export default function SophiaChat() {
                   currentThought={currentThought}
                   currentAnswer={currentAnswer}
                   isProcessing={isProcessing}
-                  thoughtProcessComplete={thoughtProcessComplete}
                   shouldHideResponseInChat={shouldHideResponseInChat}
                   currentSearch={searchResults.find((r) => r.messageId === "current")}
-                  onThoughtComplete={() => {
-                    console.log("[AgentChat] ThoughtProcess 打字机效果完成");
-                    setThoughtProcessComplete(true);
-                  }}
-                  onResponseComplete={() => {
-                    // Response 打字机效果完成时，清理流式状态
-                    if (shouldFinalizeRef.current) {
-                      console.log("[AgentChat] Response 打字机完成, finalize stream");
-                      shouldFinalizeRef.current = false;
-                      finalizeMessage();
-                      finalizeStream();
-                      setTimeout(() => {
-                        isFinalizedRef.current = false;
-                      }, 100);
-                    }
-                  }}
                   renderSearchCard={(searchData) => (
                     <>
                       <SearchCard

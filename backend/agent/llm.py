@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import math
-from typing import Dict, List, Optional, Union
+from typing import Awaitable, Callable, Dict, List, Optional, Union
 
 import tiktoken
 import httpx
@@ -25,6 +26,7 @@ from tenacity import (
 from backend.agent.bedrock import BedrockClient
 from backend.agent.config import LLMSettings, NetworkConfig, config
 from backend.agent.exceptions import TokenLimitExceeded
+from backend.agent.llm_streaming.tool_call_assembler import ToolCallAssembler
 from backend.core.logger import get_logger  # Assuming a logger is set up in your app
 
 logger = get_logger(__name__)
@@ -284,6 +286,12 @@ class LLM:
         if self.token_counter is None:
             return 0
         return self.token_counter.count_message_tokens(messages)
+
+    def count_tool_calls(self, tool_calls: List[dict]) -> int:
+        """Calculate tokens consumed by tool call payloads."""
+        if self.token_counter is None:
+            return 0
+        return self.token_counter.count_tool_calls(tool_calls)
 
     def update_token_count(self, input_tokens: int, completion_tokens: int = 0) -> None:
         """Update token counts"""
@@ -863,4 +871,137 @@ class LLM:
             raise
         except Exception as e:
             logger.error(f"Unexpected error in ask_tool: {e}")
+            raise
+
+    @staticmethod
+    def _build_chat_completion_message(payload: dict) -> ChatCompletionMessage:
+        """Build ChatCompletionMessage in a version-compatible way."""
+        try:
+            return ChatCompletionMessage.model_validate(payload)
+        except AttributeError:
+            return ChatCompletionMessage(**payload)
+
+    @retry(
+        wait=wait_random_exponential(min=1, max=10),
+        stop=stop_after_attempt(3),
+        retry=retry_if_exception_type((OpenAIError, Exception, ValueError)),
+    )
+    async def ask_tool_stream(
+        self,
+        messages: List[Union[dict, Message]],
+        system_msgs: Optional[List[Union[dict, Message]]] = None,
+        timeout: int = 300,
+        tools: Optional[List[dict]] = None,
+        tool_choice: TOOL_CHOICE_TYPE = ToolChoice.AUTO,  # type: ignore
+        temperature: Optional[float] = None,
+        on_content_delta: Optional[Callable[[str], Awaitable[None]]] = None,
+        cancel_event: Optional[asyncio.Event] = None,
+        **kwargs,
+    ) -> ChatCompletionMessage | None:
+        """Stream tool-enabled completions and return final message."""
+        try:
+            if tool_choice not in TOOL_CHOICE_VALUES:
+                raise ValueError(f"Invalid tool_choice: {tool_choice}")
+
+            supports_images = self.model in MULTIMODAL_MODELS
+            if system_msgs:
+                system_msgs = self.format_messages(system_msgs, supports_images)
+                messages = system_msgs + self.format_messages(messages, supports_images)
+            else:
+                messages = self.format_messages(messages, supports_images)
+
+            input_tokens = self.count_message_tokens(messages)
+            tools_tokens = 0
+            if tools:
+                for tool in tools:
+                    tools_tokens += self.count_tokens(str(tool))
+            input_tokens += tools_tokens
+
+            if not self.check_token_limit(input_tokens):
+                raise TokenLimitExceeded(self.get_limit_error_message(input_tokens))
+
+            if tools:
+                for tool in tools:
+                    if not isinstance(tool, dict) or "type" not in tool:
+                        raise ValueError("Each tool must be a dict with 'type' field")
+
+            params = {
+                "model": self.model,
+                "messages": messages,
+                "tools": tools,
+                "tool_choice": tool_choice,
+                "timeout": timeout,
+                "stream": True,
+                **kwargs,
+            }
+
+            if self.model in REASONING_MODELS:
+                params["max_completion_tokens"] = self.max_tokens
+            else:
+                params["max_tokens"] = self.max_tokens
+                params["temperature"] = (
+                    temperature if temperature is not None else self.temperature
+                )
+
+            self.update_token_count(input_tokens)
+            stream = await self.client.chat.completions.create(**params)
+
+            finish_reason: Optional[str] = None
+            content = ""
+            assembler = ToolCallAssembler()
+
+            async for chunk in stream:
+                if cancel_event and cancel_event.is_set():
+                    raise asyncio.CancelledError("Cancelled while streaming tool response")
+
+                if not chunk.choices:
+                    continue
+
+                choice = chunk.choices[0]
+                if choice.finish_reason:
+                    finish_reason = choice.finish_reason
+
+                delta = choice.delta
+                if delta is None:
+                    continue
+
+                piece = getattr(delta, "content", None)
+                if piece:
+                    content += piece
+                    if on_content_delta:
+                        # Emit incremental chunk for lower latency streaming.
+                        await on_content_delta(piece)
+
+                tool_call_deltas = getattr(delta, "tool_calls", None)
+                if tool_call_deltas:
+                    assembler.ingest(tool_call_deltas)
+
+            tool_calls = assembler.build()
+            if tool_calls and not assembler.is_ready(finish_reason):
+                logger.warning("Tool calls streamed but assembler not fully ready; using best-effort result")
+            completion_tokens = self.count_tokens(content) + self.count_tool_calls(tool_calls)
+            self.total_completion_tokens += completion_tokens
+
+            payload: dict = {
+                "role": "assistant",
+                "content": content if content else None,
+            }
+            if tool_calls:
+                payload["tool_calls"] = tool_calls
+
+            return self._build_chat_completion_message(payload)
+
+        except asyncio.CancelledError:
+            logger.info("ask_tool_stream cancelled")
+            raise
+        except TokenLimitExceeded:
+            raise
+        except ValueError as ve:
+            logger.error(f"Validation error in ask_tool_stream: {ve}")
+            raise
+        except OpenAIError as oe:
+            logger.error(f"OpenAI API error in ask_tool_stream: {oe}")
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error in ask_tool_stream: {e}")
             raise

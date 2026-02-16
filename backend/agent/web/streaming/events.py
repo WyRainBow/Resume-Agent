@@ -208,12 +208,16 @@ class AnswerEvent(StreamEvent):
         content: str,
         is_complete: bool = True,
         session_id: str | None = None,
+        delta: str | None = None,
+        event_seq: int | None = None,
     ):
         super().__init__(
             event_type=EventType.ANSWER,
             data={
                 "content": content,
                 "is_complete": is_complete,
+                "delta": delta,
+                "event_seq": event_seq,
             },
             session_id=session_id,
         )
@@ -223,6 +227,9 @@ class AnswerEvent(StreamEvent):
         return {
             "type": self.event_type.value,
             "content": self.data["content"],
+            "is_complete": self.data.get("is_complete", True),
+            "delta": self.data.get("delta"),
+            "event_seq": self.data.get("event_seq"),
         }
 
 

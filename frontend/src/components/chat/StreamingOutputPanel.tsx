@@ -12,12 +12,6 @@ export interface StreamingOutputPanelProps {
   currentAnswer: string;
   /** 是否正在处理中 */
   isProcessing: boolean;
-  /** 思考过程是否已完成（打字机效果完成） */
-  thoughtProcessComplete: boolean;
-  /** 思考过程完成时的回调 */
-  onThoughtComplete: () => void;
-  /** 回答完成时的回调（打字机效果完成） */
-  onResponseComplete: () => void;
   /** 是否在聊天中隐藏回答（例如正在生成报告时） */
   shouldHideResponseInChat?: boolean;
   /** 搜索结果（可选） */
@@ -50,9 +44,6 @@ export default function StreamingOutputPanel({
   currentThought,
   currentAnswer,
   isProcessing,
-  thoughtProcessComplete,
-  onThoughtComplete,
-  onResponseComplete,
   shouldHideResponseInChat = false,
   currentSearch,
   renderSearchCard,
@@ -63,8 +54,7 @@ export default function StreamingOutputPanel({
     return null;
   }
 
-  // 只有当 Thought Process 完成（或没有 thought）时才显示后续内容
-  const canShowSubsequentContent = !currentThought || thoughtProcessComplete;
+  const canShowSubsequentContent = true;
 
   return (
     <>
@@ -75,7 +65,6 @@ export default function StreamingOutputPanel({
           isStreaming={true}
           isLatest={true}
           defaultExpanded={true}
-          onComplete={onThoughtComplete}
         />
       )}
 
@@ -89,8 +78,7 @@ export default function StreamingOutputPanel({
       {/* 3. Response 最后显示 */}
       <StreamingResponse
         content={currentAnswer}
-        canStart={!shouldHideResponseInChat && canShowSubsequentContent}
-        onComplete={onResponseComplete}
+        canStart={!shouldHideResponseInChat}
       />
 
       {/* 4. 额外的检测器或卡片 */}

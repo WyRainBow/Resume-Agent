@@ -17,6 +17,7 @@ from typing import AsyncGenerator, Optional
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
+from openai import PermissionDeniedError
 
 from backend.agent.agent.manus import Manus
 from backend.agent.config import NetworkConfig, config
@@ -98,7 +99,9 @@ def _get_or_create_session(
                 # Use network configuration manager's context manager
                 with network_config.without_proxy():
                     agent = Manus(session_id=conversation_id)
-                chat_history = conversation_manager.get_or_create_history(conversation_id)
+                chat_history = conversation_manager.get_or_create_history(
+                    conversation_id
+                )
                 break
             except Exception as exc:
                 last_exc = exc
@@ -136,9 +139,14 @@ def _get_or_create_session(
             _active_sessions[conversation_id]["resume_path"] = resume_path
         if resume_data:
             from backend.agent.tool.resume_data_store import ResumeDataStore
+
             ResumeDataStore.set_data(resume_data, session_id=conversation_id)
             agent = _active_sessions[conversation_id].get("agent")
-            if agent and hasattr(agent, "_conversation_state") and agent._conversation_state:
+            if (
+                agent
+                and hasattr(agent, "_conversation_state")
+                and agent._conversation_state
+            ):
                 agent._conversation_state.update_resume_loaded(True)
 
     return _active_sessions[conversation_id]
@@ -179,7 +187,9 @@ async def _stream_event_generator(
     Yields:
         SSE formatted strings
     """
-    logger.info(f"[SSE Generator] Starting generator for conversation: {conversation_id}")
+    logger.info(
+        f"[SSE Generator] Starting generator for conversation: {conversation_id}"
+    )
     try:
         session = _get_or_create_session(conversation_id, resume_path, resume_data)
         agent = session["agent"]
@@ -196,7 +206,7 @@ async def _stream_event_generator(
         logger.info(f"[SSE Generator] Preparing initial status event")
         status_event = SSEEvent(
             type="status",
-            data={"content": "processing", "conversation_id": conversation_id}
+            data={"content": "processing", "conversation_id": conversation_id},
         )
         logger.info(f"[SSE Generator] Yielding initial status event")
         yield status_event.to_sse_format()
@@ -205,7 +215,7 @@ async def _stream_event_generator(
 
         # Restore chat history to agent memory if needed
         existing_messages = chat_history.get_messages()
-        
+
         # If chat_history is empty but agent.memory has messages, clear agent.memory
         # This can happen when a session file was deleted but the active session still exists in memory
         if not existing_messages and len(agent.memory.messages) > 0:
@@ -214,25 +224,33 @@ async def _stream_event_generator(
                 "Clearing agent.memory to prevent stale context."
             )
             agent.memory.messages.clear()
-        
+
         if existing_messages and len(agent.memory.messages) == 0:
-            logger.info(f"[SSE] Restoring {len(existing_messages)} history messages to agent")
+            logger.info(
+                f"[SSE] Restoring {len(existing_messages)} history messages to agent"
+            )
             for msg in existing_messages:
-                role_value = msg.role.value if hasattr(msg.role, 'value') else str(msg.role)
+                role_value = (
+                    msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+                )
                 if role_value == "user":
                     agent.memory.add_message(Message.user_message(msg.content))
                 elif role_value == "assistant":
-                    agent.memory.add_message(Message(
-                        role=Role.ASSISTANT,
-                        content=msg.content,
-                        tool_calls=msg.tool_calls
-                    ))
+                    agent.memory.add_message(
+                        Message(
+                            role=Role.ASSISTANT,
+                            content=msg.content,
+                            tool_calls=msg.tool_calls,
+                        )
+                    )
                 elif role_value == "tool":
-                    agent.memory.add_message(Message.tool_message(
-                        content=msg.content,
-                        name=msg.name or "unknown",
-                        tool_call_id=msg.tool_call_id or ""
-                    ))
+                    agent.memory.add_message(
+                        Message.tool_message(
+                            content=msg.content,
+                            name=msg.name or "unknown",
+                            tool_call_id=msg.tool_call_id or "",
+                        )
+                    )
 
         # Add user message to chat history (don't persist yet, wait for agent to complete)
         chat_history.add_message(Message(role=Role.USER, content=prompt), persist=False)
@@ -249,14 +267,13 @@ async def _stream_event_generator(
             # Convert StreamEvent to SSE format
             event_dict = event.to_dict()
             sse_event = SSEEvent(
-                type=event_dict.get("type", "unknown"),
-                data=event_dict
+                type=event_dict.get("type", "unknown"), data=event_dict
             )
             yield sse_event.to_sse_format()
             last_message_time = time.time()
 
-            # Small delay to prevent overwhelming the client
-            await asyncio.sleep(0.01)
+            # 真流式场景下不再固定 sleep，降低首字与逐段延迟
+            await asyncio.sleep(0)
 
             # Check if heartbeat is needed during long operations
             current_time = time.time()
@@ -268,7 +285,7 @@ async def _stream_event_generator(
         # Send completion status
         complete_event = SSEEvent(
             type="status",
-            data={"content": "complete", "conversation_id": conversation_id}
+            data={"content": "complete", "conversation_id": conversation_id},
         )
         yield complete_event.to_sse_format()
 
@@ -276,10 +293,19 @@ async def _stream_event_generator(
         logger.info(f"[SSE] Stream cancelled for session: {conversation_id}")
         cancel_event = SSEEvent(
             type="status",
-            data={"content": "cancelled", "conversation_id": conversation_id}
+            data={"content": "cancelled", "conversation_id": conversation_id},
         )
         yield cancel_event.to_sse_format()
 
+    except PermissionDeniedError as e:
+        logger.warning(f"[SSE] Model quota/403 for session {conversation_id}: {e}")
+        error_payload = {
+            "content": "模型余额不足，请充值",
+            "error_type": type(e).__name__,
+            "error_details": str(e),
+        }
+        error_event = SSEEvent(type="error", data=error_payload)
+        yield error_event.to_sse_format()
     except Exception as e:
         logger.exception(f"[SSE] Error in stream for session {conversation_id}: {e}")
         error_msg = str(e)
@@ -289,6 +315,16 @@ async def _stream_event_generator(
                 "content": "网络连接失败：请检查代理配置或网络连接",
                 "error_type": type(e).__name__,
                 "error_details": "代理连接失败可能导致 Agent 初始化失败",
+            }
+        elif (
+            "403" in error_msg
+            or "free tier" in error_msg.lower()
+            or "FreeTierOnly" in error_msg
+        ):
+            error_payload = {
+                "content": "余额不足，请充值",
+                "error_type": type(e).__name__,
+                "error_details": error_msg,
             }
         else:
             error_payload = {"content": error_msg, "error_type": type(e).__name__}
@@ -327,13 +363,19 @@ async def stream_events(request: StreamRequest) -> StreamingResponse:
             f"[SSE] Resume requested for conversation: {conversation_id} cursor={request.cursor}"
         )
     logger.info(f"[SSE] Prompt: {prompt[:100]}...")
-    
+
     # 🔍 诊断日志：检查 resume_data 元数据
     if request.resume_data:
         rd = request.resume_data
-        resume_id = rd.get("resume_id") or rd.get("id") or (rd.get("_meta") or {}).get("resume_id")
+        resume_id = (
+            rd.get("resume_id")
+            or rd.get("id")
+            or (rd.get("_meta") or {}).get("resume_id")
+        )
         user_id = rd.get("user_id") or (rd.get("_meta") or {}).get("user_id")
-        logger.info(f"[SSE] resume_data metadata: resume_id={resume_id}, user_id={user_id}")
+        logger.info(
+            f"[SSE] resume_data metadata: resume_id={resume_id}, user_id={user_id}"
+        )
     else:
         logger.warning("[SSE] No resume_data provided in request")
 
@@ -353,7 +395,7 @@ async def stream_events(request: StreamRequest) -> StreamingResponse:
             "X-Accel-Buffering": "no",  # Disable nginx buffering
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Headers": "*",
-        }
+        },
     )
 
 
@@ -393,6 +435,3 @@ async def clear_session(conversation_id: str) -> dict:
     # Idempotent delete: do not 404 for missing session
     logger.info(f"[SSE] Session not found (already cleared): {conversation_id}")
     return {"status": "not_found", "conversation_id": conversation_id}
-
-
-
