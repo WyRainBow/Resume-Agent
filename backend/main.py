@@ -76,12 +76,6 @@ photos_router = routes_module.photos_router
 application_progress_router = routes_module.application_progress_router
 dashboard_perf_router = routes_module.dashboard_perf_router
 calendar_router = routes_module.calendar_router
-admin_users_router = routes_module.admin_users_router
-admin_members_router = routes_module.admin_members_router
-admin_permissions_router = routes_module.admin_permissions_router
-admin_logs_router = routes_module.admin_logs_router
-admin_traces_router = routes_module.admin_traces_router
-admin_overview_router = routes_module.admin_overview_router
 asr_router = routes_module.asr_router
 semantic_search_router = routes_module.semantic_search_router
 
@@ -124,12 +118,6 @@ app.include_router(photos_router)
 app.include_router(application_progress_router)
 app.include_router(dashboard_perf_router)
 app.include_router(calendar_router)
-app.include_router(admin_users_router)
-app.include_router(admin_members_router)
-app.include_router(admin_permissions_router)
-app.include_router(admin_logs_router)
-app.include_router(admin_traces_router)
-app.include_router(admin_overview_router)
 app.include_router(asr_router)
 app.include_router(semantic_search_router)
 

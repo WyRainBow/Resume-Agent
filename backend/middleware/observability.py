@@ -1,4 +1,4 @@
-"""管理后台可观测性中间件：请求日志、错误日志、链路 span。"""
+"""可观测性中间件：请求日志、错误日志、链路 span。"""
 from __future__ import annotations
 
 import time
@@ -124,7 +124,8 @@ def _persist_observability(
                 )
             )
 
-        if request.url.path.startswith("/api/admin"):
+        # 管理端接口已迁移到 ops-portal，保留业务 API 的链路采样（排除健康检查）。
+        if request.url.path.startswith("/api/") and request.url.path not in {"/api/health"}:
             db.add(
                 APITraceSpan(
                     trace_id=trace_id,

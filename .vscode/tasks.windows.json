@@ -1,0 +1,71 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "⚙️ Backend: Start API Server",
+      "type": "shell",
+      "command": ".venv\\Scripts\\Activate.ps1; $env:PYTHONPATH=$PWD; python -m uvicorn backend.main:app --reload --port 9000",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "group": "dev-servers"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^(.*)$",
+          "file": 1,
+          "line": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*Uvicorn running.*$",
+          "endsPattern": "^.*Application startup complete.*$"
+        }
+      }
+    },
+    {
+      "label": "⚛️ Frontend: Start Dev Server",
+      "type": "shell",
+      "command": "npm run dev",
+      "options": {
+        "cwd": "${workspaceFolder}\\frontend"
+      },
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "new",
+        "group": "dev-servers"
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^(.*)$",
+          "file": 1,
+          "line": 2,
+          "message": 3
+        },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*VITE.*$",
+          "endsPattern": "^.*ready in.*$"
+        }
+      }
+    },
+    {
+      "label": "🚀 Start All (Backend + Frontend)",
+      "dependsOn": [
+        "⚙️ Backend: Start API Server",
+        "⚛️ Frontend: Start Dev Server"
+      ],
+      "dependsOrder": "parallel",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

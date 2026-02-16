@@ -1,0 +1,72 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "⚙️ Backend: Start API Server",
+        "type": "shell",
+        "command": "lsof -ti tcp:9000 | xargs kill -9 2>/dev/null || true; PYTHONUNBUFFERED=1 PYTHONPATH=\"${workspaceFolder}:$PYTHONPATH\" conda run --no-capture-output -n resume-agent python -m uvicorn backend.main:app --reload --reload-dir \"${workspaceFolder}\" --host 0.0.0.0 --port 9000 --log-level info",
+        "group": "build",
+        "presentation": {
+          "reveal": "always",
+          "panel": "new",
+          "group": "dev-servers"
+        },
+        "isBackground": true,
+        "problemMatcher": {
+          "pattern": {
+            "regexp": "^(.*)$",
+            "file": 1,
+            "line": 2,
+            "message": 3
+          },
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "^.*Uvicorn running.*$",
+            "endsPattern": "^.*Application startup complete.*$"
+          }
+        }
+      },
+      {
+        "label": "⚛️ Frontend: Start Dev Server",
+        "type": "shell",
+        "command": "lsof -ti tcp:5173 | xargs kill -9 2>/dev/null || true; test -d node_modules || npm install; npm run dev -- --host",
+        "options": {
+          "cwd": "${workspaceFolder}/frontend"
+        },
+        "group": "build",
+        "presentation": {
+          "reveal": "always",
+          "panel": "new",
+          "group": "dev-servers"
+        },
+        "isBackground": true,
+        "problemMatcher": {
+          "pattern": {
+            "regexp": "^(.*)$",
+            "file": 1,
+            "line": 2,
+            "message": 3
+          },
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "^.*VITE.*$",
+            "endsPattern": "^.*ready in.*$"
+          }
+        }
+      },
+      {
+        "label": "Start All (Backend + Frontend)",
+        "dependsOn": [
+          "⚙️ Backend: Start API Server",
+          "⚛️ Frontend: Start Dev Server"
+        ],
+        "dependsOrder": "parallel",
+        "group": {
+          "kind": "build",
+          "isDefault": true
+        },
+        "problemMatcher": []
+      }
+    ]
+  }
+  
