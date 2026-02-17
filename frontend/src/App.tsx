@@ -23,7 +23,14 @@ const ReportEdit = lazy(() => import('./pages/ReportEdit'))
 const ReportsPage = lazy(() => import('./pages/Reports'))
 
 function RouteFallback() {
-  return <div className="h-screen w-full bg-white" />
+  return (
+    <div className="h-screen w-full bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin" />
+        <p className="text-gray-600 font-medium">加载中...</p>
+      </div>
+    </div>
+  )
 }
 
 function App() {
