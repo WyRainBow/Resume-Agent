@@ -13,9 +13,9 @@ type Theme = 'light' | 'dark' | 'system'
 function useTheme() {
   const [theme, setThemeState] = useState<Theme>(() => {
     try {
-      return (localStorage.getItem(THEME_KEY) as Theme) || 'system'
+      return (localStorage.getItem(THEME_KEY) as Theme) || 'light'
     } catch {
-      return 'system'
+      return 'light'
     }
   })
 
@@ -25,13 +25,7 @@ function useTheme() {
       if (dark) root.classList.add('dark')
       else root.classList.remove('dark')
     }
-    if (theme === 'system') {
-      const mq = window.matchMedia('(prefers-color-scheme: dark)')
-      apply(mq.matches)
-      const handler = () => apply(mq.matches)
-      mq.addEventListener('change', handler)
-      return () => mq.removeEventListener('change', handler)
-    }
+    // 不跟随系统：system 与 light 均按浅色处理
     apply(theme === 'dark')
   }, [theme])
 

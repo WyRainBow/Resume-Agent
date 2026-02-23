@@ -10,12 +10,9 @@ export function ThemeInit() {
       if (dark) root.classList.add('dark')
       else root.classList.remove('dark')
     }
-    if (stored === 'dark' || stored === 'light') {
-      apply(stored === 'dark')
-    } else {
-      const mq = window.matchMedia('(prefers-color-scheme: dark)')
-      apply(mq.matches)
-    }
+    // 默认浅色，不跟随系统；仅显式选择 dark 时用深色
+    if (stored === 'dark') apply(true)
+    else apply(false)
   }, [])
   return null
 }
