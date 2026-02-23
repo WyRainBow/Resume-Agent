@@ -79,8 +79,7 @@ test_api.sh
 !deploy.sh
 !railway-start.sh
 
-# 本地 Logo 图片目录（不提交到仓库）
-images/
+
 
 # 测试目录
 测试测试/
