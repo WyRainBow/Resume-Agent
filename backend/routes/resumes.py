@@ -202,8 +202,11 @@ def delete_resume(
     db: Session = Depends(get_db)
 ):
     """删除简历"""
-    resume = db.query(Resume).filter(Resume.id == resume_id, Resume.user_id == current_user.id).first()
-    if not resume:
+    exists = db.query(Resume.id).filter(
+        Resume.id == resume_id,
+        Resume.user_id == current_user.id
+    ).first()
+    if not exists:
         raise HTTPException(status_code=404, detail="简历不存在")
 
     try:
@@ -218,7 +221,14 @@ def delete_resume(
             ResumeEmbedding.resume_id == resume_id,
         ).delete(synchronize_session=False)
 
-        db.delete(resume)
+        # 使用批量删除，避免触发 Resume.user 关系懒加载导致的 mapper flush 异常
+        deleted = db.query(Resume).filter(
+            Resume.id == resume_id,
+            Resume.user_id == current_user.id
+        ).delete(synchronize_session=False)
+        if deleted == 0:
+            db.rollback()
+            raise HTTPException(status_code=404, detail="简历不存在")
         db.commit()
         return {"success": True}
     except SQLAlchemyError as exc:
