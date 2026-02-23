@@ -14,6 +14,7 @@ interface BoldInputProps {
   placeholder?: string
   className?: string
   label?: string
+  rightActions?: React.ReactNode
 }
 
 /** 去除 Markdown 加粗标记，返回纯文本 */
@@ -38,6 +39,7 @@ const BoldInput: React.FC<BoldInputProps> = ({
   placeholder,
   className,
   label,
+  rightActions,
 }) => {
   const editorRef = useRef<HTMLDivElement>(null)
   const [isFocused, setIsFocused] = useState(false)
@@ -156,7 +158,7 @@ const BoldInput: React.FC<BoldInputProps> = ({
             'dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-200',
             'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
             '[&_strong]:font-bold [&_b]:font-bold',
-            'pr-10',
+            rightActions ? 'pr-40' : 'pr-10',
             className
           )}
           style={{
@@ -174,23 +176,26 @@ const BoldInput: React.FC<BoldInputProps> = ({
             {placeholder}
           </div>
         )}
-        {/* B 按钮：onMouseDown preventDefault 防止抢焦点 */}
-        <button
-          type="button"
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={handleBoldClick}
-          className={cn(
-            'absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded border transition-colors',
-            'hover:bg-gray-100 dark:hover:bg-neutral-800',
-            'text-gray-600 dark:text-neutral-400',
-            isBold
-              ? 'bg-primary/10 dark:bg-primary/15 text-primary border-primary/30'
-              : 'border-transparent'
-          )}
-          title={isBold ? '取消加粗' : '加粗'}
-        >
-          <Bold className={cn('w-4 h-4', isBold && 'stroke-[2.5]')} />
-        </button>
+        <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
+          {rightActions}
+          {/* B 按钮：onMouseDown preventDefault 防止抢焦点 */}
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={handleBoldClick}
+            className={cn(
+              'p-1.5 rounded border transition-colors',
+              'hover:bg-gray-100 dark:hover:bg-neutral-800',
+              'text-gray-600 dark:text-neutral-400',
+              isBold
+                ? 'bg-primary/10 dark:bg-primary/15 text-primary border-primary/30'
+                : 'border-transparent'
+            )}
+            title={isBold ? '取消加粗' : '加粗'}
+          >
+            <Bold className={cn('w-4 h-4', isBold && 'stroke-[2.5]')} />
+          </button>
+        </div>
       </div>
     </div>
   )

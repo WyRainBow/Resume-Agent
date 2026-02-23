@@ -12,6 +12,7 @@ from pathlib import Path
 # 仓库根目录下的 images/logo（与 .gitignore 中的 images/ 对应）
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 LOCAL_LOGO_DIR = _REPO_ROOT / "images" / "logo"
+LOCAL_LOGO_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".svg"}
 
 COS_BASE_URL = 'https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com'
 
@@ -140,12 +141,15 @@ def clear_cache():
 
 
 def _scan_local_logos() -> list[dict] | None:
-    """若存在 images/logo/ 且含 .png，则返回本地 Logo 列表，否则返回 None。异常时返回 None 以便降级 COS。"""
+    """若存在 images/logo/ 且含图片文件，则返回本地 Logo 列表，否则返回 None。异常时返回 None 以便降级 COS。"""
     global _key_to_file
     try:
         if not LOCAL_LOGO_DIR.is_dir():
             return None
-        files = sorted(LOCAL_LOGO_DIR.glob("*.png"))
+        files = sorted(
+            p for p in LOCAL_LOGO_DIR.iterdir()
+            if p.is_file() and p.suffix.lower() in LOCAL_LOGO_EXTS
+        )
         if not files:
             return None
         logos = []
@@ -292,8 +296,11 @@ def get_logo_local_path(key: str) -> Path | None:
     if filename:
         p = LOCAL_LOGO_DIR / filename
         return p if p.is_file() else None
-    p = LOCAL_LOGO_DIR / f"{key}.png"
-    return p if p.is_file() else None
+    for ext in LOCAL_LOGO_EXTS:
+        p = LOCAL_LOGO_DIR / f"{key}{ext}"
+        if p.is_file():
+            return p
+    return None
 
 
 def download_logos_to_dir(internships: list, target_dir: str) -> dict[int, str]:

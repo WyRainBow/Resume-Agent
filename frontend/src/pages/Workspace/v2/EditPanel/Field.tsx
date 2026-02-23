@@ -24,6 +24,7 @@ interface FieldProps {
   polishPath?: string  // JSON 路径，例如 "projects.0.description"
   educationData?: Partial<Education>  // 教育经历数据，用于 AI 帮写
   index?: number  // 用于级联动画延迟
+  rightActions?: React.ReactNode
 }
 
 const Field = ({
@@ -38,6 +39,7 @@ const Field = ({
   polishPath,
   educationData,
   index = 0,
+  rightActions,
 }: FieldProps) => {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -131,6 +133,7 @@ const Field = ({
           placeholder={placeholder}
           className={className}
           label={label}
+          rightActions={rightActions}
         />
       </motion.div>
     )
@@ -162,5 +165,4 @@ const Field = ({
 }
 
 export default Field
-
 

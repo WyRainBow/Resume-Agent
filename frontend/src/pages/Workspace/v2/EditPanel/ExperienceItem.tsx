@@ -137,22 +137,22 @@ function LogoSelector({
   const selectedLogoUrl = selectedKey ? getLogoUrl(selectedKey) : null
 
   return (
-    <div className="relative" ref={panelRef}>
+    <div className="relative shrink-0" ref={panelRef}>
       <div className="flex items-center gap-2">
         <button
           type="button"
           onClick={() => setOpen(!open)}
           className={cn(
-            'flex items-center gap-1.5 px-2 py-1 text-[10px] rounded-md border transition-colors',
+            'inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition-all duration-200',
             selectedKey
-              ? 'border-indigo-300 dark:border-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400'
-              : 'border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-500 dark:text-neutral-400 hover:border-gray-300 dark:hover:border-neutral-600'
+              ? 'border-indigo-300/90 bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100 dark:border-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300'
+              : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700 hover:shadow-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:border-indigo-700 dark:hover:text-indigo-300'
           )}
         >
           {selectedLogoUrl ? (
-            <img src={selectedLogoUrl} alt="" className="w-4 h-4 object-contain" />
+            <img src={selectedLogoUrl} alt="" className="h-4 w-4 object-contain" />
           ) : (
-            <Image className="w-3 h-3" />
+            <Image className="h-3.5 w-3.5" />
           )}
           <span>{selectedKey ? 'Logo' : '+ Logo'}</span>
         </button>
@@ -163,10 +163,10 @@ function LogoSelector({
               e.stopPropagation()
               onClear()
             }}
-            className="p-0.5 rounded hover:bg-red-50 dark:hover:bg-red-900/30"
+            className="rounded-md p-1 transition-colors hover:bg-rose-50 dark:hover:bg-rose-900/30"
             title="移除 Logo"
           >
-            <X className="w-3 h-3 text-red-400" />
+            <X className="h-3.5 w-3.5 text-rose-400" />
           </button>
         )}
       </div>
@@ -179,30 +179,30 @@ function LogoSelector({
             exit={{ opacity: 0, y: -4, scale: 0.95 }}
             transition={{ duration: 0.15 }}
             className={cn(
-              'absolute z-50 top-full left-0 mt-1 w-72 rounded-lg shadow-lg border overflow-hidden',
-              'bg-white dark:bg-neutral-900 border-gray-200 dark:border-neutral-700'
+              'absolute left-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border shadow-xl',
+              'bg-white/95 backdrop-blur border-slate-200 dark:bg-neutral-900 dark:border-neutral-700'
             )}
           >
             {/* 搜索框 */}
-            <div className="p-2 border-b border-gray-100 dark:border-neutral-800">
+            <div className="border-b border-slate-100 p-3 dark:border-neutral-800">
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="搜索公司..."
                 autoFocus
-                className="w-full px-2 py-1.5 text-xs rounded border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 text-gray-700 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder-gray-400"
+                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/35 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
               />
             </div>
 
             {/* Logo 网格 */}
-            <div className="p-2 max-h-48 overflow-y-auto">
+            <div className="max-h-56 overflow-y-auto p-3">
               {logos.length === 0 ? (
-                <div className="text-center text-xs text-gray-400 py-4">
+                <div className="py-6 text-center text-xs text-slate-400">
                   正在加载 Logo 列表...
                 </div>
               ) : (
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-4 gap-2">
                   {filteredLogos.map((logo) => {
                     const isSelected = selectedKey === logo.key
                     return (
@@ -215,10 +215,10 @@ function LogoSelector({
                           setSearch('')
                         }}
                         className={cn(
-                          'flex flex-col items-center gap-1 p-2 rounded-lg transition-all text-center',
+                          'flex flex-col items-center gap-1.5 rounded-xl p-2.5 text-center transition-all duration-150',
                           isSelected
-                            ? 'bg-indigo-50 dark:bg-indigo-900/30 ring-1 ring-indigo-400'
-                            : 'hover:bg-gray-50 dark:hover:bg-neutral-800'
+                            ? 'bg-indigo-50 ring-1 ring-indigo-300 dark:bg-indigo-900/30 dark:ring-indigo-700'
+                            : 'hover:bg-slate-50 dark:hover:bg-neutral-800'
                         )}
                         title={logo.name}
                       >
@@ -242,19 +242,19 @@ function LogoSelector({
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploading}
                         className={cn(
-                          'flex flex-col items-center justify-center gap-1 p-2 rounded-lg transition-all text-center border-2 border-dashed',
+                          'flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed p-2.5 text-center transition-all',
                           uploading
-                            ? 'border-gray-200 dark:border-neutral-700 opacity-50 cursor-wait'
-                            : 'border-gray-200 dark:border-neutral-700 hover:border-indigo-400 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/10 cursor-pointer'
+                            ? 'cursor-wait border-slate-200 opacity-50 dark:border-neutral-700'
+                            : 'cursor-pointer border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/60 dark:border-neutral-700 dark:hover:bg-indigo-900/10'
                         )}
                         title="上传自定义 Logo"
                       >
                         {uploading ? (
                           <Loader2 className="w-5 h-5 text-indigo-400 animate-spin" />
                         ) : (
-                          <Plus className="w-5 h-5 text-gray-400 dark:text-neutral-500" />
+                          <Plus className="h-5 w-5 text-slate-400 dark:text-neutral-500" />
                         )}
-                        <span className="text-[10px] text-gray-400 dark:text-neutral-500 leading-tight">
+                        <span className="text-[10px] leading-tight text-slate-400 dark:text-neutral-500">
                           {uploading ? '上传中' : '上传'}
                         </span>
                       </button>
@@ -270,7 +270,7 @@ function LogoSelector({
                 </div>
               )}
               {logos.length > 0 && filteredLogos.length === 0 && (
-                <div className="text-center text-xs text-gray-400 py-4">
+                <div className="py-4 text-center text-xs text-slate-400">
                   未找到匹配的公司
                 </div>
               )}
@@ -334,6 +334,9 @@ const ExperienceEditor = ({
 
   // 自动匹配 Logo 提示
   const autoMatchedKey = !experience.companyLogo ? matchCompanyLogo(experience.company) : null
+  const effectiveLogoKey = experience.companyLogo || autoMatchedKey
+  const logoSize = experience.companyLogoSize || globalSettings?.companyLogoSize || 20
+  const logoSizePercent = ((logoSize - 10) / (48 - 10)) * 100
 
   return (
     <div className="space-y-5">
@@ -345,72 +348,72 @@ const ExperienceEditor = ({
           className="grid grid-cols-2 gap-4"
         >
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-medium text-gray-500 dark:text-neutral-400">公司名称</label>
+            <div className="mb-2 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-2.5 dark:border-neutral-700 dark:bg-neutral-900/50">
+              <div className="flex min-w-0 items-center gap-2">
+                  <label className="shrink-0 text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">公司名称</label>
                 <LogoSelector
                   selectedKey={experience.companyLogo}
                   onSelect={(key) => handleChange('companyLogo', key)}
                   onClear={() => handleChange('companyLogo', '')}
                   canUploadLogo={canUploadLogo}
                 />
-                {experience.companyLogo && (
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] text-gray-400 dark:text-neutral-500">大小</span>
+                {effectiveLogoKey && (
+                  <div className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800">
+                    <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">大小</span>
                     <input
                       type="range"
                       min={10}
                       max={48}
                       step={1}
-                      value={experience.companyLogoSize || globalSettings?.companyLogoSize || 20}
-                      onChange={(e) => handleChange('companyLogoSize', Number(e.target.value))}
-                      className="w-14 h-3 accent-indigo-500"
-                      title={`Logo 大小: ${experience.companyLogoSize || globalSettings?.companyLogoSize || 20}px`}
+                      value={logoSize}
+                      onChange={(e) => {
+                        // 仅自动匹配未落库时，拖动大小即视为确认使用该 Logo
+                        if (!experience.companyLogo && autoMatchedKey) {
+                          handleChange('companyLogo', autoMatchedKey)
+                        }
+                        handleChange('companyLogoSize', Number(e.target.value))
+                      }}
+                      className="h-2 w-20 cursor-pointer appearance-none rounded-full bg-transparent accent-indigo-500 sm:w-24 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-500 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-indigo-500"
+                      style={{
+                        background: `linear-gradient(to right, rgb(99 102 241) ${logoSizePercent}%, rgb(203 213 225) ${logoSizePercent}%)`,
+                      }}
+                      title={`Logo 大小: ${logoSize}px`}
                     />
-                    <span className="text-[10px] text-gray-500 dark:text-neutral-400 min-w-[28px]">
-                      {experience.companyLogoSize || globalSettings?.companyLogoSize || 20}px
+                    <span className="inline-flex min-w-[38px] items-center justify-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                      {logoSize}px
                     </span>
                     {experience.companyLogoSize && (
                       <button
                         type="button"
                         onClick={() => handleChange('companyLogoSize', undefined)}
-                        className="p-0.5 rounded hover:bg-gray-100 dark:hover:bg-neutral-800"
+                        className="rounded-md p-0.5 transition-colors hover:bg-slate-100 dark:hover:bg-neutral-700"
                         title="恢复默认大小"
                       >
-                        <X className="w-2.5 h-2.5 text-gray-400" />
+                        <X className="h-3 w-3 text-slate-400" />
                       </button>
                     )}
                   </div>
                 )}
               </div>
-              {updateGlobalSettings && (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] text-gray-400 dark:text-neutral-500">字号</span>
-                    <select
-                      value={globalSettings?.companyNameFontSize || 15}
-                      onChange={(e) => updateGlobalSettings({ companyNameFontSize: Number(e.target.value) })}
-                      className="px-1.5 py-0.5 text-[10px] rounded border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-gray-600 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                    >
-                      {COMPANY_FONT_SIZE_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>{opt.label}px</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
             </div>
             {/* 自动匹配提示 */}
             {autoMatchedKey && (
-              <div className="flex items-center gap-1.5 mb-1 px-2 py-1 rounded bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
-                <img src={getLogoUrl(autoMatchedKey)!} alt="" className="w-4 h-4 object-contain" />
-                <span className="text-[10px] text-amber-700 dark:text-amber-400">
-                  检测到匹配 Logo - {getLogoByKey(autoMatchedKey)?.name}
-                </span>
+              <div className="mb-1.5 flex items-center gap-2 rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50/80 to-cyan-50/80 px-2.5 py-1.5 shadow-sm shadow-sky-100/60 dark:border-sky-800/60 dark:from-sky-900/20 dark:to-cyan-900/10 dark:shadow-none">
+                <div className="flex h-6 w-6 items-center justify-center rounded-md border border-white/80 bg-white/90 dark:border-sky-800/60 dark:bg-neutral-900">
+                  <img src={getLogoUrl(autoMatchedKey)!} alt="" className="h-4 w-4 object-contain" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-sky-500/90 dark:text-sky-400/80">
+                    Logo 匹配
+                  </div>
+                  <div className="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
+                    已匹配 {getLogoByKey(autoMatchedKey)?.name}
+                  </div>
+                </div>
                 <button
                   type="button"
                   onClick={() => handleChange('companyLogo', autoMatchedKey)}
-                  className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline font-medium ml-auto"
+                  className="inline-flex h-7 items-center rounded-lg border border-indigo-200 bg-white px-2.5 text-[11px] font-semibold text-indigo-600 transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-sm dark:border-indigo-700/70 dark:bg-neutral-900 dark:text-indigo-300 dark:hover:border-indigo-600"
                 >
                   使用
                 </button>
@@ -422,6 +425,21 @@ const ExperienceEditor = ({
               onChange={(value) => handleChange('company', value)}
               placeholder="请输入公司名称"
               formatButtons={['bold']}
+              rightActions={updateGlobalSettings ? (
+                <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-800">
+                  <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">字号</span>
+                  <select
+                    value={globalSettings?.companyNameFontSize || 15}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onChange={(e) => updateGlobalSettings({ companyNameFontSize: Number(e.target.value) })}
+                    className="h-6 rounded-md border border-transparent bg-white px-1.5 text-[11px] font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400/35 dark:bg-neutral-700 dark:text-neutral-200"
+                  >
+                    {COMPANY_FONT_SIZE_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}px</option>
+                    ))}
+                  </select>
+                </div>
+              ) : undefined}
             />
           </div>
           <Field

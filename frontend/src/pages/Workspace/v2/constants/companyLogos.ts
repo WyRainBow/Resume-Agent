@@ -117,13 +117,18 @@ export async function refreshLogos(): Promise<CompanyLogo[]> {
 export async function uploadLogo(file: File): Promise<CompanyLogo> {
   const formData = new FormData()
   formData.append('file', file)
+  const token = localStorage.getItem('auth_token')
 
   const resp = await fetch('/api/logos/upload', {
     method: 'POST',
     body: formData,
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
 
   if (!resp.ok) {
+    if (resp.status === 401 || resp.status === 403) {
+      throw new Error('请先登录并使用有权限的账号上传 Logo')
+    }
     const err = await resp.json().catch(() => ({ detail: '上传失败' }))
     throw new Error(err.detail || '上传失败')
   }

@@ -5,6 +5,7 @@
 - POST /api/logos/upload    上传自定义 Logo 到 COS
 """
 import os
+import mimetypes
 from pathlib import Path
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
@@ -33,7 +34,8 @@ async def get_logo_file(key: str):
     path = m.get_logo_local_path(key)
     if path is None:
         raise HTTPException(status_code=404, detail="Logo 不存在")
-    return FileResponse(path, media_type="image/png")
+    media_type = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
+    return FileResponse(path, media_type=media_type)
 
 
 @router.get("/logos")
@@ -60,10 +62,13 @@ async def upload_logo(
     """
     if not file.filename:
         raise HTTPException(status_code=400, detail="缺少文件名")
+    safe_filename = Path(file.filename).name
+    if not safe_filename:
+        raise HTTPException(status_code=400, detail="文件名无效")
 
     # 校验格式
     allowed_ext = {'.png', '.jpg', '.jpeg', '.webp', '.svg'}
-    ext = os.path.splitext(file.filename)[1].lower()
+    ext = os.path.splitext(safe_filename)[1].lower()
     if ext not in allowed_ext:
         raise HTTPException(status_code=400, detail=f"不支持的格式 {ext}，仅支持 {', '.join(allowed_ext)}")
 
@@ -88,7 +93,7 @@ async def upload_logo(
         client = CosS3Client(config)
 
         # 上传到 COS（直接用原文件名）
-        cos_key = file.filename
+        cos_key = safe_filename
         client.put_object(
             Bucket=bucket,
             Body=content,
@@ -96,8 +101,13 @@ async def upload_logo(
             ContentType=file.content_type or 'image/png',
         )
 
-        # 清除缓存，让下次 GET 能拿到新 Logo
         m = _import_logos()
+        # 同步写入本地 images/logo（与 COS 保持同名）
+        local_dir = Path(m.LOCAL_LOGO_DIR)
+        local_dir.mkdir(parents=True, exist_ok=True)
+        (local_dir / cos_key).write_bytes(content)
+
+        # 清除缓存，让下次 GET 能拿到新 Logo
         m.clear_cache()
 
         import urllib.request
