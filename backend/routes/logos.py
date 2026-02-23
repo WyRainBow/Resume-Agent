@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from middleware.auth import require_admin_or_member
 from models import User
 
@@ -38,13 +38,13 @@ async def get_logo_file(key: str):
 
 @router.get("/logos")
 async def get_logos():
-    """获取所有可用的公司 Logo 列表（含 COS URL）"""
+    """获取所有可用的公司 Logo 列表（含 COS URL）。异常时始终返回 200 + 空列表，避免 500。"""
     try:
         m = _import_logos()
         logos = m.get_all_logos_with_urls()
-        return {"logos": logos}
+        return JSONResponse(status_code=200, content={"logos": logos})
     except Exception as e:
-        return {"logos": [], "error": str(e)}
+        return JSONResponse(status_code=200, content={"logos": [], "error": str(e)})
 
 
 @router.post("/logos/upload")

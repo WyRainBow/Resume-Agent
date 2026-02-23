@@ -51,7 +51,12 @@ export function setRuntimeEnv(env: RuntimeEnv): void {
   localStorage.setItem(ENV_STORAGE_KEY, env)
 }
 
+/**
+ * 开发环境下返回空字符串，使请求走同源（localhost:5173）并由 Vite 代理转发，避免跨域 CORS。
+ * 代理目标在 vite.config 中由 VITE_API_BASE_URL 等决定，需与当前要用的后端一致（改 .env 后需重启 dev）。
+ */
 export function getApiBaseUrl(env: RuntimeEnv = getRuntimeEnv()): string {
+  if (import.meta.env.DEV) return ''
   const baseMap = envBaseMap()
   return env === 'remote-dev' ? baseMap['remote-dev'] : baseMap.local
 }

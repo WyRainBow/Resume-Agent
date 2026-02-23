@@ -140,33 +140,36 @@ def clear_cache():
 
 
 def _scan_local_logos() -> list[dict] | None:
-    """若存在 images/logo/ 且含 .png，则返回本地 Logo 列表，否则返回 None"""
+    """若存在 images/logo/ 且含 .png，则返回本地 Logo 列表，否则返回 None。异常时返回 None 以便降级 COS。"""
     global _key_to_file
-    if not LOCAL_LOGO_DIR.is_dir():
+    try:
+        if not LOCAL_LOGO_DIR.is_dir():
+            return None
+        files = sorted(LOCAL_LOGO_DIR.glob("*.png"))
+        if not files:
+            return None
+        logos = []
+        key_map = {}
+        for f in files:
+            stem = f.stem  # 中文文件名去掉后缀，如 阿里巴巴
+            api_key = DISPLAY_NAME_TO_KEY.get(stem, stem)
+            key_map[api_key] = f.name
+            if stem != api_key:
+                key_map[stem] = f.name
+            meta = next((m for fn, m in KNOWN_LOGO_META.items() if m.get('key') == api_key), {})
+            keywords = [str(k) for k in meta.get('keywords', [stem])]
+            logos.append({
+                "key": str(api_key),
+                "name": str(stem),
+                "url": f"/api/logos/file/{api_key}",
+                "keywords": keywords,
+            })
+        _key_to_file = key_map
+        print(f"[Logo] 本地 images/logo 扫描完成，发现 {len(logos)} 个 Logo")
+        return logos
+    except Exception as e:
+        print(f"[Logo] 本地扫描异常: {e}，降级 COS/fallback")
         return None
-    files = sorted(LOCAL_LOGO_DIR.glob("*.png"))
-    if not files:
-        return None
-    logos = []
-    key_map = {}
-    for f in files:
-        stem = f.stem  # 中文文件名去掉后缀，如 阿里巴巴
-        # 统一用英文 key 返回，兼容已有简历里的 companyLogo；中文名仅作展示
-        api_key = DISPLAY_NAME_TO_KEY.get(stem, stem)
-        key_map[api_key] = f.name  # 如 alibaba -> 阿里巴巴.png，供 get_logo_local_path 查
-        if stem != api_key:
-            key_map[stem] = f.name  # 中文 key 也登记，避免按中文 key 请求时找不到
-        meta = next((m for fn, m in KNOWN_LOGO_META.items() if m.get('key') == api_key), {})
-        keywords = meta.get('keywords', [stem])
-        logos.append({
-            "key": api_key,
-            "name": stem,
-            "url": f"/api/logos/file/{api_key}",
-            "keywords": keywords,
-        })
-    _key_to_file = key_map
-    print(f"[Logo] 本地 images/logo 扫描完成，发现 {len(logos)} 个 Logo")
-    return logos
 
 
 def _scan_cos_logos() -> list[dict]:
@@ -249,15 +252,20 @@ def _fallback_logos() -> list[dict]:
 
 
 def get_all_logos_with_urls() -> list[dict]:
-    """获取所有 Logo 列表：优先 images/logo/ 本地目录，否则从 COS 扫描"""
+    """获取所有 Logo 列表：优先 images/logo/ 本地目录，否则从 COS 扫描。异常时返回 fallback 列表。"""
     global _cos_cache, _using_local
-    local = _scan_local_logos()
-    if local:
-        _cos_cache = local
-        _using_local = True
-        return local
-    _using_local = False
-    return _scan_cos_logos()
+    try:
+        local = _scan_local_logos()
+        if local:
+            _cos_cache = local
+            _using_local = True
+            return local
+        _using_local = False
+        return _scan_cos_logos()
+    except Exception as e:
+        print(f"[Logo] get_all_logos_with_urls 异常: {e}，使用 fallback")
+        _using_local = False
+        return _fallback_logos()
 
 
 def get_logo_cos_url(key: str) -> str | None:
