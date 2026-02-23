@@ -335,7 +335,7 @@ export default function WorkspaceLayout({
               )}
             </button>
 
-            {/* 简历入口：图一样式，文档图标 + 简历 */}
+            {/* 申请入口：图一样式，文档图标 + 申请 */}
             <button
               onClick={(e) => handleWorkspaceChange("resume", e)}
               className={cn(
@@ -347,11 +347,11 @@ export default function WorkspaceLayout({
                   ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
                   : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
               )}
-              title="简历"
+              title="申请"
             >
               <FileText className="w-6 h-6 shrink-0" />
               {!sidebarCollapsed && (
-                <span className="text-base font-medium">简历</span>
+                <span className="text-base font-medium">申请</span>
               )}
             </button>
 

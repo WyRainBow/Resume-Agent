@@ -92,6 +92,7 @@ export default function LaTeXWorkspace() {
   // 防抖渲染定时器
   const renderTimerRef = useRef<NodeJS.Timeout | null>(null)
   const lastRenderedDataRef = useRef<string>('')
+  const initialRenderTriggeredRef = useRef(false)
   const resumeDataRef = useRef(resumeData)
   resumeDataRef.current = resumeData
 
@@ -202,17 +203,18 @@ export default function LaTeXWorkspace() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [hasUnsavedChanges])
 
-  // 🎯 LaTeX 模板特有：数据加载完成后立即渲染 PDF（首次）
+  // 🎯 LaTeX 模板特有：数据加载完成后立即渲染 PDF（首次，确保不漏触发）
   useEffect(() => {
-    if (isDataLoaded && !loading && !pdfBlob) {
-      // 首次加载时，初始化 lastRenderedDataRef 并立即渲染
-      lastRenderedDataRef.current = JSON.stringify(resumeData)
-      const timer = setTimeout(() => {
-        handleRender()
-      }, 100)
-      return () => clearTimeout(timer)
-    }
-  }, [isDataLoaded]) // 只在 isDataLoaded 变化时触发
+    if (!isDataLoaded || loading || pdfBlob || initialRenderTriggeredRef.current) return
+
+    initialRenderTriggeredRef.current = true
+    // 首次加载时，初始化 lastRenderedDataRef 并立即渲染
+    lastRenderedDataRef.current = JSON.stringify(resumeDataRef.current)
+    const timer = setTimeout(() => {
+      handleRender()
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [isDataLoaded, loading, pdfBlob, handleRender])
 
   // 导出 JSON
   const handleExportJSON = () => {
@@ -374,5 +376,4 @@ export default function LaTeXWorkspace() {
     </WorkspaceLayout>
   )
 }
-
 
