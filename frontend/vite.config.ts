@@ -47,7 +47,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, '')
   // 开发时请求走同源代理，默认强制指向本地后端，避免误把 /api 代理到远程导致全局 502。
   // 如需改为远程，请显式设置 VITE_DEV_PROXY_TARGET 或 VITE_API_BASE_URL。
-  const defaultLocal = env.VITE_API_BASE_URL_LOCAL || 'http://localhost:9000'
+  const defaultLocal = env.VITE_API_BASE_URL_LOCAL || 'http://127.0.0.1:9000'
   const apiBase =
     env.VITE_API_BASE_URL ||
     env.VITE_DEV_PROXY_TARGET ||
