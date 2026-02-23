@@ -46,22 +46,20 @@ def main():
     client = CosS3Client(config)
 
     # 只按已知列表逐个下载，不调 list_objects
-    items = [
-        (cos_filename, meta.get("key", cos_filename.rsplit(".", 1)[0]))
-        for cos_filename, meta in KNOWN_LOGO_META.items()
-    ]
+    # 保持 COS 原始文件名（通常为中文名），避免本地文件名与线上不一致
+    items = list(KNOWN_LOGO_META.keys())
 
     LOCAL_LOGO_DIR.mkdir(parents=True, exist_ok=True)
     count = 0
 
-    for cos_filename, key in items:
-        local_path = LOCAL_LOGO_DIR / f"{key}.png"
+    for idx, cos_filename in enumerate(items, start=1):
+        local_path = LOCAL_LOGO_DIR / cos_filename
         try:
             resp = client.get_object(Bucket=bucket, Key=cos_filename)
             data = resp["Body"].read()
             local_path.write_bytes(data)
             count += 1
-            print(f"  [{count}/{len(items)}] {cos_filename} -> {key}.png", flush=True)
+            print(f"  [{idx}/{len(items)}] {cos_filename} -> {local_path.name}", flush=True)
         except Exception as e:
             print(f"  下载失败 {cos_filename}: {e}", flush=True)
 
