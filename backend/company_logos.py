@@ -111,6 +111,16 @@ KNOWN_LOGO_META = {
     },
 }
 
+# key -> 中文显示名（本地模式用英文文件名时，仍返回中文名给前端展示）
+LOGO_KEY_TO_DISPLAY_NAME = {
+    meta['key']: filename.rsplit('.', 1)[0]
+    for filename, meta in KNOWN_LOGO_META.items()
+}
+# 中文显示名 -> 英文 key（本地用中文文件名时，API 仍返回英文 key 兼容旧简历）
+DISPLAY_NAME_TO_KEY = {v: k for k, v in LOGO_KEY_TO_DISPLAY_NAME.items()}
+# 哔哩哔哩 等不在 KNOWN_LOGO_META 文件名里的，补一下
+DISPLAY_NAME_TO_KEY.setdefault('哔哩哔哩', 'bilibili')
+
 # ── COS / 本地扫描结果缓存 ──
 _cos_cache: list[dict] | None = None
 _cos_cache_time: float = 0
@@ -140,13 +150,19 @@ def _scan_local_logos() -> list[dict] | None:
     logos = []
     key_map = {}
     for f in files:
-        stem = f.stem
-        key_map[stem] = f.name
+        stem = f.stem  # 中文文件名去掉后缀，如 阿里巴巴
+        # 统一用英文 key 返回，兼容已有简历里的 companyLogo；中文名仅作展示
+        api_key = DISPLAY_NAME_TO_KEY.get(stem, stem)
+        key_map[api_key] = f.name  # 如 alibaba -> 阿里巴巴.png，供 get_logo_local_path 查
+        if stem != api_key:
+            key_map[stem] = f.name  # 中文 key 也登记，避免按中文 key 请求时找不到
+        meta = next((m for fn, m in KNOWN_LOGO_META.items() if m.get('key') == api_key), {})
+        keywords = meta.get('keywords', [stem])
         logos.append({
-            "key": stem,
+            "key": api_key,
             "name": stem,
-            "url": f"/api/logos/file/{stem}",
-            "keywords": [stem],
+            "url": f"/api/logos/file/{api_key}",
+            "keywords": keywords,
         })
     _key_to_file = key_map
     print(f"[Logo] 本地 images/logo 扫描完成，发现 {len(logos)} 个 Logo")
@@ -260,9 +276,14 @@ def get_logo_cos_url(key: str) -> str | None:
 
 
 def get_logo_local_path(key: str) -> Path | None:
-    """本地模式下根据 key 返回 Logo 文件路径，供 PDF 生成时复制用"""
+    """本地模式下根据 key 返回 Logo 文件路径，供 PDF 生成时复制用。key 可为英文或中文。"""
+    get_all_logos_with_urls()  # 先拉齐缓存，否则直接请求 file/{key} 时 _key_to_file 可能为空
     if not _using_local:
         return None
+    filename = _key_to_file.get(key)
+    if filename:
+        p = LOCAL_LOGO_DIR / filename
+        return p if p.is_file() else None
     p = LOCAL_LOGO_DIR / f"{key}.png"
     return p if p.is_file() else None
 

@@ -26,20 +26,12 @@ def _import_logos():
 
 @router.get("/logos/file/{key}")
 async def get_logo_file(key: str):
-    """提供本地 images/logo 目录下的 Logo 图片（防止路径穿越）"""
+    """提供本地 images/logo 目录下的 Logo 图片（支持中文文件名，key 可为英文或中文）"""
     m = _import_logos()
-    if not getattr(m, "LOCAL_LOGO_DIR", None):
-        raise HTTPException(status_code=404, detail="本地 Logo 未启用")
-    # 仅允许 .png 文件名，且必须在 LOCAL_LOGO_DIR 内
     if ".." in key or "/" in key or "\\" in key:
         raise HTTPException(status_code=400, detail="无效的 key")
-    base = m.LOCAL_LOGO_DIR.resolve()
-    path = (m.LOCAL_LOGO_DIR / f"{key}.png").resolve()
-    try:
-        path.relative_to(base)
-    except ValueError:
-        raise HTTPException(status_code=404, detail="Logo 不存在")
-    if not path.is_file():
+    path = m.get_logo_local_path(key)
+    if path is None:
         raise HTTPException(status_code=404, detail="Logo 不存在")
     return FileResponse(path, media_type="image/png")
 
