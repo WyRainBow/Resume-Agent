@@ -205,6 +205,16 @@ async def startup_event():
     except Exception as e:
         logger.warning(f"[启动优化] 数据库连接预热失败: {e}")
 
+    # 启动时自动补齐本地 logo（仅当 images/logo 为空时），避免每次手工同步
+    try:
+        auto_sync = os.getenv("LOGO_AUTO_SYNC_ON_STARTUP", "true").lower() in {"1", "true", "yes", "on"}
+        if auto_sync:
+            logos = import_module_candidates(["backend.company_logos", "company_logos"])
+            count = logos.sync_local_logos_from_cos(force=False)
+            logger.info(f"[启动优化] Logo 本地目录检查完成，数量: {count}")
+    except Exception as e:
+        logger.warning(f"[启动优化] Logo 自动同步失败: {e}")
+
     # 预加载 tiktoken 编码文件，避免首次请求时下载阻塞（使用配置管理器）
     try:
         import tiktoken

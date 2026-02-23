@@ -140,6 +140,93 @@ def clear_cache():
     _using_local = False
 
 
+def _list_cos_logo_keys() -> list[str]:
+    """从 COS 列出 Logo key（文件名），过滤非 logo 文件和目录。"""
+    from qcloud_cos import CosConfig, CosS3Client
+
+    secret_id = os.getenv('COS_SECRET_ID', '')
+    secret_key = os.getenv('COS_SECRET_KEY', '')
+    region = os.getenv('COS_REGION', 'ap-guangzhou')
+    bucket = os.getenv('COS_BUCKET', 'resumecos-1327706280')
+    if not secret_id or not secret_key:
+        return []
+
+    config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key)
+    client = CosS3Client(config)
+
+    keys: list[str] = []
+    marker = ""
+    while True:
+        resp = client.list_objects(Bucket=bucket, Prefix="", MaxKeys=1000, Marker=marker)
+        for obj in resp.get('Contents', []):
+            key = obj['Key']
+            lower = key.lower()
+            if '/' in key:
+                continue
+            if not lower.endswith(('.png', '.jpg', '.jpeg', '.webp', '.svg')):
+                continue
+            if key in EXCLUDED_FILES:
+                continue
+            keys.append(key)
+        if resp.get('IsTruncated') == 'true':
+            marker = resp.get('NextMarker', '')
+            if not marker:
+                break
+        else:
+            break
+    return sorted(set(keys))
+
+
+def sync_local_logos_from_cos(force: bool = False) -> int:
+    """
+    从 COS 同步 Logo 到本地 images/logo。
+    - force=False：本地已有图片则跳过
+    - 返回同步后本地 logo 文件数
+    """
+    try:
+        LOCAL_LOGO_DIR.mkdir(parents=True, exist_ok=True)
+        existing = [
+            p for p in LOCAL_LOGO_DIR.iterdir()
+            if p.is_file() and p.suffix.lower() in LOCAL_LOGO_EXTS
+        ]
+        if existing and not force:
+            return len(existing)
+
+        from qcloud_cos import CosConfig, CosS3Client
+        secret_id = os.getenv('COS_SECRET_ID', '')
+        secret_key = os.getenv('COS_SECRET_KEY', '')
+        region = os.getenv('COS_REGION', 'ap-guangzhou')
+        bucket = os.getenv('COS_BUCKET', 'resumecos-1327706280')
+        if not secret_id or not secret_key:
+            return len(existing)
+
+        keys = _list_cos_logo_keys()
+        if not keys:
+            return len(existing)
+
+        config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key)
+        client = CosS3Client(config)
+
+        if force:
+            for p in LOCAL_LOGO_DIR.iterdir():
+                if p.is_file() and p.suffix.lower() in LOCAL_LOGO_EXTS:
+                    p.unlink(missing_ok=True)
+
+        for key in keys:
+            out = LOCAL_LOGO_DIR / key
+            body = client.get_object(Bucket=bucket, Key=key)['Body']
+            # 不能用 read() 默认值（1024 bytes），必须流式落盘
+            body.get_stream_to_file(str(out))
+
+        clear_cache()
+        final_count = len([p for p in LOCAL_LOGO_DIR.iterdir() if p.is_file() and p.suffix.lower() in LOCAL_LOGO_EXTS])
+        print(f"[Logo] 已从 COS 同步到本地，数量: {final_count}")
+        return final_count
+    except Exception as e:
+        print(f"[Logo] 同步本地 logo 失败: {e}")
+        return 0
+
+
 def _scan_local_logos() -> list[dict] | None:
     """若存在 images/logo/ 且含图片文件，则返回本地 Logo 列表，否则返回 None。异常时返回 None 以便降级 COS。"""
     global _key_to_file
