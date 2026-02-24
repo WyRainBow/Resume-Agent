@@ -1525,6 +1525,7 @@ export default function SophiaChat() {
             ...(resume.data || {}),
             resume_id: resume.id,
             user_id: resolvedUserId,
+            alias: resume.alias,
             _meta: {
               resume_id: resume.id,
               user_id: resolvedUserId,
@@ -2040,6 +2041,7 @@ export default function SophiaChat() {
         ...(selectedResume.data || {}),
         resume_id: selectedResume.id,
         user_id: resolvedUserId,
+        alias: selectedResume.alias,
         _meta: {
           resume_id: selectedResume.id,
           user_id: resolvedUserId,
@@ -2814,7 +2816,7 @@ export default function SophiaChat() {
                           <ResumeCard
                             resumeId={resumeForMessage.id}
                             title={resumeForMessage.name}
-                            subtitle="点击查看简历"
+                            subtitle={resumeForMessage.resumeData?.alias || "已加载简历"}
                             onClick={() => {
                               setAllowPdfAutoRender(true);
                               setSelectedResumeId(resumeForMessage.id);
@@ -2823,6 +2825,7 @@ export default function SophiaChat() {
                                 setResumeData(resumeForMessage.resumeData);
                               }
                             }}
+                            onChangeResume={() => setShowResumeSelector(true)}
                           />
                         </div>
                       )}

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, ChevronLeft, ChevronRight, FilePlus2, FileText } from 'lucide-react'
 import { getAllResumes } from '@/services/resumeStorage'
 import type { SavedResume } from '@/services/storage/StorageAdapter'
@@ -11,6 +11,7 @@ interface ResumeSelectorProps {
 }
 
 type SelectorStep = 'entry' | 'existing'
+const RESUMES_PER_PAGE = 3
 
 export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
   onSelect,
@@ -23,7 +24,7 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
   const [error, setError] = useState<string | null>(null)
   const [step, setStep] = useState<SelectorStep>('entry')
   const [showEmptyResumeDialog, setShowEmptyResumeDialog] = useState(false)
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [currentPage, setCurrentPage] = useState(0)
 
   useEffect(() => {
     const loadResumes = async () => {
@@ -58,16 +59,28 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
     return `${date.getMonth() + 1}/${date.getDate()}`
   }
 
-  const scrollByOffset = (offset: number) => {
-    scrollContainerRef.current?.scrollBy({
-      left: offset,
-      behavior: 'smooth',
-    })
-  }
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(resumes.length / RESUMES_PER_PAGE)),
+    [resumes.length],
+  )
+
+  const pagedResumes = useMemo(() => {
+    const start = currentPage * RESUMES_PER_PAGE
+    return resumes.slice(start, start + RESUMES_PER_PAGE)
+  }, [resumes, currentPage])
 
   useEffect(() => {
     onLayoutChange?.()
-  }, [step, loading, resumes.length, error, showEmptyResumeDialog, onLayoutChange])
+  }, [step, loading, resumes.length, error, showEmptyResumeDialog, currentPage, onLayoutChange])
+
+  useEffect(() => {
+    setCurrentPage(0)
+  }, [step, resumes.length])
+
+  useEffect(() => {
+    if (currentPage < totalPages) return
+    setCurrentPage(Math.max(0, totalPages - 1))
+  }, [currentPage, totalPages])
 
   const handleSelectExistingClick = () => {
     if (loading || error) {
@@ -276,6 +289,35 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {totalPages > 1 && (
+            <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-1 py-1">
+              <button
+                type="button"
+                onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
+                disabled={currentPage === 0}
+                className="size-7 rounded-md text-slate-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                aria-label="上一页"
+                title="上一页"
+              >
+                <ChevronLeft className="size-4 mx-auto" />
+              </button>
+              <span className="px-1 text-xs text-slate-500 tabular-nums">
+                {currentPage + 1}/{totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))
+                }
+                disabled={currentPage >= totalPages - 1}
+                className="size-7 rounded-md text-slate-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                aria-label="下一页"
+                title="下一页"
+              >
+                <ChevronRight className="size-4 mx-auto" />
+              </button>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => setStep('entry')}
@@ -296,64 +338,63 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
         </div>
       </div>
 
-      <div className="relative">
-        {resumes.length > 2 && (
-          <button
-            type="button"
-            onClick={() => scrollByOffset(-240)}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 size-8 rounded-full bg-white/90 shadow-md flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-white transition-all -ml-2"
-            aria-label="向左滚动简历列表"
-            title="向左滚动"
-          >
-            <ChevronLeft className="size-5" />
-          </button>
-        )}
-
-        <div
-          ref={scrollContainerRef}
-          className="flex gap-4 overflow-x-auto scrollbar-hide pb-2 px-1"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
-          {resumes.map((resume) => (
+      <div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pb-1">
+          {pagedResumes.map((resume) => (
             <button
               key={resume.id}
               type="button"
               onClick={() => onSelect(resume)}
-              className="flex-shrink-0 w-[200px] bg-white rounded-xl p-4 shadow-sm border border-slate-100 text-left cursor-pointer hover:shadow-md hover:border-indigo-200 hover:-translate-y-1 transition-all duration-200"
+              className="group/card flex-shrink-0 bg-white rounded-xl p-3.5 shadow-sm border border-slate-200/60 text-center cursor-pointer hover:shadow-md hover:border-indigo-300 hover:-translate-y-1 transition-all duration-300 flex flex-col items-center relative overflow-hidden"
             >
-              <div className="size-12 rounded-xl bg-indigo-100 flex items-center justify-center mb-3">
-                <FileText className="size-6 text-indigo-500" />
+              {/* 背景装饰 */}
+              <div className="absolute -right-2 -top-2 size-12 bg-indigo-50/30 rounded-full blur-2xl group-hover/card:bg-indigo-100/50 transition-colors" />
+              
+              <div className="size-8 rounded-lg bg-slate-50 group-hover/card:bg-indigo-50 flex items-center justify-center mb-2 transition-colors shadow-sm border border-slate-100 group-hover/card:border-indigo-100">
+                <FileText className="size-4.5 text-slate-400 group-hover/card:text-indigo-500 transition-colors" />
               </div>
 
-              <h4 className="text-sm font-medium text-slate-700 truncate mb-1">
+              <h4 className="w-full text-[13px] font-semibold text-slate-800 truncate mb-1 text-center group-hover/card:text-indigo-600 transition-colors">
                 {resume.name || '未命名简历'}
               </h4>
 
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
-                {(resume.templateType || (resume.data as any)?.templateType || 'resume').toUpperCase()}
-              </span>
+              <div className="flex flex-col items-center gap-1 min-h-[20px] justify-center">
+                {resume.alias && resume.alias.trim() !== '' && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+                    {resume.alias.trim()}
+                  </span>
+                )}
+              </div>
 
-              <p className="text-xs text-slate-400 mt-2 tabular-nums">更新于 {formatDate(resume.updatedAt)}</p>
+              <div className="mt-2 pt-2 border-t border-slate-50 w-full">
+                <p className="text-[10px] text-slate-400 tabular-nums text-center">
+                  更新于 {formatDate(resume.updatedAt)}
+                </p>
+              </div>
             </button>
           ))}
         </div>
-
-        {resumes.length > 2 && (
-          <button
-            type="button"
-            onClick={() => scrollByOffset(240)}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 size-8 rounded-full bg-white/90 shadow-md flex items-center justify-center text-slate-500 hover:text-slate-700 hover:bg-white transition-all -mr-2"
-            aria-label="向右滚动简历列表"
-            title="向右滚动"
-          >
-            <ChevronRight className="size-5" />
-          </button>
-        )}
       </div>
 
-      <p className="text-xs text-slate-400 text-center mt-3 tabular-nums">
-        共 {resumes.length} 份简历可选
-      </p>
+      <div className="mt-3 flex items-center justify-between">
+        <p className="text-xs text-slate-400 tabular-nums">共 {resumes.length} 份简历可选</p>
+        {totalPages > 1 && (
+          <div className="flex items-center gap-1.5">
+            {Array.from({ length: totalPages }).map((_, idx) => (
+              <button
+                key={`page-dot-${idx}`}
+                type="button"
+                onClick={() => setCurrentPage(idx)}
+                className={`h-1.5 rounded-full transition-all ${
+                  idx === currentPage ? 'w-4 bg-indigo-500' : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                }`}
+                aria-label={`第 ${idx + 1} 页`}
+                title={`第 ${idx + 1} 页`}
+              />
+            ))}
+          </div>
+        )}
+      </div>
       </div>
       {noResumeDialog}
     </>
