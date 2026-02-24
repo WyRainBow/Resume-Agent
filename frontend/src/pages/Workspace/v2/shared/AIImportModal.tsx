@@ -796,7 +796,7 @@ export function AIImportModal({
                   AI 正在深度解析...
                 </div>
                 <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                  我们的 AI 正在提取关键信息并进行结构化处理 这通常需要 3-10 秒钟。
+                  我们的 AI 正在提取关键信息并进行结构化处理 这通常需要 1-2 分钟。
                 </p>
               </div>
 
