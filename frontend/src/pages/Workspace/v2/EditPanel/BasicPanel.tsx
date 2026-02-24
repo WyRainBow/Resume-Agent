@@ -184,8 +184,8 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
                 className={cn(
                   'w-full h-36 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all',
                   isAuthenticated
-                    ? 'border-indigo-400/90 text-indigo-600 hover:bg-indigo-50/60'
-                    : 'border-slate-300 text-slate-400',
+                    ? 'border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50/60'
+                    : 'border-slate-200 text-slate-300',
                   uploading && 'opacity-60'
                 )}
                 title={isAuthenticated ? '上传照片' : '登录后可上传'}

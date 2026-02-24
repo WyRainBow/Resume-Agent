@@ -94,7 +94,6 @@ export function PreviewPanel({
           'border-b border-slate-200/50 dark:border-slate-700/50'
         )}
       >
-        <div className="flex items-center gap-3">
           {/* HTML 模板：仅显示实时预览标签 */}
           {isHTMLTemplate && (
             <span className="px-3 py-1 text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
@@ -102,56 +101,29 @@ export function PreviewPanel({
             </span>
           )}
 
-          {/* LaTeX 模板：显示渲染和下载按钮 */}
+          {/* LaTeX 模板：仅显示渲染按钮 */}
           {!isHTMLTemplate && (
-            <>
+            <div className="flex items-center gap-3">
               {/* 渲染按钮 */}
               <button
                 onClick={onRender}
                 disabled={loading}
                 className={cn(
-                  'group relative px-5 py-2.5 rounded-xl overflow-hidden',
-                  'bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400',
-                  'hover:from-cyan-300 hover:via-blue-300 hover:to-indigo-300',
-                  'text-white text-sm font-semibold',
-                  'shadow-lg shadow-blue-300/40 hover:shadow-xl hover:shadow-blue-300/50',
-                  'disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-lg',
+                  'group relative px-6 py-2.5 rounded-2xl overflow-hidden',
+                  'bg-slate-200 text-slate-900 text-sm font-bold tracking-tight',
+                  'disabled:opacity-60 disabled:cursor-not-allowed',
                   'transition-all duration-300',
-                  'hover:scale-[1.02] active:scale-[0.98]',
+                  'hover:scale-[1.02] hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 active:scale-[0.98]',
                   'disabled:hover:scale-100'
                 )}
               >
-                <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
                 <span className="relative flex items-center gap-2">
                   <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
                   {loading ? '渲染中...' : '渲染 PDF'}
                 </span>
               </button>
-
-              {/* 下载按钮 */}
-              <button
-                onClick={onDownload}
-                disabled={!pdfBlob || loading}
-                className={cn(
-                  'px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium',
-                  'bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm',
-                  'border border-slate-200/80 dark:border-slate-600/80',
-                  'text-slate-700 dark:text-slate-200',
-                  'hover:bg-white dark:hover:bg-slate-700',
-                  'hover:border-slate-300 dark:hover:border-slate-500',
-                  'shadow-sm hover:shadow-md',
-                  'disabled:opacity-50 disabled:cursor-not-allowed',
-                  'transition-all duration-200',
-                  'hover:scale-[1.02] active:scale-[0.98]',
-                  'disabled:hover:scale-100'
-                )}
-              >
-                <Download className="w-4 h-4" />
-                下载
-              </button>
-            </>
+            </div>
           )}
-        </div>
       </div>
 
       {/* 进度提示 */}

@@ -1,4 +1,5 @@
 import type { CalendarEvent } from '../types'
+import { motion } from 'framer-motion'
 import { addDays, formatChinaTime, getChinaHourMinute, isSameChinaDay, startOfDay, startOfWeek, toDateInputValue } from '../dateUtils'
 
 type WeekTimeGridViewProps = {
@@ -17,6 +18,16 @@ function formatHour(hour: number) {
   return `${String(hour).padStart(2, '0')}:00`
 }
 
+const WEEK_LABELS = [
+  { cn: '周日', en: 'SUN' },
+  { cn: '周一', en: 'MON' },
+  { cn: '周二', en: 'TUE' },
+  { cn: '周三', en: 'WED' },
+  { cn: '周四', en: 'THU' },
+  { cn: '周五', en: 'FRI' },
+  { cn: '周六', en: 'SAT' },
+]
+
 export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEventClick }: WeekTimeGridViewProps) {
   const weekStart = startOfWeek(currentDate)
   const dayDates = mode === 'day' ? [startOfDay(currentDate)] : Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i))
@@ -26,22 +37,28 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex border-b border-slate-200 bg-white">
-        <div className="w-20 shrink-0 px-2 py-2 text-center text-xs font-semibold text-slate-400">GMT：中国时区</div>
+        <div className="w-20 shrink-0 px-2 py-2 text-center text-[10px] font-bold text-slate-400 flex flex-col justify-center leading-tight">
+          <div>TIME</div>
+          <div className="text-[9px] opacity-70 font-medium">GMT+8</div>
+        </div>
         <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dayDates.length}, minmax(0, 1fr))` }}>
           {dayDates.map((day) => {
             const isToday = isSameChinaDay(day, todayDate)
+            const label = WEEK_LABELS[day.getDay()]
             return (
               <div
                 key={day.toISOString()}
-                className={`border-l border-slate-200 px-3 py-2 ${isToday ? 'bg-sky-50' : ''}`}
+                className={`border-l border-slate-200 px-3 py-2 ${isToday ? 'bg-slate-50' : ''}`}
               >
-                <div className="text-sm text-slate-400">{['周日', '周一', '周二', '周三', '周四', '周五', '周六'][day.getDay()]}</div>
+                <div className={`text-[10px] font-bold uppercase tracking-wider ${isToday ? 'text-slate-900' : 'text-slate-400'}`}>
+                  {label.en}
+                </div>
                 <div className="flex items-center gap-1.5">
-                  <span className={`text-xl font-semibold ${isToday ? 'text-sky-700' : 'text-slate-800'}`}>
+                  <span className={`text-xl font-bold tracking-tighter ${isToday ? 'text-slate-900' : 'text-slate-800'}`}>
                     {Number(toDateInputValue(day).slice(-2))}
                   </span>
                   {isToday && (
-                    <span className="rounded bg-sky-200 px-1.5 py-0.5 text-xs font-semibold text-sky-800">今天</span>
+                    <span className="rounded bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold text-white scale-90 origin-left">今天</span>
                   )}
                 </div>
               </div>
@@ -60,14 +77,14 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
         </div>
 
         <div className="relative flex-1 isolate" style={{ height: `${totalHeight}px` }}>
-          {/* 槽位网格：仅背景与点击，置于底层 */}
+          {/* 槽位网格 */}
           <div className="absolute inset-0 grid z-0" style={{ gridTemplateColumns: `repeat(${dayDates.length}, minmax(0, 1fr))` }}>
             {dayDates.map((day) => {
               const isToday = isSameChinaDay(day, todayDate)
               return (
               <div
                 key={`${day.toISOString()}-col`}
-                className={`relative border-l border-slate-200 ${isToday ? 'bg-sky-50/50' : ''}`}
+                className={`relative border-l border-slate-200 ${isToday ? 'bg-slate-50/50' : ''}`}
               >
                 {Array.from({ length: END_HOUR - START_HOUR + 1 }).map((_, i) => {
                   const hour = START_HOUR + i
@@ -75,7 +92,7 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
                     <button
                       key={`${day.toISOString()}-${hour}`}
                       type="button"
-                      className="block h-[66px] w-full border-b border-slate-200 hover:bg-blue-50/40"
+                      className="block h-[66px] w-full border-b border-slate-200 hover:bg-slate-50"
                       onClick={() => {
                         const start = new Date(day)
                         start.setHours(hour, 0, 0, 0)
@@ -91,7 +108,7 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
             })}
           </div>
 
-          {/* 事件层：独立叠放上下文，保证盖在槽位之上 */}
+          {/* 事件层 */}
           <div className="absolute inset-0 grid pointer-events-none z-20 isolate" style={{ gridTemplateColumns: `repeat(${dayDates.length}, minmax(0, 1fr))` }}>
             {dayDates.map((day) => {
               const dayEvents = events.filter((event) => isSameChinaDay(new Date(event.starts_at), day))
@@ -112,11 +129,11 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
                         key={event.id}
                         type="button"
                         onClick={(e) => onEventClick(event, (e.currentTarget as HTMLButtonElement).getBoundingClientRect())}
-                        className="pointer-events-auto absolute left-1 right-1 z-10 min-h-[48px] overflow-visible rounded-md border-l-4 border-blue-400 bg-blue-100/70 p-2 text-sm text-blue-800 shadow-sm text-left"
+                        className="pointer-events-auto absolute left-1 right-1 z-10 min-h-[48px] overflow-visible rounded-md border-l-4 border-slate-900 bg-slate-100 p-2 text-sm text-slate-900 shadow-sm text-left"
                         style={{ top: `${top}px`, height: `${height}px`, minHeight: '48px' }}
                       >
                         <div className="truncate font-semibold leading-tight">{event.title}</div>
-                        <div className="text-xs text-blue-700 leading-tight whitespace-nowrap">
+                        <div className="text-xs text-slate-500 leading-tight whitespace-nowrap">
                           {formatChinaTime(start)}
                           {' - '}
                           {formatChinaTime(end)}

@@ -1,4 +1,5 @@
 import type { CalendarEvent } from '../types'
+import { motion } from 'framer-motion'
 import { formatChinaTime, formatDateLabel } from '../dateUtils'
 
 type InterviewListViewProps = {
@@ -29,7 +30,7 @@ export function InterviewListView({ events, onEventClick }: InterviewListViewPro
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-4">
       {dateKeys.map((key) => {
         const [y, m, d] = key.split('-').map(Number)
         const date = new Date(y, m - 1, d)
@@ -48,9 +49,9 @@ export function InterviewListView({ events, onEventClick }: InterviewListViewPro
                     <button
                       type="button"
                       onClick={(e) => onEventClick(event, (e.currentTarget as HTMLButtonElement).getBoundingClientRect())}
-                      className="flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-blue-300 hover:bg-blue-50/50"
+                      className="flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
                     >
-                      <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" />
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-slate-900" />
                       <div className="min-w-0 flex-1">
                         <div className="font-semibold text-slate-800">{event.title}</div>
                         <div className="text-sm text-slate-500">
