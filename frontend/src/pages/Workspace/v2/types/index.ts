@@ -174,6 +174,7 @@ export interface ResumeData {
   updatedAt: string
   templateId: string | null
   templateType?: 'latex' | 'html'  // 模板类型：latex 或 html，默认 latex
+  alias?: string  // 备注/别名
   basic: BasicInfo
   education: Education[]
   experience: Experience[]

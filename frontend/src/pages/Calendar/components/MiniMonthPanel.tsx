@@ -18,20 +18,20 @@ export function MiniMonthPanel({ currentDate, events, onPickDate, onNavigateMont
     events.some((ev) => isSameChinaDay(new Date(ev.starts_at), day))
 
   return (
-    <aside className="w-[340px] shrink-0 border-r border-slate-200 bg-[#f8fafc] p-3">
+    <aside className="w-[320px] shrink-0 border-r border-slate-200 bg-[#f8fafc] p-2.5">
       <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
         <div className="mb-2 flex items-center justify-between">
           <button
-            className="rounded-md px-2 py-1 text-xl font-bold text-slate-700 hover:bg-slate-100"
+            className="rounded-md px-2 py-1 text-lg font-semibold text-slate-700 hover:bg-slate-100"
             type="button"
           >
             {formatMonthTitle(currentDate)}
           </button>
           <div className="flex gap-1">
-            <button type="button" className="rounded-md p-1.5 hover:bg-slate-100" onClick={() => onNavigateMonth(-1)}>
+            <button type="button" className="rounded-md p-1 hover:bg-slate-100" onClick={() => onNavigateMonth(-1)}>
               <ChevronLeft className="h-4 w-4 text-slate-500" />
             </button>
-            <button type="button" className="rounded-md p-1.5 hover:bg-slate-100" onClick={() => onNavigateMonth(1)}>
+            <button type="button" className="rounded-md p-1 hover:bg-slate-100" onClick={() => onNavigateMonth(1)}>
               <ChevronRight className="h-4 w-4 text-slate-500" />
             </button>
           </div>

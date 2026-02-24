@@ -209,7 +209,13 @@ async def save_session_messages(
     """Save session messages immediately."""
     try:
         messages = request.messages or []
-        history_manager = ChatHistoryManager(session_id=session_id, storage=storage)
+        # Use a large sliding window here to avoid truncating saved history snapshots.
+        # Session save endpoint should persist the full client snapshot.
+        history_manager = ChatHistoryManager(
+            session_id=session_id,
+            storage=storage,
+            k=max(1000, len(messages) + 10),
+        )
         history_manager.load_messages(messages)
         meta = conversation_manager.save_history(session_id, history_manager)
         return {

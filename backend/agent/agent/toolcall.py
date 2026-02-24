@@ -1,7 +1,7 @@
 import asyncio
 import json
 import re
-from typing import Any, List, Optional, Union
+from typing import Any, Awaitable, Callable, List, Optional, Union
 
 from pydantic import Field, PrivateAttr
 
@@ -49,6 +49,20 @@ class ToolCallAgent(ReActAgent):
     _last_processed_user_input: str = PrivateAttr(default="")
     _pending_next_step: bool = PrivateAttr(default=False)  # 是否有待处理的 next_step
     _tool_structured_results: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _stream_content_callback: Optional[Callable[[str], Awaitable[None]]] = PrivateAttr(default=None)
+    _stream_cancel_event: Optional[asyncio.Event] = PrivateAttr(default=None)
+
+    def set_stream_content_callback(
+        self,
+        callback: Optional[Callable[[str], Awaitable[None]]],
+        cancel_event: Optional[asyncio.Event] = None,
+    ) -> None:
+        self._stream_content_callback = callback
+        self._stream_cancel_event = cancel_event
+
+    def clear_stream_content_callback(self) -> None:
+        self._stream_content_callback = None
+        self._stream_cancel_event = None
 
     @staticmethod
     def _sanitize_log_text(text: str) -> str:
@@ -204,16 +218,30 @@ class ToolCallAgent(ReActAgent):
 
         try:
             # Get response with tool options
-            response = await self.llm.ask_tool(
-                messages=self.messages,
-                system_msgs=(
-                    [Message.system_message(self.system_prompt)]
-                    if self.system_prompt
-                    else None
-                ),
-                tools=self.available_tools.to_params(),
-                tool_choice=self.tool_choices,
-            )
+            if self._stream_content_callback:
+                response = await self.llm.ask_tool_stream(
+                    messages=self.messages,
+                    system_msgs=(
+                        [Message.system_message(self.system_prompt)]
+                        if self.system_prompt
+                        else None
+                    ),
+                    tools=self.available_tools.to_params(),
+                    tool_choice=self.tool_choices,
+                    on_content_delta=self._stream_content_callback,
+                    cancel_event=self._stream_cancel_event,
+                )
+            else:
+                response = await self.llm.ask_tool(
+                    messages=self.messages,
+                    system_msgs=(
+                        [Message.system_message(self.system_prompt)]
+                        if self.system_prompt
+                        else None
+                    ),
+                    tools=self.available_tools.to_params(),
+                    tool_choice=self.tool_choices,
+                )
         except ValueError:
             raise
         except Exception as e:

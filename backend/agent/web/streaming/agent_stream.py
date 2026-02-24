@@ -9,6 +9,7 @@ import asyncio
 import json
 import logging
 import re
+from dataclasses import dataclass
 from typing import Any, AsyncIterator, Callable, Optional, Tuple, List, Set
 from datetime import datetime
 
@@ -62,9 +63,11 @@ def parse_thought_response(content: str) -> Tuple[Optional[str], Optional[str]]:
 
     # 尝试多种匹配模式
     patterns = [
-        # 标准格式：Thought: ... Response: ...
-        (r'(?:^|\n)\s*(?:Thought|思考)[:：]\s*(.*?)(?=\n\s*(?:Response|回复)[:：]|$)',
-         r'(?:^|\n)\s*(?:Response|回复)[:：]\s*(.*)'),
+        # 标准格式：Thought: ... Response: ...（支持同一行或换行）
+        (
+            r'(?:^|\n)\s*(?:Thought|思考)[:：]\s*(.*?)(?=\s*(?:Response|回复|Answer|Final\s*Answer|最终回复)[:：]|$)',
+            r'(?:^|\n|\s)(?:Response|回复|Answer|Final\s*Answer|最终回复)[:：]\s*(.*)',
+        ),
         # 加粗格式：**Thought:** ... **Response:** ...
         (r'(?:^|\n)\s*\*\*Thought\*\*[:：]\s*(.*?)(?=\n\s*\*\*Response\*\*[:：]|$)',
          r'(?:^|\n)\s*\*\*Response\*\*[:：]\s*(.*)'),
@@ -105,6 +108,31 @@ def parse_thought_response(content: str) -> Tuple[Optional[str], Optional[str]]:
 
         if thought or response:
             break
+
+    # 启发式修复：
+    # 一些模型只输出 "Thought: xxx\n<actual answer>"，不带 "Response:" 标签。
+    # 这种情况下把第一行视作 thought，其余正文视作 response，
+    # 避免最终 plain 内容里残留 "Thought:" 前缀。
+    if thought and not response:
+        thought_prefix = re.match(
+            r"^\s*(?:\*\*)?(?:Thought|思考)(?:\*\*)?\s*[:：]\s*",
+            content,
+            re.IGNORECASE,
+        )
+        if thought_prefix:
+            remaining = content[thought_prefix.end() :].strip()
+            # 优先按空行拆分，否则按首个换行拆分
+            parts = re.split(r"\n{2,}|\n", remaining, maxsplit=1)
+            if len(parts) == 2:
+                first_line = parts[0].strip()
+                body = parts[1].strip()
+                if first_line and body:
+                    thought = first_line
+                    response = body
+            elif remaining:
+                # 至少移除前缀，避免在 plain 中出现 "Thought:"
+                thought = parts[0].strip()
+                response = None
 
     # 如果找到了 Thought 但没找到 Response（还在生成中），或者找到了 Response
     if thought or response:
@@ -183,6 +211,16 @@ ANALYSIS_RESULT_MARKERS = [
 ]
 
 
+@dataclass
+class StepStreamState:
+    step_id: int
+    last_stream_text: str = ""
+    last_stream_thought: str = ""
+    last_stream_response: str = ""
+    stream_emitted: bool = False
+    final_emitted: bool = False
+
+
 class AgentStream:
     """Handles streaming agent execution to WebSocket.
 
@@ -221,9 +259,51 @@ class AgentStream:
         self._sent_tools: set[str] = set()
         self._last_answer_content: str = ""
         self._answer_sent_in_loop: bool = False  # 🚨 跟踪循环中是否已发送过 answer
+        self._answer_event_seq: int = 0
+        self._emitted_answer_fingerprints: set[str] = set()
+        self._final_answer_sent: bool = False
+        self._current_step_stream_state: Optional[StepStreamState] = None
+        self._stream_cancel_event: Optional[asyncio.Event] = None
 
         # CLTP chunk generator
         self._cltp_generator = CLTPChunkGenerator(session_id)
+
+    def _next_answer_event_seq(self) -> int:
+        self._answer_event_seq += 1
+        return self._answer_event_seq
+
+    def _build_answer_event(
+        self,
+        *,
+        content: str,
+        is_complete: bool,
+        delta: Optional[str] = None,
+    ) -> Optional[AnswerEvent]:
+        content_norm = self._normalize_text(content)
+        if not content_norm:
+            return None
+
+        if is_complete and self._final_answer_sent:
+            return None
+
+        delta_norm = self._normalize_text(delta)
+        fingerprint = f"{int(is_complete)}|{content_norm}|{delta_norm}"
+        if fingerprint in self._emitted_answer_fingerprints:
+            return None
+
+        self._emitted_answer_fingerprints.add(fingerprint)
+        self._last_answer_content = content_norm
+        if is_complete:
+            self._final_answer_sent = True
+            self._answer_sent_in_loop = True
+
+        return AnswerEvent(
+            content=content,
+            delta=delta,
+            is_complete=is_complete,
+            session_id=self._session_id,
+            event_seq=self._next_answer_event_seq(),
+        )
 
     def _ensure_assistant_message(self, content: Optional[str]) -> None:
         """Ensure the assistant message is present in memory for persistence."""
@@ -269,6 +349,22 @@ class AgentStream:
                 break
         
         self.agent.memory.add_message(Message.assistant_message(content))
+
+    @staticmethod
+    def _normalize_text(text: Optional[str]) -> str:
+        return (text or "").strip()
+
+    def _get_latest_assistant_content(self) -> str:
+        for msg in reversed(self.agent.memory.messages):
+            if msg.role == "assistant" and msg.content:
+                return msg.content
+        return ""
+
+    def _should_skip_complete_answer(self, content: str) -> bool:
+        state = self._current_step_stream_state
+        if not state or not state.final_emitted:
+            return False
+        return self._normalize_text(content) == self._normalize_text(state.last_stream_text)
 
     def _serialize_tool_calls(self, tool_calls: Any) -> str:
         """Serialize tool calls for deduplication."""
@@ -422,197 +518,155 @@ class AgentStream:
                     # 记录执行前的消息数量
                     msg_count_before = len(self.agent.memory.messages)
 
-                    # 执行一步
-                    step_result = await self.agent.step()
+                    # 真流式：并发执行 step 与内容流消费
+                    step_state = StepStreamState(step_id=self.agent.current_step)
+                    self._current_step_stream_state = step_state
+                    # Keep ordered stream chunks to preserve true incremental output.
+                    stream_queue: asyncio.Queue[str] = asyncio.Queue()
+                    self._stream_cancel_event = asyncio.Event()
+
+                    async def _on_content_delta(content: str) -> None:
+                        if not content:
+                            return
+                        if self._stream_cancel_event and self._stream_cancel_event.is_set():
+                            return
+                        await stream_queue.put(content)
+
+                    if hasattr(self.agent, "set_stream_content_callback"):
+                        self.agent.set_stream_content_callback(
+                            _on_content_delta, self._stream_cancel_event
+                        )
+
+                    step_task = asyncio.create_task(self.agent.step())
+                    step_result: Optional[str] = None
+                    try:
+                        while not step_task.done() or not stream_queue.empty():
+                            if self._state_machine.stop_requested:
+                                if self._stream_cancel_event:
+                                    self._stream_cancel_event.set()
+                                if not step_task.done():
+                                    step_task.cancel()
+                                break
+
+                            try:
+                                streamed_content = await asyncio.wait_for(
+                                    stream_queue.get(), timeout=0.01
+                                )
+                            except asyncio.TimeoutError:
+                                continue
+
+                            if (
+                                streamed_content
+                                and self._normalize_text(
+                                    streamed_content
+                                    if streamed_content.startswith(step_state.last_stream_text)
+                                    else (step_state.last_stream_text + streamed_content)
+                                )
+                                != self._normalize_text(step_state.last_stream_text)
+                            ):
+                                # Backward compatibility:
+                                # - If callback sends cumulative text, replace directly.
+                                # - If callback sends delta text, append incrementally.
+                                if streamed_content.startswith(step_state.last_stream_text):
+                                    step_state.last_stream_text = streamed_content
+                                else:
+                                    step_state.last_stream_text += streamed_content
+                                step_state.stream_emitted = True
+
+                                # Try to preserve "Thought/Response" UX while streaming.
+                                thought_part, response_part = parse_thought_response(
+                                    step_state.last_stream_text
+                                )
+                                if (
+                                    thought_part
+                                    and self._normalize_text(thought_part)
+                                    != self._normalize_text(step_state.last_stream_thought)
+                                ):
+                                    step_state.last_stream_thought = thought_part
+                                    yield ThoughtEvent(
+                                        thought=thought_part,
+                                        session_id=self._session_id,
+                                    )
+
+                                stream_answer = (
+                                    response_part
+                                    if response_part
+                                    else ("" if thought_part else step_state.last_stream_text)
+                                )
+                                if (
+                                    stream_answer
+                                    and self._normalize_text(stream_answer)
+                                    != self._normalize_text(step_state.last_stream_response)
+                                ):
+                                    answer_delta = stream_answer
+                                    if stream_answer.startswith(step_state.last_stream_response):
+                                        answer_delta = stream_answer[
+                                            len(step_state.last_stream_response):
+                                        ]
+                                    step_state.last_stream_response = stream_answer
+                                    if answer_delta:
+                                        answer_event = self._build_answer_event(
+                                            content=stream_answer,
+                                            delta=answer_delta,
+                                            is_complete=False,
+                                        )
+                                        if answer_event:
+                                            yield answer_event
+
+                        step_result = await step_task
+                    except asyncio.CancelledError:
+                        logger.info("[AgentStream] step_task cancelled")
+                        await self._state_machine.transition_to(AgentState.STOPPED)
+                        yield SystemEvent(
+                            message="Execution stopped by user",
+                            level="info",
+                            session_id=self._session_id,
+                        )
+                        return
+                    finally:
+                        if hasattr(self.agent, "clear_stream_content_callback"):
+                            self.agent.clear_stream_content_callback()
+                        self._stream_cancel_event = None
+
                     logger.info(f"🔍 [DEBUG] step() 返回: {step_result}, agent.state: {self.agent.state}, _answer_sent_in_loop: {self._answer_sent_in_loop}")
 
-                    # 🔍 调试：检查状态变化
-                    if self.agent.state == SchemaAgentState.FINISHED:
-                        logger.info(f"✅ Agent 状态已设置为 FINISHED，准备退出循环")
-                        # 🔑 关键修复：如果状态是 FINISHED，立即退出循环
-                        # 先发送最终答案（如果有）
-                        final_answer = None
-                        # 查找 assistant 消息的 content
-                        for msg in reversed(self.agent.memory.messages):
-                            if msg.role == "assistant" and msg.content:
-                                final_answer = msg.content
-                                break
-                        
-                        # 如果还是没找到，查找任何有内容的 assistant 消息（即使只有 tool_calls）
-                        # 注意：排除 terminate 工具的结果，因为它是技术性消息
-                        if not final_answer:
-                            for msg in reversed(self.agent.memory.messages):
-                                if msg.role == "assistant":
-                                    # 如果有 content，使用它
-                                    if msg.content:
-                                        final_answer = msg.content
-                                        break
-                                    # 如果只有 tool_calls，尝试从 tool 结果中获取（排除 terminate）
-                                    elif msg.tool_calls:
-                                        # 查找对应的 tool 消息
-                                        for tool_msg in reversed(self.agent.memory.messages):
-                                            # 排除 terminate 工具的结果
-                                            if tool_msg.role == "tool" and tool_msg.name != "terminate" and tool_msg.tool_call_id in [tc.id for tc in msg.tool_calls]:
-                                                if tool_msg.content:
-                                                    final_answer = tool_msg.content
-                                                    logger.info(f"🔍 [DEBUG] 从 tool 消息中获取 final_answer: {final_answer[:100]}...")
-                                                    break
-                                        if final_answer:
-                                            break
-                        
-                        # 🔑 Fallback：如果没有找到 final_answer 且 Agent 已完成，提供一个友好的默认回复
-                        if not final_answer and not self._answer_sent_in_loop:
-                            # 检查是否调用了 terminate 工具
-                            has_terminate = any(
-                                msg.role == "tool" and msg.name == "terminate" 
-                                for msg in self.agent.memory.messages
-                            )
-                            if has_terminate:
-                                # 检查用户最后一条消息是否是问候
-                                last_user_msg = ""
-                                for msg in reversed(self.agent.memory.messages):
-                                    if msg.role == "user":
-                                        last_user_msg = msg.content if hasattr(msg, 'content') else ""
-                                        break
-                                
-                                # 根据用户输入选择合适的默认回复
-                                greeting_patterns = ["你好", "hello", "hi", "嗨", "哈喽", "早上好", "下午好", "晚上好"]
-                                is_greeting = any(p in last_user_msg.lower() for p in greeting_patterns)
-                                
-                                if is_greeting:
-                                    final_answer = "你好！我是 AI 助手，很高兴见到你！我可以帮助你处理各种任务，比如搜索信息、生成报告、优化简历等。有什么我可以帮你的吗？"
-                                else:
-                                    final_answer = "好的，还有什么我可以帮助你的吗？"
-                                logger.info("🔍 [DEBUG] 使用默认友好回复作为 final_answer")
-
-                        logger.info(f"🔍 [DEBUG] FINISHED 状态检查: final_answer={final_answer[:100] if final_answer else None}..., _answer_sent_in_loop={self._answer_sent_in_loop}")
-
-                        if final_answer and not self._answer_sent_in_loop:
-                            # #region debug log
-                            import json
-                            # 使用 logger 代替硬编码路径
-                            try:
-                                debug_data = {
-                                    "sessionId": "debug-session",
-                                    "runId": "run1",
-                                    "hypothesisId": "D",
-                                    "location": "agent_stream.py:execute:FINISHED_BEFORE_PARSE",
-                                    "message": "before parse_thought_response in FINISHED state",
-                                    "data": {
-                                        "final_answer_length": len(final_answer) if final_answer else 0,
-                                        "final_answer_preview": final_answer[:300] if final_answer else None
-                                    },
-                                    "timestamp": int(__import__('time').time() * 1000)
-                                }
-                                logger.debug(f"[DEBUG] FINISHED_BEFORE_PARSE: {json.dumps(debug_data, ensure_ascii=False)}")
-                            except Exception:
-                                pass
-                            # 注释掉硬编码路径的调试日志
-            # with open('/Users/wy770/AI/.cursor/debug.log', 'a') as f:
-            #     f.write(json.dumps({
-            #         "sessionId": "debug-session",
-            #         "runId": "run1",
-            #         "hypothesisId": "D",
-            #         "location": "agent_stream.py:execute:FINISHED_BEFORE_PARSE",
-            #         "message": "before parse_thought_response in FINISHED state",
-            #         "data": {
-            #             "final_answer_length": len(final_answer) if final_answer else 0,
-            #             "final_answer_preview": final_answer[:300] if final_answer else None
-            #         },
-            #         "timestamp": int(__import__('time').time() * 1000)
-            #     }) + '\n')
-                            # #endregion
-
-                            # 🎯 解析 Thought 和 Response
-                            thought_part, response_part = parse_thought_response(final_answer)
-                            logger.info(f"[FINISHED 解析] thought={thought_part[:50] if thought_part else None}... response={response_part[:50] if response_part else None}...")
-
-                            # #region debug log (已禁用硬编码路径)
-            # with open('/Users/wy770/AI/.cursor/debug.log', 'a') as f:
-            #     f.write(json.dumps({
-            #         "sessionId": "debug-session",
-            #         "runId": "run1",
-            #         "hypothesisId": "D",
-            #         "location": "agent_stream.py:execute:FINISHED_AFTER_PARSE",
-            #         "message": "after parse_thought_response in FINISHED state",
-            #         "data": {
-            #             "thought_part_found": thought_part is not None,
-            #             "response_part_found": response_part is not None,
-            #             "thought_part_length": len(thought_part) if thought_part else 0,
-            #             "response_part_length": len(response_part) if response_part else 0
-            #         },
-            #         "timestamp": int(__import__('time').time() * 1000)
-            #     }) + '\n')
-                            # #endregion
-
-                            # 先发送 Thought（如果有）
-                            if thought_part:
-                                logger.info(f"[Thought Process] {thought_part[:100]}...")
-                                # #region debug log
-            # with open('/Users/wy770/AI/.cursor/debug.log', 'a') as f:
-            #     f.write(json.dumps({
-            #         "sessionId": "debug-session",
-            #         "runId": "run1",
-            #         "hypothesisId": "D",
-            #         "location": "agent_stream.py:execute:YIELD_THOUGHT",
-            #         "message": "yielding ThoughtEvent",
-            #         "data": {
-            #             "thought_length": len(thought_part),
-            #             "thought_preview": thought_part[:100]
-            #         },
-            #         "timestamp": int(__import__('time').time() * 1000)
-            #     }) + '\n')
-                                # #endregion
-
-                                # 生成 CLTP content(channel='think') chunk
-                                # 关键：保持文本内容原样，不进行任何修改
-                                think_chunk = self._cltp_generator.emit_content(
-                                    channel='think',
-                                    payload={'text': thought_part},  # 保持原样
-                                    done=False,
-                                )
-
+                    # step 收尾：避免“流式末尾文本”与“memory 最终文本”不一致
+                    final_step_content = self._get_latest_assistant_content()
+                    if step_state.stream_emitted:
+                        # True-streaming single-writer policy:
+                        # do NOT emit answer in step-tail. The only writers are:
+                        # 1) delta in stream loop
+                        # 2) complete=true in FINISHED/fallback branch
+                        # Here we only align memory/state to avoid missing persistence.
+                        final_candidate = final_step_content or step_state.last_stream_text
+                        if final_candidate:
+                            thought_part, response_part = parse_thought_response(final_candidate)
+                            if (
+                                thought_part
+                                and self._normalize_text(thought_part)
+                                != self._normalize_text(step_state.last_stream_thought)
+                            ):
+                                step_state.last_stream_thought = thought_part
                                 yield ThoughtEvent(
                                     thought=thought_part,
                                     session_id=self._session_id,
                                 )
-                            else:
-                                # #region debug log (已禁用硬编码路径)
-                                # with open('/Users/wy770/AI/.cursor/debug.log', 'a') as f:
-                                #     f.write(json.dumps({
-                                #         "sessionId": "debug-session",
-                                #         "runId": "run1",
-                                #         "hypothesisId": "D",
-                                #         "location": "agent_stream.py:execute:NO_THOUGHT",
-                                #         "message": "thought_part is None, not yielding ThoughtEvent",
-                                #         "data": {},
-                                #         "timestamp": int(__import__('time').time() * 1000)
-                                #     }) + '\n')
-                                # #endregion
-                                pass
 
-                            # 再发送 Response
-                            final_content = response_part if response_part else final_answer
-
-                            # 生成 CLTP content(channel='plain', done=true) chunk
-                            # 关键：保持文本内容原样，不进行任何修改
-                            answer_chunk = self._cltp_generator.emit_content(
-                                channel='plain',
-                                payload={'text': final_content},  # 保持原样
-                                done=True,
+                            final_answer_content = (
+                                response_part
+                                if response_part
+                                else (final_candidate if not thought_part else "")
                             )
+                            if final_answer_content:
+                                # Ensure final visible answer is persisted even when
+                                # assistant memory only contains intermediate/tool messages.
+                                self._ensure_assistant_message(final_answer_content)
+                                step_state.last_stream_response = final_answer_content
 
-                            # Ensure final response is stored for history persistence
-                            self._ensure_assistant_message(final_content)
-
-                            yield AnswerEvent(
-                                content=final_content,
-                                is_complete=True,
-                                session_id=self._session_id,
-                            )
-                            self._answer_sent_in_loop = True
-
-                        # 退出循环
+                    # 🔍 调试：检查状态变化
+                    # 单一路径：循环内只发 delta，不发 complete。complete 只在循环结束后发一次。
+                    if self.agent.state == SchemaAgentState.FINISHED:
+                        logger.info("✅ Agent 状态已设置为 FINISHED，退出循环；complete 将在循环结束后统一发送")
                         break
 
                     # 实时发送新增的消息
@@ -653,6 +707,14 @@ class AgentStream:
 
                             # 再处理 content（如果有）
                             if msg.content:
+                                # True-streaming 已经通过 on_content_delta 输出过增量内容，
+                                # 这里不再重复发送 assistant content，避免 thought/answer 重复。
+                                if step_state.stream_emitted:
+                                    logger.debug(
+                                        "[AgentStream] Skip assistant content replay in memory loop"
+                                    )
+                                    continue
+
                                 # 🚨 去重：跳过已发送过的相同内容
                                 content_hash = hash(msg.content)  # 使用完整内容，避免截断更新被误判
                                 if content_hash in self._sent_thoughts:
@@ -755,76 +817,19 @@ class AgentStream:
                                     # #endregion
                                     pass
 
-                                # 再发送 Response/Answer
+                                # Single-writer policy (Karis-aligned):
+                                # memory loop no longer emits plain answer.
+                                # plain comes from stream delta path + FINISHED/fallback completion only.
                                 if response_part:
                                     if is_final_answer:
-                                        logger.info(f"[分析结果回复] {response_part[:200]}...")
-                                        self._answer_sent_in_loop = True
-
-                                        # 生成 CLTP content(channel='plain', done=true) chunk
-                                        # 关键：保持文本内容原样，不进行任何修改
-                                        answer_chunk = self._cltp_generator.emit_content(
-                                            channel='plain',
-                                            payload={'text': response_part},  # 保持原样
-                                            done=True,
-                                        )
-
-                                        yield AnswerEvent(
-                                            content=response_part,
-                                            is_complete=True,
-                                            session_id=self._session_id,
-                                        )
-                                    else:
-                                        logger.info(f"[Response] {response_part[:100]}...")
-
-                                        # 生成 CLTP content(channel='plain', done=false) chunk
-                                        # 关键：保持文本内容原样，不进行任何修改
-                                        answer_chunk = self._cltp_generator.emit_content(
-                                            channel='plain',
-                                            payload={'text': response_part},  # 保持原样
-                                            done=False,
-                                        )
-
-                                        yield AnswerEvent(
-                                            content=response_part,
-                                            is_complete=False,
-                                            session_id=self._session_id,
-                                        )
+                                        logger.info(f"[分析结果回复候选] {response_part[:200]}...")
                                 elif not thought_part:
-                                    # 没有格式化输出，使用原始逻辑
-                                    if is_final_answer:
-                                        logger.info(f"[分析结果回复] {msg.content[:200]}...")
-                                        self._answer_sent_in_loop = True
-
-                                        # 生成 CLTP content(channel='plain', done=true) chunk
-                                        # 关键：保持文本内容原样，不进行任何修改
-                                        answer_chunk = self._cltp_generator.emit_content(
-                                            channel='plain',
-                                            payload={'text': msg.content},  # 保持原样
-                                            done=True,
-                                        )
-
-                                        yield AnswerEvent(
-                                            content=msg.content,
-                                            is_complete=True,
-                                            session_id=self._session_id,
-                                        )
-                                    else:
-                                        # 思考过程 - 标记为 thought
-                                        logger.debug(f"[思考过程] {msg.content[:100]}...")
-
-                                        # 生成 CLTP content(channel='think') chunk
-                                        # 关键：保持文本内容原样，不进行任何修改
-                                        think_chunk = self._cltp_generator.emit_content(
-                                            channel='think',
-                                            payload={'text': msg.content},  # 保持原样
-                                            done=False,
-                                        )
-
-                                        yield ThoughtEvent(
-                                            thought=msg.content,
-                                            session_id=self._session_id,
-                                        )
+                                    # 没有格式化输出时仅保留 thought 兼容展示，不在此处发送 answer
+                                    logger.debug(f"[思考过程] {msg.content[:100]}...")
+                                    yield ThoughtEvent(
+                                        thought=msg.content,
+                                        session_id=self._session_id,
+                                    )
 
                         elif msg.tool_calls:
                             # 非 assistant 消息的 tool_calls（fallback）
@@ -920,30 +925,53 @@ class AgentStream:
             self.agent.current_step = 0
             self.agent.state = SchemaAgentState.IDLE
 
-            # 只有在循环中没有发送过 answer 的情况下，才发送最终答案
-            if not self._answer_sent_in_loop:
+            # 单一路径：只在此处发一次 is_complete=True（流式阶段只发 delta）
+            final_answer = None
+            for msg in reversed(self.agent.memory.messages):
+                if msg.role == "assistant" and msg.content:
+                    final_answer = msg.content
+                    break
+            if not final_answer:
+                has_terminate = any(
+                    m.role == "tool" and m.name == "terminate"
+                    for m in self.agent.memory.messages
+                )
+                if has_terminate:
+                    last_user = ""
+                    for m in reversed(self.agent.memory.messages):
+                        if m.role == "user":
+                            last_user = getattr(m, "content", "") or ""
+                            break
+                    greeting_patterns = ["你好", "hello", "hi", "嗨", "哈喽", "早上好", "下午好", "晚上好"]
+                    if any(p in (last_user or "").lower() for p in greeting_patterns):
+                        final_answer = "你好！我是 AI 助手，很高兴见到你！我可以帮助你处理各种任务，比如搜索信息、生成报告、优化简历等。有什么我可以帮你的吗？"
+                    else:
+                        final_answer = "好的，还有什么我可以帮助你的吗？"
+            if not final_answer:
                 final_answer = "错误：Agent 执行过程中未生成有效回复、请检查任务配置或重试。"
-                for msg in reversed(self.agent.memory.messages):
-                    if msg.role == "assistant" and msg.content:
-                        final_answer = msg.content
-                        break
 
-                # 生成 CLTP content(channel='plain', done=true) chunk
-                # 关键：保持文本内容原样，不进行任何修改
-                answer_chunk = self._cltp_generator.emit_content(
-                    channel='plain',
-                    payload={'text': final_answer},  # 保持原样
-                    done=True,
-                )
+            # 解析 Thought/Response：在唯一收尾点补发 thought（若尚未发过）
+            thought_part, response_part = parse_thought_response(final_answer)
+            if thought_part:
+                thought_hash = hash(self._normalize_text(thought_part))
+                if thought_hash not in self._sent_thoughts:
+                    self._sent_thoughts.add(thought_hash)
+                    yield ThoughtEvent(
+                        thought=thought_part,
+                        session_id=self._session_id,
+                    )
 
-                # Ensure fallback answer is stored for history persistence
-                self._ensure_assistant_message(final_answer)
+            # plain 仅取 response 正文，避免 thought 混入答案
+            final_content = (response_part or final_answer).strip() or final_answer
+            self._ensure_assistant_message(final_content)
 
-                yield AnswerEvent(
-                    content=final_answer,
+            if not self._final_answer_sent and not self._should_skip_complete_answer(final_content):
+                answer_event = self._build_answer_event(
+                    content=final_content,
                     is_complete=True,
-                    session_id=self._session_id,
                 )
+                if answer_event:
+                    yield answer_event
 
             # 保存到历史记录 - 保存所有类型的消息（包括 Tool 消息）
             if self._chat_history_manager:
