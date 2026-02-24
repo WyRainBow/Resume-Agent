@@ -8,7 +8,7 @@ import { getDashboardSummary } from '@/services/dashboardApi'
 import { KpiCard } from './components/KpiCard'
 import { MiniLineChart } from './components/MiniLineChart'
 import { DonutChart } from './components/DonutChart'
-import { buildDailyTrend, buildKpisFromCount, buildProgressDistribution } from './utils/metrics'
+import { buildDailyTrend, buildKpisFromCount, buildProgressDistribution, buildProgressDistributionThisWeek } from './utils/metrics'
 import { getApiBaseUrl } from '@/lib/runtimeEnv'
 
 function getDashboardPerfEndpoint() {
@@ -45,6 +45,8 @@ export default function StatsDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [resumeCount, setResumeCount] = useState(0)
   const [entries, setEntries] = useState<Array<Pick<ApplicationProgressEntry, 'progress' | 'application_date'>>>([])
+  const [interviewCount, setInterviewCount] = useState(0)
+  const [interviewCountThisWeek, setInterviewCountThisWeek] = useState(0)
   const pageEnterAtRef = useRef<number>(performance.now())
   const hasReportedEnterRef = useRef(false)
   const hasRequestedSummaryRef = useRef(false)
@@ -86,6 +88,8 @@ export default function StatsDashboardPage() {
         if (!alive) return
         setResumeCount(summaryRes.resume_count || 0)
         setEntries(summaryRes.entries || [])
+        setInterviewCount(summaryRes.interview_count ?? 0)
+        setInterviewCountThisWeek(summaryRes.interview_count_this_week ?? 0)
         const totalElapsed = Math.round(performance.now() - loadStartAt)
         const summaryElapsed = Math.round(performance.now() - summaryStartAt)
         const resumeMs = summaryRes.metrics?.resume_query_ms ?? summaryElapsed
@@ -102,6 +106,8 @@ export default function StatsDashboardPage() {
         if (!alive) return
         setResumeCount(0)
         setEntries([])
+        setInterviewCount(0)
+        setInterviewCountThisWeek(0)
       } finally {
         if (alive) {
           setLoading(false)
@@ -120,7 +126,14 @@ export default function StatsDashboardPage() {
 
   const kpis = useMemo(() => buildKpisFromCount(resumeCount, entries), [resumeCount, entries])
   const trend = useMemo(() => buildDailyTrend(entries), [entries])
-  const distribution = useMemo(() => buildProgressDistribution(entries), [entries])
+  const distributionThisWeek = useMemo(
+    () => buildProgressDistributionThisWeek(entries, interviewCountThisWeek),
+    [entries, interviewCountThisWeek]
+  )
+  const distributionTotal = useMemo(
+    () => buildProgressDistribution(entries, interviewCount),
+    [entries, interviewCount]
+  )
   const sectionStagger = {
     hidden: { opacity: 0 },
     show: {
@@ -192,7 +205,7 @@ export default function StatsDashboardPage() {
               <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">本周概览</p>
                 <p className="mt-1 text-sm font-bold text-slate-800">
-                  投递 {kpis.last7DaysCount} 份 · 活跃流程 {kpis.activePipelineCount} 份
+                  投递 {kpis.thisWeekApplicationCount} 份 · 活跃流程 {kpis.activePipelineThisWeekCount} 份 · 面试 {interviewCountThisWeek} 场
                 </p>
               </div>
             </div>
@@ -205,27 +218,35 @@ export default function StatsDashboardPage() {
               <motion.div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4" variants={sectionStagger} initial="hidden" animate="show">
                 <motion.div variants={sectionItem}><KpiCard title="简历总数" value={kpis.resumeCount} hint="当前账号下简历数量" icon={FileText} index={0} /></motion.div>
                 <motion.div variants={sectionItem}><KpiCard title="投递总数" value={kpis.applicationCount} hint="累计投递记录数量" icon={Send} index={1} /></motion.div>
-                <motion.div variants={sectionItem}><KpiCard title="近7天投递" value={kpis.last7DaysCount} hint="按投递时间统计" icon={CalendarRange} index={2} /></motion.div>
+                <motion.div variants={sectionItem}><KpiCard title="面试总数" value={interviewCount} hint="从面试日历统计" icon={CalendarRange} index={2} /></motion.div>
                 <motion.div variants={sectionItem}><KpiCard title="活跃流程中" value={kpis.activePipelineCount} hint="已排除刷掉与简历挂" icon={Activity} index={3} /></motion.div>
               </motion.div>
 
-              <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-3">
+              <div className="mt-6 grid grid-cols-1 gap-5 xl:grid-cols-2">
                 <motion.div
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.35, delay: 0.12 }}
-                  className="xl:col-span-2"
                 >
-                  <MiniLineChart data={trend} />
+                  <DonutChart data={distributionThisWeek} title="本周进展状态分布" />
                 </motion.div>
                 <motion.div
                   initial={{ opacity: 0, y: 16 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.35, delay: 0.2 }}
                 >
-                  <DonutChart data={distribution} />
+                  <DonutChart data={distributionTotal} title="总共进展状态分布" />
                 </motion.div>
               </div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.35, delay: 0.22 }}
+                className="mt-6"
+              >
+                <MiniLineChart data={trend} />
+              </motion.div>
 
               <motion.div
                 initial={{ opacity: 0, y: 16 }}
@@ -238,10 +259,10 @@ export default function StatsDashboardPage() {
                   <span className="text-sm font-medium text-slate-500">按当前账号聚合</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  {distribution.length === 0 ? (
+                  {distributionTotal.length === 0 ? (
                     <span className="rounded-full bg-slate-100 px-3 py-1.5 text-sm text-slate-500">暂无状态数据</span>
                   ) : (
-                    distribution.slice(0, 8).map((item, idx) => (
+                    distributionTotal.slice(0, 8).map((item, idx) => (
                       <motion.span
                         key={item.label}
                         className="inline-flex items-center gap-2 whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-700"

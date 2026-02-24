@@ -21,18 +21,32 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
   const weekStart = startOfWeek(currentDate)
   const dayDates = mode === 'day' ? [startOfDay(currentDate)] : Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i))
   const totalHeight = (END_HOUR - START_HOUR + 1) * HOUR_HEIGHT
+  const todayDate = new Date()
 
   return (
     <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex border-b border-slate-200 bg-white">
         <div className="w-20 shrink-0 px-2 py-2 text-center text-xs font-semibold text-slate-400">GMT：中国时区</div>
         <div className="grid flex-1" style={{ gridTemplateColumns: `repeat(${dayDates.length}, minmax(0, 1fr))` }}>
-          {dayDates.map((day) => (
-              <div key={day.toISOString()} className="border-l border-slate-200 px-3 py-2">
+          {dayDates.map((day) => {
+            const isToday = isSameChinaDay(day, todayDate)
+            return (
+              <div
+                key={day.toISOString()}
+                className={`border-l border-slate-200 px-3 py-2 ${isToday ? 'bg-sky-50' : ''}`}
+              >
                 <div className="text-sm text-slate-400">{['周日', '周一', '周二', '周三', '周四', '周五', '周六'][day.getDay()]}</div>
-                <div className="text-xl font-semibold text-slate-800">{Number(toDateInputValue(day).slice(-2))}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-xl font-semibold ${isToday ? 'text-sky-700' : 'text-slate-800'}`}>
+                    {Number(toDateInputValue(day).slice(-2))}
+                  </span>
+                  {isToday && (
+                    <span className="rounded bg-sky-200 px-1.5 py-0.5 text-xs font-semibold text-sky-800">今天</span>
+                  )}
+                </div>
               </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
@@ -48,8 +62,13 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
         <div className="relative flex-1 isolate" style={{ height: `${totalHeight}px` }}>
           {/* 槽位网格：仅背景与点击，置于底层 */}
           <div className="absolute inset-0 grid z-0" style={{ gridTemplateColumns: `repeat(${dayDates.length}, minmax(0, 1fr))` }}>
-            {dayDates.map((day) => (
-              <div key={`${day.toISOString()}-col`} className="relative border-l border-slate-200">
+            {dayDates.map((day) => {
+              const isToday = isSameChinaDay(day, todayDate)
+              return (
+              <div
+                key={`${day.toISOString()}-col`}
+                className={`relative border-l border-slate-200 ${isToday ? 'bg-sky-50/50' : ''}`}
+              >
                 {Array.from({ length: END_HOUR - START_HOUR + 1 }).map((_, i) => {
                   const hour = START_HOUR + i
                   return (
@@ -68,7 +87,8 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
                   )
                 })}
               </div>
-            ))}
+            )
+            })}
           </div>
 
           {/* 事件层：独立叠放上下文，保证盖在槽位之上 */}

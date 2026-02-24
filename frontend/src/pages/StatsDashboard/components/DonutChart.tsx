@@ -15,7 +15,7 @@ function toArcPath(cx: number, cy: number, r: number, startAngle: number, endAng
   return `M ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y}`
 }
 
-export function DonutChart({ data }: { data: ProgressDistributionItem[] }) {
+export function DonutChart({ data, title = '进展状态分布' }: { data: ProgressDistributionItem[]; title?: string }) {
   const size = 320
   const cx = size / 2
   const cy = size / 2
@@ -49,7 +49,7 @@ export function DonutChart({ data }: { data: ProgressDistributionItem[] }) {
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_14px_30px_rgba(15,23,42,0.08)]">
-      <h3 className="mb-4 text-2xl font-bold tracking-tight text-slate-900">进展状态分布</h3>
+      <h3 className="mb-4 text-2xl font-bold tracking-tight text-slate-900">{title}</h3>
       {data.length === 0 ? (
         <div className="flex h-[330px] items-center justify-center rounded-xl bg-slate-50 text-lg text-slate-500">暂无分布数据</div>
       ) : (
@@ -80,7 +80,7 @@ export function DonutChart({ data }: { data: ProgressDistributionItem[] }) {
               {displayTotal}
             </text>
             <text x={cx} y={cy + 20} textAnchor="middle" className="fill-slate-500 text-[14px] font-semibold">
-              总投递
+              {data.some((d) => d.label === '面试') ? '合计' : '总投递'}
             </text>
           </motion.svg>
           <div className="justify-self-start space-y-2.5">
@@ -92,12 +92,16 @@ export function DonutChart({ data }: { data: ProgressDistributionItem[] }) {
                 animate={{ opacity: 1, x: 0 }}
                 whileHover={{ x: 2 }}
                 transition={{ duration: 0.25, delay: 0.14 + idx * 0.04 }}
+                title={item.label === '面试' ? '从面试日历统计' : undefined}
               >
                 <div className="inline-flex min-w-0 flex-1 items-center gap-2 whitespace-nowrap">
                   <span className="h-3.5 w-3.5 rounded-full" style={{ backgroundColor: item.color }} />
                   <span className="text-base font-semibold text-slate-700">{item.label}</span>
                 </div>
-                <span className="w-8 text-right text-lg font-black tabular-nums text-slate-900">{item.value}</span>
+                <span className="min-w-[2rem] text-right text-lg font-black tabular-nums text-slate-900">
+                  {item.value}
+                  {item.label === '面试' ? ' 场' : ''}
+                </span>
               </motion.div>
             ))}
           </div>

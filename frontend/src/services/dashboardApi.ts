@@ -24,6 +24,8 @@ type DashboardSummaryMetrics = {
 type DashboardSummaryResponse = {
   resume_count: number
   entries: Array<Pick<ApplicationProgressEntry, 'progress' | 'application_date'>>
+  interview_count?: number
+  interview_count_this_week?: number
   metrics: DashboardSummaryMetrics
 }
 
