@@ -14,7 +14,7 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
-export type CalendarView = 'day' | 'week' | 'month'
+export type CalendarView = 'day' | 'week' | 'month' | 'interviews'
 
 export interface CalendarEvent {
   id: string

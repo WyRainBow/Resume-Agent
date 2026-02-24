@@ -96,11 +96,12 @@ export function DonutChart({ data, title = '进展状态分布' }: { data: Progr
               >
                 <div className="inline-flex min-w-0 flex-1 items-center gap-2 whitespace-nowrap">
                   <span className="h-3.5 w-3.5 rounded-full" style={{ backgroundColor: item.color }} />
-                  <span className="text-base font-semibold text-slate-700">{item.label}</span>
+                  <span className="text-base font-semibold text-slate-700">
+                    {item.label === '面试' ? '面试  ' : item.label}
+                  </span>
                 </div>
                 <span className="min-w-[2rem] text-right text-lg font-black tabular-nums text-slate-900">
-                  {item.value}
-                  {item.label === '面试' ? ' 场' : ''}
+                  {item.label === '面试' ? ' ' : ''}{item.value}{item.label === '面试' ? ' 场' : ''}
                 </span>
               </motion.div>
             ))}

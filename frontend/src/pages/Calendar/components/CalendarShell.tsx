@@ -77,6 +77,7 @@ export function CalendarShell({
               <button type="button" className={viewBtn('day')} onClick={() => onChangeView('day')}>日</button>
               <button type="button" className={viewBtn('week')} onClick={() => onChangeView('week')}>周</button>
               <button type="button" className={viewBtn('month')} onClick={() => onChangeView('month')}>月</button>
+              <button type="button" className={viewBtn('interviews')} onClick={() => onChangeView('interviews')}>有面试</button>
             </div>
           </div>
           <div className="h-[calc(100%-73px)] overflow-auto bg-white p-4">

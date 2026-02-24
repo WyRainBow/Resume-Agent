@@ -47,7 +47,7 @@ const STATUS_COLORS: Record<string, string> = {
   二面完成: '#C86BB8',   // 紫红
   二面被刷: '#8BC84D',   // 黄绿
   未设置: '#94A3B8',     // 灰蓝
-  面试: '#F59E0B',       // 琥珀/橙，与蓝色系明显区分
+  面试: '#7C3AED',       // 紫色，与蓝/红区分、视觉更舒适
 }
 
 const INACTIVE_STATUSES = new Set(['简历挂', '一面被刷', '二面被刷'])
