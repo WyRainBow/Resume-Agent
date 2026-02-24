@@ -22,79 +22,49 @@ export function InterviewListView({ events, onEventClick }: InterviewListViewPro
 
   if (dateKeys.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-        <div className="mb-6 h-20 w-20 rounded-[2rem] bg-slate-50 flex items-center justify-center text-4xl">
-          📭
-        </div>
-        <p className="text-xl font-black tracking-tight text-slate-900">暂无面试日程</p>
-        <p className="mt-2 text-sm font-medium">在日/周/月视图中创建日程后，有面试的日期会显示在这里</p>
+      <div className="flex flex-col items-center justify-center py-16 text-slate-500">
+        <p className="text-lg font-medium">暂无面试日程</p>
+        <p className="mt-1 text-sm">在日/周/月视图中创建日程后，有面试的日期会显示在这里</p>
       </div>
     )
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 space-y-12">
-      {dateKeys.map((key, idx) => {
+    <div className="space-y-6 p-4">
+      {dateKeys.map((key) => {
         const [y, m, d] = key.split('-').map(Number)
         const date = new Date(y, m - 1, d)
         const dayEvents = byDate.get(key)!
         return (
-          <motion.div 
-            key={key}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: idx * 0.1 }}
-            className="relative pl-12"
-          >
-            <div className="absolute left-0 top-0 bottom-0 w-px bg-slate-100">
-              <div className="absolute top-2 -left-1.5 h-3 w-3 rounded-full border-2 border-white bg-slate-900 shadow-sm" />
+          <div key={key} className="rounded-xl border border-slate-200 bg-slate-50/50 p-4">
+            <div className="mb-3 text-base font-bold text-slate-700">
+              {formatDateLabel(date)} {['周日', '周一', '周二', '周三', '周四', '周五', '周六'][date.getDay()]}
             </div>
-            
-            <div className="mb-6">
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">
-                {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][date.getDay()]}
-              </div>
-              <div className="text-2xl font-black text-slate-900 tracking-tight">
-                {formatDateLabel(date)}
-              </div>
-            </div>
-
-            <ul className="space-y-4">
+            <ul className="space-y-2">
               {dayEvents.map((event) => {
                 const start = new Date(event.starts_at)
                 const end = new Date(event.ends_at)
                 return (
-                  <motion.li 
-                    key={event.id}
-                    whileHover={{ x: 8 }}
-                    className="group"
-                  >
+                  <li key={event.id}>
                     <button
                       type="button"
                       onClick={(e) => onEventClick(event, (e.currentTarget as HTMLButtonElement).getBoundingClientRect())}
-                      className="flex w-full items-center gap-6 rounded-[1.5rem] border border-slate-100 bg-white p-6 text-left shadow-[0_4px_20px_rgba(0,0,0,0.03)] transition-all hover:border-blue-200 hover:shadow-[0_8px_30px_rgba(0,0,0,0.08)]"
+                      className="flex w-full items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
                     >
-                      <div className="flex flex-col items-center justify-center w-20 shrink-0 border-r border-slate-100 pr-6">
-                        <span className="text-sm font-black text-slate-900 tracking-tighter">{formatChinaTime(start)}</span>
-                        <span className="text-[10px] font-bold text-slate-400 uppercase">{formatChinaTime(end)}</span>
-                      </div>
+                      <span className="h-2 w-2 shrink-0 rounded-full bg-slate-900" />
                       <div className="min-w-0 flex-1">
-                        <div className="text-lg font-black text-slate-900 tracking-tight group-hover:text-blue-600 transition-colors">{event.title}</div>
-                        {event.location && (
-                          <div className="mt-1 text-sm font-medium text-slate-400 flex items-center gap-1.5">
-                            <span className="opacity-50 text-xs">📍</span> {event.location}
-                          </div>
-                        )}
-                      </div>
-                      <div className="h-10 w-10 rounded-full bg-slate-50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                        <span className="text-slate-400">→</span>
+                        <div className="font-semibold text-slate-800">{event.title}</div>
+                        <div className="text-sm text-slate-500">
+                          {formatChinaTime(start)} - {formatChinaTime(end)}
+                          {event.location ? ` · ${event.location}` : ''}
+                        </div>
                       </div>
                     </button>
-                  </motion.li>
+                  </li>
                 )
               })}
             </ul>
-          </motion.div>
+          </div>
         )
       })}
     </div>

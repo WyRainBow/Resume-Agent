@@ -347,8 +347,8 @@ export default function WorkspaceLayout({
                 className="cursor-pointer group shrink-0 flex items-center gap-2.5 min-w-0"
                 onClick={() => navigate("/")}
               >
-                <div className="w-9 h-9 bg-white dark:bg-white rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-600 shadow-sm group-hover:scale-105 transition-transform shrink-0">
-                  <span className="text-slate-900 font-black text-sm italic">
+                <div className="w-9 h-9 bg-slate-900 dark:bg-white rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-600 shadow-sm group-hover:scale-105 transition-transform shrink-0">
+                  <span className="text-white font-black text-sm italic">
                     RA
                   </span>
                 </div>
@@ -372,8 +372,8 @@ export default function WorkspaceLayout({
             <div className="relative group h-10 w-full flex items-center justify-center">
               {/* 收起态默认状态：仅 Logo */}
               <div className="flex items-center justify-center transition-opacity duration-200 group-hover:opacity-0 w-full">
-                <div className="w-9 h-9 bg-white dark:bg-white rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-600 shadow-sm shrink-0">
-                  <span className="text-slate-900 font-black text-sm italic">
+                <div className="w-9 h-9 bg-slate-900 dark:bg-white rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-600 shadow-sm shrink-0">
+                  <span className="text-white font-black text-sm italic">
                     RA
                   </span>
                 </div>
@@ -409,7 +409,7 @@ export default function WorkspaceLayout({
                   ? "flex flex-col items-center justify-center gap-1 py-2.5"
                   : "flex items-center gap-2.5 py-2.5 px-2.5",
                 currentWorkspace === "edit"
-                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                  ? "bg-slate-100 text-slate-900"
                   : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
               )}
               title="编辑区"
@@ -430,19 +430,19 @@ export default function WorkspaceLayout({
                     ? "flex flex-col items-center justify-center gap-1 py-2.5"
                     : "flex items-center gap-2.5 py-2.5 px-2.5",
                   currentWorkspace === "agent"
-                    ? "bg-indigo-50/50 dark:bg-indigo-900/10"
+                    ? "bg-slate-100 text-slate-900"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
                 )}
                 title="AI 对话"
               >
-                <AgentIcon active={currentWorkspace === "agent"} />
+                <Sparkles className={cn("w-6 h-6 shrink-0", currentWorkspace === "agent" ? "text-slate-900" : "text-slate-600")} />
                 {!sidebarCollapsed && (
                   <span
                     className={cn(
                       "text-base font-medium transition-colors duration-300",
                       currentWorkspace === "agent"
-                        ? "text-indigo-600 dark:text-indigo-400"
-                        : "text-slate-600 dark:text-slate-400", // 移除了 group-hover:text-indigo-500
+                        ? "text-slate-900"
+                        : "text-slate-600 dark:text-slate-400",
                     )}
                   >
                     AI 助手
@@ -460,7 +460,7 @@ export default function WorkspaceLayout({
                   ? "flex flex-col items-center justify-center gap-1 py-2.5"
                   : "flex items-center gap-2.5 py-2.5 px-2.5",
                 currentWorkspace === "myResumes"
-                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                  ? "bg-slate-100 text-slate-900"
                   : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
               )}
               title="我的简历"
@@ -494,7 +494,7 @@ export default function WorkspaceLayout({
                     ? "flex flex-col items-center justify-center gap-1 py-2.5"
                     : "flex items-center justify-between gap-2.5 py-2.5 px-2.5",
                   isJobCenterActive
-                    ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                    ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
                 )}
                 title="求职中心"
@@ -536,7 +536,7 @@ export default function WorkspaceLayout({
                         className={cn(
                           "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                           currentWorkspace === "resume"
-                            ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                            ? "bg-slate-100 text-slate-900"
                             : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
                         )}
                       >
@@ -552,7 +552,7 @@ export default function WorkspaceLayout({
                       className={cn(
                         "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                         currentWorkspace === "applications"
-                          ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                          ? "bg-slate-100 text-slate-900"
                           : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
                       )}
                     >
@@ -567,7 +567,7 @@ export default function WorkspaceLayout({
                       className={cn(
                         "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                         currentWorkspace === "calendar"
-                          ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                          ? "bg-slate-100 text-slate-900"
                           : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
                       )}
                     >
@@ -582,7 +582,7 @@ export default function WorkspaceLayout({
                       className={cn(
                         "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
                         currentWorkspace === "dashboard"
-                          ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                          ? "bg-slate-100 text-slate-900"
                           : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
                       )}
                     >
@@ -601,7 +601,7 @@ export default function WorkspaceLayout({
                       className={cn(
                         "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
                         currentWorkspace === "resume"
-                          ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                          ? "bg-slate-100 text-slate-900"
                           : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
                       )}
                       title="申请"
@@ -617,7 +617,7 @@ export default function WorkspaceLayout({
                     className={cn(
                       "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
                       currentWorkspace === "applications"
-                        ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                        ? "bg-slate-100 text-slate-900"
                         : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
                     )}
                     title="投递进展"
@@ -632,7 +632,7 @@ export default function WorkspaceLayout({
                     className={cn(
                       "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
                       currentWorkspace === "calendar"
-                        ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                        ? "bg-slate-100 text-slate-900"
                         : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
                     )}
                     title="面试日历"
@@ -647,7 +647,7 @@ export default function WorkspaceLayout({
                     className={cn(
                       "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
                       currentWorkspace === "dashboard"
-                        ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                        ? "bg-slate-100 text-slate-900"
                         : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
                     )}
                     title="仪表盘"

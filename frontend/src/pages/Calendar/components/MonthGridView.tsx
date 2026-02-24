@@ -15,10 +15,10 @@ export function MonthGridView({ currentDate, events, onSelectDate, onEventClick 
   const today = startOfDay(new Date())
 
   return (
-    <div className="bg-white">
-      <div className="grid grid-cols-7 border-b border-slate-100 bg-white/50 backdrop-blur-sm sticky top-0 z-10">
+    <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
+      <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50/80">
         {WEEK_HEADER.map((w) => (
-          <div key={w} className="px-4 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">{w}</div>
+          <div key={w} className="px-3 py-2.5 text-lg font-semibold text-slate-500">{w}</div>
         ))}
       </div>
       <div className="grid grid-cols-7">
@@ -34,21 +34,15 @@ export function MonthGridView({ currentDate, events, onSelectDate, onEventClick 
             <div
               key={day.toISOString()}
               onClick={() => onSelectDate(day)}
-              className={`group min-h-[160px] cursor-pointer border-b border-r border-slate-50 p-4 transition-colors hover:bg-slate-50/50 ${
-                !isCurrentMonth ? 'bg-slate-50/20' : ''
-              }`}
+              className="group min-h-[132px] cursor-pointer border-b border-r border-slate-200 px-2.5 py-2 text-left align-top hover:bg-slate-50"
             >
-              <div className="mb-4 flex items-center justify-between">
-                <span className={`text-2xl font-black tracking-tighter transition-transform group-hover:scale-110 ${
-                  isToday ? 'text-blue-600' : isCurrentMonth ? 'text-slate-900' : 'text-slate-300'
-                }`}>
-                  {idx < 7 ? formatDateLabel(day).split('月')[1].replace('日', '') : day.getDate()}
+              <div className="mb-2 flex items-center justify-between">
+                <span className={`text-xl font-semibold ${isCurrentMonth ? 'text-slate-800' : 'text-slate-400'}`}>
+                  {idx < 7 ? formatDateLabel(day) : day.getDate()}
                 </span>
-                {isToday && (
-                  <span className="h-2 w-2 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.5)] animate-pulse" />
-                )}
+                {isToday ? <span className="rounded-full bg-slate-900 px-2 py-0.5 text-xs font-semibold text-white">今天</span> : null}
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {dateEvents.map((event) => (
                   <button
                     key={event.id}
@@ -57,21 +51,22 @@ export function MonthGridView({ currentDate, events, onSelectDate, onEventClick 
                       e.stopPropagation()
                       onEventClick(event, (e.currentTarget as HTMLButtonElement).getBoundingClientRect())
                     }}
-                    className="w-full rounded-xl bg-slate-50 p-2 text-left transition-all hover:bg-white hover:shadow-md hover:-translate-y-0.5 border border-transparent hover:border-slate-100 group/item"
+                    className="w-full rounded-md px-1 py-0.5 text-left hover:bg-slate-100"
                   >
-                    <div className="flex flex-col gap-0.5">
-                      <div className="truncate text-[11px] font-black text-slate-900 group-hover/item:text-blue-600 transition-colors">
-                        {event.title}
-                      </div>
-                      <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-slate-900" />
+                      <span className="shrink-0 text-[13px] font-medium text-slate-500">
                         {formatChinaTime(new Date(event.starts_at))}
-                      </div>
+                      </span>
+                      <span className="truncate text-[13px] font-medium text-slate-700">
+                        {event.title}
+                      </span>
                     </div>
                   </button>
                 ))}
                 {remainingCount > 0 ? (
-                  <div className="px-2 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                    + {remainingCount} more
+                  <div className="pl-3 text-[13px] font-medium text-slate-500">
+                    还有 {remainingCount} 项
                   </div>
                 ) : null}
               </div>
