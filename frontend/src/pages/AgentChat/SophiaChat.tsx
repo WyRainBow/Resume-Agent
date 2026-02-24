@@ -1229,10 +1229,13 @@ export default function SophiaChat() {
       window.clearTimeout(autoScrollTimerRef.current);
     }
     autoScrollTimerRef.current = window.setTimeout(() => {
-      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      messagesEndRef.current?.scrollIntoView({
+        behavior: isProcessing ? "auto" : "smooth",
+        block: "end",
+      });
       autoScrollTimerRef.current = null;
-    }, 120);
-  }, [messages, currentThought, currentAnswer]);
+    }, isProcessing ? 90 : 140);
+  }, [messages, currentThought, currentAnswer, isProcessing]);
 
   useEffect(() => {
     return () => {

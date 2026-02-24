@@ -14,12 +14,13 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from backend.agent.schema import Message, Role
+from sqlalchemy import inspect, text
 
 try:
-    from backend.database import SessionLocal
+    from backend.database import SessionLocal, engine
     from backend.models import AgentConversation, AgentMessage
 except ImportError:
-    from database import SessionLocal
+    from database import SessionLocal, engine
     from models import AgentConversation, AgentMessage
 
 from backend.agent.cltp.storage.conversation_storage import ConversationMeta
@@ -29,6 +30,109 @@ logger = logging.getLogger(__name__)
 
 class DBConversationStorage:
     """Database-backed conversation storage adapter."""
+    _supports_message_hash: Optional[bool] = None
+
+    def validate_schema_or_raise(self) -> None:
+        """Validate required DB schema for strict DB mode."""
+        inspector = inspect(engine)
+        required_tables = {"agent_conversations", "agent_messages"}
+        existing_tables = set(inspector.get_table_names())
+        missing_tables = sorted(required_tables - existing_tables)
+        if missing_tables:
+            raise RuntimeError(
+                "DB_SCHEMA_MISMATCH: missing tables "
+                f"{missing_tables}. action=RUN_ALEMBIC_UPGRADE"
+            )
+
+        required_columns = {
+            "agent_conversations": {"id", "session_id", "title", "message_count"},
+            "agent_messages": {
+                "id",
+                "conversation_id",
+                "seq",
+                "role",
+                "content",
+                "thought",
+                "message_hash",
+            },
+        }
+        for table, cols in required_columns.items():
+            existing_cols = {c["name"] for c in inspector.get_columns(table)}
+            missing_cols = sorted(cols - existing_cols)
+            if missing_cols:
+                raise RuntimeError(
+                    "DB_SCHEMA_MISMATCH: missing columns "
+                    f"{table}.{missing_cols}. action=RUN_ALEMBIC_UPGRADE"
+                )
+
+    def _schema_supports_message_hash(self) -> bool:
+        if self._supports_message_hash is not None:
+            return self._supports_message_hash
+        try:
+            inspector = inspect(engine)
+            cols = {c["name"] for c in inspector.get_columns("agent_messages")}
+            self._supports_message_hash = "message_hash" in cols
+        except Exception:
+            self._supports_message_hash = True
+        return self._supports_message_hash
+
+    def _is_message_hash_missing_error(self, exc: Exception) -> bool:
+        msg = str(exc).lower()
+        missing_col = (
+            "message_hash" in msg
+            and (
+                "no such column" in msg
+                or "undefinedcolumn" in msg
+                or "unknown column" in msg
+            )
+        )
+        return missing_col
+
+    def _ensure_json_value(self, value: Any) -> Any:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            return value
+        return json.dumps(value, ensure_ascii=False)
+
+    def _message_to_legacy_params(self, conversation_pk: int, seq: int, message: Message) -> Dict[str, Any]:
+        payload = self._serialize_message(message)
+        role = payload.get("role")
+        if isinstance(role, Role):
+            role = role.value
+        return {
+            "conversation_id": conversation_pk,
+            "seq": seq,
+            "role": str(role or ""),
+            "content": payload.get("content"),
+            "thought": payload.get("thought"),
+            "name": payload.get("name"),
+            "tool_call_id": payload.get("tool_call_id"),
+            "tool_calls": self._ensure_json_value(payload.get("tool_calls")),
+            "base64_image": payload.get("base64_image"),
+        }
+
+    def _legacy_row_to_payload(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {"role": row.get("role", "")}
+        if row.get("content") is not None:
+            payload["content"] = row.get("content")
+        if row.get("thought") is not None:
+            payload["thought"] = row.get("thought")
+        if row.get("name") is not None:
+            payload["name"] = row.get("name")
+        if row.get("tool_call_id") is not None:
+            payload["tool_call_id"] = row.get("tool_call_id")
+        tool_calls = row.get("tool_calls")
+        if tool_calls is not None:
+            if isinstance(tool_calls, str):
+                try:
+                    tool_calls = json.loads(tool_calls)
+                except Exception:
+                    pass
+            payload["tool_calls"] = tool_calls
+        if row.get("base64_image") is not None:
+            payload["base64_image"] = row.get("base64_image")
+        return payload
 
     def _message_signature(self, message: Message) -> Dict[str, Any]:
         payload = self._serialize_message(message)
@@ -168,6 +272,13 @@ class DBConversationStorage:
         return self._deserialize_message(payload)
 
     def save_session(self, session_id: str, messages: List[Message]) -> ConversationMeta:
+        if not self._schema_supports_message_hash():
+            logger.warning(
+                "[AgentStorage] DB schema missing agent_messages.message_hash; using legacy save path. "
+                "Please run: alembic upgrade head"
+            )
+            return self._save_session_legacy(session_id, messages)
+
         now = datetime.now()
         db = SessionLocal()
         try:
@@ -220,6 +331,71 @@ class DBConversationStorage:
                 title=conversation.title or "New Conversation",
                 message_count=conversation.message_count or 0,
             )
+        except Exception as exc:
+            db.rollback()
+            # Dual-insurance compatibility: retry without message_hash when schema is behind.
+            if self._is_message_hash_missing_error(exc):
+                logger.warning(
+                    "[AgentStorage] save_session hit missing message_hash column; retrying legacy path. "
+                    "Please run: alembic upgrade head"
+                )
+                self._supports_message_hash = False
+                return self._save_session_legacy(session_id, messages)
+            raise
+        finally:
+            db.close()
+
+    def _save_session_legacy(self, session_id: str, messages: List[Message]) -> ConversationMeta:
+        now = datetime.now()
+        db = SessionLocal()
+        try:
+            conversation = (
+                db.query(AgentConversation)
+                .filter(AgentConversation.session_id == session_id)
+                .first()
+            )
+            if conversation is None:
+                conversation = AgentConversation(
+                    session_id=session_id,
+                    title=self._derive_title(messages),
+                    message_count=len(messages),
+                    created_at=now,
+                    updated_at=now,
+                    last_message_at=now if messages else None,
+                )
+                db.add(conversation)
+                db.flush()
+            else:
+                conversation.title = self._derive_title(messages)
+                conversation.message_count = len(messages)
+                conversation.updated_at = now
+                conversation.last_message_at = now if messages else conversation.last_message_at
+
+            db.execute(
+                text("DELETE FROM agent_messages WHERE conversation_id = :conversation_id"),
+                {"conversation_id": conversation.id},
+            )
+            insert_sql = text(
+                """
+                INSERT INTO agent_messages
+                (conversation_id, seq, role, content, thought, name, tool_call_id, tool_calls, base64_image)
+                VALUES
+                (:conversation_id, :seq, :role, :content, :thought, :name, :tool_call_id, :tool_calls, :base64_image)
+                """
+            )
+            for seq, message in enumerate(messages):
+                db.execute(insert_sql, self._message_to_legacy_params(conversation.id, seq, message))
+
+            db.commit()
+            created_at = conversation.created_at or now
+            updated_at = conversation.updated_at or now
+            return ConversationMeta(
+                session_id=conversation.session_id,
+                created_at=created_at.isoformat(),
+                updated_at=updated_at.isoformat(),
+                title=conversation.title or "New Conversation",
+                message_count=conversation.message_count or 0,
+            )
         except Exception:
             db.rollback()
             raise
@@ -232,6 +408,13 @@ class DBConversationStorage:
         base_seq: int,
         messages_delta: List[Message],
     ) -> Dict[str, Any]:
+        if not self._schema_supports_message_hash():
+            logger.warning(
+                "[AgentStorage] DB schema missing agent_messages.message_hash; using legacy append path. "
+                "Please run: alembic upgrade head"
+            )
+            return self._append_session_messages_legacy(session_id, base_seq, messages_delta)
+
         now = datetime.now()
         db = SessionLocal()
         try:
@@ -327,6 +510,150 @@ class DBConversationStorage:
                     message_count=conversation.message_count or new_count,
                 ),
             }
+        except Exception as exc:
+            db.rollback()
+            if self._is_message_hash_missing_error(exc):
+                logger.warning(
+                    "[AgentStorage] append_session_messages hit missing message_hash column; "
+                    "retrying legacy path. Please run: alembic upgrade head"
+                )
+                self._supports_message_hash = False
+                return self._append_session_messages_legacy(session_id, base_seq, messages_delta)
+            raise
+        finally:
+            db.close()
+
+    def _append_session_messages_legacy(
+        self,
+        session_id: str,
+        base_seq: int,
+        messages_delta: List[Message],
+    ) -> Dict[str, Any]:
+        now = datetime.now()
+        db = SessionLocal()
+        try:
+            conversation = (
+                db.query(AgentConversation)
+                .filter(AgentConversation.session_id == session_id)
+                .first()
+            )
+            if conversation is None:
+                conversation = AgentConversation(
+                    session_id=session_id,
+                    title=self._derive_title(messages_delta),
+                    message_count=0,
+                    created_at=now,
+                    updated_at=now,
+                    last_message_at=None,
+                )
+                db.add(conversation)
+                db.flush()
+
+            existing_count = (
+                db.execute(
+                    text(
+                        "SELECT COUNT(*) AS cnt FROM agent_messages WHERE conversation_id = :conversation_id"
+                    ),
+                    {"conversation_id": conversation.id},
+                )
+                .scalar()
+                or 0
+            )
+
+            if base_seq < 0:
+                base_seq = 0
+            if base_seq > existing_count:
+                return {"conflict": True, "expected_base_seq": int(existing_count)}
+            if base_seq < existing_count:
+                rows = (
+                    db.execute(
+                        text(
+                            """
+                            SELECT role, content, thought, name, tool_call_id
+                            FROM agent_messages
+                            WHERE conversation_id = :conversation_id
+                              AND seq >= :base_seq
+                              AND seq < :end_seq
+                            ORDER BY seq ASC
+                            """
+                        ),
+                        {
+                            "conversation_id": conversation.id,
+                            "base_seq": base_seq,
+                            "end_seq": base_seq + len(messages_delta),
+                        },
+                    )
+                    .mappings()
+                    .all()
+                )
+                if len(rows) == len(messages_delta):
+                    same = True
+                    for row, msg in zip(rows, messages_delta):
+                        sig = self._message_signature(msg)
+                        if (
+                            row.get("role", "") != sig.get("role", "")
+                            or row.get("content") != sig.get("content")
+                            or row.get("thought") != sig.get("thought")
+                            or row.get("name") != sig.get("name")
+                            or row.get("tool_call_id") != sig.get("tool_call_id")
+                        ):
+                            same = False
+                            break
+                    if same:
+                        created_at = conversation.created_at or now
+                        updated_at = conversation.updated_at or now
+                        return {
+                            "conflict": False,
+                            "skipped": True,
+                            "accepted_count": 0,
+                            "new_seq": int(existing_count),
+                            "meta": ConversationMeta(
+                                session_id=conversation.session_id,
+                                created_at=created_at.isoformat(),
+                                updated_at=updated_at.isoformat(),
+                                title=conversation.title or "New Conversation",
+                                message_count=conversation.message_count or int(existing_count),
+                            ),
+                        }
+                return {"conflict": True, "expected_base_seq": int(existing_count)}
+
+            insert_sql = text(
+                """
+                INSERT INTO agent_messages
+                (conversation_id, seq, role, content, thought, name, tool_call_id, tool_calls, base64_image)
+                VALUES
+                (:conversation_id, :seq, :role, :content, :thought, :name, :tool_call_id, :tool_calls, :base64_image)
+                """
+            )
+            for idx, message in enumerate(messages_delta):
+                db.execute(
+                    insert_sql,
+                    self._message_to_legacy_params(conversation.id, base_seq + idx, message),
+                )
+
+            new_count = int(existing_count) + len(messages_delta)
+            conversation.message_count = new_count
+            if int(existing_count) == 0 and messages_delta:
+                conversation.title = self._derive_title(messages_delta)
+            conversation.updated_at = now
+            if messages_delta:
+                conversation.last_message_at = now
+            db.commit()
+            created_at = conversation.created_at or now
+            updated_at = conversation.updated_at or now
+            return {
+                "conflict": False,
+                "skipped": len(messages_delta) == 0,
+                "accepted_count": len(messages_delta),
+                "new_seq": new_count,
+                "meta": ConversationMeta(
+                    session_id=conversation.session_id,
+                    created_at=created_at.isoformat(),
+                    updated_at=updated_at.isoformat(),
+                    title=conversation.title or "New Conversation",
+                    message_count=conversation.message_count or new_count,
+                ),
+            }
         except Exception:
             db.rollback()
             raise
@@ -334,6 +661,9 @@ class DBConversationStorage:
             db.close()
 
     def load_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        if not self._schema_supports_message_hash():
+            return self._load_session_legacy(session_id)
+
         db = SessionLocal()
         try:
             conversation = (
@@ -351,6 +681,58 @@ class DBConversationStorage:
                 .all()
             )
             messages = [self._serialize_message(self._row_to_message(row)) for row in rows]
+            return {
+                "session_id": conversation.session_id,
+                "created_at": conversation.created_at.isoformat() if conversation.created_at else "",
+                "updated_at": conversation.updated_at.isoformat() if conversation.updated_at else "",
+                "title": conversation.title or "Conversation",
+                "message_count": conversation.message_count or len(messages),
+                "messages": messages,
+            }
+        except Exception as exc:
+            if self._is_message_hash_missing_error(exc):
+                logger.warning(
+                    "[AgentStorage] load_session hit missing message_hash column; "
+                    "switching to legacy read path. Please run: alembic upgrade head"
+                )
+                self._supports_message_hash = False
+                return self._load_session_legacy(session_id)
+            raise
+        finally:
+            db.close()
+
+    def _load_session_legacy(self, session_id: str) -> Optional[Dict[str, Any]]:
+        db = SessionLocal()
+        try:
+            conversation = (
+                db.query(AgentConversation)
+                .filter(AgentConversation.session_id == session_id)
+                .first()
+            )
+            if conversation is None:
+                return None
+
+            rows = (
+                db.execute(
+                    text(
+                        """
+                        SELECT role, content, thought, name, tool_call_id, tool_calls, base64_image
+                        FROM agent_messages
+                        WHERE conversation_id = :conversation_id
+                        ORDER BY seq ASC
+                        """
+                    ),
+                    {"conversation_id": conversation.id},
+                )
+                .mappings()
+                .all()
+            )
+            messages = [
+                self._serialize_message(
+                    self._deserialize_message(self._legacy_row_to_payload(dict(row)))
+                )
+                for row in rows
+            ]
             return {
                 "session_id": conversation.session_id,
                 "created_at": conversation.created_at.isoformat() if conversation.created_at else "",

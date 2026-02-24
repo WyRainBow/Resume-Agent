@@ -15,6 +15,7 @@ import {
   getCachedLogos,
   getLogoUrl,
   getLogoByKey,
+  getLastLogoError,
   matchCompanyLogo,
   uploadLogo,
   refreshLogos,
@@ -79,6 +80,7 @@ function LogoSelector({
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [logos, setLogos] = useState<CompanyLogo[]>(getCachedLogos())
+  const [logoLoadError, setLogoLoadError] = useState<string | null>(getLastLogoError())
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
@@ -86,7 +88,12 @@ function LogoSelector({
   // 加载 Logo 列表
   useEffect(() => {
     fetchLogos().then((list) => {
-      if (list.length > 0) setLogos(list)
+      if (list.length > 0) {
+        setLogos(list)
+        setLogoLoadError(null)
+      } else {
+        setLogoLoadError(getLastLogoError())
+      }
     })
   }, [])
 
@@ -199,7 +206,7 @@ function LogoSelector({
             <div className="max-h-56 overflow-y-auto p-3">
               {logos.length === 0 ? (
                 <div className="py-6 text-center text-xs text-slate-400">
-                  正在加载 Logo 列表...
+                  {logoLoadError ? `Logo 列表加载失败：${logoLoadError}` : '正在加载 Logo 列表...'}
                 </div>
               ) : (
                 <div className="grid grid-cols-4 gap-2">

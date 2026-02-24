@@ -5,6 +5,7 @@
 - POST /api/logos/upload    上传自定义 Logo 到 COS
 """
 import os
+import logging
 import mimetypes
 from pathlib import Path
 
@@ -14,6 +15,7 @@ from middleware.auth import require_admin_or_member
 from models import User
 
 router = APIRouter(prefix="/api", tags=["Logos"])
+logger = logging.getLogger(__name__)
 
 
 def _import_logos():
@@ -46,7 +48,29 @@ async def get_logos():
         logos = m.get_all_logos_with_urls()
         return JSONResponse(status_code=200, content={"logos": logos})
     except Exception as e:
-        return JSONResponse(status_code=200, content={"logos": [], "error": str(e)})
+        module_file = ""
+        logo_dir = ""
+        try:
+            m = _import_logos()
+            module_file = str(getattr(m, "__file__", ""))
+            logo_dir = str(getattr(m, "LOCAL_LOGO_DIR", ""))
+        except Exception:
+            pass
+        logger.exception(
+            "[Logo] get_logos failed: err=%s module_file=%s logo_dir=%s",
+            e,
+            module_file,
+            logo_dir,
+        )
+        return JSONResponse(
+            status_code=200,
+            content={
+                "logos": [],
+                "error_code": "LOGO_LIST_FAILED",
+                "error": str(e),
+                "error_message": str(e),
+            },
+        )
 
 
 @router.post("/logos/upload")

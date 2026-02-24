@@ -64,8 +64,31 @@ export function RecentSessions({
   const [deleteConfirmSessionId, setDeleteConfirmSessionId] = useState<string | null>(null);
   const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const parseErrorMessage = useCallback(async (resp: Response): Promise<string> => {
+    const fallback = `请求失败（HTTP ${resp.status}）`;
+    try {
+      const data = await resp.clone().json();
+      if (data?.detail?.message) return String(data.detail.message);
+      if (typeof data?.detail === 'string') return data.detail;
+      if (data?.error_message) return String(data.error_message);
+      if (data?.error) return String(data.error);
+    } catch {
+      // ignore parse error
+    }
+    try {
+      const text = await resp.text();
+      if (text) return text.slice(0, 200);
+    } catch {
+      // ignore read error
+    }
+    return fallback;
+  }, []);
 
   const hasNextPage = useMemo(() => {
     if (!pagination) return false;
@@ -74,35 +97,50 @@ export function RecentSessions({
 
   const fetchPage = useCallback(
     async (page: number, mode: 'replace' | 'append' = 'replace') => {
-      try {
-        const resp = await fetch(
-          `${apiBaseUrl}/api/agent/history/sessions/list?page=${page}&page_size=${PAGE_SIZE}`,
-          {
-            cache: 'no-cache',
-            headers: {
-              'Cache-Control': 'no-cache',
-            },
+      const retries = [0, 1000, 2000];
+      for (let i = 0; i < retries.length; i++) {
+        try {
+          if (retries[i] > 0) {
+            await sleep(retries[i]);
           }
-        );
-        if (!resp.ok) throw new Error(`Failed to fetch sessions: ${resp.status}`);
-        const data = await resp.json();
-        const nextSessions = data.sessions || [];
-        const nextPagination = data.pagination || {
-          total: nextSessions.length,
-          page: 1,
-          page_size: PAGE_SIZE,
-          total_pages: 1,
-        };
+          const resp = await fetch(
+            `${apiBaseUrl}/api/agent/history/sessions/list?page=${page}&page_size=${PAGE_SIZE}`,
+            {
+              cache: 'no-cache',
+              headers: {
+                'Cache-Control': 'no-cache',
+              },
+            }
+          );
+          if (!resp.ok) {
+            const msg = await parseErrorMessage(resp);
+            throw new Error(msg);
+          }
+          const data = await resp.json();
+          const nextSessions = data.sessions || [];
+          const nextPagination = data.pagination || {
+            total: nextSessions.length,
+            page: 1,
+            page_size: PAGE_SIZE,
+            total_pages: 1,
+          };
 
-        setSessions((prev) =>
-          mode === 'replace' ? nextSessions : [...prev, ...nextSessions]
-        );
-        setPagination(nextPagination);
-      } catch (error) {
-        console.error('[RecentSessions] Failed to fetch sessions:', error);
+          setSessions((prev) =>
+            mode === 'replace' ? nextSessions : [...prev, ...nextSessions]
+          );
+          setPagination(nextPagination);
+          setErrorMessage(null);
+          return;
+        } catch (error) {
+          if (i === retries.length - 1) {
+            const msg = error instanceof Error ? error.message : String(error);
+            setErrorMessage(msg);
+            console.error('[RecentSessions] Failed to fetch sessions:', error);
+          }
+        }
       }
     },
-    [apiBaseUrl]
+    [apiBaseUrl, parseErrorMessage]
   );
 
   const refreshSessions = useCallback(async () => {
@@ -382,6 +420,12 @@ export function RecentSessions({
           <Loader2 className="w-3 h-3 animate-spin" />
           <span>加载中</span>
         </div>
+      ) : errorMessage ? (
+        <div className="px-3 py-3">
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            历史会话加载失败：{errorMessage}
+          </div>
+        </div>
       ) : sessions.length === 0 ? (
         <div className="px-3 py-4 text-xs text-gray-400">暂无历史会话</div>
       ) : (
@@ -517,4 +561,3 @@ export function RecentSessions({
     </div>
   );
 }
-

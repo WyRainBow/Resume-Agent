@@ -24,6 +24,18 @@ conversation_manager = ConversationManager(storage=storage)
 _save_fingerprint_cache: dict[str, tuple[int, str]] = {}
 
 
+def _history_error_detail(message: str, action: str = "CHECK_SERVER_LOGS") -> dict[str, str]:
+    code = "AGENT_HISTORY_ERROR"
+    if "DB_SCHEMA_MISMATCH" in message:
+        code = "DB_SCHEMA_MISMATCH"
+        action = "RUN_ALEMBIC_UPGRADE"
+    return {
+        "code": code,
+        "message": message,
+        "action": action,
+    }
+
+
 class HistoryResponse(BaseModel):
     """Chat history response."""
 
@@ -85,7 +97,10 @@ async def get_history(session_id: str) -> HistoryResponse:
         logger.error(f"Error getting history: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error getting history: {e}",
+            detail=_history_error_detail(
+                f"Error getting history: {e}",
+                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
+            ),
         )
 
 
@@ -121,7 +136,10 @@ async def clear_history(session_id: str) -> HistoryClearResponse:
         logger.error(f"Error clearing history: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error clearing history: {e}",
+            detail=_history_error_detail(
+                f"Error clearing history: {e}",
+                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
+            ),
         )
 
 
@@ -152,46 +170,59 @@ async def restore_history(session_id: str) -> dict[str, Any]:
         logger.error(f"Error restoring history: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error restoring history: {e}",
+            detail=_history_error_detail(
+                f"Error restoring history: {e}",
+                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
+            ),
         )
 
 
 @router.get("/sessions/list")
 async def list_sessions(page: int = 1, page_size: int = 20) -> dict[str, Any]:
     """List conversation sessions with pagination."""
-    metas = conversation_manager.list_sessions()
-    metas.sort(
-        key=lambda m: (m.updated_at or m.created_at or ""),
-        reverse=True,
-    )
+    try:
+        metas = conversation_manager.list_sessions()
+        metas.sort(
+            key=lambda m: (m.updated_at or m.created_at or ""),
+            reverse=True,
+        )
 
-    total = len(metas)
-    page_size = max(1, page_size)
-    page = max(1, page)
-    total_pages = (total + page_size - 1) // page_size if total else 0
+        total = len(metas)
+        page_size = max(1, page_size)
+        page = max(1, page)
+        total_pages = (total + page_size - 1) // page_size if total else 0
 
-    start = (page - 1) * page_size
-    end = start + page_size
-    sliced = metas[start:end]
+        start = (page - 1) * page_size
+        end = start + page_size
+        sliced = metas[start:end]
 
-    return {
-        "sessions": [
-            {
-                "session_id": m.session_id,
-                "title": m.title,
-                "created_at": m.created_at,
-                "updated_at": m.updated_at,
-                "message_count": m.message_count,
-            }
-            for m in sliced
-        ],
-        "pagination": {
-            "total": total,
-            "page": page,
-            "page_size": page_size,
-            "total_pages": total_pages,
-        },
-    }
+        return {
+            "sessions": [
+                {
+                    "session_id": m.session_id,
+                    "title": m.title,
+                    "created_at": m.created_at,
+                    "updated_at": m.updated_at,
+                    "message_count": m.message_count,
+                }
+                for m in sliced
+            ],
+            "pagination": {
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": total_pages,
+            },
+        }
+    except Exception as e:
+        logger.error(f"Error listing sessions: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=_history_error_detail(
+                f"Error listing sessions: {e}",
+                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
+            ),
+        )
 
 
 @router.get("/sessions/{session_id}")
@@ -199,18 +230,28 @@ async def get_session_messages(
     session_id: str, offset: int = 0, limit: int = 200
 ) -> dict[str, Any]:
     """Get session history with pagination."""
-    messages = conversation_manager.get_history(session_id)
-    sliced = messages[offset: offset + limit]
-    return {
-        "session_id": session_id,
-        "offset": offset,
-        "limit": limit,
-        "total": len(messages),
-        "messages": [
-            {"role": m.role, "content": m.content, "thought": m.thought}
-            for m in sliced
-        ],
-    }
+    try:
+        messages = conversation_manager.get_history(session_id)
+        sliced = messages[offset: offset + limit]
+        return {
+            "session_id": session_id,
+            "offset": offset,
+            "limit": limit,
+            "total": len(messages),
+            "messages": [
+                {"role": m.role, "content": m.content, "thought": m.thought}
+                for m in sliced
+            ],
+        }
+    except Exception as e:
+        logger.error(f"Error getting session messages: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=_history_error_detail(
+                f"Error getting session messages: {e}",
+                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
+            ),
+        )
 
 
 @router.post("/sessions/{session_id}/save")
@@ -270,7 +311,10 @@ async def save_session_messages(
         logger.error(f"Error saving session: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error saving session: {e}",
+            detail=_history_error_detail(
+                f"Error saving session: {e}",
+                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
+            ),
         )
 
 
@@ -368,7 +412,10 @@ async def append_session_messages(
         logger.error(f"Error appending session: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error appending session: {e}",
+            detail=_history_error_detail(
+                f"Error appending session: {e}",
+                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
+            ),
         )
 
 
@@ -396,23 +443,43 @@ async def update_session_title(
 @router.post("/sessions/{session_id}/load")
 async def load_session(session_id: str) -> dict[str, Any]:
     """Load a session and return its messages."""
-    history = conversation_manager.get_or_create_history(session_id)
-    messages = history.get_messages()
-    return {
-        "session_id": session_id,
-        "message_count": len(messages),
-        "messages": [{"role": m.role, "content": m.content} for m in messages],
-    }
+    try:
+        history = conversation_manager.get_or_create_history(session_id)
+        messages = history.get_messages()
+        return {
+            "session_id": session_id,
+            "message_count": len(messages),
+            "messages": [{"role": m.role, "content": m.content} for m in messages],
+        }
+    except Exception as e:
+        logger.error(f"Error loading session: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=_history_error_detail(
+                f"Error loading session: {e}",
+                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
+            ),
+        )
 
 
 @router.get("/sessions/{session_id}/export")
 async def export_session(session_id: str, fmt: str = "json") -> dict[str, Any]:
     """Export a session to a file (json/markdown)."""
-    export_dir = "data/exports"
-    extension = "md" if fmt == "markdown" else "json"
-    export_path = f"{export_dir}/{session_id}.{extension}"
-    path = conversation_manager.export_session(session_id, export_path, fmt=fmt)
-    return {"session_id": session_id, "export_path": path}
+    try:
+        export_dir = "data/exports"
+        extension = "md" if fmt == "markdown" else "json"
+        export_path = f"{export_dir}/{session_id}.{extension}"
+        path = conversation_manager.export_session(session_id, export_path, fmt=fmt)
+        return {"session_id": session_id, "export_path": path}
+    except Exception as e:
+        logger.error(f"Error exporting session: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=_history_error_detail(
+                f"Error exporting session: {e}",
+                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
+            ),
+        )
 
 
 @router.post("/sessions/batch-delete")
@@ -447,7 +514,10 @@ async def batch_delete_sessions(request: BatchDeleteRequest) -> dict[str, Any]:
         logger.error(f"Error batch deleting sessions: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error batch deleting sessions: {e}",
+            detail=_history_error_detail(
+                f"Error batch deleting sessions: {e}",
+                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
+            ),
         )
 
 
@@ -481,5 +551,8 @@ async def delete_all_sessions() -> dict[str, Any]:
         logger.error(f"Error deleting all sessions: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Error deleting all sessions: {e}",
+            detail=_history_error_detail(
+                f"Error deleting all sessions: {e}",
+                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
+            ),
         )

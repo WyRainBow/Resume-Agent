@@ -114,6 +114,11 @@ app.include_router(resumes_router)
 app.include_router(reports_router)
 app.include_router(documents_router)
 app.include_router(logos_router)
+logger.info(
+    "[路由] logos_router loaded: module=%s file=%s",
+    getattr(logos_router, "__module__", "unknown"),
+    getattr(routes_module, "__file__", "unknown"),
+)
 app.include_router(photos_router)
 app.include_router(application_progress_router)
 app.include_router(dashboard_perf_router)

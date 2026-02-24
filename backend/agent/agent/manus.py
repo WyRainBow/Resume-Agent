@@ -18,7 +18,6 @@ try:
 except ImportError:
     BrowserUseTool = None
 from backend.agent.tool.ask_human import AskHuman
-from backend.agent.tool.mcp import MCPClients, MCPClientTool
 from backend.agent.tool.python_execute import PythonExecute
 from backend.agent.tool.str_replace_editor import StrReplaceEditor
 from backend.agent.memory import (
@@ -39,7 +38,7 @@ from backend.agent.agent.resume_optimizer import ResumeOptimizerAgent  # noqa: F
 
 
 class Manus(ToolCallAgent):
-    """A versatile general-purpose agent with support for both local and MCP tools.
+    """A versatile general-purpose agent with local tool orchestration.
 
     集成 LangChain 风格的 Memory 系统提供智能对话管理：
     - ChatHistoryManager: 管理对话历史
@@ -47,7 +46,7 @@ class Manus(ToolCallAgent):
     """
 
     name: str = "Manus"
-    description: str = "A versatile agent that can solve various tasks using multiple tools including MCP-based tools"
+    description: str = "A versatile agent that can solve various tasks using multiple local tools"
 
     # 使用动态系统提示词
     system_prompt: str = ""
@@ -58,20 +57,11 @@ class Manus(ToolCallAgent):
     max_observe: int = 10000
     max_steps: int = 20
 
-    # MCP clients for remote tool access
-    mcp_clients: MCPClients = Field(default_factory=MCPClients)
-
     # Add general-purpose tools to the tool collection
     available_tools: ToolCollection = Field(default_factory=ToolCollection)
 
     special_tool_names: list[str] = Field(default_factory=lambda: [Terminate().name])
     browser_context_helper: Optional[BrowserContextHelper] = None
-
-    # Track connected MCP servers
-    connected_servers: Dict[str, str] = Field(
-        default_factory=dict
-    )  # server_id -> url/command
-    _initialized: bool = False
 
     # Memory components - 使用 PrivateAttr 避免 pydantic 验证
     _conversation_state: ConversationStateManager = PrivateAttr(default=None)
@@ -153,87 +143,10 @@ class Manus(ToolCallAgent):
         if self._conversation_state and not self._conversation_state.llm and self.llm:
             self._conversation_state.llm = self.llm
 
-    @classmethod
-    async def create(cls, **kwargs) -> "Manus":
-        """Factory method to create and properly initialize a Manus instance."""
-        instance = cls(**kwargs)
-        await instance.initialize_mcp_servers()
-        instance._initialized = True
-        return instance
-
-    async def initialize_mcp_servers(self) -> None:
-        """Initialize connections to configured MCP servers."""
-        for server_id, server_config in config.mcp_config.servers.items():
-            try:
-                if server_config.type == "sse":
-                    if server_config.url:
-                        await self.connect_mcp_server(server_config.url, server_id)
-                        logger.info(
-                            f"Connected to MCP server {server_id} at {server_config.url}"
-                        )
-                elif server_config.type == "stdio":
-                    if server_config.command:
-                        await self.connect_mcp_server(
-                            server_config.command,
-                            server_id,
-                            use_stdio=True,
-                            stdio_args=server_config.args,
-                        )
-                        logger.info(
-                            f"Connected to MCP server {server_id} using command {server_config.command}"
-                        )
-            except Exception as e:
-                logger.error(f"Failed to connect to MCP server {server_id}: {e}")
-
-    async def connect_mcp_server(
-        self,
-        server_url: str,
-        server_id: str = "",
-        use_stdio: bool = False,
-        stdio_args: List[str] = None,
-    ) -> None:
-        """Connect to an MCP server and add its tools."""
-        if use_stdio:
-            await self.mcp_clients.connect_stdio(
-                server_url, stdio_args or [], server_id
-            )
-            self.connected_servers[server_id or server_url] = server_url
-        else:
-            await self.mcp_clients.connect_sse(server_url, server_id)
-            self.connected_servers[server_id or server_url] = server_url
-
-        # Update available tools with only the new tools from this server
-        new_tools = [
-            tool for tool in self.mcp_clients.tools if tool.server_id == server_id
-        ]
-        self.available_tools.add_tools(*new_tools)
-        self._inject_tool_context(new_tools)
-
-    async def disconnect_mcp_server(self, server_id: str = "") -> None:
-        """Disconnect from an MCP server and remove its tools."""
-        await self.mcp_clients.disconnect(server_id)
-        if server_id:
-            self.connected_servers.pop(server_id, None)
-        else:
-            self.connected_servers.clear()
-
-        # Rebuild available tools without the disconnected server's tools
-        base_tools = [
-            tool
-            for tool in self.available_tools.tools
-            if not isinstance(tool, MCPClientTool)
-        ]
-        self.available_tools = ToolCollection(*base_tools)
-        self.available_tools.add_tools(*self.mcp_clients.tools)
-
     async def cleanup(self):
         """Clean up Manus agent resources."""
         if self.browser_context_helper:
             await self.browser_context_helper.cleanup_browser()
-        # Disconnect from all MCP servers only if we were initialized
-        if self._initialized:
-            await self.disconnect_mcp_server()
-            self._initialized = False
 
     async def delegate_to_agent(self, agent_name: str, **kwargs) -> Any:
         """Delegate tasks to a registered sub-agent."""
@@ -489,12 +402,12 @@ class Manus(ToolCallAgent):
 
         这样可以避免每次循环都添加重复的提示词。
         """
-        # 🔑 GREETING 意图：引导 LLM 生成友好的问候回复
-        if intent == Intent.GREETING:
+        # 🔑 GREETING 意图：引导 LLM 生成友好的问候回复（含 thought + answer）
+        if intent in (Intent.GREETING_FAST_PATH, Intent.GREETING):
             return """请用中文友好地回应用户的问候。你应该：
-1. 热情、自然地打招呼
-2. 简短介绍自己是一个 AI 助手，可以帮助用户处理各种任务
-3. 询问用户需要什么帮助
+1. 先给出一句简短 Thought（例如：识别到用户在打招呼，准备友好回应）
+2. 再给出简短 Answer，控制在 1-2 句
+3. 不要默认引导“生成报告”，只做中性引导（如优化简历、查看当前内容）
 
 注意：直接在 Response 中回复，不需要调用任何工具。"""
 
@@ -591,32 +504,27 @@ class Manus(ToolCallAgent):
         # 获取最后的用户输入
         user_input = self._get_last_user_input()
 
-        # 🚀 Greeting Fast Path：不初始化 MCP，不走 LLM
-        if self._conversation_state.is_fast_greeting(user_input):
-            logger.info("👋 GREETING_FAST_PATH: 本地快速回复，跳过 MCP/LLM")
-            self.memory.add_message(
-                Message.assistant_message(
-                    "你好，我在。你可以直接告诉我你要做什么，比如优化简历、生成报告、修改某一段经历。"
-                )
-            )
-            from backend.agent.schema import AgentState
-
-            self.state = AgentState.FINISHED
-            return False
-
-        if not self._initialized:
-            await self.initialize_mcp_servers()
-            self._initialized = True
+        fast_greeting = self._conversation_state.is_fast_greeting(user_input)
 
         # 确保 ConversationStateManager 有 LLM 实例
         self._ensure_conversation_state_llm()
 
-        # 🧠 使用 LLM 意图识别（可能包含增强后的查询）
-        intent_result = await self._conversation_state.process_input(
-            user_input=user_input,
-            conversation_history=self.memory.messages[-5:],
-            last_ai_message=self._get_last_ai_message()
-        )
+        if fast_greeting:
+            logger.info("👋 GREETING_FAST_PATH: skip intent-llm, keep streaming path")
+            intent_result = {
+                "intent": Intent.GREETING_FAST_PATH,
+                "tool": None,
+                "tool_args": {},
+                "enhanced_query": user_input,
+                "intent_result": None,
+            }
+        else:
+            # 🧠 使用 LLM 意图识别（可能包含增强后的查询）
+            intent_result = await self._conversation_state.process_input(
+                user_input=user_input,
+                conversation_history=self.memory.messages[-5:],
+                last_ai_message=self._get_last_ai_message()
+            )
 
         intent = intent_result["intent"]
         tool = intent_result.get("tool")
