@@ -30,7 +30,7 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
           {dayDates.map((day) => (
               <div key={day.toISOString()} className="border-l border-slate-200 px-3 py-2">
                 <div className="text-sm text-slate-400">{['周日', '周一', '周二', '周三', '周四', '周五', '周六'][day.getDay()]}</div>
-                <div className="text-[34px] font-semibold text-slate-800">{Number(toDateInputValue(day).slice(-2))}</div>
+                <div className="text-xl font-semibold text-slate-800">{Number(toDateInputValue(day).slice(-2))}</div>
               </div>
           ))}
         </div>

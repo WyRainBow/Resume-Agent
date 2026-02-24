@@ -11,6 +11,7 @@ import {
   LayoutDashboard,
   Table2,
   Settings,
+  ChevronDown,
   Save,
   Download,
   LogIn,
@@ -159,6 +160,14 @@ export default function WorkspaceLayout({
   };
 
   const currentWorkspace = getCurrentWorkspace();
+  const [jobCenterOpen, setJobCenterOpen] = useState(() => {
+    return (
+      currentWorkspace === "resume" ||
+      currentWorkspace === "applications" ||
+      currentWorkspace === "calendar" ||
+      currentWorkspace === "dashboard"
+    );
+  });
   const sidebarWidthPx = sidebarCollapsed ? 96 : 260;
 
   // 点击外部区域关闭下拉菜单
@@ -206,6 +215,12 @@ export default function WorkspaceLayout({
     }
     navigate(targetPath);
   };
+
+  const isJobCenterActive =
+    currentWorkspace === "resume" ||
+    currentWorkspace === "applications" ||
+    currentWorkspace === "calendar" ||
+    currentWorkspace === "dashboard";
 
   const handleSelectSession = (sessionId: string) => {
     navigate(`/agent/new?sessionId=${sessionId}`, { replace: true });
@@ -331,27 +346,7 @@ export default function WorkspaceLayout({
             >
               <Edit className="w-6 h-6 shrink-0" />
               {!sidebarCollapsed && (
-                <span className="text-base font-medium">编辑</span>
-              )}
-            </button>
-
-            {/* 申请入口：图一样式，文档图标 + 申请 */}
-            <button
-              onClick={(e) => handleWorkspaceChange("resume", e)}
-              className={cn(
-                "w-full rounded-lg transition-all duration-200",
-                sidebarCollapsed
-                  ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                  : "flex items-center gap-2.5 py-2.5 px-2.5",
-                currentWorkspace === "resume"
-                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-              )}
-              title="申请"
-            >
-              <FileText className="w-6 h-6 shrink-0" />
-              {!sidebarCollapsed && (
-                <span className="text-base font-medium">申请</span>
+                <span className="text-base font-medium">编辑简历</span>
               )}
             </button>
 
@@ -395,65 +390,108 @@ export default function WorkspaceLayout({
               )}
             </button>
 
-            {/* 投递进展表 */}
-            <button
-              onClick={(e) => handleWorkspaceChange("applications", e)}
-              className={cn(
-                "w-full rounded-lg transition-all duration-200",
-                sidebarCollapsed
-                  ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                  : "flex items-center gap-2.5 py-2.5 px-2.5",
-                currentWorkspace === "applications"
-                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-              )}
-              title="投递进展表"
-            >
-              <Table2 className="w-6 h-6 shrink-0" />
-              {!sidebarCollapsed && (
-                <span className="text-base font-medium">投递进展表</span>
-              )}
-            </button>
+            {/* 求职中心（二级：投递进展、仪表盘） */}
+            <div className="w-full">
+              <button
+                onClick={(e) => {
+                  if (sidebarCollapsed) {
+                    handleWorkspaceChange("resume", e);
+                    return;
+                  }
+                  setJobCenterOpen((prev) => !prev);
+                }}
+                className={cn(
+                  "w-full rounded-lg transition-all duration-200",
+                  sidebarCollapsed
+                    ? "flex flex-col items-center justify-center gap-1 py-2.5"
+                    : "flex items-center justify-between gap-2.5 py-2.5 px-2.5",
+                  isJobCenterActive
+                    ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
+                )}
+                title="求职中心"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <LayoutDashboard className="w-6 h-6 shrink-0" />
+                  {!sidebarCollapsed && (
+                    <span className="text-base font-medium truncate">求职中心</span>
+                  )}
+                </div>
+                {!sidebarCollapsed && (
+                  <ChevronDown
+                    className={cn(
+                      "w-4 h-4 shrink-0 transition-transform duration-200",
+                      jobCenterOpen ? "rotate-180" : "rotate-0"
+                    )}
+                  />
+                )}
+              </button>
 
-            {/* 面试日历 */}
-            <button
-              onClick={(e) => handleWorkspaceChange("calendar", e)}
-              className={cn(
-                "w-full rounded-lg transition-all duration-200",
-                sidebarCollapsed
-                  ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                  : "flex items-center gap-2.5 py-2.5 px-2.5",
-                currentWorkspace === "calendar"
-                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
+              {!sidebarCollapsed && jobCenterOpen && (
+                <div className="mt-1 ml-3 pl-3 border-l border-slate-200 dark:border-slate-700 space-y-0.5">
+                  <button
+                    onClick={(e) => handleWorkspaceChange("resume", e)}
+                    className={cn(
+                      "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
+                      currentWorkspace === "resume"
+                        ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    )}
+                    title="申请"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <FileText className="w-4 h-4 shrink-0" />
+                      申请
+                    </span>
+                  </button>
+                  <button
+                    onClick={(e) => handleWorkspaceChange("applications", e)}
+                    className={cn(
+                      "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
+                      currentWorkspace === "applications"
+                        ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    )}
+                    title="投递进展"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Table2 className="w-4 h-4 shrink-0" />
+                      投递进展
+                    </span>
+                  </button>
+                  <button
+                    onClick={(e) => handleWorkspaceChange("calendar", e)}
+                    className={cn(
+                      "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
+                      currentWorkspace === "calendar"
+                        ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    )}
+                    title="面试日历"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 shrink-0" />
+                      面试日历
+                    </span>
+                  </button>
+                  <button
+                    onClick={(e) => handleWorkspaceChange("dashboard", e)}
+                    className={cn(
+                      "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
+                      currentWorkspace === "dashboard"
+                        ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    )}
+                    title="仪表盘"
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <LayoutDashboard className="w-4 h-4 shrink-0" />
+                      仪表盘
+                    </span>
+                  </button>
+                </div>
               )}
-              title="面试日历"
-            >
-              <CalendarDays className="w-6 h-6 shrink-0" />
-              {!sidebarCollapsed && (
-                <span className="text-base font-medium">面试日历</span>
-              )}
-            </button>
-
-            {/* 仪表盘 */}
-            <button
-              onClick={(e) => handleWorkspaceChange("dashboard", e)}
-              className={cn(
-                "w-full rounded-lg transition-all duration-200",
-                sidebarCollapsed
-                  ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                  : "flex items-center gap-2.5 py-2.5 px-2.5",
-                currentWorkspace === "dashboard"
-                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-              )}
-              title="仪表盘"
-            >
-              <LayoutDashboard className="w-6 h-6 shrink-0" />
-              {!sidebarCollapsed && (
-                <span className="text-base font-medium">仪表盘</span>
-              )}
-            </button>
+            </div>
           </nav>
 
           {/* 分隔线 */}
@@ -567,12 +605,12 @@ export default function WorkspaceLayout({
                           handleWorkspaceChange("settings");
                         }}
                         className={cn(
-                          "w-full flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg",
+                          "w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg",
                           "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700",
-                          "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 text-[10px] font-medium transition-colors",
+                          "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-semibold transition-colors",
                         )}
                       >
-                        <Settings className="w-3.5 h-3.5 shrink-0 text-violet-500" />
+                        <Settings className="w-4 h-4 shrink-0 text-violet-500" />
                         设置
                       </button>
                       <button
@@ -582,12 +620,12 @@ export default function WorkspaceLayout({
                           logout();
                         }}
                         className={cn(
-                          "w-full flex items-center justify-center gap-1.5 px-2 py-2 rounded-lg",
+                          "w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg",
                           "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700",
-                          "text-red-600 dark:text-red-400 hover:bg-red-50/80 dark:hover:bg-red-900/20 text-[10px] font-medium transition-colors",
+                          "text-red-600 dark:text-red-400 hover:bg-red-50/80 dark:hover:bg-red-900/20 text-sm font-semibold transition-colors",
                         )}
                       >
-                        <LogOut className="w-3.5 h-3.5 shrink-0" />
+                        <LogOut className="w-4 h-4 shrink-0" />
                         退出登录
                       </button>
                     </motion.div>

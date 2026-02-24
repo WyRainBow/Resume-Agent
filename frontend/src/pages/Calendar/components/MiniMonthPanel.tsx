@@ -18,7 +18,7 @@ export function MiniMonthPanel({ currentDate, onPickDate, onNavigateMonth }: Min
       <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
         <div className="mb-2 flex items-center justify-between">
           <button
-            className="rounded-md px-2 py-1 text-[34px] font-bold text-slate-700 hover:bg-slate-100"
+            className="rounded-md px-2 py-1 text-xl font-bold text-slate-700 hover:bg-slate-100"
             type="button"
           >
             {formatMonthTitle(currentDate)}
