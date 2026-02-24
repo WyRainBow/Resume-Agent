@@ -1,11 +1,19 @@
 """
 Pydantic 数据模型定义
 """
+import sys
 from pydantic import BaseModel, Field
 from typing import Optional, Literal, List, Dict, Any
 from sqlalchemy import Column, Integer, String, DateTime, Date, ForeignKey, JSON, Text, Boolean, Float, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
+
+# 统一模块别名，避免同一文件被以 `models` 和 `backend.models` 重复加载，
+# 进而生成两套 SQLAlchemy mapper（会导致关系同步异常）。
+if __name__ == "models":
+    sys.modules.setdefault("backend.models", sys.modules[__name__])
+elif __name__ == "backend.models":
+    sys.modules.setdefault("models", sys.modules[__name__])
 
 try:
     from database import Base

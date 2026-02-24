@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { getCurrentResumeId, setCurrentResumeId, getResume } from '../../../../services/resumeStorage'
 import { loadFromStorage, STORAGE_KEY } from '../constants'
 import { stripPhotoFromResumeData } from '@/services/storage/sanitizeResume'
+import { useLocation, useParams } from 'react-router-dom'
 import type {
   ResumeData,
   MenuSection,
@@ -18,6 +19,8 @@ import type {
 } from '../types'
 
 export function useResumeData() {
+  const location = useLocation()
+  const { resumeId: routeResumeId } = useParams()
   // 当前编辑的简历 ID
   const [currentResumeId, setCurrentId] = useState<string | null>(() => getCurrentResumeId())
   
@@ -31,11 +34,25 @@ export function useResumeData() {
   // 从 Dashboard 进入时加载对应简历
   useEffect(() => {
     const loadResume = async () => {
-      const id = getCurrentResumeId()
+      // /workspace/latex（不带 ID）始终按“新建默认模板”处理，避免旧缓存覆盖模板更新
+      if (location.pathname === '/workspace/latex' && !routeResumeId) {
+        setCurrentResumeId(null)
+        setCurrentId(null)
+        localStorage.removeItem(STORAGE_KEY)
+        setResumeData(loadFromStorage())
+        setIsDataLoaded(true)
+        return
+      }
+
+      const id = routeResumeId || getCurrentResumeId()
       if (!id) {
         // 没有 ID 表示新建简历，直接标记为已加载
         setIsDataLoaded(true)
         return
+      }
+      // 当路由显式携带 resumeId 时，同步到 currentResumeId，保证后续保存覆盖正确记录
+      if (routeResumeId) {
+        setCurrentResumeId(routeResumeId)
       }
       const saved = await getResume(id)
       if (saved && saved.data) {
@@ -62,7 +79,7 @@ export function useResumeData() {
     }
 
     loadResume()
-  }, [])
+  }, [location.pathname, routeResumeId])
 
   // 自动保存到 localStorage
   useEffect(() => {

@@ -39,6 +39,21 @@ type WorkspaceType =
   | "settings"
   | "templates";
 
+function getRoleFromToken(): string {
+  try {
+    const token = localStorage.getItem("auth_token");
+    if (!token) return "";
+    const payloadPart = token.split(".")[1];
+    if (!payloadPart) return "";
+    const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
+    const payload = JSON.parse(atob(padded));
+    return String(payload?.role || "").toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
 /** 复刻参考图：圆角矩形 + 内竖线（左窄右宽），细描边 */
 function SidebarToggleIcon({
   expand = false,
@@ -160,6 +175,23 @@ export default function WorkspaceLayout({
   };
 
   const currentWorkspace = getCurrentWorkspace();
+  const roleFromToken = getRoleFromToken();
+  const canUseAgent =
+    isAuthenticated && (roleFromToken === "admin" || roleFromToken === "member");
+  const canUseApplyEntry = canUseAgent;
+
+  useEffect(() => {
+    if (currentWorkspace !== "agent") return;
+    if (canUseAgent) return;
+    navigate("/workspace", { replace: true });
+  }, [canUseAgent, currentWorkspace, navigate]);
+
+  useEffect(() => {
+    if (currentWorkspace !== "resume") return;
+    if (canUseApplyEntry) return;
+    navigate("/workspace", { replace: true });
+  }, [canUseApplyEntry, currentWorkspace, navigate]);
+
   const [jobCenterOpen, setJobCenterOpen] = useState(() => {
     return (
       currentWorkspace === "resume" ||
@@ -223,14 +255,17 @@ export default function WorkspaceLayout({
     currentWorkspace === "dashboard";
 
   const handleSelectSession = (sessionId: string) => {
+    if (!canUseAgent) return;
     navigate(`/agent/new?sessionId=${sessionId}`, { replace: true });
   };
 
   const handleCreateSession = () => {
+    if (!canUseAgent) return;
     navigate("/agent/new");
   };
 
   const deleteSession = async (sessionId: string) => {
+    if (!canUseAgent) return;
     try {
       const resp = await fetch(
         `${getApiBaseUrl()}/api/agent/history/${sessionId}`,
@@ -244,6 +279,7 @@ export default function WorkspaceLayout({
   };
 
   const renameSession = async (sessionId: string, title: string) => {
+    if (!canUseAgent) return;
     try {
       const resp = await fetch(
         `${getApiBaseUrl()}/api/agent/history/sessions/${sessionId}/title`,
@@ -350,25 +386,27 @@ export default function WorkspaceLayout({
               )}
             </button>
 
-            {/* AI 对话区 */}
-            <button
-              onClick={(e) => handleWorkspaceChange("agent", e)}
-              className={cn(
-                "w-full rounded-lg transition-all duration-200",
-                sidebarCollapsed
-                  ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                  : "flex items-center gap-2.5 py-2.5 px-2.5",
-                currentWorkspace === "agent"
-                  ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-              )}
-              title="AI 对话"
-            >
-              <AgentIcon className="w-6 h-6 shrink-0" />
-              {!sidebarCollapsed && (
-                <span className="text-base font-medium">AI</span>
-              )}
-            </button>
+            {/* AI 对话区（仅 admin/member） */}
+            {canUseAgent && (
+              <button
+                onClick={(e) => handleWorkspaceChange("agent", e)}
+                className={cn(
+                  "w-full rounded-lg transition-all duration-200",
+                  sidebarCollapsed
+                    ? "flex flex-col items-center justify-center gap-1 py-2.5"
+                    : "flex items-center gap-2.5 py-2.5 px-2.5",
+                  currentWorkspace === "agent"
+                    ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
+                )}
+                title="AI 对话"
+              >
+                <AgentIcon className="w-6 h-6 shrink-0" />
+                {!sidebarCollapsed && (
+                  <span className="text-base font-medium">AI</span>
+                )}
+              </button>
+            )}
 
             {/* 我的简历 */}
             <button
@@ -395,7 +433,10 @@ export default function WorkspaceLayout({
               <button
                 onClick={(e) => {
                   if (sidebarCollapsed) {
-                    handleWorkspaceChange("resume", e);
+                    handleWorkspaceChange(
+                      canUseApplyEntry ? "resume" : "applications",
+                      e,
+                    );
                     return;
                   }
                   setJobCenterOpen((prev) => !prev);
@@ -429,21 +470,23 @@ export default function WorkspaceLayout({
 
               {!sidebarCollapsed && jobCenterOpen && (
                 <div className="mt-1 ml-3 pl-3 border-l border-slate-200 dark:border-slate-700 space-y-0.5">
-                  <button
-                    onClick={(e) => handleWorkspaceChange("resume", e)}
-                    className={cn(
-                      "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
-                      currentWorkspace === "resume"
-                        ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
-                    )}
-                    title="申请"
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <FileText className="w-4 h-4 shrink-0" />
-                      申请
-                    </span>
-                  </button>
+                  {canUseApplyEntry && (
+                    <button
+                      onClick={(e) => handleWorkspaceChange("resume", e)}
+                      className={cn(
+                        "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
+                        currentWorkspace === "resume"
+                          ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      )}
+                      title="申请"
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <FileText className="w-4 h-4 shrink-0" />
+                        申请
+                      </span>
+                    </button>
+                  )}
                   <button
                     onClick={(e) => handleWorkspaceChange("applications", e)}
                     className={cn(
@@ -547,7 +590,7 @@ export default function WorkspaceLayout({
           <div className="border-t border-slate-100 dark:border-slate-800 my-1 shrink-0" />
 
           {/* 历史会话 - 常驻显示 */}
-          {!sidebarCollapsed && (
+          {!sidebarCollapsed && canUseAgent && (
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <RecentSessions
                 currentSessionId={

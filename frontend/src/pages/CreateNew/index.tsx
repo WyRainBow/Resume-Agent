@@ -11,6 +11,7 @@ import {
   FileCode
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { setCurrentResumeId } from '@/services/resumeStorage'
 
 const fadeInUp = {
   initial: { opacity: 0, y: 30 },
@@ -38,6 +39,9 @@ export default function CreateNew() {
   }
 
   const handleLatexTemplate = () => {
+    // 强制从默认模板新建，避免继续加载上一次编辑的简历
+    setCurrentResumeId(null)
+    localStorage.removeItem('resume_v2_data')
     navigate('/workspace/latex')
   }
 

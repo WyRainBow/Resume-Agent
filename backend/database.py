@@ -2,11 +2,18 @@
 数据库配置和会话管理
 """
 import os
+import sys
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 from pathlib import Path
+
+# 统一模块别名，避免 `database` 和 `backend.database` 被分别导入后出现两套 Base/engine。
+if __name__ == "database":
+    sys.modules.setdefault("backend.database", sys.modules[__name__])
+elif __name__ == "backend.database":
+    sys.modules.setdefault("database", sys.modules[__name__])
 
 # 加载环境变量
 PROJECT_ROOT = Path(__file__).resolve().parent.parent

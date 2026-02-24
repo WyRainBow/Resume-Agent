@@ -17,12 +17,17 @@ import { cn } from "../../../../lib/utils";
 import FileUploadZone from "./FileUploadZone";
 import { getApiBaseUrl } from "@/lib/runtimeEnv";
 
+// DeepSeek 官方 logo（Wikimedia Commons，MIT/Expat）
+const DEEPSEEK_LOGO_URL =
+  "https://upload.wikimedia.org/wikipedia/commons/e/ec/DeepSeek_logo.svg";
+
 // 可用的 AI 模型列表
 const AI_MODELS = [
   {
     id: "deepseek-v3.2",
     name: "DeepSeek",
     description: "智能解析简历内容",
+    logoUrl: DEEPSEEK_LOGO_URL,
   },
 ];
 
@@ -445,8 +450,16 @@ export function AIImportModal({
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center">
-                        <Wand2 className="w-4 h-4 text-white" />
+                      <div className="w-20 h-20 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden p-2">
+                        {AI_MODELS.find((m) => m.id === selectedModel)?.logoUrl ? (
+                          <img
+                            src={AI_MODELS.find((m) => m.id === selectedModel)!.logoUrl}
+                            alt="DeepSeek"
+                            className="w-full h-full object-contain"
+                          />
+                        ) : (
+                          <Wand2 className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                        )}
                       </div>
                       <div>
                         <div className="font-semibold">
@@ -489,20 +502,28 @@ export function AIImportModal({
                           <div className="flex items-center gap-3">
                             <div
                               className={cn(
-                                "w-8 h-8 rounded-lg flex items-center justify-center",
+                                "w-20 h-20 rounded-lg flex items-center justify-center overflow-hidden p-2",
                                 selectedModel === model.id
-                                  ? "bg-gradient-to-br from-purple-500 to-indigo-600"
+                                  ? "bg-slate-100 dark:bg-slate-700 ring-2 ring-purple-500"
                                   : "bg-slate-200 dark:bg-slate-700",
                               )}
                             >
-                              <Wand2
-                                className={cn(
-                                  "w-4 h-4",
-                                  selectedModel === model.id
-                                    ? "text-white"
-                                    : "text-slate-500 dark:text-slate-400",
-                                )}
-                              />
+                              {"logoUrl" in model && model.logoUrl ? (
+                                <img
+                                  src={model.logoUrl}
+                                  alt={model.name}
+                                  className="w-full h-full object-contain"
+                                />
+                              ) : (
+                                <Wand2
+                                  className={cn(
+                                    "w-4 h-4",
+                                    selectedModel === model.id
+                                      ? "text-purple-600 dark:text-purple-400"
+                                      : "text-slate-500 dark:text-slate-400",
+                                  )}
+                                />
+                              )}
                             </div>
                             <div>
                               <div

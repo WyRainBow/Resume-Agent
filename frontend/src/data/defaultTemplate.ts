@@ -37,27 +37,30 @@ export const DEFAULT_RESUME_TEMPLATE: ResumeData = {
   experience: [
     {
       id: `exp_${Date.now()}_0`,
-      company: "实习公司一",
+      company: "字节跳动",
       position: "后端开发实习生",
       date: "2025.06 - 2025.10",
       details: "<ul class=\"custom-list\"><li><p>参与核心业务模块的开发与维护，负责接口设计与实现</p></li><li><p>参与系统性能优化工作，通过代码重构和查询优化提升接口响应速度</p></li><li><p>参与技术方案讨论，协助解决开发过程中遇到的技术问题</p></li></ul><p></p>",
-      visible: true
+      visible: true,
+      companyLogo: "bytedance"
     },
     {
       id: `exp_${Date.now()}_1`,
-      company: "实习公司二",
+      company: "美团",
       position: "后端开发实习生",
       date: "2025.03 - 2025.06",
       details: "<ul class=\"custom-list\"><li><p>参与新功能模块的开发，负责需求分析、技术方案设计和代码实现</p></li><li><p>参与代码审查，学习并实践代码规范和最佳实践</p></li><li><p>协助团队完成项目交付，参与测试和问题修复工作</p></li></ul><p></p>",
-      visible: true
+      visible: true,
+      companyLogo: "meituan"
     },
     {
       id: `exp_${Date.now()}_2`,
-      company: "实习公司三",
+      company: "快手",
       position: "后端开发实习生",
       date: "2024.12 - 2025.03",
       details: "<ul class=\"custom-list\"><li><p>参与业务系统开发，熟悉企业级应用开发流程</p></li><li><p>学习并实践常用框架和中间件的使用，提升技术能力</p></li><li><p>参与团队技术分享，学习系统架构设计相关知识</p></li></ul><p></p>",
-      visible: true
+      visible: true,
+      companyLogo: "kuaishou"
     }
   ],
   projects: [
@@ -83,7 +86,7 @@ export const DEFAULT_RESUME_TEMPLATE: ResumeData = {
       id: `os_${Date.now()}_0`,
       name: "开源项目一（某分布式项目）",
       role: "",
-      repo: "",
+      repo: "https://github.com/example/project",
       date: "",
       description: "<ul class=\"custom-list\"><li><p>仓库：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://github.com/example/project\">https://github.com/example/project</a></p></li><li><p>社区日常 Issue 维护与答疑、问题复现与定位</p></li><li><p>实现某功能 PR 记录：<a target=\"_blank\" rel=\"noopener noreferrer nofollow\" href=\"https://github.com/example/project/issues/xxx\">https://github.com/example/project/issues/xxx</a></p></li></ul><p></p>",
       visible: true
@@ -122,6 +125,7 @@ export const DEFAULT_RESUME_TEMPLATE: ResumeData = {
     experienceListType: "none",
     latexHeaderTopGapPx: -4,
     latexHeaderNameContactGapPx: 0,
-    latexHeaderBottomGapPx: -1
+    latexHeaderBottomGapPx: -1,
+    openSourceRepoDisplay: "icon"
   }
 }
