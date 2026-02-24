@@ -2,10 +2,18 @@ import React from 'react';
 import ThoughtProcess from './ThoughtProcess';
 import StreamingResponse from './StreamingResponse';
 
+export interface StreamRenderModel {
+  thought: string;
+  answer: string;
+  isProcessing: boolean;
+}
+
 /**
  * StreamingOutputPanelProps
  */
 export interface StreamingOutputPanelProps {
+  /** 统一渲染模型（优先） */
+  streamModel?: StreamRenderModel;
   /** 当前思考内容 */
   currentThought: string;
   /** 当前回答内容 */
@@ -41,6 +49,7 @@ export interface StreamingOutputPanelProps {
  * 4. Children (额外的检测器或卡片)
  */
 export default function StreamingOutputPanel({
+  streamModel,
   currentThought,
   currentAnswer,
   isProcessing,
@@ -49,8 +58,11 @@ export default function StreamingOutputPanel({
   renderSearchCard,
   children,
 }: StreamingOutputPanelProps) {
+  const thought = streamModel?.thought ?? currentThought;
+  const answer = streamModel?.answer ?? currentAnswer;
+  const processing = streamModel?.isProcessing ?? isProcessing;
   
-  if (!isProcessing || (!currentThought && (!currentAnswer || shouldHideResponseInChat))) {
+  if (!processing || (!thought && (!answer || shouldHideResponseInChat))) {
     return null;
   }
 
@@ -59,9 +71,9 @@ export default function StreamingOutputPanel({
   return (
     <>
       {/* 1. Thought Process 优先显示 */}
-      {currentThought && (
+      {thought && (
         <ThoughtProcess
-          content={currentThought}
+          content={thought}
           isStreaming={true}
           isLatest={true}
           defaultExpanded={true}
@@ -77,7 +89,7 @@ export default function StreamingOutputPanel({
 
       {/* 3. Response 最后显示 */}
       <StreamingResponse
-        content={currentAnswer}
+        content={answer}
         canStart={!shouldHideResponseInChat}
       />
 

@@ -3,7 +3,7 @@
 This module provides:
 - POST /stream: SSE endpoint for streaming agent responses
 - Heartbeat mechanism for keeping connection alive
-- CLTP chunks are generated server-side and adapted to SSE for compatibility
+- StreamEvent -> SSE 对外协议（前端再适配为 CLTP chunk）
 """
 
 from __future__ import annotations

@@ -1,8 +1,8 @@
 """Agent stream output handler.
 
 Handles streaming agent execution results to SSE clients.
-现已集成 CLTP chunks 的生成与兼容输出。
-使用与原始 server.py 相同的手动步骤循环逻辑。
+当前主链仍基于 StreamEvent -> SSE 输出；
+CLTP 相关能力作为过渡兼容资产逐步收敛。
 """
 
 import asyncio
@@ -191,8 +191,6 @@ from backend.agent.web.streaming.events import (
 )
 from backend.agent.web.streaming.agent_state import AgentState, StateInfo
 from backend.agent.web.streaming.state_machine import AgentStateMachine
-from backend.agent.cltp.chunk_generator import CLTPChunkGenerator
-from backend.agent.cltp.chunk_to_sse import chunk_to_sse
 
 logger = logging.getLogger(__name__)
 
@@ -264,9 +262,6 @@ class AgentStream:
         self._final_answer_sent: bool = False
         self._current_step_stream_state: Optional[StepStreamState] = None
         self._stream_cancel_event: Optional[asyncio.Event] = None
-
-        # CLTP chunk generator
-        self._cltp_generator = CLTPChunkGenerator(session_id)
 
     def _next_answer_event_seq(self) -> int:
         self._answer_event_seq += 1
@@ -455,8 +450,6 @@ class AgentStream:
                 data={"user_message": user_message},
             )
 
-            # 生成 CLTP span:start(name='run') chunk
-            run_start_chunk = self._cltp_generator.emit_span_start('run')
             # 转换为 SSE 格式（向后兼容）
             yield AgentStartEvent(
                 agent_name="Manus",
@@ -675,7 +668,7 @@ class AgentStream:
                     # 检查是否有分析工具结果
                     has_recent_analysis_result = False
                     for msg in reversed(self.agent.memory.messages[-10:]):
-                        if msg.role == "tool" and msg.name in ['education_analyzer', 'cv_analyzer_agent']:
+                        if msg.role == "tool" and msg.name == 'cv_analyzer_agent':
                             has_recent_analysis_result = True
                             break
 
@@ -791,12 +784,6 @@ class AgentStream:
 
                                     # 生成 CLTP content(channel='think') chunk
                                     # 关键：保持文本内容原样，不进行任何修改
-                                    think_chunk = self._cltp_generator.emit_content(
-                                        channel='think',
-                                        payload={'text': thought_part},  # 保持原样
-                                        done=False,
-                                    )
-
                                     # 转换为 SSE 格式（向后兼容）
                                     yield ThoughtEvent(
                                         thought=thought_part,
@@ -1026,9 +1013,6 @@ class AgentStream:
                 AgentState.COMPLETED,
                 message="Agent execution completed",
             )
-
-            # 生成 CLTP span:end(name='run') chunk
-            run_end_chunk = self._cltp_generator.emit_span_end('run')
 
             yield AgentEndEvent(
                 agent_name="Manus",

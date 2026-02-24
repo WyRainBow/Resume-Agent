@@ -9,7 +9,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { ChatMessageProps } from "@/types/chat";
 import ThoughtProcess from "./ThoughtProcess";
 import EnhancedMarkdown from "./EnhancedMarkdown";
-import { useTextStream } from "./ResponseStream";
+import { useTextStream } from "@/hooks/useTextStream";
 import TTSButton from "./TTSButton";
 import { Copy, RotateCcw, Check } from "lucide-react";
 

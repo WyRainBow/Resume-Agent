@@ -33,7 +33,7 @@ class CapabilityRegistry:
 
 ANALYZE_CAPABILITY = ResumeCapability(
     name="analyze",
-    tool_whitelist=["cv_reader_agent", "show_resume", "cv_analyzer_agent", "education_analyzer"],
+    tool_whitelist=["cv_reader_agent", "show_resume", "cv_analyzer_agent"],
     instructions_addendum="专注于简历分析，不执行编辑操作。",
 )
 
@@ -49,7 +49,6 @@ OPTIMIZE_CAPABILITY = ResumeCapability(
         "cv_reader_agent",
         "show_resume",
         "cv_analyzer_agent",
-        "education_analyzer",
         "cv_editor_agent",
     ],
     instructions_addendum="专注于简历优化，优先给出可执行的修改建议。",

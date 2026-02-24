@@ -1,0 +1,13 @@
+{
+  "session_id": "conv-1771919487013",
+  "created_at": "2026-02-24T15:51:29.510041",
+  "updated_at": "2026-02-24T15:51:29.510041",
+  "title": "你好",
+  "message_count": 1,
+  "messages": [
+    {
+      "role": "user",
+      "content": "你好"
+    }
+  ]
+}

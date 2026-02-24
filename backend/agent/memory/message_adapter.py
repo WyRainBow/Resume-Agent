@@ -107,7 +107,7 @@ class MessageAdapter:
     """Adapter for converting between OpenManus Message and LangChain Message formats.
 
     Critical: Tool messages are now properly preserved to enable the optimization workflow:
-    - Analysis results (education_analyzer, cv_analyzer_agent) contain optimization_suggestions JSON
+    - Analysis results (cv_analyzer_agent) may contain optimization_suggestions JSON
     - These tool results must be preserved across conversation turns
     - When user says "优化", the agent needs to retrieve previous tool results
     """

@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import ReactMarkdown from 'react-markdown'
 import { ArrowLeft, Send, Bot } from 'lucide-react'
 import { useTypewriter } from '@/hooks/useTypewriter'
 import { getResume } from '@/services/resumeStorage'
 import type { SavedResume } from '@/services/resumeStorage'
 import { getApiBaseUrl } from '@/lib/runtimeEnv'
+import EnhancedMarkdown from '@/components/chat/EnhancedMarkdown'
+
+// Deprecated page: production route points to SophiaChat.
+// Keep this page only as a fallback while legacy workspace dialogs migrate.
 
 type Role = 'user' | 'assistant'
 
@@ -313,7 +316,7 @@ export default function AgentChat() {
                     {msg.thought}
                   </div>
                 )}
-                <ReactMarkdown>{msg.content}</ReactMarkdown>
+                <EnhancedMarkdown>{msg.content}</EnhancedMarkdown>
               </div>
             </div>
           ))}
@@ -326,7 +329,7 @@ export default function AgentChat() {
                     {thoughtWriter.text}
                   </div>
                 )}
-                <ReactMarkdown>{answerWriter.text || '...'}</ReactMarkdown>
+                <EnhancedMarkdown>{answerWriter.text || '...'}</EnhancedMarkdown>
               </div>
             </div>
           )}

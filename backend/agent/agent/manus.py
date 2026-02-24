@@ -12,7 +12,7 @@ from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
 from backend.agent.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT
-from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, EducationAnalyzerTool, ShowResumeTool, Terminate, ToolCollection, WebSearch
+from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, ShowResumeTool, Terminate, ToolCollection, WebSearch
 try:
     from backend.agent.tool import BrowserUseTool
 except ImportError:
@@ -34,7 +34,6 @@ from backend.agent.agent.registry import AgentRegistry
 from backend.agent.agent.delegation_strategy import AgentDelegationStrategy
 from backend.agent.tool.resume_data_store import ResumeDataStore
 from backend.agent.agent.analyzers.work_experience_analyzer import WorkExperienceAnalyzerAgent  # noqa: F401
-from backend.agent.agent.analyzers.education_analyzer import EducationAnalyzerAgent  # noqa: F401
 from backend.agent.agent.analyzers.skills_analyzer import SkillsAnalyzerAgent  # noqa: F401
 from backend.agent.agent.resume_optimizer import ResumeOptimizerAgent  # noqa: F401
 
@@ -121,7 +120,6 @@ class Manus(ToolCallAgent):
             ShowResumeTool(),
             CVAnalyzerAgentTool(),
             CVEditorAgentTool(),
-            EducationAnalyzerTool(),
         ]
 
         capability: ResumeCapability = CapabilityRegistry.get(self.capability)
@@ -280,7 +278,6 @@ class Manus(ToolCallAgent):
         if not section:
             return [
                 "work_experience_analyzer",
-                "education_analyzer_agent",
                 "skills_analyzer",
             ]
 
@@ -288,12 +285,11 @@ class Manus(ToolCallAgent):
         if "工作" in normalized:
             return ["work_experience_analyzer"]
         if "教育" in normalized:
-            return ["education_analyzer_agent"]
+            return []
         if "技能" in normalized or "技术" in normalized:
             return ["skills_analyzer"]
         return [
             "work_experience_analyzer",
-            "education_analyzer_agent",
             "skills_analyzer",
         ]
 
@@ -513,7 +509,7 @@ class Manus(ToolCallAgent):
         for msg in reversed(self.memory.messages[-3:]):
             if hasattr(msg, 'tool_calls') and msg.tool_calls:
                 for tc in msg.tool_calls:
-                    if tc.function.name in ['education_analyzer', 'cv_analyzer_agent']:
+                    if tc.function.name == 'cv_analyzer_agent':
                         recent_analysis = True
                         break
                 if recent_analysis:
@@ -526,17 +522,14 @@ class Manus(ToolCallAgent):
         analysis_result_returned = False
         for msg in reversed(self.memory.messages[-5:]):
             if hasattr(msg, 'role') and msg.role == "tool":
-                if hasattr(msg, 'name') and msg.name in ['education_analyzer', 'cv_analyzer_agent']:
+                if hasattr(msg, 'name') and msg.name == 'cv_analyzer_agent':
                     analysis_result_returned = True
                     analysis_tool_name = msg.name
                     break
             elif hasattr(msg, 'content') and msg.content:
-                if "教育经历分析" in msg.content or "优化建议示例" in msg.content:
+                if "优化建议示例" in msg.content:
                     analysis_result_returned = True
-                    if "教育" in msg.content:
-                        analysis_tool_name = "education_analyzer"
-                    else:
-                        analysis_tool_name = "cv_analyzer_agent"
+                    analysis_tool_name = "cv_analyzer_agent"
                     break
 
         if not analysis_result_returned:
@@ -545,11 +538,11 @@ class Manus(ToolCallAgent):
         # 获取分析结果内容
         analysis_content = ""
         for msg in reversed(self.memory.messages[-10:]):
-            if msg.role == "tool" and msg.name in ['education_analyzer', 'cv_analyzer_agent']:
+            if msg.role == "tool" and msg.name == 'cv_analyzer_agent':
                 analysis_content = msg.content[:5000]
                 break
 
-        tool_display_name = "教育经历" if analysis_tool_name == "education_analyzer" else "简历"
+        tool_display_name = "简历"
         return f"""## 分析完成，请展示结果
 
 分析工具 ({analysis_tool_name}) 已返回结果，请向用户展示：
@@ -766,7 +759,6 @@ class Manus(ToolCallAgent):
             "cv_reader_agent": "我将先加载您的简历数据",
             "cv_analyzer_agent": "我将分析您的简历",
             "cv_editor_agent": "我将编辑您的简历",
-            "education_analyzer": "我将分析您的教育背景",
         }
 
         content = descriptions.get(tool, f"我将调用 {tool} 工具")
@@ -796,7 +788,7 @@ class Manus(ToolCallAgent):
 
         for msg in reversed(self.memory.messages[-10:]):
             role_val = msg.role if isinstance(msg.role, str) else msg.role.value
-            if role_val == "tool" and msg.name in ['education_analyzer', 'cv_analyzer_agent']:
+            if role_val == "tool" and msg.name == 'cv_analyzer_agent':
                 content = msg.content
                 try:
                     json_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)

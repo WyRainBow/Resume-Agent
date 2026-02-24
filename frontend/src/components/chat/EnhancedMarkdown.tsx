@@ -14,9 +14,8 @@ import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import remarkBreaks from 'remark-breaks';
-import remarkGfm from 'remark-gfm';
 import MermaidBlock from './MermaidBlock';
+import { SHARED_REMARK_PLUGINS } from './markdownConfig';
 
 /**
  * 自定义代码渲染器类型
@@ -184,7 +183,7 @@ export default function EnhancedMarkdown({
           prose-td:border prose-td:border-gray-300 prose-td:px-2 prose-td:py-1"
       >
         <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkBreaks]}
+          remarkPlugins={SHARED_REMARK_PLUGINS}
           key={content.substring(0, 100)} // 添加 key 避免 React 警告
           components={{
           // 自定义段落样式
@@ -256,10 +255,9 @@ export default function EnhancedMarkdown({
           },
         }}
       >
-        {children}
+        {content}
       </ReactMarkdown>
       </div>
     </div>
   );
 }
-

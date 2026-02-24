@@ -46,7 +46,6 @@ Use these tools when appropriate:
 |------|-------------|
 | cv_reader_agent | Load resume from file path |
 | cv_analyzer_agent | Analyze resume quality and content |
-| education_analyzer | Analyze education background specifically |
 | cv_editor_agent | Edit resume content |
 | browser_use | Open websites, search the web, and interact with pages |
 | python_execute | Run small Python snippets when needed |
