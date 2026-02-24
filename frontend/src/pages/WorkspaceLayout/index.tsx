@@ -20,6 +20,7 @@ import {
   CalendarDays,
   LayoutTemplate,
   History,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -79,25 +80,41 @@ function SidebarToggleIcon({
   );
 }
 
-/** Agent 按钮图标：对话气泡轮廓 + 气泡内三点（参考图样式） */
-function AgentIcon({ className }: { className?: string }) {
+/** Agent 按钮图标：使用 Sparkles 图标并添加渐变背景和动画 */
+function AgentIcon({ active = false }: { active?: boolean }) {
   return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
+    <div
+      className={cn(
+        "relative flex items-center justify-center rounded-md transition-all duration-300 shrink-0",
+        active
+          ? "bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 shadow-md shadow-indigo-500/20"
+          : "bg-slate-100 dark:bg-slate-800",
+        "w-6 h-6",
+      )}
     >
-      {/* 气泡轮廓：圆角矩形 */}
-      <rect x="3" y="3" width="18" height="14" rx="2.5" />
-      {/* 气泡内三点（省略号） */}
-      <circle cx="8.5" cy="10" r="1.2" fill="currentColor" />
-      <circle cx="12" cy="10" r="1.2" fill="currentColor" />
-      <circle cx="15.5" cy="10" r="1.2" fill="currentColor" />
-    </svg>
+      <Sparkles
+        className={cn(
+          "w-4 h-4 transition-colors duration-300",
+          active
+            ? "text-white animate-pulse"
+            : "text-slate-500 dark:text-slate-400",
+        )}
+      />
+      {active && (
+        <motion.div
+          layoutId="activeGlow"
+          className="absolute inset-0 rounded-md bg-white/20 blur-[2px]"
+          animate={{
+            opacity: [0.3, 0.6, 0.3],
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+      )}
+    </div>
   );
 }
 
@@ -177,7 +194,8 @@ export default function WorkspaceLayout({
   const currentWorkspace = getCurrentWorkspace();
   const roleFromToken = getRoleFromToken();
   const canUseAgent =
-    isAuthenticated && (roleFromToken === "admin" || roleFromToken === "member");
+    isAuthenticated &&
+    (roleFromToken === "admin" || roleFromToken === "member");
   const canUseApplyEntry = canUseAgent;
 
   useEffect(() => {
@@ -391,19 +409,28 @@ export default function WorkspaceLayout({
               <button
                 onClick={(e) => handleWorkspaceChange("agent", e)}
                 className={cn(
-                  "w-full rounded-lg transition-all duration-200",
+                  "w-full rounded-lg transition-all duration-300 group",
                   sidebarCollapsed
                     ? "flex flex-col items-center justify-center gap-1 py-2.5"
                     : "flex items-center gap-2.5 py-2.5 px-2.5",
                   currentWorkspace === "agent"
-                    ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                    ? "bg-indigo-50/50 dark:bg-indigo-900/10"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
                 )}
                 title="AI 对话"
               >
-                <AgentIcon className="w-6 h-6 shrink-0" />
+                <AgentIcon active={currentWorkspace === "agent"} />
                 {!sidebarCollapsed && (
-                  <span className="text-base font-medium">AI</span>
+                  <span
+                    className={cn(
+                      "text-base font-medium transition-colors duration-300",
+                      currentWorkspace === "agent"
+                        ? "text-indigo-600 dark:text-indigo-400"
+                        : "text-slate-600 dark:text-slate-400", // 移除了 group-hover:text-indigo-500
+                    )}
+                  >
+                    AI 助手
+                  </span>
                 )}
               </button>
             )}
@@ -455,14 +482,16 @@ export default function WorkspaceLayout({
                 <div className="flex items-center gap-2.5 min-w-0">
                   <LayoutDashboard className="w-6 h-6 shrink-0" />
                   {!sidebarCollapsed && (
-                    <span className="text-base font-medium truncate">求职中心</span>
+                    <span className="text-base font-medium truncate">
+                      求职中心
+                    </span>
                   )}
                 </div>
                 {!sidebarCollapsed && (
                   <ChevronDown
                     className={cn(
                       "w-4 h-4 shrink-0 transition-transform duration-200",
-                      jobCenterOpen ? "rotate-180" : "rotate-0"
+                      jobCenterOpen ? "rotate-180" : "rotate-0",
                     )}
                   />
                 )}
@@ -477,7 +506,7 @@ export default function WorkspaceLayout({
                         "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
                         currentWorkspace === "resume"
                           ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
                       )}
                       title="申请"
                     >
@@ -493,7 +522,7 @@ export default function WorkspaceLayout({
                       "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
                       currentWorkspace === "applications"
                         ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
                     )}
                     title="投递进展"
                   >
@@ -508,7 +537,7 @@ export default function WorkspaceLayout({
                       "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
                       currentWorkspace === "calendar"
                         ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
                     )}
                     title="面试日历"
                   >
@@ -523,7 +552,7 @@ export default function WorkspaceLayout({
                       "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
                       currentWorkspace === "dashboard"
                         ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
-                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
                     )}
                     title="仪表盘"
                   >
@@ -595,9 +624,9 @@ export default function WorkspaceLayout({
               <RecentSessions
                 currentSessionId={
                   (new URLSearchParams(location.search).get("sessionId") ||
-                  (location.pathname.startsWith("/agent/")
-                    ? location.pathname.split("/").pop()
-                    : null)) as string | null
+                    (location.pathname.startsWith("/agent/")
+                      ? location.pathname.split("/").pop()
+                      : null)) as string | null
                 }
                 onSelectSession={handleSelectSession}
                 onCreateSession={handleCreateSession}
