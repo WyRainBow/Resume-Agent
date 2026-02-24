@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
@@ -504,6 +505,36 @@ class Manus(ToolCallAgent):
         # 获取最后的用户输入
         user_input = self._get_last_user_input()
 
+        # 防止直接编辑工具在同一轮执行后被重复触发，导致多次修改
+        if self.memory.messages:
+            last_msg = self.memory.messages[-1]
+            if last_msg.role == Role.TOOL and (last_msg.name or "") == "cv_editor_agent":
+                logger.info("✅ cv_editor_agent 已执行，生成最终对比回答并收敛结束")
+                tool_content = (last_msg.content or "").strip()
+                if tool_content.startswith("Observed output of cmd `"):
+                    tool_content = re.sub(
+                        r"^Observed output of cmd `[^`]+` executed:\n",
+                        "",
+                        tool_content,
+                        count=1,
+                    )
+                compare_text = tool_content
+                marker = "修改前："
+                marker_index = tool_content.find(marker)
+                if marker_index >= 0:
+                    compare_text = tool_content[marker_index:].strip()
+
+                self.memory.add_message(
+                    Message.assistant_message(
+                        "Thought: 已完成这次简历字段修改，下面给出修改前后对比。\n"
+                        f"Response: {compare_text}"
+                    )
+                )
+                from backend.agent.schema import AgentState
+
+                self.state = AgentState.FINISHED
+                return False
+
         fast_greeting = self._conversation_state.is_fast_greeting(user_input)
 
         # 确保 ConversationStateManager 有 LLM 实例
@@ -592,7 +623,13 @@ class Manus(ToolCallAgent):
         self._last_intent_info = {
             "intent": intent.value if hasattr(intent, "value") else str(intent),
             "intent_source": intent_source,
-            "trigger": "load_resume_intent" if intent == Intent.LOAD_RESUME else "general_intent",
+            "trigger": (
+                "load_resume_intent"
+                if intent == Intent.LOAD_RESUME
+                else "simple_edit_intent"
+                if intent == Intent.EDIT_CV
+                else "general_intent"
+            ),
         }
 
         # 🔑 特殊处理：检查是否刚应用了优化
@@ -704,14 +741,28 @@ class Manus(ToolCallAgent):
                     "Thought: 我识别到你要加载简历，先打开选择面板方便你切换或新建。\n"
                     "Response: 请在下面选择“创建一份简历”或“选择已有简历”。"
                 )
+        elif intent == Intent.EDIT_CV:
+            content = (
+                "Thought: 我识别到你要进行简历字段修改，先执行编辑并生成修改前后对比。\n"
+                "Response: 正在修改，完成后我会给出“修改前/修改后”结果。"
+            )
 
         # 添加 assistant 消息
-        self.memory.add_message(
-            Message.from_tool_calls(
-                content=content,
-                tool_calls=[manual_tool_call]
+        if intent == Intent.EDIT_CV:
+            self.memory.add_message(Message.assistant_message(content))
+            self.memory.add_message(
+                Message.from_tool_calls(
+                    content="我现在开始执行简历修改。",
+                    tool_calls=[manual_tool_call],
+                )
             )
-        )
+        else:
+            self.memory.add_message(
+                Message.from_tool_calls(
+                    content=content,
+                    tool_calls=[manual_tool_call]
+                )
+            )
 
         logger.info(f"🔧 直接调用工具: {tool}, 参数: {tool_args}")
         return True

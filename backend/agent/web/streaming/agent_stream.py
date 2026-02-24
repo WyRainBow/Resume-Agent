@@ -861,7 +861,7 @@ class AgentStream:
 
                             logger.info(f"[工具结果] {tool_name} | ID: {tool_call_id} | 长度: {len(msg.content) if msg.content else 0} 字符")
                             structured_data = None
-                            if tool_name in {"web_search", "show_resume"} and hasattr(
+                            if tool_name in {"web_search", "show_resume", "cv_editor_agent"} and hasattr(
                                 self.agent, "get_structured_tool_result"
                             ):
                                 structured_data = self.agent.get_structured_tool_result(

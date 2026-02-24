@@ -125,12 +125,17 @@ You can edit this resume using update, add, or delete operations.
     def _update(self, path: str, value: Any) -> Dict[str, Any]:
         """更新操作"""
         try:
+            old_value = None
+            parts = parse_path(path)
+            if exists_path(self._resume_data, parts):
+                _, _, old_value = get_by_path(self._resume_data, parts)
             set_by_path(self._resume_data, path, value)
             return {
                 "success": True,
                 "message": f"Successfully updated: {path}",
                 "path": path,
-                "new_value": value
+                "old_value": old_value,
+                "new_value": value,
             }
         except ValueError as e:
             return {

@@ -10,6 +10,7 @@ from typing import Any
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy.exc import DBAPIError, DisconnectionError, InterfaceError, OperationalError
 
 from backend.agent.memory.chat_history_manager import ChatHistoryManager
 from backend.agent.memory.conversation_manager import ConversationManager
@@ -40,6 +41,29 @@ def _history_error_detail(message: str, action: str = "CHECK_SERVER_LOGS") -> di
         "message": message,
         "action": action,
     }
+
+
+def _is_db_connection_error(exc: Exception) -> bool:
+    return isinstance(exc, (OperationalError, InterfaceError, DisconnectionError, DBAPIError))
+
+
+def _raise_history_error(route: str, exc: Exception) -> None:
+    logger.error(f"[History] {route} failed: {exc}")
+    if _is_db_connection_error(exc):
+        raise HTTPException(
+            status_code=503,
+            detail=_history_error_detail(
+                "数据库连接异常，请稍后重试",
+                action="CHECK_DB_CONNECTIVITY",
+            ),
+        ) from exc
+    raise HTTPException(
+        status_code=500,
+        detail=_history_error_detail(
+            f"{route} failed: {exc}",
+            action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
+        ),
+    ) from exc
 
 
 class HistoryResponse(BaseModel):
@@ -107,14 +131,7 @@ async def get_history(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting history: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=_history_error_detail(
-                f"Error getting history: {e}",
-                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
-            ),
-        )
+        _raise_history_error("get_history", e)
 
 
 @router.delete("/{session_id}", response_model=HistoryClearResponse)
@@ -155,14 +172,7 @@ async def clear_history(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error clearing history: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=_history_error_detail(
-                f"Error clearing history: {e}",
-                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
-            ),
-        )
+        _raise_history_error("clear_history", e)
 
 
 @router.post("/{session_id}/restore")
@@ -196,14 +206,7 @@ async def restore_history(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error restoring history: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=_history_error_detail(
-                f"Error restoring history: {e}",
-                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
-            ),
-        )
+        _raise_history_error("restore_history", e)
 
 
 @router.get("/sessions/list")
@@ -250,14 +253,7 @@ async def list_sessions(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error listing sessions: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=_history_error_detail(
-                f"Error listing sessions: {e}",
-                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
-            ),
-        )
+        _raise_history_error("list_sessions", e)
 
 
 @router.get("/sessions/{session_id}")
@@ -287,14 +283,7 @@ async def get_session_messages(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting session messages: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=_history_error_detail(
-                f"Error getting session messages: {e}",
-                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
-            ),
-        )
+        _raise_history_error("get_session_messages", e)
 
 
 @router.post("/sessions/{session_id}/save")
@@ -358,14 +347,7 @@ async def save_session_messages(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error saving session: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=_history_error_detail(
-                f"Error saving session: {e}",
-                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
-            ),
-        )
+        _raise_history_error("save_session_messages", e)
 
 
 @router.post("/sessions/{session_id}/append")
@@ -468,14 +450,7 @@ async def append_session_messages(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error appending session: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=_history_error_detail(
-                f"Error appending session: {e}",
-                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
-            ),
-        )
+        _raise_history_error("append_session_messages", e)
 
 
 @router.put("/sessions/{session_id}/title")
@@ -524,14 +499,7 @@ async def load_session(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error loading session: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=_history_error_detail(
-                f"Error loading session: {e}",
-                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
-            ),
-        )
+        _raise_history_error("load_session", e)
 
 
 @router.get("/sessions/{session_id}/export")
@@ -555,14 +523,7 @@ async def export_session(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error exporting session: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=_history_error_detail(
-                f"Error exporting session: {e}",
-                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
-            ),
-        )
+        _raise_history_error("export_session", e)
 
 
 @router.post("/sessions/batch-delete")
@@ -600,14 +561,7 @@ async def batch_delete_sessions(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error batch deleting sessions: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=_history_error_detail(
-                f"Error batch deleting sessions: {e}",
-                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
-            ),
-        )
+        _raise_history_error("batch_delete_sessions", e)
 
 
 @router.delete("/sessions/all")
@@ -641,11 +595,4 @@ async def delete_all_sessions(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error deleting all sessions: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=_history_error_detail(
-                f"Error deleting all sessions: {e}",
-                action="CHECK_DB_CONNECTION_AND_RUN_ALEMBIC_UPGRADE",
-            ),
-        )
+        _raise_history_error("delete_all_sessions", e)

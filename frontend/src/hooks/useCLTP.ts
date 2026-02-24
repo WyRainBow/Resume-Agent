@@ -15,6 +15,7 @@ import type { ContentMessage } from '@/cltp/types/messages';
 import type { DefaultPayloads } from '@/cltp/types/channels';
 
 const IS_DEV = import.meta.env.DEV;
+const THINKING_PLACEHOLDER = '正在思考...';
 
 /**
  * useCLTP Hook 的返回值
@@ -93,6 +94,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
     const firstChunkLoggedRef = useRef(false);
     const chunkWindowStartedAtRef = useRef(0);
     const chunkWindowCountRef = useRef(0);
+    const hasRealThoughtRef = useRef(false);
 
     // Initialize CLTP Session
     useEffect(() => {
@@ -113,6 +115,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
         firstChunkLoggedRef.current = false;
         chunkWindowStartedAtRef.current = 0;
         chunkWindowCountRef.current = 0;
+        hasRealThoughtRef.current = false;
         if (flushRafRef.current !== null) {
             cancelAnimationFrame(flushRafRef.current);
             flushRafRef.current = null;
@@ -236,11 +239,16 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             const text = typeof payload === 'string' ? payload : (payload as any).text || '';
 
             if (message.metadata.channel === 'think') {
+                hasRealThoughtRef.current = true;
                 pendingThoughtRef.current = text;
                 currentThoughtRef.current = text;
                 recordChunkMetric('think');
                 scheduleFlush();
             } else if (message.metadata.channel === 'plain') {
+                if (!hasRealThoughtRef.current && pendingThoughtRef.current === THINKING_PLACEHOLDER) {
+                    pendingThoughtRef.current = '';
+                    currentThoughtRef.current = '';
+                }
                 pendingAnswerRef.current = text;
                 currentAnswerRef.current = text;
                 recordChunkMetric('plain');
@@ -254,11 +262,16 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             const text = typeof payload === 'string' ? payload : (payload as any).text || '';
 
             if (message.metadata.channel === 'think') {
+                hasRealThoughtRef.current = true;
                 pendingThoughtRef.current = text;
                 currentThoughtRef.current = text;
                 recordChunkMetric('think');
                 flushNow();
             } else if (message.metadata.channel === 'plain') {
+                if (!hasRealThoughtRef.current && pendingThoughtRef.current === THINKING_PLACEHOLDER) {
+                    pendingThoughtRef.current = '';
+                    currentThoughtRef.current = '';
+                }
                 pendingAnswerRef.current = text;
                 currentAnswerRef.current = text;
                 recordChunkMetric('plain');
@@ -342,6 +355,11 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             firstChunkLoggedRef.current = false;
             chunkWindowStartedAtRef.current = 0;
             chunkWindowCountRef.current = 0;
+            hasRealThoughtRef.current = false;
+            pendingThoughtRef.current = THINKING_PLACEHOLDER;
+            currentThoughtRef.current = THINKING_PLACEHOLDER;
+            committedThoughtRef.current = THINKING_PLACEHOLDER;
+            setCurrentThought(THINKING_PLACEHOLDER);
 
             // Create user message
             const userMessage = {
@@ -376,6 +394,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
         committedAnswerRef.current = '';
         currentThoughtRef.current = '';
         currentAnswerRef.current = '';
+        hasRealThoughtRef.current = false;
     }, []);
 
     /**

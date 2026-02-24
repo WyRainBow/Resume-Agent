@@ -436,6 +436,20 @@ interface ResumeStructuredData {
   intent_source?: string;
 }
 
+interface ResumeEditDiffStructuredData {
+  type: "resume_edit_diff";
+  section: "basic" | "internships" | string;
+  field: string;
+  index?: number;
+  before: string;
+  after: string;
+  patch?: {
+    path?: string;
+    action?: string;
+    value?: unknown;
+  };
+}
+
 // ============================================================================
 // 主页面组件
 // ============================================================================
@@ -643,6 +657,7 @@ export default function SophiaChat() {
   const saveRetryRef = useRef<Record<string, number>>({});
   const saveClientSeqRef = useRef(0);
   const lastPersistedCountBySessionRef = useRef<Record<string, number>>({});
+  const appendDisabledBySessionRef = useRef<Record<string, boolean>>({});
   const autoScrollTimerRef = useRef<number | null>(null);
   const isFinalizedRef = useRef(false);
   const currentThoughtRef = useRef("");
@@ -657,6 +672,7 @@ export default function SophiaChat() {
   const finalizeRetryTimerRef = useRef<number | null>(null);
   const prevRouteSessionIdRef = useRef<string | null>(null);
   const handledResumeSelectorToolCallsRef = useRef<Set<string>>(new Set());
+  const handledEditToolCallsRef = useRef<Set<string>>(new Set());
   
   const normalizedResume = useMemo(() => {
     if (!resumeData) return null;
@@ -849,6 +865,78 @@ export default function SophiaChat() {
     [],
   );
 
+  const applyResumeEditDiff = useCallback(
+    (diff: ResumeEditDiffStructuredData) => {
+      const patchPath = diff.patch?.path || "";
+      const patchValue = diff.patch?.value;
+      if (diff.patch?.action !== "update" || !patchPath) return;
+
+      const patchResume = (source: ResumeData): ResumeData => {
+        const next = structuredClone(source);
+        if (patchPath === "basic.name") {
+          next.basic = { ...next.basic, name: String(patchValue ?? "") };
+          return next;
+        }
+
+        const experienceMatch = patchPath.match(/^experience\[(\d+)\]\.company$/);
+        if (experienceMatch) {
+          const index = Number(experienceMatch[1]);
+          if (Array.isArray(next.experience) && index >= 0 && index < next.experience.length) {
+            const target = next.experience[index];
+            next.experience[index] = {
+              ...target,
+              company: String(patchValue ?? ""),
+            };
+          }
+          return next;
+        }
+
+        const internshipMatch = patchPath.match(/^internships\[(\d+)\]\.company$/);
+        if (internshipMatch) {
+          const index = Number(internshipMatch[1]);
+          if (Array.isArray(next.experience) && index >= 0 && index < next.experience.length) {
+            const target = next.experience[index];
+            next.experience[index] = {
+              ...target,
+              company: String(patchValue ?? ""),
+            };
+          }
+        }
+
+        return next;
+      };
+
+      setLoadedResumes((prev) => {
+        if (prev.length === 0) return prev;
+        const targetId = selectedResumeId || prev[0]?.id;
+        if (!targetId) return prev;
+        return prev.map((item) => {
+          if (item.id !== targetId || !item.resumeData) return item;
+          return { ...item, resumeData: patchResume(item.resumeData) };
+        });
+      });
+
+      setResumeData((prev) => (prev ? patchResume(prev) : prev));
+      setResumePdfPreview((prev) => {
+        const targetId = selectedResumeId || Object.keys(prev)[0];
+        if (!targetId) return prev;
+        return {
+          ...prev,
+          [targetId]: {
+            ...(prev[targetId] || EMPTY_RESUME_PDF_STATE),
+            blob: null,
+            loading: false,
+            progress: "",
+            error: null,
+          },
+        };
+      });
+      setResumeError(null);
+      setAllowPdfAutoRender(true);
+    },
+    [selectedResumeId],
+  );
+
   const handleSSEEvent = useCallback(
     (event: SSEEvent) => {
       if (event.type === "error") {
@@ -912,13 +1000,23 @@ export default function SophiaChat() {
           return;
         }
         upsertLoadedResume("current", resumePayload);
+        return;
+      }
+
+      if (toolName === "cv_editor_agent") {
+        const editPayload = structured as ResumeEditDiffStructuredData;
+        if (editPayload.type === "resume_edit_diff") {
+          handledEditToolCallsRef.current.add(toolCallId);
+          applyResumeEditDiff(editPayload);
+        }
       }
     },
-    [upsertSearchResult, upsertLoadedResume],
+    [upsertSearchResult, upsertLoadedResume, applyResumeEditDiff],
   );
 
   useEffect(() => {
     handledResumeSelectorToolCallsRef.current.clear();
+    handledEditToolCallsRef.current.clear();
   }, [conversationId]);
 
   const {
@@ -1184,7 +1282,9 @@ export default function SophiaChat() {
         setMessages(dedupedMessages);
         setCurrentSessionId(conversationId);
         lastPersistedCountBySessionRef.current[conversationId] =
-          dedupedMessages.length;
+          typeof data?.total === "number"
+            ? data.total
+            : dedupedMessages.length;
         console.log(
           `[AgentChat] Auto-loaded session ${conversationId} with ${dedupedMessages.length} messages`,
         );
@@ -1781,8 +1881,13 @@ export default function SophiaChat() {
           let resp: Response;
           const knownPersistedCount =
             lastPersistedCountBySessionRef.current[validSessionId] ?? 0;
+          const appendDisabled =
+            appendDisabledBySessionRef.current[validSessionId] === true;
           const canTryAppend =
-            HISTORY_APPEND_MODE && knownPersistedCount <= messagesToSave.length;
+            HISTORY_APPEND_MODE &&
+            !appendDisabled &&
+            knownPersistedCount > 0 &&
+            knownPersistedCount <= messagesToSave.length;
 
           if (canTryAppend) {
             const deltaMessages = messagesToSave.slice(knownPersistedCount);
@@ -1806,6 +1911,7 @@ export default function SophiaChat() {
 
             // base_seq 冲突时自动回退到 full snapshot save
             if (resp.status === 409) {
+              appendDisabledBySessionRef.current[validSessionId] = true;
               resp = await fullSave();
             } else if (resp.ok) {
               const body = await resp
@@ -2265,7 +2371,9 @@ export default function SophiaChat() {
         setCurrentSessionId(sessionId);
         setConversationId(sessionId);
         lastPersistedCountBySessionRef.current[sessionId] =
-          dedupedMessages.length;
+          typeof data?.total === "number"
+            ? data.total
+            : dedupedMessages.length;
         setAllowPdfAutoRender(false);
         // 清理流式状态，避免显示旧会话的流式内容
         finalizeStream();

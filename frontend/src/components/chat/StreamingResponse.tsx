@@ -43,18 +43,30 @@ export default function StreamingResponse({
     onComplete: onTypewriterComplete,
   });
 
-  // 如果不能开始或没有内容，不显示
-  if (!canStart || !content) {
+  // 如果不能开始，不显示
+  if (!canStart) {
     return null;
   }
 
   const textToShow = isStreaming ? displayedText : content;
+  const showTypingTail = isStreaming;
+
+  if (!textToShow && !showTypingTail) {
+    return null;
+  }
 
   return (
     <div className={className}>
       {isStreaming ? (
         <div className="whitespace-pre-wrap break-words leading-relaxed">
           {textToShow}
+          {showTypingTail && (
+            <span className="ml-1 inline-flex items-center gap-0.5 text-slate-400 align-middle">
+              <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
+              <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:120ms]" />
+              <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:240ms]" />
+            </span>
+          )}
         </div>
       ) : (
         <EnhancedMarkdown>{textToShow}</EnhancedMarkdown>

@@ -22,6 +22,9 @@ FAST_GREETING_ENABLED = (
 FAST_LOAD_RESUME_ENABLED = (
     os.getenv("AGENT_FAST_LOAD_RESUME_ENABLED", "true").strip().lower() != "false"
 )
+FAST_SIMPLE_EDIT_ENABLED = (
+    os.getenv("AGENT_FAST_SIMPLE_EDIT_ENABLED", "true").strip().lower() != "false"
+)
 
 # 可选导入新的意图识别系统
 try:
@@ -54,6 +57,7 @@ class Intent(str, Enum):
     ANALYZE_RESUME = "analyze_resume"  # 分析简历（触发 Agent 委托）
     OPTIMIZE_SECTION = "optimize_section"  # 优化某模块（触发 Agent 委托）
     FULL_OPTIMIZE = "full_optimize"  # 全面优化（触发 Agent 委托）
+    EDIT_CV = "edit_cv"  # 编辑简历（简单规则命中时直调编辑工具）
     UNKNOWN = "unknown"  # 未知 - 交由 LLM 根据上下文判断
 
 
@@ -178,6 +182,86 @@ class ConversationStateManager:
         ]
 
         return any(pattern in text for pattern in fast_patterns)
+
+    @staticmethod
+    def _parse_cn_index(index_text: str) -> Optional[int]:
+        """解析中文/阿拉伯序号到 0-based 索引。"""
+        if not index_text:
+            return None
+        index_text = index_text.strip()
+        mapping = {
+            "一": 1,
+            "二": 2,
+            "三": 3,
+            "四": 4,
+            "五": 5,
+            "六": 6,
+            "七": 7,
+            "八": 8,
+            "九": 9,
+            "十": 10,
+        }
+        if index_text in mapping:
+            return mapping[index_text] - 1
+        if index_text.isdigit():
+            num = int(index_text)
+            if num > 0:
+                return num - 1
+        return None
+
+    def parse_fast_simple_edit(self, user_input: str) -> Optional[Dict[str, Any]]:
+        """本地快速解析简单编辑意图（改名字 / 改实习公司N）。"""
+        if not FAST_SIMPLE_EDIT_ENABLED:
+            return None
+
+        text = (user_input or "").strip()
+        if not text:
+            return None
+
+        # 规则 A：改名字
+        name_patterns = [
+            r"^把?(?:我的)?(?:简历(?:的)?)?(?:名字|姓名)\s*(?:改成|改为|改)\s*[:：]?\s*(.+?)\s*$",
+            r"^把?(?:我的)?(?:名字|姓名)\s*(?:改成|改为|改)\s*[:：]?\s*(.+?)\s*$",
+            r"^(?:简历(?:的)?)?(?:名字|姓名)\s*(?:改成|改为|改)\s*[:：]?\s*(.+?)\s*$",
+        ]
+        for pattern in name_patterns:
+            match = re.match(pattern, text, re.IGNORECASE)
+            if not match:
+                continue
+            new_name = (match.group(1) or "").strip().strip("'\"")
+            if not new_name:
+                return None
+            return {
+                "path": "basic.name",
+                "action": "update",
+                "value": new_name,
+                "section": "basic",
+                "field": "name",
+                "index": None,
+            }
+
+        # 规则 B：改实习公司N
+        internship_pattern = re.match(
+            r"^把?(?:实习|工作)?(?:公司)\s*([一二三四五六七八九十]|\d+)\s*(?:改成|改为|改)\s*[:：]?\s*(.+?)\s*$",
+            text,
+            re.IGNORECASE,
+        )
+        if internship_pattern:
+            index = self._parse_cn_index(internship_pattern.group(1))
+            company = (internship_pattern.group(2) or "").strip().strip("'\"")
+            if index is None or not company:
+                return None
+            return {
+                # 默认用 internships 路径，工具层会做兼容兜底映射到 experience
+                "path": f"internships[{index}].company",
+                "action": "update",
+                "value": company,
+                "section": "internships",
+                "field": "company",
+                "index": index,
+            }
+
+        return None
 
     @staticmethod
     def _extract_resume_file_path(user_input: str) -> Optional[str]:
@@ -396,6 +480,25 @@ class ConversationStateManager:
                 "intent_source": "fast_rule",
             }
 
+        # 🚀 简单编辑路径：本地规则优先，不走 LLM 意图分类
+        simple_edit_payload = self.parse_fast_simple_edit(user_input)
+        if simple_edit_payload:
+            return {
+                "intent": Intent.EDIT_CV,
+                "tool": "cv_editor_agent",
+                "tool_args": {
+                    "path": simple_edit_payload["path"],
+                    "action": simple_edit_payload["action"],
+                    "value": simple_edit_payload["value"],
+                },
+                "context_prompt": "",
+                "should_skip_llm": True,
+                "enhanced_query": user_input,
+                "intent_result": None,
+                "intent_source": "fast_rule",
+                "simple_edit_payload": simple_edit_payload,
+            }
+
         # 如果使用增强意图识别系统
         if self.use_enhanced_intent and self.intent_enhancer:
             try:
@@ -602,6 +705,6 @@ class ConversationStateManager:
 
     def should_use_tool_directly(self, intent: Intent) -> bool:
         """判断是否应该直接使用工具（跳过 LLM 决策）"""
-        # 只有 LOAD_RESUME 需要直接调用工具（为了检查重复加载）
+        # LOAD_RESUME 和 EDIT_CV 需要直接调用工具，保证意图链路稳定可控
         # 其他所有意图都交给 LLM 根据工具描述和上下文判断
-        return intent == Intent.LOAD_RESUME
+        return intent in {Intent.LOAD_RESUME, Intent.EDIT_CV}

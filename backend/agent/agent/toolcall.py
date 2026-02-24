@@ -86,7 +86,7 @@ class ToolCallAgent(ReActAgent):
     def _store_structured_tool_result(
         self, tool_call_id: str, tool_name: str, result: Any
     ) -> None:
-        if tool_name not in {"web_search", "show_resume"} or not tool_call_id:
+        if tool_name not in {"web_search", "show_resume", "cv_editor_agent"} or not tool_call_id:
             return
         if tool_name == "web_search":
             if result is None:
@@ -114,43 +114,68 @@ class ToolCallAgent(ReActAgent):
             }
             return
 
-        # show_resume
-        try:
-            intent_meta = getattr(self, "_last_intent_info", {}) or {}
-            intent_source = intent_meta.get("intent_source", "unknown")
-            trigger = intent_meta.get("trigger", "unknown")
-            from backend.agent.tool.resume_data_store import ResumeDataStore
+        if tool_name == "show_resume":
+            try:
+                intent_meta = getattr(self, "_last_intent_info", {}) or {}
+                intent_source = intent_meta.get("intent_source", "unknown")
+                trigger = intent_meta.get("trigger", "unknown")
+                from backend.agent.tool.resume_data_store import ResumeDataStore
 
-            resume_data = ResumeDataStore.get_data(getattr(self, "session_id", None))
-            if not resume_data:
+                resume_data = ResumeDataStore.get_data(getattr(self, "session_id", None))
+                if not resume_data:
+                    self._tool_structured_results[tool_call_id] = {
+                        "type": "resume_selector",
+                        "required": True,
+                        "message": "Please choose a resume: create new or select existing.",
+                        "source": "show_resume",
+                        "trigger": trigger,
+                        "intent_source": intent_source,
+                    }
+                    return
+
+                meta = resume_data.get("_meta") or {}
+                basics = resume_data.get("basic") or resume_data.get("basics") or {}
+                resume_name = basics.get("name") or "我的简历"
+                resume_id = resume_data.get("resume_id") or resume_data.get("id") or meta.get("resume_id")
+                user_id = resume_data.get("user_id") or meta.get("user_id")
+
                 self._tool_structured_results[tool_call_id] = {
-                    "type": "resume_selector",
-                    "required": True,
-                    "message": "Please choose a resume: create new or select existing.",
+                    "type": "resume",
+                    "resume_id": resume_id,
+                    "user_id": user_id,
+                    "name": resume_name,
+                    "resume_data": resume_data,
                     "source": "show_resume",
                     "trigger": trigger,
                     "intent_source": intent_source,
                 }
+            except Exception:
                 return
-
-            meta = resume_data.get("_meta") or {}
-            basics = resume_data.get("basic") or resume_data.get("basics") or {}
-            resume_name = basics.get("name") or "我的简历"
-            resume_id = resume_data.get("resume_id") or resume_data.get("id") or meta.get("resume_id")
-            user_id = resume_data.get("user_id") or meta.get("user_id")
-
-            self._tool_structured_results[tool_call_id] = {
-                "type": "resume",
-                "resume_id": resume_id,
-                "user_id": user_id,
-                "name": resume_name,
-                "resume_data": resume_data,
-                "source": "show_resume",
-                "trigger": trigger,
-                "intent_source": intent_source,
-            }
-        except Exception:
             return
+
+        if tool_name == "cv_editor_agent":
+            try:
+                # 约定：CVEditorAgentTool 将 structured_data 编码在 ToolResult.system 中
+                raw_structured = getattr(result, "system", None)
+                if not raw_structured:
+                    return
+                if isinstance(raw_structured, str):
+                    structured = json.loads(raw_structured)
+                elif isinstance(raw_structured, dict):
+                    structured = raw_structured
+                else:
+                    return
+                if not isinstance(structured, dict):
+                    return
+                if structured.get("type") != "resume_edit_diff":
+                    return
+                intent_meta = getattr(self, "_last_intent_info", {}) or {}
+                structured.setdefault("source", "cv_editor_agent")
+                structured.setdefault("trigger", intent_meta.get("trigger", "unknown"))
+                structured.setdefault("intent_source", intent_meta.get("intent_source", "unknown"))
+                self._tool_structured_results[tool_call_id] = structured
+            except Exception:
+                return
 
     def get_structured_tool_result(self, tool_call_id: str) -> dict[str, Any] | None:
         return self._tool_structured_results.get(tool_call_id)

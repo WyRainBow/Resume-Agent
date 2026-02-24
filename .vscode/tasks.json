@@ -60,7 +60,7 @@
           "⚙️ Backend: Start API Server",
           "⚛️ Frontend: Start Dev Server"
         ],
-        "dependsOrder": "parallel",
+        "dependsOrder": "sequence",
         "group": {
           "kind": "build",
           "isDefault": true
