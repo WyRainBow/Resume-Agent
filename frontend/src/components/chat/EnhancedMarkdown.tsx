@@ -13,7 +13,7 @@ import { Check, Copy } from 'lucide-react';
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import MermaidBlock from './MermaidBlock';
 import { SHARED_REMARK_PLUGINS } from './markdownConfig';
 
@@ -55,10 +55,10 @@ function CodeBlock({ code, language }: CodeBlockProps) {
   return (
     <div className="not-prose relative mb-4 group">
       {/* 代码块容器 - 现代卡片样式 */}
-      <div className="relative overflow-hidden rounded-lg border border-gray-300 bg-[#0d1117] shadow-sm">
+      <div className="relative overflow-hidden rounded-lg border border-gray-300 bg-gray-100 shadow-sm">
         {/* 语言标识 - 左上角 */}
         <div className="absolute top-0 left-0 z-10 px-3 py-2">
-          <span className="text-[11px] font-medium text-gray-400 uppercase tracking-wide">
+          <span className="text-[11px] font-medium text-gray-500 uppercase tracking-wide">
             {language}
           </span>
         </div>
@@ -68,13 +68,13 @@ function CodeBlock({ code, language }: CodeBlockProps) {
           type="button"
           onClick={handleCopy}
           className="absolute top-2 right-2 z-10 flex items-center gap-1.5 px-2.5 py-1.5
-                     text-[11px] font-medium text-gray-300
-                     bg-gray-800
-                     border border-gray-600
+                     text-[11px] font-medium text-gray-700
+                     bg-white
+                     border border-gray-300
                      rounded-md
-                     hover:bg-gray-700
-                     hover:text-gray-100
-                     hover:border-gray-500
+                     hover:bg-gray-50
+                     hover:text-gray-900
+                     hover:border-gray-400
                      transition-all duration-200"
           title="复制代码"
         >
@@ -95,12 +95,13 @@ function CodeBlock({ code, language }: CodeBlockProps) {
         <div className="pt-8 pb-4">
           <SyntaxHighlighter
             language={language}
-            style={vscDarkPlus}
+            style={oneLight}
             PreTag="div"
             customStyle={{
               margin: 0,
               padding: '0 1rem',
               backgroundColor: 'transparent',
+              color: '#111827',
               fontSize: '15px',
               lineHeight: '1.6',
             }}

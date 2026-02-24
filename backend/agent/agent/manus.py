@@ -506,23 +506,65 @@ class Manus(ToolCallAgent):
         user_input = self._get_last_user_input()
 
         # 防止直接编辑工具在同一轮执行后被重复触发，导致多次修改
+        # 兼容 role 可能是 Role 枚举或字符串 "tool"
         if self.memory.messages:
-            last_msg = self.memory.messages[-1]
-            if last_msg.role == Role.TOOL and (last_msg.name or "") == "cv_editor_agent":
+            latest_assistant = self.memory.messages[-1]
+            latest_assistant_role = (
+                latest_assistant.role.value
+                if hasattr(latest_assistant.role, "value")
+                else str(latest_assistant.role)
+            )
+            if (
+                latest_assistant_role == "assistant"
+                and "已完成这次简历字段修改" in (latest_assistant.content or "")
+            ):
+                from backend.agent.schema import AgentState
+
+                self.state = AgentState.FINISHED
+                return False
+
+            recent_editor_tool_msg = None
+            for msg in reversed(self.memory.messages[-12:]):
+                role_val = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+                if role_val == "tool" and (msg.name or "") == "cv_editor_agent":
+                    recent_editor_tool_msg = msg
+                    break
+
+            if recent_editor_tool_msg is not None:
                 logger.info("✅ cv_editor_agent 已执行，生成最终对比回答并收敛结束")
-                tool_content = (last_msg.content or "").strip()
-                if tool_content.startswith("Observed output of cmd `"):
-                    tool_content = re.sub(
-                        r"^Observed output of cmd `[^`]+` executed:\n",
-                        "",
-                        tool_content,
-                        count=1,
+                compare_text = ""
+
+                # 优先使用结构化 diff（最稳定）
+                structured = None
+                if recent_editor_tool_msg.tool_call_id:
+                    structured = self.get_structured_tool_result(
+                        recent_editor_tool_msg.tool_call_id
                     )
-                compare_text = tool_content
-                marker = "修改前："
-                marker_index = tool_content.find(marker)
-                if marker_index >= 0:
-                    compare_text = tool_content[marker_index:].strip()
+                if isinstance(structured, dict) and structured.get("type") == "resume_edit_diff":
+                    before = str(structured.get("before") or "").strip()
+                    after = str(structured.get("after") or "").strip()
+                    compare_text = (
+                        "修改前：\n"
+                        f"```text\n{before or '(空)'}\n```\n\n"
+                        "修改后：\n"
+                        f"```text\n{after or '(空)'}\n```"
+                    )
+
+                if not compare_text:
+                    tool_content = (recent_editor_tool_msg.content or "").strip()
+                    if tool_content.startswith("Observed output of cmd `"):
+                        tool_content = re.sub(
+                            r"^Observed output of cmd `[^`]+` executed:\n",
+                            "",
+                            tool_content,
+                            count=1,
+                        )
+                    marker = "修改前："
+                    marker_index = tool_content.find(marker)
+                    if marker_index >= 0:
+                        compare_text = tool_content[marker_index:].strip()
+                    else:
+                        compare_text = tool_content or "修改已完成。"
 
                 self.memory.add_message(
                     Message.assistant_message(

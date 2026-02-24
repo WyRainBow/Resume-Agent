@@ -670,6 +670,7 @@ export default function SophiaChat() {
   const lastHandledAnswerCompleteRef = useRef(0);
   const pendingFinalizeAfterTypewriterRef = useRef(false);
   const finalizeRetryTimerRef = useRef<number | null>(null);
+  const finalizeRetryAttemptsRef = useRef(0);
   const prevRouteSessionIdRef = useRef<string | null>(null);
   const handledResumeSelectorToolCallsRef = useRef<Set<string>>(new Set());
   const handledEditToolCallsRef = useRef<Set<string>>(new Set());
@@ -2644,6 +2645,7 @@ export default function SophiaChat() {
     if (finalizeRetryTimerRef.current !== null) {
       window.clearTimeout(finalizeRetryTimerRef.current);
     }
+    finalizeRetryAttemptsRef.current = 0;
     finalizeRetryTimerRef.current = window.setTimeout(() => {
       if (!pendingFinalizeAfterTypewriterRef.current) {
         finalizeRetryTimerRef.current = null;
@@ -2655,6 +2657,27 @@ export default function SophiaChat() {
       if (fallbackAnswer || fallbackThought) {
         finalizeAfterTypewriter();
       } else {
+        finalizeRetryAttemptsRef.current += 1;
+        if (finalizeRetryAttemptsRef.current <= 5) {
+          finalizeRetryTimerRef.current = window.setTimeout(() => {
+            if (!pendingFinalizeAfterTypewriterRef.current) {
+              finalizeRetryTimerRef.current = null;
+              return;
+            }
+            const retryAnswer =
+              currentAnswerRef.current.trim() || currentAnswer.trim();
+            const retryThought =
+              currentThoughtRef.current.trim() || currentThought.trim();
+            if (retryAnswer || retryThought) {
+              finalizeAfterTypewriter();
+              return;
+            }
+            if (finalizeRetryAttemptsRef.current >= 5) {
+              pendingFinalizeAfterTypewriterRef.current = false;
+            }
+          }, 220);
+          return;
+        }
         pendingFinalizeAfterTypewriterRef.current = false;
       }
       finalizeRetryTimerRef.current = null;
@@ -2678,6 +2701,11 @@ export default function SophiaChat() {
     const hasAttachments = pendingAttachments.length > 0;
     if ((!trimmedInput && !hasAttachments) || isProcessing || isUploadingFile)
       return;
+
+    // 每轮新消息开始前清理可能残留的“隐藏回答”状态，避免普通回答被误隐藏。
+    setShouldHideResponseInChat(false);
+    setStreamingReportId(null);
+    setStreamingReportContent("");
 
     // 检测用户是否要生成报告
     const isReportRequest =
