@@ -218,6 +218,22 @@ export default function WorkspaceLayout({
       currentWorkspace === "dashboard"
     );
   });
+  const [jobCenterHovered, setJobCenterHovered] = useState(false);
+  const hoverTimeoutRef = useRef<any>(null);
+
+  const handleJobCenterMouseEnter = () => {
+    if (!sidebarCollapsed) return;
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    setJobCenterHovered(true);
+  };
+
+  const handleJobCenterMouseLeave = () => {
+    if (!sidebarCollapsed) return;
+    hoverTimeoutRef.current = setTimeout(() => {
+      setJobCenterHovered(false);
+    }, 100);
+  };
+
   const sidebarWidthPx = sidebarCollapsed ? 96 : 260;
 
   // 点击外部区域关闭下拉菜单
@@ -319,7 +335,7 @@ export default function WorkspaceLayout({
       {/* 左侧固定边栏：收缩时 aside 宽度跟着变，第一列紧贴侧边栏 */}
       <aside
         className={cn(
-          "shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-[width] duration-200",
+          "shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-[width] duration-200",
           sidebarCollapsed ? "w-24" : "w-[260px]",
         )}
       >
@@ -377,7 +393,7 @@ export default function WorkspaceLayout({
         </div>
 
         {/* 工作区切换：收缩时仅隐藏文字，图标与 padding 不变 */}
-        <div className="flex-1 flex flex-col min-h-0 py-3 px-2 overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0 py-3 px-2">
           <nav
             className={cn(
               "space-y-0.5 flex flex-col shrink-0",
@@ -456,7 +472,11 @@ export default function WorkspaceLayout({
             </button>
 
             {/* 求职中心（二级：投递进展、仪表盘） */}
-            <div className="w-full">
+            <div
+              className="w-full relative"
+              onMouseEnter={handleJobCenterMouseEnter}
+              onMouseLeave={handleJobCenterMouseLeave}
+            >
               <button
                 onClick={(e) => {
                   if (sidebarCollapsed) {
@@ -496,6 +516,82 @@ export default function WorkspaceLayout({
                   />
                 )}
               </button>
+
+              {/* 收起态悬停弹出菜单 */}
+              <AnimatePresence>
+                {sidebarCollapsed && jobCenterHovered && (
+                    <motion.div
+                    initial={{ opacity: 0, x: -10 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -10 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-full top-0 ml-2 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-[100] p-1.5 space-y-0.5"
+                  >
+                    {canUseApplyEntry && (
+                      <button
+                        onClick={(e) => {
+                          handleWorkspaceChange("resume", e);
+                          setJobCenterHovered(false);
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                          currentWorkspace === "resume"
+                            ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
+                        )}
+                      >
+                        <FileText className="w-4 h-4 shrink-0" />
+                        申请
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        handleWorkspaceChange("applications", e);
+                        setJobCenterHovered(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                        currentWorkspace === "applications"
+                          ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
+                      )}
+                    >
+                      <Table2 className="w-4 h-4 shrink-0" />
+                      投递进展
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        handleWorkspaceChange("calendar", e);
+                        setJobCenterHovered(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                        currentWorkspace === "calendar"
+                          ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
+                      )}
+                    >
+                      <CalendarDays className="w-4 h-4 shrink-0" />
+                      面试日历
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        handleWorkspaceChange("dashboard", e);
+                        setJobCenterHovered(false);
+                      }}
+                      className={cn(
+                        "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                        currentWorkspace === "dashboard"
+                          ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
+                      )}
+                    >
+                      <LayoutDashboard className="w-4 h-4 shrink-0" />
+                      仪表盘
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {!sidebarCollapsed && jobCenterOpen && (
                 <div className="mt-1 ml-3 pl-3 border-l border-slate-200 dark:border-slate-700 space-y-0.5">
