@@ -1,35 +1,35 @@
-import React from 'react'
-import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { Button } from './ui/button'
-import UserMenu from '@/components/UserMenu'
-import { Plus, Upload, Trash2, FileText } from './Icons'
+import React from "react";
+import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
+import { Button } from "./ui/button";
+import UserMenu from "@/components/UserMenu";
+import { Plus, Upload, Trash2, FileText } from "./Icons";
 
 interface HeaderProps {
-  onImport: () => void
-  onCreate: () => void
+  onImport: () => void;
+  onCreate: () => void;
   /** AI 智能导入回调 */
-  onAIImport?: () => void
+  onAIImport?: () => void;
   /** 选中的简历数量（用于批量删除） */
-  selectedCount?: number
+  selectedCount?: number;
   /** 批量删除回调 */
-  onBatchDelete?: () => void
+  onBatchDelete?: () => void;
   /** 简历总数 */
-  totalCount?: number
+  totalCount?: number;
   /** 是否处于多选模式 */
-  isMultiSelectMode?: boolean
+  isMultiSelectMode?: boolean;
   /** 切换多选模式 */
-  onToggleMultiSelectMode?: () => void
+  onToggleMultiSelectMode?: () => void;
   /** 退出多选模式 */
-  onExitMultiSelectMode?: () => void
+  onExitMultiSelectMode?: () => void;
   /** 全选当前列表 */
-  onSelectAll?: () => void
+  onSelectAll?: () => void;
   /** 取消全选 */
-  onClearSelection?: () => void
+  onClearSelection?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ 
-  onImport, 
+export const Header: React.FC<HeaderProps> = ({
+  onImport,
   onCreate,
   onAIImport,
   selectedCount = 0,
@@ -39,11 +39,11 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleMultiSelectMode,
   onExitMultiSelectMode,
   onSelectAll,
-  onClearSelection
+  onClearSelection,
 }) => {
-  const navigate = useNavigate()
-  const allSelected = totalCount > 0 && selectedCount === totalCount
-  
+  const navigate = useNavigate();
+  const allSelected = totalCount > 0 && selectedCount === totalCount;
+
   return (
     <motion.div
       className="px-2 sm:px-4 flex flex-col lg:flex-row lg:items-center justify-between gap-6"
@@ -52,9 +52,14 @@ export const Header: React.FC<HeaderProps> = ({
       transition={{ duration: 0.5, ease: "easeOut" }}
     >
       <div className="flex items-center space-x-6">
-        <div className="flex items-center gap-4 cursor-pointer group" onClick={() => navigate('/')}>
-          <div className="w-14 h-14 bg-white dark:bg-slate-800 rounded-2xl flex items-center justify-center border border-slate-200 dark:border-slate-700 shadow-sm group-hover:scale-105 group-hover:shadow-md transition-all duration-300">
-            <span className="text-slate-900 dark:text-white font-black text-2xl italic">RA</span>
+        <div
+          className="flex items-center gap-4 cursor-pointer group"
+          onClick={() => navigate("/")}
+        >
+          <div className="w-14 h-14 bg-slate-900 dark:bg-white rounded-2xl flex items-center justify-center shadow-xl shadow-slate-200 dark:shadow-none group-hover:scale-105 group-hover:rotate-3 transition-all duration-300">
+            <span className="text-white dark:text-slate-900 font-black text-2xl italic">
+              RA
+            </span>
           </div>
           <div className="flex flex-col">
             <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
@@ -65,21 +70,21 @@ export const Header: React.FC<HeaderProps> = ({
                 Dashboard
               </span>
               <div className="h-1 w-1 rounded-full bg-slate-300" />
-              <span className="text-xs text-slate-400 font-medium">共 {totalCount} 份简历</span>
+              <span className="text-xs text-slate-400 font-medium">
+                共 {totalCount} 份简历
+              </span>
             </div>
           </div>
         </div>
-        
+
         {selectedCount > 0 && (
           <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800 shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white shadow-lg shadow-slate-200"
           >
-            <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
-            <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
-              已选 {selectedCount}
-            </span>
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-sm font-bold">已选 {selectedCount}</span>
           </motion.div>
         )}
       </div>
@@ -90,26 +95,29 @@ export const Header: React.FC<HeaderProps> = ({
           <Button
             onClick={onToggleMultiSelectMode}
             variant={isMultiSelectMode ? "default" : "outline"}
-            className={`rounded-xl h-11 px-5 font-bold transition-all duration-300 border-2 ${
-              isMultiSelectMode 
-                ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600' 
-                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+            className={`rounded-xl h-11 px-5 font-bold transition-all duration-300 border ${
+              isMultiSelectMode
+                ? "bg-slate-900 text-white border-slate-900"
+                : "bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 border-slate-200"
             }`}
           >
-            {isMultiSelectMode ? '退出多选' : '多选'}
+            {isMultiSelectMode ? "退出多选" : "多选"}
           </Button>
         )}
 
         {/* 多选模式下：全选 / 取消全选 */}
-        {isMultiSelectMode && totalCount > 0 && onSelectAll && onClearSelection && (
-          <Button
-            onClick={allSelected ? onClearSelection : onSelectAll}
-            variant="outline"
-            className="rounded-xl h-11 px-5 font-bold border-2 border-slate-200 dark:border-slate-800 hover:border-blue-400 dark:hover:border-blue-600 hover:text-blue-600 dark:hover:text-blue-400 bg-white/50 dark:bg-slate-900/50"
-          >
-            {allSelected ? '取消全选' : '全选'}
-          </Button>
-        )}
+        {isMultiSelectMode &&
+          totalCount > 0 &&
+          onSelectAll &&
+          onClearSelection && (
+            <Button
+              onClick={allSelected ? onClearSelection : onSelectAll}
+              variant="outline"
+              className="rounded-xl h-11 px-5 font-bold border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all"
+            >
+              {allSelected ? "取消全选" : "全选"}
+            </Button>
+          )}
 
         {/* 批量删除 */}
         {selectedCount > 0 && onBatchDelete && (
@@ -119,7 +127,7 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Button
               onClick={onBatchDelete}
-              className="rounded-xl h-11 px-5 font-bold bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border-2 border-red-100 dark:bg-red-950/30 dark:border-red-900 dark:text-red-400 transition-all duration-300"
+              className="rounded-xl h-11 px-5 font-bold bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border border-red-100 transition-all duration-300"
             >
               <Trash2 className="mr-2 h-4 w-4" />
               删除
@@ -134,27 +142,17 @@ export const Header: React.FC<HeaderProps> = ({
           <Button
             onClick={onAIImport}
             variant="outline"
-            className="rounded-xl h-11 px-5 font-bold border-2 border-slate-200 dark:border-slate-800 hover:border-violet-400 dark:hover:border-violet-600 hover:text-violet-600 dark:hover:text-violet-400 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm transition-all duration-300"
+            className="rounded-xl h-11 px-5 font-bold border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all duration-300"
           >
-            <Upload className="mr-2 h-4 w-4 text-violet-500" />
+            <Upload className="mr-2 h-4 w-4 text-slate-900" />
             AI 智能导入
           </Button>
         )}
 
-        {/* 导入按钮 */}
-        <Button
-          onClick={onImport}
-          variant="outline"
-          className="rounded-xl h-11 px-5 font-bold border-2 border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-600 hover:text-indigo-600 dark:hover:text-indigo-400 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm transition-all duration-300"
-        >
-          <Upload className="mr-2 h-4 w-4" />
-          导入 JSON
-        </Button>
-
         {/* 创建按钮 */}
         <Button
           onClick={onCreate}
-          className="rounded-xl h-11 px-6 font-black bg-slate-900 hover:bg-blue-700 text-white dark:bg-blue-600 dark:hover:bg-blue-500 shadow-lg shadow-blue-500/20 transition-all duration-300 transform hover:scale-105 active:scale-95"
+          className="rounded-xl h-11 px-6 font-black bg-slate-900 hover:bg-slate-800 text-white shadow-xl shadow-slate-200 transition-all duration-300 transform hover:scale-105 active:scale-95"
         >
           <Plus className="mr-2 h-5 w-5 stroke-[3px]" />
           新建简历
@@ -165,5 +163,5 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
     </motion.div>
-  )
-}
+  );
+};

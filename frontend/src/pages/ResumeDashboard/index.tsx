@@ -206,11 +206,7 @@ const ResumeDashboard = () => {
 
   return (
     <WorkspaceLayout>
-      <div className="h-full overflow-y-auto bg-[#f8fafc] dark:bg-[#020617] relative transition-colors duration-500">
-        {/* 装饰性背景元素 */}
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-400/10 dark:bg-blue-600/5 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-400/10 dark:bg-indigo-600/5 rounded-full blur-[120px] pointer-events-none" />
-
+      <div className="h-full overflow-y-auto bg-[#FAFAFA] dark:bg-[#020617] relative transition-colors duration-500">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -225,10 +221,10 @@ const ResumeDashboard = () => {
             transition={{ duration: 0.3, delay: 0.1 }}
           >
             {hasConfiguredFolder && (
-              <Alert className="mb-2 bg-white/50 dark:bg-slate-900/50 border-slate-200 dark:border-slate-800 shadow-sm backdrop-blur-md max-w-2xl rounded-2xl py-3">
+              <Alert className="mb-2 bg-white/80 dark:bg-slate-900/50 border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-md max-w-2xl rounded-[1.5rem] py-3">
                 <AlertDescription className="flex items-center justify-center gap-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
                       {isAuthenticated 
                         ? '数据已同步至云端' 
@@ -237,7 +233,7 @@ const ResumeDashboard = () => {
                   </div>
                   {!isAuthenticated && (
                     <button
-                      className="text-sm font-black text-blue-600 dark:text-blue-400 hover:underline"
+                      className="text-sm font-black text-slate-900 dark:text-blue-400 hover:underline"
                       onClick={() => openModal('login')}
                     >
                       立即登录同步

@@ -2,7 +2,7 @@
  * 顶部导航栏组件（仅包含右侧操作按钮）
  */
 import { motion } from 'framer-motion'
-import { Check, BookmarkPlus, Upload, LayoutGrid, List, ChevronRight } from 'lucide-react'
+import { Check, BookmarkPlus, Upload, LayoutGrid, List, ChevronRight, Sparkles } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { ExportButton } from './ExportButton'
 import EnvironmentSwitcher from '@/components/EnvironmentSwitcher'
@@ -44,14 +44,14 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
         transition={{ duration: 0.4, delay: 0.2 }}
       >
           <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">编辑模式：</span>
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-1">
+          <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 rounded-lg p-1 border border-slate-200/60">
             <button
               onClick={() => onEditModeChange('click')}
               className={cn(
                 "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
                 "flex items-center gap-2",
                 editMode === 'click'
-                  ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                  ? "bg-slate-900 text-white shadow-lg shadow-slate-200"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
               )}
             >
@@ -64,7 +64,7 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
                 "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
                 "flex items-center gap-2",
                 editMode === 'scroll'
-                  ? "bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                  ? "bg-slate-900 text-white shadow-lg shadow-slate-200"
                   : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
               )}
             >
@@ -89,13 +89,13 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
           onClick={onGlobalAIImport}
           className={cn(
             "px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2",
-            "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/80",
-            "text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800",
-            "hover:border-slate-300 dark:hover:border-slate-600 shadow-sm hover:shadow-md",
+            "bg-white border border-slate-200/60",
+            "text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800",
+            "shadow-sm hover:shadow-md",
             "hover:scale-[1.02] active:scale-[0.98]"
           )}
         >
-          <Upload className="w-4 h-4 text-indigo-500" />
+          <Sparkles className="w-4 h-4 text-slate-900" />
           AI 智能导入
         </button>
         
@@ -107,14 +107,14 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
             "px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2",
             "hover:scale-[1.02] active:scale-[0.98]",
             saveSuccess 
-              ? "bg-gradient-to-r from-emerald-500 to-green-500 text-white shadow-lg shadow-green-500/30" 
-              : "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-600 shadow-sm hover:shadow-md"
+              ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200" 
+              : "bg-slate-900 text-white shadow-lg shadow-slate-200 hover:bg-slate-800"
           )}
         >
           {saveSuccess ? (
             <Check className="w-4 h-4" />
           ) : (
-            <BookmarkPlus className="w-4 h-4 text-indigo-500" />
+            <BookmarkPlus className="w-4 h-4" />
           )}
           {saveSuccess ? '已保存' : '保存'}
         </button>

@@ -150,4 +150,3 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
     </div>
   )
 }
-}

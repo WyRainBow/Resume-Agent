@@ -94,7 +94,6 @@ export function PreviewPanel({
           'border-b border-slate-200/50 dark:border-slate-700/50'
         )}
       >
-        <div className="flex items-center gap-3">
           {/* HTML 模板：仅显示实时预览标签 */}
           {isHTMLTemplate && (
             <span className="px-3 py-1 text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
@@ -111,10 +110,8 @@ export function PreviewPanel({
                 disabled={loading}
                 className={cn(
                   'group relative px-5 py-2.5 rounded-xl overflow-hidden',
-                  'bg-slate-900 dark:bg-slate-100',
-                  'hover:bg-slate-800 dark:hover:bg-white',
-                  'text-white dark:text-slate-900 text-sm font-semibold',
-                  'shadow-lg shadow-slate-200/50 dark:shadow-none',
+                  'bg-slate-900 text-white text-sm font-semibold',
+                  'shadow-lg shadow-slate-200',
                   'disabled:opacity-60 disabled:cursor-not-allowed',
                   'transition-all duration-300',
                   'hover:scale-[1.02] active:scale-[0.98]',
@@ -133,11 +130,8 @@ export function PreviewPanel({
                 disabled={!pdfBlob || loading}
                 className={cn(
                   'px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium',
-                  'bg-white/80 dark:bg-slate-700/80 backdrop-blur-sm',
-                  'border border-slate-200/80 dark:border-slate-600/80',
-                  'text-slate-700 dark:text-slate-200',
-                  'hover:bg-white dark:hover:bg-slate-700',
-                  'hover:border-slate-300 dark:hover:border-slate-500',
+                  'bg-white border border-slate-200/60',
+                  'text-slate-700 hover:text-slate-900',
                   'shadow-sm hover:shadow-md',
                   'disabled:opacity-50 disabled:cursor-not-allowed',
                   'transition-all duration-200',
@@ -150,7 +144,6 @@ export function PreviewPanel({
               </button>
             </>
           )}
-        </div>
       </div>
 
       {/* 进度提示 */}
