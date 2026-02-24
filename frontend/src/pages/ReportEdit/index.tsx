@@ -14,10 +14,11 @@ import {
   updateDocumentContent 
 } from '@/services/api'
 import { useReportStore } from '@/stores/reportStore'
-import { getApiBaseUrl } from '@/lib/runtimeEnv'
+import { getApiBaseUrl, isAgentEnabled } from '@/lib/runtimeEnv'
 import type { ReportDetail } from '@/services/api'
 
 export default function ReportEdit() {
+  const agentEnabled = isAgentEnabled()
   const { reportId } = useParams<{ reportId: string }>()
   const navigate = useNavigate()
   const [reportDetail, setReportDetail] = useState<ReportDetail | null>(null)
@@ -255,7 +256,7 @@ export default function ReportEdit() {
       <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => navigate('/agent/new')}
+            onClick={() => navigate(agentEnabled ? '/agent/new' : '/reports')}
             className="text-gray-600 hover:text-gray-900"
           >
             返回

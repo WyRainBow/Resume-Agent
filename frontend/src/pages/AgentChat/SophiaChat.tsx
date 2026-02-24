@@ -25,6 +25,7 @@ import { RecentSessions } from "@/components/sidebar/RecentSessions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEnvironment } from "@/contexts/EnvironmentContext";
 import { useCLTP } from "@/hooks/useCLTP";
+import { isAgentEnabled } from "@/lib/runtimeEnv";
 import { PDFViewerSelector } from "@/components/PDFEditor";
 import { convertToBackendFormat } from "@/pages/Workspace/v2/utils/convertToBackend";
 import {
@@ -455,6 +456,13 @@ interface ResumeEditDiffStructuredData {
 // ============================================================================
 
 export default function SophiaChat() {
+  if (!isAgentEnabled()) {
+    return null;
+  }
+  return <SophiaChatContent />;
+}
+
+function SophiaChatContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const { resumeId } = useParams();

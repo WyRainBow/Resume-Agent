@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { CheckCircle2, Loader2, Server, Wifi } from 'lucide-react'
+import { CheckCircle2, Eye, Loader2, Server, Wifi } from 'lucide-react'
 import { useEnvironment } from '@/contexts/EnvironmentContext'
 import type { RuntimeEnv } from '@/lib/runtimeEnv'
-import { getApiBaseUrl } from '@/lib/runtimeEnv'
+import { getApiBaseUrl, isAgentEnabled, setAgentEnabledOverride } from '@/lib/runtimeEnv'
 
 function getRoleFromToken(): string {
   try {
@@ -20,6 +20,7 @@ function getRoleFromToken(): string {
 }
 
 export default function EnvironmentSwitcher() {
+  const agentEnabled = isAgentEnabled()
   const { env, setEnv, apiBaseUrl, options } = useEnvironment()
   const [checking, setChecking] = useState(false)
   const [hasAccess, setHasAccess] = useState(false)
@@ -90,6 +91,13 @@ export default function EnvironmentSwitcher() {
     }
   }
 
+  const toggleAgent = () => {
+    const nextEnabled = !agentEnabled
+    setAgentEnabledOverride(nextEnabled)
+    alert(nextEnabled ? 'AI 功能已开启' : 'AI 功能已隐藏')
+    window.location.reload()
+  }
+
   return (
     <div className="flex items-center gap-2 rounded-2xl border border-slate-200/90 bg-white/95 px-3 py-2 shadow-sm backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/90">
       <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">
@@ -125,6 +133,15 @@ export default function EnvironmentSwitcher() {
             测试连接
           </>
         )}
+      </button>
+      <button
+        type="button"
+        onClick={toggleAgent}
+        className="inline-flex h-9 min-w-[98px] items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50/80 px-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-100 dark:hover:bg-slate-800"
+        title={agentEnabled ? '点击隐藏 AI 功能' : '点击开启 AI 功能'}
+      >
+        <Eye className="h-4 w-4 text-slate-500 dark:text-slate-300" />
+        AI隐藏吧
       </button>
       {!checking && (
         <span className="hidden items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 lg:inline-flex dark:bg-emerald-900/30 dark:text-emerald-300">

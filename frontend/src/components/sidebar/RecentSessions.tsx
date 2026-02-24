@@ -4,6 +4,7 @@ import { SidebarTooltip } from './SidebarTooltip';
 import CustomScrollbar from '../common/CustomScrollbar';
 import { useEnvironment } from '@/contexts/EnvironmentContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { isAgentEnabled } from '@/lib/runtimeEnv';
 
 const PAGE_SIZE = 20;
 
@@ -55,6 +56,8 @@ export function RecentSessions({
   onRenameSession,
   refreshKey = 0,
 }: RecentSessionsProps) {
+  const agentEnabled = isAgentEnabled();
+
   const { apiBaseUrl } = useEnvironment();  // 动态获取 API 地址
   const { isAuthenticated, loading: authLoading } = useAuth();
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
@@ -290,6 +293,10 @@ export function RecentSessions({
   const handleSelectSession = (sessionId: string) => {
     onSelectSession(sessionId);
   };
+
+  if (!agentEnabled) {
+    return null;
+  }
 
   return (
     <div className="h-full flex flex-col relative">

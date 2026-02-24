@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentResumeId } from "@/services/resumeStorage";
 import { RecentSessions } from "@/components/sidebar/RecentSessions";
-import { getApiBaseUrl } from "@/lib/runtimeEnv";
+import { getApiBaseUrl, isAgentEnabled } from "@/lib/runtimeEnv";
 
 // 工作区类型
 type WorkspaceType =
@@ -198,7 +198,9 @@ export default function WorkspaceLayout({
 
   const currentWorkspace = getCurrentWorkspace();
   const roleFromToken = getRoleFromToken();
+  const agentFeatureEnabled = isAgentEnabled();
   const canUseAgent =
+    agentFeatureEnabled &&
     isAuthenticated &&
     (roleFromToken === "admin" || roleFromToken === "member");
   const canUseApplyEntry = canUseAgent;

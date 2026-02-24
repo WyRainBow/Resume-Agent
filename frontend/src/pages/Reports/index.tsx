@@ -17,7 +17,7 @@ import {
 } from '@/services/api'
 import { useReportStore } from '@/stores/reportStore'
 import { cn } from '@/lib/utils'
-import { getApiBaseUrl } from '@/lib/runtimeEnv'
+import { getApiBaseUrl, isAgentEnabled } from '@/lib/runtimeEnv'
 import type { ReportDetail, ReportListItem } from '@/services/api'
 
 // 拖拽分隔线组件
@@ -68,6 +68,7 @@ function DragHandle({
 }
 
 export default function ReportsPage() {
+  const agentEnabled = isAgentEnabled()
   const { reportId } = useParams<{ reportId?: string }>()
   const navigate = useNavigate()
   
@@ -372,8 +373,9 @@ export default function ReportsPage() {
 
   // 处理创建新报告
   const handleCreateNew = useCallback(() => {
+    if (!agentEnabled) return
     navigate('/agent/new')
-  }, [navigate])
+  }, [agentEnabled, navigate])
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -382,12 +384,14 @@ export default function ReportsPage() {
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold text-gray-900">报告</h1>
         </div>
-        <button
-          onClick={handleCreateNew}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        >
-          新建报告
-        </button>
+        {agentEnabled && (
+          <button
+            onClick={handleCreateNew}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            新建报告
+          </button>
+        )}
       </header>
 
       {/* 主内容区 */}

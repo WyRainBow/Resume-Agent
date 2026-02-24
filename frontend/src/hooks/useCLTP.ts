@@ -10,7 +10,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { CLTPSessionImpl } from '@/cltp/core/CLTPSession';
 import { SSETransportAdapter, createSSETransportAdapter } from '@/cltp/adapters/SSETransportAdapter';
 import { SSETransport, type SSEEvent } from '@/transports/SSETransport';
-import { getApiBaseUrl } from '@/lib/runtimeEnv';
+import { getApiBaseUrl, isAgentEnabled } from '@/lib/runtimeEnv';
 import type { ContentMessage } from '@/cltp/types/messages';
 import type { DefaultPayloads } from '@/cltp/types/channels';
 
@@ -64,6 +64,7 @@ export interface UseCLTPOptions {
  * @returns CLTP 会话状态和控制函数
  */
 export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
+    const agentEnabled = isAgentEnabled();
     const {
         conversationId = `conv-${Date.now()}`,
         baseUrl = getApiBaseUrl(),
@@ -99,6 +100,15 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
 
     // Initialize CLTP Session
     useEffect(() => {
+        if (!agentEnabled) {
+            setCurrentThought('');
+            setCurrentAnswer('');
+            setIsProcessing(false);
+            setIsConnected(false);
+            setLastError(null);
+            return;
+        }
+
         // Reset state when conversationId changes to avoid leaking previous session state
         setCurrentThought('');
         setCurrentAnswer('');
@@ -325,7 +335,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
                 console.error('[useCLTP] Error closing session:', error);
             });
         };
-    }, [conversationId, baseUrl, heartbeatTimeout, onSSEEvent]);
+    }, [agentEnabled, conversationId, baseUrl, heartbeatTimeout, onSSEEvent]);
 
     // Update resume data without resetting the session
     useEffect(() => {
@@ -345,6 +355,10 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
      * Send user message
      */
     const sendMessage = useCallback(async (message: string, resumeDataOverride?: any) => {
+        if (!agentEnabled) {
+            setLastError('Agent is disabled by VITE_AGENT_ENABLED');
+            return;
+        }
         if (!sessionRef.current || !adapterRef.current) {
             console.error('[useCLTP] Session not initialized');
             return;
@@ -394,7 +408,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             console.error('[useCLTP] Failed to send message:', error);
             setIsProcessing(false);
         }
-    }, []);
+    }, [agentEnabled]);
 
     /**
      * Finalize current stream (clear state and stop processing)

@@ -1,8 +1,9 @@
 import { Suspense, lazy } from 'react'
-import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthModal } from './components/AuthModal'
 import { ThemeInit } from './components/ThemeInit'
 import ErrorBoundary from './ErrorBoundary'
+import { isAgentEnabled } from './lib/runtimeEnv'
 import ResumeDashboard from './pages/ResumeDashboard'
 
 const AgentChat = lazy(() => import('./pages/AgentChat/SophiaChat'))
@@ -34,6 +35,7 @@ function RouteFallback() {
 }
 
 function App() {
+  const agentEnabled = isAgentEnabled()
   try {
     return (
       <ErrorBoundary>
@@ -50,10 +52,21 @@ function App() {
               <Route path="/workspace/latex/:resumeId" element={<LaTeXWorkspace />} />
               <Route path="/workspace/html" element={<HTMLWorkspace />} />
               <Route path="/workspace/html/:resumeId" element={<HTMLWorkspace />} />
-              <Route path="/agent/new" element={<AgentChat />} />
-              <Route path="/agent/:resumeId" element={<AgentChat />} />
-              <Route path="/workspace/agent/new" element={<AgentChat />} />
-              <Route path="/workspace/agent/:resumeId" element={<AgentChat />} />
+              {agentEnabled ? (
+                <>
+                  <Route path="/agent/new" element={<AgentChat />} />
+                  <Route path="/agent/:resumeId" element={<AgentChat />} />
+                  <Route path="/workspace/agent/new" element={<AgentChat />} />
+                  <Route path="/workspace/agent/:resumeId" element={<AgentChat />} />
+                </>
+              ) : (
+                <>
+                  <Route path="/agent/new" element={<Navigate to="/workspace" replace />} />
+                  <Route path="/agent/:resumeId" element={<Navigate to="/workspace" replace />} />
+                  <Route path="/workspace/agent/new" element={<Navigate to="/workspace" replace />} />
+                  <Route path="/workspace/agent/:resumeId" element={<Navigate to="/workspace" replace />} />
+                </>
+              )}
               {/* 其他路由 */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/dashboard" element={<StatsDashboardPage />} />
