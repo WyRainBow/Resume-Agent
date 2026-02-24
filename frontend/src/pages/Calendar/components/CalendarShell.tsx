@@ -38,8 +38,8 @@ export function CalendarShell({
     }`;
 
   return (
-    <div className="flex h-full flex-col bg-[#F8FAFC]">
-      <header className="border-b border-slate-200 bg-white shadow-sm z-10">
+    <div className="flex h-full flex-col bg-[#FAFAFA]">
+      <header className="border-b border-slate-200/60 bg-white/80 backdrop-blur-md shadow-sm z-10">
         <div className="flex items-center justify-between px-6 h-16">
           <div className="flex items-center gap-6">
             <div className="flex flex-col group cursor-default">
@@ -69,7 +69,7 @@ export function CalendarShell({
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="w-80 border-r border-slate-200 bg-slate-50/50 overflow-y-auto px-4 py-6">
+        <aside className="w-80 border-r border-slate-200/60 bg-slate-50/30 overflow-y-auto px-4 py-6">
           {left}
         </aside>
 
@@ -134,8 +134,8 @@ export function CalendarShell({
               </button>
             </div>
           </div>
-          <div className="flex-1 overflow-auto bg-white p-6">
-            <div className="h-full rounded-2xl border border-slate-100 shadow-sm bg-slate-50/30">
+          <div className="flex-1 overflow-auto bg-[#FAFAFA] p-6">
+            <div className="h-full rounded-2xl border border-slate-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.03)] bg-white">
               {content}
             </div>
           </div>

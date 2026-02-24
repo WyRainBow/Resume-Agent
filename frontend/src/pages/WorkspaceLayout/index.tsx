@@ -331,11 +331,11 @@ export default function WorkspaceLayout({
   };
 
   return (
-    <div className="h-screen flex overflow-hidden bg-[#F8F9FA] dark:bg-slate-950">
-      {/* 左侧固定边栏：收缩时 aside 宽度跟着变，第一列紧贴侧边栏 */}
+    <div className="h-screen flex overflow-hidden bg-[#FAFAFA] dark:bg-slate-950 font-sans selection:bg-slate-200 selection:text-slate-900">
+      {/* 左侧固定边栏 */}
       <aside
         className={cn(
-          "shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col transition-[width] duration-200",
+          "shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200/60 dark:border-slate-800 flex flex-col transition-[width] duration-200",
           sidebarCollapsed ? "w-24" : "w-[260px]",
         )}
       >
