@@ -1,6 +1,7 @@
 """
 Dashboard 性能日志上报路由
 """
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 import time
 
@@ -11,7 +12,7 @@ from sqlalchemy.orm import Session
 from backend.core.logger import get_logger
 from database import get_db
 from auth import decode_access_token
-from models import ApplicationProgress, Resume
+from models import ApplicationProgress, CalendarEvent, Resume
 
 router = APIRouter(prefix="/api/dashboard", tags=["Dashboard"])
 logger = get_logger("backend.routes.dashboard_perf")
@@ -39,6 +40,8 @@ class DashboardSummaryMetrics(BaseModel):
 class DashboardSummaryResponse(BaseModel):
     resume_count: int
     entries: List[DashboardSummaryEntry]
+    interview_count: int = 0  # 面试日历中的日程数量（场）
+    interview_count_this_week: int = 0  # 本周面试场次（周一 0 点至当前）
     metrics: DashboardSummaryMetrics
 
 
@@ -93,11 +96,38 @@ def get_dashboard_summary(
         .all()
     )
     progress_query_ms = (time.perf_counter() - progress_start) * 1000
+
+    calendar_start = time.perf_counter()
+    try:
+        interview_count = db.query(CalendarEvent).filter(CalendarEvent.user_id == user_id).count()
+        # 本周一 0:00 至本周日 23:59:59（与日历显示的「本周」一致，中国时区）
+        cn_tz = timezone(timedelta(hours=8))
+        now_cn = datetime.now(cn_tz)
+        today_cn = now_cn.date()
+        # Monday = 0
+        week_start_cn = today_cn - timedelta(days=today_cn.weekday())
+        week_end_cn = week_start_cn + timedelta(days=6)
+        week_start_dt = datetime(week_start_cn.year, week_start_cn.month, week_start_cn.day, 0, 0, 0, tzinfo=cn_tz)
+        week_end_dt = datetime(week_end_cn.year, week_end_cn.month, week_end_cn.day, 23, 59, 59, 999999, tzinfo=cn_tz)
+        interview_count_this_week = (
+            db.query(CalendarEvent)
+            .filter(
+                CalendarEvent.user_id == user_id,
+                CalendarEvent.starts_at >= week_start_dt,
+                CalendarEvent.starts_at <= week_end_dt,
+            )
+            .count()
+        )
+    except Exception:
+        interview_count = 0
+        interview_count_this_week = 0
+    calendar_query_ms = (time.perf_counter() - calendar_start) * 1000
     total_query_ms = (time.perf_counter() - total_start) * 1000
 
     logger.info(
         f"[DashboardPerf] /api/dashboard/summary user_id={user_id} "
         f"resume_count={resume_count} entry_count={len(rows)} "
+        f"interview_count={interview_count} interview_this_week={interview_count_this_week} "
         f"resume_query={resume_query_ms:.1f}ms progress_query={progress_query_ms:.1f}ms total={total_query_ms:.1f}ms"
     )
 
@@ -111,6 +141,8 @@ def get_dashboard_summary(
     return DashboardSummaryResponse(
         resume_count=resume_count,
         entries=entries,
+        interview_count=interview_count,
+        interview_count_this_week=interview_count_this_week,
         metrics=DashboardSummaryMetrics(
             resume_query_ms=round(resume_query_ms, 1),
             progress_query_ms=round(progress_query_ms, 1),

@@ -8,6 +8,10 @@ export type DashboardKpis = {
   applicationCount: number
   last7DaysCount: number
   activePipelineCount: number
+  /** 本周（周一至今）投递份数 */
+  thisWeekApplicationCount: number
+  /** 本周（周一至今）活跃流程数 */
+  activePipelineThisWeekCount: number
 }
 
 export type DailyTrendPoint = {
@@ -30,18 +34,20 @@ const STATUS_ALIAS: Record<string, string> = {
   三面: '二面完成',
 }
 
+// 高对比度配色，便于在饼图中区分
 const STATUS_COLORS: Record<string, string> = {
-  已投简历: '#C9D8F2',
-  简历挂: '#FF7373',
-  测评未做: '#9BDCFD',
-  测评完成: '#F7E8AE',
-  等待一面: '#A9E7DC',
-  一面完成: '#F5D9DD',
-  一面被刷: '#AFE1A6',
-  等待二面: '#D9CCF4',
-  二面完成: '#EECDE8',
-  二面被刷: '#D4E68D',
-  未设置: '#CBD5E1',
+  已投简历: '#5B8FCE',   // 中蓝
+  简历挂: '#E85A5A',     // 红
+  测评未做: '#4DB8E8',   // 天蓝
+  测评完成: '#E8B84A',   // 橙黄
+  等待一面: '#2DB89E',   // 青绿
+  一面完成: '#D96B9A',   // 玫红
+  一面被刷: '#6BB86B',   // 绿
+  等待二面: '#8B7BC8',   // 紫
+  二面完成: '#C86BB8',   // 紫红
+  二面被刷: '#8BC84D',   // 黄绿
+  未设置: '#94A3B8',     // 灰蓝
+  面试: '#F59E0B',       // 琥珀/橙，与蓝色系明显区分
 }
 
 const INACTIVE_STATUSES = new Set(['简历挂', '一面被刷', '二面被刷'])
@@ -90,12 +96,51 @@ export function buildKpis(resumes: SavedResume[], entries: MetricsEntry[]): Dash
     return sum + 1
   }, 0)
 
+  const { thisWeekApplicationCount, activePipelineThisWeekCount } = getThisWeekCounts(entries)
   return {
     resumeCount,
     applicationCount: entries.length,
     last7DaysCount,
     activePipelineCount,
+    thisWeekApplicationCount,
+    activePipelineThisWeekCount,
   }
+}
+
+/** 本周一 0 点（本地），与日历周一致 */
+function getWeekStart(today: Date): Date {
+  const d = new Date(today)
+  const day = d.getDay()
+  const diff = day === 0 ? 6 : day - 1
+  d.setDate(d.getDate() - diff)
+  return startOfDay(d)
+}
+
+/** 本周日 0 点（即整周最后一天的日期），与日历「本周」一致 */
+function getWeekEnd(today: Date): Date {
+  const start = getWeekStart(today)
+  const end = new Date(start)
+  end.setDate(end.getDate() + 6)
+  return startOfDay(end)
+}
+
+function getThisWeekCounts(entries: MetricsEntry[]): { thisWeekApplicationCount: number; activePipelineThisWeekCount: number } {
+  const today = startOfDay(new Date())
+  const weekStart = getWeekStart(today)
+  const weekEnd = getWeekEnd(today)
+
+  let thisWeekApplicationCount = 0
+  let activePipelineThisWeekCount = 0
+  for (const entry of entries) {
+    const dt = parseDate(entry.application_date)
+    if (!dt) continue
+    const day = startOfDay(dt)
+    if (day < weekStart || day > weekEnd) continue
+    thisWeekApplicationCount += 1
+    const status = normalizeStatus(entry.progress)
+    if (status !== '未设置' && !INACTIVE_STATUSES.has(status)) activePipelineThisWeekCount += 1
+  }
+  return { thisWeekApplicationCount, activePipelineThisWeekCount }
 }
 
 export function buildKpisFromCount(resumeCount: number, entries: MetricsEntry[]): DashboardKpis {
@@ -118,11 +163,14 @@ export function buildKpisFromCount(resumeCount: number, entries: MetricsEntry[])
     return sum + 1
   }, 0)
 
+  const { thisWeekApplicationCount, activePipelineThisWeekCount } = getThisWeekCounts(entries)
   return {
     resumeCount,
     applicationCount: entries.length,
     last7DaysCount,
     activePipelineCount,
+    thisWeekApplicationCount,
+    activePipelineThisWeekCount,
   }
 }
 
@@ -151,11 +199,49 @@ export function buildDailyTrend(entries: MetricsEntry[]): DailyTrendPoint[] {
   })
 }
 
-export function buildProgressDistribution(entries: MetricsEntry[]): ProgressDistributionItem[] {
+export function buildProgressDistribution(
+  entries: MetricsEntry[],
+  interviewCount: number = 0
+): ProgressDistributionItem[] {
   const grouped = new Map<string, number>()
   for (const entry of entries) {
     const status = normalizeStatus(entry.progress)
     grouped.set(status, (grouped.get(status) || 0) + 1)
+  }
+  if (interviewCount > 0) {
+    grouped.set('面试', interviewCount)
+  }
+
+  const items = Array.from(grouped.entries())
+    .map(([label, value]) => ({
+      label,
+      value,
+      color: STATUS_COLORS[label] || '#CBD5E1',
+    }))
+    .sort((a, b) => b.value - a.value)
+
+  return items
+}
+
+/** 本周（周一至周日，与日历一致）进展状态分布，用于「本周进展状态分布」图 */
+export function buildProgressDistributionThisWeek(
+  entries: MetricsEntry[],
+  interviewCountThisWeek: number = 0
+): ProgressDistributionItem[] {
+  const today = startOfDay(new Date())
+  const weekStart = getWeekStart(today)
+  const weekEnd = getWeekEnd(today)
+  const grouped = new Map<string, number>()
+  for (const entry of entries) {
+    const dt = parseDate(entry.application_date)
+    if (!dt) continue
+    const day = startOfDay(dt)
+    if (day < weekStart || day > weekEnd) continue
+    const status = normalizeStatus(entry.progress)
+    grouped.set(status, (grouped.get(status) || 0) + 1)
+  }
+  if (interviewCountThisWeek > 0) {
+    grouped.set('面试', interviewCountThisWeek)
   }
 
   const items = Array.from(grouped.entries())
