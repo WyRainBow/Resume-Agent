@@ -78,6 +78,7 @@ test_api.sh
 *.sh
 !deploy.sh
 !railway-start.sh
+!scripts/export_agent_core.sh
 
 
 
@@ -107,6 +108,7 @@ docs/**
 !docs/*-setup.md
 !docs/*-guide.md
 !docs/ENVIRONMENT_SETUP.md
+!docs/agent-repo-extraction.md
 
 # Local-only files
 config/
