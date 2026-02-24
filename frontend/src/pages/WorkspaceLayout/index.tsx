@@ -54,6 +54,11 @@ function getRoleFromToken(): string {
   }
 }
 
+function getAuthHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = localStorage.getItem("auth_token");
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra };
+}
+
 /** 复刻参考图：圆角矩形 + 内竖线（左窄右宽），细描边 */
 function SidebarToggleIcon({
   expand = false,
@@ -269,7 +274,7 @@ export default function WorkspaceLayout({
     try {
       const resp = await fetch(
         `${getApiBaseUrl()}/api/agent/history/${sessionId}`,
-        { method: "DELETE" },
+        { method: "DELETE", headers: getAuthHeaders() },
       );
       if (!resp.ok) throw new Error(`Failed to delete session: ${resp.status}`);
       setSessionsRefreshKey((prev) => prev + 1);
@@ -284,8 +289,8 @@ export default function WorkspaceLayout({
       const resp = await fetch(
         `${getApiBaseUrl()}/api/agent/history/sessions/${sessionId}/title`,
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: "PUT",
+          headers: getAuthHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({ title }),
         },
       );

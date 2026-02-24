@@ -8,13 +8,15 @@ import hashlib
 from typing import Any
 
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend.agent.memory.chat_history_manager import ChatHistoryManager
 from backend.agent.memory.conversation_manager import ConversationManager
 from backend.agent.cltp.storage.factory import get_conversation_storage
 from backend.agent.schema import Message
+from backend.middleware.auth import get_current_user
+from backend.models import User
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +24,10 @@ router = APIRouter(prefix="/history", tags=["history"])
 storage = get_conversation_storage()
 conversation_manager = ConversationManager(storage=storage)
 _save_fingerprint_cache: dict[str, tuple[int, str]] = {}
+
+
+def _save_cache_key(user_id: int, session_id: str) -> str:
+    return f"{user_id}:{session_id}"
 
 
 def _history_error_detail(message: str, action: str = "CHECK_SERVER_LOGS") -> dict[str, str]:
@@ -73,7 +79,9 @@ class SessionAppendRequest(BaseModel):
 
 
 @router.get("/{session_id}", response_model=HistoryResponse)
-async def get_history(session_id: str) -> HistoryResponse:
+async def get_history(
+    session_id: str, current_user: User = Depends(get_current_user)
+) -> HistoryResponse:
     """Get chat history for a session.
 
     Args:
@@ -83,7 +91,10 @@ async def get_history(session_id: str) -> HistoryResponse:
         HistoryResponse with messages
     """
     try:
-        messages = conversation_manager.get_history(session_id)
+        session_data = storage.load_session(session_id, user_id=current_user.id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="Session not found")
+        messages = conversation_manager.get_history(session_id, user_id=current_user.id)
 
         return HistoryResponse(
             session_id=session_id,
@@ -93,6 +104,8 @@ async def get_history(session_id: str) -> HistoryResponse:
             ],
             count=len(messages),
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting history: {e}")
         raise HTTPException(
@@ -105,7 +118,9 @@ async def get_history(session_id: str) -> HistoryResponse:
 
 
 @router.delete("/{session_id}", response_model=HistoryClearResponse)
-async def clear_history(session_id: str) -> HistoryClearResponse:
+async def clear_history(
+    session_id: str, current_user: User = Depends(get_current_user)
+) -> HistoryClearResponse:
     """Clear chat history for a session.
 
     Args:
@@ -118,10 +133,15 @@ async def clear_history(session_id: str) -> HistoryClearResponse:
         # Import _active_sessions from stream module to clean up active session
         from backend.agent.web.routes.stream import _active_sessions
         
+        session_data = storage.load_session(session_id, user_id=current_user.id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="Session not found")
         history_manager = ChatHistoryManager(session_id=session_id, storage=storage)
         history_manager.clear_messages()
         await history_manager.save_checkpoint()
-        conversation_manager.delete_session(session_id)
+        deleted = conversation_manager.delete_session(session_id, user_id=current_user.id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Session not found")
         
         # Clean up active session in memory
         if session_id in _active_sessions:
@@ -132,6 +152,8 @@ async def clear_history(session_id: str) -> HistoryClearResponse:
             session_id=session_id,
             message="History cleared successfully",
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error clearing history: {e}")
         raise HTTPException(
@@ -144,7 +166,9 @@ async def clear_history(session_id: str) -> HistoryClearResponse:
 
 
 @router.post("/{session_id}/restore")
-async def restore_history(session_id: str) -> dict[str, Any]:
+async def restore_history(
+    session_id: str, current_user: User = Depends(get_current_user)
+) -> dict[str, Any]:
     """Restore chat history from checkpoint.
 
     Args:
@@ -154,6 +178,9 @@ async def restore_history(session_id: str) -> dict[str, Any]:
         dict with restored message count
     """
     try:
+        session_data = storage.load_session(session_id, user_id=current_user.id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="Session not found")
         history_manager = ChatHistoryManager(session_id=session_id, storage=storage)
         await history_manager.restore_from_checkpoint()
         messages = history_manager.get_messages()
@@ -166,6 +193,8 @@ async def restore_history(session_id: str) -> dict[str, Any]:
                 for m in messages
             ],
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error restoring history: {e}")
         raise HTTPException(
@@ -178,10 +207,14 @@ async def restore_history(session_id: str) -> dict[str, Any]:
 
 
 @router.get("/sessions/list")
-async def list_sessions(page: int = 1, page_size: int = 20) -> dict[str, Any]:
+async def list_sessions(
+    page: int = 1,
+    page_size: int = 20,
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
     """List conversation sessions with pagination."""
     try:
-        metas = conversation_manager.list_sessions()
+        metas = conversation_manager.list_sessions(user_id=current_user.id)
         metas.sort(
             key=lambda m: (m.updated_at or m.created_at or ""),
             reverse=True,
@@ -214,6 +247,8 @@ async def list_sessions(page: int = 1, page_size: int = 20) -> dict[str, Any]:
                 "total_pages": total_pages,
             },
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error listing sessions: {e}")
         raise HTTPException(
@@ -227,11 +262,17 @@ async def list_sessions(page: int = 1, page_size: int = 20) -> dict[str, Any]:
 
 @router.get("/sessions/{session_id}")
 async def get_session_messages(
-    session_id: str, offset: int = 0, limit: int = 200
+    session_id: str,
+    offset: int = 0,
+    limit: int = 200,
+    current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get session history with pagination."""
     try:
-        messages = conversation_manager.get_history(session_id)
+        session_data = storage.load_session(session_id, user_id=current_user.id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="Session not found")
+        messages = conversation_manager.get_history(session_id, user_id=current_user.id)
         sliced = messages[offset: offset + limit]
         return {
             "session_id": session_id,
@@ -243,6 +284,8 @@ async def get_session_messages(
                 for m in sliced
             ],
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error getting session messages: {e}")
         raise HTTPException(
@@ -256,7 +299,9 @@ async def get_session_messages(
 
 @router.post("/sessions/{session_id}/save")
 async def save_session_messages(
-    session_id: str, request: SessionSaveRequest
+    session_id: str,
+    request: SessionSaveRequest,
+    current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Save session messages immediately."""
     try:
@@ -271,7 +316,8 @@ async def save_session_messages(
                 usedforsecurity=False,
             ).hexdigest()
 
-        cached = _save_fingerprint_cache.get(session_id)
+        cache_key = _save_cache_key(current_user.id, session_id)
+        cached = _save_fingerprint_cache.get(cache_key)
         if (
             cached
             and last_message_hash
@@ -293,9 +339,11 @@ async def save_session_messages(
             k=max(1000, len(messages) + 10),
         )
         history_manager.load_messages(messages)
-        meta = conversation_manager.save_history(session_id, history_manager)
+        meta = conversation_manager.save_history(
+            session_id, history_manager, user_id=current_user.id
+        )
         if last_message_hash:
-            _save_fingerprint_cache[session_id] = (
+            _save_fingerprint_cache[cache_key] = (
                 max(client_save_seq, (cached[0] if cached else 0)),
                 last_message_hash,
             )
@@ -307,6 +355,8 @@ async def save_session_messages(
             "message_count": meta.message_count,
             "skipped": False,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error saving session: {e}")
         raise HTTPException(
@@ -320,7 +370,9 @@ async def save_session_messages(
 
 @router.post("/sessions/{session_id}/append")
 async def append_session_messages(
-    session_id: str, request: SessionAppendRequest
+    session_id: str,
+    request: SessionAppendRequest,
+    current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Append message delta incrementally.
 
@@ -339,7 +391,8 @@ async def append_session_messages(
                 usedforsecurity=False,
             ).hexdigest()
 
-        cached = _save_fingerprint_cache.get(session_id)
+        cache_key = _save_cache_key(current_user.id, session_id)
+        cached = _save_fingerprint_cache.get(cache_key)
         if (
             cached
             and last_message_hash
@@ -355,7 +408,9 @@ async def append_session_messages(
         append_method = getattr(storage, "append_session_messages", None)
         if not callable(append_method):
             # Fallback for storage adapters without append support:
-            existing = conversation_manager.get_history(session_id)
+            existing = conversation_manager.get_history(
+                session_id, user_id=current_user.id
+            )
             if base_seq != len(existing):
                 raise HTTPException(
                     status_code=409,
@@ -371,12 +426,16 @@ async def append_session_messages(
                 k=max(1000, len(merged) + 10),
             )
             history_manager.load_messages(merged)
-            meta = conversation_manager.save_history(session_id, history_manager)
+            meta = conversation_manager.save_history(
+                session_id, history_manager, user_id=current_user.id
+            )
             new_seq = len(merged)
             accepted_count = len(messages_delta)
             skipped = accepted_count == 0
         else:
-            result = append_method(session_id, base_seq, messages_delta)
+            result = append_method(
+                session_id, base_seq, messages_delta, user_id=current_user.id
+            )
             if result.get("conflict"):
                 raise HTTPException(
                     status_code=409,
@@ -391,7 +450,7 @@ async def append_session_messages(
             skipped = bool(result.get("skipped", False))
 
         if last_message_hash:
-            _save_fingerprint_cache[session_id] = (
+            _save_fingerprint_cache[cache_key] = (
                 max(client_save_seq, (cached[0] if cached else 0)),
                 last_message_hash,
             )
@@ -421,13 +480,17 @@ async def append_session_messages(
 
 @router.put("/sessions/{session_id}/title")
 async def update_session_title(
-    session_id: str, request: SessionTitleUpdateRequest
+    session_id: str,
+    request: SessionTitleUpdateRequest,
+    current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     title = request.title.strip()
     if not title:
         raise HTTPException(status_code=400, detail="Title cannot be empty")
 
-    meta = conversation_manager.update_session_title(session_id, title)
+    meta = conversation_manager.update_session_title(
+        session_id, title, user_id=current_user.id
+    )
     if not meta:
         raise HTTPException(status_code=404, detail="Session not found")
 
@@ -441,16 +504,25 @@ async def update_session_title(
 
 
 @router.post("/sessions/{session_id}/load")
-async def load_session(session_id: str) -> dict[str, Any]:
+async def load_session(
+    session_id: str, current_user: User = Depends(get_current_user)
+) -> dict[str, Any]:
     """Load a session and return its messages."""
     try:
-        history = conversation_manager.get_or_create_history(session_id)
+        session_data = storage.load_session(session_id, user_id=current_user.id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="Session not found")
+        history = conversation_manager.get_or_create_history(
+            session_id, user_id=current_user.id
+        )
         messages = history.get_messages()
         return {
             "session_id": session_id,
             "message_count": len(messages),
             "messages": [{"role": m.role, "content": m.content} for m in messages],
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error loading session: {e}")
         raise HTTPException(
@@ -463,14 +535,25 @@ async def load_session(session_id: str) -> dict[str, Any]:
 
 
 @router.get("/sessions/{session_id}/export")
-async def export_session(session_id: str, fmt: str = "json") -> dict[str, Any]:
+async def export_session(
+    session_id: str,
+    fmt: str = "json",
+    current_user: User = Depends(get_current_user),
+) -> dict[str, Any]:
     """Export a session to a file (json/markdown)."""
     try:
+        session_data = storage.load_session(session_id, user_id=current_user.id)
+        if not session_data:
+            raise HTTPException(status_code=404, detail="Session not found")
         export_dir = "data/exports"
         extension = "md" if fmt == "markdown" else "json"
         export_path = f"{export_dir}/{session_id}.{extension}"
-        path = conversation_manager.export_session(session_id, export_path, fmt=fmt)
+        path = conversation_manager.export_session(
+            session_id, export_path, fmt=fmt, user_id=current_user.id
+        )
         return {"session_id": session_id, "export_path": path}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error exporting session: {e}")
         raise HTTPException(
@@ -483,7 +566,9 @@ async def export_session(session_id: str, fmt: str = "json") -> dict[str, Any]:
 
 
 @router.post("/sessions/batch-delete")
-async def batch_delete_sessions(request: BatchDeleteRequest) -> dict[str, Any]:
+async def batch_delete_sessions(
+    request: BatchDeleteRequest, current_user: User = Depends(get_current_user)
+) -> dict[str, Any]:
     """Delete multiple sessions.
 
     Args:
@@ -496,7 +581,9 @@ async def batch_delete_sessions(request: BatchDeleteRequest) -> dict[str, Any]:
         # Import _active_sessions from stream module to clean up active sessions
         from backend.agent.web.routes.stream import _active_sessions
         
-        deleted_count = conversation_manager.delete_sessions(request.session_ids)
+        deleted_count = conversation_manager.delete_sessions(
+            request.session_ids, user_id=current_user.id
+        )
         
         # Clean up active sessions in memory
         for session_id in request.session_ids:
@@ -510,6 +597,8 @@ async def batch_delete_sessions(request: BatchDeleteRequest) -> dict[str, Any]:
             "total_requested": len(request.session_ids),
             "message": f"Successfully deleted {deleted_count} session(s)"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error batch deleting sessions: {e}")
         raise HTTPException(
@@ -522,7 +611,9 @@ async def batch_delete_sessions(request: BatchDeleteRequest) -> dict[str, Any]:
 
 
 @router.delete("/sessions/all")
-async def delete_all_sessions() -> dict[str, Any]:
+async def delete_all_sessions(
+    current_user: User = Depends(get_current_user)
+) -> dict[str, Any]:
     """Delete all sessions.
 
     Returns:
@@ -533,10 +624,10 @@ async def delete_all_sessions() -> dict[str, Any]:
         from backend.agent.web.routes.stream import _active_sessions
         
         # Get all session IDs before deletion
-        all_sessions = conversation_manager.list_sessions()
+        all_sessions = conversation_manager.list_sessions(user_id=current_user.id)
         session_ids = [meta.session_id for meta in all_sessions]
         
-        deleted_count = conversation_manager.delete_all_sessions()
+        deleted_count = conversation_manager.delete_all_sessions(user_id=current_user.id)
         
         # Clean up all active sessions in memory
         _active_sessions.clear()
@@ -547,6 +638,8 @@ async def delete_all_sessions() -> dict[str, Any]:
             "deleted_count": deleted_count,
             "message": f"Successfully deleted all {deleted_count} session(s)"
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error deleting all sessions: {e}")
         raise HTTPException(

@@ -443,6 +443,12 @@ export default function SophiaChat() {
   const { resumeId } = useParams();
   const { user } = useAuth();
   const { apiBaseUrl } = useEnvironment();
+  const getAuthHeaders = useCallback((extra: Record<string, string> = {}) => {
+    const token = localStorage.getItem("auth_token");
+    return token
+      ? { ...extra, Authorization: `Bearer ${token}` }
+      : { ...extra };
+  }, []);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
@@ -561,6 +567,9 @@ export default function SophiaChat() {
       try {
         const resp = await fetch(
           `${apiBaseUrl}/api/agent/history/sessions/list?page=1&page_size=1`,
+          {
+            headers: getAuthHeaders(),
+          },
         );
         if (!mounted) return;
         if (resp.ok) {
@@ -589,7 +598,7 @@ export default function SophiaChat() {
     return () => {
       mounted = false;
     };
-  }, [apiBaseUrl, navigate]);
+  }, [apiBaseUrl, getAuthHeaders, navigate]);
 
   // 简历选择器状态
   const [showResumeSelector, setShowResumeSelector] = useState(false);
@@ -628,6 +637,8 @@ export default function SophiaChat() {
     at: number;
   } | null>(null);
   const lastHandledAnswerCompleteRef = useRef(0);
+  const pendingFinalizeAfterTypewriterRef = useRef(false);
+  const finalizeRetryTimerRef = useRef<number | null>(null);
   const prevRouteSessionIdRef = useRef<string | null>(null);
   
   const normalizedResume = useMemo(() => {
@@ -1029,6 +1040,9 @@ export default function SophiaChat() {
         }
         const resp = await fetch(
           `${apiBaseUrl}/api/agent/history/sessions/${conversationId}`,
+          {
+            headers: getAuthHeaders(),
+          },
         );
         if (!mounted) return;
         if (!resp.ok) {
@@ -1128,7 +1142,7 @@ export default function SophiaChat() {
     return () => {
       mounted = false;
     };
-  }, [conversationId, currentSessionId, initialSessionResolved, apiBaseUrl]); // 仅在会话确定后加载
+  }, [conversationId, currentSessionId, initialSessionResolved, apiBaseUrl, getAuthHeaders]); // 仅在会话确定后加载
 
   useEffect(() => {
     if (!lastError) return;
@@ -1499,6 +1513,25 @@ export default function SophiaChat() {
     apiBaseUrl,
   ]);
 
+  const finalizeAfterTypewriter = useCallback(() => {
+    if (!pendingFinalizeAfterTypewriterRef.current) {
+      return;
+    }
+
+    pendingFinalizeAfterTypewriterRef.current = false;
+
+    if (finalizeRetryTimerRef.current !== null) {
+      window.clearTimeout(finalizeRetryTimerRef.current);
+      finalizeRetryTimerRef.current = null;
+    }
+
+    finalizeMessage();
+
+    window.setTimeout(() => {
+      isFinalizedRef.current = false;
+    }, 150);
+  }, [finalizeMessage]);
+
   const refreshSessions = useCallback(() => {
     setSessionsRefreshKey((prev) => prev + 1);
   }, []);
@@ -1675,7 +1708,7 @@ export default function SophiaChat() {
               `${apiBaseUrl}/api/agent/history/sessions/${validSessionId}/save`,
               {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: getAuthHeaders({ "Content-Type": "application/json" }),
                 body: JSON.stringify({
                   messages: payload,
                   client_save_seq: clientSaveSeq,
@@ -1706,7 +1739,7 @@ export default function SophiaChat() {
               `${apiBaseUrl}/api/agent/history/sessions/${validSessionId}/append`,
               {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: getAuthHeaders({ "Content-Type": "application/json" }),
                 body: JSON.stringify({
                   base_seq: knownPersistedCount,
                   messages_delta: buildSavePayload(deltaMessages),
@@ -1802,7 +1835,13 @@ export default function SophiaChat() {
       })();
       await saveInFlightRef.current;
     },
-    [conversationId, buildSavePayload, computeLastMessageHash, refreshSessions],
+    [
+      conversationId,
+      buildSavePayload,
+      computeLastMessageHash,
+      getAuthHeaders,
+      refreshSessions,
+    ],
   );
 
   const schedulePersistSessionSnapshot = useCallback(
@@ -1926,6 +1965,7 @@ export default function SophiaChat() {
         `${apiBaseUrl}/api/agent/history/${sessionId}`,
         {
           method: "DELETE",
+          headers: getAuthHeaders(),
         },
       );
       if (!resp.ok) throw new Error(`Failed to delete session: ${resp.status}`);
@@ -2035,7 +2075,7 @@ export default function SophiaChat() {
         `${apiBaseUrl}/api/agent/history/sessions/${sessionId}/title`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({ title: trimmedTitle }),
         },
       );
@@ -2075,6 +2115,9 @@ export default function SophiaChat() {
     try {
       const resp = await fetch(
         `${apiBaseUrl}/api/agent/history/sessions/${sessionId}`,
+        {
+          headers: getAuthHeaders(),
+        },
       );
 
       if (!resp.ok) {
@@ -2420,52 +2463,48 @@ export default function SophiaChat() {
       return;
     }
     lastHandledAnswerCompleteRef.current = answerCompleteCount;
+    pendingFinalizeAfterTypewriterRef.current = true;
 
-    const hasContent =
-      currentAnswerRef.current.trim() ||
-      currentThoughtRef.current.trim() ||
-      currentAnswer.trim() ||
-      currentThought.trim();
-    if (hasContent) {
+    const currentAnswerValue = currentAnswerRef.current.trim() || currentAnswer.trim();
+    const currentThoughtValue = currentThoughtRef.current.trim() || currentThought.trim();
+    const hasAnyContent = currentAnswerValue || currentThoughtValue;
+
+    if (hasAnyContent) {
       lastCompletedRef.current = {
-        thought: currentThoughtRef.current.trim() || currentThought.trim(),
-        answer: currentAnswerRef.current.trim() || currentAnswer.trim(),
+        thought: currentThoughtValue,
+        answer: currentAnswerValue,
         at: Date.now(),
       };
     }
-    // True-streaming path: finalize immediately when backend marks answer complete.
-    // Use a small delay to ensure refs are fully synchronized with the latest chunks.
-    const finalizeWithRetry = (retryCount = 0) => {
-      const currentAnswerValue = currentAnswerRef.current.trim() || currentAnswer.trim();
-      const currentThoughtValue = currentThoughtRef.current.trim() || currentThought.trim();
-      const hasAnyContent = currentAnswerValue || currentThoughtValue;
 
-      if (!hasAnyContent && retryCount < 3) {
-        setTimeout(() => finalizeWithRetry(retryCount + 1), 50 * (retryCount + 1));
+    // Fallback: if打字机回调没有触发（例如空回答），短延时后兜底完成。
+    if (finalizeRetryTimerRef.current !== null) {
+      window.clearTimeout(finalizeRetryTimerRef.current);
+    }
+    finalizeRetryTimerRef.current = window.setTimeout(() => {
+      if (!pendingFinalizeAfterTypewriterRef.current) {
+        finalizeRetryTimerRef.current = null;
         return;
       }
 
-      if (hasAnyContent) {
-        lastCompletedRef.current = {
-          thought: currentThoughtValue,
-          answer: currentAnswerValue,
-          at: Date.now(),
-        };
+      const fallbackAnswer = currentAnswerRef.current.trim() || currentAnswer.trim();
+      const fallbackThought = currentThoughtRef.current.trim() || currentThought.trim();
+      if (fallbackAnswer || fallbackThought) {
+        finalizeAfterTypewriter();
+      } else {
+        pendingFinalizeAfterTypewriterRef.current = false;
       }
+      finalizeRetryTimerRef.current = null;
+    }, 800);
+  }, [answerCompleteCount, currentAnswer, currentThought, finalizeAfterTypewriter]);
 
-      finalizeMessage();
-      
-      setTimeout(() => {
-        isFinalizedRef.current = false;
-      }, 150);
+  useEffect(() => {
+    return () => {
+      if (finalizeRetryTimerRef.current !== null) {
+        window.clearTimeout(finalizeRetryTimerRef.current);
+      }
     };
-
-    finalizeWithRetry();
-  }, [
-    answerCompleteCount,
-    finalizeMessage,
-    finalizeStream,
-  ]);
+  }, []);
 
   /**
    * Send message to backend via SSE
@@ -3035,6 +3074,7 @@ export default function SophiaChat() {
                   currentThought={currentThought}
                   currentAnswer={currentAnswer}
                   isProcessing={isProcessing}
+                  onResponseTypewriterComplete={finalizeAfterTypewriter}
                   shouldHideResponseInChat={shouldHideResponseInChat}
                   currentSearch={searchResults.find((r) => r.messageId === "current")}
                   renderSearchCard={(searchData) => (

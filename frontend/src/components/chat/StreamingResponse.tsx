@@ -14,6 +14,8 @@ export interface StreamingResponseProps {
   isStreaming?: boolean;
   /** CSS 类名 */
   className?: string;
+  /** 打字机完成回调 */
+  onTypewriterComplete?: () => void;
 }
 
 /**
@@ -27,6 +29,7 @@ export default function StreamingResponse({
   canStart,
   isStreaming = true,
   className = "text-gray-800 mb-6",
+  onTypewriterComplete,
 }: StreamingResponseProps) {
   // 如果不能开始或没有内容，不显示
   if (!canStart || !content) {
@@ -41,6 +44,7 @@ export default function StreamingResponse({
     burstThreshold: 0,
     maxCharsPerFrame: 1,
     smoothingWindowMs: 140,
+    onComplete: onTypewriterComplete,
   });
 
   const textToShow = isStreaming ? displayedText : content;

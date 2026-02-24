@@ -67,6 +67,12 @@ export function RecentSessions({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
+  const getAuthHeaders = useCallback((extra: Record<string, string> = {}) => {
+    const token = localStorage.getItem("auth_token");
+    return token
+      ? { ...extra, Authorization: `Bearer ${token}` }
+      : { ...extra };
+  }, []);
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -107,9 +113,9 @@ export function RecentSessions({
             `${apiBaseUrl}/api/agent/history/sessions/list?page=${page}&page_size=${PAGE_SIZE}`,
             {
               cache: 'no-cache',
-              headers: {
+              headers: getAuthHeaders({
                 'Cache-Control': 'no-cache',
-              },
+              }),
             }
           );
           if (!resp.ok) {
@@ -140,7 +146,7 @@ export function RecentSessions({
         }
       }
     },
-    [apiBaseUrl, parseErrorMessage]
+    [apiBaseUrl, getAuthHeaders, parseErrorMessage]
   );
 
   const refreshSessions = useCallback(async () => {
@@ -232,9 +238,9 @@ export function RecentSessions({
       setIsLoading(true);
       const response = await fetch(`${apiBaseUrl}/api/agent/history/sessions/all`, {
         method: 'DELETE',
-        headers: {
+        headers: getAuthHeaders({
           'Content-Type': 'application/json',
-        },
+        }),
       });
 
       if (!response.ok) {

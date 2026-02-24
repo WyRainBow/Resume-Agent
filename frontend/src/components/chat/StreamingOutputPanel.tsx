@@ -37,6 +37,8 @@ export interface StreamingOutputPanelProps {
   renderSearchCard?: (searchData: any) => React.ReactNode;
   /** 额外的渲染内容（可选，如 ReportGenerationDetector） */
   children?: React.ReactNode;
+  /** 回答区打字机完成回调 */
+  onResponseTypewriterComplete?: () => void;
 }
 
 /**
@@ -57,6 +59,7 @@ export default function StreamingOutputPanel({
   currentSearch,
   renderSearchCard,
   children,
+  onResponseTypewriterComplete,
 }: StreamingOutputPanelProps) {
   const processingStartRef = useRef(0);
   const firstVisibleLoggedRef = useRef(false);
@@ -116,6 +119,7 @@ export default function StreamingOutputPanel({
         content={answer}
         canStart={!shouldHideResponseInChat}
         isStreaming={processing}
+        onTypewriterComplete={onResponseTypewriterComplete}
       />
 
       {/* 4. 额外的检测器或卡片 */}

@@ -62,7 +62,9 @@ class FileConversationStorage:
             title = _first_non_empty(messages)
         return (title or "New Conversation")[:40]
 
-    def save_session(self, session_id: str, messages: List[Message]) -> ConversationMeta:
+    def save_session(
+        self, session_id: str, messages: List[Message], user_id: Optional[int] = None
+    ) -> ConversationMeta:
         now = datetime.now().isoformat()
         path = self._session_path(session_id)
         created_at = now
@@ -98,7 +100,9 @@ class FileConversationStorage:
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
         return meta
 
-    def load_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def load_session(
+        self, session_id: str, user_id: Optional[int] = None
+    ) -> Optional[Dict[str, Any]]:
         path = self._session_path(session_id)
         if not path.exists():
             return None
@@ -107,7 +111,7 @@ class FileConversationStorage:
         except Exception:
             return None
 
-    def list_sessions(self) -> List[ConversationMeta]:
+    def list_sessions(self, user_id: Optional[int] = None) -> List[ConversationMeta]:
         metas: List[ConversationMeta] = []
         for path in sorted(self.base_dir.glob("*.json")):
             try:
@@ -125,15 +129,17 @@ class FileConversationStorage:
                 continue
         return metas
 
-    def delete_session(self, session_id: str) -> bool:
+    def delete_session(self, session_id: str, user_id: Optional[int] = None) -> bool:
         path = self._session_path(session_id)
         if not path.exists():
             return False
         path.unlink()
         return True
 
-    def update_session_title(self, session_id: str, title: str) -> Optional[ConversationMeta]:
-        data = self.load_session(session_id)
+    def update_session_title(
+        self, session_id: str, title: str, user_id: Optional[int] = None
+    ) -> Optional[ConversationMeta]:
+        data = self.load_session(session_id, user_id=user_id)
         if not data:
             return None
 
@@ -154,8 +160,10 @@ class FileConversationStorage:
             message_count=data.get("message_count", 0),
         )
 
-    def export_session(self, session_id: str, export_path: str, fmt: str = "json") -> str:
-        data = self.load_session(session_id)
+    def export_session(
+        self, session_id: str, export_path: str, fmt: str = "json", user_id: Optional[int] = None
+    ) -> str:
+        data = self.load_session(session_id, user_id=user_id)
         if not data:
             raise FileNotFoundError("Session not found")
 
@@ -175,8 +183,8 @@ class FileConversationStorage:
             export_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         return str(export_file)
 
-    def load_messages(self, session_id: str) -> List[Message]:
-        data = self.load_session(session_id)
+    def load_messages(self, session_id: str, user_id: Optional[int] = None) -> List[Message]:
+        data = self.load_session(session_id, user_id=user_id)
         if not data:
             return []
         messages = []
@@ -192,9 +200,10 @@ class FileConversationStorage:
         session_id: str,
         base_seq: int,
         messages_delta: List[Message],
+        user_id: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Append messages incrementally with base sequence check."""
-        existing = self.load_messages(session_id)
+        existing = self.load_messages(session_id, user_id=user_id)
         existing_count = len(existing)
 
         if base_seq < 0:
@@ -206,7 +215,7 @@ class FileConversationStorage:
             tail_sig = [self._serialize_message(m) for m in tail]
             delta_sig = [self._serialize_message(m) for m in messages_delta]
             if tail_sig == delta_sig:
-                meta = self.save_session(session_id, existing)
+                meta = self.save_session(session_id, existing, user_id=user_id)
                 return {
                     "conflict": False,
                     "skipped": True,
@@ -226,7 +235,7 @@ class FileConversationStorage:
             }
 
         merged = existing + messages_delta
-        meta = self.save_session(session_id, merged)
+        meta = self.save_session(session_id, merged, user_id=user_id)
         return {
             "conflict": False,
             "skipped": len(messages_delta) == 0,
