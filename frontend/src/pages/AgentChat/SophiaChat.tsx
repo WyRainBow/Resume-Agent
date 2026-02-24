@@ -635,6 +635,7 @@ export default function SophiaChat() {
   const selectedResumePdfState = selectedResumeId
     ? resumePdfPreview[selectedResumeId] || EMPTY_RESUME_PDF_STATE
     : EMPTY_RESUME_PDF_STATE;
+  const isResumePreviewActive = Boolean(selectedResumeId && !selectedReportId);
 
   const updateResumePdfState = useCallback(
     (id: string, patch: Partial<ResumePdfPreviewState>) => {
@@ -2068,15 +2069,6 @@ export default function SophiaChat() {
       setSelectedResumeId(selectedResume.id);
       setSelectedReportId(null);
 
-      // 添加一条系统消息告知用户简历已加载
-      const systemMessage: Message = {
-        id: messageId,
-        role: "assistant",
-        content: `已加载简历「${selectedResume.name}」，现在可以对这份简历进行操作了。`,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => [...prev, systemMessage]);
-
       // 清除暂存的输入
       setPendingResumeInput("");
 
@@ -3055,6 +3047,8 @@ export default function SophiaChat() {
                           className={`h-8 px-2.5 rounded-md border flex items-center gap-1.5 transition-colors ${
                             isProcessing
                               ? "border-slate-200 dark:border-slate-600 text-slate-300 dark:text-slate-500 cursor-not-allowed"
+                              : isResumePreviewActive
+                              ? "border-indigo-300 bg-indigo-50 text-indigo-600 shadow-sm dark:border-indigo-500/60 dark:bg-indigo-500/15 dark:text-indigo-300"
                               : "border-slate-300 dark:border-slate-600 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 dark:hover:border-indigo-500"
                           }`}
                           title="展示简历"
