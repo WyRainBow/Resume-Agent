@@ -1223,23 +1223,40 @@ export default function SophiaChat() {
         const data = await resp.json();
         setResumeError(null);
 
-        // 🔧 恢复 UI 数据（懒加载模式）
-        // 仅恢复可点击的数据，不自动恢复右侧选中态（selectedResumeId/selectedReportId），
-        // 以避免进入页面就触发 PDF/报告加载。右侧预览改为用户点击卡片后再打开。
+        // 🔧 恢复 UI 数据（包含右侧选中态），避免“展示简历后又自动消失”。
         try {
           const savedUiState = localStorage.getItem(
             `ui_state:${conversationId}`,
           );
           if (savedUiState) {
-            const { loadedResumes: sLrs } = JSON.parse(savedUiState);
+            const {
+              loadedResumes: sLrs,
+              selectedResumeId: savedSelectedResumeId,
+              selectedReportId: savedSelectedReportId,
+            } = JSON.parse(savedUiState);
             // 恢复已加载列表的元数据，数据会在后续逻辑中通过消息或重新加载补齐
             if (Array.isArray(sLrs) && sLrs.length > 0) {
               setLoadedResumes(sLrs);
             }
-            // 懒加载：进入页面默认关闭右侧预览，等待用户点击卡片再恢复
-            setSelectedResumeId(null);
-            setSelectedReportId(null);
-            setAllowPdfAutoRender(false);
+            if (
+              typeof savedSelectedResumeId === "string" &&
+              savedSelectedResumeId.trim() !== ""
+            ) {
+              setSelectedResumeId(savedSelectedResumeId);
+              setSelectedReportId(null);
+              setAllowPdfAutoRender(true);
+            } else if (
+              typeof savedSelectedReportId === "string" &&
+              savedSelectedReportId.trim() !== ""
+            ) {
+              setSelectedReportId(savedSelectedReportId);
+              setSelectedResumeId(null);
+              setAllowPdfAutoRender(false);
+            } else {
+              setSelectedResumeId(null);
+              setSelectedReportId(null);
+              setAllowPdfAutoRender(false);
+            }
           }
         } catch (e) {
           console.warn("[AgentChat] Failed to restore UI state:", e);
@@ -2341,13 +2358,32 @@ export default function SophiaChat() {
         (m: any) => m.role === "user" || m.role === "assistant",
       );
 
-      // 懒加载模式：恢复会话级“可点击数据”，但不自动恢复右侧选中态
+      // 恢复会话级 UI 状态（包含右侧选中态）
       try {
         const savedUiState = localStorage.getItem(`ui_state:${sessionId}`);
         if (savedUiState) {
-          const { loadedResumes: sLrs } = JSON.parse(savedUiState);
+          const {
+            loadedResumes: sLrs,
+            selectedResumeId: savedSelectedResumeId,
+            selectedReportId: savedSelectedReportId,
+          } = JSON.parse(savedUiState);
           if (Array.isArray(sLrs) && sLrs.length > 0) {
             setLoadedResumes(sLrs);
+          }
+          if (
+            typeof savedSelectedResumeId === "string" &&
+            savedSelectedResumeId.trim() !== ""
+          ) {
+            setSelectedResumeId(savedSelectedResumeId);
+            setSelectedReportId(null);
+            setAllowPdfAutoRender(true);
+          } else if (
+            typeof savedSelectedReportId === "string" &&
+            savedSelectedReportId.trim() !== ""
+          ) {
+            setSelectedReportId(savedSelectedReportId);
+            setSelectedResumeId(null);
+            setAllowPdfAutoRender(false);
           }
         }
       } catch (e) {

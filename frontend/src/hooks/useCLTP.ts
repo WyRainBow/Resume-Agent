@@ -95,6 +95,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
     const chunkWindowStartedAtRef = useRef(0);
     const chunkWindowCountRef = useRef(0);
     const hasRealThoughtRef = useRef(false);
+    const hasCompletedCurrentRunRef = useRef(false);
 
     // Initialize CLTP Session
     useEffect(() => {
@@ -116,6 +117,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
         chunkWindowStartedAtRef.current = 0;
         chunkWindowCountRef.current = 0;
         hasRealThoughtRef.current = false;
+        hasCompletedCurrentRunRef.current = false;
         if (flushRafRef.current !== null) {
             cancelAnimationFrame(flushRafRef.current);
             flushRafRef.current = null;
@@ -276,6 +278,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
                 currentAnswerRef.current = text;
                 recordChunkMetric('plain');
                 flushNow();
+                hasCompletedCurrentRunRef.current = true;
                 setAnswerCompleteCount((count) => {
                     return count + 1;
                 });
@@ -284,11 +287,23 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
 
         const unsubscribeSpanStart = session.events.on('span:start', () => {
             setIsProcessing(true);
+            hasCompletedCurrentRunRef.current = false;
         });
 
         const unsubscribeSpanEnd = session.events.on('span:end', () => {
-            // Span 结束时，等待消息完成后再设置 isProcessing = false
-            // 这里不立即设置，让 message:complete 事件处理
+            // 某些后端路径可能没有发送 plain channel 的 done chunk（is_complete=true），
+            // 导致 message:complete 不触发。这里在 run 结束时兜底补一次 complete 信号。
+            if (hasCompletedCurrentRunRef.current) {
+                return;
+            }
+            const thought = (currentThoughtRef.current || pendingThoughtRef.current || '').trim();
+            const answer = (currentAnswerRef.current || pendingAnswerRef.current || '').trim();
+            if (!thought && !answer) {
+                return;
+            }
+            hasCompletedCurrentRunRef.current = true;
+            flushNow();
+            setAnswerCompleteCount((count) => count + 1);
         });
 
         // Connect to transport
