@@ -550,9 +550,10 @@ export default function SophiaChat() {
   // 初始化会话：有 sessionId 用指定会话；否则默认加载“最新会话”
   useEffect(() => {
     let mounted = true;
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(location.search);
     const explicitSessionId = params.get("sessionId");
     const hasExplicitId = !!explicitSessionId?.trim();
+    const token = localStorage.getItem("auth_token");
 
     if (hasExplicitId) {
       // URL 显式指定会话时，不做额外探测
@@ -560,6 +561,14 @@ export default function SophiaChat() {
       if (conversationId !== sid) {
         setConversationId(sid);
       }
+      setInitialSessionResolved(true);
+      return () => {
+        mounted = false;
+      };
+    }
+
+    if (!token) {
+      // 未登录时不请求历史会话，直接进入新会话状态
       setInitialSessionResolved(true);
       return () => {
         mounted = false;
@@ -575,6 +584,10 @@ export default function SophiaChat() {
           },
         );
         if (!mounted) return;
+        if (resp.status === 401) {
+          // token 失效或登录态未就绪：保持新会话，不报错
+          return;
+        }
         if (resp.ok) {
           const data = await resp.json();
           const latest = Array.isArray(data?.sessions)
@@ -601,7 +614,7 @@ export default function SophiaChat() {
     return () => {
       mounted = false;
     };
-  }, [apiBaseUrl, getAuthHeaders, navigate]);
+  }, [apiBaseUrl, getAuthHeaders, navigate, location.search, conversationId]);
 
   // 简历选择器状态
   const [showResumeSelector, setShowResumeSelector] = useState(false);
@@ -1050,6 +1063,20 @@ export default function SophiaChat() {
       return;
     }
 
+    const routeSessionId =
+      new URLSearchParams(location.search).get("sessionId")?.trim() || null;
+    const isEphemeralConversation =
+      !routeSessionId && conversationId.startsWith("conv-");
+
+    // /agent/new 的本地临时会话不走后端加载，避免 404 Session not found
+    if (isEphemeralConversation) {
+      if (currentSessionId !== conversationId) {
+        setCurrentSessionId(conversationId);
+      }
+      setResumeError(null);
+      return;
+    }
+
     // 如果已经加载了当前会话ID，不重复加载
     if (currentSessionId === conversationId) {
       return;
@@ -1170,7 +1197,7 @@ export default function SophiaChat() {
     return () => {
       mounted = false;
     };
-  }, [conversationId, currentSessionId, initialSessionResolved, apiBaseUrl, getAuthHeaders]); // 仅在会话确定后加载
+  }, [conversationId, currentSessionId, initialSessionResolved, apiBaseUrl, getAuthHeaders, location.search]); // 仅在会话确定后加载
 
   useEffect(() => {
     if (!lastError) return;

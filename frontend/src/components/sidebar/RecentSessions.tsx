@@ -3,6 +3,7 @@ import { Check, Loader2, MessageSquare, Pencil, Plus, RefreshCw, Trash2, X, Tras
 import { SidebarTooltip } from './SidebarTooltip';
 import CustomScrollbar from '../common/CustomScrollbar';
 import { useEnvironment } from '@/contexts/EnvironmentContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const PAGE_SIZE = 20;
 
@@ -55,6 +56,7 @@ export function RecentSessions({
   refreshKey = 0,
 }: RecentSessionsProps) {
   const { apiBaseUrl } = useEnvironment();  // 动态获取 API 地址
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -103,6 +105,18 @@ export function RecentSessions({
 
   const fetchPage = useCallback(
     async (page: number, mode: 'replace' | 'append' = 'replace') => {
+      const token = localStorage.getItem("auth_token");
+      if (!token) {
+        setSessions([]);
+        setPagination({
+          total: 0,
+          page: 1,
+          page_size: PAGE_SIZE,
+          total_pages: 1,
+        });
+        setErrorMessage(null);
+        return;
+      }
       const retries = [0, 1000, 2000];
       for (let i = 0; i < retries.length; i++) {
         try {
@@ -165,8 +179,21 @@ export function RecentSessions({
 
   // refreshKey 变化或环境切换时刷新，避免双 effect 造成重复请求
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      setSessions([]);
+      setPagination({
+        total: 0,
+        page: 1,
+        page_size: PAGE_SIZE,
+        total_pages: 1,
+      });
+      setIsLoading(false);
+      setErrorMessage(null);
+      return;
+    }
     refreshSessions();
-  }, [apiBaseUrl, refreshKey, refreshSessions]);
+  }, [apiBaseUrl, refreshKey, refreshSessions, isAuthenticated, authLoading]);
 
   useEffect(() => {
     if (!loadMoreRef.current || !listContainerRef.current) return;

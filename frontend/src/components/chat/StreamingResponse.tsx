@@ -31,13 +31,8 @@ export default function StreamingResponse({
   className = "text-gray-800 mb-6",
   onTypewriterComplete,
 }: StreamingResponseProps) {
-  // 如果不能开始或没有内容，不显示
-  if (!canStart || !content) {
-    return null;
-  }
-
   const { displayedText } = useTextStream({
-    textStream: content,
+    textStream: content || "",
     mode: "typewriter",
     speed: 13,
     streamMode: "burst-smoothed",
@@ -47,6 +42,11 @@ export default function StreamingResponse({
     smoothingWindowMs: 110,
     onComplete: onTypewriterComplete,
   });
+
+  // 如果不能开始或没有内容，不显示
+  if (!canStart || !content) {
+    return null;
+  }
 
   const textToShow = isStreaming ? displayedText : content;
 
