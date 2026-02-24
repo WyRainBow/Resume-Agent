@@ -342,10 +342,10 @@ export function SidePanel({
                       type="button"
                       onClick={() => updateGlobalSettings({ latexFontSize: opt.value })}
                       className={cn(
-                        'flex-1 min-w-0 px-1.5 py-1 text-[11px] font-medium rounded-md border transition-all',
+                        'flex-1 min-w-0 px-1.5 py-1 text-[11px] font-bold rounded-md border transition-all',
                         isActive
-                          ? 'bg-slate-900 text-white border-slate-900 shadow-lg shadow-slate-200'
-                          : 'bg-white border-slate-200 text-slate-700 dark:text-slate-300 hover:border-slate-900 hover:bg-slate-50'
+                          ? 'bg-slate-200 text-slate-900 border-slate-300 shadow-sm dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600'
+                          : 'bg-white border-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:border-slate-400 hover:text-slate-900'
                       )}
                     >
                       {opt.label}

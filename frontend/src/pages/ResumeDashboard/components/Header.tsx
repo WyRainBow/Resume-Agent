@@ -52,31 +52,6 @@ export const Header: React.FC<HeaderProps> = ({
       transition={{ duration: 0.5, ease: "easeOut" }}
     >
       <div className="flex items-center space-x-6">
-        <div
-          className="flex items-center gap-4 cursor-pointer group"
-          onClick={() => navigate("/")}
-        >
-          <div className="w-14 h-14 bg-slate-900 dark:bg-white rounded-2xl flex items-center justify-center shadow-xl shadow-slate-200 dark:shadow-none group-hover:scale-105 group-hover:rotate-3 transition-all duration-300">
-            <span className="text-white dark:text-slate-900 font-black text-2xl italic">
-              RA
-            </span>
-          </div>
-          <div className="flex flex-col">
-            <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white leading-none">
-              Resume.AI
-            </h1>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-bold tracking-[0.2em] uppercase">
-                Dashboard
-              </span>
-              <div className="h-1 w-1 rounded-full bg-slate-300" />
-              <span className="text-xs text-slate-400 font-medium">
-                共 {totalCount} 份简历
-              </span>
-            </div>
-          </div>
-        </div>
-
         {selectedCount > 0 && (
           <motion.div
             initial={{ opacity: 0, x: -10 }}
