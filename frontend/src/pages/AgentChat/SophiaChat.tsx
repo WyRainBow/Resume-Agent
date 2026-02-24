@@ -431,6 +431,9 @@ interface ResumeStructuredData {
   resume_data?: ResumeData;
   required?: boolean;
   message?: string;
+  source?: string;
+  trigger?: string;
+  intent_source?: string;
 }
 
 // ============================================================================
@@ -640,6 +643,7 @@ export default function SophiaChat() {
   const pendingFinalizeAfterTypewriterRef = useRef(false);
   const finalizeRetryTimerRef = useRef<number | null>(null);
   const prevRouteSessionIdRef = useRef<string | null>(null);
+  const handledResumeSelectorToolCallsRef = useRef<Set<string>>(new Set());
   
   const normalizedResume = useMemo(() => {
     if (!resumeData) return null;
@@ -845,6 +849,22 @@ export default function SophiaChat() {
       if (event.type !== "tool_result") return;
       const toolName = event.data?.tool;
       const structured = event.data?.structured_data;
+      const toolCallId =
+        (event.data?.tool_call_id as string | undefined) ||
+        `fallback-${String(event.data?.content || JSON.stringify(event.data || {}))}`;
+
+      if (toolName === "show_resume" && (!structured || typeof structured !== "object")) {
+        if (!handledResumeSelectorToolCallsRef.current.has(toolCallId)) {
+          handledResumeSelectorToolCallsRef.current.add(toolCallId);
+          console.warn(
+            "[AgentChat] show_resume missing structured_data, fallback to resume selector",
+            event.data,
+          );
+          setResumeError(null);
+          setShowResumeSelector(true);
+        }
+        return;
+      }
       if (!structured || typeof structured !== "object") return;
 
       if (toolName === "web_search") {
@@ -870,6 +890,10 @@ export default function SophiaChat() {
       if (toolName === "show_resume") {
         const resumePayload = structured as ResumeStructuredData;
         if (resumePayload.type === "resume_selector") {
+          if (handledResumeSelectorToolCallsRef.current.has(toolCallId)) {
+            return;
+          }
+          handledResumeSelectorToolCallsRef.current.add(toolCallId);
           setResumeError(null);
           setShowResumeSelector(true);
           return;
@@ -879,6 +903,10 @@ export default function SophiaChat() {
     },
     [upsertSearchResult, upsertLoadedResume],
   );
+
+  useEffect(() => {
+    handledResumeSelectorToolCallsRef.current.clear();
+  }, [conversationId]);
 
   const {
     currentThought,

@@ -1,25 +1,25 @@
 name: cv_reader_agent
 keywords:
   - 读取简历
-  - 加载简历
-  - 查看简历
+  - 加载简历文件
+  - 导入简历文件
+  - 读取简历文件
   - 简历内容
   - 简历数据
   - 简历信息
-  - read resume
-  - load resume
-  - view resume
+  - read resume file
+  - load resume file
+  - import resume file
   - resume data
 patterns:
-  - ".*(读取|加载|查看|显示).*简历.*"
+  - ".*(读取|加载|导入).*(简历|resume).*(文件|路径|path|/|\\\\|\\.).*"
   - ".*简历.*(内容|数据|信息).*"
 examples:
   - "读取我的简历"
-  - "加载简历文件"
-  - "查看简历内容"
+  - "加载简历文件 /tmp/resume.md"
+  - "导入简历路径 C:\\resume.md"
   - "显示简历数据"
-priority: 1.0
-
+priority: 0.9
 
 
 

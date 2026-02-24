@@ -116,6 +116,9 @@ class ToolCallAgent(ReActAgent):
 
         # show_resume
         try:
+            intent_meta = getattr(self, "_last_intent_info", {}) or {}
+            intent_source = intent_meta.get("intent_source", "unknown")
+            trigger = intent_meta.get("trigger", "unknown")
             from backend.agent.tool.resume_data_store import ResumeDataStore
 
             resume_data = ResumeDataStore.get_data(getattr(self, "session_id", None))
@@ -124,6 +127,9 @@ class ToolCallAgent(ReActAgent):
                     "type": "resume_selector",
                     "required": True,
                     "message": "Please choose a resume: create new or select existing.",
+                    "source": "show_resume",
+                    "trigger": trigger,
+                    "intent_source": intent_source,
                 }
                 return
 
@@ -139,6 +145,9 @@ class ToolCallAgent(ReActAgent):
                 "user_id": user_id,
                 "name": resume_name,
                 "resume_data": resume_data,
+                "source": "show_resume",
+                "trigger": trigger,
+                "intent_source": intent_source,
             }
         except Exception:
             return

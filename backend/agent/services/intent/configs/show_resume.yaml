@@ -1,0 +1,20 @@
+name: show_resume
+keywords:
+  - 加载我的简历
+  - 加载简历
+  - 打开简历
+  - 查看简历
+  - 选择简历
+  - 切换简历
+  - load my resume
+  - show my resume
+  - choose resume
+  - switch resume
+patterns:
+  - ".*(加载|打开|查看|选择|切换).*(我的)?简历.*"
+  - ".*(load|show|choose|switch).*(my\\s+)?(resume|cv).*"
+examples:
+  - "加载我的简历"
+  - "选择已有简历"
+  - "切换简历"
+priority: 1.2

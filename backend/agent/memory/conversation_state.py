@@ -11,12 +11,16 @@ from pydantic import BaseModel, Field
 from datetime import datetime
 import json
 import os
+import re
 
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
 FAST_GREETING_ENABLED = (
     os.getenv("AGENT_FAST_GREETING_ENABLED", "true").strip().lower() != "false"
+)
+FAST_LOAD_RESUME_ENABLED = (
+    os.getenv("AGENT_FAST_LOAD_RESUME_ENABLED", "true").strip().lower() != "false"
 )
 
 # 可选导入新的意图识别系统
@@ -147,6 +151,61 @@ class ConversationStateManager:
         # 允许轻微标点和空白
         normalized = text.replace("！", "").replace("!", "").replace("。", "").strip()
         return normalized in direct_hits
+
+    def is_fast_load_resume(self, user_input: str) -> bool:
+        """本地快速识别「加载我的简历」相关意图，不触发 LLM。"""
+        if not FAST_LOAD_RESUME_ENABLED:
+            return False
+
+        raw = (user_input or "").strip()
+        if not raw:
+            return False
+
+        text = raw.lower()
+        fast_patterns = [
+            "加载我的简历",
+            "加载简历",
+            "打开简历",
+            "查看简历",
+            "选择简历",
+            "切换简历",
+            "load my resume",
+            "load resume",
+            "show my resume",
+            "show resume",
+            "choose resume",
+            "switch resume",
+        ]
+
+        return any(pattern in text for pattern in fast_patterns)
+
+    @staticmethod
+    def _extract_resume_file_path(user_input: str) -> Optional[str]:
+        """从输入中提取简历文件路径（用于 cv_reader_agent）。"""
+        raw = (user_input or "").strip()
+        if not raw:
+            return None
+
+        patterns = [
+            r"(?:加载|导入|读取)\s*简历(?:文件)?\s*[:：]?\s*([^\s]+)",
+            r"(?:load|import|read)\s*(?:resume|cv)\s*[:：]?\s*([^\s]+)",
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, raw, re.IGNORECASE)
+            if match:
+                candidate = (match.group(1) or "").strip().strip("'\"")
+                if candidate:
+                    return candidate
+
+        direct_path = re.search(
+            r"((?:/|~\/|\.\/|\.\./)[^\s]+|[A-Za-z]:\\[^\s]+|[^\s]+\.(?:md|txt|json|yaml|yml|pdf|docx?))",
+            raw,
+            re.IGNORECASE,
+        )
+        if direct_path:
+            return direct_path.group(1).strip().strip("'\"")
+
+        return None
 
     async def classify_intent_with_llm(
         self,
@@ -318,6 +377,23 @@ class ConversationStateManager:
                 "should_skip_llm": True,
                 "enhanced_query": user_input,
                 "intent_result": None,
+                "intent_source": "fast_rule",
+            }
+
+        # 🚀 快速加载简历路径：本地规则优先，不走 LLM 意图分类
+        if self.is_fast_load_resume(user_input):
+            file_path = self._extract_resume_file_path(user_input)
+            tool_name = "cv_reader_agent" if file_path else "show_resume"
+            tool_args = {"file_path": file_path} if file_path else {}
+            return {
+                "intent": Intent.LOAD_RESUME,
+                "tool": tool_name,
+                "tool_args": tool_args,
+                "context_prompt": "",
+                "should_skip_llm": True,
+                "enhanced_query": user_input,
+                "intent_result": None,
+                "intent_source": "fast_rule",
             }
 
         # 如果使用增强意图识别系统
@@ -342,29 +418,37 @@ class ConversationStateManager:
                         "should_skip_llm": False,
                         "enhanced_query": enhanced_query,
                         "intent_result": intent_result,
+                        "intent_source": "enhanced_rule",
                     }
                     self.context.state = ConversationState.GREETING
                     return result
 
                 # 检查是否识别到工具
                 if intent_result and intent_result.matched_tools:
-                    # 提取文件路径（如果是加载简历）
                     tool_name = intent_result.matched_tools[0]
                     tool_args = {}
+                    top_intent = Intent.UNKNOWN
+
                     if tool_name == "cv_reader_agent":
-                        import re
-                        file_path_match = re.search(r'加载简历\s*([^\s]+)', user_input)
-                        if file_path_match:
-                            tool_args["file_path"] = file_path_match.group(1)
+                        file_path = self._extract_resume_file_path(user_input)
+                        if file_path:
+                            tool_args["file_path"] = file_path
+                            top_intent = Intent.LOAD_RESUME
+                        else:
+                            tool_name = "show_resume"
+                            top_intent = Intent.LOAD_RESUME
+                    elif tool_name == "show_resume":
+                        top_intent = Intent.LOAD_RESUME
 
                     result = {
-                        "intent": Intent.LOAD_RESUME if tool_name == "cv_reader_agent" else Intent.UNKNOWN,
+                        "intent": top_intent,
                         "tool": tool_name,
                         "tool_args": tool_args,
                         "context_prompt": "",
                         "should_skip_llm": False,
                         "enhanced_query": enhanced_query,
                         "intent_result": intent_result,
+                        "intent_source": "enhanced_rule",
                     }
                     return result
 
@@ -379,6 +463,7 @@ class ConversationStateManager:
                         "should_skip_llm": False,
                         "enhanced_query": enhanced_query,
                         "intent_result": intent_result,
+                        "intent_source": "enhanced_rule",
                     }
 
                 result = {
@@ -389,6 +474,7 @@ class ConversationStateManager:
                     "should_skip_llm": False,
                     "enhanced_query": enhanced_query,
                     "intent_result": intent_result,
+                    "intent_source": "enhanced_rule",
                 }
                 return result
 
@@ -409,6 +495,7 @@ class ConversationStateManager:
             "tool_args": {},
             "context_prompt": "",
             "should_skip_llm": False,
+            "intent_source": "llm",
         }
 
         if intent == Intent.GREETING:
@@ -416,17 +503,12 @@ class ConversationStateManager:
             result["tool"] = None
             self.context.state = ConversationState.GREETING
         elif intent == Intent.LOAD_RESUME:
-            # 加载简历 - 调用 cv_reader_agent
-            result["tool"] = "cv_reader_agent"
-            # 从用户输入中提取文件路径
-            # 用户输入格式: "加载简历/path/to/file.md" 或 "加载简历 /path/to/file.md"
-            import re
-            file_path_match = re.search(r'加载简历\s*([^\s]+)', user_input)
-            if file_path_match:
-                file_path = file_path_match.group(1)
+            file_path = self._extract_resume_file_path(user_input) or info.get("file_path")
+            if file_path:
+                result["tool"] = "cv_reader_agent"
                 result["tool_args"] = {"file_path": file_path}
-            elif info.get("file_path"):
-                result["tool_args"] = {"file_path": info["file_path"]}
+            else:
+                result["tool"] = "show_resume"
         else:
             agent_intent, section = self._detect_agent_intent(user_input)
             if agent_intent:

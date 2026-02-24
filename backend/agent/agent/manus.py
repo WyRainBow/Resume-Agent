@@ -529,6 +529,7 @@ class Manus(ToolCallAgent):
         intent = intent_result["intent"]
         tool = intent_result.get("tool")
         tool_args = intent_result.get("tool_args", {})
+        intent_source = intent_result.get("intent_source", "unknown")
         enhanced_query = intent_result.get("enhanced_query", user_input)  # 获取增强后的查询
         intent_result_obj = intent_result.get("intent_result")  # 获取意图识别结果对象
 
@@ -587,6 +588,13 @@ class Manus(ToolCallAgent):
             except Exception as exc:
                 logger.warning(f"委托子 Agent 失败，回退到 LLM 路径: {exc}")
 
+        # 存储本轮意图上下文，供工具结构化结果标注来源
+        self._last_intent_info = {
+            "intent": intent.value if hasattr(intent, "value") else str(intent),
+            "intent_source": intent_source,
+            "trigger": "load_resume_intent" if intent == Intent.LOAD_RESUME else "general_intent",
+        }
+
         # 🔑 特殊处理：检查是否刚应用了优化
         if getattr(self, '_just_applied_optimization', False):
             self._just_applied_optimization = False
@@ -613,14 +621,6 @@ class Manus(ToolCallAgent):
 
         # 🎯 LOAD_RESUME 意图：直接调用工具
         if tool and self._conversation_state.should_use_tool_directly(intent):
-            if intent == Intent.LOAD_RESUME and self._conversation_state.context.resume_loaded:
-                logger.info("✅ 简历已加载，跳过重复加载")
-                self.memory.add_message(Message.assistant_message(
-                    "简历已成功加载。您可以告诉我接下来需要做什么，比如「分析简历」或「优化某部分」。"
-                ))
-                from backend.agent.schema import AgentState
-                self.state = AgentState.FINISHED
-                return False
             return await self._handle_direct_tool_call(tool, tool_args, intent)
 
         # 🎯 其他意图：交给 LLM 自然处理
@@ -678,6 +678,7 @@ class Manus(ToolCallAgent):
         # 生成说明文本
         descriptions = {
             "cv_reader_agent": "我将先加载您的简历数据",
+            "show_resume": "我将先打开简历选择面板",
             "cv_analyzer_agent": "我将分析您的简历",
             "cv_editor_agent": "我将编辑您的简历",
         }
@@ -685,6 +686,17 @@ class Manus(ToolCallAgent):
         content = descriptions.get(tool, f"我将调用 {tool} 工具")
         if tool_args.get("section"):
             content += f"，重点优化：{tool_args['section']}"
+        if intent == Intent.LOAD_RESUME:
+            if tool == "cv_reader_agent":
+                content = (
+                    "Thought: 我识别到你要加载指定简历文件，将尝试按路径读取。\n"
+                    "Response: 我正在为你加载该简历文件，稍后会把结果展示到当前会话。"
+                )
+            else:
+                content = (
+                    "Thought: 我识别到你要加载简历，先打开选择面板方便你切换或新建。\n"
+                    "Response: 请在下面选择“创建一份简历”或“选择已有简历”。"
+                )
 
         # 添加 assistant 消息
         self.memory.add_message(

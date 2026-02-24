@@ -62,6 +62,9 @@ If the user query contains a tool tag like `/[tool:tool_name]`, it indicates tha
 - Answer general knowledge questions directly using your own knowledge
 - Call terminate when the task is complete
 - Working language: Chinese
+- 当用户表达“加载/查看/选择/切换简历”且未提供文件路径时，优先调用 `show_resume` 打开选择面板
+- 当用户明确提供简历文件路径时，调用 `cv_reader_agent` 读取该文件
+- 上述“加载简历”场景请保持简短输出：先给一行 Thought，再给一行 Response
 
 ## Communication Style（引导性对话）
 
