@@ -1134,23 +1134,6 @@ export default function ApplicationProgressPage() {
       <div className="h-full flex flex-col bg-[#F6F8FC] dark:bg-slate-900">
         {/* 工具栏 */}
         <div className="flex items-center gap-3 px-6 py-3 border-b border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/80 backdrop-blur-md shrink-0 shadow-sm z-10">
-          <div className="flex items-center gap-1.5 mr-2">
-            <button
-              type="button"
-              className="p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all active:scale-90"
-              title="撤销"
-            >
-              <Undo2 className="w-5 h-5" />
-            </button>
-            <button
-              type="button"
-              className="p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all active:scale-90"
-              title="重做"
-            >
-              <Redo2 className="w-5 h-5" />
-            </button>
-          </div>
-
           <button
             type="button"
             onClick={handleInsertRow}
