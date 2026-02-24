@@ -735,7 +735,7 @@ export default function WorkspaceLayout({
         </div>
 
         {/* 底部：登录组件（与导航风格统一，图标+用户名一行） */}
-        <div className="py-2 px-2 border-t border-slate-100 dark:border-slate-800">
+        <div className="py-4 px-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30">
           <div ref={logoutMenuRef} className="relative">
             {isAuthenticated ? (
               <div className="relative">
@@ -743,29 +743,46 @@ export default function WorkspaceLayout({
                   type="button"
                   onClick={() => setShowLogoutMenu(!showLogoutMenu)}
                   className={cn(
-                    "w-full rounded-lg transition-all duration-200 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
+                    "w-full rounded-xl transition-all duration-300 group",
+                    "bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-sm",
                     sidebarCollapsed
-                      ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                      : "flex items-center gap-2.5 py-2.5 px-2.5",
+                      ? "flex flex-col items-center justify-center gap-1 py-3"
+                      : "flex items-center gap-3 py-2 px-3",
                   )}
                   title={user?.username || user?.email}
                 >
-                  <User className="w-6 h-6 shrink-0" />
+                  <div className="relative shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
+                      <User className="w-5 h-5" />
+                    </div>
+                    <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" />
+                  </div>
                   {!sidebarCollapsed && (
-                    <span className="text-base font-medium truncate text-left">
-                      {user?.username || user?.email}
-                    </span>
+                    <div className="flex flex-col items-start min-w-0 flex-1">
+                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate w-full text-left">
+                        {user?.username || user?.email}
+                      </span>
+                    </div>
+                  )}
+                  {!sidebarCollapsed && (
+                    <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform duration-300", showLogoutMenu && "rotate-180")} />
                   )}
                 </button>
                 <AnimatePresence>
                   {showLogoutMenu && (
                     <motion.div
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 4 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute bottom-full left-0 right-0 mb-1 space-y-1"
+                      initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className={cn(
+                        "absolute bottom-full mb-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-[110] p-1.5 min-w-[180px]",
+                        sidebarCollapsed ? "left-0" : "left-0 right-0"
+                      )}
                     >
+                      <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 mb-1">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">账号管理</p>
+                      </div>
                       <button
                         type="button"
                         onClick={(e) => {
@@ -773,13 +790,12 @@ export default function WorkspaceLayout({
                           handleWorkspaceChange("settings");
                         }}
                         className={cn(
-                          "w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg",
-                          "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700",
-                          "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-semibold transition-colors",
+                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all",
+                          "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white",
                         )}
                       >
-                        <Settings className="w-4 h-4 shrink-0 text-violet-500" />
-                        设置
+                        <Settings className="w-4 h-4 shrink-0" />
+                        个人设置
                       </button>
                       <button
                         type="button"
@@ -788,9 +804,8 @@ export default function WorkspaceLayout({
                           logout();
                         }}
                         className={cn(
-                          "w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg",
-                          "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700",
-                          "text-red-600 dark:text-red-400 hover:bg-red-50/80 dark:hover:bg-red-900/20 text-sm font-semibold transition-colors",
+                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all",
+                          "text-slate-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20 dark:hover:text-red-400",
                         )}
                       >
                         <LogOut className="w-4 h-4 shrink-0" />
@@ -801,27 +816,29 @@ export default function WorkspaceLayout({
                 </AnimatePresence>
               </div>
             ) : (
-              <button
-                type="button"
-                onClick={() => openModal("login")}
-                className={cn(
-                  "w-full rounded-lg transition-all duration-200 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-                  sidebarCollapsed
-                    ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                    : "flex items-center gap-2.5 py-2.5 px-2.5",
-                )}
-                title="登录 / 注册"
-              >
-                <LogIn className="w-6 h-6 shrink-0" />
-                {!sidebarCollapsed && (
-                  <span className="text-base font-medium">登录</span>
-                )}
-              </button>
+                      <button
+                        type="button"
+                        onClick={() => openModal("login")}
+                        className={cn(
+                          "w-full rounded-xl transition-all duration-300 font-medium",
+                          "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700",
+                          "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:text-slate-900 dark:hover:text-white hover:shadow-sm",
+                          sidebarCollapsed
+                            ? "flex flex-col items-center justify-center gap-1 py-3"
+                            : "flex items-center gap-3 py-2.5 px-4",
+                        )}
+                        title="登录 / 注册"
+                      >
+                        <LogIn className="w-4 h-4 shrink-0 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-colors" />
+                        {!sidebarCollapsed && (
+                          <span className="text-sm">立即登录</span>
+                        )}
+                      </button>
             )}
           </div>
           {!sidebarCollapsed && (
-            <div className="text-xs text-slate-400 dark:text-slate-500 text-center leading-tight mt-1.5 px-1">
-              v2.0
+            <div className="flex items-center justify-center gap-2 mt-3 px-2">
+              <span className="text-[10px] font-medium text-slate-400 dark:text-slate-600 tracking-wider">VERSION 2.0.4</span>
             </div>
           )}
         </div>
