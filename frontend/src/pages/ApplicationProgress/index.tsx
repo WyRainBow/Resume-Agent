@@ -324,14 +324,14 @@ function InlineDatePicker({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          'w-full h-11 rounded-xl border px-4 text-left flex items-center justify-between gap-2 transition-colors',
-          'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-600 hover:border-blue-400 dark:hover:border-blue-500'
+          'w-full h-11 rounded-xl border px-4 text-left flex items-center justify-between gap-2 transition-all duration-200',
+          'bg-slate-50/50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 hover:border-blue-400 hover:bg-white dark:hover:border-blue-500 shadow-sm hover:shadow-md'
         )}
       >
-        <span className={cn('truncate text-[17px]', selectedDate ? 'font-medium text-slate-800 dark:text-slate-200' : 'text-slate-400')}>
+        <span className={cn('truncate text-sm', selectedDate ? 'font-bold text-slate-800 dark:text-slate-200' : 'text-slate-400 font-medium')}>
           {selectedDate ? formatDateString(selectedDate) : placeholder}
         </span>
-        <Calendar className="w-4 h-4 shrink-0 text-slate-500" />
+        <Calendar className="w-4 h-4 shrink-0 text-slate-400" />
       </button>
       {open && typeof document !== 'undefined' &&
         createPortal(
@@ -512,11 +512,11 @@ function InlineDropdown({
           })
         }}
         className={cn(
-          'w-full h-11 rounded-xl border px-4 text-left flex items-center justify-between gap-2 transition-colors',
-          'bg-white dark:bg-slate-900',
+          'w-full h-11 rounded-xl border px-4 text-left flex items-center justify-between gap-2 transition-all duration-200',
+          'bg-slate-50/50 dark:bg-slate-900',
           disabled
-            ? 'border-slate-200 dark:border-slate-700 text-slate-400 cursor-not-allowed'
-            : 'border-slate-300 dark:border-slate-600 text-slate-800 dark:text-slate-200 hover:border-indigo-400 dark:hover:border-indigo-500'
+            ? 'border-slate-100 dark:border-slate-800 text-slate-300 cursor-not-allowed'
+            : 'border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 hover:border-blue-400 hover:bg-white dark:hover:border-blue-500 shadow-sm hover:shadow-md'
         )}
       >
         <span className="flex items-center gap-2 min-w-0">
@@ -525,22 +525,22 @@ function InlineDropdown({
             renderBadgeOption ? (
               <span
                 className={cn(
-                  'inline-flex items-center rounded-full px-3 py-1.5 text-[16px] leading-none font-semibold',
+                  'inline-flex items-center rounded-lg px-2.5 py-1 text-xs leading-none font-bold uppercase tracking-wide shadow-sm',
                   badgeClassByValue?.[selected.value] || 'bg-slate-100 text-slate-700'
                 )}
               >
                 {selected.label}
               </span>
             ) : (
-              <span className={cn('truncate text-[17px] font-medium')}>
+              <span className={cn('truncate text-sm font-bold text-slate-800 dark:text-slate-100')}>
                 {selected.label}
               </span>
             )
           ) : (
-            <span className="truncate text-[17px] text-slate-400">{placeholder}</span>
+            <span className="truncate text-sm text-slate-400 font-medium">{placeholder}</span>
           )}
         </span>
-        <ChevronDown className={cn('w-4 h-4 shrink-0 text-slate-500 transition-transform', open && 'rotate-180')} />
+        <ChevronDown className={cn('w-4 h-4 shrink-0 text-slate-400 transition-transform duration-300', open && 'rotate-180 text-blue-500')} />
       </button>
       {open && !disabled && (
         <div className={cn(
@@ -676,26 +676,26 @@ function SortableTableRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        'border-b border-slate-100 dark:border-slate-800 hover:bg-[#F8FAFF] dark:hover:bg-slate-800/60 transition-colors',
-        selectedIds.has(row.id) && 'bg-indigo-50/50 dark:bg-indigo-900/10',
-        isDragging && 'opacity-50 bg-slate-100 dark:bg-slate-800'
+        'border-b border-slate-100 dark:border-slate-800 hover:bg-blue-50/30 dark:hover:bg-slate-800/60 transition-colors group',
+        selectedIds.has(row.id) && 'bg-blue-50/50 dark:bg-indigo-900/10',
+        isDragging && 'opacity-50 bg-white dark:bg-slate-800 shadow-2xl'
       )}
     >
-      <td className="p-3">
+      <td className="p-4 text-center">
         <input
           type="checkbox"
           checked={selectedIds.has(row.id)}
           onChange={() => onToggleSelect(row.id)}
-          className="rounded"
+          className="rounded-md w-4 h-4 border-slate-300 text-blue-600 focus:ring-blue-500 transition-transform active:scale-90"
         />
       </td>
-      <td className="p-3 text-slate-400 cursor-grab active:cursor-grabbing" {...attributes} {...listeners}>
-        <GripVertical className="w-4 h-4" />
+      <td className="p-4 text-slate-300 group-hover:text-slate-400 cursor-grab active:cursor-grabbing transition-colors" {...attributes} {...listeners}>
+        <GripVertical className="w-5 h-5" />
       </td>
       {columns.map((col) => (
         <td
           key={col.key}
-          className="p-3 border-r border-slate-100 dark:border-slate-800 align-middle"
+          className="p-4 border-r border-slate-50 dark:border-slate-800 align-middle"
           onClick={() => {
             // 下拉列单击直接由组件处理，不进入文本编辑态
             if (col.key === 'resume_id' || col.key === 'position' || col.key === 'industry' || col.key === 'location' || col.key === 'progress' || col.key === 'application_date') {
@@ -704,7 +704,9 @@ function SortableTableRow({
             onEditingCell({ id: row.id, key: col.key })
           }}
         >
-          {renderCell(row, col)}
+          <div className="min-h-[44px] flex items-center">
+            {renderCell(row, col)}
+          </div>
         </td>
       ))}
     </tr>
@@ -1057,7 +1059,7 @@ export default function ApplicationProgressPage() {
         return (
           <input
             type="text"
-            className="w-full h-10 border rounded-lg px-3 text-[17px] bg-white dark:bg-slate-800"
+            className="w-full h-11 border-2 border-blue-500 rounded-xl px-4 text-sm font-bold bg-white dark:bg-slate-800 shadow-lg z-20 outline-none transition-all"
             defaultValue={String((row as unknown as Record<string, unknown>)[col.key] ?? '')}
             onBlur={(e) => {
               const v = e.target.value.trim() || null
@@ -1077,10 +1079,10 @@ export default function ApplicationProgressPage() {
             href={val as string}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-indigo-600 dark:text-indigo-400 hover:underline inline-flex items-center gap-0.5"
+            className="h-11 px-4 rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400 hover:bg-blue-100 transition-all inline-flex items-center gap-2 text-sm font-bold shadow-sm active:scale-95"
             onClick={(e) => e.stopPropagation()}
           >
-            前往链接 <ExternalLink className="w-3 h-3" />
+            前往链接 <ExternalLink className="w-3.5 h-3.5" />
           </a>
         ) : (
           <EmptyEditableCell />
@@ -1088,7 +1090,7 @@ export default function ApplicationProgressPage() {
       }
       const val = (row as unknown as Record<string, unknown>)[col.key]
       return (
-        <span className="text-slate-700 dark:text-slate-300">
+        <span className="text-sm font-bold text-slate-800 dark:text-slate-200 px-1">
           {val != null ? String(val) : <EmptyEditableCell />}
         </span>
       )
@@ -1156,99 +1158,110 @@ export default function ApplicationProgressPage() {
     <WorkspaceLayout>
       <div className="h-full flex flex-col bg-[#F6F8FC] dark:bg-slate-900">
         {/* 工具栏 */}
-        <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-200 dark:border-slate-700 bg-white/90 dark:bg-slate-800/70 backdrop-blur shrink-0">
-          <button
-            type="button"
-            className="p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
-            title="撤销"
-          >
-            <Undo2 className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            className="p-2 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
-            title="重做"
-          >
-            <Redo2 className="w-4 h-4" />
-          </button>
+        <div className="flex items-center gap-3 px-6 py-3 border-b border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/80 backdrop-blur-md shrink-0 shadow-sm z-10">
+          <div className="flex items-center gap-1.5 mr-2">
+            <button
+              type="button"
+              className="p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all active:scale-90"
+              title="撤销"
+            >
+              <Undo2 className="w-5 h-5" />
+            </button>
+            <button
+              type="button"
+              className="p-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all active:scale-90"
+              title="重做"
+            >
+              <Redo2 className="w-5 h-5" />
+            </button>
+          </div>
+          
           <button
             type="button"
             onClick={handleInsertRow}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-500 text-sm font-medium"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 text-sm font-bold transition-all active:scale-95 shadow-sm"
           >
-            <Plus className="w-4 h-4" />
+            <Plus className="w-4.5 h-4.5" />
             插入新行
           </button>
+          
           <button
             type="button"
             onClick={() => setAiImportOpen(true)}
-            className="flex items-center gap-2.5 px-6 py-3 rounded-xl border-2 border-blue-400 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-500 text-base font-bold shadow-sm transition"
+            className="flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 text-sm font-bold shadow-md shadow-blue-200 dark:shadow-none transition-all active:scale-95"
           >
-            <Wand2 className="w-5 h-5 text-blue-600" />
-            AI 导入
+            <Wand2 className="w-4.5 h-4.5 animate-pulse" />
+            AI 智能导入
           </button>
+          
+          <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 mx-1" />
+          
           <button
             type="button"
             onClick={handlePinSelected}
             disabled={selectedIds.size === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-50 text-sm"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 text-sm font-bold transition-all active:scale-95"
           >
-            <ArrowUp className="w-4 h-4" />
+            <ArrowUp className="w-4.5 h-4.5" />
             置顶选中
           </button>
+          
           <button
             type="button"
             onClick={handleDeleteSelected}
             disabled={selectedIds.size === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-50 text-sm"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 disabled:opacity-40 text-sm font-bold transition-all active:scale-95"
           >
-            <Trash2 className="w-4 h-4" />
+            <Trash2 className="w-4.5 h-4.5" />
             删除选中
           </button>
+          
+          <div className="flex-1" />
+          
           <button
             type="button"
             onClick={handleExportCsv}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 text-sm"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-bold transition-all active:scale-95 shadow-sm"
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-4.5 h-4.5" />
             导出表格
           </button>
         </div>
 
         {/* 标题 */}
-        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
-          <h1 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
+        <div className="px-8 py-6 bg-white dark:bg-slate-900">
+          <h1 className="text-3xl font-extrabold text-slate-900 dark:text-slate-100 tracking-tight">
             我的投递进展记录表
           </h1>
         </div>
 
         {/* 表格 */}
-        <div className="flex-1 overflow-auto p-3">
+        <div className="flex-1 overflow-auto px-8 pb-8">
           {loading ? (
-            <div className="p-8 text-center text-slate-500">加载中...</div>
+            <div className="p-12 text-center text-slate-500 font-medium">加载中...</div>
           ) : (
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
               onDragEnd={handleDragEnd}
             >
-              <div className="rounded-2xl border border-slate-200/90 dark:border-slate-700 overflow-visible bg-white dark:bg-slate-900 shadow-sm">
-                <table className="w-full border-collapse text-[17px]">
-                <thead className="sticky top-0 bg-slate-100/95 dark:bg-slate-800 z-10 backdrop-blur">
+              <div className="rounded-2xl border border-slate-200/80 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900 shadow-xl shadow-slate-200/20">
+                <table className="w-full border-collapse">
+                <thead className="sticky top-0 bg-slate-50/95 dark:bg-slate-800/95 z-10 backdrop-blur-md">
                   <tr>
-                    <th className="border-b border-slate-200 dark:border-slate-700 p-3 w-12">
+                    <th className="border-b border-slate-200 dark:border-slate-700 p-4 w-12">
                       <input
                         type="checkbox"
                         checked={entries.length > 0 && selectedIds.size === entries.length}
                         onChange={toggleSelectAll}
-                        className="rounded"
+                        className="rounded-md w-4 h-4 border-slate-300 text-blue-600 focus:ring-blue-500"
                       />
                     </th>
-                    <th className="border-b border-slate-200 dark:border-slate-700 p-3 w-12" />
+                    <th className="border-b border-slate-200 dark:border-slate-700 p-4 w-12" />
                     {COLUMNS.map((col) => (
                       <th
                         key={col.key}
-                        className="border-b border-slate-200 dark:border-slate-700 p-3.5 text-left font-semibold text-slate-700 dark:text-slate-300 whitespace-nowrap text-[18px]"
+                        className="border-b border-slate-200 dark:border-slate-700 p-4 text-left font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs"
                         style={{ minWidth: col.width }}
                       >
                         {col.label}
