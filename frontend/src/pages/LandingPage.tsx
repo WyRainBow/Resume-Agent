@@ -8,7 +8,7 @@ import {
   LogIn,
   User,
   LogOut,
-  FileEdit
+  Star
 } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -41,7 +41,18 @@ export default function LandingPage() {
   const { isAuthenticated, user, logout, openModal } = useAuth()
   const [isScrolled, setIsScrolled] = useState(false)
   const [showLogoutMenu, setShowLogoutMenu] = useState(false)
+  const [githubStars, setGithubStars] = useState<number | null>(null)
   const logoutMenuRef = useRef<HTMLDivElement>(null)
+
+  // 拉取 GitHub star 数（公开 API，无需 token）
+  useEffect(() => {
+    fetch('https://api.github.com/repos/WyRainBow/Resume-Agent')
+      .then((res) => res.json())
+      .then((data) => {
+        if (typeof data.stargazers_count === 'number') setGithubStars(data.stargazers_count)
+      })
+      .catch(() => {})
+  }, [])
 
   // 点击外部区域关闭下拉菜单
   useEffect(() => {
@@ -86,6 +97,23 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-4">
+            <motion.a
+              href="https://github.com/WyRainBow/Resume-Agent"
+              target="_blank"
+              rel="noopener noreferrer"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold border border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100 text-slate-800 hover:from-slate-100 hover:to-slate-200 transition-all"
+            >
+              <Star className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
+              <span>Star on GitHub</span>
+              {githubStars !== null && (
+                <>
+                  <span className="w-px h-4 bg-slate-300 shrink-0" aria-hidden />
+                  <span className="tabular-nums">{githubStars.toLocaleString()}</span>
+                </>
+              )}
+            </motion.a>
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -150,13 +178,6 @@ export default function LandingPage() {
             >
               开始创建
               <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
-            </button>
-            <button
-              onClick={() => navigate('/agent/new')}
-              className="px-12 py-5 bg-white text-slate-900 rounded-2xl font-black text-xl border-2 border-slate-300 hover:bg-slate-50 transition-all flex items-center gap-4 group"
-            >
-              <FileEdit className="w-6 h-6" />
-              生成报告
             </button>
             <div className="text-slate-500 font-bold">
               不再为排版浪费时间。

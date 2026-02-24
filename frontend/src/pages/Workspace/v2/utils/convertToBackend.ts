@@ -32,6 +32,7 @@ export interface BackendResumeData {
     subtitle: string
     date: string
     highlights: string[]
+    link?: string
   }[]
   open_source: {
     title: string
@@ -89,6 +90,7 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
       subtitle: stripHtmlTags(p.role),
       date: p.date,
       highlights: [p.description],
+      ...(p.link?.trim() ? { link: p.link.trim() } : {}),
     })),
     open_source: (data.openSource || []).filter(o => o.visible !== false).map((o) => ({
       title: stripHtmlTags(o.name),

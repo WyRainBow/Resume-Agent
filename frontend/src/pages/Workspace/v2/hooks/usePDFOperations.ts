@@ -22,6 +22,16 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
   const resumeDataRef = useRef(resumeData)
   resumeDataRef.current = resumeData
 
+  const getErrorMessage = (error: unknown): string => {
+    if (error instanceof Error) return error.message
+    if (typeof error === 'string') return error
+    try {
+      return JSON.stringify(error)
+    } catch {
+      return '未知错误'
+    }
+  }
+
   // 渲染 PDF：始终用 ref 取最新数据，供防抖/延迟调用时使用
   const handleRender = useCallback(async () => {
     setLoading(true)
@@ -42,20 +52,29 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
           (err) => setProgress(`错误: ${err}`)
         )
       } catch (streamError) {
+        const streamErrorMsg = getErrorMessage(streamError)
         console.error('PDF 流式渲染失败，尝试普通渲染:', streamError)
-        setProgress('流式渲染失败，正在切换为普通渲染...')
-        blob = await renderPDF(
-          backendData as any,
-          false,
-          backendData.sectionOrder
-        )
+        setProgress(`流式渲染失败：${streamErrorMsg}\n正在切换为普通渲染...`)
+        try {
+          blob = await renderPDF(
+            backendData as any,
+            false,
+            backendData.sectionOrder
+          )
+        } catch (normalError) {
+          const normalErrorMsg = getErrorMessage(normalError)
+          throw new Error(
+            `流式渲染失败：${streamErrorMsg}\n普通渲染失败：${normalErrorMsg}`
+          )
+        }
       }
 
       setPdfBlob(blob)
       setProgress('')
     } catch (error) {
+      const message = getErrorMessage(error)
       console.error('PDF 渲染失败:', error)
-      setProgress(`渲染失败: ${(error as Error).message}`)
+      setProgress(`渲染失败：${message}`)
     } finally {
       setLoading(false)
     }
@@ -103,4 +122,3 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
     handleSaveToDashboard,
   }
 }
-

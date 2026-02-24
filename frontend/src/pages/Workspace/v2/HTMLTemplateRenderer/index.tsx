@@ -113,6 +113,9 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
 
     case 'projects':
       if (projects.length === 0) return null
+      const projectLinkDisplay = resumeData.globalSettings?.projectLinkDisplay || 'inline'
+      const projectLinkLabel = resumeData.globalSettings?.projectLinkLabel ?? '链接'
+      const projectLinkPrefix = projectLinkLabel ? `${projectLinkLabel}: ` : ''
       return (
         <section key="projects" className="template-section">
           <h2 className="section-title">{sectionTitle}</h2>
@@ -121,20 +124,56 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
               <div key={proj.id} className="item">
                 <div className="item-header">
                   <div className="item-title-group">
-                    <h3 className="item-title">{stripHtmlTags(proj.name)}</h3>
+                    <h3 className="item-title">
+                      {stripHtmlTags(proj.name)}
+                      {projectLinkDisplay === 'icon' && proj.link && (
+                        <a
+                          href={proj.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={proj.link}
+                          style={{ marginLeft: '6px', verticalAlign: 'middle', display: 'inline-block' }}
+                        >
+                          <svg viewBox="0 0 16 16" width="14" height="14" style={{ fill: '#24292f', verticalAlign: 'middle' }}>
+                            <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                          </svg>
+                        </a>
+                      )}
+                      {projectLinkDisplay === 'inline' && proj.link && (
+                        <span style={{ marginLeft: '8px' }}>
+                          {projectLinkPrefix && <span style={{ color: '#475569' }}>{projectLinkPrefix}</span>}
+                          <a
+                            href={proj.link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: '#2563eb', fontStyle: 'italic' }}
+                          >
+                            {proj.link}
+                          </a>
+                        </span>
+                      )}
+                    </h3>
                     <span className="item-subtitle">{stripHtmlTags(proj.role)}</span>
                   </div>
                   <span className="item-date">{proj.date}</span>
                 </div>
+                {projectLinkDisplay === 'below' && proj.link && (
+                  <div className="item-description">
+                    {projectLinkPrefix}
+                    <a
+                      href={proj.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#2563eb', fontStyle: 'italic' }}
+                    >
+                      {proj.link}
+                    </a>
+                  </div>
+                )}
                 <div
                   className="item-description"
                   dangerouslySetInnerHTML={{ __html: proj.description }}
                 />
-                {proj.link && (
-                  <a href={proj.link} target="_blank" rel="noopener noreferrer" className="item-link">
-                    查看项目 →
-                  </a>
-                )}
               </div>
             ))}
           </div>
@@ -170,7 +209,7 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
                         </a>
                       )}
                       {repoDisplay === 'inline' && os.repo && (
-                        <span style={{ fontWeight: 'normal', fontSize: '12px', marginLeft: '8px' }}>
+                        <span style={{ marginLeft: '8px', fontStyle: 'italic' }}>
                           {repoPrefix && <span style={{ color: '#475569' }}>{repoPrefix}</span>}
                           <a
                             href={os.repo}
@@ -296,4 +335,3 @@ export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resu
 }
 
 export default HTMLTemplateRenderer
-

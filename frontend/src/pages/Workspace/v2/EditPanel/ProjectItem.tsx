@@ -6,7 +6,7 @@ import { useState, useCallback } from 'react'
 import { motion, Reorder, useDragControls, AnimatePresence } from 'framer-motion'
 import { ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
-import type { Project } from '../types'
+import type { Project, ResumeData, GlobalSettings } from '../types'
 import Field from './Field'
 import { MonthYearRangePicker } from '../shared/MonthYearRangePicker'
 
@@ -15,6 +15,9 @@ interface ProjectItemProps {
   onUpdate: (project: Project) => void
   onDelete: (id: string) => void
   setDraggingId: (id: string | null) => void
+  resumeData?: ResumeData
+  globalSettings?: GlobalSettings
+  updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }
 
 /**
@@ -24,11 +27,17 @@ const ProjectEditor = ({
   project,
   onSave,
   resumeData,
+  globalSettings,
+  updateGlobalSettings,
 }: {
   project: Project
   onSave: (project: Project) => void
   resumeData?: ResumeData
+  globalSettings?: GlobalSettings
+  updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }) => {
+  const [showCustomLabel, setShowCustomLabel] = useState(false)
+
   const handleChange = (field: keyof Project, value: string | boolean) => {
     onSave({
       ...project,
@@ -71,13 +80,95 @@ const ProjectEditor = ({
           transition={{ duration: 0.2, delay: 2 * 0.05, ease: 'easeOut' }}
           className="grid grid-cols-2 gap-4"
         >
-          <Field
-            index={2}
-            label="项目链接"
-            value={project.link || ''}
-            onChange={(value) => handleChange('link', value)}
-            placeholder="项目链接（可选）"
-          />
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2, delay: 2 * 0.05, ease: 'easeOut' }}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-xs font-medium text-gray-500 dark:text-neutral-400">项目链接</label>
+              {updateGlobalSettings && (
+                <div className="flex items-center gap-1 bg-gray-100 dark:bg-neutral-800 rounded-md p-0.5">
+                  {([
+                    { value: 'below', label: '下方' },
+                    { value: 'inline', label: '右侧' },
+                    { value: 'icon', label: '图标' },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => updateGlobalSettings({ projectLinkDisplay: opt.value })}
+                      className={cn(
+                        'px-2 py-0.5 text-[10px] font-medium rounded transition-all',
+                        (globalSettings?.projectLinkDisplay || 'inline') === opt.value
+                          ? 'bg-white dark:bg-neutral-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                          : 'text-gray-400 dark:text-neutral-500 hover:text-gray-600'
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <Field
+              index={2}
+              value={project.link || ''}
+              onChange={(value) => handleChange('link', value)}
+              placeholder="GitHub 链接"
+            />
+            {updateGlobalSettings && globalSettings?.projectLinkDisplay !== 'icon' && (
+              <div className="mt-2">
+                <label className="text-[10px] text-gray-400 dark:text-neutral-500 mb-1 block">链接前缀</label>
+                <div className="flex items-center gap-1 flex-wrap">
+                  {[
+                    { value: '', label: '无前缀' },
+                    { value: '链接', label: '链接' },
+                    { value: 'GitHub', label: 'GitHub' },
+                  ].map((opt) => {
+                    const current = globalSettings?.projectLinkLabel ?? '链接'
+                    const isActive = !showCustomLabel && current === opt.value
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => {
+                          setShowCustomLabel(false)
+                          updateGlobalSettings({ projectLinkLabel: opt.value })
+                        }}
+                        className={cn(
+                          'px-2 py-0.5 text-[10px] font-medium rounded transition-all border',
+                          isActive
+                            ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400'
+                            : 'border-gray-200 dark:border-neutral-700 text-gray-400 dark:text-neutral-500 hover:border-gray-300'
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                  <button
+                    onClick={() => setShowCustomLabel(true)}
+                    className={cn(
+                      'px-2 py-0.5 text-[10px] font-medium rounded transition-all border',
+                      showCustomLabel
+                        ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400'
+                        : 'border-gray-200 dark:border-neutral-700 text-gray-400 dark:text-neutral-500 hover:border-gray-300'
+                    )}
+                  >
+                    自定义
+                  </button>
+                  {showCustomLabel && (
+                    <input
+                      type="text"
+                      value={globalSettings?.projectLinkLabel ?? '链接'}
+                      onChange={(e) => updateGlobalSettings({ projectLinkLabel: e.target.value })}
+                      placeholder="输入前缀"
+                      className="px-2 py-0.5 text-[10px] w-20 rounded border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-neutral-800 text-gray-700 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+          </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -114,6 +205,8 @@ const ProjectItem = ({
   onDelete,
   setDraggingId,
   resumeData,
+  globalSettings,
+  updateGlobalSettings,
 }: ProjectItemProps) => {
   const dragControls = useDragControls()
   const [expanded, setExpanded] = useState(false)
@@ -264,6 +357,8 @@ const ProjectItem = ({
                   project={project}
                   onSave={onUpdate}
                   resumeData={resumeData}
+                  globalSettings={globalSettings}
+                  updateGlobalSettings={updateGlobalSettings}
                 />
               </div>
             </motion.div>
@@ -275,5 +370,4 @@ const ProjectItem = ({
 }
 
 export default ProjectItem
-
 

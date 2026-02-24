@@ -146,6 +146,9 @@ export function EditPanel({
             onDelete={deleteProject}
             onReorder={reorderProjects}
             onAIImport={onAIImport ? () => onAIImport('projects') : undefined}
+            resumeData={resumeData}
+            globalSettings={resumeData.globalSettings}
+            updateGlobalSettings={updateGlobalSettings}
           />
         )
 

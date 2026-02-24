@@ -37,6 +37,34 @@ def _px_to_pt(px: float) -> float:
     return px * 4.0
 
 
+def _summarize_latex_error(error_msg: str, max_chars: int = 2000) -> str:
+    """提取更有可读性的 LaTeX 错误摘要（优先返回 ! 错误附近上下文）。"""
+    if not error_msg:
+        return ""
+
+    lines = error_msg.splitlines()
+    if not lines:
+        return error_msg[:max_chars]
+
+    # 优先抓取第一个 "!" 错误块附近上下文
+    bang_idx = next((i for i, line in enumerate(lines) if line.lstrip().startswith("!")), None)
+    if bang_idx is not None:
+        start = max(0, bang_idx - 3)
+        end = min(len(lines), bang_idx + 14)
+        snippet = "\n".join(lines[start:end]).strip()
+        return snippet[:max_chars]
+
+    # 次优：抓取包含 Error 的关键行
+    key_lines = [line for line in lines if "Error" in line or "error" in line or "Undefined" in line]
+    if key_lines:
+        snippet = "\n".join(key_lines[:25]).strip()
+        return snippet[:max_chars]
+
+    # 兜底：返回尾部日志，通常最接近失败原因
+    tail = "\n".join(lines[-40:]).strip()
+    return tail[:max_chars]
+
+
 def _download_user_photo_to_dir(photo_url: str, temp_dir: str) -> str | None:
     """
     下载用户照片到临时目录，固定命名为 photo.<ext>
@@ -305,16 +333,7 @@ LaTeX (XeLaTeX) 未安装。请运行以下命令安装：
 
         if result.returncode != 0:
             error_msg = result.stderr or result.stdout
-            # 提取关键错误信息（前1000字符，包含更多上下文）
-            error_summary = error_msg[:1000] if len(error_msg) > 1000 else error_msg
-            # 如果错误信息很长，尝试提取包含 "Error" 或 "!" 的行
-            if len(error_msg) > 1000:
-                error_lines = []
-                for line in error_msg.split('\n'):
-                    if '!' in line or 'Error' in line or 'error' in line or 'Undefined' in line:
-                        error_lines.append(line)
-                if error_lines:
-                    error_summary = '\n'.join(error_lines[:20])  # 最多20行关键错误
+            error_summary = _summarize_latex_error(error_msg)
             print(f"LaTeX 编译失败: {error_summary}")
             raise RuntimeError(f"LaTeX 编译失败: {error_summary}")
 

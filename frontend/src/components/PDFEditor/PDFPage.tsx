@@ -40,16 +40,25 @@ export const PDFPage: React.FC<PDFPageProps> = ({
   onReEdit,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null)
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 })
   const [pageHeight, setPageHeight] = useState(0)
   const { textItems } = useTextLayer(page)
 
   // 渲染 PDF 页面
   useEffect(() => {
+    let cancelled = false
+
     const renderPage = async () => {
       if (!canvasRef.current) return
 
       try {
+        // 避免同一 canvas 并发 render 引发 PDF.js 异常
+        if (renderTaskRef.current) {
+          renderTaskRef.current.cancel()
+          renderTaskRef.current = null
+        }
+
         // 获取设备像素比
         const devicePixelRatio = window.devicePixelRatio || 1
         const isMobile = window.innerWidth < 768
@@ -58,16 +67,15 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         const maxDeviceRatio = isMobile ? 1 : 2
         const renderScale = scale * Math.min(devicePixelRatio, maxDeviceRatio)
 
-        // 跟随 PDF 页面的内嵌旋转信息，避免预览与真实 PDF 方向不一致
-        const pageRotation = page.rotate || 0
-        const viewport = page.getViewport({ scale: renderScale, rotation: pageRotation })
+        // 使用 PDF.js 默认页旋转，避免手动叠加 rotation 导致倒挂
+        const viewport = page.getViewport({ scale: renderScale })
 
         // 保存 PDF 原始高度（用于坐标转换）
-        const originalViewport = page.getViewport({ scale: 1, rotation: pageRotation })
+        const originalViewport = page.getViewport({ scale: 1 })
         setPageHeight(originalViewport.height)
 
         // 设置显示尺寸（使用原始 scale）
-        const displayViewport = page.getViewport({ scale, rotation: pageRotation })
+        const displayViewport = page.getViewport({ scale })
         setDimensions({
           width: displayViewport.width,
           height: displayViewport.height
@@ -76,6 +84,7 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         const canvas = canvasRef.current
         const context = canvas.getContext('2d')
         if (!context) return
+        if (cancelled) return
 
         // 设置 Canvas 实际尺寸（高分辨率）
         canvas.width = viewport.width
@@ -90,15 +99,33 @@ export const PDFPage: React.FC<PDFPageProps> = ({
           canvasContext: context,
           viewport: viewport,
         })
-        
+        renderTaskRef.current = renderTask
+
         await renderTask.promise
       } catch (error) {
+        const message = (error as Error)?.message || ''
+        // render.cancel() 会触发 RenderingCancelledException，这里静默
+        if (message.includes('Rendering cancelled')) {
+          return
+        }
         console.error('PDF page rendering error:', error)
         // 静默处理，让 PDFViewer 捕获错误
+      } finally {
+        if (renderTaskRef.current) {
+          renderTaskRef.current = null
+        }
       }
     }
 
     renderPage()
+
+    return () => {
+      cancelled = true
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel()
+        renderTaskRef.current = null
+      }
+    }
   }, [page, pageNumber, scale])
 
   // 处理文本点击

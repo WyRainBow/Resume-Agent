@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { Reorder } from 'framer-motion'
 import { PlusCircle, Wand2, Trash2, CheckSquare, Square } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
-import type { Project } from '../types'
+import type { Project, GlobalSettings } from '../types'
 import ProjectItem from './ProjectItem'
 
 import type { ResumeData } from '../types'
@@ -18,6 +18,8 @@ interface ProjectPanelProps {
   onReorder: (projects: Project[]) => void
   onAIImport?: () => void  // AI 导入回调
   resumeData?: ResumeData  // 简历数据，用于 AI 润色
+  globalSettings?: GlobalSettings
+  updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }
 
 /**
@@ -34,6 +36,8 @@ const ProjectPanel = ({
   onReorder,
   onAIImport,
   resumeData,
+  globalSettings,
+  updateGlobalSettings,
 }: ProjectPanelProps) => {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [selectMode, setSelectMode] = useState(false)
@@ -154,6 +158,8 @@ const ProjectPanel = ({
                 onDelete={onDelete}
                 setDraggingId={setDraggingId}
                 resumeData={resumeData}
+                globalSettings={globalSettings}
+                updateGlobalSettings={updateGlobalSettings}
               />
             </div>
           </div>
@@ -180,5 +186,4 @@ const ProjectPanel = ({
 }
 
 export default ProjectPanel
-
 

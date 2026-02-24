@@ -127,19 +127,40 @@ export async function renderPDF(resume: Resume, _useDemo: boolean = false, secti
 
   // 使用非流式端点进行简单的PDF渲染
   const url = `${getApiBaseUrl()}/api/pdf/render`
-  const { data } = await axios.post(
-    url,
-    { resume, section_order: mappedOrder },
-    {
-      responseType: 'blob',
-      headers: {
-        'X-PDF-Trace-Id': traceId,
-        'X-PDF-Trace-Source': 'api.renderPDF',
-      },
+  try {
+    const { data } = await axios.post(
+      url,
+      { resume, section_order: mappedOrder },
+      {
+        responseType: 'blob',
+        headers: {
+          'X-PDF-Trace-Id': traceId,
+          'X-PDF-Trace-Source': 'api.renderPDF',
+        },
+      }
+    )
+    console.log('[PDF TRACE][renderPDF:done]', { traceId, size: (data as Blob).size })
+    return data as Blob
+  } catch (error: any) {
+    let detail = ''
+    try {
+      const blob = error?.response?.data
+      if (blob instanceof Blob) {
+        const text = await blob.text()
+        try {
+          const parsed = JSON.parse(text)
+          detail = parsed?.detail || text
+        } catch {
+          detail = text
+        }
+      } else {
+        detail = error?.response?.data?.detail || error?.message || ''
+      }
+    } catch {
+      detail = error?.message || ''
     }
-  )
-  console.log('[PDF TRACE][renderPDF:done]', { traceId, size: (data as Blob).size })
-  return data as Blob
+    throw new Error(detail || 'PDF 渲染失败')
+  }
 }
 
 /**

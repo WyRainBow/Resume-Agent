@@ -244,6 +244,22 @@ def _convert_markdown_bold(text: str) -> str:
     pattern = r'\*\*([^*]+)\*\*'
     return re.sub(pattern, r'\\textbf{\1}', text)
 
+
+def _extract_project_link(raw_link: Any) -> str:
+    """提取并清洗项目链接，兼容 Markdown 链接格式。"""
+    if not isinstance(raw_link, str):
+        return ""
+    link = raw_link.strip()
+    if not link:
+        return ""
+
+    # 兼容: [文本](https://example.com)
+    md_match = re.match(r'^\[[^\]]*\]\(([^)]+)\)$', link)
+    if md_match:
+        link = md_match.group(1).strip()
+
+    return link
+
 def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:
     """
     生成项目经历 - 与 wy.tex 格式一致
@@ -265,6 +281,8 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
     projects = resume_data.get('projects') or []
     section_title = (section_titles or {}).get('projects', '项目经验')
     global_settings = resume_data.get('globalSettings') or {}
+    link_display = global_settings.get('projectLinkDisplay', 'inline')
+    link_label = global_settings.get('projectLinkLabel', '链接')
     if isinstance(projects, list) and projects:
         content.append(f"\\section{{{escape_latex(section_title)}}}")
         content.append("")
@@ -275,6 +293,13 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
             title = p.get('title') or p.get('name') or ''
             role = p.get('role') or p.get('subtitle') or ''
             date = p.get('date') or ''
+            project_link = _extract_project_link(
+                p.get('link')
+                or p.get('repo')
+                or p.get('repoUrl')
+                or p.get('url')
+                or ''
+            )
             
             # 过滤无效时间
             if date and date.strip() in ['未提及', '未知', 'N/A', '-', '']:
@@ -285,7 +310,39 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
             full_title = escape_latex(title)
             
             if full_title:
-                content.append(f"\\datedsubsection{{\\textbf{{{full_title}}}}}{{{date}}}")
+                heading_title = f"\\textbf{{{full_title}}}"
+
+                escaped_label = escape_latex(link_label) if link_label else ''
+                label_prefix = f"{escaped_label}: " if escaped_label else ''
+
+                # 根据设置决定项目链接位置
+                if isinstance(project_link, str) and project_link.strip():
+                    link = project_link.strip()
+                    display_link = escape_latex(link)
+                    if link_display == 'icon' and (link.startswith("http://") or link.startswith("https://")):
+                        heading_title = f"{heading_title}\\hspace{{0.3em}}\\href{{{link}}}{{\\faGithub}}"
+                    elif link_display == 'inline':
+                        if link.startswith("http://") or link.startswith("https://"):
+                            heading_title = f"{heading_title}\\hspace{{0.5em}}{label_prefix}\\textit{{\\href{{{link}}}{{{display_link}}}}}"
+                        else:
+                            heading_title = f"{heading_title}\\hspace{{0.5em}}{label_prefix}\\textit{{{display_link}}}"
+
+                content.append(f"\\datedsubsection{{{heading_title}}}{{{date}}}")
+
+                # 下方显示项目链接：紧跟标题下一行
+                if (
+                    isinstance(project_link, str)
+                    and project_link.strip()
+                    and link_display == 'below'
+                ):
+                    link = project_link.strip()
+                    display_link = escape_latex(link)
+                    escaped_label = escape_latex(link_label) if link_label else ''
+                    label_prefix = f"{escaped_label}: " if escaped_label else ''
+                    if link.startswith("http://") or link.startswith("https://"):
+                        content.append(f"{label_prefix}\\textit{{\\href{{{link}}}{{{display_link}}}}}")
+                    else:
+                        content.append(f"{label_prefix}\\textit{{{display_link}}}")
 
                 # 检查是否有 items（子项目结构）
                 items = p.get('items') or []
@@ -367,7 +424,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
                     
                     if has_list_wrapper:
                         content.append(r"\end{itemize}")
-                
+
                 content.append("")
                 content.append("")
     return content
@@ -621,7 +678,7 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
                 escaped_url = escape_latex(repo_url)
                 escaped_label = escape_latex(repo_label) if repo_label else ''
                 label_prefix = f"{escaped_label}: " if escaped_label else ''
-                subsection_title = f"\\textbf{{{item_title}}}\\hspace{{0.5em}}\\textit{{\\small {label_prefix}{escaped_url}}}"
+                subsection_title = f"\\textbf{{{item_title}}}\\hspace{{0.5em}}\\textit{{{label_prefix}\\href{{{repo_url}}}{{{escaped_url}}}}}"
             else:
                 subsection_title = f"\\textbf{{{item_title}}}"
             content.append(f"\\datedsubsection{{{subsection_title}}}{{{subtitle}}}")
@@ -636,7 +693,10 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
                 escaped_url = escape_latex(repo_url)
                 escaped_label = escape_latex(repo_label) if repo_label else ''
                 label_prefix = f"{escaped_label}: " if escaped_label else ''
-                item_contents.append(f"{label_prefix}\\textit{{{escaped_url}}}")
+                if repo_url.startswith("http://") or repo_url.startswith("https://"):
+                    item_contents.append(f"{label_prefix}\\href{{{repo_url}}}{{{escaped_url}}}")
+                else:
+                    item_contents.append(f"{label_prefix}{escaped_url}")
 
             if description:
                 # description 是 HTML 格式，需要转换
