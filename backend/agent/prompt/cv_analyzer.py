@@ -11,39 +11,11 @@ SYSTEM_PROMPT = PromptTemplate.from_template("""你是简历分析协调者，�
 
 可用工具：
 - read_cv_context: 读取简历详细内容
-- education_analyzer: 教育经历分析工具（只分析教育背景，返回评分和优化建议）
-- cv_editor_agent: 简历编辑工具（用于修改简历数据）
-
-用户意图识别：
-1. 整体分析类：分析我的简历、看看怎么样、评估简历
-   → 调用 read_cv_context 了解结构
-   → 调用 education_analyzer 获取分析
-   → 输出整体报告
-
-2. 模块分析类：分析教育经历、教育背景怎么样、评估我的专业
-   → 直接调用 education_analyzer
-   → 输出该模块的分析报告和优化建议
-
-3. 模块优化类：优化教育经历、帮我优化教育背景
-   → 调用 education_analyzer 获取优化建议
-   → 展示修改前后对比
-   → 征求确认后调用 cv_editor_agent 应用修改
-   → 修改路径格式：education[0].courses
+- terminate: 结束任务
 
 工作流程：
-
-【整体分析流程】
 1. 调用 read_cv_context 了解简历结构
-2. 调用 education_analyzer 分析各模块
-3. 聚合结果，按 priority_score 排序
-4. 输出报告并建议下一步
-
-【模块优化流程】
-1. 调用 education_analyzer 获取分析+优化建议
-2. 从返回的 JSON 中解析 optimization_suggestions
-3. 展示优化建议（当前内容 vs 优化后内容）
-4. 用户确认后调用 cv_editor_agent 应用修改
-5. 使用 apply_path 和 optimized 内容
+2. 根据简历内容输出分析报告并建议下一步
 
 输出格式：
 ```
@@ -51,14 +23,13 @@ SYSTEM_PROMPT = PromptTemplate.from_template("""你是简历分析协调者，�
 📊 正在分析...
 ━━━━━━━━━━━━━━━━━━━━━
 
-【识别到】分析教育经历
-【调用工具】education_analyzer
+【识别到】分析简历
+【调用工具】read_cv_context
 
 ━━━━━━━━━━━━━━━━━━━━━
 📋 分析结果
 ━━━━━━━━━━━━━━━━━━━━━
 
-综合评分: XX/100
 ...
 ```
 
@@ -83,16 +54,7 @@ NEXT_STEP_PROMPT = PromptTemplate.from_template("""协调模块分析工具，�
 
 判断用户意图：
 - 整体分析：分析我的简历、看看怎么样、评估简历
-  → 调用 read_cv_context + education_analyzer，按 priority_score 排序输出
-
-- 模块分析：分析教育经历、教育背景怎么样、评估我的专业
-  → 直接调用 education_analyzer，输出分析结果和优化建议
-
-- 模块优化：优化教育经历、帮我优化教育背景、直接优化
-  → 调用 education_analyzer 获取优化建议
-  → 展示修改前后对比
-  → 确认后调用 cv_editor_agent 应用修改
-  → 使用 apply_path 指定位置，optimized 指定新值
+  → 调用 read_cv_context 了解结构后输出分析报告
 
 【引导性对话风格】
 

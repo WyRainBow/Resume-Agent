@@ -161,6 +161,14 @@ export class SSETransportAdapter<Payloads extends Record<string, any> = DefaultP
           this.handleHeartbeat(event, timestamp);
           break;
 
+        case 'error':
+          this.handleServerError(event);
+          break;
+
+        case 'done':
+          this.handleDoneEvent(timestamp);
+          break;
+
         // Other event types are ignored for now
         default:
           break;
@@ -461,6 +469,31 @@ export class SSETransportAdapter<Payloads extends Record<string, any> = DefaultP
     };
 
     this.emitChunk(chunk);
+  }
+
+  private handleServerError(event: SSEEvent): void {
+    const content =
+      event.data?.content ??
+      event.data?.error_details ??
+      'Stream error';
+    const errorType = event.data?.error_type;
+    const message = errorType ? `${errorType}: ${content}` : String(content);
+    this.emitError(new Error(message));
+  }
+
+  private handleDoneEvent(timestamp: string): void {
+    // Fallback completion signal in case backend misses explicit agent_end.
+    if (this.currentRunSpanId) {
+      this.handleAgentEnd(
+        {
+          id: generateChunkId(),
+          type: 'agent_end',
+          data: {},
+          timestamp,
+        },
+        timestamp,
+      );
+    }
   }
 
   /**

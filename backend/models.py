@@ -374,6 +374,7 @@ class AgentMessage(Base):
     content = Column(Text, nullable=True)
     thought = Column(Text, nullable=True)
     name = Column(String(255), nullable=True)
+    message_hash = Column(String(64), nullable=True, index=True)
     tool_call_id = Column(String(255), nullable=True, index=True)
     tool_calls = Column(JSON, nullable=True)
     base64_image = Column(Text, nullable=True)

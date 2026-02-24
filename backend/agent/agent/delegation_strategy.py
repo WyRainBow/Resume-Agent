@@ -8,7 +8,7 @@ class AgentDelegationStrategy:
 
     STRATEGIES: Dict[str, Dict[str, object]] = {
         "analyze_resume": {
-            "analyzers": ["work_experience_analyzer", "education_analyzer_agent", "skills_analyzer"],
+            "analyzers": ["work_experience_analyzer", "skills_analyzer"],
             "parallel": True,
         },
         "optimize_section": {
@@ -17,7 +17,7 @@ class AgentDelegationStrategy:
             "parallel": False,
         },
         "full_optimize": {
-            "analyzers": ["work_experience_analyzer", "education_analyzer_agent", "skills_analyzer"],
+            "analyzers": ["work_experience_analyzer", "skills_analyzer"],
             "optimizer": "resume_optimizer",
             "parallel": True,
         },
@@ -33,6 +33,8 @@ class AgentDelegationStrategy:
                 mapped = cls._map_section_to_analyzer(section)
                 if mapped:
                     strategy["analyzers"] = [mapped]
+                else:
+                    strategy["analyzers"] = []
             return strategy
         if intent == Intent.FULL_OPTIMIZE:
             return cls.STRATEGIES["full_optimize"].copy()
@@ -44,7 +46,7 @@ class AgentDelegationStrategy:
         if "工作" in normalized:
             return "work_experience_analyzer"
         if "教育" in normalized:
-            return "education_analyzer_agent"
+            return None
         if "技能" in normalized or "技术" in normalized:
             return "skills_analyzer"
         return None

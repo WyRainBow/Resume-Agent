@@ -3,6 +3,8 @@ import { Check, Loader2, MessageSquare, Pencil, Plus, RefreshCw, Trash2, X, Tras
 import { SidebarTooltip } from './SidebarTooltip';
 import CustomScrollbar from '../common/CustomScrollbar';
 import { useEnvironment } from '@/contexts/EnvironmentContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { isAgentEnabled } from '@/lib/runtimeEnv';
 
 const PAGE_SIZE = 20;
 
@@ -54,7 +56,10 @@ export function RecentSessions({
   onRenameSession,
   refreshKey = 0,
 }: RecentSessionsProps) {
+  const agentEnabled = isAgentEnabled();
+
   const { apiBaseUrl } = useEnvironment();  // 动态获取 API 地址
+  const { isAuthenticated, loading: authLoading } = useAuth();
   const [sessions, setSessions] = useState<SessionMeta[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -64,8 +69,37 @@ export function RecentSessions({
   const [deleteConfirmSessionId, setDeleteConfirmSessionId] = useState<string | null>(null);
   const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
+  const getAuthHeaders = useCallback((extra: Record<string, string> = {}) => {
+    const token = localStorage.getItem("auth_token");
+    return token
+      ? { ...extra, Authorization: `Bearer ${token}` }
+      : { ...extra };
+  }, []);
+
+  const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  const parseErrorMessage = useCallback(async (resp: Response): Promise<string> => {
+    const fallback = `请求失败（HTTP ${resp.status}）`;
+    try {
+      const data = await resp.clone().json();
+      if (data?.detail?.message) return String(data.detail.message);
+      if (typeof data?.detail === 'string') return data.detail;
+      if (data?.error_message) return String(data.error_message);
+      if (data?.error) return String(data.error);
+    } catch {
+      // ignore parse error
+    }
+    try {
+      const text = await resp.text();
+      if (text) return text.slice(0, 200);
+    } catch {
+      // ignore read error
+    }
+    return fallback;
+  }, []);
 
   const hasNextPage = useMemo(() => {
     if (!pagination) return false;
@@ -74,35 +108,62 @@ export function RecentSessions({
 
   const fetchPage = useCallback(
     async (page: number, mode: 'replace' | 'append' = 'replace') => {
-      try {
-        const resp = await fetch(
-          `${apiBaseUrl}/api/agent/history/sessions/list?page=${page}&page_size=${PAGE_SIZE}`,
-          {
-            cache: 'no-cache',
-            headers: {
-              'Cache-Control': 'no-cache',
-            },
-          }
-        );
-        if (!resp.ok) throw new Error(`Failed to fetch sessions: ${resp.status}`);
-        const data = await resp.json();
-        const nextSessions = data.sessions || [];
-        const nextPagination = data.pagination || {
-          total: nextSessions.length,
+      const token = localStorage.getItem("auth_token");
+      if (!token) {
+        setSessions([]);
+        setPagination({
+          total: 0,
           page: 1,
           page_size: PAGE_SIZE,
           total_pages: 1,
-        };
+        });
+        setErrorMessage(null);
+        return;
+      }
+      const retries = [0, 1000, 2000];
+      for (let i = 0; i < retries.length; i++) {
+        try {
+          if (retries[i] > 0) {
+            await sleep(retries[i]);
+          }
+          const resp = await fetch(
+            `${apiBaseUrl}/api/agent/history/sessions/list?page=${page}&page_size=${PAGE_SIZE}`,
+            {
+              cache: 'no-cache',
+              headers: getAuthHeaders({
+                'Cache-Control': 'no-cache',
+              }),
+            }
+          );
+          if (!resp.ok) {
+            const msg = await parseErrorMessage(resp);
+            throw new Error(msg);
+          }
+          const data = await resp.json();
+          const nextSessions = data.sessions || [];
+          const nextPagination = data.pagination || {
+            total: nextSessions.length,
+            page: 1,
+            page_size: PAGE_SIZE,
+            total_pages: 1,
+          };
 
-        setSessions((prev) =>
-          mode === 'replace' ? nextSessions : [...prev, ...nextSessions]
-        );
-        setPagination(nextPagination);
-      } catch (error) {
-        console.error('[RecentSessions] Failed to fetch sessions:', error);
+          setSessions((prev) =>
+            mode === 'replace' ? nextSessions : [...prev, ...nextSessions]
+          );
+          setPagination(nextPagination);
+          setErrorMessage(null);
+          return;
+        } catch (error) {
+          if (i === retries.length - 1) {
+            const msg = error instanceof Error ? error.message : String(error);
+            setErrorMessage(msg);
+            console.error('[RecentSessions] Failed to fetch sessions:', error);
+          }
+        }
       }
     },
-    [apiBaseUrl]
+    [apiBaseUrl, getAuthHeaders, parseErrorMessage]
   );
 
   const refreshSessions = useCallback(async () => {
@@ -119,14 +180,23 @@ export function RecentSessions({
     setIsLoadingMore(false);
   }, [fetchPage, isLoadingMore, pagination]);
 
+  // refreshKey 变化或环境切换时刷新，避免双 effect 造成重复请求
   useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      setSessions([]);
+      setPagination({
+        total: 0,
+        page: 1,
+        page_size: PAGE_SIZE,
+        total_pages: 1,
+      });
+      setIsLoading(false);
+      setErrorMessage(null);
+      return;
+    }
     refreshSessions();
-  }, [refreshKey, refreshSessions]);
-
-  // 当 apiBaseUrl 变化时（切换环境），自动刷新会话列表
-  useEffect(() => {
-    refreshSessions();
-  }, [apiBaseUrl, refreshSessions]);
+  }, [apiBaseUrl, refreshKey, refreshSessions, isAuthenticated, authLoading]);
 
   useEffect(() => {
     if (!loadMoreRef.current || !listContainerRef.current) return;
@@ -194,9 +264,9 @@ export function RecentSessions({
       setIsLoading(true);
       const response = await fetch(`${apiBaseUrl}/api/agent/history/sessions/all`, {
         method: 'DELETE',
-        headers: {
+        headers: getAuthHeaders({
           'Content-Type': 'application/json',
-        },
+        }),
       });
 
       if (!response.ok) {
@@ -223,6 +293,10 @@ export function RecentSessions({
   const handleSelectSession = (sessionId: string) => {
     onSelectSession(sessionId);
   };
+
+  if (!agentEnabled) {
+    return null;
+  }
 
   return (
     <div className="h-full flex flex-col relative">
@@ -382,6 +456,12 @@ export function RecentSessions({
           <Loader2 className="w-3 h-3 animate-spin" />
           <span>加载中</span>
         </div>
+      ) : errorMessage ? (
+        <div className="px-3 py-3">
+          <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+            历史会话加载失败：{errorMessage}
+          </div>
+        </div>
       ) : sessions.length === 0 ? (
         <div className="px-3 py-4 text-xs text-gray-400">暂无历史会话</div>
       ) : (
@@ -517,4 +597,3 @@ export function RecentSessions({
     </div>
   );
 }
-

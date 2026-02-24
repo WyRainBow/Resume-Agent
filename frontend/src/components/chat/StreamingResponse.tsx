@@ -1,5 +1,6 @@
 import React from "react";
 import EnhancedMarkdown from "./EnhancedMarkdown";
+import { useTextStream } from "@/hooks/useTextStream";
 
 /**
  * StreamingResponseProps
@@ -9,8 +10,12 @@ export interface StreamingResponseProps {
   content: string;
   /** 是否可以开始显示 */
   canStart: boolean;
+  /** 是否仍处于流式输出中 */
+  isStreaming?: boolean;
   /** CSS 类名 */
   className?: string;
+  /** 打字机完成回调 */
+  onTypewriterComplete?: () => void;
 }
 
 /**
@@ -22,16 +27,50 @@ export interface StreamingResponseProps {
 export default function StreamingResponse({
   content,
   canStart,
+  isStreaming = true,
   className = "text-gray-800 mb-6",
+  onTypewriterComplete,
 }: StreamingResponseProps) {
-  // 如果不能开始或没有内容，不显示
-  if (!canStart || !content) {
+  const { displayedText } = useTextStream({
+    textStream: content || "",
+    mode: "typewriter",
+    speed: 13,
+    streamMode: "burst-smoothed",
+    burstThreshold: 0,
+    // 允许在掉帧时轻微追帧，减少“卡一下不动”的体感。
+    maxCharsPerFrame: 2,
+    smoothingWindowMs: 110,
+    onComplete: onTypewriterComplete,
+  });
+
+  // 如果不能开始，不显示
+  if (!canStart) {
+    return null;
+  }
+
+  const textToShow = isStreaming ? displayedText : content;
+  const showTypingTail = isStreaming;
+
+  if (!textToShow && !showTypingTail) {
     return null;
   }
 
   return (
     <div className={className}>
-      <EnhancedMarkdown>{content}</EnhancedMarkdown>
+      {isStreaming ? (
+        <div className="whitespace-pre-wrap break-words leading-relaxed">
+          {textToShow}
+          {showTypingTail && (
+            <span className="ml-1 inline-flex items-center gap-0.5 text-slate-400 align-middle">
+              <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
+              <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:120ms]" />
+              <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:240ms]" />
+            </span>
+          )}
+        </div>
+      ) : (
+        <EnhancedMarkdown>{textToShow}</EnhancedMarkdown>
+      )}
     </div>
   );
 }

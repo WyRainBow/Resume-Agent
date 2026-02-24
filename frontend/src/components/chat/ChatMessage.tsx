@@ -9,7 +9,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { ChatMessageProps } from "@/types/chat";
 import ThoughtProcess from "./ThoughtProcess";
 import EnhancedMarkdown from "./EnhancedMarkdown";
-import { useTextStream } from "./ResponseStream";
+import { useTextStream } from "@/hooks/useTextStream";
 import TTSButton from "./TTSButton";
 import { Copy, RotateCcw, Check } from "lucide-react";
 
@@ -99,6 +99,9 @@ export default function ChatMessage({
     textStream: canStartResponseTypewriter ? message.content : "",
     speed: 15, // 降低速度，让打字机效果更明显
     mode: "typewriter",
+    streamMode: "burst-smoothed",
+    burstThreshold: 0,
+    maxCharsPerFrame: 1,
     onComplete: () => {
       // 打字机效果完成时，通知父组件
       if (canStartResponseTypewriter && onTypewriterComplete) {

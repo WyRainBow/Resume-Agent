@@ -25,6 +25,7 @@ import { RecentSessions } from "@/components/sidebar/RecentSessions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEnvironment } from "@/contexts/EnvironmentContext";
 import { useCLTP } from "@/hooks/useCLTP";
+import { isAgentEnabled } from "@/lib/runtimeEnv";
 import { PDFViewerSelector } from "@/components/PDFEditor";
 import { convertToBackendFormat } from "@/pages/Workspace/v2/utils/convertToBackend";
 import {
@@ -159,6 +160,9 @@ function ReportContentView({
 // ============================================================================
 
 const SSE_HEARTBEAT_TIMEOUT = 60000; // 60 seconds
+const HISTORY_APPEND_MODE =
+  String(import.meta.env.VITE_AGENT_HISTORY_APPEND_MODE ?? "true").toLowerCase() !==
+  "false";
 
 function convertResumeDataToOpenManusFormat(resume: ResumeData) {
   return {
@@ -428,6 +432,23 @@ interface ResumeStructuredData {
   resume_data?: ResumeData;
   required?: boolean;
   message?: string;
+  source?: string;
+  trigger?: string;
+  intent_source?: string;
+}
+
+interface ResumeEditDiffStructuredData {
+  type: "resume_edit_diff";
+  section: "basic" | "internships" | string;
+  field: string;
+  index?: number;
+  before: string;
+  after: string;
+  patch?: {
+    path?: string;
+    action?: string;
+    value?: unknown;
+  };
 }
 
 // ============================================================================
@@ -435,11 +456,24 @@ interface ResumeStructuredData {
 // ============================================================================
 
 export default function SophiaChat() {
+  if (!isAgentEnabled()) {
+    return null;
+  }
+  return <SophiaChatContent />;
+}
+
+function SophiaChatContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const { resumeId } = useParams();
   const { user } = useAuth();
   const { apiBaseUrl } = useEnvironment();
+  const getAuthHeaders = useCallback((extra: Record<string, string> = {}) => {
+    const token = localStorage.getItem("auth_token");
+    return token
+      ? { ...extra, Authorization: `Bearer ${token}` }
+      : { ...extra };
+  }, []);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
@@ -538,9 +572,10 @@ export default function SophiaChat() {
   // 初始化会话：有 sessionId 用指定会话；否则默认加载“最新会话”
   useEffect(() => {
     let mounted = true;
-    const params = new URLSearchParams(window.location.search);
+    const params = new URLSearchParams(location.search);
     const explicitSessionId = params.get("sessionId");
     const hasExplicitId = !!explicitSessionId?.trim();
+    const token = localStorage.getItem("auth_token");
 
     if (hasExplicitId) {
       // URL 显式指定会话时，不做额外探测
@@ -554,12 +589,27 @@ export default function SophiaChat() {
       };
     }
 
+    if (!token) {
+      // 未登录时不请求历史会话，直接进入新会话状态
+      setInitialSessionResolved(true);
+      return () => {
+        mounted = false;
+      };
+    }
+
     const bootstrapLatestSession = async () => {
       try {
         const resp = await fetch(
           `${apiBaseUrl}/api/agent/history/sessions/list?page=1&page_size=1`,
+          {
+            headers: getAuthHeaders(),
+          },
         );
         if (!mounted) return;
+        if (resp.status === 401) {
+          // token 失效或登录态未就绪：保持新会话，不报错
+          return;
+        }
         if (resp.ok) {
           const data = await resp.json();
           const latest = Array.isArray(data?.sessions)
@@ -586,7 +636,7 @@ export default function SophiaChat() {
     return () => {
       mounted = false;
     };
-  }, [apiBaseUrl, navigate]);
+  }, [apiBaseUrl, getAuthHeaders, navigate, location.search, conversationId]);
 
   // 简历选择器状态
   const [showResumeSelector, setShowResumeSelector] = useState(false);
@@ -602,10 +652,21 @@ export default function SophiaChat() {
   const queuedSaveRef = useRef<{
     sessionId: string;
     messages: Message[];
+    shouldRefresh: boolean;
   } | null>(null);
+  const scheduledSaveRef = useRef<{
+    sessionId: string;
+    messages: Message[];
+    shouldRefresh: boolean;
+  } | null>(null);
+  const saveDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedKeyRef = useRef<string>("");
   const refreshAfterSaveRef = useRef(false);
   const saveRetryRef = useRef<Record<string, number>>({});
+  const saveClientSeqRef = useRef(0);
+  const lastPersistedCountBySessionRef = useRef<Record<string, number>>({});
+  const appendDisabledBySessionRef = useRef<Record<string, boolean>>({});
+  const autoScrollTimerRef = useRef<number | null>(null);
   const isFinalizedRef = useRef(false);
   const currentThoughtRef = useRef("");
   const currentAnswerRef = useRef("");
@@ -615,7 +676,12 @@ export default function SophiaChat() {
     at: number;
   } | null>(null);
   const lastHandledAnswerCompleteRef = useRef(0);
+  const pendingFinalizeAfterTypewriterRef = useRef(false);
+  const finalizeRetryTimerRef = useRef<number | null>(null);
+  const finalizeRetryAttemptsRef = useRef(0);
   const prevRouteSessionIdRef = useRef<string | null>(null);
+  const handledResumeSelectorToolCallsRef = useRef<Set<string>>(new Set());
+  const handledEditToolCallsRef = useRef<Set<string>>(new Set());
   
   const normalizedResume = useMemo(() => {
     if (!resumeData) return null;
@@ -808,11 +874,107 @@ export default function SophiaChat() {
     [],
   );
 
+  const applyResumeEditDiff = useCallback(
+    (diff: ResumeEditDiffStructuredData) => {
+      const patchPath = diff.patch?.path || "";
+      const patchValue = diff.patch?.value;
+      if (diff.patch?.action !== "update" || !patchPath) return;
+
+      const patchResume = (source: ResumeData): ResumeData => {
+        const next = structuredClone(source);
+        if (patchPath === "basic.name") {
+          next.basic = { ...next.basic, name: String(patchValue ?? "") };
+          return next;
+        }
+
+        const experienceMatch = patchPath.match(/^experience\[(\d+)\]\.company$/);
+        if (experienceMatch) {
+          const index = Number(experienceMatch[1]);
+          if (Array.isArray(next.experience) && index >= 0 && index < next.experience.length) {
+            const target = next.experience[index];
+            next.experience[index] = {
+              ...target,
+              company: String(patchValue ?? ""),
+            };
+          }
+          return next;
+        }
+
+        const internshipMatch = patchPath.match(/^internships\[(\d+)\]\.company$/);
+        if (internshipMatch) {
+          const index = Number(internshipMatch[1]);
+          if (Array.isArray(next.experience) && index >= 0 && index < next.experience.length) {
+            const target = next.experience[index];
+            next.experience[index] = {
+              ...target,
+              company: String(patchValue ?? ""),
+            };
+          }
+        }
+
+        return next;
+      };
+
+      setLoadedResumes((prev) => {
+        if (prev.length === 0) return prev;
+        const targetId = selectedResumeId || prev[0]?.id;
+        if (!targetId) return prev;
+        return prev.map((item) => {
+          if (item.id !== targetId || !item.resumeData) return item;
+          return { ...item, resumeData: patchResume(item.resumeData) };
+        });
+      });
+
+      setResumeData((prev) => (prev ? patchResume(prev) : prev));
+      setResumePdfPreview((prev) => {
+        const targetId = selectedResumeId || Object.keys(prev)[0];
+        if (!targetId) return prev;
+        return {
+          ...prev,
+          [targetId]: {
+            ...(prev[targetId] || EMPTY_RESUME_PDF_STATE),
+            blob: null,
+            loading: false,
+            progress: "",
+            error: null,
+          },
+        };
+      });
+      setResumeError(null);
+      setAllowPdfAutoRender(true);
+    },
+    [selectedResumeId],
+  );
+
   const handleSSEEvent = useCallback(
     (event: SSEEvent) => {
+      if (event.type === "error") {
+        const message =
+          event.data?.content ||
+          event.data?.error_details ||
+          "流式请求失败，请稍后重试。";
+        setResumeError(String(message));
+        return;
+      }
       if (event.type !== "tool_result") return;
       const toolName = event.data?.tool;
       const structured = event.data?.structured_data;
+      const toolCallId =
+        (event.data?.tool_call_id as string | undefined) ||
+        `fallback-${String(event.data?.content || JSON.stringify(event.data || {}))}`;
+
+      if (toolName === "show_resume" && (!structured || typeof structured !== "object")) {
+        if (!handledResumeSelectorToolCallsRef.current.has(toolCallId)) {
+          handledResumeSelectorToolCallsRef.current.add(toolCallId);
+          console.warn(
+            "[AgentChat] show_resume missing structured_data, fallback to resume selector",
+            event.data,
+          );
+          setResumeError(null);
+          setShowResumeSelector(true);
+        }
+        return;
+      }
       if (!structured || typeof structured !== "object") return;
 
       if (toolName === "web_search") {
@@ -838,21 +1000,40 @@ export default function SophiaChat() {
       if (toolName === "show_resume") {
         const resumePayload = structured as ResumeStructuredData;
         if (resumePayload.type === "resume_selector") {
+          if (handledResumeSelectorToolCallsRef.current.has(toolCallId)) {
+            return;
+          }
+          handledResumeSelectorToolCallsRef.current.add(toolCallId);
           setResumeError(null);
           setShowResumeSelector(true);
           return;
         }
         upsertLoadedResume("current", resumePayload);
+        return;
+      }
+
+      if (toolName === "cv_editor_agent") {
+        const editPayload = structured as ResumeEditDiffStructuredData;
+        if (editPayload.type === "resume_edit_diff") {
+          handledEditToolCallsRef.current.add(toolCallId);
+          applyResumeEditDiff(editPayload);
+        }
       }
     },
-    [upsertSearchResult, upsertLoadedResume],
+    [upsertSearchResult, upsertLoadedResume, applyResumeEditDiff],
   );
+
+  useEffect(() => {
+    handledResumeSelectorToolCallsRef.current.clear();
+    handledEditToolCallsRef.current.clear();
+  }, [conversationId]);
 
   const {
     currentThought,
     currentAnswer,
     isProcessing,
     isConnected,
+    lastError,
     answerCompleteCount,
     sendMessage,
     finalizeStream,
@@ -971,14 +1152,6 @@ export default function SophiaChat() {
   }, [isDesktop]);
 
   useEffect(() => {
-    console.log("[PDF TRACE] effect-check", {
-      selectedLoadedResume: selectedLoadedResume?.id,
-      selectedReportId,
-      allowPdfAutoRender,
-      selectedResumeId,
-      currentSessionId,
-      conversationId,
-    });
     if (!allowPdfAutoRender) return;
     if (!selectedLoadedResume) return;
     if (selectedReportId) return;
@@ -994,6 +1167,20 @@ export default function SophiaChat() {
   useEffect(() => {
     // 等待初始化阶段确定最终会话ID后再加载
     if (!initialSessionResolved) {
+      return;
+    }
+
+    const routeSessionId =
+      new URLSearchParams(location.search).get("sessionId")?.trim() || null;
+    const isEphemeralConversation =
+      !routeSessionId && conversationId.startsWith("conv-");
+
+    // /agent/new 的本地临时会话不走后端加载，避免 404 Session not found
+    if (isEphemeralConversation) {
+      if (currentSessionId !== conversationId) {
+        setCurrentSessionId(conversationId);
+      }
+      setResumeError(null);
       return;
     }
 
@@ -1015,34 +1202,69 @@ export default function SophiaChat() {
         }
         const resp = await fetch(
           `${apiBaseUrl}/api/agent/history/sessions/${conversationId}`,
+          {
+            headers: getAuthHeaders(),
+          },
         );
         if (!mounted) return;
         if (!resp.ok) {
+          let detail = `HTTP ${resp.status} ${resp.statusText}`;
+          try {
+            const errData = await resp.clone().json();
+            if (errData?.detail?.message) {
+              detail = errData.detail.message;
+            } else if (typeof errData?.detail === "string") {
+              detail = errData.detail;
+            } else if (errData?.error_message) {
+              detail = errData.error_message;
+            }
+          } catch {
+            // ignore json parse errors
+          }
           // 会话不存在，使用新的会话ID
           console.log(
-            `[AgentChat] Session ${conversationId} not found, starting new session`,
+            `[AgentChat] Session ${conversationId} load failed: ${detail}`,
           );
+          setResumeError(`会话加载失败：${detail}`);
           return;
         }
         const data = await resp.json();
+        setResumeError(null);
 
-        // 🔧 恢复 UI 数据（懒加载模式）
-        // 仅恢复可点击的数据，不自动恢复右侧选中态（selectedResumeId/selectedReportId），
-        // 以避免进入页面就触发 PDF/报告加载。右侧预览改为用户点击卡片后再打开。
+        // 🔧 恢复 UI 数据（包含右侧选中态），避免“展示简历后又自动消失”。
         try {
           const savedUiState = localStorage.getItem(
             `ui_state:${conversationId}`,
           );
           if (savedUiState) {
-            const { loadedResumes: sLrs } = JSON.parse(savedUiState);
+            const {
+              loadedResumes: sLrs,
+              selectedResumeId: savedSelectedResumeId,
+              selectedReportId: savedSelectedReportId,
+            } = JSON.parse(savedUiState);
             // 恢复已加载列表的元数据，数据会在后续逻辑中通过消息或重新加载补齐
             if (Array.isArray(sLrs) && sLrs.length > 0) {
               setLoadedResumes(sLrs);
             }
-            // 懒加载：进入页面默认关闭右侧预览，等待用户点击卡片再恢复
-            setSelectedResumeId(null);
-            setSelectedReportId(null);
-            setAllowPdfAutoRender(false);
+            if (
+              typeof savedSelectedResumeId === "string" &&
+              savedSelectedResumeId.trim() !== ""
+            ) {
+              setSelectedResumeId(savedSelectedResumeId);
+              setSelectedReportId(null);
+              setAllowPdfAutoRender(true);
+            } else if (
+              typeof savedSelectedReportId === "string" &&
+              savedSelectedReportId.trim() !== ""
+            ) {
+              setSelectedReportId(savedSelectedReportId);
+              setSelectedResumeId(null);
+              setAllowPdfAutoRender(false);
+            } else {
+              setSelectedResumeId(null);
+              setSelectedReportId(null);
+              setAllowPdfAutoRender(false);
+            }
           }
         } catch (e) {
           console.warn("[AgentChat] Failed to restore UI state:", e);
@@ -1085,6 +1307,10 @@ export default function SophiaChat() {
         if (!mounted) return;
         setMessages(dedupedMessages);
         setCurrentSessionId(conversationId);
+        lastPersistedCountBySessionRef.current[conversationId] =
+          typeof data?.total === "number"
+            ? data.total
+            : dedupedMessages.length;
         console.log(
           `[AgentChat] Auto-loaded session ${conversationId} with ${dedupedMessages.length} messages`,
         );
@@ -1097,7 +1323,12 @@ export default function SophiaChat() {
     return () => {
       mounted = false;
     };
-  }, [conversationId, currentSessionId, initialSessionResolved, apiBaseUrl]); // 仅在会话确定后加载
+  }, [conversationId, currentSessionId, initialSessionResolved, apiBaseUrl, getAuthHeaders, location.search]); // 仅在会话确定后加载
+
+  useEffect(() => {
+    if (!lastError) return;
+    setResumeError(lastError);
+  }, [lastError]);
 
   useEffect(() => {
     if (answerCompleteCount <= 0 || !resumeId) {
@@ -1187,10 +1418,28 @@ export default function SophiaChat() {
     apiBaseUrl,
   ]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom (throttled to reduce layout thrash during streaming)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, currentThought, currentAnswer]);
+    if (autoScrollTimerRef.current !== null) {
+      window.clearTimeout(autoScrollTimerRef.current);
+    }
+    autoScrollTimerRef.current = window.setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({
+        behavior: isProcessing ? "auto" : "smooth",
+        block: "end",
+      });
+      autoScrollTimerRef.current = null;
+    }, isProcessing ? 90 : 140);
+  }, [messages, currentThought, currentAnswer, isProcessing]);
+
+  useEffect(() => {
+    return () => {
+      if (autoScrollTimerRef.current !== null) {
+        window.clearTimeout(autoScrollTimerRef.current);
+        autoScrollTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // 打开“展示简历”卡片或切换其步骤时，确保卡片完整进入可视区域，避免被输入区遮挡。
   useEffect(() => {
@@ -1205,16 +1454,10 @@ export default function SophiaChat() {
 
   useEffect(() => {
     currentThoughtRef.current = currentThought;
-    console.log("[AgentChat] currentThought updated", {
-      length: currentThought.length,
-    });
   }, [currentThought]);
 
   useEffect(() => {
     currentAnswerRef.current = currentAnswer;
-    console.log("[AgentChat] currentAnswer updated", {
-      length: currentAnswer.length,
-    });
   }, [currentAnswer]);
 
   // 检测并创建报告（需要在 finalizeMessage 之前定义）
@@ -1438,6 +1681,9 @@ export default function SophiaChat() {
 
       return updated;
     });
+
+    // Clear transient stream buffers only after message finalization work has been enqueued.
+    finalizeStream();
   }, [
     finalizeStream,
     currentAnswer,
@@ -1447,6 +1693,25 @@ export default function SophiaChat() {
     streamingReportId,
     apiBaseUrl,
   ]);
+
+  const finalizeAfterTypewriter = useCallback(() => {
+    if (!pendingFinalizeAfterTypewriterRef.current) {
+      return;
+    }
+
+    pendingFinalizeAfterTypewriterRef.current = false;
+
+    if (finalizeRetryTimerRef.current !== null) {
+      window.clearTimeout(finalizeRetryTimerRef.current);
+      finalizeRetryTimerRef.current = null;
+    }
+
+    finalizeMessage();
+
+    window.setTimeout(() => {
+      isFinalizedRef.current = false;
+    }, 150);
+  }, [finalizeMessage]);
 
   const refreshSessions = useCallback(() => {
     setSessionsRefreshKey((prev) => prev + 1);
@@ -1561,6 +1826,23 @@ export default function SophiaChat() {
     }));
   }, []);
 
+  const computeLastMessageHash = useCallback((messagesToSave: Message[]) => {
+    if (!messagesToSave.length) return "";
+    const last = messagesToSave[messagesToSave.length - 1];
+    const raw = `${last.role}|${last.content || ""}|${last.thought || ""}`;
+    let hash = 2166136261;
+    for (let i = 0; i < raw.length; i++) {
+      hash ^= raw.charCodeAt(i);
+      hash +=
+        (hash << 1) +
+        (hash << 4) +
+        (hash << 7) +
+        (hash << 8) +
+        (hash << 24);
+    }
+    return (hash >>> 0).toString(16);
+  }, []);
+
   const persistSessionSnapshot = useCallback(
     async (
       sessionId: string,
@@ -1588,25 +1870,92 @@ export default function SophiaChat() {
       if (payloadKey === lastSavedKeyRef.current) {
         return;
       }
+      const clientSaveSeq = ++saveClientSeqRef.current;
+      const lastMessageHash = computeLastMessageHash(messagesToSave);
 
       if (saveInFlightRef.current) {
         queuedSaveRef.current = {
           sessionId: validSessionId,
           messages: messagesToSave,
+          shouldRefresh,
         };
         return;
       }
 
       saveInFlightRef.current = (async () => {
         try {
-          const resp = await fetch(
-            `${apiBaseUrl}/api/agent/history/sessions/${validSessionId}/save`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ messages: payload }),
-            },
-          );
+          const fullSave = async () => {
+            const resp = await fetch(
+              `${apiBaseUrl}/api/agent/history/sessions/${validSessionId}/save`,
+              {
+                method: "POST",
+                headers: getAuthHeaders({ "Content-Type": "application/json" }),
+                body: JSON.stringify({
+                  messages: payload,
+                  client_save_seq: clientSaveSeq,
+                  last_message_hash: lastMessageHash,
+                }),
+              },
+            );
+            if (resp.ok) {
+              lastPersistedCountBySessionRef.current[validSessionId] =
+                messagesToSave.length;
+            }
+            return resp;
+          };
+
+          let resp: Response;
+          const knownPersistedCount =
+            lastPersistedCountBySessionRef.current[validSessionId] ?? 0;
+          const appendDisabled =
+            appendDisabledBySessionRef.current[validSessionId] === true;
+          const canTryAppend =
+            HISTORY_APPEND_MODE &&
+            !appendDisabled &&
+            knownPersistedCount > 0 &&
+            knownPersistedCount <= messagesToSave.length;
+
+          if (canTryAppend) {
+            const deltaMessages = messagesToSave.slice(knownPersistedCount);
+            if (deltaMessages.length === 0) {
+              lastSavedKeyRef.current = payloadKey;
+              return;
+            }
+            resp = await fetch(
+              `${apiBaseUrl}/api/agent/history/sessions/${validSessionId}/append`,
+              {
+                method: "POST",
+                headers: getAuthHeaders({ "Content-Type": "application/json" }),
+                body: JSON.stringify({
+                  base_seq: knownPersistedCount,
+                  messages_delta: buildSavePayload(deltaMessages),
+                  client_save_seq: clientSaveSeq,
+                  last_message_hash: lastMessageHash,
+                }),
+              },
+            );
+
+            // base_seq 冲突时自动回退到 full snapshot save
+            if (resp.status === 409) {
+              appendDisabledBySessionRef.current[validSessionId] = true;
+              resp = await fullSave();
+            } else if (resp.ok) {
+              const body = await resp
+                .clone()
+                .json()
+                .catch(() => null as any);
+              if (typeof body?.new_seq === "number") {
+                lastPersistedCountBySessionRef.current[validSessionId] =
+                  body.new_seq;
+              } else {
+                lastPersistedCountBySessionRef.current[validSessionId] =
+                  messagesToSave.length;
+              }
+            }
+          } else {
+            resp = await fullSave();
+          }
+
           if (!resp.ok) {
             console.error(`[AgentChat] Failed to save session: ${resp.status}`);
             const retryCount = (saveRetryRef.current[payloadKey] || 0) + 1;
@@ -1615,6 +1964,7 @@ export default function SophiaChat() {
               queuedSaveRef.current = {
                 sessionId: validSessionId,
                 messages: messagesToSave,
+                shouldRefresh,
               };
               setTimeout(() => {
                 if (!saveInFlightRef.current && queuedSaveRef.current) {
@@ -1623,7 +1973,7 @@ export default function SophiaChat() {
                   void persistSessionSnapshot(
                     next.sessionId,
                     next.messages,
-                    shouldRefresh,
+                    next.shouldRefresh,
                   );
                 }
               }, 800 * retryCount);
@@ -1643,6 +1993,7 @@ export default function SophiaChat() {
             queuedSaveRef.current = {
               sessionId: validSessionId,
               messages: messagesToSave,
+              shouldRefresh,
             };
             setTimeout(() => {
               if (!saveInFlightRef.current && queuedSaveRef.current) {
@@ -1651,7 +2002,7 @@ export default function SophiaChat() {
                 void persistSessionSnapshot(
                   next.sessionId,
                   next.messages,
-                  shouldRefresh,
+                  next.shouldRefresh,
                 );
               }
             }, 800 * retryCount);
@@ -1664,17 +2015,71 @@ export default function SophiaChat() {
             void persistSessionSnapshot(
               next.sessionId,
               next.messages,
-              shouldRefresh,
+              next.shouldRefresh,
             );
           }
         }
       })();
       await saveInFlightRef.current;
     },
-    [conversationId, buildSavePayload, refreshSessions],
+    [
+      conversationId,
+      buildSavePayload,
+      computeLastMessageHash,
+      getAuthHeaders,
+      refreshSessions,
+    ],
   );
 
+  const schedulePersistSessionSnapshot = useCallback(
+    (sessionId: string, messagesToSave: Message[], shouldRefresh = false) => {
+      if (!sessionId || sessionId.trim() === "" || messagesToSave.length === 0) {
+        return;
+      }
+
+      const existing = scheduledSaveRef.current;
+      scheduledSaveRef.current = {
+        sessionId,
+        messages: messagesToSave,
+        shouldRefresh: shouldRefresh || Boolean(existing?.shouldRefresh),
+      };
+
+      if (saveDebounceTimerRef.current) {
+        clearTimeout(saveDebounceTimerRef.current);
+      }
+      saveDebounceTimerRef.current = setTimeout(() => {
+        const pending = scheduledSaveRef.current;
+        scheduledSaveRef.current = null;
+        saveDebounceTimerRef.current = null;
+        if (!pending) return;
+        void persistSessionSnapshot(
+          pending.sessionId,
+          pending.messages,
+          pending.shouldRefresh,
+        );
+      }, 1800);
+    },
+    [persistSessionSnapshot],
+  );
+
+  const flushScheduledSave = useCallback(async () => {
+    if (saveDebounceTimerRef.current) {
+      clearTimeout(saveDebounceTimerRef.current);
+      saveDebounceTimerRef.current = null;
+    }
+    const pending = scheduledSaveRef.current;
+    scheduledSaveRef.current = null;
+    if (pending) {
+      await persistSessionSnapshot(
+        pending.sessionId,
+        pending.messages,
+        pending.shouldRefresh,
+      );
+    }
+  }, [persistSessionSnapshot]);
+
   const waitForPendingSave = useCallback(async () => {
+    await flushScheduledSave();
     if (saveInFlightRef.current) {
       await saveInFlightRef.current;
     }
@@ -1684,7 +2089,7 @@ export default function SophiaChat() {
         await saveInFlightRef.current;
       }
     }
-  }, []);
+  }, [flushScheduledSave]);
 
   useEffect(() => {
     if (!pendingSaveRef.current) {
@@ -1695,18 +2100,17 @@ export default function SophiaChat() {
     refreshAfterSaveRef.current = false;
     // 验证 conversationId 不为空且消息不为空
     if (conversationId && conversationId.trim() !== "" && messages.length > 0) {
-      void persistSessionSnapshot(conversationId, messages, shouldRefresh);
+      schedulePersistSessionSnapshot(conversationId, messages, shouldRefresh);
     } else {
       console.log(
         "[AgentChat] Skipping save: conversationId is empty or no messages",
       );
     }
-  }, [conversationId, messages, persistSessionSnapshot]);
+  }, [conversationId, messages, schedulePersistSessionSnapshot]);
 
   const saveCurrentSession = useCallback(() => {
     if (isProcessing || currentThoughtRef.current || currentAnswerRef.current) {
       pendingSaveRef.current = true;
-      finalizeMessage();
       return;
     }
     // 只有当有消息时才标记需要保存
@@ -1722,12 +2126,33 @@ export default function SophiaChat() {
     persistSessionSnapshot,
   ]);
 
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const pending = scheduledSaveRef.current;
+      if (!pending) return;
+      void persistSessionSnapshot(
+        pending.sessionId,
+        pending.messages,
+        pending.shouldRefresh,
+      );
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      if (saveDebounceTimerRef.current) {
+        clearTimeout(saveDebounceTimerRef.current);
+        saveDebounceTimerRef.current = null;
+      }
+    };
+  }, [persistSessionSnapshot]);
+
   const deleteSession = async (sessionId: string) => {
     try {
       const resp = await fetch(
         `${apiBaseUrl}/api/agent/history/${sessionId}`,
         {
           method: "DELETE",
+          headers: getAuthHeaders(),
         },
       );
       if (!resp.ok) throw new Error(`Failed to delete session: ${resp.status}`);
@@ -1742,6 +2167,7 @@ export default function SophiaChat() {
         setMessages([]);
         setCurrentSessionId(newId);
         setConversationId(newId);
+        lastPersistedCountBySessionRef.current[newId] = 0;
         finalizeStream();
       }
       refreshSessions();
@@ -1836,7 +2262,7 @@ export default function SophiaChat() {
         `${apiBaseUrl}/api/agent/history/sessions/${sessionId}/title`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({ title: trimmedTitle }),
         },
       );
@@ -1876,17 +2302,35 @@ export default function SophiaChat() {
     try {
       const resp = await fetch(
         `${apiBaseUrl}/api/agent/history/sessions/${sessionId}`,
+        {
+          headers: getAuthHeaders(),
+        },
       );
 
       if (!resp.ok) {
+        let detail = `HTTP ${resp.status} ${resp.statusText}`;
+        try {
+          const errData = await resp.clone().json();
+          if (errData?.detail?.message) {
+            detail = errData.detail.message;
+          } else if (typeof errData?.detail === "string") {
+            detail = errData.detail;
+          } else if (errData?.error_message) {
+            detail = errData.error_message;
+          }
+        } catch {
+          // ignore json parse errors
+        }
         console.error(
-          `[AgentChat] Failed to load session: ${resp.status} ${resp.statusText}`,
+          `[AgentChat] Failed to load session: ${detail}`,
         );
+        setResumeError(`会话加载失败：${detail}`);
         // 如果加载失败，不清空当前消息，保持原状态
         return;
       }
 
       const data = await resp.json();
+      setResumeError(null);
 
       // 检查返回的数据格式
       if (!data || !Array.isArray(data.messages)) {
@@ -1922,13 +2366,32 @@ export default function SophiaChat() {
         (m: any) => m.role === "user" || m.role === "assistant",
       );
 
-      // 懒加载模式：恢复会话级“可点击数据”，但不自动恢复右侧选中态
+      // 恢复会话级 UI 状态（包含右侧选中态）
       try {
         const savedUiState = localStorage.getItem(`ui_state:${sessionId}`);
         if (savedUiState) {
-          const { loadedResumes: sLrs } = JSON.parse(savedUiState);
+          const {
+            loadedResumes: sLrs,
+            selectedResumeId: savedSelectedResumeId,
+            selectedReportId: savedSelectedReportId,
+          } = JSON.parse(savedUiState);
           if (Array.isArray(sLrs) && sLrs.length > 0) {
             setLoadedResumes(sLrs);
+          }
+          if (
+            typeof savedSelectedResumeId === "string" &&
+            savedSelectedResumeId.trim() !== ""
+          ) {
+            setSelectedResumeId(savedSelectedResumeId);
+            setSelectedReportId(null);
+            setAllowPdfAutoRender(true);
+          } else if (
+            typeof savedSelectedReportId === "string" &&
+            savedSelectedReportId.trim() !== ""
+          ) {
+            setSelectedReportId(savedSelectedReportId);
+            setSelectedResumeId(null);
+            setAllowPdfAutoRender(false);
           }
         }
       } catch (e) {
@@ -1952,6 +2415,10 @@ export default function SophiaChat() {
         setMessages(dedupedMessages);
         setCurrentSessionId(sessionId);
         setConversationId(sessionId);
+        lastPersistedCountBySessionRef.current[sessionId] =
+          typeof data?.total === "number"
+            ? data.total
+            : dedupedMessages.length;
         setAllowPdfAutoRender(false);
         // 清理流式状态，避免显示旧会话的流式内容
         finalizeStream();
@@ -1980,6 +2447,7 @@ export default function SophiaChat() {
     setMessages([]);
     setCurrentSessionId(newId);
     setConversationId(newId);
+    lastPersistedCountBySessionRef.current[newId] = 0;
     setSelectedResumeId(null);
     setSelectedReportId(null);
     setAllowPdfAutoRender(false);
@@ -2203,64 +2671,70 @@ export default function SophiaChat() {
       return;
     }
     lastHandledAnswerCompleteRef.current = answerCompleteCount;
+    pendingFinalizeAfterTypewriterRef.current = true;
 
-    const hasContent =
-      currentAnswerRef.current.trim() ||
-      currentThoughtRef.current.trim() ||
-      currentAnswer.trim() ||
-      currentThought.trim();
-    if (hasContent) {
+    const currentAnswerValue = currentAnswerRef.current.trim() || currentAnswer.trim();
+    const currentThoughtValue = currentThoughtRef.current.trim() || currentThought.trim();
+    const hasAnyContent = currentAnswerValue || currentThoughtValue;
+
+    if (hasAnyContent) {
       lastCompletedRef.current = {
-        thought: currentThoughtRef.current.trim() || currentThought.trim(),
-        answer: currentAnswerRef.current.trim() || currentAnswer.trim(),
+        thought: currentThoughtValue,
+        answer: currentAnswerValue,
         at: Date.now(),
       };
     }
-    console.log("[AgentChat] answerCompleteCount effect", {
-      answerCompleteCount,
-      hasContent,
-      answerRefLength: currentAnswerRef.current.trim().length,
-      thoughtRefLength: currentThoughtRef.current.trim().length,
-      answerStateLength: currentAnswer.trim().length,
-      thoughtStateLength: currentThought.trim().length,
-    });
 
-    // True-streaming path: finalize immediately when backend marks answer complete.
-    // Use a small delay to ensure refs are fully synchronized with the latest chunks.
-    const finalizeWithRetry = (retryCount = 0) => {
-      const currentAnswerValue = currentAnswerRef.current.trim() || currentAnswer.trim();
-      const currentThoughtValue = currentThoughtRef.current.trim() || currentThought.trim();
-      const hasAnyContent = currentAnswerValue || currentThoughtValue;
-
-      if (!hasAnyContent && retryCount < 3) {
-        console.log(`[AgentChat] No content detected in effect, retrying finalize... (${retryCount + 1}/3)`);
-        setTimeout(() => finalizeWithRetry(retryCount + 1), 50 * (retryCount + 1));
+    // Fallback: if打字机回调没有触发（例如空回答），短延时后兜底完成。
+    if (finalizeRetryTimerRef.current !== null) {
+      window.clearTimeout(finalizeRetryTimerRef.current);
+    }
+    finalizeRetryAttemptsRef.current = 0;
+    finalizeRetryTimerRef.current = window.setTimeout(() => {
+      if (!pendingFinalizeAfterTypewriterRef.current) {
+        finalizeRetryTimerRef.current = null;
         return;
       }
 
-      if (hasAnyContent) {
-        lastCompletedRef.current = {
-          thought: currentThoughtValue,
-          answer: currentAnswerValue,
-          at: Date.now(),
-        };
+      const fallbackAnswer = currentAnswerRef.current.trim() || currentAnswer.trim();
+      const fallbackThought = currentThoughtRef.current.trim() || currentThought.trim();
+      if (fallbackAnswer || fallbackThought) {
+        finalizeAfterTypewriter();
+      } else {
+        finalizeRetryAttemptsRef.current += 1;
+        if (finalizeRetryAttemptsRef.current <= 5) {
+          finalizeRetryTimerRef.current = window.setTimeout(() => {
+            if (!pendingFinalizeAfterTypewriterRef.current) {
+              finalizeRetryTimerRef.current = null;
+              return;
+            }
+            const retryAnswer =
+              currentAnswerRef.current.trim() || currentAnswer.trim();
+            const retryThought =
+              currentThoughtRef.current.trim() || currentThought.trim();
+            if (retryAnswer || retryThought) {
+              finalizeAfterTypewriter();
+              return;
+            }
+            if (finalizeRetryAttemptsRef.current >= 5) {
+              pendingFinalizeAfterTypewriterRef.current = false;
+            }
+          }, 220);
+          return;
+        }
+        pendingFinalizeAfterTypewriterRef.current = false;
       }
+      finalizeRetryTimerRef.current = null;
+    }, 800);
+  }, [answerCompleteCount, currentAnswer, currentThought, finalizeAfterTypewriter]);
 
-      console.log("[AgentChat] Executing finalization", { hasAnyContent, retryCount });
-      finalizeMessage();
-      finalizeStream();
-      
-      setTimeout(() => {
-        isFinalizedRef.current = false;
-      }, 150);
+  useEffect(() => {
+    return () => {
+      if (finalizeRetryTimerRef.current !== null) {
+        window.clearTimeout(finalizeRetryTimerRef.current);
+      }
     };
-
-    finalizeWithRetry();
-  }, [
-    answerCompleteCount,
-    finalizeMessage,
-    finalizeStream,
-  ]);
+  }, []);
 
   /**
    * Send message to backend via SSE
@@ -2271,6 +2745,11 @@ export default function SophiaChat() {
     const hasAttachments = pendingAttachments.length > 0;
     if ((!trimmedInput && !hasAttachments) || isProcessing || isUploadingFile)
       return;
+
+    // 每轮新消息开始前清理可能残留的“隐藏回答”状态，避免普通回答被误隐藏。
+    setShouldHideResponseInChat(false);
+    setStreamingReportId(null);
+    setStreamingReportContent("");
 
     // 检测用户是否要生成报告
     const isReportRequest =
@@ -2830,6 +3309,7 @@ export default function SophiaChat() {
                   currentThought={currentThought}
                   currentAnswer={currentAnswer}
                   isProcessing={isProcessing}
+                  onResponseTypewriterComplete={finalizeAfterTypewriter}
                   shouldHideResponseInChat={shouldHideResponseInChat}
                   currentSearch={searchResults.find((r) => r.messageId === "current")}
                   renderSearchCard={(searchData) => (

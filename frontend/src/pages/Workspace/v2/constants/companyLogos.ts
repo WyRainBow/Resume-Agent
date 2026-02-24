@@ -15,6 +15,7 @@ export interface CompanyLogo {
 let _cachedLogos: CompanyLogo[] = []
 let _fetchPromise: Promise<CompanyLogo[]> | null = null
 let _loaded = false
+let _lastError: string | null = null
 
 // 事件通知：Logo 列表加载完成时通知订阅者
 type Listener = (logos: CompanyLogo[]) => void
@@ -27,6 +28,35 @@ export function onLogosLoaded(listener: Listener): () => void {
     listener(_cachedLogos)
   }
   return () => _listeners.delete(listener)
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function stringifyError(err: unknown): string {
+  if (err instanceof Error) return err.message
+  return String(err)
+}
+
+async function parseErrorMessage(resp: Response): Promise<string> {
+  const fallback = `HTTP ${resp.status}`
+  try {
+    const data = await resp.clone().json()
+    if (data?.detail?.message) return data.detail.message
+    if (data?.detail && typeof data.detail === 'string') return data.detail
+    if (data?.error_message) return data.error_message
+    if (data?.error) return data.error
+  } catch {
+    // ignore json parse failure
+  }
+  try {
+    const text = await resp.text()
+    if (text) return text.slice(0, 200)
+  } catch {
+    // ignore body read failure
+  }
+  return fallback
 }
 
 /**
@@ -42,20 +72,34 @@ export async function fetchLogos(): Promise<CompanyLogo[]> {
   }
 
   _fetchPromise = (async () => {
-    try {
-      const resp = await fetch('/api/logos')
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-      const data = await resp.json()
-      _cachedLogos = data.logos || []
-      _loaded = true
-      // 通知所有订阅者
-      _listeners.forEach((fn) => fn(_cachedLogos))
-      return _cachedLogos
-    } catch (err) {
-      console.error('[Logo] 获取 Logo 列表失败:', err)
-      _fetchPromise = null // 允许重试
-      return []
+    const retries = [0, 1000, 2000]
+    for (let i = 0; i < retries.length; i++) {
+      try {
+        if (retries[i] > 0) {
+          await delay(retries[i])
+        }
+        const resp = await fetch('/api/logos')
+        if (!resp.ok) {
+          const errMsg = await parseErrorMessage(resp)
+          throw new Error(errMsg)
+        }
+        const data = await resp.json()
+        _cachedLogos = data.logos || []
+        _loaded = true
+        _lastError = null
+        // 通知所有订阅者
+        _listeners.forEach((fn) => fn(_cachedLogos))
+        return _cachedLogos
+      } catch (err) {
+        _lastError = stringifyError(err)
+        if (i === retries.length - 1) {
+          console.error('[Logo] 获取 Logo 列表失败:', err)
+          _fetchPromise = null // 允许重试
+          return []
+        }
+      }
     }
+    return []
   })()
 
   return _fetchPromise
@@ -66,6 +110,10 @@ export async function fetchLogos(): Promise<CompanyLogo[]> {
  */
 export function getCachedLogos(): CompanyLogo[] {
   return _cachedLogos
+}
+
+export function getLastLogoError(): string | null {
+  return _lastError
 }
 
 /**

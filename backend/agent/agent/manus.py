@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
@@ -12,13 +13,12 @@ from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
 from backend.agent.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT
-from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, EducationAnalyzerTool, ShowResumeTool, Terminate, ToolCollection, WebSearch
+from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, ShowResumeTool, Terminate, ToolCollection, WebSearch
 try:
     from backend.agent.tool import BrowserUseTool
 except ImportError:
     BrowserUseTool = None
 from backend.agent.tool.ask_human import AskHuman
-from backend.agent.tool.mcp import MCPClients, MCPClientTool
 from backend.agent.tool.python_execute import PythonExecute
 from backend.agent.tool.str_replace_editor import StrReplaceEditor
 from backend.agent.memory import (
@@ -34,13 +34,12 @@ from backend.agent.agent.registry import AgentRegistry
 from backend.agent.agent.delegation_strategy import AgentDelegationStrategy
 from backend.agent.tool.resume_data_store import ResumeDataStore
 from backend.agent.agent.analyzers.work_experience_analyzer import WorkExperienceAnalyzerAgent  # noqa: F401
-from backend.agent.agent.analyzers.education_analyzer import EducationAnalyzerAgent  # noqa: F401
 from backend.agent.agent.analyzers.skills_analyzer import SkillsAnalyzerAgent  # noqa: F401
 from backend.agent.agent.resume_optimizer import ResumeOptimizerAgent  # noqa: F401
 
 
 class Manus(ToolCallAgent):
-    """A versatile general-purpose agent with support for both local and MCP tools.
+    """A versatile general-purpose agent with local tool orchestration.
 
     集成 LangChain 风格的 Memory 系统提供智能对话管理：
     - ChatHistoryManager: 管理对话历史
@@ -48,7 +47,7 @@ class Manus(ToolCallAgent):
     """
 
     name: str = "Manus"
-    description: str = "A versatile agent that can solve various tasks using multiple tools including MCP-based tools"
+    description: str = "A versatile agent that can solve various tasks using multiple local tools"
 
     # 使用动态系统提示词
     system_prompt: str = ""
@@ -59,20 +58,11 @@ class Manus(ToolCallAgent):
     max_observe: int = 10000
     max_steps: int = 20
 
-    # MCP clients for remote tool access
-    mcp_clients: MCPClients = Field(default_factory=MCPClients)
-
     # Add general-purpose tools to the tool collection
     available_tools: ToolCollection = Field(default_factory=ToolCollection)
 
     special_tool_names: list[str] = Field(default_factory=lambda: [Terminate().name])
     browser_context_helper: Optional[BrowserContextHelper] = None
-
-    # Track connected MCP servers
-    connected_servers: Dict[str, str] = Field(
-        default_factory=dict
-    )  # server_id -> url/command
-    _initialized: bool = False
 
     # Memory components - 使用 PrivateAttr 避免 pydantic 验证
     _conversation_state: ConversationStateManager = PrivateAttr(default=None)
@@ -121,7 +111,6 @@ class Manus(ToolCallAgent):
             ShowResumeTool(),
             CVAnalyzerAgentTool(),
             CVEditorAgentTool(),
-            EducationAnalyzerTool(),
         ]
 
         capability: ResumeCapability = CapabilityRegistry.get(self.capability)
@@ -155,87 +144,10 @@ class Manus(ToolCallAgent):
         if self._conversation_state and not self._conversation_state.llm and self.llm:
             self._conversation_state.llm = self.llm
 
-    @classmethod
-    async def create(cls, **kwargs) -> "Manus":
-        """Factory method to create and properly initialize a Manus instance."""
-        instance = cls(**kwargs)
-        await instance.initialize_mcp_servers()
-        instance._initialized = True
-        return instance
-
-    async def initialize_mcp_servers(self) -> None:
-        """Initialize connections to configured MCP servers."""
-        for server_id, server_config in config.mcp_config.servers.items():
-            try:
-                if server_config.type == "sse":
-                    if server_config.url:
-                        await self.connect_mcp_server(server_config.url, server_id)
-                        logger.info(
-                            f"Connected to MCP server {server_id} at {server_config.url}"
-                        )
-                elif server_config.type == "stdio":
-                    if server_config.command:
-                        await self.connect_mcp_server(
-                            server_config.command,
-                            server_id,
-                            use_stdio=True,
-                            stdio_args=server_config.args,
-                        )
-                        logger.info(
-                            f"Connected to MCP server {server_id} using command {server_config.command}"
-                        )
-            except Exception as e:
-                logger.error(f"Failed to connect to MCP server {server_id}: {e}")
-
-    async def connect_mcp_server(
-        self,
-        server_url: str,
-        server_id: str = "",
-        use_stdio: bool = False,
-        stdio_args: List[str] = None,
-    ) -> None:
-        """Connect to an MCP server and add its tools."""
-        if use_stdio:
-            await self.mcp_clients.connect_stdio(
-                server_url, stdio_args or [], server_id
-            )
-            self.connected_servers[server_id or server_url] = server_url
-        else:
-            await self.mcp_clients.connect_sse(server_url, server_id)
-            self.connected_servers[server_id or server_url] = server_url
-
-        # Update available tools with only the new tools from this server
-        new_tools = [
-            tool for tool in self.mcp_clients.tools if tool.server_id == server_id
-        ]
-        self.available_tools.add_tools(*new_tools)
-        self._inject_tool_context(new_tools)
-
-    async def disconnect_mcp_server(self, server_id: str = "") -> None:
-        """Disconnect from an MCP server and remove its tools."""
-        await self.mcp_clients.disconnect(server_id)
-        if server_id:
-            self.connected_servers.pop(server_id, None)
-        else:
-            self.connected_servers.clear()
-
-        # Rebuild available tools without the disconnected server's tools
-        base_tools = [
-            tool
-            for tool in self.available_tools.tools
-            if not isinstance(tool, MCPClientTool)
-        ]
-        self.available_tools = ToolCollection(*base_tools)
-        self.available_tools.add_tools(*self.mcp_clients.tools)
-
     async def cleanup(self):
         """Clean up Manus agent resources."""
         if self.browser_context_helper:
             await self.browser_context_helper.cleanup_browser()
-        # Disconnect from all MCP servers only if we were initialized
-        if self._initialized:
-            await self.disconnect_mcp_server()
-            self._initialized = False
 
     async def delegate_to_agent(self, agent_name: str, **kwargs) -> Any:
         """Delegate tasks to a registered sub-agent."""
@@ -280,7 +192,6 @@ class Manus(ToolCallAgent):
         if not section:
             return [
                 "work_experience_analyzer",
-                "education_analyzer_agent",
                 "skills_analyzer",
             ]
 
@@ -288,12 +199,11 @@ class Manus(ToolCallAgent):
         if "工作" in normalized:
             return ["work_experience_analyzer"]
         if "教育" in normalized:
-            return ["education_analyzer_agent"]
+            return []
         if "技能" in normalized or "技术" in normalized:
             return ["skills_analyzer"]
         return [
             "work_experience_analyzer",
-            "education_analyzer_agent",
             "skills_analyzer",
         ]
 
@@ -493,12 +403,12 @@ class Manus(ToolCallAgent):
 
         这样可以避免每次循环都添加重复的提示词。
         """
-        # 🔑 GREETING 意图：引导 LLM 生成友好的问候回复
-        if intent == Intent.GREETING:
+        # 🔑 GREETING 意图：引导 LLM 生成友好的问候回复（含 thought + answer）
+        if intent in (Intent.GREETING_FAST_PATH, Intent.GREETING):
             return """请用中文友好地回应用户的问候。你应该：
-1. 热情、自然地打招呼
-2. 简短介绍自己是一个 AI 助手，可以帮助用户处理各种任务
-3. 询问用户需要什么帮助
+1. 先给出一句简短 Thought（例如：识别到用户在打招呼，准备友好回应）
+2. 再给出简短 Answer，控制在 1-2 句
+3. 不要默认引导“生成报告”，只做中性引导（如优化简历、查看当前内容）
 
 注意：直接在 Response 中回复，不需要调用任何工具。"""
 
@@ -513,7 +423,7 @@ class Manus(ToolCallAgent):
         for msg in reversed(self.memory.messages[-3:]):
             if hasattr(msg, 'tool_calls') and msg.tool_calls:
                 for tc in msg.tool_calls:
-                    if tc.function.name in ['education_analyzer', 'cv_analyzer_agent']:
+                    if tc.function.name == 'cv_analyzer_agent':
                         recent_analysis = True
                         break
                 if recent_analysis:
@@ -526,17 +436,14 @@ class Manus(ToolCallAgent):
         analysis_result_returned = False
         for msg in reversed(self.memory.messages[-5:]):
             if hasattr(msg, 'role') and msg.role == "tool":
-                if hasattr(msg, 'name') and msg.name in ['education_analyzer', 'cv_analyzer_agent']:
+                if hasattr(msg, 'name') and msg.name == 'cv_analyzer_agent':
                     analysis_result_returned = True
                     analysis_tool_name = msg.name
                     break
             elif hasattr(msg, 'content') and msg.content:
-                if "教育经历分析" in msg.content or "优化建议示例" in msg.content:
+                if "优化建议示例" in msg.content:
                     analysis_result_returned = True
-                    if "教育" in msg.content:
-                        analysis_tool_name = "education_analyzer"
-                    else:
-                        analysis_tool_name = "cv_analyzer_agent"
+                    analysis_tool_name = "cv_analyzer_agent"
                     break
 
         if not analysis_result_returned:
@@ -545,11 +452,11 @@ class Manus(ToolCallAgent):
         # 获取分析结果内容
         analysis_content = ""
         for msg in reversed(self.memory.messages[-10:]):
-            if msg.role == "tool" and msg.name in ['education_analyzer', 'cv_analyzer_agent']:
+            if msg.role == "tool" and msg.name == 'cv_analyzer_agent':
                 analysis_content = msg.content[:5000]
                 break
 
-        tool_display_name = "教育经历" if analysis_tool_name == "education_analyzer" else "简历"
+        tool_display_name = "简历"
         return f"""## 分析完成，请展示结果
 
 分析工具 ({analysis_tool_name}) 已返回结果，请向用户展示：
@@ -595,26 +502,107 @@ class Manus(ToolCallAgent):
         1. 特殊意图（GREETING、LOAD_RESUME）直接处理
         2. 其他意图交给 LLM 自然处理，依赖自动终止机制
         """
-        if not self._initialized:
-            await self.initialize_mcp_servers()
-            self._initialized = True
+        # 获取最后的用户输入
+        user_input = self._get_last_user_input()
+
+        # 防止直接编辑工具在同一轮执行后被重复触发，导致多次修改
+        # 兼容 role 可能是 Role 枚举或字符串 "tool"
+        if self.memory.messages:
+            latest_assistant = self.memory.messages[-1]
+            latest_assistant_role = (
+                latest_assistant.role.value
+                if hasattr(latest_assistant.role, "value")
+                else str(latest_assistant.role)
+            )
+            if (
+                latest_assistant_role == "assistant"
+                and "已完成这次简历字段修改" in (latest_assistant.content or "")
+            ):
+                from backend.agent.schema import AgentState
+
+                self.state = AgentState.FINISHED
+                return False
+
+            recent_editor_tool_msg = None
+            for msg in reversed(self.memory.messages[-12:]):
+                role_val = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+                if role_val == "tool" and (msg.name or "") == "cv_editor_agent":
+                    recent_editor_tool_msg = msg
+                    break
+
+            if recent_editor_tool_msg is not None:
+                logger.info("✅ cv_editor_agent 已执行，生成最终对比回答并收敛结束")
+                compare_text = ""
+
+                # 优先使用结构化 diff（最稳定）
+                structured = None
+                if recent_editor_tool_msg.tool_call_id:
+                    structured = self.get_structured_tool_result(
+                        recent_editor_tool_msg.tool_call_id
+                    )
+                if isinstance(structured, dict) and structured.get("type") == "resume_edit_diff":
+                    before = str(structured.get("before") or "").strip()
+                    after = str(structured.get("after") or "").strip()
+                    compare_text = (
+                        "修改前：\n"
+                        f"```text\n{before or '(空)'}\n```\n\n"
+                        "修改后：\n"
+                        f"```text\n{after or '(空)'}\n```"
+                    )
+
+                if not compare_text:
+                    tool_content = (recent_editor_tool_msg.content or "").strip()
+                    if tool_content.startswith("Observed output of cmd `"):
+                        tool_content = re.sub(
+                            r"^Observed output of cmd `[^`]+` executed:\n",
+                            "",
+                            tool_content,
+                            count=1,
+                        )
+                    marker = "修改前："
+                    marker_index = tool_content.find(marker)
+                    if marker_index >= 0:
+                        compare_text = tool_content[marker_index:].strip()
+                    else:
+                        compare_text = tool_content or "修改已完成。"
+
+                self.memory.add_message(
+                    Message.assistant_message(
+                        "Thought: 已完成这次简历字段修改，下面给出修改前后对比。\n"
+                        f"Response: {compare_text}"
+                    )
+                )
+                from backend.agent.schema import AgentState
+
+                self.state = AgentState.FINISHED
+                return False
+
+        fast_greeting = self._conversation_state.is_fast_greeting(user_input)
 
         # 确保 ConversationStateManager 有 LLM 实例
         self._ensure_conversation_state_llm()
 
-        # 获取最后的用户输入
-        user_input = self._get_last_user_input()
-
-        # 🧠 使用 LLM 意图识别（可能包含增强后的查询）
-        intent_result = await self._conversation_state.process_input(
-            user_input=user_input,
-            conversation_history=self.memory.messages[-5:],
-            last_ai_message=self._get_last_ai_message()
-        )
+        if fast_greeting:
+            logger.info("👋 GREETING_FAST_PATH: skip intent-llm, keep streaming path")
+            intent_result = {
+                "intent": Intent.GREETING_FAST_PATH,
+                "tool": None,
+                "tool_args": {},
+                "enhanced_query": user_input,
+                "intent_result": None,
+            }
+        else:
+            # 🧠 使用 LLM 意图识别（可能包含增强后的查询）
+            intent_result = await self._conversation_state.process_input(
+                user_input=user_input,
+                conversation_history=self.memory.messages[-5:],
+                last_ai_message=self._get_last_ai_message()
+            )
 
         intent = intent_result["intent"]
         tool = intent_result.get("tool")
         tool_args = intent_result.get("tool_args", {})
+        intent_source = intent_result.get("intent_source", "unknown")
         enhanced_query = intent_result.get("enhanced_query", user_input)  # 获取增强后的查询
         intent_result_obj = intent_result.get("intent_result")  # 获取意图识别结果对象
 
@@ -673,6 +661,19 @@ class Manus(ToolCallAgent):
             except Exception as exc:
                 logger.warning(f"委托子 Agent 失败，回退到 LLM 路径: {exc}")
 
+        # 存储本轮意图上下文，供工具结构化结果标注来源
+        self._last_intent_info = {
+            "intent": intent.value if hasattr(intent, "value") else str(intent),
+            "intent_source": intent_source,
+            "trigger": (
+                "load_resume_intent"
+                if intent == Intent.LOAD_RESUME
+                else "simple_edit_intent"
+                if intent == Intent.EDIT_CV
+                else "general_intent"
+            ),
+        }
+
         # 🔑 特殊处理：检查是否刚应用了优化
         if getattr(self, '_just_applied_optimization', False):
             self._just_applied_optimization = False
@@ -691,22 +692,21 @@ class Manus(ToolCallAgent):
                 self.state = AgentState.FINISHED
                 return False
 
-        # 🎯 GREETING 意图：让 LLM 处理（通过 prompt 中的 greeting_exception 规则）
-        # 不再硬编码回复，让 LLM 根据 prompt 规则自己生成 Thought 和 Response
-        if intent == Intent.GREETING:
-            logger.info("👋 GREETING: 交给 LLM 处理（遵循 greeting_exception 规则）")
-            # 继续往下走，让 LLM 处理
+        # 🎯 GREETING 快路径：直接返回 Thought/Response，避免等待 LLM 首包
+        if intent in (Intent.GREETING_FAST_PATH, Intent.GREETING):
+            logger.info("👋 GREETING_FAST_PATH: direct local response")
+            self.memory.add_message(
+                Message.assistant_message(
+                    "Thought: 识别到这是问候语，先快速回应并等待用户给出具体需求。\n"
+                    "Response: 你好，我在。你可以直接说你的目标，比如优化哪一段简历，或让我先加载你的简历。"
+                )
+            )
+            from backend.agent.schema import AgentState
+            self.state = AgentState.FINISHED
+            return False
 
         # 🎯 LOAD_RESUME 意图：直接调用工具
         if tool and self._conversation_state.should_use_tool_directly(intent):
-            if intent == Intent.LOAD_RESUME and self._conversation_state.context.resume_loaded:
-                logger.info("✅ 简历已加载，跳过重复加载")
-                self.memory.add_message(Message.assistant_message(
-                    "简历已成功加载。您可以告诉我接下来需要做什么，比如「分析简历」或「优化某部分」。"
-                ))
-                from backend.agent.schema import AgentState
-                self.state = AgentState.FINISHED
-                return False
             return await self._handle_direct_tool_call(tool, tool_args, intent)
 
         # 🎯 其他意图：交给 LLM 自然处理
@@ -764,22 +764,47 @@ class Manus(ToolCallAgent):
         # 生成说明文本
         descriptions = {
             "cv_reader_agent": "我将先加载您的简历数据",
+            "show_resume": "我将先打开简历选择面板",
             "cv_analyzer_agent": "我将分析您的简历",
             "cv_editor_agent": "我将编辑您的简历",
-            "education_analyzer": "我将分析您的教育背景",
         }
 
         content = descriptions.get(tool, f"我将调用 {tool} 工具")
         if tool_args.get("section"):
             content += f"，重点优化：{tool_args['section']}"
+        if intent == Intent.LOAD_RESUME:
+            if tool == "cv_reader_agent":
+                content = (
+                    "Thought: 我识别到你要加载指定简历文件，将尝试按路径读取。\n"
+                    "Response: 我正在为你加载该简历文件，稍后会把结果展示到当前会话。"
+                )
+            else:
+                content = (
+                    "Thought: 我识别到你要加载简历，先打开选择面板方便你切换或新建。\n"
+                    "Response: 请在下面选择“创建一份简历”或“选择已有简历”。"
+                )
+        elif intent == Intent.EDIT_CV:
+            content = (
+                "Thought: 我识别到你要进行简历字段修改，先执行编辑并生成修改前后对比。\n"
+                "Response: 正在修改，完成后我会给出“修改前/修改后”结果。"
+            )
 
         # 添加 assistant 消息
-        self.memory.add_message(
-            Message.from_tool_calls(
-                content=content,
-                tool_calls=[manual_tool_call]
+        if intent == Intent.EDIT_CV:
+            self.memory.add_message(Message.assistant_message(content))
+            self.memory.add_message(
+                Message.from_tool_calls(
+                    content="我现在开始执行简历修改。",
+                    tool_calls=[manual_tool_call],
+                )
             )
-        )
+        else:
+            self.memory.add_message(
+                Message.from_tool_calls(
+                    content=content,
+                    tool_calls=[manual_tool_call]
+                )
+            )
 
         logger.info(f"🔧 直接调用工具: {tool}, 参数: {tool_args}")
         return True
@@ -796,7 +821,7 @@ class Manus(ToolCallAgent):
 
         for msg in reversed(self.memory.messages[-10:]):
             role_val = msg.role if isinstance(msg.role, str) else msg.role.value
-            if role_val == "tool" and msg.name in ['education_analyzer', 'cv_analyzer_agent']:
+            if role_val == "tool" and msg.name == 'cv_analyzer_agent':
                 content = msg.content
                 try:
                     json_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)

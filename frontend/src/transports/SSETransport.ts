@@ -7,7 +7,7 @@
  * - Simpler architecture
  * - Heartbeat detection
  */
-import { getApiBaseUrl } from '@/lib/runtimeEnv';
+import { getApiBaseUrl, isAgentEnabled } from '@/lib/runtimeEnv';
 
 export interface SSEEvent {
   id: string;
@@ -63,6 +63,13 @@ export class SSETransport {
    * Send a message and start receiving SSE stream
    */
   async send(prompt: string, resumePath?: string, resumeData?: any): Promise<void> {
+    if (!isAgentEnabled()) {
+      const error = new Error('Agent is disabled by VITE_AGENT_ENABLED');
+      this.emitError(error);
+      this.config.onError?.(error);
+      return;
+    }
+
     // Abort any existing connection
     this.disconnect();
 
@@ -408,4 +415,3 @@ export function createSSETransport(config?: Partial<SSEConfig>): SSETransport {
     ...config,
   });
 }
-

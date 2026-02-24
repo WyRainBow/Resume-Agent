@@ -10,9 +10,12 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { CLTPSessionImpl } from '@/cltp/core/CLTPSession';
 import { SSETransportAdapter, createSSETransportAdapter } from '@/cltp/adapters/SSETransportAdapter';
 import { SSETransport, type SSEEvent } from '@/transports/SSETransport';
-import { getApiBaseUrl } from '@/lib/runtimeEnv';
+import { getApiBaseUrl, isAgentEnabled } from '@/lib/runtimeEnv';
 import type { ContentMessage } from '@/cltp/types/messages';
 import type { DefaultPayloads } from '@/cltp/types/channels';
+
+const IS_DEV = import.meta.env.DEV;
+const THINKING_PLACEHOLDER = '正在思考...';
 
 /**
  * useCLTP Hook 的返回值
@@ -26,6 +29,8 @@ export interface UseCLTPResult {
     isProcessing: boolean;
     /** 是否已连接 */
     isConnected: boolean;
+    /** 最近一次传输错误 */
+    lastError: string | null;
     /** 答案完成信号（用于触发 finalize） */
     answerCompleteCount: number;
     /** 发送用户消息 */
@@ -59,6 +64,7 @@ export interface UseCLTPOptions {
  * @returns CLTP 会话状态和控制函数
  */
 export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
+    const agentEnabled = isAgentEnabled();
     const {
         conversationId = `conv-${Date.now()}`,
         baseUrl = getApiBaseUrl(),
@@ -71,25 +77,126 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
     const [currentAnswer, setCurrentAnswer] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
+    const [lastError, setLastError] = useState<string | null>(null);
     const [answerCompleteCount, setAnswerCompleteCount] = useState(0);
 
     const currentThoughtRef = useRef('');
     const currentAnswerRef = useRef('');
+    const pendingThoughtRef = useRef('');
+    const pendingAnswerRef = useRef('');
+    const committedThoughtRef = useRef('');
+    const committedAnswerRef = useRef('');
+    const flushRafRef = useRef<number | null>(null);
 
     const sessionRef = useRef<CLTPSessionImpl<DefaultPayloads> | null>(null);
     const sseTransportRef = useRef<SSETransport | null>(null);
     const adapterRef = useRef<SSETransportAdapter<DefaultPayloads> | null>(null);
+    const streamStartedAtRef = useRef(0);
+    const firstChunkLoggedRef = useRef(false);
+    const chunkWindowStartedAtRef = useRef(0);
+    const chunkWindowCountRef = useRef(0);
+    const hasRealThoughtRef = useRef(false);
+    const hasCompletedCurrentRunRef = useRef(false);
 
     // Initialize CLTP Session
     useEffect(() => {
+        if (!agentEnabled) {
+            setCurrentThought('');
+            setCurrentAnswer('');
+            setIsProcessing(false);
+            setIsConnected(false);
+            setLastError(null);
+            return;
+        }
+
         // Reset state when conversationId changes to avoid leaking previous session state
         setCurrentThought('');
         setCurrentAnswer('');
         setIsProcessing(false);
         setIsConnected(false);
+        setLastError(null);
         setAnswerCompleteCount(0);
         currentThoughtRef.current = '';
         currentAnswerRef.current = '';
+        pendingThoughtRef.current = '';
+        pendingAnswerRef.current = '';
+        committedThoughtRef.current = '';
+        committedAnswerRef.current = '';
+        streamStartedAtRef.current = 0;
+        firstChunkLoggedRef.current = false;
+        chunkWindowStartedAtRef.current = 0;
+        chunkWindowCountRef.current = 0;
+        hasRealThoughtRef.current = false;
+        hasCompletedCurrentRunRef.current = false;
+        if (flushRafRef.current !== null) {
+            cancelAnimationFrame(flushRafRef.current);
+            flushRafRef.current = null;
+        }
+
+        const flushPending = () => {
+            flushRafRef.current = null;
+
+            const nextThought = pendingThoughtRef.current;
+            const nextAnswer = pendingAnswerRef.current;
+
+            if (nextThought !== committedThoughtRef.current) {
+                committedThoughtRef.current = nextThought;
+                setCurrentThought(nextThought);
+            }
+
+            if (nextAnswer !== committedAnswerRef.current) {
+                committedAnswerRef.current = nextAnswer;
+                setCurrentAnswer(nextAnswer);
+            }
+        };
+
+        const scheduleFlush = () => {
+            if (flushRafRef.current !== null) {
+                return;
+            }
+            flushRafRef.current = requestAnimationFrame(flushPending);
+        };
+
+        const flushNow = () => {
+            if (flushRafRef.current !== null) {
+                cancelAnimationFrame(flushRafRef.current);
+                flushRafRef.current = null;
+            }
+            flushPending();
+        };
+
+        const recordChunkMetric = (channel: string) => {
+            if (!IS_DEV) return;
+            const now = performance.now();
+            if (!firstChunkLoggedRef.current) {
+                firstChunkLoggedRef.current = true;
+                if (streamStartedAtRef.current > 0) {
+                    console.debug('[StreamMetrics]', {
+                        type: 'first_chunk',
+                        channel,
+                        latencyMs: Math.round(now - streamStartedAtRef.current),
+                    });
+                }
+            }
+
+            if (chunkWindowStartedAtRef.current === 0) {
+                chunkWindowStartedAtRef.current = now;
+            }
+
+            chunkWindowCountRef.current += 1;
+            const elapsed = now - chunkWindowStartedAtRef.current;
+            if (elapsed >= 1000) {
+                const cps = (chunkWindowCountRef.current * 1000) / elapsed;
+                console.debug('[StreamMetrics]', {
+                    type: 'chunk_rate',
+                    chunksPerSecond: Number(cps.toFixed(2)),
+                    chunksInWindow: chunkWindowCountRef.current,
+                    windowMs: Math.round(elapsed),
+                });
+                chunkWindowStartedAtRef.current = now;
+                chunkWindowCountRef.current = 0;
+            }
+        };
 
         // Create SSE transport
         const sseTransport = new SSETransport({
@@ -97,25 +204,21 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             heartbeatTimeout,
             onMessage: onSSEEvent,
             onConnect: () => {
-                console.log('[useCLTP] SSE Connected');
                 setIsConnected(true);
+                setLastError(null);
             },
             onDisconnect: () => {
-                console.log('[useCLTP] SSE Disconnected');
                 setIsConnected(false);
                 // Always stop processing on disconnect.
                 // If content exists, parent page will finalize from answerComplete/fallback path.
                 setIsProcessing(false);
-                console.log('[useCLTP] onDisconnect state', {
-                    thoughtLength: currentThoughtRef.current.length,
-                    answerLength: currentAnswerRef.current.length,
-                });
             },
             onError: (error) => {
                 console.error('[useCLTP] SSE Error:', error);
                 setIsConnected(false);
                 // Avoid stuck "processing" state on transport errors.
                 setIsProcessing(false);
+                setLastError(error?.message || 'SSE transport error');
             },
         });
 
@@ -147,20 +250,21 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             const payload = message.metadata.payload;
             const text = typeof payload === 'string' ? payload : (payload as any).text || '';
 
-            console.log('[useCLTP] message:partial received', {
-                channel: message.metadata.channel,
-                textLength: text.length,
-                done: message.metadata.done,
-            });
-
             if (message.metadata.channel === 'think') {
-                // 思考过程：直接替换（避免重复）
+                hasRealThoughtRef.current = true;
+                pendingThoughtRef.current = text;
                 currentThoughtRef.current = text;
-                setCurrentThought(text);
+                recordChunkMetric('think');
+                scheduleFlush();
             } else if (message.metadata.channel === 'plain') {
-                // 答案：增量更新（流式传输）
+                if (!hasRealThoughtRef.current && pendingThoughtRef.current === THINKING_PLACEHOLDER) {
+                    pendingThoughtRef.current = '';
+                    currentThoughtRef.current = '';
+                }
+                pendingAnswerRef.current = text;
                 currentAnswerRef.current = text;
-                setCurrentAnswer(text);
+                recordChunkMetric('plain');
+                scheduleFlush();
             }
         });
 
@@ -169,33 +273,47 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             const payload = message.metadata.payload;
             const text = typeof payload === 'string' ? payload : (payload as any).text || '';
 
-            console.log('[useCLTP] message:complete received', {
-                channel: message.metadata.channel,
-                textLength: text.length,
-                done: message.metadata.done,
-            });
-
             if (message.metadata.channel === 'think') {
+                hasRealThoughtRef.current = true;
+                pendingThoughtRef.current = text;
                 currentThoughtRef.current = text;
-                setCurrentThought(text);
+                recordChunkMetric('think');
+                flushNow();
             } else if (message.metadata.channel === 'plain') {
+                if (!hasRealThoughtRef.current && pendingThoughtRef.current === THINKING_PLACEHOLDER) {
+                    pendingThoughtRef.current = '';
+                    currentThoughtRef.current = '';
+                }
+                pendingAnswerRef.current = text;
                 currentAnswerRef.current = text;
-                setCurrentAnswer(text);
+                recordChunkMetric('plain');
+                flushNow();
+                hasCompletedCurrentRunRef.current = true;
                 setAnswerCompleteCount((count) => {
-                    const next = count + 1;
-                    console.log('[useCLTP] answerCompleteCount incremented', { from: count, to: next });
-                    return next;
+                    return count + 1;
                 });
             }
         });
 
         const unsubscribeSpanStart = session.events.on('span:start', () => {
             setIsProcessing(true);
+            hasCompletedCurrentRunRef.current = false;
         });
 
         const unsubscribeSpanEnd = session.events.on('span:end', () => {
-            // Span 结束时，等待消息完成后再设置 isProcessing = false
-            // 这里不立即设置，让 message:complete 事件处理
+            // 某些后端路径可能没有发送 plain channel 的 done chunk（is_complete=true），
+            // 导致 message:complete 不触发。这里在 run 结束时兜底补一次 complete 信号。
+            if (hasCompletedCurrentRunRef.current) {
+                return;
+            }
+            const thought = (currentThoughtRef.current || pendingThoughtRef.current || '').trim();
+            const answer = (currentAnswerRef.current || pendingAnswerRef.current || '').trim();
+            if (!thought && !answer) {
+                return;
+            }
+            hasCompletedCurrentRunRef.current = true;
+            flushNow();
+            setAnswerCompleteCount((count) => count + 1);
         });
 
         // Connect to transport
@@ -205,6 +323,10 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
 
         // Cleanup
         return () => {
+            if (flushRafRef.current !== null) {
+                cancelAnimationFrame(flushRafRef.current);
+                flushRafRef.current = null;
+            }
             unsubscribePartial();
             unsubscribeComplete();
             unsubscribeSpanStart();
@@ -213,15 +335,12 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
                 console.error('[useCLTP] Error closing session:', error);
             });
         };
-    }, [conversationId, baseUrl, heartbeatTimeout, onSSEEvent]);
+    }, [agentEnabled, conversationId, baseUrl, heartbeatTimeout, onSSEEvent]);
 
     // Update resume data without resetting the session
     useEffect(() => {
         if (!adapterRef.current) return;
         adapterRef.current.setResumeData(resumeData ?? null);
-        console.log('[useCLTP] resumeData updated', {
-            hasResumeData: !!resumeData,
-        });
     }, [resumeData]);
 
     useEffect(() => {
@@ -236,6 +355,10 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
      * Send user message
      */
     const sendMessage = useCallback(async (message: string, resumeDataOverride?: any) => {
+        if (!agentEnabled) {
+            setLastError('Agent is disabled by VITE_AGENT_ENABLED');
+            return;
+        }
         if (!sessionRef.current || !adapterRef.current) {
             console.error('[useCLTP] Session not initialized');
             return;
@@ -247,10 +370,25 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
                 adapterRef.current.setResumeData(resumeDataOverride ?? null);
             }
             // Reset state for new message
-            console.log('[useCLTP] sendMessage reset state');
             setCurrentThought('');
             setCurrentAnswer('');
             setIsProcessing(true);
+            setLastError(null);
+            pendingThoughtRef.current = '';
+            pendingAnswerRef.current = '';
+            committedThoughtRef.current = '';
+            committedAnswerRef.current = '';
+            currentThoughtRef.current = '';
+            currentAnswerRef.current = '';
+            streamStartedAtRef.current = performance.now();
+            firstChunkLoggedRef.current = false;
+            chunkWindowStartedAtRef.current = 0;
+            chunkWindowCountRef.current = 0;
+            hasRealThoughtRef.current = false;
+            pendingThoughtRef.current = THINKING_PLACEHOLDER;
+            currentThoughtRef.current = THINKING_PLACEHOLDER;
+            committedThoughtRef.current = THINKING_PLACEHOLDER;
+            setCurrentThought(THINKING_PLACEHOLDER);
 
             // Create user message
             const userMessage = {
@@ -270,16 +408,22 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             console.error('[useCLTP] Failed to send message:', error);
             setIsProcessing(false);
         }
-    }, []);
+    }, [agentEnabled]);
 
     /**
      * Finalize current stream (clear state and stop processing)
      */
     const finalizeStream = useCallback(() => {
-        console.log('[useCLTP] finalizeStream called');
         setCurrentThought('');
         setCurrentAnswer('');
         setIsProcessing(false);
+        pendingThoughtRef.current = '';
+        pendingAnswerRef.current = '';
+        committedThoughtRef.current = '';
+        committedAnswerRef.current = '';
+        currentThoughtRef.current = '';
+        currentAnswerRef.current = '';
+        hasRealThoughtRef.current = false;
     }, []);
 
     /**
@@ -303,6 +447,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
         currentAnswer,
         isProcessing,
         isConnected,
+        lastError,
         answerCompleteCount,
         sendMessage,
         finalizeStream,

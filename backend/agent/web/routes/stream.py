@@ -3,13 +3,14 @@
 This module provides:
 - POST /stream: SSE endpoint for streaming agent responses
 - Heartbeat mechanism for keeping connection alive
-- CLTP chunks are generated server-side and adapted to SSE for compatibility
+- StreamEvent -> SSE 对外协议（前端再适配为 CLTP chunk）
 """
 
 from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
 import uuid
 from datetime import datetime
@@ -44,6 +45,9 @@ _active_sessions: dict[str, dict] = {}
 
 # Heartbeat configuration
 HEARTBEAT_INTERVAL = 30  # seconds
+HEARTBEAT_V2_ENABLED = (
+    os.getenv("AGENT_STREAM_HEARTBEAT_V2", "true").strip().lower() != "false"
+)
 
 
 def _get_or_create_session(
@@ -199,8 +203,9 @@ async def _stream_event_generator(
         # Create state machine for this execution
         state_machine = AgentStateMachine(conversation_id)
 
-        # Track last message time for heartbeat
-        last_message_time = time.time()
+        # Track stream output cadence for heartbeat diagnostics
+        last_emit_time = time.time()
+        last_agent_event_time = time.time()
 
         # Send initial status event
         logger.info(f"[SSE Generator] Preparing initial status event")
@@ -210,7 +215,7 @@ async def _stream_event_generator(
         )
         logger.info(f"[SSE Generator] Yielding initial status event")
         yield status_event.to_sse_format()
-        last_message_time = time.time()
+        last_emit_time = time.time()
         logger.info(f"[SSE Generator] Initial status event yielded successfully")
 
         # Restore chat history to agent memory if needed
@@ -256,31 +261,60 @@ async def _stream_event_generator(
         chat_history.add_message(Message(role=Role.USER, content=prompt), persist=False)
 
         # Execute agent and stream events
-        async for event in stream_processor.start_stream(
-            session_id=conversation_id,
-            agent=agent,
-            state_machine=state_machine,
-            event_sender=lambda d: None,  # Not used in SSE mode
-            user_message=prompt,
-            chat_history_manager=chat_history,
-        ):
-            # Convert StreamEvent to SSE format
-            event_dict = event.to_dict()
-            sse_event = SSEEvent(
-                type=event_dict.get("type", "unknown"), data=event_dict
+        if HEARTBEAT_V2_ENABLED:
+            stream_iter = stream_processor.start_stream(
+                session_id=conversation_id,
+                agent=agent,
+                state_machine=state_machine,
+                event_sender=lambda d: None,  # Not used in SSE mode
+                user_message=prompt,
+                chat_history_manager=chat_history,
             )
-            yield sse_event.to_sse_format()
-            last_message_time = time.time()
 
-            # 真流式场景下不再固定 sleep，降低首字与逐段延迟
-            await asyncio.sleep(0)
+            while True:
+                try:
+                    event = await asyncio.wait_for(
+                        stream_iter.__anext__(),
+                        timeout=HEARTBEAT_INTERVAL,
+                    )
+                except asyncio.TimeoutError:
+                    heartbeat = HeartbeatEvent()
+                    yield heartbeat.to_sse_format()
+                    last_emit_time = time.time()
+                    continue
+                except StopAsyncIteration:
+                    break
 
-            # Check if heartbeat is needed during long operations
-            current_time = time.time()
-            if current_time - last_message_time > HEARTBEAT_INTERVAL:
-                heartbeat = HeartbeatEvent()
-                yield heartbeat.to_sse_format()
-                last_message_time = current_time
+                # Convert StreamEvent to SSE format
+                event_dict = event.to_dict()
+                sse_event = SSEEvent(
+                    type=event_dict.get("type", "unknown"), data=event_dict
+                )
+                yield sse_event.to_sse_format()
+                now = time.time()
+                last_emit_time = now
+                last_agent_event_time = now
+
+                # 真流式场景下不再固定 sleep，降低首字与逐段延迟
+                await asyncio.sleep(0)
+        else:
+            async for event in stream_processor.start_stream(
+                session_id=conversation_id,
+                agent=agent,
+                state_machine=state_machine,
+                event_sender=lambda d: None,  # Not used in SSE mode
+                user_message=prompt,
+                chat_history_manager=chat_history,
+            ):
+                event_dict = event.to_dict()
+                sse_event = SSEEvent(
+                    type=event_dict.get("type", "unknown"), data=event_dict
+                )
+                yield sse_event.to_sse_format()
+                now = time.time()
+                last_emit_time = now
+                last_agent_event_time = now
+                await asyncio.sleep(0)
 
         # Send completion status
         complete_event = SSEEvent(
@@ -288,6 +322,17 @@ async def _stream_event_generator(
             data={"content": "complete", "conversation_id": conversation_id},
         )
         yield complete_event.to_sse_format()
+        done_event = SSEEvent(
+            type="done",
+            data={
+                "conversation_id": conversation_id,
+                "last_emit_seconds_ago": round(time.time() - last_emit_time, 3),
+                "last_agent_event_seconds_ago": round(
+                    time.time() - last_agent_event_time, 3
+                ),
+            },
+        )
+        yield done_event.to_sse_format()
 
     except asyncio.CancelledError:
         logger.info(f"[SSE] Stream cancelled for session: {conversation_id}")

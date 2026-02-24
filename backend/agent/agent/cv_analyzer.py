@@ -15,7 +15,6 @@ from backend.agent.prompt.cv_analyzer import (
 )
 from backend.agent.tool import ToolCollection, Terminate
 from backend.agent.tool.cv_reader_tool import ReadCVContext
-from backend.agent.tool.education_analyzer_tool import EducationAnalyzerTool
 from backend.agent.tool.resume_data_store import ResumeDataStore
 
 
@@ -45,7 +44,6 @@ class CVAnalyzer(ToolCallAgent):
     available_tools: ToolCollection = Field(
         default_factory=lambda: ToolCollection(
             ReadCVContext(),
-            EducationAnalyzerTool(),
             Terminate(),
         )
     )
@@ -59,7 +57,7 @@ class CVAnalyzer(ToolCallAgent):
     _cv_tool: Optional[ReadCVContext] = None
 
     # 已注册的模块分析器（类变量，不作为 Field）
-    module_analyzers: List[str] = ["education_analyzer"]
+    module_analyzers: List[str] = []
 
     class Config:
         arbitrary_types_allowed = True
@@ -91,9 +89,6 @@ class CVAnalyzer(ToolCallAgent):
 
 Name: {basic.get('name', 'N/A')}
 Target Position: {basic.get('title', 'N/A')}
-
-可用模块分析器:
-- education_analyzer: 分析教育背景
 
 工作流程:
 1. 用户说"分析简历" → 调用各模块 analyze() → 聚合结果 → 按 priority_score 排序 → 推荐下一步

@@ -1,6 +1,7 @@
 export type RuntimeEnv = 'local' | 'remote-dev'
 
 const ENV_STORAGE_KEY = 'resume_agent_env'
+const AGENT_ENABLED_OVERRIDE_KEY = 'resume_agent_enabled_override'
 const DEFAULT_LOCAL_API_BASE = 'http://127.0.0.1:9000'
 const DEFAULT_REMOTE_API_BASE = 'https://resumegenkk.xyz'
 
@@ -66,4 +67,20 @@ export function getRuntimeEnvOptions() {
     { key: 'local' as const, label: '本地环境', baseUrl: baseMap.local },
     { key: 'remote-dev' as const, label: '远程开发', baseUrl: baseMap['remote-dev'] },
   ]
+}
+
+export function isAgentEnabled(): boolean {
+  try {
+    const override = localStorage.getItem(AGENT_ENABLED_OVERRIDE_KEY)
+    if (override === 'true') return true
+    if (override === 'false') return false
+  } catch {
+    // no-op
+  }
+  const raw = String(import.meta.env.VITE_AGENT_ENABLED ?? 'false').trim().toLowerCase()
+  return ['true', '1', 'on', 'yes'].includes(raw)
+}
+
+export function setAgentEnabledOverride(enabled: boolean): void {
+  localStorage.setItem(AGENT_ENABLED_OVERRIDE_KEY, enabled ? 'true' : 'false')
 }

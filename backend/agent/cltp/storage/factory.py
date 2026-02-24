@@ -26,18 +26,15 @@ def get_conversation_storage():
 
     backend = (os.getenv("AGENT_HISTORY_BACKEND") or "db").strip().lower()
     if backend == "db":
-        try:
-            storage = DBConversationStorage()
-            # Validate table availability at startup.
-            storage.list_sessions()
-            logger.info("[AgentStorage] Using database conversation storage")
-            _cached_storage = storage
-            return storage
-        except Exception as exc:
-            logger.warning(
-                "[AgentStorage] Database storage unavailable, fallback to file storage: "
-                f"{exc}"
-            )
-    logger.info("[AgentStorage] Using file conversation storage")
-    _cached_storage = FileConversationStorage()
-    return _cached_storage
+        storage = DBConversationStorage()
+        storage.validate_schema_or_raise()
+        logger.info("[AgentStorage] Using database conversation storage")
+        _cached_storage = storage
+        return storage
+    if backend == "file":
+        logger.info("[AgentStorage] Using file conversation storage")
+        _cached_storage = FileConversationStorage()
+        return _cached_storage
+    raise RuntimeError(
+        f"Unsupported AGENT_HISTORY_BACKEND={backend!r}. Expected 'db' or 'file'."
+    )

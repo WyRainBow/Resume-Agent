@@ -10,7 +10,6 @@ from backend.agent.tool.cv_analyzer_agent_tool import CVAnalyzerAgentTool
 from backend.agent.tool.cv_editor_agent_tool import CVEditorAgentTool
 from backend.agent.tool.cv_reader_agent_tool import CVReaderAgentTool
 from backend.agent.tool.cv_reader_tool import ReadCVContext
-from backend.agent.tool.education_analyzer_tool import EducationAnalyzerTool
 from backend.agent.tool.planning import PlanningTool
 from backend.agent.tool.show_resume_tool import ShowResumeTool
 from backend.agent.tool.str_replace_editor import StrReplaceEditor
@@ -38,7 +37,6 @@ __all__ = [
     "CVReaderAgentTool",
     "CVAnalyzerAgentTool",
     "CVEditorAgentTool",
-    "EducationAnalyzerTool",
     "ShowResumeTool",
 ]
 

@@ -78,7 +78,7 @@ def _env_bool(name: str, default: bool) -> bool:
 
 IS_MYSQL = "mysql" in DATABASE_URL.lower()
 IS_POSTGRESQL = "postgresql" in DATABASE_URL.lower()
-DB_POOL_PRE_PING = _env_bool("DB_POOL_PRE_PING", False)
+DB_POOL_PRE_PING = _env_bool("DB_POOL_PRE_PING", IS_POSTGRESQL)
 DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "1800"))
 DB_POOL_SIZE = int(os.getenv("DB_POOL_SIZE", "20"))
 DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "40"))

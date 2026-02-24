@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentResumeId } from "@/services/resumeStorage";
 import { RecentSessions } from "@/components/sidebar/RecentSessions";
-import { getApiBaseUrl } from "@/lib/runtimeEnv";
+import { getApiBaseUrl, isAgentEnabled } from "@/lib/runtimeEnv";
 
 // 工作区类型
 type WorkspaceType =
@@ -53,6 +53,11 @@ function getRoleFromToken(): string {
   } catch {
     return "";
   }
+}
+
+function getAuthHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const token = localStorage.getItem("auth_token");
+  return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra };
 }
 
 /** 复刻参考图：圆角矩形 + 内竖线（左窄右宽），细描边 */
@@ -193,7 +198,9 @@ export default function WorkspaceLayout({
 
   const currentWorkspace = getCurrentWorkspace();
   const roleFromToken = getRoleFromToken();
+  const agentFeatureEnabled = isAgentEnabled();
   const canUseAgent =
+    agentFeatureEnabled &&
     isAuthenticated &&
     (roleFromToken === "admin" || roleFromToken === "member");
   const canUseApplyEntry = canUseAgent;
@@ -303,7 +310,7 @@ export default function WorkspaceLayout({
     try {
       const resp = await fetch(
         `${getApiBaseUrl()}/api/agent/history/${sessionId}`,
-        { method: "DELETE" },
+        { method: "DELETE", headers: getAuthHeaders() },
       );
       if (!resp.ok) throw new Error(`Failed to delete session: ${resp.status}`);
       setSessionsRefreshKey((prev) => prev + 1);
@@ -318,8 +325,8 @@ export default function WorkspaceLayout({
       const resp = await fetch(
         `${getApiBaseUrl()}/api/agent/history/sessions/${sessionId}/title`,
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
+          method: "PUT",
+          headers: getAuthHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({ title }),
         },
       );
