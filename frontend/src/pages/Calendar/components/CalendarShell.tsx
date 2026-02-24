@@ -1,19 +1,20 @@
-import type { ReactNode } from 'react'
-import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
-import type { CalendarView } from '../types'
+import type { ReactNode } from "react";
+import { motion } from "framer-motion";
+import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
+import type { CalendarView } from "../types";
 
 type CalendarShellProps = {
-  view: CalendarView
-  rangeTitle: string
-  onChangeView: (view: CalendarView) => void
-  onPrev: () => void
-  onNext: () => void
-  onToday: () => void
-  onOpenCreate: () => void
-  onOpenAiImport: () => void
-  left: ReactNode
-  content: ReactNode
-}
+  view: CalendarView;
+  rangeTitle: string;
+  onChangeView: (view: CalendarView) => void;
+  onPrev: () => void;
+  onNext: () => void;
+  onToday: () => void;
+  onOpenCreate: () => void;
+  onOpenAiImport: () => void;
+  left: ReactNode;
+  content: ReactNode;
+};
 
 export function CalendarShell({
   view,
@@ -27,34 +28,39 @@ export function CalendarShell({
   left,
   content,
 }: CalendarShellProps) {
-  const tabClass = 'flex items-center gap-1.5 border-b-2 px-2.5 py-2 text-base font-semibold transition'
+  const tabClass =
+    "flex items-center gap-2 border-b-2 px-4 py-3 text-xl font-bold transition";
   const viewBtn = (target: CalendarView) =>
-    `min-w-[72px] rounded-md px-3 py-1.5 text-sm font-medium transition ${
-      view === target ? 'bg-blue-100 text-blue-700' : 'text-slate-700 hover:bg-slate-100'
-    }`
+    `min-w-[80px] rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+      view === target
+        ? "bg-slate-900 text-white shadow-sm"
+        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+    }`;
 
   return (
-    <div className="flex h-full flex-col bg-[#f3f5f8]">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="flex items-center justify-between px-4">
-          <div className="flex items-center gap-4">
-            <button type="button" className={`${tabClass} border-blue-600 text-blue-700`}>
-              <span className="text-base leading-none">🗓</span> 面试日历
-            </button>
+    <div className="flex h-full flex-col bg-[#FAFAFA]">
+      <header className="border-b border-slate-200/60 bg-white/80 backdrop-blur-md shadow-sm z-10">
+        <div className="flex items-center justify-between px-6 h-16">
+          <div className="flex items-center gap-6">
+            <div className="flex flex-col group cursor-default">
+              <span className="text-xl font-bold tracking-tight text-slate-900 uppercase leading-none">
+                面试日历
+              </span>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <button
               type="button"
               onClick={onOpenAiImport}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50"
+              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95"
             >
-              <Sparkles className="h-4 w-4 text-blue-600" />
-              AI 导入日程
+              <Sparkles className="h-4.5 w-4.5 text-slate-900 animate-pulse" />
+              AI 智能导入
             </button>
             <button
               type="button"
               onClick={onOpenCreate}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+              className="rounded-xl bg-slate-900 px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-slate-200 hover:bg-slate-800 transition-all active:scale-95"
             >
               创建日程
             </button>
@@ -63,28 +69,78 @@ export function CalendarShell({
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {left}
+        <aside className="w-80 border-r border-slate-200/60 bg-slate-50/30 overflow-y-auto px-4 py-6">
+          {left}
+        </aside>
 
-        <section className="min-w-0 flex-1 bg-white">
-          <div className="flex items-center justify-between border-b border-slate-200 px-5 py-2.5">
-            <div className="flex items-center gap-3">
-              <span className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 bg-slate-50">本周</span>
-              <button type="button" onClick={onPrev} className="rounded-md p-1.5 hover:bg-slate-100"><ChevronLeft className="h-5 w-5 text-slate-500" /></button>
-              <button type="button" onClick={onNext} className="rounded-md p-1.5 hover:bg-slate-100"><ChevronRight className="h-5 w-5 text-slate-500" /></button>
-              <span className="text-[34px] font-bold text-slate-800 leading-none">{rangeTitle}</span>
+        <section className="min-w-0 flex-1 flex flex-col bg-white">
+          <div className="flex items-center justify-between border-b border-slate-100 px-8 py-4 bg-white/80 backdrop-blur-md sticky top-0 z-10">
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={onToday}
+                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 bg-white shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+              >
+                今天
+              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={onPrev}
+                  className="rounded-full p-2 hover:bg-slate-100 transition-colors"
+                >
+                  <ChevronLeft className="h-6 w-6 text-slate-600" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onNext}
+                  className="rounded-full p-2 hover:bg-slate-100 transition-colors"
+                >
+                  <ChevronRight className="h-6 w-6 text-slate-600" />
+                </button>
+              </div>
+              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight ml-2">
+                {rangeTitle}
+              </h1>
             </div>
-            <div className="flex rounded-lg border border-slate-300 bg-white p-0.5">
-              <button type="button" className={viewBtn('day')} onClick={() => onChangeView('day')}>日</button>
-              <button type="button" className={viewBtn('week')} onClick={() => onChangeView('week')}>周</button>
-              <button type="button" className={viewBtn('month')} onClick={() => onChangeView('month')}>月</button>
-              <button type="button" className={viewBtn('interviews')} onClick={() => onChangeView('interviews')}>有面试</button>
+            <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1 shadow-inner">
+              <button
+                type="button"
+                className={viewBtn("day")}
+                onClick={() => onChangeView("day")}
+              >
+                日
+              </button>
+              <button
+                type="button"
+                className={viewBtn("week")}
+                onClick={() => onChangeView("week")}
+              >
+                周
+              </button>
+              <button
+                type="button"
+                className={viewBtn("month")}
+                onClick={() => onChangeView("month")}
+              >
+                月
+              </button>
+              <button
+                type="button"
+                className={viewBtn("interviews")}
+                onClick={() => onChangeView("interviews")}
+              >
+                有面试
+              </button>
             </div>
           </div>
-          <div className="h-[calc(100%-65px)] overflow-auto bg-white p-4">
-            {content}
+          <div className="flex-1 overflow-auto bg-[#FAFAFA] p-6">
+            <div className="h-full rounded-2xl border border-slate-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.03)] bg-white">
+              {content}
+            </div>
           </div>
         </section>
       </div>
     </div>
-  )
+  );
 }

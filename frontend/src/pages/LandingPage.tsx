@@ -8,7 +8,8 @@ import {
   LogIn,
   User,
   LogOut,
-  Star
+  Star,
+  Github
 } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -91,42 +92,27 @@ export default function LandingPage() {
         </div>
 
           <div className="hidden md:flex items-center gap-10">
-            <a href="#features" className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">核心技术</a>
-            <a href="#market" className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">简历市场</a>
-            <a href="#ai" className="text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors">AI 引擎</a>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <motion.a
               href="https://github.com/WyRainBow/Resume-Agent"
               target="_blank"
               rel="noopener noreferrer"
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ y: -1 }}
               whileTap={{ scale: 0.98 }}
-              className="hidden md:flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold border border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100 text-slate-800 hover:from-slate-100 hover:to-slate-200 transition-all"
+              className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-all border border-slate-800 shadow-sm"
             >
-              <Star className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
-              <span>Star on GitHub</span>
+              <Github className="w-5 h-5 shrink-0" />
               {githubStars !== null && (
-                <>
-                  <span className="w-px h-4 bg-slate-300 shrink-0" aria-hidden />
-                  <span className="tabular-nums">{githubStars.toLocaleString()}</span>
-                </>
+                <span className="tabular-nums text-sm font-bold tracking-tight opacity-90">{githubStars.toLocaleString()}</span>
               )}
             </motion.a>
             <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => navigate('/create-new')}
-              className="hidden md:block px-5 py-2.5 bg-white text-slate-900 rounded-xl font-bold border border-slate-300 hover:bg-slate-50 transition-all"
-            >
-              创建简历
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
+              whileHover={{ scale: 1.02, y: -1 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate('/my-resumes')}
-              className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
+              className="px-6 py-2 bg-white text-slate-700 rounded-xl font-bold border border-slate-200 hover:border-slate-300 hover:bg-slate-50 transition-all shadow-sm"
             >
               我的简历
             </motion.button>
@@ -135,12 +121,12 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero 区域 */}
-      <section className="relative pt-48 pb-32 px-6">
+      <section className="relative pt-32 pb-24 px-6">
         <div className="max-w-5xl mx-auto text-center">
           <motion.div
             {...popIn}
             transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-            className="inline-flex items-center gap-2 px-4 py-2 text-blue-600 rounded-full text-xs font-bold mb-10 tracking-widest uppercase"
+            className="inline-flex items-center gap-2 px-4 py-2 text-blue-600 rounded-full text-xs font-bold mb-8 tracking-widest uppercase"
           >
             <Sparkles className="w-3 h-3 fill-current animate-spin-slow" />
             Neural Stream v2.0 Online
@@ -149,9 +135,9 @@ export default function LandingPage() {
           <motion.h1
             {...popIn}
             transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.15 }}
-            className="text-4xl md:text-6xl font-black tracking-tight text-slate-950 mb-6 leading-tight"
+            className="text-4xl md:text-6xl font-black tracking-tight text-slate-950 mb-5 leading-tight"
           >
-            从零写简历或一键针对不同岗位定制
+            用 AI 重新定义你的简历竞争力
           </motion.h1>
 
           <motion.p
@@ -159,10 +145,11 @@ export default function LandingPage() {
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.35 }}
-            className="text-lg md:text-xl text-slate-600 font-medium mb-14 max-w-2xl mx-auto leading-relaxed"
+            className="text-lg md:text-xl text-slate-500 font-medium mb-10 max-w-3xl mx-auto leading-relaxed"
           >
-            最简洁、自动化的 AI 简历工具。Resume.AI 用 AI 为每份简历节省约 60 分钟
-            绝对写出让HR眼前一亮的版本。
+            基于 Neural Stream 引擎的极简 AI 简历工具。
+            <br className="hidden md:block" />
+            智能润色、逻辑重构、一键导出，直击 HR 核心需求。
           </motion.p>
 
           <motion.div
@@ -174,14 +161,11 @@ export default function LandingPage() {
           >
             <button
               onClick={() => navigate('/create-new')}
-              className="px-12 py-5 bg-slate-900 text-white rounded-2xl font-black text-xl hover:bg-slate-800 transition-all flex items-center gap-4 group"
+              className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold text-lg hover:bg-slate-800 transition-all flex items-center gap-3 group"
             >
               开始创建
-              <ChevronRight className="w-6 h-6 group-hover:translate-x-1 transition-transform" />
+              <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </button>
-            <div className="text-slate-500 font-bold">
-              不再为排版浪费时间。
-            </div>
           </motion.div>
           </div>
 
@@ -190,12 +174,12 @@ export default function LandingPage() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.6 }}
-            className="mt-16 w-[98%] max-w-[1400px] mx-auto px-2"
+            className="mt-12 w-[98%] max-w-[1400px] mx-auto px-2"
           >
             <img
               src="https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/landing/product-preview.png"
               alt="产品界面预览"
-              className="w-full h-auto rounded-2xl border border-slate-200 shadow-[0_25px_80px_-12px_rgba(0,0,0,0.12)]"
+              className="w-full h-auto rounded-2xl border border-slate-200 shadow-[0_25px_80px_-12px_rgba(0,0,0,0.15)]"
             />
           </motion.div>
       </section>

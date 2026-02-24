@@ -38,7 +38,6 @@ export function MiniLineChart({ data }: { data: DailyTrendPoint[] }) {
     >
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-2xl font-bold tracking-tight text-slate-900">近7天投递趋势</h3>
-        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-sm font-semibold text-slate-600">application_date</span>
       </div>
       {data.length === 0 ? (
         <div className="flex h-[330px] items-center justify-center rounded-xl bg-slate-50 text-lg text-slate-500">暂无趋势数据</div>

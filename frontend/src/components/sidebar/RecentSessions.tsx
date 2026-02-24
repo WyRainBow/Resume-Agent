@@ -378,7 +378,7 @@ export function RecentSessions({
 
       {/* Loading state */}
       {isLoading ? (
-        <div className="mt-2 flex items-center justify-center gap-1.5 py-2 text-xs text-indigo-600">
+        <div className="mt-2 flex items-center justify-center gap-1.5 py-2 text-xs text-slate-900">
           <Loader2 className="w-3 h-3 animate-spin" />
           <span>加载中</span>
         </div>
@@ -401,7 +401,7 @@ export function RecentSessions({
                   key={session.session_id}
                   className={`group w-full min-w-0 flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors text-left cursor-pointer ${
                     isActive
-                      ? 'bg-indigo-50/80 text-indigo-700'
+                      ? 'bg-slate-100 text-slate-900'
                       : 'text-neutral-900 hover:text-gray-900 hover:bg-gray-100/50'
                   }`}
                   onClick={() => handleSelectSession(session.session_id)}
@@ -507,7 +507,7 @@ export function RecentSessions({
           </div>
           <div ref={loadMoreRef} className="h-1" />
           {isLoadingMore && (
-            <div className="flex items-center justify-center gap-1.5 py-2 text-xs text-indigo-600">
+            <div className="flex items-center justify-center gap-1.5 py-2 text-xs text-slate-900">
               <Loader2 className="w-3 h-3 animate-spin" />
               <span>加载中</span>
             </div>
