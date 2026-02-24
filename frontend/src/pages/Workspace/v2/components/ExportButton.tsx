@@ -163,23 +163,23 @@ export function ExportButton({
         onClick={() => setIsOpen(!isOpen)}
         disabled={isExporting}
         className={cn(
-          "px-4 py-2.5 rounded-xl",
+          "px-6 py-2.5 rounded-2xl",
           "bg-slate-900 hover:bg-slate-800 active:bg-slate-950",
           "dark:bg-slate-100 dark:hover:bg-white dark:active:bg-slate-200",
-          "text-white dark:text-slate-900 text-sm font-semibold",
-          "transition-all duration-200 ease-out",
+          "text-white dark:text-slate-900 text-sm font-bold transition-all duration-300",
+          "transition-all duration-300 ease-out",
           "flex items-center gap-2",
-          "shadow-md hover:shadow-lg",
-          "border border-slate-800 dark:border-slate-200",
+          "shadow-lg shadow-slate-200 dark:shadow-none",
+          "border-2 border-slate-900 dark:border-slate-100",
           isExporting && "opacity-50 cursor-not-allowed",
-          isOpen && "bg-slate-800 dark:bg-white"
+          "hover:scale-[1.05] active:scale-[0.95]"
         )}
       >
-        <Download className="w-4 h-4" strokeWidth={2.5} />
+        <Download className="w-4 h-4" strokeWidth={3} />
         <span>导出</span>
         <ChevronDown 
           className={cn(
-            "w-3.5 h-3.5 transition-transform duration-200", 
+            "w-4 h-4 transition-transform duration-300", 
             isOpen && "rotate-180"
           )} 
         />

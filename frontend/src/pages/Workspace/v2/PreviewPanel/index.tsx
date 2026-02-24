@@ -101,20 +101,19 @@ export function PreviewPanel({
             </span>
           )}
 
-          {/* LaTeX 模板：显示渲染和下载按钮 */}
+          {/* LaTeX 模板：仅显示渲染按钮 */}
           {!isHTMLTemplate && (
-            <>
+            <div className="flex items-center gap-3">
               {/* 渲染按钮 */}
               <button
                 onClick={onRender}
                 disabled={loading}
                 className={cn(
-                  'group relative px-5 py-2.5 rounded-xl overflow-hidden',
-                  'bg-slate-900 text-white text-sm font-semibold',
-                  'shadow-lg shadow-slate-200',
+                  'group relative px-6 py-2.5 rounded-2xl overflow-hidden',
+                  'bg-slate-200 text-slate-900 text-sm font-bold tracking-tight',
                   'disabled:opacity-60 disabled:cursor-not-allowed',
                   'transition-all duration-300',
-                  'hover:scale-[1.02] active:scale-[0.98]',
+                  'hover:scale-[1.02] hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 active:scale-[0.98]',
                   'disabled:hover:scale-100'
                 )}
               >
@@ -123,26 +122,7 @@ export function PreviewPanel({
                   {loading ? '渲染中...' : '渲染 PDF'}
                 </span>
               </button>
-
-              {/* 下载按钮 */}
-              <button
-                onClick={onDownload}
-                disabled={!pdfBlob || loading}
-                className={cn(
-                  'px-4 py-2.5 rounded-xl flex items-center gap-2 text-sm font-medium',
-                  'bg-white border border-slate-200/60',
-                  'text-slate-700 hover:text-slate-900',
-                  'shadow-sm hover:shadow-md',
-                  'disabled:opacity-50 disabled:cursor-not-allowed',
-                  'transition-all duration-200',
-                  'hover:scale-[1.02] active:scale-[0.98]',
-                  'disabled:hover:scale-100'
-                )}
-              >
-                <Download className="w-4 h-4" />
-                下载
-              </button>
-            </>
+            </div>
           )}
       </div>
 

@@ -48,11 +48,11 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
             <button
               onClick={() => onEditModeChange('click')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                "px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300",
                 "flex items-center gap-2",
                 editMode === 'click'
-                  ? "bg-slate-900 text-white shadow-lg shadow-slate-200"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                  ? "bg-slate-200 text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100"
+                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
               )}
             >
               <List className="w-4 h-4" />
@@ -61,11 +61,11 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
             <button
               onClick={() => onEditModeChange('scroll')}
               className={cn(
-                "px-3 py-1.5 rounded-md text-sm font-medium transition-all",
+                "px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300",
                 "flex items-center gap-2",
                 editMode === 'scroll'
-                  ? "bg-slate-900 text-white shadow-lg shadow-slate-200"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                  ? "bg-slate-200 text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100"
+                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
               )}
             >
               <LayoutGrid className="w-4 h-4" />
@@ -88,35 +88,14 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
         <button
           onClick={onGlobalAIImport}
           className={cn(
-            "px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2",
-            "bg-white border border-slate-200/60",
-            "text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800",
-            "shadow-sm hover:shadow-md",
+            "px-5 py-2.5 rounded-2xl text-sm font-bold transition-all duration-300 flex items-center gap-2",
+            "bg-white border-2 border-slate-100 dark:border-slate-800",
+            "text-slate-900 dark:text-slate-100 hover:border-slate-900 dark:hover:border-slate-100",
             "hover:scale-[1.02] active:scale-[0.98]"
           )}
         >
-          <Sparkles className="w-4 h-4 text-slate-900" />
+          <Sparkles className="w-4 h-4" />
           AI 智能导入
-        </button>
-        
-        {/* 保存按钮 */}
-        <button
-          onClick={onSaveToDashboard}
-          disabled={saveSuccess}
-          className={cn(
-            "px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2",
-            "hover:scale-[1.02] active:scale-[0.98]",
-            saveSuccess 
-              ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200" 
-              : "bg-slate-900 text-white shadow-lg shadow-slate-200 hover:bg-slate-800"
-          )}
-        >
-          {saveSuccess ? (
-            <Check className="w-4 h-4" />
-          ) : (
-            <BookmarkPlus className="w-4 h-4" />
-          )}
-          {saveSuccess ? '已保存' : '保存'}
         </button>
         
         {/* 导入 JSON 按钮 */}
@@ -124,13 +103,9 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
           <button
             onClick={onImportJSON}
             className={cn(
-              "px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 flex items-center gap-2",
-              "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm",
-              "border border-slate-200/80 dark:border-slate-700/80",
-              "text-slate-700 dark:text-slate-200",
-              "hover:bg-white dark:hover:bg-slate-800",
-              "hover:border-slate-300 dark:hover:border-slate-600",
-              "shadow-sm hover:shadow-md",
+              "px-5 py-2.5 rounded-2xl text-sm font-bold transition-all duration-300 flex items-center gap-2",
+              "bg-white border-2 border-slate-100 dark:border-slate-800",
+              "text-slate-900 dark:text-slate-100 hover:border-slate-900 dark:hover:border-slate-100",
               "hover:scale-[1.02] active:scale-[0.98]"
             )}
           >
@@ -138,6 +113,26 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
             导入 JSON
           </button>
         )}
+        
+        {/* 保存按钮 */}
+              <button
+                onClick={onSaveToDashboard}
+                disabled={saveSuccess}
+                className={cn(
+                  "px-6 py-2.5 rounded-2xl text-sm font-bold transition-all duration-300 flex items-center gap-2",
+                  "hover:scale-[1.02] active:scale-[0.98]",
+                  saveSuccess 
+                    ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200 dark:shadow-emerald-900/20" 
+                    : "bg-slate-100 text-slate-900 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                )}
+              >
+          {saveSuccess ? (
+            <Check className="w-4 h-4" />
+          ) : (
+            <BookmarkPlus className="w-4 h-4" />
+          )}
+          {saveSuccess ? '已保存' : '保存'}
+        </button>
         
         {/* 导出按钮（PDF/JSON/分享链接） */}
         {resumeData && (
