@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Sparkles } from 'lucide-react'
 import type { CalendarView } from '../types'
 
@@ -29,35 +30,35 @@ export function CalendarShell({
 }: CalendarShellProps) {
   const tabClass = 'flex items-center gap-2 border-b-2 px-4 py-3 text-xl font-bold transition'
   const viewBtn = (target: CalendarView) =>
-    `min-w-[80px] rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
+    `min-w-[80px] rounded-xl px-4 py-2 text-sm font-bold transition-all duration-300 ${
       view === target 
-        ? 'bg-blue-600 text-white shadow-sm' 
-        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+        ? 'bg-slate-900 text-white shadow-lg shadow-slate-200 scale-105' 
+        : 'text-slate-500 hover:bg-white hover:text-slate-900 hover:shadow-sm'
     }`
 
   return (
-    <div className="flex h-full flex-col bg-[#F8FAFC]">
-      <header className="border-b border-slate-200 bg-white shadow-sm z-10">
-        <div className="flex items-center justify-between px-6 h-16">
-          <div className="flex items-center gap-6">
-            <div className={`${tabClass} border-blue-600 text-slate-900`}>
-              <span className="text-2xl">📅</span>
-              <span className="tracking-tight">面试日历</span>
+    <div className="flex h-full flex-col bg-[#FAFAFA] font-sans selection:bg-blue-100 selection:text-blue-900">
+      <header className="border-b border-slate-200/60 bg-white/80 backdrop-blur-xl z-20 sticky top-0">
+        <div className="flex items-center justify-between px-8 h-20">
+          <div className="flex items-center gap-8">
+            <div className="flex flex-col group cursor-default">
+              <span className="text-2xl font-black tracking-tighter text-slate-900 uppercase leading-none">面试日历</span>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <button
               type="button"
               onClick={onOpenAiImport}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95"
+              className="group relative inline-flex items-center gap-2 overflow-hidden rounded-2xl border border-slate-200 bg-white px-6 py-3 text-sm font-black text-slate-700 transition-all hover:border-blue-200 hover:text-blue-600 active:scale-95"
             >
-              <Sparkles className="h-4.5 w-4.5 text-blue-600 animate-pulse" />
-              AI 智能导入
+              <div className="absolute inset-0 translate-y-full bg-blue-50/50 transition-transform group-hover:translate-y-0" />
+              <Sparkles className="relative h-4.5 w-4.5 text-blue-500 transition-transform group-hover:rotate-12" />
+              <span className="relative">AI 智能导入</span>
             </button>
             <button
               type="button"
               onClick={onOpenCreate}
-              className="rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95"
+              className="rounded-2xl bg-slate-900 px-8 py-3 text-sm font-black text-white shadow-2xl shadow-slate-200 transition-all hover:bg-slate-800 hover:-translate-y-0.5 active:scale-95 active:translate-y-0"
             >
               创建日程
             </button>
@@ -66,37 +67,43 @@ export function CalendarShell({
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="w-80 border-r border-slate-200 bg-slate-50/50 overflow-y-auto">
+        <aside className="w-80 border-r border-slate-200/60 bg-white/50 overflow-y-auto px-4 py-8">
           {left}
         </aside>
 
         <section className="min-w-0 flex-1 flex flex-col bg-white">
-          <div className="flex items-center justify-between border-b border-slate-100 px-8 py-4 bg-white/80 backdrop-blur-md sticky top-0 z-10">
-            <div className="flex items-center gap-4">
-              <button 
-                type="button" 
-                onClick={onToday}
-                className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-700 bg-white shadow-sm hover:bg-slate-50 transition-all active:scale-95"
-              >
-                今天
-              </button>
-              <div className="flex items-center gap-1">
-                <button type="button" onClick={onPrev} className="rounded-full p-2 hover:bg-slate-100 transition-colors"><ChevronLeft className="h-6 w-6 text-slate-600" /></button>
-                <button type="button" onClick={onNext} className="rounded-full p-2 hover:bg-slate-100 transition-colors"><ChevronRight className="h-6 w-6 text-slate-600" /></button>
+          <div className="flex items-center justify-between border-b border-slate-100/80 px-10 py-6 bg-white/50 backdrop-blur-sm sticky top-0 z-10">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2 bg-slate-100/80 p-1.5 rounded-2xl">
+                <button 
+                  type="button" 
+                  onClick={onToday}
+                  className="rounded-xl px-5 py-2 text-sm font-black text-slate-700 hover:bg-white hover:shadow-sm transition-all active:scale-95"
+                >
+                  今天
+                </button>
+                <div className="h-4 w-px bg-slate-200 mx-1" />
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={onPrev} className="rounded-xl p-2 hover:bg-white hover:shadow-sm transition-all active:scale-95"><ChevronLeft className="h-5 w-5 text-slate-600" /></button>
+                  <button type="button" onClick={onNext} className="rounded-xl p-2 hover:bg-white hover:shadow-sm transition-all active:scale-95"><ChevronRight className="h-5 w-5 text-slate-600" /></button>
+                </div>
               </div>
-              <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight ml-2">{rangeTitle}</h1>
+              <h1 className="text-4xl font-black text-slate-900 tracking-tighter">{rangeTitle}</h1>
             </div>
-            <div className="flex rounded-xl border border-slate-200 bg-slate-50 p-1 shadow-inner">
+            <div className="flex rounded-2xl bg-slate-100/80 p-1.5">
               <button type="button" className={viewBtn('day')} onClick={() => onChangeView('day')}>日</button>
               <button type="button" className={viewBtn('week')} onClick={() => onChangeView('week')}>周</button>
               <button type="button" className={viewBtn('month')} onClick={() => onChangeView('month')}>月</button>
               <button type="button" className={viewBtn('interviews')} onClick={() => onChangeView('interviews')}>有面试</button>
             </div>
           </div>
-          <div className="flex-1 overflow-auto bg-white p-6">
-            <div className="h-full rounded-2xl border border-slate-100 shadow-sm bg-slate-50/30">
+          <div className="flex-1 overflow-auto bg-[#FAFAFA] p-8">
+            <motion.div 
+              layout
+              className="h-full rounded-[2.5rem] border border-slate-200/60 bg-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] overflow-hidden"
+            >
               {content}
-            </div>
+            </motion.div>
           </div>
         </section>
       </div>
