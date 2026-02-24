@@ -164,14 +164,15 @@ export function ExportButton({
         disabled={isExporting}
         className={cn(
           "px-4 py-2.5 rounded-xl",
-          "bg-blue-600 hover:bg-blue-700 active:bg-blue-800",
-          "text-white text-sm font-semibold",
+          "bg-slate-900 hover:bg-slate-800 active:bg-slate-950",
+          "dark:bg-slate-100 dark:hover:bg-white dark:active:bg-slate-200",
+          "text-white dark:text-slate-900 text-sm font-semibold",
           "transition-all duration-200 ease-out",
           "flex items-center gap-2",
           "shadow-md hover:shadow-lg",
-          "border border-blue-700/20",
+          "border border-slate-800 dark:border-slate-200",
           isExporting && "opacity-50 cursor-not-allowed",
-          isOpen && "bg-blue-700"
+          isOpen && "bg-slate-800 dark:bg-white"
         )}
       >
         <Download className="w-4 h-4" strokeWidth={2.5} />
@@ -261,14 +262,14 @@ export function ExportButton({
                   "relative w-11 h-6 rounded-full transition-all duration-200 flex-shrink-0 mt-0.5",
                   "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
                   shareEnabled 
-                    ? "bg-blue-600 shadow-inner" 
+                    ? "bg-slate-900 dark:bg-slate-100 shadow-inner" 
                     : "bg-slate-300 dark:bg-slate-600",
                   isExporting && "opacity-50 cursor-not-allowed"
                 )}
               >
                 <span
                   className={cn(
-                    "absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full",
+                    "absolute top-0.5 left-0.5 w-5 h-5 bg-white dark:bg-slate-900 rounded-full",
                     "transition-all duration-200 ease-out",
                     "shadow-sm",
                     shareEnabled ? "translate-x-5" : "translate-x-0"

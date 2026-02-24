@@ -111,17 +111,16 @@ export function PreviewPanel({
                 disabled={loading}
                 className={cn(
                   'group relative px-5 py-2.5 rounded-xl overflow-hidden',
-                  'bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400',
-                  'hover:from-cyan-300 hover:via-blue-300 hover:to-indigo-300',
-                  'text-white text-sm font-semibold',
-                  'shadow-lg shadow-blue-300/40 hover:shadow-xl hover:shadow-blue-300/50',
-                  'disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:shadow-lg',
+                  'bg-slate-900 dark:bg-slate-100',
+                  'hover:bg-slate-800 dark:hover:bg-white',
+                  'text-white dark:text-slate-900 text-sm font-semibold',
+                  'shadow-lg shadow-slate-200/50 dark:shadow-none',
+                  'disabled:opacity-60 disabled:cursor-not-allowed',
                   'transition-all duration-300',
                   'hover:scale-[1.02] active:scale-[0.98]',
                   'disabled:hover:scale-100'
                 )}
               >
-                <span className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/30 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
                 <span className="relative flex items-center gap-2">
                   <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
                   {loading ? '渲染中...' : '渲染 PDF'}
