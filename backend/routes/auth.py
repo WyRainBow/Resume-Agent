@@ -46,19 +46,28 @@ class TokenResponse(BaseModel):
 def register(body: RegisterRequest, db: Session = Depends(get_db)):
     """用户注册"""
     try:
-        logger.info(f"[注册] 收到注册请求，账号: {body.username}")
+        username = (body.username or "").strip()
+        password = body.password or ""
+        logger.info(f"[注册] 收到注册请求，账号: {username}")
+
+        if not username:
+            raise HTTPException(status_code=400, detail="账号不能为空")
+        if len(username) < 2:
+            raise HTTPException(status_code=400, detail="账号长度至少 2 位")
+        if len(password) < 6:
+            raise HTTPException(status_code=400, detail="密码长度至少 6 位")
         
         # 检查账号是否已存在
-        logger.debug(f"[注册] 检查账号是否已注册: {body.username}")
-        existing = db.query(User).filter(User.username == body.username).first()
+        logger.debug(f"[注册] 检查账号是否已注册: {username}")
+        existing = db.query(User).filter(User.username == username).first()
         if existing:
-            logger.warning(f"[注册] 账号已注册: {body.username}")
+            logger.warning(f"[注册] 账号已注册: {username}")
             raise HTTPException(status_code=400, detail="该账号已注册")
 
         # 加密密码
         logger.debug(f"[注册] 开始加密密码")
         try:
-            password_hash = hash_password(body.password)
+            password_hash = hash_password(password)
             logger.debug(f"[注册] 密码加密成功，hash长度: {len(password_hash)}")
         except Exception as e:
             logger.error(f"[注册] 密码加密失败: {str(e)}")
@@ -69,7 +78,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         logger.debug(f"[注册] 创建用户对象")
         try:
             # email 字段保留兼容：默认与 username 相同
-            user = User(username=body.username, email=body.username, password_hash=password_hash)
+            user = User(username=username, email=username, password_hash=password_hash)
             logger.debug(f"[注册] 用户对象创建成功")
         except Exception as e:
             logger.error(f"[注册] 创建用户对象失败: {str(e)}")
@@ -140,13 +149,19 @@ def _client_ip(request: Request) -> str:
 def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
     """用户登录"""
     t0 = time.perf_counter()
-    logger.info(f"[登录] 开始登录流程 username={body.username}")
+    login_identifier = (body.username or "").strip()
+    password = body.password or ""
+    logger.info(f"[登录] 开始登录流程 username={login_identifier}")
+
+    if not login_identifier:
+        raise HTTPException(status_code=400, detail="账号不能为空")
+    if not password:
+        raise HTTPException(status_code=400, detail="密码不能为空")
 
     # 数据库连接偶发中断时，允许一次快速重试，避免直接 500
     t_query_start = time.perf_counter()
     user = None
     query_error: Optional[Exception] = None
-    login_identifier = body.username.strip()
     for attempt in range(1, 3):
         try:
             # 避免 OR 条件导致索引利用不稳定：优先按输入形态走单索引查询
@@ -178,9 +193,9 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=503, detail="数据库连接异常、请稍后重试")
 
     t_verify_start = time.perf_counter()
-    if not user or not verify_password(body.password, user.password_hash):
+    if not user or not verify_password(password, user.password_hash):
         logger.warning(
-            f"[登录] 账号或密码错误 username={body.username} verify耗时 {(time.perf_counter() - t_verify_start) * 1000:.1f}ms"
+            f"[登录] 账号或密码错误 username={login_identifier} verify耗时 {(time.perf_counter() - t_verify_start) * 1000:.1f}ms"
         )
         raise HTTPException(status_code=401, detail="账号或密码错误")
     logger.info(f"[登录] 密码校验耗时 {(time.perf_counter() - t_verify_start) * 1000:.1f}ms")
