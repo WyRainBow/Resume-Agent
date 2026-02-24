@@ -45,7 +45,10 @@ setup_logging(
 logger = get_logger(__name__)
 
 from fastapi import FastAPI
+from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse, Response, StreamingResponse
+import httpx
 from backend.middleware.observability import register_observability_handlers
 
 def import_module_candidates(candidates):
@@ -127,16 +130,86 @@ app.include_router(asr_router)
 app.include_router(semantic_search_router)
 
 # 注册 OpenManus 路由（合并后）
-try:
-    from backend.agent.web.routes import api_router as openmanus_router
-    app.include_router(openmanus_router, prefix="/api/agent")
-    logger.info("[合并] OpenManus 路由已加载，前缀: /api/agent")
-except Exception as exc:
-    # 如果是缺少可选依赖（如 browser-use），只记录警告，不影响其他功能
-    if "browser_use" in str(exc) or "browser-use" in str(exc):
-        logger.warning(f"[合并] OpenManus 路由未加载（缺少可选依赖）: {exc}")
-    else:
-        logger.warning(f"[合并] OpenManus 路由未加载: {exc}")
+AGENT_BACKEND_BASE_URL = os.getenv("AGENT_BACKEND_BASE_URL", "").strip().rstrip("/")
+
+if AGENT_BACKEND_BASE_URL:
+    logger.info(f"[合并] 启用 Agent 反向代理: /api/agent/** -> {AGENT_BACKEND_BASE_URL}")
+
+    @app.api_route("/api/agent", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"])
+    @app.api_route("/api/agent/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"])
+    async def proxy_agent(request: Request, path: str = ""):
+        upstream_url = f"{AGENT_BACKEND_BASE_URL}/api/agent"
+        if path:
+            upstream_url = f"{upstream_url}/{path}"
+        if request.url.query:
+            upstream_url = f"{upstream_url}?{request.url.query}"
+
+        headers = {
+            k: v
+            for k, v in request.headers.items()
+            if k.lower() not in {"host", "content-length", "connection"}
+        }
+        body = await request.body()
+
+        timeout = httpx.Timeout(connect=15.0, read=300.0, write=60.0, pool=15.0)
+        client = httpx.AsyncClient(timeout=timeout, trust_env=False)
+        try:
+            req = client.build_request(
+                method=request.method,
+                url=upstream_url,
+                headers=headers,
+                content=body if body else None,
+            )
+            upstream = await client.send(req, stream=True)
+        except Exception as exc:
+            await client.aclose()
+            logger.error(f"[合并] Agent 代理请求失败: {exc}")
+            return JSONResponse(
+                content={"code": "AGENT_PROXY_ERROR", "message": "Agent upstream unreachable"},
+                status_code=502,
+            )
+
+        content_type = upstream.headers.get("content-type", "")
+        if "text/event-stream" in content_type:
+            async def _stream():
+                try:
+                    async for chunk in upstream.aiter_bytes():
+                        yield chunk
+                finally:
+                    await upstream.aclose()
+                    await client.aclose()
+
+            return StreamingResponse(
+                _stream(),
+                status_code=upstream.status_code,
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                },
+            )
+
+        try:
+            payload = await upstream.aread()
+            return Response(
+                content=payload,
+                status_code=upstream.status_code,
+                media_type=content_type or None,
+            )
+        finally:
+            await upstream.aclose()
+            await client.aclose()
+else:
+    try:
+        from backend.agent.web.routes import api_router as openmanus_router
+        app.include_router(openmanus_router, prefix="/api/agent")
+        logger.info("[合并] OpenManus 路由已加载，前缀: /api/agent")
+    except Exception as exc:
+        # 如果是缺少可选依赖（如 browser-use），只记录警告，不影响其他功能
+        if "browser_use" in str(exc) or "browser-use" in str(exc):
+            logger.warning(f"[合并] OpenManus 路由未加载（缺少可选依赖）: {exc}")
+        else:
+            logger.warning(f"[合并] OpenManus 路由未加载: {exc}")
 
 
 # 启动时预热 HTTP 连接并配置日志

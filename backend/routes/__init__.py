@@ -23,13 +23,13 @@ try:
     from .tts_edge import router as tts_router
     _tts_available = True
     _tts_type = "edge-tts"
-except ImportError:
+except Exception:
     # edge-tts 不可用，尝试 Coqui TTS
     try:
         from .tts import router as tts_router
         _tts_available = True
         _tts_type = "coqui-tts"
-    except ImportError:
+    except Exception:
         # TTS 依赖未安装，创建一个占位符
         tts_router = None
         _tts_available = False
