@@ -100,6 +100,8 @@ export default function ChatMessage({
     speed: 15, // 降低速度，让打字机效果更明显
     mode: "typewriter",
     streamMode: "burst-smoothed",
+    burstThreshold: 0,
+    maxCharsPerFrame: 1,
     onComplete: () => {
       // 打字机效果完成时，通知父组件
       if (canStartResponseTypewriter && onTypewriterComplete) {

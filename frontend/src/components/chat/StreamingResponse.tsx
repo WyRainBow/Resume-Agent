@@ -1,5 +1,6 @@
 import React from "react";
 import EnhancedMarkdown from "./EnhancedMarkdown";
+import { useTextStream } from "@/hooks/useTextStream";
 
 /**
  * StreamingResponseProps
@@ -32,14 +33,26 @@ export default function StreamingResponse({
     return null;
   }
 
+  const { displayedText } = useTextStream({
+    textStream: content,
+    mode: "typewriter",
+    speed: 12,
+    streamMode: "burst-smoothed",
+    burstThreshold: 0,
+    maxCharsPerFrame: 1,
+    smoothingWindowMs: 140,
+  });
+
+  const textToShow = isStreaming ? displayedText : content;
+
   return (
     <div className={className}>
       {isStreaming ? (
         <div className="whitespace-pre-wrap break-words leading-relaxed">
-          {content}
+          {textToShow}
         </div>
       ) : (
-        <EnhancedMarkdown>{content}</EnhancedMarkdown>
+        <EnhancedMarkdown>{textToShow}</EnhancedMarkdown>
       )}
     </div>
   );
