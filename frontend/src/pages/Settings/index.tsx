@@ -17,6 +17,21 @@ const THEME_KEY = 'app-theme'
 const LANGUAGE_KEY = 'app-language'
 type Theme = 'light' | 'dark' | 'system'
 
+function getRoleFromToken(): string {
+  try {
+    const token = localStorage.getItem('auth_token')
+    if (!token) return ''
+    const payloadPart = token.split('.')[1]
+    if (!payloadPart) return ''
+    const normalized = payloadPart.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
+    const payload = JSON.parse(atob(padded))
+    return String(payload?.role || '').toLowerCase()
+  } catch {
+    return ''
+  }
+}
+
 function useTheme() {
   const [theme, setThemeState] = useState<Theme>(() => {
     try {
@@ -85,6 +100,7 @@ function Card({
 
 export default function SettingsPage() {
   const { user, isAuthenticated } = useAuth()
+  const roleFromToken = getRoleFromToken()
   const [theme, setTheme] = useTheme()
   const [displayName, setDisplayName] = useState(user?.username ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
@@ -150,7 +166,7 @@ export default function SettingsPage() {
             </div>
             <div className="mt-4 flex items-center justify-between">
               <div className="text-sm text-slate-500 dark:text-slate-400">
-                当前角色：<span className="font-semibold text-slate-700 dark:text-slate-200">{(user as any)?.role || 'user'}</span>
+                当前角色：<span className="font-semibold text-slate-700 dark:text-slate-200">{roleFromToken || (user as any)?.role || 'user'}</span>
               </div>
               <button
                 type="button"
