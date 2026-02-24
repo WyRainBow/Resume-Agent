@@ -618,6 +618,7 @@ export default function SophiaChat() {
   const saveRetryRef = useRef<Record<string, number>>({});
   const saveClientSeqRef = useRef(0);
   const lastPersistedCountBySessionRef = useRef<Record<string, number>>({});
+  const autoScrollTimerRef = useRef<number | null>(null);
   const isFinalizedRef = useRef(false);
   const currentThoughtRef = useRef("");
   const currentAnswerRef = useRef("");
@@ -992,14 +993,6 @@ export default function SophiaChat() {
   }, [isDesktop]);
 
   useEffect(() => {
-    console.log("[PDF TRACE] effect-check", {
-      selectedLoadedResume: selectedLoadedResume?.id,
-      selectedReportId,
-      allowPdfAutoRender,
-      selectedResumeId,
-      currentSessionId,
-      conversationId,
-    });
     if (!allowPdfAutoRender) return;
     if (!selectedLoadedResume) return;
     if (selectedReportId) return;
@@ -1039,13 +1032,28 @@ export default function SophiaChat() {
         );
         if (!mounted) return;
         if (!resp.ok) {
+          let detail = `HTTP ${resp.status} ${resp.statusText}`;
+          try {
+            const errData = await resp.clone().json();
+            if (errData?.detail?.message) {
+              detail = errData.detail.message;
+            } else if (typeof errData?.detail === "string") {
+              detail = errData.detail;
+            } else if (errData?.error_message) {
+              detail = errData.error_message;
+            }
+          } catch {
+            // ignore json parse errors
+          }
           // 会话不存在，使用新的会话ID
           console.log(
-            `[AgentChat] Session ${conversationId} not found, starting new session`,
+            `[AgentChat] Session ${conversationId} load failed: ${detail}`,
           );
+          setResumeError(`会话加载失败：${detail}`);
           return;
         }
         const data = await resp.json();
+        setResumeError(null);
 
         // 🔧 恢复 UI 数据（懒加载模式）
         // 仅恢复可点击的数据，不自动恢复右侧选中态（selectedResumeId/selectedReportId），
@@ -1215,10 +1223,25 @@ export default function SophiaChat() {
     apiBaseUrl,
   ]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom (throttled to reduce layout thrash during streaming)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (autoScrollTimerRef.current !== null) {
+      window.clearTimeout(autoScrollTimerRef.current);
+    }
+    autoScrollTimerRef.current = window.setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      autoScrollTimerRef.current = null;
+    }, 120);
   }, [messages, currentThought, currentAnswer]);
+
+  useEffect(() => {
+    return () => {
+      if (autoScrollTimerRef.current !== null) {
+        window.clearTimeout(autoScrollTimerRef.current);
+        autoScrollTimerRef.current = null;
+      }
+    };
+  }, []);
 
   // 打开“展示简历”卡片或切换其步骤时，确保卡片完整进入可视区域，避免被输入区遮挡。
   useEffect(() => {
@@ -1233,16 +1256,10 @@ export default function SophiaChat() {
 
   useEffect(() => {
     currentThoughtRef.current = currentThought;
-    console.log("[AgentChat] currentThought updated", {
-      length: currentThought.length,
-    });
   }, [currentThought]);
 
   useEffect(() => {
     currentAnswerRef.current = currentAnswer;
-    console.log("[AgentChat] currentAnswer updated", {
-      length: currentAnswer.length,
-    });
   }, [currentAnswer]);
 
   // 检测并创建报告（需要在 finalizeMessage 之前定义）
@@ -1466,6 +1483,9 @@ export default function SophiaChat() {
 
       return updated;
     });
+
+    // Clear transient stream buffers only after message finalization work has been enqueued.
+    finalizeStream();
   }, [
     finalizeStream,
     currentAnswer,
@@ -1862,7 +1882,6 @@ export default function SophiaChat() {
   const saveCurrentSession = useCallback(() => {
     if (isProcessing || currentThoughtRef.current || currentAnswerRef.current) {
       pendingSaveRef.current = true;
-      finalizeMessage();
       return;
     }
     // 只有当有消息时才标记需要保存
@@ -2056,14 +2075,29 @@ export default function SophiaChat() {
       );
 
       if (!resp.ok) {
+        let detail = `HTTP ${resp.status} ${resp.statusText}`;
+        try {
+          const errData = await resp.clone().json();
+          if (errData?.detail?.message) {
+            detail = errData.detail.message;
+          } else if (typeof errData?.detail === "string") {
+            detail = errData.detail;
+          } else if (errData?.error_message) {
+            detail = errData.error_message;
+          }
+        } catch {
+          // ignore json parse errors
+        }
         console.error(
-          `[AgentChat] Failed to load session: ${resp.status} ${resp.statusText}`,
+          `[AgentChat] Failed to load session: ${detail}`,
         );
+        setResumeError(`会话加载失败：${detail}`);
         // 如果加载失败，不清空当前消息，保持原状态
         return;
       }
 
       const data = await resp.json();
+      setResumeError(null);
 
       // 检查返回的数据格式
       if (!data || !Array.isArray(data.messages)) {
@@ -2396,15 +2430,6 @@ export default function SophiaChat() {
         at: Date.now(),
       };
     }
-    console.log("[AgentChat] answerCompleteCount effect", {
-      answerCompleteCount,
-      hasContent,
-      answerRefLength: currentAnswerRef.current.trim().length,
-      thoughtRefLength: currentThoughtRef.current.trim().length,
-      answerStateLength: currentAnswer.trim().length,
-      thoughtStateLength: currentThought.trim().length,
-    });
-
     // True-streaming path: finalize immediately when backend marks answer complete.
     // Use a small delay to ensure refs are fully synchronized with the latest chunks.
     const finalizeWithRetry = (retryCount = 0) => {
@@ -2413,7 +2438,6 @@ export default function SophiaChat() {
       const hasAnyContent = currentAnswerValue || currentThoughtValue;
 
       if (!hasAnyContent && retryCount < 3) {
-        console.log(`[AgentChat] No content detected in effect, retrying finalize... (${retryCount + 1}/3)`);
         setTimeout(() => finalizeWithRetry(retryCount + 1), 50 * (retryCount + 1));
         return;
       }
@@ -2426,9 +2450,7 @@ export default function SophiaChat() {
         };
       }
 
-      console.log("[AgentChat] Executing finalization", { hasAnyContent, retryCount });
       finalizeMessage();
-      finalizeStream();
       
       setTimeout(() => {
         isFinalizedRef.current = false;

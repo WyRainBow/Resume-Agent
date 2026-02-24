@@ -177,6 +177,7 @@ export default function ReportEdit() {
     textStream: textToDisplay || '',
     speed: 15,
     mode: 'typewriter',
+    streamMode: 'burst-smoothed',
   })
 
   // 监听流式内容并更新编辑器

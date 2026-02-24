@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import ThoughtProcess from './ThoughtProcess';
 import StreamingResponse from './StreamingResponse';
 
@@ -58,9 +58,33 @@ export default function StreamingOutputPanel({
   renderSearchCard,
   children,
 }: StreamingOutputPanelProps) {
+  const processingStartRef = useRef(0);
+  const firstVisibleLoggedRef = useRef(false);
   const thought = streamModel?.thought ?? currentThought;
   const answer = streamModel?.answer ?? currentAnswer;
   const processing = streamModel?.isProcessing ?? isProcessing;
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    if (processing) {
+      if (processingStartRef.current === 0) {
+        processingStartRef.current = performance.now();
+        firstVisibleLoggedRef.current = false;
+      }
+      if (!firstVisibleLoggedRef.current && (thought.length > 0 || answer.length > 0)) {
+        firstVisibleLoggedRef.current = true;
+        console.debug('[StreamMetrics]', {
+          type: 'first_visible_char',
+          latencyMs: Math.round(performance.now() - processingStartRef.current),
+          thoughtLength: thought.length,
+          answerLength: answer.length,
+        });
+      }
+      return;
+    }
+    processingStartRef.current = 0;
+    firstVisibleLoggedRef.current = false;
+  }, [processing, thought.length, answer.length]);
   
   if (!processing || (!thought && (!answer || shouldHideResponseInChat))) {
     return null;
@@ -91,6 +115,7 @@ export default function StreamingOutputPanel({
       <StreamingResponse
         content={answer}
         canStart={!shouldHideResponseInChat}
+        isStreaming={processing}
       />
 
       {/* 4. 额外的检测器或卡片 */}

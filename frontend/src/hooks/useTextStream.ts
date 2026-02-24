@@ -1,18 +1,14 @@
 /**
  * useTextStream Hook - 处理文本流式输出
  *
- * 从 ResponseStream.tsx 中提取的独立 Hook
- * 支持打字机效果和增量更新
- *
- * 关键功能：
- * - 支持增量更新（新内容追加时不重置）
- * - 使用 requestAnimationFrame 实现流畅动画（60fps）
- * - 支持顺序控制（Thought → Response）
+ * 默认策略：真实流优先（realtime）
+ * 可选策略：burst-smoothed（仅在突发大块增量时做短时平滑）
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 export type Mode = 'typewriter' | 'fade';
+export type StreamMode = 'realtime' | 'burst-smoothed';
 
 export type UseTextStreamOptions = {
   textStream: string | AsyncIterable<string>;
@@ -23,6 +19,10 @@ export type UseTextStreamOptions = {
   segmentDelay?: number;
   characterChunkSize?: number;
   onError?: (error: unknown) => void;
+  streamMode?: StreamMode;
+  burstThreshold?: number;
+  smoothingWindowMs?: number;
+  maxCharsPerFrame?: number;
 };
 
 export type UseTextStreamResult = {
@@ -37,6 +37,8 @@ export type UseTextStreamResult = {
   resume: () => void;
 };
 
+const IS_DEV = import.meta.env.DEV;
+
 function useTextStream({
   textStream,
   speed = 20,
@@ -46,6 +48,10 @@ function useTextStream({
   segmentDelay,
   characterChunkSize,
   onError,
+  streamMode = 'realtime',
+  burstThreshold = 24,
+  smoothingWindowMs = 120,
+  maxCharsPerFrame = 12,
 }: UseTextStreamOptions): UseTextStreamResult {
   const [displayedText, setDisplayedText] = useState('');
   const [isComplete, setIsComplete] = useState(false);
@@ -55,75 +61,57 @@ function useTextStream({
 
   const speedRef = useRef(speed);
   const modeRef = useRef(mode);
-  const currentIndexRef = useRef(0);
+  const streamModeRef = useRef(streamMode);
+  const burstThresholdRef = useRef(burstThreshold);
+  const smoothingWindowMsRef = useRef(smoothingWindowMs);
+  const maxCharsPerFrameRef = useRef(maxCharsPerFrame);
+
   const animationRef = useRef<number | null>(null);
-  const fadeDurationRef = useRef(fadeDuration);
-  const segmentDelayRef = useRef(segmentDelay);
-  const characterChunkSizeRef = useRef(characterChunkSize);
   const streamRef = useRef<AbortController | null>(null);
+  const settleTimerRef = useRef<number | null>(null);
+
+  const targetTextRef = useRef('');
+  const displayedLengthRef = useRef(0);
+  const frameTsRef = useRef(0);
+  const carryCharsRef = useRef(0);
+  const isPausedRef = useRef(false);
   const completedRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
-  const isPausedRef = useRef(false);
-  // 用于跟踪增量更新的 refs
-  const prevTextLengthRef = useRef(0);  // 之前的文本长度，用于检测增量更新
-  const fullTextRef = useRef('');       // 完整的目标文本，用于增量更新时的打字机效果
+
+  const metricsRef = useRef({
+    smoothingActivations: 0,
+    smoothedChars: 0,
+    instantUpdates: 0,
+  });
 
   useEffect(() => {
     speedRef.current = speed;
     modeRef.current = mode;
-    fadeDurationRef.current = fadeDuration;
-    segmentDelayRef.current = segmentDelay;
-    characterChunkSizeRef.current = characterChunkSize;
-  }, [speed, mode, fadeDuration, segmentDelay, characterChunkSize]);
+    streamModeRef.current = streamMode;
+    burstThresholdRef.current = burstThreshold;
+    smoothingWindowMsRef.current = smoothingWindowMs;
+    maxCharsPerFrameRef.current = Math.max(1, maxCharsPerFrame);
+  }, [speed, mode, streamMode, burstThreshold, smoothingWindowMs, maxCharsPerFrame]);
 
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
 
-  const getChunkSize = useCallback(() => {
-    if (typeof characterChunkSizeRef.current === 'number') {
-      return Math.max(1, characterChunkSizeRef.current);
-    }
-
-    const normalizedSpeed = Math.min(100, Math.max(1, speedRef.current));
-
-    if (modeRef.current === 'typewriter') {
-      if (normalizedSpeed < 25) return 1;
-      return Math.max(1, Math.round((normalizedSpeed - 25) / 10));
-    } else if (modeRef.current === 'fade') {
-      return 1;
-    }
-
-    return 1;
-  }, []);
-
-  const getProcessingDelay = useCallback(() => {
-    if (typeof segmentDelayRef.current === 'number') {
-      return Math.max(0, segmentDelayRef.current);
-    }
-
-    const normalizedSpeed = Math.min(100, Math.max(1, speedRef.current));
-    return Math.max(1, Math.round(100 / Math.sqrt(normalizedSpeed)));
-  }, []);
-
   const getFadeDuration = useCallback(() => {
-    if (typeof fadeDurationRef.current === 'number')
-      return Math.max(10, fadeDurationRef.current);
-
+    if (typeof fadeDuration === 'number') return Math.max(10, fadeDuration);
     const normalizedSpeed = Math.min(100, Math.max(1, speedRef.current));
     return Math.round(1000 / Math.sqrt(normalizedSpeed));
-  }, []);
+  }, [fadeDuration]);
 
   const getSegmentDelay = useCallback(() => {
-    if (typeof segmentDelayRef.current === 'number')
-      return Math.max(0, segmentDelayRef.current);
-
+    if (typeof segmentDelay === 'number') return Math.max(0, segmentDelay);
     const normalizedSpeed = Math.min(100, Math.max(1, speedRef.current));
     return Math.max(1, Math.round(100 / Math.sqrt(normalizedSpeed)));
-  }, []);
+  }, [segmentDelay]);
 
-  const updateSegments = useCallback((text: string) => {
-    if (modeRef.current === 'fade') {
+  const updateSegments = useCallback(
+    (text: string) => {
+      if (modeRef.current !== 'fade') return;
       try {
         const segmenter = new (Intl as any).Segmenter(navigator.language, {
           granularity: 'word',
@@ -140,108 +128,155 @@ function useTextStream({
         const newSegments = text
           .split(/(\s+)/)
           .filter(Boolean)
-          .map((word, index) => ({
-            text: word,
-            index,
-          }));
+          .map((word, index) => ({ text: word, index }));
         setSegments(newSegments);
         onError?.(error);
       }
-    }
-  }, [onError]);
+    },
+    [onError]
+  );
 
-  const markComplete = useCallback(() => {
-    if (!completedRef.current) {
-      completedRef.current = true;
-      setIsComplete(true);
-      onCompleteRef.current?.();
+  const clearSettleTimer = useCallback(() => {
+    if (settleTimerRef.current !== null) {
+      window.clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = null;
     }
   }, []);
 
+  const markComplete = useCallback(() => {
+    if (completedRef.current) return;
+    completedRef.current = true;
+    setIsComplete(true);
+    onCompleteRef.current?.();
+    if (IS_DEV) {
+      console.debug('[TextStreamMetrics]', {
+        streamMode: streamModeRef.current,
+        smoothingActivations: metricsRef.current.smoothingActivations,
+        smoothedChars: metricsRef.current.smoothedChars,
+        instantUpdates: metricsRef.current.instantUpdates,
+        finalLength: targetTextRef.current.length,
+      });
+    }
+  }, []);
+
+  const scheduleComplete = useCallback(() => {
+    clearSettleTimer();
+    const settleMs = streamModeRef.current === 'realtime' ? 140 : 180;
+    settleTimerRef.current = window.setTimeout(() => {
+      if (displayedLengthRef.current >= targetTextRef.current.length) {
+        markComplete();
+      }
+    }, settleMs);
+  }, [clearSettleTimer, markComplete]);
+
+  const setDisplayedLength = useCallback(
+    (nextLen: number) => {
+      const nextText = targetTextRef.current.slice(0, nextLen);
+      displayedLengthRef.current = nextLen;
+      setDisplayedText(nextText);
+      if (modeRef.current === 'fade') updateSegments(nextText);
+    },
+    [updateSegments]
+  );
+
+  const stopAnimation = useCallback(() => {
+    if (animationRef.current !== null) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+  }, []);
+
+  const getSmoothCharsPerSecond = useCallback(() => {
+    const normalizedSpeed = Math.min(100, Math.max(1, speedRef.current));
+    const base = 160 + normalizedSpeed * 4.2;
+    const windowFactor = Math.max(0.6, Math.min(1.8, 120 / Math.max(40, smoothingWindowMsRef.current)));
+    return base * windowFactor;
+  }, []);
+
+  const runSmoothing = useCallback(() => {
+    if (animationRef.current !== null) return;
+
+    metricsRef.current.smoothingActivations += 1;
+
+    const tick = (ts: number) => {
+      if (isPausedRef.current) {
+        animationRef.current = null;
+        return;
+      }
+
+      if (frameTsRef.current === 0) {
+        frameTsRef.current = ts;
+      }
+      const dt = ts - frameTsRef.current;
+      frameTsRef.current = ts;
+
+      const cps = getSmoothCharsPerSecond();
+      carryCharsRef.current += (dt / 1000) * cps;
+      let step = Math.floor(carryCharsRef.current);
+      if (step <= 0) step = 1;
+      carryCharsRef.current -= step;
+      step = Math.min(step, maxCharsPerFrameRef.current);
+
+      const targetLen = targetTextRef.current.length;
+      const currentLen = displayedLengthRef.current;
+
+      if (currentLen >= targetLen) {
+        animationRef.current = null;
+        scheduleComplete();
+        return;
+      }
+
+      const nextLen = Math.min(targetLen, currentLen + step);
+      metricsRef.current.smoothedChars += nextLen - currentLen;
+      setDisplayedLength(nextLen);
+
+      if (nextLen >= targetLen) {
+        animationRef.current = null;
+        scheduleComplete();
+        return;
+      }
+
+      animationRef.current = requestAnimationFrame(tick);
+    };
+
+    frameTsRef.current = 0;
+    animationRef.current = requestAnimationFrame(tick);
+  }, [getSmoothCharsPerSecond, scheduleComplete, setDisplayedLength]);
+
   const reset = useCallback(() => {
-    currentIndexRef.current = 0;
+    stopAnimation();
+    clearSettleTimer();
+    targetTextRef.current = '';
+    displayedLengthRef.current = 0;
+    frameTsRef.current = 0;
+    carryCharsRef.current = 0;
+    completedRef.current = false;
+    isPausedRef.current = false;
     setDisplayedText('');
     setSegments([]);
     setIsComplete(false);
-    completedRef.current = false;
-    isPausedRef.current = false;
-    prevTextLengthRef.current = 0;
-    fullTextRef.current = '';
-
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
-    }
-  }, []);
+    metricsRef.current = {
+      smoothingActivations: 0,
+      smoothedChars: 0,
+      instantUpdates: 0,
+    };
+  }, [stopAnimation, clearSettleTimer]);
 
   const pause = useCallback(() => {
     isPausedRef.current = true;
-    if (animationRef.current) {
-      cancelAnimationFrame(animationRef.current);
-      animationRef.current = null;
-    }
-  }, []);
+    stopAnimation();
+    clearSettleTimer();
+  }, [stopAnimation, clearSettleTimer]);
 
   const resume = useCallback(() => {
-    if (isPausedRef.current && typeof textStream === 'string') {
-      isPausedRef.current = false;
-      processStringTypewriter(textStream);
+    if (!isPausedRef.current || typeof textStream !== 'string') return;
+    isPausedRef.current = false;
+    if (streamModeRef.current === 'burst-smoothed') {
+      runSmoothing();
+    } else {
+      scheduleComplete();
     }
-  }, [textStream]);
-
-  const processStringTypewriter = useCallback(
-    (text: string) => {
-      let lastFrameTime = 0;
-
-      const streamContent = (timestamp: number) => {
-        const delay = getProcessingDelay();
-        if (delay > 0 && timestamp - lastFrameTime < delay) {
-          animationRef.current = requestAnimationFrame(streamContent);
-          return;
-        }
-        lastFrameTime = timestamp;
-
-        // 使用最新的文本（支持动态变化）
-        const currentText = fullTextRef.current || text;
-
-        if (currentIndexRef.current >= currentText.length) {
-          // 如果是增量更新，检查是否有新内容
-          const latestText = fullTextRef.current;
-          if (latestText && latestText.length > currentIndexRef.current) {
-            // 有新内容，继续打字（使用最新文本）
-            animationRef.current = requestAnimationFrame(streamContent);
-            return;
-          }
-          // 没有新内容了，标记完成
-          markComplete();
-          return;
-        }
-
-        const chunkSize = getChunkSize();
-        const endIndex = Math.min(
-          currentIndexRef.current + chunkSize,
-          currentText.length
-        );
-        const newDisplayedText = currentText.slice(0, endIndex);
-
-        setDisplayedText(newDisplayedText);
-        if (modeRef.current === 'fade') {
-          updateSegments(newDisplayedText);
-        }
-
-        currentIndexRef.current = endIndex;
-
-        if (endIndex < currentText.length) {
-          animationRef.current = requestAnimationFrame(streamContent);
-        } else {
-          markComplete();
-        }
-      };
-
-      animationRef.current = requestAnimationFrame(streamContent);
-    },
-    [getProcessingDelay, getChunkSize, updateSegments, markComplete]
-  );
+  }, [runSmoothing, scheduleComplete, textStream]);
 
   const processAsyncIterable = useCallback(
     async (stream: AsyncIterable<string>) => {
@@ -249,93 +284,97 @@ function useTextStream({
       streamRef.current = controller;
 
       let displayed = '';
-
       try {
         for await (const chunk of stream) {
           if (controller.signal.aborted || isPausedRef.current) return;
-
           displayed += chunk;
-          setDisplayedText(displayed);
-          updateSegments(displayed);
+          targetTextRef.current = displayed;
+          setDisplayedLength(displayed.length);
+          completedRef.current = false;
+          setIsComplete(false);
         }
-
-        markComplete();
+        scheduleComplete();
       } catch (error) {
         console.error('Error processing text stream:', error);
-        markComplete();
+        onError?.(error);
+        scheduleComplete();
       }
     },
-    [updateSegments, markComplete]
+    [onError, scheduleComplete, setDisplayedLength]
   );
+
+  const processStringInput = useCallback((incomingText: string) => {
+    const prevTarget = targetTextRef.current;
+
+    if (incomingText.length === 0) {
+      if (!prevTarget) reset();
+      return;
+    }
+
+    completedRef.current = false;
+    setIsComplete(false);
+    clearSettleTimer();
+
+    const isAppend = prevTarget.length > 0 && incomingText.startsWith(prevTarget);
+    const isSame = incomingText === prevTarget;
+
+    if (!isAppend && !isSame) {
+      stopAnimation();
+      frameTsRef.current = 0;
+      carryCharsRef.current = 0;
+      setDisplayedLength(0);
+    }
+
+    targetTextRef.current = incomingText;
+
+    if (streamModeRef.current === 'realtime') {
+      metricsRef.current.instantUpdates += 1;
+      stopAnimation();
+      setDisplayedLength(incomingText.length);
+      scheduleComplete();
+      return;
+    }
+
+    // burst-smoothed mode
+    const remaining = incomingText.length - displayedLengthRef.current;
+    if (remaining <= 0) {
+      scheduleComplete();
+      return;
+    }
+
+    // 小增量不平滑，直接贴近真实流；突发大块才启动平滑
+    if (remaining <= burstThresholdRef.current && animationRef.current === null) {
+      metricsRef.current.instantUpdates += 1;
+      setDisplayedLength(incomingText.length);
+      scheduleComplete();
+      return;
+    }
+
+    runSmoothing();
+  }, [clearSettleTimer, reset, runSmoothing, scheduleComplete, setDisplayedLength, stopAnimation]);
 
   const startStreaming = useCallback(() => {
     if (typeof textStream === 'string') {
-      // 检查是否是增量更新（流式传输）
-      // 增量更新：新长度 > 旧长度 且 旧长度 > 0
-      const isIncremental = textStream.length > prevTextLengthRef.current && prevTextLengthRef.current > 0;
-
-      // 更新目标文本
-      fullTextRef.current = textStream;
-
-      if (isIncremental) {
-        // 增量更新：只更新目标文本，继续打字机效果
-        // 如果还没有开始打字机效果，现在开始
-        if (!animationRef.current && !completedRef.current) {
-          processStringTypewriter(textStream);
-        }
-        // 如果打字机效果已经完成但文本还在增长，继续打字
-        if (completedRef.current && textStream.length > currentIndexRef.current) {
-          setIsComplete(false);
-          completedRef.current = false;
-          // 不要重置 currentIndexRef，继续从当前位置打字
-          if (!animationRef.current) {
-            processStringTypewriter(textStream);
-          }
-        }
-        // 更新长度记录
-        prevTextLengthRef.current = textStream.length;
-      } else {
-        // 全新文本：重置并开始打字机效果
-        if (textStream.length > 0 && prevTextLengthRef.current === 0) {
-          // 从空字符串变为有内容，重置并开始
-          reset();
-          processStringTypewriter(textStream);
-          prevTextLengthRef.current = textStream.length;
-        } else if (textStream.length === 0 && prevTextLengthRef.current > 0) {
-          // 从有内容变为空，可能是消息完成，不重置，让打字机效果继续完成
-          // 不执行任何操作，让打字机效果自然完成
-          prevTextLengthRef.current = 0;
-        } else if (textStream.length < prevTextLengthRef.current) {
-          // 文本变短：重置
-          reset();
-          prevTextLengthRef.current = textStream.length;
-        } else if (textStream.length === prevTextLengthRef.current && textStream.length > 0) {
-          // 文本长度不变但内容可能变了，需要重新开始
-          reset();
-          processStringTypewriter(textStream);
-          prevTextLengthRef.current = textStream.length;
-        } else {
-          prevTextLengthRef.current = textStream.length;
-        }
-      }
-    } else if (textStream) {
+      processStringInput(textStream);
+      return;
+    }
+    if (textStream) {
       reset();
       processAsyncIterable(textStream);
     }
-  }, [textStream, reset, processStringTypewriter, processAsyncIterable]);
+  }, [processAsyncIterable, processStringInput, reset, textStream]);
 
   useEffect(() => {
     startStreaming();
 
     return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
+      stopAnimation();
+      clearSettleTimer();
       if (streamRef.current) {
         streamRef.current.abort();
       }
     };
-  }, [textStream, startStreaming]);
+  }, [startStreaming, stopAnimation, clearSettleTimer]);
 
   return {
     displayedText,

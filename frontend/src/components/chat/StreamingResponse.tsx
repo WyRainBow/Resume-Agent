@@ -9,6 +9,8 @@ export interface StreamingResponseProps {
   content: string;
   /** 是否可以开始显示 */
   canStart: boolean;
+  /** 是否仍处于流式输出中 */
+  isStreaming?: boolean;
   /** CSS 类名 */
   className?: string;
 }
@@ -22,6 +24,7 @@ export interface StreamingResponseProps {
 export default function StreamingResponse({
   content,
   canStart,
+  isStreaming = true,
   className = "text-gray-800 mb-6",
 }: StreamingResponseProps) {
   // 如果不能开始或没有内容，不显示
@@ -31,7 +34,13 @@ export default function StreamingResponse({
 
   return (
     <div className={className}>
-      <EnhancedMarkdown>{content}</EnhancedMarkdown>
+      {isStreaming ? (
+        <div className="whitespace-pre-wrap break-words leading-relaxed">
+          {content}
+        </div>
+      ) : (
+        <EnhancedMarkdown>{content}</EnhancedMarkdown>
+      )}
     </div>
   );
 }

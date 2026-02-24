@@ -252,6 +252,7 @@ export default function ReportsPage() {
     textStream: textToDisplay || '',
     speed: 15,
     mode: 'typewriter',
+    streamMode: 'burst-smoothed',
   })
 
   // 监听流式内容并更新右侧报告内容
