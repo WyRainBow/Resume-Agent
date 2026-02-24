@@ -35,6 +35,11 @@ export class SSETransportAdapter<Payloads extends Record<string, any> = DefaultP
   private sequenceCounters: Map<string, number> = new Map();
   // Track message IDs by channel for proper aggregation
   private messageIdsByChannel: Map<string, string> = new Map();
+  private lastPlainText: string = '';
+  private plainDone: boolean = false;
+  private lastNonDeltaPlainText: string = '';
+  private lastNonDeltaPlainDone: boolean = false;
+  private lastAnswerEventSeq: number = 0;
 
   constructor(sseTransport: SSETransport) {
     this.sseTransport = sseTransport;
@@ -175,6 +180,11 @@ export class SSETransportAdapter<Payloads extends Record<string, any> = DefaultP
 
     this.currentRunSpanId = spanId;
     this.currentRunStartMessageId = chunkId;
+    this.lastPlainText = '';
+    this.plainDone = false;
+    this.lastNonDeltaPlainText = '';
+    this.lastNonDeltaPlainDone = false;
+    this.lastAnswerEventSeq = 0;
 
     const chunk: SpanCLChunk = {
       type: 'span',
@@ -200,6 +210,30 @@ export class SSETransportAdapter<Payloads extends Record<string, any> = DefaultP
     if (!this.currentRunSpanId) {
       console.warn('[SSETransportAdapter] agent_end received without agent_start');
       return;
+    }
+
+    // Karis-like fallback: ensure plain channel emits a terminal done chunk.
+    // This prevents UI from staying in "processing" when backend misses complete=true.
+    if (!this.plainDone) {
+      const messageId = this.getOrCreateMessageId('plain');
+      const sequence = this.getNextSequence(messageId);
+      const finalizeChunk: ContentCLChunk<Payloads> = {
+        type: 'content',
+        id: generateChunkId(),
+        parentCLSpanId: this.currentRunSpanId,
+        clmessageId: messageId,
+        sequence,
+        timestamp,
+        metadata: {
+          channel: 'plain',
+          payload: {
+            text: this.lastPlainText || '',
+          } as Payloads['plain'],
+          done: true,
+        },
+      };
+      this.emitChunk(finalizeChunk);
+      this.plainDone = true;
     }
 
     const chunkId = generateChunkId();
@@ -242,7 +276,10 @@ export class SSETransportAdapter<Payloads extends Record<string, any> = DefaultP
    * 关键：保持文本内容原样，不进行任何修改
    */
   private handleThought(event: SSEEvent, timestamp: string): void {
-    const content = event.data?.content || '';
+    const content =
+      event.data?.content ??
+      event.data?.data?.content ??
+      '';
 
     // 关键：直接使用原始文本内容，不进行任何处理
     const messageId = this.getOrCreateMessageId('think');
@@ -274,8 +311,90 @@ export class SSETransportAdapter<Payloads extends Record<string, any> = DefaultP
    * 关键：保持文本内容原样，不进行任何修改
    */
   private handleAnswer(event: SSEEvent, timestamp: string): void {
-    const content = event.data?.content || '';
-    const isComplete = event.data?.is_complete ?? true;
+    const eventSeqRaw =
+      event.data?.event_seq ??
+      event.data?.data?.event_seq;
+    const eventSeq = typeof eventSeqRaw === 'number' ? eventSeqRaw : null;
+    if (eventSeq !== null) {
+      if (eventSeq <= this.lastAnswerEventSeq) {
+        return;
+      }
+      this.lastAnswerEventSeq = eventSeq;
+    }
+
+    const rawDelta =
+      event.data?.delta ??
+      event.data?.data?.delta;
+    // 仅当 delta 是字符串时，才按增量处理；null/undefined 不能算 delta。
+    const hasDelta = typeof rawDelta === 'string';
+    const rawSnapshot =
+      event.data?.content ??
+      event.data?.data?.content ??
+      '';
+    const isComplete =
+      event.data?.is_complete ??
+      event.data?.data?.is_complete ??
+      false;
+
+    const snapshot = this.sanitizePlainPrefix(rawSnapshot);
+    let content = '';
+    let emitAsDelta = hasDelta;
+
+    if (hasDelta) {
+      const deltaText = this.sanitizePlainPrefix(rawDelta as string);
+
+      // Prefer snapshot alignment when provided, so replayed/duplicated deltas
+      // do not append duplicated paragraphs.
+      if (snapshot) {
+        if (snapshot === this.lastPlainText) {
+          content = '';
+        } else if (snapshot.startsWith(this.lastPlainText)) {
+          content = snapshot.slice(this.lastPlainText.length);
+        } else if (this.lastPlainText.startsWith(snapshot)) {
+          // stale snapshot, ignore this update
+          content = '';
+        } else if (deltaText && this.lastPlainText.endsWith(deltaText)) {
+          content = '';
+        } else {
+          content = deltaText || snapshot;
+        }
+      } else {
+        if (deltaText && !this.lastPlainText.endsWith(deltaText)) {
+          content = deltaText;
+        }
+      }
+
+      if (content) {
+        this.lastPlainText += content;
+      }
+
+      // Keep completion signal even when final delta is empty.
+      if (!content && isComplete) {
+        emitAsDelta = false;
+        content = this.lastPlainText;
+      } else if (!content) {
+        return;
+      }
+    } else {
+      content = snapshot || (isComplete ? this.lastPlainText : '');
+      if (!content && !isComplete) {
+        return;
+      }
+
+      // In-memory idempotency guard (Redis-like dedupe idea, local only):
+      // skip repeated non-delta snapshots with same done flag.
+      if (
+        content === this.lastNonDeltaPlainText &&
+        isComplete === this.lastNonDeltaPlainDone
+      ) {
+        return;
+      }
+
+      this.lastNonDeltaPlainText = content;
+      this.lastNonDeltaPlainDone = !!isComplete;
+      this.lastPlainText = content || this.lastPlainText;
+    }
+    this.plainDone = !!isComplete;
 
     // 关键：直接使用原始文本内容，不进行任何处理
     const messageId = this.getOrCreateMessageId('plain');
@@ -293,12 +412,42 @@ export class SSETransportAdapter<Payloads extends Record<string, any> = DefaultP
         // 关键：payload.text 字段必须包含完整的原始文本内容
         payload: {
           text: content, // 保持原样，不进行任何修改
+          is_delta: emitAsDelta,
         } as Payloads['plain'],
         done: isComplete,
       },
     };
 
     this.emitChunk(chunk);
+  }
+
+  /**
+   * Strip leaked Thought/Response labels from plain channel text.
+   * This is a defensive UI-level fallback and does not change semantic body.
+   */
+  private sanitizePlainPrefix(text: string): string {
+    if (!text) {
+      return text;
+    }
+
+    let cleaned = text;
+    cleaned = cleaned.replace(
+      /^\s*(?:(?:\*\*)?(?:Thought|思考)(?:\*\*)?\s*[:：]?\s*)+/i,
+      '',
+    );
+    cleaned = cleaned.replace(
+      /^\s*(?:(?:\*\*)?(?:Response|回复|Answer|Final\s*Answer|最终回复)(?:\*\*)?\s*[:：]?\s*)+/i,
+      '',
+    );
+    // Handle malformed concatenated labels like "ThoughtThoughtResponse"
+    cleaned = cleaned.replace(
+      /^\s*(?:(?:Thought|思考|Response|回复|Answer|Final\s*Answer|最终回复)\s*)+/i,
+      '',
+    );
+    // Remove leaked leading punctuation after label stripping.
+    cleaned = cleaned.replace(/^\s*[:：]+\s*/, '');
+
+    return cleaned;
   }
 
   /**

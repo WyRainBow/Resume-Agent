@@ -103,9 +103,9 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             onDisconnect: () => {
                 console.log('[useCLTP] SSE Disconnected');
                 setIsConnected(false);
-                if (!currentThoughtRef.current && !currentAnswerRef.current) {
-                    setIsProcessing(false);
-                }
+                // Always stop processing on disconnect.
+                // If content exists, parent page will finalize from answerComplete/fallback path.
+                setIsProcessing(false);
                 console.log('[useCLTP] onDisconnect state', {
                     thoughtLength: currentThoughtRef.current.length,
                     answerLength: currentAnswerRef.current.length,
@@ -114,9 +114,8 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             onError: (error) => {
                 console.error('[useCLTP] SSE Error:', error);
                 setIsConnected(false);
-                if (!currentThoughtRef.current && !currentAnswerRef.current) {
-                    setIsProcessing(false);
-                }
+                // Avoid stuck "processing" state on transport errors.
+                setIsProcessing(false);
             },
         });
 
@@ -156,9 +155,11 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
 
             if (message.metadata.channel === 'think') {
                 // 思考过程：直接替换（避免重复）
+                currentThoughtRef.current = text;
                 setCurrentThought(text);
             } else if (message.metadata.channel === 'plain') {
                 // 答案：增量更新（流式传输）
+                currentAnswerRef.current = text;
                 setCurrentAnswer(text);
             }
         });
@@ -175,8 +176,10 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             });
 
             if (message.metadata.channel === 'think') {
+                currentThoughtRef.current = text;
                 setCurrentThought(text);
             } else if (message.metadata.channel === 'plain') {
+                currentAnswerRef.current = text;
                 setCurrentAnswer(text);
                 setAnswerCompleteCount((count) => {
                     const next = count + 1;

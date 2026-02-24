@@ -26,6 +26,7 @@ export class MessageAggregator<
   private errorHandler: ErrorHandler<Payloads>;
   private onPartialMessage?: (message: ContentMessage<Payloads>) => void;
   private onCompleteMessage?: (message: ContentMessage<Payloads>) => void;
+  private lastPartialSignatureByMessageId = new Map<string, string>();
 
   constructor(
     channelRegistry: ChannelRegistry<Payloads>,
@@ -105,7 +106,9 @@ export class MessageAggregator<
 
       // Create and emit partial message
       const partialMessage = this.createMessage(work);
-      this.emitPartialMessage(partialMessage);
+      if (this.shouldEmitPartialMessage(partialMessage)) {
+        this.emitPartialMessage(partialMessage);
+      }
 
       // If done, finalize the message
       if (work.done) {
@@ -175,6 +178,21 @@ export class MessageAggregator<
     this.onPartialMessage?.(message);
   }
 
+  private shouldEmitPartialMessage(message: ContentMessage<Payloads>): boolean {
+    const payload = message.metadata.payload as any;
+    const payloadText =
+      payload && typeof payload === 'object' && typeof payload.text === 'string'
+        ? payload.text
+        : JSON.stringify(payload ?? '');
+    const signature = `${message.metadata.channel}|${payloadText}|${message.metadata.done}`;
+    const prev = this.lastPartialSignatureByMessageId.get(message.id);
+    if (prev === signature) {
+      return false;
+    }
+    this.lastPartialSignatureByMessageId.set(message.id, signature);
+    return true;
+  }
+
   /**
    * Emit complete message event
    */
@@ -213,6 +231,7 @@ export class MessageAggregator<
 
     // Finalize message (stores message and removes aggregation)
     await this.stateUpdater.finalizeMessage(finalMessage);
+    this.lastPartialSignatureByMessageId.delete(clmessageId);
 
     // Emit complete message event
     this.emitCompleteMessage(finalMessage);
