@@ -139,21 +139,21 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
         {/* 背景渐变装饰 */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/5 to-transparent rounded-bl-[100px] pointer-events-none" />
 
-        <CardContent className="relative flex-1 pt-10 text-center flex flex-col items-center z-10">
+        <CardContent className="relative flex-1 pt-12 text-center flex flex-col items-center z-10">
           <motion.div
-            className="mb-5 p-5 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-600 dark:text-blue-400"
-            whileHover={{ rotate: 10, scale: 1.1 }}
+            className="mb-6 p-6 rounded-[24px] bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800"
+            whileHover={{ scale: 1.05, rotate: 5 }}
           >
-            <FileText className="h-10 w-10" />
+            <FileText className="h-12 w-12" />
           </motion.div>
           
-          <CardTitle className="text-xl font-bold line-clamp-1 text-slate-800 dark:text-slate-100 px-6 mb-1">
+          <CardTitle className="text-2xl font-black tracking-tight line-clamp-1 text-slate-900 dark:text-slate-100 px-6 mb-2">
             {resume.name || "未命名简历"}
           </CardTitle>
           
           {/* 备注/别名区域 */}
           <div 
-            className="px-6 mb-2 min-h-[24px] flex items-center justify-center"
+            className="px-6 mb-4 min-h-[28px] flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
             {isEditingAlias ? (
@@ -166,22 +166,21 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
                 onKeyDown={handleKeyDown}
                 placeholder="添加备注..."
                 className={cn(
-                  "w-full max-w-[180px] px-2 py-1 text-sm text-center rounded-lg",
-                  "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm",
-                  "border border-blue-300 dark:border-blue-600",
-                  "text-slate-600 dark:text-slate-300",
-                  "placeholder:text-slate-400 dark:placeholder:text-slate-500",
-                  "focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  "w-full max-w-[200px] px-3 py-1.5 text-sm text-center rounded-xl font-bold",
+                  "bg-white dark:bg-slate-800 shadow-lg",
+                  "border-2 border-blue-500",
+                  "text-slate-900 dark:text-white",
+                  "focus:outline-none"
                 )}
               />
             ) : (
               <button
                 onClick={() => setIsEditingAlias(true)}
                 className={cn(
-                  "text-sm px-2 py-0.5 rounded-lg transition-all duration-200",
+                  "text-sm px-3 py-1 rounded-full transition-all duration-300 font-bold",
                   resume.alias 
-                    ? "text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 font-medium" 
-                    : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50"
+                    ? "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-100 dark:border-blue-800" 
+                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
                 )}
                 title="点击编辑备注"
               >
@@ -190,11 +189,15 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
             )}
           </div>
 
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium space-y-1">
-            <div>创建时间：{formatDateTime(resume.createdAt)}</div>
-            <div className="flex items-center justify-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              已保存 · {formatDateTime(resume.updatedAt)}
+          <div className="text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest space-y-1.5">
+            <div className="flex items-center justify-center gap-1.5">
+              <span>创建时间</span>
+              <span className="text-slate-300 dark:text-slate-700">/</span>
+              <span>{formatDateTime(resume.createdAt).split(' ')[0]}</span>
+            </div>
+            <div className="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
+              <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+              <span>更新时间 {formatDateTime(resume.updatedAt).split(' ')[0]}</span>
             </div>
           </div>
         </CardContent>
