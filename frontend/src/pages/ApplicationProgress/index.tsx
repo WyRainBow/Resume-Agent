@@ -40,6 +40,7 @@ import {
   GripVertical,
   ExternalLink,
   Wand2,
+  Sparkles,
   ChevronLeft,
   ChevronRight,
   Check,
@@ -1162,9 +1163,9 @@ export default function ApplicationProgressPage() {
           <button
             type="button"
             onClick={() => setAiImportOpen(true)}
-            className="flex items-center gap-2.5 px-6 py-2.5 rounded-xl bg-slate-900 text-white hover:bg-slate-800 text-sm font-bold shadow-md shadow-slate-200 dark:shadow-none transition-all active:scale-95"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-900 text-white hover:bg-slate-800 transition-all text-sm font-bold shadow-sm active:scale-95 ml-2 border border-slate-800"
           >
-            <Wand2 className="w-4.5 h-4.5" />
+            <Sparkles className="w-4 h-4" />
             AI 智能导入
           </button>
 
