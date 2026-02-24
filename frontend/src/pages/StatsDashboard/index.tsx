@@ -183,16 +183,9 @@ export default function StatsDashboardPage() {
           >
             <div className="flex flex-wrap items-start justify-between gap-6">
               <div>
-                <div className="mb-3 inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white">
-                  Analytics Hub
-                </div>
                 <h1 className="text-4xl font-black tracking-tighter text-slate-900 uppercase">仪表盘</h1>
-                <p className="mt-2 text-sm font-bold text-slate-400 uppercase tracking-wider">
-                  Welcome back, {user?.username || 'User'} · Last updated {new Date().toLocaleString('zh-CN', { hour12: false })}
-                </p>
               </div>
               <div className="rounded-2xl bg-slate-50 p-5 border border-slate-100">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Weekly Overview</p>
                 <div className="flex items-center gap-4 text-sm font-black text-slate-900">
                   <span>投递 {kpis.thisWeekApplicationCount}</span>
                   <span className="h-1 w-1 rounded-full bg-slate-300" />
@@ -254,7 +247,6 @@ export default function StatsDashboardPage() {
               >
                 <div className="mb-6 flex items-center justify-between">
                   <h3 className="text-xl font-black tracking-tighter text-slate-900 uppercase">状态快照</h3>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Snapshot by Account</span>
                 </div>
                 <div className="flex flex-wrap gap-3">
                   {distributionTotal.length === 0 ? (
