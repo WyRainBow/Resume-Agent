@@ -39,6 +39,13 @@ export type UseTextStreamResult = {
 
 const IS_DEV = import.meta.env.DEV;
 
+function getLongestCommonPrefixLength(a: string, b: string): number {
+  const max = Math.min(a.length, b.length);
+  let i = 0;
+  while (i < max && a.charCodeAt(i) === b.charCodeAt(i)) i += 1;
+  return i;
+}
+
 function useTextStream({
   textStream,
   speed = 20,
@@ -322,7 +329,9 @@ function useTextStream({
       stopAnimation();
       frameTsRef.current = 0;
       carryCharsRef.current = 0;
-      setDisplayedLength(0);
+      // 非 append 场景（例如上游修正文本）保留公共前缀，避免从 0 重打造成卡顿感。
+      const lcpLen = getLongestCommonPrefixLength(prevTarget, incomingText);
+      setDisplayedLength(Math.min(displayedLengthRef.current, lcpLen));
     }
 
     targetTextRef.current = incomingText;

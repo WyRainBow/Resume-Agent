@@ -163,14 +163,10 @@ export function RecentSessions({
     setIsLoadingMore(false);
   }, [fetchPage, isLoadingMore, pagination]);
 
+  // refreshKey 变化或环境切换时刷新，避免双 effect 造成重复请求
   useEffect(() => {
     refreshSessions();
-  }, [refreshKey, refreshSessions]);
-
-  // 当 apiBaseUrl 变化时（切换环境），自动刷新会话列表
-  useEffect(() => {
-    refreshSessions();
-  }, [apiBaseUrl, refreshSessions]);
+  }, [apiBaseUrl, refreshKey, refreshSessions]);
 
   useEffect(() => {
     if (!loadMoreRef.current || !listContainerRef.current) return;

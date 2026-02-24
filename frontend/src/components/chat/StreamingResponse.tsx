@@ -39,11 +39,12 @@ export default function StreamingResponse({
   const { displayedText } = useTextStream({
     textStream: content,
     mode: "typewriter",
-    speed: 12,
+    speed: 13,
     streamMode: "burst-smoothed",
     burstThreshold: 0,
-    maxCharsPerFrame: 1,
-    smoothingWindowMs: 140,
+    // 允许在掉帧时轻微追帧，减少“卡一下不动”的体感。
+    maxCharsPerFrame: 2,
+    smoothingWindowMs: 110,
     onComplete: onTypewriterComplete,
   });
 
