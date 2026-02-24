@@ -569,9 +569,7 @@ export default function SophiaChat() {
             typeof latest?.session_id === "string" ? latest.session_id : "";
           if (latestId) {
             setConversationId(latestId);
-            const newUrl = new URL(window.location.href);
-            newUrl.searchParams.set("sessionId", latestId);
-            window.history.replaceState({}, "", newUrl.toString());
+            navigate(`/agent/new?sessionId=${latestId}`, { replace: true });
           }
         }
       } catch (error) {
@@ -588,7 +586,7 @@ export default function SophiaChat() {
     return () => {
       mounted = false;
     };
-  }, [apiBaseUrl]);
+  }, [apiBaseUrl, navigate]);
 
   // 简历选择器状态
   const [showResumeSelector, setShowResumeSelector] = useState(false);
@@ -1003,14 +1001,6 @@ export default function SophiaChat() {
       return;
     }
 
-    // 如果 conversationId 是新的时间戳格式（conv-timestamp），不加载历史
-    const isNewConversationId = /^conv-\d{13,}$/.test(conversationId);
-    if (isNewConversationId) {
-      // 即使是新会话，也需要同步 currentSessionId 以标记已初始化
-      setCurrentSessionId(conversationId);
-      return;
-    }
-
     let mounted = true;
     const autoLoadSession = async () => {
       try {
@@ -1200,6 +1190,17 @@ export default function SophiaChat() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, currentThought, currentAnswer]);
+
+  // 打开“展示简历”卡片或切换其步骤时，确保卡片完整进入可视区域，避免被输入区遮挡。
+  useEffect(() => {
+    if (!showResumeSelector) return;
+    const timer = window.setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }, 50);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [showResumeSelector]);
 
   useEffect(() => {
     currentThoughtRef.current = currentThought;
@@ -2937,6 +2938,14 @@ export default function SophiaChat() {
                     onSelect={handleResumeSelect}
                     onCreateResume={handleCreateResume}
                     onCancel={handleResumeSelectorCancel}
+                    onLayoutChange={() => {
+                      window.setTimeout(() => {
+                        messagesEndRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "end",
+                        });
+                      }, 50);
+                    }}
                   />
                 )}
 

@@ -61,7 +61,14 @@ export { SavedResume }
  */
 export async function getAllResumes(): Promise<SavedResume[]> {
   const adapter = getAdapter()
-  let list = await adapter.getAllResumes()
+  let list: SavedResume[] = []
+  try {
+    list = await adapter.getAllResumes()
+  } catch (error) {
+    // 后端不可用（例如 503）时回退到本地缓存，避免前端直接进入报错态。
+    console.warn('[resumeStorage] getAllResumes failed, fallback to local cache:', error)
+    list = await localAdapter.getAllResumes()
+  }
   if (isAuthenticated()) {
     await syncLocalCache(list)
     // 登录用户：置顶状态存在 localStorage，合并到从数据库拉取的列表
