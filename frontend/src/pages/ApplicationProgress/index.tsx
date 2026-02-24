@@ -1182,9 +1182,9 @@ export default function ApplicationProgressPage() {
           <button
             type="button"
             onClick={() => setAiImportOpen(true)}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-300 bg-white text-slate-900 hover:bg-slate-50 text-sm font-semibold"
+            className="flex items-center gap-2.5 px-6 py-3 rounded-xl border-2 border-blue-400 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-500 text-base font-bold shadow-sm transition"
           >
-            <Wand2 className="w-4 h-4 text-slate-700" />
+            <Wand2 className="w-5 h-5 text-blue-600" />
             AI 导入
           </button>
           <button
