@@ -75,6 +75,8 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
 
     const currentThoughtRef = useRef('');
     const currentAnswerRef = useRef('');
+    const pendingAnswerTextRef = useRef('');
+    const answerFlushTimerRef = useRef<number | null>(null);
 
     const sessionRef = useRef<CLTPSessionImpl<DefaultPayloads> | null>(null);
     const sseTransportRef = useRef<SSETransport | null>(null);
@@ -91,6 +93,31 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
         currentThoughtRef.current = '';
         currentAnswerRef.current = '';
 
+        const flushAnswerToUI = (force = false) => {
+            const nextText = pendingAnswerTextRef.current;
+            if (!nextText && !force) return;
+            currentAnswerRef.current = nextText;
+            setCurrentAnswer(nextText);
+        };
+
+        const scheduleAnswerFlush = (text: string, force = false) => {
+            pendingAnswerTextRef.current = text;
+            if (force) {
+                if (answerFlushTimerRef.current !== null) {
+                    window.clearTimeout(answerFlushTimerRef.current);
+                    answerFlushTimerRef.current = null;
+                }
+                flushAnswerToUI(true);
+                return;
+            }
+            if (answerFlushTimerRef.current !== null) return;
+            // 小窗口合并增量，避免“几个字几个字”造成抖动感。
+            answerFlushTimerRef.current = window.setTimeout(() => {
+                answerFlushTimerRef.current = null;
+                flushAnswerToUI();
+            }, 50);
+        };
+
         // Create SSE transport
         const sseTransport = new SSETransport({
             baseUrl,
@@ -103,6 +130,11 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             onDisconnect: () => {
                 console.log('[useCLTP] SSE Disconnected');
                 setIsConnected(false);
+                if (answerFlushTimerRef.current !== null) {
+                    window.clearTimeout(answerFlushTimerRef.current);
+                    answerFlushTimerRef.current = null;
+                }
+                flushAnswerToUI(true);
                 // Always stop processing on disconnect.
                 // If content exists, parent page will finalize from answerComplete/fallback path.
                 setIsProcessing(false);
@@ -114,6 +146,11 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             onError: (error) => {
                 console.error('[useCLTP] SSE Error:', error);
                 setIsConnected(false);
+                if (answerFlushTimerRef.current !== null) {
+                    window.clearTimeout(answerFlushTimerRef.current);
+                    answerFlushTimerRef.current = null;
+                }
+                flushAnswerToUI(true);
                 // Avoid stuck "processing" state on transport errors.
                 setIsProcessing(false);
             },
@@ -158,9 +195,8 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
                 currentThoughtRef.current = text;
                 setCurrentThought(text);
             } else if (message.metadata.channel === 'plain') {
-                // 答案：增量更新（流式传输）
-                currentAnswerRef.current = text;
-                setCurrentAnswer(text);
+                // 答案：合并短时间窗口内的小分片，减少 UI 抖动感。
+                scheduleAnswerFlush(text, false);
             }
         });
 
@@ -179,8 +215,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
                 currentThoughtRef.current = text;
                 setCurrentThought(text);
             } else if (message.metadata.channel === 'plain') {
-                currentAnswerRef.current = text;
-                setCurrentAnswer(text);
+                scheduleAnswerFlush(text, true);
                 setAnswerCompleteCount((count) => {
                     const next = count + 1;
                     console.log('[useCLTP] answerCompleteCount incremented', { from: count, to: next });
@@ -205,6 +240,10 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
 
         // Cleanup
         return () => {
+            if (answerFlushTimerRef.current !== null) {
+                window.clearTimeout(answerFlushTimerRef.current);
+                answerFlushTimerRef.current = null;
+            }
             unsubscribePartial();
             unsubscribeComplete();
             unsubscribeSpanStart();

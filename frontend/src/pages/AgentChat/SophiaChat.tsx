@@ -606,6 +606,7 @@ export default function SophiaChat() {
   const lastSavedKeyRef = useRef<string>("");
   const refreshAfterSaveRef = useRef(false);
   const saveRetryRef = useRef<Record<string, number>>({});
+  const savedUserCountBySessionRef = useRef<Record<string, number>>({});
   const isFinalizedRef = useRef(false);
   const currentThoughtRef = useRef("");
   const currentAnswerRef = useRef("");
@@ -1561,6 +1562,10 @@ export default function SophiaChat() {
     }));
   }, []);
 
+  const countUserMessages = useCallback((messagesToCount: Message[]) => {
+    return (messagesToCount || []).filter((msg) => msg.role === "user").length;
+  }, []);
+
   const persistSessionSnapshot = useCallback(
     async (
       sessionId: string,
@@ -1572,6 +1577,9 @@ export default function SophiaChat() {
         return;
       }
 
+      // GPT-like 规则：只有新增 user 消息时才更新时间/保存快照
+      const userCount = countUserMessages(messagesToSave);
+
       // 验证 sessionId，如果为空则生成新的会话 ID
       let validSessionId = sessionId;
       if (!validSessionId || validSessionId.trim() === "") {
@@ -1581,6 +1589,12 @@ export default function SophiaChat() {
           setConversationId(validSessionId);
         }
         console.log(`[AgentChat] Generated new session ID: ${validSessionId}`);
+      }
+
+      const savedUserCount =
+        savedUserCountBySessionRef.current[validSessionId] ?? 0;
+      if (userCount <= savedUserCount) {
+        return;
       }
 
       const payload = buildSavePayload(messagesToSave);
@@ -1631,6 +1645,7 @@ export default function SophiaChat() {
             return;
           }
           lastSavedKeyRef.current = payloadKey;
+          savedUserCountBySessionRef.current[validSessionId] = userCount;
           delete saveRetryRef.current[payloadKey];
           if (shouldRefresh) {
             refreshSessions();
@@ -1671,7 +1686,7 @@ export default function SophiaChat() {
       })();
       await saveInFlightRef.current;
     },
-    [conversationId, buildSavePayload, refreshSessions],
+    [conversationId, buildSavePayload, countUserMessages, refreshSessions],
   );
 
   const waitForPendingSave = useCallback(async () => {
@@ -1704,6 +1719,13 @@ export default function SophiaChat() {
   }, [conversationId, messages, persistSessionSnapshot]);
 
   const saveCurrentSession = useCallback(() => {
+    // 仅当当前会话内容相对上次落库有变化时才保存，避免“只切换会话”刷新 updated_at
+    const currentPayloadKey = JSON.stringify(buildSavePayload(messages || []));
+    const hasUnsavedChanges = currentPayloadKey !== lastSavedKeyRef.current;
+    if (!hasUnsavedChanges) {
+      return;
+    }
+
     if (isProcessing || currentThoughtRef.current || currentAnswerRef.current) {
       pendingSaveRef.current = true;
       finalizeMessage();
@@ -1719,6 +1741,7 @@ export default function SophiaChat() {
     finalizeMessage,
     isProcessing,
     messages,
+    buildSavePayload,
     persistSessionSnapshot,
   ]);
 
@@ -1952,6 +1975,8 @@ export default function SophiaChat() {
         setMessages(dedupedMessages);
         setCurrentSessionId(sessionId);
         setConversationId(sessionId);
+        savedUserCountBySessionRef.current[sessionId] =
+          countUserMessages(dedupedMessages);
         setAllowPdfAutoRender(false);
         // 清理流式状态，避免显示旧会话的流式内容
         finalizeStream();
@@ -1980,6 +2005,7 @@ export default function SophiaChat() {
     setMessages([]);
     setCurrentSessionId(newId);
     setConversationId(newId);
+    savedUserCountBySessionRef.current[newId] = 0;
     setSelectedResumeId(null);
     setSelectedReportId(null);
     setAllowPdfAutoRender(false);
