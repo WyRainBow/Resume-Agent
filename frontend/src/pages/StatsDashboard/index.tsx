@@ -271,8 +271,8 @@ export default function StatsDashboardPage() {
                         transition={{ duration: 0.22, delay: 0.34 + idx * 0.04 }}
                       >
                         <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.color }} />
-                        <span>{item.label}</span>
-                        <span>{item.value}</span>
+                        <span>{item.label === '面试' ? '面试  ' : item.label}</span>
+                        <span>{item.label === '面试' ? ` ${item.value} 场` : item.value}</span>
                       </motion.span>
                     ))
                   )}

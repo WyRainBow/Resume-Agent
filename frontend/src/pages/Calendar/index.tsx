@@ -9,16 +9,24 @@ import { CreateScheduleModal } from './components/CreateScheduleModal'
 import { DayTimeGridView } from './components/DayTimeGridView'
 import { EventDetailPopover } from './components/EventDetailPopover'
 import { MiniMonthPanel } from './components/MiniMonthPanel'
+import { InterviewListView } from './components/InterviewListView'
 import { MonthGridView } from './components/MonthGridView'
 import { WeekTimeGridView } from './components/WeekTimeGridView'
 import { addDays, addMonths, formatDateLabel, formatMonthTitle, getMonthGridRange, roundToNextHalfHour, startOfDay, startOfWeek, toIso } from './dateUtils'
 import type { CalendarEvent, CalendarRange, DraftSlot } from './types'
+
+/** 有面试视图：前后各 365 天，即「所有的」 */
+const INTERVIEWS_VIEW_DAYS = 365
 
 function getRangeForView(view: CalendarView, cursor: Date): CalendarRange {
   if (view === 'month') return getMonthGridRange(cursor)
   if (view === 'week') {
     const start = startOfWeek(cursor)
     return { start, end: addDays(start, 7) }
+  }
+  if (view === 'interviews') {
+    const center = startOfDay(cursor)
+    return { start: addDays(center, -INTERVIEWS_VIEW_DAYS), end: addDays(center, INTERVIEWS_VIEW_DAYS) }
   }
   const start = startOfDay(cursor)
   return { start, end: addDays(start, 1) }
@@ -30,6 +38,9 @@ function formatRangeTitle(view: CalendarView, cursor: Date): string {
     const start = startOfWeek(cursor)
     const end = addDays(start, 6)
     return `${formatDateLabel(start)} - ${formatDateLabel(end)}`
+  }
+  if (view === 'interviews') {
+    return '有面试的日程 · 所有的'
   }
   return `${cursor.getFullYear()}年${cursor.getMonth() + 1}月${cursor.getDate()}日`
 }
@@ -127,6 +138,10 @@ export default function CalendarPage() {
       setCursor((prev) => addDays(prev, delta * 7))
       return
     }
+    if (view === 'interviews') {
+      setCursor((prev) => addDays(prev, delta * INTERVIEWS_VIEW_DAYS))
+      return
+    }
     setCursor((prev) => addDays(prev, delta))
   }
 
@@ -136,7 +151,10 @@ export default function CalendarPage() {
         <CalendarShell
           view={view}
           rangeTitle={rangeTitle}
-          onChangeView={setView}
+          onChangeView={(v) => {
+            setView(v)
+            if (v === 'interviews') setCursor(new Date())
+          }}
           onPrev={() => changePeriod(-1)}
           onNext={() => changePeriod(1)}
           onToday={() => setCursor(new Date())}
@@ -145,6 +163,7 @@ export default function CalendarPage() {
           left={
             <MiniMonthPanel
               currentDate={cursor}
+              events={events}
               onPickDate={(date) => {
                 setCursor(date)
                 setView('day')
@@ -155,6 +174,15 @@ export default function CalendarPage() {
           content={
             loading ? (
               <div className="flex h-full items-center justify-center text-slate-500">加载日历数据中...</div>
+            ) : view === 'interviews' ? (
+              <InterviewListView
+                events={events}
+                onEventClick={(event, anchorRect) => {
+                  setSelectedEvent(event)
+                  setDetailAnchorRect(anchorRect)
+                  setDetailOpen(true)
+                }}
+              />
             ) : view === 'month' ? (
               <MonthGridView
                 currentDate={cursor}

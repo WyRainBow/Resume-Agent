@@ -244,19 +244,6 @@ const ResumeDashboard = () => {
                       登录同步到云端
                     </Button>
                   )}
-                  {isAuthenticated && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="ml-4 hover:bg-green-100 dark:hover:bg-green-900"
-                      onClick={() => {
-                        // router.push("/app/dashboard/settings");
-                      }}
-                    >
-                      <Settings className="w-4 h-4 mr-2" />
-                      设置
-                    </Button>
-                  )}
                 </AlertDescription>
               </Alert>
             ) : (
