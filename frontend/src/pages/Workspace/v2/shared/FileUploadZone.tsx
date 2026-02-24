@@ -54,7 +54,7 @@ export function FileUploadZone({
         className={cn(
           'flex-1 flex flex-col justify-center rounded-2xl border-2 border-dashed p-6 transition-colors',
           dragging
-            ? 'border-indigo-400 bg-indigo-50/60 dark:border-indigo-400 dark:bg-indigo-500/10'
+            ? 'border-slate-900 bg-slate-50 dark:border-slate-400 dark:bg-indigo-500/10'
             : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40'
         )}
         onDragOver={(event) => {
@@ -115,7 +115,7 @@ export function FileUploadZone({
             </>
           ) : (
             <>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-100 text-indigo-600 dark:bg-indigo-500/20 dark:text-indigo-300">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-900 dark:bg-indigo-500/20 dark:text-indigo-300">
                 <UploadCloud className="h-6 w-6" />
               </div>
               <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">

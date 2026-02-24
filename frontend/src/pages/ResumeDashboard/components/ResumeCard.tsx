@@ -122,38 +122,35 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
 
       <Card
         className={cn(
-          "relative overflow-visible border-none transition-all duration-300 h-[380px] flex flex-col rounded-2xl",
-          "bg-white/70 dark:bg-slate-900/40 backdrop-blur-xl",
+          "relative overflow-visible border border-slate-200/60 transition-all duration-300 h-[380px] flex flex-col rounded-2xl",
+          "bg-white dark:bg-slate-900/40 backdrop-blur-xl",
           "shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)]",
           "hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)]",
-          isMultiSelectMode && isSelected && "ring-2 ring-blue-500/50"
+          isMultiSelectMode && isSelected && "ring-2 ring-slate-900"
         )}
       >
         {/* 模板类型标签 - 左上角 */}
-        <div className="absolute top-3 left-3 z-10">
+        <div className="absolute top-4 left-4 z-10">
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
             {resume.templateType === 'html' ? '🌐 HTML' : '✨ LaTeX'}
           </span>
         </div>
 
-        {/* 背景渐变装饰 */}
-        <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-500/5 to-transparent rounded-bl-[100px] pointer-events-none" />
-
-        <CardContent className="relative flex-1 pt-10 text-center flex flex-col items-center z-10">
+        <CardContent className="relative flex-1 pt-12 text-center flex flex-col items-center z-10">
           <motion.div
-            className="mb-5 p-5 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 text-blue-600 dark:text-blue-400"
-            whileHover={{ rotate: 10, scale: 1.1 }}
+            className="mb-6 p-6 rounded-[24px] bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800"
+            whileHover={{ scale: 1.05, rotate: 5 }}
           >
-            <FileText className="h-10 w-10" />
+            <FileText className="h-12 w-12" />
           </motion.div>
           
-          <CardTitle className="text-xl font-bold line-clamp-1 text-slate-800 dark:text-slate-100 px-6 mb-1">
+          <CardTitle className="text-2xl font-black tracking-tight line-clamp-1 text-slate-900 dark:text-slate-100 px-6 mb-2">
             {resume.name || "未命名简历"}
           </CardTitle>
           
           {/* 备注/别名区域 */}
           <div 
-            className="px-6 mb-2 min-h-[24px] flex items-center justify-center"
+            className="px-6 mb-4 min-h-[28px] flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
             {isEditingAlias ? (
@@ -166,22 +163,21 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
                 onKeyDown={handleKeyDown}
                 placeholder="添加备注..."
                 className={cn(
-                  "w-full max-w-[180px] px-2 py-1 text-sm text-center rounded-lg",
-                  "bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm",
-                  "border border-blue-300 dark:border-blue-600",
-                  "text-slate-600 dark:text-slate-300",
-                  "placeholder:text-slate-400 dark:placeholder:text-slate-500",
-                  "focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+                  "w-full max-w-[200px] px-3 py-1.5 text-sm text-center rounded-xl font-bold",
+                  "bg-white dark:bg-slate-800 shadow-lg",
+                  "border-2 border-slate-900",
+                  "text-slate-900 dark:text-white",
+                  "focus:outline-none"
                 )}
               />
             ) : (
               <button
                 onClick={() => setIsEditingAlias(true)}
                 className={cn(
-                  "text-sm px-2 py-0.5 rounded-lg transition-all duration-200",
+                  "text-sm px-3 py-1 rounded-full transition-all duration-300 font-bold",
                   resume.alias 
-                    ? "text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 font-medium" 
-                    : "text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/50"
+                    ? "bg-slate-100 text-slate-900 border border-slate-200" 
+                    : "text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800"
                 )}
                 title="点击编辑备注"
               >
@@ -190,11 +186,15 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
             )}
           </div>
 
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-medium space-y-1">
-            <div>创建时间：{formatDateTime(resume.createdAt)}</div>
-            <div className="flex items-center justify-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              已保存 · {formatDateTime(resume.updatedAt)}
+          <div className="text-[11px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest space-y-1.5">
+            <div className="flex items-center justify-center gap-1.5">
+              <span>创建时间</span>
+              <span className="text-slate-300 dark:text-slate-700">/</span>
+              <span>{formatDateTime(resume.createdAt).split(' ')[0]}</span>
+            </div>
+            <div className="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+              <span>更新时间 {formatDateTime(resume.updatedAt).split(' ')[0]}</span>
             </div>
           </div>
         </CardContent>
@@ -207,8 +207,8 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
               className={cn(
                 "h-11 w-11 p-0 rounded-xl transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50",
                 resume.pinned
-                  ? "bg-amber-100/80 hover:bg-amber-200/80 dark:bg-amber-900/40 dark:hover:bg-amber-900/60 text-amber-600 dark:text-amber-400"
-                  : "bg-slate-100/50 hover:bg-amber-100/50 dark:bg-slate-800/50 dark:hover:bg-amber-900/30 text-slate-400 hover:text-amber-600 dark:text-slate-500 dark:hover:text-amber-400"
+                  ? "bg-slate-900 text-white shadow-lg shadow-slate-200"
+                  : "bg-slate-100/50 hover:bg-slate-50 dark:bg-slate-800/50 dark:hover:bg-slate-900/30 text-slate-400 hover:text-slate-900 dark:text-slate-500 dark:hover:text-slate-400"
               )}
               onClick={(e) => {
                 e.stopPropagation();
@@ -223,7 +223,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
           )}
           <Button
             variant="ghost"
-            className="flex-1 h-11 rounded-xl font-semibold bg-slate-100/50 hover:bg-blue-100/50 dark:bg-slate-800/50 dark:hover:bg-blue-900/30 text-slate-700 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50"
+            className="flex-1 h-11 rounded-xl font-semibold bg-slate-100/80 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition-all duration-300 border border-slate-200/50"
             onClick={(e) => {
               e.stopPropagation();
               onEdit(resume.id);
@@ -234,7 +234,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
           {onOptimize && (
             <Button
               variant="ghost"
-              className="h-11 w-11 p-0 rounded-xl bg-slate-100/50 hover:bg-purple-100/50 dark:bg-slate-800/50 dark:hover:bg-purple-900/30 text-slate-400 hover:text-purple-600 dark:text-slate-500 dark:hover:text-purple-400 transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50"
+              className="h-11 w-11 p-0 rounded-xl bg-slate-100/50 hover:bg-indigo-50 dark:bg-slate-800/50 dark:hover:bg-indigo-900/30 text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400 transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50"
               onClick={(e) => {
                 e.stopPropagation();
                 onOptimize(resume.id);
@@ -246,7 +246,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
           )}
           <Button
             variant="ghost"
-            className="h-11 w-11 p-0 rounded-xl bg-slate-100/50 hover:bg-red-100/50 dark:bg-slate-800/50 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-red-400 transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50"
+            className="h-11 w-11 p-0 rounded-xl bg-slate-100/50 hover:bg-red-50 dark:bg-slate-800/50 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-red-400 transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50"
             onClick={(e) => {
               e.stopPropagation();
               onDelete(resume.id);

@@ -187,7 +187,7 @@ export default function CreateNew() {
                   ))}
                 </div>
                 <div className="mt-auto">
-                  <div className="flex items-center justify-center gap-2 w-full py-3 bg-slate-700 text-white rounded-xl font-bold text-sm shadow-lg group-hover:bg-slate-800 transition-all">
+                  <div className="flex items-center justify-center gap-2 w-full py-3 bg-violet-600 text-white rounded-xl font-bold text-sm shadow-lg group-hover:bg-violet-700 transition-all">
                     去导入 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>

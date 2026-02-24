@@ -206,68 +206,39 @@ const ResumeDashboard = () => {
 
   return (
     <WorkspaceLayout>
-      <div className="h-full overflow-y-auto bg-[#f8fafc] dark:bg-[#020617] relative transition-colors duration-500">
-        {/* 装饰性背景元素 */}
-        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-400/10 dark:bg-blue-600/5 rounded-full blur-[120px] pointer-events-none" />
-        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-400/10 dark:bg-indigo-600/5 rounded-full blur-[120px] pointer-events-none" />
-
+      <div className="h-full overflow-y-auto bg-[#FAFAFA] dark:bg-[#020617] relative transition-colors duration-500">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.5 }}
-          className="flex-1 space-y-8 max-w-[1600px] mx-auto relative z-10 p-6 sm:p-10"
+          className="flex-1 space-y-10 max-w-[1600px] mx-auto relative z-10 p-6 sm:p-10"
         >
           <motion.div
-            className="flex w-full items-center justify-center px-4"
+            className="flex w-full items-center justify-center"
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.3, delay: 0.1 }}
           >
-            {hasConfiguredFolder ? (
-              <Alert className="mb-6 bg-green-50/50 dark:bg-green-950/30 border-green-200 dark:border-green-900">
-                <AlertDescription className="flex items-center justify-between">
-                  <span className="text-green-700 dark:text-green-400">
-                    {isAuthenticated 
-                      ? '✅ 数据已自动保存到云端数据库' 
-                      : '✅ 数据已自动保存到本地存储（登录后可同步到云端）'}
-                  </span>
+            {hasConfiguredFolder && (
+              <Alert className="mb-2 bg-white/80 dark:bg-slate-900/50 border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-md max-w-2xl rounded-[1.5rem] py-3">
+                <AlertDescription className="flex items-center justify-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
+                      {isAuthenticated 
+                        ? '数据已同步至云端' 
+                        : '数据保存在本地'}
+                    </span>
+                  </div>
                   {!isAuthenticated && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="ml-4 hover:bg-green-100 dark:hover:bg-green-900"
-                      onClick={() => {
-                        openModal('login')
-                      }}
+                    <button
+                      className="text-sm font-black text-slate-900 dark:text-blue-400 hover:underline"
+                      onClick={() => openModal('login')}
                     >
-                      登录同步到云端
-                    </Button>
+                      立即登录同步
+                    </button>
                   )}
-                </AlertDescription>
-              </Alert>
-            ) : (
-              <Alert
-                variant="destructive"
-                className="mb-6 bg-red-50/50 dark:bg-red-950/30 border-red-200 dark:border-red-900"
-              >
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>注意</AlertTitle>
-                <AlertDescription className="flex items-center justify-between">
-                  <span className="text-red-700 dark:text-red-400">
-                    建议配置云端同步，防止浏览器缓存清除时数据丢失。
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="ml-4 hover:bg-red-100 dark:hover:bg-red-900"
-                    onClick={() => {
-                      // router.push("/app/dashboard/settings");
-                    }}
-                  >
-                    <Settings className="w-4 h-4 mr-2" />
-                    前往设置
-                  </Button>
                 </AlertDescription>
               </Alert>
             )}
