@@ -4,9 +4,10 @@ Provides endpoints for chat history management.
 """
 
 import logging
+import hashlib
 from typing import Any
 
-from typing import List
+from typing import List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/history", tags=["history"])
 storage = get_conversation_storage()
 conversation_manager = ConversationManager(storage=storage)
+_save_fingerprint_cache: dict[str, tuple[int, str]] = {}
 
 
 class HistoryResponse(BaseModel):
@@ -47,6 +49,15 @@ class BatchDeleteRequest(BaseModel):
 
 class SessionSaveRequest(BaseModel):
     messages: List[Message]
+    client_save_seq: Optional[int] = None
+    last_message_hash: Optional[str] = None
+
+
+class SessionAppendRequest(BaseModel):
+    base_seq: int
+    messages_delta: List[Message]
+    client_save_seq: Optional[int] = None
+    last_message_hash: Optional[str] = None
 
 
 @router.get("/{session_id}", response_model=HistoryResponse)
@@ -209,6 +220,30 @@ async def save_session_messages(
     """Save session messages immediately."""
     try:
         messages = request.messages or []
+        client_save_seq = request.client_save_seq or 0
+        last_message_hash = (request.last_message_hash or "").strip()
+        if not last_message_hash and messages:
+            last = messages[-1]
+            digest_input = f"{last.role}|{last.content or ''}|{last.thought or ''}"
+            last_message_hash = hashlib.sha1(
+                digest_input.encode("utf-8"),
+                usedforsecurity=False,
+            ).hexdigest()
+
+        cached = _save_fingerprint_cache.get(session_id)
+        if (
+            cached
+            and last_message_hash
+            and cached[1] == last_message_hash
+            and client_save_seq <= cached[0]
+        ):
+            return {
+                "session_id": session_id,
+                "message_count": len(messages),
+                "skipped": True,
+                "reason": "idempotent-noop",
+            }
+
         # Use a large sliding window here to avoid truncating saved history snapshots.
         # Session save endpoint should persist the full client snapshot.
         history_manager = ChatHistoryManager(
@@ -218,18 +253,122 @@ async def save_session_messages(
         )
         history_manager.load_messages(messages)
         meta = conversation_manager.save_history(session_id, history_manager)
+        if last_message_hash:
+            _save_fingerprint_cache[session_id] = (
+                max(client_save_seq, (cached[0] if cached else 0)),
+                last_message_hash,
+            )
         return {
             "session_id": meta.session_id,
             "title": meta.title,
             "created_at": meta.created_at,
             "updated_at": meta.updated_at,
             "message_count": meta.message_count,
+            "skipped": False,
         }
     except Exception as e:
         logger.error(f"Error saving session: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Error saving session: {e}",
+        )
+
+
+@router.post("/sessions/{session_id}/append")
+async def append_session_messages(
+    session_id: str, request: SessionAppendRequest
+) -> dict[str, Any]:
+    """Append message delta incrementally.
+
+    Returns 409 when base_seq conflicts with current persisted sequence.
+    """
+    try:
+        messages_delta = request.messages_delta or []
+        base_seq = max(0, int(request.base_seq))
+        client_save_seq = request.client_save_seq or 0
+        last_message_hash = (request.last_message_hash or "").strip()
+        if not last_message_hash and messages_delta:
+            last = messages_delta[-1]
+            digest_input = f"{last.role}|{last.content or ''}|{last.thought or ''}"
+            last_message_hash = hashlib.sha1(
+                digest_input.encode("utf-8"),
+                usedforsecurity=False,
+            ).hexdigest()
+
+        cached = _save_fingerprint_cache.get(session_id)
+        if (
+            cached
+            and last_message_hash
+            and cached[1] == last_message_hash
+            and client_save_seq <= cached[0]
+        ):
+            return {
+                "session_id": session_id,
+                "skipped": True,
+                "reason": "idempotent-noop",
+            }
+
+        append_method = getattr(storage, "append_session_messages", None)
+        if not callable(append_method):
+            # Fallback for storage adapters without append support:
+            existing = conversation_manager.get_history(session_id)
+            if base_seq != len(existing):
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "message": "base_seq conflict",
+                        "expected_base_seq": len(existing),
+                    },
+                )
+            merged = existing + messages_delta
+            history_manager = ChatHistoryManager(
+                session_id=session_id,
+                storage=storage,
+                k=max(1000, len(merged) + 10),
+            )
+            history_manager.load_messages(merged)
+            meta = conversation_manager.save_history(session_id, history_manager)
+            new_seq = len(merged)
+            accepted_count = len(messages_delta)
+            skipped = accepted_count == 0
+        else:
+            result = append_method(session_id, base_seq, messages_delta)
+            if result.get("conflict"):
+                raise HTTPException(
+                    status_code=409,
+                    detail={
+                        "message": "base_seq conflict",
+                        "expected_base_seq": result.get("expected_base_seq", 0),
+                    },
+                )
+            meta = result["meta"]
+            new_seq = int(result.get("new_seq", meta.message_count))
+            accepted_count = int(result.get("accepted_count", 0))
+            skipped = bool(result.get("skipped", False))
+
+        if last_message_hash:
+            _save_fingerprint_cache[session_id] = (
+                max(client_save_seq, (cached[0] if cached else 0)),
+                last_message_hash,
+            )
+
+        return {
+            "session_id": meta.session_id,
+            "title": meta.title,
+            "created_at": meta.created_at,
+            "updated_at": meta.updated_at,
+            "message_count": meta.message_count,
+            "accepted_count": accepted_count,
+            "new_seq": new_seq,
+            "skipped": skipped,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error appending session: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error appending session: {e}",
         )
 
 

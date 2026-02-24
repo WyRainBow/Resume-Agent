@@ -26,6 +26,8 @@ export interface UseCLTPResult {
     isProcessing: boolean;
     /** 是否已连接 */
     isConnected: boolean;
+    /** 最近一次传输错误 */
+    lastError: string | null;
     /** 答案完成信号（用于触发 finalize） */
     answerCompleteCount: number;
     /** 发送用户消息 */
@@ -71,6 +73,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
     const [currentAnswer, setCurrentAnswer] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [isConnected, setIsConnected] = useState(false);
+    const [lastError, setLastError] = useState<string | null>(null);
     const [answerCompleteCount, setAnswerCompleteCount] = useState(0);
 
     const currentThoughtRef = useRef('');
@@ -87,6 +90,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
         setCurrentAnswer('');
         setIsProcessing(false);
         setIsConnected(false);
+        setLastError(null);
         setAnswerCompleteCount(0);
         currentThoughtRef.current = '';
         currentAnswerRef.current = '';
@@ -99,6 +103,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             onConnect: () => {
                 console.log('[useCLTP] SSE Connected');
                 setIsConnected(true);
+                setLastError(null);
             },
             onDisconnect: () => {
                 console.log('[useCLTP] SSE Disconnected');
@@ -116,6 +121,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
                 setIsConnected(false);
                 // Avoid stuck "processing" state on transport errors.
                 setIsProcessing(false);
+                setLastError(error?.message || 'SSE transport error');
             },
         });
 
@@ -251,6 +257,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             setCurrentThought('');
             setCurrentAnswer('');
             setIsProcessing(true);
+            setLastError(null);
 
             // Create user message
             const userMessage = {
@@ -303,6 +310,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
         currentAnswer,
         isProcessing,
         isConnected,
+        lastError,
         answerCompleteCount,
         sendMessage,
         finalizeStream,

@@ -10,10 +10,14 @@ from typing import Any, Dict, List, Optional, Tuple
 from pydantic import BaseModel, Field
 from datetime import datetime
 import json
+import os
 
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
+FAST_GREETING_ENABLED = (
+    os.getenv("AGENT_FAST_GREETING_ENABLED", "true").strip().lower() != "false"
+)
 
 # 可选导入新的意图识别系统
 try:
@@ -40,6 +44,7 @@ class ConversationState(str, Enum):
 
 class Intent(str, Enum):
     """用户意图 - 仅保留需要在代码层面特殊处理的意图"""
+    GREETING_FAST_PATH = "greeting_fast_path"  # 本地规则问候 - 直接快速返回
     GREETING = "greeting"  # 问候 - 直接返回，不走 LLM
     LOAD_RESUME = "load_resume"  # 加载简历 - 需检查重复
     ANALYZE_RESUME = "analyze_resume"  # 分析简历（触发 Agent 委托）
@@ -116,6 +121,32 @@ class ConversationStateManager:
             except Exception as e:
                 logger.warning(f"增强意图识别系统初始化失败，回退到传统模式: {e}")
                 self.use_enhanced_intent = False
+
+    def is_fast_greeting(self, user_input: str) -> bool:
+        """本地快速问候判定，不触发 LLM。"""
+        if not FAST_GREETING_ENABLED:
+            return False
+        text = (user_input or "").strip().lower()
+        if not text or len(text) > 12:
+            return False
+
+        # 保持集合小而精确，避免误判到复杂意图
+        direct_hits = {
+            "你好",
+            "您好",
+            "哈喽",
+            "嗨",
+            "在吗",
+            "hello",
+            "hi",
+            "hey",
+        }
+        if text in direct_hits:
+            return True
+
+        # 允许轻微标点和空白
+        normalized = text.replace("！", "").replace("!", "").replace("。", "").strip()
+        return normalized in direct_hits
 
     async def classify_intent_with_llm(
         self,
@@ -275,6 +306,19 @@ class ConversationStateManager:
             }
         """
         self.context.turn_count += 1
+
+        # 🚀 快速问候路径：直接命中，不走 LLM/工具识别
+        if self.is_fast_greeting(user_input):
+            self.context.state = ConversationState.GREETING
+            return {
+                "intent": Intent.GREETING_FAST_PATH,
+                "tool": None,
+                "tool_args": {},
+                "context_prompt": "",
+                "should_skip_llm": True,
+                "enhanced_query": user_input,
+                "intent_result": None,
+            }
 
         # 如果使用增强意图识别系统
         if self.use_enhanced_intent and self.intent_enhancer:

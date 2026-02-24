@@ -588,15 +588,28 @@ class Manus(ToolCallAgent):
         1. 特殊意图（GREETING、LOAD_RESUME）直接处理
         2. 其他意图交给 LLM 自然处理，依赖自动终止机制
         """
+        # 获取最后的用户输入
+        user_input = self._get_last_user_input()
+
+        # 🚀 Greeting Fast Path：不初始化 MCP，不走 LLM
+        if self._conversation_state.is_fast_greeting(user_input):
+            logger.info("👋 GREETING_FAST_PATH: 本地快速回复，跳过 MCP/LLM")
+            self.memory.add_message(
+                Message.assistant_message(
+                    "你好，我在。你可以直接告诉我你要做什么，比如优化简历、生成报告、修改某一段经历。"
+                )
+            )
+            from backend.agent.schema import AgentState
+
+            self.state = AgentState.FINISHED
+            return False
+
         if not self._initialized:
             await self.initialize_mcp_servers()
             self._initialized = True
 
         # 确保 ConversationStateManager 有 LLM 实例
         self._ensure_conversation_state_llm()
-
-        # 获取最后的用户输入
-        user_input = self._get_last_user_input()
 
         # 🧠 使用 LLM 意图识别（可能包含增强后的查询）
         intent_result = await self._conversation_state.process_input(
@@ -686,7 +699,7 @@ class Manus(ToolCallAgent):
 
         # 🎯 GREETING 意图：让 LLM 处理（通过 prompt 中的 greeting_exception 规则）
         # 不再硬编码回复，让 LLM 根据 prompt 规则自己生成 Thought 和 Response
-        if intent == Intent.GREETING:
+        if intent in (Intent.GREETING_FAST_PATH, Intent.GREETING):
             logger.info("👋 GREETING: 交给 LLM 处理（遵循 greeting_exception 规则）")
             # 继续往下走，让 LLM 处理
 

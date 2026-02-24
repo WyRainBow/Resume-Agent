@@ -159,6 +159,9 @@ function ReportContentView({
 // ============================================================================
 
 const SSE_HEARTBEAT_TIMEOUT = 60000; // 60 seconds
+const HISTORY_APPEND_MODE =
+  String(import.meta.env.VITE_AGENT_HISTORY_APPEND_MODE ?? "true").toLowerCase() !==
+  "false";
 
 function convertResumeDataToOpenManusFormat(resume: ResumeData) {
   return {
@@ -602,10 +605,19 @@ export default function SophiaChat() {
   const queuedSaveRef = useRef<{
     sessionId: string;
     messages: Message[];
+    shouldRefresh: boolean;
   } | null>(null);
+  const scheduledSaveRef = useRef<{
+    sessionId: string;
+    messages: Message[];
+    shouldRefresh: boolean;
+  } | null>(null);
+  const saveDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedKeyRef = useRef<string>("");
   const refreshAfterSaveRef = useRef(false);
   const saveRetryRef = useRef<Record<string, number>>({});
+  const saveClientSeqRef = useRef(0);
+  const lastPersistedCountBySessionRef = useRef<Record<string, number>>({});
   const isFinalizedRef = useRef(false);
   const currentThoughtRef = useRef("");
   const currentAnswerRef = useRef("");
@@ -810,6 +822,14 @@ export default function SophiaChat() {
 
   const handleSSEEvent = useCallback(
     (event: SSEEvent) => {
+      if (event.type === "error") {
+        const message =
+          event.data?.content ||
+          event.data?.error_details ||
+          "流式请求失败，请稍后重试。";
+        setResumeError(String(message));
+        return;
+      }
       if (event.type !== "tool_result") return;
       const toolName = event.data?.tool;
       const structured = event.data?.structured_data;
@@ -853,6 +873,7 @@ export default function SophiaChat() {
     currentAnswer,
     isProcessing,
     isConnected,
+    lastError,
     answerCompleteCount,
     sendMessage,
     finalizeStream,
@@ -1085,6 +1106,8 @@ export default function SophiaChat() {
         if (!mounted) return;
         setMessages(dedupedMessages);
         setCurrentSessionId(conversationId);
+        lastPersistedCountBySessionRef.current[conversationId] =
+          dedupedMessages.length;
         console.log(
           `[AgentChat] Auto-loaded session ${conversationId} with ${dedupedMessages.length} messages`,
         );
@@ -1098,6 +1121,11 @@ export default function SophiaChat() {
       mounted = false;
     };
   }, [conversationId, currentSessionId, initialSessionResolved, apiBaseUrl]); // 仅在会话确定后加载
+
+  useEffect(() => {
+    if (!lastError) return;
+    setResumeError(lastError);
+  }, [lastError]);
 
   useEffect(() => {
     if (answerCompleteCount <= 0 || !resumeId) {
@@ -1561,6 +1589,23 @@ export default function SophiaChat() {
     }));
   }, []);
 
+  const computeLastMessageHash = useCallback((messagesToSave: Message[]) => {
+    if (!messagesToSave.length) return "";
+    const last = messagesToSave[messagesToSave.length - 1];
+    const raw = `${last.role}|${last.content || ""}|${last.thought || ""}`;
+    let hash = 2166136261;
+    for (let i = 0; i < raw.length; i++) {
+      hash ^= raw.charCodeAt(i);
+      hash +=
+        (hash << 1) +
+        (hash << 4) +
+        (hash << 7) +
+        (hash << 8) +
+        (hash << 24);
+    }
+    return (hash >>> 0).toString(16);
+  }, []);
+
   const persistSessionSnapshot = useCallback(
     async (
       sessionId: string,
@@ -1588,25 +1633,86 @@ export default function SophiaChat() {
       if (payloadKey === lastSavedKeyRef.current) {
         return;
       }
+      const clientSaveSeq = ++saveClientSeqRef.current;
+      const lastMessageHash = computeLastMessageHash(messagesToSave);
 
       if (saveInFlightRef.current) {
         queuedSaveRef.current = {
           sessionId: validSessionId,
           messages: messagesToSave,
+          shouldRefresh,
         };
         return;
       }
 
       saveInFlightRef.current = (async () => {
         try {
-          const resp = await fetch(
-            `${apiBaseUrl}/api/agent/history/sessions/${validSessionId}/save`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ messages: payload }),
-            },
-          );
+          const fullSave = async () => {
+            const resp = await fetch(
+              `${apiBaseUrl}/api/agent/history/sessions/${validSessionId}/save`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  messages: payload,
+                  client_save_seq: clientSaveSeq,
+                  last_message_hash: lastMessageHash,
+                }),
+              },
+            );
+            if (resp.ok) {
+              lastPersistedCountBySessionRef.current[validSessionId] =
+                messagesToSave.length;
+            }
+            return resp;
+          };
+
+          let resp: Response;
+          const knownPersistedCount =
+            lastPersistedCountBySessionRef.current[validSessionId] ?? 0;
+          const canTryAppend =
+            HISTORY_APPEND_MODE && knownPersistedCount <= messagesToSave.length;
+
+          if (canTryAppend) {
+            const deltaMessages = messagesToSave.slice(knownPersistedCount);
+            if (deltaMessages.length === 0) {
+              lastSavedKeyRef.current = payloadKey;
+              return;
+            }
+            resp = await fetch(
+              `${apiBaseUrl}/api/agent/history/sessions/${validSessionId}/append`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  base_seq: knownPersistedCount,
+                  messages_delta: buildSavePayload(deltaMessages),
+                  client_save_seq: clientSaveSeq,
+                  last_message_hash: lastMessageHash,
+                }),
+              },
+            );
+
+            // base_seq 冲突时自动回退到 full snapshot save
+            if (resp.status === 409) {
+              resp = await fullSave();
+            } else if (resp.ok) {
+              const body = await resp
+                .clone()
+                .json()
+                .catch(() => null as any);
+              if (typeof body?.new_seq === "number") {
+                lastPersistedCountBySessionRef.current[validSessionId] =
+                  body.new_seq;
+              } else {
+                lastPersistedCountBySessionRef.current[validSessionId] =
+                  messagesToSave.length;
+              }
+            }
+          } else {
+            resp = await fullSave();
+          }
+
           if (!resp.ok) {
             console.error(`[AgentChat] Failed to save session: ${resp.status}`);
             const retryCount = (saveRetryRef.current[payloadKey] || 0) + 1;
@@ -1615,6 +1721,7 @@ export default function SophiaChat() {
               queuedSaveRef.current = {
                 sessionId: validSessionId,
                 messages: messagesToSave,
+                shouldRefresh,
               };
               setTimeout(() => {
                 if (!saveInFlightRef.current && queuedSaveRef.current) {
@@ -1623,7 +1730,7 @@ export default function SophiaChat() {
                   void persistSessionSnapshot(
                     next.sessionId,
                     next.messages,
-                    shouldRefresh,
+                    next.shouldRefresh,
                   );
                 }
               }, 800 * retryCount);
@@ -1643,6 +1750,7 @@ export default function SophiaChat() {
             queuedSaveRef.current = {
               sessionId: validSessionId,
               messages: messagesToSave,
+              shouldRefresh,
             };
             setTimeout(() => {
               if (!saveInFlightRef.current && queuedSaveRef.current) {
@@ -1651,7 +1759,7 @@ export default function SophiaChat() {
                 void persistSessionSnapshot(
                   next.sessionId,
                   next.messages,
-                  shouldRefresh,
+                  next.shouldRefresh,
                 );
               }
             }, 800 * retryCount);
@@ -1664,17 +1772,65 @@ export default function SophiaChat() {
             void persistSessionSnapshot(
               next.sessionId,
               next.messages,
-              shouldRefresh,
+              next.shouldRefresh,
             );
           }
         }
       })();
       await saveInFlightRef.current;
     },
-    [conversationId, buildSavePayload, refreshSessions],
+    [conversationId, buildSavePayload, computeLastMessageHash, refreshSessions],
   );
 
+  const schedulePersistSessionSnapshot = useCallback(
+    (sessionId: string, messagesToSave: Message[], shouldRefresh = false) => {
+      if (!sessionId || sessionId.trim() === "" || messagesToSave.length === 0) {
+        return;
+      }
+
+      const existing = scheduledSaveRef.current;
+      scheduledSaveRef.current = {
+        sessionId,
+        messages: messagesToSave,
+        shouldRefresh: shouldRefresh || Boolean(existing?.shouldRefresh),
+      };
+
+      if (saveDebounceTimerRef.current) {
+        clearTimeout(saveDebounceTimerRef.current);
+      }
+      saveDebounceTimerRef.current = setTimeout(() => {
+        const pending = scheduledSaveRef.current;
+        scheduledSaveRef.current = null;
+        saveDebounceTimerRef.current = null;
+        if (!pending) return;
+        void persistSessionSnapshot(
+          pending.sessionId,
+          pending.messages,
+          pending.shouldRefresh,
+        );
+      }, 1800);
+    },
+    [persistSessionSnapshot],
+  );
+
+  const flushScheduledSave = useCallback(async () => {
+    if (saveDebounceTimerRef.current) {
+      clearTimeout(saveDebounceTimerRef.current);
+      saveDebounceTimerRef.current = null;
+    }
+    const pending = scheduledSaveRef.current;
+    scheduledSaveRef.current = null;
+    if (pending) {
+      await persistSessionSnapshot(
+        pending.sessionId,
+        pending.messages,
+        pending.shouldRefresh,
+      );
+    }
+  }, [persistSessionSnapshot]);
+
   const waitForPendingSave = useCallback(async () => {
+    await flushScheduledSave();
     if (saveInFlightRef.current) {
       await saveInFlightRef.current;
     }
@@ -1684,7 +1840,7 @@ export default function SophiaChat() {
         await saveInFlightRef.current;
       }
     }
-  }, []);
+  }, [flushScheduledSave]);
 
   useEffect(() => {
     if (!pendingSaveRef.current) {
@@ -1695,13 +1851,13 @@ export default function SophiaChat() {
     refreshAfterSaveRef.current = false;
     // 验证 conversationId 不为空且消息不为空
     if (conversationId && conversationId.trim() !== "" && messages.length > 0) {
-      void persistSessionSnapshot(conversationId, messages, shouldRefresh);
+      schedulePersistSessionSnapshot(conversationId, messages, shouldRefresh);
     } else {
       console.log(
         "[AgentChat] Skipping save: conversationId is empty or no messages",
       );
     }
-  }, [conversationId, messages, persistSessionSnapshot]);
+  }, [conversationId, messages, schedulePersistSessionSnapshot]);
 
   const saveCurrentSession = useCallback(() => {
     if (isProcessing || currentThoughtRef.current || currentAnswerRef.current) {
@@ -1721,6 +1877,26 @@ export default function SophiaChat() {
     messages,
     persistSessionSnapshot,
   ]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const pending = scheduledSaveRef.current;
+      if (!pending) return;
+      void persistSessionSnapshot(
+        pending.sessionId,
+        pending.messages,
+        pending.shouldRefresh,
+      );
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      if (saveDebounceTimerRef.current) {
+        clearTimeout(saveDebounceTimerRef.current);
+        saveDebounceTimerRef.current = null;
+      }
+    };
+  }, [persistSessionSnapshot]);
 
   const deleteSession = async (sessionId: string) => {
     try {
@@ -1742,6 +1918,7 @@ export default function SophiaChat() {
         setMessages([]);
         setCurrentSessionId(newId);
         setConversationId(newId);
+        lastPersistedCountBySessionRef.current[newId] = 0;
         finalizeStream();
       }
       refreshSessions();
@@ -1952,6 +2129,8 @@ export default function SophiaChat() {
         setMessages(dedupedMessages);
         setCurrentSessionId(sessionId);
         setConversationId(sessionId);
+        lastPersistedCountBySessionRef.current[sessionId] =
+          dedupedMessages.length;
         setAllowPdfAutoRender(false);
         // 清理流式状态，避免显示旧会话的流式内容
         finalizeStream();
@@ -1980,6 +2159,7 @@ export default function SophiaChat() {
     setMessages([]);
     setCurrentSessionId(newId);
     setConversationId(newId);
+    lastPersistedCountBySessionRef.current[newId] = 0;
     setSelectedResumeId(null);
     setSelectedReportId(null);
     setAllowPdfAutoRender(false);

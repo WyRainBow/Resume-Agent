@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import hashlib
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -28,6 +29,80 @@ logger = logging.getLogger(__name__)
 
 class DBConversationStorage:
     """Database-backed conversation storage adapter."""
+
+    def _message_signature(self, message: Message) -> Dict[str, Any]:
+        payload = self._serialize_message(message)
+        role = payload.get("role")
+        if isinstance(role, Role):
+            role = role.value
+        return {
+            "role": str(role or ""),
+            "content": payload.get("content"),
+            "thought": payload.get("thought"),
+            "name": payload.get("name"),
+            "tool_call_id": payload.get("tool_call_id"),
+        }
+
+    def _compute_message_hash(self, message: Message) -> str:
+        sig = self._message_signature(message)
+        raw = json.dumps(sig, ensure_ascii=False, sort_keys=True)
+        return hashlib.sha1(raw.encode("utf-8"), usedforsecurity=False).hexdigest()
+
+    def _row_signature(self, row: AgentMessage) -> Dict[str, Any]:
+        return {
+            "role": row.role or "",
+            "content": row.content,
+            "thought": row.thought,
+            "name": row.name,
+            "tool_call_id": row.tool_call_id,
+        }
+
+    def _snapshot_unchanged(
+        self,
+        db,
+        conversation_id: int,
+        messages: List[Message],
+    ) -> bool:
+        """Cheap idempotency check: compare count + first/last message signature."""
+        existing_count = (
+            db.query(AgentMessage)
+            .filter(AgentMessage.conversation_id == conversation_id)
+            .count()
+        )
+        incoming_count = len(messages)
+        if existing_count != incoming_count:
+            return False
+        if incoming_count == 0:
+            return True
+
+        first_row = (
+            db.query(AgentMessage)
+            .filter(AgentMessage.conversation_id == conversation_id)
+            .order_by(AgentMessage.seq.asc())
+            .first()
+        )
+        last_row = (
+            db.query(AgentMessage)
+            .filter(AgentMessage.conversation_id == conversation_id)
+            .order_by(AgentMessage.seq.desc())
+            .first()
+        )
+        if not first_row or not last_row:
+            return False
+
+        first_incoming = self._message_signature(messages[0])
+        last_incoming = self._message_signature(messages[-1])
+        return self._row_signature(first_row) == first_incoming and self._row_signature(
+            last_row
+        ) == last_incoming
+
+    def _rows_match_messages(self, rows: List[AgentMessage], messages: List[Message]) -> bool:
+        if len(rows) != len(messages):
+            return False
+        for row, msg in zip(rows, messages):
+            if self._row_signature(row) != self._message_signature(msg):
+                return False
+        return True
 
     def _serialize_message(self, message: Message) -> Dict[str, Any]:
         payload = message.to_dict()
@@ -70,6 +145,7 @@ class DBConversationStorage:
             content=payload.get("content"),
             thought=payload.get("thought"),
             name=payload.get("name"),
+            message_hash=self._compute_message_hash(message),
             tool_call_id=payload.get("tool_call_id"),
             tool_calls=payload.get("tool_calls"),
             base64_image=payload.get("base64_image"),
@@ -118,13 +194,20 @@ class DBConversationStorage:
                 conversation.updated_at = now
                 conversation.last_message_at = now if messages else conversation.last_message_at
 
-            # Always clear existing rows before re-inserting the full ordered snapshot.
-            db.query(AgentMessage).filter(
-                AgentMessage.conversation_id == conversation.id
-            ).delete(synchronize_session=False)
+            snapshot_unchanged = self._snapshot_unchanged(
+                db=db,
+                conversation_id=conversation.id,
+                messages=messages,
+            )
 
-            for seq, message in enumerate(messages):
-                db.add(self._message_to_row(conversation.id, seq, message))
+            if not snapshot_unchanged:
+                # Keep full-snapshot semantics for compatibility, but skip when unchanged.
+                db.query(AgentMessage).filter(
+                    AgentMessage.conversation_id == conversation.id
+                ).delete(synchronize_session=False)
+
+                for seq, message in enumerate(messages):
+                    db.add(self._message_to_row(conversation.id, seq, message))
 
             db.commit()
 
@@ -137,6 +220,113 @@ class DBConversationStorage:
                 title=conversation.title or "New Conversation",
                 message_count=conversation.message_count or 0,
             )
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    def append_session_messages(
+        self,
+        session_id: str,
+        base_seq: int,
+        messages_delta: List[Message],
+    ) -> Dict[str, Any]:
+        now = datetime.now()
+        db = SessionLocal()
+        try:
+            conversation = (
+                db.query(AgentConversation)
+                .filter(AgentConversation.session_id == session_id)
+                .first()
+            )
+            if conversation is None:
+                conversation = AgentConversation(
+                    session_id=session_id,
+                    title=self._derive_title(messages_delta),
+                    message_count=0,
+                    created_at=now,
+                    updated_at=now,
+                    last_message_at=None,
+                )
+                db.add(conversation)
+                db.flush()
+
+            existing_count = (
+                db.query(AgentMessage)
+                .filter(AgentMessage.conversation_id == conversation.id)
+                .count()
+            )
+
+            if base_seq < 0:
+                base_seq = 0
+
+            # Idempotent replay handling when client retries a previously appended tail.
+            if base_seq < existing_count:
+                rows = (
+                    db.query(AgentMessage)
+                    .filter(
+                        AgentMessage.conversation_id == conversation.id,
+                        AgentMessage.seq >= base_seq,
+                        AgentMessage.seq < base_seq + len(messages_delta),
+                    )
+                    .order_by(AgentMessage.seq.asc())
+                    .all()
+                )
+                if self._rows_match_messages(rows, messages_delta):
+                    created_at = conversation.created_at or now
+                    updated_at = conversation.updated_at or now
+                    return {
+                        "conflict": False,
+                        "skipped": True,
+                        "accepted_count": 0,
+                        "new_seq": existing_count,
+                        "meta": ConversationMeta(
+                            session_id=conversation.session_id,
+                            created_at=created_at.isoformat(),
+                            updated_at=updated_at.isoformat(),
+                            title=conversation.title or "New Conversation",
+                            message_count=conversation.message_count or existing_count,
+                        ),
+                    }
+                return {
+                    "conflict": True,
+                    "expected_base_seq": existing_count,
+                }
+
+            if base_seq > existing_count:
+                return {
+                    "conflict": True,
+                    "expected_base_seq": existing_count,
+                }
+
+            for idx, message in enumerate(messages_delta):
+                db.add(self._message_to_row(conversation.id, base_seq + idx, message))
+
+            new_count = existing_count + len(messages_delta)
+            conversation.message_count = new_count
+            if existing_count == 0 and messages_delta:
+                conversation.title = self._derive_title(messages_delta)
+            conversation.updated_at = now
+            if messages_delta:
+                conversation.last_message_at = now
+
+            db.commit()
+            created_at = conversation.created_at or now
+            updated_at = conversation.updated_at or now
+            return {
+                "conflict": False,
+                "skipped": len(messages_delta) == 0,
+                "accepted_count": len(messages_delta),
+                "new_seq": new_count,
+                "meta": ConversationMeta(
+                    session_id=conversation.session_id,
+                    created_at=created_at.isoformat(),
+                    updated_at=updated_at.isoformat(),
+                    title=conversation.title or "New Conversation",
+                    message_count=conversation.message_count or new_count,
+                ),
+            }
         except Exception:
             db.rollback()
             raise

@@ -186,3 +186,51 @@ class FileConversationStorage:
             except Exception:
                 continue
         return messages
+
+    def append_session_messages(
+        self,
+        session_id: str,
+        base_seq: int,
+        messages_delta: List[Message],
+    ) -> Dict[str, Any]:
+        """Append messages incrementally with base sequence check."""
+        existing = self.load_messages(session_id)
+        existing_count = len(existing)
+
+        if base_seq < 0:
+            base_seq = 0
+
+        # Idempotent replay: if caller re-sends already appended tail, treat as no-op.
+        if base_seq < existing_count:
+            tail = existing[base_seq : base_seq + len(messages_delta)]
+            tail_sig = [self._serialize_message(m) for m in tail]
+            delta_sig = [self._serialize_message(m) for m in messages_delta]
+            if tail_sig == delta_sig:
+                meta = self.save_session(session_id, existing)
+                return {
+                    "conflict": False,
+                    "skipped": True,
+                    "accepted_count": 0,
+                    "new_seq": existing_count,
+                    "meta": meta,
+                }
+            return {
+                "conflict": True,
+                "expected_base_seq": existing_count,
+            }
+
+        if base_seq > existing_count:
+            return {
+                "conflict": True,
+                "expected_base_seq": existing_count,
+            }
+
+        merged = existing + messages_delta
+        meta = self.save_session(session_id, merged)
+        return {
+            "conflict": False,
+            "skipped": len(messages_delta) == 0,
+            "accepted_count": len(messages_delta),
+            "new_seq": len(merged),
+            "meta": meta,
+        }
