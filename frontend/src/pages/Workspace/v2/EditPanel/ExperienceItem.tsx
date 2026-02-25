@@ -624,4 +624,5 @@ const ExperienceItem = ({
   )
 }
 
+export { ExperienceItem }
 export default ExperienceItem
