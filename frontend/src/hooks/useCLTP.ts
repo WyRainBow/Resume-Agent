@@ -209,9 +209,15 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             },
             onDisconnect: () => {
                 setIsConnected(false);
-                // Always stop processing on disconnect.
-                // If content exists, parent page will finalize from answerComplete/fallback path.
-                setIsProcessing(false);
+                // Keep processing state when stream already has content:
+                // UI still needs a short window to finish typewriter + finalize message
+                // before transient stream blocks are cleared.
+                const hasBufferedContent =
+                    Boolean((currentThoughtRef.current || pendingThoughtRef.current || '').trim()) ||
+                    Boolean((currentAnswerRef.current || pendingAnswerRef.current || '').trim());
+                if (!hasBufferedContent && !hasCompletedCurrentRunRef.current) {
+                    setIsProcessing(false);
+                }
             },
             onError: (error) => {
                 console.error('[useCLTP] SSE Error:', error);
