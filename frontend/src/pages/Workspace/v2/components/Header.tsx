@@ -89,7 +89,7 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
         {/* AI 全局导入按钮 */}
         <AIImportButton 
           onClick={onGlobalAIImport}
-          className="rounded-2xl border-2 border-slate-100 dark:border-slate-800 hover:border-slate-900 dark:hover:border-slate-100"
+          className="rounded-2xl border-slate-100 dark:border-slate-800 hover:border-slate-100 dark:hover:border-slate-800"
         />
         
         {/* 导入 JSON 按钮 */}
@@ -97,10 +97,10 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
           <button
             onClick={onImportJSON}
             className={cn(
-              "px-5 py-2.5 rounded-2xl text-sm font-bold transition-all duration-300 flex items-center gap-2",
-              "bg-white border-2 border-slate-100 dark:border-slate-800",
-              "text-slate-900 dark:text-slate-100 hover:border-slate-900 dark:hover:border-slate-100",
-              "hover:scale-[1.02] active:scale-[0.98]"
+              "px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2",
+              "bg-white border border-slate-200 dark:border-slate-800",
+              "text-slate-700 dark:text-slate-300 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-slate-700",
+              "active:scale-95 shadow-sm"
             )}
           >
             <Upload className="w-4 h-4 text-blue-500" />

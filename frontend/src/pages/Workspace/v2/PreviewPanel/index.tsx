@@ -110,10 +110,10 @@ export function PreviewPanel({
                 disabled={loading}
                 className={cn(
                   'group relative px-6 py-2.5 rounded-2xl overflow-hidden',
-                  'bg-slate-200 text-slate-900 text-sm font-bold tracking-tight',
+                  'bg-blue-500 text-white text-sm font-bold tracking-tight',
                   'disabled:opacity-60 disabled:cursor-not-allowed',
                   'transition-all duration-300',
-                  'hover:scale-[1.02] hover:bg-slate-300 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700 active:scale-[0.98]',
+                  'hover:scale-[1.02] hover:bg-blue-600 shadow-lg shadow-blue-100 dark:shadow-none active:scale-[0.98]',
                   'disabled:hover:scale-100'
                 )}
               >

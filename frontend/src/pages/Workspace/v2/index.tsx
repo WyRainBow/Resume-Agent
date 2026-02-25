@@ -125,7 +125,7 @@ export default function WorkspaceV2() {
   useEffect(() => {
     if (resumeData.templateType === 'html' || loading) return
     if (renderTimerRef.current) clearTimeout(renderTimerRef.current)
-    renderTimerRef.current = setTimeout(() => handleRender(), 600)
+    renderTimerRef.current = setTimeout(() => handleRender(), 300)
     return () => {
       if (renderTimerRef.current) clearTimeout(renderTimerRef.current)
     }
