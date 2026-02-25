@@ -16,6 +16,8 @@ import type { DefaultPayloads } from '@/cltp/types/channels';
 
 const IS_DEV = import.meta.env.DEV;
 const THINKING_PLACEHOLDER = '正在思考...';
+const SYNTHETIC_TYPEWRITER_INTERVAL_MS = 14;
+const SYNTHETIC_TYPEWRITER_STEP = 2;
 
 function mergeThoughtText(prev: string, next: string): string {
     const a = (prev || '').trim();
@@ -23,9 +25,7 @@ function mergeThoughtText(prev: string, next: string): string {
     if (!b) return a;
     if (!a || a === THINKING_PLACEHOLDER) return b;
     if (a === b) return a;
-    // 流式覆盖（新值是旧值扩展）或回退（旧值更长）都以最新快照为准
     if (b.startsWith(a) || a.startsWith(b)) return b;
-    // 不同阶段 thought（如“识别请求” -> “调用工具完成”）做串联保留
     return `${a}\n${b}`;
 }
 
@@ -110,6 +110,8 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
     const chunkWindowCountRef = useRef(0);
     const hasRealThoughtRef = useRef(false);
     const hasCompletedCurrentRunRef = useRef(false);
+    const plainPartialSeenRef = useRef(false);
+    const syntheticTimerRef = useRef<number | null>(null);
 
     useEffect(() => {
         onSSEEventRef.current = onSSEEvent;
@@ -145,6 +147,11 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
         chunkWindowCountRef.current = 0;
         hasRealThoughtRef.current = false;
         hasCompletedCurrentRunRef.current = false;
+        plainPartialSeenRef.current = false;
+        if (syntheticTimerRef.current !== null) {
+            window.clearTimeout(syntheticTimerRef.current);
+            syntheticTimerRef.current = null;
+        }
         if (flushRafRef.current !== null) {
             cancelAnimationFrame(flushRafRef.current);
             flushRafRef.current = null;
@@ -285,6 +292,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
                 recordChunkMetric('think');
                 scheduleFlush();
             } else if (message.metadata.channel === 'plain') {
+                plainPartialSeenRef.current = true;
                 if (!hasRealThoughtRef.current && pendingThoughtRef.current === THINKING_PLACEHOLDER) {
                     pendingThoughtRef.current = '';
                     currentThoughtRef.current = '';
@@ -309,24 +317,66 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
                 recordChunkMetric('think');
                 flushNow();
             } else if (message.metadata.channel === 'plain') {
+                const completeWithNoPartial =
+                    !plainPartialSeenRef.current &&
+                    typeof text === 'string' &&
+                    text.length > 0;
+
+                const completeNow = () => {
+                    if (!hasRealThoughtRef.current && pendingThoughtRef.current === THINKING_PLACEHOLDER) {
+                        pendingThoughtRef.current = '';
+                        currentThoughtRef.current = '';
+                    }
+                    pendingAnswerRef.current = text;
+                    currentAnswerRef.current = text;
+                    recordChunkMetric('plain');
+                    flushNow();
+                    hasCompletedCurrentRunRef.current = true;
+                    setAnswerCompleteCount((count) => count + 1);
+                };
+
+                if (!completeWithNoPartial) {
+                    completeNow();
+                    return;
+                }
+
+                if (syntheticTimerRef.current !== null) {
+                    window.clearTimeout(syntheticTimerRef.current);
+                    syntheticTimerRef.current = null;
+                }
                 if (!hasRealThoughtRef.current && pendingThoughtRef.current === THINKING_PLACEHOLDER) {
                     pendingThoughtRef.current = '';
                     currentThoughtRef.current = '';
                 }
-                pendingAnswerRef.current = text;
-                currentAnswerRef.current = text;
-                recordChunkMetric('plain');
+                pendingAnswerRef.current = '';
+                currentAnswerRef.current = '';
                 flushNow();
-                hasCompletedCurrentRunRef.current = true;
-                setAnswerCompleteCount((count) => {
-                    return count + 1;
-                });
+
+                let cursor = 0;
+                const tick = () => {
+                    cursor = Math.min(cursor + SYNTHETIC_TYPEWRITER_STEP, text.length);
+                    const chunk = text.slice(0, cursor);
+                    pendingAnswerRef.current = chunk;
+                    currentAnswerRef.current = chunk;
+                    scheduleFlush();
+
+                    if (cursor >= text.length) {
+                        syntheticTimerRef.current = null;
+                        hasCompletedCurrentRunRef.current = true;
+                        setAnswerCompleteCount((count) => count + 1);
+                        return;
+                    }
+                    syntheticTimerRef.current = window.setTimeout(tick, SYNTHETIC_TYPEWRITER_INTERVAL_MS);
+                };
+
+                syntheticTimerRef.current = window.setTimeout(tick, SYNTHETIC_TYPEWRITER_INTERVAL_MS);
             }
         });
 
         const unsubscribeSpanStart = session.events.on('span:start', () => {
             setIsProcessing(true);
             hasCompletedCurrentRunRef.current = false;
+            plainPartialSeenRef.current = false;
         });
 
         const unsubscribeSpanEnd = session.events.on('span:end', () => {
@@ -352,6 +402,10 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
 
         // Cleanup
         return () => {
+            if (syntheticTimerRef.current !== null) {
+                window.clearTimeout(syntheticTimerRef.current);
+                syntheticTimerRef.current = null;
+            }
             if (flushRafRef.current !== null) {
                 cancelAnimationFrame(flushRafRef.current);
                 flushRafRef.current = null;
@@ -414,6 +468,11 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             chunkWindowStartedAtRef.current = 0;
             chunkWindowCountRef.current = 0;
             hasRealThoughtRef.current = false;
+            plainPartialSeenRef.current = false;
+            if (syntheticTimerRef.current !== null) {
+                window.clearTimeout(syntheticTimerRef.current);
+                syntheticTimerRef.current = null;
+            }
             pendingThoughtRef.current = THINKING_PLACEHOLDER;
             currentThoughtRef.current = THINKING_PLACEHOLDER;
             committedThoughtRef.current = THINKING_PLACEHOLDER;
@@ -453,6 +512,11 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
         currentThoughtRef.current = '';
         currentAnswerRef.current = '';
         hasRealThoughtRef.current = false;
+        plainPartialSeenRef.current = false;
+        if (syntheticTimerRef.current !== null) {
+            window.clearTimeout(syntheticTimerRef.current);
+            syntheticTimerRef.current = null;
+        }
     }, []);
 
     /**
