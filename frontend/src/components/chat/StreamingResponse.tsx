@@ -34,7 +34,7 @@ export default function StreamingResponse({
   const { displayedText } = useTextStream({
     textStream: content || "",
     mode: "typewriter",
-    speed: 13,
+    speed: 8,
     streamMode: "burst-smoothed",
     burstThreshold: 0,
     // 允许在掉帧时轻微追帧，减少“卡一下不动”的体感。
