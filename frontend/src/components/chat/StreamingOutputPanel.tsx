@@ -75,7 +75,7 @@ export default function StreamingOutputPanel({
   const thought = streamModel?.thought ?? currentThought;
   const answer = streamModel?.answer ?? currentAnswer;
   const processing = streamModel?.isProcessing ?? isProcessing;
-  const thoughtContent = thought.trim();
+  const thoughtContent = thought.trim() === "正在思考..." ? "" : thought.trim();
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;

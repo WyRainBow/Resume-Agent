@@ -40,6 +40,21 @@ interface StreamingLaneProps {
   onReportCreated: (reportId: string, title: string) => void;
 }
 
+function extractResumeEditDiffFromMarkdown(
+  content: string,
+): { before: string; after: string } | null {
+  if (!content) return null;
+  const beforeMatch = content.match(
+    /修改前：\s*```[a-zA-Z]*\n([\s\S]*?)```/m,
+  );
+  const afterMatch = content.match(/修改后：\s*```[a-zA-Z]*\n([\s\S]*?)```/m);
+  if (!beforeMatch || !afterMatch) return null;
+  return {
+    before: beforeMatch[1].trim(),
+    after: afterMatch[1].trim(),
+  };
+}
+
 export default function StreamingLane({
   currentThought,
   currentAnswer,
@@ -54,7 +69,11 @@ export default function StreamingLane({
   onOpenCurrentReport,
   onReportCreated,
 }: StreamingLaneProps) {
-  const sanitizedCurrentAnswer = currentEditDiff
+  const markdownDiff = currentEditDiff
+    ? null
+    : extractResumeEditDiffFromMarkdown(currentAnswer || "");
+  const effectiveCurrentDiff = currentEditDiff?.data || markdownDiff;
+  const sanitizedCurrentAnswer = effectiveCurrentDiff
     ? stripResumeEditMarkdown(currentAnswer || "")
     : currentAnswer;
 
@@ -65,7 +84,7 @@ export default function StreamingLane({
       isProcessing={isProcessing}
       onResponseTypewriterComplete={onResponseTypewriterComplete}
       shouldHideResponseInChat={shouldHideResponseInChat}
-      currentEditDiff={currentEditDiff?.data}
+      currentEditDiff={effectiveCurrentDiff}
       currentSearch={currentSearch}
       renderSearchCard={(searchData) => (
         <>

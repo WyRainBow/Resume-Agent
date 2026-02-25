@@ -62,6 +62,21 @@ interface MessageTimelineProps {
   onRegenerate: () => void;
 }
 
+function extractResumeEditDiffFromMarkdown(
+  content: string,
+): { before: string; after: string } | null {
+  if (!content) return null;
+  const beforeMatch = content.match(
+    /修改前：\s*```[a-zA-Z]*\n([\s\S]*?)```/m,
+  );
+  const afterMatch = content.match(/修改后：\s*```[a-zA-Z]*\n([\s\S]*?)```/m);
+  if (!beforeMatch || !afterMatch) return null;
+  return {
+    before: beforeMatch[1].trim(),
+    after: afterMatch[1].trim(),
+  };
+}
+
 export default function MessageTimeline({
   messages,
   generatedReports,
@@ -77,15 +92,21 @@ export default function MessageTimeline({
   onOpenResumeSelector,
   onRegenerate,
 }: MessageTimelineProps) {
+  const isPlaceholderThought = (text: string) => text === "正在思考...";
   return (
     <>
       {messages.map((msg, idx) => {
         const reportForMessage = generatedReports.find((r) => r.messageId === msg.id);
         const resumeForMessage = loadedResumes.find((r) => r.messageId === msg.id);
         const editDiffForMessage = resumeEditDiffs.find((r) => r.messageId === msg.id);
+        const markdownDiff = editDiffForMessage
+          ? null
+          : extractResumeEditDiffFromMarkdown(msg.content || "");
+        const effectiveDiff = editDiffForMessage?.data || markdownDiff;
         const searchForMessage = searchResults.find((r) => r.messageId === msg.id);
-        const thoughtContent = (msg.thought || "").trim();
-        const sanitizedContent = editDiffForMessage
+        const rawThought = (msg.thought || "").trim();
+        const thoughtContent = isPlaceholderThought(rawThought) ? "" : rawThought;
+        const sanitizedContent = effectiveDiff
           ? stripResumeEditMarkdown(msg.content || "")
           : msg.content || "";
 
@@ -151,10 +172,10 @@ export default function MessageTimeline({
               </div>
             )}
 
-            {editDiffForMessage && (
+            {effectiveDiff && (
               <ResumeEditDiffCard
-                before={editDiffForMessage.data.before || ""}
-                after={editDiffForMessage.data.after || ""}
+                before={effectiveDiff.before || ""}
+                after={effectiveDiff.after || ""}
               />
             )}
 

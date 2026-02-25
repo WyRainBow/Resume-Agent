@@ -1554,11 +1554,13 @@ function SophiaChatContent() {
     const answerStateValue = currentAnswer.trim();
     const fallback = lastCompletedRef.current;
     const {
-      thought,
+      thought: resolvedThought,
       answer,
       canUseFallback,
       fallbackRun,
     } = resolveFinalizedContent(thoughtStateValue, answerStateValue);
+    const thought =
+      resolvedThought.trim() === "正在思考..." ? "" : resolvedThought;
 
     console.log("[AgentChat] finalizeMessage called", {
       thoughtLength: thought.length,
@@ -3212,7 +3214,10 @@ function SophiaChatContent() {
                 )}
 
                 {/* Loading */}
-                {isProcessing && !currentThought && !currentAnswer && (
+                {isProcessing &&
+                  (!currentThought.trim() ||
+                    currentThought.trim() === "正在思考...") &&
+                  !currentAnswer.trim() && (
                   <div className="flex items-center gap-2 text-gray-400 text-sm mb-6">
                     <div className="flex gap-1">
                       <span

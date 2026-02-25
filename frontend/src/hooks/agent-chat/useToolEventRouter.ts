@@ -91,16 +91,13 @@ export function useToolEventRouter<
       }
 
       if (toolName === "show_resume") {
-        const resumePayload = structured as TResume;
-        if ((resumePayload as any).type === "resume_selector") {
-          if (handledResumeSelectorKeysRef.current.has(dedupeKey)) {
-            return;
-          }
-          handledResumeSelectorKeysRef.current.add(dedupeKey);
-          onShowResumeSelector();
+        if (handledResumeSelectorKeysRef.current.has(dedupeKey)) {
           return;
         }
-        upsertLoadedResume("current", resumePayload);
+        // 统一 show_resume 行为：只打开“加载简历”选择面板，
+        // 不再自动挂载简历卡片，避免和用户手动选择流程冲突。
+        handledResumeSelectorKeysRef.current.add(dedupeKey);
+        onShowResumeSelector();
         return;
       }
 
