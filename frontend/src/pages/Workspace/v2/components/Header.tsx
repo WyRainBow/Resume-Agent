@@ -7,6 +7,8 @@ import { cn } from '../../../../lib/utils'
 import { ExportButton } from './ExportButton'
 import EnvironmentSwitcher from '@/components/EnvironmentSwitcher'
 
+import { AIImportButton } from '@/components/common/AIImportButton'
+
 type EditMode = 'click' | 'scroll'
 
 interface HeaderProps {
@@ -85,18 +87,10 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
         <EnvironmentSwitcher />
 
         {/* AI 全局导入按钮 */}
-        <button
+        <AIImportButton 
           onClick={onGlobalAIImport}
-          className={cn(
-            "px-5 py-2.5 rounded-2xl text-sm font-bold transition-all duration-300 flex items-center gap-2",
-            "bg-white border-2 border-slate-100 dark:border-slate-800",
-            "text-slate-900 dark:text-slate-100 hover:border-slate-900 dark:hover:border-slate-100",
-            "hover:scale-[1.02] active:scale-[0.98]"
-          )}
-        >
-          <Sparkles className="w-4 h-4" />
-          AI 智能导入
-        </button>
+          className="rounded-2xl border-2 border-slate-100 dark:border-slate-800 hover:border-slate-900 dark:hover:border-slate-100"
+        />
         
         {/* 导入 JSON 按钮 */}
         {onImportJSON && (

@@ -11,6 +11,8 @@ import ProjectItem from './ProjectItem'
 
 import type { ResumeData } from '../types'
 
+import { AIImportButton } from '@/components/common/AIImportButton';
+
 interface ProjectPanelProps {
   projects: Project[]
   onUpdate: (project: Project) => void
@@ -96,13 +98,10 @@ const ProjectPanel = ({
       <div className="flex items-center justify-between gap-2">
         {/* AI 导入按钮 */}
         {onAIImport && (
-          <button
+          <AIImportButton 
             onClick={onAIImport}
-            className="flex-1 px-4 py-2 rounded-lg bg-white text-black border border-slate-300 hover:bg-slate-50 shadow-sm transition-all duration-300 flex items-center justify-center gap-2"
-          >
-            <Wand2 className="w-4 h-4" />
-            AI 导入
-          </button>
+            className="flex-1"
+          />
         )}
         
         {/* 多选/删除按钮 */}

@@ -178,7 +178,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
 
   // 列宽状态
   const [sidePanelWidth] = useState(300); // 模块选择列宽度（固定）
-  const [editPanelWidth, setEditPanelWidth] = useState(900); // 编辑面板宽度（可拖动调整，范围 400-1400px）
+  const [editPanelWidth, setEditPanelWidth] = useState(700); // 编辑面板宽度（可拖动调整，范围 400-1400px）
   const [isDragging, setIsDragging] = useState(false);
 
   // 拖拽处理 - 调整编辑面板宽度
@@ -270,7 +270,11 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
               </div>
 
               {/* 分隔线 2（可拖拽调整编辑面板宽度） */}
-              <DragHandle onDrag={handleDrag} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
+              <DragHandle
+                onDrag={handleDrag}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              />
             </motion.div>
           ) : (
             <motion.div
@@ -322,7 +326,11 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
               </div>
 
               {/* 分隔线（可拖拽调整编辑面板宽度） */}
-              <DragHandle onDrag={handleDrag} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
+              <DragHandle
+                onDrag={handleDrag}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              />
             </motion.div>
           )}
         </AnimatePresence>

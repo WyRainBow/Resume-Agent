@@ -8,6 +8,8 @@ import { cn } from '../../../../lib/utils'
 import type { Experience, GlobalSettings, ResumeData } from '../types'
 import ExperienceItem from './ExperienceItem'
 
+import { AIImportButton } from '@/components/common/AIImportButton';
+
 interface ExperiencePanelProps {
   experiences: Experience[]
   onUpdate: (experience: Experience) => void
@@ -57,13 +59,10 @@ const ExperiencePanel = ({
   return (
     <div className={cn('space-y-4 px-4 py-4 rounded-lg', 'bg-white dark:bg-neutral-900/30')}>
       {onAIImport && (
-        <button
+        <AIImportButton 
           onClick={onAIImport}
-          className="w-full px-4 py-2 rounded-lg bg-white text-black border border-slate-300 hover:bg-slate-50 shadow-sm transition-all duration-300 flex items-center justify-center gap-2"
-        >
-          <Wand2 className="w-4 h-4" />
-          AI 导入工作经历
-        </button>
+          className="w-full"
+        />
       )}
 
       {/* 列表类型切换按钮 */}

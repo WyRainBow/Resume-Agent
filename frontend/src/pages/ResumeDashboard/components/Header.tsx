@@ -5,6 +5,8 @@ import { Button } from "./ui/button";
 import UserMenu from "@/components/UserMenu";
 import { Plus, Upload, Trash2, FileText } from "./Icons";
 
+import { AIImportButton } from "@/components/common/AIImportButton";
+
 interface HeaderProps {
   onImport: () => void;
   onCreate: () => void;
@@ -114,14 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* AI 智能导入按钮 */}
         {onAIImport && (
-          <Button
-            onClick={onAIImport}
-            variant="outline"
-            className="rounded-xl h-11 px-5 font-bold border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all duration-300"
-          >
-            <Upload className="mr-2 h-4 w-4 text-slate-900" />
-            AI 智能导入
-          </Button>
+          <AIImportButton onClick={onAIImport} />
         )}
 
         {/* 创建按钮 */}

@@ -3,6 +3,8 @@ import { motion } from "framer-motion";
 import { ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import type { CalendarView } from "../types";
 
+import { AIImportButton } from "@/components/common/AIImportButton";
+
 type CalendarShellProps = {
   view: CalendarView;
   rangeTitle: string;
@@ -49,14 +51,7 @@ export function CalendarShell({
             </div>
           </div>
           <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={onOpenAiImport}
-              className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm hover:bg-slate-50 hover:border-slate-300 transition-all active:scale-95"
-            >
-              <Sparkles className="h-4.5 w-4.5 text-slate-900 animate-pulse" />
-              AI 智能导入
-            </button>
+            <AIImportButton onClick={onOpenAiImport} />
             <button
               type="button"
               onClick={onOpenCreate}
