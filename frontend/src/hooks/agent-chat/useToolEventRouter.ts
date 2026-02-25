@@ -30,15 +30,24 @@ export function useToolEventRouter<
 
   const handledResumeSelectorKeysRef = useRef<Set<string>>(new Set());
   const handledEditKeysRef = useRef<Set<string>>(new Set());
+  const pendingEditDiffRef = useRef<TEdit | null>(null);
 
   useEffect(() => {
     handledResumeSelectorKeysRef.current.clear();
     handledEditKeysRef.current.clear();
+    pendingEditDiffRef.current = null;
   }, [runId]);
 
   const handleSSEEvent = useCallback(
     (event: SSEEvent) => {
       if (event.type === "done") {
+        // 将编辑 diff 卡片延迟到本轮 done 后再挂载，
+        // 避免在 answer 打字机过程中“整块瞬间弹出”。
+        if (pendingEditDiffRef.current) {
+          upsertResumeEditDiff("current", pendingEditDiffRef.current);
+          applyResumeEditDiff(pendingEditDiffRef.current);
+          pendingEditDiffRef.current = null;
+        }
         onDone();
         return;
       }
@@ -108,8 +117,7 @@ export function useToolEventRouter<
             return;
           }
           handledEditKeysRef.current.add(dedupeKey);
-          upsertResumeEditDiff("current", editPayload);
-          applyResumeEditDiff(editPayload);
+          pendingEditDiffRef.current = editPayload;
         }
       }
     },
