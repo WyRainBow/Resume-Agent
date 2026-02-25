@@ -10,7 +10,7 @@ import { cn } from "../../../lib/utils";
 import EditPanel from "./EditPanel";
 import PreviewPanel from "./PreviewPanel";
 import ScrollEditMode from "./ScrollEditMode";
-import { SidePanel } from "./SidePanel";
+import SidePanel from "./SidePanel";
 import type {
   ResumeData,
   MenuSection,
