@@ -57,7 +57,7 @@ function DropdownSelect<T extends string | number>({
           className="absolute top-full left-0 right-0 z-50 mt-1 py-1 rounded-lg border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto"
           role="listbox"
         >
-          {options.map((opt) => {
+                {options.map((opt) => {
             const isSelected = opt.value === value
             return (
               <button
@@ -72,8 +72,8 @@ function DropdownSelect<T extends string | number>({
                 className={cn(
                   'w-full px-3 py-2 text-sm text-left flex items-center justify-between gap-2',
                   isSelected
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700/80'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700/80'
                 )}
               >
                 <span className="truncate">{opt.label}</span>
@@ -261,7 +261,7 @@ function SettingCard({
         <div className="px-4 pt-4 pb-3 border-b border-slate-100 dark:border-slate-700/80">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-700/80 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-blue-50/50 dark:bg-slate-700/80 flex items-center justify-center">
                 <Icon className="w-4 h-4 text-slate-600 dark:text-slate-300" />
               </div>
               <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 tracking-tight">
@@ -320,7 +320,7 @@ export function SidePanel({
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.9 }}
               onClick={addCustomSection}
-              className="flex justify-center w-full rounded-lg items-center gap-2 py-2 px-3 text-sm font-medium text-slate-900 bg-slate-50 hover:bg-slate-100 border border-slate-200/60 transition-colors"
+              className="flex justify-center w-full rounded-lg items-center gap-2 py-2 px-3 text-sm font-medium text-slate-900 bg-blue-50/50 hover:bg-blue-100/50 border border-blue-100/50 transition-colors"
             >
               添加自定义模块
             </motion.button>
@@ -344,8 +344,8 @@ export function SidePanel({
                       className={cn(
                         'flex-1 min-w-0 px-1.5 py-1 text-[11px] font-bold rounded-md border transition-all',
                         isActive
-                          ? 'bg-slate-200 text-slate-900 border-slate-300 shadow-sm dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600'
-                          : 'bg-white border-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:border-slate-400 hover:text-slate-900'
+                          ? 'bg-blue-50 text-slate-900 border-blue-200 shadow-sm dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600'
+                          : 'bg-white border-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:border-blue-400 hover:text-slate-900'
                       )}
                     >
                       {opt.label}
@@ -392,13 +392,13 @@ export function SidePanel({
             </div>
 
             {/* 头部空白（LaTeX） */}
-            <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200/60 p-3 space-y-3">
+            <div className="rounded-lg bg-blue-50/50 dark:bg-slate-800/50 border border-blue-100/50 p-3 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">头部空白（PX）</label>
                 <button
                   type="button"
                   onClick={() => setHeaderGapExpanded((v) => !v)}
-                  className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
+                  className="p-1 rounded hover:bg-blue-100/50 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
                   title={headerGapExpanded ? '收起' : '展开'}
                 >
                   <ChevronDown className={cn('w-4 h-4 transition-transform', headerGapExpanded && 'rotate-180')} />

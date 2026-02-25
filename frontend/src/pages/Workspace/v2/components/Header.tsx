@@ -46,15 +46,15 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
         transition={{ duration: 0.4, delay: 0.2 }}
       >
           <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">编辑模式：</span>
-          <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800 rounded-lg p-1 border border-slate-200/60">
+          <div className="flex items-center gap-1 bg-blue-50/50 dark:bg-slate-800 rounded-lg p-1 border border-blue-100/50">
             <button
               onClick={() => onEditModeChange('click')}
               className={cn(
                 "px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300",
                 "flex items-center gap-2",
                 editMode === 'click'
-                  ? "bg-slate-200 text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100"
-                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100"
+                  : "text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
               )}
             >
               <List className="w-4 h-4" />
@@ -66,8 +66,8 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
                 "px-4 py-2 rounded-xl text-sm font-bold transition-all duration-300",
                 "flex items-center gap-2",
                 editMode === 'scroll'
-                  ? "bg-slate-200 text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100"
-                  : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100"
+                  : "text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
               )}
             >
               <LayoutGrid className="w-4 h-4" />
