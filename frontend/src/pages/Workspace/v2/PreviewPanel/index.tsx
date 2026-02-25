@@ -109,7 +109,7 @@ export function PreviewPanel({
                 onClick={onRender}
                 disabled={loading}
                 className={cn(
-                  'group relative px-6 py-2.5 rounded-2xl overflow-hidden',
+                  'group relative px-6 py-2.5 rounded-lg overflow-hidden',
                   'bg-blue-500 text-white text-sm font-bold tracking-tight',
                   'disabled:opacity-60 disabled:cursor-not-allowed',
                   'transition-all duration-300',
@@ -233,7 +233,7 @@ export function PreviewPanel({
             ) : (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center">
-                  <div className="w-20 h-20 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center">
+                  <div className="w-20 h-20 mx-auto mb-6 rounded-lg bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-700 dark:to-slate-800 flex items-center justify-center">
                     <FileText className="w-10 h-10 text-slate-400 dark:text-slate-500" />
                   </div>
                   <p className="text-lg font-medium text-slate-500 dark:text-slate-400 mb-2">暂无 PDF 预览</p>

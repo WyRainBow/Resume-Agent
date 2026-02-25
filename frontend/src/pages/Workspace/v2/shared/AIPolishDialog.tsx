@@ -129,7 +129,7 @@ export default function AIPolishDialog({
           'relative w-full max-w-5xl mx-4',
           'bg-white dark:bg-neutral-900',
           'border border-neutral-200 dark:border-neutral-800',
-          'rounded-2xl shadow-2xl',
+          'rounded-lg shadow-2xl',
           'overflow-hidden'
         )}
       >
@@ -170,7 +170,7 @@ export default function AIPolishDialog({
             </div>
             <div
               className={cn(
-                'relative rounded-xl border',
+                'relative rounded-lg border',
                 'bg-neutral-50 dark:bg-neutral-800/50',
                 'border-neutral-200 dark:border-neutral-800',
                 'p-6 h-[400px] overflow-auto shadow-sm'
@@ -212,7 +212,7 @@ export default function AIPolishDialog({
             <div
               ref={polishedContentRef}
               className={cn(
-                'relative rounded-xl border',
+                'relative rounded-lg border',
                 'bg-purple-50/50 dark:bg-purple-900/20',
                 'border-purple-200 dark:border-purple-800',
                 'p-6 h-[400px] overflow-auto shadow-sm scroll-smooth'
@@ -247,7 +247,7 @@ export default function AIPolishDialog({
             onClick={handlePolish}
             disabled={isPolishing}
             className={cn(
-              'flex-1 px-4 py-2.5 rounded-xl',
+              'flex-1 px-4 py-2.5 rounded-lg',
               'bg-gradient-to-r from-purple-500 to-pink-500',
               'hover:from-pink-500 hover:to-purple-500',
               'text-white font-medium',
@@ -274,7 +274,7 @@ export default function AIPolishDialog({
             onClick={handleApply}
             disabled={!polishedContent || isPolishing}
             className={cn(
-              'flex-1 px-4 py-2.5 rounded-xl',
+              'flex-1 px-4 py-2.5 rounded-lg',
               'bg-blue-500 hover:bg-blue-600',
               'text-white font-medium',
               'shadow-lg shadow-blue-500/20',

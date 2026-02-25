@@ -339,7 +339,7 @@ export default function AIWriteDialog({
       {/* 对话框 */}
       <div className={cn(
         'relative w-full max-w-2xl mx-4',
-        'bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl',
+        'bg-white dark:bg-neutral-900 rounded-lg shadow-2xl',
         'border border-gray-100 dark:border-neutral-800',
         'overflow-hidden'
       )}>
@@ -347,7 +347,7 @@ export default function AIWriteDialog({
         <div className="px-6 py-4 border-b border-gray-100 dark:border-neutral-800 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-neutral-800/50 dark:to-neutral-800/30">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
                 <Sparkles className="h-5 w-5 text-white" />
               </div>
               <div>
