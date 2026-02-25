@@ -34,11 +34,11 @@ export default function StreamingResponse({
   const { displayedText } = useTextStream({
     textStream: content || "",
     mode: "typewriter",
-    speed: 8,
+    speed: 2,
     streamMode: "burst-smoothed",
     burstThreshold: 0,
-    // 允许在掉帧时轻微追帧，减少“卡一下不动”的体感。
-    maxCharsPerFrame: 2,
+    // 强制单字步进，避免一次跳出多个字。
+    maxCharsPerFrame: 1,
     smoothingWindowMs: 110,
     onComplete: onTypewriterComplete,
   });
