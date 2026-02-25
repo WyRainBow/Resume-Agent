@@ -122,9 +122,10 @@ function DragHandle({
   return (
     <div
       className={cn(
-        "w-1 cursor-ew-resize group relative shrink-0",
-        "hover:bg-slate-900 dark:hover:bg-indigo-600",
-        "active:bg-slate-800 dark:active:bg-indigo-500",
+        "w-1 cursor-ew-resize group relative shrink-0 transition-colors",
+        "bg-slate-200 dark:bg-slate-800",
+        "hover:bg-slate-400 dark:hover:bg-slate-600",
+        "active:bg-slate-500 dark:active:bg-slate-500",
         className,
       )}
       style={{

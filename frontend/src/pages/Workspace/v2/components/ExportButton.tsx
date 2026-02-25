@@ -164,13 +164,12 @@ export function ExportButton({
         disabled={isExporting}
         className={cn(
           "px-6 py-2.5 rounded-2xl",
-          "bg-slate-900 hover:bg-slate-800 active:bg-slate-950",
-          "dark:bg-slate-100 dark:hover:bg-white dark:active:bg-slate-200",
-          "text-white dark:text-slate-900 text-sm font-bold transition-all duration-300",
+          "bg-blue-500 hover:bg-blue-600 active:bg-blue-700",
+          "text-white text-sm font-bold transition-all duration-300",
           "transition-all duration-300 ease-out",
           "flex items-center gap-2",
-          "shadow-lg shadow-slate-200 dark:shadow-none",
-          "border-2 border-slate-900 dark:border-slate-100",
+          "shadow-lg shadow-blue-100 dark:shadow-blue-900/20",
+          "border-2 border-blue-500",
           isExporting && "opacity-50 cursor-not-allowed",
           "hover:scale-[1.05] active:scale-[0.95]"
         )}
@@ -262,7 +261,7 @@ export function ExportButton({
                   "relative w-11 h-6 rounded-full transition-all duration-200 flex-shrink-0 mt-0.5",
                   "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
                   shareEnabled 
-                    ? "bg-slate-900 dark:bg-slate-100 shadow-inner" 
+                    ? "bg-blue-500 shadow-inner" 
                     : "bg-slate-300 dark:bg-slate-600",
                   isExporting && "opacity-50 cursor-not-allowed"
                 )}
