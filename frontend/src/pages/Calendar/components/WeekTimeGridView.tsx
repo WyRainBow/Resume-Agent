@@ -48,7 +48,7 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
             return (
               <div
                 key={day.toISOString()}
-                className={`border-l border-slate-200 px-3 py-2 ${isToday ? 'bg-slate-50' : ''}`}
+                className={`border-l border-slate-200 px-3 py-2 ${isToday ? 'bg-slate-100' : ''}`}
               >
                 <div className={`text-[10px] font-bold uppercase tracking-wider ${isToday ? 'text-slate-900' : 'text-slate-400'}`}>
                   {label.en}
@@ -58,7 +58,7 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
                     {Number(toDateInputValue(day).slice(-2))}
                   </span>
                   {isToday && (
-                    <span className="rounded bg-slate-900 px-1.5 py-0.5 text-[10px] font-bold text-white scale-90 origin-left">今天</span>
+                    <span className="rounded bg-slate-400 px-1.5 py-0.5 text-[10px] font-bold text-white scale-90 origin-left">今天</span>
                   )}
                 </div>
               </div>
@@ -84,7 +84,7 @@ export function WeekTimeGridView({ currentDate, events, mode, onPickSlot, onEven
               return (
               <div
                 key={`${day.toISOString()}-col`}
-                className={`relative border-l border-slate-200 ${isToday ? 'bg-slate-50/50' : ''}`}
+                className={`relative border-l border-slate-200 ${isToday ? 'bg-blue-50/30' : ''}`}
               >
                 {Array.from({ length: END_HOUR - START_HOUR + 1 }).map((_, i) => {
                   const hour = START_HOUR + i

@@ -56,7 +56,7 @@ export const Header: React.FC<HeaderProps> = ({
           <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 text-white shadow-lg shadow-slate-200"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white shadow-lg shadow-blue-100"
           >
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-sm font-bold">已选 {selectedCount}</span>
@@ -127,7 +127,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* 创建按钮 */}
         <Button
           onClick={onCreate}
-          className="rounded-xl h-11 px-6 font-black bg-slate-900 hover:bg-slate-800 text-white shadow-xl shadow-slate-200 transition-all duration-300 transform hover:scale-105 active:scale-95"
+          className="rounded-xl h-11 px-6 font-black bg-blue-500 hover:bg-blue-600 text-white shadow-xl shadow-blue-100 transition-all duration-300 transform hover:scale-105 active:scale-95"
         >
           <Plus className="mr-2 h-5 w-5 stroke-[3px]" />
           新建简历

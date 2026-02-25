@@ -31,11 +31,11 @@ export const CreateCard: React.FC<CreateCardProps> = ({ onClick }) => {
       >
         <CardContent className="flex-1 pt-6 text-center flex flex-col items-center justify-center h-full z-10">
           <motion.div
-            className="mb-6 p-6 rounded-full bg-white dark:bg-slate-800 shadow-xl shadow-slate-200 dark:shadow-none border border-slate-100 dark:border-slate-700"
+            className="mb-6 p-6 rounded-[24px] bg-white dark:bg-slate-800 shadow-xl shadow-blue-50 dark:shadow-none border border-slate-100 dark:border-slate-700"
             whileHover={{ scale: 1.15, rotate: 90 }}
             transition={{ type: "spring", stiffness: 300, damping: 15 }}
           >
-            <Plus className="h-10 w-10 text-slate-900 dark:text-blue-400" />
+            <Plus className="h-10 w-10 text-blue-500 dark:text-blue-400" />
           </motion.div>
           
           <CardTitle className="text-2xl font-black tracking-tight text-slate-800 dark:text-slate-100">

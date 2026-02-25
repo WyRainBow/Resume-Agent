@@ -1131,13 +1131,13 @@ export default function ApplicationProgressPage() {
 
   return (
     <WorkspaceLayout>
-      <div className="h-full flex flex-col bg-[#F6F8FC] dark:bg-slate-900">
+      <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950">
         {/* 工具栏 */}
         <div className="flex items-center gap-3 px-6 py-3 border-b border-slate-200 dark:border-slate-700 bg-white/95 dark:bg-slate-800/80 backdrop-blur-md shrink-0 shadow-sm z-10">
           <button
             type="button"
             onClick={handleInsertRow}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 text-sm font-semibold transition-all active:scale-95 shadow-sm"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 hover:bg-slate-50 text-sm font-semibold transition-all active:scale-95 shadow-sm"
           >
             <Plus className="w-4 h-4" />
             插入新行
@@ -1146,7 +1146,7 @@ export default function ApplicationProgressPage() {
           <button
             type="button"
             onClick={() => setAiImportOpen(true)}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 text-sm font-semibold transition-all active:scale-95 shadow-sm ml-2"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-900 hover:bg-slate-50 text-sm font-semibold transition-all active:scale-95 shadow-sm ml-2"
           >
             <Sparkles className="w-4 h-4" />
             AI 智能导入
@@ -1179,7 +1179,7 @@ export default function ApplicationProgressPage() {
           <button
             type="button"
             onClick={handleExportCsv}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 text-sm font-semibold transition-all active:scale-95 shadow-sm"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold transition-all active:scale-95 shadow-lg shadow-blue-100"
           >
             <Download className="w-4 h-4" />
             导出表格

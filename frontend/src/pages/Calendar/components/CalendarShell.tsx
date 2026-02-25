@@ -33,12 +33,12 @@ export function CalendarShell({
   const viewBtn = (target: CalendarView) =>
     `min-w-[80px] rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
       view === target
-        ? "bg-slate-900 text-white shadow-sm"
+        ? "bg-blue-500 text-white shadow-sm"
         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
     }`;
 
   return (
-    <div className="flex h-full flex-col bg-[#FAFAFA]">
+    <div className="flex h-full flex-col bg-slate-50 dark:bg-slate-950">
       <header className="border-b border-slate-200/60 bg-white/80 backdrop-blur-md shadow-sm z-10">
         <div className="flex items-center justify-between px-6 h-16">
           <div className="flex items-center gap-6">
@@ -60,7 +60,7 @@ export function CalendarShell({
             <button
               type="button"
               onClick={onOpenCreate}
-              className="rounded-xl bg-slate-900 px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-slate-200 hover:bg-slate-800 transition-all active:scale-95"
+              className="rounded-xl bg-blue-500 px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-blue-100 hover:bg-blue-600 transition-all active:scale-95"
             >
               创建日程
             </button>
@@ -134,7 +134,7 @@ export function CalendarShell({
               </button>
             </div>
           </div>
-          <div className="flex-1 overflow-auto bg-[#FAFAFA] p-6">
+          <div className="flex-1 overflow-auto bg-slate-50 dark:bg-slate-950 p-6">
             <div className="h-full rounded-2xl border border-slate-200/60 shadow-[0_4px_20px_rgba(0,0,0,0.03)] bg-white">
               {content}
             </div>

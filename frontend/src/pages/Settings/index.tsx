@@ -134,7 +134,7 @@ export default function SettingsPage() {
 
   return (
     <WorkspaceLayout>
-      <div className="h-full overflow-y-auto bg-[#F8F9FA] dark:bg-slate-950">
+      <div className="h-full overflow-y-auto bg-slate-50 dark:bg-slate-950">
         <div className="max-w-3xl mx-auto p-6 sm:p-8 space-y-6">
           <div className="space-y-1">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">设置</h1>

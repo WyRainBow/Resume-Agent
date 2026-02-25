@@ -924,7 +924,7 @@ export default function ResumeCreator() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] flex flex-col font-sans">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       {/* 顶部导航栏 */}
       <div className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-6 sticky top-0 z-50">
         <div className="flex items-center gap-2.5">

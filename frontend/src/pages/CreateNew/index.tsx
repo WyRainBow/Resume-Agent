@@ -46,7 +46,7 @@ export default function CreateNew() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] text-[#1E293B] font-sans overflow-hidden">
+    <div className="min-h-screen bg-slate-50 text-[#1E293B] font-sans overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-blue-400/5 rounded-full blur-[100px] -z-10" />
         <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-indigo-400/5 rounded-full blur-[80px] -z-10" />

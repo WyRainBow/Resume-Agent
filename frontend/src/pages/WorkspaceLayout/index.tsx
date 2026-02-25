@@ -338,7 +338,7 @@ export default function WorkspaceLayout({
   };
 
   return (
-    <div className="h-screen flex overflow-hidden bg-[#FAFAFA] dark:bg-slate-950 font-sans selection:bg-slate-200 selection:text-slate-900">
+    <div className="h-screen flex overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans selection:bg-slate-200 selection:text-slate-900">
       {/* 左侧固定边栏 */}
       <aside
         className={cn(

@@ -43,7 +43,7 @@ export function KpiCard({
     >
       <div className="absolute -top-24 -right-14 h-36 w-36 rounded-full bg-slate-50 blur-2xl" />
       <motion.div
-        className="absolute inset-x-0 top-0 h-1 bg-slate-900"
+        className="absolute inset-x-0 top-0 h-1 bg-slate-400"
         initial={{ scaleX: 0, transformOrigin: 'left center' }}
         animate={{ scaleX: 1 }}
         transition={{ duration: 0.45, delay: 0.1 + index * 0.07 }}
@@ -55,7 +55,7 @@ export function KpiCard({
           <p className="mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{hint}</p>
         </div>
         <motion.div
-          className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-lg shadow-slate-200"
+          className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-400 text-white shadow-lg shadow-slate-100"
           initial={{ rotate: -8, opacity: 0.7 }}
           animate={{ rotate: 0, opacity: 1 }}
           transition={{ duration: 0.35, delay: 0.14 + index * 0.06 }}

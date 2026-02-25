@@ -78,7 +78,7 @@ export function MiniMonthPanel({
               onClick={() => onPickDate(day)}
               className={`mx-auto flex h-10 w-10 flex-col items-center justify-center rounded-full text-base transition ${
                 isSelected
-                  ? "bg-slate-900 text-white"
+                  ? "bg-blue-500 text-white"
                   : isToday
                     ? "bg-slate-100 text-slate-900"
                     : isCurrentMonth

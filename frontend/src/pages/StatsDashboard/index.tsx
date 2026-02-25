@@ -168,7 +168,7 @@ export default function StatsDashboardPage() {
 
   return (
     <WorkspaceLayout>
-      <div className="relative h-full overflow-y-auto bg-[#FAFAFA]">
+      <div className="relative h-full overflow-y-auto bg-slate-50 dark:bg-slate-950">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
