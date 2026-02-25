@@ -17,6 +17,18 @@ import type { DefaultPayloads } from '@/cltp/types/channels';
 const IS_DEV = import.meta.env.DEV;
 const THINKING_PLACEHOLDER = '正在思考...';
 
+function mergeThoughtText(prev: string, next: string): string {
+    const a = (prev || '').trim();
+    const b = (next || '').trim();
+    if (!b) return a;
+    if (!a || a === THINKING_PLACEHOLDER) return b;
+    if (a === b) return a;
+    // 流式覆盖（新值是旧值扩展）或回退（旧值更长）都以最新快照为准
+    if (b.startsWith(a) || a.startsWith(b)) return b;
+    // 不同阶段 thought（如“识别请求” -> “调用工具完成”）做串联保留
+    return `${a}\n${b}`;
+}
+
 /**
  * useCLTP Hook 的返回值
  */
@@ -267,8 +279,9 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
 
             if (message.metadata.channel === 'think') {
                 hasRealThoughtRef.current = true;
-                pendingThoughtRef.current = text;
-                currentThoughtRef.current = text;
+                const mergedThought = mergeThoughtText(pendingThoughtRef.current, text);
+                pendingThoughtRef.current = mergedThought;
+                currentThoughtRef.current = mergedThought;
                 recordChunkMetric('think');
                 scheduleFlush();
             } else if (message.metadata.channel === 'plain') {
@@ -290,8 +303,9 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
 
             if (message.metadata.channel === 'think') {
                 hasRealThoughtRef.current = true;
-                pendingThoughtRef.current = text;
-                currentThoughtRef.current = text;
+                const mergedThought = mergeThoughtText(pendingThoughtRef.current, text);
+                pendingThoughtRef.current = mergedThought;
+                currentThoughtRef.current = mergedThought;
                 recordChunkMetric('think');
                 flushNow();
             } else if (message.metadata.channel === 'plain') {
