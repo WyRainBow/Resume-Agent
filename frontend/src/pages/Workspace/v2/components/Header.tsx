@@ -128,7 +128,7 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
           {saveSuccess ? '已保存' : '保存'}
         </button>
         
-        {/* 导出按钮（PDF/JSON/分享链接） */}
+        {/* 导出按钮（PDF/JSON） */}
         {resumeData && (
           <ExportButton
             resumeData={resumeData}

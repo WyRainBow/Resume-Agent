@@ -1,12 +1,11 @@
 /**
  * 导出按钮组件
- * 支持 PDF、JSON 导出和分享链接生成
+ * 支持 PDF、JSON 导出
  * 优化后的现代化样式
  */
 import { useState, useRef, useEffect } from 'react'
-import { Download, FileJson, Share2, ChevronDown, Copy, Check, FileText } from 'lucide-react'
+import { Download, FileJson, ChevronDown, FileText } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
-import { getApiBaseUrl } from '@/lib/runtimeEnv'
 
 interface ExportButtonProps {
   resumeData: Record<string, any>
@@ -24,10 +23,6 @@ export function ExportButton({
   onDownloadPDF,
 }: ExportButtonProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [isExporting, setIsExporting] = useState(false)
-  const [shareEnabled, setShareEnabled] = useState(false)
-  const [shareUrl, setShareUrl] = useState('')
-  const [copied, setCopied] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
   // 导出 PDF - 仅用于 LaTeX 模板
@@ -71,77 +66,6 @@ export function ExportButton({
     setIsOpen(false)
   }
 
-  // 切换分享开关
-  const handleToggleShare = async () => {
-    if (!shareEnabled) {
-      // 开启分享，生成链接
-      try {
-        setIsExporting(true)
-        const apiBase = getApiBaseUrl()
-        const url = apiBase ? `${apiBase}/api/resume/share` : `/api/resume/share`
-
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            resume_data: resumeData,
-            resume_name: resumeName,
-            expire_days: 30,
-          }),
-        })
-
-        if (!response.ok) {
-          throw new Error('生成分享链接失败')
-        }
-
-        const { share_url } = await response.json()
-        setShareUrl(share_url)
-        setShareEnabled(true)
-      } catch (error) {
-        console.error('生成分享链接失败:', error)
-        alert('生成分享链接失败，请重试')
-      } finally {
-        setIsExporting(false)
-      }
-    } else {
-      // 关闭分享
-      setShareEnabled(false)
-      setShareUrl('')
-    }
-  }
-
-  // 复制分享链接（支持 HTTP 环境）
-  const handleCopyLink = async () => {
-    if (shareUrl) {
-      try {
-        // 优先使用 Clipboard API
-        if (navigator.clipboard && window.isSecureContext) {
-          await navigator.clipboard.writeText(shareUrl)
-        } else {
-          // 备用方案：使用临时文本框
-          const textArea = document.createElement('textarea')
-          textArea.value = shareUrl
-          textArea.style.position = 'fixed'
-          textArea.style.left = '-9999px'
-          textArea.style.top = '-9999px'
-          document.body.appendChild(textArea)
-          textArea.focus()
-          textArea.select()
-          document.execCommand('copy')
-          document.body.removeChild(textArea)
-        }
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2000)
-      } catch (error) {
-        console.error('复制失败:', error)
-        // 显示链接让用户手动复制
-        prompt('请手动复制分享链接:', shareUrl)
-      }
-    }
-  }
-
   // 点击外部关闭菜单
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -161,7 +85,6 @@ export function ExportButton({
       {/* 导出按钮 - 优化后的样式 */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        disabled={isExporting}
         className={cn(
           "px-6 py-2.5 rounded-2xl",
           "bg-blue-500 hover:bg-blue-600 active:bg-blue-700",
@@ -170,7 +93,6 @@ export function ExportButton({
           "flex items-center gap-2",
           "shadow-lg shadow-blue-100 dark:shadow-blue-900/20",
           "border-2 border-blue-500",
-          isExporting && "opacity-50 cursor-not-allowed",
           "hover:scale-[1.05] active:scale-[0.95]"
         )}
       >
@@ -191,7 +113,6 @@ export function ExportButton({
           {resumeData?.templateType !== 'html' && (
             <button
               onClick={handleExportPDF}
-              disabled={isExporting}
               className={cn(
                 "w-full px-5 py-4 text-left",
                 "hover:bg-slate-50 dark:hover:bg-slate-700/50",
@@ -199,7 +120,6 @@ export function ExportButton({
                 "flex items-center gap-4",
                 "border-b border-slate-100 dark:border-slate-700/50",
                 "group",
-                isExporting && "opacity-50 cursor-not-allowed",
                 !pdfBlob && "opacity-60"
               )}
             >
@@ -224,15 +144,13 @@ export function ExportButton({
           {/* JSON 导出卡片 */}
           <button
             onClick={handleExportJSONClick}
-            disabled={isExporting}
             className={cn(
               "w-full px-5 py-4 text-left",
               "hover:bg-slate-50 dark:hover:bg-slate-700/50",
               "transition-all duration-150",
               "flex items-center gap-4",
               "border-b border-slate-100 dark:border-slate-700/50",
-              "group",
-              isExporting && "opacity-50 cursor-not-allowed"
+              "group"
             )}
           >
             {/* JSON 图标 */}
@@ -249,84 +167,6 @@ export function ExportButton({
               </div>
             </div>
           </button>
-
-          {/* 分享链接卡片 */}
-          <div className="px-5 py-4 bg-slate-50/50 dark:bg-slate-800/50">
-            <div className="flex items-start gap-4 mb-4">
-              {/* 开关 */}
-              <button
-                onClick={handleToggleShare}
-                disabled={isExporting}
-                className={cn(
-                  "relative w-11 h-6 rounded-full transition-all duration-200 flex-shrink-0 mt-0.5",
-                  "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
-                  shareEnabled 
-                    ? "bg-blue-500 shadow-inner" 
-                    : "bg-slate-300 dark:bg-slate-600",
-                  isExporting && "opacity-50 cursor-not-allowed"
-                )}
-              >
-                <span
-                  className={cn(
-                    "absolute top-0.5 left-0.5 w-5 h-5 bg-white dark:bg-slate-900 rounded-full",
-                    "transition-all duration-200 ease-out",
-                    "shadow-sm",
-                    shareEnabled ? "translate-x-5" : "translate-x-0"
-                  )}
-                />
-              </button>
-              {/* 内容 */}
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-slate-900 dark:text-slate-100 text-base mb-1">
-                  通过链接分享
-                </div>
-                <div className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                  任何人都可以通过此链接查看简历。
-                </div>
-              </div>
-            </div>
-
-            {/* 链接输入框（仅在分享开启时显示） */}
-            {shareEnabled && shareUrl && (
-              <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-200">
-                <div className="text-xs font-medium text-slate-500 dark:text-slate-400">链接</div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={shareUrl}
-                    readOnly
-                    className={cn(
-                      "flex-1 px-3 py-2 text-sm",
-                      "bg-white dark:bg-slate-700",
-                      "border border-slate-200 dark:border-slate-600",
-                      "rounded-lg text-slate-900 dark:text-slate-100",
-                      "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
-                      "transition-all"
-                    )}
-                  />
-                  <button
-                    onClick={handleCopyLink}
-                    className={cn(
-                      "px-3 py-2 rounded-lg",
-                      "bg-white dark:bg-slate-700",
-                      "border border-slate-200 dark:border-slate-600",
-                      "hover:bg-slate-50 dark:hover:bg-slate-600",
-                      "transition-colors",
-                      "flex items-center justify-center",
-                      copied && "bg-green-50 dark:bg-green-900/20 border-green-300 dark:border-green-700"
-                    )}
-                    title="复制链接"
-                  >
-                    {copied ? (
-                      <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
-                    ) : (
-                      <Copy className="w-4 h-4 text-slate-600 dark:text-slate-400" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       )}
     </div>
