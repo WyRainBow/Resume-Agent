@@ -671,6 +671,7 @@ function SophiaChatContent() {
 
   // 简历选择器状态
   const [showResumeSelector, setShowResumeSelector] = useState(false);
+  const currentRunUserInputRef = useRef("");
   const [pendingResumeInput, setPendingResumeInput] = useState<string>(""); // 暂存用户输入，选择简历后继续处理
 
   const [isUploadingFile, setIsUploadingFile] = useState(false);
@@ -1010,6 +1011,16 @@ function SophiaChatContent() {
     },
     onError: (message) => setResumeError(message),
     onShowResumeSelector: () => {
+      // 只在“加载简历”相关意图时展示选择器，避免编辑流程被 show_resume 误触发打断。
+      const text = currentRunUserInputRef.current.trim();
+      const isLoadResumeIntent =
+        /(?:加载|打开|查看|显示|选择).*(?:简历|resume|cv)|(?:简历|resume|cv).*(?:加载|打开|选择)/i.test(
+          text,
+        );
+      if (!isLoadResumeIntent) {
+        console.warn("[AgentChat] Ignore show_resume selector for non-load intent:", text);
+        return;
+      }
       setResumeError(null);
       setShowResumeSelector(true);
     },
@@ -2692,6 +2703,7 @@ function SophiaChatContent() {
         return;
 
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      currentRunUserInputRef.current = userMessage.trim();
 
       // 处理附件元数据
       const attachmentMeta = attachments?.map((file) => ({
