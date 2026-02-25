@@ -51,7 +51,7 @@ export function DonutChart({ data, title = '进展状态分布' }: { data: Progr
     <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_14px_30px_rgba(15,23,42,0.08)]">
       <h3 className="mb-4 text-2xl font-bold tracking-tight text-slate-900">{title}</h3>
       {data.length === 0 ? (
-        <div className="flex h-[330px] items-center justify-center rounded-xl bg-slate-50 text-lg text-slate-500">暂无分布数据</div>
+        <div className="flex h-[330px] items-center justify-center rounded-xl bg-blue-50/30 text-lg text-slate-900 font-bold uppercase tracking-widest">暂无分布数据</div>
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-[300px_1fr] md:items-center">
           <motion.svg
@@ -61,8 +61,8 @@ export function DonutChart({ data, title = '进展状态分布' }: { data: Progr
             animate={{ opacity: 1, rotate: 0, scale: 1 }}
             transition={{ duration: 0.45 }}
           >
-            <circle cx={cx} cy={cy} r={radius} stroke="#E2E8F0" strokeWidth={stroke} fill="none" />
-            <circle cx={cx} cy={cy} r={radius - stroke / 2 - 8} fill="#F8FAFF" />
+            <circle cx={cx} cy={cy} r={radius} stroke="#E0E7FF" strokeWidth={stroke} fill="none" />
+            <circle cx={cx} cy={cy} r={radius - stroke / 2 - 8} fill="#F5F7FF" />
             {arcs.map((arc, idx) => (
               <motion.path
                 key={arc.label}
@@ -79,7 +79,7 @@ export function DonutChart({ data, title = '进展状态分布' }: { data: Progr
             <text x={cx} y={cy - 6} textAnchor="middle" className="fill-slate-900 text-[32px] font-black">
               {displayTotal}
             </text>
-            <text x={cx} y={cy + 20} textAnchor="middle" className="fill-slate-500 text-[14px] font-semibold">
+            <text x={cx} y={cy + 20} textAnchor="middle" className="fill-slate-500 text-[14px] font-semibold uppercase tracking-widest">
               {data.some((d) => d.label === '面试') ? '合计' : '总投递'}
             </text>
           </motion.svg>
@@ -87,7 +87,7 @@ export function DonutChart({ data, title = '进展状态分布' }: { data: Progr
             {data.map((item, idx) => (
               <motion.div
                 key={item.label}
-                className="flex items-center rounded-xl border border-slate-200 px-3.5 py-2.5"
+                className="flex items-center rounded-xl border border-blue-100/60 bg-blue-50/20 px-3.5 py-2.5"
                 initial={{ opacity: 0, x: 14 }}
                 animate={{ opacity: 1, x: 0 }}
                 whileHover={{ x: 2 }}

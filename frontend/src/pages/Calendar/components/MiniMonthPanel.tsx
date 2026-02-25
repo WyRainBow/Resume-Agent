@@ -80,7 +80,7 @@ export function MiniMonthPanel({
                 isSelected
                   ? "bg-blue-500 text-white"
                   : isToday
-                    ? "bg-slate-100 text-slate-900"
+                    ? "bg-blue-50 text-blue-600"
                     : isCurrentMonth
                       ? "text-slate-700 hover:bg-slate-100"
                       : "text-slate-300 hover:bg-slate-50"
