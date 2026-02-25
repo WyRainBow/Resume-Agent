@@ -251,7 +251,7 @@ function SettingCard({
   return (
     <div
       className={cn(
-        'rounded-xl overflow-hidden',
+        'rounded-lg overflow-hidden',
         'bg-white dark:bg-slate-800/80',
         'border border-slate-200/60 dark:border-slate-700/80',
         'shadow-sm'

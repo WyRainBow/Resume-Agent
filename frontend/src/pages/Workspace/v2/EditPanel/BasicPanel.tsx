@@ -152,7 +152,7 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
             transition={{ duration: 0.25, delay: 7 * 0.04, ease: 'easeOut' }}
             className="w-full xl:w-[180px] shrink-0"
           >
-            <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
+            <div className="rounded-lg border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm font-semibold text-slate-800">
                   照片设置
@@ -181,7 +181,7 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
                 onClick={handleSelectPhoto}
                 disabled={uploading}
                 className={cn(
-                  'w-full h-48 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all',
+                  'w-full h-48 rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all',
                   isAuthenticated
                     ? 'border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50/60'
                     : 'border-slate-200 text-slate-300',
@@ -193,7 +193,7 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
                   <img
                     src={basic.photo}
                     alt="照片"
-                    className="w-full h-full object-contain rounded-xl bg-white"
+                    className="w-full h-full object-contain rounded-lg bg-white"
                   />
                 ) : (
                   <>

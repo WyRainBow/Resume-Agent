@@ -343,7 +343,7 @@ export default function LaTeXWorkspace() {
       {/* 未保存提醒对话框 */}
       {showUnsavedDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 max-w-sm">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-2xl p-6 max-w-sm">
             <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">
               未保存的更改
             </h3>

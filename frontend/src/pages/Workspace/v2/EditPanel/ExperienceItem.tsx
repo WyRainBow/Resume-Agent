@@ -150,7 +150,7 @@ function LogoSelector({
           type="button"
           onClick={() => setOpen(!open)}
           className={cn(
-            'inline-flex h-9 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition-all duration-200',
+            'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-all duration-200',
             selectedKey
               ? 'border-indigo-300/90 bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100 dark:border-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300'
               : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700 hover:shadow-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:border-indigo-700 dark:hover:text-indigo-300'
@@ -186,7 +186,7 @@ function LogoSelector({
             exit={{ opacity: 0, y: -4, scale: 0.95 }}
             transition={{ duration: 0.15 }}
             className={cn(
-              'absolute left-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border shadow-xl',
+              'absolute left-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-lg border shadow-xl',
               'bg-white/95 backdrop-blur border-slate-200 dark:bg-neutral-900 dark:border-neutral-700'
             )}
           >
@@ -198,7 +198,7 @@ function LogoSelector({
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="搜索公司..."
                 autoFocus
-                className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/35 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+                className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/35 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
               />
             </div>
 
@@ -222,7 +222,7 @@ function LogoSelector({
                           setSearch('')
                         }}
                         className={cn(
-                          'flex flex-col items-center gap-1.5 rounded-xl p-2.5 text-center transition-all duration-150',
+                          'flex flex-col items-center gap-1.5 rounded-lg p-2.5 text-center transition-all duration-150',
                           isSelected
                             ? 'bg-indigo-50 ring-1 ring-indigo-300 dark:bg-indigo-900/30 dark:ring-indigo-700'
                             : 'hover:bg-slate-50 dark:hover:bg-neutral-800'
@@ -249,7 +249,7 @@ function LogoSelector({
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploading}
                         className={cn(
-                          'flex flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed p-2.5 text-center transition-all',
+                          'flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed p-2.5 text-center transition-all',
                           uploading
                             ? 'cursor-wait border-slate-200 opacity-50 dark:border-neutral-700'
                             : 'cursor-pointer border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/60 dark:border-neutral-700 dark:hover:bg-indigo-900/10'
@@ -355,7 +355,7 @@ const ExperienceEditor = ({
           className="grid grid-cols-2 gap-4"
         >
           <div>
-            <div className="mb-2 rounded-2xl border border-slate-200/80 bg-slate-50/80 p-2.5 dark:border-neutral-700 dark:bg-neutral-900/50">
+            <div className="mb-2 rounded-lg border border-slate-200/80 bg-slate-50/80 p-2.5 dark:border-neutral-700 dark:bg-neutral-900/50">
               <div className="flex min-w-0 items-center gap-2">
                   <label className="shrink-0 text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">公司名称</label>
                 <LogoSelector
@@ -365,7 +365,7 @@ const ExperienceEditor = ({
                   canUploadLogo={canUploadLogo}
                 />
                 {effectiveLogoKey && (
-                  <div className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800">
+                  <div className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800">
                     <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">大小</span>
                     <input
                       type="range"
@@ -405,7 +405,7 @@ const ExperienceEditor = ({
             </div>
             {/* 自动匹配提示 */}
             {autoMatchedKey && (
-              <div className="mb-1.5 flex items-center gap-2 rounded-xl border border-sky-200/80 bg-gradient-to-r from-sky-50/80 to-cyan-50/80 px-2.5 py-1.5 shadow-sm shadow-sky-100/60 dark:border-sky-800/60 dark:from-sky-900/20 dark:to-cyan-900/10 dark:shadow-none">
+              <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50/80 to-cyan-50/80 px-2.5 py-1.5 shadow-sm shadow-sky-100/60 dark:border-sky-800/60 dark:from-sky-900/20 dark:to-cyan-900/10 dark:shadow-none">
                 <div className="flex h-6 w-6 items-center justify-center rounded-md border border-white/80 bg-white/90 dark:border-sky-800/60 dark:bg-neutral-900">
                   <img src={getLogoUrl(autoMatchedKey)!} alt="" className="h-4 w-4 object-contain" />
                 </div>

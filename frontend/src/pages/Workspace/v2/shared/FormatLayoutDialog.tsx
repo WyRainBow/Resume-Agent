@@ -297,7 +297,7 @@ export default function FormatLayoutDialog({
           'relative w-full max-w-5xl mx-4',
           'bg-white dark:bg-neutral-900',
           'border border-neutral-200 dark:border-neutral-800',
-          'rounded-2xl shadow-2xl',
+          'rounded-lg shadow-2xl',
           'overflow-hidden'
         )}
       >
@@ -476,7 +476,7 @@ export default function FormatLayoutDialog({
             </div>
             <div
               className={cn(
-                'relative rounded-xl border',
+                'relative rounded-lg border',
                 'bg-neutral-50 dark:bg-neutral-800/50',
                 'border-neutral-200 dark:border-neutral-800',
                 'p-6 h-[400px] overflow-auto shadow-sm'
@@ -518,7 +518,7 @@ export default function FormatLayoutDialog({
             <div
               ref={formattedContentRef}
               className={cn(
-                'relative rounded-xl border',
+                'relative rounded-lg border',
                 'bg-blue-50/50 dark:bg-blue-900/20',
                 'border-blue-200 dark:border-blue-800',
                 'p-6 h-[400px] overflow-auto shadow-sm scroll-smooth'
@@ -537,7 +537,7 @@ export default function FormatLayoutDialog({
                 <>
                   {/* AI 处理时的覆盖层 */}
                   {isAIProcessing && formattedContent && !aiFormattedContent && (
-                    <div className="absolute inset-0 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-xl">
+                    <div className="absolute inset-0 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm flex items-center justify-center z-10 rounded-lg">
                       <div className="flex flex-col items-center gap-3">
                         <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
                         <p className="text-sm text-neutral-600 dark:text-neutral-400">
@@ -569,7 +569,7 @@ export default function FormatLayoutDialog({
             onClick={handleFormat}
             disabled={isFormatting}
             className={cn(
-              'flex-1 px-4 py-2.5 rounded-xl',
+              'flex-1 px-4 py-2.5 rounded-lg',
               'bg-gradient-to-r from-blue-500 to-indigo-500',
               'hover:from-indigo-500 hover:to-blue-500',
               'text-white font-medium',
@@ -596,7 +596,7 @@ export default function FormatLayoutDialog({
             onClick={handleApply}
             disabled={!displayContent || isFormatting}
             className={cn(
-              'flex-1 px-4 py-2.5 rounded-xl',
+              'flex-1 px-4 py-2.5 rounded-lg',
               'bg-green-500 hover:bg-green-600',
               'text-white font-medium',
               'shadow-lg shadow-green-500/20',

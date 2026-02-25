@@ -1,11 +1,10 @@
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Button } from "./ui/button";
 import UserMenu from "@/components/UserMenu";
-import { Plus, Upload, Trash2, FileText } from "./Icons";
-
-import { AIImportButton } from "@/components/common/AIImportButton";
+import { Plus, Upload, Trash2, FileText, Sparkles } from "./Icons";
+import { cn } from "@/lib/utils";
 
 interface HeaderProps {
   onImport: () => void;
@@ -45,6 +44,25 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const navigate = useNavigate();
   const allSelected = totalCount > 0 && selectedCount === totalCount;
+
+  const [importMenuOpen, setImportMenuOpen] = useState(false);
+  const importMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        importMenuRef.current &&
+        !importMenuRef.current.contains(event.target as Node)
+      ) {
+        setImportMenuOpen(false);
+      }
+    };
+    if (importMenuOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [importMenuOpen]);
 
   return (
     <motion.div
@@ -114,9 +132,51 @@ export const Header: React.FC<HeaderProps> = ({
 
         <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block" />
 
-        {/* AI 智能导入按钮 */}
-        {onAIImport && (
-          <AIImportButton onClick={onAIImport} />
+        {/* 统一导入下拉：AI 智能上传 / JSON 导入 */}
+        {(onAIImport || onImport) && (
+          <div className="relative" ref={importMenuRef}>
+            <button
+              onClick={() => setImportMenuOpen((v) => !v)}
+              className={cn(
+                "px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 h-11",
+                "bg-white border border-slate-200 dark:border-slate-800",
+                "text-slate-700 dark:text-slate-300 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-slate-700",
+                "active:scale-95 shadow-sm"
+              )}
+            >
+              <Upload className="w-4 h-4 text-blue-500" />
+              导入
+            </button>
+
+            {importMenuOpen && (
+              <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden z-50">
+                {onAIImport && (
+                  <button
+                    onClick={() => {
+                      setImportMenuOpen(false);
+                      onAIImport();
+                    }}
+                    className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center gap-2"
+                  >
+                    <Sparkles className="w-4 h-4 text-slate-900 dark:text-slate-100" />
+                    AI 智能上传
+                  </button>
+                )}
+                {onImport && (
+                  <button
+                    onClick={() => {
+                      setImportMenuOpen(false);
+                      onImport();
+                    }}
+                    className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center gap-2 border-t border-slate-100 dark:border-slate-700/50"
+                  >
+                    <Upload className="w-4 h-4 text-blue-500" />
+                    JSON 导入
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         )}
 
         {/* 创建按钮 */}
