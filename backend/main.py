@@ -35,12 +35,15 @@ except Exception:
     pass
 
 from backend.core.logger import bridge_std_logging_to_loguru, get_logger, setup_logging
-from backend.agent.config import config
+
+LOG_MODE = os.getenv("LOG_MODE", "console")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
+LOG_DIR = os.getenv("LOG_DIR", "logs/backend")
 
 setup_logging(
-    is_production=(config.log_mode == "production"),
-    log_level=config.log_level,
-    log_dir=config.log_dir,
+    is_production=(LOG_MODE == "production"),
+    log_level=LOG_LEVEL,
+    log_dir=LOG_DIR,
 )
 logger = get_logger(__name__)
 
@@ -200,16 +203,7 @@ if AGENT_BACKEND_BASE_URL:
             await upstream.aclose()
             await client.aclose()
 else:
-    try:
-        from backend.agent.web.routes import api_router as openmanus_router
-        app.include_router(openmanus_router, prefix="/api/agent")
-        logger.info("[合并] OpenManus 路由已加载，前缀: /api/agent")
-    except Exception as exc:
-        # 如果是缺少可选依赖（如 browser-use），只记录警告，不影响其他功能
-        if "browser_use" in str(exc) or "browser-use" in str(exc):
-            logger.warning(f"[合并] OpenManus 路由未加载（缺少可选依赖）: {exc}")
-        else:
-            logger.warning(f"[合并] OpenManus 路由未加载: {exc}")
+    logger.info("[合并] AGENT_BACKEND_BASE_URL 未配置，/api/agent/** 不挂载本地回退路由")
 
 
 # 启动时预热 HTTP 连接并配置日志
@@ -217,20 +211,19 @@ else:
 async def startup_event():
     """应用启动时预热连接"""
     from pathlib import Path
-    from backend.agent.config import config as agent_config
     ROOT = Path(__file__).resolve().parents[1]
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
     
     setup_logging(
-        is_production=(agent_config.log_mode == "production"),
-        log_level=agent_config.log_level,
-        log_dir=agent_config.log_dir,
+        is_production=(LOG_MODE == "production"),
+        log_level=LOG_LEVEL,
+        log_dir=LOG_DIR,
     )
-    bridge_std_logging_to_loguru(level=agent_config.log_level)
+    bridge_std_logging_to_loguru(level=LOG_LEVEL)
 
     logger.info("========== 后端服务启动 ==========")
-    logger.info(f"日志目录: {agent_config.log_dir}")
+    logger.info(f"日志目录: {LOG_DIR}")
     
     try:
         simple = import_module_candidates(["backend.simple", "simple"])
@@ -296,18 +289,10 @@ async def startup_event():
     # 预加载 tiktoken 编码文件，避免首次请求时下载阻塞（使用配置管理器）
     try:
         import tiktoken
-        from backend.agent.config import NetworkConfig, config
 
-        network_config = config.network if hasattr(config, 'network') and config.network else NetworkConfig()
-        if network_config.disable_proxy_for_tiktoken:
-            logger.info("[启动优化] 预加载 tiktoken 编码文件（禁用代理）...")
-            with network_config.without_proxy():
-                tiktoken.get_encoding("cl100k_base")
-            logger.info("[启动优化] tiktoken 编码文件预加载完成")
-        else:
-            logger.info("[启动优化] 预加载 tiktoken 编码文件...")
-            tiktoken.get_encoding("cl100k_base")
-            logger.info("[启动优化] tiktoken 编码文件预加载完成")
+        logger.info("[启动优化] 预加载 tiktoken 编码文件...")
+        tiktoken.get_encoding("cl100k_base")
+        logger.info("[启动优化] tiktoken 编码文件预加载完成")
     except Exception as e:
         logger.warning(f"[启动优化] tiktoken 预加载失败: {e}（将在首次使用时加载）")
 

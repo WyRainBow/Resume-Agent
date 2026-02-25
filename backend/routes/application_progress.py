@@ -25,10 +25,7 @@ try:
 except Exception:
     from prompts import build_application_progress_parse_prompt
 
-try:
-    from backend.agent.services.intent.intent_classifier import IntentClassifier
-except Exception:
-    IntentClassifier = None
+IntentClassifier = None
 
 try:
     from zhipuai import ZhipuAI

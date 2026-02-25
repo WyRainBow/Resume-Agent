@@ -23,7 +23,7 @@ from typing import Dict, Any, Optional
 from openai import OpenAI
 
 try:
-    from backend.agent.prompt.pdf_parser import (
+    from backend.prompts_pdf_parser import (
         SYSTEM_PROMPT,
         OUTPUT_SCHEMA,
         DATA_FUSION_RULES,
@@ -35,7 +35,7 @@ try:
         ASSEMBLER_PROMPT,
     )
 except ImportError:
-    from agent.prompt.pdf_parser import (
+    from prompts_pdf_parser import (
         SYSTEM_PROMPT,
         OUTPUT_SCHEMA,
         DATA_FUSION_RULES,

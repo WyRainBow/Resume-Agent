@@ -25,10 +25,7 @@ try:
 except Exception:
     from prompts import build_calendar_event_parse_prompt
 
-try:
-    from backend.agent.services.intent.intent_classifier import IntentClassifier
-except Exception:
-    IntentClassifier = None
+IntentClassifier = None
 
 router = APIRouter(prefix="/api/calendar/events", tags=["Calendar"])
 T = TypeVar("T")
