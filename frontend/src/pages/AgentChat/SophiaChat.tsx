@@ -456,6 +456,22 @@ function stripResumeEditMarkdown(content: string): string {
   return withoutBoth.replace(/\n{3,}/g, "\n\n").trim();
 }
 
+function extractResumeEditDiffFromMarkdown(content: string): {
+  before: string;
+  after: string;
+} | null {
+  if (!content) return null;
+  const beforeMatch = content.match(
+    /修改前：\s*```[a-zA-Z]*\n([\s\S]*?)```/m,
+  );
+  const afterMatch = content.match(/修改后：\s*```[a-zA-Z]*\n([\s\S]*?)```/m);
+  if (!beforeMatch || !afterMatch) return null;
+  return {
+    before: beforeMatch[1].trim(),
+    after: afterMatch[1].trim(),
+  };
+}
+
 // ============================================================================
 // 主页面组件
 // ============================================================================
@@ -694,6 +710,8 @@ function SophiaChatContent() {
     resolveFinalizedContent,
   } = useStreamRunController();
   const lastHandledAnswerCompleteRef = useRef(0);
+  const lastDoneRunRef = useRef<number>(-1);
+  const lastFinalizedRunRef = useRef<number>(-1);
   const pendingFinalizeAfterTypewriterRef = useRef(false);
   const finalizeRetryTimerRef = useRef<number | null>(null);
   const finalizeRetryAttemptsRef = useRef(0);
@@ -986,7 +1004,10 @@ function SophiaChatContent() {
     ResumeEditDiffStructuredData
   >({
     runId: activeRunId,
-    onDone: () => setStreamDoneTick((prev) => prev + 1),
+    onDone: () => {
+      lastDoneRunRef.current = streamRunRef.current;
+      setStreamDoneTick((prev) => prev + 1);
+    },
     onError: (message) => setResumeError(message),
     onShowResumeSelector: () => {
       setResumeError(null);
@@ -1531,6 +1552,9 @@ function SophiaChatContent() {
    * Finalize current message and add to history
    */
   const finalizeMessage = useCallback(() => {
+    if (lastFinalizedRunRef.current === streamRunRef.current) {
+      return;
+    }
     // 防止重复调用
     if (isFinalizedRef.current) {
       console.log("[AgentChat] finalizeMessage already called, skipping");
@@ -1579,6 +1603,9 @@ function SophiaChatContent() {
     if (!thought && !answer) {
       if (isProcessing) {
         console.warn("[AgentChat] finalizeMessage called with NO content while still processing. This might be a race condition.");
+        // 新一轮流式开始后，可能收到上一轮延迟 done，直接忽略，避免清空当前轮状态。
+        isFinalizedRef.current = false;
+        return;
       }
       console.log("[AgentChat] No content to finalize, just resetting state");
       pendingFinalizeAfterTypewriterRef.current = false;
@@ -1591,6 +1618,67 @@ function SophiaChatContent() {
       setTimeout(() => {
         isFinalizedRef.current = false;
       }, 100);
+      return;
+    }
+
+    const currentEditDiff = resumeEditDiffs.find(
+      (entry) => entry.messageId === "current",
+    )?.data as
+      | {
+          before?: string;
+          after?: string;
+        }
+      | undefined;
+    const markdownEditDiff = extractResumeEditDiffFromMarkdown(answer || "");
+    const latestUserMessage = [...messages]
+      .reverse()
+      .find((item) => item.role === "user")?.content || "";
+    const normalizedLatestUserMessage = latestUserMessage.trim();
+    const replaceTargetMatch = normalizedLatestUserMessage.match(
+      /(?:改成|改为|变成|改到)\s*["“]?([^"”\s，。,！!？?]+)["”]?/i,
+    );
+    const requestedReplacement = replaceTargetMatch?.[1]?.trim() || "";
+    const hasEditIntent = /(?:把|将|帮我|请)?(?:我的)?(?:名字|姓名|公司|职位|学校|电话|邮箱).*(?:改成|改为|变成)|(?:改成|改为|变成)/.test(
+      normalizedLatestUserMessage,
+    );
+    const diffAfterValue = (
+      currentEditDiff?.after ||
+      markdownEditDiff?.after ||
+      ""
+    ).trim();
+    const answerLooksLikeEditDiff =
+      /修改前：\s*```[\s\S]*?```[\s\S]*?修改后：\s*```[\s\S]*?```/m.test(
+        answer || "",
+      );
+    const isStaleEditDiffResponse =
+      (answerLooksLikeEditDiff || Boolean(diffAfterValue)) &&
+      ((!hasEditIntent &&
+        /(?:你好|hello|hi|谢谢|加载简历|查看简历)/i.test(
+          normalizedLatestUserMessage,
+        )) ||
+        (requestedReplacement &&
+          Boolean(diffAfterValue) &&
+          diffAfterValue !== requestedReplacement));
+
+    if (isStaleEditDiffResponse) {
+      console.warn("[AgentChat] stale edit diff response ignored", {
+        latestUserMessage: normalizedLatestUserMessage,
+        requestedReplacement,
+        diffAfterValue,
+      });
+      pendingFinalizeAfterTypewriterRef.current = false;
+      finalizeRetryAttemptsRef.current = 0;
+      if (finalizeRetryTimerRef.current !== null) {
+        window.clearTimeout(finalizeRetryTimerRef.current);
+        finalizeRetryTimerRef.current = null;
+      }
+      setSearchResults((prev) => prev.filter((item) => item.messageId !== "current"));
+      setLoadedResumes((prev) => prev.filter((item) => item.messageId !== "current"));
+      setResumeEditDiffs((prev) => prev.filter((item) => item.messageId !== "current"));
+      finalizeStream();
+      window.setTimeout(() => {
+        isFinalizedRef.current = false;
+      }, 120);
       return;
     }
 
@@ -1667,6 +1755,7 @@ function SophiaChatContent() {
 
       return updated;
     });
+    lastFinalizedRunRef.current = streamRunRef.current;
 
     // Clear transient stream buffers only after message finalization work has been enqueued.
     pendingFinalizeAfterTypewriterRef.current = false;
@@ -1684,6 +1773,8 @@ function SophiaChatContent() {
     shouldHideResponseInChat,
     streamingReportId,
     apiBaseUrl,
+    resumeEditDiffs,
+    messages,
   ]);
 
   const finalizeAfterTypewriter = useCallback(() => {
@@ -1707,6 +1798,9 @@ function SophiaChatContent() {
 
   useEffect(() => {
     if (streamDoneTick === 0 || !isProcessing) {
+      return;
+    }
+    if (lastDoneRunRef.current !== streamRunRef.current) {
       return;
     }
     if (pendingFinalizeAfterTypewriterRef.current) {
@@ -2545,15 +2639,16 @@ function SophiaChatContent() {
 
       // 添加到加载的简历列表，以便在右侧显示
       const messageId = `resume-select-${Date.now()}`;
-      setLoadedResumes((prev) => [
-        ...prev,
-        {
+      setLoadedResumes((prev) => {
+        const nextEntry = {
           id: selectedResume.id,
           name: selectedResume.name,
           messageId,
           resumeData: resumeDataWithMeta,
-        },
-      ]);
+        };
+        const filtered = prev.filter((item) => item.id !== selectedResume.id);
+        return [...filtered, nextEntry];
+      });
 
       // 自动选中该简历，显示在右侧
       setAllowPdfAutoRender(true);
@@ -2641,6 +2736,8 @@ function SophiaChatContent() {
       }
       const nextRunId = startNewRun();
       setActiveRunId(nextRunId);
+      lastDoneRunRef.current = -1;
+      lastFinalizedRunRef.current = -1;
       currentThoughtRef.current = "";
       currentAnswerRef.current = "";
       setSearchResults((prev) =>

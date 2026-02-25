@@ -207,6 +207,8 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
         const sseTransport = new SSETransport({
             baseUrl,
             heartbeatTimeout,
+            // 对写操作流（/api/agent/stream）禁用自动重试，避免服务端重复执行工具调用。
+            autoReconnect: false,
             onMessage: (event) => {
                 onSSEEventRef.current?.(event);
             },
