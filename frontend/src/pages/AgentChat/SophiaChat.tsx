@@ -11,16 +11,10 @@
  */
 
 import ChatMessage from "@/components/chat/ChatMessage";
-import TTSButton from "@/components/chat/TTSButton";
-import { Copy, RotateCcw, Check, Mic, StopCircle, Loader2 } from "lucide-react";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import ReportCard from "@/components/chat/ReportCard";
-import ResumeCard from "@/components/chat/ResumeCard";
 import ResumeSelector from "@/components/chat/ResumeSelector";
-import SearchCard from "@/components/chat/SearchCard";
 import SearchResultPanel from "@/components/chat/SearchResultPanel";
-import SearchSummary from "@/components/chat/SearchSummary";
-import { ReportGenerationDetector } from "@/components/chat/ReportGenerationDetector";
 import { RecentSessions } from "@/components/sidebar/RecentSessions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEnvironment } from "@/contexts/EnvironmentContext";
@@ -44,10 +38,6 @@ import {
 import { Message } from "@/types/chat";
 import type { SSEEvent } from "@/transports/SSETransport";
 import {
-  ArrowUp,
-  FileText,
-  Plus,
-  X,
   Sparkles,
   Wand2,
   Zap,
@@ -62,14 +52,16 @@ import React, {
   useMemo,
   useRef,
   useState,
-  Fragment,
 } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import EnhancedMarkdown from "@/components/chat/EnhancedMarkdown";
-import ThoughtProcess from "@/components/chat/ThoughtProcess";
-import StreamingResponse from "@/components/chat/StreamingResponse";
-import StreamingOutputPanel from "@/components/chat/StreamingOutputPanel";
+import Composer from "@/components/agent-chat/Composer";
+import MessageTimeline from "@/components/agent-chat/MessageTimeline";
+import StreamingLane from "@/components/agent-chat/StreamingLane";
 import { useTextStream } from "@/hooks/useTextStream";
+import { useToolEventRouter } from "@/hooks/agent-chat/useToolEventRouter";
+import { useStreamRunController } from "@/hooks/agent-chat/useStreamRunController";
+import { useMessageTimeline } from "@/hooks/agent-chat/useMessageTimeline";
 
 import WorkspaceLayout from "@/pages/WorkspaceLayout";
 import CustomScrollbar from "@/components/common/CustomScrollbar";
@@ -451,6 +443,19 @@ interface ResumeEditDiffStructuredData {
   };
 }
 
+function stripResumeEditMarkdown(content: string): string {
+  if (!content) return "";
+  const withoutBefore = content.replace(
+    /(?:^|\n)修改前：\s*```[a-zA-Z]*\n[\s\S]*?```/g,
+    "\n",
+  );
+  const withoutBoth = withoutBefore.replace(
+    /(?:^|\n)修改后：\s*```[a-zA-Z]*\n[\s\S]*?```/g,
+    "\n",
+  );
+  return withoutBoth.replace(/\n{3,}/g, "\n\n").trim();
+}
+
 // ============================================================================
 // 主页面组件
 // ============================================================================
@@ -528,6 +533,11 @@ function SophiaChatContent() {
   const [searchResults, setSearchResults] = useState<
     Array<{ messageId: string; data: SearchStructuredData }>
   >([]);
+  const [resumeEditDiffs, setResumeEditDiffs] = useState<
+    Array<{ messageId: string; data: ResumeEditDiffStructuredData }>
+  >([]);
+  const [streamDoneTick, setStreamDoneTick] = useState(0);
+  const [activeRunId, setActiveRunId] = useState(0);
   const [activeSearchPanel, setActiveSearchPanel] =
     useState<SearchStructuredData | null>(null);
 
@@ -610,6 +620,11 @@ function SophiaChatContent() {
           // token 失效或登录态未就绪：保持新会话，不报错
           return;
         }
+        if (resp.status === 404) {
+          // core native 模式可能未挂载 history 路由，关闭前端 history save/restore
+          historyApiUnavailableRef.current = true;
+          return;
+        }
         if (resp.ok) {
           const data = await resp.json();
           const latest = Array.isArray(data?.sessions)
@@ -666,22 +681,24 @@ function SophiaChatContent() {
   const saveClientSeqRef = useRef(0);
   const lastPersistedCountBySessionRef = useRef<Record<string, number>>({});
   const appendDisabledBySessionRef = useRef<Record<string, boolean>>({});
+  const historyApiUnavailableRef = useRef(false);
   const autoScrollTimerRef = useRef<number | null>(null);
-  const isFinalizedRef = useRef(false);
-  const currentThoughtRef = useRef("");
-  const currentAnswerRef = useRef("");
-  const lastCompletedRef = useRef<{
-    thought: string;
-    answer: string;
-    at: number;
-  } | null>(null);
+  const {
+    streamRunRef,
+    isFinalizedRef,
+    currentThoughtRef,
+    currentAnswerRef,
+    lastCompletedRef,
+    startNewRun,
+    captureCompletionSnapshot,
+    resolveFinalizedContent,
+  } = useStreamRunController();
   const lastHandledAnswerCompleteRef = useRef(0);
   const pendingFinalizeAfterTypewriterRef = useRef(false);
   const finalizeRetryTimerRef = useRef<number | null>(null);
   const finalizeRetryAttemptsRef = useRef(0);
   const prevRouteSessionIdRef = useRef<string | null>(null);
-  const handledResumeSelectorToolCallsRef = useRef<Set<string>>(new Set());
-  const handledEditToolCallsRef = useRef<Set<string>>(new Set());
+  const { rebindCurrentMessageId } = useMessageTimeline();
   
   const normalizedResume = useMemo(() => {
     if (!resumeData) return null;
@@ -874,6 +891,23 @@ function SophiaChatContent() {
     [],
   );
 
+  const upsertResumeEditDiff = useCallback(
+    (messageId: string, data: ResumeEditDiffStructuredData) => {
+      setResumeEditDiffs((prev) => {
+        const existingIndex = prev.findIndex(
+          (item) => item.messageId === messageId,
+        );
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = { messageId, data };
+          return updated;
+        }
+        return [...prev, { messageId, data }];
+      });
+    },
+    [],
+  );
+
   const applyResumeEditDiff = useCallback(
     (diff: ResumeEditDiffStructuredData) => {
       const patchPath = diff.patch?.path || "";
@@ -946,87 +980,23 @@ function SophiaChatContent() {
     [selectedResumeId],
   );
 
-  const handleSSEEvent = useCallback(
-    (event: SSEEvent) => {
-      if (event.type === "error") {
-        const message =
-          event.data?.content ||
-          event.data?.error_details ||
-          "流式请求失败，请稍后重试。";
-        setResumeError(String(message));
-        return;
-      }
-      if (event.type !== "tool_result") return;
-      const toolName = event.data?.tool;
-      const structured = event.data?.structured_data;
-      const toolCallId =
-        (event.data?.tool_call_id as string | undefined) ||
-        `fallback-${String(event.data?.content || JSON.stringify(event.data || {}))}`;
-
-      if (toolName === "show_resume" && (!structured || typeof structured !== "object")) {
-        if (!handledResumeSelectorToolCallsRef.current.has(toolCallId)) {
-          handledResumeSelectorToolCallsRef.current.add(toolCallId);
-          console.warn(
-            "[AgentChat] show_resume missing structured_data, fallback to resume selector",
-            event.data,
-          );
-          setResumeError(null);
-          setShowResumeSelector(true);
-        }
-        return;
-      }
-      if (!structured || typeof structured !== "object") return;
-
-      if (toolName === "web_search") {
-        const results = Array.isArray(structured.results)
-          ? structured.results
-          : [];
-        const metadata = structured.metadata || {};
-        const totalResults =
-          structured.total_results ?? metadata.total_results ?? results.length;
-
-        const normalized: SearchStructuredData = {
-          type: "search",
-          query: structured.query || "",
-          results,
-          total_results: totalResults,
-          metadata,
-        };
-
-        upsertSearchResult("current", normalized);
-        return;
-      }
-
-      if (toolName === "show_resume") {
-        const resumePayload = structured as ResumeStructuredData;
-        if (resumePayload.type === "resume_selector") {
-          if (handledResumeSelectorToolCallsRef.current.has(toolCallId)) {
-            return;
-          }
-          handledResumeSelectorToolCallsRef.current.add(toolCallId);
-          setResumeError(null);
-          setShowResumeSelector(true);
-          return;
-        }
-        upsertLoadedResume("current", resumePayload);
-        return;
-      }
-
-      if (toolName === "cv_editor_agent") {
-        const editPayload = structured as ResumeEditDiffStructuredData;
-        if (editPayload.type === "resume_edit_diff") {
-          handledEditToolCallsRef.current.add(toolCallId);
-          applyResumeEditDiff(editPayload);
-        }
-      }
+  const { handleSSEEvent } = useToolEventRouter<
+    SearchStructuredData,
+    ResumeStructuredData,
+    ResumeEditDiffStructuredData
+  >({
+    runId: activeRunId,
+    onDone: () => setStreamDoneTick((prev) => prev + 1),
+    onError: (message) => setResumeError(message),
+    onShowResumeSelector: () => {
+      setResumeError(null);
+      setShowResumeSelector(true);
     },
-    [upsertSearchResult, upsertLoadedResume, applyResumeEditDiff],
-  );
-
-  useEffect(() => {
-    handledResumeSelectorToolCallsRef.current.clear();
-    handledEditToolCallsRef.current.clear();
-  }, [conversationId]);
+    upsertSearchResult,
+    upsertLoadedResume,
+    upsertResumeEditDiff,
+    applyResumeEditDiff,
+  });
 
   const {
     currentThought,
@@ -1564,29 +1534,44 @@ function SophiaChatContent() {
     // 防止重复调用
     if (isFinalizedRef.current) {
       console.log("[AgentChat] finalizeMessage already called, skipping");
+      // 仅在没有活跃流内容时兜底释放，避免误清空下一条消息。
+      if (
+        !isProcessing &&
+        !currentThoughtRef.current.trim() &&
+        !currentAnswerRef.current.trim()
+      ) {
+        finalizeStream();
+        window.setTimeout(() => {
+          isFinalizedRef.current = false;
+        }, 80);
+      }
       return;
     }
 
     isFinalizedRef.current = true;
 
-    const thoughtRefValue = currentThoughtRef.current.trim();
-    const answerRefValue = currentAnswerRef.current.trim();
     const thoughtStateValue = currentThought.trim();
     const answerStateValue = currentAnswer.trim();
     const fallback = lastCompletedRef.current;
-    const thought =
-      thoughtRefValue || thoughtStateValue || fallback?.thought || "";
-    const answer = answerRefValue || answerStateValue || fallback?.answer || "";
+    const {
+      thought,
+      answer,
+      canUseFallback,
+      fallbackRun,
+    } = resolveFinalizedContent(thoughtStateValue, answerStateValue);
 
     console.log("[AgentChat] finalizeMessage called", {
       thoughtLength: thought.length,
       answerLength: answer.length,
-      thoughtRefLength: thoughtRefValue.length,
-      answerRefLength: answerRefValue.length,
+      thoughtRefLength: currentThoughtRef.current.trim().length,
+      answerRefLength: currentAnswerRef.current.trim().length,
       thoughtStateLength: thoughtStateValue.length,
       answerStateLength: answerStateValue.length,
       fallbackThoughtLength: fallback?.thought?.length || 0,
       fallbackAnswerLength: fallback?.answer?.length || 0,
+      streamRun: streamRunRef.current,
+      fallbackRun: fallbackRun ?? fallback?.run,
+      canUseFallback,
     });
 
     if (!thought && !answer) {
@@ -1594,6 +1579,12 @@ function SophiaChatContent() {
         console.warn("[AgentChat] finalizeMessage called with NO content while still processing. This might be a race condition.");
       }
       console.log("[AgentChat] No content to finalize, just resetting state");
+      pendingFinalizeAfterTypewriterRef.current = false;
+      finalizeRetryAttemptsRef.current = 0;
+      if (finalizeRetryTimerRef.current !== null) {
+        window.clearTimeout(finalizeRetryTimerRef.current);
+        finalizeRetryTimerRef.current = null;
+      }
       finalizeStream();
       setTimeout(() => {
         isFinalizedRef.current = false;
@@ -1614,16 +1605,9 @@ function SophiaChatContent() {
       newMessage.thought = thought;
     }
 
-    setSearchResults((prev) =>
-      prev.map((item) =>
-        item.messageId === "current" ? { ...item, messageId: uniqueId } : item,
-      ),
-    );
-    setLoadedResumes((prev) =>
-      prev.map((item) =>
-        item.messageId === "current" ? { ...item, messageId: uniqueId } : item,
-      ),
-    );
+    setSearchResults((prev) => rebindCurrentMessageId(prev, uniqueId));
+    setLoadedResumes((prev) => rebindCurrentMessageId(prev, uniqueId));
+    setResumeEditDiffs((prev) => rebindCurrentMessageId(prev, uniqueId));
 
     setMessages((prev) => {
       const last = prev[prev.length - 1];
@@ -1683,6 +1667,12 @@ function SophiaChatContent() {
     });
 
     // Clear transient stream buffers only after message finalization work has been enqueued.
+    pendingFinalizeAfterTypewriterRef.current = false;
+    finalizeRetryAttemptsRef.current = 0;
+    if (finalizeRetryTimerRef.current !== null) {
+      window.clearTimeout(finalizeRetryTimerRef.current);
+      finalizeRetryTimerRef.current = null;
+    }
     finalizeStream();
   }, [
     finalizeStream,
@@ -1712,6 +1702,28 @@ function SophiaChatContent() {
       isFinalizedRef.current = false;
     }, 150);
   }, [finalizeMessage]);
+
+  useEffect(() => {
+    if (streamDoneTick === 0 || !isProcessing) {
+      return;
+    }
+    if (pendingFinalizeAfterTypewriterRef.current) {
+      return;
+    }
+
+    pendingFinalizeAfterTypewriterRef.current = true;
+    finalizeAfterTypewriter();
+
+    const guardTimer = window.setTimeout(() => {
+      if (pendingFinalizeAfterTypewriterRef.current) {
+        finalizeAfterTypewriter();
+      }
+    }, 600);
+
+    return () => {
+      window.clearTimeout(guardTimer);
+    };
+  }, [streamDoneTick, isProcessing, finalizeAfterTypewriter]);
 
   const refreshSessions = useCallback(() => {
     setSessionsRefreshKey((prev) => prev + 1);
@@ -1853,6 +1865,9 @@ function SophiaChatContent() {
       if (!messagesToSave || messagesToSave.length === 0) {
         return;
       }
+      if (historyApiUnavailableRef.current) {
+        return;
+      }
 
       // 验证 sessionId，如果为空则生成新的会话 ID
       let validSessionId = sessionId;
@@ -1957,6 +1972,12 @@ function SophiaChatContent() {
           }
 
           if (!resp.ok) {
+            if (resp.status === 404) {
+              historyApiUnavailableRef.current = true;
+              queuedSaveRef.current = null;
+              scheduledSaveRef.current = null;
+              return;
+            }
             console.error(`[AgentChat] Failed to save session: ${resp.status}`);
             const retryCount = (saveRetryRef.current[payloadKey] || 0) + 1;
             if (retryCount <= 2) {
@@ -2610,7 +2631,23 @@ function SophiaChatContent() {
       }
 
       isFinalizedRef.current = false;
+      pendingFinalizeAfterTypewriterRef.current = false;
+      finalizeRetryAttemptsRef.current = 0;
+      if (finalizeRetryTimerRef.current !== null) {
+        window.clearTimeout(finalizeRetryTimerRef.current);
+        finalizeRetryTimerRef.current = null;
+      }
+      const nextRunId = startNewRun();
+      setActiveRunId(nextRunId);
+      currentThoughtRef.current = "";
+      currentAnswerRef.current = "";
       setSearchResults((prev) =>
+        prev.filter((item) => item.messageId !== "current"),
+      );
+      setLoadedResumes((prev) =>
+        prev.filter((item) => item.messageId !== "current"),
+      );
+      setResumeEditDiffs((prev) =>
         prev.filter((item) => item.messageId !== "current"),
       );
 
@@ -2670,6 +2707,7 @@ function SophiaChatContent() {
     if (answerCompleteCount <= lastHandledAnswerCompleteRef.current) {
       return;
     }
+    isFinalizedRef.current = false;
     lastHandledAnswerCompleteRef.current = answerCompleteCount;
     pendingFinalizeAfterTypewriterRef.current = true;
 
@@ -2678,11 +2716,7 @@ function SophiaChatContent() {
     const hasAnyContent = currentAnswerValue || currentThoughtValue;
 
     if (hasAnyContent) {
-      lastCompletedRef.current = {
-        thought: currentThoughtValue,
-        answer: currentAnswerValue,
-        at: Date.now(),
-      };
+      captureCompletionSnapshot(currentThoughtValue, currentAnswerValue);
     }
 
     // Fallback: if打字机回调没有触发（例如空回答），短延时后兜底完成。
@@ -2718,15 +2752,23 @@ function SophiaChatContent() {
             }
             if (finalizeRetryAttemptsRef.current >= 5) {
               pendingFinalizeAfterTypewriterRef.current = false;
+              finalizeMessage();
             }
           }, 220);
           return;
         }
         pendingFinalizeAfterTypewriterRef.current = false;
+        finalizeMessage();
       }
       finalizeRetryTimerRef.current = null;
     }, 800);
-  }, [answerCompleteCount, currentAnswer, currentThought, finalizeAfterTypewriter]);
+  }, [
+    answerCompleteCount,
+    currentAnswer,
+    currentThought,
+    finalizeAfterTypewriter,
+    finalizeMessage,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -3074,338 +3116,83 @@ function SophiaChatContent() {
                     </div>
                   )}
 
-                {/* 历史消息 - 按顺序：Thought Process → SearchCard → Response */}
-                {messages.map((msg, idx) => {
-                  // ... (保留原有逻辑)
-                  // 检查这条消息是否有关联的报告
-                  const reportForMessage = generatedReports.find(
-                    (r) => r.messageId === msg.id,
-                  );
-                  // 检查这条消息是否有关联的简历
-                  const resumeForMessage = loadedResumes.find(
-                    (r) => r.messageId === msg.id,
-                  );
-                  const searchForMessage = searchResults.find(
-                    (r) => r.messageId === msg.id,
-                  );
+                <MessageTimeline
+                  messages={messages}
+                  generatedReports={generatedReports}
+                  loadedResumes={loadedResumes}
+                  searchResults={searchResults}
+                  resumeEditDiffs={resumeEditDiffs}
+                  copiedId={copiedId}
+                  stripResumeEditMarkdown={stripResumeEditMarkdown}
+                  onSetCopiedId={setCopiedId}
+                  onOpenSearchPanel={setActiveSearchPanel}
+                  onOpenReport={(reportId, title) => {
+                    setAllowPdfAutoRender(false);
+                    setSelectedReportId(reportId);
+                    setReportTitle(title);
+                    setSelectedResumeId(null);
+                    if (streamingReportId === reportId && currentAnswer) {
+                      setStreamingReportContent(currentAnswer);
+                    }
+                  }}
+                  onOpenResume={(resumeForMessage) => {
+                    setAllowPdfAutoRender(true);
+                    setSelectedResumeId(resumeForMessage.id);
+                    setSelectedReportId(null);
+                    if (resumeForMessage.resumeData) {
+                      setResumeData(resumeForMessage.resumeData);
+                    }
+                  }}
+                  onOpenResumeSelector={() => setShowResumeSelector(true)}
+                  onRegenerate={() => {
+                    const userMessages = messages.filter((m) => m.role === "user");
+                    const lastUserMsg = userMessages[userMessages.length - 1];
+                    if (lastUserMsg) {
+                      void sendUserTextMessage(lastUserMsg.content);
+                    }
+                  }}
+                />
 
-                  // 用户消息：直接渲染
-                  if (msg.role === "user") {
-                    return (
-                      <div
-                        key={msg.id || idx}
-                        className="flex justify-end mb-6"
-                      >
-                        <div className="max-w-[80%]">
-                          <div className="text-right text-xs text-gray-400 mb-1">
-                            {new Date().toLocaleString()}
-                          </div>
-                          {/* 显示附件 - 移到文字上方 */}
-                          {msg.attachments && msg.attachments.length > 0 && (
-                            <div className="mb-2 flex flex-wrap justify-end gap-2">
-                              {msg.attachments.map((file, i) => (
-                                <div
-                                  key={i}
-                                  className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600 shadow-sm"
-                                >
-                                  <FileText className="size-4 text-indigo-500" />
-                                  <div className="flex flex-col">
-                                    <span className="font-medium truncate max-w-[150px]">
-                                      {file.name}
-                                    </span>
-                                    <span className="text-[10px] text-gray-400">
-                                      {`${((file.size ?? 0) / 1024).toFixed(1)} KB`}
-                                    </span>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                          <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 text-gray-800">
-                            {
-                              msg.content
-                                .split("\n\n已上传并解析 PDF 文件")[0]
-                                .split("\n\n文件《")[0]
-                            }
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  // Assistant 消息：按顺序渲染 Thought → SearchCard → Response
-                  return (
-                    <Fragment key={msg.id || idx}>
-                      {/* 1. Thought Process */}
-                      {msg.thought && (
-                        <ThoughtProcess
-                          content={msg.thought}
-                          isStreaming={false}
-                          isLatest={false}
-                          defaultExpanded={false}
-                        />
-                      )}
-
-                      {/* 2. SearchCard（在 Thought 和 Response 之间） */}
-                      {searchForMessage && (
-                        <div className="my-4">
-                          <SearchCard
-                            query={searchForMessage.data.query}
-                            totalResults={searchForMessage.data.total_results}
-                            searchTime={
-                              searchForMessage.data.metadata?.search_time
-                            }
-                            onOpen={() =>
-                              setActiveSearchPanel(searchForMessage.data)
-                            }
-                          />
-                          <SearchSummary
-                            query={searchForMessage.data.query}
-                            results={searchForMessage.data.results}
-                            searchTime={
-                              searchForMessage.data.metadata?.search_time
-                            }
-                          />
-                        </div>
-                      )}
-
-                      {/* 3. Response */}
-                      {msg.content && (
-                        <div className="text-gray-800 mb-6">
-                          <EnhancedMarkdown>{msg.content}</EnhancedMarkdown>
-                        </div>
-                      )}
-
-                      {/* 反馈按钮 */}
-                      {msg.content && (
-                        <div className="flex gap-2 mb-6">
-                          <button
-                            onClick={() => {
-                              navigator.clipboard.writeText(msg.content);
-                              setCopiedId(msg.id || String(idx));
-                              setTimeout(() => setCopiedId(null), 2000);
-                            }}
-                            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                            title="复制内容"
-                          >
-                            {copiedId === (msg.id || String(idx)) ? (
-                              <Check className="w-4 h-4 text-green-500" />
-                            ) : (
-                              <Copy className="w-4 h-4" />
-                            )}
-                          </button>
-                          <button
-                            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                            title="赞"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M14 10h4.764a2 2 0 011.789 2.894l-3.5 7A2 2 0 0115.263 21h-4.017c-.163 0-.326-.02-.485-.06L7 20m7-10V5a2 2 0 00-2-2h-.095c-.5 0-.905.405-.905.905 0 .714-.211 1.412-.608 2.006L7 11v9m7-10h-2M7 20H5a2 2 0 01-2-2v-6a2 2 0 012-2h2.5"
-                              />
-                            </svg>
-                          </button>
-                          <button
-                            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                            title="踩"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M10 14H5.236a2 2 0 01-1.789-2.894l3.5-7A2 2 0 018.736 3h4.018a2 2 0 01.485.06l3.76.94m-7 10v5a2 2 0 002 2h.096c.5 0 .905-.405.905-.904 0-.715.211-1.413.608-2.008L17 13V4m-7 10h2m5-10h2a2 2 0 012 2v6a2 2 0 01-2 2h-2.5"
-                              />
-                            </svg>
-                          </button>
-                          <TTSButton text={msg.content} />
-                          <button
-                            onClick={() => {
-                              // 重新生成逻辑：重新发送上一条用户消息
-                              const userMessages = messages.filter(m => m.role === 'user');
-                              const lastUserMsg = userMessages[userMessages.length - 1];
-                              if (lastUserMsg) {
-                                sendUserTextMessage(lastUserMsg.content);
-                              }
-                            }}
-                            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-                            title="重新生成"
-                          >
-                            <RotateCcw className="w-4 h-4" />
-                          </button>
-                          <button className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors">
-                            <svg
-                              className="w-4 h-4"
-                              fill="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <circle cx="12" cy="12" r="1.5" />
-                              <circle cx="6" cy="12" r="1.5" />
-                              <circle cx="18" cy="12" r="1.5" />
-                            </svg>
-                          </button>
-                        </div>
-                      )}
-
-                      {/* 如果这条消息有报告，显示报告卡片 */}
-                      {reportForMessage && (
-                        <div className="my-4">
-                          <ReportCard
-                            reportId={reportForMessage.id}
-                            title={reportForMessage.title}
-                            subtitle="点击查看完整报告"
-                            onClick={() => {
-                              setAllowPdfAutoRender(false);
-                              setSelectedReportId(reportForMessage.id);
-                              setReportTitle(reportForMessage.title);
-                              setSelectedResumeId(null);
-                              if (
-                                streamingReportId === reportForMessage.id &&
-                                currentAnswer
-                              ) {
-                                setStreamingReportContent(currentAnswer);
-                              }
-                            }}
-                          />
-                        </div>
-                      )}
-                      {/* 如果这条消息有简历，显示简历卡片 */}
-                      {resumeForMessage && (
-                        <div className="my-4">
-                          <ResumeCard
-                            resumeId={resumeForMessage.id}
-                            title={resumeForMessage.name}
-                            subtitle={resumeForMessage.resumeData?.alias || "已加载简历"}
-                            onClick={() => {
-                              setAllowPdfAutoRender(true);
-                              setSelectedResumeId(resumeForMessage.id);
-                              setSelectedReportId(null);
-                              if (resumeForMessage.resumeData) {
-                                setResumeData(resumeForMessage.resumeData);
-                              }
-                            }}
-                            onChangeResume={() => setShowResumeSelector(true)}
-                          />
-                        </div>
-                      )}
-                    </Fragment>
-                  );
-                })}
-
-                {/* 当前正在生成的消息 - 按顺序：Thought Process → SearchCard → Response */}
-                <StreamingOutputPanel
+                <StreamingLane
                   currentThought={currentThought}
                   currentAnswer={currentAnswer}
                   isProcessing={isProcessing}
-                  onResponseTypewriterComplete={finalizeAfterTypewriter}
                   shouldHideResponseInChat={shouldHideResponseInChat}
+                  currentEditDiff={resumeEditDiffs.find((r) => r.messageId === "current")}
                   currentSearch={searchResults.find((r) => r.messageId === "current")}
-                  renderSearchCard={(searchData) => (
-                    <>
-                      <SearchCard
-                        query={searchData.query}
-                        totalResults={searchData.total_results}
-                        searchTime={searchData.metadata?.search_time}
-                        onOpen={() => setActiveSearchPanel(searchData)}
-                      />
-                      <SearchSummary
-                        query={searchData.query}
-                        results={searchData.results}
-                        searchTime={searchData.metadata?.search_time}
-                      />
-                    </>
-                  )}
-                >
-                  {/* 如果正在生成报告内容，检测并创建报告 */}
-                  {currentAnswer.length > 500 && (
-                    <ReportGenerationDetector
-                      content={currentAnswer}
-                      onReportCreated={(reportId, title) => {
-                        // 当报告创建后，设置隐藏 response 的标志
-                        setShouldHideResponseInChat(true);
-                        setStreamingReportId(reportId);
-
-                        // 如果用户已经选择了该报告，立即设置流式内容
-                        if (selectedReportId === reportId) {
-                          setStreamingReportContent(currentAnswer);
-                        }
-
-                        // 当报告创建后，添加到列表
-                        // 使用 'current' 作为临时 messageId，finalize 时会通过 detectAndCreateReport 更新为真实 messageId
-                        setGeneratedReports((prev) => {
-                          // 检查是否已存在相同的报告ID
-                          if (prev.some((r) => r.id === reportId)) {
-                            return prev;
-                          }
-                          // 检查是否已有 'current' 消息ID的报告（避免重复）
-                          const hasCurrent = prev.some(
-                            (r) => r.messageId === "current",
-                          );
-                          if (hasCurrent) {
-                            // 更新现有的 current 报告
-                            return prev.map((r) =>
-                              r.messageId === "current"
-                                ? { ...r, id: reportId, title }
-                                : r,
-                            );
-                          }
-                          // 添加新报告
-                          return [
-                            ...prev,
-                            {
-                              id: reportId,
-                              title,
-                              messageId: "current", // 临时ID，finalize时会更新
-                            },
-                          ];
-                        });
-                      }}
-                    />
-                  )}
-                  {/* 显示流式输出时的报告卡片 */}
-                  {(() => {
-                    const currentReport = generatedReports.find(
-                      (r) => r.messageId === "current",
-                    );
-                    if (currentReport && isProcessing) {
-                      return (
-                        <div className="my-4">
-                          <ReportCard
-                            reportId={currentReport.id}
-                            title={currentReport.title}
-                            subtitle="点击查看完整报告"
-                            onClick={() => {
-                              setAllowPdfAutoRender(false);
-                              setSelectedReportId(currentReport.id);
-                              setReportTitle(currentReport.title);
-                              setSelectedResumeId(null);
-                              // 如果报告还在流式输出中，设置 streamingReportContent
-                              if (
-                                streamingReportId === currentReport.id &&
-                                currentAnswer
-                              ) {
-                                setStreamingReportContent(currentAnswer);
-                              }
-                            }}
-                          />
-                        </div>
-                      );
+                  currentReport={generatedReports.find((r) => r.messageId === "current")}
+                  stripResumeEditMarkdown={stripResumeEditMarkdown}
+                  onOpenSearchPanel={setActiveSearchPanel}
+                  onResponseTypewriterComplete={finalizeAfterTypewriter}
+                  onOpenCurrentReport={(reportId, title) => {
+                    setAllowPdfAutoRender(false);
+                    setSelectedReportId(reportId);
+                    setReportTitle(title);
+                    setSelectedResumeId(null);
+                    if (streamingReportId === reportId && currentAnswer) {
+                      setStreamingReportContent(currentAnswer);
                     }
-                    return null;
-                  })()}
-                </StreamingOutputPanel>
+                  }}
+                  onReportCreated={(reportId, title) => {
+                    setShouldHideResponseInChat(true);
+                    setStreamingReportId(reportId);
+                    if (selectedReportId === reportId) {
+                      setStreamingReportContent(currentAnswer);
+                    }
+                    setGeneratedReports((prev) => {
+                      if (prev.some((r) => r.id === reportId)) {
+                        return prev;
+                      }
+                      const hasCurrent = prev.some((r) => r.messageId === "current");
+                      if (hasCurrent) {
+                        return prev.map((r) =>
+                          r.messageId === "current" ? { ...r, id: reportId, title } : r,
+                        );
+                      }
+                      return [...prev, { id: reportId, title, messageId: "current" }];
+                    });
+                  }}
+                />
 
                 {/* 简历选择器 */}
                 {showResumeSelector && (
@@ -3457,142 +3244,26 @@ function SophiaChatContent() {
             {/* Input Area */}
             <div className="bg-slate-50 dark:bg-slate-950 px-4 py-4 pb-8">
               <div className="max-w-3xl mx-auto w-full">
-                <form onSubmit={handleSubmit}>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept=".pdf,.txt,.md,.json,.csv,text/plain,text/markdown,application/json,text/csv,application/pdf"
-                    multiple
-                    className="hidden"
-                    onChange={handleUploadFile}
-                  />
-                  <div className="rounded-2xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 transition-all focus-within:border-indigo-400 focus-within:ring-1 focus-within:ring-indigo-400/20">
-                    {pendingAttachments.length > 0 && (
-                      <div className="px-3 pt-3 flex flex-wrap gap-2">
-                        {pendingAttachments.map((file) => (
-                          <div
-                            key={`${file.name}-${file.size}-${file.lastModified}`}
-                            className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 dark:bg-slate-700 dark:border-slate-600 dark:text-slate-200"
-                          >
-                            <FileText className="size-3.5 shrink-0 text-indigo-500" />
-                            <span className="truncate max-w-[220px]">
-                              {file.name}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveAttachment(file)}
-                              className="rounded p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                              aria-label="移除已上传文件"
-                              title="移除文件"
-                            >
-                              <X className="size-3" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <textarea
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyDown={handleComposerKeyDown}
-                      placeholder={
-                        isProcessing
-                          ? "正在处理中，可以继续输入..."
-                          : "输入消息...（例如：生成一份关于 AI 发展趋势的报告）"
-                      }
-                      className="w-full min-h-[92px] resize-none bg-transparent px-4 pt-3 text-base text-slate-700 dark:text-slate-200 placeholder-slate-400 outline-none"
-                    />
-                    <div className="flex items-center justify-between px-3 pb-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handleClickUpload}
-                          disabled={isProcessing || isUploadingFile}
-                          className={`size-8 rounded-full border flex items-center justify-center transition-colors ${
-                            isProcessing || isUploadingFile
-                              ? "border-slate-200 dark:border-slate-600 text-slate-300 dark:text-slate-500 cursor-not-allowed"
-                              : "border-slate-300 dark:border-slate-600 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 dark:hover:border-indigo-500"
-                          }`}
-                          title={isUploadingFile ? "上传中..." : "上传文件"}
-                          aria-label="上传文件"
-                        >
-                          <Plus className="size-4" />
-                        </button>
-
-                        {/* 展示简历按钮 */}
-                        <button
-                          type="button"
-                          onClick={() => setShowResumeSelector(true)}
-                          disabled={isProcessing}
-                          className={`h-8 px-2.5 rounded-md border flex items-center gap-1.5 transition-colors ${
-                            isProcessing
-                              ? "border-slate-200 dark:border-slate-600 text-slate-300 dark:text-slate-500 cursor-not-allowed"
-                              : isResumePreviewActive
-                              ? "border-indigo-300 bg-indigo-50 text-indigo-600 shadow-sm dark:border-indigo-500/60 dark:bg-indigo-500/15 dark:text-indigo-300"
-                              : "border-slate-300 dark:border-slate-600 text-slate-500 hover:text-indigo-600 hover:border-indigo-300 dark:hover:border-indigo-500"
-                          }`}
-                          title="展示简历"
-                          aria-label="展示简历"
-                        >
-                          <FileText className="size-4" />
-                          <span className="text-sm font-medium">展示简历</span>
-                        </button>
-                      </div>
-                      {input.trim() || pendingAttachments.length > 0 ? (
-                        <button
-                          type="submit"
-                          disabled={isProcessing || isUploadingFile}
-                          className={`size-8 rounded-full flex items-center justify-center transition-colors ${
-                            isProcessing || isUploadingFile
-                              ? "bg-slate-200 dark:bg-slate-700 text-slate-400 cursor-not-allowed"
-                              : "bg-indigo-600 text-white hover:bg-indigo-700"
-                          }`}
-                          title={
-                            isProcessing ? "等待当前消息处理完成" : "发送消息"
-                          }
-                          aria-label="发送消息"
-                        >
-                          <ArrowUp className="size-4" />
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={
-                            isVoiceRecording
-                              ? stopVoiceRecording
-                              : startVoiceRecording
-                          }
-                          disabled={isProcessing || isVoiceProcessing}
-                          className={`size-8 rounded-full flex items-center justify-center transition-all ${
-                            isVoiceRecording
-                              ? "bg-red-500 text-white animate-pulse"
-                              : isVoiceSpeaking
-                              ? "bg-green-500 text-white"
-                              : "bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50"
-                          } ${
-                            isVoiceProcessing ? "cursor-not-allowed opacity-50" : ""
-                          }`}
-                          title={
-                            isVoiceProcessing
-                              ? "识别中..."
-                              : isVoiceRecording
-                              ? "正在录音，点击停止"
-                              : "语音输入"
-                          }
-                          aria-label="语音输入"
-                        >
-                          {isVoiceProcessing ? (
-                            <Loader2 className="size-4 animate-spin" />
-                          ) : isVoiceRecording ? (
-                            <StopCircle className="size-4" />
-                          ) : (
-                            <Mic className="size-4" />
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </form>
+                <Composer
+                  input={input}
+                  isProcessing={isProcessing}
+                  isUploadingFile={isUploadingFile}
+                  isVoiceRecording={isVoiceRecording}
+                  isVoiceProcessing={isVoiceProcessing}
+                  isVoiceSpeaking={isVoiceSpeaking}
+                  isResumePreviewActive={isResumePreviewActive}
+                  pendingAttachments={pendingAttachments}
+                  fileInputRef={fileInputRef}
+                  onSubmit={handleSubmit}
+                  onInputChange={setInput}
+                  onKeyDown={handleComposerKeyDown}
+                  onFileChange={handleUploadFile}
+                  onRemoveAttachment={handleRemoveAttachment}
+                  onClickUpload={handleClickUpload}
+                  onShowResumeSelector={() => setShowResumeSelector(true)}
+                  onStartVoiceRecording={startVoiceRecording}
+                  onStopVoiceRecording={stopVoiceRecording}
+                />
               </div>
             </div>
           </section>

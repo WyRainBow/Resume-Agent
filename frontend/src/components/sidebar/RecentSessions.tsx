@@ -136,6 +136,20 @@ export function RecentSessions({
             }
           );
           if (!resp.ok) {
+            if (resp.status === 404) {
+              // core native 模式可能未开放 history 列表接口，侧边栏静默降级
+              if (mode === 'replace') {
+                setSessions([]);
+                setPagination({
+                  total: 0,
+                  page: 1,
+                  page_size: PAGE_SIZE,
+                  total_pages: 1,
+                });
+              }
+              setErrorMessage(null);
+              return;
+            }
             const msg = await parseErrorMessage(resp);
             throw new Error(msg);
           }

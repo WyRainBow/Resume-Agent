@@ -31,7 +31,7 @@ export default function StreamingResponse({
   className = "text-gray-800 mb-6",
   onTypewriterComplete,
 }: StreamingResponseProps) {
-  const { displayedText } = useTextStream({
+  const { displayedText, isComplete } = useTextStream({
     textStream: content || "",
     mode: "typewriter",
     speed: 2,
@@ -49,7 +49,7 @@ export default function StreamingResponse({
   }
 
   const textToShow = isStreaming ? displayedText : content;
-  const showTypingTail = isStreaming;
+  const showTypingTail = isStreaming && !isComplete && textToShow.length > 0;
 
   if (!textToShow && !showTypingTail) {
     return null;

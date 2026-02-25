@@ -33,8 +33,15 @@ export interface StreamingOutputPanelProps {
       };
     };
   };
+  /** 简历修改前后对比（可选） */
+  currentEditDiff?: {
+    before?: string;
+    after?: string;
+  };
   /** 渲染搜索卡片的回调（可选） */
   renderSearchCard?: (searchData: any) => React.ReactNode;
+  /** 渲染简历修改卡片的回调（可选） */
+  renderEditDiffCard?: (diff: { before?: string; after?: string }) => React.ReactNode;
   /** 额外的渲染内容（可选，如 ReportGenerationDetector） */
   children?: React.ReactNode;
   /** 回答区打字机完成回调 */
@@ -57,7 +64,9 @@ export default function StreamingOutputPanel({
   isProcessing,
   shouldHideResponseInChat = false,
   currentSearch,
+  currentEditDiff,
   renderSearchCard,
+  renderEditDiffCard,
   children,
   onResponseTypewriterComplete,
 }: StreamingOutputPanelProps) {
@@ -66,6 +75,7 @@ export default function StreamingOutputPanel({
   const thought = streamModel?.thought ?? currentThought;
   const answer = streamModel?.answer ?? currentAnswer;
   const processing = streamModel?.isProcessing ?? isProcessing;
+  const thoughtContent = thought.trim();
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -89,7 +99,7 @@ export default function StreamingOutputPanel({
     firstVisibleLoggedRef.current = false;
   }, [processing, thought.length, answer.length]);
   
-  if (!processing || (!thought && (!answer || shouldHideResponseInChat))) {
+  if (!processing || (!thoughtContent && (!answer || shouldHideResponseInChat))) {
     return null;
   }
 
@@ -98,9 +108,9 @@ export default function StreamingOutputPanel({
   return (
     <>
       {/* 1. Thought Process 优先显示 */}
-      {thought && (
+      {thoughtContent && (
         <ThoughtProcess
-          content={thought}
+          content={thoughtContent}
           isStreaming={true}
           isLatest={true}
           defaultExpanded={true}
@@ -114,7 +124,14 @@ export default function StreamingOutputPanel({
         </div>
       )}
 
-      {/* 3. Response 最后显示 */}
+      {/* 3. 简历修改前后对比卡 */}
+      {canShowSubsequentContent && currentEditDiff && renderEditDiffCard && (
+        <div className="my-4">
+          {renderEditDiffCard(currentEditDiff)}
+        </div>
+      )}
+
+      {/* 4. Response 最后显示 */}
       <StreamingResponse
         content={answer}
         canStart={!shouldHideResponseInChat}
@@ -122,7 +139,7 @@ export default function StreamingOutputPanel({
         onTypewriterComplete={onResponseTypewriterComplete}
       />
 
-      {/* 4. 额外的检测器或卡片 */}
+      {/* 5. 额外的检测器或卡片 */}
       {canShowSubsequentContent && children}
     </>
   );

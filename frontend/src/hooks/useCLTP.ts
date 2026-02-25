@@ -91,12 +91,17 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
     const sessionRef = useRef<CLTPSessionImpl<DefaultPayloads> | null>(null);
     const sseTransportRef = useRef<SSETransport | null>(null);
     const adapterRef = useRef<SSETransportAdapter<DefaultPayloads> | null>(null);
+    const onSSEEventRef = useRef<typeof onSSEEvent>(onSSEEvent);
     const streamStartedAtRef = useRef(0);
     const firstChunkLoggedRef = useRef(false);
     const chunkWindowStartedAtRef = useRef(0);
     const chunkWindowCountRef = useRef(0);
     const hasRealThoughtRef = useRef(false);
     const hasCompletedCurrentRunRef = useRef(false);
+
+    useEffect(() => {
+        onSSEEventRef.current = onSSEEvent;
+    }, [onSSEEvent]);
 
     // Initialize CLTP Session
     useEffect(() => {
@@ -202,7 +207,9 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
         const sseTransport = new SSETransport({
             baseUrl,
             heartbeatTimeout,
-            onMessage: onSSEEvent,
+            onMessage: (event) => {
+                onSSEEventRef.current?.(event);
+            },
             onConnect: () => {
                 setIsConnected(true);
                 setLastError(null);
@@ -341,7 +348,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
                 console.error('[useCLTP] Error closing session:', error);
             });
         };
-    }, [agentEnabled, conversationId, baseUrl, heartbeatTimeout, onSSEEvent]);
+    }, [agentEnabled, conversationId, baseUrl, heartbeatTimeout]);
 
     // Update resume data without resetting the session
     useEffect(() => {
