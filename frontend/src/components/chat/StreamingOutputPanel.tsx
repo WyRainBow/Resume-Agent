@@ -124,20 +124,20 @@ export default function StreamingOutputPanel({
         </div>
       )}
 
-      {/* 3. 简历修改前后对比卡 */}
-      {canShowSubsequentContent && currentEditDiff && renderEditDiffCard && (
-        <div className="my-4">
-          {renderEditDiffCard(currentEditDiff)}
-        </div>
-      )}
-
-      {/* 4. Response 最后显示 */}
+      {/* 3. Response */}
       <StreamingResponse
         content={answer}
         canStart={!shouldHideResponseInChat}
         isStreaming={processing}
         onTypewriterComplete={onResponseTypewriterComplete}
       />
+
+      {/* 4. 简历修改前后对比卡（在 Response 之后） */}
+      {canShowSubsequentContent && currentEditDiff && renderEditDiffCard && (
+        <div className="my-4">
+          {renderEditDiffCard(currentEditDiff)}
+        </div>
+      )}
 
       {/* 5. 额外的检测器或卡片 */}
       {canShowSubsequentContent && children}

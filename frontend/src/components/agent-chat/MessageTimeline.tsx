@@ -77,6 +77,31 @@ function extractResumeEditDiffFromMarkdown(
   };
 }
 
+function splitEmbeddedResponseFromThought(thought: string): {
+  cleanedThought: string;
+  embeddedResponse: string;
+} {
+  const raw = (thought || "").trim();
+  const markerMatch = raw.match(/^(.*?)(?:Response[:：]\s*)([\s\S]*)$/m);
+  if (!markerMatch) {
+    return { cleanedThought: raw, embeddedResponse: "" };
+  }
+
+  const before = markerMatch[1].trim();
+  const after = markerMatch[2].trim();
+  if (!after) {
+    return { cleanedThought: before, embeddedResponse: "" };
+  }
+
+  const [responseLine, ...restLines] = after.split("\n");
+  const remainingThought = restLines.join("\n").trim();
+  const mergedThought = [before, remainingThought].filter(Boolean).join("\n");
+  return {
+    cleanedThought: mergedThought,
+    embeddedResponse: responseLine.trim(),
+  };
+}
+
 export default function MessageTimeline({
   messages,
   generatedReports,
@@ -106,9 +131,12 @@ export default function MessageTimeline({
         const searchForMessage = searchResults.find((r) => r.messageId === msg.id);
         const rawThought = (msg.thought || "").trim();
         const thoughtContent = isPlaceholderThought(rawThought) ? "" : rawThought;
+        const { cleanedThought, embeddedResponse } =
+          splitEmbeddedResponseFromThought(thoughtContent);
         const sanitizedContent = effectiveDiff
           ? stripResumeEditMarkdown(msg.content || "")
           : msg.content || "";
+        const effectiveContent = (sanitizedContent || "").trim() || embeddedResponse;
 
         if (msg.role === "user") {
           return (
@@ -147,9 +175,9 @@ export default function MessageTimeline({
 
         return (
           <Fragment key={msg.id || idx}>
-            {thoughtContent && (
+            {cleanedThought && (
               <ThoughtProcess
-                content={thoughtContent}
+                content={cleanedThought}
                 isStreaming={false}
                 isLatest={false}
                 defaultExpanded={false}
@@ -172,17 +200,17 @@ export default function MessageTimeline({
               </div>
             )}
 
+            {effectiveContent && (
+              <div className="mb-6 text-gray-800">
+                <EnhancedMarkdown>{effectiveContent}</EnhancedMarkdown>
+              </div>
+            )}
+
             {effectiveDiff && (
               <ResumeEditDiffCard
                 before={effectiveDiff.before || ""}
                 after={effectiveDiff.after || ""}
               />
-            )}
-
-            {sanitizedContent && (
-              <div className="mb-6 text-gray-800">
-                <EnhancedMarkdown>{sanitizedContent}</EnhancedMarkdown>
-              </div>
             )}
 
             {msg.content && (

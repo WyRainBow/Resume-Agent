@@ -55,6 +55,31 @@ function extractResumeEditDiffFromMarkdown(
   };
 }
 
+function splitEmbeddedResponseFromThought(thought: string): {
+  cleanedThought: string;
+  embeddedResponse: string;
+} {
+  const raw = (thought || "").trim();
+  const markerMatch = raw.match(/^(.*?)(?:Response[:：]\s*)([\s\S]*)$/m);
+  if (!markerMatch) {
+    return { cleanedThought: raw, embeddedResponse: "" };
+  }
+
+  const before = markerMatch[1].trim();
+  const after = markerMatch[2].trim();
+  if (!after) {
+    return { cleanedThought: before, embeddedResponse: "" };
+  }
+
+  const [responseLine, ...restLines] = after.split("\n");
+  const remainingThought = restLines.join("\n").trim();
+  const mergedThought = [before, remainingThought].filter(Boolean).join("\n");
+  return {
+    cleanedThought: mergedThought,
+    embeddedResponse: responseLine.trim(),
+  };
+}
+
 export default function StreamingLane({
   currentThought,
   currentAnswer,
@@ -69,17 +94,19 @@ export default function StreamingLane({
   onOpenCurrentReport,
   onReportCreated,
 }: StreamingLaneProps) {
+  const { cleanedThought, embeddedResponse } = splitEmbeddedResponseFromThought(currentThought);
+  const answerCandidate = (currentAnswer || "").trim() ? currentAnswer : embeddedResponse;
   const markdownDiff = currentEditDiff
     ? null
-    : extractResumeEditDiffFromMarkdown(currentAnswer || "");
+    : extractResumeEditDiffFromMarkdown(answerCandidate || "");
   const effectiveCurrentDiff = currentEditDiff?.data || markdownDiff;
   const sanitizedCurrentAnswer = effectiveCurrentDiff
-    ? stripResumeEditMarkdown(currentAnswer || "")
-    : currentAnswer;
+    ? stripResumeEditMarkdown(answerCandidate || "")
+    : answerCandidate;
 
   return (
     <StreamingOutputPanel
-      currentThought={currentThought}
+      currentThought={cleanedThought}
       currentAnswer={sanitizedCurrentAnswer}
       isProcessing={isProcessing}
       onResponseTypewriterComplete={onResponseTypewriterComplete}

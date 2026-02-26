@@ -8,6 +8,7 @@
 
 import { useState, useEffect } from "react";
 import { ChevronUp } from "lucide-react";
+import { useTextStream } from "@/hooks/useTextStream";
 
 /**
  * ThoughtProcess 组件的 Props
@@ -43,6 +44,16 @@ export default function ThoughtProcess({
   isLatest,
   className = "",
 }: ThoughtProcessProps) {
+  const { displayedText, isComplete } = useTextStream({
+    textStream: content || "",
+    mode: "typewriter",
+    speed: 2,
+    streamMode: "burst-smoothed",
+    burstThreshold: 0,
+    maxCharsPerFrame: 1,
+    smoothingWindowMs: 110,
+  });
+
   // 如果传入了 isLatest，则使用 isLatest 来决定初始状态，否则使用 defaultExpanded
   const [expanded, setExpanded] = useState(
     isLatest !== undefined ? isLatest : defaultExpanded,
@@ -55,8 +66,11 @@ export default function ThoughtProcess({
     }
   }, [isLatest]);
 
+  const textToShow = isStreaming ? displayedText : content;
+  const showTypingTail = isStreaming && !isComplete && textToShow.length > 0;
+
   // 如果没有内容，不显示
-  if (!content || !content.trim()) {
+  if (!textToShow || !textToShow.trim()) {
     return null;
   }
 
@@ -99,7 +113,14 @@ export default function ThoughtProcess({
       {/* Content：灰色文字，无背景 */}
       {expanded && (
         <div className="text-neutral-500 text-sm leading-relaxed pl-0 font-normal">
-          {content}
+          <span className="whitespace-pre-wrap break-words">{textToShow}</span>
+          {showTypingTail && (
+            <span className="ml-1 inline-flex items-center gap-0.5 text-neutral-400 align-middle">
+              <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
+              <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:120ms]" />
+              <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:240ms]" />
+            </span>
+          )}
         </div>
       )}
     </div>
