@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { SSEEvent } from "@/transports/SSETransport";
+import { extractResumeEditDiff } from "@/utils/resumeEditDiff";
 
 interface UseToolEventRouterParams<TSearch, TResume, TEdit> {
   runId: number;
@@ -10,6 +11,10 @@ interface UseToolEventRouterParams<TSearch, TResume, TEdit> {
   upsertLoadedResume: (messageId: string, data: TResume) => void;
   upsertResumeEditDiff: (messageId: string, data: TEdit) => void;
   applyResumeEditDiff: (data: TEdit) => void;
+}
+
+function extractDiffFromText(raw: unknown): { before: string; after: string } | null {
+  return extractResumeEditDiff(String(raw || ""));
 }
 
 export function useToolEventRouter<
@@ -112,12 +117,26 @@ export function useToolEventRouter<
 
       if (toolName === "cv_editor_agent") {
         const editPayload = structured as TEdit;
-        if ((editPayload as any).type === "resume_edit_diff") {
+        const hasDiffShape =
+          typeof (editPayload as any)?.before === "string" &&
+          typeof (editPayload as any)?.after === "string";
+        if ((editPayload as any).type === "resume_edit_diff" || hasDiffShape) {
           if (handledEditKeysRef.current.has(dedupeKey)) {
             return;
           }
           handledEditKeysRef.current.add(dedupeKey);
           pendingEditDiffRef.current = editPayload;
+          return;
+        }
+
+        // 部分后端分支不会返回 structured_data，仅把 diff 放在 result 文本里。
+        const parsedDiff = extractDiffFromText(event.data?.result || event.data?.content);
+        if (parsedDiff) {
+          if (handledEditKeysRef.current.has(dedupeKey)) {
+            return;
+          }
+          handledEditKeysRef.current.add(dedupeKey);
+          pendingEditDiffRef.current = parsedDiff as TEdit;
         }
       }
     },

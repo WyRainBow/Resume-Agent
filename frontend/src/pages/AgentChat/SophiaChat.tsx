@@ -62,6 +62,10 @@ import { useTextStream } from "@/hooks/useTextStream";
 import { useToolEventRouter } from "@/hooks/agent-chat/useToolEventRouter";
 import { useStreamRunController } from "@/hooks/agent-chat/useStreamRunController";
 import { useMessageTimeline } from "@/hooks/agent-chat/useMessageTimeline";
+import {
+  extractResumeEditDiff as extractResumeEditDiffFromMarkdown,
+  stripResumeEditMarkdown,
+} from "@/utils/resumeEditDiff";
 
 import WorkspaceLayout from "@/pages/WorkspaceLayout";
 import CustomScrollbar from "@/components/common/CustomScrollbar";
@@ -443,35 +447,6 @@ interface ResumeEditDiffStructuredData {
   };
 }
 
-function stripResumeEditMarkdown(content: string): string {
-  if (!content) return "";
-  const withoutBefore = content.replace(
-    /(?:^|\n)修改前：\s*```[a-zA-Z]*\n[\s\S]*?```/g,
-    "\n",
-  );
-  const withoutBoth = withoutBefore.replace(
-    /(?:^|\n)修改后：\s*```[a-zA-Z]*\n[\s\S]*?```/g,
-    "\n",
-  );
-  return withoutBoth.replace(/\n{3,}/g, "\n\n").trim();
-}
-
-function extractResumeEditDiffFromMarkdown(content: string): {
-  before: string;
-  after: string;
-} | null {
-  if (!content) return null;
-  const beforeMatch = content.match(
-    /修改前：\s*```[a-zA-Z]*\n([\s\S]*?)```/m,
-  );
-  const afterMatch = content.match(/修改后：\s*```[a-zA-Z]*\n([\s\S]*?)```/m);
-  if (!beforeMatch || !afterMatch) return null;
-  return {
-    before: beforeMatch[1].trim(),
-    after: afterMatch[1].trim(),
-  };
-}
-
 // ============================================================================
 // 主页面组件
 // ============================================================================
@@ -673,6 +648,7 @@ function SophiaChatContent() {
   const [showResumeSelector, setShowResumeSelector] = useState(false);
   const currentRunUserInputRef = useRef("");
   const [pendingResumeInput, setPendingResumeInput] = useState<string>(""); // 暂存用户输入，选择简历后继续处理
+  const resumeDataRef = useRef<ResumeData | null>(null);
 
   const [isUploadingFile, setIsUploadingFile] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
@@ -713,6 +689,7 @@ function SophiaChatContent() {
   const lastHandledAnswerCompleteRef = useRef(0);
   const lastDoneRunRef = useRef<number>(-1);
   const lastFinalizedRunRef = useRef<number>(-1);
+  const lastFinalizedSignatureRef = useRef("");
   const pendingFinalizeAfterTypewriterRef = useRef(false);
   const finalizeRetryTimerRef = useRef<number | null>(null);
   const finalizeRetryAttemptsRef = useRef(0);
@@ -722,6 +699,10 @@ function SophiaChatContent() {
   const normalizedResume = useMemo(() => {
     if (!resumeData) return null;
     return convertResumeDataToOpenManusFormat(resumeData);
+  }, [resumeData]);
+
+  useEffect(() => {
+    resumeDataRef.current = resumeData;
   }, [resumeData]);
 
   const selectedLoadedResume = useMemo(() => {
@@ -931,40 +912,140 @@ function SophiaChatContent() {
     (diff: ResumeEditDiffStructuredData) => {
       const patchPath = diff.patch?.path || "";
       const patchValue = diff.patch?.value;
-      if (diff.patch?.action !== "update" || !patchPath) return;
+      const patchAction = String(diff.patch?.action || "update").toLowerCase();
+      if (!["update", "set", "replace", "edit"].includes(patchAction)) return;
 
       const patchResume = (source: ResumeData): ResumeData => {
         const next = structuredClone(source);
-        if (patchPath === "basic.name") {
-          next.basic = { ...next.basic, name: String(patchValue ?? "") };
+        const parsePathTokens = (path: string): Array<string | number> =>
+          path
+            .replace(/\[(\d+)\]/g, ".$1")
+            .split(".")
+            .map((segment) => segment.trim())
+            .filter(Boolean)
+            .map((segment) =>
+              /^\d+$/.test(segment) ? Number(segment) : segment,
+            );
+
+        const normalizeRootKey = (
+          root: string,
+          resume: ResumeData,
+        ): string => {
+          if (root === "internships" || root === "internship") {
+            if (!("internships" in (resume as Record<string, unknown>))) {
+              return "experience";
+            }
+          }
+          if (root === "work_experience" || root === "workExperience") {
+            return "experience";
+          }
+          if (root === "basic_info" || root === "profile") {
+            return "basic";
+          }
+          return root;
+        };
+
+        const setByPath = (
+          target: Record<string, unknown>,
+          tokens: Array<string | number>,
+          value: unknown,
+        ): boolean => {
+          if (tokens.length === 0) return false;
+          const normalized = [...tokens];
+          if (typeof normalized[0] === "string") {
+            normalized[0] = normalizeRootKey(normalized[0], next);
+          }
+
+          let cursor: any = target;
+          for (let i = 0; i < normalized.length - 1; i += 1) {
+            const current = normalized[i];
+            const upcoming = normalized[i + 1];
+
+            if (typeof current === "number") {
+              if (!Array.isArray(cursor)) return false;
+              if (
+                cursor[current] === undefined ||
+                cursor[current] === null ||
+                typeof cursor[current] !== "object"
+              ) {
+                cursor[current] = typeof upcoming === "number" ? [] : {};
+              }
+              cursor = cursor[current];
+              continue;
+            }
+
+            if (
+              cursor[current] === undefined ||
+              cursor[current] === null ||
+              typeof cursor[current] !== "object"
+            ) {
+              cursor[current] = typeof upcoming === "number" ? [] : {};
+            }
+            cursor = cursor[current];
+          }
+
+          const leaf = normalized[normalized.length - 1];
+          if (typeof leaf === "number") {
+            if (!Array.isArray(cursor)) return false;
+            cursor[leaf] = value;
+            return true;
+          }
+          cursor[leaf] = value;
+          return true;
+        };
+
+        const nextValue =
+          patchValue !== undefined ? patchValue : (diff.after ?? "");
+        const patchTokens = parsePathTokens(patchPath);
+        if (patchTokens.length > 0) {
+          const applied = setByPath(
+            next as Record<string, unknown>,
+            patchTokens,
+            nextValue,
+          );
+          if (applied) return next;
+        }
+
+        const fallbackField = (diff.field || "").trim();
+        if (diff.section === "basic" && fallbackField) {
+          setByPath(
+            next as Record<string, unknown>,
+            ["basic", fallbackField],
+            diff.after ?? "",
+          );
           return next;
         }
 
-        const experienceMatch = patchPath.match(/^experience\[(\d+)\]\.company$/);
-        if (experienceMatch) {
-          const index = Number(experienceMatch[1]);
-          if (Array.isArray(next.experience) && index >= 0 && index < next.experience.length) {
-            const target = next.experience[index];
-            next.experience[index] = {
-              ...target,
-              company: String(patchValue ?? ""),
-            };
-          }
-          return next;
+        if (
+          fallbackField &&
+          typeof diff.index === "number" &&
+          Number.isInteger(diff.index)
+        ) {
+          const sectionKey =
+            diff.section === "internships" ? "experience" : diff.section;
+          const applied = setByPath(
+            next as Record<string, unknown>,
+            [sectionKey, diff.index, fallbackField],
+            diff.after ?? "",
+          );
+          if (applied) return next;
         }
 
-        const internshipMatch = patchPath.match(/^internships\[(\d+)\]\.company$/);
-        if (internshipMatch) {
-          const index = Number(internshipMatch[1]);
-          if (Array.isArray(next.experience) && index >= 0 && index < next.experience.length) {
-            const target = next.experience[index];
-            next.experience[index] = {
-              ...target,
-              company: String(patchValue ?? ""),
-            };
-          }
+        if (patchPath) {
+          console.warn("[AgentChat] Failed to apply resume patch path", {
+            patchPath,
+            patchAction,
+            section: diff.section,
+            field: diff.field,
+            index: diff.index,
+          });
+        } else {
+          console.warn("[AgentChat] Missing patch path in resume diff", {
+            section: diff.section,
+            field: diff.field,
+            index: diff.index,
+          });
         }
-
         return next;
       };
 
@@ -1017,9 +1098,18 @@ function SophiaChatContent() {
         /(?:加载|打开|查看|显示|选择).*(?:简历|resume|cv)|(?:简历|resume|cv).*(?:加载|打开|选择)/i.test(
           text,
         );
-      if (!isLoadResumeIntent) {
+      const hasResumeContext =
+        !!resumeDataRef.current ||
+        loadedResumes.some((item) => !!item.resumeData);
+      // 非“加载简历”意图：
+      // - 若当前会话已持有简历上下文：忽略本次 show_resume，并在本轮结束后自动重放用户输入
+      // - 若会话没有简历上下文：仍需展示选择器，避免卡在“处理中”
+      if (!isLoadResumeIntent && hasResumeContext) {
         console.warn("[AgentChat] Ignore show_resume selector for non-load intent:", text);
         return;
+      }
+      if (!isLoadResumeIntent && text) {
+        setPendingResumeInput(text);
       }
       setResumeError(null);
       setShowResumeSelector(true);
@@ -1657,10 +1747,7 @@ function SophiaChatContent() {
       markdownEditDiff?.after ||
       ""
     ).trim();
-    const answerLooksLikeEditDiff =
-      /修改前：\s*```[\s\S]*?```[\s\S]*?修改后：\s*```[\s\S]*?```/m.test(
-        answer || "",
-      );
+    const answerLooksLikeEditDiff = Boolean(markdownEditDiff);
     const isStaleEditDiffResponse =
       (answerLooksLikeEditDiff || Boolean(diffAfterValue)) &&
       ((!hasEditIntent &&
@@ -1692,6 +1779,23 @@ function SophiaChatContent() {
       }, 120);
       return;
     }
+
+    const finalizeSignature = `${streamRunRef.current}::${thought}::${answer}`;
+    if (lastFinalizedSignatureRef.current === finalizeSignature) {
+      console.log("[AgentChat] Duplicate finalize signature skipped");
+      pendingFinalizeAfterTypewriterRef.current = false;
+      finalizeRetryAttemptsRef.current = 0;
+      if (finalizeRetryTimerRef.current !== null) {
+        window.clearTimeout(finalizeRetryTimerRef.current);
+        finalizeRetryTimerRef.current = null;
+      }
+      finalizeStream();
+      window.setTimeout(() => {
+        isFinalizedRef.current = false;
+      }, 120);
+      return;
+    }
+    lastFinalizedSignatureRef.current = finalizeSignature;
 
     refreshAfterSaveRef.current = true;
     pendingSaveRef.current = true;
@@ -2646,6 +2750,7 @@ function SophiaChatContent() {
       } as unknown as ResumeData;
 
       // 设置简历数据
+      resumeDataRef.current = resumeDataWithMeta;
       setResumeData(resumeDataWithMeta);
 
       // 添加到加载的简历列表，以便在右侧显示
@@ -2666,8 +2771,10 @@ function SophiaChatContent() {
       setSelectedResumeId(selectedResume.id);
       setSelectedReportId(null);
 
-      // 清除暂存的输入
-      setPendingResumeInput("");
+      // 若有待重放输入，且当前还处于处理态，先强制收口上一轮，避免输入框一直卡在“处理中”。
+      if (pendingResumeInput.trim() && isProcessing) {
+        finalizeStream();
+      }
 
       console.log(
         "[AgentChat] 简历已选择并加载:",
@@ -2675,7 +2782,7 @@ function SophiaChatContent() {
         selectedResume.name,
       );
     },
-    [user?.id],
+    [user?.id, pendingResumeInput, isProcessing, finalizeStream],
   );
 
   // 取消简历选择
@@ -2749,7 +2856,6 @@ function SophiaChatContent() {
       const nextRunId = startNewRun();
       setActiveRunId(nextRunId);
       lastDoneRunRef.current = -1;
-      lastFinalizedRunRef.current = -1;
       currentThoughtRef.current = "";
       currentAnswerRef.current = "";
       setSearchResults((prev) =>
@@ -2762,7 +2868,11 @@ function SophiaChatContent() {
         prev.filter((item) => item.messageId !== "current"),
       );
 
-      await sendMessage(userMessage, resumeDataOverride);
+      const effectiveResumeData =
+        resumeDataOverride !== undefined
+          ? resumeDataOverride
+          : resumeDataRef.current;
+      await sendMessage(userMessage, effectiveResumeData);
     },
     [
       isProcessing,
@@ -2812,6 +2922,21 @@ function SophiaChatContent() {
   const handleClickUpload = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
+
+  useEffect(() => {
+    if (!pendingResumeInput.trim()) return;
+    if (!resumeData) return;
+    if (showResumeSelector || isProcessing) return;
+    const replay = pendingResumeInput;
+    setPendingResumeInput("");
+    void sendUserTextMessage(replay, undefined, resumeData);
+  }, [
+    pendingResumeInput,
+    resumeData,
+    showResumeSelector,
+    isProcessing,
+    sendUserTextMessage,
+  ]);
 
   useEffect(() => {
     if (answerCompleteCount === 0) return;

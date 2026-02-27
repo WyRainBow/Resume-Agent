@@ -5,6 +5,7 @@ import SearchCard from "@/components/chat/SearchCard";
 import SearchSummary from "@/components/chat/SearchSummary";
 import StreamingOutputPanel from "@/components/chat/StreamingOutputPanel";
 import { ReportGenerationDetector } from "@/components/chat/ReportGenerationDetector";
+import { extractResumeEditDiff } from "@/utils/resumeEditDiff";
 
 interface SearchData {
   query: string;
@@ -40,27 +41,14 @@ interface StreamingLaneProps {
   onReportCreated: (reportId: string, title: string) => void;
 }
 
-function extractResumeEditDiffFromMarkdown(
-  content: string,
-): { before: string; after: string } | null {
-  if (!content) return null;
-  const beforeMatch = content.match(
-    /修改前：\s*```[a-zA-Z]*\n([\s\S]*?)```/m,
-  );
-  const afterMatch = content.match(/修改后：\s*```[a-zA-Z]*\n([\s\S]*?)```/m);
-  if (!beforeMatch || !afterMatch) return null;
-  return {
-    before: beforeMatch[1].trim(),
-    after: afterMatch[1].trim(),
-  };
-}
-
 function splitEmbeddedResponseFromThought(thought: string): {
   cleanedThought: string;
   embeddedResponse: string;
 } {
   const raw = (thought || "").trim();
-  const markerMatch = raw.match(/^(.*?)(?:Response[:：]\s*)([\s\S]*)$/m);
+  const markerMatch = raw.match(
+    /^(.*?)(?:\*{0,2}\s*Response\s*\*{0,2}[:：]\s*)([\s\S]*)$/im,
+  );
   if (!markerMatch) {
     return { cleanedThought: raw, embeddedResponse: "" };
   }
@@ -77,6 +65,46 @@ function splitEmbeddedResponseFromThought(thought: string): {
   return {
     cleanedThought: mergedThought,
     embeddedResponse: responseLine.trim(),
+  };
+}
+
+function getDiffFallbackResponse(hasDiff: boolean, content: string): string {
+  if (!hasDiff) return content;
+  return (content || "").trim();
+}
+
+function sanitizeResumeDiffText(value?: string): string {
+  const raw = String(value || "");
+  if (!raw) return "";
+  const withoutTags = raw.replace(/<[^>]+>/g, " ");
+  const withoutBold = withoutTags.replace(/\*\*(.*?)\*\*/g, "$1");
+  const normalized = withoutBold
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+
+  const dedupedLines: string[] = [];
+  for (const line of normalized.split("\n")) {
+    const current = line.trim();
+    if (!current) continue;
+    if (dedupedLines[dedupedLines.length - 1] === current) continue;
+    dedupedLines.push(current);
+  }
+  const compact = dedupedLines.join("\n");
+  const MAX_LEN = 1200;
+  if (compact.length <= MAX_LEN) return compact;
+  return `${compact.slice(0, MAX_LEN)}\n...（内容较长，已截断展示）`;
+}
+
+function sanitizeResumeDiffData(diff?: { before?: string; after?: string } | null) {
+  if (!diff) return diff;
+  return {
+    before: sanitizeResumeDiffText(diff.before),
+    after: sanitizeResumeDiffText(diff.after),
   };
 }
 
@@ -98,11 +126,15 @@ export default function StreamingLane({
   const answerCandidate = (currentAnswer || "").trim() ? currentAnswer : embeddedResponse;
   const markdownDiff = currentEditDiff
     ? null
-    : extractResumeEditDiffFromMarkdown(answerCandidate || "");
-  const effectiveCurrentDiff = currentEditDiff?.data || markdownDiff;
-  const sanitizedCurrentAnswer = effectiveCurrentDiff
+    : extractResumeEditDiff(answerCandidate || "");
+  const effectiveCurrentDiff = sanitizeResumeDiffData(currentEditDiff?.data || markdownDiff);
+  const sanitizedCurrentAnswerRaw = effectiveCurrentDiff
     ? stripResumeEditMarkdown(answerCandidate || "")
     : answerCandidate;
+  const sanitizedCurrentAnswer = getDiffFallbackResponse(
+    Boolean(effectiveCurrentDiff),
+    (sanitizedCurrentAnswerRaw || "").trim(),
+  );
 
   return (
     <StreamingOutputPanel
