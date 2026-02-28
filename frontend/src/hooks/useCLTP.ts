@@ -17,6 +17,8 @@ function normalizeText(value: unknown): string {
 }
 
 function extractEventText(event: AgentStreamEvent): string {
+  const delta = normalizeText(event.data?.delta);
+  if (delta) return delta;
   return (
     normalizeText(event.data?.content) ||
     normalizeText(event.data?.result) ||
@@ -25,15 +27,99 @@ function extractEventText(event: AgentStreamEvent): string {
   );
 }
 
+function normalizeThoughtChunk(raw: string): string {
+  return raw
+    .replace(/^\s*thought\s*[:：]\s*/i, "")
+    .replace(/^\s*[:：-]?\s*response\s*[:：]?\s*/i, "");
+}
+
+function normalizeAnswerBuffer(raw: string): string {
+  if (!raw) return "";
+  const content = raw;
+  const responseMarker = /(?:^|\n)\s*response\s*[:：]\s*/i;
+  const responseMatch = responseMarker.exec(content);
+  if (responseMatch) {
+    const start = responseMatch.index + responseMatch[0].length;
+    return content.slice(start);
+  }
+
+  // 某些后端分支会先在 answer 通道输出 "Thought:" 前缀，未出现 Response 前不展示。
+  if (/^\s*thought\s*[:：]?/i.test(content.trimStart())) {
+    return "";
+  }
+
+  return content.replace(/^\s*[:：-]?\s*response\s*[:：]\s*/i, "");
+}
+
+function collapseDirectDuplicate(raw: string): string {
+  const text = raw || "";
+  if (!text) return text;
+
+  const len = text.length;
+  if (len >= 20 && len % 2 === 0) {
+    const half = len / 2;
+    const first = text.slice(0, half);
+    const second = text.slice(half);
+    if (first === second) return first;
+  }
+
+  // handle "<content>\\n<content>" or "<content> <content>"
+  for (const sep of ["\n\n", "\n", "  ", " "]) {
+    const idx = text.indexOf(sep);
+    if (idx <= 0) continue;
+    const first = text.slice(0, idx);
+    const second = text.slice(idx + sep.length);
+    if (first.length < 20) continue;
+    if (first === second) return first;
+  }
+
+  return text;
+}
+
 function appendChunk(prev: string, incoming: string): string {
   if (!incoming) return prev;
   if (!prev) return incoming;
 
-  if (incoming.startsWith(prev)) return incoming;
+  if (incoming.startsWith(prev)) {
+    const tail = incoming.slice(prev.length);
+    const compactTail = tail.trimStart();
+    const compactPrev = prev.trim();
+    if (
+      tail === prev ||
+      compactTail === prev ||
+      compactTail === compactPrev ||
+      (compactPrev.length > 0 && compactTail.startsWith(compactPrev))
+    ) {
+      return prev;
+    }
+    return incoming;
+  }
   if (prev.startsWith(incoming)) return prev;
   if (prev.endsWith(incoming)) return prev;
+  if (prev.includes(incoming)) return prev;
 
-  return prev + incoming;
+  // Handle providers that stream "full-so-far" rewrites with varying prefixes.
+  const maxOverlap = Math.min(prev.length, incoming.length);
+  for (let i = maxOverlap; i > 0; i -= 1) {
+    if (prev.slice(-i) === incoming.slice(0, i)) {
+      return collapseDirectDuplicate(prev + incoming.slice(i));
+    }
+  }
+
+  // Handle "rewrite + append" style chunks:
+  // incoming may contain a near-complete rewrite of previous text plus a small tail.
+  const anchorSize = Math.min(160, prev.length);
+  if (anchorSize >= 24) {
+    const anchor = prev.slice(-anchorSize);
+    const anchorPos = incoming.indexOf(anchor);
+    if (anchorPos >= 0) {
+      return collapseDirectDuplicate(
+        prev + incoming.slice(anchorPos + anchor.length),
+      );
+    }
+  }
+
+  return collapseDirectDuplicate(prev + incoming);
 }
 
 export interface UseCLTPResult {
@@ -105,7 +191,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
 
   const authHeaders = useMemo<Record<string, string>>(() => {
     const token = localStorage.getItem("auth_token");
-    return token ? { Authorization: `Bearer ` } : {};
+    return token ? { Authorization: `Bearer ${token}` } : {};
   }, []);
 
   const sendMessage = useCallback(
@@ -154,27 +240,34 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
               const text = extractEventText(event);
 
               if (type === "thought" || type === "thought_chunk") {
-                setCurrentThought((prev) => appendChunk(prev, text));
+                setCurrentThought((prev) =>
+                  collapseDirectDuplicate(
+                    appendChunk(prev, normalizeThoughtChunk(text)),
+                  ),
+                );
                 return;
               }
 
               if (type === "answer" || type === "answer_chunk") {
-                setCurrentAnswer((prev) => appendChunk(prev, text));
+                const isComplete = Boolean((event.data as any)?.is_complete);
+                if (isComplete) {
+                  const fullAnswer = normalizeAnswerBuffer(
+                    normalizeText((event.data as any)?.content) || text,
+                  );
+                  setCurrentAnswer((prev) =>
+                    collapseDirectDuplicate(fullAnswer || prev),
+                  );
+                  return;
+                }
+                setCurrentAnswer((prev) =>
+                  collapseDirectDuplicate(
+                    normalizeAnswerBuffer(appendChunk(prev, text)),
+                  ),
+                );
                 return;
               }
 
-              if (
-                type === "done" ||
-                (type === "status" &&
-                  ["complete", "done"].includes(
-                    String(
-                      event.data?.status ||
-                        event.data?.content ||
-                        event.data?.result ||
-                        "",
-                    ).toLowerCase(),
-                  ))
-              ) {
+              if (type === "done") {
                 completed = true;
                 setAnswerCompleteCount((prev) => prev + 1);
                 return;

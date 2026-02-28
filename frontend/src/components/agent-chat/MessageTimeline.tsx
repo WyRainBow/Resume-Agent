@@ -69,7 +69,7 @@ function splitEmbeddedResponseFromThought(thought: string): {
 } {
   const raw = (thought || "").trim();
   const markerMatch = raw.match(
-    /^(.*?)(?:\*{0,2}\s*Response\s*\*{0,2}[:：]\s*)([\s\S]*)$/im,
+    /^(.*?)(?:[:：\-\s]*\*{0,2}\s*Response\s*\*{0,2}[:：]\s*)([\s\S]*)$/im,
   );
   if (!markerMatch) {
     return { cleanedThought: raw, embeddedResponse: "" };
