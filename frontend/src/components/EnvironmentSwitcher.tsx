@@ -7,13 +7,22 @@ import { getApiBaseUrl, isAgentEnabled, setAgentEnabledOverride } from '@/lib/ru
 function getRoleFromToken(): string {
   try {
     const token = localStorage.getItem('auth_token')
-    if (!token) return ''
-    const payloadPart = token.split('.')[1]
-    if (!payloadPart) return ''
-    const normalized = payloadPart.replace(/-/g, '+').replace(/_/g, '/')
-    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
-    const payload = JSON.parse(atob(padded))
-    return String(payload?.role || '').toLowerCase()
+    if (token) {
+      const payloadPart = token.split('.')[1]
+      if (payloadPart) {
+        const normalized = payloadPart.replace(/-/g, '+').replace(/_/g, '/')
+        const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
+        const payload = JSON.parse(atob(padded))
+        const tokenRole = String(payload?.role || '').toLowerCase()
+        if (tokenRole) return tokenRole
+      }
+    }
+    const authUserRaw = localStorage.getItem('auth_user')
+    if (authUserRaw) {
+      const authUser = JSON.parse(authUserRaw)
+      return String(authUser?.role || '').toLowerCase()
+    }
+    return ''
   } catch {
     return ''
   }

@@ -6,6 +6,7 @@ import type { SavedResume, StorageAdapter } from './StorageAdapter'
 
 const apiClient = axios.create({
   baseURL: getApiBaseUrl(),
+  timeout: 10000,
 })
 
 const CURRENT_KEY = 'resume_current'

@@ -64,6 +64,7 @@ import { useStreamRunController } from "@/hooks/agent-chat/useStreamRunControlle
 import { useMessageTimeline } from "@/hooks/agent-chat/useMessageTimeline";
 import {
   extractResumeEditDiff as extractResumeEditDiffFromMarkdown,
+  normalizeResumePatchValue,
   stripResumeEditMarkdown,
 } from "@/utils/resumeEditDiff";
 
@@ -994,9 +995,14 @@ function SophiaChatContent() {
           return true;
         };
 
-        const nextValue =
-          patchValue !== undefined ? patchValue : (diff.after ?? "");
         const patchTokens = parsePathTokens(patchPath);
+        const nextValueRaw =
+          patchValue !== undefined ? patchValue : (diff.after ?? "");
+        const nextValue = normalizeResumePatchValue(
+          nextValueRaw,
+          patchPath,
+          diff.field,
+        );
         if (patchTokens.length > 0) {
           const applied = setByPath(
             next as Record<string, unknown>,
@@ -1011,7 +1017,11 @@ function SophiaChatContent() {
           setByPath(
             next as Record<string, unknown>,
             ["basic", fallbackField],
-            diff.after ?? "",
+            normalizeResumePatchValue(
+              diff.after ?? "",
+              `basic.${fallbackField}`,
+              fallbackField,
+            ),
           );
           return next;
         }
@@ -1026,9 +1036,80 @@ function SophiaChatContent() {
           const applied = setByPath(
             next as Record<string, unknown>,
             [sectionKey, diff.index, fallbackField],
-            diff.after ?? "",
+            normalizeResumePatchValue(
+              diff.after ?? "",
+              `${sectionKey}[${diff.index}].${fallbackField}`,
+              fallbackField,
+            ),
           );
           if (applied) return next;
+        }
+
+        const normalizeComparable = (value: unknown): string =>
+          String(value || "")
+            .replace(/<[^>]+>/g, " ")
+            .replace(/&nbsp;/gi, " ")
+            .replace(/&amp;/gi, "&")
+            .replace(/&lt;/gi, "<")
+            .replace(/&gt;/gi, ">")
+            .replace(/\s+/g, "")
+            .trim()
+            .toLowerCase();
+
+        const beforeNeedle = normalizeComparable(diff.before || "");
+        if (beforeNeedle.length >= 4) {
+          const candidateRoots = Array.from(
+            new Set(
+              [
+                String(diff.section || ""),
+                diff.section === "internships" ? "experience" : "",
+                "experience",
+                "internships",
+              ]
+                .map((root) => normalizeRootKey(root, next))
+                .filter(Boolean),
+            ),
+          );
+
+          for (const rootKey of candidateRoots) {
+            const collection = (next as Record<string, unknown>)[
+              rootKey
+            ] as unknown;
+            if (!Array.isArray(collection)) continue;
+
+            for (let i = 0; i < collection.length; i += 1) {
+              const item = collection[i] as Record<string, unknown>;
+              if (!item || typeof item !== "object") continue;
+              const candidateField = fallbackField || "details";
+              const candidateValue = item[candidateField];
+              const candidateComparable = normalizeComparable(candidateValue);
+              if (
+                !candidateComparable ||
+                (!candidateComparable.includes(beforeNeedle) &&
+                  !beforeNeedle.includes(candidateComparable))
+              ) {
+                continue;
+              }
+
+              const applied = setByPath(
+                next as Record<string, unknown>,
+                [rootKey, i, candidateField],
+                normalizeResumePatchValue(
+                  diff.after ?? "",
+                  `${rootKey}[${i}].${candidateField}`,
+                  candidateField,
+                ),
+              );
+              if (applied) {
+                console.log("[AgentChat] Applied resume diff via before-match fallback", {
+                  rootKey,
+                  index: i,
+                  field: candidateField,
+                });
+                return next;
+              }
+            }
+          }
         }
 
         if (patchPath) {
@@ -1703,6 +1784,20 @@ function SophiaChatContent() {
 
     if (!thought && !answer) {
       if (isProcessing) {
+        // 若已收到当前轮 done，但内容为空（常见于 agent_error），主动收口本轮，避免重复触发警告。
+        if (lastDoneRunRef.current === streamRunRef.current) {
+          pendingFinalizeAfterTypewriterRef.current = false;
+          finalizeRetryAttemptsRef.current = 0;
+          if (finalizeRetryTimerRef.current !== null) {
+            window.clearTimeout(finalizeRetryTimerRef.current);
+            finalizeRetryTimerRef.current = null;
+          }
+          finalizeStream();
+          window.setTimeout(() => {
+            isFinalizedRef.current = false;
+          }, 120);
+          return;
+        }
         console.warn("[AgentChat] finalizeMessage called with NO content while still processing. This might be a race condition.");
         // 新一轮流式开始后，可能收到上一轮延迟 done，直接忽略，避免清空当前轮状态。
         isFinalizedRef.current = false;
@@ -2189,7 +2284,25 @@ function SophiaChatContent() {
               scheduledSaveRef.current = null;
               return;
             }
-            console.error(`[AgentChat] Failed to save session: ${resp.status}`);
+            let errorDetail = "";
+            try {
+              const raw = await resp.clone().text();
+              if (raw) {
+                try {
+                  const parsed = JSON.parse(raw);
+                  errorDetail = parsed?.message || parsed?.detail || raw;
+                } catch {
+                  errorDetail = raw;
+                }
+              }
+            } catch {
+              // ignore parse errors
+            }
+            console.error(
+              `[AgentChat] Failed to save session: ${resp.status}${
+                errorDetail ? ` - ${String(errorDetail).slice(0, 300)}` : ""
+              }`,
+            );
             const retryCount = (saveRetryRef.current[payloadKey] || 0) + 1;
             if (retryCount <= 2) {
               saveRetryRef.current[payloadKey] = retryCount;
@@ -3399,7 +3512,6 @@ function SophiaChatContent() {
                   currentReport={generatedReports.find((r) => r.messageId === "current")}
                   stripResumeEditMarkdown={stripResumeEditMarkdown}
                   onOpenSearchPanel={setActiveSearchPanel}
-                  onResponseTypewriterComplete={finalizeAfterTypewriter}
                   onOpenCurrentReport={(reportId, title) => {
                     setAllowPdfAutoRender(false);
                     setSelectedReportId(reportId);

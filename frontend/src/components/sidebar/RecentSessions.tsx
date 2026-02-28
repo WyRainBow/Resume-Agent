@@ -85,6 +85,7 @@ export function RecentSessions({
     const fallback = `请求失败（HTTP ${resp.status}）`;
     try {
       const data = await resp.clone().json();
+      if (data?.message) return String(data.message);
       if (data?.detail?.message) return String(data.detail.message);
       if (typeof data?.detail === 'string') return data.detail;
       if (data?.error_message) return String(data.error_message);

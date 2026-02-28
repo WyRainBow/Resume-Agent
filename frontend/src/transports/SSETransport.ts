@@ -110,7 +110,22 @@ export class SSETransport {
       });
 
       if (!response.ok) {
-        throw new Error(`SSE connection failed: ${response.status} ${response.statusText}`);
+        let detail = '';
+        try {
+          const bodyText = await response.text();
+          if (bodyText) {
+            try {
+              const parsed = JSON.parse(bodyText);
+              detail = parsed?.message || parsed?.detail || bodyText;
+            } catch {
+              detail = bodyText;
+            }
+          }
+        } catch {
+          // ignore body parse errors
+        }
+        const suffix = detail ? ` - ${String(detail).slice(0, 300)}` : '';
+        throw new Error(`SSE connection failed: ${response.status} ${response.statusText}${suffix}`);
       }
 
       if (!response.body) {

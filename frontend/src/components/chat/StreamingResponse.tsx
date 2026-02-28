@@ -1,29 +1,14 @@
-import React from "react";
+import { useEffect, useRef } from "react";
 import EnhancedMarkdown from "./EnhancedMarkdown";
-import { useTextStream } from "@/hooks/useTextStream";
 
-/**
- * StreamingResponseProps
- */
 export interface StreamingResponseProps {
-  /** 消息内容 */
   content: string;
-  /** 是否可以开始显示 */
   canStart: boolean;
-  /** 是否仍处于流式输出中 */
   isStreaming?: boolean;
-  /** CSS 类名 */
   className?: string;
-  /** 打字机完成回调 */
   onTypewriterComplete?: () => void;
 }
 
-/**
- * StreamingResponse 组件 - 显示 AI 的流式回答（带打字机效果）
- *
- * @param props - 组件属性
- * @returns React 组件
- */
 export default function StreamingResponse({
   content,
   canStart,
@@ -31,45 +16,31 @@ export default function StreamingResponse({
   className = "text-gray-800 mb-6",
   onTypewriterComplete,
 }: StreamingResponseProps) {
-  const { displayedText, isComplete } = useTextStream({
-    textStream: content || "",
-    mode: "typewriter",
-    speed: 2,
-    streamMode: "burst-smoothed",
-    burstThreshold: 0,
-    // 强制单字步进，避免一次跳出多个字。
-    maxCharsPerFrame: 1,
-    smoothingWindowMs: 110,
-    onComplete: onTypewriterComplete,
-  });
+  const completeNotifiedRef = useRef(false);
 
-  // 如果不能开始，不显示
-  if (!canStart) {
-    return null;
-  }
+  useEffect(() => {
+    if (isStreaming) {
+      completeNotifiedRef.current = false;
+      return;
+    }
+    if (!content?.trim()) return;
+    if (completeNotifiedRef.current) return;
+    completeNotifiedRef.current = true;
+    onTypewriterComplete?.();
+  }, [isStreaming, content, onTypewriterComplete]);
 
-  const textToShow = isStreaming ? displayedText : content;
-  const showTypingTail = isStreaming && !isComplete && textToShow.length > 0;
-
-  if (!textToShow && !showTypingTail) {
-    return null;
-  }
+  if (!canStart) return null;
+  if (!content?.trim() && !isStreaming) return null;
 
   return (
     <div className={className}>
-      {isStreaming ? (
-        <div className="whitespace-pre-wrap break-words leading-relaxed">
-          {textToShow}
-          {showTypingTail && (
-            <span className="ml-1 inline-flex items-center gap-0.5 text-slate-400 align-middle">
-              <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
-              <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:120ms]" />
-              <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:240ms]" />
-            </span>
-          )}
-        </div>
-      ) : (
-        <EnhancedMarkdown>{textToShow}</EnhancedMarkdown>
+      <EnhancedMarkdown>{content || ""}</EnhancedMarkdown>
+      {isStreaming && (
+        <span className="ml-1 inline-flex items-center gap-0.5 text-slate-400 align-middle">
+          <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:0ms]" />
+          <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:120ms]" />
+          <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:240ms]" />
+        </span>
       )}
     </div>
   );

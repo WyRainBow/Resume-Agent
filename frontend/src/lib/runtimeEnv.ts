@@ -77,7 +77,10 @@ export function isAgentEnabled(): boolean {
   } catch {
     // no-op
   }
-  const raw = String(import.meta.env.VITE_AGENT_ENABLED ?? 'false').trim().toLowerCase()
+  // 本地开发默认开启 AI，避免每次手动打开入口。
+  if (import.meta.env.DEV) return true
+  // 默认开启 AI；仅在显式配置为 false 时关闭。
+  const raw = String(import.meta.env.VITE_AGENT_ENABLED ?? 'true').trim().toLowerCase()
   return ['true', '1', 'on', 'yes'].includes(raw)
 }
 

@@ -10,7 +10,7 @@ import TTSButton from "@/components/chat/TTSButton";
 import ReportCard from "@/components/chat/ReportCard";
 import type { Message } from "@/types/chat";
 import type { ResumeData } from "@/pages/Workspace/v2/types";
-import { extractResumeEditDiff } from "@/utils/resumeEditDiff";
+import { formatResumeDiffPreview } from "@/utils/resumeEditDiff";
 
 interface GeneratedReportItem {
   id: string;
@@ -90,43 +90,27 @@ function splitEmbeddedResponseFromThought(thought: string): {
   };
 }
 
-function getDiffFallbackResponse(hasDiff: boolean, content: string): string {
+function getDiffFallbackResponse(
+  hasDiff: boolean,
+  content: string,
+  diff?: { before?: string; after?: string } | null,
+): string {
   if (!hasDiff) return content;
-  return (content || "").trim();
-}
-
-function sanitizeResumeDiffText(value?: string): string {
-  const raw = String(value || "");
-  if (!raw) return "";
-  const withoutTags = raw.replace(/<[^>]+>/g, " ");
-  const withoutBold = withoutTags.replace(/\*\*(.*?)\*\*/g, "$1");
-  const normalized = withoutBold
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/\r\n/g, "\n")
-    .replace(/[ \t]{2,}/g, " ")
-    .trim();
-
-  const dedupedLines: string[] = [];
-  for (const line of normalized.split("\n")) {
-    const current = line.trim();
-    if (!current) continue;
-    if (dedupedLines[dedupedLines.length - 1] === current) continue;
-    dedupedLines.push(current);
+  const trimmed = (content || "").trim();
+  if (trimmed) return trimmed;
+  const before = (diff?.before || "").split("\n")[0]?.trim();
+  const after = (diff?.after || "").split("\n")[0]?.trim();
+  if (before || after) {
+    return `已完成修改：${before || "原内容"} -> ${after || "新内容"}。`;
   }
-  const compact = dedupedLines.join("\n");
-  const MAX_LEN = 1200;
-  if (compact.length <= MAX_LEN) return compact;
-  return `${compact.slice(0, MAX_LEN)}\n...（内容较长，已截断展示）`;
+  return "";
 }
 
 function sanitizeResumeDiffData(diff?: { before?: string; after?: string } | null) {
   if (!diff) return diff;
   return {
-    before: sanitizeResumeDiffText(diff.before),
-    after: sanitizeResumeDiffText(diff.after),
+    before: formatResumeDiffPreview(diff.before),
+    after: formatResumeDiffPreview(diff.after),
   };
 }
 
@@ -152,10 +136,7 @@ export default function MessageTimeline({
         const reportForMessage = generatedReports.find((r) => r.messageId === msg.id);
         const resumeForMessage = loadedResumes.find((r) => r.messageId === msg.id);
         const editDiffForMessage = resumeEditDiffs.find((r) => r.messageId === msg.id);
-        const markdownDiff = editDiffForMessage
-          ? null
-          : extractResumeEditDiff(msg.content || "");
-        const effectiveDiff = sanitizeResumeDiffData(editDiffForMessage?.data || markdownDiff);
+        const effectiveDiff = sanitizeResumeDiffData(editDiffForMessage?.data);
         const searchForMessage = searchResults.find((r) => r.messageId === msg.id);
         const rawThought = (msg.thought || "").trim();
         const thoughtContent = isPlaceholderThought(rawThought) ? "" : rawThought;
@@ -167,6 +148,7 @@ export default function MessageTimeline({
         const effectiveContent = getDiffFallbackResponse(
           Boolean(effectiveDiff),
           ((sanitizedContent || "").trim() || embeddedResponse).trim(),
+          effectiveDiff,
         );
 
         if (msg.role === "user") {

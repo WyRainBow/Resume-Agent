@@ -66,9 +66,6 @@ export function useTypewriter(
     mode: 'typewriter',
     speed: toStreamSpeed(speed),
     segmentDelay: delay,
-    streamMode: 'burst-smoothed',
-    burstThreshold: 0,
-    maxCharsPerFrame: 1,
     // initialDelay 通过第一次 append 时延后注入处理
   });
 
@@ -154,9 +151,6 @@ export function useTypewriterSimple(
     mode: 'typewriter',
     speed: toStreamSpeed(speed),
     segmentDelay: delay,
-    streamMode: 'burst-smoothed',
-    burstThreshold: 0,
-    maxCharsPerFrame: 1,
     onComplete,
   });
 

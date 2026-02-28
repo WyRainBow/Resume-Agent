@@ -167,8 +167,13 @@ if AGENT_BACKEND_BASE_URL:
         except Exception as exc:
             await client.aclose()
             logger.error(f"[合并] Agent 代理请求失败: {exc}")
+            hint = (
+                f"Agent upstream unreachable: {AGENT_BACKEND_BASE_URL}. "
+                "Please ensure agent-backend is running "
+                "(e.g. uvicorn app.main:app --host 127.0.0.1 --port 9100)."
+            )
             return JSONResponse(
-                content={"code": "AGENT_PROXY_ERROR", "message": "Agent upstream unreachable"},
+                content={"code": "AGENT_PROXY_ERROR", "message": hint},
                 status_code=502,
             )
 
