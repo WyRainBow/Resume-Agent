@@ -298,7 +298,7 @@ export function AIImportModal({
           currentStep === "results" ? "max-w-4xl" : "max-w-2xl",
           "max-h-[90vh] flex flex-col",
           "bg-white dark:bg-slate-900",
-          "rounded-2xl shadow-2xl",
+          "rounded-lg shadow-2xl",
           "border border-slate-200 dark:border-slate-700",
           "overflow-hidden",
           "animate-in fade-in-0 zoom-in-95 duration-200",
@@ -307,7 +307,7 @@ export function AIImportModal({
         {/* 头部 */}
         <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-slate-900 dark:text-indigo-300" />
             </div>
             <div>
@@ -351,7 +351,7 @@ export function AIImportModal({
             <div className="space-y-4 animate-in fade-in duration-300 flex-1 flex flex-col overflow-y-auto custom-scrollbar pr-2">
               {/* 如果已经有解析结果，显示一个提示条 */}
               {parsedData && (
-                <div className="mb-4 p-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 flex items-center justify-between animate-in slide-in-from-top-2">
+                <div className="mb-4 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 flex items-center justify-between animate-in slide-in-from-top-2">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
                     <span className="text-sm text-indigo-700 dark:text-indigo-300 font-medium">
@@ -440,7 +440,7 @@ export function AIImportModal({
                     type="button"
                     onClick={() => setShowModelDropdown(!showModelDropdown)}
                     className={cn(
-                      "w-full px-4 py-3 rounded-xl",
+                      "w-full px-4 py-3 rounded-lg",
                       "bg-slate-50 dark:bg-slate-800",
                       "border border-slate-200 dark:border-slate-700",
                       "text-slate-900 dark:text-slate-100",
@@ -484,7 +484,7 @@ export function AIImportModal({
 
                   {/* 下拉菜单 */}
                   {showModelDropdown && (
-                    <div className="absolute z-10 w-full mt-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden">
+                    <div className="absolute z-10 w-full mt-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden">
                       {AI_MODELS.map((model) => (
                         <button
                           key={model.id}
@@ -552,7 +552,7 @@ export function AIImportModal({
               {sectionType === "all" ? (
                 <div className="space-y-4 flex-1 flex flex-col">
                   {/* Tab 切换 */}
-                  <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl flex-shrink-0">
+                  <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg flex-shrink-0">
                     <button
                       onClick={() => setImportMode("file")}
                       className={cn(
@@ -597,7 +597,7 @@ export function AIImportModal({
                           onClick={handlePdfUpload}
                           disabled={!selectedFile || parsing}
                           className={cn(
-                            "w-full rounded-xl px-4 py-2.5 text-sm font-semibold flex-shrink-0",
+                            "w-full rounded-lg px-4 py-2.5 text-sm font-semibold flex-shrink-0",
                             "bg-slate-900 text-white shadow-lg shadow-slate-200",
                             "hover:bg-slate-800",
                             "disabled:opacity-50 disabled:cursor-not-allowed",
@@ -636,7 +636,7 @@ export function AIImportModal({
                             }}
                             placeholder={aiImportPlaceholders["all"] || "请输入文本内容..."}
                             className={cn(
-                              "w-full flex-1 p-4 rounded-xl resize-none",
+                              "w-full flex-1 p-4 rounded-lg resize-none",
                               "bg-slate-50 dark:bg-slate-800/50",
                               "border border-slate-200 dark:border-slate-700",
                               "text-slate-900 dark:text-slate-100 text-sm",
@@ -657,7 +657,7 @@ export function AIImportModal({
                           onClick={handleParse}
                           disabled={!text.trim() || parsing}
                           className={cn(
-                            "w-full rounded-xl px-4 py-2.5 text-sm font-semibold flex-shrink-0",
+                            "w-full rounded-lg px-4 py-2.5 text-sm font-semibold flex-shrink-0",
                             "bg-slate-900 text-white shadow-lg shadow-slate-200",
                             "hover:bg-slate-800",
                             "disabled:opacity-50 disabled:cursor-not-allowed",
@@ -704,7 +704,7 @@ export function AIImportModal({
                       );
                     })()}
                     className={cn(
-                      "w-full flex-1 p-4 rounded-xl resize-none",
+                      "w-full flex-1 p-4 rounded-lg resize-none",
                       "bg-slate-50 dark:bg-slate-800/50",
                       "border border-slate-200 dark:border-slate-700",
                       "text-slate-900 dark:text-slate-100 text-sm",
@@ -728,7 +728,7 @@ export function AIImportModal({
           {currentStep === "results" && !parsing && parsedData && (
             <div
               className={cn(
-                "flex-1 flex flex-col p-6 rounded-2xl overflow-hidden",
+                "flex-1 flex flex-col p-6 rounded-lg overflow-hidden",
                 "bg-green-50/50 dark:bg-green-900/10",
                 "border border-green-200 dark:border-green-800/50",
                 "animate-in zoom-in-95 duration-300",

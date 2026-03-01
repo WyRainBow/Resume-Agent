@@ -10,7 +10,7 @@ import { cn } from "../../../lib/utils";
 import EditPanel from "./EditPanel";
 import PreviewPanel from "./PreviewPanel";
 import ScrollEditMode from "./ScrollEditMode";
-import { SidePanel } from "./SidePanel";
+import SidePanel from "./SidePanel";
 import type {
   ResumeData,
   MenuSection,
@@ -122,9 +122,10 @@ function DragHandle({
   return (
     <div
       className={cn(
-        "w-1 cursor-ew-resize group relative shrink-0",
-        "hover:bg-slate-900 dark:hover:bg-indigo-600",
-        "active:bg-slate-800 dark:active:bg-indigo-500",
+        "w-1 cursor-ew-resize group relative shrink-0 transition-colors",
+        "bg-slate-200 dark:bg-slate-800",
+        "hover:bg-slate-400 dark:hover:bg-slate-600",
+        "active:bg-slate-500 dark:active:bg-slate-500",
         className,
       )}
       style={{
@@ -177,7 +178,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
 
   // 列宽状态
   const [sidePanelWidth] = useState(300); // 模块选择列宽度（固定）
-  const [editPanelWidth, setEditPanelWidth] = useState(900); // 编辑面板宽度（可拖动调整，范围 400-1400px）
+  const [editPanelWidth, setEditPanelWidth] = useState(700); // 编辑面板宽度（可拖动调整，范围 400-1400px）
   const [isDragging, setIsDragging] = useState(false);
 
   // 拖拽处理 - 调整编辑面板宽度
@@ -269,7 +270,11 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
               </div>
 
               {/* 分隔线 2（可拖拽调整编辑面板宽度） */}
-              <DragHandle onDrag={handleDrag} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
+              <DragHandle
+                onDrag={handleDrag}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              />
             </motion.div>
           ) : (
             <motion.div
@@ -321,7 +326,11 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
               </div>
 
               {/* 分隔线（可拖拽调整编辑面板宽度） */}
-              <DragHandle onDrag={handleDrag} onDragStart={handleDragStart} onDragEnd={handleDragEnd} />
+              <DragHandle
+                onDrag={handleDrag}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              />
             </motion.div>
           )}
         </AnimatePresence>

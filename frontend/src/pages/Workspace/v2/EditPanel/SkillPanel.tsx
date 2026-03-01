@@ -8,6 +8,8 @@ import RichEditor from '../shared/RichEditor'
 
 import type { ResumeData } from '../../types'
 
+import { AIImportButton } from '@/components/common/AIImportButton';
+
 interface SkillPanelProps {
   skillContent: string
   onUpdate: (content: string) => void
@@ -28,16 +30,10 @@ const SkillPanel = ({ skillContent, onUpdate, onAIImport, resumeData }: SkillPan
     >
       {/* AI 导入按钮 */}
       {onAIImport && (
-        <motion.button
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2, delay: 0.05, ease: 'easeOut' }}
+        <AIImportButton 
           onClick={onAIImport}
-          className="w-full px-4 py-2 rounded-lg bg-white text-black border border-slate-300 hover:bg-slate-50 shadow-sm transition-all duration-300 flex items-center justify-center gap-2"
-        >
-          <Wand2 className="w-4 h-4" />
-          AI 导入技能
-        </motion.button>
+          className="w-full"
+        />
       )}
 
       {/* 技能编辑器 */}

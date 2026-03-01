@@ -206,7 +206,7 @@ const ResumeDashboard = () => {
 
   return (
     <WorkspaceLayout>
-      <div className="h-full overflow-y-auto bg-[#FAFAFA] dark:bg-[#020617] relative transition-colors duration-500">
+      <div className="h-full overflow-y-auto bg-slate-50 dark:bg-slate-950 relative transition-colors duration-500">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

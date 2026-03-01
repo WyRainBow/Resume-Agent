@@ -52,7 +52,7 @@ export function FileUploadZone({
     <div className="h-full flex flex-col space-y-3">
       <div
         className={cn(
-          'flex-1 flex flex-col justify-center rounded-2xl border-2 border-dashed p-6 transition-colors',
+          'flex-1 flex flex-col justify-center rounded-lg border-2 border-dashed p-6 transition-colors',
           dragging
             ? 'border-slate-900 bg-slate-50 dark:border-slate-400 dark:bg-indigo-500/10'
             : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40'
@@ -78,7 +78,7 @@ export function FileUploadZone({
         <div className="flex flex-col items-center text-center">
           {file ? (
             <>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-300">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-300">
                 <FileText className="h-6 w-6" />
               </div>
               <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">
@@ -115,7 +115,7 @@ export function FileUploadZone({
             </>
           ) : (
             <>
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-900 dark:bg-indigo-500/20 dark:text-indigo-300">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100 text-slate-900 dark:bg-indigo-500/20 dark:text-indigo-300">
                 <UploadCloud className="h-6 w-6" />
               </div>
               <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">

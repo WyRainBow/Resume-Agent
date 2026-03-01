@@ -10,6 +10,8 @@ import type { Education } from '../types'
 import Field from './Field'
 import { MonthYearRangePicker } from '../shared/MonthYearRangePicker'
 
+import { AIImportButton } from '@/components/common/AIImportButton';
+
 interface EducationPanelProps {
   educations: Education[]
   onUpdate: (education: Education) => void
@@ -301,13 +303,10 @@ const EducationPanel = ({
   return (
     <div className={cn('space-y-4 px-4 py-4 rounded-lg', 'bg-white dark:bg-neutral-900/30')}>
       {onAIImport && (
-        <button
+        <AIImportButton 
           onClick={onAIImport}
-          className="w-full px-4 py-2 rounded-lg bg-white text-black border border-slate-300 hover:bg-slate-50 shadow-sm transition-all duration-300 flex items-center justify-center gap-2"
-        >
-          <Wand2 className="w-4 h-4" />
-          AI 导入教育经历
-        </button>
+          className="w-full"
+        />
       )}
 
       <Reorder.Group axis="y" values={educations} onReorder={onReorder} className="space-y-3">

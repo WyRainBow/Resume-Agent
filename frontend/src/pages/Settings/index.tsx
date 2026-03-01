@@ -8,10 +8,20 @@ import {
   Palette,
   Languages,
   Keyboard,
+  FolderOpen,
 } from 'lucide-react'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
+import {
+  getPDFExportPreferences,
+  setPDFExportPreferences,
+  supportsDirectoryPicker,
+  saveDefaultPDFDirectoryHandle,
+  hasDefaultPDFDirectory,
+  clearDefaultPDFDirectoryHandle,
+  getDefaultPDFDirectoryLabel,
+} from '@/services/pdfExportPreferences'
 
 const THEME_KEY = 'app-theme'
 const LANGUAGE_KEY = 'app-language'
@@ -121,6 +131,10 @@ export default function SettingsPage() {
     }
   })
   const [saved, setSaved] = useState(false)
+  const [pdfPrefs, setPdfPrefs] = useState(() => getPDFExportPreferences())
+  const [hasDefaultPdfDir, setHasDefaultPdfDir] = useState(false)
+  const [defaultPdfDirLabel, setDefaultPdfDirLabel] = useState<string | null>(null)
+  const [savingPdfDir, setSavingPdfDir] = useState(false)
 
   useEffect(() => {
     if (user) {
@@ -128,6 +142,13 @@ export default function SettingsPage() {
       setEmail(user.email ?? '')
     }
   }, [user])
+
+  useEffect(() => {
+    hasDefaultPDFDirectory()
+      .then(setHasDefaultPdfDir)
+      .catch(() => setHasDefaultPdfDir(false))
+    setDefaultPdfDirLabel(getDefaultPDFDirectoryLabel())
+  }, [])
 
   const handleSaveAccount = () => {
     setSaved(true)
@@ -141,9 +162,56 @@ export default function SettingsPage() {
     } catch {}
   }
 
+  const handlePDFBehaviorChange = (behavior: 'alwaysAsk' | 'preferDefault') => {
+    const next = { behavior }
+    setPdfPrefs(next)
+    setPDFExportPreferences(next)
+  }
+
+  const handlePickPDFDirectory = async () => {
+    if (!supportsDirectoryPicker()) {
+      alert('当前浏览器不支持默认路径设置，请使用最新版 Chromium 浏览器。')
+      return
+    }
+    setSavingPdfDir(true)
+    try {
+      const dirHandle = await (window as any).showDirectoryPicker({
+        mode: 'readwrite',
+      })
+      await saveDefaultPDFDirectoryHandle(dirHandle)
+      setHasDefaultPdfDir(true)
+      setDefaultPdfDirLabel(getDefaultPDFDirectoryLabel())
+      if (pdfPrefs.behavior !== 'preferDefault') {
+        const next = { behavior: 'preferDefault' as const }
+        setPdfPrefs(next)
+        setPDFExportPreferences(next)
+      }
+      alert('默认 PDF 保存路径设置成功')
+    } catch (error: any) {
+      if (error?.name !== 'AbortError') {
+        console.error('设置默认 PDF 路径失败:', error)
+        alert('设置失败，请重试')
+      }
+    } finally {
+      setSavingPdfDir(false)
+    }
+  }
+
+  const handleClearPDFDirectory = async () => {
+    try {
+      await clearDefaultPDFDirectoryHandle()
+      setHasDefaultPdfDir(false)
+      setDefaultPdfDirLabel(null)
+      alert('已清除默认 PDF 保存路径')
+    } catch (error) {
+      console.error('清除默认 PDF 路径失败:', error)
+      alert('清除失败，请重试')
+    }
+  }
+
   return (
     <WorkspaceLayout>
-      <div className="h-full overflow-y-auto bg-[#F8F9FA] dark:bg-slate-950">
+      <div className="h-full overflow-y-auto bg-slate-50 dark:bg-slate-950">
         <div className="max-w-3xl mx-auto p-6 sm:p-8 space-y-6">
           <div className="space-y-1">
             <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">设置</h1>
@@ -226,6 +294,81 @@ export default function SettingsPage() {
                 </option>
               ))}
             </select>
+          </Card>
+
+          <Card icon={<FolderOpen className="w-4 h-4" />} title="PDF 导出偏好" desc="设置另存为 PDF 时的默认保存行为。">
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1.5">导出行为</label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: 'alwaysAsk' as const, label: '每次询问保存位置' },
+                    { value: 'preferDefault' as const, label: '优先使用默认路径' },
+                  ].map((opt) => {
+                    const active = pdfPrefs.behavior === opt.value
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => handlePDFBehaviorChange(opt.value)}
+                        className={cn(
+                          'px-4 py-2 rounded-lg border text-sm font-medium transition-all',
+                          active
+                            ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-400 text-indigo-700 dark:text-indigo-300'
+                            : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-300'
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/40 p-3">
+                <div className="text-sm text-slate-700 dark:text-slate-200">
+                  默认路径状态：
+                  <span className={cn(
+                    'ml-1 font-semibold',
+                    hasDefaultPdfDir ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'
+                  )}>
+                    {hasDefaultPdfDir ? '已设置' : '未设置'}
+                  </span>
+                </div>
+                <div className="text-sm text-slate-700 dark:text-slate-200 mt-1">
+                  当前默认保存路径：
+                  <span className={cn(
+                    'ml-1 font-medium',
+                    hasDefaultPdfDir ? 'text-slate-700 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'
+                  )}>
+                    {hasDefaultPdfDir
+                      ? (defaultPdfDirLabel ? `${defaultPdfDirLabel}（仅显示目录名）` : '已设置（目录名不可用）')
+                      : '未设置'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  基于浏览器文件权限能力，若权限失效会自动回退为手动选择路径。
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={handlePickPDFDirectory}
+                    disabled={savingPdfDir}
+                    className="px-3 py-2 text-sm font-semibold rounded-lg bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-700 dark:hover:bg-slate-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {savingPdfDir ? '设置中...' : '选择默认保存路径'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearPDFDirectory}
+                    disabled={!hasDefaultPdfDir}
+                    className="px-3 py-2 text-sm font-medium rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    清除默认路径
+                  </button>
+                </div>
+              </div>
+            </div>
           </Card>
 
           <Card icon={<Keyboard className="w-4 h-4" />} title="快捷键" desc="常用操作键位说明。">

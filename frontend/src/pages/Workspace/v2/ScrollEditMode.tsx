@@ -219,7 +219,7 @@ export default function ScrollEditMode({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: index * 0.05 }}
             className={cn(
-              'rounded-2xl border overflow-hidden shadow-sm group',
+              'rounded-lg border overflow-hidden shadow-sm group',
               'bg-white border-slate-200',
               'dark:bg-slate-900 dark:border-slate-700',
               'hover:shadow-md transition-shadow duration-200'

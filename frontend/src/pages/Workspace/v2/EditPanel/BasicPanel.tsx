@@ -150,9 +150,9 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25, delay: 7 * 0.04, ease: 'easeOut' }}
-            className="w-full xl:w-[300px] shrink-0"
+            className="w-full xl:w-[180px] shrink-0"
           >
-            <div className="rounded-2xl border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
+            <div className="rounded-lg border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm font-semibold text-slate-800">
                   照片设置
@@ -165,7 +165,6 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
                     title="移除照片"
                   >
                     <X className="w-3.5 h-3.5" />
-                    移除
                   </button>
                 )}
               </div>
@@ -182,7 +181,7 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
                 onClick={handleSelectPhoto}
                 disabled={uploading}
                 className={cn(
-                  'w-full h-36 rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all',
+                  'w-full h-48 rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all',
                   isAuthenticated
                     ? 'border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50/60'
                     : 'border-slate-200 text-slate-300',
@@ -194,7 +193,7 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
                   <img
                     src={basic.photo}
                     alt="照片"
-                    className="w-full h-full object-contain rounded-xl bg-white"
+                    className="w-full h-full object-contain rounded-lg bg-white"
                   />
                 ) : (
                   <>
@@ -203,26 +202,26 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
                     ) : (
                       <Upload className="w-6 h-6" />
                     )}
-                    <span className="text-sm font-medium">点击上传照片</span>
+                    <span className="text-xs font-medium">上传照片</span>
                   </>
                 )}
               </button>
 
               {hasPhoto && (
-                <div className="mt-4">
-                  <div className="grid grid-cols-2 gap-3">
+                <div className="mt-4 space-y-3">
+                  <div className="grid grid-cols-1 gap-3">
                     <div className="space-y-1.5">
-                      <label className="block text-xs font-medium text-slate-500">X 偏移（正向左）</label>
+                      <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider">X 偏移</label>
                       <input
                         type="number"
                         step="0.1"
                         value={photoOffsetX}
                         onChange={(e) => onUpdate({ photoOffsetX: Number(e.target.value) })}
-                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                        className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="block text-xs font-medium text-slate-500">Y 偏移（正向上）</label>
+                      <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider">Y 偏移</label>
                       <input
                         type="number"
                         step="0.1"
@@ -232,36 +231,35 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
                           if (Number.isNaN(uiValue)) return
                           onUpdate({ photoOffsetY: normalizeDecimal(uiValue - 2, 2) })
                         }}
-                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                        className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
                       />
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-medium text-slate-500">宽（cm）</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="1.2"
-                        max="5"
-                        value={photoWidthCm}
-                        onChange={(e) => onUpdate({ photoWidthCm: Number(e.target.value) })}
-                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                      />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider">宽</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="1.2"
+                          max="5"
+                          value={photoWidthCm}
+                          onChange={(e) => onUpdate({ photoWidthCm: Number(e.target.value) })}
+                          className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider">高</label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="1.2"
+                          max="6"
+                          value={photoHeightCm}
+                          onChange={(e) => onUpdate({ photoHeightCm: Number(e.target.value) })}
+                          className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-xs font-medium text-slate-500">高（cm）</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="1.2"
-                        max="6"
-                        value={photoHeightCm}
-                        onChange={(e) => onUpdate({ photoHeightCm: Number(e.target.value) })}
-                        className="w-full px-3 py-2 text-sm rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-2 text-[11px] text-slate-400">
-                    当前 Y 的 0 点是你的默认起始位置
                   </div>
                 </div>
               )}

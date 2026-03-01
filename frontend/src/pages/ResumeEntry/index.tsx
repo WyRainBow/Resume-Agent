@@ -10,7 +10,7 @@ export default function ResumeEntryPage() {
 
   return (
     <WorkspaceLayout>
-      <div className="h-full flex flex-col bg-[#F8F9FA] dark:bg-slate-950">
+      <div className="h-full flex flex-col bg-slate-50 dark:bg-slate-950">
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-10 max-w-4xl mx-auto w-full">
           <h1 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-slate-100 text-center mb-4">
             为每份工作定制申请

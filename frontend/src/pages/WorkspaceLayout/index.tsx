@@ -347,7 +347,7 @@ export default function WorkspaceLayout({
   };
 
   return (
-    <div className="h-screen flex overflow-hidden bg-[#FAFAFA] dark:bg-slate-950 font-sans selection:bg-slate-200 selection:text-slate-900">
+    <div className="h-screen flex overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans selection:bg-slate-200 selection:text-slate-900">
       {/* 左侧固定边栏 */}
       <aside
         className={cn(
@@ -363,8 +363,8 @@ export default function WorkspaceLayout({
                 className="cursor-pointer group shrink-0 flex items-center gap-2.5 min-w-0"
                 onClick={() => navigate("/")}
               >
-                <div className="w-9 h-9 bg-slate-900 dark:bg-white rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-600 shadow-sm group-hover:scale-105 transition-transform shrink-0">
-                  <span className="text-white font-black text-sm italic">
+                <div className="w-9 h-9 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 shadow-sm group-hover:scale-105 transition-transform shrink-0">
+                  <span className="text-slate-900 dark:text-white font-black text-sm italic">
                     RA
                   </span>
                 </div>
@@ -388,8 +388,8 @@ export default function WorkspaceLayout({
             <div className="relative group h-10 w-full flex items-center justify-center">
               {/* 收起态默认状态：仅 Logo */}
               <div className="flex items-center justify-center transition-opacity duration-200 group-hover:opacity-0 w-full">
-                <div className="w-9 h-9 bg-slate-900 dark:bg-white rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-600 shadow-sm shrink-0">
-                  <span className="text-white font-black text-sm italic">
+                <div className="w-9 h-9 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 shadow-sm shrink-0">
+                  <span className="text-slate-900 dark:text-white font-black text-sm italic">
                     RA
                   </span>
                 </div>

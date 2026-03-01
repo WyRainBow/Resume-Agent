@@ -168,7 +168,7 @@ export default function StatsDashboardPage() {
 
   return (
     <WorkspaceLayout>
-      <div className="relative h-full overflow-y-auto bg-[#FAFAFA]">
+      <div className="relative h-full overflow-y-auto bg-slate-50 dark:bg-slate-950">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -185,7 +185,7 @@ export default function StatsDashboardPage() {
               <div>
                 <h1 className="text-4xl font-black tracking-tighter text-slate-900 uppercase">仪表盘</h1>
               </div>
-              <div className="rounded-2xl bg-slate-50 p-5 border border-slate-100">
+              <div className="rounded-2xl bg-blue-50/50 p-5 border border-blue-100/50">
                 <div className="flex items-center gap-4 text-sm font-black text-slate-900">
                   <span>投递 {kpis.thisWeekApplicationCount}</span>
                   <span className="h-1 w-1 rounded-full bg-slate-300" />
