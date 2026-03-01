@@ -70,6 +70,16 @@ export function useToolEventRouter<
 
       const toolName = event.data?.tool;
       const structured = event.data?.structured_data;
+
+      // 调试日志：记录所有工具调用
+      console.log("[ToolEventRouter] Tool call received:", {
+        toolName,
+        eventType: event.type,
+        hasStructured: !!structured,
+        hasResult: !!event.data?.result,
+        hasContent: !!event.data?.content,
+        eventId: event.id,
+      });
       const keySeed =
         event.id ||
         event.data?.tool_call_id ||
@@ -115,17 +125,53 @@ export function useToolEventRouter<
         return;
       }
 
+      if (toolName === "CVReader" || toolName === "cv_reader") {
+        // 处理简历读取工具的结果
+        console.log("[CVReader] Processing CVReader tool result:", {
+          hasStructured: !!structured,
+          structured,
+          result: event.data?.result,
+          content: event.data?.content,
+        });
+
+        if (handledEditKeysRef.current.has(dedupeKey)) {
+          console.log("[CVReader] Duplicate key, skipping:", dedupeKey);
+          return;
+        }
+        handledEditKeysRef.current.add(dedupeKey);
+
+        // 将读取的简历数据传递给前端
+        const resumePayload = {
+          type: "resume_data",
+          data: structured || event.data?.result || event.data?.content,
+        } as TResume;
+        upsertLoadedResume("current", resumePayload);
+
+        console.log("[CVReader] Resume data loaded and upserted");
+        return;
+      }
+
       if (toolName === "cv_editor_agent") {
+        console.log("[cv_editor_agent] Processing edit request:", {
+          hasStructured: !!structured,
+          structured,
+          result: event.data?.result,
+          content: event.data?.content,
+        });
+
         const editPayload = structured as TEdit;
         const hasDiffShape =
           typeof (editPayload as any)?.before === "string" &&
           typeof (editPayload as any)?.after === "string";
+
         if ((editPayload as any).type === "resume_edit_diff" || hasDiffShape) {
           if (handledEditKeysRef.current.has(dedupeKey)) {
+            console.log("[cv_editor_agent] Duplicate key, skipping:", dedupeKey);
             return;
           }
           handledEditKeysRef.current.add(dedupeKey);
           pendingEditDiffRef.current = editPayload;
+          console.log("[cv_editor_agent] Edit diff queued for application");
           return;
         }
 
@@ -133,11 +179,16 @@ export function useToolEventRouter<
         const parsedDiff = extractDiffFromText(event.data?.result || event.data?.content);
         if (parsedDiff) {
           if (handledEditKeysRef.current.has(dedupeKey)) {
+            console.log("[cv_editor_agent] Duplicate parsed diff, skipping:", dedupeKey);
             return;
           }
           handledEditKeysRef.current.add(dedupeKey);
           pendingEditDiffRef.current = parsedDiff as TEdit;
+          console.log("[cv_editor_agent] Parsed edit diff queued");
+          return;
         }
+
+        console.warn("[cv_editor_agent] No valid diff data found in tool result");
       }
     },
     [

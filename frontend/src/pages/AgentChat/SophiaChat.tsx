@@ -914,7 +914,45 @@ function SophiaChatContent() {
       const patchPath = diff.patch?.path || "";
       const patchValue = diff.patch?.value;
       const patchAction = String(diff.patch?.action || "update").toLowerCase();
-      if (!["update", "set", "replace", "edit"].includes(patchAction)) return;
+
+      // Debug logging to help identify issues
+      console.log("[ResumeEdit] Applying diff:", {
+        patchPath,
+        patchValue,
+        patchAction,
+        hasBefore: !!diff.before,
+        hasAfter: !!diff.after,
+        section: diff.section,
+        field: diff.field,
+        index: diff.index,
+      });
+
+      if (!["update", "set", "replace", "edit"].includes(patchAction)) {
+        console.warn("[ResumeEdit] Unsupported action:", patchAction);
+        setLastError((prev) => ({
+          ...prev,
+          message: `不支持的操作类型：${patchAction}。仅支持 update、set、replace、edit 操作。`,
+        }));
+        return;
+      }
+
+      if (!patchPath) {
+        console.warn("[ResumeEdit] No patch path provided", diff);
+        setLastError((prev) => ({
+          ...prev,
+          message: `简历更新失败：AI未提供修改路径。这通常是因为AI无法确定要修改哪个字段。请尝试更具体的描述，例如："修改腾讯实习的工作经历描述"`,
+        }));
+        return;
+      }
+
+      if (!patchValue && !diff.after) {
+        console.warn("[ResumeEdit] No new value provided", diff);
+        setLastError((prev) => ({
+          ...prev,
+          message: `简历更新失败：AI未提供新的内容。请重试。`,
+        }));
+        return;
+      }
 
       const patchResume = (source: ResumeData): ResumeData => {
         const next = structuredClone(source);
@@ -1119,13 +1157,24 @@ function SophiaChatContent() {
             section: diff.section,
             field: diff.field,
             index: diff.index,
+            before: diff.before?.substring(0, 100),
+            after: diff.after?.substring(0, 100),
           });
+          // Show user-friendly error message in the chat
+          setLastError((prev) => ({
+            ...prev,
+            message: `简历更新失败：无法找到路径 "${patchPath}"。请确保简历中包含该字段，或尝试重新描述需要修改的内容。`,
+          }));
         } else {
           console.warn("[AgentChat] Missing patch path in resume diff", {
             section: diff.section,
             field: diff.field,
             index: diff.index,
           });
+          setLastError((prev) => ({
+            ...prev,
+            message: `简历更新失败：缺少路径信息。AI响应格式不正确，请重试或重新描述需求。`,
+          }));
         }
         return next;
       };
@@ -3520,25 +3569,6 @@ function SophiaChatContent() {
                     if (streamingReportId === reportId && currentAnswer) {
                       setStreamingReportContent(currentAnswer);
                     }
-                  }}
-                  onReportCreated={(reportId, title) => {
-                    setShouldHideResponseInChat(true);
-                    setStreamingReportId(reportId);
-                    if (selectedReportId === reportId) {
-                      setStreamingReportContent(currentAnswer);
-                    }
-                    setGeneratedReports((prev) => {
-                      if (prev.some((r) => r.id === reportId)) {
-                        return prev;
-                      }
-                      const hasCurrent = prev.some((r) => r.messageId === "current");
-                      if (hasCurrent) {
-                        return prev.map((r) =>
-                          r.messageId === "current" ? { ...r, id: reportId, title } : r,
-                        );
-                      }
-                      return [...prev, { id: reportId, title, messageId: "current" }];
-                    });
                   }}
                 />
 

@@ -4,7 +4,6 @@ import ResumeEditDiffCard from "@/components/chat/ResumeEditDiffCard";
 import SearchCard from "@/components/chat/SearchCard";
 import SearchSummary from "@/components/chat/SearchSummary";
 import StreamingOutputPanel from "@/components/chat/StreamingOutputPanel";
-import { ReportGenerationDetector } from "@/components/chat/ReportGenerationDetector";
 import { formatResumeDiffPreview } from "@/utils/resumeEditDiff";
 
 interface SearchData {
@@ -38,7 +37,6 @@ interface StreamingLaneProps {
   onOpenSearchPanel: (data: SearchData) => void;
   onResponseTypewriterComplete: () => void;
   onOpenCurrentReport: (reportId: string, title: string) => void;
-  onReportCreated: (reportId: string, title: string) => void;
 }
 
 function splitEmbeddedResponseFromThought(thought: string): {
@@ -104,7 +102,6 @@ export default function StreamingLane({
   onOpenSearchPanel,
   onResponseTypewriterComplete,
   onOpenCurrentReport,
-  onReportCreated,
 }: StreamingLaneProps) {
   const { cleanedThought, embeddedResponse } = splitEmbeddedResponseFromThought(currentThought);
   const answerCandidate = (currentAnswer || "").trim() ? currentAnswer : embeddedResponse;
@@ -146,10 +143,6 @@ export default function StreamingLane({
         <ResumeEditDiffCard before={diff.before || ""} after={diff.after || ""} />
       )}
     >
-      {currentAnswer.length > 500 && (
-        <ReportGenerationDetector content={currentAnswer} onReportCreated={onReportCreated} />
-      )}
-
       {currentReport && isProcessing && (
         <div className="my-4">
           <ReportCard

@@ -80,10 +80,13 @@ function appendChunk(prev: string, incoming: string): string {
   if (!incoming) return prev;
   if (!prev) return incoming;
 
+  // Case 1: incoming is a complete superset starting with prev
   if (incoming.startsWith(prev)) {
     const tail = incoming.slice(prev.length);
     const compactTail = tail.trimStart();
     const compactPrev = prev.trim();
+
+    // Check if this is just duplicate content
     if (
       tail === prev ||
       compactTail === prev ||
@@ -92,33 +95,45 @@ function appendChunk(prev: string, incoming: string): string {
     ) {
       return prev;
     }
-    return incoming;
-  }
-  if (prev.startsWith(incoming)) return prev;
-  if (prev.endsWith(incoming)) return prev;
-  if (prev.includes(incoming)) return prev;
 
-  // Handle providers that stream "full-so-far" rewrites with varying prefixes.
-  const maxOverlap = Math.min(prev.length, incoming.length);
+    // Check if the tail is meaningfully different (not just whitespace)
+    if (compactTail.length > 0 || tail.length > 0) {
+      return incoming;
+    }
+    return prev;
+  }
+
+  // Case 2: prev is a superset of incoming (already have this content)
+  if (prev.startsWith(incoming)) {
+    return prev;
+  }
+
+  // Case 3: Check for inclusion
+  if (prev.includes(incoming) && incoming.length > 20) {
+    return prev;
+  }
+
+  // Case 4: Handle overlapping chunks with proper boundary detection
+  const maxOverlap = Math.min(prev.length, incoming.length, 200); // Limit overlap check
   for (let i = maxOverlap; i > 0; i -= 1) {
     if (prev.slice(-i) === incoming.slice(0, i)) {
-      return collapseDirectDuplicate(prev + incoming.slice(i));
+      const merged = prev + incoming.slice(i);
+      return collapseDirectDuplicate(merged);
     }
   }
 
-  // Handle "rewrite + append" style chunks:
-  // incoming may contain a near-complete rewrite of previous text plus a small tail.
-  const anchorSize = Math.min(160, prev.length);
-  if (anchorSize >= 24) {
+  // Case 5: Handle "rewrite + append" style with anchor matching
+  const anchorSize = Math.min(100, prev.length); // Reduced anchor size
+  if (anchorSize >= 30) {
     const anchor = prev.slice(-anchorSize);
     const anchorPos = incoming.indexOf(anchor);
-    if (anchorPos >= 0) {
-      return collapseDirectDuplicate(
-        prev + incoming.slice(anchorPos + anchor.length),
-      );
+    if (anchorPos >= 0 && anchorPos < incoming.length - anchorSize) {
+      const merged = prev + incoming.slice(anchorPos + anchor.length);
+      return collapseDirectDuplicate(merged);
     }
   }
 
+  // Case 6: Simple append as fallback
   return collapseDirectDuplicate(prev + incoming);
 }
 
