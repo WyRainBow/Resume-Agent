@@ -15,7 +15,7 @@ from backend.core.logger import get_logger
 logger = get_logger(__name__)
 from backend.agent.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT, GREETING_FAST_PATH_PROMPT
 from backend.agent.prompt.load_resume import build_load_resume_fast_path_prompt
-from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, ShowResumeTool, Terminate, ToolCollection, WebSearch
+from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, GenerateResumeTool, ShowResumeTool, Terminate, ToolCollection, WebSearch
 try:
     from backend.agent.tool import BrowserUseTool
 except ImportError:
@@ -123,6 +123,7 @@ class Manus(ToolCallAgent):
             ShowResumeTool(),
             CVAnalyzerAgentTool(),
             CVEditorAgentTool(),
+            GenerateResumeTool(),
         ]
 
         capability: ResumeCapability = CapabilityRegistry.get(self.capability)
