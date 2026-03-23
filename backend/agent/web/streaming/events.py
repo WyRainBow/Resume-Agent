@@ -40,6 +40,8 @@ class EventType(str, Enum):
 
     # Resume domain events
     RESUME_UPDATED = "resume_updated"
+    RESUME_PATCH = "resume_patch"
+    RESUME_GENERATED = "resume_generated"
 
     # System events
     SYSTEM = "system"
@@ -322,6 +324,37 @@ class ResumeUpdatedEvent(StreamEvent):
             "type": "resume_updated",
             "resume_data": self.data["resume_data"],
         }
+
+
+@dataclass
+class ResumePatchEvent(StreamEvent):
+    """Agent 修改简历字段，携带 before/after diff"""
+
+    def __init__(self, patch_id: str, paths: list, before: dict, after: dict,
+                 summary: str, session_id: str = None):
+        super().__init__(
+            event_type=EventType.RESUME_PATCH,
+            data={
+                "patch_id": patch_id,
+                "paths": paths,
+                "before": before,
+                "after": after,
+                "summary": summary,
+            },
+            session_id=session_id,
+        )
+
+
+@dataclass
+class ResumeGeneratedEvent(StreamEvent):
+    """Agent 全量生成简历"""
+
+    def __init__(self, resume: dict, summary: str, session_id: str = None):
+        super().__init__(
+            event_type=EventType.RESUME_GENERATED,
+            data={"resume": resume, "summary": summary},
+            session_id=session_id,
+        )
 
 
 @dataclass
