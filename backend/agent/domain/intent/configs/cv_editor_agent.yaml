@@ -1,0 +1,34 @@
+name: cv_editor_agent
+keywords:
+  - 修改简历
+  - 编辑简历
+  - 更新简历
+  - 添加
+  - 删除
+  - 改成
+  - 改为
+  - 设置
+  - edit resume
+  - modify resume
+  - update resume
+  - add
+  - delete
+patterns:
+  - ".*(修改|编辑|更新|改成|改为|设置).*"
+  - ".*(添加|增加|删除|去掉).*"
+examples:
+  - "修改简历中的姓名"
+  - "添加工作经历"
+  - "删除某个项目"
+  - "更新教育经历"
+priority: 1.0
+
+
+
+
+
+
+
+
+
+
