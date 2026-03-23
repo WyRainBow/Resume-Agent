@@ -66,7 +66,7 @@ import {
   extractResumeEditDiff as extractResumeEditDiffFromMarkdown,
   normalizeResumePatchValue,
   stripResumeEditMarkdown,
-} from "@/utils/resumeEditDiff";
+} from "@/utils/resumePatch";
 
 import WorkspaceLayout from "@/pages/WorkspaceLayout";
 import CustomScrollbar from "@/components/common/CustomScrollbar";

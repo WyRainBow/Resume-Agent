@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { SSEEvent } from "@/transports/SSETransport";
-import { extractResumeEditDiff } from "@/utils/resumeEditDiff";
+import { extractResumeEditDiff } from "@/utils/resumePatch";
 
 interface UseToolEventRouterParams<TSearch, TResume, TEdit> {
   runId: number;
