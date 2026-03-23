@@ -868,7 +868,7 @@ class AgentStream:
                                 continue
                             self._sent_tool_results.add(result_key)
                             structured_data = None
-                            if tool_name in {"web_search", "show_resume", "cv_editor_agent", "cv_reader_agent"} and hasattr(
+                            if tool_name in {"web_search", "show_resume", "cv_editor_agent", "cv_reader_agent", "generate_resume"} and hasattr(
                                 self.agent, "get_structured_tool_result"
                             ):
                                 structured_data = self.agent.get_structured_tool_result(
@@ -885,7 +885,7 @@ class AgentStream:
 
                             # 简历编辑成功后，推送完整的更新后简历 JSON 给前端。
                             # 前端收到 resume_updated 后直接替换本地状态，无需自行 re-apply diff。
-                            if tool_name == "cv_editor_agent" and structured_data and structured_data.get("type") == "resume_edit_diff":
+                            if tool_name == "cv_editor_agent" and structured_data and structured_data.get("type") in {"resume_edit_diff", "resume_patch"}:
                                 try:
                                     from backend.agent.tool.resume_data_store import ResumeDataStore
                                     updated_resume = ResumeDataStore.get_data(self._session_id)
@@ -897,6 +897,27 @@ class AgentStream:
                                         logger.info(f"[AgentStream] resume_updated emitted for session={self._session_id}")
                                 except Exception as _ru_exc:
                                     logger.warning(f"[AgentStream] Failed to emit resume_updated: {_ru_exc}")
+
+                            # resume_patch event
+                            if tool_name == "cv_editor_agent" and structured_data and structured_data.get("type") == "resume_patch":
+                                from backend.agent.web.streaming.events import ResumePatchEvent
+                                yield ResumePatchEvent(
+                                    patch_id=structured_data.get("patch_id", ""),
+                                    paths=structured_data.get("paths", []),
+                                    before=structured_data.get("before", {}),
+                                    after=structured_data.get("after", {}),
+                                    summary=structured_data.get("summary", ""),
+                                    session_id=self._session_id,
+                                )
+
+                            # resume_generated event
+                            if tool_name == "generate_resume" and structured_data and structured_data.get("type") == "resume_generated":
+                                from backend.agent.web.streaming.events import ResumeGeneratedEvent
+                                yield ResumeGeneratedEvent(
+                                    resume=structured_data.get("resume", {}),
+                                    summary=structured_data.get("summary", ""),
+                                    session_id=self._session_id,
+                                )
 
                             # 🔑 关键修复：如果执行了 terminate 工具，且还没有发送过 answer
                             # 不要将技术性的 terminate 消息作为最终答案，而是跳过或使用友好消息

@@ -167,7 +167,7 @@ class ToolCallAgent(ReActAgent):
                     return
                 if not isinstance(structured, dict):
                     return
-                if structured.get("type") != "resume_edit_diff":
+                if structured.get("type") not in {"resume_edit_diff", "resume_patch"}:
                     return
                 intent_meta = getattr(self, "_last_intent_info", {}) or {}
                 structured.setdefault("source", "cv_editor_agent")

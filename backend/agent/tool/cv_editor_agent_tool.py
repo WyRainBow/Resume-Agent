@@ -8,6 +8,7 @@ Manus 可以委托简历修改任务给这个工具。
 from typing import Optional, Any, Dict
 import json
 import re
+import uuid
 from backend.agent.tool.base import BaseTool, ToolResult
 from backend.agent.tool.resume_data_store import ResumeDataStore
 from backend.agent.llm import LLM
@@ -182,22 +183,17 @@ Execute modifications immediately when user provides specific details.
                     output += f"\nNew value: {new_val_str}"
                 if "new_index" in result:
                     output += f"\nIndex: {result['new_index']}"
+                patch_id = str(uuid.uuid4())
+                path_str = normalized_path
+                before_text = self._stringify_value(old_val)
+                after_text = self._stringify_value(new_val)
                 structured_data = {
-                    "type": "resume_edit_diff",
-                    "section": simple_edit_meta.get("section", "basic"),
-                    "field": "name"
-                    if normalized_path == "basic.name"
-                    else "company"
-                    if normalized_path.endswith(".company")
-                    else normalized_path.split(".")[-1],
-                    "index": simple_edit_meta.get("index"),
-                    "before": self._stringify_value(old_val),
-                    "after": self._stringify_value(new_val),
-                    "patch": {
-                        "path": normalized_path,
-                        "action": action,
-                        "value": new_val,
-                    },
+                    "type": "resume_patch",
+                    "patch_id": patch_id,
+                    "paths": [path_str],
+                    "before": {"_raw": before_text},
+                    "after": {"_raw": after_text},
+                    "summary": f"修改了 {path_str}",
                 }
                 return ToolResult(output=output, system=json.dumps(structured_data, ensure_ascii=False))
             else:
