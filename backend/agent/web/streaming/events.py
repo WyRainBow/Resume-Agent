@@ -331,7 +331,7 @@ class ResumePatchEvent(StreamEvent):
     """Agent 修改简历字段，携带 before/after diff"""
 
     def __init__(self, patch_id: str, paths: list, before: dict, after: dict,
-                 summary: str, session_id: str = None):
+                 summary: str, session_id: str | None = None):
         super().__init__(
             event_type=EventType.RESUME_PATCH,
             data={
@@ -349,7 +349,7 @@ class ResumePatchEvent(StreamEvent):
 class ResumeGeneratedEvent(StreamEvent):
     """Agent 全量生成简历"""
 
-    def __init__(self, resume: dict, summary: str, session_id: str = None):
+    def __init__(self, resume: dict, summary: str, session_id: str | None = None):
         super().__init__(
             event_type=EventType.RESUME_GENERATED,
             data={"resume": resume, "summary": summary},

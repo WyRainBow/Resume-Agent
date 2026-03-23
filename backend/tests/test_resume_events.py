@@ -42,3 +42,11 @@ def test_resume_generated_event_to_dict():
     assert d["type"] == "resume_generated"
     assert d["data"]["resume"]["basic"]["name"] == "张三"
     assert d["data"]["summary"] == "已生成后端工程师简历"
+
+def test_resume_patch_event_session_id():
+    evt = ResumePatchEvent(
+        patch_id="p1", paths=[], before={}, after={}, summary="test",
+        session_id="sess-123"
+    )
+    d = evt.to_dict()
+    assert d.get("session_id") == "sess-123"
