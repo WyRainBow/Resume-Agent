@@ -70,6 +70,9 @@ import {
 
 import WorkspaceLayout from "@/pages/WorkspaceLayout";
 import CustomScrollbar from "@/components/common/CustomScrollbar";
+import { useResumeContext, type PendingPatch } from '../../contexts/ResumeContext';
+import { ResumeDiffCard } from '../../components/agent-chat/ResumeDiffCard';
+import { ResumeGeneratedCard } from '../../components/agent-chat/ResumeGeneratedCard';
 
 // 报告内容视图组件
 function ReportContentView({
@@ -528,6 +531,15 @@ function SophiaChatContent() {
   const [resumeEditDiffs, setResumeEditDiffs] = useState<
     Array<{ messageId: string; data: ResumeEditDiffStructuredData }>
   >([]);
+
+  // ResumeContext integration
+  const { pendingPatches, pushPatch } = useResumeContext();
+  const [generatedResume, setGeneratedResume] = useState<{
+    resume: any; summary: string
+  } | null>(null);
+  // Track current assistant message ID for patch association
+  const currentAssistantMessageIdRef = useRef<string | null>(null);
+
   const [streamDoneTick, setStreamDoneTick] = useState(0);
   const [activeRunId, setActiveRunId] = useState(0);
   const [activeSearchPanel, setActiveSearchPanel] =
@@ -1289,7 +1301,28 @@ function SophiaChatContent() {
     baseUrl: apiBaseUrl,
     heartbeatTimeout: SSE_HEARTBEAT_TIMEOUT,
     resumeData: normalizedResume,
-    onSSEEvent: handleSSEEvent,
+    onSSEEvent: useCallback((event: SSEEvent) => {
+      // Intercept resume_patch and resume_generated events before routing
+      if ((event as any).type === 'resume_patch') {
+        const patch = (event as any).data ?? event;
+        pushPatch({
+          patch_id:   patch.patch_id   ?? `patch-${Date.now()}`,
+          message_id: currentAssistantMessageIdRef.current ?? Date.now().toString(),
+          paths:      patch.paths      ?? [],
+          before:     patch.before     ?? {},
+          after:      patch.after      ?? {},
+          summary:    patch.summary    ?? '',
+        });
+        return;
+      }
+      if ((event as any).type === 'resume_generated') {
+        const data = (event as any).data ?? event;
+        setGeneratedResume({ resume: data.resume, summary: data.summary ?? '' });
+        return;
+      }
+      handleSSEEvent(event);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [handleSSEEvent, pushPatch]),
   });
 
   // 保存会话ID到 localStorage
@@ -1968,7 +2001,9 @@ function SophiaChatContent() {
 
     refreshAfterSaveRef.current = true;
     pendingSaveRef.current = true;
-    const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Use the pre-generated ID from sendUserTextMessage so resume patches can reference it
+    const uniqueId = currentAssistantMessageIdRef.current ?? `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    currentAssistantMessageIdRef.current = null;
     const newMessage: Message = {
       id: uniqueId,
       role: "assistant",
@@ -3045,6 +3080,8 @@ function SophiaChatContent() {
       lastDoneRunRef.current = -1;
       currentThoughtRef.current = "";
       currentAnswerRef.current = "";
+      // Pre-generate a message ID for this run so resume patches can reference it
+      currentAssistantMessageIdRef.current = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       setSearchResults((prev) =>
         prev.filter((item) => item.messageId !== "current"),
       );
@@ -3596,6 +3633,29 @@ function SophiaChatContent() {
                     }
                   }}
                 />
+
+                {/* ResumeDiffCards for pending patches (grouped by message) */}
+                {pendingPatches.length > 0 && (
+                  <div className="px-4 py-1">
+                    {pendingPatches
+                      .filter(p => p.status === 'pending')
+                      .map(patch => (
+                        <ResumeDiffCard key={patch.patch_id} patch={patch} />
+                      ))
+                    }
+                  </div>
+                )}
+
+                {/* ResumeGeneratedCard */}
+                {generatedResume && (
+                  <div className="px-4 py-1">
+                    <ResumeGeneratedCard
+                      resume={generatedResume.resume}
+                      summary={generatedResume.summary}
+                      onDismiss={() => setGeneratedResume(null)}
+                    />
+                  </div>
+                )}
 
                 {/* 简历选择器 */}
                 {showResumeSelector && (
