@@ -5,7 +5,7 @@
  * 保持原 Hook 对外返回结构，降低页面改动成本。
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SSEEvent } from "@/transports/SSETransport";
 import { getApiBaseUrl, isAgentEnabled } from "@/lib/runtimeEnv";
 import { streamAgent, type AgentStreamEvent } from "@/services/agentStream";
@@ -204,11 +204,6 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
     setIsProcessing(false);
   }, [resetStreamBuffers]);
 
-  const authHeaders = useMemo<Record<string, string>>(() => {
-    const token = localStorage.getItem("auth_token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }, []);
-
   const sendMessage = useCallback(
     async (message: string, resumeDataOverride?: any) => {
       if (!agentEnabled) {
@@ -227,6 +222,12 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
 
       const controller = new AbortController();
       abortRef.current = controller;
+
+      // 每次发消息时读取最新 token，避免 useMemo 缓存导致 token 刷新后仍用旧值
+      const token = localStorage.getItem("auth_token");
+      const authHeaders: Record<string, string> = token
+        ? { Authorization: `Bearer ${token}` }
+        : {};
 
       let completed = false;
 
@@ -326,7 +327,6 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
       resetStreamBuffers,
       conversationId,
       baseUrl,
-      authHeaders,
     ],
   );
 

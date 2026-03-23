@@ -1244,6 +1244,31 @@ function SophiaChatContent() {
       setResumeError(null);
       setShowResumeSelector(true);
     },
+    onResumeUpdated: (resumeData) => {
+      // 后端推送完整的更新后简历 JSON，直接替换本地状态，无需 re-apply diff。
+      setLoadedResumes((prev) => {
+        if (prev.length === 0) return prev;
+        const targetId = selectedResumeId || prev[0]?.id;
+        return prev.map((item) =>
+          item.id === targetId
+            ? { ...item, resumeData: resumeData as unknown as ResumeData }
+            : item,
+        );
+      });
+      setResumeData((prev) =>
+        prev ? { ...prev, ...(resumeData as unknown as ResumeData) } : prev,
+      );
+      // 清空 PDF blob 以触发重新渲染
+      setResumePdfPreview((prev) => {
+        const targetId = selectedResumeId || Object.keys(prev)[0];
+        if (!targetId) return prev;
+        return {
+          ...prev,
+          [targetId]: { ...EMPTY_RESUME_PDF_STATE },
+        };
+      });
+      setAllowPdfAutoRender(true);
+    },
     upsertSearchResult,
     upsertLoadedResume,
     upsertResumeEditDiff,
