@@ -20,6 +20,17 @@ export interface AgentStreamHandlers {
   signal?: AbortSignal;
   baseUrl?: string;
   headers?: Record<string, string>;
+  onResumePatch?: (patch: {
+    patch_id: string
+    paths:    string[]
+    before:   Record<string, any>
+    after:    Record<string, any>
+    summary:  string
+  }) => void;
+  onResumeGenerated?: (data: {
+    resume:  Record<string, any>
+    summary: string
+  }) => void;
 }
 
 function extractEventFields(rawBlock: string): {
@@ -153,6 +164,12 @@ export async function streamAgent(
         onEvent?.(parsed);
         if (isDoneEvent(parsed)) {
           emitDone();
+        }
+        if (parsed.type === 'resume_patch' && handlers.onResumePatch) {
+          handlers.onResumePatch(parsed.data)
+        }
+        if (parsed.type === 'resume_generated' && handlers.onResumeGenerated) {
+          handlers.onResumeGenerated(parsed.data)
         }
       }
     }

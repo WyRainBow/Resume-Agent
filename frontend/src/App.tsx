@@ -5,6 +5,7 @@ import { ThemeInit } from './components/ThemeInit'
 import ErrorBoundary from './ErrorBoundary'
 import { isAgentEnabled } from './lib/runtimeEnv'
 import ResumeDashboard from './pages/ResumeDashboard'
+import { ResumeProvider } from './contexts/ResumeContext'
 
 const AgentChat = lazy(() => import('./pages/AgentChat/SophiaChat'))
 const CreateNew = lazy(() => import('./pages/CreateNew'))
@@ -39,8 +40,9 @@ function App() {
   try {
     return (
       <ErrorBoundary>
-        <ThemeInit />
-        <BrowserRouter>
+        <ResumeProvider>
+          <ThemeInit />
+          <BrowserRouter>
           <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<LandingPage />} />
@@ -86,6 +88,7 @@ function App() {
           </Suspense>
           <AuthModal />
         </BrowserRouter>
+        </ResumeProvider>
       </ErrorBoundary>
     );
   } catch (error) {
