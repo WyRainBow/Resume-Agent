@@ -535,7 +535,7 @@ function SophiaChatContent() {
   const [resumeEditError, setLastError] = useState<{ message: string } | null>(null);
 
   // ResumeContext integration
-  const { pendingPatches, pushPatch } = useResumeContext();
+  const { pendingPatches, pushPatch, patchAppliedAt } = useResumeContext();
   const [generatedResume, setGeneratedResume] = useState<{
     resume: any; summary: string
   } | null>(null);
@@ -1622,6 +1622,18 @@ function SophiaChatContent() {
     if (!lastError) return;
     setResumeError(lastError);
   }, [lastError]);
+
+  // When a patch is applied via ResumeContext, clear the PDF blob to trigger re-render
+  useEffect(() => {
+    if (!patchAppliedAt) return;
+    setResumePdfPreview(prev => {
+      const targetId = selectedResumeId || Object.keys(prev)[0];
+      if (!targetId) return prev;
+      return { ...prev, [targetId]: { ...EMPTY_RESUME_PDF_STATE } };
+    });
+    setAllowPdfAutoRender(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patchAppliedAt]);
 
   useEffect(() => {
     if (answerCompleteCount <= 0 || !resumeId) {

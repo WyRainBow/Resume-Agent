@@ -16,6 +16,7 @@ export interface PendingPatch {
 interface ResumeContextValue {
   resume:         ResumeData | null
   pendingPatches: PendingPatch[]
+  patchAppliedAt: number        // timestamp bumped after each applyPatch — lets consumers trigger PDF re-render
   setResume:      (r: ResumeData | null) => void
   pushPatch:      (patch: Omit<PendingPatch, 'status'>) => void
   applyPatch:     (patch_id: string) => void
@@ -27,6 +28,7 @@ const ResumeContext = createContext<ResumeContextValue | null>(null)
 export function ResumeProvider({ children }: { children: React.ReactNode }) {
   const [resume, setResumeState] = useState<ResumeData | null>(null)
   const [pendingPatches, setPendingPatches] = useState<PendingPatch[]>([])
+  const [patchAppliedAt, setPatchAppliedAt] = useState(0)
 
   const setResume = useCallback((newResume: ResumeData | null) => {
     if (!newResume) { setResumeState(null); return }
@@ -59,6 +61,7 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
       })
       return prev.map(p => p.patch_id === patch_id ? { ...p, status: 'applied' } : p)
     })
+    setPatchAppliedAt(Date.now())
   }, [])
 
   const rejectPatch = useCallback((patch_id: string) => {
@@ -69,7 +72,7 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ResumeContext.Provider value={{
-      resume, pendingPatches,
+      resume, pendingPatches, patchAppliedAt,
       setResume, pushPatch, applyPatch, rejectPatch,
     }}>
       {children}

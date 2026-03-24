@@ -158,7 +158,13 @@ export default function EnhancedMarkdown({
   customCodeRenderers = {},
 }: EnhancedMarkdownProps) {
   // 确保 children 是字符串类型
-  const content = typeof children === 'string' ? children : String(children || '')
+  const rawContent = typeof children === 'string' ? children : String(children || '')
+
+  // Normalize compact ordered lists so remarkBreaks doesn't break them.
+  // "1. foo\n2.bar" → "1. foo\n\n2. bar", "2.text" → "2. text"
+  const content = rawContent
+    .replace(/([^\n])\n(\d+\.\s)/g, '$1\n\n$2')
+    .replace(/^(\d+\.)([^\s])/gm, '$1 $2')
   
   // 如果内容为空，返回空 div
   if (!content.trim()) {
