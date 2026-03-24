@@ -438,6 +438,27 @@ class LLM:
             if msg["role"] not in ROLE_VALUES:
                 raise ValueError(f"Invalid role: {msg['role']}")
 
+        # Remove orphan tool messages (tool role without preceding assistant+tool_calls).
+        # Some LLM APIs (e.g. Doubao/Ark) reject the request with "No tool calls but
+        # found tool output" when history is trimmed and a tool message loses its
+        # corresponding assistant tool_call entry.
+        valid_tool_call_ids: set[str] = set()
+        for msg in formatted_messages:
+            if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                for tc in msg["tool_calls"]:
+                    tc_id = tc.get("id") if isinstance(tc, dict) else getattr(tc, "id", None)
+                    if tc_id:
+                        valid_tool_call_ids.add(tc_id)
+        cleaned: list[dict] = []
+        for msg in formatted_messages:
+            if msg.get("role") == "tool":
+                tc_id = msg.get("tool_call_id")
+                if tc_id and tc_id not in valid_tool_call_ids:
+                    logger.warning(f"[LLM] Dropping orphan tool message tool_call_id={tc_id}")
+                    continue
+            cleaned.append(msg)
+        formatted_messages = cleaned
+
         # 🔍 DEBUG: 记录格式化后的消息
         logger.debug(f"🔍 [DEBUG] format_messages() - 格式化后消息 (共 {len(formatted_messages)} 条):")
         for i, msg in enumerate(formatted_messages):

@@ -900,6 +900,7 @@ class AgentStream:
 
                             # resume_patch event
                             if tool_name == "cv_editor_agent" and structured_data and structured_data.get("type") == "resume_patch":
+                                logger.info(f"[AgentStream] Emitting resume_patch: patch_id={structured_data.get('patch_id','')}, before_keys={list(structured_data.get('before',{}).keys())}, after_keys={list(structured_data.get('after',{}).keys())}")
                                 from backend.agent.web.streaming.events import ResumePatchEvent
                                 yield ResumePatchEvent(
                                     patch_id=structured_data.get("patch_id", ""),
