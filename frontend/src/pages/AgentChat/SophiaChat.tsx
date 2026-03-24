@@ -1064,7 +1064,7 @@ function SophiaChatContent() {
           if (applied) return next;
         }
 
-        const fallbackField = (diff.field || "").trim();
+        const fallbackField = (typeof diff.field === "string" ? diff.field : "").trim();
         if (diff.section === "basic" && fallbackField) {
           setByPath(
             next as Record<string, unknown>,
@@ -1259,7 +1259,8 @@ function SophiaChatContent() {
       setShowResumeSelector(true);
     },
     onResumeUpdated: (resumeData) => {
-      // 后端推送完整的更新后简历 JSON，直接替换本地状态，无需 re-apply diff。
+      // 后端推送完整的更新后简历 JSON，更新 loadedResumes 本地副本（用于 PDF 渲染）。
+      // ResumeContext 已通过 resume_patch 事件独立处理字段更新，无需重复合并。
       setLoadedResumes((prev) => {
         if (prev.length === 0) return prev;
         const targetId = selectedResumeId || prev[0]?.id;
@@ -1269,9 +1270,6 @@ function SophiaChatContent() {
             : item,
         );
       });
-      setResumeData((prev) =>
-        prev ? { ...prev, ...(resumeData as unknown as ResumeData) } : prev,
-      );
       // 清空 PDF blob 以触发重新渲染
       setResumePdfPreview((prev) => {
         const targetId = selectedResumeId || Object.keys(prev)[0];
@@ -1580,13 +1578,22 @@ function SophiaChatContent() {
         };
 
         const loadedMessages: Message[] = (data.messages || []).map(
-          (m: any, index: number) => ({
-            id: generateMessageId(m.content || "", m.role || "unknown", index),
-            role: m.role === "user" ? "user" : "assistant",
-            content: m.content || "",
-            thought: m.thought || undefined,
-            timestamp: new Date().toISOString(),
-          }),
+          (m: any, index: number) => {
+            const rawContent = m.content;
+            const content =
+              typeof rawContent === "string"
+                ? rawContent
+                : rawContent != null
+                ? JSON.stringify(rawContent)
+                : "";
+            return {
+              id: generateMessageId(content, m.role || "unknown", index),
+              role: m.role === "user" ? "user" : "assistant",
+              content,
+              thought: m.thought || undefined,
+              timestamp: new Date().toISOString(),
+            };
+          },
         );
 
         const dedupedMessages = dedupeLoadedMessages(loadedMessages);
@@ -2026,11 +2033,13 @@ function SophiaChatContent() {
 
     setMessages((prev) => {
       const last = prev[prev.length - 1];
+      const lastContent = typeof last?.content === "string" ? last.content : "";
+      const lastThought = typeof (last as any)?.thought === "string" ? (last as any).thought : "";
       if (
         last &&
         last.role === "assistant" &&
-        (last.content || "").trim() === newMessage.content.trim() &&
-        ((last as any).thought || "").trim() ===
+        lastContent.trim() === newMessage.content.trim() &&
+        lastThought.trim() ===
           (newMessage.thought || "").trim()
       ) {
         console.log("[AgentChat] Duplicate assistant message skipped");
@@ -2650,7 +2659,7 @@ function SophiaChatContent() {
     };
 
     for (const msg of messages) {
-      const contentKey = (msg.content || "").trim();
+      const contentKey = (typeof msg.content === "string" ? msg.content : "").trim();
       const roleKey = msg.role || "unknown";
       const seenContents = getSeenSet(roleKey);
 
@@ -2859,13 +2868,22 @@ function SophiaChatContent() {
       }
 
       const loadedMessages: Message[] = userVisibleMessages.map(
-        (m: any, index: number) => ({
-          id: generateMessageId(m.content || "", m.role || "unknown", index),
-          role: m.role === "user" ? "user" : "assistant",
-          content: m.content || "",
-          thought: m.thought || undefined,
-          timestamp: new Date().toISOString(),
-        }),
+        (m: any, index: number) => {
+          const rawContent = m.content;
+          const content =
+            typeof rawContent === "string"
+              ? rawContent
+              : rawContent != null
+              ? JSON.stringify(rawContent)
+              : "";
+          return {
+            id: generateMessageId(content, m.role || "unknown", index),
+            role: m.role === "user" ? "user" : "assistant",
+            content,
+            thought: m.thought || undefined,
+            timestamp: new Date().toISOString(),
+          };
+        },
       );
 
       const dedupedMessages = dedupeLoadedMessages(loadedMessages);

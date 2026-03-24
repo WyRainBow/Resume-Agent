@@ -439,9 +439,8 @@ class LLM:
                 raise ValueError(f"Invalid role: {msg['role']}")
 
         # Remove orphan tool messages (tool role without preceding assistant+tool_calls).
-        # Some LLM APIs (e.g. Doubao/Ark) reject the request with "No tool calls but
-        # found tool output" when history is trimmed and a tool message loses its
-        # corresponding assistant tool_call entry.
+        # Also deduplicate: duplicate assistant+tool_calls and duplicate tool messages
+        # both cause API rejections on Doubao/Ark with "No tool calls but found tool output".
         valid_tool_call_ids: set[str] = set()
         for msg in formatted_messages:
             if msg.get("role") == "assistant" and msg.get("tool_calls"):
@@ -449,13 +448,35 @@ class LLM:
                     tc_id = tc.get("id") if isinstance(tc, dict) else getattr(tc, "id", None)
                     if tc_id:
                         valid_tool_call_ids.add(tc_id)
+        # Deduplicate assistant messages that share the same tool_call_ids (keep last only,
+        # since the last one will have a matching tool response after dedup).
+        seen_assistant_call_sets: list[frozenset] = []
+        deduped_assistant: list[dict] = []
+        for msg in formatted_messages:
+            if msg.get("role") == "assistant" and msg.get("tool_calls"):
+                tc_ids = frozenset(
+                    (tc.get("id") if isinstance(tc, dict) else getattr(tc, "id", None))
+                    for tc in msg["tool_calls"]
+                )
+                if tc_ids in seen_assistant_call_sets:
+                    logger.warning(f"[LLM] Dropping duplicate assistant+tool_calls message tc_ids={tc_ids}")
+                    continue
+                seen_assistant_call_sets.append(tc_ids)
+            deduped_assistant.append(msg)
+        formatted_messages = deduped_assistant
+        # Deduplicate tool messages with the same tool_call_id (keep first occurrence only).
+        seen_tool_call_ids: set[str] = set()
         cleaned: list[dict] = []
         for msg in formatted_messages:
             if msg.get("role") == "tool":
                 tc_id = msg.get("tool_call_id")
-                if tc_id and tc_id not in valid_tool_call_ids:
+                if not tc_id or tc_id not in valid_tool_call_ids:
                     logger.warning(f"[LLM] Dropping orphan tool message tool_call_id={tc_id}")
                     continue
+                if tc_id in seen_tool_call_ids:
+                    logger.warning(f"[LLM] Dropping duplicate tool message tool_call_id={tc_id}")
+                    continue
+                seen_tool_call_ids.add(tc_id)
             cleaned.append(msg)
         formatted_messages = cleaned
 
