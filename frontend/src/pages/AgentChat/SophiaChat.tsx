@@ -532,6 +532,8 @@ function SophiaChatContent() {
     Array<{ messageId: string; data: ResumeEditDiffStructuredData }>
   >([]);
 
+  const [resumeEditError, setLastError] = useState<{ message: string } | null>(null);
+
   // ResumeContext integration
   const { pendingPatches, pushPatch } = useResumeContext();
   const [generatedResume, setGeneratedResume] = useState<{

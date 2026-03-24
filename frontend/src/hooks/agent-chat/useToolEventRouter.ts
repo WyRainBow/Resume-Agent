@@ -49,18 +49,18 @@ export function useToolEventRouter<
     (event: SSEEvent) => {
       // resume_updated: 后端在 cv_editor_agent 成功后推送完整简历 JSON。
       // 前端直接替换本地状态，无需 re-apply diff。
-      if (event.type === “resume_updated”) {
+      if (event.type === "resume_updated") {
         const resumeData = (event as any).data?.resume_data ?? (event as any).resume_data;
-        if (resumeData && typeof resumeData === “object”) {
+        if (resumeData && typeof resumeData === "object") {
           onResumeUpdated(resumeData as Record<string, unknown>);
         }
         return;
       }
 
-      if (event.type === “done”) {
+      if (event.type === "done") {
         // diff 卡片延迟到 done 后挂载（仅当没有 resume_updated 时才 fallback apply）
         if (pendingEditDiffRef.current) {
-          upsertResumeEditDiff(“current”, pendingEditDiffRef.current);
+          upsertResumeEditDiff("current", pendingEditDiffRef.current);
           applyResumeEditDiff(pendingEditDiffRef.current);
           pendingEditDiffRef.current = null;
         }
@@ -129,7 +129,7 @@ export function useToolEventRouter<
         if (handledResumeSelectorKeysRef.current.has(dedupeKey)) {
           return;
         }
-        // 统一 show_resume 行为：只打开“加载简历”选择面板，
+        // 统一 show_resume 行为：只打开"加载简历"选择面板，
         // 不再自动挂载简历卡片，避免和用户手动选择流程冲突。
         handledResumeSelectorKeysRef.current.add(dedupeKey);
         onShowResumeSelector();
@@ -176,7 +176,7 @@ export function useToolEventRouter<
           typeof (editPayload as any)?.before === "string" &&
           typeof (editPayload as any)?.after === "string";
 
-        if ((editPayload as any).type === "resume_edit_diff" || hasDiffShape) {
+        if ((editPayload as any).type === "resume_edit_diff" || (editPayload as any).type === "resume_patch" || hasDiffShape) {
           if (handledEditKeysRef.current.has(dedupeKey)) {
             console.log("[cv_editor_agent] Duplicate key, skipping:", dedupeKey);
             return;
