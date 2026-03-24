@@ -1306,7 +1306,10 @@ function SophiaChatContent() {
     onSSEEvent: useCallback((event: SSEEvent) => {
       // Intercept resume_patch and resume_generated events before routing
       if ((event as any).type === 'resume_patch') {
-        const patch = (event as any).data ?? event;
+        // SSE structure: {type, data: {type, data: {patch_id, ...}, ...}}
+        // parseBlock sets event.data = outer data object; actual patch is in event.data.data
+        const outerData = (event as any).data ?? {}
+        const patch = outerData.data ?? outerData
         pushPatch({
           patch_id:   patch.patch_id   ?? `patch-${Date.now()}`,
           message_id: currentAssistantMessageIdRef.current ?? Date.now().toString(),
@@ -1318,7 +1321,8 @@ function SophiaChatContent() {
         return;
       }
       if ((event as any).type === 'resume_generated') {
-        const data = (event as any).data ?? event;
+        const outerData = (event as any).data ?? {}
+        const data = outerData.data ?? outerData
         setGeneratedResume({ resume: data.resume, summary: data.summary ?? '' });
         return;
       }
