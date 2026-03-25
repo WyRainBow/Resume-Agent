@@ -481,6 +481,7 @@ function SophiaChatContent() {
   const [isDesktop, setIsDesktop] = useState(true);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const currentSessionIdRef = useRef<string | null>(null);
   const [initialSessionResolved, setInitialSessionResolved] = useState(false);
   const [isLoadingResume, setIsLoadingResume] = useState(false);
   const [isLoadingChat, setIsLoadingChat] = useState(false);
@@ -709,6 +710,7 @@ function SophiaChatContent() {
   const finalizeRetryTimerRef = useRef<number | null>(null);
   const finalizeRetryAttemptsRef = useRef(0);
   const prevRouteSessionIdRef = useRef<string | null>(null);
+  const isCreatingNewSessionRef = useRef(false);
   const { rebindCurrentMessageId } = useMessageTimeline();
   
   const normalizedResume = useMemo(() => {
@@ -1454,6 +1456,12 @@ function SophiaChatContent() {
       return;
     }
 
+    // If createNewSession is in progress, skip any session loading to avoid
+    // restoring stale session data from the old URL sessionId.
+    if (isCreatingNewSessionRef.current) {
+      return;
+    }
+
     const routeSessionId =
       new URLSearchParams(location.search).get("sessionId")?.trim() || null;
     const isEphemeralConversation =
@@ -1639,6 +1647,11 @@ function SophiaChatContent() {
     if (answerCompleteCount <= 0 || !resumeId) {
       return;
     }
+    // If there are pending patches waiting for user approval, skip auto-refresh.
+    // The PDF will re-render when the user clicks Apply (patchAppliedAt effect).
+    if (pendingPatches.some(p => p.status === 'pending')) {
+      return;
+    }
 
     let mounted = true;
 
@@ -1677,7 +1690,7 @@ function SophiaChatContent() {
     return () => {
       mounted = false;
     };
-  }, [answerCompleteCount, resumeId, user?.id]);
+  }, [answerCompleteCount, resumeId, user?.id, pendingPatches]);
 
   const isHtmlTemplate = resumeData?.templateType === "html";
 
@@ -2805,7 +2818,13 @@ function SophiaChatContent() {
         console.error(
           `[AgentChat] Failed to load session: ${detail}`,
         );
-        setResumeError(`会话加载失败：${detail}`);
+        // For brand-new local sessions (conv-*) that haven't been persisted yet,
+        // a 404 is expected — don't show an error to the user.
+        if (!(resp.status === 404 && sessionId.startsWith('conv-'))) {
+          setResumeError(`会话加载失败：${detail}`);
+        }
+        // Mark sessionId as "seen" so the URL effect doesn't retry infinitely
+        setCurrentSessionId(sessionId);
         // 如果加载失败，不清空当前消息，保持原状态
         return;
       }
@@ -2942,10 +2961,14 @@ function SophiaChatContent() {
     setSelectedReportId(null);
     setAllowPdfAutoRender(false);
     finalizeStream();
+    // Navigate to clean URL so the URL-watching effect doesn't reload the old session.
+    // Set flag so the URL effect skips calling createNewSession again.
+    isCreatingNewSessionRef.current = true;
+    navigate('/agent/new', { replace: true });
 
     // 不再立即持久化空会话，只在用户发送第一条消息时才真正创建并入库
     // 这样可以避免用户点击+按钮后没有输入消息就产生空会话
-  }, [finalizeStream, saveCurrentSession, waitForPendingSave]);
+  }, [finalizeStream, saveCurrentSession, waitForPendingSave, navigate]);
 
   const handleSelectSession = useCallback(
     (sessionId: string) => {
@@ -2972,13 +2995,21 @@ function SophiaChatContent() {
     if (routeSessionId) {
       if (routeSessionId === currentSessionId) return;
       if (isLoadingSession) return;
+      // If createNewSession just ran and navigate hasn't changed URL yet,
+      // the old routeSessionId may still be in the URL — skip loading it.
+      if (isCreatingNewSessionRef.current) return;
       void loadSession(routeSessionId);
       return;
     }
 
     // 从历史会话URL切回 /agent/new（无 sessionId）时，主动创建空白新会话
+    // 但如果是 createNewSession 自己触发的导航，就跳过（避免双重调用）
     if (previousRouteSessionId && !isLoadingSession) {
-      void createNewSession();
+      if (isCreatingNewSessionRef.current) {
+        isCreatingNewSessionRef.current = false;
+      } else {
+        void createNewSession();
+      }
     }
   }, [
     location.search,

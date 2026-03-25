@@ -291,6 +291,13 @@ export function RecentSessions({
       const data = await response.json();
       console.log('[RecentSessions] Deleted all sessions:', data);
 
+      // Also clear backend in-memory sessions so old context can't bleed into new sessions
+      if (currentSessionId) {
+        fetch(`${apiBaseUrl}/api/agent/stream/session/${currentSessionId}`, {
+          method: 'DELETE',
+        }).catch(() => undefined);
+      }
+
       await refreshSessions();
       setDeleteAllConfirmOpen(false);
 

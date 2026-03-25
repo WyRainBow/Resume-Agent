@@ -176,7 +176,7 @@ export function useToolEventRouter<
           typeof (editPayload as any)?.before === "string" &&
           typeof (editPayload as any)?.after === "string";
 
-        if ((editPayload as any).type === "resume_edit_diff" || (editPayload as any).type === "resume_patch" || hasDiffShape) {
+        if ((editPayload as any).type === "resume_edit_diff" || hasDiffShape) {
           if (handledEditKeysRef.current.has(dedupeKey)) {
             console.log("[cv_editor_agent] Duplicate key, skipping:", dedupeKey);
             return;
