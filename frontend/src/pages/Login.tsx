@@ -21,7 +21,7 @@ export default function LoginPage() {
       } else {
         await register(username, password)
       }
-      navigate('/dashboard')
+      navigate('/workspace')
     } catch (err) {
       setError(err instanceof Error ? err.message : '操作失败，请重试')
     } finally {

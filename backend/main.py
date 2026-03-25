@@ -79,9 +79,6 @@ reports_router = routes_module.reports_router
 documents_router = routes_module.documents_router
 logos_router = routes_module.logos_router
 photos_router = routes_module.photos_router
-application_progress_router = routes_module.application_progress_router
-dashboard_perf_router = routes_module.dashboard_perf_router
-calendar_router = routes_module.calendar_router
 asr_router = routes_module.asr_router
 semantic_search_router = routes_module.semantic_search_router
 
@@ -126,9 +123,6 @@ logger.info(
     getattr(routes_module, "__file__", "unknown"),
 )
 app.include_router(photos_router)
-app.include_router(application_progress_router)
-app.include_router(dashboard_perf_router)
-app.include_router(calendar_router)
 app.include_router(asr_router)
 app.include_router(semantic_search_router)
 

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from database import get_db
-from models import Resume, User, ApplicationProgress, ResumeEmbedding
+from models import Resume, User, ResumeEmbedding
 from middleware.auth import get_current_user
 from services.sync_service import sync_resumes
 
@@ -210,12 +210,6 @@ def delete_resume(
         raise HTTPException(status_code=404, detail="简历不存在")
 
     try:
-        # 兼容历史库约束：先清理/解除关联，避免删除主记录时报 FK 错误
-        db.query(ApplicationProgress).filter(
-            ApplicationProgress.user_id == current_user.id,
-            ApplicationProgress.resume_id == resume_id,
-        ).update({"resume_id": None}, synchronize_session=False)
-
         db.query(ResumeEmbedding).filter(
             ResumeEmbedding.user_id == current_user.id,
             ResumeEmbedding.resume_id == resume_id,

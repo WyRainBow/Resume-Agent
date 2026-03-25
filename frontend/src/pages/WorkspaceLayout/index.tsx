@@ -8,16 +8,12 @@ import { useNavigate, useLocation } from "react-router-dom";
 import {
   Edit,
   FileText,
-  LayoutDashboard,
-  Table2,
   Settings,
-  ChevronDown,
   Save,
   Download,
   LogIn,
   User,
   LogOut,
-  CalendarDays,
   LayoutTemplate,
   History,
   Sparkles,
@@ -30,13 +26,9 @@ import { getApiBaseUrl, isAgentEnabled } from "@/lib/runtimeEnv";
 
 // 工作区类型
 type WorkspaceType =
-  | "resume"
   | "edit"
   | "agent"
-  | "dashboard"
   | "myResumes"
-  | "applications"
-  | "calendar"
   | "settings"
   | "templates";
 
@@ -169,9 +161,6 @@ export default function WorkspaceLayout({
 
   // 根据路径确定当前工作区
   const getCurrentWorkspace = (): WorkspaceType => {
-    if (location.pathname === "/resume-entry") {
-      return "resume";
-    }
     // 检测是否是简历创建页面（保留 resume-creator）
     if (
       location.pathname === "/resume-creator" ||
@@ -180,17 +169,8 @@ export default function WorkspaceLayout({
     ) {
       return "agent";
     }
-    if (location.pathname === "/dashboard") {
-      return "dashboard";
-    }
     if (location.pathname === "/my-resumes") {
       return "myResumes";
-    }
-    if (location.pathname === "/applications") {
-      return "applications";
-    }
-    if (location.pathname === "/calendar") {
-      return "calendar";
     }
     if (location.pathname === "/settings") {
       return "settings";
@@ -212,44 +192,12 @@ export default function WorkspaceLayout({
     agentFeatureEnabled &&
     isAuthenticated &&
     (roleFromToken === "admin" || roleFromToken === "member");
-  const canUseApplyEntry = canUseAgent;
 
   useEffect(() => {
     if (currentWorkspace !== "agent") return;
     if (canUseAgent) return;
     navigate("/workspace", { replace: true });
   }, [canUseAgent, currentWorkspace, navigate]);
-
-  useEffect(() => {
-    if (currentWorkspace !== "resume") return;
-    if (canUseApplyEntry) return;
-    navigate("/workspace", { replace: true });
-  }, [canUseApplyEntry, currentWorkspace, navigate]);
-
-  const [jobCenterOpen, setJobCenterOpen] = useState(() => {
-    return (
-      currentWorkspace === "resume" ||
-      currentWorkspace === "applications" ||
-      currentWorkspace === "calendar" ||
-      currentWorkspace === "dashboard"
-    );
-  });
-  const [jobCenterHovered, setJobCenterHovered] = useState(false);
-  const hoverTimeoutRef = useRef<any>(null);
-
-  const handleJobCenterMouseEnter = () => {
-    if (!sidebarCollapsed) return;
-    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    setJobCenterHovered(true);
-  };
-
-  const handleJobCenterMouseLeave = () => {
-    if (!sidebarCollapsed) return;
-    hoverTimeoutRef.current = setTimeout(() => {
-      setJobCenterHovered(false);
-    }, 100);
-  };
-
   const sidebarWidthPx = sidebarCollapsed ? 96 : 260;
 
   // 点击外部区域关闭下拉菜单
@@ -272,15 +220,11 @@ export default function WorkspaceLayout({
   }, [showLogoutMenu]);
 
   const resolveWorkspacePath = (workspace: WorkspaceType): string => {
-    if (workspace === "resume") return "/resume-entry";
     if (workspace === "agent") {
       const currentResumeId = getCurrentResumeId();
       return currentResumeId ? `/agent/${currentResumeId}` : "/agent/new";
     }
-    if (workspace === "dashboard") return "/dashboard";
     if (workspace === "myResumes") return "/my-resumes";
-    if (workspace === "applications") return "/applications";
-    if (workspace === "calendar") return "/calendar";
     if (workspace === "settings") return "/settings";
     if (workspace === "templates") return "/templates";
     return "/workspace";
@@ -297,12 +241,6 @@ export default function WorkspaceLayout({
     }
     navigate(targetPath);
   };
-
-  const isJobCenterActive =
-    currentWorkspace === "resume" ||
-    currentWorkspace === "applications" ||
-    currentWorkspace === "calendar" ||
-    currentWorkspace === "dashboard";
 
   const handleSelectSession = (sessionId: string) => {
     if (!canUseAgent) return;
@@ -486,196 +424,6 @@ export default function WorkspaceLayout({
                 <span className="text-base font-medium">我的简历</span>
               )}
             </button>
-
-            {/* 求职中心（二级：投递进展、仪表盘） */}
-            <div
-              className="w-full relative"
-              onMouseEnter={handleJobCenterMouseEnter}
-              onMouseLeave={handleJobCenterMouseLeave}
-            >
-              <button
-                onClick={(e) => {
-                  if (sidebarCollapsed) {
-                    handleWorkspaceChange(
-                      canUseApplyEntry ? "resume" : "applications",
-                      e,
-                    );
-                    return;
-                  }
-                  setJobCenterOpen((prev) => !prev);
-                }}
-                className={cn(
-                  "w-full rounded-lg transition-all duration-200",
-                  sidebarCollapsed
-                    ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                    : "flex items-center justify-between gap-2.5 py-2.5 px-2.5",
-                  isJobCenterActive
-                    ? "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-                )}
-                title="求职中心"
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <LayoutDashboard className="w-6 h-6 shrink-0" />
-                  {!sidebarCollapsed && (
-                    <span className="text-base font-medium truncate">
-                      求职中心
-                    </span>
-                  )}
-                </div>
-                {!sidebarCollapsed && (
-                  <ChevronDown
-                    className={cn(
-                      "w-4 h-4 shrink-0 transition-transform duration-200",
-                      jobCenterOpen ? "rotate-180" : "rotate-0",
-                    )}
-                  />
-                )}
-              </button>
-
-              {/* 收起态悬停弹出菜单 */}
-              <AnimatePresence>
-                {sidebarCollapsed && jobCenterHovered && (
-                    <motion.div
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -10 }}
-                    transition={{ duration: 0.15 }}
-                    className="absolute left-full top-0 ml-2 w-48 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-[100] p-1.5 space-y-0.5"
-                  >
-                    {canUseApplyEntry && (
-                      <button
-                        onClick={(e) => {
-                          handleWorkspaceChange("resume", e);
-                          setJobCenterHovered(false);
-                        }}
-                        className={cn(
-                          "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                          currentWorkspace === "resume"
-                            ? "bg-slate-100 text-slate-900"
-                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-                        )}
-                      >
-                        <FileText className="w-4 h-4 shrink-0" />
-                        申请
-                      </button>
-                    )}
-                    <button
-                      onClick={(e) => {
-                        handleWorkspaceChange("applications", e);
-                        setJobCenterHovered(false);
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                        currentWorkspace === "applications"
-                          ? "bg-slate-100 text-slate-900"
-                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-                      )}
-                    >
-                      <Table2 className="w-4 h-4 shrink-0" />
-                      投递进展
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        handleWorkspaceChange("calendar", e);
-                        setJobCenterHovered(false);
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                        currentWorkspace === "calendar"
-                          ? "bg-slate-100 text-slate-900"
-                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-                      )}
-                    >
-                      <CalendarDays className="w-4 h-4 shrink-0" />
-                      面试日历
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        handleWorkspaceChange("dashboard", e);
-                        setJobCenterHovered(false);
-                      }}
-                      className={cn(
-                        "w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                        currentWorkspace === "dashboard"
-                          ? "bg-slate-100 text-slate-900"
-                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-                      )}
-                    >
-                      <LayoutDashboard className="w-4 h-4 shrink-0" />
-                      仪表盘
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {!sidebarCollapsed && jobCenterOpen && (
-                <div className="mt-1 ml-3 pl-3 border-l border-slate-200 dark:border-slate-700 space-y-0.5">
-                  {canUseApplyEntry && (
-                    <button
-                      onClick={(e) => handleWorkspaceChange("resume", e)}
-                      className={cn(
-                        "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
-                        currentWorkspace === "resume"
-                          ? "bg-slate-100 text-slate-900"
-                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-                      )}
-                      title="申请"
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        <FileText className="w-4 h-4 shrink-0" />
-                        申请
-                      </span>
-                    </button>
-                  )}
-                  <button
-                    onClick={(e) => handleWorkspaceChange("applications", e)}
-                    className={cn(
-                      "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
-                      currentWorkspace === "applications"
-                        ? "bg-slate-100 text-slate-900"
-                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-                    )}
-                    title="投递进展"
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <Table2 className="w-4 h-4 shrink-0" />
-                      投递进展
-                    </span>
-                  </button>
-                  <button
-                    onClick={(e) => handleWorkspaceChange("calendar", e)}
-                    className={cn(
-                      "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
-                      currentWorkspace === "calendar"
-                        ? "bg-slate-100 text-slate-900"
-                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-                    )}
-                    title="面试日历"
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <CalendarDays className="w-4 h-4 shrink-0" />
-                      面试日历
-                    </span>
-                  </button>
-                  <button
-                    onClick={(e) => handleWorkspaceChange("dashboard", e)}
-                    className={cn(
-                      "w-full rounded-md px-2.5 py-2 text-left text-sm transition-all duration-200",
-                      currentWorkspace === "dashboard"
-                        ? "bg-slate-100 text-slate-900"
-                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
-                    )}
-                    title="仪表盘"
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <LayoutDashboard className="w-4 h-4 shrink-0" />
-                      仪表盘
-                    </span>
-                  </button>
-                </div>
-              )}
-            </div>
           </nav>
 
           {/* 分隔线 */}

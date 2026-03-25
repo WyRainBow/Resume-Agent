@@ -6,7 +6,6 @@ import { motion } from 'framer-motion'
 import { Check, BookmarkPlus, Upload, LayoutGrid, List, ChevronRight, Sparkles } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { ExportButton } from './ExportButton'
-import EnvironmentSwitcher from '@/components/EnvironmentSwitcher'
 
 type EditMode = 'click' | 'scroll'
 
@@ -98,8 +97,6 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4, delay: 0.3 }}
       >
-        <EnvironmentSwitcher />
-
         {/* 统一导入下拉：AI 导入 / JSON 导入 */}
         {(onGlobalAIImport || onImportJSON) && (
           <div className="relative" ref={importMenuRef}>

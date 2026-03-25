@@ -211,50 +211,6 @@ class ReportConversation(Base):
     # report = relationship("Report", lazy="select")
 
 
-class ApplicationProgress(Base):
-    """投递进展表：用户每条投递记录"""
-    __tablename__ = "application_progress"
-    __table_args__ = {'extend_existing': True}
-
-    id = Column(String(36), primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    sort_order = Column(Integer, nullable=False, default=0)
-    company = Column(String(255), nullable=True)
-    application_link = Column(String(512), nullable=True)
-    industry = Column(String(128), nullable=True)
-    tags = Column(JSON, nullable=True)  # ["上市","民营"]
-    position = Column(String(255), nullable=True)
-    location = Column(String(128), nullable=True)
-    progress = Column(String(64), nullable=True)  # 已投递/笔试/一面/二面/三面/AI面/测评/HR终面
-    progress_status = Column(String(64), nullable=True)  # 等消息/已过/未过/已放弃/等我回复/被调剂
-    progress_time = Column(DateTime(timezone=True), nullable=True)
-    notes = Column(Text, nullable=True)
-    application_date = Column(Date, nullable=True)
-    referral_code = Column(String(64), nullable=True)
-    link2 = Column(String(512), nullable=True)
-    resume_id = Column(String(255), ForeignKey("resumes.id", ondelete="SET NULL"), nullable=True, index=True)  # 使用的 PDF
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-
-class CalendarEvent(Base):
-    """日历日程模型"""
-    __tablename__ = "calendar_events"
-    __table_args__ = {'extend_existing': True}
-
-    id = Column(String(36), primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    title = Column(String(255), nullable=False)
-    starts_at = Column(DateTime(timezone=True), nullable=False, index=True)
-    ends_at = Column(DateTime(timezone=True), nullable=False)
-    is_all_day = Column(Boolean, nullable=False, default=False)
-    location = Column(String(255), nullable=True)
-    notes = Column(Text, nullable=True)
-    color = Column(String(32), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-
 class Member(Base):
     """平台内部成员模型"""
     __tablename__ = "members"

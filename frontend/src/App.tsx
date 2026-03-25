@@ -12,10 +12,6 @@ const CreateNew = lazy(() => import('./pages/CreateNew'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const LoginPage = lazy(() => import('./pages/Login'))
 const ResumeCreator = lazy(() => import('./pages/ResumeCreator'))
-const StatsDashboardPage = lazy(() => import('./pages/StatsDashboard'))
-const CalendarPage = lazy(() => import('./pages/Calendar'))
-const ResumeEntryPage = lazy(() => import('./pages/ResumeEntry'))
-const ApplicationProgressPage = lazy(() => import('./pages/ApplicationProgress'))
 const SettingsPage = lazy(() => import('./pages/Settings'))
 const SharePage = lazy(() => import('./pages/SharePage'))
 const Workspace = lazy(() => import('./pages/Workspace/v2'))
@@ -46,8 +42,6 @@ function App() {
           <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<LandingPage />} />
-              {/* 简历入口（侧栏「简历」点击后） */}
-              <Route path="/resume-entry" element={<ResumeEntryPage />} />
               {/* 工作区路由 */}
               <Route path="/workspace" element={<Workspace />} />
               <Route path="/workspace/latex" element={<LaTeXWorkspace />} />
@@ -71,10 +65,7 @@ function App() {
               )}
               {/* 其他路由 */}
               <Route path="/login" element={<LoginPage />} />
-              <Route path="/dashboard" element={<StatsDashboardPage />} />
               <Route path="/my-resumes" element={<ResumeDashboard />} />
-              <Route path="/applications" element={<ApplicationProgressPage />} />
-              <Route path="/calendar" element={<CalendarPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/create-new" element={<CreateNew />} />
               {/* 简历创建路由 */}
