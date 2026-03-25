@@ -7,6 +7,24 @@ import { DEFAULT_RESUME_TEMPLATE } from '../../../data/defaultTemplate'
 
 export const STORAGE_KEY = 'resume_v2_data'
 
+const normalizeCustomData = (raw: unknown): ResumeData['customData'] => {
+  if (!raw || typeof raw !== 'object') return {}
+  return Object.entries(raw as Record<string, unknown>).reduce<ResumeData['customData']>((acc, [sectionId, items]) => {
+    const list = Array.isArray(items) ? items : []
+    acc[sectionId] = list
+      .filter((item): item is Record<string, any> => !!item && typeof item === 'object')
+      .map((item) => ({
+        id: typeof item.id === 'string' && item.id.trim() ? item.id : `custom_item_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        title: typeof item.title === 'string' ? item.title : '',
+        subtitle: typeof item.subtitle === 'string' ? item.subtitle : '',
+        dateRange: typeof item.dateRange === 'string' ? item.dateRange : '',
+        description: typeof item.description === 'string' ? item.description : '',
+        visible: item.visible !== false,
+      }))
+    return acc
+  }, {})
+}
+
 /**
  * 初始简历数据
  */
@@ -215,6 +233,7 @@ export const loadFromStorage = (): ResumeData => {
       // 确保新字段存在
       if (!data.openSource) data.openSource = []
       if (!data.awards) data.awards = []
+      data.customData = normalizeCustomData(data.customData)
       if (!data.templateType) data.templateType = 'latex'  // 默认 LaTeX 模板
       if (storageUpdated) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data))

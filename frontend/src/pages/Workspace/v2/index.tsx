@@ -48,6 +48,9 @@ export default function WorkspaceV2() {
     updateAward,
     deleteAward,
     reorderAwards,
+    addCustomItem,
+    updateCustomItem,
+    deleteCustomItem,
     updateSkillContent,
     updateMenuSections,
     reorderSections,
@@ -229,6 +232,9 @@ export default function WorkspaceV2() {
         updateAward={updateAward}
         deleteAward={deleteAward}
         reorderAwards={reorderAwards}
+        addCustomItem={addCustomItem}
+        updateCustomItem={updateCustomItem}
+        deleteCustomItem={deleteCustomItem}
         updateSkillContent={updateSkillContent}
         handleAIImport={handleAIImport}
         pdfBlob={pdfBlob}
@@ -293,4 +299,3 @@ export default function WorkspaceV2() {
     </WorkspaceLayout>
   )
 }
-

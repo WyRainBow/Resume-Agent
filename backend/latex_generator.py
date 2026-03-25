@@ -16,7 +16,7 @@ from typing import Dict, Any, List
 from io import BytesIO
 
 from .latex_utils import escape_latex, normalize_resume_data
-from .latex_sections import SECTION_GENERATORS, DEFAULT_SECTION_ORDER
+from .latex_sections import SECTION_GENERATORS, DEFAULT_SECTION_ORDER, generate_section_custom
 from .company_logos import download_logos_to_dir
 
 
@@ -226,6 +226,8 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
         generator = SECTION_GENERATORS.get(section_id)
         if generator:
             latex_content.extend(generator(resume_data, section_titles))
+        elif isinstance(section_id, str) and section_id.startswith('custom_'):
+            latex_content.extend(generate_section_custom(resume_data, section_id, section_titles))
     
     """文档结尾"""
     latex_content.append(r"\end{document}")

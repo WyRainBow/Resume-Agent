@@ -168,8 +168,8 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
 
     default:
       // 自定义模块
-      const customItems = resumeData.customData[sectionId]
-      if (!customItems || customItems.length === 0) return ''
+      const customItems = (resumeData.customData[sectionId] || []).filter((item) => item.visible !== false)
+      if (customItems.length === 0) return ''
       return `
         <section class="template-section">
           <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>

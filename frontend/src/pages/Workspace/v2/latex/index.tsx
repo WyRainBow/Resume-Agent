@@ -52,6 +52,9 @@ export default function LaTeXWorkspace() {
     updateAward,
     deleteAward,
     reorderAwards,
+    addCustomItem,
+    updateCustomItem,
+    deleteCustomItem,
     updateSkillContent,
     updateMenuSections,
     reorderSections,
@@ -312,6 +315,9 @@ export default function LaTeXWorkspace() {
         updateAward={updateAward}
         deleteAward={deleteAward}
         reorderAwards={reorderAwards}
+        addCustomItem={addCustomItem}
+        updateCustomItem={updateCustomItem}
+        deleteCustomItem={deleteCustomItem}
         updateSkillContent={updateSkillContent}
         handleAIImport={handleAIImport}
         pdfBlob={pdfBlob}
@@ -376,4 +382,3 @@ export default function LaTeXWorkspace() {
     </WorkspaceLayout>
   )
 }
-

@@ -1,7 +1,7 @@
 /**
  * 将前端 ResumeData 转换为后端需要的格式
  */
-import type { ResumeData } from '../types'
+import type { ResumeData, CustomItem } from '../types'
 import { stripHtmlTags } from './textUtils'
 
 export interface BackendResumeData {
@@ -56,6 +56,7 @@ export interface BackendResumeData {
   }[]
   sectionOrder: string[]
   sectionTitles?: Record<string, string>
+  customData?: Record<string, CustomItem[]>
   globalSettings?: {
     experienceListType?: 'none' | 'unordered' | 'ordered'
     [key: string]: any
@@ -137,6 +138,20 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
       .filter((s) => s.enabled && s.id !== 'basic')
       .map((s) => sectionIdMapping[s.id] || s.id),
     sectionTitles,
+    customData: Object.entries(data.customData || {}).reduce<Record<string, CustomItem[]>>((acc, [sectionId, items]) => {
+      const list = Array.isArray(items) ? items : []
+      acc[sectionId] = list
+        .filter((item) => item.visible !== false)
+        .map((item) => ({
+          id: item.id,
+          title: stripHtmlTags(item.title || ''),
+          subtitle: stripHtmlTags(item.subtitle || ''),
+          dateRange: item.dateRange || '',
+          description: item.description || '',
+          visible: item.visible !== false,
+        }))
+      return acc
+    }, {}),
     globalSettings: data.globalSettings,  // 传递全局设置
   }
 }

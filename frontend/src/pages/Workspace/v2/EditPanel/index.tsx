@@ -6,7 +6,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Pencil, Check, X } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
-import type { MenuSection, ResumeData, BasicInfo, Project, Experience, Education, OpenSource, Award, GlobalSettings } from '../types'
+import type { MenuSection, ResumeData, BasicInfo, Project, Experience, Education, OpenSource, Award, CustomItem, GlobalSettings } from '../types'
 import BasicPanel from './BasicPanel'
 import ProjectPanel from './ProjectPanel'
 import ExperiencePanel from './ExperiencePanel'
@@ -14,6 +14,7 @@ import EducationPanel from './EducationPanel'
 import SkillPanel from './SkillPanel'
 import OpenSourcePanel from './OpenSourcePanel'
 import AwardPanel from './AwardPanel'
+import CustomPanel from './CustomPanel'
 
 interface EditPanelProps {
   activeSection: string
@@ -36,6 +37,9 @@ interface EditPanelProps {
   updateAward: (award: Award) => void
   deleteAward: (id: string) => void
   reorderAwards: (awards: Award[]) => void
+  addCustomItem: (sectionId: string) => void
+  updateCustomItem: (sectionId: string, item: CustomItem) => void
+  deleteCustomItem: (sectionId: string, itemId: string) => void
   updateSkillContent: (content: string) => void
   updateMenuSections: (sections: MenuSection[]) => void
   updateGlobalSettings: (settings: Partial<GlobalSettings>) => void
@@ -63,6 +67,9 @@ export function EditPanel({
   updateAward,
   deleteAward,
   reorderAwards,
+  addCustomItem,
+  updateCustomItem,
+  deleteCustomItem,
   updateSkillContent,
   updateMenuSections,
   updateGlobalSettings,
@@ -188,12 +195,16 @@ export function EditPanel({
         )
 
       default:
-        // 自定义模块（后续扩展）
         if (activeSection?.startsWith('custom')) {
+          const items = resumeData.customData[activeSection] || []
           return (
-            <div className="p-6 text-center text-gray-500">
-              自定义模块编辑（开发中）
-            </div>
+            <CustomPanel
+              sectionId={activeSection}
+              items={items}
+              onCreate={addCustomItem}
+              onUpdate={updateCustomItem}
+              onDelete={deleteCustomItem}
+            />
           )
         }
         return <BasicPanel basic={resumeData.basic} onUpdate={updateBasicInfo} />

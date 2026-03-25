@@ -21,6 +21,7 @@ import type {
   Education,
   OpenSource,
   Award,
+  CustomItem,
 } from "./types";
 
 type EditMode = "click" | "scroll";
@@ -51,6 +52,9 @@ interface EditPreviewLayoutProps {
   updateAward: (award: Award) => void;
   deleteAward: (id: string) => void;
   reorderAwards: (awards: Award[]) => void;
+  addCustomItem: (sectionId: string) => void;
+  updateCustomItem: (sectionId: string, item: CustomItem) => void;
+  deleteCustomItem: (sectionId: string, itemId: string) => void;
   updateSkillContent: (content: string) => void;
   handleAIImport: (section: string) => void;
   pdfBlob: Blob | null;
@@ -167,6 +171,9 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
     updateAward,
     deleteAward,
     reorderAwards,
+    addCustomItem,
+    updateCustomItem,
+    deleteCustomItem,
     updateSkillContent,
     handleAIImport,
     pdfBlob,
@@ -262,6 +269,9 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                   updateAward={updateAward}
                   deleteAward={deleteAward}
                   reorderAwards={reorderAwards}
+                  addCustomItem={addCustomItem}
+                  updateCustomItem={updateCustomItem}
+                  deleteCustomItem={deleteCustomItem}
                   updateSkillContent={updateSkillContent}
                   updateMenuSections={updateMenuSections}
                   updateGlobalSettings={updateGlobalSettings}
@@ -318,6 +328,9 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                   updateAward={updateAward}
                   deleteAward={deleteAward}
                   reorderAwards={reorderAwards}
+                  addCustomItem={addCustomItem}
+                  updateCustomItem={updateCustomItem}
+                  deleteCustomItem={deleteCustomItem}
                   updateSkillContent={updateSkillContent}
                   updateGlobalSettings={updateGlobalSettings}
                   updateMenuSections={updateMenuSections}

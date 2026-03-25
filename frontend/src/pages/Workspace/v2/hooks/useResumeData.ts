@@ -16,8 +16,39 @@ import type {
   Education,
   OpenSource,
   Award,
+  CustomItem,
   GlobalSettings,
 } from '../types'
+
+const normalizeCustomItem = (item: Partial<CustomItem>): CustomItem => ({
+  id: item.id || `custom_item_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+  title: item.title || '',
+  subtitle: item.subtitle || '',
+  dateRange: item.dateRange || '',
+  description: item.description || '',
+  visible: item.visible !== false,
+})
+
+const createEmptyCustomItem = (): CustomItem => ({
+  id: `custom_item_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+  title: '',
+  subtitle: '',
+  dateRange: '',
+  description: '',
+  visible: true,
+})
+
+const normalizeCustomData = (raw: unknown): Record<string, CustomItem[]> => {
+  if (!raw || typeof raw !== 'object') return {}
+  const entries = Object.entries(raw as Record<string, unknown>)
+  return entries.reduce<Record<string, CustomItem[]>>((acc, [sectionId, items]) => {
+    const list = Array.isArray(items) ? items : []
+    acc[sectionId] = list
+      .filter((item): item is Partial<CustomItem> => !!item && typeof item === 'object')
+      .map(normalizeCustomItem)
+    return acc
+  }, {})
+}
 
 export function useResumeData() {
   const location = useLocation()
@@ -94,7 +125,9 @@ export function useResumeData() {
           skillContent: data.skillContent || prev.skillContent,  // 加载技能内容
           menuSections: data.menuSections || prev.menuSections,  // 加载菜单配置
           globalSettings: data.globalSettings ? { ...prev.globalSettings, ...data.globalSettings } : prev.globalSettings,  // 加载全局设置
-          customData: data.customData || prev.customData,  // 加载自定义数据
+          customData: data.customData !== undefined
+            ? normalizeCustomData(data.customData)
+            : prev.customData,  // 加载自定义数据
           templateType: data.templateType || prev.templateType,  // 保留模板类型
           templateId: data.templateId || prev.templateId,  // 保留模板 ID
         }))
@@ -234,7 +267,17 @@ export function useResumeData() {
 
   // ============ 菜单/布局 ============
   const updateMenuSections = useCallback((sections: MenuSection[]) => {
-    setResumeData((prev) => ({ ...prev, menuSections: sections }))
+    const sectionIds = new Set(sections.map((s) => s.id))
+    setResumeData((prev) => {
+      const cleanedCustomData = Object.entries(prev.customData || {}).reduce<Record<string, CustomItem[]>>(
+        (acc, [sectionId, items]) => {
+          if (sectionIds.has(sectionId)) acc[sectionId] = items
+          return acc
+        },
+        {}
+      )
+      return { ...prev, menuSections: sections, customData: cleanedCustomData }
+    })
   }, [])
 
   const reorderSections = useCallback((sections: MenuSection[]) => {
@@ -272,9 +315,58 @@ export function useResumeData() {
     setResumeData((prev) => ({
       ...prev,
       menuSections: [...prev.menuSections, newSection],
-      customData: { ...prev.customData, [customId]: [] },
+      customData: { ...prev.customData, [customId]: [createEmptyCustomItem()] },
     }))
   }, [resumeData.menuSections.length])
+
+  const addCustomItem = useCallback((sectionId: string) => {
+    setResumeData((prev) => {
+      const items = prev.customData[sectionId] || []
+      return {
+        ...prev,
+        customData: {
+          ...prev.customData,
+          [sectionId]: [...items, createEmptyCustomItem()],
+        },
+      }
+    })
+  }, [])
+
+  const updateCustomItem = useCallback((sectionId: string, item: CustomItem) => {
+    setResumeData((prev) => {
+      const items = prev.customData[sectionId] || []
+      return {
+        ...prev,
+        customData: {
+          ...prev.customData,
+          [sectionId]: items.map((it) => (it.id === item.id ? item : it)),
+        },
+      }
+    })
+  }, [])
+
+  const deleteCustomItem = useCallback((sectionId: string, itemId: string) => {
+    setResumeData((prev) => {
+      const items = prev.customData[sectionId] || []
+      return {
+        ...prev,
+        customData: {
+          ...prev.customData,
+          [sectionId]: items.filter((it) => it.id !== itemId),
+        },
+      }
+    })
+  }, [])
+
+  const reorderCustomItems = useCallback((sectionId: string, items: CustomItem[]) => {
+    setResumeData((prev) => ({
+      ...prev,
+      customData: {
+        ...prev.customData,
+        [sectionId]: items,
+      },
+    }))
+  }, [])
 
   return {
     resumeData,
@@ -315,5 +407,9 @@ export function useResumeData() {
     // 设置
     updateGlobalSettings,
     addCustomSection,
+    addCustomItem,
+    updateCustomItem,
+    deleteCustomItem,
+    reorderCustomItems,
   }
 }

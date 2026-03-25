@@ -268,8 +268,8 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
 
     default:
       // 自定义模块
-      const customItems = resumeData.customData[sectionId]
-      if (!customItems || customItems.length === 0) return null
+      const customItems = (resumeData.customData[sectionId] || []).filter((item) => item.visible !== false)
+      if (customItems.length === 0) return null
       return (
         <section key={sectionId} className="template-section">
           <h2 className="section-title">{sectionTitle}</h2>

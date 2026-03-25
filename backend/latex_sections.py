@@ -741,6 +741,55 @@ def generate_section_opensource(resume_data: Dict[str, Any], section_titles: Dic
             content.append("")
     return content
 
+def generate_section_custom(
+    resume_data: Dict[str, Any],
+    section_id: str,
+    section_titles: Dict[str, str] = None
+) -> List[str]:
+    """
+    生成自定义模块（custom_*）内容
+    数据来源：resume_data.customData[section_id]
+    """
+    content: List[str] = []
+    custom_data = resume_data.get('customData') or {}
+    items = custom_data.get(section_id) if isinstance(custom_data, dict) else None
+    if not isinstance(items, list):
+        return content
+
+    visible_items = [item for item in items if isinstance(item, dict) and item.get('visible', True) is not False]
+    if not visible_items:
+        return content
+
+    title = (section_titles or {}).get(section_id, '自定义模块')
+    content.append(f"\\section{{{escape_latex(title)}}}")
+
+    for item in visible_items:
+        item_title = escape_latex(item.get('title') or '')
+        item_subtitle = escape_latex(item.get('subtitle') or '')
+        item_date = escape_latex(item.get('dateRange') or '')
+
+        if item_title and item_subtitle:
+            heading = f"{item_title}\\hspace{{0.2em}}\\textendash\\hspace{{0.2em}}{item_subtitle}"
+        else:
+            heading = item_title or item_subtitle or '未命名条目'
+
+        content.append(f"\\datedsubsection{{\\normalsize {heading}}}{{\\normalsize {item_date}}}")
+
+        description = item.get('description') or ''
+        if isinstance(description, str) and description.strip():
+            converted_desc = html_to_latex(description).strip()
+            if converted_desc:
+                if '\\begin{itemize}' in converted_desc or '\\begin{enumerate}' in converted_desc:
+                    content.append(converted_desc)
+                else:
+                    content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
+                    content.append(f"  \\item {converted_desc}")
+                    content.append(r"\end{itemize}")
+
+        content.append("")
+
+    return content
+
 """
 Section 生成器映射
 """

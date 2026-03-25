@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Pencil, Check, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { cn } from '../../../lib/utils'
-import type { ResumeData, MenuSection, GlobalSettings, BasicInfo, Project, Experience, Education, OpenSource, Award } from './types'
+import type { ResumeData, MenuSection, GlobalSettings, BasicInfo, Project, Experience, Education, OpenSource, Award, CustomItem } from './types'
 import BasicPanel from './EditPanel/BasicPanel'
 import ProjectPanel from './EditPanel/ProjectPanel'
 import ExperiencePanel from './EditPanel/ExperiencePanel'
@@ -14,6 +14,7 @@ import EducationPanel from './EditPanel/EducationPanel'
 import SkillPanel from './EditPanel/SkillPanel'
 import OpenSourcePanel from './EditPanel/OpenSourcePanel'
 import AwardPanel from './EditPanel/AwardPanel'
+import CustomPanel from './EditPanel/CustomPanel'
 
 interface ScrollEditModeProps {
   menuSections: MenuSection[]
@@ -34,6 +35,9 @@ interface ScrollEditModeProps {
   updateAward: (award: Award) => void
   deleteAward: (id: string) => void
   reorderAwards: (awards: Award[]) => void
+  addCustomItem: (sectionId: string) => void
+  updateCustomItem: (sectionId: string, item: CustomItem) => void
+  deleteCustomItem: (sectionId: string, itemId: string) => void
   updateSkillContent: (content: string) => void
   updateGlobalSettings: (settings: Partial<GlobalSettings>) => void
   updateMenuSections: (sections: MenuSection[]) => void
@@ -59,6 +63,9 @@ export default function ScrollEditMode({
   updateAward,
   deleteAward,
   reorderAwards,
+  addCustomItem,
+  updateCustomItem,
+  deleteCustomItem,
   updateSkillContent,
   updateGlobalSettings,
   updateMenuSections,
@@ -205,6 +212,17 @@ export default function ScrollEditMode({
         )
 
       default:
+        if (section.id.startsWith('custom')) {
+          return (
+            <CustomPanel
+              sectionId={section.id}
+              items={resumeData.customData[section.id] || []}
+              onCreate={addCustomItem}
+              onUpdate={updateCustomItem}
+              onDelete={deleteCustomItem}
+            />
+          )
+        }
         return null
     }
   }
@@ -335,4 +353,3 @@ export default function ScrollEditMode({
     </div>
   )
 }
-
