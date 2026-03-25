@@ -525,9 +525,10 @@ class Manus(ToolCallAgent):
         context = "\n".join(context_parts) if context_parts else "初始状态"
 
         # 生成系统提示词
-        system_prompt = SYSTEM_PROMPT.format(
-            directory=config.workspace_root,
-            context=context
+        system_prompt = SYSTEM_PROMPT.replace(
+            "{directory}", str(config.workspace_root)
+        ).replace(
+            "{context}", context
         )
         capability = CapabilityRegistry.get(self.capability)
         if capability.instructions_addendum:

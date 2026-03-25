@@ -189,6 +189,7 @@ from backend.agent.web.streaming.events import (
     AgentEndEvent,
     AgentErrorEvent,
     SystemEvent,
+    SuggestionsEvent,
 )
 from backend.agent.web.streaming.agent_state import AgentState, StateInfo
 from backend.agent.web.streaming.state_machine import AgentStateMachine
@@ -362,6 +363,46 @@ class AgentStream:
         if not state or not state.final_emitted:
             return False
         return self._normalize_text(content) == self._normalize_text(state.last_stream_text)
+
+    def _extract_suggestions(self, content: str) -> tuple[str, list[dict]]:
+        """Parse %%SUGGESTIONS%%[...]%%END%% marker from content.
+
+        Returns (cleaned_content, suggestions_list).
+        cleaned_content has the marker stripped.
+        """
+        import re, json
+        # 尝试完整匹配
+        pattern = r'%%SUGGESTIONS%%(\[.*?\])%%END%%'
+        match = re.search(pattern, content, re.DOTALL)
+
+        if match:
+            try:
+                items = json.loads(match.group(1))
+                cleaned = content[:match.start()].rstrip() + content[match.end():]
+                return cleaned.rstrip(), items
+            except Exception:
+                pass
+
+        # 如果没有完整匹配，尝试半开放匹配（容错：模型可能没输出完 %%END%%）
+        partial_pattern = r'%%SUGGESTIONS%%(\[.*)'
+        partial_match = re.search(partial_pattern, content, re.DOTALL)
+        if partial_match:
+            try:
+                json_str = partial_match.group(1).strip()
+                # 补全可能的闭合括号
+                if not json_str.endswith(']'):
+                    # 寻找最后一个完整的 JSON 对象结束点
+                    last_obj_end = json_str.rfind('}')
+                    if last_obj_end != -1:
+                        json_str = json_str[:last_obj_end+1] + ']'
+
+                items = json.loads(json_str)
+                cleaned = content[:partial_match.start()].rstrip()
+                return cleaned.rstrip(), items
+            except Exception:
+                pass
+
+        return content, []
 
     def _serialize_tool_calls(self, tool_calls: Any) -> str:
         """Serialize tool calls for deduplication."""
@@ -997,13 +1038,19 @@ class AgentStream:
             final_content = (response_part or final_answer).strip() or final_answer
             self._ensure_assistant_message(final_content)
 
-            if not self._final_answer_sent and not self._should_skip_complete_answer(final_content):
+            # 提取建议按钮标记
+            clean_content, suggestion_items = self._extract_suggestions(final_content)
+
+            if not self._final_answer_sent and not self._should_skip_complete_answer(clean_content):
                 answer_event = self._build_answer_event(
-                    content=final_content,
+                    content=clean_content,
                     is_complete=True,
                 )
                 if answer_event:
                     yield answer_event
+
+            if suggestion_items:
+                yield SuggestionsEvent(items=suggestion_items, session_id=self._session_id)
 
             # 保存到历史记录 - 保存所有类型的消息（包括 Tool 消息）
             if self._chat_history_manager:

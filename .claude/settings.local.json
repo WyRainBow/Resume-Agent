@@ -15,7 +15,8 @@
       "Bash(tasklist:*)",
       "Bash(git -C /Users/wy770/resume-agent-core log --oneline -10)",
       "Bash(cloc /Users/wy770/resume-agent-core/packages/agent-backend/app --by-file --by-lang)",
-      "Bash(git -C /Users/wy770/resume-agent-core remote -v)"
+      "Bash(git -C /Users/wy770/resume-agent-core remote -v)",
+      "Bash(git -C /Users/wy770/Resume-Agent log --oneline -30)"
     ]
   }
 }

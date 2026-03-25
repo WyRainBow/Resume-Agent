@@ -43,6 +43,9 @@ class EventType(str, Enum):
     RESUME_PATCH = "resume_patch"
     RESUME_GENERATED = "resume_generated"
 
+    # Suggestion buttons (shown after agent response)
+    SUGGESTIONS = "suggestions"
+
     # System events
     SYSTEM = "system"
     WARNING = "warning"
@@ -375,3 +378,28 @@ class SystemEvent(StreamEvent):
             },
             session_id=session_id,
         )
+
+
+@dataclass
+class SuggestionsEvent(StreamEvent):
+    """Event carrying suggestion buttons to display after agent response.
+
+    Format: {"type": "suggestions", "items": [{"text": "...", "msg": "..."}, ...]}
+    """
+
+    def __init__(
+        self,
+        items: list[dict],
+        session_id: str | None = None,
+    ):
+        super().__init__(
+            event_type=EventType.SUGGESTIONS,
+            data={"items": items},
+            session_id=session_id,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "type": self.event_type.value,
+            "items": self.data["items"],
+        }

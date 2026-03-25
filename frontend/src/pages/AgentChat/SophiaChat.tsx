@@ -452,6 +452,7 @@ function SophiaChatContent() {
 
   const [streamDoneTick, setStreamDoneTick] = useState(0);
   const [activeRunId, setActiveRunId] = useState(0);
+  const [currentSuggestions, setCurrentSuggestions] = useState<Array<{ text: string; msg: string }>>([]);
   const [activeSearchPanel, setActiveSearchPanel] =
     useState<SearchStructuredData | null>(null);
 
@@ -1220,6 +1221,12 @@ function SophiaChatContent() {
         const outerData = (event as any).data ?? {}
         const data = outerData.data ?? outerData
         setGeneratedResume({ resume: data.resume, summary: data.summary ?? '' });
+        return;
+      }
+      if ((event as any).type === 'suggestions') {
+        const outerData = (event as any).data ?? {}
+        const items = outerData.items ?? outerData.data?.items ?? []
+        setCurrentSuggestions(items);
         return;
       }
       handleSSEEvent(event);
@@ -2817,6 +2824,7 @@ function SophiaChatContent() {
 
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       currentRunUserInputRef.current = userMessage.trim();
+      setCurrentSuggestions([]);
 
       // 处理附件元数据
       const attachmentMeta = attachments?.map((file) => ({
@@ -3357,6 +3365,8 @@ function SophiaChatContent() {
                   currentThought={currentThought}
                   currentAnswer={currentAnswer}
                   isProcessing={isProcessing}
+                  suggestions={currentSuggestions}
+                  onSuggestionClick={(msg) => void sendUserTextMessage(msg)}
                   shouldHideResponseInChat={false}
                   currentEditDiff={resumeEditDiffs.find((r) => r.messageId === "current")}
                   currentSearch={searchResults.find((r) => r.messageId === "current")}
@@ -3441,6 +3451,18 @@ function SophiaChatContent() {
             {/* Input Area */}
             <div className="bg-slate-50 dark:bg-slate-950 px-4 py-4 pb-8">
               <div className="max-w-3xl mx-auto w-full">
+                {/* 快捷按钮 */}
+                {!isProcessing && !currentAnswer.trim() && messages.length > 0 && (
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      onClick={() => void sendUserTextMessage("帮我诊断一下这份简历有什么问题")}
+                      className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-100 rounded-full hover:bg-blue-100 transition-colors flex items-center gap-1"
+                    >
+                      <Search className="w-3 h-3" />
+                      简历诊断
+                    </button>
+                  </div>
+                )}
                 <Composer
                   input={input}
                   isProcessing={isProcessing}

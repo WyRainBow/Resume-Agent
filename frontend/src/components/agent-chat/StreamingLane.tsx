@@ -28,6 +28,8 @@ interface StreamingLaneProps {
       after?: string;
     };
   };
+  suggestions?: Array<{ text: string; msg: string }>;
+  onSuggestionClick?: (msg: string) => void;
   stripResumeEditMarkdown: (content: string) => string;
   onOpenSearchPanel: (data: SearchData) => void;
   onResponseTypewriterComplete: () => void;
@@ -91,6 +93,8 @@ export default function StreamingLane({
   shouldHideResponseInChat,
   currentSearch,
   currentEditDiff,
+  suggestions,
+  onSuggestionClick,
   stripResumeEditMarkdown,
   onOpenSearchPanel,
   onResponseTypewriterComplete,
@@ -134,6 +138,22 @@ export default function StreamingLane({
       renderEditDiffCard={(diff) => (
         <ResumeEditDiffCard before={diff.before || ""} after={diff.after || ""} />
       )}
-    />
+    >
+      {/* 建议按钮 */}
+      {!isProcessing && suggestions && suggestions.length > 0 && (
+        <div className="flex flex-wrap gap-2 mt-4 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
+          {suggestions.map((item, idx) => (
+            <button
+              key={idx}
+              onClick={() => onSuggestionClick?.(item.msg)}
+              className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm flex items-center gap-1 group"
+            >
+              {item.text}
+              <span className="opacity-0 group-hover:opacity-100 transition-opacity ml-1">→</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </StreamingOutputPanel>
   );
 }
