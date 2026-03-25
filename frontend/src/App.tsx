@@ -17,8 +17,6 @@ const SharePage = lazy(() => import('./pages/SharePage'))
 const Workspace = lazy(() => import('./pages/Workspace/v2'))
 const HTMLWorkspace = lazy(() => import('./pages/Workspace/v2/html'))
 const LaTeXWorkspace = lazy(() => import('./pages/Workspace/v2/latex'))
-const ReportEdit = lazy(() => import('./pages/ReportEdit'))
-const ReportsPage = lazy(() => import('./pages/Reports'))
 
 function RouteFallback() {
   return (
@@ -71,10 +69,6 @@ function App() {
               {/* 简历创建路由 */}
               <Route path="/resume-creator" element={<ResumeCreator />} /> {/* 新手创建简历 */}
               <Route path="/share/:shareId" element={<SharePage />} />
-              {/* 报告相关路由 */}
-              <Route path="/reports/:reportId?" element={<ReportsPage />} />
-              {/* 保留旧的编辑路由以兼容 */}
-              <Route path="/reports/:reportId/edit" element={<ReportEdit />} />
             </Routes>
           </Suspense>
           <AuthModal />

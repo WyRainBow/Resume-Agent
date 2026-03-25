@@ -75,8 +75,6 @@ pdf_router = routes_module.pdf_router
 share_router = routes_module.share_router
 auth_router = routes_module.auth_router
 resumes_router = routes_module.resumes_router
-reports_router = routes_module.reports_router
-documents_router = routes_module.documents_router
 logos_router = routes_module.logos_router
 photos_router = routes_module.photos_router
 asr_router = routes_module.asr_router
@@ -114,8 +112,6 @@ app.include_router(pdf_router)
 app.include_router(share_router)
 app.include_router(auth_router)
 app.include_router(resumes_router)
-app.include_router(reports_router)
-app.include_router(documents_router)
 app.include_router(logos_router)
 logger.info(
     "[路由] logos_router loaded: module=%s file=%s",

@@ -12,7 +12,6 @@
 
 import ChatMessage from "@/components/chat/ChatMessage";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
-import ReportCard from "@/components/chat/ReportCard";
 import ResumeSelector from "@/components/chat/ResumeSelector";
 import SearchResultPanel from "@/components/chat/SearchResultPanel";
 import { RecentSessions } from "@/components/sidebar/RecentSessions";
@@ -29,10 +28,6 @@ import {
 import { getResume, getAllResumes, saveResume } from "@/services/resumeStorage";
 import type { SavedResume } from "@/services/storage/StorageAdapter";
 import {
-  createReport,
-  getReport,
-  getDocumentContent,
-  ensureReportConversation,
   renderPDFStream,
 } from "@/services/api";
 import { Message } from "@/types/chat";
@@ -76,86 +71,6 @@ import { ResumeDiffCard } from '../../components/agent-chat/ResumeDiffCard';
 import { ResumeGeneratedCard } from '../../components/agent-chat/ResumeGeneratedCard';
 
 // 报告内容视图组件
-function ReportContentView({
-  reportId,
-  streamingContent,
-  isStreaming,
-  onContentLoaded,
-}: {
-  reportId: string;
-  streamingContent?: string;
-  isStreaming?: boolean;
-  onContentLoaded: (content: string, title?: string) => void;
-}) {
-  const [content, setContent] = useState<string>("");
-  const [isLoadingChat, setIsLoadingChat] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // 如果正在流式输出，使用打字机效果
-  const { displayedText } = useTextStream({
-    textStream: isStreaming && streamingContent ? streamingContent : content,
-    speed: 10,
-    mode: "typewriter",
-  });
-
-  useEffect(() => {
-    // 如果正在流式输出，不加载 API 内容
-    if (isStreaming && streamingContent) {
-      setIsLoadingChat(false);
-      setContent(streamingContent);
-      return;
-    }
-
-    // 如果流式输出完成，从 API 加载完整内容
-    const loadReport = async () => {
-      try {
-        setIsLoadingChat(true);
-        const report = await getReport(reportId);
-        if (report.main_id) {
-          const docContent = await getDocumentContent(report.main_id);
-          const finalContent = docContent.content || "";
-          setContent(finalContent);
-          onContentLoaded(finalContent, report.title);
-        } else {
-          setContent("");
-          onContentLoaded("", report.title);
-        }
-        setError(null);
-      } catch (err) {
-        console.error("加载报告失败:", err);
-        setError(err instanceof Error ? err.message : "加载报告失败");
-      } finally {
-        setIsLoadingChat(false);
-      }
-    };
-    loadReport();
-  }, [reportId, onContentLoaded, isStreaming, streamingContent]);
-
-  if (isLoadingChat && !isStreaming) {
-    return <div className="text-sm text-slate-500">正在加载报告...</div>;
-  }
-
-  if (error) {
-    return <div className="text-sm text-red-500">{error}</div>;
-  }
-
-  // 如果正在流式输出，使用打字机效果显示；否则直接显示内容
-  const contentToDisplay =
-    isStreaming && streamingContent ? displayedText : content;
-
-  if (!contentToDisplay.trim()) {
-    return <div className="text-sm text-slate-400">报告内容为空</div>;
-  }
-
-  return (
-    <div className="bg-white rounded-lg shadow-sm p-6">
-      <div className="prose max-w-none">
-        <EnhancedMarkdown>{contentToDisplay}</EnhancedMarkdown>
-      </div>
-    </div>
-  );
-}
-
 // ============================================================================
 // 配置（运行时 API 基地址由 useEnvironment 提供，不再使用构建时常量）
 // ============================================================================
@@ -502,15 +417,6 @@ function SophiaChatContent() {
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [loadingResume, setLoadingResume] = useState(true);
 
-  // 报告相关状态
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
-  const [reportContent, setReportContent] = useState<string>("");
-  const [reportTitle, setReportTitle] = useState<string>("");
-  const [isLoadingReport, setIsLoadingReport] = useState(false);
-  const [generatedReports, setGeneratedReports] = useState<
-    Array<{ id: string; title: string; messageId: string }>
-  >([]);
-
   // 简历卡片相关状态
   const [loadedResumes, setLoadedResumes] = useState<
     Array<{
@@ -556,20 +462,11 @@ function SophiaChatContent() {
       if (loaded?.resumeData) {
         setResumeData(loaded.resumeData);
       }
-    } else if (!selectedReportId) {
-      // 仅在没有报告时才清除简历数据，避免预览冲突
+    } else {
       setResumeData(null);
     }
-  }, [selectedResumeId, loadedResumes, selectedReportId]);
+  }, [selectedResumeId, loadedResumes]);
 
-  // 报告流式输出相关状态
-  const [shouldHideResponseInChat, setShouldHideResponseInChat] =
-    useState(false);
-  const [streamingReportId, setStreamingReportId] = useState<string | null>(
-    null,
-  );
-  const [streamingReportContent, setStreamingReportContent] =
-    useState<string>("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // 语音输入
@@ -736,7 +633,7 @@ function SophiaChatContent() {
   const selectedResumePdfState = selectedResumeId
     ? resumePdfPreview[selectedResumeId] || EMPTY_RESUME_PDF_STATE
     : EMPTY_RESUME_PDF_STATE;
-  const isResumePreviewActive = Boolean(selectedResumeId && !selectedReportId);
+  const isResumePreviewActive = Boolean(selectedResumeId);
 
   const updateResumePdfState = useCallback(
     (id: string, patch: Partial<ResumePdfPreviewState>) => {
@@ -803,7 +700,6 @@ function SophiaChatContent() {
           resumeId: resumeEntry.id,
           force,
           selectedResumeId,
-          selectedReportId,
           allowPdfAutoRender,
         });
         const blob = await renderPDFStream(
@@ -851,7 +747,6 @@ function SophiaChatContent() {
       currentSessionId,
       conversationId,
       selectedResumeId,
-      selectedReportId,
       allowPdfAutoRender,
     ],
   );
@@ -1347,7 +1242,6 @@ function SophiaChatContent() {
 
     const uiState = {
       selectedResumeId,
-      selectedReportId,
       // 仅存元数据，避免 localStorage 过大
       loadedResumes: loadedResumes.map((r) => ({
         id: r.id,
@@ -1357,7 +1251,7 @@ function SophiaChatContent() {
       })),
     };
     localStorage.setItem(`ui_state:${conversationId}`, JSON.stringify(uiState));
-  }, [conversationId, selectedResumeId, selectedReportId, loadedResumes]);
+  }, [conversationId, selectedResumeId, loadedResumes]);
 
   // 说明：
   // 进入 AI 页面时，conversationId 只允许由两处决定：
@@ -1441,11 +1335,9 @@ function SophiaChatContent() {
   useEffect(() => {
     if (!allowPdfAutoRender) return;
     if (!selectedLoadedResume) return;
-    if (selectedReportId) return;
     void renderResumePdfPreview(selectedLoadedResume);
   }, [
     selectedLoadedResume,
-    selectedReportId,
     renderResumePdfPreview,
     allowPdfAutoRender,
   ]);
@@ -1533,7 +1425,6 @@ function SophiaChatContent() {
             const {
               loadedResumes: sLrs,
               selectedResumeId: savedSelectedResumeId,
-              selectedReportId: savedSelectedReportId,
             } = JSON.parse(savedUiState);
             // 恢复已加载列表的元数据，数据会在后续逻辑中通过消息或重新加载补齐
             if (Array.isArray(sLrs) && sLrs.length > 0) {
@@ -1544,18 +1435,9 @@ function SophiaChatContent() {
               savedSelectedResumeId.trim() !== ""
             ) {
               setSelectedResumeId(savedSelectedResumeId);
-              setSelectedReportId(null);
               setAllowPdfAutoRender(true);
-            } else if (
-              typeof savedSelectedReportId === "string" &&
-              savedSelectedReportId.trim() !== ""
-            ) {
-              setSelectedReportId(savedSelectedReportId);
-              setSelectedResumeId(null);
-              setAllowPdfAutoRender(false);
             } else {
               setSelectedResumeId(null);
-              setSelectedReportId(null);
               setAllowPdfAutoRender(false);
             }
           }
@@ -1726,48 +1608,6 @@ function SophiaChatContent() {
 
   const isHtmlTemplate = resumeData?.templateType === "html";
 
-  // 同步流式内容到报告文档和右侧面板
-  useEffect(() => {
-    if (!shouldHideResponseInChat || !streamingReportId || !currentAnswer) {
-      return;
-    }
-
-    // 如果用户已选择该报告，更新 streamingReportContent 用于右侧面板显示
-    if (selectedReportId === streamingReportId) {
-      setStreamingReportContent(currentAnswer);
-    }
-
-    // 使用防抖机制，定期保存内容到报告文档
-    const saveTimer = setTimeout(async () => {
-      try {
-        const report = await getReport(streamingReportId);
-        if (report.main_id) {
-          await fetch(`${apiBaseUrl}/api/documents/${report.main_id}/content`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ content: currentAnswer }),
-          });
-          console.log(
-            "[AgentChat] 流式内容已保存到报告文档:",
-            streamingReportId,
-          );
-        }
-      } catch (err) {
-        console.error("[AgentChat] 保存流式内容失败:", err);
-      }
-    }, 500); // 每 500ms 保存一次
-
-    return () => {
-      clearTimeout(saveTimer);
-    };
-  }, [
-    currentAnswer,
-    shouldHideResponseInChat,
-    streamingReportId,
-    selectedReportId,
-    apiBaseUrl,
-  ]);
-
   // Auto-scroll to bottom (throttled to reduce layout thrash during streaming)
   useEffect(() => {
     if (autoScrollTimerRef.current !== null) {
@@ -1809,103 +1649,6 @@ function SophiaChatContent() {
   useEffect(() => {
     currentAnswerRef.current = currentAnswer;
   }, [currentAnswer]);
-
-  // 检测并创建报告（需要在 finalizeMessage 之前定义）
-  const detectAndCreateReport = useCallback(
-    async (content: string, messageId: string) => {
-      // 检查是否已经为这条消息创建过报告
-      if (generatedReports.some((r) => r.messageId === messageId)) {
-        return;
-      }
-
-      // 检查是否有 'current' 消息ID的报告（流式输出时创建的），如果有则更新它
-      const currentReport = generatedReports.find(
-        (r) => r.messageId === "current",
-      );
-      if (currentReport && messageId !== "current") {
-        // 更新 'current' 报告的消息ID为真实的消息ID
-        setGeneratedReports((prev) =>
-          prev.map((r) =>
-            r.messageId === "current" ? { ...r, messageId } : r,
-          ),
-        );
-        console.log(
-          "[AgentChat] 更新报告消息ID:",
-          currentReport.id,
-          "from current to",
-          messageId,
-        );
-        return;
-      }
-
-      // 检测报告生成的关键词（更精确的匹配）
-      const reportPatterns = [
-        /(?:生成|创建|完成|已生成|已创建)(?:了)?(?:一份|一个)?(?:关于|的)?([^"《\n]+)(?:的|"|》)?(?:详细|完整|研究|调研)?报告/,
-        /(?:报告|调研报告|研究报告)(?:：|:)?\s*(?:关于|主题)?([^"《\n]+)/,
-        /^#+\s*(.+?)(?:报告|调研|研究)/m,
-      ];
-
-      let reportTopic = "";
-      for (const pattern of reportPatterns) {
-        const match = content.match(pattern);
-        if (match && match[1]) {
-          reportTopic = match[1].trim();
-          if (reportTopic.length > 5 && reportTopic.length < 100) {
-            break;
-          }
-        }
-      }
-
-      // 如果没找到标题，但内容很长且包含报告关键词，使用前50个字符作为标题
-      if (!reportTopic && content.length > 500) {
-        const hasReportKeyword = /报告|调研|研究|分析/.test(content);
-        if (hasReportKeyword) {
-          // 尝试从第一个标题提取
-          const titleMatch = content.match(/^#+\s*(.+?)$/m);
-          if (titleMatch) {
-            reportTopic = titleMatch[1].trim().substring(0, 50);
-          } else {
-            reportTopic = content.substring(0, 50).replace(/\n/g, " ").trim();
-          }
-        }
-      }
-
-      if (reportTopic && reportTopic.length > 5) {
-        try {
-          // 创建报告
-          const result = await createReport(reportTopic);
-
-          // 保存报告内容
-          if (result.mainId) {
-            await fetch(`${apiBaseUrl}/api/documents/${result.mainId}/content`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ content }),
-            });
-          }
-
-          // 添加到生成的报告列表
-          setGeneratedReports((prev) => [
-            ...prev,
-            {
-              id: result.reportId,
-              title: reportTopic,
-              messageId,
-            },
-          ]);
-
-          console.log(
-            "[AgentChat] 检测到报告生成:",
-            result.reportId,
-            reportTopic,
-          );
-        } catch (err) {
-          console.error("[AgentChat] 创建报告失败:", err);
-        }
-      }
-    },
-    [generatedReports, apiBaseUrl],
-  );
 
   /**
    * Finalize current message and add to history
@@ -2105,45 +1848,6 @@ function SophiaChatContent() {
       const updated = [...prev, newMessage];
       console.log("[AgentChat] Messages updated", { count: updated.length });
 
-      // 如果 shouldHideResponseInChat 为 true，确保最终内容已保存到报告文档
-      if (shouldHideResponseInChat && streamingReportId && answer) {
-        (async () => {
-          try {
-            const report = await getReport(streamingReportId);
-            if (report.main_id) {
-              await fetch(
-                `${apiBaseUrl}/api/documents/${report.main_id}/content`,
-                {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ content: answer }),
-                },
-              );
-              console.log(
-                "[AgentChat] 最终内容已保存到报告文档:",
-                streamingReportId,
-              );
-            }
-          } catch (err) {
-            console.error("[AgentChat] 保存最终内容失败:", err);
-          }
-        })();
-      }
-
-      // 检测报告生成：如果消息内容包含报告相关关键词，尝试创建报告
-      // 延迟检测，确保消息已添加到列表
-      // 注意：如果流式输出时已经通过 ReportGenerationDetector 创建了报告，这里会检查并避免重复
-      setTimeout(() => {
-        detectAndCreateReport(newMessage.content, uniqueId);
-      }, 500);
-
-      // 重置流式输出相关状态（为下一次对话准备）
-      if (shouldHideResponseInChat) {
-        setShouldHideResponseInChat(false);
-        setStreamingReportId(null);
-        setStreamingReportContent("");
-      }
-
       return updated;
     });
     lastFinalizedRunRef.current = streamRunRef.current;
@@ -2160,10 +1864,6 @@ function SophiaChatContent() {
     finalizeStream,
     currentAnswer,
     currentThought,
-    detectAndCreateReport,
-    shouldHideResponseInChat,
-    streamingReportId,
-    apiBaseUrl,
     resumeEditDiffs,
     messages,
   ]);
@@ -2815,15 +2515,11 @@ function SophiaChatContent() {
 
     // 切换会话时先清理右侧和会话关联状态，避免旧会话数据串到新会话
     setSelectedResumeId(null);
-    setSelectedReportId(null);
     setAllowPdfAutoRender(false);
     setLoadedResumes([]);
-    setGeneratedReports([]);
     setSearchResults([]);
     setActiveSearchPanel(null);
     setResumePdfPreview({});
-    setReportContent("");
-    setReportTitle("");
 
     try {
       const resp = await fetch(
@@ -2905,7 +2601,6 @@ function SophiaChatContent() {
           const {
             loadedResumes: sLrs,
             selectedResumeId: savedSelectedResumeId,
-            selectedReportId: savedSelectedReportId,
           } = JSON.parse(savedUiState);
           if (Array.isArray(sLrs) && sLrs.length > 0) {
             setLoadedResumes(sLrs);
@@ -2915,15 +2610,7 @@ function SophiaChatContent() {
             savedSelectedResumeId.trim() !== ""
           ) {
             setSelectedResumeId(savedSelectedResumeId);
-            setSelectedReportId(null);
             setAllowPdfAutoRender(true);
-          } else if (
-            typeof savedSelectedReportId === "string" &&
-            savedSelectedReportId.trim() !== ""
-          ) {
-            setSelectedReportId(savedSelectedReportId);
-            setSelectedResumeId(null);
-            setAllowPdfAutoRender(false);
           }
         }
       } catch (e) {
@@ -2990,7 +2677,6 @@ function SophiaChatContent() {
     setConversationId(newId);
     lastPersistedCountBySessionRef.current[newId] = 0;
     setSelectedResumeId(null);
-    setSelectedReportId(null);
     setAllowPdfAutoRender(false);
     finalizeStream();
     // Navigate to clean URL so the URL-watching effect doesn't reload the old session.
@@ -3090,7 +2776,6 @@ function SophiaChatContent() {
       // 自动选中该简历，显示在右侧
       setAllowPdfAutoRender(true);
       setSelectedResumeId(selectedResume.id);
-      setSelectedReportId(null);
 
       // 若有待重放输入，且当前还处于处理态，先强制收口上一轮，避免输入框一直卡在“处理中”。
       if (pendingResumeInput.trim() && isProcessing) {
@@ -3347,39 +3032,7 @@ function SophiaChatContent() {
     if ((!trimmedInput && !hasAttachments) || isProcessing || isUploadingFile)
       return;
 
-    // 每轮新消息开始前清理可能残留的“隐藏回答”状态，避免普通回答被误隐藏。
-    setShouldHideResponseInChat(false);
-    setStreamingReportId(null);
-    setStreamingReportContent("");
-
-    // 检测用户是否要生成报告
-    const isReportRequest =
-      /(?:生成|创建|写)(?:一份|一个)?(?:关于)?(.+?)(?:的|的详细|的完整)?(?:报告|调研报告|研究报告)/.test(
-        trimmedInput,
-      );
-    if (isReportRequest) {
-      const topicMatch = trimmedInput.match(
-        /(?:生成|创建|写)(?:一份|一个)?(?:关于)?(.+?)(?:的|的详细|的完整)?(?:报告|调研报告|研究报告)/,
-      );
-      if (topicMatch && topicMatch[1]) {
-        const topic = topicMatch[1].trim();
-        // 提前创建报告，这样 agent 生成内容时可以保存到报告中
-        try {
-          const result = await createReport(topic);
-          // 将报告 ID 存储到 conversation context 中，以便后续保存内容
-          sessionStorage.setItem(
-            `pendingReport:${conversationId}`,
-            JSON.stringify({
-              reportId: result.reportId,
-              mainId: result.mainId,
-              topic,
-            }),
-          );
-        } catch (err) {
-          console.error("[AgentChat] 预创建报告失败:", err);
-        }
-      }
-    }
+    // 每轮新消息开始前清理可能残留的状态
 
     // 清除之前的错误
     setResumeError(null);
@@ -3436,7 +3089,6 @@ function SophiaChatContent() {
           });
           setAllowPdfAutoRender(true);
           setSelectedResumeId(resumeEntryId);
-          setSelectedReportId(null);
 
           // 2) 后台继续上传与结构化解析
           const formData = new FormData();
@@ -3677,7 +3329,6 @@ function SophiaChatContent() {
 
                 <MessageTimeline
                   messages={messages}
-                  generatedReports={generatedReports}
                   loadedResumes={loadedResumes}
                   searchResults={searchResults}
                   resumeEditDiffs={resumeEditDiffs}
@@ -3685,19 +3336,9 @@ function SophiaChatContent() {
                   stripResumeEditMarkdown={stripResumeEditMarkdown}
                   onSetCopiedId={setCopiedId}
                   onOpenSearchPanel={setActiveSearchPanel}
-                  onOpenReport={(reportId, title) => {
-                    setAllowPdfAutoRender(false);
-                    setSelectedReportId(reportId);
-                    setReportTitle(title);
-                    setSelectedResumeId(null);
-                    if (streamingReportId === reportId && currentAnswer) {
-                      setStreamingReportContent(currentAnswer);
-                    }
-                  }}
                   onOpenResume={(resumeForMessage) => {
                     setAllowPdfAutoRender(true);
                     setSelectedResumeId(resumeForMessage.id);
-                    setSelectedReportId(null);
                     if (resumeForMessage.resumeData) {
                       setResumeData(resumeForMessage.resumeData);
                     }
@@ -3716,21 +3357,12 @@ function SophiaChatContent() {
                   currentThought={currentThought}
                   currentAnswer={currentAnswer}
                   isProcessing={isProcessing}
-                  shouldHideResponseInChat={shouldHideResponseInChat}
+                  shouldHideResponseInChat={false}
                   currentEditDiff={resumeEditDiffs.find((r) => r.messageId === "current")}
                   currentSearch={searchResults.find((r) => r.messageId === "current")}
-                  currentReport={generatedReports.find((r) => r.messageId === "current")}
                   stripResumeEditMarkdown={stripResumeEditMarkdown}
                   onOpenSearchPanel={setActiveSearchPanel}
-                  onOpenCurrentReport={(reportId, title) => {
-                    setAllowPdfAutoRender(false);
-                    setSelectedReportId(reportId);
-                    setReportTitle(title);
-                    setSelectedResumeId(null);
-                    if (streamingReportId === reportId && currentAnswer) {
-                      setStreamingReportContent(currentAnswer);
-                    }
-                  }}
+                  onResponseTypewriterComplete={finalizeAfterTypewriter}
                 />
 
                 {/* ResumeDiffCards for pending patches (grouped by message) */}
@@ -3833,30 +3465,23 @@ function SophiaChatContent() {
             </div>
           </section>
 
-          {/* Right: Report Preview or Resume Preview - 只格在有选中内容时显示 */}
-          {(selectedReportId || selectedResumeId) && (
+          {/* Right: Resume Preview - 只在有选中简历时显示 */}
+          {selectedResumeId && (
             <CustomScrollbar as="aside" className="w-[45%] min-w-[420px] bg-slate-50 border-l border-slate-200 flex flex-col">
               <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10 shrink-0">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-sm font-semibold text-slate-700">
-                      {selectedReportId ? "报告内容" : "简历 PDF 预览"}
+                      简历 PDF 预览
                     </h2>
-                    {selectedReportId && reportTitle && (
+                    {selectedLoadedResume && (
                       <p className="text-xs text-slate-400 mt-1">
-                        {reportTitle}
+                        {selectedLoadedResume.name}
                       </p>
                     )}
-                    {selectedResumeId &&
-                      !selectedReportId &&
-                      selectedLoadedResume && (
-                        <p className="text-xs text-slate-400 mt-1">
-                          {selectedLoadedResume.name}
-                        </p>
-                      )}
                   </div>
                   <div className="flex items-center gap-2">
-                    {selectedResumeId && !selectedReportId && selectedLoadedResume && (
+                    {selectedLoadedResume && (
                       <button
                         type="button"
                         onClick={() =>
@@ -3871,57 +3496,26 @@ function SophiaChatContent() {
                         重新渲染
                       </button>
                     )}
-                    {selectedReportId && (
-                      <button
-                        onClick={() => {
-                          setSelectedReportId(null);
-                          setReportContent("");
-                          setReportTitle("");
-                        }}
-                        className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
-                      >
-                        关闭
-                      </button>
-                    )}
-                    {selectedResumeId && !selectedReportId && (
-                      <button
-                        onClick={() => {
-                          setAllowPdfAutoRender(false);
-                          setSelectedResumeId(null);
-                        }}
-                        className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
-                      >
-                        关闭
-                      </button>
-                    )}
+                    <button
+                      onClick={() => {
+                        setAllowPdfAutoRender(false);
+                        setSelectedResumeId(null);
+                      }}
+                      className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+                    >
+                      关闭
+                    </button>
                   </div>
                 </div>
               </div>
               <div className="flex-1 min-h-0 flex flex-col">
-                {selectedReportId ? (
-                  <ReportContentView
-                    reportId={selectedReportId}
-                    streamingContent={
-                      streamingReportId === selectedReportId
-                        ? streamingReportContent
-                        : undefined
-                    }
-                    isStreaming={
-                      streamingReportId === selectedReportId && isProcessing
-                    }
-                    onContentLoaded={(content, title) => {
-                      setReportContent(content);
-                      if (title) setReportTitle(title);
-                    }}
-                  />
-                ) : (
-                  <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                    <CustomScrollbar className="flex-1 bg-slate-100/70 p-4">
-                      {!selectedLoadedResume && (
-                        <div className="text-sm text-slate-500">
-                          正在加载简历...
-                        </div>
-                      )}
+                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                  <CustomScrollbar className="flex-1 bg-slate-100/70 p-4">
+                    {!selectedLoadedResume && (
+                      <div className="text-sm text-slate-500">
+                        正在加载简历...
+                      </div>
+                    )}
 
                       {selectedLoadedResume &&
                         selectedResumePdfState.loading &&
@@ -3969,7 +3563,6 @@ function SophiaChatContent() {
                       )}
                     </CustomScrollbar>
                   </div>
-                )}
               </div>
             </CustomScrollbar>
           )}

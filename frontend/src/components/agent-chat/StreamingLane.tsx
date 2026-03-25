@@ -1,5 +1,4 @@
 import React from "react";
-import ReportCard from "@/components/chat/ReportCard";
 import ResumeEditDiffCard from "@/components/chat/ResumeEditDiffCard";
 import SearchCard from "@/components/chat/SearchCard";
 import SearchSummary from "@/components/chat/SearchSummary";
@@ -29,14 +28,9 @@ interface StreamingLaneProps {
       after?: string;
     };
   };
-  currentReport?: {
-    id: string;
-    title: string;
-  };
   stripResumeEditMarkdown: (content: string) => string;
   onOpenSearchPanel: (data: SearchData) => void;
   onResponseTypewriterComplete: () => void;
-  onOpenCurrentReport: (reportId: string, title: string) => void;
 }
 
 function splitEmbeddedResponseFromThought(thought: string): {
@@ -97,11 +91,9 @@ export default function StreamingLane({
   shouldHideResponseInChat,
   currentSearch,
   currentEditDiff,
-  currentReport,
   stripResumeEditMarkdown,
   onOpenSearchPanel,
   onResponseTypewriterComplete,
-  onOpenCurrentReport,
 }: StreamingLaneProps) {
   const { cleanedThought, embeddedResponse } = splitEmbeddedResponseFromThought(currentThought);
   const answerCandidate = (currentAnswer || "").trim() ? currentAnswer : embeddedResponse;
@@ -142,17 +134,6 @@ export default function StreamingLane({
       renderEditDiffCard={(diff) => (
         <ResumeEditDiffCard before={diff.before || ""} after={diff.after || ""} />
       )}
-    >
-      {currentReport && isProcessing && (
-        <div className="my-4">
-          <ReportCard
-            reportId={currentReport.id}
-            title={currentReport.title}
-            subtitle="点击查看完整报告"
-            onClick={() => onOpenCurrentReport(currentReport.id, currentReport.title)}
-          />
-        </div>
-      )}
-    </StreamingOutputPanel>
+    />
   );
 }

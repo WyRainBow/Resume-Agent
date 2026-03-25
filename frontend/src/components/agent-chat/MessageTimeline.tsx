@@ -7,16 +7,9 @@ import SearchCard from "@/components/chat/SearchCard";
 import SearchSummary from "@/components/chat/SearchSummary";
 import ThoughtProcess from "@/components/chat/ThoughtProcess";
 import TTSButton from "@/components/chat/TTSButton";
-import ReportCard from "@/components/chat/ReportCard";
 import type { Message } from "@/types/chat";
 import type { ResumeData } from "@/pages/Workspace/v2/types";
 import { formatResumeDiffPreview } from "@/utils/resumePatch";
-
-interface GeneratedReportItem {
-  id: string;
-  title: string;
-  messageId: string;
-}
 
 interface LoadedResumeItem {
   id: string;
@@ -49,7 +42,6 @@ interface ResumeEditDiffEntry {
 
 interface MessageTimelineProps {
   messages: Message[];
-  generatedReports: GeneratedReportItem[];
   loadedResumes: LoadedResumeItem[];
   searchResults: SearchResultEntry[];
   resumeEditDiffs: ResumeEditDiffEntry[];
@@ -57,7 +49,6 @@ interface MessageTimelineProps {
   stripResumeEditMarkdown: (content: string) => string;
   onSetCopiedId: (id: string | null) => void;
   onOpenSearchPanel: (data: SearchData) => void;
-  onOpenReport: (reportId: string, title: string) => void;
   onOpenResume: (resume: LoadedResumeItem) => void;
   onOpenResumeSelector: () => void;
   onRegenerate: () => void;
@@ -116,7 +107,6 @@ function sanitizeResumeDiffData(diff?: { before?: string; after?: string } | nul
 
 export default function MessageTimeline({
   messages,
-  generatedReports,
   loadedResumes,
   searchResults,
   resumeEditDiffs,
@@ -124,7 +114,6 @@ export default function MessageTimeline({
   stripResumeEditMarkdown,
   onSetCopiedId,
   onOpenSearchPanel,
-  onOpenReport,
   onOpenResume,
   onOpenResumeSelector,
   onRegenerate,
@@ -133,7 +122,6 @@ export default function MessageTimeline({
   return (
     <>
       {messages.map((msg, idx) => {
-        const reportForMessage = generatedReports.find((r) => r.messageId === msg.id);
         const resumeForMessage = loadedResumes.find((r) => r.messageId === msg.id);
         const editDiffForMessage = resumeEditDiffs.find((r) => r.messageId === msg.id);
         const effectiveDiff = sanitizeResumeDiffData(editDiffForMessage?.data);
@@ -284,17 +272,6 @@ export default function MessageTimeline({
                     <circle cx="18" cy="12" r="1.5" />
                   </svg>
                 </button>
-              </div>
-            )}
-
-            {reportForMessage && (
-              <div className="my-4">
-                <ReportCard
-                  reportId={reportForMessage.id}
-                  title={reportForMessage.title}
-                  subtitle="点击查看完整报告"
-                  onClick={() => onOpenReport(reportForMessage.id, reportForMessage.title)}
-                />
               </div>
             )}
 
