@@ -55,6 +55,7 @@ export interface BackendResumeData {
     details: string[]
   }[]
   sectionOrder: string[]
+  sectionTitles?: Record<string, string>
   globalSettings?: {
     experienceListType?: 'none' | 'unordered' | 'ordered'
     [key: string]: any
@@ -62,6 +63,26 @@ export interface BackendResumeData {
 }
 
 export function convertToBackendFormat(data: ResumeData): BackendResumeData {
+  const sectionIdMapping: Record<string, string> = {
+    skills: 'skills',
+    experience: 'internships',
+    projects: 'projects',
+    openSource: 'open_source',
+    awards: 'awards',
+    education: 'education',
+  }
+
+  const sectionTitles = data.menuSections.reduce<Record<string, string>>((acc, section) => {
+    if (!section.title?.trim()) return acc
+    const mappedId = sectionIdMapping[section.id] || section.id
+    acc[section.id] = section.title.trim()
+    acc[mappedId] = section.title.trim()
+    if (section.id === 'openSource') {
+      acc.opensource = section.title.trim()
+    }
+    return acc
+  }, {})
+
   return {
     name: data.basic.name,
     ...(data.basic.photo ? { photo: data.basic.photo } : {}),
@@ -114,17 +135,8 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
     })),
     sectionOrder: data.menuSections
       .filter((s) => s.enabled && s.id !== 'basic')
-      .map((s) => {
-        const mapping: Record<string, string> = {
-          skills: 'skills',
-          experience: 'internships',
-          projects: 'projects',
-          openSource: 'open_source',
-          awards: 'awards',
-          education: 'education',
-        }
-        return mapping[s.id] || s.id
-      }),
+      .map((s) => sectionIdMapping[s.id] || s.id),
+    sectionTitles,
     globalSettings: data.globalSettings,  // 传递全局设置
   }
 }
