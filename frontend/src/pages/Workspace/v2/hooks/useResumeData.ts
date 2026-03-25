@@ -1,11 +1,12 @@
 /**
  * 简历数据管理 Hook
  */
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { getCurrentResumeId, setCurrentResumeId, getResume } from '../../../../services/resumeStorage'
 import { loadFromStorage, STORAGE_KEY } from '../constants'
 import { stripPhotoFromResumeData } from '@/services/storage/sanitizeResume'
 import { useLocation, useParams } from 'react-router-dom'
+import { useResumeContext } from '@/contexts/ResumeContext'
 import type {
   ResumeData,
   MenuSection,
@@ -23,13 +24,38 @@ export function useResumeData() {
   const { resumeId: routeResumeId } = useParams()
   // 当前编辑的简历 ID
   const [currentResumeId, setCurrentId] = useState<string | null>(() => getCurrentResumeId())
-  
+
   // 简历数据状态
-  const [resumeData, setResumeData] = useState<ResumeData>(loadFromStorage)
+  const [resumeData, setResumeDataLocal] = useState<ResumeData>(loadFromStorage)
   const [activeSection, setActiveSection] = useState('basic')
-  
+
   // 数据是否已从后端加载完成
   const [isDataLoaded, setIsDataLoaded] = useState(false)
+
+  // ResumeContext — Chat 更新简历时会设置 context.resume
+  const { resume: contextResume, setResume: setContextResume } = useResumeContext()
+
+  // 用 ref 跟踪上一次 contextResume 引用，避免循环更新
+  const lastContextResumeRef = useRef<ResumeData | null>(null)
+
+  // 当 context.resume 被 Chat 侧更新时，同步到本地编辑器状态
+  useEffect(() => {
+    if (contextResume && contextResume !== lastContextResumeRef.current) {
+      lastContextResumeRef.current = contextResume
+      setResumeDataLocal(contextResume)
+    }
+  }, [contextResume])
+
+  // 包装 setResumeData：同时更新本地状态和 context，让 Chat 侧感知用户手动编辑
+  const setResumeData = useCallback((updater: ResumeData | ((prev: ResumeData) => ResumeData)) => {
+    setResumeDataLocal(prev => {
+      const next = typeof updater === 'function' ? updater(prev) : updater
+      // 记录此次由编辑器发起的更新，避免 context effect 反向触发
+      lastContextResumeRef.current = next
+      setContextResume(next)
+      return next
+    })
+  }, [setContextResume])
 
   // 从 Dashboard 进入时加载对应简历
   useEffect(() => {

@@ -4,7 +4,7 @@ import ResumeEditDiffCard from "@/components/chat/ResumeEditDiffCard";
 import SearchCard from "@/components/chat/SearchCard";
 import SearchSummary from "@/components/chat/SearchSummary";
 import StreamingOutputPanel from "@/components/chat/StreamingOutputPanel";
-import { formatResumeDiffPreview } from "@/utils/resumeEditDiff";
+import { formatResumeDiffPreview } from "@/utils/resumePatch";
 
 interface SearchData {
   query: string;

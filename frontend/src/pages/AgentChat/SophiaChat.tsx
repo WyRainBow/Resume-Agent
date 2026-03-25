@@ -66,10 +66,13 @@ import {
   extractResumeEditDiff as extractResumeEditDiffFromMarkdown,
   normalizeResumePatchValue,
   stripResumeEditMarkdown,
-} from "@/utils/resumeEditDiff";
+} from "@/utils/resumePatch";
 
 import WorkspaceLayout from "@/pages/WorkspaceLayout";
 import CustomScrollbar from "@/components/common/CustomScrollbar";
+import { useResumeContext, type PendingPatch } from '../../contexts/ResumeContext';
+import { ResumeDiffCard } from '../../components/agent-chat/ResumeDiffCard';
+import { ResumeGeneratedCard } from '../../components/agent-chat/ResumeGeneratedCard';
 
 // 报告内容视图组件
 function ReportContentView({
@@ -478,6 +481,7 @@ function SophiaChatContent() {
   const [isDesktop, setIsDesktop] = useState(true);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const currentSessionIdRef = useRef<string | null>(null);
   const [initialSessionResolved, setInitialSessionResolved] = useState(false);
   const [isLoadingResume, setIsLoadingResume] = useState(false);
   const [isLoadingChat, setIsLoadingChat] = useState(false);
@@ -528,6 +532,17 @@ function SophiaChatContent() {
   const [resumeEditDiffs, setResumeEditDiffs] = useState<
     Array<{ messageId: string; data: ResumeEditDiffStructuredData }>
   >([]);
+
+  const [resumeEditError, setLastError] = useState<{ message: string } | null>(null);
+
+  // ResumeContext integration
+  const { pendingPatches, pushPatch, patchAppliedAt } = useResumeContext();
+  const [generatedResume, setGeneratedResume] = useState<{
+    resume: any; summary: string
+  } | null>(null);
+  // Track current assistant message ID for patch association
+  const currentAssistantMessageIdRef = useRef<string | null>(null);
+
   const [streamDoneTick, setStreamDoneTick] = useState(0);
   const [activeRunId, setActiveRunId] = useState(0);
   const [activeSearchPanel, setActiveSearchPanel] =
@@ -695,6 +710,7 @@ function SophiaChatContent() {
   const finalizeRetryTimerRef = useRef<number | null>(null);
   const finalizeRetryAttemptsRef = useRef(0);
   const prevRouteSessionIdRef = useRef<string | null>(null);
+  const isCreatingNewSessionRef = useRef(false);
   const { rebindCurrentMessageId } = useMessageTimeline();
   
   const normalizedResume = useMemo(() => {
@@ -1050,7 +1066,7 @@ function SophiaChatContent() {
           if (applied) return next;
         }
 
-        const fallbackField = (diff.field || "").trim();
+        const fallbackField = (typeof diff.field === "string" ? diff.field : "").trim();
         if (diff.section === "basic" && fallbackField) {
           setByPath(
             next as Record<string, unknown>,
@@ -1244,6 +1260,29 @@ function SophiaChatContent() {
       setResumeError(null);
       setShowResumeSelector(true);
     },
+    onResumeUpdated: (resumeData) => {
+      // 后端推送完整的更新后简历 JSON，更新 loadedResumes 本地副本（用于 PDF 渲染）。
+      // ResumeContext 已通过 resume_patch 事件独立处理字段更新，无需重复合并。
+      setLoadedResumes((prev) => {
+        if (prev.length === 0) return prev;
+        const targetId = selectedResumeId || prev[0]?.id;
+        return prev.map((item) =>
+          item.id === targetId
+            ? { ...item, resumeData: resumeData as unknown as ResumeData }
+            : item,
+        );
+      });
+      // 清空 PDF blob 以触发重新渲染
+      setResumePdfPreview((prev) => {
+        const targetId = selectedResumeId || Object.keys(prev)[0];
+        if (!targetId) return prev;
+        return {
+          ...prev,
+          [targetId]: { ...EMPTY_RESUME_PDF_STATE },
+        };
+      });
+      setAllowPdfAutoRender(true);
+    },
     upsertSearchResult,
     upsertLoadedResume,
     upsertResumeEditDiff,
@@ -1264,7 +1303,32 @@ function SophiaChatContent() {
     baseUrl: apiBaseUrl,
     heartbeatTimeout: SSE_HEARTBEAT_TIMEOUT,
     resumeData: normalizedResume,
-    onSSEEvent: handleSSEEvent,
+    onSSEEvent: useCallback((event: SSEEvent) => {
+      // Intercept resume_patch and resume_generated events before routing
+      if ((event as any).type === 'resume_patch') {
+        // SSE structure: {type, data: {type, data: {patch_id, ...}, ...}}
+        // parseBlock sets event.data = outer data object; actual patch is in event.data.data
+        const outerData = (event as any).data ?? {}
+        const patch = outerData.data ?? outerData
+        pushPatch({
+          patch_id:   patch.patch_id   ?? `patch-${Date.now()}`,
+          message_id: currentAssistantMessageIdRef.current ?? Date.now().toString(),
+          paths:      patch.paths      ?? [],
+          before:     patch.before     ?? {},
+          after:      patch.after      ?? {},
+          summary:    patch.summary    ?? '',
+        });
+        return;
+      }
+      if ((event as any).type === 'resume_generated') {
+        const outerData = (event as any).data ?? {}
+        const data = outerData.data ?? outerData
+        setGeneratedResume({ resume: data.resume, summary: data.summary ?? '' });
+        return;
+      }
+      handleSSEEvent(event);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [handleSSEEvent, pushPatch]),
   });
 
   // 保存会话ID到 localStorage
@@ -1392,6 +1456,12 @@ function SophiaChatContent() {
       return;
     }
 
+    // If createNewSession is in progress, skip any session loading to avoid
+    // restoring stale session data from the old URL sessionId.
+    if (isCreatingNewSessionRef.current) {
+      return;
+    }
+
     const routeSessionId =
       new URLSearchParams(location.search).get("sessionId")?.trim() || null;
     const isEphemeralConversation =
@@ -1516,13 +1586,22 @@ function SophiaChatContent() {
         };
 
         const loadedMessages: Message[] = (data.messages || []).map(
-          (m: any, index: number) => ({
-            id: generateMessageId(m.content || "", m.role || "unknown", index),
-            role: m.role === "user" ? "user" : "assistant",
-            content: m.content || "",
-            thought: m.thought || undefined,
-            timestamp: new Date().toISOString(),
-          }),
+          (m: any, index: number) => {
+            const rawContent = m.content;
+            const content =
+              typeof rawContent === "string"
+                ? rawContent
+                : rawContent != null
+                ? JSON.stringify(rawContent)
+                : "";
+            return {
+              id: generateMessageId(content, m.role || "unknown", index),
+              role: m.role === "user" ? "user" : "assistant",
+              content,
+              thought: m.thought || undefined,
+              timestamp: new Date().toISOString(),
+            };
+          },
         );
 
         const dedupedMessages = dedupeLoadedMessages(loadedMessages);
@@ -1552,8 +1631,25 @@ function SophiaChatContent() {
     setResumeError(lastError);
   }, [lastError]);
 
+  // When a patch is applied via ResumeContext, clear the PDF blob to trigger re-render
+  useEffect(() => {
+    if (!patchAppliedAt) return;
+    setResumePdfPreview(prev => {
+      const targetId = selectedResumeId || Object.keys(prev)[0];
+      if (!targetId) return prev;
+      return { ...prev, [targetId]: { ...EMPTY_RESUME_PDF_STATE } };
+    });
+    setAllowPdfAutoRender(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patchAppliedAt]);
+
   useEffect(() => {
     if (answerCompleteCount <= 0 || !resumeId) {
+      return;
+    }
+    // If there are pending patches waiting for user approval, skip auto-refresh.
+    // The PDF will re-render when the user clicks Apply (patchAppliedAt effect).
+    if (pendingPatches.some(p => p.status === 'pending')) {
       return;
     }
 
@@ -1594,7 +1690,7 @@ function SophiaChatContent() {
     return () => {
       mounted = false;
     };
-  }, [answerCompleteCount, resumeId, user?.id]);
+  }, [answerCompleteCount, resumeId, user?.id, pendingPatches]);
 
   const isHtmlTemplate = resumeData?.templateType === "html";
 
@@ -1943,7 +2039,9 @@ function SophiaChatContent() {
 
     refreshAfterSaveRef.current = true;
     pendingSaveRef.current = true;
-    const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // Use the pre-generated ID from sendUserTextMessage so resume patches can reference it
+    const uniqueId = currentAssistantMessageIdRef.current ?? `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    currentAssistantMessageIdRef.current = null;
     const newMessage: Message = {
       id: uniqueId,
       role: "assistant",
@@ -1960,11 +2058,13 @@ function SophiaChatContent() {
 
     setMessages((prev) => {
       const last = prev[prev.length - 1];
+      const lastContent = typeof last?.content === "string" ? last.content : "";
+      const lastThought = typeof (last as any)?.thought === "string" ? (last as any).thought : "";
       if (
         last &&
         last.role === "assistant" &&
-        (last.content || "").trim() === newMessage.content.trim() &&
-        ((last as any).thought || "").trim() ===
+        lastContent.trim() === newMessage.content.trim() &&
+        lastThought.trim() ===
           (newMessage.thought || "").trim()
       ) {
         console.log("[AgentChat] Duplicate assistant message skipped");
@@ -2584,7 +2684,7 @@ function SophiaChatContent() {
     };
 
     for (const msg of messages) {
-      const contentKey = (msg.content || "").trim();
+      const contentKey = (typeof msg.content === "string" ? msg.content : "").trim();
       const roleKey = msg.role || "unknown";
       const seenContents = getSeenSet(roleKey);
 
@@ -2718,7 +2818,13 @@ function SophiaChatContent() {
         console.error(
           `[AgentChat] Failed to load session: ${detail}`,
         );
-        setResumeError(`会话加载失败：${detail}`);
+        // For brand-new local sessions (conv-*) that haven't been persisted yet,
+        // a 404 is expected — don't show an error to the user.
+        if (!(resp.status === 404 && sessionId.startsWith('conv-'))) {
+          setResumeError(`会话加载失败：${detail}`);
+        }
+        // Mark sessionId as "seen" so the URL effect doesn't retry infinitely
+        setCurrentSessionId(sessionId);
         // 如果加载失败，不清空当前消息，保持原状态
         return;
       }
@@ -2793,13 +2899,22 @@ function SophiaChatContent() {
       }
 
       const loadedMessages: Message[] = userVisibleMessages.map(
-        (m: any, index: number) => ({
-          id: generateMessageId(m.content || "", m.role || "unknown", index),
-          role: m.role === "user" ? "user" : "assistant",
-          content: m.content || "",
-          thought: m.thought || undefined,
-          timestamp: new Date().toISOString(),
-        }),
+        (m: any, index: number) => {
+          const rawContent = m.content;
+          const content =
+            typeof rawContent === "string"
+              ? rawContent
+              : rawContent != null
+              ? JSON.stringify(rawContent)
+              : "";
+          return {
+            id: generateMessageId(content, m.role || "unknown", index),
+            role: m.role === "user" ? "user" : "assistant",
+            content,
+            thought: m.thought || undefined,
+            timestamp: new Date().toISOString(),
+          };
+        },
       );
 
       const dedupedMessages = dedupeLoadedMessages(loadedMessages);
@@ -2846,10 +2961,14 @@ function SophiaChatContent() {
     setSelectedReportId(null);
     setAllowPdfAutoRender(false);
     finalizeStream();
+    // Navigate to clean URL so the URL-watching effect doesn't reload the old session.
+    // Set flag so the URL effect skips calling createNewSession again.
+    isCreatingNewSessionRef.current = true;
+    navigate('/agent/new', { replace: true });
 
     // 不再立即持久化空会话，只在用户发送第一条消息时才真正创建并入库
     // 这样可以避免用户点击+按钮后没有输入消息就产生空会话
-  }, [finalizeStream, saveCurrentSession, waitForPendingSave]);
+  }, [finalizeStream, saveCurrentSession, waitForPendingSave, navigate]);
 
   const handleSelectSession = useCallback(
     (sessionId: string) => {
@@ -2876,13 +2995,21 @@ function SophiaChatContent() {
     if (routeSessionId) {
       if (routeSessionId === currentSessionId) return;
       if (isLoadingSession) return;
+      // If createNewSession just ran and navigate hasn't changed URL yet,
+      // the old routeSessionId may still be in the URL — skip loading it.
+      if (isCreatingNewSessionRef.current) return;
       void loadSession(routeSessionId);
       return;
     }
 
     // 从历史会话URL切回 /agent/new（无 sessionId）时，主动创建空白新会话
+    // 但如果是 createNewSession 自己触发的导航，就跳过（避免双重调用）
     if (previousRouteSessionId && !isLoadingSession) {
-      void createNewSession();
+      if (isCreatingNewSessionRef.current) {
+        isCreatingNewSessionRef.current = false;
+      } else {
+        void createNewSession();
+      }
     }
   }, [
     location.search,
@@ -3020,6 +3147,8 @@ function SophiaChatContent() {
       lastDoneRunRef.current = -1;
       currentThoughtRef.current = "";
       currentAnswerRef.current = "";
+      // Pre-generate a message ID for this run so resume patches can reference it
+      currentAssistantMessageIdRef.current = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       setSearchResults((prev) =>
         prev.filter((item) => item.messageId !== "current"),
       );
@@ -3571,6 +3700,29 @@ function SophiaChatContent() {
                     }
                   }}
                 />
+
+                {/* ResumeDiffCards for pending patches (grouped by message) */}
+                {pendingPatches.length > 0 && (
+                  <div className="px-4 py-1">
+                    {pendingPatches
+                      .filter(p => p.status === 'pending')
+                      .map(patch => (
+                        <ResumeDiffCard key={patch.patch_id} patch={patch} />
+                      ))
+                    }
+                  </div>
+                )}
+
+                {/* ResumeGeneratedCard */}
+                {generatedResume && (
+                  <div className="px-4 py-1">
+                    <ResumeGeneratedCard
+                      resume={generatedResume.resume}
+                      summary={generatedResume.summary}
+                      onDismiss={() => setGeneratedResume(null)}
+                    />
+                  </div>
+                )}
 
                 {/* 简历选择器 */}
                 {showResumeSelector && (

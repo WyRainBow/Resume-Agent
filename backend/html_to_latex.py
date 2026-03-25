@@ -17,6 +17,73 @@ from html.parser import HTMLParser
 from typing import List, Tuple
 
 
+def _markdown_to_html(text: str) -> str:
+    """Convert basic Markdown to HTML so html_to_latex can process it.
+    Handles: **bold**, *italic*, # headings, - bullet lists, 1. ordered lists, blank lines → paragraphs.
+    """
+    lines = text.split('\n')
+    html_lines: list[str] = []
+    in_ul = False
+    in_ol = False
+
+    def close_lists():
+        nonlocal in_ul, in_ol
+        if in_ul:
+            html_lines.append('</ul>')
+            in_ul = False
+        if in_ol:
+            html_lines.append('</ol>')
+            in_ol = False
+
+    def inline(s: str) -> str:
+        # **bold**
+        s = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', s)
+        # *italic* (single star, not part of **)
+        s = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<em>\1</em>', s)
+        # `code`
+        s = re.sub(r'`(.+?)`', r'\1', s)
+        return s
+
+    for line in lines:
+        stripped = line.strip()
+        # Heading
+        if stripped.startswith('#'):
+            close_lists()
+            level = len(stripped) - len(stripped.lstrip('#'))
+            content = stripped.lstrip('#').strip()
+            html_lines.append(f'<p><strong>{inline(content)}</strong></p>')
+        # Unordered list
+        elif stripped.startswith(('- ', '• ', '* ')):
+            if in_ol:
+                html_lines.append('</ol>')
+                in_ol = False
+            if not in_ul:
+                html_lines.append('<ul class="custom-list">')
+                in_ul = True
+            content = stripped[2:].strip() if len(stripped) > 2 else stripped[1:].strip()
+            html_lines.append(f'<li><p>{inline(content)}</p></li>')
+        # Ordered list
+        elif re.match(r'^\d+\.[ \t]', stripped):
+            if in_ul:
+                html_lines.append('</ul>')
+                in_ul = False
+            if not in_ol:
+                html_lines.append('<ol>')
+                in_ol = True
+            content = re.sub(r'^\d+\.[ \t]', '', stripped)
+            html_lines.append(f'<li><p>{inline(content)}</p></li>')
+        # Blank line
+        elif stripped == '':
+            close_lists()
+        # Normal paragraph line
+        else:
+            close_lists()
+            html_lines.append(f'<p>{inline(stripped)}</p>')
+
+    close_lists()
+    return '\n'.join(html_lines)
+
+
 class HTMLToLatexConverter(HTMLParser):
     """HTML 到 LaTeX 转换器"""
     
@@ -134,10 +201,15 @@ def html_to_latex(html: str) -> str:
     """
     if not html or not html.strip():
         return ''
-    
+
     # 预处理：移除多余空白
     html = html.strip()
-    
+
+    # If the content looks like Markdown (no <tag> patterns), convert it to HTML first.
+    # This handles cases where the agent writes Markdown into HTML fields.
+    if not re.search(r'<[a-zA-Z]', html):
+        html = _markdown_to_html(html)
+
     # 处理空段落（包括带属性的空段落）
     html = re.sub(r'<p[^>]*>\s*</p>', '', html)
     # 注意：不要在 HTML 阶段“删除空 li”，否则会导致 LaTeX 生成时出现

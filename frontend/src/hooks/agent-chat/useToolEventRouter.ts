@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { SSEEvent } from "@/transports/SSETransport";
-import { extractResumeEditDiff } from "@/utils/resumeEditDiff";
+import { extractResumeEditDiff } from "@/utils/resumePatch";
 
 interface UseToolEventRouterParams<TSearch, TResume, TEdit> {
   runId: number;
   onDone: () => void;
   onError: (message: string) => void;
   onShowResumeSelector: () => void;
+  onResumeUpdated: (resumeData: Record<string, unknown>) => void;
   upsertSearchResult: (messageId: string, data: TSearch) => void;
   upsertLoadedResume: (messageId: string, data: TResume) => void;
   upsertResumeEditDiff: (messageId: string, data: TEdit) => void;
@@ -27,6 +28,7 @@ export function useToolEventRouter<
     onDone,
     onError,
     onShowResumeSelector,
+    onResumeUpdated,
     upsertSearchResult,
     upsertLoadedResume,
     upsertResumeEditDiff,
@@ -45,9 +47,18 @@ export function useToolEventRouter<
 
   const handleSSEEvent = useCallback(
     (event: SSEEvent) => {
+      // resume_updated: 后端在 cv_editor_agent 成功后推送完整简历 JSON。
+      // 前端直接替换本地状态，无需 re-apply diff。
+      if (event.type === "resume_updated") {
+        const resumeData = (event as any).data?.resume_data ?? (event as any).resume_data;
+        if (resumeData && typeof resumeData === "object") {
+          onResumeUpdated(resumeData as Record<string, unknown>);
+        }
+        return;
+      }
+
       if (event.type === "done") {
-        // 将编辑 diff 卡片延迟到本轮 done 后再挂载，
-        // 避免在 answer 打字机过程中“整块瞬间弹出”。
+        // diff 卡片延迟到 done 后挂载（仅当没有 resume_updated 时才 fallback apply）
         if (pendingEditDiffRef.current) {
           upsertResumeEditDiff("current", pendingEditDiffRef.current);
           applyResumeEditDiff(pendingEditDiffRef.current);
@@ -118,7 +129,7 @@ export function useToolEventRouter<
         if (handledResumeSelectorKeysRef.current.has(dedupeKey)) {
           return;
         }
-        // 统一 show_resume 行为：只打开“加载简历”选择面板，
+        // 统一 show_resume 行为：只打开"加载简历"选择面板，
         // 不再自动挂载简历卡片，避免和用户手动选择流程冲突。
         handledResumeSelectorKeysRef.current.add(dedupeKey);
         onShowResumeSelector();
@@ -141,9 +152,10 @@ export function useToolEventRouter<
         handledEditKeysRef.current.add(dedupeKey);
 
         // 将读取的简历数据传递给前端
+        // resume_data 字段与 upsertLoadedResume(payload.resume_data) 对齐
         const resumePayload = {
           type: "resume_data",
-          data: structured || event.data?.result || event.data?.content,
+          resume_data: structured || event.data?.result || event.data?.content,
         } as TResume;
         upsertLoadedResume("current", resumePayload);
 
@@ -196,6 +208,7 @@ export function useToolEventRouter<
       onDone,
       onError,
       onShowResumeSelector,
+      onResumeUpdated,
       upsertSearchResult,
       upsertLoadedResume,
       upsertResumeEditDiff,

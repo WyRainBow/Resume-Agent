@@ -10,7 +10,7 @@ import TTSButton from "@/components/chat/TTSButton";
 import ReportCard from "@/components/chat/ReportCard";
 import type { Message } from "@/types/chat";
 import type { ResumeData } from "@/pages/Workspace/v2/types";
-import { formatResumeDiffPreview } from "@/utils/resumeEditDiff";
+import { formatResumeDiffPreview } from "@/utils/resumePatch";
 
 interface GeneratedReportItem {
   id: string;

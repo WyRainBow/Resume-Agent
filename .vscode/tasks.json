@@ -55,12 +55,12 @@
         }
       },
       {
-        "label": "Start All (Backend + Frontend)",
+        "label": "🚀 Start All (Backend + Frontend)",
         "dependsOn": [
           "⚙️ Backend: Start API Server",
           "⚛️ Frontend: Start Dev Server"
         ],
-        "dependsOrder": "sequence",
+        "dependsOrder": "parallel",
         "group": {
           "kind": "build",
           "isDefault": true

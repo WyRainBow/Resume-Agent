@@ -89,6 +89,7 @@ test_api.sh
 
 # 参考目录
 reference/
+knowledge/
 
 # 飞书剪藏等本地工具目录
 feishu-clipper/
