@@ -2,8 +2,8 @@
  * 荣誉奖项面板
  */
 import { useState } from 'react'
-import { Reorder, motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { PlusCircle, Wand2, ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { PlusCircle, Wand2, ChevronDown, Eye, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { Award } from '../types'
 import Field from './Field'
@@ -25,14 +25,11 @@ function AwardItem({
   award,
   onUpdate,
   onDelete,
-  setDraggingId,
 }: {
   award: Award
   onUpdate: (award: Award) => void
   onDelete: (id: string) => void
-  setDraggingId: (id: string | null) => void
 }) {
-  const dragControls = useDragControls()
   const [expanded, setExpanded] = useState(false)
 
   const handleChange = (field: keyof Award, value: string | boolean) => {
@@ -40,37 +37,16 @@ function AwardItem({
   }
 
   return (
-    <Reorder.Item
-      id={award.id}
-      value={award}
-      dragListener={false}
-      dragControls={dragControls}
-      onDragEnd={() => setDraggingId(null)}
+    <div
       className={cn(
-        'rounded-lg border overflow-hidden flex group transition-opacity',
+        'rounded-lg border overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
         'dark:bg-neutral-900/30 dark:border-neutral-800 dark:hover:border-primary',
         'border-gray-100',
         award.visible === false && 'opacity-40'
       )}
     >
-      {/* 拖拽手柄 */}
-      <div
-        onPointerDown={(event) => {
-          if (expanded) return
-          dragControls.start(event)
-          setDraggingId(award.id)
-        }}
-        className={cn(
-          'w-12 flex items-center justify-center border-r shrink-0 touch-none',
-          'border-gray-100 dark:border-neutral-800',
-          expanded ? 'cursor-not-allowed' : 'cursor-grab hover:bg-gray-50 dark:hover:bg-neutral-800/50'
-        )}
-      >
-        <GripVertical className={cn('w-4 h-4 text-gray-400 dark:text-neutral-400', expanded && 'opacity-50')} />
-      </div>
-
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0">
         {/* 标题行 */}
         <div
           className={cn('px-4 py-4 flex items-center justify-between cursor-pointer select-none', expanded && 'bg-gray-50 dark:bg-neutral-800/50')}
@@ -137,13 +113,11 @@ function AwardItem({
           )}
         </AnimatePresence>
       </div>
-    </Reorder.Item>
+    </div>
   )
 }
 
 export default function AwardPanel({ awards, onUpdate, onDelete, onReorder, onAIImport }: AwardPanelProps) {
-  const [draggingId, setDraggingId] = useState<string | null>(null)
-
   const handleCreate = () => {
     const newItem: Award = {
       id: generateId(),
@@ -168,11 +142,11 @@ export default function AwardPanel({ awards, onUpdate, onDelete, onReorder, onAI
         </button>
       )}
 
-      <Reorder.Group axis="y" values={awards} onReorder={onReorder} className="space-y-3">
+      <div className="space-y-3">
         {awards.map((item) => (
-          <AwardItem key={item.id} award={item} onUpdate={onUpdate} onDelete={onDelete} setDraggingId={setDraggingId} />
+          <AwardItem key={item.id} award={item} onUpdate={onUpdate} onDelete={onDelete} />
         ))}
-      </Reorder.Group>
+      </div>
 
       <button
         onClick={handleCreate}
@@ -191,4 +165,3 @@ export default function AwardPanel({ awards, onUpdate, onDelete, onReorder, onAI
     </div>
   )
 }
-

@@ -3,7 +3,6 @@
  * 管理项目列表的增删改查
  */
 import { useState } from 'react'
-import { Reorder } from 'framer-motion'
 import { PlusCircle, Wand2, Trash2, CheckSquare, Square } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { Project, GlobalSettings } from '../types'
@@ -41,7 +40,6 @@ const ProjectPanel = ({
   globalSettings,
   updateGlobalSettings,
 }: ProjectPanelProps) => {
-  const [draggingId, setDraggingId] = useState<string | null>(null)
   const [selectMode, setSelectMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
@@ -130,12 +128,7 @@ const ProjectPanel = ({
       </div>
 
       {/* 项目列表 */}
-      <Reorder.Group
-        axis="y"
-        values={projects}
-        onReorder={onReorder}
-        className="space-y-3"
-      >
+      <div className="space-y-3">
         {projects.map((project) => (
           <div key={project.id} className="flex items-start gap-2">
             {selectMode && (
@@ -155,7 +148,6 @@ const ProjectPanel = ({
                 project={project}
                 onUpdate={onUpdate}
                 onDelete={onDelete}
-                setDraggingId={setDraggingId}
                 resumeData={resumeData}
                 globalSettings={globalSettings}
                 updateGlobalSettings={updateGlobalSettings}
@@ -163,7 +155,7 @@ const ProjectPanel = ({
             </div>
           </div>
         ))}
-      </Reorder.Group>
+      </div>
 
       {/* 添加按钮 */}
       <button
@@ -185,4 +177,3 @@ const ProjectPanel = ({
 }
 
 export default ProjectPanel
-

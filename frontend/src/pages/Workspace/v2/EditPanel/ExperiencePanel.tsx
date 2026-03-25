@@ -1,8 +1,6 @@
 /**
  * 工作经历面板
  */
-import { useState } from 'react'
-import { Reorder } from 'framer-motion'
 import { PlusCircle, Wand2, List, ListOrdered } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { Experience, GlobalSettings, ResumeData } from '../types'
@@ -35,8 +33,6 @@ const ExperiencePanel = ({
   onAIImport,
   resumeData,
 }: ExperiencePanelProps) => {
-  const [draggingId, setDraggingId] = useState<string | null>(null)
-  
   // 获取当前列表类型，默认为 'none'
   const listType = globalSettings?.experienceListType || 'none'
 
@@ -108,20 +104,19 @@ const ExperiencePanel = ({
         </button>
       </div>
 
-      <Reorder.Group axis="y" values={experiences} onReorder={onReorder} className="space-y-3">
+      <div className="space-y-3">
         {experiences.map((exp) => (
           <ExperienceItem
             key={exp.id}
             experience={exp}
             onUpdate={onUpdate}
             onDelete={onDelete}
-            setDraggingId={setDraggingId}
             resumeData={resumeData}
             globalSettings={globalSettings}
             updateGlobalSettings={updateGlobalSettings}
           />
         ))}
-      </Reorder.Group>
+      </div>
 
       <button
         onClick={handleCreate}
@@ -142,5 +137,3 @@ const ExperiencePanel = ({
 }
 
 export default ExperiencePanel
-
-

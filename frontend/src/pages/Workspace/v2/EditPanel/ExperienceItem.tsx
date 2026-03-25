@@ -2,8 +2,8 @@
  * 工作经历条目组件
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { motion, Reorder, useDragControls, AnimatePresence } from 'framer-motion'
-import { ChevronDown, Eye, GripVertical, Trash2, X, Image, Plus, Loader2 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ChevronDown, Eye, Trash2, X, Image, Plus, Loader2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import type { Experience, ResumeData, GlobalSettings } from '../types'
@@ -56,7 +56,6 @@ interface ExperienceItemProps {
   experience: Experience
   onUpdate: (experience: Experience) => void
   onDelete: (id: string) => void
-  setDraggingId: (id: string | null) => void
   resumeData?: ResumeData  // 简历数据，用于 AI 润色
   globalSettings?: GlobalSettings
   updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
@@ -488,12 +487,10 @@ const ExperienceItem = ({
   experience,
   onUpdate,
   onDelete,
-  setDraggingId,
   resumeData,
   globalSettings,
   updateGlobalSettings,
 }: ExperienceItemProps) => {
-  const dragControls = useDragControls()
   const [expanded, setExpanded] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
 
@@ -515,46 +512,16 @@ const ExperienceItem = ({
   )
 
   return (
-    <Reorder.Item
-      id={experience.id}
-      value={experience}
-      dragListener={false}
-      dragControls={dragControls}
-      onDragEnd={() => setDraggingId(null)}
+    <div
       className={cn(
-        'rounded-lg border overflow-hidden flex group transition-opacity',
+        'rounded-lg border overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
         'dark:bg-neutral-900/30 dark:border-neutral-800 dark:hover:border-primary',
         'border-gray-100',
         !experience.visible && 'opacity-40'
       )}
     >
-      <div
-        onPointerDown={(event) => {
-          if (expanded) return
-          dragControls.start(event)
-          setDraggingId(experience.id)
-        }}
-        onPointerUp={() => setDraggingId(null)}
-        onPointerCancel={() => setDraggingId(null)}
-        className={cn(
-          'w-12 flex items-center justify-center border-r shrink-0 touch-none',
-          'border-gray-100 dark:border-neutral-800',
-          expanded
-            ? 'cursor-not-allowed'
-            : 'cursor-grab hover:bg-gray-50 dark:hover:bg-neutral-800/50'
-        )}
-      >
-        <GripVertical
-          className={cn(
-            'w-4 h-4',
-            'text-gray-400 dark:text-neutral-400',
-            expanded && 'opacity-50'
-          )}
-        />
-      </div>
-
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0">
         <div
           className={cn(
             'px-4 py-4 flex items-center justify-between cursor-pointer select-none',
@@ -620,7 +587,7 @@ const ExperienceItem = ({
           )}
         </AnimatePresence>
       </div>
-    </Reorder.Item>
+    </div>
   )
 }
 

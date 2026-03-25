@@ -2,9 +2,8 @@
  * 教育经历面板
  */
 import { useState, useRef, useEffect } from 'react'
-import { Reorder } from 'framer-motion'
-import { PlusCircle, Wand2, ChevronDown, Eye, GripVertical, Trash2, Check } from 'lucide-react'
-import { motion, useDragControls, AnimatePresence } from 'framer-motion'
+import { PlusCircle, ChevronDown, Eye, Trash2, Check } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '../../../../lib/utils'
 import type { Education } from '../types'
 import Field from './Field'
@@ -43,14 +42,11 @@ const EducationItem = ({
   education,
   onUpdate,
   onDelete,
-  setDraggingId,
 }: {
   education: Education
   onUpdate: (education: Education) => void
   onDelete: (id: string) => void
-  setDraggingId: (id: string | null) => void
 }) => {
-  const dragControls = useDragControls()
   const [expanded, setExpanded] = useState(false)
   const [degreeOpen, setDegreeOpen] = useState(false)
   const degreeWrapRef = useRef<HTMLDivElement>(null)
@@ -66,37 +62,16 @@ const EducationItem = ({
   }, [degreeOpen])
 
   return (
-    <Reorder.Item
-      id={education.id}
-      value={education}
-      dragListener={false}
-      dragControls={dragControls}
-      onDragEnd={() => setDraggingId(null)}
+    <div
       className={cn(
-        'rounded-lg border overflow-hidden flex group transition-opacity',
+        'rounded-lg border overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
         'dark:bg-neutral-900/30 dark:border-neutral-800',
         'border-gray-100',
         education.visible === false && 'opacity-40'
       )}
     >
-      <div
-        onPointerDown={(event) => {
-          if (expanded) return
-          dragControls.start(event)
-          setDraggingId(education.id)
-        }}
-        onPointerUp={() => setDraggingId(null)}
-        className={cn(
-          'w-12 flex items-center justify-center border-r shrink-0 touch-none',
-          'border-gray-100 dark:border-neutral-800',
-          expanded ? 'cursor-not-allowed' : 'cursor-grab hover:bg-gray-50'
-        )}
-      >
-        <GripVertical className="w-4 h-4 text-gray-400" />
-      </div>
-
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0">
         <div
           className={cn(
             'px-4 py-4 flex items-center justify-between cursor-pointer',
@@ -274,7 +249,7 @@ const EducationItem = ({
           )}
         </AnimatePresence>
       </div>
-    </Reorder.Item>
+    </div>
   )
 }
 
@@ -285,8 +260,6 @@ const EducationPanel = ({
   onReorder,
   onAIImport,
 }: EducationPanelProps) => {
-  const [draggingId, setDraggingId] = useState<string | null>(null)
-
   const handleCreate = () => {
     const newEdu: Education = {
       id: generateId(),
@@ -309,17 +282,16 @@ const EducationPanel = ({
         />
       )}
 
-      <Reorder.Group axis="y" values={educations} onReorder={onReorder} className="space-y-3">
+      <div className="space-y-3">
         {educations.map((edu) => (
           <EducationItem
             key={edu.id}
             education={edu}
             onUpdate={onUpdate}
             onDelete={onDelete}
-            setDraggingId={setDraggingId}
           />
         ))}
-      </Reorder.Group>
+      </div>
 
       <button
         onClick={handleCreate}
@@ -339,5 +311,4 @@ const EducationPanel = ({
 }
 
 export default EducationPanel
-
 

@@ -3,8 +3,8 @@
  * 支持拖拽排序、展开/收起、显示/隐藏、删除
  */
 import { useState, useCallback } from 'react'
-import { motion, Reorder, useDragControls, AnimatePresence } from 'framer-motion'
-import { ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { ChevronDown, Eye, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { Project, ResumeData, GlobalSettings } from '../types'
 import Field from './Field'
@@ -14,7 +14,6 @@ interface ProjectItemProps {
   project: Project
   onUpdate: (project: Project) => void
   onDelete: (id: string) => void
-  setDraggingId: (id: string | null) => void
   resumeData?: ResumeData
   globalSettings?: GlobalSettings
   updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
@@ -203,12 +202,10 @@ const ProjectItem = ({
   project,
   onUpdate,
   onDelete,
-  setDraggingId,
   resumeData,
   globalSettings,
   updateGlobalSettings,
 }: ProjectItemProps) => {
-  const dragControls = useDragControls()
   const [expanded, setExpanded] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
 
@@ -230,49 +227,16 @@ const ProjectItem = ({
   )
 
   return (
-    <Reorder.Item
-      id={project.id}
-      value={project}
-      dragListener={false}
-      dragControls={dragControls}
-      onDragEnd={() => setDraggingId(null)}
+    <div
       className={cn(
-        'rounded-lg border overflow-hidden flex group transition-opacity',
+        'rounded-lg border overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
         'dark:bg-neutral-900/30 dark:border-neutral-800 dark:hover:border-primary',
         'border-gray-100',
-        // 隐藏时显示淡透明
         !project.visible && 'opacity-40'
       )}
     >
-      {/* 拖拽手柄 */}
-      <div
-        onPointerDown={(event) => {
-          if (expanded) return
-          dragControls.start(event)
-          setDraggingId(project.id)
-        }}
-        onPointerUp={() => setDraggingId(null)}
-        onPointerCancel={() => setDraggingId(null)}
-        className={cn(
-          'w-12 flex items-center justify-center border-r shrink-0 touch-none',
-          'border-gray-100 dark:border-neutral-800',
-          expanded
-            ? 'cursor-not-allowed'
-            : 'cursor-grab hover:bg-gray-50 dark:hover:bg-neutral-800/50'
-        )}
-      >
-        <GripVertical
-          className={cn(
-            'w-4 h-4',
-            'text-gray-400 dark:text-neutral-400',
-            expanded && 'opacity-50',
-            'transform transition-transform group-hover:scale-110'
-          )}
-        />
-      </div>
-
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0">
         {/* 标题行 */}
         <div
           className={cn(
@@ -365,9 +329,8 @@ const ProjectItem = ({
           )}
         </AnimatePresence>
       </div>
-    </Reorder.Item>
+    </div>
   )
 }
 
 export default ProjectItem
-

@@ -2,10 +2,10 @@
  * 开源经历面板
  */
 import { useState } from 'react'
-import { Reorder, motion, AnimatePresence, useDragControls } from 'framer-motion'
-import { PlusCircle, Wand2, ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { PlusCircle, Wand2, ChevronDown, Eye, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
-import type { OpenSource, GlobalSettings } from '../types'
+import type { OpenSource, GlobalSettings, ResumeData } from '../types'
 import Field from './Field'
 import { MonthYearRangePicker } from '../shared/MonthYearRangePicker'
 
@@ -28,7 +28,6 @@ function OpenSourceItem({
   openSource,
   onUpdate,
   onDelete,
-  setDraggingId,
   resumeData,
   globalSettings,
   updateGlobalSettings,
@@ -36,12 +35,10 @@ function OpenSourceItem({
   openSource: OpenSource
   onUpdate: (openSource: OpenSource) => void
   onDelete: (id: string) => void
-  setDraggingId: (id: string | null) => void
   resumeData?: ResumeData
   globalSettings?: GlobalSettings
   updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }) {
-  const dragControls = useDragControls()
   const [expanded, setExpanded] = useState(false)
   const [showCustomLabel, setShowCustomLabel] = useState(false)
 
@@ -50,37 +47,16 @@ function OpenSourceItem({
   }
 
   return (
-    <Reorder.Item
-      id={openSource.id}
-      value={openSource}
-      dragListener={false}
-      dragControls={dragControls}
-      onDragEnd={() => setDraggingId(null)}
+    <div
       className={cn(
-        'rounded-lg border overflow-hidden flex group transition-opacity',
+        'rounded-lg border overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
         'dark:bg-neutral-900/30 dark:border-neutral-800 dark:hover:border-primary',
         'border-gray-100',
         openSource.visible === false && 'opacity-40'
       )}
     >
-      {/* 拖拽手柄 */}
-      <div
-        onPointerDown={(event) => {
-          if (expanded) return
-          dragControls.start(event)
-          setDraggingId(openSource.id)
-        }}
-        className={cn(
-          'w-12 flex items-center justify-center border-r shrink-0 touch-none',
-          'border-gray-100 dark:border-neutral-800',
-          expanded ? 'cursor-not-allowed' : 'cursor-grab hover:bg-gray-50 dark:hover:bg-neutral-800/50'
-        )}
-      >
-        <GripVertical className={cn('w-4 h-4 text-gray-400 dark:text-neutral-400', expanded && 'opacity-50')} />
-      </div>
-
-      <div className="flex-1 min-w-0">
+      <div className="min-w-0">
         {/* 标题行 */}
         <div
           className={cn('px-4 py-4 flex items-center justify-between cursor-pointer select-none', expanded && 'bg-gray-50 dark:bg-neutral-800/50')}
@@ -261,13 +237,11 @@ function OpenSourceItem({
           )}
         </AnimatePresence>
       </div>
-    </Reorder.Item>
+    </div>
   )
 }
 
 export default function OpenSourcePanel({ openSources, onUpdate, onDelete, onReorder, onAIImport, resumeData, globalSettings, updateGlobalSettings }: OpenSourcePanelProps) {
-  const [draggingId, setDraggingId] = useState<string | null>(null)
-
   const handleCreate = () => {
     const newItem: OpenSource = {
       id: generateId(),
@@ -293,11 +267,11 @@ export default function OpenSourcePanel({ openSources, onUpdate, onDelete, onReo
         </button>
       )}
 
-      <Reorder.Group axis="y" values={openSources} onReorder={onReorder} className="space-y-3">
+      <div className="space-y-3">
         {openSources.map((item) => (
-          <OpenSourceItem key={item.id} openSource={item} onUpdate={onUpdate} onDelete={onDelete} setDraggingId={setDraggingId} resumeData={resumeData} globalSettings={globalSettings} updateGlobalSettings={updateGlobalSettings} />
+          <OpenSourceItem key={item.id} openSource={item} onUpdate={onUpdate} onDelete={onDelete} resumeData={resumeData} globalSettings={globalSettings} updateGlobalSettings={updateGlobalSettings} />
         ))}
-      </Reorder.Group>
+      </div>
 
       <button
         onClick={handleCreate}
@@ -316,4 +290,3 @@ export default function OpenSourcePanel({ openSources, onUpdate, onDelete, onReo
     </div>
   )
 }
-
