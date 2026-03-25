@@ -22,10 +22,25 @@ export function setByPath(obj: any, path: string, value: any): any {
 }
 
 /**
- * 按 paths 数组批量写入 after 中的值到 resume
+ * 按 paths 数组批量写入 after 中的值到 resume。
+ * 支持两种 after 格式：
+ *   1. 嵌套结构: {experience: [{details: "..."}]}  → getByPath 取值
+ *   2. 扁平 _raw 格式: {_raw: "新内容"} → 直接将 _raw 写入每个 path
  */
 export function applyPatchPaths(resume: any, paths: string[], after: any): any {
   let result = resume
+
+  // Backend sends {_raw: "..."} when the change is a single string value.
+  // In this case apply _raw directly to each path.
+  if (after && typeof after === 'object' && '_raw' in after) {
+    const rawValue = (after as any)._raw
+    for (const path of paths) {
+      result = setByPath(result, path, rawValue)
+    }
+    return result
+  }
+
+  // Normal nested format: extract value at each path from after object
   for (const path of paths) {
     const value = getByPath(after, path)
     if (value !== undefined) {

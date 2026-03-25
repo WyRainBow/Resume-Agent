@@ -32,16 +32,14 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
 
   const setResume = useCallback((newResume: ResumeData | null) => {
     if (!newResume) { setResumeState(null); return }
-    if (resume?.id) {
-      axios.patch(`/api/resumes/${resume.id}`, { data: newResume }).catch(console.error)
-    } else if (!newResume.id) {
-      axios.post('/api/resumes', { name: newResume.basic?.name || '新简历', data: newResume })
-        .then((res: any) => setResumeState(r => r ? { ...r, id: res.data.id } : r))
-        .catch(console.error)
+    // Resume data uses resume_id (added by SophiaChat when loading), not id
+    const resumeId = (newResume as any).resume_id ?? (newResume as any).id
+    if (resumeId) {
+      axios.patch(`/api/resumes/${resumeId}`, { data: newResume }).catch(console.error)
     }
     setResumeState(newResume)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resume?.id])
+  }, [resume])
 
   const pushPatch = useCallback((patch: Omit<PendingPatch, 'status'>) => {
     setPendingPatches(prev => [...prev, { ...patch, status: 'pending' }])
@@ -54,8 +52,10 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
       setResumeState(current => {
         if (!current) return current
         const updated = applyPatchPaths(current, patch.paths, patch.after) as ResumeData
-        if (updated.id) {
-          axios.patch(`/api/resumes/${updated.id}`, { data: updated }).catch(console.error)
+        // Resume data uses resume_id field, not id
+        const resumeId = (updated as any).resume_id ?? (updated as any).id
+        if (resumeId) {
+          axios.patch(`/api/resumes/${resumeId}`, { data: updated }).catch(console.error)
         }
         return updated
       })

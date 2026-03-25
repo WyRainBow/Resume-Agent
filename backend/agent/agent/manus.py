@@ -846,18 +846,14 @@ class Manus(ToolCallAgent):
                     break
 
             if recent_editor_tool_msg is not None:
-                logger.info("✅ cv_editor_agent 已执行，设置 next_step_prompt 引导 AI 继续生成")
-                # 🔧 修复：设置 next_step_prompt，引导 AI 继续生成流式的最终说明
-                self.next_step_prompt = """请继续生成流式的最终确认信息，包括：
-
-1. 简短说明工具执行成功
-2. 概括修改的主要内容（用1-2句话）
-3. 提醒用户查看右侧简历预览
-4. 给出2-3个后续优化建议
-
-请以自然的对话方式输出，保持流式打字机效果。"""
-                # 返回 True，让循环继续
-                return True
+                logger.info("✅ cv_editor_agent 已执行，直接结束避免重复调用工具")
+                # After cv_editor_agent runs, emit a short confirmation via answer
+                # and stop — do NOT return True (which would let LLM pick tools again).
+                confirmation = "✅ 修改已完成，请查看右侧简历预览确认效果。如需继续优化，请告诉我。"
+                self.memory.add_message(Message.assistant_message(confirmation))
+                from backend.agent.schema import AgentState
+                self.state = AgentState.FINISHED
+                return False
 
         # 确保 ConversationStateManager 有 LLM 实例
         self._ensure_conversation_state_llm()

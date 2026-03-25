@@ -63,6 +63,7 @@ import { useToolEventRouter } from "@/hooks/agent-chat/useToolEventRouter";
 import { useStreamRunController } from "@/hooks/agent-chat/useStreamRunController";
 import { useMessageTimeline } from "@/hooks/agent-chat/useMessageTimeline";
 import {
+  applyPatchPaths,
   extractResumeEditDiff as extractResumeEditDiffFromMarkdown,
   normalizeResumePatchValue,
   stripResumeEditMarkdown,
@@ -1631,9 +1632,23 @@ function SophiaChatContent() {
     setResumeError(lastError);
   }, [lastError]);
 
-  // When a patch is applied via ResumeContext, clear the PDF blob to trigger re-render
+  // When a patch is applied via ResumeContext, also update local resumeData
+  // so the PDF renders with the new content (ResumePdfPreview uses local resumeData).
   useEffect(() => {
     if (!patchAppliedAt) return;
+
+    // Apply all accepted patches to local resumeData (idempotent re-apply is safe)
+    setResumeData(prev => {
+      if (!prev) return prev;
+      let updated: ResumeData = prev;
+      for (const patch of pendingPatches) {
+        if (patch.status === 'applied') {
+          updated = applyPatchPaths(updated, patch.paths, patch.after) as ResumeData;
+        }
+      }
+      return updated;
+    });
+
     setResumePdfPreview(prev => {
       const targetId = selectedResumeId || Object.keys(prev)[0];
       if (!targetId) return prev;
