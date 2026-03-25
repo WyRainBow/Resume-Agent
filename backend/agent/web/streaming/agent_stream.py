@@ -885,7 +885,8 @@ class AgentStream:
 
                             # 简历编辑成功后，推送完整的更新后简历 JSON 给前端。
                             # 前端收到 resume_updated 后直接替换本地状态，无需自行 re-apply diff。
-                            if tool_name == "cv_editor_agent" and structured_data and structured_data.get("type") in {"resume_edit_diff", "resume_patch"}:
+                            # 注意：resume_patch 流程由前端用户确认后应用，不应提前推送 resume_updated。
+                            if tool_name == "cv_editor_agent" and structured_data and structured_data.get("type") == "resume_edit_diff":
                                 try:
                                     from backend.agent.tool.resume_data_store import ResumeDataStore
                                     updated_resume = ResumeDataStore.get_data(self._session_id)

@@ -1632,8 +1632,8 @@ function SophiaChatContent() {
     setResumeError(lastError);
   }, [lastError]);
 
-  // When a patch is applied via ResumeContext, also update local resumeData
-  // so the PDF renders with the new content (ResumePdfPreview uses local resumeData).
+  // When a patch is applied via ResumeContext, also update local resumeData and
+  // loadedResumes so the PDF re-renders with the new content.
   useEffect(() => {
     if (!patchAppliedAt) return;
 
@@ -1647,6 +1647,23 @@ function SophiaChatContent() {
         }
       }
       return updated;
+    });
+
+    // Also update loadedResumes so selectedLoadedResume reflects the new data,
+    // which triggers the PDF auto-render effect.
+    setLoadedResumes(prev => {
+      const targetId = selectedResumeId || prev[0]?.id;
+      if (!targetId) return prev;
+      return prev.map(item => {
+        if (item.id !== targetId || !item.resumeData) return item;
+        let updated: ResumeData = item.resumeData;
+        for (const patch of pendingPatches) {
+          if (patch.status === 'applied') {
+            updated = applyPatchPaths(updated, patch.paths, patch.after) as ResumeData;
+          }
+        }
+        return { ...item, resumeData: updated };
+      });
     });
 
     setResumePdfPreview(prev => {
