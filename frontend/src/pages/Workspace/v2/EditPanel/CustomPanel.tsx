@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '../../../../lib/utils'
 import type { CustomItem } from '../types'
 import Field from './Field'
+import { MonthYearRangePicker } from '../shared/MonthYearRangePicker'
 
 interface CustomPanelProps {
   sectionId: string
@@ -101,12 +102,13 @@ function CustomItemCard({
                     placeholder="请输入副标题"
                   />
                 </div>
-                <Field
-                  index={2}
+                <MonthYearRangePicker
                   label="时间"
-                  value={item.dateRange || ''}
+                  value={(item.dateRange || '')
+                    .split(' - ')
+                    .map((s) => (s && s !== '至今' ? s.trim().replace(/\./g, '-') : s?.trim() || ''))
+                    .join(' - ')}
                   onChange={(v) => handleChange('dateRange', v)}
-                  placeholder="例如：2024.01 - 2024.12"
                 />
                 <Field
                   index={3}
