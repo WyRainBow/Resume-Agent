@@ -9,6 +9,7 @@ import {
   Edit,
   FileText,
   Settings,
+  ChevronDown,
   Save,
   Download,
   LogIn,
@@ -22,7 +23,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentResumeId } from "@/services/resumeStorage";
 import { RecentSessions } from "@/components/sidebar/RecentSessions";
-import { getApiBaseUrl, isAgentEnabled } from "@/lib/runtimeEnv";
+import { canUseAgentFeature, getApiBaseUrl } from "@/lib/runtimeEnv";
 
 // 工作区类型
 type WorkspaceType =
@@ -31,30 +32,6 @@ type WorkspaceType =
   | "myResumes"
   | "settings"
   | "templates";
-
-function getRoleFromToken(): string {
-  try {
-    const token = localStorage.getItem("auth_token");
-    if (token) {
-      const payloadPart = token.split(".")[1];
-      if (payloadPart) {
-        const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
-        const padded = normalized + "=".repeat((4 - (normalized.length % 4)) % 4);
-        const payload = JSON.parse(atob(padded));
-        const tokenRole = String(payload?.role || "").toLowerCase();
-        if (tokenRole) return tokenRole;
-      }
-    }
-    const authUserRaw = localStorage.getItem("auth_user");
-    if (authUserRaw) {
-      const authUser = JSON.parse(authUserRaw);
-      return String(authUser?.role || "").toLowerCase();
-    }
-    return "";
-  } catch {
-    return "";
-  }
-}
 
 function getAuthHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const token = localStorage.getItem("auth_token");
@@ -186,12 +163,7 @@ export default function WorkspaceLayout({
   };
 
   const currentWorkspace = getCurrentWorkspace();
-  const roleFromToken = getRoleFromToken();
-  const agentFeatureEnabled = isAgentEnabled();
-  const canUseAgent =
-    agentFeatureEnabled &&
-    isAuthenticated &&
-    (roleFromToken === "admin" || roleFromToken === "member");
+  const canUseAgent = isAuthenticated && canUseAgentFeature();
 
   useEffect(() => {
     if (currentWorkspace !== "agent") return;

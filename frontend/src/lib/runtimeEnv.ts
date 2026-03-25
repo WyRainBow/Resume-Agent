@@ -87,3 +87,36 @@ export function isAgentEnabled(): boolean {
 export function setAgentEnabledOverride(enabled: boolean): void {
   localStorage.setItem(AGENT_ENABLED_OVERRIDE_KEY, enabled ? 'true' : 'false')
 }
+
+export function getStoredAuthRole(): string {
+  try {
+    const token = localStorage.getItem('auth_token')
+    if (token) {
+      const payloadPart = token.split('.')[1]
+      if (payloadPart) {
+        const normalized = payloadPart.replace(/-/g, '+').replace(/_/g, '/')
+        const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
+        const payload = JSON.parse(atob(padded))
+        const tokenRole = String(payload?.role || '').toLowerCase()
+        if (tokenRole) return tokenRole
+      }
+    }
+
+    const authUserRaw = localStorage.getItem('auth_user')
+    if (authUserRaw) {
+      const authUser = JSON.parse(authUserRaw)
+      return String(authUser?.role || '').toLowerCase()
+    }
+  } catch {
+    // no-op
+  }
+  return ''
+}
+
+export function canUseAgentFeature(): boolean {
+  if (!isAgentEnabled()) return false
+  const token = localStorage.getItem('auth_token')
+  if (!token) return false
+  const role = getStoredAuthRole()
+  return role === 'admin' || role === 'member'
+}

@@ -3,7 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthModal } from './components/AuthModal'
 import { ThemeInit } from './components/ThemeInit'
 import ErrorBoundary from './ErrorBoundary'
-import { isAgentEnabled } from './lib/runtimeEnv'
+import { canUseAgentFeature } from './lib/runtimeEnv'
 import ResumeDashboard from './pages/ResumeDashboard'
 import { ResumeProvider } from './contexts/ResumeContext'
 
@@ -32,7 +32,7 @@ function RouteFallback() {
 }
 
 function App() {
-  const agentEnabled = isAgentEnabled()
+  const canUseAgent = canUseAgentFeature()
   try {
     return (
       <ErrorBoundary>
@@ -48,7 +48,7 @@ function App() {
               <Route path="/workspace/latex/:resumeId" element={<LaTeXWorkspace />} />
               <Route path="/workspace/html" element={<HTMLWorkspace />} />
               <Route path="/workspace/html/:resumeId" element={<HTMLWorkspace />} />
-              {agentEnabled ? (
+              {canUseAgent ? (
                 <>
                   <Route path="/agent/new" element={<AgentChat />} />
                   <Route path="/agent/:resumeId" element={<AgentChat />} />
