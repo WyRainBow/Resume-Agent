@@ -42,7 +42,7 @@ export interface StreamingOutputPanelProps {
   renderSearchCard?: (searchData: any) => React.ReactNode;
   /** 渲染简历修改卡片的回调（可选） */
   renderEditDiffCard?: (diff: { before?: string; after?: string }) => React.ReactNode;
-  /** 额外的渲染内容（可选，如 ReportGenerationDetector） */
+  /** 额外的渲染内容（可选） */
   children?: React.ReactNode;
 }
 
