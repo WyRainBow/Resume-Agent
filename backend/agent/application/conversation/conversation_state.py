@@ -519,6 +519,13 @@ class ConversationStateManager:
         if "全面优化" in normalized or "整体优化" in normalized or "全局优化" in normalized:
             return Intent.FULL_OPTIMIZE, section
 
+        # 语义修改类请求（量化/润色/突出/改进/丰富），有具体指向时走 EDIT_CV 让 LLM 调工具
+        SEMANTIC_EDIT_KEYWORDS = ["量化", "润色", "突出", "改进", "丰富", "改写", "重写"]
+        if any(kw in normalized for kw in SEMANTIC_EDIT_KEYWORDS):
+            # 有明确 section 指向，或包含"经历"/"条"等指代，走 EDIT_CV
+            if section or any(w in normalized for w in ["经历", "条", "第一", "第二", "第三", "腾讯", "工作", "项目", "教育"]):
+                return Intent.EDIT_CV, section
+
         if "优化" in normalized:
             return Intent.OPTIMIZE_SECTION, section
 

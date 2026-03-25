@@ -226,13 +226,21 @@ def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dic
                 subsection_title = '未命名公司'
             
             content.append(f"\\datedsubsection{{{subsection_title}}}{{{duration}}}")
-            achievements = e.get('achievements') or []
-            if isinstance(achievements, list) and achievements:
-                content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
-                for ach in achievements:
-                    if isinstance(ach, str) and ach.strip():
-                        content.append(f"  \\item {escape_latex(ach.strip())}")
-                content.append(r"\end{itemize}")
+            # Prefer 'details' (workspace editor HTML/Markdown); fall back to legacy 'achievements' list
+            details_raw = e.get('details') or ''
+            if isinstance(details_raw, str) and details_raw.strip():
+                latex_details = html_to_latex(details_raw.strip())
+                latex_details = re.sub(r'\n{3,}', '\n\n', latex_details).strip()
+                if latex_details:
+                    content.append(latex_details)
+            else:
+                achievements = e.get('achievements') or []
+                if isinstance(achievements, list) and achievements:
+                    content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
+                    for ach in achievements:
+                        if isinstance(ach, str) and ach.strip():
+                            content.append(f"  \\item {escape_latex(ach.strip())}")
+                    content.append(r"\end{itemize}")
             content.append("")
     return content
 

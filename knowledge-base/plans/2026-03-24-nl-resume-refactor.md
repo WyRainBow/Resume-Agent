@@ -1,6 +1,8 @@
 # Natural Language Resume Refactor Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
+
+**状态：** ✅ 全部完成（2026-03-24）— 复盘见 `knowledge-base/reviews/2026-03-24-nl-resume-refactor-review.md`
 
 **Goal:** 重构自然语言简历修改与生成的完整数据流：结构化 SSE 事件 + 共享 ResumeContext + Chat/Editor 并排实时同步。
 
@@ -74,7 +76,7 @@
 - Modify: `backend/agent/web/streaming/events.py`
 - Create: `backend/tests/test_resume_events.py`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 # backend/tests/test_resume_events.py
@@ -108,7 +110,7 @@ def test_resume_generated_event_to_dict():
     assert d["data"]["summary"] == "已生成后端工程师简历"
 ```
 
-- [ ] **Step 2: 运行测试，确认失败**
+- [x] **Step 2: 运行测试，确认失败**
 
 ```bash
 cd /Users/wy770/Resume-Agent
@@ -118,7 +120,7 @@ pytest backend/tests/test_resume_events.py -v
 
 期望：`ImportError: cannot import name 'ResumePatchEvent'`
 
-- [ ] **Step 3: 在 `events.py` 加两个新事件类**
+- [x] **Step 3: 在 `events.py` 加两个新事件类**
 
 先在 `EventType` enum 中加两行：
 ```python
@@ -158,7 +160,7 @@ class ResumeGeneratedEvent(StreamEvent):
         )
 ```
 
-- [ ] **Step 4: 运行测试，确认通过**
+- [x] **Step 4: 运行测试，确认通过**
 
 ```bash
 source .venv/bin/activate
@@ -167,7 +169,7 @@ pytest backend/tests/test_resume_events.py -v
 
 期望：2 个 PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/agent/web/streaming/events.py backend/tests/test_resume_events.py
@@ -183,7 +185,7 @@ git commit -m "feat(backend): add ResumePatchEvent and ResumeGeneratedEvent"
 - Modify: `backend/agent/agent/toolcall.py`
 - Modify: `backend/agent/web/streaming/agent_stream.py`
 
-- [ ] **Step 1: 修改 cv_editor_agent_tool.py 的 structured_data type**
+- [x] **Step 1: 修改 cv_editor_agent_tool.py 的 structured_data type**
 
 找到 `execute()` 方法中构建 structured_data 的部分，将 `"type": "resume_edit_diff"` 改为 `"resume_patch"`，并加入 `patch_id` 和 `paths` 字段：
 
@@ -206,7 +208,7 @@ return ToolResult(output=output_text, system=json.dumps(structured_data, ensure_
 
 > 注意：`before_text`/`after_text` 是工具内已有变量，保持原有提取逻辑不变，只改 structured_data 的格式。
 
-- [ ] **Step 2: 更新 toolcall.py 的 type 白名单**
+- [x] **Step 2: 更新 toolcall.py 的 type 白名单**
 
 找到 toolcall.py 中类似这段的代码：
 
@@ -222,7 +224,7 @@ if structured.get("type") not in {"resume_edit_diff", "resume_patch"}:
     return
 ```
 
-- [ ] **Step 3: 更新 agent_stream.py 的工具白名单和事件发送**
+- [x] **Step 3: 更新 agent_stream.py 的工具白名单和事件发送**
 
 找到 agent_stream.py 中处理 cv_editor_agent tool result 并发送 `ResumeUpdatedEvent` 的代码段（约 lines 860-900）。
 
@@ -257,7 +259,7 @@ if tool_name == "generate_resume" and structured.get("type") == "resume_generate
     )
 ```
 
-- [ ] **Step 4: 验证后端能启动（import 检查）**
+- [x] **Step 4: 验证后端能启动（import 检查）**
 
 ```bash
 source .venv/bin/activate && python3 -c "
@@ -271,7 +273,7 @@ print('✓ backend imports OK')
 
 期望：最后一行 `✓ backend imports OK`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/agent/tool/cv_editor_agent_tool.py \
@@ -289,7 +291,7 @@ git commit -m "feat(backend): CVEditor emits resume_patch; update toolcall and a
 - Modify: `backend/agent/tool/__init__.py`
 - Modify: `backend/agent/agent/manus.py`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```python
 # backend/tests/test_generate_resume_tool.py
@@ -305,7 +307,7 @@ def test_generate_resume_tool_schema():
     assert "user_background" in props
 ```
 
-- [ ] **Step 2: 运行，确认失败**
+- [x] **Step 2: 运行，确认失败**
 
 ```bash
 source .venv/bin/activate
@@ -314,7 +316,7 @@ pytest backend/tests/test_generate_resume_tool.py -v
 
 期望：`ImportError`
 
-- [ ] **Step 3: 创建 generate_resume_tool.py**
+- [x] **Step 3: 创建 generate_resume_tool.py**
 
 ```python
 # backend/agent/tool/generate_resume_tool.py
@@ -406,7 +408,7 @@ class GenerateResumeTool(BaseTool):
             return ToolResult(output=f"生成失败: {e}", error=str(e))
 ```
 
-- [ ] **Step 4: 在 `__init__.py` 加导出**
+- [x] **Step 4: 在 `__init__.py` 加导出**
 
 找到 `backend/agent/tool/__init__.py`，加：
 
@@ -416,7 +418,7 @@ from backend.agent.tool.generate_resume_tool import GenerateResumeTool
 
 并在 `__all__` 中加 `"GenerateResumeTool"`。
 
-- [ ] **Step 5: 在 manus.py 注册**
+- [x] **Step 5: 在 manus.py 注册**
 
 找到 `available_tools: ToolCollection` 的初始化位置，加入：
 
@@ -426,7 +428,7 @@ from backend.agent.tool.generate_resume_tool import GenerateResumeTool
 GenerateResumeTool(),
 ```
 
-- [ ] **Step 6: 运行测试**
+- [x] **Step 6: 运行测试**
 
 ```bash
 source .venv/bin/activate
@@ -435,7 +437,7 @@ pytest backend/tests/test_generate_resume_tool.py -v
 
 期望：1 个 PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add backend/agent/tool/generate_resume_tool.py \
@@ -452,7 +454,7 @@ git commit -m "feat(backend): add GenerateResumeTool and register in Manus"
 **Files:**
 - Create: `frontend/src/utils/resumePatch.ts`
 
-- [ ] **Step 1: 创建 resumePatch.ts**
+- [x] **Step 1: 创建 resumePatch.ts**
 
 ```typescript
 // frontend/src/utils/resumePatch.ts
@@ -496,7 +498,7 @@ export function applyPatchPaths(resume: any, paths: string[], after: any): any {
 }
 ```
 
-- [ ] **Step 2: 确认编译**
+- [x] **Step 2: 确认编译**
 
 ```bash
 cd /Users/wy770/Resume-Agent/frontend
@@ -505,7 +507,7 @@ npx tsc --noEmit 2>&1 | grep "resumePatch" | head -10
 
 期望：无错误
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add frontend/src/utils/resumePatch.ts
@@ -522,7 +524,7 @@ git commit -m "feat(frontend): add resumePatch utils (set-by-path)"
 
 > `ResumeData` 从 `@/pages/Workspace/v2/types` 导入（已存在的权威定义）。
 
-- [ ] **Step 1: 创建 ResumeContext.tsx**
+- [x] **Step 1: 创建 ResumeContext.tsx**
 
 ```typescript
 // frontend/src/contexts/ResumeContext.tsx
@@ -613,7 +615,7 @@ export function useResumeContext() {
 }
 ```
 
-- [ ] **Step 2: 在 App.tsx 挂载 ResumeProvider**
+- [x] **Step 2: 在 App.tsx 挂载 ResumeProvider**
 
 找到 `App.tsx` 中 `<BrowserRouter>` 的位置，用 `<ResumeProvider>` 包裹：
 
@@ -628,7 +630,7 @@ import { ResumeProvider } from './contexts/ResumeContext'
 </ResumeProvider>
 ```
 
-- [ ] **Step 3: 确认编译**
+- [x] **Step 3: 确认编译**
 
 ```bash
 cd /Users/wy770/Resume-Agent/frontend
@@ -637,7 +639,7 @@ npx tsc --noEmit 2>&1 | grep -E "ResumeContext|resumePatch" | head -20
 
 期望：无错误
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/contexts/ResumeContext.tsx frontend/src/App.tsx
@@ -651,7 +653,7 @@ git commit -m "feat(frontend): add ResumeContext with patch/generate support"
 **Files:**
 - Modify: `frontend/src/services/agentStream.ts`
 
-- [ ] **Step 1: 在 `AgentStreamHandlers` 加两个新回调**
+- [x] **Step 1: 在 `AgentStreamHandlers` 加两个新回调**
 
 ```typescript
 onResumePatch?: (patch: {
@@ -668,7 +670,7 @@ onResumeGenerated?: (data: {
 }) => void
 ```
 
-- [ ] **Step 2: 在事件分发处加新分支**
+- [x] **Step 2: 在事件分发处加新分支**
 
 在 `streamAgent` 内处理事件的位置（`handlers.onEvent?.(event)` 附近）加：
 
@@ -681,7 +683,7 @@ if (event.type === 'resume_generated' && handlers.onResumeGenerated) {
 }
 ```
 
-- [ ] **Step 3: 确认编译**
+- [x] **Step 3: 确认编译**
 
 ```bash
 cd /Users/wy770/Resume-Agent/frontend
@@ -690,7 +692,7 @@ npx tsc --noEmit 2>&1 | grep "agentStream" | head -10
 
 期望：无错误
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/services/agentStream.ts
@@ -705,7 +707,7 @@ git commit -m "feat(frontend): agentStream handles resume_patch and resume_gener
 - Create: `frontend/src/components/agent-chat/ResumeDiffCard.tsx`
 - Create: `frontend/src/components/agent-chat/ResumeGeneratedCard.tsx`
 
-- [ ] **Step 1: 创建 ResumeDiffCard.tsx**
+- [x] **Step 1: 创建 ResumeDiffCard.tsx**
 
 ```tsx
 // frontend/src/components/agent-chat/ResumeDiffCard.tsx
@@ -767,7 +769,7 @@ export function ResumeDiffCard({ patch }: { patch: PendingPatch }) {
 }
 ```
 
-- [ ] **Step 2: 创建 ResumeGeneratedCard.tsx**
+- [x] **Step 2: 创建 ResumeGeneratedCard.tsx**
 
 ```tsx
 // frontend/src/components/agent-chat/ResumeGeneratedCard.tsx
@@ -811,7 +813,7 @@ export function ResumeGeneratedCard({ resume, summary, onDismiss }: Props) {
 }
 ```
 
-- [ ] **Step 3: 确认编译**
+- [x] **Step 3: 确认编译**
 
 ```bash
 cd /Users/wy770/Resume-Agent/frontend
@@ -820,7 +822,7 @@ npx tsc --noEmit 2>&1 | grep -E "DiffCard|GeneratedCard" | head -10
 
 期望：无错误
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/components/agent-chat/ResumeDiffCard.tsx \
@@ -835,7 +837,7 @@ git commit -m "feat(frontend): add ResumeDiffCard and ResumeGeneratedCard"
 **Files:**
 - Modify: `frontend/src/pages/AgentChat/SophiaChat.tsx`
 
-- [ ] **Step 1: 加 import**
+- [x] **Step 1: 加 import**
 
 ```typescript
 import { useResumeContext, type PendingPatch } from '../../contexts/ResumeContext'
@@ -843,7 +845,7 @@ import { ResumeDiffCard } from '../../components/agent-chat/ResumeDiffCard'
 import { ResumeGeneratedCard } from '../../components/agent-chat/ResumeGeneratedCard'
 ```
 
-- [ ] **Step 2: 在组件函数体内获取 context**
+- [x] **Step 2: 在组件函数体内获取 context**
 
 ```typescript
 const { resume, pendingPatches, pushPatch, setResume } = useResumeContext()
@@ -854,7 +856,7 @@ const [generatedResume, setGeneratedResume] = useState<{
 } | null>(null)
 ```
 
-- [ ] **Step 3: 在 streamAgent handlers 加新回调**
+- [x] **Step 3: 在 streamAgent handlers 加新回调**
 
 ```typescript
 onResumePatch: (patch) => {
@@ -867,7 +869,7 @@ onResumeGenerated: (data) => {
 
 > `currentMessageId` 是当前 assistant 消息的 ID（已有变量）。
 
-- [ ] **Step 4: 在消息渲染处加 DiffCard**
+- [x] **Step 4: 在消息渲染处加 DiffCard**
 
 在渲染每条 assistant 消息内容之后，渲染该消息关联的 patches：
 
@@ -880,7 +882,7 @@ onResumeGenerated: (data) => {
 }
 ```
 
-- [ ] **Step 5: 渲染 ResumeGeneratedCard**
+- [x] **Step 5: 渲染 ResumeGeneratedCard**
 
 在消息列表底部（streaming lane 附近）：
 
@@ -894,7 +896,7 @@ onResumeGenerated: (data) => {
 )}
 ```
 
-- [ ] **Step 6: 删除旧的本地 resume 状态**
+- [x] **Step 6: 删除旧的本地 resume 状态**
 
 搜索并删除（旧 context 替代）：
 - `resumeEditDiffs` state 及相关 setter 和渲染
@@ -906,7 +908,7 @@ grep -n "resumeEditDiff\|ResumeEditDiff" frontend/src/pages/AgentChat/SophiaChat
 
 逐一清除。
 
-- [ ] **Step 7: 确认编译**
+- [x] **Step 7: 确认编译**
 
 ```bash
 cd /Users/wy770/Resume-Agent/frontend
@@ -915,7 +917,7 @@ npx tsc --noEmit 2>&1 | head -30
 
 期望：无错误
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add frontend/src/pages/AgentChat/SophiaChat.tsx
@@ -930,7 +932,7 @@ git commit -m "feat(frontend): SophiaChat routes resume_patch/generated events t
 - Modify: Workspace Editor 主文件（先用以下命令定位）
 - Delete: `frontend/src/utils/resumeEditDiff.ts`
 
-- [ ] **Step 1: 定位 Workspace Editor 的简历数据来源**
+- [x] **Step 1: 定位 Workspace Editor 的简历数据来源**
 
 ```bash
 grep -rn "resumeData\|setResumeData\|useResume" \
@@ -938,7 +940,7 @@ grep -rn "resumeData\|setResumeData\|useResume" \
   --include="*.tsx" -l
 ```
 
-- [ ] **Step 2: 在 Editor 顶层组件加 context**
+- [x] **Step 2: 在 Editor 顶层组件加 context**
 
 ```typescript
 import { useResumeContext } from '@/contexts/ResumeContext'
@@ -946,7 +948,7 @@ import { useResumeContext } from '@/contexts/ResumeContext'
 const { resume, setResume } = useResumeContext()
 ```
 
-- [ ] **Step 3: 将 Editor 的 resume prop 改为读 context**
+- [x] **Step 3: 将 Editor 的 resume prop 改为读 context**
 
 原来 `resumeData={localState}` → `resumeData={resume ?? localState}`（渐进迁移，不破坏编辑器现有逻辑）。
 
@@ -956,7 +958,7 @@ const { resume, setResume } = useResumeContext()
 setResume(updatedResume)  // 同步到 context
 ```
 
-- [ ] **Step 4: 确认 resumeEditDiff.ts 无残留引用**
+- [x] **Step 4: 确认 resumeEditDiff.ts 无残留引用**
 
 ```bash
 grep -r "resumeEditDiff\|extractResumeEditDiff\|ResumeEditDiff" \
@@ -966,13 +968,13 @@ grep -r "resumeEditDiff\|extractResumeEditDiff\|ResumeEditDiff" \
 
 期望：无输出
 
-- [ ] **Step 5: 删除 resumeEditDiff.ts**
+- [x] **Step 5: 删除 resumeEditDiff.ts**
 
 ```bash
 rm /Users/wy770/Resume-Agent/frontend/src/utils/resumeEditDiff.ts
 ```
 
-- [ ] **Step 6: 最终编译确认**
+- [x] **Step 6: 最终编译确认**
 
 ```bash
 cd /Users/wy770/Resume-Agent/frontend
@@ -981,7 +983,7 @@ npx tsc --noEmit 2>&1 | head -20
 
 期望：无错误
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add frontend/src/pages/Workspace/
@@ -993,7 +995,7 @@ git commit -m "feat(frontend): Workspace editor reads ResumeContext; delete resu
 
 ## Task 10：端到端验证
 
-- [ ] **Step 1: 启动后端**
+- [x] **Step 1: 启动后端**
 
 ```bash
 cd /Users/wy770/Resume-Agent
@@ -1001,33 +1003,33 @@ source .venv/bin/activate
 uvicorn backend.main:app --port 9000 --reload
 ```
 
-- [ ] **Step 2: 启动前端**
+- [x] **Step 2: 启动前端**
 
 ```bash
 cd /Users/wy770/Resume-Agent/frontend
 npm run dev
 ```
 
-- [ ] **Step 3: 验证流程 A（自然语言修改）**
+- [x] **Step 3: 验证流程 A（自然语言修改）**
 
 1. 打开 Chat + Editor 并排界面，加载一份简历
 2. 输入："帮我把工作经历第一条更量化"
 3. 确认：Chat 侧出现 `ResumeDiffCard`，有 before/after 对比
 4. 点击"应用" → Editor 侧对应字段实时更新，DiffCard 变为"✓ 已应用"
 
-- [ ] **Step 4: 验证流程 B（从零生成）**
+- [x] **Step 4: 验证流程 B（从零生成）**
 
 1. 不加载简历，输入："帮我生成一份面向高级后端工程师的简历"
 2. 确认：Chat 侧出现 `ResumeGeneratedCard`
 3. 点击"导入到编辑器" → Editor 侧显示新生成的简历
 
-- [ ] **Step 5: 验证流程 C（多 patch 互不干扰）**
+- [x] **Step 5: 验证流程 C（多 patch 互不干扰）**
 
 1. 加载简历，粘贴 JD，输入："帮我针对这份 JD 优化简历"
 2. 确认：多个 `ResumeDiffCard` 依次出现
 3. 逐条应用，确认 Editor 每次正确更新，不同条目之间不互相覆盖
 
-- [ ] **Step 6: 最终 commit**
+- [x] **Step 6: 最终 commit**
 
 ```bash
 git add -A
