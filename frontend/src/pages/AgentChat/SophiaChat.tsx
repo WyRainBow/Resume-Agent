@@ -25,6 +25,7 @@ import {
   DEFAULT_MENU_SECTIONS,
   type ResumeData,
 } from "@/pages/Workspace/v2/types";
+import type { LoadedResume, ResumePdfPreviewState } from "@/types/resumePreview";
 import { getResume, getAllResumes, saveResume } from "@/services/resumeStorage";
 import type { SavedResume } from "@/services/storage/StorageAdapter";
 import {
@@ -90,20 +91,6 @@ function convertResumeDataToOpenManusFormat(resume: ResumeData) {
     ...resume,
   };
 }
-
-interface ResumePdfPreviewState {
-  blob: Blob | null;
-  loading: boolean;
-  progress: string;
-  error: string | null;
-}
-
-const EMPTY_RESUME_PDF_STATE: ResumePdfPreviewState = {
-  blob: null,
-  loading: false,
-  progress: "",
-  error: null,
-};
 
 function toText(value: unknown): string {
   if (typeof value === "string") return value.trim();
@@ -543,11 +530,9 @@ function SophiaChatContent() {
   });
 
   const { detectAndLoadResume } = useResumeDetection({
-    setResumeError,
-    setResumeData,
+    user,
+    loadedResumes,
     setLoadedResumes,
-    setSelectedResumeId,
-    setAllowPdfAutoRender,
   });
 
   // 语音输入

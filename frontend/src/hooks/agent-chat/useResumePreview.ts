@@ -1,20 +1,9 @@
 import { useCallback, useState } from "react";
 import { renderPDFStream } from "@/services/api";
 import { ResumeData } from "@/pages/Workspace/v2/types";
+import { ResumePdfPreviewState, EMPTY_RESUME_PDF_STATE } from "@/types/resumePreview";
 
-interface ResumePdfPreviewState {
-  blob: Blob | null;
-  loading: boolean;
-  progress: string;
-  error: string | null;
-}
-
-const EMPTY_RESUME_PDF_STATE: ResumePdfPreviewState = {
-  blob: null,
-  loading: false,
-  progress: "",
-  error: null,
-};
+export { EMPTY_RESUME_PDF_STATE };
 
 export function useResumePreview() {
   const [resumePdfPreview, setResumePdfPreview] = useState<Record<string, ResumePdfPreviewState>>({});
@@ -66,6 +55,7 @@ export function useResumePreview() {
       } catch (err) {
         console.error("[ResumePreview] PDF 渲染失败:", err);
         updateResumePdfState(resumeId, {
+          blob: null,
           loading: false,
           progress: "",
           error: err instanceof Error ? err.message : "PDF 渲染失败",

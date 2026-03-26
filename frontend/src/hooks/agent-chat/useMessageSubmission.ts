@@ -1,14 +1,7 @@
 import { useCallback } from "react";
 import { Message } from "@/types/chat";
 import { ResumeData } from "@/pages/Workspace/v2/types";
-
-// Re-using types from SophiaChat or defining them here if needed
-interface ResumePdfPreviewState {
-  blob: Blob | null;
-  loading: boolean;
-  progress: string;
-  error: string | null;
-}
+import { ResumePdfPreviewState } from "@/types/resumePreview";
 
 interface UseMessageSubmissionProps {
   apiBaseUrl: string;
