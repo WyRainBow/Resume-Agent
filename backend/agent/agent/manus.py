@@ -429,11 +429,15 @@ class Manus(ToolCallAgent):
                     "competitiveness_score": competitiveness_score,
                     "matching_score": None,
                 },
-                "blocks": {
-                    "must_fix": must_fix,
-                    "should_fix": should_fix,
-                    "optional_fix": optional_fix,
-                    "top_actions": top_actions[:3],
+                "details": {
+                    "overall_evaluation": summary_line,
+                    "issues": {
+                        "must_fix": [f"{r['problem']}（{r['module']}）：{r['suggestion']}" for r in must_fix],
+                        "should_fix": [f"{r['problem']}（{r['module']}）：{r['suggestion']}" for r in should_fix],
+                        "optional": [f"{r['problem']}（{r['module']}）：{r['suggestion']}" for r in optional_fix],
+                    },
+                    "top_actions": [f"{idx}. {item['title']}：{item['detail']}" for idx, item in enumerate(top_actions[:3], 1)],
+                    "next_steps": ["请提供目标岗位或贴出 JD，我将为您进行定向匹配度分析。"],
                 },
             },
             "resume_meta": resume_meta,
@@ -1064,6 +1068,11 @@ class Manus(ToolCallAgent):
         )
 
         intent = intent_result["intent"]
+        # 🚨 兜底拦截逻辑：如果用户明确说要“诊断”，即使 LLM 意图识别没识别出 ANALYZE_RESUME，也强行进入
+        if intent != Intent.ANALYZE_RESUME and "诊断" in (user_input or ""):
+            logger.info("🧭 触发诊断关键词兜底拦截: intent UNKNOWN -> ANALYZE_RESUME")
+            intent = Intent.ANALYZE_RESUME
+
         tool = intent_result.get("tool")
         tool_args = intent_result.get("tool_args", {})
         intent_source = intent_result.get("intent_source", "unknown")
@@ -1120,6 +1129,7 @@ class Manus(ToolCallAgent):
                 analyzers = strategy.get("analyzers") if strategy else None
 
                 if intent == Intent.ANALYZE_RESUME:
+                    # 1. 并行委托给分析器
                     analysis_results = await self._parallel_delegate_analyzers(analyzers or [])
                     resume_data_snapshot = ResumeDataStore.get_data(self.session_id) or {}
                     diagnosis_payload = self._build_resume_diagnosis_payload(
@@ -1127,22 +1137,36 @@ class Manus(ToolCallAgent):
                         resume_data_snapshot,
                     )
 
+                    # 2. 显式发出两步工具调用序列（对齐 upcv 体验）
+                    # 第一步：获取简历详情
                     detail_tool_call = ToolCall(
                         id=f"call_get_resume_detail_{int(time.time() * 1000)}",
                         function={"name": "get_resume_detail", "arguments": "{}"},
                     )
+                    # 第二步：简历诊断
+                    diagnosis_tool_call = ToolCall(
+                        id=f"call_resume_diagnosis_{int(time.time() * 1000) + 1}",
+                        function={"name": "resume-diagnosis", "arguments": "{}"},
+                    )
+
+                    # 记录工具调用到 memory，确保前端能看到卡片
                     self.memory.add_message(
                         Message.from_tool_calls(
-                            content="正在获取简历详情。",
-                            tool_calls=[detail_tool_call],
+                            content="正在执行简历深度诊断...",
+                            tool_calls=[detail_tool_call, diagnosis_tool_call],
                         )
                     )
+
+                    # 存储结构化结果
                     self._tool_structured_results[detail_tool_call.id] = {
                         "type": "resume_detail",
                         "status": "success",
                         "tool": "get_resume_detail",
                         "resume": diagnosis_payload["resume_meta"],
                     }
+                    self._tool_structured_results[diagnosis_tool_call.id] = diagnosis_payload["structured"]
+
+                    # 记录工具执行成功消息到 memory
                     self.memory.add_message(
                         Message.tool_message(
                             content="获取简历详情执行成功",
@@ -1150,18 +1174,6 @@ class Manus(ToolCallAgent):
                             tool_call_id=detail_tool_call.id,
                         )
                     )
-
-                    diagnosis_tool_call = ToolCall(
-                        id=f"call_resume_diagnosis_{int(time.time() * 1000) + 1}",
-                        function={"name": "resume-diagnosis", "arguments": "{}"},
-                    )
-                    self.memory.add_message(
-                        Message.from_tool_calls(
-                            content="正在执行简历诊断。",
-                            tool_calls=[diagnosis_tool_call],
-                        )
-                    )
-                    self._tool_structured_results[diagnosis_tool_call.id] = diagnosis_payload["structured"]
                     self.memory.add_message(
                         Message.tool_message(
                             content="resume-diagnosis执行成功",
@@ -1170,13 +1182,16 @@ class Manus(ToolCallAgent):
                         )
                     )
 
+                    # 3. 输出诊断正文
                     content = (
                         f"Thought: {diagnosis_payload['thought']}\n"
                         f"Response: {diagnosis_payload['response']}"
                     )
                     self.memory.add_message(Message.assistant_message(content))
+
                     from backend.agent.schema import AgentState
                     self.state = AgentState.FINISHED
+                    logger.info("✅ ANALYZE_RESUME completed with explicit tool sequence")
                     return False
 
                 if intent == Intent.OPTIMIZE_SECTION:

@@ -3527,7 +3527,7 @@ function SophiaChatContent() {
                   (messages.length > 0 || Boolean(selectedResumeId)) && (
                   <div className="flex gap-2 mb-3">
                     <button
-                      onClick={() => void sendUserTextMessage("帮我诊断一下这份简历有什么问题")}
+                      onClick={() => void sendUserTextMessage("帮我从招聘者的角度进行简历诊断")}
                       className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-100 rounded-full hover:bg-blue-100 transition-colors flex items-center gap-1"
                     >
                       <Search className="w-3 h-3" />

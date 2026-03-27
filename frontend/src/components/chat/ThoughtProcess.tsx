@@ -3,7 +3,9 @@ import { ChevronUp } from "lucide-react";
 
 function sanitizeThoughtDisplay(raw: string): string {
   if (!raw) return "";
-  return raw
+  // 移除 Thought for Xs 这种时间标记
+  const text = raw.replace(/^Thought for \d+s[:：]?\s*/i, "");
+  return text
     .replace(/\*\*(.*?)\*\*/g, "$1")
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/`([^`]+)`/g, "$1")

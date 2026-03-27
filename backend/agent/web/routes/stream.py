@@ -418,6 +418,15 @@ async def stream_events(request: StreamRequest) -> StreamingResponse:
         raise HTTPException(status_code=422, detail="Missing prompt/message")
 
     logger.info(f"[SSE] Starting stream for conversation: {conversation_id}")
+
+    # 🚨 增加防护：同一 sessionId 正在运行时，停止旧的 stream。
+    # 这样可以防止多个 tab 或快速切换导致并发冲突，同时能通过 reason 区分是“新请求打断”还是“手动停止”。
+    if stream_processor.has_active_stream(conversation_id):
+        logger.info(f"[SSE] Active stream found for {conversation_id}, stopping it first (reason: session_switch)")
+        await stream_processor.stop_stream(conversation_id, reason="session_switch")
+        # 给一点点时间让旧流退出
+        await asyncio.sleep(0.3)
+
     if request.resume:
         logger.info(
             f"[SSE] Resume requested for conversation: {conversation_id} cursor={request.cursor}"
@@ -460,22 +469,30 @@ async def stream_events(request: StreamRequest) -> StreamingResponse:
 
 
 @router.post("/stream/stop/{conversation_id}")
-async def stop_stream(conversation_id: str) -> dict:
+async def stop_stream(conversation_id: str, request: Request) -> dict:
     """Stop an active stream.
 
     Args:
         conversation_id: The conversation to stop
+        request: The FastAPI request object to check source
 
     Returns:
         Status message
     """
+    # 🚨 增加防护：同一 sessionId 正在运行时，记录 stop 请求的来源。
+    # 如果是因为并发页面或自动触发的 stop，可以在日志中体现。
+    client_host = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "unknown")
+    logger.info(f"[SSE] Stop request for {conversation_id} from {client_host} (UA: {user_agent})")
+
     success = await stream_processor.stop_stream(conversation_id)
 
     if success:
         logger.info(f"[SSE] Stopped stream for conversation: {conversation_id}")
         return {"status": "stopped", "conversation_id": conversation_id}
     else:
-        raise HTTPException(status_code=404, detail="Stream not found")
+        logger.warning(f"[SSE] Stop requested for non-active stream: {conversation_id}")
+        return {"status": "not_found", "conversation_id": conversation_id}
 
 
 @router.delete("/stream/session/{conversation_id}")

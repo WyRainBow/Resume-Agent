@@ -159,10 +159,15 @@ class AgentStateMachine:
             self._stop_requested = False
             logger.info(f"[{self._session_id}] State machine reset")
 
-    def request_stop(self) -> None:
-        """Request the agent to stop."""
+    def request_stop(self, reason: str = "manual") -> None:
+        """Request the agent to stop.
+
+        Args:
+            reason: The reason for stopping (e.g., "manual", "session_switch")
+        """
         self._stop_requested = True
-        logger.info(f"[{self._session_id}] Stop requested")
+        self._state_info.data["reason"] = reason
+        logger.info(f"[{self._session_id}] Stop requested, reason: {reason}")
 
     def clear_stop_request(self) -> None:
         """Clear the stop request."""

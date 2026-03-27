@@ -529,8 +529,8 @@ class ConversationStateManager:
         if "优化" in normalized:
             return Intent.OPTIMIZE_SECTION, section
 
-        if "分析" in normalized or "评估" in normalized:
-            if "简历" in normalized or section:
+        if "分析" in normalized or "评估" in normalized or "诊断" in normalized:
+            if "简历" in normalized or section or "诊断" in normalized:
                 return Intent.ANALYZE_RESUME, section
 
         return None, None
