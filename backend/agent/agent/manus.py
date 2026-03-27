@@ -361,7 +361,15 @@ class Manus(ToolCallAgent):
             f"这份简历基础不错，当前通用场景下初筛通过概率约 {screening_probability}% ，"
             f"内容质量 {quality_score}/100，竞争力 {competitiveness_score}/100。"
         )
-        thought = "我已基于当前已选简历完成通用诊断，并整理了可直接执行的优化优先级。"
+
+        # 丰富 Thought 过程，对齐 upcv 体验
+        thought_steps = [
+            f"1. **简历解析**：已成功读取简历《{resume_meta['name']}》，识别到其主要语言为 {resume_meta['language']}。",
+            f"2. **多维评估**：正在调用工作经历分析器和技能栈评估器进行交叉验证...",
+            f"3. **核心发现**：内容质量打分为 {quality_score}。主要的优化点集中在 {', '.join([r['module'] for r in must_fix + should_fix][:2])} 等模块。",
+            "4. **行动策略**：已根据诊断结果整理了 3 项高优先级的改进动作，准备输出结构化报告。"
+        ]
+        thought = "\n".join(thought_steps)
 
         lines: List[str] = [
             "好的，我已经基于当前简历完成一轮通用诊断。",
@@ -1129,32 +1137,32 @@ class Manus(ToolCallAgent):
                 analyzers = strategy.get("analyzers") if strategy else None
 
                 if intent == Intent.ANALYZE_RESUME:
+                    # 第一阶段：先给一个初步的回复和 Thought，表示正在处理
+                    resume_data_snapshot = ResumeDataStore.get_data(self.session_id) or {}
+                    resume_meta = self._extract_resume_meta(resume_data_snapshot)
+
+                    pre_thought = f"Thought: 识别到用户希望从招聘者角度诊断简历《{resume_meta['name']}》。我将先调用各个维度的简历分析器（工作经历、技能栈、项目成果等）进行深度扫描，并提炼出一份包含评分、问题清单和行动建议的结构化报告。"
+                    pre_response = "好的，我这就帮你从 HR 初筛视角做一次全面诊断。请稍等，我正在深入分析简历内容..."
+                    self.memory.add_message(Message.assistant_message(f"{pre_thought}\nResponse: {pre_response}"))
+
+                    # 给前端一个小延迟，让第一段话先出来
+                    await asyncio.sleep(0.8)
+
                     # 1. 并行委托给分析器
                     analysis_results = await self._parallel_delegate_analyzers(analyzers or [])
-                    resume_data_snapshot = ResumeDataStore.get_data(self.session_id) or {}
                     diagnosis_payload = self._build_resume_diagnosis_payload(
                         analysis_results,
                         resume_data_snapshot,
                     )
 
-                    # 2. 显式发出两步工具调用序列（对齐 upcv 体验）
-                    # 第一步：获取简历详情
+                    # 2. 显式发出两步工具调用序列
                     detail_tool_call = ToolCall(
                         id=f"call_get_resume_detail_{int(time.time() * 1000)}",
                         function={"name": "get_resume_detail", "arguments": "{}"},
                     )
-                    # 第二步：简历诊断
                     diagnosis_tool_call = ToolCall(
                         id=f"call_resume_diagnosis_{int(time.time() * 1000) + 1}",
                         function={"name": "resume-diagnosis", "arguments": "{}"},
-                    )
-
-                    # 记录工具调用到 memory，确保前端能看到卡片
-                    self.memory.add_message(
-                        Message.from_tool_calls(
-                            content="正在执行简历深度诊断...",
-                            tool_calls=[detail_tool_call, diagnosis_tool_call],
-                        )
                     )
 
                     # 存储结构化结果
@@ -1166,23 +1174,19 @@ class Manus(ToolCallAgent):
                     }
                     self._tool_structured_results[diagnosis_tool_call.id] = diagnosis_payload["structured"]
 
-                    # 记录工具执行成功消息到 memory
+                    # 发送工具调用消息
                     self.memory.add_message(
-                        Message.tool_message(
-                            content="获取简历详情执行成功",
-                            name="get_resume_detail",
-                            tool_call_id=detail_tool_call.id,
-                        )
-                    )
-                    self.memory.add_message(
-                        Message.tool_message(
-                            content="resume-diagnosis执行成功",
-                            name="resume-diagnosis",
-                            tool_call_id=diagnosis_tool_call.id,
+                        Message.from_tool_calls(
+                            content="正在执行简历深度诊断...",
+                            tool_calls=[detail_tool_call, diagnosis_tool_call],
                         )
                     )
 
-                    # 3. 输出诊断正文
+                    # 模拟工具执行成功消息
+                    self.memory.add_message(Message.tool_message(content="获取简历详情执行成功", name="get_resume_detail", tool_call_id=detail_tool_call.id))
+                    self.memory.add_message(Message.tool_message(content="resume-diagnosis执行成功", name="resume-diagnosis", tool_call_id=diagnosis_tool_call.id))
+
+                    # 3. 输出最终报告
                     content = (
                         f"Thought: {diagnosis_payload['thought']}\n"
                         f"Response: {diagnosis_payload['response']}"
@@ -1191,7 +1195,7 @@ class Manus(ToolCallAgent):
 
                     from backend.agent.schema import AgentState
                     self.state = AgentState.FINISHED
-                    logger.info("✅ ANALYZE_RESUME completed with explicit tool sequence")
+                    logger.info("✅ ANALYZE_RESUME completed with orchestrated sequence")
                     return False
 
                 if intent == Intent.OPTIMIZE_SECTION:
