@@ -75,6 +75,16 @@ def _emit(payload: dict) -> None:
         click.echo(f"- {key}: {value}")
 
 
+def _payload(command: str, resource: str, ok: bool, message: str, details: dict) -> dict:
+    return {
+        "ok": ok,
+        "command": command,
+        "resource": resource,
+        "message": message,
+        "details": details,
+    }
+
+
 def _browser_status_details() -> dict:
     pid_file = STATE_DIR / "domshell.pid"
     token_file = STATE_DIR / "domshell.env"
@@ -120,15 +130,17 @@ def main(ctx: click.Context, json_output: bool) -> None:
 def status_cmd() -> None:
     frontend_pkg = ROOT / "frontend" / "package.json"
     backend_main = ROOT / "backend" / "main.py"
-    payload = {
-        "ok": frontend_pkg.exists() and backend_main.exists(),
-        "message": "Workspace status",
-        "details": {
+    payload = _payload(
+        command="status",
+        resource="workspace",
+        ok=frontend_pkg.exists() and backend_main.exists(),
+        message="Workspace status",
+        details={
             "root": str(ROOT),
             "frontend_package": frontend_pkg.exists(),
             "backend_main": backend_main.exists(),
         },
-    }
+    )
     _emit(payload)
 
 
@@ -137,20 +149,14 @@ def status_cmd() -> None:
 def run_backend(dry_run: bool) -> None:
     cmd = _backend_spec().command
     if dry_run:
-        _emit({"ok": True, "message": "Backend command", "details": {"cmd": " ".join(cmd)}})
+        _emit(_payload("run-backend", "backend", True, "Backend command", {"cmd": " ".join(cmd)}))
         return
     result = run_command(cmd, cwd=str(ROOT))
-    _emit(
-        {
-            "ok": result.returncode == 0,
-            "message": "Backend command executed",
-            "details": {
-                "returncode": result.returncode,
-                "stdout": result.stdout.strip(),
-                "stderr": result.stderr.strip(),
-            },
-        }
-    )
+    _emit(_payload("run-backend", "backend", result.returncode == 0, "Backend command executed", {
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }))
 
 
 @main.command("run-frontend")
@@ -159,53 +165,35 @@ def run_frontend(dry_run: bool) -> None:
     spec = _frontend_spec()
     cmd = spec.command
     if dry_run:
-        _emit({"ok": True, "message": "Frontend command", "details": {"cmd": " ".join(cmd), "cwd": spec.cwd}})
+        _emit(_payload("run-frontend", "frontend", True, "Frontend command", {"cmd": " ".join(cmd), "cwd": spec.cwd}))
         return
     result = run_command(cmd, cwd=spec.cwd)
-    _emit(
-        {
-            "ok": result.returncode == 0,
-            "message": "Frontend command executed",
-            "details": {
-                "returncode": result.returncode,
-                "stdout": result.stdout.strip(),
-                "stderr": result.stderr.strip(),
-            },
-        }
-    )
+    _emit(_payload("run-frontend", "frontend", result.returncode == 0, "Frontend command executed", {
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }))
 
 
 @main.command("build-frontend")
 def build_frontend() -> None:
     result = run_command(["npm", "run", "build"], cwd=str(ROOT / "frontend"))
-    _emit(
-        {
-            "ok": result.returncode == 0,
-            "message": "Frontend build",
-            "details": {
-                "returncode": result.returncode,
-                "stdout": result.stdout.strip(),
-                "stderr": result.stderr.strip(),
-            },
-        }
-    )
+    _emit(_payload("build-frontend", "frontend", result.returncode == 0, "Frontend build", {
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }))
 
 
 @main.command("backend-test")
 def backend_test() -> None:
     cmd = ["pytest", "backend", "-q"]
     result = run_command(cmd, cwd=str(ROOT))
-    _emit(
-        {
-            "ok": result.returncode == 0,
-            "message": "Backend tests",
-            "details": {
-                "returncode": result.returncode,
-                "stdout": result.stdout.strip(),
-                "stderr": result.stderr.strip(),
-            },
-        }
-    )
+    _emit(_payload("backend-test", "backend", result.returncode == 0, "Backend tests", {
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }))
 
 
 @main.command("backend-start")
@@ -213,16 +201,16 @@ def backend_test() -> None:
 def backend_start(dry_run: bool) -> None:
     spec = _backend_spec()
     if dry_run:
-        _emit({"ok": True, "message": "Backend start command", "details": {"cmd": " ".join(spec.command), "log_file": str(spec.log_file)}})
+        _emit(_payload("backend-start", "backend", True, "Backend start command", {"cmd": " ".join(spec.command), "log_file": str(spec.log_file)}))
         return
     status = start_process(spec)
-    _emit({"ok": status["running"], "message": "Backend service status", "details": status})
+    _emit(_payload("backend-start", "backend", status["running"], "Backend service status", status))
 
 
 @main.command("backend-stop")
 def backend_stop() -> None:
     status = stop_process(_backend_spec())
-    _emit({"ok": True, "message": "Backend stop requested", "details": status})
+    _emit(_payload("backend-stop", "backend", True, "Backend stop requested", status))
 
 
 @main.command("frontend-start")
@@ -230,16 +218,16 @@ def backend_stop() -> None:
 def frontend_start(dry_run: bool) -> None:
     spec = _frontend_spec()
     if dry_run:
-        _emit({"ok": True, "message": "Frontend start command", "details": {"cmd": " ".join(spec.command), "log_file": str(spec.log_file)}})
+        _emit(_payload("frontend-start", "frontend", True, "Frontend start command", {"cmd": " ".join(spec.command), "log_file": str(spec.log_file)}))
         return
     status = start_process(spec)
-    _emit({"ok": status["running"], "message": "Frontend service status", "details": status})
+    _emit(_payload("frontend-start", "frontend", status["running"], "Frontend service status", status))
 
 
 @main.command("frontend-stop")
 def frontend_stop() -> None:
     status = stop_process(_frontend_spec())
-    _emit({"ok": True, "message": "Frontend stop requested", "details": status})
+    _emit(_payload("frontend-stop", "frontend", True, "Frontend stop requested", status))
 
 
 @main.command("service-status")
@@ -248,7 +236,7 @@ def service_status() -> None:
         "backend": process_status(_backend_spec()),
         "frontend": process_status(_frontend_spec()),
     }
-    _emit({"ok": True, "message": "Service status", "details": payload})
+    _emit(_payload("service-status", "services", True, "Service status", payload))
 
 
 @main.command("browser-start")
@@ -256,43 +244,31 @@ def service_status() -> None:
 def browser_start(dry_run: bool) -> None:
     cmd = ["bash", _browser_start_script()]
     if dry_run:
-        _emit({"ok": True, "message": "Browser start command", "details": {"cmd": " ".join(cmd)}})
+        _emit(_payload("browser-start", "browser", True, "Browser start command", {"cmd": " ".join(cmd)}))
         return
     result = run_command(cmd, cwd=str(ROOT))
-    _emit(
-        {
-            "ok": result.returncode == 0,
-            "message": "Browser start",
-            "details": {
-                "returncode": result.returncode,
-                "stdout": result.stdout.strip(),
-                "stderr": result.stderr.strip(),
-                **_browser_status_details(),
-            },
-        }
-    )
+    _emit(_payload("browser-start", "browser", result.returncode == 0, "Browser start", {
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+        **_browser_status_details(),
+    }))
 
 
 @main.command("browser-stop")
 def browser_stop() -> None:
     result = run_command(["bash", _browser_stop_script()], cwd=str(ROOT))
-    _emit(
-        {
-            "ok": result.returncode == 0,
-            "message": "Browser stop",
-            "details": {
-                "returncode": result.returncode,
-                "stdout": result.stdout.strip(),
-                "stderr": result.stderr.strip(),
-                **_browser_status_details(),
-            },
-        }
-    )
+    _emit(_payload("browser-stop", "browser", result.returncode == 0, "Browser stop", {
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+        **_browser_status_details(),
+    }))
 
 
 @main.command("browser-status")
 def browser_status() -> None:
-    _emit({"ok": True, "message": "Browser status", "details": _browser_status_details()})
+    _emit(_payload("browser-status", "browser", True, "Browser status", _browser_status_details()))
 
 
 @main.command("browser-run", context_settings={"ignore_unknown_options": True})
@@ -301,20 +277,46 @@ def browser_status() -> None:
 def browser_run(dry_run: bool, browser_args: tuple[str, ...]) -> None:
     cmd = ["bash", _browser_run_script(), *browser_args]
     if dry_run:
-        _emit({"ok": True, "message": "Browser run command", "details": {"cmd": " ".join(cmd)}})
+        _emit(_payload("browser-run", "browser", True, "Browser run command", {"cmd": " ".join(cmd)}))
         return
     result = run_command(cmd, cwd=str(ROOT))
-    _emit(
-        {
-            "ok": result.returncode == 0,
-            "message": "Browser run",
-            "details": {
-                "returncode": result.returncode,
-                "stdout": result.stdout.strip(),
-                "stderr": result.stderr.strip(),
-            },
-        }
-    )
+    _emit(_payload("browser-run", "browser", result.returncode == 0, "Browser run", {
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }))
+
+
+@main.command("browser-open")
+@click.argument("url")
+@click.option("--dry-run", is_flag=True, help="Show the command without executing")
+def browser_open(url: str, dry_run: bool) -> None:
+    cmd = ["bash", _browser_run_script(), "page", "open", url]
+    if dry_run:
+        _emit(_payload("browser-open", "browser", True, "Browser open command", {"cmd": " ".join(cmd)}))
+        return
+    result = run_command(cmd, cwd=str(ROOT))
+    _emit(_payload("browser-open", "browser", result.returncode == 0, "Browser open", {
+        "url": url,
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }))
+
+
+@main.command("browser-session-status")
+@click.option("--dry-run", is_flag=True, help="Show the command without executing")
+def browser_session_status(dry_run: bool) -> None:
+    cmd = ["bash", _browser_run_script(), "session", "status"]
+    if dry_run:
+        _emit(_payload("browser-session-status", "browser", True, "Browser session status command", {"cmd": " ".join(cmd)}))
+        return
+    result = run_command(cmd, cwd=str(ROOT))
+    _emit(_payload("browser-session-status", "browser", result.returncode == 0, "Browser session status", {
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }))
 
 
 def repl() -> None:
@@ -333,6 +335,8 @@ def repl() -> None:
         "browser-start": browser_start,
         "browser-stop": browser_stop,
         "browser-status": browser_status,
+        "browser-open": browser_open,
+        "browser-session-status": browser_session_status,
     }
     while True:
         raw = click.prompt("resume-agent>", prompt_suffix=" ", default="", show_default=False)
@@ -342,7 +346,7 @@ def repl() -> None:
         if line in {"exit", "quit"}:
             break
         if line == "help":
-            click.echo("Available commands: status, service-status, browser-status, run-backend [--dry-run], run-frontend [--dry-run], backend-start [--dry-run], backend-stop, frontend-start [--dry-run], frontend-stop, browser-start [--dry-run], browser-stop, build-frontend, backend-test")
+            click.echo("Available commands: status, service-status, browser-status, browser-open [--dry-run] <url>, browser-session-status [--dry-run], run-backend [--dry-run], run-frontend [--dry-run], backend-start [--dry-run], backend-stop, frontend-start [--dry-run], frontend-stop, browser-start [--dry-run], browser-stop, build-frontend, backend-test")
             continue
 
         parts = shlex.split(line)
@@ -352,9 +356,13 @@ def repl() -> None:
             click.echo(f"Unknown command: {name}")
             continue
 
-        if name in {"run-backend", "run-frontend", "backend-start", "frontend-start", "browser-start"}:
+        if name in {"run-backend", "run-frontend", "backend-start", "frontend-start", "browser-start", "browser-session-status"}:
             dry_run = "--dry-run" in parts[1:]
             cmd_fn.callback(dry_run=dry_run)
+        elif name == "browser-open":
+            dry_run = "--dry-run" in parts[1:]
+            url = next((part for part in parts[1:] if part != "--dry-run"), "")
+            cmd_fn.callback(url=url, dry_run=dry_run)
         else:
             cmd_fn.callback()
 
