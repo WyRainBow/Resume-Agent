@@ -9,6 +9,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import type { Experience, ResumeData, GlobalSettings } from '../types'
 import Field from './Field'
 import { MonthYearRangePicker } from '../shared/MonthYearRangePicker'
+import { FontSizePicker } from '../shared/FontSizePicker'
 import {
   type CompanyLogo,
   fetchLogos,
@@ -434,16 +435,11 @@ const ExperienceEditor = ({
               rightActions={updateGlobalSettings ? (
                 <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-800">
                   <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">字号</span>
-                  <select
+                  <FontSizePicker
                     value={globalSettings?.companyNameFontSize || 15}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    onChange={(e) => updateGlobalSettings({ companyNameFontSize: Number(e.target.value) })}
-                    className="h-6 rounded-md border border-transparent bg-white px-1.5 text-[11px] font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-400/35 dark:bg-neutral-700 dark:text-neutral-200"
-                  >
-                    {COMPANY_FONT_SIZE_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}px</option>
-                    ))}
-                  </select>
+                    onChange={(size) => updateGlobalSettings({ companyNameFontSize: size })}
+                    options={COMPANY_FONT_SIZE_OPTIONS.map(opt => opt.value)}
+                  />
                 </div>
               ) : undefined}
             />
