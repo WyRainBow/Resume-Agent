@@ -596,6 +596,19 @@ class AgentStream:
                                     step_task.cancel()
                                 break
 
+                            # 🚨 立即流式推送：Manus.think() 在执行耗时操作前设置此字段，
+                            # 在此轮询并立即 yield，让前端先看到"预回复"
+                            if hasattr(self.agent, "_pending_immediate_stream") and self.agent._pending_immediate_stream:
+                                pending = self.agent._pending_immediate_stream
+                                self.agent._pending_immediate_stream = None
+                                pending_event = self._build_answer_event(
+                                    content=pending.get("content", ""),
+                                    is_complete=pending.get("is_complete", False),
+                                    delta=pending.get("delta"),
+                                )
+                                if pending_event:
+                                    yield pending_event
+
                             try:
                                 streamed_content = await asyncio.wait_for(
                                     stream_queue.get(), timeout=0.01

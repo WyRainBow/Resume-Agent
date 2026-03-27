@@ -86,6 +86,7 @@ class Manus(ToolCallAgent):
     _pending_edit_tool_call: Optional[Dict[str, Any]] = PrivateAttr(default=None)
     _shared_state: AgentSharedState = PrivateAttr(default=None)
     _skills_cache: Dict[str, str] = PrivateAttr(default_factory=dict)
+    _pending_immediate_stream: Optional[Dict[str, Any]] = PrivateAttr(default=None)  # 立即流式推送的消息
 
     @model_validator(mode="after")
     def initialize_helper(self) -> "Manus":
@@ -1143,7 +1144,16 @@ class Manus(ToolCallAgent):
 
                     pre_thought = f"Thought: 识别到用户希望从招聘者角度诊断简历《{resume_meta['name']}》。我将先调用各个维度的简历分析器（工作经历、技能栈、项目成果等）进行深度扫描，并提炼出一份包含评分、问题清单和行动建议的结构化报告。"
                     pre_response = "好的，我这就帮你从 HR 初筛视角做一次全面诊断。请稍等，我正在深入分析简历内容..."
-                    self.memory.add_message(Message.assistant_message(f"{pre_thought}\nResponse: {pre_response}"))
+                    pre_content = f"{pre_thought}\nResponse: {pre_response}"
+                    self.memory.add_message(Message.assistant_message(pre_content))
+
+                    # 🚨 立即流式推送：通知 execute loop 在等待 step_task 期间立即发送这条消息
+                    self._pending_immediate_stream = {
+                        "type": "answer",
+                        "content": pre_content,
+                        "is_complete": False,
+                        "delta": pre_response,
+                    }
 
                     # 给前端一个小延迟，让第一段话先出来
                     await asyncio.sleep(0.8)
