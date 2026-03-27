@@ -3401,6 +3401,23 @@ function SophiaChatContent() {
                     </div>
                   )}
 
+                {/* 简历选择器：固定在对话流上方，避免被后续输出挤到下方 */}
+                {showResumeSelector && (
+                  <ResumeSelector
+                    onSelect={handleResumeSelect}
+                    onCreateResume={handleCreateResume}
+                    onCancel={handleResumeSelectorCancel}
+                    onLayoutChange={() => {
+                      window.setTimeout(() => {
+                        messagesEndRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "end",
+                        });
+                      }, 50);
+                    }}
+                  />
+                )}
+
                 <MessageTimeline
                   messages={messages}
                   loadedResumes={loadedResumes}
@@ -3466,23 +3483,6 @@ function SophiaChatContent() {
                       onDismiss={() => setGeneratedResume(null)}
                     />
                   </div>
-                )}
-
-                {/* 简历选择器 */}
-                {showResumeSelector && (
-                  <ResumeSelector
-                    onSelect={handleResumeSelect}
-                    onCreateResume={handleCreateResume}
-                    onCancel={handleResumeSelectorCancel}
-                    onLayoutChange={() => {
-                      window.setTimeout(() => {
-                        messagesEndRef.current?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "end",
-                        });
-                      }, 50);
-                    }}
-                  />
                 )}
 
                 {/* Loading */}
