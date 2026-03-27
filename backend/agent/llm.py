@@ -1047,3 +1047,70 @@ class LLM:
         except Exception as e:
             logger.error(f"Unexpected error in ask_tool_stream: {e}")
             raise
+
+    async def ask_with_thinking_stream(
+        self,
+        messages: List[Union[dict, Message]],
+        system_msgs: Optional[List[Union[dict, Message]]] = None,
+        model: Optional[str] = None,
+        base_url: Optional[str] = None,
+        api_key: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: int = 16000,
+        on_thinking_delta: Optional[Callable[[str], Awaitable[None]]] = None,
+        on_content_delta: Optional[Callable[[str], Awaitable[None]]] = None,
+        cancel_event: Optional[asyncio.Event] = None,
+    ) -> str:
+        """Stream a thinking-model completion (qwq-plus / deepseek-r1).
+
+        Yields reasoning_content chunks to on_thinking_delta and
+        content chunks to on_content_delta as they arrive.
+        Returns the full content string when done.
+        """
+        _model = model or self.model
+        _base_url = base_url or self.base_url
+        _api_key = api_key or self.api_key
+
+        _client = AsyncOpenAI(
+            api_key=_api_key,
+            base_url=_base_url,
+            timeout=httpx.Timeout(connect=30.0, read=300.0, write=30.0, pool=30.0),
+        )
+
+        if system_msgs:
+            formatted = self.format_messages(system_msgs) + self.format_messages(messages)
+        else:
+            formatted = self.format_messages(messages)
+
+        params: dict = {
+            "model": _model,
+            "messages": formatted,
+            "stream": True,
+            "max_tokens": max_tokens,
+        }
+        if temperature is not None:
+            params["temperature"] = temperature
+
+        full_content = ""
+        stream = await _client.chat.completions.create(**params)
+        async for chunk in stream:
+            if cancel_event and cancel_event.is_set():
+                break
+            if not chunk.choices:
+                continue
+            delta = chunk.choices[0].delta
+            if delta is None:
+                continue
+            # reasoning_content (qwq-plus / deepseek-r1)
+            thinking_piece = getattr(delta, "reasoning_content", None)
+            if thinking_piece:
+                if on_thinking_delta:
+                    await on_thinking_delta(thinking_piece)
+            # normal content
+            content_piece = getattr(delta, "content", None)
+            if content_piece:
+                full_content += content_piece
+                if on_content_delta:
+                    await on_content_delta(content_piece)
+
+        return full_content
