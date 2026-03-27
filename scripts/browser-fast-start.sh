@@ -10,6 +10,15 @@ ENV_FILE="${STATE_DIR}/domshell.env"
 
 mkdir -p "${STATE_DIR}"
 
+TOKEN=""
+if [[ -f "${ENV_FILE}" ]]; then
+  TOKEN="$(sed -n 's/^export DOMSHELL_TOKEN=//p' "${ENV_FILE}" | tail -n 1)"
+fi
+
+if [[ -z "${TOKEN}" ]]; then
+  TOKEN="$(openssl rand -hex 24)"
+fi
+
 PORT_PID="$(lsof -ti tcp:9876 || true)"
 if [[ -n "${PORT_PID}" ]] && [[ ! -f "${PID_FILE}" ]]; then
   echo "Port 9876 is already in use by pid ${PORT_PID}. Stop that DOMShell process first." >&2
@@ -26,28 +35,24 @@ if [[ -f "${PID_FILE}" ]]; then
 fi
 
 if [[ ! -f "${PID_FILE}" ]]; then
-  nohup npx @apireno/domshell >"${LOG_FILE}" 2>&1 &
+  nohup npx @apireno/domshell --allow-write --no-confirm --token "${TOKEN}" >"${LOG_FILE}" 2>&1 &
   echo "$!" >"${PID_FILE}"
 fi
 
-TOKEN=""
 for _ in $(seq 1 60); do
-  if [[ -f "${LOG_FILE}" ]]; then
-    TOKEN="$(grep -Eo 'Auth token: [A-Za-z0-9]+' "${LOG_FILE}" | awk '{print $3}' | tail -n 1 || true)"
-    if [[ -n "${TOKEN}" ]]; then
-      break
-    fi
+  if lsof -ti tcp:9876 >/dev/null 2>&1 && lsof -ti tcp:3001 >/dev/null 2>&1; then
+    break
   fi
   sleep 1
 done
 
-if [[ -z "${TOKEN}" ]]; then
+if ! lsof -ti tcp:9876 >/dev/null 2>&1 || ! lsof -ti tcp:3001 >/dev/null 2>&1; then
   if grep -q "Port 9876 is already in use" "${LOG_FILE}" 2>/dev/null; then
     rm -f "${PID_FILE}"
     echo "DOMShell failed to start because port 9876 is already in use." >&2
     exit 1
   fi
-  echo "Failed to read DOMShell token from ${LOG_FILE}" >&2
+  echo "DOMShell failed to start cleanly. Check ${LOG_FILE}" >&2
   exit 1
 fi
 
@@ -56,5 +61,7 @@ export DOMSHELL_TOKEN=${TOKEN}
 EOF
 
 echo "DOMShell token saved to ${ENV_FILE}"
+echo "Use this token in DOMShell Options > MCP Bridge:"
+echo "${TOKEN}"
 echo "Next command:"
 echo "bash ${ROOT}/scripts/browser-fast.sh session status"

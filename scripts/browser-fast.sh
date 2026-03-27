@@ -16,5 +16,10 @@ fi
 source "${ENV_FILE}"
 
 cd "${HARNESS_DIR}"
+if [[ "${BROWSER_FAST_DAEMON:-0}" == "1" ]]; then
+  exec uv run --with click --with prompt-toolkit --with mcp \
+    python3 -m cli_anything.browser --daemon "$@"
+fi
+
 exec uv run --with click --with prompt-toolkit --with mcp \
-  python3 -m cli_anything.browser --daemon "$@"
+  python3 -m cli_anything.browser "$@"

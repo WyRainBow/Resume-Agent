@@ -71,6 +71,14 @@ def test_browser_session_status_dry_run_targets_session_status() -> None:
     assert "session status" in result.output
 
 
+def test_browser_flow_resume_diagnosis_dry_run_targets_flow_script() -> None:
+    runner = CliRunner()
+    result = runner.invoke(main, ["browser-flow", "resume-diagnosis", "--dry-run"])
+    assert result.exit_code == 0
+    assert "browser-resume-flow.py" in result.output
+    assert "resume-diagnosis" in result.output
+
+
 def test_browser_status_prefers_open_ports_when_pid_is_stale(monkeypatch, tmp_path: Path) -> None:
     state_dir = tmp_path / "browser-state"
     state_dir.mkdir()

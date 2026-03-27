@@ -36,6 +36,10 @@ def _browser_run_script() -> str:
     return str(SCRIPT_DIR / "browser-fast.sh")
 
 
+def _browser_flow_script() -> str:
+    return str(SCRIPT_DIR / "browser-resume-flow.py")
+
+
 def _backend_spec() -> ProcessSpec:
     return ProcessSpec(
         name="backend",
@@ -130,6 +134,15 @@ def _browser_status_details() -> dict:
         "ws_port_ready": ws_port_ready,
         "http_port_ready": http_port_ready,
     }
+
+
+def _ensure_browser_started() -> None:
+    details = _browser_status_details()
+    if details["ws_port_ready"] and details["http_port_ready"]:
+        return
+    result = run_command(["bash", _browser_start_script()], cwd=str(ROOT))
+    if result.returncode != 0:
+        raise click.ClickException(result.stderr.strip() or result.stdout.strip() or "browser-start failed")
 
 
 @click.group(invoke_without_command=True)
@@ -335,6 +348,27 @@ def browser_session_status(dry_run: bool) -> None:
     }))
 
 
+@main.command("browser-flow")
+@click.argument("flow")
+@click.argument("url", required=False)
+@click.option("--dry-run", is_flag=True, help="Show the command without executing")
+def browser_flow(flow: str, url: str | None, dry_run: bool) -> None:
+    target_url = url or "http://localhost:5173/agent/new"
+    cmd = ["uv", "run", "--with", "mcp", "python3", _browser_flow_script(), flow, target_url]
+    if dry_run:
+        _emit(_payload("browser-flow", "browser", True, "Browser flow command", {"cmd": " ".join(cmd)}))
+        return
+    _ensure_browser_started()
+    result = run_command(cmd, cwd=str(ROOT))
+    _emit(_payload("browser-flow", "browser", result.returncode == 0, "Browser flow", {
+        "flow": flow,
+        "url": target_url,
+        "returncode": result.returncode,
+        "stdout": result.stdout.strip(),
+        "stderr": result.stderr.strip(),
+    }))
+
+
 def repl() -> None:
     click.echo("Resume-Agent REPL. Type 'help' for commands, 'exit' to quit.")
     commands = {
@@ -353,6 +387,7 @@ def repl() -> None:
         "browser-status": browser_status,
         "browser-open": browser_open,
         "browser-session-status": browser_session_status,
+        "browser-flow": browser_flow,
     }
     while True:
         raw = click.prompt("resume-agent>", prompt_suffix=" ", default="", show_default=False)
@@ -362,7 +397,7 @@ def repl() -> None:
         if line in {"exit", "quit"}:
             break
         if line == "help":
-            click.echo("Available commands: status, service-status, browser-status, browser-open [--dry-run] <url>, browser-session-status [--dry-run], run-backend [--dry-run], run-frontend [--dry-run], backend-start [--dry-run], backend-stop, frontend-start [--dry-run], frontend-stop, browser-start [--dry-run], browser-stop, build-frontend, backend-test")
+            click.echo("Available commands: status, service-status, browser-status, browser-open [--dry-run] <url>, browser-session-status [--dry-run], browser-flow [--dry-run] <flow> [url], run-backend [--dry-run], run-frontend [--dry-run], backend-start [--dry-run], backend-stop, frontend-start [--dry-run], frontend-stop, browser-start [--dry-run], browser-stop, build-frontend, backend-test")
             continue
 
         parts = shlex.split(line)
@@ -379,6 +414,12 @@ def repl() -> None:
             dry_run = "--dry-run" in parts[1:]
             url = next((part for part in parts[1:] if part != "--dry-run"), "")
             cmd_fn.callback(url=url, dry_run=dry_run)
+        elif name == "browser-flow":
+            dry_run = "--dry-run" in parts[1:]
+            values = [part for part in parts[1:] if part != "--dry-run"]
+            flow = values[0] if values else ""
+            url = values[1] if len(values) > 1 else None
+            cmd_fn.callback(flow=flow, url=url, dry_run=dry_run)
         else:
             cmd_fn.callback()
 
