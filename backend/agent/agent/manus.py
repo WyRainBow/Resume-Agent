@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import re
+import time
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
@@ -29,7 +30,7 @@ from backend.agent.memory import (
     ConversationState,
     Intent,
 )
-from backend.agent.schema import Message, Role
+from backend.agent.schema import Message, Role, ToolCall
 from backend.agent.agent.shared_state import AgentSharedState
 from backend.agent.agent.capability import CapabilityRegistry, ResumeCapability
 from backend.agent.agent.registry import AgentRegistry
@@ -240,6 +241,203 @@ class Manus(ToolCallAgent):
 
         lines.append("如需针对某个模块生成优化建议，请告诉我模块名称。")
         return "\n".join(lines)
+
+    @staticmethod
+    def _safe_int(value: Any, default: int) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _extract_resume_meta(self, resume_data: Dict[str, Any]) -> Dict[str, Any]:
+        basics = (resume_data.get("basic") or resume_data.get("basics") or {}) if isinstance(resume_data, dict) else {}
+        meta = (resume_data.get("_meta") or {}) if isinstance(resume_data, dict) else {}
+
+        resume_id = (
+            resume_data.get("resume_id")
+            or resume_data.get("id")
+            or meta.get("resume_id")
+            or ""
+        )
+        name = (
+            basics.get("name")
+            or resume_data.get("title")
+            or "当前简历"
+        )
+        updated_at = (
+            resume_data.get("updatedAt")
+            or resume_data.get("updated_at")
+            or meta.get("updated_at")
+            or ""
+        )
+        language = resume_data.get("language") or "中文"
+        return {
+            "id": str(resume_id or ""),
+            "name": str(name or "当前简历"),
+            "updated_at": str(updated_at or ""),
+            "language": str(language or "中文"),
+        }
+
+    def _build_resume_diagnosis_payload(
+        self,
+        analysis_results: List[Dict[str, Any]],
+        resume_data: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        module_scores: List[int] = []
+        issue_rows: List[Dict[str, str]] = []
+
+        for result in analysis_results:
+            module_name = str(result.get("module_display_name") or result.get("module") or "模块")
+            module_score = self._safe_int(result.get("score"), 70)
+            module_scores.append(module_score)
+            issues = result.get("issues") or []
+            for issue in issues:
+                if not isinstance(issue, dict):
+                    continue
+                severity = str(issue.get("severity") or "medium").lower()
+                issue_rows.append(
+                    {
+                        "module": module_name,
+                        "severity": severity,
+                        "problem": str(issue.get("problem") or "存在可优化项"),
+                        "suggestion": str(issue.get("suggestion") or "建议补充更具体的成果与细节"),
+                    }
+                )
+
+        quality_score = round(sum(module_scores) / len(module_scores)) if module_scores else 76
+        competitiveness_score = min(98, max(70, quality_score + 8))
+        screening_probability = min(96, max(55, int(quality_score * 0.85 + competitiveness_score * 0.15)))
+
+        if not issue_rows:
+            issue_rows = [
+                {
+                    "module": "整体",
+                    "severity": "medium",
+                    "problem": "可继续增强岗位匹配表达",
+                    "suggestion": "建议补充更贴近目标岗位的关键词与量化成果",
+                }
+            ]
+
+        must_fix = [r for r in issue_rows if r["severity"] == "high"][:3]
+        should_fix = [r for r in issue_rows if r["severity"] == "medium"][:3]
+        optional_fix = [r for r in issue_rows if r["severity"] not in {"high", "medium"}][:3]
+
+        if not must_fix:
+            must_fix = should_fix[:1]
+        if not should_fix and len(issue_rows) > 1:
+            should_fix = issue_rows[1:3]
+        if not optional_fix and len(issue_rows) > 2:
+            optional_fix = issue_rows[2:4]
+
+        top_actions: List[Dict[str, str]] = []
+        for row in (must_fix + should_fix + optional_fix):
+            title = f"优化{row['module']}模块表达"
+            if any(item.get("title") == title for item in top_actions):
+                continue
+            top_actions.append(
+                {
+                    "title": title,
+                    "detail": row["suggestion"],
+                }
+            )
+            if len(top_actions) >= 3:
+                break
+
+        if len(top_actions) < 3:
+            fallback_actions = [
+                {"title": "补充岗位目标信息", "detail": "补充目标岗位或 JD 后，可进一步得到定制化匹配建议"},
+                {"title": "强化量化成果", "detail": "优先把职责改写为可衡量成果，提升 HR 初筛可读性"},
+                {"title": "收敛冗余描述", "detail": "去掉重复内容，保持重点经历在 6-8 条高价值要点"},
+            ]
+            for item in fallback_actions:
+                if len(top_actions) >= 3:
+                    break
+                if any(existing.get("title") == item["title"] for existing in top_actions):
+                    continue
+                top_actions.append(item)
+
+        resume_meta = self._extract_resume_meta(resume_data)
+        summary_line = (
+            f"这份简历基础不错，当前通用场景下初筛通过概率约 {screening_probability}% ，"
+            f"内容质量 {quality_score}/100，竞争力 {competitiveness_score}/100。"
+        )
+        thought = "我已基于当前已选简历完成通用诊断，并整理了可直接执行的优化优先级。"
+
+        lines: List[str] = [
+            "好的，我已经基于当前简历完成一轮通用诊断。",
+            "",
+            f"先给你结论：{summary_line}",
+            "",
+            "如果你补充目标岗位或 JD，我可以继续给你做定向匹配度诊断；在此之前我先给出通用版本。",
+            "",
+            "## 诊断报告",
+            "",
+            "### 初筛通过概率",
+            f"- 当前简历通用场景预计通过率：**{screening_probability}%**",
+            "",
+            "### 评分卡",
+            f"- 内容质量：**{quality_score}/100**",
+            f"- 竞争力：**{competitiveness_score}/100**",
+            "- 岗位匹配度：**待补充目标岗位后评估**",
+            "",
+            "### 问题清单",
+            "",
+            "#### 必须修改（影响专业度）",
+        ]
+
+        for row in must_fix:
+            lines.append(f"- **{row['problem']}**（{row['module']}）：{row['suggestion']}")
+        if not must_fix:
+            lines.append("- 当前未发现高优先级硬伤，可优先做中优先级优化。")
+
+        lines.extend(["", "#### 建议修改（提升专业度）"])
+        for row in should_fix:
+            lines.append(f"- **{row['problem']}**（{row['module']}）：{row['suggestion']}")
+        if not should_fix:
+            lines.append("- 这一层暂未命中明显问题，可按目标岗位补充关键词。")
+
+        lines.extend(["", "#### 可选优化（锦上添花）"])
+        for row in optional_fix:
+            lines.append(f"- **{row['problem']}**（{row['module']}）：{row['suggestion']}")
+        if not optional_fix:
+            lines.append("- 可选项暂无，建议直接推进岗位定向优化。")
+
+        lines.extend(["", "### Top 3 行动建议"])
+        for idx, item in enumerate(top_actions[:3], 1):
+            lines.append(f"{idx}. **{item['title']}**：{item['detail']}")
+
+        lines.extend(
+            [
+                "",
+                "### 下一步",
+                "请告诉我你想投的岗位方向（例如“后端开发工程师/Go 开发工程师”）或直接贴 JD，我会继续给出匹配度诊断与定向改写建议。",
+                '%%SUGGESTIONS%%[{"text":"帮我直接修改这些问题","msg":"帮我把诊断出的问题直接修改好"},{"text":"针对目标岗位定制简历","msg":"我想针对目标岗位定制简历，目标岗位是后端开发工程师"},{"text":"查找匹配职位","msg":"帮我搜索匹配的后端职位"}]%%END%%',
+            ]
+        )
+
+        return {
+            "thought": thought,
+            "response": "\n".join(lines).strip(),
+            "structured": {
+                "type": "resume_diagnosis",
+                "status": "success",
+                "tool": "resume-diagnosis",
+                "resume": resume_meta,
+                "summary": {
+                    "screening_probability": screening_probability,
+                    "quality_score": quality_score,
+                    "competitiveness_score": competitiveness_score,
+                    "matching_score": None,
+                },
+                "blocks": {
+                    "must_fix": must_fix,
+                    "should_fix": should_fix,
+                    "optional_fix": optional_fix,
+                    "top_actions": top_actions[:3],
+                },
+            },
+            "resume_meta": resume_meta,
+        }
 
     def _format_optimization_suggestions(self, result: Dict[str, Any], full: bool = False) -> str:
         """Format optimization suggestions from ResumeOptimizerAgent."""
@@ -897,12 +1095,85 @@ class Manus(ToolCallAgent):
         if intent in [Intent.ANALYZE_RESUME, Intent.OPTIMIZE_SECTION, Intent.FULL_OPTIMIZE]:
             section = tool_args.get("section") if isinstance(tool_args, dict) else None
             try:
+                resume_data_snapshot = ResumeDataStore.get_data(self.session_id)
+                if intent == Intent.ANALYZE_RESUME and not resume_data_snapshot:
+                    hint_message = await self._build_load_resume_hint_message(
+                        tool="show_resume",
+                        tool_args={},
+                        user_input=user_input or "",
+                    )
+                    self.memory.add_message(Message.assistant_message(hint_message))
+                    manual_tool_call = ToolCall(
+                        id=f"call_show_resume_{int(time.time() * 1000)}",
+                        function={"name": "show_resume", "arguments": "{}"},
+                    )
+                    self.memory.add_message(
+                        Message.from_tool_calls(
+                            content="我将先打开简历选择面板。",
+                            tool_calls=[manual_tool_call],
+                        )
+                    )
+                    self.tool_calls = [manual_tool_call]
+                    return True
+
                 strategy = AgentDelegationStrategy.resolve(intent, section)
                 analyzers = strategy.get("analyzers") if strategy else None
 
                 if intent == Intent.ANALYZE_RESUME:
                     analysis_results = await self._parallel_delegate_analyzers(analyzers or [])
-                    content = self._format_analysis_report(analysis_results)
+                    resume_data_snapshot = ResumeDataStore.get_data(self.session_id) or {}
+                    diagnosis_payload = self._build_resume_diagnosis_payload(
+                        analysis_results,
+                        resume_data_snapshot,
+                    )
+
+                    detail_tool_call = ToolCall(
+                        id=f"call_get_resume_detail_{int(time.time() * 1000)}",
+                        function={"name": "get_resume_detail", "arguments": "{}"},
+                    )
+                    self.memory.add_message(
+                        Message.from_tool_calls(
+                            content="正在获取简历详情。",
+                            tool_calls=[detail_tool_call],
+                        )
+                    )
+                    self._tool_structured_results[detail_tool_call.id] = {
+                        "type": "resume_detail",
+                        "status": "success",
+                        "tool": "get_resume_detail",
+                        "resume": diagnosis_payload["resume_meta"],
+                    }
+                    self.memory.add_message(
+                        Message.tool_message(
+                            content="获取简历详情执行成功",
+                            name="get_resume_detail",
+                            tool_call_id=detail_tool_call.id,
+                        )
+                    )
+
+                    diagnosis_tool_call = ToolCall(
+                        id=f"call_resume_diagnosis_{int(time.time() * 1000) + 1}",
+                        function={"name": "resume-diagnosis", "arguments": "{}"},
+                    )
+                    self.memory.add_message(
+                        Message.from_tool_calls(
+                            content="正在执行简历诊断。",
+                            tool_calls=[diagnosis_tool_call],
+                        )
+                    )
+                    self._tool_structured_results[diagnosis_tool_call.id] = diagnosis_payload["structured"]
+                    self.memory.add_message(
+                        Message.tool_message(
+                            content="resume-diagnosis执行成功",
+                            name="resume-diagnosis",
+                            tool_call_id=diagnosis_tool_call.id,
+                        )
+                    )
+
+                    content = (
+                        f"Thought: {diagnosis_payload['thought']}\n"
+                        f"Response: {diagnosis_payload['response']}"
+                    )
                     self.memory.add_message(Message.assistant_message(content))
                     from backend.agent.schema import AgentState
                     self.state = AgentState.FINISHED

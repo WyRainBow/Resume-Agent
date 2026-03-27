@@ -367,6 +367,24 @@ interface ResumeEditDiffStructuredData {
   };
 }
 
+interface DiagnosisToolStructuredData {
+  type: "resume_detail" | "resume_diagnosis";
+  status?: string;
+  tool?: string;
+  resume?: {
+    id?: string;
+    name?: string;
+    updated_at?: string;
+    language?: string;
+  };
+  summary?: {
+    screening_probability?: number;
+    quality_score?: number;
+    competitiveness_score?: number;
+    matching_score?: number | null;
+  };
+}
+
 // ============================================================================
 // 主页面组件
 // ============================================================================
@@ -438,6 +456,9 @@ function SophiaChatContent() {
   >([]);
   const [resumeEditDiffs, setResumeEditDiffs] = useState<
     Array<{ messageId: string; data: ResumeEditDiffStructuredData }>
+  >([]);
+  const [diagnosisToolEvents, setDiagnosisToolEvents] = useState<
+    Array<{ messageId: string; data: DiagnosisToolStructuredData }>
   >([]);
 
   const [resumeEditError, setLastError] = useState<{ message: string } | null>(null);
@@ -822,6 +843,23 @@ function SophiaChatContent() {
     [],
   );
 
+  const upsertDiagnosisToolEvent = useCallback(
+    (messageId: string, data: DiagnosisToolStructuredData) => {
+      setDiagnosisToolEvents((prev) => {
+        const existingIndex = prev.findIndex(
+          (item) => item.messageId === messageId && item.data.type === data.type,
+        );
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = { messageId, data };
+          return updated;
+        }
+        return [...prev, { messageId, data }];
+      });
+    },
+    [],
+  );
+
   const applyResumeEditDiff = useCallback(
     (diff: ResumeEditDiffStructuredData) => {
       const patchPath = diff.patch?.path || "";
@@ -1126,7 +1164,8 @@ function SophiaChatContent() {
   const { handleSSEEvent } = useToolEventRouter<
     SearchStructuredData,
     ResumeStructuredData,
-    ResumeEditDiffStructuredData
+    ResumeEditDiffStructuredData,
+    DiagnosisToolStructuredData
   >({
     runId: activeRunId,
     onDone: () => {
@@ -1183,6 +1222,7 @@ function SophiaChatContent() {
     upsertSearchResult,
     upsertLoadedResume,
     upsertResumeEditDiff,
+    upsertDiagnosisToolEvent,
     applyResumeEditDiff,
   });
 
@@ -1256,9 +1296,10 @@ function SophiaChatContent() {
         messageId: r.messageId,
         resumeData: r.resumeData, // 这里的简历数据是必需的，用于右侧 PDF 预览渲染
       })),
+      diagnosisToolEvents,
     };
     localStorage.setItem(`ui_state:${conversationId}`, JSON.stringify(uiState));
-  }, [conversationId, selectedResumeId, loadedResumes]);
+  }, [conversationId, selectedResumeId, loadedResumes, diagnosisToolEvents]);
 
   // 说明：
   // 进入 AI 页面时，conversationId 只允许由两处决定：
@@ -1432,10 +1473,14 @@ function SophiaChatContent() {
             const {
               loadedResumes: sLrs,
               selectedResumeId: savedSelectedResumeId,
+              diagnosisToolEvents: savedDiagnosisToolEvents,
             } = JSON.parse(savedUiState);
             // 恢复已加载列表的元数据，数据会在后续逻辑中通过消息或重新加载补齐
             if (Array.isArray(sLrs) && sLrs.length > 0) {
               setLoadedResumes(sLrs);
+            }
+            if (Array.isArray(savedDiagnosisToolEvents)) {
+              setDiagnosisToolEvents(savedDiagnosisToolEvents);
             }
             if (
               typeof savedSelectedResumeId === "string" &&
@@ -1795,6 +1840,9 @@ function SophiaChatContent() {
       setSearchResults((prev) => prev.filter((item) => item.messageId !== "current"));
       setLoadedResumes((prev) => prev.filter((item) => item.messageId !== "current"));
       setResumeEditDiffs((prev) => prev.filter((item) => item.messageId !== "current"));
+      setDiagnosisToolEvents((prev) =>
+        prev.filter((item) => item.messageId !== "current"),
+      );
       finalizeStream();
       window.setTimeout(() => {
         isFinalizedRef.current = false;
@@ -1837,6 +1885,7 @@ function SophiaChatContent() {
     setSearchResults((prev) => rebindCurrentMessageId(prev, uniqueId));
     setLoadedResumes((prev) => rebindCurrentMessageId(prev, uniqueId));
     setResumeEditDiffs((prev) => rebindCurrentMessageId(prev, uniqueId));
+    setDiagnosisToolEvents((prev) => rebindCurrentMessageId(prev, uniqueId));
 
     setMessages((prev) => {
       const last = prev[prev.length - 1];
@@ -2525,6 +2574,7 @@ function SophiaChatContent() {
     setAllowPdfAutoRender(false);
     setLoadedResumes([]);
     setSearchResults([]);
+    setDiagnosisToolEvents([]);
     setActiveSearchPanel(null);
     setResumePdfPreview({});
 
@@ -2608,9 +2658,13 @@ function SophiaChatContent() {
           const {
             loadedResumes: sLrs,
             selectedResumeId: savedSelectedResumeId,
+            diagnosisToolEvents: savedDiagnosisToolEvents,
           } = JSON.parse(savedUiState);
           if (Array.isArray(sLrs) && sLrs.length > 0) {
             setLoadedResumes(sLrs);
+          }
+          if (Array.isArray(savedDiagnosisToolEvents)) {
+            setDiagnosisToolEvents(savedDiagnosisToolEvents);
           }
           if (
             typeof savedSelectedResumeId === "string" &&
@@ -2685,6 +2739,7 @@ function SophiaChatContent() {
     lastPersistedCountBySessionRef.current[newId] = 0;
     setSelectedResumeId(null);
     setAllowPdfAutoRender(false);
+    setDiagnosisToolEvents([]);
     finalizeStream();
     // Navigate to clean URL so the URL-watching effect doesn't reload the old session.
     // Set flag so the URL effect skips calling createNewSession again.
@@ -2823,6 +2878,18 @@ function SophiaChatContent() {
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       currentRunUserInputRef.current = userMessage.trim();
       setCurrentSuggestions([]);
+      setSearchResults((prev) =>
+        prev.filter((item) => item.messageId !== "current"),
+      );
+      setLoadedResumes((prev) =>
+        prev.filter((item) => item.messageId !== "current"),
+      );
+      setResumeEditDiffs((prev) =>
+        prev.filter((item) => item.messageId !== "current"),
+      );
+      setDiagnosisToolEvents((prev) =>
+        prev.filter((item) => item.messageId !== "current"),
+      );
 
       // 处理附件元数据
       const attachmentMeta = attachments?.map((file) => ({
@@ -3234,6 +3301,7 @@ function SophiaChatContent() {
    */
   const handleClearConversation = () => {
     setMessages([]);
+    setDiagnosisToolEvents([]);
     finalizeStream();
   };
 
@@ -3338,6 +3406,7 @@ function SophiaChatContent() {
                   loadedResumes={loadedResumes}
                   searchResults={searchResults}
                   resumeEditDiffs={resumeEditDiffs}
+                  diagnosisToolEvents={diagnosisToolEvents}
                   copiedId={copiedId}
                   stripResumeEditMarkdown={stripResumeEditMarkdown}
                   onSetCopiedId={setCopiedId}
@@ -3368,6 +3437,9 @@ function SophiaChatContent() {
                   shouldHideResponseInChat={false}
                   currentEditDiff={resumeEditDiffs.find((r) => r.messageId === "current")}
                   currentSearch={searchResults.find((r) => r.messageId === "current")}
+                  currentDiagnosisTools={diagnosisToolEvents
+                    .filter((item) => item.messageId === "current")
+                    .map((item) => item.data)}
                   stripResumeEditMarkdown={stripResumeEditMarkdown}
                   onOpenSearchPanel={setActiveSearchPanel}
                   onResponseTypewriterComplete={finalizeAfterTypewriter}

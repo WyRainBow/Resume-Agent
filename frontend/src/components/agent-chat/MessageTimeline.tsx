@@ -7,6 +7,9 @@ import SearchCard from "@/components/chat/SearchCard";
 import SearchSummary from "@/components/chat/SearchSummary";
 import ThoughtProcess from "@/components/chat/ThoughtProcess";
 import TTSButton from "@/components/chat/TTSButton";
+import DiagnosisToolCards, {
+  type DiagnosisToolStructuredData,
+} from "@/components/agent-chat/DiagnosisToolCards";
 import type { Message } from "@/types/chat";
 import type { ResumeData } from "@/pages/Workspace/v2/types";
 import { formatResumeDiffPreview } from "@/utils/resumePatch";
@@ -40,11 +43,17 @@ interface ResumeEditDiffEntry {
   };
 }
 
+interface DiagnosisToolEntry {
+  messageId: string;
+  data: DiagnosisToolStructuredData;
+}
+
 interface MessageTimelineProps {
   messages: Message[];
   loadedResumes: LoadedResumeItem[];
   searchResults: SearchResultEntry[];
   resumeEditDiffs: ResumeEditDiffEntry[];
+  diagnosisToolEvents: DiagnosisToolEntry[];
   copiedId: string | null;
   stripResumeEditMarkdown: (content: string) => string;
   onSetCopiedId: (id: string | null) => void;
@@ -110,6 +119,7 @@ export default function MessageTimeline({
   loadedResumes,
   searchResults,
   resumeEditDiffs,
+  diagnosisToolEvents,
   copiedId,
   stripResumeEditMarkdown,
   onSetCopiedId,
@@ -126,6 +136,9 @@ export default function MessageTimeline({
         const editDiffForMessage = resumeEditDiffs.find((r) => r.messageId === msg.id);
         const effectiveDiff = sanitizeResumeDiffData(editDiffForMessage?.data);
         const searchForMessage = searchResults.find((r) => r.messageId === msg.id);
+        const diagnosisForMessage = diagnosisToolEvents
+          .filter((item) => item.messageId === msg.id)
+          .map((item) => item.data);
         const rawThought = (msg.thought || "").trim();
         const thoughtContent = isPlaceholderThought(rawThought) ? "" : rawThought;
         const { cleanedThought, embeddedResponse } =
@@ -183,6 +196,10 @@ export default function MessageTimeline({
                 isLatest={false}
                 defaultExpanded={false}
               />
+            )}
+
+            {diagnosisForMessage.length > 0 && (
+              <DiagnosisToolCards items={diagnosisForMessage} className="mb-4" />
             )}
 
             {searchForMessage && (

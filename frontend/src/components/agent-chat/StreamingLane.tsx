@@ -3,6 +3,9 @@ import ResumeEditDiffCard from "@/components/chat/ResumeEditDiffCard";
 import SearchCard from "@/components/chat/SearchCard";
 import SearchSummary from "@/components/chat/SearchSummary";
 import StreamingOutputPanel from "@/components/chat/StreamingOutputPanel";
+import DiagnosisToolCards, {
+  type DiagnosisToolStructuredData,
+} from "@/components/agent-chat/DiagnosisToolCards";
 import { formatResumeDiffPreview } from "@/utils/resumePatch";
 
 interface SearchData {
@@ -29,6 +32,7 @@ interface StreamingLaneProps {
     };
   };
   suggestions?: Array<{ text: string; msg: string }>;
+  currentDiagnosisTools?: DiagnosisToolStructuredData[];
   onSuggestionClick?: (msg: string) => void;
   stripResumeEditMarkdown: (content: string) => string;
   onOpenSearchPanel: (data: SearchData) => void;
@@ -94,6 +98,7 @@ export default function StreamingLane({
   currentSearch,
   currentEditDiff,
   suggestions,
+  currentDiagnosisTools,
   onSuggestionClick,
   stripResumeEditMarkdown,
   onOpenSearchPanel,
@@ -139,6 +144,9 @@ export default function StreamingLane({
         <ResumeEditDiffCard before={diff.before || ""} after={diff.after || ""} />
       )}
     >
+      {currentDiagnosisTools && currentDiagnosisTools.length > 0 && (
+        <DiagnosisToolCards items={currentDiagnosisTools} className="mb-3" />
+      )}
       {/* 建议按钮 */}
       {!isProcessing && suggestions && suggestions.length > 0 && (
         <div className="flex flex-wrap gap-2 mt-4 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
