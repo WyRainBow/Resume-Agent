@@ -675,6 +675,7 @@ class AgentStream:
                                             yield answer_event
 
                         step_result = await step_task
+
                     except asyncio.CancelledError:
                         logger.info("[AgentStream] step_task cancelled")
                         stop_reason = self._state_machine.state_info.data.get("reason", "manual")
@@ -693,6 +694,18 @@ class AgentStream:
                         if hasattr(self.agent, "clear_stream_content_callback"):
                             self.agent.clear_stream_content_callback()
                         self._stream_cancel_event = None
+
+                    # 🚨 step_task 可能在 while 循环内就完成了（队列为空），在退出循环后检查 pending
+                    if hasattr(self.agent, "_pending_immediate_stream") and self.agent._pending_immediate_stream:
+                        pending = self.agent._pending_immediate_stream
+                        self.agent._pending_immediate_stream = None
+                        pending_event = self._build_answer_event(
+                            content=pending.get("content", ""),
+                            is_complete=pending.get("is_complete", False),
+                            delta=pending.get("delta"),
+                        )
+                        if pending_event:
+                            yield pending_event
 
                     logger.info(f"🔍 [DEBUG] step() 返回: {step_result}, agent.state: {self.agent.state}, _answer_sent_in_loop: {self._answer_sent_in_loop}")
 
@@ -728,6 +741,14 @@ class AgentStream:
                                 # assistant memory only contains intermediate/tool messages.
                                 self._ensure_assistant_message(final_answer_content)
                                 step_state.last_stream_response = final_answer_content
+                                # 🚨 立即流式补发：_pending_immediate_stream 先发了 pre-thought，
+                                # 这里补发完整 final_answer（含真实诊断内容，is_complete=True）
+                                final_event = self._build_answer_event(
+                                    content=final_answer_content,
+                                    is_complete=True,
+                                )
+                                if final_event:
+                                    yield final_event
 
                     # 🔍 调试：检查状态变化
                     # 单一路径：循环内只发 delta，不发 complete。complete 只在循环结束后发一次。
