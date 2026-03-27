@@ -78,6 +78,7 @@ export interface Experience {
   date: string
   details: string  // HTML 格式
   visible?: boolean
+  companyNameFontSize?: number  // 单条经历公司名称字号（px），优先于全局设置
   companyLogo?: string  // 公司 Logo key，如 'bytedance'、'tencent'
   companyLogoSize?: number  // 单条经历 Logo 大小（px），优先于全局设置
 }

@@ -48,11 +48,7 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
 
     case 'experience': {
       if (experience.length === 0) return ''
-      const companyFontSize = resumeData.globalSettings?.companyNameFontSize
       const logoSize = resumeData.globalSettings?.companyLogoSize || 20
-      const styleParts: string[] = []
-      if (companyFontSize) styleParts.push(`font-size:${companyFontSize}px`)
-      const companyStyle = styleParts.length ? ` style="${styleParts.join(';')}"` : ''
       return `
         <section class="template-section">
           <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
@@ -60,6 +56,8 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
             ${experience.map(exp => {
               const logoUrl = exp.companyLogo ? getLogoUrl(exp.companyLogo) : null
               const expLogoSize = exp.companyLogoSize || logoSize
+              const expCompanyFontSize = exp.companyNameFontSize ?? resumeData.globalSettings?.companyNameFontSize
+              const companyStyle = expCompanyFontSize ? ` style="font-size:${expCompanyFontSize}px"` : ''
               const logoHtml = logoUrl
                 ? `<img src="${escapeHtml(logoUrl)}" alt="" style="height:${expLogoSize}px;max-width:${expLogoSize * 4}px;object-fit:contain;flex-shrink:0" />`
                 : ''

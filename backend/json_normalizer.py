@@ -362,6 +362,7 @@ class ResumeNormalizer:
                 """
                 for key, value in item.items():
                     key_lower = key.lower()
+                    key_compact = key_lower.replace('_', '').replace('-', '').replace(' ', '')
                     
                     # 保留 title/subtitle/date 字段（internships 格式）
                     if key_lower == 'title':
@@ -371,13 +372,13 @@ class ResumeNormalizer:
                     elif key_lower == 'date':
                         standardized_item['date'] = value
                     # 映射 company/position/duration（experience 格式）
-                    elif any(k in key_lower for k in ['公司', 'company', '单位']):
+                    elif key_compact in ['公司', 'company', '单位', '公司名称', 'companyname']:
                         standardized_item['company'] = value
-                    elif any(k in key_lower for k in ['职位', 'position', '岗位']):
+                    elif key_compact in ['职位', 'position', '岗位', 'jobtitle']:
                         standardized_item['position'] = value
-                    elif any(k in key_lower for k in ['时间', 'duration', 'period']):
+                    elif key_compact in ['时间', 'duration', 'period', '工作时间']:
                         standardized_item['duration'] = value
-                    elif any(k in key_lower for k in ['地点', 'location', '地址']):
+                    elif key_compact in ['地点', 'location', '地址']:
                         standardized_item['location'] = value
                     elif any(k in key_lower for k in ['成就', '职责', 'achievement', 'responsibility']):
                         if isinstance(value, list):

@@ -50,9 +50,15 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
                 date = ''
             date = escape_latex(date)
             
-            # 如果设置了自定义公司名称字号，用 \fontsize 包裹
-            if company and company_font_size and company_font_size != 15:
-                pt_size = round(company_font_size * 0.75, 1)
+            item_company_font_size = it.get('companyNameFontSize', company_font_size)
+            try:
+                item_company_font_size = float(item_company_font_size) if item_company_font_size is not None else None
+            except (TypeError, ValueError):
+                item_company_font_size = None
+
+            # 单条经历字号优先；未设置时回退全局字号
+            if company and item_company_font_size and item_company_font_size != 15:
+                pt_size = round(item_company_font_size * 0.75, 1)
                 baseline = round(pt_size * 1.2, 1)
                 company = f"{{\\fontsize{{{pt_size}pt}}{{{baseline}pt}}\\selectfont {company}}}"
             
@@ -208,10 +214,16 @@ def generate_section_experience(resume_data: Dict[str, Any], section_titles: Dic
             position = escape_latex(e.get('position') or '')
             duration = escape_latex(e.get('duration') or e.get('date') or '')
             
-            # 如果设置了自定义公司名称字号，用 \fontsize 包裹
-            if company_font_size and company_font_size != 15:
+            item_company_font_size = e.get('companyNameFontSize', company_font_size)
+            try:
+                item_company_font_size = float(item_company_font_size) if item_company_font_size is not None else None
+            except (TypeError, ValueError):
+                item_company_font_size = None
+
+            # 单条经历字号优先；未设置时回退全局字号
+            if company and item_company_font_size and item_company_font_size != 15:
                 # LaTeX pt ≈ CSS px * 0.75，但这里直接用 pt 近似
-                pt_size = round(company_font_size * 0.75, 1)
+                pt_size = round(item_company_font_size * 0.75, 1)
                 baseline = round(pt_size * 1.2, 1)
                 company = f"{{\\fontsize{{{pt_size}pt}}{{{baseline}pt}}\\selectfont {company}}}"
             

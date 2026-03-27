@@ -24,6 +24,7 @@ export interface BackendResumeData {
     subtitle: string
     date: string
     highlights: string[]
+    companyNameFontSize?: number  // 单条经历公司名称字号（px）
     logo?: string  // 公司 Logo key
     logoSize?: number  // 单条经历 Logo 大小（px）
   }[]
@@ -104,6 +105,7 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
       subtitle: stripHtmlTags(e.position),
       date: e.date,
       highlights: [e.details],
+      ...(e.companyNameFontSize ? { companyNameFontSize: e.companyNameFontSize } : {}),
       ...(e.companyLogo ? { logo: e.companyLogo } : {}),
       ...(e.companyLogoSize ? { logoSize: e.companyLogoSize } : {}),
     })),

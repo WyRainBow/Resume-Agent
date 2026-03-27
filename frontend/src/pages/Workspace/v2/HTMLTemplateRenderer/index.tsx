@@ -65,10 +65,7 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
 
     case 'experience': {
       if (experience.length === 0) return null
-      const companyFontSize = resumeData.globalSettings?.companyNameFontSize
       const logoSize = resumeData.globalSettings?.companyLogoSize || 20
-      const companyStyle: React.CSSProperties = {}
-      if (companyFontSize) companyStyle.fontSize = `${companyFontSize}px`
       return (
         <section key="experience" className="template-section">
           <h2 className="section-title">{sectionTitle}</h2>
@@ -76,6 +73,9 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
             {experience.map((exp) => {
               const logoUrl = exp.companyLogo ? getLogoUrl(exp.companyLogo) : null
               const expLogoSize = exp.companyLogoSize || logoSize
+              const expCompanyFontSize = exp.companyNameFontSize ?? resumeData.globalSettings?.companyNameFontSize
+              const companyStyle: React.CSSProperties = {}
+              if (expCompanyFontSize) companyStyle.fontSize = `${expCompanyFontSize}px`
               return (
                 <div key={exp.id} className="item">
                   <div className="item-header">

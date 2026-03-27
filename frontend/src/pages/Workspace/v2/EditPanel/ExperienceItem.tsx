@@ -436,8 +436,8 @@ const ExperienceEditor = ({
                 <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-800">
                   <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">字号</span>
                   <FontSizePicker
-                    value={globalSettings?.companyNameFontSize || 15}
-                    onChange={(size) => updateGlobalSettings({ companyNameFontSize: size })}
+                    value={experience.companyNameFontSize ?? globalSettings?.companyNameFontSize ?? 15}
+                    onChange={(size) => handleChange('companyNameFontSize', size)}
                     options={COMPANY_FONT_SIZE_OPTIONS.map(opt => opt.value)}
                   />
                 </div>
