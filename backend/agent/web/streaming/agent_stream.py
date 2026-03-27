@@ -534,9 +534,15 @@ class AgentStream:
             async with self.agent.state_context(SchemaAgentState.RUNNING):
                 while self.agent.current_step < max_steps and self.agent.state != SchemaAgentState.FINISHED:
                     if self._state_machine.stop_requested:
-                        await self._state_machine.transition_to(AgentState.STOPPED)
+                        # 🚨 优化停止状态反馈
+                        stop_reason = self._state_machine.state_info.data.get("reason", "manual")
+                        message = "Execution stopped by user"
+                        if stop_reason == "session_switch":
+                            message = "Execution stopped due to session switch"
+
+                        await self._state_machine.transition_to(AgentState.STOPPED, message=message)
                         yield SystemEvent(
-                            message="Execution stopped by user",
+                            message=message,
                             level="info",
                             session_id=self._session_id,
                         )
@@ -578,6 +584,12 @@ class AgentStream:
                     try:
                         while not step_task.done() or not stream_queue.empty():
                             if self._state_machine.stop_requested:
+                                # 🚨 处理真流式执行中的停止
+                                stop_reason = self._state_machine.state_info.data.get("reason", "manual")
+                                message = "Execution stopped by user"
+                                if stop_reason == "session_switch":
+                                    message = "Execution stopped due to session switch"
+
                                 if self._stream_cancel_event:
                                     self._stream_cancel_event.set()
                                 if not step_task.done():
@@ -652,9 +664,14 @@ class AgentStream:
                         step_result = await step_task
                     except asyncio.CancelledError:
                         logger.info("[AgentStream] step_task cancelled")
-                        await self._state_machine.transition_to(AgentState.STOPPED)
+                        stop_reason = self._state_machine.state_info.data.get("reason", "manual")
+                        message = "Execution stopped by user"
+                        if stop_reason == "session_switch":
+                            message = "Execution stopped due to session switch"
+
+                        await self._state_machine.transition_to(AgentState.STOPPED, message=message)
                         yield SystemEvent(
-                            message="Execution stopped by user",
+                            message=message,
                             level="info",
                             session_id=self._session_id,
                         )
@@ -909,7 +926,7 @@ class AgentStream:
                                 continue
                             self._sent_tool_results.add(result_key)
                             structured_data = None
-                            if tool_name in {"web_search", "show_resume", "cv_editor_agent", "cv_reader_agent", "generate_resume"} and hasattr(
+                            if tool_name in {"web_search", "show_resume", "cv_editor_agent", "cv_reader_agent", "generate_resume", "get_resume_detail", "resume-diagnosis"} and hasattr(
                                 self.agent, "get_structured_tool_result"
                             ):
                                 structured_data = self.agent.get_structured_tool_result(
@@ -1217,17 +1234,18 @@ class StreamProcessor:
         """
         return self._active_streams.get(session_id)
 
-    async def stop_stream(self, session_id: str) -> bool:
+    async def stop_stream(self, session_id: str, reason: str = "manual") -> bool:
         """Request a stream to stop.
 
         Args:
             session_id: The session ID whose stream to stop
+            reason: Reason for stopping (e.g., "manual", "session_switch")
 
         Returns:
             True if stream was found and stop requested
         """
         stream = self.get_stream(session_id)
         if stream:
-            stream._state_machine.request_stop()
+            stream._state_machine.request_stop(reason=reason)
             return True
         return False

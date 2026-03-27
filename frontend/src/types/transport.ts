@@ -12,6 +12,7 @@ export type SSEEventType =
   | 'answer'
   | 'tool_call'
   | 'tool_result'
+  | 'suggestions'
   | 'agent_start'
   | 'agent_end'
   | 'agent_error'
@@ -43,6 +44,10 @@ export interface SSEEventData {
   args?: Record<string, any>;
   result?: string;
   tool_call_id?: string;
+  structured_data?: Record<string, any>;
+
+  // Suggestion events
+  items?: Array<{ text: string; msg: string }>;
 
   // Agent events
   agent_name?: string;
@@ -134,4 +139,9 @@ export function normalizeSSEEvent(event: SSEMessage): NormalizedMessage {
 }
 
 
+    case 'suggestions':
+      return {
+        type: 'system',
+        data: data,
+      };
 

@@ -27,6 +27,24 @@ function extractEventText(event: AgentStreamEvent): string {
   );
 }
 
+function extractStreamErrorMessage(event: AgentStreamEvent): string {
+  const direct =
+    normalizeText(event.data?.content) ||
+    normalizeText(event.data?.error_details) ||
+    normalizeText(event.data?.error_message);
+  if (direct) return direct;
+
+  // Some SSE wrappers nest payload under data.data
+  const nested =
+    normalizeText(event.data?.data?.content) ||
+    normalizeText(event.data?.data?.error_details) ||
+    normalizeText(event.data?.data?.error_message) ||
+    normalizeText(event.data?.message);
+  if (nested) return nested;
+
+  return "流式请求失败，请稍后重试。";
+}
+
 function normalizeThoughtChunk(raw: string): string {
   return raw
     .replace(/^\s*thought\s*[:：]\s*/i, "")
@@ -290,11 +308,14 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
               }
 
               if (type === "error" || type === "agent_error") {
-                const errText =
-                  normalizeText(event.data?.content) ||
-                  normalizeText(event.data?.error_details) ||
-                  "流式请求失败，请稍后重试。";
-                setLastError(errText);
+                const message = extractStreamErrorMessage(event);
+                if (message === "Execution stopped due to session switch") {
+                  setLastError("任务被中断（来源：会话切换/新请求触发）");
+                } else if (message === "Execution stopped by user") {
+                  setLastError("任务被中断（来源：手动停止）");
+                } else {
+                  setLastError(message);
+                }
               }
             },
             onError: (error) => {
