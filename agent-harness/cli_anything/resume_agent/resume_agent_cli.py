@@ -18,6 +18,20 @@ from cli_anything.resume_agent.utils.runner import run_command
 
 ROOT = Path("/Users/wy770/Resume-Agent")
 RUN_DIR = ROOT / "agent-harness" / "run"
+SCRIPT_DIR = ROOT / "scripts"
+STATE_DIR = ROOT / ".browser-fast"
+
+
+def _browser_start_script() -> str:
+    return str(SCRIPT_DIR / "browser-fast-start.sh")
+
+
+def _browser_stop_script() -> str:
+    return str(SCRIPT_DIR / "browser-fast-stop.sh")
+
+
+def _browser_run_script() -> str:
+    return str(SCRIPT_DIR / "browser-fast.sh")
 
 
 def _backend_spec() -> ProcessSpec:
@@ -59,6 +73,37 @@ def _emit(payload: dict) -> None:
     details = payload.get("details") or {}
     for key, value in details.items():
         click.echo(f"- {key}: {value}")
+
+
+def _browser_status_details() -> dict:
+    pid_file = STATE_DIR / "domshell.pid"
+    token_file = STATE_DIR / "domshell.env"
+    log_file = STATE_DIR / "domshell.log"
+    pid = None
+    running = False
+    if pid_file.exists():
+        raw = pid_file.read_text(encoding="utf-8").strip()
+        pid = int(raw) if raw else None
+        if pid is not None:
+            try:
+                import os
+
+                os.kill(pid, 0)
+                running = True
+            except ProcessLookupError:
+                running = False
+            except PermissionError:
+                running = True
+
+    return {
+        "domshell_running": running,
+        "pid": pid,
+        "pid_file": str(pid_file),
+        "token_file": str(token_file),
+        "token_ready": token_file.exists(),
+        "log_file": str(log_file),
+        "log_ready": log_file.exists(),
+    }
 
 
 @click.group(invoke_without_command=True)
@@ -206,6 +251,72 @@ def service_status() -> None:
     _emit({"ok": True, "message": "Service status", "details": payload})
 
 
+@main.command("browser-start")
+@click.option("--dry-run", is_flag=True, help="Show the command without executing")
+def browser_start(dry_run: bool) -> None:
+    cmd = ["bash", _browser_start_script()]
+    if dry_run:
+        _emit({"ok": True, "message": "Browser start command", "details": {"cmd": " ".join(cmd)}})
+        return
+    result = run_command(cmd, cwd=str(ROOT))
+    _emit(
+        {
+            "ok": result.returncode == 0,
+            "message": "Browser start",
+            "details": {
+                "returncode": result.returncode,
+                "stdout": result.stdout.strip(),
+                "stderr": result.stderr.strip(),
+                **_browser_status_details(),
+            },
+        }
+    )
+
+
+@main.command("browser-stop")
+def browser_stop() -> None:
+    result = run_command(["bash", _browser_stop_script()], cwd=str(ROOT))
+    _emit(
+        {
+            "ok": result.returncode == 0,
+            "message": "Browser stop",
+            "details": {
+                "returncode": result.returncode,
+                "stdout": result.stdout.strip(),
+                "stderr": result.stderr.strip(),
+                **_browser_status_details(),
+            },
+        }
+    )
+
+
+@main.command("browser-status")
+def browser_status() -> None:
+    _emit({"ok": True, "message": "Browser status", "details": _browser_status_details()})
+
+
+@main.command("browser-run", context_settings={"ignore_unknown_options": True})
+@click.option("--dry-run", is_flag=True, help="Show the command without executing")
+@click.argument("browser_args", nargs=-1, type=click.UNPROCESSED)
+def browser_run(dry_run: bool, browser_args: tuple[str, ...]) -> None:
+    cmd = ["bash", _browser_run_script(), *browser_args]
+    if dry_run:
+        _emit({"ok": True, "message": "Browser run command", "details": {"cmd": " ".join(cmd)}})
+        return
+    result = run_command(cmd, cwd=str(ROOT))
+    _emit(
+        {
+            "ok": result.returncode == 0,
+            "message": "Browser run",
+            "details": {
+                "returncode": result.returncode,
+                "stdout": result.stdout.strip(),
+                "stderr": result.stderr.strip(),
+            },
+        }
+    )
+
+
 def repl() -> None:
     click.echo("Resume-Agent REPL. Type 'help' for commands, 'exit' to quit.")
     commands = {
@@ -219,6 +330,9 @@ def repl() -> None:
         "frontend-start": frontend_start,
         "frontend-stop": frontend_stop,
         "service-status": service_status,
+        "browser-start": browser_start,
+        "browser-stop": browser_stop,
+        "browser-status": browser_status,
     }
     while True:
         raw = click.prompt("resume-agent>", prompt_suffix=" ", default="", show_default=False)
@@ -228,7 +342,7 @@ def repl() -> None:
         if line in {"exit", "quit"}:
             break
         if line == "help":
-            click.echo("Available commands: status, service-status, run-backend [--dry-run], run-frontend [--dry-run], backend-start [--dry-run], backend-stop, frontend-start [--dry-run], frontend-stop, build-frontend, backend-test")
+            click.echo("Available commands: status, service-status, browser-status, run-backend [--dry-run], run-frontend [--dry-run], backend-start [--dry-run], backend-stop, frontend-start [--dry-run], frontend-stop, browser-start [--dry-run], browser-stop, build-frontend, backend-test")
             continue
 
         parts = shlex.split(line)
@@ -238,7 +352,7 @@ def repl() -> None:
             click.echo(f"Unknown command: {name}")
             continue
 
-        if name in {"run-backend", "run-frontend", "backend-start", "frontend-start"}:
+        if name in {"run-backend", "run-frontend", "backend-start", "frontend-start", "browser-start"}:
             dry_run = "--dry-run" in parts[1:]
             cmd_fn.callback(dry_run=dry_run)
         else:

@@ -30,3 +30,18 @@ def test_service_status_json_reports_services() -> None:
     assert result.exit_code == 0
     assert '"backend"' in result.output
     assert '"frontend"' in result.output
+
+
+def test_browser_start_dry_run_includes_script() -> None:
+    runner = CliRunner()
+    result = runner.invoke(main, ["browser-start", "--dry-run"])
+    assert result.exit_code == 0
+    assert "scripts/browser-fast-start.sh" in result.output
+
+
+def test_browser_status_json_reports_browser_state() -> None:
+    runner = CliRunner()
+    result = runner.invoke(main, ["--json", "browser-status"])
+    assert result.exit_code == 0
+    assert '"domshell_running"' in result.output
+    assert '"token_file"' in result.output
