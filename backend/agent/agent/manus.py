@@ -1259,16 +1259,28 @@ class Manus(ToolCallAgent):
                 self.state = AgentState.FINISHED
                 return False
 
-        # 🎯 GREETING：使用 LLM 生成温暖自然的问候回复
+        # 🎯 GREETING：直接调用 LLM，不传工具（减少 payload，速度更快）
         if intent == Intent.GREETING:
-            logger.info("👋 GREETING: using combined system + greeting prompt")
-            # 组合策略：
-            # 1) 保留 SYSTEM_PROMPT（含 <greeting_exception> 全局风格基线）
-            # 2) 叠加 GREETING_FAST_PATH_PROMPT（格式/长度/不用工具等强约束）
+            logger.info("👋 GREETING: fast path without tools")
             base_system_prompt, _ = await self._generate_dynamic_prompts(user_input, intent)
-            self.system_prompt = f"{base_system_prompt}\n\n{GREETING_FAST_PATH_PROMPT}"
+            system_content = f"{base_system_prompt}\n\n{GREETING_FAST_PATH_PROMPT}"
+            try:
+                raw = await self.llm.ask(
+                    messages=[{"role": "user", "content": user_input}],
+                    system_msgs=[{"role": "system", "content": system_content}],
+                    stream=False,
+                    temperature=0.4,
+                )
+                if raw and raw.strip():
+                    self.memory.add_message(Message.assistant_message(raw.strip()))
+                    from backend.agent.schema import AgentState
+                    self.state = AgentState.FINISHED
+                    return False
+            except Exception as _greeting_err:
+                logger.warning(f"👋 GREETING fast path failed, falling back: {_greeting_err}")
+            # 回退到父类 think()（带工具）
+            self.system_prompt = system_content
             self.next_step_prompt = ""
-            # 调用父类 think()，让 LLM 生成问候回复（会自动处理终止）
             return await super().think()
 
         # 🎯 LOAD_RESUME 意图：直接调用工具

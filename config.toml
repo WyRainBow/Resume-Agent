@@ -1,7 +1,7 @@
 # Agent LLM 配置 - 使用 DeepSeek
 # API key 从环境变量读取，请在 .env 文件中配置
 [llm]
-model = "deepseek-v3.2"
+model = "deepseek-v3"
 base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 api_key = "${DASHSCOPE_API_KEY}"
 max_tokens = 8192
@@ -10,7 +10,7 @@ api_type = "openai"
 
 # Vision model (如果需要)
 [llm.vision]
-model = "deepseek-v3.2"
+model = "deepseek-v3"
 base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 api_key = "${DASHSCOPE_API_KEY}"
 max_tokens = 8192

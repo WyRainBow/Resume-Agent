@@ -1,5 +1,7 @@
 import json
+import os
 import shlex
+import socket
 from pathlib import Path
 
 import click
@@ -85,34 +87,48 @@ def _payload(command: str, resource: str, ok: bool, message: str, details: dict)
     }
 
 
+def _pid_running(pid: int | None) -> bool:
+    if pid is None:
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def _port_in_use(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.2)
+        return sock.connect_ex(("127.0.0.1", port)) == 0
+
+
 def _browser_status_details() -> dict:
     pid_file = STATE_DIR / "domshell.pid"
     token_file = STATE_DIR / "domshell.env"
     log_file = STATE_DIR / "domshell.log"
     pid = None
-    running = False
     if pid_file.exists():
         raw = pid_file.read_text(encoding="utf-8").strip()
         pid = int(raw) if raw else None
-        if pid is not None:
-            try:
-                import os
-
-                os.kill(pid, 0)
-                running = True
-            except ProcessLookupError:
-                running = False
-            except PermissionError:
-                running = True
+    pid_running = _pid_running(pid)
+    ws_port_ready = _port_in_use(9876)
+    http_port_ready = _port_in_use(3001)
+    running = pid_running or ws_port_ready or http_port_ready
 
     return {
         "domshell_running": running,
+        "pid_running": pid_running,
         "pid": pid,
         "pid_file": str(pid_file),
         "token_file": str(token_file),
         "token_ready": token_file.exists(),
         "log_file": str(log_file),
         "log_ready": log_file.exists(),
+        "ws_port_ready": ws_port_ready,
+        "http_port_ready": http_port_ready,
     }
 
 

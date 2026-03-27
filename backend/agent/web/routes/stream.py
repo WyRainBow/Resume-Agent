@@ -44,7 +44,7 @@ conversation_manager = ConversationManager(storage=storage)
 _active_sessions: dict[str, dict] = {}
 
 # Heartbeat configuration
-HEARTBEAT_INTERVAL = 30  # seconds
+HEARTBEAT_INTERVAL = 55  # seconds — 心跳间隔，前端超时为 60s，需留 5s 余量
 HEARTBEAT_V2_ENABLED = (
     os.getenv("AGENT_STREAM_HEARTBEAT_V2", "true").strip().lower() != "false"
 )
@@ -276,42 +276,58 @@ async def _stream_event_generator(
         chat_history.add_message(Message(role=Role.USER, content=prompt), persist=False)
 
         # Execute agent and stream events
+        # 使用独立后台任务 + 队列消费，让心跳超时只 cancel queue.get()，
+        # 不会意外取消 LLM 调用，彻底解决"30秒后流被强制终止"问题。
         if HEARTBEAT_V2_ENABLED:
-            stream_iter = stream_processor.start_stream(
-                session_id=conversation_id,
-                agent=agent,
-                state_machine=state_machine,
-                event_sender=lambda d: None,  # Not used in SSE mode
-                user_message=prompt,
-                chat_history_manager=chat_history,
-            )
+            _SENTINEL = object()
+            event_queue: asyncio.Queue = asyncio.Queue()
 
-            while True:
+            async def _producer():
                 try:
-                    event = await asyncio.wait_for(
-                        stream_iter.__anext__(),
-                        timeout=HEARTBEAT_INTERVAL,
+                    async for ev in stream_processor.start_stream(
+                        session_id=conversation_id,
+                        agent=agent,
+                        state_machine=state_machine,
+                        event_sender=lambda d: None,
+                        user_message=prompt,
+                        chat_history_manager=chat_history,
+                    ):
+                        await event_queue.put(ev)
+                finally:
+                    await event_queue.put(_SENTINEL)
+
+            producer_task = asyncio.create_task(_producer())
+
+            try:
+                while True:
+                    try:
+                        item = await asyncio.wait_for(
+                            event_queue.get(), timeout=HEARTBEAT_INTERVAL
+                        )
+                    except asyncio.TimeoutError:
+                        yield HeartbeatEvent().to_sse_format()
+                        last_emit_time = time.time()
+                        continue
+
+                    if item is _SENTINEL:
+                        break
+
+                    event_dict = item.to_dict()
+                    sse_event = SSEEvent(
+                        type=event_dict.get("type", "unknown"), data=event_dict
                     )
-                except asyncio.TimeoutError:
-                    heartbeat = HeartbeatEvent()
-                    yield heartbeat.to_sse_format()
-                    last_emit_time = time.time()
-                    continue
-                except StopAsyncIteration:
-                    break
-
-                # Convert StreamEvent to SSE format
-                event_dict = event.to_dict()
-                sse_event = SSEEvent(
-                    type=event_dict.get("type", "unknown"), data=event_dict
-                )
-                yield sse_event.to_sse_format()
-                now = time.time()
-                last_emit_time = now
-                last_agent_event_time = now
-
-                # 真流式场景下不再固定 sleep，降低首字与逐段延迟
-                await asyncio.sleep(0)
+                    yield sse_event.to_sse_format()
+                    now = time.time()
+                    last_emit_time = now
+                    last_agent_event_time = now
+                    await asyncio.sleep(0)
+            finally:
+                if not producer_task.done():
+                    producer_task.cancel()
+                    try:
+                        await producer_task
+                    except (asyncio.CancelledError, Exception):
+                        pass
         else:
             async for event in stream_processor.start_stream(
                 session_id=conversation_id,

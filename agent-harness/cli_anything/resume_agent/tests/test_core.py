@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from click.testing import CliRunner
+
+import cli_anything.resume_agent.resume_agent_cli as cli_mod
 
 from cli_anything.resume_agent.resume_agent_cli import main
 
@@ -65,3 +69,22 @@ def test_browser_session_status_dry_run_targets_session_status() -> None:
     result = runner.invoke(main, ["browser-session-status", "--dry-run"])
     assert result.exit_code == 0
     assert "session status" in result.output
+
+
+def test_browser_status_prefers_open_ports_when_pid_is_stale(monkeypatch, tmp_path: Path) -> None:
+    state_dir = tmp_path / "browser-state"
+    state_dir.mkdir()
+    (state_dir / "domshell.pid").write_text("12345", encoding="utf-8")
+    (state_dir / "domshell.env").write_text("export DOMSHELL_TOKEN=test", encoding="utf-8")
+    (state_dir / "domshell.log").write_text("ready", encoding="utf-8")
+
+    monkeypatch.setattr(cli_mod, "STATE_DIR", state_dir)
+    monkeypatch.setattr(cli_mod, "_pid_running", lambda pid: False)
+    monkeypatch.setattr(cli_mod, "_port_in_use", lambda port: port == 9876)
+
+    details = cli_mod._browser_status_details()
+
+    assert details["pid"] == 12345
+    assert details["domshell_running"] is True
+    assert details["ws_port_ready"] is True
+    assert details["http_port_ready"] is False

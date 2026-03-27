@@ -221,7 +221,7 @@ export default function WorkspaceLayout({
 
   const handleCreateSession = () => {
     if (!canUseAgent) return;
-    navigate("/agent/new");
+    navigate("/agent/new", { state: { forceNew: Date.now() } });
   };
 
   const deleteSession = async (sessionId: string) => {

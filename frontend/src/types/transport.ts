@@ -124,6 +124,12 @@ export function normalizeSSEEvent(event: SSEMessage): NormalizedMessage {
         content: data.error_message || data.content,
       };
 
+    case 'suggestions':
+      return {
+        type: 'system',
+        data: data,
+      };
+
     case 'system':
       return {
         type: 'system',
@@ -137,11 +143,4 @@ export function normalizeSSEEvent(event: SSEMessage): NormalizedMessage {
       };
   }
 }
-
-
-    case 'suggestions':
-      return {
-        type: 'system',
-        data: data,
-      };
 
