@@ -4,26 +4,6 @@
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## 项目代码统计
-
-<!-- 统计由 Action 更新到 gh-pages 分支，main 不受影响 -->
-<!-- 代码行数趋势图 - 每日自动更新 -->
-![Code History](https://raw.githubusercontent.com/WyRainBow/Resume-Agent/gh-pages/stats/chart.svg)
-
-<!-- 每日代码变化图 -->
-![Daily Changes](https://raw.githubusercontent.com/WyRainBow/Resume-Agent/gh-pages/stats/daily.svg)
-
-## 贡献者统计
-
-![Contributors](https://raw.githubusercontent.com/WyRainBow/Resume-Agent/gh-pages/stats/contributors.svg)
-
-## Star 趋势
-
-![Star History Monthly](https://raw.githubusercontent.com/WyRainBow/Resume-Agent/gh-pages/stats/star-history-monthly.svg)
-
-<!-- 备用链接：按日期显示的 Star 趋势 -->
-<!-- [![Star History Chart](https://api.star-history.com/svg?repos=WyRainBow/Resume-Agent&type=Date)](https://star-history.com/#WyRainBow/Resume-Agent&Date) -->
-
 ## ✨ 核心功能
 
 <!-- 测试：feature 分支 → dev 合并流程 -->
@@ -31,16 +11,13 @@
 ## 前端页面
 
 ### 首页
-![首页](https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/首页.png)
+![首页](https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/readme/2026-03-27-home.png)
 
 ### Dashboard 简历管理
-![我的简历](https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/我的简历.png)
+![我的简历](https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/readme/2026-03-27-dashboard.png)
 
 ### 工作区
-![工作区](https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/工作区.png)
-
-### AI 对话生成简历
-![AI对话生成简历](https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/AI对话生成简历.png)
+![工作区](https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/readme/2026-03-27-workspace.png)
 
 ###  AI 智能生成
 - 支持一句话描述快速生成完整简历
