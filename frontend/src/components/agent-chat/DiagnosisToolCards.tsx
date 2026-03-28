@@ -117,6 +117,12 @@ function ToolBody({ item }: { item: DiagnosisToolStructuredData }) {
                     <span><span className="font-medium text-amber-700">建议优化:</span> {issue}</span>
                   </div>
                 ))}
+                {details.issues.optional && details.issues.optional.length > 0 && details.issues.optional.map((issue, idx) => (
+                  <div key={`optional-${idx}`} className="flex items-start gap-2 text-xs text-slate-600 bg-slate-50/40 rounded px-2 py-1.5 border border-slate-200/50">
+                    <span className="mt-0.5 h-1.5 w-1.5 rounded-full bg-slate-300 shrink-0" />
+                    <span><span className="font-medium text-slate-500">可选优化:</span> {issue}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}

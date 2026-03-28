@@ -1141,6 +1141,55 @@ class Manus(ToolCallAgent):
                     resume_data_snapshot = ResumeDataStore.get_data(self.session_id) or {}
                     resume_meta = self._extract_resume_meta(resume_data_snapshot)
 
+                    # ── 两阶段确认：首次触发时先询问目标岗位 ──
+                    user_text = (user_input or "").strip()
+                    _diagnosis_keywords = ["先做通用", "通用诊断", "目标岗位", "JD", "jd", "职位描述", "定向"]
+                    _has_diagnosis_context = any(kw in user_text for kw in _diagnosis_keywords)
+
+                    if not _has_diagnosis_context:
+                        # Phase 1: 展示简历已读取，询问诊断方向
+                        detail_tool_call = ToolCall(
+                            id=f"call_get_resume_detail_{int(time.time() * 1000)}",
+                            function={"name": "get_resume_detail", "arguments": "{}"},
+                        )
+                        self._tool_structured_results[detail_tool_call.id] = {
+                            "type": "resume_detail",
+                            "status": "success",
+                            "tool": "get_resume_detail",
+                            "resume": resume_meta,
+                        }
+                        self.memory.add_message(
+                            Message.from_tool_calls(
+                                content=f"已读取简历《{resume_meta.get('name', '当前简历')}》，准备进行诊断...",
+                                tool_calls=[detail_tool_call],
+                            )
+                        )
+                        self.memory.add_message(
+                            Message.tool_message(
+                                content="获取简历详情执行成功",
+                                name="get_resume_detail",
+                                tool_call_id=detail_tool_call.id,
+                            )
+                        )
+
+                        ask_message = (
+                            f"已成功读取你的简历《{resume_meta.get('name', '当前简历')}》，在开始诊断前，我想了解一下你的目标：\n\n"
+                            "%%SUGGESTIONS%%"
+                            '[{"text":"告诉我目标岗位名称","msg":"我的目标岗位是后端开发工程师，请基于这个方向做诊断"},'
+                            '{"text":"发送目标职位的 JD","msg":"我有一份目标职位的 JD，请根据 JD 做定向匹配诊断"},'
+                            '{"text":"先做通用简历诊断","msg":"先做通用简历诊断吧，暂不指定岗位"}'
+                            ']%%END%%'
+                        )
+                        self.memory.add_message(Message.assistant_message(ask_message))
+                        self.tool_calls = [detail_tool_call]
+                        from backend.agent.schema import AgentState
+                        self.state = AgentState.FINISHED
+                        logger.info("✅ ANALYZE_RESUME Phase 1: asked for target position")
+                        return False
+
+                    # Phase 2: 用户已选择诊断方向，执行完整诊断
+                    logger.info(f"✅ ANALYZE_RESUME Phase 2: proceeding with diagnosis (context: {user_text[:50]})")
+
                     # 1. 并行委托分析器（获取结构化评分/问题）
                     analysis_results = await self._parallel_delegate_analyzers(analyzers or [])
                     diagnosis_payload = self._build_resume_diagnosis_payload(
@@ -1180,8 +1229,17 @@ class Manus(ToolCallAgent):
 
                     diagnosis_prompt = diagnosis_payload["response"]  # 结构化报告文本（作为参考）
                     qwq_system = (
-                        f"你是一位资深 HR，正在从招聘者视角对简历《{resume_meta['name']}》进行诊断分析。\n"
-                        "请逐步思考，然后输出一份结构化的简历诊断报告，包含：\n"
+                        f"你是一位资深 HR，正在从招聘者视角对简历《{resume_meta['name']}》进行诊断分析。\n\n"
+                        "## 思考阶段要求\n"
+                        "请像 HR 逐行审阅简历一样，按以下检查清单逐项扫描，在思考过程中标注每项是否通过：\n"
+                        "1. 基本信息：姓名、联系方式、简历标题是否完整规范\n"
+                        "2. 教育经历：学校、专业、时间、GPA/排名是否完整\n"
+                        "3. 工作/实习经历：段数是否合理（2-4段），描述是否有量化成果，是否用 STAR 法则\n"
+                        "4. 技能标签：是否有技能分类，是否有熟练度标注\n"
+                        "5. 项目经历：是否有背景、角色、成果的完整描述\n"
+                        "6. 整体排版：是否有空模块、重复内容、格式不一致\n\n"
+                        "## 输出阶段要求\n"
+                        "输出一份结构化的简历诊断报告，包含：\n"
                         "- 初筛通过概率\n- 三维评分卡（内容质量/竞争力/岗位匹配度）\n"
                         "- 问题清单（必须修改/建议修改/可选优化）\n- Top 3 行动建议\n- 下一步引导\n"
                         "输出语言：中文。直接输出报告，不要说'好的'或重复用户的话。"
