@@ -765,6 +765,9 @@ class AgentStream:
                             final_msg = f"Thought: {full_thought}\nResponse: {full_content}"
                             self._ensure_assistant_message(final_msg)
                             step_state.stream_emitted = True
+                            step_state.last_stream_thought = full_thought
+                            step_state.last_stream_response = full_content
+                            step_state.last_stream_text = final_msg
                             self._final_answer_sent = True
 
                         else:

@@ -87,8 +87,6 @@ class Manus(ToolCallAgent):
     _shared_state: AgentSharedState = PrivateAttr(default=None)
     _skills_cache: Dict[str, str] = PrivateAttr(default_factory=dict)
     _pending_immediate_stream: Optional[Dict[str, Any]] = PrivateAttr(default=None)  # 立即流式推送的消息
-    _thinking_stream_queue: Optional[Any] = PrivateAttr(default=None)  # thinking token 队列
-    _content_stream_queue: Optional[Any] = PrivateAttr(default=None)   # content token 队列
 
     @model_validator(mode="after")
     def initialize_helper(self) -> "Manus":
@@ -1179,8 +1177,6 @@ class Manus(ToolCallAgent):
                     import asyncio as _asyncio
                     thinking_q: _asyncio.Queue = _asyncio.Queue()
                     content_q: _asyncio.Queue = _asyncio.Queue()
-                    self._thinking_stream_queue = thinking_q
-                    self._content_stream_queue = content_q
 
                     diagnosis_prompt = diagnosis_payload["response"]  # 结构化报告文本（作为参考）
                     qwq_system = (
