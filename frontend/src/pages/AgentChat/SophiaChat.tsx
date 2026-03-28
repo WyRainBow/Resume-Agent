@@ -2733,16 +2733,22 @@ function SophiaChatContent() {
     pendingSaveRef.current = false;
 
     const newId = `conv-${Date.now()}`;
+    console.log("[AgentChat] Creating new session:", newId);
     setMessages([]);
     setCurrentSessionId(newId);
     setConversationId(newId);
     lastPersistedCountBySessionRef.current[newId] = 0;
     setSelectedResumeId(null);
     setAllowPdfAutoRender(false);
+    setLoadedResumes([]);
     setDiagnosisToolEvents([]);
+    setSearchResults([]);
+    setResumeEditDiffs([]);
+    setActiveSearchPanel(null);
+    setResumePdfPreview({});
     finalizeStream();
-    // Navigate to clean URL so the URL-watching effect doesn't reload the old session.
-    // Set flag so the URL effect skips calling createNewSession again.
+
+    // Navigate to clean URL
     isCreatingNewSessionRef.current = true;
     navigate('/agent/new', { replace: true });
 
@@ -2762,6 +2768,16 @@ function SophiaChatContent() {
     void createNewSession();
     setIsSidebarOpen(false);
   }, [createNewSession]);
+
+  // 监听 forceNew state（侧边栏"+"在已处于 /agent/new 时触发）
+  const prevForceNewRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    const forceNew = (location.state as { forceNew?: number } | null)?.forceNew;
+    if (forceNew && forceNew !== prevForceNewRef.current) {
+      prevForceNewRef.current = forceNew;
+      void createNewSession();
+    }
+  }, [location.state, createNewSession]);
 
   // 监听 URL sessionId 变化并同步会话：
   // - 有 sessionId: 加载该历史会话
@@ -2783,11 +2799,11 @@ function SophiaChatContent() {
     }
 
     // 从历史会话URL切回 /agent/new（无 sessionId）时，主动创建空白新会话
-    // 但如果是 createNewSession 自己触发的导航，就跳过（避免双重调用）
-    if (previousRouteSessionId && !isLoadingSession) {
+    // 或者当 URL 没有 sessionId 但当前 session 却是一个已有的 session 时，也重置
+    if (!isLoadingSession) {
       if (isCreatingNewSessionRef.current) {
         isCreatingNewSessionRef.current = false;
-      } else {
+      } else if (previousRouteSessionId || (currentSessionId && !currentSessionId.startsWith('conv-'))) {
         void createNewSession();
       }
     }
@@ -3319,7 +3335,15 @@ function SophiaChatContent() {
                   </div>
                 )}
                 {resumeError && (
-                  <div className="text-sm text-red-500 mb-4">{resumeError}</div>
+                  <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
+                    <span className="text-sm text-red-600 flex-1">{resumeError}</span>
+                    <button
+                      onClick={() => navigator.clipboard.writeText(resumeError)}
+                      className="text-xs text-red-500 hover:text-red-700 underline shrink-0"
+                    >
+                      复制
+                    </button>
+                  </div>
                 )}
                 {isLoadingSession && (
                   <div className="text-xs text-gray-400 mb-4">

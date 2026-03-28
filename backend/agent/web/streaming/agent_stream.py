@@ -662,6 +662,7 @@ class AgentStream:
                                             yield answer_event
 
                         step_result = await step_task
+
                     except asyncio.CancelledError:
                         logger.info("[AgentStream] step_task cancelled")
                         stop_reason = self._state_machine.state_info.data.get("reason", "manual")
@@ -680,6 +681,107 @@ class AgentStream:
                         if hasattr(self.agent, "clear_stream_content_callback"):
                             self.agent.clear_stream_content_callback()
                         self._stream_cancel_event = None
+
+                    # 🚨 step_task 可能在 while 循环内就完成了（队列为空），在退出循环后检查 pending
+                    if hasattr(self.agent, "_pending_immediate_stream") and self.agent._pending_immediate_stream:
+                        pending = self.agent._pending_immediate_stream
+                        self.agent._pending_immediate_stream = None
+
+                        if pending.get("type") == "thinking_stream":
+                            # qwq-plus 真实 thinking 流 — 消费两个队列直到 sentinel
+                            thinking_q = pending["thinking_q"]
+                            content_q = pending["content_q"]
+                            sentinel = pending["sentinel"]
+                            fallback_thought = pending.get("fallback_thought", "")
+                            fallback_response = pending.get("fallback_response", "")
+                            qwq_task = pending.get("qwq_task")
+
+                            full_thought = ""
+                            full_content = ""
+                            thinking_done = False
+                            content_done = False
+
+                            import asyncio as _aio
+                            while not (thinking_done and content_done):
+                                # drain thinking
+                                if not thinking_done:
+                                    try:
+                                        piece = thinking_q.get_nowait()
+                                        if piece is sentinel:
+                                            thinking_done = True
+                                        else:
+                                            full_thought += piece
+                                            yield ThoughtEvent(
+                                                thought=full_thought,
+                                                session_id=self._session_id,
+                                            )
+                                    except Exception:
+                                        pass
+                                # drain content
+                                if not content_done:
+                                    try:
+                                        piece = content_q.get_nowait()
+                                        if piece is sentinel:
+                                            content_done = True
+                                        else:
+                                            full_content += piece
+                                            answer_event = self._build_answer_event(
+                                                content=full_content,
+                                                is_complete=False,
+                                                delta=piece,
+                                            )
+                                            if answer_event:
+                                                yield answer_event
+                                    except Exception:
+                                        pass
+                                if not thinking_done or not content_done:
+                                    await _aio.sleep(0.005)
+
+                            # 等待 qwq_task 完成
+                            if qwq_task and not qwq_task.done():
+                                try:
+                                    await _aio.wait_for(qwq_task, timeout=5)
+                                except Exception:
+                                    pass
+
+                            # 如果 qwq 没产生内容，fallback 用静态报告
+                            if not full_content.strip():
+                                full_thought = fallback_thought
+                                full_content = fallback_response
+                                yield ThoughtEvent(thought=full_thought, session_id=self._session_id)
+
+                            # 发送带 %%SUGGESTIONS%% 的最终完整答案
+                            clean_content, suggestion_items = self._extract_suggestions(full_content)
+                            final_event = self._build_answer_event(
+                                content=clean_content,
+                                is_complete=True,
+                            )
+                            if final_event:
+                                yield final_event
+                            if suggestion_items:
+                                yield SuggestionsEvent(items=suggestion_items, session_id=self._session_id)
+
+                            # 持久化到 memory
+                            final_msg = f"Thought: {full_thought}\nResponse: {full_content}"
+                            self._ensure_assistant_message(final_msg)
+                            step_state.stream_emitted = True
+                            self._final_answer_sent = True
+
+                        else:
+                            # 旧式 answer pending
+                            pending_content = pending.get("content", "")
+                            pending_delta = pending.get("delta", "")
+                            pending_event = self._build_answer_event(
+                                content=pending_content,
+                                is_complete=pending.get("is_complete", False),
+                                delta=pending_delta,
+                            )
+                            if pending_event:
+                                yield pending_event
+                            step_state.stream_emitted = True
+                            thought_part, response_part = parse_thought_response(pending_content)
+                            step_state.last_stream_response = response_part or pending_delta or pending_content
+                            step_state.last_stream_text = pending_content
 
                     logger.info(f"🔍 [DEBUG] step() 返回: {step_result}, agent.state: {self.agent.state}, _answer_sent_in_loop: {self._answer_sent_in_loop}")
 
@@ -715,6 +817,14 @@ class AgentStream:
                                 # assistant memory only contains intermediate/tool messages.
                                 self._ensure_assistant_message(final_answer_content)
                                 step_state.last_stream_response = final_answer_content
+                                # 🚨 立即流式补发：_pending_immediate_stream 先发了 pre-thought，
+                                # 这里补发完整 final_answer（含真实诊断内容，is_complete=True）
+                                final_event = self._build_answer_event(
+                                    content=final_answer_content,
+                                    is_complete=True,
+                                )
+                                if final_event:
+                                    yield final_event
 
                     # 🔍 调试：检查状态变化
                     # 单一路径：循环内只发 delta，不发 complete。complete 只在循环结束后发一次。

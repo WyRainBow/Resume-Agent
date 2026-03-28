@@ -86,6 +86,9 @@ class Manus(ToolCallAgent):
     _pending_edit_tool_call: Optional[Dict[str, Any]] = PrivateAttr(default=None)
     _shared_state: AgentSharedState = PrivateAttr(default=None)
     _skills_cache: Dict[str, str] = PrivateAttr(default_factory=dict)
+    _pending_immediate_stream: Optional[Dict[str, Any]] = PrivateAttr(default=None)  # 立即流式推送的消息
+    _thinking_stream_queue: Optional[Any] = PrivateAttr(default=None)  # thinking token 队列
+    _content_stream_queue: Optional[Any] = PrivateAttr(default=None)   # content token 队列
 
     @model_validator(mode="after")
     def initialize_helper(self) -> "Manus":
@@ -361,7 +364,15 @@ class Manus(ToolCallAgent):
             f"这份简历基础不错，当前通用场景下初筛通过概率约 {screening_probability}% ，"
             f"内容质量 {quality_score}/100，竞争力 {competitiveness_score}/100。"
         )
-        thought = "我已基于当前已选简历完成通用诊断，并整理了可直接执行的优化优先级。"
+
+        # 丰富 Thought 过程，对齐 upcv 体验
+        thought_steps = [
+            f"1. **简历解析**：已成功读取简历《{resume_meta['name']}》，识别到其主要语言为 {resume_meta['language']}。",
+            f"2. **多维评估**：正在调用工作经历分析器和技能栈评估器进行交叉验证...",
+            f"3. **核心发现**：内容质量打分为 {quality_score}。主要的优化点集中在 {', '.join([r['module'] for r in must_fix + should_fix][:2])} 等模块。",
+            "4. **行动策略**：已根据诊断结果整理了 3 项高优先级的改进动作，准备输出结构化报告。"
+        ]
+        thought = "\n".join(thought_steps)
 
         lines: List[str] = [
             "好的，我已经基于当前简历完成一轮通用诊断。",
@@ -1129,35 +1140,25 @@ class Manus(ToolCallAgent):
                 analyzers = strategy.get("analyzers") if strategy else None
 
                 if intent == Intent.ANALYZE_RESUME:
-                    # 1. 并行委托给分析器
-                    analysis_results = await self._parallel_delegate_analyzers(analyzers or [])
                     resume_data_snapshot = ResumeDataStore.get_data(self.session_id) or {}
+                    resume_meta = self._extract_resume_meta(resume_data_snapshot)
+
+                    # 1. 并行委托分析器（获取结构化评分/问题）
+                    analysis_results = await self._parallel_delegate_analyzers(analyzers or [])
                     diagnosis_payload = self._build_resume_diagnosis_payload(
                         analysis_results,
                         resume_data_snapshot,
                     )
 
-                    # 2. 显式发出两步工具调用序列（对齐 upcv 体验）
-                    # 第一步：获取简历详情
+                    # 2. 显式发出两步工具调用序列（用于前端 tool cards）
                     detail_tool_call = ToolCall(
                         id=f"call_get_resume_detail_{int(time.time() * 1000)}",
                         function={"name": "get_resume_detail", "arguments": "{}"},
                     )
-                    # 第二步：简历诊断
                     diagnosis_tool_call = ToolCall(
                         id=f"call_resume_diagnosis_{int(time.time() * 1000) + 1}",
                         function={"name": "resume-diagnosis", "arguments": "{}"},
                     )
-
-                    # 记录工具调用到 memory，确保前端能看到卡片
-                    self.memory.add_message(
-                        Message.from_tool_calls(
-                            content="正在执行简历深度诊断...",
-                            tool_calls=[detail_tool_call, diagnosis_tool_call],
-                        )
-                    )
-
-                    # 存储结构化结果
                     self._tool_structured_results[detail_tool_call.id] = {
                         "type": "resume_detail",
                         "status": "success",
@@ -1165,33 +1166,76 @@ class Manus(ToolCallAgent):
                         "resume": diagnosis_payload["resume_meta"],
                     }
                     self._tool_structured_results[diagnosis_tool_call.id] = diagnosis_payload["structured"]
-
-                    # 记录工具执行成功消息到 memory
                     self.memory.add_message(
-                        Message.tool_message(
-                            content="获取简历详情执行成功",
-                            name="get_resume_detail",
-                            tool_call_id=detail_tool_call.id,
+                        Message.from_tool_calls(
+                            content="正在执行简历深度诊断...",
+                            tool_calls=[detail_tool_call, diagnosis_tool_call],
                         )
                     )
-                    self.memory.add_message(
-                        Message.tool_message(
-                            content="resume-diagnosis执行成功",
-                            name="resume-diagnosis",
-                            tool_call_id=diagnosis_tool_call.id,
-                        )
+                    self.memory.add_message(Message.tool_message(content="获取简历详情执行成功", name="get_resume_detail", tool_call_id=detail_tool_call.id))
+                    self.memory.add_message(Message.tool_message(content="resume-diagnosis执行成功", name="resume-diagnosis", tool_call_id=diagnosis_tool_call.id))
+
+                    # 3. 用 qwq-plus 流式生成诊断报告（thinking token → thought，content → answer）
+                    import asyncio as _asyncio
+                    thinking_q: _asyncio.Queue = _asyncio.Queue()
+                    content_q: _asyncio.Queue = _asyncio.Queue()
+                    self._thinking_stream_queue = thinking_q
+                    self._content_stream_queue = content_q
+
+                    diagnosis_prompt = diagnosis_payload["response"]  # 结构化报告文本（作为参考）
+                    qwq_system = (
+                        f"你是一位资深 HR，正在从招聘者视角对简历《{resume_meta['name']}》进行诊断分析。\n"
+                        "请逐步思考，然后输出一份结构化的简历诊断报告，包含：\n"
+                        "- 初筛通过概率\n- 三维评分卡（内容质量/竞争力/岗位匹配度）\n"
+                        "- 问题清单（必须修改/建议修改/可选优化）\n- Top 3 行动建议\n- 下一步引导\n"
+                        "输出语言：中文。直接输出报告，不要说'好的'或重复用户的话。"
+                    )
+                    qwq_user = (
+                        f"以下是已完成的结构化分析结果，请基于此以流畅的中文输出诊断报告：\n\n{diagnosis_prompt}"
                     )
 
-                    # 3. 输出诊断正文
-                    content = (
-                        f"Thought: {diagnosis_payload['thought']}\n"
-                        f"Response: {diagnosis_payload['response']}"
-                    )
-                    self.memory.add_message(Message.assistant_message(content))
+                    async def _on_thinking(piece: str) -> None:
+                        await thinking_q.put(piece)
+
+                    async def _on_content(piece: str) -> None:
+                        await content_q.put(piece)
+
+                    _sentinel = object()
+
+                    async def _run_qwq() -> None:
+                        try:
+                            await self.llm.ask_with_thinking_stream(
+                                messages=[{"role": "user", "content": qwq_user}],
+                                system_msgs=[{"role": "system", "content": qwq_system}],
+                                model="qwq-plus",
+                                base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                                api_key=os.environ.get("DASHSCOPE_API_KEY", self.llm.api_key),
+                                max_tokens=8192,
+                                on_thinking_delta=_on_thinking,
+                                on_content_delta=_on_content,
+                            )
+                        except Exception as _qwq_err:
+                            logger.warning(f"qwq-plus streaming failed: {_qwq_err}, using static report")
+                        finally:
+                            await thinking_q.put(_sentinel)
+                            await content_q.put(_sentinel)
+
+                    qwq_task = asyncio.create_task(_run_qwq())
+
+                    # 把 queue 引用存到 pending，让 execute loop 消费
+                    self._pending_immediate_stream = {
+                        "type": "thinking_stream",
+                        "thinking_q": thinking_q,
+                        "content_q": content_q,
+                        "sentinel": _sentinel,
+                        "fallback_thought": diagnosis_payload["thought"],
+                        "fallback_response": diagnosis_payload["response"],
+                        "qwq_task": qwq_task,
+                    }
 
                     from backend.agent.schema import AgentState
                     self.state = AgentState.FINISHED
-                    logger.info("✅ ANALYZE_RESUME completed with explicit tool sequence")
+                    logger.info("✅ ANALYZE_RESUME: qwq-plus streaming started")
                     return False
 
                 if intent == Intent.OPTIMIZE_SECTION:
@@ -1255,16 +1299,28 @@ class Manus(ToolCallAgent):
                 self.state = AgentState.FINISHED
                 return False
 
-        # 🎯 GREETING：使用 LLM 生成温暖自然的问候回复
+        # 🎯 GREETING：直接调用 LLM，不传工具（减少 payload，速度更快）
         if intent == Intent.GREETING:
-            logger.info("👋 GREETING: using combined system + greeting prompt")
-            # 组合策略：
-            # 1) 保留 SYSTEM_PROMPT（含 <greeting_exception> 全局风格基线）
-            # 2) 叠加 GREETING_FAST_PATH_PROMPT（格式/长度/不用工具等强约束）
+            logger.info("👋 GREETING: fast path without tools")
             base_system_prompt, _ = await self._generate_dynamic_prompts(user_input, intent)
-            self.system_prompt = f"{base_system_prompt}\n\n{GREETING_FAST_PATH_PROMPT}"
+            system_content = f"{base_system_prompt}\n\n{GREETING_FAST_PATH_PROMPT}"
+            try:
+                raw = await self.llm.ask(
+                    messages=[{"role": "user", "content": user_input}],
+                    system_msgs=[{"role": "system", "content": system_content}],
+                    stream=False,
+                    temperature=0.4,
+                )
+                if raw and raw.strip():
+                    self.memory.add_message(Message.assistant_message(raw.strip()))
+                    from backend.agent.schema import AgentState
+                    self.state = AgentState.FINISHED
+                    return False
+            except Exception as _greeting_err:
+                logger.warning(f"👋 GREETING fast path failed, falling back: {_greeting_err}")
+            # 回退到父类 think()（带工具）
+            self.system_prompt = system_content
             self.next_step_prompt = ""
-            # 调用父类 think()，让 LLM 生成问候回复（会自动处理终止）
             return await super().think()
 
         # 🎯 LOAD_RESUME 意图：直接调用工具
