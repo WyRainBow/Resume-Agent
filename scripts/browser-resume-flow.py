@@ -154,8 +154,17 @@ def main() -> int:
         print(f"Unsupported flow: {flow}", file=sys.stderr)
         return 2
 
-    asyncio.run(run_resume_diagnosis_flow(url))
-    return 0
+    rc = 0
+    try:
+        asyncio.run(run_resume_diagnosis_flow(url))
+    except Exception as exc:
+        print(str(exc), file=sys.stderr)
+        rc = 1
+    finally:
+        # Force exit to avoid hanging on async generator teardown in this runtime.
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(rc)
 
 
 if __name__ == "__main__":

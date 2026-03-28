@@ -2,6 +2,8 @@ import json
 import os
 import shlex
 import socket
+import signal
+import subprocess
 from pathlib import Path
 
 import click
@@ -354,18 +356,48 @@ def browser_session_status(dry_run: bool) -> None:
 @click.option("--dry-run", is_flag=True, help="Show the command without executing")
 def browser_flow(flow: str, url: str | None, dry_run: bool) -> None:
     target_url = url or "http://localhost:5173/agent/new"
-    cmd = ["uv", "run", "--with", "mcp", "python3", _browser_flow_script(), flow, target_url]
+    cmd = ["uv", "run", "--with", "mcp", "python3", "-u", _browser_flow_script(), flow, target_url]
     if dry_run:
         _emit(_payload("browser-flow", "browser", True, "Browser flow command", {"cmd": " ".join(cmd)}))
         return
     _ensure_browser_started()
-    result = run_command(cmd, cwd=str(ROOT))
-    _emit(_payload("browser-flow", "browser", result.returncode == 0, "Browser flow", {
+    proc = subprocess.Popen(
+        cmd,
+        cwd=str(ROOT),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    timed_out = False
+    try:
+        stdout, stderr = proc.communicate(timeout=45)
+        returncode = proc.returncode or 0
+    except subprocess.TimeoutExpired:
+        timed_out = True
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        stdout, stderr = proc.communicate()
+        returncode = 124
+
+    markers = [
+        "[click-show-resume]",
+        "[click-choose-existing]",
+        "[click-first-resume]",
+        "[click-resume-diagnosis]",
+    ]
+    flow_completed = all(marker in (stdout or "") for marker in markers)
+    ok = (returncode == 0) or flow_completed
+    _emit(_payload("browser-flow", "browser", ok, "Browser flow", {
         "flow": flow,
         "url": target_url,
-        "returncode": result.returncode,
-        "stdout": result.stdout.strip(),
-        "stderr": result.stderr.strip(),
+        "returncode": returncode,
+        "timed_out": timed_out,
+        "flow_completed": flow_completed,
+        "stdout": (stdout or "").strip(),
+        "stderr": (stderr or "").strip(),
     }))
 
 

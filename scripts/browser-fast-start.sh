@@ -19,16 +19,29 @@ if [[ -z "${TOKEN}" ]]; then
   TOKEN="$(openssl rand -hex 24)"
 fi
 
-PORT_PID="$(lsof -ti tcp:9876 || true)"
-if [[ -n "${PORT_PID}" ]] && [[ ! -f "${PID_FILE}" ]]; then
-  echo "Port 9876 is already in use by pid ${PORT_PID}. Stop that DOMShell process first." >&2
-  exit 1
+PORT_9876_PID="$(lsof -ti tcp:9876 | head -n 1 || true)"
+PORT_3001_PID="$(lsof -ti tcp:3001 | head -n 1 || true)"
+if [[ ! -f "${PID_FILE}" ]] && [[ -n "${PORT_9876_PID}" ]] && [[ -n "${PORT_3001_PID}" ]] && [[ "${PORT_9876_PID}" == "${PORT_3001_PID}" ]]; then
+  echo "${PORT_9876_PID}" >"${PID_FILE}"
+  echo "Detected running DOMShell on ports 9876/3001 with pid ${PORT_9876_PID}; created pid file"
 fi
 
 if [[ -f "${PID_FILE}" ]]; then
   EXISTING_PID="$(cat "${PID_FILE}")"
+  PORT_9876_PID="$(lsof -ti tcp:9876 | head -n 1 || true)"
+  PORT_3001_PID="$(lsof -ti tcp:3001 | head -n 1 || true)"
   if kill -0 "${EXISTING_PID}" 2>/dev/null; then
-    echo "DOMShell already running with pid ${EXISTING_PID}"
+    if [[ -n "${PORT_9876_PID}" ]] && [[ -n "${PORT_3001_PID}" ]] && [[ "${PORT_9876_PID}" == "${PORT_3001_PID}" ]]; then
+      if [[ "${EXISTING_PID}" != "${PORT_9876_PID}" ]]; then
+        echo "${PORT_9876_PID}" >"${PID_FILE}"
+        echo "DOMShell running. Updated stale pid file from ${EXISTING_PID} to ${PORT_9876_PID}"
+      else
+        echo "DOMShell already running with pid ${EXISTING_PID}"
+      fi
+    else
+      rm -f "${PID_FILE}"
+      echo "Found stale DOMShell pid ${EXISTING_PID}; restarting service"
+    fi
   else
     rm -f "${PID_FILE}"
   fi
