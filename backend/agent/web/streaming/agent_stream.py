@@ -831,9 +831,8 @@ class AgentStream:
 
                     # 🔍 调试：检查状态变化
                     # 单一路径：循环内只发 delta，不发 complete。complete 只在循环结束后发一次。
-                    if self.agent.state == SchemaAgentState.FINISHED:
-                        logger.info("✅ Agent 状态已设置为 FINISHED，退出循环；complete 将在循环结束后统一发送")
-                        break
+                    # 注意：不再在此处 break，确保 new_messages（工具调用等）始终被处理。
+                    # FINISHED break 移至迭代末尾（analysis completion 之后）。
 
                     # 实时发送新增的消息
                     new_messages = self.agent.memory.messages[msg_count_before:]
@@ -879,6 +878,12 @@ class AgentStream:
                                     logger.debug(
                                         "[AgentStream] Skip assistant content replay in memory loop"
                                     )
+                                    continue
+
+                                # 含 %%SUGGESTIONS%% 的内容由 post-loop 统一提取后作为 AnswerEvent+SuggestionsEvent 发送，
+                                # 此处跳过避免将原始标记文本当作 ThoughtEvent 发出。
+                                if "%%SUGGESTIONS%%" in msg.content:
+                                    logger.debug(f"[AgentStream] Skip %%SUGGESTIONS%% content in message loop (len={len(msg.content)}); will be handled in post-loop")
                                     continue
 
                                 # 🚨 去重：跳过已发送过的相同内容
@@ -1123,6 +1128,11 @@ class AgentStream:
                             logger.info("✅ 分析任务完成，终止循环")
                             self.agent.state = SchemaAgentState.FINISHED
                             break
+
+                    # FINISHED break：确保 new_messages 已处理后再退出循环
+                    if self.agent.state == SchemaAgentState.FINISHED:
+                        logger.info("✅ Agent 状态已设置为 FINISHED，退出循环；complete 将在循环结束后统一发送")
+                        break
 
             # 重置步骤计数
             self.agent.current_step = 0

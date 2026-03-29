@@ -116,52 +116,58 @@ export default function StreamingLane({
     effectiveCurrentDiff,
   );
 
+  const hasActiveContent = isProcessing || cleanedThought || sanitizedCurrentAnswer;
+
   return (
-    <StreamingOutputPanel
-      currentThought={cleanedThought}
-      currentAnswer={sanitizedCurrentAnswer}
-      isProcessing={isProcessing}
-      onResponseTypewriterComplete={onResponseTypewriterComplete}
-      shouldHideResponseInChat={shouldHideResponseInChat}
-      currentEditDiff={effectiveCurrentDiff}
-      currentSearch={currentSearch}
-      renderSearchCard={(searchData) => (
-        <>
-          <SearchCard
-            query={searchData.query}
-            totalResults={searchData.total_results}
-            searchTime={searchData.metadata?.search_time}
-            onOpen={() => onOpenSearchPanel(searchData)}
-          />
-          <SearchSummary
-            query={searchData.query}
-            results={searchData.results}
-            searchTime={searchData.metadata?.search_time}
-          />
-        </>
+    <>
+      {hasActiveContent && (
+        <StreamingOutputPanel
+          currentThought={cleanedThought}
+          currentAnswer={sanitizedCurrentAnswer}
+          isProcessing={isProcessing}
+          onResponseTypewriterComplete={onResponseTypewriterComplete}
+          shouldHideResponseInChat={shouldHideResponseInChat}
+          currentEditDiff={effectiveCurrentDiff}
+          currentSearch={currentSearch}
+          renderSearchCard={(searchData) => (
+            <>
+              <SearchCard
+                query={searchData.query}
+                totalResults={searchData.total_results}
+                searchTime={searchData.metadata?.search_time}
+                onOpen={() => onOpenSearchPanel(searchData)}
+              />
+              <SearchSummary
+                query={searchData.query}
+                results={searchData.results}
+                searchTime={searchData.metadata?.search_time}
+              />
+            </>
+          )}
+          renderEditDiffCard={(diff) => (
+            <ResumeEditDiffCard before={diff.before || ""} after={diff.after || ""} />
+          )}
+        >
+          {currentDiagnosisTools && currentDiagnosisTools.length > 0 && (
+            <DiagnosisToolCards items={currentDiagnosisTools} className="mb-3" />
+          )}
+        </StreamingOutputPanel>
       )}
-      renderEditDiffCard={(diff) => (
-        <ResumeEditDiffCard before={diff.before || ""} after={diff.after || ""} />
-      )}
-    >
-      {currentDiagnosisTools && currentDiagnosisTools.length > 0 && (
-        <DiagnosisToolCards items={currentDiagnosisTools} className="mb-3" />
-      )}
-      {/* 建议按钮 */}
+      {/* 建议按钮 - 渲染在 StreamingOutputPanel 外部，确保流结束后仍可见 */}
       {!isProcessing && suggestions && suggestions.length > 0 && (
-        <div className="flex flex-wrap gap-2 mt-4 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
+        <div className="flex flex-col gap-2.5 mt-4 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
           {suggestions.map((item, idx) => (
             <button
               key={idx}
               onClick={() => onSuggestionClick?.(item.msg)}
-              className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 hover:border-blue-300 hover:text-blue-600 transition-all shadow-sm flex items-center gap-1 group"
+              className="w-full flex items-center justify-between px-5 py-3.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl hover:bg-white hover:border-blue-300 hover:text-blue-600 hover:shadow-sm transition-all"
             >
-              {item.text}
-              <span className="opacity-0 group-hover:opacity-100 transition-opacity ml-1">→</span>
+              <span>{item.text}</span>
+              <svg className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors shrink-0 ml-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
             </button>
           ))}
         </div>
       )}
-    </StreamingOutputPanel>
+    </>
   );
 }
