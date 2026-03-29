@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import ResumeEditDiffCard from "@/components/chat/ResumeEditDiffCard";
 import SearchCard from "@/components/chat/SearchCard";
 import SearchSummary from "@/components/chat/SearchSummary";
@@ -31,7 +31,7 @@ interface StreamingLaneProps {
       after?: string;
     };
   };
-  suggestions?: Array<{ text: string; msg: string }>;
+  suggestions?: Array<{ text: string; msg: string; template?: string }>;
   currentDiagnosisTools?: DiagnosisToolStructuredData[];
   onSuggestionClick?: (msg: string) => void;
   stripResumeEditMarkdown: (content: string) => string;
@@ -155,19 +155,95 @@ export default function StreamingLane({
       )}
       {/* 建议按钮 - 渲染在 StreamingOutputPanel 外部，确保流结束后仍可见 */}
       {!isProcessing && suggestions && suggestions.length > 0 && (
-        <div className="flex flex-col gap-2.5 mt-4 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
-          {suggestions.map((item, idx) => (
-            <button
-              key={idx}
-              onClick={() => onSuggestionClick?.(item.msg)}
-              className="w-full flex items-center justify-between px-5 py-3.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl hover:bg-white hover:border-blue-300 hover:text-blue-600 hover:shadow-sm transition-all"
-            >
-              <span>{item.text}</span>
-              <svg className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors shrink-0 ml-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-            </button>
-          ))}
-        </div>
+        <SuggestionButtons suggestions={suggestions} onSuggestionClick={onSuggestionClick} />
       )}
     </>
+  );
+}
+
+interface SuggestionItem {
+  text: string;
+  msg: string;
+  template?: string;
+}
+
+function SuggestionButtons({
+  suggestions,
+  onSuggestionClick,
+}: {
+  suggestions: SuggestionItem[];
+  onSuggestionClick?: (msg: string) => void;
+}) {
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
+  const [templateInput, setTemplateInput] = useState("");
+
+  const handleSubmitTemplate = (item: SuggestionItem) => {
+    const composed = (item.template || "").replace("{input}", templateInput.trim());
+    if (composed.trim()) {
+      onSuggestionClick?.(composed);
+      setExpandedIdx(null);
+      setTemplateInput("");
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-2.5 mt-4 mb-2 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      {suggestions.map((item, idx) => {
+        const isExpanded = expandedIdx === idx;
+        const hasTemplate = !!item.template;
+
+        if (isExpanded && hasTemplate) {
+          const parts = item.template!.split("{input}");
+          return (
+            <div
+              key={idx}
+              className="flex items-center gap-2 px-5 py-3.5 text-sm font-medium bg-white border border-blue-300 rounded-xl shadow-sm animate-in fade-in slide-in-from-bottom-1 duration-300"
+            >
+              <span className="text-slate-700 whitespace-nowrap">{parts[0]}</span>
+              <input
+                type="text"
+                autoFocus
+                value={templateInput}
+                onChange={(e) => setTemplateInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && templateInput.trim()) {
+                    e.preventDefault();
+                    handleSubmitTemplate(item);
+                  }
+                }}
+                placeholder="输入岗位名称..."
+                className="flex-1 min-w-[80px] px-2 py-1 text-sm bg-slate-50 border border-slate-200 rounded-md focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
+              />
+              {parts[1] && <span className="text-slate-700 whitespace-nowrap">{parts[1]}</span>}
+              <button
+                onClick={() => handleSubmitTemplate(item)}
+                disabled={!templateInput.trim()}
+                className="shrink-0 px-3 py-1 text-xs font-medium text-white bg-blue-500 rounded-lg hover:bg-blue-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                发送
+              </button>
+            </div>
+          );
+        }
+
+        return (
+          <button
+            key={idx}
+            onClick={() => {
+              if (hasTemplate) {
+                setExpandedIdx(idx);
+                setTemplateInput("");
+              } else {
+                onSuggestionClick?.(item.msg);
+              }
+            }}
+            className="w-full flex items-center justify-between px-5 py-3.5 text-sm font-medium text-slate-700 bg-slate-50 border border-slate-200 rounded-xl hover:bg-white hover:border-blue-300 hover:text-blue-600 hover:shadow-sm transition-all"
+          >
+            <span>{item.text}</span>
+            <svg className="h-4 w-4 text-slate-400 group-hover:text-blue-500 transition-colors shrink-0 ml-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          </button>
+        );
+      })}
+    </div>
   );
 }

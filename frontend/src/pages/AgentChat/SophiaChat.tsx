@@ -473,7 +473,7 @@ function SophiaChatContent() {
 
   const [streamDoneTick, setStreamDoneTick] = useState(0);
   const [activeRunId, setActiveRunId] = useState(0);
-  const [currentSuggestions, setCurrentSuggestions] = useState<Array<{ text: string; msg: string }>>([]);
+  const [currentSuggestions, setCurrentSuggestions] = useState<Array<{ text: string; msg: string; template?: string }>>([]);
   const [activeSearchPanel, setActiveSearchPanel] =
     useState<SearchStructuredData | null>(null);
 
@@ -3474,7 +3474,7 @@ function SophiaChatContent() {
                   currentAnswer={currentAnswer}
                   isProcessing={isProcessing}
                   suggestions={currentSuggestions}
-                  onSuggestionClick={(msg) => void sendUserTextMessage(msg)}
+                  onSuggestionClick={(msg) => setInput(msg)}
                   shouldHideResponseInChat={false}
                   currentEditDiff={resumeEditDiffs.find((r) => r.messageId === "current")}
                   currentSearch={searchResults.find((r) => r.messageId === "current")}
