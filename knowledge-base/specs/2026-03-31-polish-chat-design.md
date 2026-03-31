@@ -83,6 +83,26 @@
 | 技能 | 分类整理/补充流行技术/更专业/翻译成英文 |
 | 其他 | 再精简一些/更专业/更具体/翻译成英文 |
 
+## 已知问题 & 修复
+
+| 问题 | 修复 | 提交 |
+|------|------|------|
+| 硬编码 `zhipu` provider，zhipu 余额不足导致润色失败 | 改为 `deepseek`（与后端 `DEFAULT_AI_PROVIDER` 一致） | 263bf49 |
+| `useTypewriter` initialDelay 在后续 chunk 重新触发 | 增加 `hasStartedRef` 追踪首 chunk，后续 chunk 不再 delay | 263bf49 |
+| `rewriteResumeStream` onComplete 被调用两次（`[DONE]` + fallback） | 增加 `streamCompleted` guard flag | 263bf49 |
+
+## AI Provider 配置
+
+| Provider | 环境变量 | Base URL | 默认模型 | 当前状态 |
+|----------|---------|----------|---------|---------|
+| deepseek (via DashScope) | `DASHSCOPE_API_KEY` | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `deepseek-v3.2` | 正常 |
+| zhipu | `ZHIPU_API_KEY` | ZhipuAI SDK | `glm-4.5v` | 余额不足 |
+| doubao | `DOUBAO_API_KEY` | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-1-6-lite-251015` | 未配置 Key |
+
+- 默认 provider: `deepseek`（定义在 `backend/llm.py:DEFAULT_AI_PROVIDER`）
+- DashScope 不支持 Gemini 模型（仅支持千问、DeepSeek 等）
+- 前端 PolishChatDialog 使用 `deepseek` provider 调用润色接口
+
 ## 复用的组件
 
 - `useTypewriter` hook — 打字机流式效果
