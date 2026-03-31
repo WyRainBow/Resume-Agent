@@ -4,6 +4,7 @@
  */
 import { useState } from 'react'
 import { PlusCircle, Wand2, Trash2, CheckSquare, Square } from 'lucide-react'
+import { Reorder } from 'framer-motion'
 import { cn } from '../../../../lib/utils'
 import type { Project, GlobalSettings } from '../types'
 import ProjectItem from './ProjectItem'
@@ -128,7 +129,7 @@ const ProjectPanel = ({
       </div>
 
       {/* 项目列表 */}
-      <div className="space-y-3">
+      <Reorder.Group axis="y" values={projects} onReorder={onReorder} className="space-y-3">
         {projects.map((project) => (
           <div key={project.id} className="flex items-start gap-2">
             {selectMode && (
@@ -155,7 +156,7 @@ const ProjectPanel = ({
             </div>
           </div>
         ))}
-      </div>
+      </Reorder.Group>
 
       {/* 添加按钮 */}
       <button

@@ -3,8 +3,8 @@
  * 支持拖拽排序、展开/收起、显示/隐藏、删除
  */
 import { useState, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, Eye, Trash2 } from 'lucide-react'
+import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion'
+import { ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { Project, ResumeData, GlobalSettings } from '../types'
 import Field from './Field'
@@ -208,6 +208,7 @@ const ProjectItem = ({
 }: ProjectItemProps) => {
   const [expanded, setExpanded] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
+  const dragControls = useDragControls()
 
   const handleVisibilityToggle = useCallback(
     (e: React.MouseEvent) => {
@@ -227,7 +228,11 @@ const ProjectItem = ({
   )
 
   return (
-    <div
+    <Reorder.Item
+      id={project.id}
+      value={project}
+      dragListener={false}
+      dragControls={dragControls}
       className={cn(
         'rounded-lg border overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
@@ -235,6 +240,7 @@ const ProjectItem = ({
         'border-gray-100',
         !project.visible && 'opacity-40'
       )}
+      whileDrag={{ scale: 1.02 }}
     >
       <div className="min-w-0">
         {/* 标题行 */}
@@ -245,7 +251,17 @@ const ProjectItem = ({
           )}
           onClick={() => setExpanded(!expanded)}
         >
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            {/* 拖拽手柄 */}
+            <div
+              onPointerDown={(event) => dragControls.start(event)}
+              className={cn(
+                'w-6 -ml-1 mr-0 flex items-center justify-center touch-none shrink-0',
+                'cursor-grab hover:bg-gray-100 dark:hover:bg-neutral-800/50 rounded'
+              )}
+            >
+              <GripVertical className={cn('w-4 h-4', 'text-gray-300 dark:text-neutral-600')} />
+            </div>
             <h3
               className={cn(
                 'font-medium truncate',
@@ -329,7 +345,7 @@ const ProjectItem = ({
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </Reorder.Item>
   )
 }
 

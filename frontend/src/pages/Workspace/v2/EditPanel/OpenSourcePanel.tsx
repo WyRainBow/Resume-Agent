@@ -2,8 +2,8 @@
  * 开源经历面板
  */
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { PlusCircle, Wand2, ChevronDown, Eye, Trash2 } from 'lucide-react'
+import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion'
+import { PlusCircle, Wand2, ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { OpenSource, GlobalSettings, ResumeData } from '../types'
 import Field from './Field'
@@ -41,13 +41,18 @@ function OpenSourceItem({
 }) {
   const [expanded, setExpanded] = useState(false)
   const [showCustomLabel, setShowCustomLabel] = useState(false)
+  const dragControls = useDragControls()
 
   const handleChange = (field: keyof OpenSource, value: string | boolean) => {
     onUpdate({ ...openSource, [field]: value })
   }
 
   return (
-    <div
+    <Reorder.Item
+      id={openSource.id}
+      value={openSource}
+      dragListener={false}
+      dragControls={dragControls}
       className={cn(
         'rounded-lg border overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
@@ -55,6 +60,7 @@ function OpenSourceItem({
         'border-gray-100',
         openSource.visible === false && 'opacity-40'
       )}
+      whileDrag={{ scale: 1.02 }}
     >
       <div className="min-w-0">
         {/* 标题行 */}
@@ -62,7 +68,17 @@ function OpenSourceItem({
           className={cn('px-4 py-4 flex items-center justify-between cursor-pointer select-none', expanded && 'bg-gray-50 dark:bg-neutral-800/50')}
           onClick={() => setExpanded(!expanded)}
         >
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            {/* 拖拽手柄 */}
+            <div
+              onPointerDown={(event) => dragControls.start(event)}
+              className={cn(
+                'w-6 -ml-1 mr-0 flex items-center justify-center touch-none shrink-0',
+                'cursor-grab hover:bg-gray-100 dark:hover:bg-neutral-800/50 rounded'
+              )}
+            >
+              <GripVertical className={cn('w-4 h-4', 'text-gray-300 dark:text-neutral-600')} />
+            </div>
             <h3 className={cn('font-medium truncate', 'text-gray-700 dark:text-neutral-200')}>
               {openSource.name || '未命名项目'}
             </h3>
@@ -237,7 +253,7 @@ function OpenSourceItem({
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </Reorder.Item>
   )
 }
 
@@ -267,11 +283,11 @@ export default function OpenSourcePanel({ openSources, onUpdate, onDelete, onReo
         </button>
       )}
 
-      <div className="space-y-3">
+      <Reorder.Group axis="y" values={openSources} onReorder={onReorder} className="space-y-3">
         {openSources.map((item) => (
           <OpenSourceItem key={item.id} openSource={item} onUpdate={onUpdate} onDelete={onDelete} resumeData={resumeData} globalSettings={globalSettings} updateGlobalSettings={updateGlobalSettings} />
         ))}
-      </div>
+      </Reorder.Group>
 
       <button
         onClick={handleCreate}

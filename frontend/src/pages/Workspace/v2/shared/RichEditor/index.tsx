@@ -5,6 +5,7 @@
  */
 import React, { useEffect, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
+import type { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import TextAlign from '@tiptap/extension-text-align'
 import { TextStyle } from '@tiptap/extension-text-style'
@@ -34,8 +35,10 @@ import {
 import { cn } from '../../../../../lib/utils'
 import { BetterSpace } from './BetterSpace'
 import PolishChatDialog from '../PolishChatDialog'
+import SelectionPolishBubble from '../SelectionPolishBubble'
 import FormatLayoutDialog from '../FormatLayoutDialog'
 import AIWriteDialog from '../AIWriteDialog'
+import { BubbleMenu } from '@tiptap/react/menus'
 import type { ResumeData, Education } from '../../types'
 import './tiptap.css'
 
@@ -443,6 +446,24 @@ const RichEditor = ({
 
       {/* 编辑区域 */}
       <EditorContent editor={editor} />
+
+      {/* 划词修改气泡 — 选中文本后浮出 */}
+      {editor && (
+        <BubbleMenu
+          editor={editor}
+          shouldShow={({ editor: e }: { editor: Editor }) => {
+            if (!e) return false
+            const { from, to } = e.state.selection
+            const text = e.state.doc.textBetween(from, to, '\n')
+            return text.length >= 2
+          }}
+        >
+          <SelectionPolishBubble
+            editor={editor}
+            polishPath={polishPath}
+          />
+        </BubbleMenu>
+      )}
 
       {/* AI 智能排版对话框 */}
       <FormatLayoutDialog

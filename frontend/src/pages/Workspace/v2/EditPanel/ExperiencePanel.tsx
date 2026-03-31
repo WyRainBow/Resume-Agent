@@ -2,6 +2,7 @@
  * 工作经历面板
  */
 import { PlusCircle, Wand2, List, ListOrdered } from 'lucide-react'
+import { Reorder } from 'framer-motion'
 import { cn } from '../../../../lib/utils'
 import type { Experience, GlobalSettings, ResumeData } from '../types'
 import ExperienceItem from './ExperienceItem'
@@ -104,7 +105,7 @@ const ExperiencePanel = ({
         </button>
       </div>
 
-      <div className="space-y-3">
+      <Reorder.Group axis="y" values={experiences} onReorder={onReorder} className="space-y-3">
         {experiences.map((exp) => (
           <ExperienceItem
             key={exp.id}
@@ -116,7 +117,7 @@ const ExperiencePanel = ({
             updateGlobalSettings={updateGlobalSettings}
           />
         ))}
-      </div>
+      </Reorder.Group>
 
       <button
         onClick={handleCreate}

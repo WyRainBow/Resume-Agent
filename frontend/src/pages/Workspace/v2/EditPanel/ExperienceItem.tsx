@@ -2,8 +2,8 @@
  * 工作经历条目组件
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { ChevronDown, Eye, Trash2, X, Image, Plus, Loader2 } from 'lucide-react'
+import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion'
+import { ChevronDown, Eye, GripVertical, Trash2, X, Image, Plus, Loader2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import type { Experience, ResumeData, GlobalSettings } from '../types'
@@ -489,6 +489,7 @@ const ExperienceItem = ({
 }: ExperienceItemProps) => {
   const [expanded, setExpanded] = useState(false)
   const [isUpdating, setIsUpdating] = useState(false)
+  const dragControls = useDragControls()
 
   const handleVisibilityToggle = useCallback(
     (e: React.MouseEvent) => {
@@ -508,7 +509,11 @@ const ExperienceItem = ({
   )
 
   return (
-    <div
+    <Reorder.Item
+      id={experience.id}
+      value={experience}
+      dragListener={false}
+      dragControls={dragControls}
       className={cn(
         'rounded-lg border overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
@@ -516,6 +521,7 @@ const ExperienceItem = ({
         'border-gray-100',
         !experience.visible && 'opacity-40'
       )}
+      whileDrag={{ scale: 1.02 }}
     >
       <div className="min-w-0">
         <div
@@ -526,6 +532,16 @@ const ExperienceItem = ({
           onClick={() => setExpanded(!expanded)}
         >
           <div className="flex-1 min-w-0 flex items-center gap-2">
+            {/* 拖拽手柄 */}
+            <div
+              onPointerDown={(event) => dragControls.start(event)}
+              className={cn(
+                'w-6 -ml-1 mr-0 flex items-center justify-center touch-none shrink-0',
+                'cursor-grab hover:bg-gray-100 dark:hover:bg-neutral-800/50 rounded'
+              )}
+            >
+              <GripVertical className={cn('w-4 h-4', 'text-gray-300 dark:text-neutral-600')} />
+            </div>
             {experience.companyLogo && getLogoUrl(experience.companyLogo) && (
               <img
                 src={getLogoUrl(experience.companyLogo)!}
@@ -533,10 +549,10 @@ const ExperienceItem = ({
                 className="w-5 h-5 object-contain shrink-0"
               />
             )}
-            <h3 
+            <h3
               className={cn('font-medium truncate', 'text-gray-700 dark:text-neutral-200')}
-              dangerouslySetInnerHTML={{ 
-                __html: renderCompanyPosition(experience.company, experience.position) 
+              dangerouslySetInnerHTML={{
+                __html: renderCompanyPosition(experience.company, experience.position)
               }}
             />
           </div>
@@ -583,7 +599,7 @@ const ExperienceItem = ({
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </Reorder.Item>
   )
 }
 

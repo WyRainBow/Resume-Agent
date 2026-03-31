@@ -653,6 +653,102 @@ export async function compileLatexStream(
   
   const blob = new Blob([pdfData.buffer as ArrayBuffer], { type: 'application/pdf' })
   console.log('[API] LaTeX 编译完成，PDF 大小:', blob.size, '字节')
-  
+
   return blob
+}
+
+/**
+ * 划词改写流式接口 — 直接对文本片段进行 AI 改写
+ * 不需要完整 resume，只传选中文本 + 指令
+ */
+export async function rewriteTextStream(
+  text: string,
+  instruction: string,
+  path: string,
+  onChunk: (chunk: string) => void,
+  onComplete?: () => void,
+  onError?: (error: string) => void,
+  signal?: AbortSignal,
+) {
+  const url = `${getApiBaseUrl()}/api/resume/rewrite-text/stream`
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider: 'deepseek',
+        text,
+        instruction,
+        path,
+        locale: 'zh',
+      }),
+      signal,
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    const decoder = new TextDecoder()
+
+    if (!reader) {
+      throw new Error('无法获取响应流')
+    }
+
+    let buffer = ''
+
+    const processLine = (line: string) => {
+      if (!line.startsWith('data: ')) return
+
+      const data = line.slice(6).trim()
+      if (data === '[DONE]') {
+        onComplete?.()
+        return
+      }
+
+      try {
+        const parsed = JSON.parse(data)
+        if (parsed.error) {
+          onError?.(parsed.error)
+          return
+        }
+        if (parsed.content) {
+          onChunk(parsed.content)
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+
+      const messages = buffer.split('\n\n')
+      buffer = messages.pop() || ''
+
+      for (const message of messages) {
+        const lines = message.split('\n')
+        for (const line of lines) {
+          processLine(line)
+        }
+      }
+    }
+
+    if (buffer.trim()) {
+      const lines = buffer.split('\n')
+      for (const line of lines) {
+        processLine(line)
+      }
+    }
+
+    onComplete?.()
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') return
+    onError?.(error instanceof Error ? error.message : '划词改写失败')
+  }
 }
