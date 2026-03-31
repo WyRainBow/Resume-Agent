@@ -238,13 +238,17 @@ export default function SelectionPolishBubble({
           <div className="flex items-center justify-center w-6 h-6 rounded-md bg-gradient-to-br from-violet-500 to-purple-600 shrink-0">
             <Sparkles className="w-3.5 h-3.5 text-white" />
           </div>
+          <div className="flex flex-col leading-none mr-1 shrink-0">
+            <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">AI 改写</span>
+            <span className="text-[10px] text-violet-400 dark:text-violet-500">划词优化</span>
+          </div>
           <input
             ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入改写指令，如：更专业..."
+            placeholder="输入 AI 改写指令，如：更专业..."
             disabled={isStreaming}
             className="ai-polish-input"
           />
@@ -279,6 +283,7 @@ export default function SelectionPolishBubble({
                 <Eye className="w-4 h-4" />
                 划词改写助手
               </span>
+              <span className="text-xs text-violet-500 dark:text-violet-400">AI 改写对话</span>
               <button onClick={handleCancelPreview} className="p-1 rounded hover:bg-neutral-100 dark:hover:bg-neutral-800">
                 <X className="w-4 h-4 text-neutral-500" />
               </button>
@@ -312,7 +317,7 @@ export default function SelectionPolishBubble({
                       {msg.isStreaming && !msg.content ? (
                         <div className="flex items-center gap-2 text-emerald-600 text-sm py-2">
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          正在生成...
+                          AI 改写中...
                         </div>
                       ) : (
                         <div className="text-sm leading-6 whitespace-pre-wrap text-neutral-800 dark:text-neutral-100">{msg.content}</div>
