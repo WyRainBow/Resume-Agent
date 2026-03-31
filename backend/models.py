@@ -28,6 +28,7 @@ class RewriteRequest(BaseModel):
     path: str = Field(..., description="JSON 路径，如 summary 或 experience[0].achievements[1]")
     instruction: str = Field(..., description="修改意图，如：更量化、更贴合后端 JD")
     locale: Literal["zh", "en"] = Field(default="zh")
+    history: list[dict] = Field(default=[], description="多轮对话历史 [{role, content}]")
 
 
 class AITestRequest(BaseModel):

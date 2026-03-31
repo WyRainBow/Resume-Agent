@@ -54,16 +54,31 @@ def build_resume_prompt(instruction: str, locale: str = "zh") -> str:
     return prompt
 
 
-def build_rewrite_prompt(path: str, original_value: Any, instruction: str, locale: str = "zh") -> str:
+def build_rewrite_prompt(path: str, original_value: Any, instruction: str, locale: str = "zh",
+                         history: list[dict] | None = None) -> str:
     """
     构造一个将字段进行改写的提示词
     如果原值是字符串，则要求输出单段文本；
     如果原值是数组或对象，则要求输出 JSON。
-    
-    优化：针对简历润色场景，提供更专业的提示词
+
+    支持多轮对话：当 history 非空时，将历史轮次拼入上下文
+    支持字段类型感知：根据 path 自动注入优化策略
     """
     lang = "请使用中文输出" if locale == "zh" else "Please output in English"
-    
+
+    # 字段类型上下文
+    path_lower = path.lower()
+    if 'project' in path_lower:
+        field_context = "这是「项目经历」的描述。请突出技术深度、量化成果，使用 STAR 法则（情境-任务-行动-结果），以动词开头。"
+    elif 'experience' in path_lower or 'internship' in path_lower:
+        field_context = "这是「工作/实习经历」的描述。请突出业务影响和成长轨迹，量化成果，以动词开头。"
+    elif 'skill' in path_lower:
+        field_context = "这是「专业技能」部分。请分类清晰，体现技术广度和深度。"
+    elif 'opensource' in path_lower or 'open_source' in path_lower:
+        field_context = "这是「开源贡献」的描述。请突出社区影响和技术能力。"
+    else:
+        field_context = ""
+
     # 默认润色指令（如果用户没有提供具体指令）
     default_polish_instruction = """请优化这段文本，使其更加专业、简洁、有吸引力。
 优化原则：
@@ -74,16 +89,29 @@ def build_rewrite_prompt(path: str, original_value: Any, instruction: str, local
 5. 量化成果，突出影响（如：提升30%、节省50%时间等）
 6. 保持原有信息的完整性
 7. 保留HTML格式标签（如 <strong>、<ul>、<li> 等）"""
-    
-    # 如果用户提供了具体指令，使用用户指令；否则使用默认润色指令
+
     final_instruction = instruction.strip() if instruction.strip() else default_polish_instruction
-    
+
+    # 构建多轮对话上下文
+    history_section = ""
+    if history:
+        parts = []
+        for msg in history:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "user":
+                parts.append(f"用户指令：{content}")
+            elif role == "assistant":
+                parts.append(f"之前的润色结果：{content}")
+        if parts:
+            history_section = "\n对话历史：\n" + "\n".join(parts) + "\n"
+
     if isinstance(original_value, str):
         return f"""
-{lang}。你是一个专业的简历优化助手。
+{lang}。你是一个专业的简历优化助手。{field_context}
 
 任务：{final_instruction}
-
+{history_section}
 要求：
 1. 直接返回优化后的文本，不要包含任何解释、代码块标记或其他内容
 2. 如果原文包含HTML标签（如 <strong>、<ul>、<li> 等），请保留这些标签
@@ -94,10 +122,10 @@ def build_rewrite_prompt(path: str, original_value: Any, instruction: str, local
 """
     else:
         return f"""
-{lang}。你是一个专业的简历优化助手。
+{lang}。你是一个专业的简历优化助手。{field_context}
 
 任务：{final_instruction}
-
+{history_section}
 要求：
 1. 严格输出 JSON 格式，结构需与原值类型完全一致
 2. 不要包含任何解释或代码块标记

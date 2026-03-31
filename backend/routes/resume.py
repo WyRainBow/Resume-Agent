@@ -654,7 +654,7 @@ async def rewrite_resume(body: RewriteRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"路径错误：{e}")
 
-    prompt = build_rewrite_prompt(body.path, cur_value, body.instruction, body.locale)
+    prompt = build_rewrite_prompt(body.path, cur_value, body.instruction, body.locale, body.history)
     try:
         raw = call_llm(body.provider, prompt)
     except Exception as e:
@@ -705,7 +705,7 @@ async def rewrite_resume_stream(body: RewriteRequest):
     # 默认使用 deepseek（如果未指定 provider）
     provider = body.provider or DEFAULT_AI_PROVIDER
 
-    prompt = build_rewrite_prompt(body.path, cur_value, body.instruction, body.locale)
+    prompt = build_rewrite_prompt(body.path, cur_value, body.instruction, body.locale, body.history)
 
     async def generate():
         """生成 SSE 流"""

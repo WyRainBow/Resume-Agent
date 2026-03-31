@@ -52,6 +52,7 @@ export function useTypewriter(
   const onCompleteRef = useRef(onComplete);
   const completedRef = useRef(false);
   const enabledRef = useRef(enabled);
+  const hasStartedRef = useRef(false);
 
   useEffect(() => {
     onCompleteRef.current = onComplete;
@@ -87,23 +88,27 @@ export function useTypewriter(
       completedRef.current = false;
       setSkipMode(false);
       if (!enabledRef.current) {
+        hasStartedRef.current = true;
         setTargetText((prev) => prev + content);
         return;
       }
-      if (initialDelay > 0 && !targetText) {
+      if (initialDelay > 0 && !hasStartedRef.current) {
+        hasStartedRef.current = true;
         window.setTimeout(() => {
           setTargetText((prev) => prev + content);
         }, initialDelay);
       } else {
+        hasStartedRef.current = true;
         setTargetText((prev) => prev + content);
       }
     },
-    [initialDelay, targetText],
+    [initialDelay],
   );
 
   const reset = useCallback(() => {
     setSkipMode(false);
     setTargetText('');
+    hasStartedRef.current = false;
     completedRef.current = false;
     resetStream();
   }, [resetStream]);

@@ -33,7 +33,7 @@ import {
 } from 'lucide-react'
 import { cn } from '../../../../../lib/utils'
 import { BetterSpace } from './BetterSpace'
-import AIPolishDialog from '../AIPolishDialog'
+import PolishChatDialog from '../PolishChatDialog'
 import FormatLayoutDialog from '../FormatLayoutDialog'
 import AIWriteDialog from '../AIWriteDialog'
 import type { ResumeData, Education } from '../../types'
@@ -456,7 +456,7 @@ const RichEditor = ({
 
       {/* AI 润色对话框 */}
       {resumeData && (
-        <AIPolishDialog
+        <PolishChatDialog
           open={showPolishDialog}
           onOpenChange={setShowPolishDialog}
           content={content || ''}

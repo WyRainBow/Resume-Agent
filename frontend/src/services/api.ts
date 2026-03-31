@@ -411,7 +411,8 @@ export async function rewriteResumeStream(
   onChunk: (chunk: string) => void,
   onComplete?: () => void,
   onError?: (error: string) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  history?: { role: string; content: string }[]
 ) {
   const url = `${getApiBaseUrl()}/api/resume/rewrite/stream`
 
@@ -419,8 +420,8 @@ export async function rewriteResumeStream(
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider, resume, path, instruction }),
-      signal  // 添加 AbortSignal
+      body: JSON.stringify({ provider, resume, path, instruction, history: history || [] }),
+      signal
     })
     
     if (!response.ok) {
@@ -435,14 +436,18 @@ export async function rewriteResumeStream(
     }
     
     let buffer = ''
-    
+    let streamCompleted = false
+
     // 处理 SSE 消息
     const processLine = (line: string) => {
       if (!line.startsWith('data: ')) return
-      
+
       const data = line.slice(6).trim()
       if (data === '[DONE]') {
-        onComplete?.()
+        if (!streamCompleted) {
+          streamCompleted = true
+          onComplete?.()
+        }
         return
       }
       
@@ -489,7 +494,9 @@ export async function rewriteResumeStream(
       }
     }
     
-    onComplete?.()
+    if (!streamCompleted) {
+      onComplete?.()
+    }
   } catch (error) {
     onError?.(error instanceof Error ? error.message : '流式请求失败')
   }
