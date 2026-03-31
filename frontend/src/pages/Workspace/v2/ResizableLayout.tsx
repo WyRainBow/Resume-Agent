@@ -82,7 +82,7 @@ function DragHandle({
   return (
     <div
       className={cn(
-        'w-1 cursor-ew-resize transition-all duration-200 group relative shrink-0',
+        'w-1 cursor-ew-resize group relative shrink-0',
         'hover:bg-indigo-300 dark:hover:bg-indigo-600',
         'active:bg-indigo-400 dark:active:bg-indigo-500',
         className

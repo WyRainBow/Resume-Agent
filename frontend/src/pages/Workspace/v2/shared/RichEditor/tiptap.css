@@ -160,3 +160,94 @@
   padding: 0;
 }
 
+/* ===================== */
+/* 划词改写气泡样式     */
+/* ===================== */
+
+.tippy-box[data-reference] .ai-polish-bubble,
+.ai-polish-bubble {
+  background: linear-gradient(135deg, #faf5ff 0%, #ffffff 40%);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  border-radius: 12px;
+  padding: 8px 10px;
+  box-shadow:
+    0 4px 20px rgba(139, 92, 246, 0.15),
+    0 1px 3px rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(12px);
+}
+
+.dark .ai-polish-bubble {
+  background: linear-gradient(135deg, rgba(49, 20, 75, 0.95) 0%, rgba(38, 38, 38, 0.95) 40%);
+  border-color: rgba(167, 139, 250, 0.3);
+  box-shadow:
+    0 4px 20px rgba(139, 92, 246, 0.2),
+    0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.ai-polish-input {
+  width: 200px;
+  padding: 5px 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  border-radius: 8px;
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  background: rgba(255, 255, 255, 0.8);
+  color: #1a1a2e;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.dark .ai-polish-input {
+  background: rgba(23, 23, 23, 0.9);
+  border-color: rgba(167, 139, 250, 0.25);
+  color: #e5e5e5;
+}
+
+.ai-polish-input::placeholder {
+  color: #a78bfa;
+  opacity: 0.6;
+}
+
+.dark .ai-polish-input::placeholder {
+  color: #8b7fc7;
+}
+
+.ai-polish-input:focus {
+  border-color: rgba(139, 92, 246, 0.5);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.dark .ai-polish-input:focus {
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+.ai-polish-input:disabled {
+  opacity: 0.5;
+}
+
+.ai-polish-send {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.ai-polish-send:hover:not(:disabled) {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  transform: scale(1.05);
+}
+
+.ai-polish-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+

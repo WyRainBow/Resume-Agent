@@ -3,7 +3,7 @@
  * 基于 TipTap，支持加粗、斜体、下划线、列表等格式
  * 输出 HTML 格式，后端转换为 LaTeX
  */
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import type { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
@@ -126,6 +126,7 @@ const RichEditor = ({
   const [showPolishDialog, setShowPolishDialog] = useState(false)
   const [showFormatDialog, setShowFormatDialog] = useState(false)
   const [showAIWriteDialog, setShowAIWriteDialog] = useState(false)
+  const bubbleActiveRef = useRef(false)
 
   const handlePolish = () => {
     if (resumeData) {
@@ -452,6 +453,8 @@ const RichEditor = ({
         <BubbleMenu
           editor={editor}
           shouldShow={({ editor: e }: { editor: Editor }) => {
+            // Keep bubble visible while user is interacting with it
+            if (bubbleActiveRef.current) return true
             if (!e) return false
             const { from, to } = e.state.selection
             const text = e.state.doc.textBetween(from, to, '\n')
@@ -461,6 +464,7 @@ const RichEditor = ({
           <SelectionPolishBubble
             editor={editor}
             polishPath={polishPath}
+            bubbleActiveRef={bubbleActiveRef}
           />
         </BubbleMenu>
       )}
