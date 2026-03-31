@@ -319,6 +319,7 @@ export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resu
             {basic.phone && <div className="info-item">📞 {basic.phone}</div>}
             {basic.email && <div className="info-item">📧 {basic.email}</div>}
             {basic.location && <div className="info-item">📍 {basic.location}</div>}
+            {basic.blog && <div className="info-item">🔗 <a href={basic.blog} target="_blank" rel="noopener noreferrer">{basic.blog}</a></div>}
           </div>
         </div>
         {basic.employementStatus && (

@@ -16,6 +16,8 @@ export interface BackendResumeData {
     email: string
     location: string
   }
+  employementStatus?: string
+  blog?: string
   objective: string
   skillContent?: string  // HTML 格式的专业技能内容
   skills: { category: string; details: string }[]
@@ -97,6 +99,8 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
       email: data.basic.email,
       location: data.basic.location,
     },
+    ...(data.basic.employementStatus ? { employementStatus: data.basic.employementStatus } : {}),
+    ...(data.basic.blog ? { blog: data.basic.blog } : {}),
     objective: data.basic.title,
     skillContent: data.skillContent || '',  // 直接传递 HTML 内容
     skills: data.skillContent ? [{ category: '', details: data.skillContent }] : [],  // 兼容旧格式

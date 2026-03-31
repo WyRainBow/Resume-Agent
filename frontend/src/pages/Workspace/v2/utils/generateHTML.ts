@@ -402,6 +402,7 @@ export function generateHTMLFile(resumeData: ResumeData): string {
             ${basic.phone ? `<div class="info-item">📞 ${escapeHtml(basic.phone)}</div>` : ''}
             ${basic.email ? `<div class="info-item">📧 ${escapeHtml(basic.email)}</div>` : ''}
             ${basic.location ? `<div class="info-item">📍 ${escapeHtml(basic.location)}</div>` : ''}
+            ${basic.blog ? `<div class="info-item">🔗 <a href="${escapeHtml(basic.blog)}" target="_blank" rel="noopener noreferrer">${escapeHtml(basic.blog)}</a></div>` : ''}
           </div>
         </div>
         ${basic.employementStatus ? `<div class="employment-status">${escapeHtml(basic.employementStatus)}</div>` : ''}

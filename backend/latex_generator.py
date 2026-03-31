@@ -189,6 +189,9 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     email = escape_latex(contact.get('email') or '')
     """求职意向：优先从 objective 获取，其次从 contact.role 获取"""
     role = escape_latex(resume_data.get('objective') or contact.get('role') or '')
+    location = escape_latex(contact.get('location') or '')
+    employement_status = escape_latex(resume_data.get('employementStatus') or '')
+    blog = resume_data.get('blog') or ''  # 不 escape，保留原始 URL 给 \href
 
     # 有照片时，右侧叠加照片，不改变姓名/联系信息的居中布局
     if resume_data.get("photo"):
@@ -211,8 +214,10 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
         latex_content.append(r"\vspace{-0.8ex}")
     if abs(header_name_contact_gap_px) > 0.01:
         latex_content.append(f"\\vspace{{{_px_to_pt(header_name_contact_gap_px):.2f}pt}}")
-    """contactInfo 格式: {phone}{email}{role} - 与 slager.link 保持一致"""
-    latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{role}}}")
+    """contactInfo 格式: {phone}{email}{role}{location}{status}"""
+    latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{role}}}{{{location}}}{{{employement_status}}}")
+    if blog:
+        latex_content.append(f"\\blogLine{{{blog}}}")
     if abs(header_bottom_gap_px) > 0.01:
         latex_content.append(f"\\vspace{{{_px_to_pt(header_bottom_gap_px):.2f}pt}}")
     latex_content.append("")

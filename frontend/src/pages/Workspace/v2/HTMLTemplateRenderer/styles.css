@@ -62,6 +62,15 @@
   white-space: nowrap;
 }
 
+.info-item a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.info-item a:hover {
+  text-decoration: underline;
+}
+
 .employment-status {
   font-size: 12px;
   color: #666;

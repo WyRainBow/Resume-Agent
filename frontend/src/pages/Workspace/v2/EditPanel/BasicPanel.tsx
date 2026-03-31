@@ -144,6 +144,14 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
               onChange={(value) => onUpdate({ location: value })}
               placeholder="请输入所在城市"
             />
+
+            <Field
+              index={7}
+              label="博客"
+              value={basic?.blog || ''}
+              onChange={(value) => onUpdate({ blog: value })}
+              placeholder="如：https://blog.example.com"
+            />
           </div>
 
           <motion.div

@@ -396,6 +396,9 @@ def download_logos_to_dir(internships: list, target_dir: str) -> dict[int, str]:
 
     返回: { index: local_filename } 映射，如 { 0: 'logo_0.png', 2: 'logo_2.png' }
     """
+    # 先初始化 _using_local 状态，避免循环中途状态翻转导致分支错误
+    get_all_logos_with_urls()
+
     logos_dir = Path(target_dir) / 'logos'
     logo_map = {}
 

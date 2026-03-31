@@ -99,14 +99,23 @@
   \vspace{1.2ex}
 }
 
-\newcommand{\contactInfo}[3]{
+\newcommand{\contactInfo}[5]{
   \begin{center}
   \sffamily\small
   {#1}
   \ifthenelse{\isempty{#2}}{}{\textperiodcentered\ \ {#2}}
   \ifthenelse{\isempty{#3}}{}{\textperiodcentered\ \ {#3}}
+  \ifthenelse{\isempty{#4}}{}{\textperiodcentered\ \ {#4}}
+  \ifthenelse{\isempty{#5}}{}{\textperiodcentered\ \ {#5}}
   \end{center}
-  \vspace{0.5ex}
+  \vspace{-0.8ex}
+}
+
+\newcommand{\blogLine}[1]{
+  \ifthenelse{\isempty{#1}}{}{
+    \vspace{-0.5ex}
+    \centerline{\sffamily\footnotesize \href{#1}{#1}}
+  }
 }
 
 \newcommand{\role}[2]{
