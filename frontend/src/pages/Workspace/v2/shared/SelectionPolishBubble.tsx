@@ -2,24 +2,39 @@
  * 划词改写气泡
  * 选中文本 → 弹出输入框 → 输入指令 → AI 改写 → 替换回选区
  */
-import { useState, useCallback, useRef } from 'react'
-import { Loader2, Sparkles, Send } from 'lucide-react'
+import { useState, useCallback, useRef, useEffect } from 'react'
+import { Loader2, Sparkles, Send, X } from 'lucide-react'
 import { rewriteTextStream } from '../../../../services/api'
 import type { Editor } from '@tiptap/core'
 
 interface SelectionPolishBubbleProps {
   editor: Editor
   polishPath: string
+  bubbleActiveRef: React.MutableRefObject<boolean>
 }
 
 export default function SelectionPolishBubble({
   editor,
   polishPath,
+  bubbleActiveRef,
 }: SelectionPolishBubbleProps) {
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+
+  // 气泡出现时自动聚焦输入框，并标记为活跃状态
+  useEffect(() => {
+    bubbleActiveRef.current = true
+    const timer = setTimeout(() => {
+      inputRef.current?.focus()
+    }, 50)
+    return () => {
+      bubbleActiveRef.current = false
+      clearTimeout(timer)
+    }
+  }, [bubbleActiveRef])
 
   const handleSend = useCallback(() => {
     const instruction = input.trim()
@@ -47,6 +62,7 @@ export default function SelectionPolishBubble({
       },
       () => {
         setIsStreaming(false)
+        bubbleActiveRef.current = false
         if (fullContent.trim()) {
           editor
             .chain()
@@ -59,6 +75,7 @@ export default function SelectionPolishBubble({
       },
       (err: string) => {
         setIsStreaming(false)
+        bubbleActiveRef.current = false
         setError(err)
       },
       abortRef.current.signal,
@@ -70,36 +87,52 @@ export default function SelectionPolishBubble({
       e.preventDefault()
       handleSend()
     }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      bubbleActiveRef.current = false
+      editor.commands.focus()
+    }
   }
 
   return (
     <div
-      className="flex items-center gap-1.5 bg-white dark:bg-neutral-800 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-700 px-2 py-1.5"
+      className="ai-polish-bubble"
       onMouseDown={(e) => e.preventDefault()}
+      // 阻止事件冒泡到编辑器，防止选区丢失
+      onClick={(e) => e.stopPropagation()}
     >
-      <Sparkles className="w-3.5 h-3.5 text-purple-500 shrink-0" />
-      <input
-        type="text"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        onKeyDown={handleKeyDown}
-        placeholder="输入改写指令..."
-        disabled={isStreaming}
-        autoFocus
-        className="w-48 px-2 py-0.5 text-xs rounded-md border border-neutral-200 dark:border-neutral-600 bg-neutral-50 dark:bg-neutral-900 text-neutral-800 dark:text-neutral-200 placeholder:text-neutral-400 focus:outline-none focus:ring-1 focus:ring-purple-300 disabled:opacity-50"
-      />
-      <button
-        onClick={handleSend}
-        disabled={isStreaming || !input.trim()}
-        className="p-1 rounded-md bg-purple-500 hover:bg-purple-600 text-white disabled:opacity-40 transition-colors"
-      >
-        {isStreaming ? (
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-        ) : (
-          <Send className="w-3.5 h-3.5" />
-        )}
-      </button>
-      {error && <span className="text-[10px] text-red-500 max-w-24 truncate">{error}</span>}
+      <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center w-6 h-6 rounded-md bg-gradient-to-br from-violet-500 to-purple-600 shrink-0">
+          <Sparkles className="w-3.5 h-3.5 text-white" />
+        </div>
+        <input
+          ref={inputRef}
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="输入改写指令，如：更专业..."
+          disabled={isStreaming}
+          className="ai-polish-input"
+        />
+        <button
+          onClick={handleSend}
+          disabled={isStreaming || !input.trim()}
+          className="ai-polish-send"
+        >
+          {isStreaming ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Send className="w-4 h-4" />
+          )}
+        </button>
+      </div>
+      {error && (
+        <div className="flex items-center gap-1 mt-1.5 text-[11px] text-red-400">
+          <X className="w-3 h-3 shrink-0" />
+          <span className="truncate max-w-48">{error}</span>
+        </div>
+      )}
     </div>
   )
 }
