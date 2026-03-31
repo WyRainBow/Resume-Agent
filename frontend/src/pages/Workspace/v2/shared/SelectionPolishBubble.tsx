@@ -21,32 +21,44 @@ export default function SelectionPolishBubble({
   const [input, setInput] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
+  const selectionSnapshotRef = useRef<{ from: number; to: number; text: string } | null>(null)
 
-  // 气泡出现时自动聚焦输入框，并标记为活跃状态
+  // 气泡出现时锁定一次选区快照，并自动聚焦输入框
   useEffect(() => {
+    const { from, to } = editor.state.selection
+    const text = editor.state.doc.textBetween(from, to, '\n')
+    if (text.trim()) {
+      selectionSnapshotRef.current = { from, to, text }
+    }
     bubbleActiveRef.current = true
+
     const timer = setTimeout(() => {
       inputRef.current?.focus()
     }, 50)
+
     return () => {
       bubbleActiveRef.current = false
       clearTimeout(timer)
     }
-  }, [bubbleActiveRef])
+  }, [bubbleActiveRef, editor])
 
   const handleSend = useCallback(() => {
     const instruction = input.trim()
     if (!instruction || isStreaming) return
 
-    const { from, to } = editor.state.selection
-    const selectedText = editor.state.doc.textBetween(from, to, '\n')
+    const snapshot = selectionSnapshotRef.current
+    const from = snapshot?.from ?? editor.state.selection.from
+    const to = snapshot?.to ?? editor.state.selection.to
+    const selectedText = snapshot?.text ?? editor.state.doc.textBetween(from, to, '\n')
     if (!selectedText.trim()) return
 
     setInput('')
     setIsStreaming(true)
     setError(null)
+    bubbleActiveRef.current = true
 
     abortRef.current?.abort()
     abortRef.current = new AbortController()
@@ -94,11 +106,38 @@ export default function SelectionPolishBubble({
     }
   }
 
+  const markActive = () => {
+    bubbleActiveRef.current = true
+  }
+
+  const markInactiveIfOutside = () => {
+    const root = rootRef.current
+    if (!root) {
+      bubbleActiveRef.current = false
+      return
+    }
+    const activeEl = document.activeElement
+    bubbleActiveRef.current = !!(activeEl && root.contains(activeEl))
+  }
+
   return (
     <div
+      ref={rootRef}
       className="ai-polish-bubble"
-      onMouseDown={(e) => e.preventDefault()}
-      // 阻止事件冒泡到编辑器，防止选区丢失
+      onMouseEnter={markActive}
+      onFocusCapture={markActive}
+      onKeyDownCapture={(e) => e.stopPropagation()}
+      onBlurCapture={() => {
+        // 流式过程中保持气泡，不因临时失焦闪烁
+        if (isStreaming) {
+          bubbleActiveRef.current = true
+          return
+        }
+        // 等待焦点切换完成后再判断是否离开气泡
+        setTimeout(markInactiveIfOutside, 0)
+      }}
+      // 只阻止冒泡到编辑器；不要全局 preventDefault，否则输入框无法聚焦
+      onMouseDown={(e) => e.stopPropagation()}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex items-center gap-2">

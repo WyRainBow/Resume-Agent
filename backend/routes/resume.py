@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 
 # 统一导入方式：优先使用顶层模块，避免重复加载 backend.models
 try:
@@ -73,6 +74,15 @@ router = APIRouter(prefix="/api", tags=["Resume"])
 
 ROOT = Path(__file__).resolve().parents[2]
 MAX_PDF_SIZE_MB = 10
+
+
+class RewriteTextStreamRequest(BaseModel):
+    """划词改写流式请求（不依赖完整 resume 结构）"""
+    provider: Optional[str] = Field(default=None)
+    text: str = Field(..., description="选中的原始文本")
+    instruction: str = Field(..., description="改写指令")
+    path: Optional[str] = Field(default=None, description="可选，来源字段路径")
+    locale: str = Field(default="zh")
 
 
 def clean_llm_response(raw: str) -> str:
@@ -712,6 +722,51 @@ async def rewrite_resume_stream(body: RewriteRequest):
         try:
             for chunk in call_llm_stream(provider, prompt):
                 """发送 SSE 格式数据"""
+                yield f"data: {_json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: {_json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/resume/rewrite-text/stream")
+async def rewrite_text_stream(body: RewriteTextStreamRequest):
+    """流式改写文本片段（兼容前端划词改写入口）"""
+    source_text = (body.text or "").strip()
+    instruction = (body.instruction or "").strip()
+    if not source_text:
+        raise HTTPException(status_code=400, detail="text 不能为空")
+    if not instruction:
+        raise HTTPException(status_code=400, detail="instruction 不能为空")
+
+    provider = body.provider or DEFAULT_AI_PROVIDER
+    path_hint = body.path or "selected_text"
+    locale = body.locale or "zh"
+
+    prompt = (
+        "你是简历优化助手。请严格按用户指令改写文本片段。\n"
+        f"- 语言: {locale}\n"
+        f"- 字段路径: {path_hint}\n"
+        f"- 改写指令: {instruction}\n\n"
+        "要求：\n"
+        "1. 仅输出改写后的文本，不要解释，不要使用代码块。\n"
+        "2. 保持事实不变，不编造经历与数据。\n"
+        "3. 保持原段落结构，除非指令明确要求改结构。\n\n"
+        f"原文：\n{source_text}\n"
+    )
+
+    async def generate():
+        try:
+            for chunk in call_llm_stream(provider, prompt):
                 yield f"data: {_json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
             yield "data: [DONE]\n\n"
         except Exception as e:

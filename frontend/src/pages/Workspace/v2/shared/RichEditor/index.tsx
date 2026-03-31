@@ -452,6 +452,18 @@ const RichEditor = ({
       {editor && (
         <BubbleMenu
           editor={editor}
+          tippyOptions={{
+            interactive: true,
+            placement: 'top',
+            duration: 100,
+            hideOnClick: false,
+            popperOptions: {
+              strategy: 'fixed',
+            },
+            onHidden: () => {
+              bubbleActiveRef.current = false
+            },
+          }}
           shouldShow={({ editor: e }: { editor: Editor }) => {
             // Keep bubble visible while user is interacting with it
             if (bubbleActiveRef.current) return true
@@ -513,4 +525,3 @@ const RichEditor = ({
 }
 
 export default RichEditor
-
