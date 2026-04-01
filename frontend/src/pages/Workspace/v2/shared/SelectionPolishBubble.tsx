@@ -6,6 +6,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import { Loader2, Sparkles, Send, X, Check, Eye } from 'lucide-react'
 import { rewriteTextStream } from '../../../../services/api'
 import type { Editor } from '@tiptap/core'
+import { DOMParser as ProseMirrorDOMParser } from 'prosemirror-model'
 
 interface SelectionPolishBubbleProps {
   editor: Editor
@@ -36,15 +37,272 @@ export default function SelectionPolishBubble({
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
-  const selectionSnapshotRef = useRef<{ from: number; to: number; text: string } | null>(null)
+  const selectionSnapshotRef = useRef<{ from: number; to: number; text: string; html: string } | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
-  // 气泡出现时锁定一次选区快照，并自动聚焦输入框
+  const isRemoveBoldInstruction = (value: string): boolean => {
+    const normalized = value.trim().toLowerCase()
+    if (!normalized) return false
+    return (
+      normalized.includes('去掉加粗') ||
+      normalized.includes('取消加粗') ||
+      normalized.includes('不要加粗') ||
+      normalized.includes('remove bold') ||
+      normalized.includes('no bold')
+    )
+  }
+
+  const shouldConvertUlToOl = (value: string): boolean => {
+    const normalized = value.trim().toLowerCase()
+    if (!normalized) return false
+    return (
+      normalized.includes('无序列表改成有序列表') ||
+      normalized.includes('无序改有序') ||
+      normalized.includes('改成有序列表') ||
+      (normalized.includes('无序列表') && normalized.includes('有序列表'))
+    )
+  }
+
+  const shouldAutoBoldTechKeywords = (value: string): boolean => {
+    const normalized = value.trim().toLowerCase()
+    if (!normalized) return false
+    return normalized.includes('技术关键词') && normalized.includes('加粗')
+  }
+
+  const shouldBoldAll = (value: string): boolean => {
+    const normalized = value.trim().toLowerCase()
+    if (!normalized) return false
+    if (isRemoveBoldInstruction(normalized)) return false
+    return normalized.includes('加粗') || normalized.includes('加黑') || normalized.includes('bold')
+  }
+
+  const stripBoldMarkup = (html: string): string => {
+    if (!html) return html
+    return html
+      .replace(/<\s*\/?\s*(strong|b)\s*>/gi, '')
+      .replace(/\s*style\s*=\s*"([^"]*?)"/gi, (_m, styleValue: string) => {
+        const kept = styleValue
+          .split(';')
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .filter((entry) => !/font-weight\s*:/i.test(entry))
+        if (kept.length === 0) return ''
+        return ` style="${kept.join('; ')}"`
+      })
+      .replace(/\s*style\s*=\s*'([^']*?)'/gi, (_m, styleValue: string) => {
+        const kept = styleValue
+          .split(';')
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .filter((entry) => !/font-weight\s*:/i.test(entry))
+        if (kept.length === 0) return ''
+        return ` style='${kept.join('; ')}'`
+      })
+  }
+
+  const escapeRegex = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+  const extractBoldKeywords = (instructions: string[]): string[] => {
+    const found = new Set<string>()
+    const techDefaults = [
+      'Java',
+      'Go',
+      'Python',
+      'Spring Boot',
+      'Spring',
+      'MySQL',
+      'Redis',
+      'Kafka',
+      'Docker',
+      'Kubernetes',
+      'K8s',
+      'LLM',
+      'RAG',
+      'Agent',
+      'TypeScript',
+      'React',
+      'Node.js',
+      'Golang',
+      'PostgreSQL',
+      'MongoDB',
+      'Elasticsearch',
+    ]
+
+    for (const raw of instructions) {
+      const text = raw.trim()
+      if (!text) continue
+
+      const quoted = text.match(/[“"']([^“"']+)[”"']/g) || []
+      for (const q of quoted) {
+        const cleaned = q.replace(/[“”"']/g, '').trim()
+        if (cleaned) found.add(cleaned)
+      }
+
+      const keywordSegment = text.match(/(?:关键词|关键字|技术关键词)[：:\s]*(.+?)(?:加粗|突出|即可|。|$)/)
+      if (keywordSegment?.[1]) {
+        keywordSegment[1]
+          .split(/[、,，/\s]+/)
+          .map((v) => v.trim())
+          .filter(Boolean)
+          .forEach((v) => found.add(v))
+      }
+
+      const directSegment = text.match(/(?:把|将)(.+?)(?:加粗|加黑|突出)/)
+      if (directSegment?.[1]) {
+        directSegment[1]
+          .split(/[、,，/\s]+/)
+          .map((v) => v.trim())
+          .filter(Boolean)
+          .forEach((v) => found.add(v))
+      }
+
+      if (shouldAutoBoldTechKeywords(text)) {
+        for (const k of techDefaults) found.add(k)
+      }
+    }
+
+    return Array.from(found).filter((v) => v.length >= 2).sort((a, b) => b.length - a.length)
+  }
+
+  const boldKeywordsInHtml = (html: string, keywords: string[]): string => {
+    if (!html || keywords.length === 0) return html
+
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(`<div id="__root__">${html}</div>`, 'text/html')
+    const root = doc.getElementById('__root__')
+    if (!root) return html
+
+    const pattern = new RegExp(keywords.map((k) => escapeRegex(k)).join('|'), 'gi')
+    const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+    const textNodes: Text[] = []
+
+    let current = walker.nextNode()
+    while (current) {
+      const node = current as Text
+      const parentEl = node.parentElement
+      const inBold = !!parentEl?.closest('strong,b')
+      if (parentEl && !inBold && node.nodeValue && node.nodeValue.trim()) {
+        textNodes.push(node)
+      }
+      current = walker.nextNode()
+    }
+
+    for (const textNode of textNodes) {
+      const text = textNode.nodeValue || ''
+      pattern.lastIndex = 0
+      if (!pattern.test(text)) continue
+
+      pattern.lastIndex = 0
+      const frag = doc.createDocumentFragment()
+      let last = 0
+      let match: RegExpExecArray | null = pattern.exec(text)
+      while (match) {
+        const index = match.index
+        if (index > last) {
+          frag.appendChild(doc.createTextNode(text.slice(last, index)))
+        }
+        const strong = doc.createElement('strong')
+        strong.textContent = match[0]
+        frag.appendChild(strong)
+        last = index + match[0].length
+        match = pattern.exec(text)
+      }
+      if (last < text.length) {
+        frag.appendChild(doc.createTextNode(text.slice(last)))
+      }
+      textNode.parentNode?.replaceChild(frag, textNode)
+    }
+
+    return root.innerHTML
+  }
+
+  const convertUlToOl = (html: string): string => {
+    if (!html) return html
+    return html
+      .replace(/<\s*ul(\s[^>]*)?>/gi, (_m, attrs = '') => `<ol${attrs}>`)
+      .replace(/<\s*\/\s*ul\s*>/gi, '</ol>')
+  }
+
+  const boldAllTextInHtml = (html: string): string => {
+    if (!html) return html
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(`<div id="__root__">${html}</div>`, 'text/html')
+    const root = doc.getElementById('__root__')
+    if (!root) return html
+
+    const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+    const textNodes: Text[] = []
+    let current = walker.nextNode()
+    while (current) {
+      const node = current as Text
+      const parentEl = node.parentElement
+      const inBold = !!parentEl?.closest('strong,b')
+      if (parentEl && !inBold && node.nodeValue && node.nodeValue.trim()) {
+        textNodes.push(node)
+      }
+      current = walker.nextNode()
+    }
+
+    for (const textNode of textNodes) {
+      const strong = doc.createElement('strong')
+      strong.textContent = textNode.nodeValue || ''
+      textNode.parentNode?.replaceChild(strong, textNode)
+    }
+
+    return root.innerHTML
+  }
+
+  const normalizeMarkdownBoldToHtml = (content: string): string => {
+    if (!content) return content
+    return content
+      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      .replace(/__(.+?)__/g, '<strong>$1</strong>')
+  }
+
+  const applyInstructionTransforms = (html: string, instructions: string[]): string => {
+    if (!html.trim()) return html
+    let result = normalizeMarkdownBoldToHtml(html)
+    const merged = instructions.join(' ')
+
+    if (isRemoveBoldInstruction(merged)) {
+      result = stripBoldMarkup(result)
+    }
+    if (shouldConvertUlToOl(merged)) {
+      result = convertUlToOl(result)
+    }
+
+    const keywords = extractBoldKeywords(instructions)
+    if (keywords.length > 0) {
+      result = boldKeywordsInHtml(result, keywords)
+    } else if (shouldBoldAll(merged)) {
+      result = boldAllTextInHtml(result)
+    }
+
+    return result
+  }
+
+  // 气泡出现时锁定一次选区快照（包含富文本），并自动聚焦输入框
   useEffect(() => {
     const { from, to } = editor.state.selection
-    const text = editor.state.doc.textBetween(from, to, '\n')
-    if (text.trim()) {
-      selectionSnapshotRef.current = { from, to, text }
+    const plainText = editor.state.doc.textBetween(from, to, '\n')
+
+    // 通过 DOM Selection 保留当前选区的富文本结构（如 <strong>）
+    let html = ''
+    const domSelection = window.getSelection()
+    if (domSelection && domSelection.rangeCount > 0) {
+      const range = domSelection.getRangeAt(0)
+      const container = document.createElement('div')
+      container.appendChild(range.cloneContents())
+      html = container.innerHTML
+    }
+
+    if (plainText.trim()) {
+      selectionSnapshotRef.current = {
+        from,
+        to,
+        text: plainText,
+        html: html || plainText,
+      }
     }
     bubbleActiveRef.current = true
 
@@ -66,6 +324,7 @@ export default function SelectionPolishBubble({
     const from = snapshot?.from ?? editor.state.selection.from
     const to = snapshot?.to ?? editor.state.selection.to
     const selectedText = snapshot?.text ?? editor.state.doc.textBetween(from, to, '\n')
+    const selectedHtml = snapshot?.html ?? selectedText
     if (!selectedText.trim()) return
 
     setInput('')
@@ -79,7 +338,7 @@ export default function SelectionPolishBubble({
     let fullContent = ''
 
     rewriteTextStream(
-      selectedText,
+      selectedHtml,
       instruction,
       polishPath,
       (chunk: string) => {
@@ -88,11 +347,12 @@ export default function SelectionPolishBubble({
       () => {
         setIsStreaming(false)
         if (fullContent.trim()) {
-          setLatestPolished(fullContent)
+          const normalized = normalizeMarkdownBoldToHtml(fullContent)
+          setLatestPolished(normalized)
           setChatMessages([
-            { id: `o-${Date.now()}`, type: 'original', content: selectedText },
+            { id: `o-${Date.now()}`, type: 'original', content: selectedHtml },
             { id: `u-${Date.now()}`, type: 'user', content: instruction },
-            { id: `a-${Date.now()}`, type: 'ai', content: fullContent },
+            { id: `a-${Date.now()}`, type: 'ai', content: normalized },
           ])
           setChatOpen(true)
           bubbleActiveRef.current = false
@@ -120,7 +380,7 @@ export default function SelectionPolishBubble({
     const instruction = chatInput.trim()
     if (!instruction || chatStreaming) return
 
-    const baseText = latestPolished || selectionSnapshotRef.current?.text || ''
+    const baseText = latestPolished || selectionSnapshotRef.current?.html || selectionSnapshotRef.current?.text || ''
     if (!baseText.trim()) return
 
     const aiId = `a-${Date.now()}`
@@ -149,7 +409,12 @@ export default function SelectionPolishBubble({
       () => {
         setChatStreaming(false)
         if (full.trim()) {
-          setLatestPolished(full)
+          const normalized = normalizeMarkdownBoldToHtml(full)
+          setLatestPolished(normalized)
+          setChatMessages((prev) =>
+            prev.map((m) => (m.id === aiId ? { ...m, content: normalized, isStreaming: false } : m)),
+          )
+          return
         }
         setChatMessages((prev) =>
           prev.map((m) => (m.id === aiId ? { ...m, content: full, isStreaming: false } : m)),
@@ -189,15 +454,63 @@ export default function SelectionPolishBubble({
       bubbleActiveRef.current = false
       return
     }
-    editor
-      .chain()
-      .focus()
-      .setTextSelection({ from: snapshot.from, to: snapshot.to })
-      .deleteSelection()
-      .insertContent(latestPolished)
-      .run()
+    const instructions = chatMessages.filter((m) => m.type === 'user').map((m) => m.content)
+    const finalContent = applyInstructionTransforms(latestPolished, instructions)
+    if (!finalContent.trim()) {
+      setError('改写内容为空，无法应用')
+      return
+    }
+
+    const { from, to } = snapshot
+    const merged = instructions.join(' ')
+
+    // 判断是否为纯格式变更（文字内容没变）
+    const originalPlain = snapshot.text.replace(/\s+/g, ' ').trim()
+    const tempDiv = document.createElement('div')
+    tempDiv.innerHTML = finalContent
+    const finalPlain = (tempDiv.textContent || '').replace(/\s+/g, ' ').trim()
+    const isFormatOnly = originalPlain === finalPlain
+
+    const wantBold = shouldBoldAll(merged) && !isRemoveBoldInstruction(merged)
+    const wantUnbold = isRemoveBoldInstruction(merged)
+
+    // 先关闭弹窗，让编辑器恢复焦点后再操作
     setChatOpen(false)
     bubbleActiveRef.current = false
+
+    requestAnimationFrame(() => {
+      if (isFormatOnly && wantBold) {
+        // 纯加粗：复用工具栏 toggleBold 机制
+        editor.chain()
+          .focus()
+          .setTextSelection({ from, to })
+          .setBold()
+          .run()
+      } else if (isFormatOnly && wantUnbold) {
+        // 纯去粗
+        editor.chain()
+          .focus()
+          .setTextSelection({ from, to })
+          .unsetBold()
+          .run()
+      } else {
+        // 文字内容有变化：用 ProseMirror 事务替换
+        const { state } = editor
+        const container = document.createElement('div')
+        container.innerHTML = finalContent
+        const parser = ProseMirrorDOMParser.fromSchema(state.schema)
+        const parsedSlice = parser.parseSlice(container, {
+          preserveWhitespace: true,
+          context: state.doc.resolve(from),
+        })
+        if (parsedSlice.content.size > 0) {
+          const tr = state.tr.replaceRange(from, to, parsedSlice)
+          if (tr.docChanged) {
+            editor.view.dispatch(tr.scrollIntoView())
+          }
+        }
+      }
+    })
   }
 
   const handleCancelPreview = () => {
@@ -296,7 +609,10 @@ export default function SelectionPolishBubble({
                     <div key={msg.id} className="space-y-1.5">
                       <span className="text-xs font-medium text-neutral-400">优化前</span>
                       <div className="rounded-lg bg-neutral-50 dark:bg-neutral-800/50 border border-neutral-200 dark:border-neutral-800 p-4">
-                        <div className="text-sm leading-6 whitespace-pre-wrap text-neutral-700 dark:text-neutral-300">{msg.content}</div>
+                        <div
+                          className="prose prose-sm max-w-none text-neutral-700 dark:text-neutral-300"
+                          dangerouslySetInnerHTML={{ __html: msg.content }}
+                        />
                       </div>
                     </div>
                   )
@@ -320,7 +636,10 @@ export default function SelectionPolishBubble({
                           AI 改写中...
                         </div>
                       ) : (
-                        <div className="text-sm leading-6 whitespace-pre-wrap text-neutral-800 dark:text-neutral-100">{msg.content}</div>
+                        <div
+                          className="prose prose-sm max-w-none text-neutral-800 dark:text-neutral-100"
+                          dangerouslySetInnerHTML={{ __html: msg.content }}
+                        />
                       )}
                     </div>
                   </div>

@@ -20,8 +20,6 @@ try:
         ResumeParseRequest,
         SectionParseRequest,
         RewriteRequest,
-        FormatTextRequest,
-        FormatTextResponse,
     )
     from llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
     from prompts import (
@@ -50,8 +48,6 @@ except ImportError:
         ResumeParseRequest,
         SectionParseRequest,
         RewriteRequest,
-        FormatTextRequest,
-        FormatTextResponse,
     )
     from backend.llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
     from backend.prompts import (
@@ -760,7 +756,11 @@ async def rewrite_text_stream(body: RewriteTextStreamRequest):
         "要求：\n"
         "1. 仅输出改写后的文本，不要解释，不要使用代码块。\n"
         "2. 保持事实不变，不编造经历与数据。\n"
-        "3. 保持原段落结构，除非指令明确要求改结构。\n\n"
+        "3. 保持原段落结构，除非指令明确要求改结构。\n"
+        "4. 若原文包含 HTML 标签（如 <strong>/<ul>/<li>），必须输出 HTML 片段，不要改成 Markdown（例如不要输出 **加粗**）。\n"
+        "5. 若原文包含 HTML 标签，按指令调整标签样式；未要求变更的标签尽量保留。\n"
+        "6. 当用户要求\"去掉加粗/取消加粗\"时，移除 <strong>/<b> 以及 font-weight:bold 样式，不要再输出任何加粗效果。\n"
+        "7. 当用户要求加粗（加粗/bold/加黑）时，无论原文是否含 HTML 标签，都必须使用 <strong> 标签包裹需要加粗的内容，不要使用 ** Markdown 语法。\n\n"
         f"原文：\n{source_text}\n"
     )
 
@@ -781,58 +781,3 @@ async def rewrite_text_stream(body: RewriteTextStreamRequest):
             "X-Accel-Buffering": "no",
         },
     )
-
-
-@router.post("/resume/format", response_model=FormatTextResponse)
-async def format_resume_text_api(body: FormatTextRequest):
-    """多层降级的简历文本格式化"""
-    from format_helper import format_resume_text
-
-    def ai_callback(text: str) -> Dict:
-        from chunk_processor import split_resume_text, merge_resume_chunks
-
-        if len(text) > 300:
-            print(f"[分块处理] 文本长度 {len(text)}，开始分块...")
-            chunks = split_resume_text(text, max_chunk_size=250)
-            print(f"[分块处理] 分为 {len(chunks)} 块")
-
-            chunks_results = []
-            for i, chunk in enumerate(chunks):
-                print(f"[分块处理] 处理第 {i+1}/{len(chunks)} 块: {chunk['section']}")
-
-                chunk_prompt = f"""提取以下简历段落为JSON。只提取原文。
-
-段落：{chunk['section']}
-
-{chunk['content']}"""
-
-                try:
-                    raw = call_llm(body.provider, chunk_prompt)
-                    cleaned = clean_llm_response(raw)
-                    chunk_data = parse_json_response(cleaned)
-                    chunks_results.append(chunk_data)
-                    print(f"[分块处理] 第 {i+1} 块完成")
-                except Exception as e:
-                    print(f"[分块处理] 第 {i+1} 块失败: {e}")
-                    continue
-
-            merged_data = merge_resume_chunks(chunks_results)
-            print(f"[分块处理] 合并完成，字段: {list(merged_data.keys())}")
-            return merged_data
-
-        print(f"[直接处理] 文本长度 {len(text)}")
-        prompt = f"""提取简历信息JSON。规则：只提取原文，不添加，灵活识别字段。
-
-{text}"""
-
-        raw = call_llm(body.provider, prompt)
-        cleaned = clean_llm_response(raw)
-        return parse_json_response(cleaned)
-
-    result = format_resume_text(
-        text=body.text,
-        use_ai=body.use_ai,
-        ai_callback=ai_callback if body.use_ai else None,
-    )
-
-    return FormatTextResponse(**result)

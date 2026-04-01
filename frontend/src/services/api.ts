@@ -502,11 +502,6 @@ export async function rewriteResumeStream(
   }
 }
 
-export async function formatResumeText(provider: 'zhipu' | 'doubao', text: string, useAi: boolean = true) {
-  const url = `${getApiBaseUrl()}/api/resume/format`
-  const { data } = await axios.post(url, { text, provider, use_ai: useAi })
-  return data as { success: boolean; data: Resume | null; method: string; error: string | null }
-}
 
 /**
  * 获取默认简历模板

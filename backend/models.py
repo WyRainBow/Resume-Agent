@@ -104,21 +104,6 @@ class ResumeParseRequest(BaseModel):
     model: Optional[str] = Field(default=None, description="可选，指定具体模型 (如 deepseek-v3.2, deepseek-reasoner)")
 
 
-class FormatTextRequest(BaseModel):
-    """格式化文本请求"""
-    text: str = Field(..., description="简历文本内容")
-    provider: Literal['zhipu', 'doubao', 'deepseek'] = Field(default='doubao', description="AI 提供商")
-    use_ai: bool = Field(default=True, description="是否允许使用 AI（最后一层）")
-
-
-class FormatTextResponse(BaseModel):
-    """格式化文本响应"""
-    success: bool
-    data: Optional[Dict[str, Any]]
-    method: str
-    error: Optional[str]
-
-
 # ======================
 # SQLAlchemy ORM 模型
 # ======================
