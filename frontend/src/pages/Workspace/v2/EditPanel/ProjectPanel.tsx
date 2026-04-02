@@ -3,7 +3,7 @@
  * 管理项目列表的增删改查
  */
 import { useState } from 'react'
-import { PlusCircle, Wand2, Trash2, CheckSquare, Square } from 'lucide-react'
+import { PlusCircle, Wand2, Trash2, CheckSquare, Square, GripVertical } from 'lucide-react'
 import { Reorder } from 'framer-motion'
 import { cn } from '../../../../lib/utils'
 import type { Project, GlobalSettings } from '../types'
@@ -126,6 +126,11 @@ const ProjectPanel = ({
             删除({selectedIds.size})
           </button>
         )}
+      </div>
+
+      <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-neutral-400 px-1">
+        <GripVertical className="w-3.5 h-3.5" />
+        可拖拽调整顺序
       </div>
 
       {/* 项目列表 */}

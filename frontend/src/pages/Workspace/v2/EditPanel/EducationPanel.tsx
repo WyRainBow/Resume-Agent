@@ -255,7 +255,7 @@ const EducationItem = ({
                 </motion.div>
                 <Field
                   index={5}
-                  label="补充说明"
+                  label="补充说明（可以填写校园经历、GPA、四六级等）"
                   value={education.description || ''}
                   onChange={(v) => onUpdate({ ...education, description: v })}
                   type="editor"
@@ -298,6 +298,11 @@ const EducationPanel = ({
           className="w-full"
         />
       )}
+
+      <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-neutral-400 px-1">
+        <GripVertical className="w-3.5 h-3.5" />
+        可拖拽调整顺序
+      </div>
 
       <Reorder.Group axis="y" values={educations} onReorder={onReorder} className="space-y-3">
         {educations.map((edu) => (
