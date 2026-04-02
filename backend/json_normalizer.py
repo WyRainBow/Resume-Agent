@@ -440,21 +440,22 @@ class ResumeNormalizer:
                 
                 for key, value in item.items():
                     key_lower = key.lower()
+                    key_compact = key_lower.replace('_', '').replace('-', '').replace(' ', '')
 
-                    # 处理title字段（学校名称）
-                    if key_lower == 'title' or any(k in key_lower for k in ['学校', 'school', 'university', '院校']):
+                    # 处理 title 字段（学校名称），只接受明确字段，避免 schoolNameFontSize 被误判
+                    if key_lower == 'title' or key_compact in ['学校', 'school', 'university', '院校', 'schoolname', 'universityname']:
                         standardized_item['title'] = value
-                    # 处理subtitle字段（专业）
-                    elif key_lower == 'subtitle' or any(k in key_lower for k in ['专业', 'major', '学科']):
+                    # 处理 subtitle 字段（专业）
+                    elif key_lower == 'subtitle' or key_compact in ['专业', 'major', '学科']:
                         standardized_item['subtitle'] = value
-                    # 处理degree字段（学位）
-                    elif key_lower == 'degree' or any(k in key_lower for k in ['学历', 'degree', '学位']):
+                    # 处理 degree 字段（学位）
+                    elif key_lower == 'degree' or key_compact in ['学历', 'degree', '学位']:
                         standardized_item['degree'] = value
-                    # 处理date字段（时间）
-                    elif key_lower == 'date' or any(k in key_lower for k in ['时间', 'duration', 'date', '时间段']):
+                    # 处理 date 字段（时间）
+                    elif key_lower == 'date' or key_compact in ['时间', 'duration', 'date', '时间段', 'daterange']:
                         standardized_item['date'] = value
-                    # 处理details字段
-                    elif key_lower == 'details' or any(k in key_lower for k in ['描述', 'description', '详情']):
+                    # 处理 details 字段
+                    elif key_lower == 'details' or key_compact in ['描述', 'description', '详情', 'detail', '补充说明']:
                         standardized_item['details'] = value
                     else:
                         standardized_item[key] = value

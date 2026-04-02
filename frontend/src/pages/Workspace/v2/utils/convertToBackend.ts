@@ -56,6 +56,9 @@ export interface BackendResumeData {
     degree: string
     date: string
     details: string[]
+    schoolNameFontSize?: number  // 单条教育经历学校名称字号（px）
+    logo?: string  // 学校 Logo key
+    logoSize?: number  // 单条教育经历 Logo 大小（px）
   }[]
   sectionOrder: string[]
   sectionTitles?: Record<string, string>
@@ -139,6 +142,9 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
       degree: stripHtmlTags(e.degree),
       date: e.endDate ? `${e.startDate} - ${e.endDate}` : e.startDate,
       details: e.description ? [e.description] : [],
+      ...(e.schoolNameFontSize ? { schoolNameFontSize: e.schoolNameFontSize } : {}),
+      ...(e.schoolLogo ? { logo: e.schoolLogo } : {}),
+      ...(e.schoolLogoSize ? { logoSize: e.schoolLogoSize } : {}),
     })),
     sectionOrder: data.menuSections
       .filter((s) => s.enabled && s.id !== 'basic')
