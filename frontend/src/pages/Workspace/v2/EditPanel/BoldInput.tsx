@@ -61,6 +61,7 @@ const BoldInput: React.FC<BoldInputProps> = ({
 
   // ---------- 加粗状态 ----------
   const [isBold, setIsBold] = useState(() => isFullyBold(value))
+  const effectiveControlsLayout = controlsLayout === 'below' && !rightActions ? 'overlay' : controlsLayout
 
   // value 变化时同步 isBold
   useEffect(() => {
@@ -160,7 +161,7 @@ const BoldInput: React.FC<BoldInputProps> = ({
             'dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-200',
             'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
             '[&_strong]:font-bold [&_b]:font-bold',
-            controlsLayout === 'overlay' ? (rightActions ? 'pr-40' : 'pr-10') : 'pr-3',
+            effectiveControlsLayout === 'overlay' ? (rightActions ? 'pr-40' : 'pr-10') : 'pr-3',
             className
           )}
           style={{
@@ -178,7 +179,7 @@ const BoldInput: React.FC<BoldInputProps> = ({
             {placeholder}
           </div>
         )}
-        {controlsLayout === 'overlay' && (
+        {effectiveControlsLayout === 'overlay' && (
           <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1.5">
             {rightActions}
             <button
@@ -200,7 +201,7 @@ const BoldInput: React.FC<BoldInputProps> = ({
           </div>
         )}
       </div>
-      {controlsLayout === 'below' && (
+      {effectiveControlsLayout === 'below' && (
         <div className="flex flex-wrap items-center gap-2">
           {rightActions}
           <button
