@@ -11,7 +11,6 @@ const AgentChat = lazy(() => import('./pages/AgentChat/SophiaChat'))
 const CreateNew = lazy(() => import('./pages/CreateNew'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const LoginPage = lazy(() => import('./pages/Login'))
-const ResumeCreator = lazy(() => import('./pages/ResumeCreator'))
 const SettingsPage = lazy(() => import('./pages/Settings'))
 const SharePage = lazy(() => import('./pages/SharePage'))
 const Workspace = lazy(() => import('./pages/Workspace/v2'))
@@ -66,8 +65,6 @@ function App() {
               <Route path="/my-resumes" element={<ResumeDashboard />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/create-new" element={<CreateNew />} />
-              {/* 简历创建路由 */}
-              <Route path="/resume-creator" element={<ResumeCreator />} /> {/* 新手创建简历 */}
               <Route path="/share/:shareId" element={<SharePage />} />
             </Routes>
           </Suspense>

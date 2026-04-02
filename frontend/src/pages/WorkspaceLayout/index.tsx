@@ -138,9 +138,7 @@ export default function WorkspaceLayout({
 
   // 根据路径确定当前工作区
   const getCurrentWorkspace = (): WorkspaceType => {
-    // 检测是否是简历创建页面（保留 resume-creator）
     if (
-      location.pathname === "/resume-creator" ||
       location.pathname.startsWith("/workspace/agent") ||
       location.pathname.startsWith("/agent")
     ) {
