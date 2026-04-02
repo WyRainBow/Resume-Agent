@@ -70,7 +70,7 @@ async def upload_school_logo(
     if not safe_filename:
         raise HTTPException(status_code=400, detail="文件名无效")
 
-    allowed_groups = {"985", "211", "双非"}
+    allowed_groups = {"985", "211", "香港", "双非"}
     if group not in allowed_groups:
         raise HTTPException(status_code=400, detail="分组无效")
 

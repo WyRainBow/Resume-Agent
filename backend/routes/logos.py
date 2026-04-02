@@ -116,8 +116,8 @@ async def upload_logo(
         config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key)
         client = CosS3Client(config)
 
-        # 上传到 COS（直接用原文件名）
-        cos_key = safe_filename
+        # 上传到 COS company_logo/ 目录
+        cos_key = f"{m.COMPANY_LOGO_PREFIX}{safe_filename}"
         client.put_object(
             Bucket=bucket,
             Body=content,
@@ -137,13 +137,13 @@ async def upload_logo(
         import urllib.request
         cos_base = m.COS_BASE_URL
         name = os.path.splitext(cos_key)[0]
-        url = f"{cos_base}/{urllib.request.quote(cos_key)}"
+        url = f"{cos_base}/{urllib.request.quote(cos_key, safe='/')}"
 
         return {
             "success": True,
             "logo": {
-                "key": name,
-                "name": name,
+                "key": os.path.splitext(safe_filename)[0],
+                "name": os.path.splitext(safe_filename)[0],
                 "url": url,
             }
         }
