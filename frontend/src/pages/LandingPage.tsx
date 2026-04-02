@@ -1,25 +1,17 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronRight,
-  FileText,
-  Layout,
   Sparkles,
-  Zap,
   LogIn,
   User,
   LogOut,
-  Github
+  Github,
+  MessageCircle,
+  X
 } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-
-// 动画变体
-const fadeInUp = {
-  initial: { opacity: 0, y: 30 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.6 }
-}
 
 // 刷新时标题/副标题轻微弹出（偏慢）
 const popIn = {
@@ -28,19 +20,12 @@ const popIn = {
   transition: { type: 'spring', stiffness: 120, damping: 20 }
 }
 
-const staggerContainer = {
-  animate: {
-    transition: {
-      staggerChildren: 0.1
-    }
-  }
-}
-
 export default function LandingPage() {
   const navigate = useNavigate()
   const { isAuthenticated, user, logout, openModal } = useAuth()
   const [isScrolled, setIsScrolled] = useState(false)
   const [showLogoutMenu, setShowLogoutMenu] = useState(false)
+  const [showWechatCard, setShowWechatCard] = useState(false)
   const [githubStars, setGithubStars] = useState<number | null>(null)
   const logoutMenuRef = useRef<HTMLDivElement>(null)
 
@@ -197,53 +182,6 @@ export default function LandingPage() {
           </motion.div>
       </section>
 
-      {/* 特性展示 */}
-      <section id="features" className="py-32 bg-slate-50/80 relative">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
-            {[
-              { 
-                icon: <Zap className="w-8 h-8 text-slate-600" />, 
-                title: "Neural Streaming", 
-                desc: "基于 SSE 的流式渲染技术。看着简历内容实时流转、AI 在毫秒内完成内容润色与逻辑构建。" 
-              },
-              { 
-                icon: <FileText className="w-8 h-8 text-slate-600" />, 
-                title: "LaTeX Foundry", 
-                desc: "告别 PDF 错位。原生集成 LaTeX 编译引擎、为程序员提供最严谨的对齐、间距与字体渲染。" 
-              },
-              { 
-                icon: <Layout className="w-8 h-8 text-slate-600" />, 
-                title: "智能逻辑", 
-                desc: "它懂你的项目亮点、也懂你的复杂场景。智能识别关键词、自动优化工作描述的动作词与数据产出。" 
-              }
-            ].map((feature, i) => (
-              <motion.div
-                key={i}
-                variants={fadeInUp}
-                initial="initial"
-                whileInView="animate"
-                viewport={{ once: true }}
-                whileHover={{ 
-                  y: -12,
-                  transition: { type: "spring", stiffness: 300 }
-                }}
-                className="p-10 rounded-[32px] bg-white border border-slate-100 hover:border-slate-200 shadow-[0_8px_30px_rgb(0,0,0,0.02)] hover:shadow-[0_20px_50px_rgba(0,0,0,0.06)] transition-all group relative overflow-hidden"
-              >
-                {/* 卡片装饰：角落的微弱光晕 */}
-                <div className="absolute top-[-20%] right-[-20%] w-32 h-32 bg-slate-100 rounded-full blur-2xl group-hover:bg-slate-200 transition-colors" />
-                
-                <div className="w-16 h-16 rounded-2xl bg-slate-50 flex items-center justify-center mb-10 group-hover:scale-110 group-hover:bg-white transition-all shadow-sm">
-                  {feature.icon}
-              </div>
-                <h3 className="text-2xl font-black text-slate-900 mb-4">{feature.title}</h3>
-                <p className="text-slate-500 font-medium leading-relaxed">{feature.desc}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* 底部信息 */}
       <footer className="py-20 text-center">
         <div className="text-slate-400 text-xs font-black tracking-[0.3em] uppercase">
@@ -316,6 +254,60 @@ export default function LandingPage() {
           </motion.button>
         )}
       </motion.div>
+
+      <div className="fixed bottom-6 right-6 z-50">
+        <AnimatePresence mode="wait">
+          {showWechatCard ? (
+            <motion.div
+              key="wechat-card"
+              initial={{ opacity: 0, y: 16, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.96 }}
+              transition={{ duration: 0.2 }}
+              className="w-[220px] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_20px_50px_rgba(15,23,42,0.16)]"
+            >
+              <div className="mb-3 flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-sm font-bold text-slate-900">联系我</div>
+                  <div className="mt-1 text-xs text-slate-500">微信扫码、直接沟通</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowWechatCard(false)}
+                  className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                  aria-label="关闭联系卡片"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <img
+                src="/contact-wechat-qr.jpg"
+                alt="微信二维码"
+                className="w-full rounded-xl border border-slate-200 bg-white object-cover"
+              />
+              <div className="mt-3 text-center text-[11px] text-slate-400">
+                扫码后备注：简历站
+              </div>
+            </motion.div>
+          ) : (
+            <motion.button
+              key="wechat-trigger"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowWechatCard(true)}
+              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-lg transition-all hover:border-slate-300"
+            >
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                <MessageCircle className="h-4 w-4" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-bold text-slate-900">联系我</div>
+                <div className="text-[11px] text-slate-400">微信二维码</div>
+              </div>
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
 
       <style>{`
         @keyframes spin-slow {
