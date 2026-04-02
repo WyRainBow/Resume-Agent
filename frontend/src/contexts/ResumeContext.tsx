@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback } from 'react'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
 import { applyPatchPaths } from '@/utils/resumePatch'
-import axios from 'axios'
+import { saveResume } from '@/services/resumeStorage'
 
 export interface PendingPatch {
   patch_id:   string
@@ -30,16 +30,19 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
   const [pendingPatches, setPendingPatches] = useState<PendingPatch[]>([])
   const [patchAppliedAt, setPatchAppliedAt] = useState(0)
 
+  const persistResume = useCallback((payload: ResumeData) => {
+    const resumeId = (payload as any).resume_id ?? (payload as any).id
+    void saveResume(payload, resumeId || undefined).catch((error) => {
+      console.error('[ResumeContext] 保存简历失败:', error)
+    })
+  }, [])
+
   const setResume = useCallback((newResume: ResumeData | null) => {
     if (!newResume) { setResumeState(null); return }
-    // Resume data uses resume_id (added by SophiaChat when loading), not id
-    const resumeId = (newResume as any).resume_id ?? (newResume as any).id
-    if (resumeId) {
-      axios.patch(`/api/resumes/${resumeId}`, { data: newResume }).catch(console.error)
-    }
+    persistResume(newResume)
     setResumeState(newResume)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resume])
+  }, [persistResume])
 
   const pushPatch = useCallback((patch: Omit<PendingPatch, 'status'>) => {
     setPendingPatches(prev => [...prev, { ...patch, status: 'pending' }])
@@ -52,17 +55,13 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
       setResumeState(current => {
         if (!current) return current
         const updated = applyPatchPaths(current, patch.paths, patch.after) as ResumeData
-        // Resume data uses resume_id field, not id
-        const resumeId = (updated as any).resume_id ?? (updated as any).id
-        if (resumeId) {
-          axios.patch(`/api/resumes/${resumeId}`, { data: updated }).catch(console.error)
-        }
+        persistResume(updated)
         return updated
       })
       return prev.map(p => p.patch_id === patch_id ? { ...p, status: 'applied' } : p)
     })
     setPatchAppliedAt(Date.now())
-  }, [])
+  }, [persistResume])
 
   const rejectPatch = useCallback((patch_id: string) => {
     setPendingPatches(prev =>

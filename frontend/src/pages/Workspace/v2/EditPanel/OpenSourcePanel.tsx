@@ -283,6 +283,11 @@ export default function OpenSourcePanel({ openSources, onUpdate, onDelete, onReo
         </button>
       )}
 
+      <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-neutral-400 px-1">
+        <GripVertical className="w-3.5 h-3.5" />
+        可拖拽调整顺序
+      </div>
+
       <Reorder.Group axis="y" values={openSources} onReorder={onReorder} className="space-y-3">
         {openSources.map((item) => (
           <OpenSourceItem key={item.id} openSource={item} onUpdate={onUpdate} onDelete={onDelete} resumeData={resumeData} globalSettings={globalSettings} updateGlobalSettings={updateGlobalSettings} />

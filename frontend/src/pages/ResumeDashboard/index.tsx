@@ -23,8 +23,8 @@ const ResumeDashboard = () => {
     resumes,
     createResume,
     deleteResume,
+    duplicateResume,
     editResume,
-    optimizeResume,
     importJson,
     // 多选模式相关
     isMultiSelectMode,
@@ -275,7 +275,7 @@ const ResumeDashboard = () => {
                     resume={resume}
                     onEdit={editResume}
                     onDelete={deleteResume}
-                    onOptimize={optimizeResume}
+                    onDuplicate={duplicateResume}
                     // 多选模式相关
                     isMultiSelectMode={isMultiSelectMode}
                     isSelected={selectedIds.has(resume.id)}

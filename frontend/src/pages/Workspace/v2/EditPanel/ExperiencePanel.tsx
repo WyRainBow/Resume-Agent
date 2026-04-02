@@ -1,7 +1,7 @@
 /**
  * 工作经历面板
  */
-import { PlusCircle, Wand2, List, ListOrdered } from 'lucide-react'
+import { PlusCircle, Wand2, List, ListOrdered, GripVertical } from 'lucide-react'
 import { Reorder } from 'framer-motion'
 import { cn } from '../../../../lib/utils'
 import type { Experience, GlobalSettings, ResumeData } from '../types'
@@ -103,6 +103,11 @@ const ExperiencePanel = ({
           <ListOrdered className="w-4 h-4" />
           有序列表
         </button>
+      </div>
+
+      <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-neutral-400 px-1">
+        <GripVertical className="w-3.5 h-3.5" />
+        可拖拽调整顺序
       </div>
 
       <Reorder.Group axis="y" values={experiences} onReorder={onReorder} className="space-y-3">

@@ -2,8 +2,8 @@
  * 教育经历面板
  */
 import { useState, useRef, useEffect } from 'react'
-import { PlusCircle, ChevronDown, Eye, Trash2, Check } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { PlusCircle, ChevronDown, Eye, Trash2, Check, GripVertical } from 'lucide-react'
+import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion'
 import { cn } from '../../../../lib/utils'
 import type { Education } from '../types'
 import Field from './Field'
@@ -50,6 +50,7 @@ const EducationItem = ({
   const [expanded, setExpanded] = useState(false)
   const [degreeOpen, setDegreeOpen] = useState(false)
   const degreeWrapRef = useRef<HTMLDivElement>(null)
+  const dragControls = useDragControls()
 
   useEffect(() => {
     if (!degreeOpen) return
@@ -62,7 +63,11 @@ const EducationItem = ({
   }, [degreeOpen])
 
   return (
-    <div
+    <Reorder.Item
+      id={education.id}
+      value={education}
+      dragListener={false}
+      dragControls={dragControls}
       className={cn(
         'rounded-lg border overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
@@ -70,6 +75,7 @@ const EducationItem = ({
         'border-gray-100',
         education.visible === false && 'opacity-40'
       )}
+      whileDrag={{ scale: 1.02 }}
     >
       <div className="min-w-0">
         <div
@@ -79,13 +85,25 @@ const EducationItem = ({
           )}
           onClick={() => setExpanded(!expanded)}
         >
-          <div className="flex-1 min-w-0">
-            <h3 className="font-medium truncate text-gray-700 dark:text-neutral-200">
-              {education.school || '未命名学校'}
-            </h3>
-            {education.major && (
-              <p className="text-sm text-gray-500 truncate">{education.major}</p>
-            )}
+          <div className="flex-1 min-w-0 flex items-center gap-2">
+            <div
+              onPointerDown={(event) => dragControls.start(event)}
+              onClick={(event) => event.stopPropagation()}
+              className={cn(
+                'w-6 -ml-1 mr-0 flex items-center justify-center touch-none shrink-0',
+                'cursor-grab hover:bg-gray-100 dark:hover:bg-neutral-800/50 rounded'
+              )}
+            >
+              <GripVertical className={cn('w-4 h-4', 'text-gray-300 dark:text-neutral-600')} />
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-medium truncate text-gray-700 dark:text-neutral-200">
+                {education.school || '未命名学校'}
+              </h3>
+              {education.major && (
+                <p className="text-sm text-gray-500 truncate">{education.major}</p>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-2 ml-4">
@@ -237,19 +255,18 @@ const EducationItem = ({
                 </motion.div>
                 <Field
                   index={5}
-                  label="补充说明"
+                  label="补充说明（可以填写校园经历、GPA、四六级等）"
                   value={education.description || ''}
                   onChange={(v) => onUpdate({ ...education, description: v })}
                   type="editor"
                   placeholder="如：荣誉奖项、相关课程等"
-                  educationData={education}
                 />
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
-    </div>
+    </Reorder.Item>
   )
 }
 
@@ -282,7 +299,12 @@ const EducationPanel = ({
         />
       )}
 
-      <div className="space-y-3">
+      <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-neutral-400 px-1">
+        <GripVertical className="w-3.5 h-3.5" />
+        可拖拽调整顺序
+      </div>
+
+      <Reorder.Group axis="y" values={educations} onReorder={onReorder} className="space-y-3">
         {educations.map((edu) => (
           <EducationItem
             key={edu.id}
@@ -291,7 +313,7 @@ const EducationPanel = ({
             onDelete={onDelete}
           />
         ))}
-      </div>
+      </Reorder.Group>
 
       <button
         onClick={handleCreate}
@@ -311,4 +333,3 @@ const EducationPanel = ({
 }
 
 export default EducationPanel
-
