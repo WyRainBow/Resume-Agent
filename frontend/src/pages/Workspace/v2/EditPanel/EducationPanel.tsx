@@ -23,6 +23,7 @@ import {
   refreshSchoolLogos,
   uploadSchoolLogo,
 } from '../constants/schoolLogos'
+import { useCompactLayout } from './useCompactLayout'
 
 import { AIImportButton } from '@/components/common/AIImportButton';
 
@@ -349,7 +350,9 @@ const EducationItem = ({
   const [degreeOpen, setDegreeOpen] = useState(false)
   const [schoolLogosLoaded, setSchoolLogosLoaded] = useState(getCachedSchoolLogos().length > 0)
   const degreeWrapRef = useRef<HTMLDivElement>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
   const dragControls = useDragControls()
+  const isCompactLayout = useCompactLayout(headerRef, 720)
   const autoMatchedKey = !education.schoolLogo ? matchSchoolLogo(education.school || '') : null
   const effectiveLogoKey = education.schoolLogo || autoMatchedKey
   const schoolLogoUrl = effectiveLogoKey ? getSchoolLogoUrl(effectiveLogoKey) : null
@@ -459,25 +462,33 @@ const EducationItem = ({
               <div className="px-4 pb-4 space-y-4" onClick={(e) => e.stopPropagation()}>
                 <div className="h-px w-full bg-gray-100 dark:bg-neutral-800" />
                 <motion.div
+                  ref={headerRef}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.2, delay: 0 * 0.05, ease: 'easeOut' }}
-                  className="grid grid-cols-2 gap-4"
+                  className={cn('grid gap-4', isCompactLayout ? 'grid-cols-1' : 'grid-cols-2')}
                 >
                   <div>
                     <div className="mb-2 rounded-lg border border-slate-200/80 bg-slate-50/80 p-2.5 dark:border-neutral-700 dark:bg-neutral-900/50">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <label className="shrink-0 text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">
-                          学校
-                        </label>
-                        <SchoolLogoSelector
-                          selectedKey={education.schoolLogo}
-                          onSelect={(key) => onUpdate({ ...education, schoolLogo: key })}
-                          onClear={() => onUpdate({ ...education, schoolLogo: '', schoolLogoSize: undefined })}
-                          canUploadLogo={canUploadLogo}
-                        />
+                      <div className={cn('min-w-0', isCompactLayout ? 'space-y-2' : 'flex items-center gap-2')}>
+                        <div className={cn('min-w-0', isCompactLayout ? 'space-y-2' : 'contents')}>
+                          <label className="shrink-0 text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">
+                            学校
+                          </label>
+                          <div className={cn(isCompactLayout ? 'flex items-center gap-2' : 'contents')}>
+                            <SchoolLogoSelector
+                              selectedKey={education.schoolLogo}
+                              onSelect={(key) => onUpdate({ ...education, schoolLogo: key })}
+                              onClear={() => onUpdate({ ...education, schoolLogo: '', schoolLogoSize: undefined })}
+                              canUploadLogo={canUploadLogo}
+                            />
+                          </div>
+                        </div>
                         {effectiveLogoKey && (
-                          <div className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800">
+                          <div className={cn(
+                            'min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800',
+                            isCompactLayout ? 'flex flex-wrap items-center gap-2' : 'flex items-center gap-2'
+                          )}>
                             <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">大小</span>
                             <input
                               type="range"
@@ -543,8 +554,12 @@ const EducationItem = ({
                       onChange={(v) => onUpdate({ ...education, school: v })}
                       placeholder="请输入学校名称"
                       formatButtons={['bold']}
+                      controlsLayout={isCompactLayout ? 'below' : 'overlay'}
                       rightActions={
-                        <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-800">
+                        <div className={cn(
+                          'flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-800',
+                          isCompactLayout && 'w-fit'
+                        )}>
                           <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">字号</span>
                           <FontSizePicker
                             value={education.schoolNameFontSize ?? 15}
