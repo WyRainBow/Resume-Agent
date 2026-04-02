@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import {
   ArrowRight,
   CheckCircle,
+  Sparkles,
   Upload,
   FileCode
 } from 'lucide-react'

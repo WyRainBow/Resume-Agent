@@ -1,7 +1,6 @@
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ChevronRight,
-  Sparkles,
   LogIn,
   User,
   LogOut,
@@ -28,6 +27,7 @@ export default function LandingPage() {
   const [showWechatCard, setShowWechatCard] = useState(false)
   const [githubStars, setGithubStars] = useState<number | null>(null)
   const logoutMenuRef = useRef<HTMLDivElement>(null)
+  const wechatMenuRef = useRef<HTMLDivElement>(null)
 
   // 拉取 GitHub star 数（公开 API，无需 token）
   useEffect(() => {
@@ -45,15 +45,18 @@ export default function LandingPage() {
       if (logoutMenuRef.current && !logoutMenuRef.current.contains(event.target as Node)) {
         setShowLogoutMenu(false)
       }
+      if (wechatMenuRef.current && !wechatMenuRef.current.contains(event.target as Node)) {
+        setShowWechatCard(false)
+      }
     }
 
-    if (showLogoutMenu) {
+    if (showLogoutMenu || showWechatCard) {
       document.addEventListener('mousedown', handleClickOutside)
       return () => {
         document.removeEventListener('mousedown', handleClickOutside)
       }
     }
-  }, [showLogoutMenu])
+  }, [showLogoutMenu, showWechatCard])
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 20)
@@ -79,6 +82,51 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <div className="relative hidden md:block" ref={wechatMenuRef}>
+              <motion.button
+                whileHover={{ y: -1 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setShowWechatCard((prev) => !prev)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white text-slate-700 hover:bg-slate-50 transition-all border border-slate-200 shadow-sm"
+              >
+                <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="text-sm font-bold">联系我</span>
+              </motion.button>
+              <AnimatePresence>
+                {showWechatCard && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                    transition={{ duration: 0.2 }}
+                    className="absolute right-0 top-full z-50 mt-2 w-[220px] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_20px_50px_rgba(15,23,42,0.16)]"
+                  >
+                    <div className="mb-3 flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-bold text-slate-900">联系我</div>
+                        <div className="mt-1 text-xs text-slate-500">微信扫码、直接沟通</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setShowWechatCard(false)}
+                        className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                        aria-label="关闭联系卡片"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <img
+                      src="/contact-wechat-qr.jpg"
+                      alt="微信二维码"
+                      className="w-full rounded-xl border border-slate-200 bg-white object-cover"
+                    />
+                    <div className="mt-3 text-center text-[11px] text-slate-400">
+                      扫码后备注：简历站
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
             <motion.a
               href="https://github.com/WyRainBow/Resume-Agent"
               target="_blank"
@@ -112,7 +160,7 @@ export default function LandingPage() {
             transition={{ type: 'spring', stiffness: 120, damping: 20 }}
             className="inline-flex items-center gap-2 px-4 py-2 text-blue-700 rounded-full text-[13px] font-semibold mb-8 tracking-wide"
           >
-            <Sparkles className="w-3 h-3 fill-current animate-spin-slow" />
+            <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
             公益 · Free
           </motion.div>
 
@@ -254,60 +302,6 @@ export default function LandingPage() {
           </motion.button>
         )}
       </motion.div>
-
-      <div className="fixed bottom-6 right-6 z-50">
-        <AnimatePresence mode="wait">
-          {showWechatCard ? (
-            <motion.div
-              key="wechat-card"
-              initial={{ opacity: 0, y: 16, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 12, scale: 0.96 }}
-              transition={{ duration: 0.2 }}
-              className="w-[220px] rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_20px_50px_rgba(15,23,42,0.16)]"
-            >
-              <div className="mb-3 flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-sm font-bold text-slate-900">联系我</div>
-                  <div className="mt-1 text-xs text-slate-500">微信扫码、直接沟通</div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowWechatCard(false)}
-                  className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
-                  aria-label="关闭联系卡片"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <img
-                src="/contact-wechat-qr.jpg"
-                alt="微信二维码"
-                className="w-full rounded-xl border border-slate-200 bg-white object-cover"
-              />
-              <div className="mt-3 text-center text-[11px] text-slate-400">
-                扫码后备注：简历站
-              </div>
-            </motion.div>
-          ) : (
-            <motion.button
-              key="wechat-trigger"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowWechatCard(true)}
-              className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 shadow-lg transition-all hover:border-slate-300"
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
-                <MessageCircle className="h-4 w-4" />
-              </div>
-              <div className="text-left">
-                <div className="text-sm font-bold text-slate-900">联系我</div>
-                <div className="text-[11px] text-slate-400">微信二维码</div>
-              </div>
-            </motion.button>
-          )}
-        </AnimatePresence>
-      </div>
 
       <style>{`
         @keyframes spin-slow {
