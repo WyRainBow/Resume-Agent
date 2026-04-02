@@ -21,6 +21,7 @@ import {
   uploadLogo,
   refreshLogos,
 } from '../constants/companyLogos'
+import { useCompactLayout } from './useCompactLayout'
 
 function getAuthRoleFromToken(): string {
   try {
@@ -319,6 +320,8 @@ const ExperienceEditor = ({
   const { user } = useAuth()
   const roleFromToken = getAuthRoleFromToken()
   const canUploadLogo = !!user && (roleFromToken === 'admin' || roleFromToken === 'member')
+  const headerRef = useRef<HTMLDivElement>(null)
+  const isCompactLayout = useCompactLayout(headerRef, 720)
 
   const handleChange = (field: keyof Experience, value: string | boolean | number | undefined) => {
     const updated = { ...experience, [field]: value }
@@ -349,23 +352,31 @@ const ExperienceEditor = ({
     <div className="space-y-5">
       <div className="grid gap-5">
         <motion.div
+          ref={headerRef}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, delay: 0 * 0.05, ease: 'easeOut' }}
-          className="grid grid-cols-2 gap-4"
+          className={cn('grid gap-4', isCompactLayout ? 'grid-cols-1' : 'grid-cols-2')}
         >
           <div>
             <div className="mb-2 rounded-lg border border-slate-200/80 bg-slate-50/80 p-2.5 dark:border-neutral-700 dark:bg-neutral-900/50">
-              <div className="flex min-w-0 items-center gap-2">
+              <div className={cn('min-w-0', isCompactLayout ? 'space-y-2' : 'flex items-center gap-2')}>
+                <div className={cn('min-w-0', isCompactLayout ? 'space-y-2' : 'contents')}>
                   <label className="shrink-0 text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">公司名称</label>
-                <LogoSelector
-                  selectedKey={experience.companyLogo}
-                  onSelect={(key) => handleChange('companyLogo', key)}
-                  onClear={() => handleChange('companyLogo', '')}
-                  canUploadLogo={canUploadLogo}
-                />
+                  <div className={cn(isCompactLayout ? 'flex items-center gap-2' : 'contents')}>
+                    <LogoSelector
+                      selectedKey={experience.companyLogo}
+                      onSelect={(key) => handleChange('companyLogo', key)}
+                      onClear={() => handleChange('companyLogo', '')}
+                      canUploadLogo={canUploadLogo}
+                    />
+                  </div>
+                </div>
                 {effectiveLogoKey && (
-                  <div className="flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800">
+                  <div className={cn(
+                    'min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800',
+                    isCompactLayout ? 'flex flex-wrap items-center gap-2' : 'flex items-center gap-2'
+                  )}>
                     <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">大小</span>
                     <input
                       type="range"
@@ -432,8 +443,12 @@ const ExperienceEditor = ({
               onChange={(value) => handleChange('company', value)}
               placeholder="请输入公司名称"
               formatButtons={['bold']}
+              controlsLayout={isCompactLayout ? 'below' : 'overlay'}
               rightActions={updateGlobalSettings ? (
-                <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-800">
+                <div className={cn(
+                  'flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-800',
+                  isCompactLayout && 'w-fit'
+                )}>
                   <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">字号</span>
                   <FontSizePicker
                     value={experience.companyNameFontSize ?? globalSettings?.companyNameFontSize ?? 15}
@@ -451,6 +466,7 @@ const ExperienceEditor = ({
             onChange={(value) => handleChange('position', value)}
             placeholder="请输入职位"
             formatButtons={['bold']}
+            controlsLayout={isCompactLayout ? 'below' : 'overlay'}
           />
         </motion.div>
         <motion.div

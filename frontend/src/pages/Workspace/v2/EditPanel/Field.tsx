@@ -25,6 +25,7 @@ interface FieldProps {
   educationData?: Partial<Education>  // 教育经历数据，用于 AI 帮写
   index?: number  // 用于级联动画延迟
   rightActions?: React.ReactNode
+  controlsLayout?: 'overlay' | 'below'
 }
 
 const Field = ({
@@ -40,6 +41,7 @@ const Field = ({
   educationData,
   index = 0,
   rightActions,
+  controlsLayout = 'overlay',
 }: FieldProps) => {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -134,6 +136,7 @@ const Field = ({
           className={className}
           label={label}
           rightActions={rightActions}
+          controlsLayout={controlsLayout}
         />
       </motion.div>
     )
@@ -165,4 +168,3 @@ const Field = ({
 }
 
 export default Field
-
