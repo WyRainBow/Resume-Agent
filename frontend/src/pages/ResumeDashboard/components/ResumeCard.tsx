@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { Copy } from 'lucide-react'
 import { Card, CardContent, CardTitle, CardDescription, CardFooter } from './ui/card'
 import { Button } from './ui/button'
-import { FileText, Trash2, Sparkles } from './Icons'
+import { FileText, Trash2 } from './Icons'
 import { cn } from '@/lib/utils'
 import type { SavedResume } from '@/services/resumeStorage'
 
@@ -22,7 +23,7 @@ interface ResumeCardProps {
   resume: SavedResume
   onEdit: (id: string) => void
   onDelete: (id: string) => void
-  onOptimize?: (id: string) => void
+  onDuplicate?: (id: string) => void
   /** 是否处于多选模式 */
   isMultiSelectMode?: boolean
   /** 是否被选中（用于批量删除） */
@@ -39,7 +40,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
   resume,
   onEdit,
   onDelete,
-  onOptimize,
+  onDuplicate,
   isMultiSelectMode = false,
   isSelected = false,
   onSelectChange,
@@ -129,13 +130,6 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
           isMultiSelectMode && isSelected && "ring-2 ring-slate-900"
         )}
       >
-        {/* 模板类型标签 - 左上角 */}
-        <div className="absolute top-4 left-4 z-10">
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-            {resume.templateType === 'html' ? '🌐 HTML' : '✨ LaTeX'}
-          </span>
-        </div>
-
         <CardContent className="relative flex-1 pt-12 text-center flex flex-col items-center z-10">
           <motion.div
             className="mb-6 p-6 rounded-[24px] bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800"
@@ -231,17 +225,19 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
           >
             编辑
           </Button>
-          {onOptimize && (
+          {onDuplicate && (
             <Button
               variant="ghost"
-              className="h-11 w-11 p-0 rounded-xl bg-slate-100/50 hover:bg-indigo-50 dark:bg-slate-800/50 dark:hover:bg-indigo-900/30 text-slate-400 hover:text-indigo-600 dark:text-slate-500 dark:hover:text-indigo-400 transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50"
+              className="h-11 px-3 rounded-xl bg-slate-100/80 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition-all duration-300 border border-slate-200/50 inline-flex items-center gap-1.5"
               onClick={(e) => {
                 e.stopPropagation();
-                onOptimize(resume.id);
+                onDuplicate(resume.id);
               }}
-              title="优化简历"
+              title="复制一个一模一样的简历"
+              aria-label="复制一个一模一样的简历"
             >
-              <Sparkles className="h-5 w-5" />
+              <Copy className="h-4 w-4" />
+              复制
             </Button>
           )}
           <Button

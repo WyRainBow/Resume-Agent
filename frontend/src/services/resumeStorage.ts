@@ -112,13 +112,18 @@ export async function getResume(id: string): Promise<SavedResume | null> {
  */
 export async function saveResume(resume: Resume | ResumeData, id?: string): Promise<SavedResume> {
   const adapter = getAdapter()
-  const saved = await adapter.saveResume(resume, id)
-
-  if (isAuthenticated()) {
-    await localAdapter.saveResume(resume, saved.id)
+  try {
+    const saved = await adapter.saveResume(resume, id)
+    if (isAuthenticated()) {
+      await localAdapter.saveResume(resume, saved.id)
+    }
+    return saved
+  } catch (error) {
+    // 鉴权失效（401）或后端不可用时，降级到本地，保证编辑结果不丢
+    console.warn('[resumeStorage] saveResume failed, fallback to local adapter:', error)
+    const localSaved = await localAdapter.saveResume(resume, id)
+    return localSaved
   }
-
-  return saved
 }
 
 /**
