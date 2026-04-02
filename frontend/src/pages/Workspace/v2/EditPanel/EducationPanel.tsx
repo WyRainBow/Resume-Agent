@@ -352,7 +352,8 @@ const EducationItem = ({
   const degreeWrapRef = useRef<HTMLDivElement>(null)
   const headerRef = useRef<HTMLDivElement>(null)
   const dragControls = useDragControls()
-  const isCompactLayout = useCompactLayout(headerRef, 720)
+  // Education header controls are forced to compact mode to prevent overlap in narrow middle column.
+  const isCompactLayout = true
   const autoMatchedKey = !education.schoolLogo ? matchSchoolLogo(education.school || '') : null
   const effectiveLogoKey = education.schoolLogo || autoMatchedKey
   const schoolLogoUrl = effectiveLogoKey ? getSchoolLogoUrl(effectiveLogoKey) : null
@@ -468,115 +469,213 @@ const EducationItem = ({
                   transition={{ duration: 0.2, delay: 0 * 0.05, ease: 'easeOut' }}
                   className={cn('grid gap-4', isCompactLayout ? 'grid-cols-1' : 'grid-cols-2')}
                 >
-                  <div>
-                    <div className="mb-2 rounded-lg border border-slate-200/80 bg-slate-50/80 p-2.5 dark:border-neutral-700 dark:bg-neutral-900/50">
-                      <div className={cn('min-w-0', isCompactLayout ? 'space-y-2' : 'flex items-center gap-2')}>
-                        <div className={cn('min-w-0', isCompactLayout ? 'space-y-2' : 'contents')}>
-                          <label className="shrink-0 text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">
-                            学校
-                          </label>
-                          <div className={cn(isCompactLayout ? 'flex items-center gap-2' : 'contents')}>
+                  {isCompactLayout ? (
+                    <>
+                      <div className="space-y-3">
+                        <div className="rounded-lg border border-slate-200/80 bg-slate-50/80 p-2.5 dark:border-neutral-700 dark:bg-neutral-900/50">
+                          <div className="space-y-2">
+                            <label className="block text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">
+                              学校
+                            </label>
                             <SchoolLogoSelector
                               selectedKey={education.schoolLogo}
                               onSelect={(key) => onUpdate({ ...education, schoolLogo: key })}
                               onClear={() => onUpdate({ ...education, schoolLogo: '', schoolLogoSize: undefined })}
                               canUploadLogo={canUploadLogo}
                             />
-                          </div>
-                        </div>
-                        {effectiveLogoKey && (
-                          <div className={cn(
-                            'min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800',
-                            isCompactLayout ? 'flex flex-wrap items-center gap-2' : 'flex items-center gap-2'
-                          )}>
-                            <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">大小</span>
-                            <input
-                              type="range"
-                              min={10}
-                              max={48}
-                              step={1}
-                              value={schoolLogoSize}
-                              onChange={(e) => {
-                                if (!education.schoolLogo && autoMatchedKey) {
-                                  onUpdate({ ...education, schoolLogo: autoMatchedKey, schoolLogoSize: Number(e.target.value) })
-                                  return
-                                }
-                                onUpdate({ ...education, schoolLogoSize: Number(e.target.value) })
-                              }}
-                              className="h-2 w-20 cursor-pointer appearance-none rounded-full bg-transparent accent-indigo-500 sm:w-24 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-500 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-indigo-500"
-                              style={{
-                                background: `linear-gradient(to right, rgb(99 102 241) ${schoolLogoPercent}%, rgb(203 213 225) ${schoolLogoPercent}%)`,
-                              }}
-                              title={`学校 Logo 大小: ${schoolLogoSize}px`}
-                            />
-                            <span className="inline-flex min-w-[38px] items-center justify-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
-                              {schoolLogoSize}px
-                            </span>
-                            {education.schoolLogoSize && (
-                              <button
-                                type="button"
-                                onClick={() => onUpdate({ ...education, schoolLogoSize: undefined })}
-                                className="rounded-md p-0.5 transition-colors hover:bg-slate-100 dark:hover:bg-neutral-700"
-                                title="恢复默认大小"
-                              >
-                                <X className="h-3 w-3 text-slate-400" />
-                              </button>
+                            {effectiveLogoKey && (
+                              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800">
+                                <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">大小</span>
+                                <input
+                                  type="range"
+                                  min={10}
+                                  max={48}
+                                  step={1}
+                                  value={schoolLogoSize}
+                                  onChange={(e) => {
+                                    if (!education.schoolLogo && autoMatchedKey) {
+                                      onUpdate({ ...education, schoolLogo: autoMatchedKey, schoolLogoSize: Number(e.target.value) })
+                                      return
+                                    }
+                                    onUpdate({ ...education, schoolLogoSize: Number(e.target.value) })
+                                  }}
+                                  className="h-2 w-20 cursor-pointer appearance-none rounded-full bg-transparent accent-indigo-500 sm:w-24 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-500 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-indigo-500"
+                                  style={{
+                                    background: `linear-gradient(to right, rgb(99 102 241) ${schoolLogoPercent}%, rgb(203 213 225) ${schoolLogoPercent}%)`,
+                                  }}
+                                  title={`学校 Logo 大小: ${schoolLogoSize}px`}
+                                />
+                                <span className="inline-flex min-w-[38px] items-center justify-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                  {schoolLogoSize}px
+                                </span>
+                                {education.schoolLogoSize && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onUpdate({ ...education, schoolLogoSize: undefined })}
+                                    className="rounded-md p-0.5 transition-colors hover:bg-slate-100 dark:hover:bg-neutral-700"
+                                    title="恢复默认大小"
+                                  >
+                                    <X className="h-3 w-3 text-slate-400" />
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
+                        </div>
+                        {autoMatchedKey && (
+                          <div className="flex items-center gap-2 rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50/80 to-cyan-50/80 px-2.5 py-1.5 shadow-sm shadow-sky-100/60 dark:border-sky-800/60 dark:from-sky-900/20 dark:to-cyan-900/10 dark:shadow-none">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-md border border-white/80 bg-white/90 dark:border-sky-800/60 dark:bg-neutral-900">
+                              <img src={getSchoolLogoUrl(autoMatchedKey)!} alt="" className="h-4 w-4 object-contain" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-sky-500/90 dark:text-sky-400/80">
+                                学校 Logo 匹配
+                              </div>
+                              <div className="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
+                                已匹配 {getSchoolLogoByKey(autoMatchedKey)?.name}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => onUpdate({ ...education, schoolLogo: autoMatchedKey })}
+                              className="inline-flex h-7 items-center rounded-lg border border-indigo-200 bg-white px-2.5 text-[11px] font-semibold text-indigo-600 transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-sm dark:border-indigo-700/70 dark:bg-neutral-900 dark:text-indigo-300 dark:hover:border-indigo-600"
+                            >
+                              使用
+                            </button>
+                          </div>
                         )}
+                        <Field
+                          index={0}
+                          value={education.school}
+                          onChange={(v) => onUpdate({ ...education, school: v })}
+                          placeholder="请输入学校名称"
+                          formatButtons={['bold']}
+                          controlsLayout="below"
+                          rightActions={
+                            <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-800 w-fit">
+                              <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">字号</span>
+                              <FontSizePicker
+                                value={education.schoolNameFontSize ?? 15}
+                                onChange={(size) => onUpdate({ ...education, schoolNameFontSize: size })}
+                                options={SCHOOL_FONT_SIZE_OPTIONS}
+                              />
+                            </div>
+                          }
+                        />
+                        <Field
+                          index={1}
+                          label="专业"
+                          value={education.major}
+                          onChange={(v) => onUpdate({ ...education, major: v })}
+                          placeholder="请输入专业"
+                        />
                       </div>
-                    </div>
-                    {autoMatchedKey && (
-                      <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50/80 to-cyan-50/80 px-2.5 py-1.5 shadow-sm shadow-sky-100/60 dark:border-sky-800/60 dark:from-sky-900/20 dark:to-cyan-900/10 dark:shadow-none">
-                        <div className="flex h-6 w-6 items-center justify-center rounded-md border border-white/80 bg-white/90 dark:border-sky-800/60 dark:bg-neutral-900">
-                          <img src={getSchoolLogoUrl(autoMatchedKey)!} alt="" className="h-4 w-4 object-contain" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-sky-500/90 dark:text-sky-400/80">
-                            学校 Logo 匹配
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <div className="mb-2 rounded-lg border border-slate-200/80 bg-slate-50/80 p-2.5 dark:border-neutral-700 dark:bg-neutral-900/50">
+                          <div className="flex flex-wrap items-center gap-2 min-w-0">
+                            <div className="flex min-w-0 items-center gap-2">
+                              <label className="shrink-0 text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">
+                                学校
+                              </label>
+                              <SchoolLogoSelector
+                                selectedKey={education.schoolLogo}
+                                onSelect={(key) => onUpdate({ ...education, schoolLogo: key })}
+                                onClear={() => onUpdate({ ...education, schoolLogo: '', schoolLogoSize: undefined })}
+                                canUploadLogo={canUploadLogo}
+                              />
+                            </div>
+                            {effectiveLogoKey && (
+                              <div className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800 sm:w-auto flex flex-wrap items-center gap-2">
+                                <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">大小</span>
+                                <input
+                                  type="range"
+                                  min={10}
+                                  max={48}
+                                  step={1}
+                                  value={schoolLogoSize}
+                                  onChange={(e) => {
+                                    if (!education.schoolLogo && autoMatchedKey) {
+                                      onUpdate({ ...education, schoolLogo: autoMatchedKey, schoolLogoSize: Number(e.target.value) })
+                                      return
+                                    }
+                                    onUpdate({ ...education, schoolLogoSize: Number(e.target.value) })
+                                  }}
+                                  className="h-2 w-20 cursor-pointer appearance-none rounded-full bg-transparent accent-indigo-500 sm:w-24 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-indigo-500 [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:bg-indigo-500"
+                                  style={{
+                                    background: `linear-gradient(to right, rgb(99 102 241) ${schoolLogoPercent}%, rgb(203 213 225) ${schoolLogoPercent}%)`,
+                                  }}
+                                  title={`学校 Logo 大小: ${schoolLogoSize}px`}
+                                />
+                                <span className="inline-flex min-w-[38px] items-center justify-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                  {schoolLogoSize}px
+                                </span>
+                                {education.schoolLogoSize && (
+                                  <button
+                                    type="button"
+                                    onClick={() => onUpdate({ ...education, schoolLogoSize: undefined })}
+                                    className="rounded-md p-0.5 transition-colors hover:bg-slate-100 dark:hover:bg-neutral-700"
+                                    title="恢复默认大小"
+                                  >
+                                    <X className="h-3 w-3 text-slate-400" />
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          <div className="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
-                            已匹配 {getSchoolLogoByKey(autoMatchedKey)?.name}
-                          </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => onUpdate({ ...education, schoolLogo: autoMatchedKey })}
-                          className="inline-flex h-7 items-center rounded-lg border border-indigo-200 bg-white px-2.5 text-[11px] font-semibold text-indigo-600 transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-sm dark:border-indigo-700/70 dark:bg-neutral-900 dark:text-indigo-300 dark:hover:border-indigo-600"
-                        >
-                          使用
-                        </button>
+                        {autoMatchedKey && (
+                          <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50/80 to-cyan-50/80 px-2.5 py-1.5 shadow-sm shadow-sky-100/60 dark:border-sky-800/60 dark:from-sky-900/20 dark:to-cyan-900/10 dark:shadow-none">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-md border border-white/80 bg-white/90 dark:border-sky-800/60 dark:bg-neutral-900">
+                              <img src={getSchoolLogoUrl(autoMatchedKey)!} alt="" className="h-4 w-4 object-contain" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-sky-500/90 dark:text-sky-400/80">
+                                学校 Logo 匹配
+                              </div>
+                              <div className="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
+                                已匹配 {getSchoolLogoByKey(autoMatchedKey)?.name}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => onUpdate({ ...education, schoolLogo: autoMatchedKey })}
+                              className="inline-flex h-7 items-center rounded-lg border border-indigo-200 bg-white px-2.5 text-[11px] font-semibold text-indigo-600 transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-sm dark:border-indigo-700/70 dark:bg-neutral-900 dark:text-indigo-300 dark:hover:border-indigo-600"
+                            >
+                              使用
+                            </button>
+                          </div>
+                        )}
+                        <Field
+                          index={0}
+                          value={education.school}
+                          onChange={(v) => onUpdate({ ...education, school: v })}
+                          placeholder="请输入学校名称"
+                          formatButtons={['bold']}
+                          controlsLayout="overlay"
+                          rightActions={
+                            <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-800">
+                              <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">字号</span>
+                              <FontSizePicker
+                                value={education.schoolNameFontSize ?? 15}
+                                onChange={(size) => onUpdate({ ...education, schoolNameFontSize: size })}
+                                options={SCHOOL_FONT_SIZE_OPTIONS}
+                              />
+                            </div>
+                          }
+                        />
                       </div>
-                    )}
-                    <Field
-                      index={0}
-                      value={education.school}
-                      onChange={(v) => onUpdate({ ...education, school: v })}
-                      placeholder="请输入学校名称"
-                      formatButtons={['bold']}
-                      controlsLayout={isCompactLayout ? 'below' : 'overlay'}
-                      rightActions={
-                        <div className={cn(
-                          'flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-800',
-                          isCompactLayout && 'w-fit'
-                        )}>
-                          <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">字号</span>
-                          <FontSizePicker
-                            value={education.schoolNameFontSize ?? 15}
-                            onChange={(size) => onUpdate({ ...education, schoolNameFontSize: size })}
-                            options={SCHOOL_FONT_SIZE_OPTIONS}
-                          />
-                        </div>
-                      }
-                    />
-                  </div>
-                  <Field
-                    index={1}
-                    label="专业"
-                    value={education.major}
-                    onChange={(v) => onUpdate({ ...education, major: v })}
-                    placeholder="请输入专业"
-                  />
+                      <Field
+                        index={1}
+                        label="专业"
+                        value={education.major}
+                        onChange={(v) => onUpdate({ ...education, major: v })}
+                        placeholder="请输入专业"
+                      />
+                    </>
+                  )}
                 </motion.div>
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
