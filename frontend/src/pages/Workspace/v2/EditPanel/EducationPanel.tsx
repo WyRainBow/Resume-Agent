@@ -23,7 +23,6 @@ import {
   refreshSchoolLogos,
   uploadSchoolLogo,
 } from '../constants/schoolLogos'
-import { useCompactLayout } from './useCompactLayout'
 
 import { AIImportButton } from '@/components/common/AIImportButton';
 
@@ -352,7 +351,6 @@ const EducationItem = ({
   const degreeWrapRef = useRef<HTMLDivElement>(null)
   const headerRef = useRef<HTMLDivElement>(null)
   const dragControls = useDragControls()
-  // Education header controls are forced to compact mode to prevent overlap in narrow middle column.
   const isCompactLayout = true
   const autoMatchedKey = !education.schoolLogo ? matchSchoolLogo(education.school || '') : null
   const effectiveLogoKey = education.schoolLogo || autoMatchedKey
@@ -471,10 +469,10 @@ const EducationItem = ({
                 >
                   {isCompactLayout ? (
                     <>
-                      <div className="space-y-3">
-                        <div className="rounded-lg border border-slate-200/80 bg-slate-50/80 p-2.5 dark:border-neutral-700 dark:bg-neutral-900/50">
-                          <div className="space-y-2">
-                            <label className="block text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">
+                      <div className="space-y-2">
+                        <div className="rounded-lg border border-slate-200/80 bg-slate-50/60 p-2 dark:border-neutral-700 dark:bg-neutral-900/40">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <label className="text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">
                               学校
                             </label>
                             <SchoolLogoSelector
@@ -484,7 +482,7 @@ const EducationItem = ({
                               canUploadLogo={canUploadLogo}
                             />
                             {effectiveLogoKey && (
-                              <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800">
+                              <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800">
                                 <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">大小</span>
                                 <input
                                   type="range"
@@ -550,7 +548,7 @@ const EducationItem = ({
                           onChange={(v) => onUpdate({ ...education, school: v })}
                           placeholder="请输入学校名称"
                           formatButtons={['bold']}
-                          controlsLayout="below"
+                          controlsLayout="overlay"
                           rightActions={
                             <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-800 w-fit">
                               <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">字号</span>
