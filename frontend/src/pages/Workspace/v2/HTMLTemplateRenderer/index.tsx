@@ -6,6 +6,7 @@ import React from 'react'
 import { cn } from '@/lib/utils'
 import type { ResumeData } from '../types'
 import { getLogoUrl } from '../constants/companyLogos'
+import { getSchoolLogoUrl } from '../constants/schoolLogos'
 import { stripHtmlTags } from '../utils'
 import './styles.css'
 
@@ -42,23 +43,45 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
         <section key="education" className="template-section">
           <h2 className="section-title">{sectionTitle}</h2>
           <div className="section-content">
-            {education.map((edu) => (
-              <div key={edu.id} className="item">
-                <div className="item-header">
-                  <div className="item-title-group">
-                    <h3 className="item-title">{stripHtmlTags(edu.school)}</h3>
-                    <span className="item-subtitle">{stripHtmlTags(edu.degree)} · {stripHtmlTags(edu.major)}</span>
+            {education.map((edu) => {
+              const logoUrl = edu.schoolLogo ? getSchoolLogoUrl(edu.schoolLogo) : null
+              const logoSize = edu.schoolLogoSize || 20
+              const schoolStyle: React.CSSProperties = {}
+              if (edu.schoolNameFontSize) schoolStyle.fontSize = `${edu.schoolNameFontSize}px`
+              return (
+                <div key={edu.id} className="item">
+                  <div className="item-header">
+                    <div className="item-title-group">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {logoUrl && (
+                          <img
+                            src={logoUrl}
+                            alt=""
+                            style={{
+                              height: `${logoSize}px`,
+                              maxWidth: `${logoSize * 4}px`,
+                              objectFit: 'contain',
+                              flexShrink: 0,
+                            }}
+                          />
+                        )}
+                        <h3 className="item-title" style={Object.keys(schoolStyle).length ? schoolStyle : undefined}>
+                          {stripHtmlTags(edu.school)}
+                        </h3>
+                      </div>
+                      <span className="item-subtitle">{stripHtmlTags(edu.degree)} · {stripHtmlTags(edu.major)}</span>
+                    </div>
+                    <span className="item-date">{edu.startDate} ~ {edu.endDate}</span>
                   </div>
-                  <span className="item-date">{edu.startDate} ~ {edu.endDate}</span>
+                  {edu.description && (
+                    <div
+                      className="item-description"
+                      dangerouslySetInnerHTML={{ __html: edu.description }}
+                    />
+                  )}
                 </div>
-                {edu.description && (
-                  <div
-                    className="item-description"
-                    dangerouslySetInnerHTML={{ __html: edu.description }}
-                  />
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         </section>
       )

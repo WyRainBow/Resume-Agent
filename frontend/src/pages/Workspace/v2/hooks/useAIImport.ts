@@ -4,6 +4,7 @@
 import { useState, useCallback } from 'react'
 import type { ResumeData } from '../types'
 import { matchCompanyLogo } from '../constants/companyLogos'
+import { matchSchoolLogo } from '../constants/schoolLogos'
 
 // 检测是否是分组标题（如"**搜索服务拆分专项**"、"**性能优化**"）
 function isGroupTitle(text: string): boolean {
@@ -265,15 +266,18 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
               startDate = dateStr
             }
           }
+          const schoolName = e.title || ''
+          const schoolLogoKey = matchSchoolLogo(schoolName)
           return {
             id: `edu_${Date.now()}_${i}`,
-            school: e.title || '',
+            school: schoolName,
             major: e.subtitle || '',
             degree: e.degree || '',
             startDate,
             endDate,
             description: e.details?.join('\n') || '',
             visible: true,
+            ...(schoolLogoKey ? { schoolLogo: schoolLogoKey } : {}),
           }
         }) || prev.education,
         experience: data.internships?.map((e: any, i: number) => {
@@ -407,15 +411,18 @@ function handleSectionImport(
               startDate = dateStr
             }
           }
+          const schoolName = e.title || e.school || ''
+          const schoolLogoKey = matchSchoolLogo(schoolName)
           return {
             id: `edu_${Date.now()}_${i}`,
-            school: e.title || e.school || '',
+            school: schoolName,
             major: e.subtitle || e.major || '',
             degree: e.degree || '',
             startDate,
             endDate,
             description: e.details?.join('\n') || '',
             visible: true,
+            ...(schoolLogoKey ? { schoolLogo: schoolLogoKey } : {}),
           }
         })
         setResumeData((prev) => ({
@@ -582,4 +589,3 @@ function handleSectionImport(
       break
   }
 }
-

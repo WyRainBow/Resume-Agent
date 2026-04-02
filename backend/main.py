@@ -76,6 +76,7 @@ share_router = routes_module.share_router
 auth_router = routes_module.auth_router
 resumes_router = routes_module.resumes_router
 logos_router = routes_module.logos_router
+school_logos_router = routes_module.school_logos_router
 photos_router = routes_module.photos_router
 asr_router = routes_module.asr_router
 semantic_search_router = routes_module.semantic_search_router
@@ -113,6 +114,7 @@ app.include_router(share_router)
 app.include_router(auth_router)
 app.include_router(resumes_router)
 app.include_router(logos_router)
+app.include_router(school_logos_router)
 logger.info(
     "[路由] logos_router loaded: module=%s file=%s",
     getattr(logos_router, "__module__", "unknown"),

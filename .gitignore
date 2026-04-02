@@ -118,3 +118,4 @@ image.png
 .vscode/settings.json
 backend/agent/tool/feishu_remote_mcp.py
 backend/scripts/ocr_image_zhipu.py
+images/

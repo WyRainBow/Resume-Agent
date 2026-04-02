@@ -3,6 +3,7 @@
  */
 import type { ResumeData } from '../types'
 import { getLogoUrl } from '../constants/companyLogos'
+import { getSchoolLogoUrl } from '../constants/schoolLogos'
 import { stripHtmlTags } from './textUtils'
 
 // 生成单个模块的 HTML
@@ -30,18 +31,28 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
         <section class="template-section">
           <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
           <div class="section-content">
-            ${education.map(edu => `
+            ${education.map(edu => {
+              const logoUrl = edu.schoolLogo ? getSchoolLogoUrl(edu.schoolLogo) : null
+              const logoSize = edu.schoolLogoSize || 20
+              const schoolStyle = edu.schoolNameFontSize ? ` style="font-size:${edu.schoolNameFontSize}px"` : ''
+              const logoHtml = logoUrl
+                ? `<img src="${escapeHtml(logoUrl)}" alt="" style="height:${logoSize}px;max-width:${logoSize * 4}px;object-fit:contain;flex-shrink:0" />`
+                : ''
+              return `
               <div class="item">
                 <div class="item-header">
                   <div class="item-title-group">
-                    <h3 class="item-title">${escapeHtml(stripHtmlTags(edu.school))}</h3>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      ${logoHtml}
+                      <h3 class="item-title"${schoolStyle}>${escapeHtml(stripHtmlTags(edu.school))}</h3>
+                    </div>
                     <span class="item-subtitle">${escapeHtml(stripHtmlTags(edu.degree))} · ${escapeHtml(stripHtmlTags(edu.major))}</span>
                   </div>
                   <span class="item-date">${escapeHtml(edu.startDate)} ~ ${escapeHtml(edu.endDate)}</span>
                 </div>
                 ${edu.description ? `<div class="item-description">${edu.description}</div>` : ''}
               </div>
-            `).join('')}
+            `}).join('')}
           </div>
         </section>
       `

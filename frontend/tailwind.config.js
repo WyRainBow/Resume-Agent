@@ -19,6 +19,16 @@ export default {
       },
     },
     extend: {
+      fontFamily: {
+        hero: [
+          '"Noto Sans SC"',
+          'PingFang SC',
+          'Hiragino Sans GB',
+          'Microsoft YaHei UI',
+          'Microsoft YaHei',
+          'sans-serif',
+        ],
+      },
       typography: {
         DEFAULT: {
           css: {

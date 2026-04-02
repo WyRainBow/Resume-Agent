@@ -18,6 +18,7 @@ from io import BytesIO
 from .latex_utils import escape_latex, normalize_resume_data
 from .latex_sections import SECTION_GENERATORS, DEFAULT_SECTION_ORDER, generate_section_custom
 from .company_logos import download_logos_to_dir
+from .school_logos import download_school_logos_to_dir, is_school_logo_latex_supported
 
 
 def _safe_float(value: Any, default: float, min_value: float, max_value: float) -> float:
@@ -92,6 +93,24 @@ def _download_user_photo_to_dir(photo_url: str, temp_dir: str) -> str | None:
         return None
 
 
+def _sanitize_resume_for_latex(resume_data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    LaTeX 与前端图片支持范围不同：前端可显示 svg/webp，但 XeLaTeX 不支持这些学校 Logo。
+    在生成 LaTeX 前先降级掉不支持的学校 Logo，避免编译阶段引用不存在的资源。
+    """
+    sanitized = json.loads(json.dumps(resume_data))
+    education = sanitized.get("education") or []
+    if isinstance(education, list):
+        for item in education:
+            if not isinstance(item, dict):
+                continue
+            logo_key = item.get("logo")
+            if logo_key and not is_school_logo_latex_supported(logo_key):
+                item.pop("logo", None)
+                item.pop("logoSize", None)
+    return sanitized
+
+
 def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) -> str:
     """
     将简历 JSON 转换为 LaTeX 代码
@@ -104,6 +123,8 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     返回:
         LaTeX 代码字符串
     """
+    resume_data = _sanitize_resume_for_latex(resume_data)
+
     """标准化 JSON：先尝试通用方法，失败则降级到固定映射"""
     try:
         from backend.json_normalizer import normalize_resume_json
@@ -166,6 +187,15 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     latex_content.append(r"\XeTeXlinebreakskip = 0pt plus 1pt")
     """强制使用 Unicode 编码"""
     latex_content.append(r'\XeTeXinputencoding "utf8"')
+    latex_content.append(r"\pdfstringdefDisableCommands{")
+    latex_content.append(r"  \def\raisebox#1#2{#2}")
+    latex_content.append(r"  \def\includegraphics#1#2{}")
+    latex_content.append(r"  \def\fontsize#1#2{}")
+    latex_content.append(r"  \def\selectfont{}")
+    latex_content.append(r"  \def\hspace#1{}")
+    latex_content.append(r"  \def\normalsize{}")
+    latex_content.append(r"  \def\textendash{-}")
+    latex_content.append(r"}")
     latex_content.append("")
     # 只有当用户明确设置了非默认值时才覆盖（保持与原始模板一致）
     # 原始模板默认: 11pt 字体, 0.4in 边距, 无 linespread 设置
@@ -281,6 +311,10 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path, resume_data: Di
             if any(it.get('logo') for it in internships):
                 logo_map = download_logos_to_dir(internships, temp_dir)
                 print(f"[Logo] 下载完成，共 {len(logo_map)} 个 Logo")
+            education = resume_data.get('education') or []
+            if any(ed.get('logo') for ed in education):
+                school_logo_map = download_school_logos_to_dir(education, temp_dir)
+                print(f"[SchoolLogo] 下载完成，共 {len(school_logo_map)} 个 Logo")
             photo_url = resume_data.get("photo")
             if photo_url:
                 local_photo = _download_user_photo_to_dir(photo_url, temp_dir)
@@ -390,6 +424,7 @@ def render_pdf_from_resume_latex(resume_data: Dict[str, Any], section_order: Lis
         PDF 文件的 BytesIO 对象
     """
     total_start = time.time()
+    resume_data = _sanitize_resume_for_latex(resume_data)
     
     """检查缓存"""
     cache_key = _get_cache_key(resume_data, section_order)

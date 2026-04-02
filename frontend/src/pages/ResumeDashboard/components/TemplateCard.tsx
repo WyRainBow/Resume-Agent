@@ -58,7 +58,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
                 className="w-full h-full object-contain p-2 transition-transform duration-300 group-hover:scale-105"
                 onError={(e) => {
                   const target = e.target as HTMLImageElement
-                  target.src = '/templates/placeholder.svg'
+                  target.src = '/product-preview.png'
                   console.error('Failed to load template thumbnail:', imageSrc)
                 }}
                 onLoad={() => {

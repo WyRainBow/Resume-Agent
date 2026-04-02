@@ -67,6 +67,9 @@ export interface Education {
   gpa?: string
   description?: string  // HTML 格式
   visible?: boolean
+  schoolNameFontSize?: number  // 单条教育经历学校名称字号（px）
+  schoolLogo?: string  // 学校 Logo key
+  schoolLogoSize?: number  // 单条教育经历 Logo 大小（px）
 }
 
 /**

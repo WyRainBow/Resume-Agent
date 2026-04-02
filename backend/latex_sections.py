@@ -548,6 +548,9 @@ def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict
     content = []
     edu = resume_data.get('education') or []
     section_title = (section_titles or {}).get('education', '教育经历')
+    global_settings = resume_data.get('globalSettings') or {}
+    default_logo_size_px = global_settings.get('schoolLogoSize', 20)
+    default_school_font_size = global_settings.get('schoolNameFontSize')
     if isinstance(edu, list) and edu:
         content.append(f"\\section{{{escape_latex(section_title)}}}")
         for idx, ed in enumerate(edu):
@@ -556,7 +559,27 @@ def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict
             degree = escape_latex(ed.get('degree') or '')
             major = escape_latex(ed.get('subtitle') or ed.get('major') or '')
             duration = escape_latex(ed.get('date') or ed.get('duration') or '')
+
+            item_school_font_size = ed.get('schoolNameFontSize', default_school_font_size)
+            try:
+                item_school_font_size = float(item_school_font_size) if item_school_font_size is not None else None
+            except (TypeError, ValueError):
+                item_school_font_size = None
+
+            if school and item_school_font_size and item_school_font_size != 15:
+                pt_size = round(item_school_font_size * 0.75, 1)
+                baseline = round(pt_size * 1.2, 1)
+                school = f"{{\\fontsize{{{pt_size}pt}}{{{baseline}pt}}\\selectfont {school}}}"
             
+            logo_key = ed.get('logo')
+            if logo_key and school:
+                logo_file = f"logos/school_logo_{idx}"
+                item_logo_px = ed.get('logoSize') or default_logo_size_px
+                item_logo_pt = round(item_logo_px * 0.75, 1)
+                max_width_pt = round(item_logo_pt * 4, 1)
+                logo_latex = f"\\raisebox{{-0.2em}}{{\\includegraphics[height={item_logo_pt}pt,width={max_width_pt}pt,keepaspectratio]{{{logo_file}}}}}\\hspace{{0.3em}}"
+                school = f"{logo_latex}{school}"
+
             # 构建标题：学校 - 专业 - 学位（学校和学位默认不加粗）
             title_parts = []
             if school:
@@ -565,7 +588,7 @@ def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict
                 title_parts.append(major)
             if degree:
                 title_parts.append(degree)
-            
+
             title_str = " - ".join(title_parts) if title_parts else school
             
             if title_str:

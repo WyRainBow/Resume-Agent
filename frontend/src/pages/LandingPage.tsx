@@ -8,7 +8,6 @@ import {
   LogIn,
   User,
   LogOut,
-  Star,
   Github
 } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
@@ -78,7 +77,7 @@ export default function LandingPage() {
   }, [])
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans selection:bg-slate-200 selection:text-slate-900 overflow-x-hidden">
+    <div className="min-h-screen bg-white text-slate-900 font-hero antialiased selection:bg-slate-200 selection:text-slate-900 overflow-x-hidden">
       {/* 顶部导航 - 白底风格 */}
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         isScrolled ? 'bg-white shadow-sm py-3' : 'bg-white py-5'
@@ -126,37 +125,51 @@ export default function LandingPage() {
           <motion.div
             {...popIn}
             transition={{ type: 'spring', stiffness: 120, damping: 20 }}
-            className="inline-flex items-center gap-2 px-4 py-2 text-blue-600 rounded-full text-xs font-bold mb-8 tracking-widest uppercase"
+            className="inline-flex items-center gap-2 px-4 py-2 text-blue-700 rounded-full text-[13px] font-semibold mb-8 tracking-wide"
           >
             <Sparkles className="w-3 h-3 fill-current animate-spin-slow" />
-            Neural Stream v2.0 Online
+            公益 · Free
           </motion.div>
 
-          <motion.h1
+          <motion.div
             {...popIn}
             transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.15 }}
-            className="text-4xl md:text-6xl font-black tracking-tight text-slate-950 mb-5 leading-tight"
+            className="text-[1.375rem] sm:text-2xl md:text-3xl lg:text-[2.125rem] font-semibold tracking-[0.02em] text-slate-800 mb-10 leading-[1.65] max-w-4xl mx-auto flex flex-col items-center gap-3 sm:gap-3.5"
           >
-            用 AI 重新定义你的简历竞争力
-          </motion.h1>
-
-          <motion.p
-            {...popIn}
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.35 }}
-            className="text-lg md:text-xl text-slate-500 font-medium mb-10 max-w-3xl mx-auto leading-relaxed"
-          >
-            基于 Neural Stream 引擎的极简 AI 简历工具。
-            <br className="hidden md:block" />
-            智能润色、逻辑重构、一键导出，直击 HR 核心需求。
-          </motion.p>
+            <span className="block">公益简历制作网站</span>
+            <span className="block">
+              功能都是{' '}
+              <span className="font-bold text-slate-900">Free</span>
+            </span>
+            <span className="block">
+              <span className="font-bold text-slate-900">Token</span> 无限
+            </span>
+            <span className="mt-0.5 flex flex-wrap items-center justify-center gap-2 text-[0.95em] sm:text-[inherit]">
+              <span>
+                希望留下你的 <span className="font-bold text-slate-900">Star</span>
+              </span>
+              <span className="text-slate-400 font-bold select-none" aria-hidden>
+                ：
+              </span>
+              <motion.a
+                href="https://github.com/WyRainBow/Resume-Agent"
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="在 GitHub 上为项目点 Star"
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.96 }}
+                className="inline-flex items-center justify-center rounded-xl p-2 text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors"
+              >
+                <Github className="w-7 h-7 sm:w-8 sm:h-8" strokeWidth={2} />
+              </motion.a>
+            </span>
+          </motion.div>
 
           <motion.div
             {...popIn}
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.55 }}
+            transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.35 }}
             className="flex flex-col sm:flex-row items-center justify-center gap-6"
           >
             <button
