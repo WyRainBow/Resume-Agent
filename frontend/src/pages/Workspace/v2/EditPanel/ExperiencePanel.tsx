@@ -1,7 +1,7 @@
 /**
  * 工作经历面板
  */
-import { PlusCircle, Wand2, List, ListOrdered, GripVertical } from 'lucide-react'
+import { PlusCircle, Wand2, GripVertical } from 'lucide-react'
 import { Reorder } from 'framer-motion'
 import { cn } from '../../../../lib/utils'
 import type { Experience, GlobalSettings, ResumeData } from '../types'
@@ -34,9 +34,6 @@ const ExperiencePanel = ({
   onAIImport,
   resumeData,
 }: ExperiencePanelProps) => {
-  // 获取当前列表类型，默认为 'none'
-  const listType = globalSettings?.experienceListType || 'none'
-
   const handleCreate = () => {
     const newExp: Experience = {
       id: generateId(),
@@ -49,10 +46,6 @@ const ExperiencePanel = ({
     onReorder([...experiences, newExp])
   }
 
-  const handleListTypeChange = (type: 'none' | 'unordered' | 'ordered') => {
-    updateGlobalSettings({ experienceListType: type })
-  }
-
   return (
     <div className={cn('space-y-4 px-4 py-4 rounded-lg', 'bg-white dark:bg-neutral-900/30')}>
       {onAIImport && (
@@ -61,49 +54,6 @@ const ExperiencePanel = ({
           className="w-full"
         />
       )}
-
-      {/* 列表类型切换按钮 */}
-      <div className="flex items-center gap-2 p-2 rounded-lg bg-gray-50 dark:bg-neutral-800/50">
-        <span className="text-sm text-gray-600 dark:text-neutral-400 mr-2">列表样式：</span>
-        <button
-          onClick={() => handleListTypeChange('none')}
-          className={cn(
-            'px-3 py-1.5 rounded-md text-sm transition-colors',
-            'border',
-            listType === 'none'
-              ? 'bg-primary text-white border-primary'
-              : 'bg-white dark:bg-neutral-700 border-gray-200 dark:border-neutral-600 text-gray-700 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-600'
-          )}
-        >
-          无列表
-        </button>
-        <button
-          onClick={() => handleListTypeChange('unordered')}
-          className={cn(
-            'px-3 py-1.5 rounded-md text-sm transition-colors flex items-center gap-1',
-            'border',
-            listType === 'unordered'
-              ? 'bg-primary text-white border-primary'
-              : 'bg-white dark:bg-neutral-700 border-gray-200 dark:border-neutral-600 text-gray-700 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-600'
-          )}
-        >
-          <List className="w-4 h-4" />
-          无序列表
-        </button>
-        <button
-          onClick={() => handleListTypeChange('ordered')}
-          className={cn(
-            'px-3 py-1.5 rounded-md text-sm transition-colors flex items-center gap-1',
-            'border',
-            listType === 'ordered'
-              ? 'bg-primary text-white border-primary'
-              : 'bg-white dark:bg-neutral-700 border-gray-200 dark:border-neutral-600 text-gray-700 dark:text-neutral-300 hover:bg-gray-100 dark:hover:bg-neutral-600'
-          )}
-        >
-          <ListOrdered className="w-4 h-4" />
-          有序列表
-        </button>
-      </div>
 
       <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-neutral-400 px-1">
         <GripVertical className="w-3.5 h-3.5" />
