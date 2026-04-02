@@ -45,6 +45,30 @@ import './tiptap.css'
 const logDebug = (_message: string, _data?: Record<string, any>) => {}
 // #endregion agent log helper
 
+const getListItemNestingLevel = (editor: Editor): number => {
+  const { $from } = editor.state.selection
+  let level = 0
+  for (let depth = 0; depth <= $from.depth; depth++) {
+    if ($from.node(depth).type.name === 'listItem') level += 1
+  }
+  return level
+}
+
+const LimitedListItem = ListItem.extend({
+  addKeyboardShortcuts() {
+    const parentShortcuts = this.parent?.() ?? {}
+    return {
+      ...parentShortcuts,
+      Tab: () => {
+        if (!this.editor.isActive('listItem')) return false
+        if (getListItemNestingLevel(this.editor) >= 2) return true
+        return this.editor.commands.sinkListItem(this.name)
+      },
+      'Shift-Tab': () => this.editor.commands.liftListItem(this.name),
+    }
+  },
+})
+
 interface RichEditorProps {
   content?: string
   onChange: (content: string) => void
@@ -160,7 +184,7 @@ const RichEditor = ({
           class: 'custom-list-ordered',
         },
       }),
-      ListItem,
+      LimitedListItem,
       TextAlign.configure({
         types: ['heading', 'paragraph'],
         alignments: ['left', 'center', 'right', 'justify'],
@@ -309,6 +333,12 @@ const RichEditor = ({
                 return
               }
 
+              const nestingLevel = getListItemNestingLevel(editor)
+              if (nestingLevel >= 2) {
+                logDebug('indent-max-depth-reached', { nestingLevel })
+                return
+              }
+
               const canSink = editor.can().sinkListItem('listItem')
               logDebug('indent-increase-click', {
                 canSink,
@@ -354,6 +384,10 @@ const RichEditor = ({
                 
                 // 插入后，再次尝试 sink
                 setTimeout(() => {
+                  if (getListItemNestingLevel(editor) >= 2) {
+                    logDebug('indent-max-depth-reached-post-insert')
+                    return
+                  }
                   const canSinkNow = editor.can().sinkListItem('listItem')
                   logDebug('indent-after-insert', { canSinkNow })
                   if (canSinkNow) {
