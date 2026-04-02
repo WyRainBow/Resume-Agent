@@ -1,7 +1,7 @@
 """
 学校 Logo 管理
 优先从 COS 读取学校 Logo；若 COS 不可用或未命中，则回退本地 images/school_logo/
-支持目录分组：985 / 211 / 双非
+支持目录分组：985 / 211 / 香港 / 双非
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ LATEX_SUPPORTED_EXTS = {".png", ".jpg", ".jpeg", ".pdf"}
 COS_BASE_URL = "https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com"
 COS_PREFIXES = ("school_logo/",)
 DEFAULT_GROUP_NAME = "未分组"
-GROUP_ORDER = ["985", "211", "双非", DEFAULT_GROUP_NAME]
+GROUP_ORDER = ["985", "211", "香港", "双非", DEFAULT_GROUP_NAME]
 
 _cos_cache: list[dict] | None = None
 _cos_group_cache: list[dict] | None = None

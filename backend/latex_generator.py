@@ -111,6 +111,39 @@ def _sanitize_resume_for_latex(resume_data: Dict[str, Any]) -> Dict[str, Any]:
     return sanitized
 
 
+def _sanitize_resume_for_available_assets(
+    resume_data: Dict[str, Any],
+    logo_map: Dict[int, str] | None = None,
+    school_logo_map: Dict[int, str] | None = None,
+) -> Dict[str, Any]:
+    """
+    只保留当前已成功落到临时目录的 Logo 引用，避免 LaTeX includegraphics 指向不存在文件。
+    """
+    sanitized = json.loads(json.dumps(resume_data))
+    logo_map = logo_map or {}
+    school_logo_map = school_logo_map or {}
+
+    internships = sanitized.get("internships") or []
+    if isinstance(internships, list):
+        for idx, item in enumerate(internships):
+            if not isinstance(item, dict):
+                continue
+            if item.get("logo") and idx not in logo_map:
+                item.pop("logo", None)
+                item.pop("logoSize", None)
+
+    education = sanitized.get("education") or []
+    if isinstance(education, list):
+        for idx, item in enumerate(education):
+            if not isinstance(item, dict):
+                continue
+            if item.get("logo") and idx not in school_logo_map:
+                item.pop("logo", None)
+                item.pop("logoSize", None)
+
+    return sanitized
+
+
 def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) -> str:
     """
     将简历 JSON 转换为 LaTeX 代码
@@ -306,6 +339,8 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path, resume_data: Di
 
         # 下载公司 Logo 到临时目录
         local_photo = None
+        logo_map = {}
+        school_logo_map = {}
         if resume_data:
             internships = resume_data.get('internships') or []
             if any(it.get('logo') for it in internships):
@@ -315,6 +350,18 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path, resume_data: Di
             if any(ed.get('logo') for ed in education):
                 school_logo_map = download_school_logos_to_dir(education, temp_dir)
                 print(f"[SchoolLogo] 下载完成，共 {len(school_logo_map)} 个 Logo")
+
+            sanitized_for_assets = _sanitize_resume_for_available_assets(
+                resume_data,
+                logo_map=logo_map,
+                school_logo_map=school_logo_map,
+            )
+            if sanitized_for_assets != resume_data:
+                latex_content = json_to_latex(
+                    sanitized_for_assets,
+                    sanitized_for_assets.get("sectionOrder"),
+                )
+
             photo_url = resume_data.get("photo")
             if photo_url:
                 local_photo = _download_user_photo_to_dir(photo_url, temp_dir)
