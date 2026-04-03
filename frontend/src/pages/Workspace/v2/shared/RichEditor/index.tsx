@@ -45,6 +45,25 @@ import './tiptap.css'
 const logDebug = (_message: string, _data?: Record<string, any>) => {}
 // #endregion agent log helper
 
+const logBoldDebugSnapshot = (editor: Editor, phase: 'before' | 'after') => {
+  try {
+    const { from, to } = editor.state.selection
+    const selectedText = editor.state.doc.textBetween(from, to, '\n')
+    const selectedSlice = editor.state.doc.slice(from, to).toJSON()
+    const html = editor.getHTML()
+    const compactHtml = html.length > 1200 ? `${html.slice(0, 1200)}...<truncated>` : html
+    console.log(`[BOLD DEBUG][${phase}]`, {
+      from,
+      to,
+      selectedText,
+      selectedSlice,
+      compactHtml,
+    })
+  } catch (error) {
+    console.error(`[BOLD DEBUG][${phase}] snapshot failed`, error)
+  }
+}
+
 const getListItemNestingLevel = (editor: Editor): number => {
   const { $from } = editor.state.selection
   let level = 0
@@ -248,7 +267,13 @@ const RichEditor = ({
         {/* 文字样式 */}
         <div className="flex items-center gap-0.5">
           <MenuButton
-            onClick={() => editor.chain().focus().toggleBold().run()}
+            onClick={() => {
+              logBoldDebugSnapshot(editor, 'before')
+              editor.chain().focus().toggleBold().run()
+              requestAnimationFrame(() => {
+                logBoldDebugSnapshot(editor, 'after')
+              })
+            }}
             isActive={editor.isActive('bold')}
             tooltip="加粗"
           >
@@ -464,8 +489,8 @@ const RichEditor = ({
       {/* 编辑区域 */}
       <EditorContent editor={editor} />
 
-      {/* 划词修改气泡 — 选中文本后浮出（暂时隐藏，功能打磨中） */}
-      {false && editor && (
+      {/* 划词修改气泡 — 选中文本后浮出 */}
+      {editor && (
         <BubbleMenu
           editor={editor}
           tippyOptions={{

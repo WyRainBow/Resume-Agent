@@ -449,66 +449,88 @@ export default function SelectionPolishBubble({
 
   const handleApplyPreview = () => {
     const snapshot = selectionSnapshotRef.current
-    if (!snapshot || !latestPolished.trim()) {
+    const fallbackSnapshot = (() => {
+      const { from, to } = editor.state.selection
+      const text = editor.state.doc.textBetween(from, to, '\n')
+      if (!text.trim()) return null
+      return { from, to, text, html: text }
+    })()
+    const effectiveSnapshot = snapshot || fallbackSnapshot
+    const fallbackPolished = [...chatMessages]
+      .reverse()
+      .find((m) => m.type === 'ai' && (m.content || '').trim())?.content || ''
+    const effectivePolished = (latestPolished || fallbackPolished || '').trim()
+
+    console.error('[POLISH APPLY DEBUG][precheck]', {
+      hasSnapshot: !!snapshot,
+      hasFallbackSnapshot: !!fallbackSnapshot,
+      latestPolishedLen: latestPolished.length,
+      fallbackPolishedLen: fallbackPolished.length,
+    })
+
+    if (!effectiveSnapshot || !effectivePolished) {
       setChatOpen(false)
       bubbleActiveRef.current = false
       return
     }
     const instructions = chatMessages.filter((m) => m.type === 'user').map((m) => m.content)
-    const finalContent = applyInstructionTransforms(latestPolished, instructions)
+    const mergedInstructions = instructions.join(' ')
+    const forceBold = shouldBoldAll(mergedInstructions) && !isRemoveBoldInstruction(mergedInstructions)
+    const forceUnbold = isRemoveBoldInstruction(mergedInstructions)
+    const finalContent = applyInstructionTransforms(effectivePolished, instructions)
+    console.error('[POLISH APPLY DEBUG][input]', {
+      instructions,
+      latestPolished: effectivePolished,
+      finalContent,
+    })
     if (!finalContent.trim()) {
       setError('改写内容为空，无法应用')
       return
     }
 
-    const { from, to } = snapshot
-    const merged = instructions.join(' ')
-
-    // 判断是否为纯格式变更（文字内容没变）
-    const originalPlain = snapshot.text.replace(/\s+/g, ' ').trim()
-    const tempDiv = document.createElement('div')
-    tempDiv.innerHTML = finalContent
-    const finalPlain = (tempDiv.textContent || '').replace(/\s+/g, ' ').trim()
-    const isFormatOnly = originalPlain === finalPlain
-
-    const wantBold = shouldBoldAll(merged) && !isRemoveBoldInstruction(merged)
-    const wantUnbold = isRemoveBoldInstruction(merged)
+    const { from, to } = effectiveSnapshot
 
     // 先关闭弹窗，让编辑器恢复焦点后再操作
     setChatOpen(false)
     bubbleActiveRef.current = false
 
     requestAnimationFrame(() => {
-      if (isFormatOnly && wantBold) {
-        // 纯加粗：复用工具栏 toggleBold 机制
-        editor.chain()
-          .focus()
-          .setTextSelection({ from, to })
-          .setBold()
-          .run()
-      } else if (isFormatOnly && wantUnbold) {
-        // 纯去粗
-        editor.chain()
-          .focus()
-          .setTextSelection({ from, to })
-          .unsetBold()
-          .run()
-      } else {
-        // 文字内容有变化：用 ProseMirror 事务替换
-        const { state } = editor
-        const container = document.createElement('div')
-        container.innerHTML = finalContent
-        const parser = ProseMirrorDOMParser.fromSchema(state.schema)
-        const parsedSlice = parser.parseSlice(container, {
-          preserveWhitespace: true,
-          context: state.doc.resolve(from),
-        })
-        if (parsedSlice.content.size > 0) {
-          const tr = state.tr.replaceRange(from, to, parsedSlice)
-          if (tr.docChanged) {
-            editor.view.dispatch(tr.scrollIntoView())
-          }
+      // 统一按最终 HTML 结果替换选区，避免 setBold/unsetBold 受选区状态影响导致样式未落地
+      const { state } = editor
+      const container = document.createElement('div')
+      container.innerHTML = finalContent
+      const parser = ProseMirrorDOMParser.fromSchema(state.schema)
+      const parsedSlice = parser.parseSlice(container, {
+        preserveWhitespace: true,
+        context: state.doc.resolve(from),
+      })
+      console.error('[POLISH APPLY DEBUG][parsedSlice]', {
+        from,
+        to,
+        parsedSlice: parsedSlice.toJSON(),
+      })
+      if (parsedSlice.content.size > 0) {
+        const tr = state.tr.replaceRange(from, to, parsedSlice)
+        if (tr.docChanged) {
+          editor.view.dispatch(tr.scrollIntoView())
+          requestAnimationFrame(() => {
+            // 兜底：只要用户明确要求“加粗/去粗”，强制对当前区间应用 mark
+            if (forceBold) {
+              editor.chain().focus().setTextSelection({ from, to }).setBold().run()
+            } else if (forceUnbold) {
+              editor.chain().focus().setTextSelection({ from, to }).unsetBold().run()
+            }
+          })
+          requestAnimationFrame(() => {
+            console.error('[POLISH APPLY DEBUG][after-dispatch-html]', {
+              html: editor.getHTML(),
+            })
+          })
+        } else {
+          console.warn('[POLISH APPLY DEBUG] transaction not changed')
         }
+      } else {
+        console.warn('[POLISH APPLY DEBUG] parsedSlice empty')
       }
     })
   }
@@ -681,7 +703,10 @@ export default function SelectionPolishBubble({
                   取消
                 </button>
                 <button
-                  onClick={handleApplyPreview}
+                  onClick={() => {
+                    console.error('[POLISH APPLY DEBUG][button-click]')
+                    handleApplyPreview()
+                  }}
                   disabled={!latestPolished.trim()}
                   className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
