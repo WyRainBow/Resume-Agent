@@ -3,8 +3,9 @@
  * 基于 TipTap，支持加粗、斜体、下划线、列表等格式
  * 输出 HTML 格式，后端转换为 LaTeX
  */
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState, useCallback } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
+import { Extension } from '@tiptap/core'
 import type { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import TextAlign from '@tiptap/extension-text-align'
@@ -38,12 +39,74 @@ import SelectionPolishBubble from '../SelectionPolishBubble'
 
 import AIWriteDialog from '../AIWriteDialog'
 import { BubbleMenu } from '@tiptap/react/menus'
+import { Plugin, PluginKey } from '@tiptap/pm/state'
+import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { ResumeData, Education } from '../../types'
 import './tiptap.css'
 
 // Debug logging disabled in production
 const logDebug = (_message: string, _data?: Record<string, any>) => {}
 // #endregion agent log helper
+
+const logBoldDebugSnapshot = (editor: Editor, phase: 'before' | 'after') => {
+  try {
+    const { from, to } = editor.state.selection
+    const selectedText = editor.state.doc.textBetween(from, to, '\n')
+    const selectedSlice = editor.state.doc.slice(from, to).toJSON()
+    const html = editor.getHTML()
+    const compactHtml = html.length > 1200 ? `${html.slice(0, 1200)}...<truncated>` : html
+    console.log(`[BOLD DEBUG][${phase}]`, {
+      from,
+      to,
+      selectedText,
+      selectedSlice,
+      compactHtml,
+    })
+  } catch (error) {
+    console.error(`[BOLD DEBUG][${phase}] snapshot failed`, error)
+  }
+}
+
+const logSelectionLockDebug = (event: string, data?: Record<string, unknown>) => {
+  console.log(`[SELECTION LOCK DEBUG][RichEditor][${event}]`, data || {})
+}
+
+const selectionLockPluginKey = new PluginKey<DecorationSet>('selectionLockHighlight')
+
+const SelectionLockHighlight = Extension.create({
+  name: 'selectionLockHighlight',
+  addProseMirrorPlugins() {
+    return [
+      new Plugin({
+        key: selectionLockPluginKey,
+        state: {
+          init: () => DecorationSet.empty,
+          apply(tr, old) {
+            const meta = tr.getMeta(selectionLockPluginKey) as
+              | { from?: number; to?: number; clear?: boolean }
+              | undefined
+            if (meta?.clear) return DecorationSet.empty
+            if (
+              typeof meta?.from === 'number' &&
+              typeof meta?.to === 'number' &&
+              meta.from < meta.to
+            ) {
+              return DecorationSet.create(tr.doc, [
+                Decoration.inline(meta.from, meta.to, { class: 'selection-lock-highlight' }),
+              ])
+            }
+            return tr.docChanged ? old.map(tr.mapping, tr.doc) : old
+          },
+        },
+        props: {
+          decorations(state) {
+            return selectionLockPluginKey.getState(state) as DecorationSet
+          },
+        },
+      }),
+    ]
+  },
+})
 
 const getListItemNestingLevel = (editor: Editor): number => {
   const { $from } = editor.state.selection
@@ -149,6 +212,9 @@ const RichEditor = ({
   const [showPolishDialog, setShowPolishDialog] = useState(false)
   const [showAIWriteDialog, setShowAIWriteDialog] = useState(false)
   const bubbleActiveRef = useRef(false)
+  const selectionSnapshotRef = useRef<{ from: number; to: number; text: string; html: string } | null>(null)
+  const lastCapturedSelectionRef = useRef<{ from: number; to: number } | null>(null)
+  const [lockedSelection, setLockedSelection] = useState<{ from: number; to: number } | null>(null)
 
   const handlePolish = () => {
     if (resumeData) {
@@ -194,6 +260,7 @@ const RichEditor = ({
       Color,
       Highlight.configure({ multicolor: true }),
       BetterSpace,
+      SelectionLockHighlight,
     ],
     content,
     onUpdate: ({ editor }) => {
@@ -225,6 +292,23 @@ const RichEditor = ({
     }
   }, [content, editor])
 
+  const handleLockSelection = useCallback(
+    (selection: { from: number; to: number }) => {
+      logSelectionLockDebug('lock-selection', selection)
+      setLockedSelection(selection)
+      editor?.view.dispatch(
+        editor.state.tr.setMeta(selectionLockPluginKey, { from: selection.from, to: selection.to }),
+      )
+    },
+    [editor],
+  )
+
+  const handleUnlockSelection = useCallback(() => {
+    logSelectionLockDebug('unlock-selection')
+    setLockedSelection(null)
+    editor?.view.dispatch(editor.state.tr.setMeta(selectionLockPluginKey, { clear: true }))
+  }, [editor])
+
   if (!editor) {
     return null
   }
@@ -232,7 +316,7 @@ const RichEditor = ({
   return (
     <div
       className={cn(
-        'rounded-lg overflow-hidden border shadow-sm',
+        'relative rounded-lg overflow-hidden border shadow-sm',
         'bg-white border-gray-100',
         'dark:bg-neutral-900/30 dark:border-neutral-800'
       )}
@@ -248,7 +332,13 @@ const RichEditor = ({
         {/* 文字样式 */}
         <div className="flex items-center gap-0.5">
           <MenuButton
-            onClick={() => editor.chain().focus().toggleBold().run()}
+            onClick={() => {
+              logBoldDebugSnapshot(editor, 'before')
+              editor.chain().focus().toggleBold().run()
+              requestAnimationFrame(() => {
+                logBoldDebugSnapshot(editor, 'after')
+              })
+            }}
             isActive={editor.isActive('bold')}
             tooltip="加粗"
           >
@@ -464,8 +554,8 @@ const RichEditor = ({
       {/* 编辑区域 */}
       <EditorContent editor={editor} />
 
-      {/* 划词修改气泡 — 选中文本后浮出（暂时隐藏，功能打磨中） */}
-      {false && editor && (
+      {/* 划词修改气泡 — 选中文本后浮出 */}
+      {editor && (
         <BubbleMenu
           editor={editor}
           tippyOptions={{
@@ -477,22 +567,68 @@ const RichEditor = ({
               strategy: 'fixed',
             },
             onHidden: () => {
+              const activeEl = document.activeElement as HTMLElement | null
+              logSelectionLockDebug('bubble-onHidden', {
+                activeElementTag: activeEl?.tagName || null,
+                activeElementClass: activeEl?.className || null,
+                activeInBubble: !!activeEl?.closest('.ai-polish-bubble'),
+                hasLockedSelection: !!lockedSelection,
+                bubbleActive: bubbleActiveRef.current,
+              })
+              if (activeEl?.closest('.ai-polish-bubble')) {
+                bubbleActiveRef.current = true
+                return
+              }
+              if (lockedSelection) {
+                bubbleActiveRef.current = true
+                return
+              }
               bubbleActiveRef.current = false
             },
           }}
           shouldShow={({ editor: e }: { editor: Editor }) => {
             // Keep bubble visible while user is interacting with it
+            if (lockedSelection) return true
             if (bubbleActiveRef.current) return true
             if (!e) return false
             const { from, to } = e.state.selection
             const text = e.state.doc.textBetween(from, to, '\n')
-            return text.length >= 2
+            const shouldShowNow = text.length >= 2
+            if (!shouldShowNow) return false
+
+            const last = lastCapturedSelectionRef.current
+            const changed = !last || last.from !== from || last.to !== to
+            if (changed) {
+              let html = ''
+              const domSelection = window.getSelection()
+              if (domSelection && domSelection.rangeCount > 0) {
+                const range = domSelection.getRangeAt(0)
+                const container = document.createElement('div')
+                container.appendChild(range.cloneContents())
+                html = container.innerHTML
+              }
+
+              selectionSnapshotRef.current = {
+                from,
+                to,
+                text,
+                html: html || text,
+              }
+              lastCapturedSelectionRef.current = { from, to }
+              handleLockSelection({ from, to })
+              logSelectionLockDebug('capture-from-shouldShow', { from, to, textLength: text.length })
+            }
+
+            return true
           }}
         >
           <SelectionPolishBubble
             editor={editor}
             polishPath={polishPath}
             bubbleActiveRef={bubbleActiveRef}
+            selectionSnapshotRef={selectionSnapshotRef}
+            onLockSelection={handleLockSelection}
+            onUnlockSelection={handleUnlockSelection}
           />
         </BubbleMenu>
       )}

@@ -12,13 +12,23 @@ interface SelectionPolishBubbleProps {
   editor: Editor
   polishPath: string
   bubbleActiveRef: React.MutableRefObject<boolean>
+  selectionSnapshotRef: React.MutableRefObject<{ from: number; to: number; text: string; html: string } | null>
+  onLockSelection: (selection: { from: number; to: number }) => void
+  onUnlockSelection: () => void
 }
 
 export default function SelectionPolishBubble({
   editor,
   polishPath,
   bubbleActiveRef,
+  selectionSnapshotRef,
+  onLockSelection,
+  onUnlockSelection,
 }: SelectionPolishBubbleProps) {
+  const logSelectionBubbleDebug = (event: string, data?: Record<string, unknown>) => {
+    console.log(`[SELECTION LOCK DEBUG][Bubble][${event}]`, data || {})
+  }
+
   type ChatMessage = {
     id: string
     type: 'original' | 'user' | 'ai'
@@ -37,7 +47,6 @@ export default function SelectionPolishBubble({
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
-  const selectionSnapshotRef = useRef<{ from: number; to: number; text: string; html: string } | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   const isRemoveBoldInstruction = (value: string): boolean => {
@@ -74,6 +83,16 @@ export default function SelectionPolishBubble({
     if (!normalized) return false
     if (isRemoveBoldInstruction(normalized)) return false
     return normalized.includes('加粗') || normalized.includes('加黑') || normalized.includes('bold')
+  }
+
+  const isDirectFormatInstruction = (value: string): boolean => {
+    const normalized = value.trim()
+    if (!normalized) return false
+    return (
+      shouldBoldAll(normalized) ||
+      isRemoveBoldInstruction(normalized) ||
+      shouldConvertUlToOl(normalized)
+    )
   }
 
   const stripBoldMarkup = (html: string): string => {
@@ -297,24 +316,43 @@ export default function SelectionPolishBubble({
     }
 
     if (plainText.trim()) {
+      logSelectionBubbleDebug('mount-snapshot', {
+        from,
+        to,
+        textLength: plainText.length,
+      })
       selectionSnapshotRef.current = {
         from,
         to,
         text: plainText,
         html: html || plainText,
       }
+      onLockSelection({ from, to })
+    } else {
+      if (selectionSnapshotRef.current?.text?.trim()) {
+        logSelectionBubbleDebug('mount-empty-selection-keep-snapshot', {
+          from: selectionSnapshotRef.current.from,
+          to: selectionSnapshotRef.current.to,
+          textLength: selectionSnapshotRef.current.text.length,
+        })
+      } else {
+        logSelectionBubbleDebug('mount-empty-selection')
+        onUnlockSelection()
+      }
     }
     bubbleActiveRef.current = true
 
     const timer = setTimeout(() => {
+      logSelectionBubbleDebug('focus-input')
       inputRef.current?.focus()
     }, 50)
 
     return () => {
+      logSelectionBubbleDebug('unmount-bubble')
       bubbleActiveRef.current = false
       clearTimeout(timer)
     }
-  }, [bubbleActiveRef, editor])
+  }, [bubbleActiveRef, editor, onLockSelection, onUnlockSelection, selectionSnapshotRef])
 
   const handleSend = useCallback(() => {
     const instruction = input.trim()
@@ -328,10 +366,24 @@ export default function SelectionPolishBubble({
     if (!selectedText.trim()) return
 
     setInput('')
-    setIsStreaming(true)
     setError(null)
     bubbleActiveRef.current = true
 
+    // 纯格式指令本地处理：确保“划到哪儿就只改哪儿”
+    if (isDirectFormatInstruction(instruction)) {
+      const normalized = applyInstructionTransforms(selectedHtml, [instruction])
+      setLatestPolished(normalized)
+      setChatMessages([
+        { id: `o-${Date.now()}`, type: 'original', content: selectedHtml },
+        { id: `u-${Date.now()}`, type: 'user', content: instruction },
+        { id: `a-${Date.now()}`, type: 'ai', content: normalized },
+      ])
+      setChatOpen(true)
+      bubbleActiveRef.current = false
+      return
+    }
+
+    setIsStreaming(true)
     abortRef.current?.abort()
     abortRef.current = new AbortController()
 
@@ -382,6 +434,19 @@ export default function SelectionPolishBubble({
 
     const baseText = latestPolished || selectionSnapshotRef.current?.html || selectionSnapshotRef.current?.text || ''
     if (!baseText.trim()) return
+
+    // 对话框里的纯格式指令也本地处理，避免超出原选区语义
+    if (isDirectFormatInstruction(instruction)) {
+      const normalized = applyInstructionTransforms(baseText, [instruction])
+      setChatInput('')
+      setLatestPolished(normalized)
+      setChatMessages((prev) => [
+        ...prev,
+        { id: `u-${Date.now()}`, type: 'user', content: instruction },
+        { id: `a-${Date.now()}`, type: 'ai', content: normalized, isStreaming: false },
+      ])
+      return
+    }
 
     const aiId = `a-${Date.now()}`
     setChatInput('')
@@ -439,94 +504,109 @@ export default function SelectionPolishBubble({
     if (e.key === 'Escape') {
       e.preventDefault()
       bubbleActiveRef.current = false
+      selectionSnapshotRef.current = null
+      onUnlockSelection()
       editor.commands.focus()
     }
   }
 
   const markActive = () => {
+    logSelectionBubbleDebug('mark-active')
     bubbleActiveRef.current = true
   }
 
   const handleApplyPreview = () => {
     const snapshot = selectionSnapshotRef.current
-    if (!snapshot || !latestPolished.trim()) {
+    const fallbackSnapshot = (() => {
+      const { from, to } = editor.state.selection
+      const text = editor.state.doc.textBetween(from, to, '\n')
+      if (!text.trim()) return null
+      return { from, to, text, html: text }
+    })()
+    const effectiveSnapshot = snapshot || fallbackSnapshot
+    const fallbackPolished = [...chatMessages]
+      .reverse()
+      .find((m) => m.type === 'ai' && (m.content || '').trim())?.content || ''
+    const effectivePolished = (latestPolished || fallbackPolished || '').trim()
+
+    if (!effectiveSnapshot || !effectivePolished) {
       setChatOpen(false)
       bubbleActiveRef.current = false
+      selectionSnapshotRef.current = null
+      onUnlockSelection()
       return
     }
     const instructions = chatMessages.filter((m) => m.type === 'user').map((m) => m.content)
-    const finalContent = applyInstructionTransforms(latestPolished, instructions)
+    const finalContent = applyInstructionTransforms(effectivePolished, instructions)
     if (!finalContent.trim()) {
       setError('改写内容为空，无法应用')
       return
     }
 
-    const { from, to } = snapshot
-    const merged = instructions.join(' ')
-
-    // 判断是否为纯格式变更（文字内容没变）
-    const originalPlain = snapshot.text.replace(/\s+/g, ' ').trim()
-    const tempDiv = document.createElement('div')
-    tempDiv.innerHTML = finalContent
-    const finalPlain = (tempDiv.textContent || '').replace(/\s+/g, ' ').trim()
-    const isFormatOnly = originalPlain === finalPlain
-
-    const wantBold = shouldBoldAll(merged) && !isRemoveBoldInstruction(merged)
-    const wantUnbold = isRemoveBoldInstruction(merged)
+    const { from, to } = effectiveSnapshot
 
     // 先关闭弹窗，让编辑器恢复焦点后再操作
     setChatOpen(false)
     bubbleActiveRef.current = false
+    selectionSnapshotRef.current = null
+    onUnlockSelection()
 
     requestAnimationFrame(() => {
-      if (isFormatOnly && wantBold) {
-        // 纯加粗：复用工具栏 toggleBold 机制
-        editor.chain()
-          .focus()
-          .setTextSelection({ from, to })
-          .setBold()
-          .run()
-      } else if (isFormatOnly && wantUnbold) {
-        // 纯去粗
-        editor.chain()
-          .focus()
-          .setTextSelection({ from, to })
-          .unsetBold()
-          .run()
-      } else {
-        // 文字内容有变化：用 ProseMirror 事务替换
-        const { state } = editor
-        const container = document.createElement('div')
-        container.innerHTML = finalContent
-        const parser = ProseMirrorDOMParser.fromSchema(state.schema)
-        const parsedSlice = parser.parseSlice(container, {
-          preserveWhitespace: true,
-          context: state.doc.resolve(from),
-        })
-        if (parsedSlice.content.size > 0) {
-          const tr = state.tr.replaceRange(from, to, parsedSlice)
-          if (tr.docChanged) {
-            editor.view.dispatch(tr.scrollIntoView())
-          }
+      // 统一按最终 HTML 结果替换选区，避免 setBold/unsetBold 受选区状态影响导致样式未落地
+      const { state } = editor
+      const container = document.createElement('div')
+      container.innerHTML = finalContent
+      const parser = ProseMirrorDOMParser.fromSchema(state.schema)
+      const parsedSlice = parser.parseSlice(container, {
+        preserveWhitespace: true,
+        context: state.doc.resolve(from),
+      })
+      if (parsedSlice.content.size > 0) {
+        const tr = state.tr.replaceRange(from, to, parsedSlice)
+        if (tr.docChanged) {
+          editor.view.dispatch(tr.scrollIntoView())
+        } else {
+          console.warn('[POLISH APPLY] transaction not changed')
         }
+      } else {
+        console.warn('[POLISH APPLY] parsedSlice empty')
       }
     })
   }
 
   const handleCancelPreview = () => {
+    logSelectionBubbleDebug('cancel-preview')
     setChatOpen(false)
     bubbleActiveRef.current = false
+    selectionSnapshotRef.current = null
+    onUnlockSelection()
     editor.commands.focus()
   }
 
   const markInactiveIfOutside = () => {
     const root = rootRef.current
     if (!root) {
+      logSelectionBubbleDebug('inactive-no-root')
       bubbleActiveRef.current = false
+      selectionSnapshotRef.current = null
+      onUnlockSelection()
       return
     }
     const activeEl = document.activeElement
-    bubbleActiveRef.current = !!(activeEl && root.contains(activeEl))
+    const hasSnapshot = !!selectionSnapshotRef.current?.text?.trim()
+    bubbleActiveRef.current = !!(activeEl && root.contains(activeEl)) || hasSnapshot
+    logSelectionBubbleDebug('mark-inactive-check', {
+      activeElementTag: (activeEl as HTMLElement | null)?.tagName || null,
+      activeElementClass: (activeEl as HTMLElement | null)?.className || null,
+      keepActive: bubbleActiveRef.current,
+      hasSnapshot,
+      isStreaming,
+      chatOpen,
+    })
+    if (!bubbleActiveRef.current) {
+      selectionSnapshotRef.current = null
+      onUnlockSelection()
+    }
   }
 
   return (
@@ -534,14 +614,16 @@ export default function SelectionPolishBubble({
       <div
         ref={rootRef}
         className="ai-polish-bubble"
+        onPointerDownCapture={markActive}
+        onMouseDownCapture={markActive}
         onMouseEnter={markActive}
         onFocusCapture={markActive}
         onKeyDownCapture={(e) => e.stopPropagation()}
-      onBlurCapture={() => {
-        if (isStreaming || chatOpen) {
-          bubbleActiveRef.current = true
-          return
-        }
+        onBlurCapture={() => {
+          if (isStreaming || chatOpen || !!selectionSnapshotRef.current?.text?.trim()) {
+            bubbleActiveRef.current = true
+            return
+          }
           setTimeout(markInactiveIfOutside, 0)
         }}
         onMouseDown={(e) => e.stopPropagation()}
@@ -560,6 +642,18 @@ export default function SelectionPolishBubble({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onFocus={() => {
+              logSelectionBubbleDebug('input-focus', {
+                hasSnapshot: !!selectionSnapshotRef.current,
+                bubbleActive: bubbleActiveRef.current,
+              })
+            }}
+            onBlur={() => {
+              logSelectionBubbleDebug('input-blur', {
+                hasSnapshot: !!selectionSnapshotRef.current,
+                bubbleActive: bubbleActiveRef.current,
+              })
+            }}
             onKeyDown={handleKeyDown}
             placeholder="输入 AI 改写指令，如：更专业..."
             disabled={isStreaming}
