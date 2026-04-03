@@ -24,6 +24,12 @@
   padding-left: 0.25rem; /* 轻微内缩，确保首行也缩进而非仅后续行挂起 */
 }
 
+/* 一级列表 marker：深黑色 */
+.ProseMirror ul > li::marker,
+.ProseMirror ol > li::marker {
+  color: #111111;
+}
+
 /* 有序列表样式 */
 .ProseMirror ol {
   list-style-type: decimal;
@@ -57,6 +63,14 @@
   list-style-type: square;
   padding-left: 0.25rem;
   margin-left: 0;
+}
+
+/* 二级及更深列表 marker：浅色 */
+.ProseMirror ul ul > li::marker,
+.ProseMirror ul ol > li::marker,
+.ProseMirror ol ul > li::marker,
+.ProseMirror ol ol > li::marker {
+  color: #d1d5db;
 }
 
 /* 段落样式 */
@@ -136,12 +150,15 @@
   outline: none;
 }
 
-/* 隐藏空的父级列表项 - 当列表项有嵌套列表时，隐藏其圆点 */
-/* 使用 :has() 检测是否有嵌套的 ul/ol */
-.ProseMirror ul > li:has(> ul),
-.ProseMirror ul > li:has(> ol),
-.ProseMirror ol > li:has(> ul),
-.ProseMirror ol > li:has(> ol) {
+/* 仅隐藏“空父级列表项”的 marker，避免带文本的父项 marker 消失 */
+.ProseMirror ul > li:has(> ul):has(> p:first-child:empty),
+.ProseMirror ul > li:has(> ul):has(> p:first-child:has(> br:only-child)),
+.ProseMirror ul > li:has(> ol):has(> p:first-child:empty),
+.ProseMirror ul > li:has(> ol):has(> p:first-child:has(> br:only-child)),
+.ProseMirror ol > li:has(> ul):has(> p:first-child:empty),
+.ProseMirror ol > li:has(> ul):has(> p:first-child:has(> br:only-child)),
+.ProseMirror ol > li:has(> ol):has(> p:first-child:empty),
+.ProseMirror ol > li:has(> ol):has(> p:first-child:has(> br:only-child)) {
   list-style-type: none;
 }
 
@@ -250,4 +267,3 @@
   cursor: not-allowed;
   transform: none;
 }
-
