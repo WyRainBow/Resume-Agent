@@ -190,59 +190,85 @@
 
 .tippy-box[data-reference] .ai-polish-bubble,
 .ai-polish-bubble {
-  background: linear-gradient(135deg, #faf5ff 0%, #ffffff 40%);
-  border: 1px solid rgba(139, 92, 246, 0.25);
-  border-radius: 12px;
-  padding: 8px 10px;
+  font-family:
+    'Noto Sans SC',
+    'PingFang SC',
+    'Microsoft YaHei UI',
+    system-ui,
+    sans-serif;
+  background:
+    linear-gradient(165deg, rgba(255, 255, 255, 0.99) 0%, rgba(241, 245, 249, 0.96) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 16px;
+  padding: 10px 12px 10px 14px;
   box-shadow:
-    0 4px 20px rgba(139, 92, 246, 0.15),
-    0 1px 3px rgba(0, 0, 0, 0.06);
-  backdrop-filter: blur(12px);
+    0 4px 6px rgba(15, 23, 42, 0.04),
+    0 18px 40px rgba(15, 23, 42, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+  backdrop-filter: blur(14px) saturate(1.2);
+  min-width: min(520px, calc(100vw - 32px));
+  max-width: calc(100vw - 24px);
 }
 
 .dark .ai-polish-bubble {
-  background: linear-gradient(135deg, rgba(49, 20, 75, 0.95) 0%, rgba(38, 38, 38, 0.95) 40%);
-  border-color: rgba(167, 139, 250, 0.3);
+  background:
+    linear-gradient(165deg, rgba(30, 32, 38, 0.98) 0%, rgba(15, 23, 42, 0.97) 100%);
+  border-color: rgba(71, 85, 105, 0.45);
   box-shadow:
-    0 4px 20px rgba(139, 92, 246, 0.2),
-    0 1px 3px rgba(0, 0, 0, 0.3);
+    0 4px 6px rgba(0, 0, 0, 0.2),
+    0 22px 48px rgba(2, 6, 23, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset;
 }
 
 .ai-polish-input {
-  width: 200px;
-  padding: 5px 10px;
+  flex: 1 1 10rem;
+  min-width: 0;
+  width: auto;
+  max-width: 22rem;
+  padding: 10px 14px;
   font-size: 13px;
-  line-height: 1.4;
-  border-radius: 8px;
-  border: 1px solid rgba(139, 92, 246, 0.2);
-  background: rgba(255, 255, 255, 0.8);
-  color: #1a1a2e;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
+  border-radius: 14px;
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  background: rgba(255, 255, 255, 0.88);
+  color: #0f172a;
   outline: none;
-  transition: all 0.15s ease;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
 }
 
 .dark .ai-polish-input {
-  background: rgba(23, 23, 23, 0.9);
-  border-color: rgba(167, 139, 250, 0.25);
-  color: #e5e5e5;
+  background: rgba(15, 23, 42, 0.65);
+  border-color: rgba(99, 102, 241, 0.28);
+  color: #f1f5f9;
 }
 
 .ai-polish-input::placeholder {
-  color: #a78bfa;
-  opacity: 0.6;
+  color: #64748b;
+  opacity: 0.88;
 }
 
 .dark .ai-polish-input::placeholder {
-  color: #8b7fc7;
+  color: #94a3b8;
+  opacity: 0.75;
 }
 
 .ai-polish-input:focus {
-  border-color: rgba(139, 92, 246, 0.5);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+  border-color: rgba(79, 70, 229, 0.55);
+  background: #fff;
+  box-shadow:
+    0 0 0 3px rgba(99, 102, 241, 0.14),
+    0 6px 20px rgba(79, 70, 229, 0.08);
 }
 
 .dark .ai-polish-input:focus {
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+  background: rgba(15, 23, 42, 0.92);
+  box-shadow:
+    0 0 0 3px rgba(99, 102, 241, 0.22),
+    0 6px 20px rgba(79, 70, 229, 0.12);
 }
 
 .ai-polish-input:disabled {
@@ -253,24 +279,58 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #4f46e5 0%, #3730a3 48%, #1e1b4b 100%);
   color: white;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.22);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    filter 0.18s ease;
   flex-shrink: 0;
+  box-shadow:
+    0 8px 18px rgba(49, 46, 129, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
 .ai-polish-send:hover:not(:disabled) {
-  background: linear-gradient(135deg, #7c3aed, #6d28d9);
-  transform: scale(1.05);
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow:
+    0 12px 26px rgba(49, 46, 129, 0.42),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.ai-polish-send:active:not(:disabled) {
+  transform: translateY(0);
+  filter: brightness(0.96);
+}
+
+.ai-polish-send:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(99, 102, 241, 0.35),
+    0 8px 18px rgba(49, 46, 129, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+
+.dark .ai-polish-send {
+  background: linear-gradient(145deg, #6366f1 0%, #4f46e5 50%, #312e81 100%);
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+.dark .ai-polish-send:hover:not(:disabled) {
+  box-shadow:
+    0 12px 28px rgba(79, 70, 229, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
 .ai-polish-send:disabled {
-  opacity: 0.4;
+  opacity: 0.42;
   cursor: not-allowed;
   transform: none;
+  filter: none;
 }
