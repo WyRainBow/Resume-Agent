@@ -12,13 +12,23 @@ interface SelectionPolishBubbleProps {
   editor: Editor
   polishPath: string
   bubbleActiveRef: React.MutableRefObject<boolean>
+  selectionSnapshotRef: React.MutableRefObject<{ from: number; to: number; text: string; html: string } | null>
+  onLockSelection: (selection: { from: number; to: number }) => void
+  onUnlockSelection: () => void
 }
 
 export default function SelectionPolishBubble({
   editor,
   polishPath,
   bubbleActiveRef,
+  selectionSnapshotRef,
+  onLockSelection,
+  onUnlockSelection,
 }: SelectionPolishBubbleProps) {
+  const logSelectionBubbleDebug = (event: string, data?: Record<string, unknown>) => {
+    console.log(`[SELECTION LOCK DEBUG][Bubble][${event}]`, data || {})
+  }
+
   type ChatMessage = {
     id: string
     type: 'original' | 'user' | 'ai'
@@ -37,7 +47,6 @@ export default function SelectionPolishBubble({
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
-  const selectionSnapshotRef = useRef<{ from: number; to: number; text: string; html: string } | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   const isRemoveBoldInstruction = (value: string): boolean => {
@@ -307,24 +316,43 @@ export default function SelectionPolishBubble({
     }
 
     if (plainText.trim()) {
+      logSelectionBubbleDebug('mount-snapshot', {
+        from,
+        to,
+        textLength: plainText.length,
+      })
       selectionSnapshotRef.current = {
         from,
         to,
         text: plainText,
         html: html || plainText,
       }
+      onLockSelection({ from, to })
+    } else {
+      if (selectionSnapshotRef.current?.text?.trim()) {
+        logSelectionBubbleDebug('mount-empty-selection-keep-snapshot', {
+          from: selectionSnapshotRef.current.from,
+          to: selectionSnapshotRef.current.to,
+          textLength: selectionSnapshotRef.current.text.length,
+        })
+      } else {
+        logSelectionBubbleDebug('mount-empty-selection')
+        onUnlockSelection()
+      }
     }
     bubbleActiveRef.current = true
 
     const timer = setTimeout(() => {
+      logSelectionBubbleDebug('focus-input')
       inputRef.current?.focus()
     }, 50)
 
     return () => {
+      logSelectionBubbleDebug('unmount-bubble')
       bubbleActiveRef.current = false
       clearTimeout(timer)
     }
-  }, [bubbleActiveRef, editor])
+  }, [bubbleActiveRef, editor, onLockSelection, onUnlockSelection, selectionSnapshotRef])
 
   const handleSend = useCallback(() => {
     const instruction = input.trim()
@@ -476,11 +504,14 @@ export default function SelectionPolishBubble({
     if (e.key === 'Escape') {
       e.preventDefault()
       bubbleActiveRef.current = false
+      selectionSnapshotRef.current = null
+      onUnlockSelection()
       editor.commands.focus()
     }
   }
 
   const markActive = () => {
+    logSelectionBubbleDebug('mark-active')
     bubbleActiveRef.current = true
   }
 
@@ -501,6 +532,8 @@ export default function SelectionPolishBubble({
     if (!effectiveSnapshot || !effectivePolished) {
       setChatOpen(false)
       bubbleActiveRef.current = false
+      selectionSnapshotRef.current = null
+      onUnlockSelection()
       return
     }
     const instructions = chatMessages.filter((m) => m.type === 'user').map((m) => m.content)
@@ -515,6 +548,8 @@ export default function SelectionPolishBubble({
     // 先关闭弹窗，让编辑器恢复焦点后再操作
     setChatOpen(false)
     bubbleActiveRef.current = false
+    selectionSnapshotRef.current = null
+    onUnlockSelection()
 
     requestAnimationFrame(() => {
       // 统一按最终 HTML 结果替换选区，避免 setBold/unsetBold 受选区状态影响导致样式未落地
@@ -540,19 +575,38 @@ export default function SelectionPolishBubble({
   }
 
   const handleCancelPreview = () => {
+    logSelectionBubbleDebug('cancel-preview')
     setChatOpen(false)
     bubbleActiveRef.current = false
+    selectionSnapshotRef.current = null
+    onUnlockSelection()
     editor.commands.focus()
   }
 
   const markInactiveIfOutside = () => {
     const root = rootRef.current
     if (!root) {
+      logSelectionBubbleDebug('inactive-no-root')
       bubbleActiveRef.current = false
+      selectionSnapshotRef.current = null
+      onUnlockSelection()
       return
     }
     const activeEl = document.activeElement
-    bubbleActiveRef.current = !!(activeEl && root.contains(activeEl))
+    const hasSnapshot = !!selectionSnapshotRef.current?.text?.trim()
+    bubbleActiveRef.current = !!(activeEl && root.contains(activeEl)) || hasSnapshot
+    logSelectionBubbleDebug('mark-inactive-check', {
+      activeElementTag: (activeEl as HTMLElement | null)?.tagName || null,
+      activeElementClass: (activeEl as HTMLElement | null)?.className || null,
+      keepActive: bubbleActiveRef.current,
+      hasSnapshot,
+      isStreaming,
+      chatOpen,
+    })
+    if (!bubbleActiveRef.current) {
+      selectionSnapshotRef.current = null
+      onUnlockSelection()
+    }
   }
 
   return (
@@ -560,14 +614,16 @@ export default function SelectionPolishBubble({
       <div
         ref={rootRef}
         className="ai-polish-bubble"
+        onPointerDownCapture={markActive}
+        onMouseDownCapture={markActive}
         onMouseEnter={markActive}
         onFocusCapture={markActive}
         onKeyDownCapture={(e) => e.stopPropagation()}
-      onBlurCapture={() => {
-        if (isStreaming || chatOpen) {
-          bubbleActiveRef.current = true
-          return
-        }
+        onBlurCapture={() => {
+          if (isStreaming || chatOpen || !!selectionSnapshotRef.current?.text?.trim()) {
+            bubbleActiveRef.current = true
+            return
+          }
           setTimeout(markInactiveIfOutside, 0)
         }}
         onMouseDown={(e) => e.stopPropagation()}
@@ -586,6 +642,18 @@ export default function SelectionPolishBubble({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onFocus={() => {
+              logSelectionBubbleDebug('input-focus', {
+                hasSnapshot: !!selectionSnapshotRef.current,
+                bubbleActive: bubbleActiveRef.current,
+              })
+            }}
+            onBlur={() => {
+              logSelectionBubbleDebug('input-blur', {
+                hasSnapshot: !!selectionSnapshotRef.current,
+                bubbleActive: bubbleActiveRef.current,
+              })
+            }}
             onKeyDown={handleKeyDown}
             placeholder="输入 AI 改写指令，如：更专业..."
             disabled={isStreaming}

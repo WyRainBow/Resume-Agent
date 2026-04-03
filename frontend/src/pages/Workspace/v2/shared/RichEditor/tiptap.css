@@ -136,6 +136,13 @@
   border-radius: 0.125rem;
 }
 
+/* 划词改写锁定高亮：输入框聚焦后依然可见 */
+.ProseMirror .selection-lock-highlight {
+  background: rgba(147, 197, 253, 0.55);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.45);
+  border-radius: 2px;
+}
+
 /* 占位符样式 */
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
