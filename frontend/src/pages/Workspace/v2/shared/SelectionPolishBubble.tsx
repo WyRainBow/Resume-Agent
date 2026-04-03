@@ -593,13 +593,11 @@ export default function SelectionPolishBubble({
       return
     }
     const activeEl = document.activeElement
-    const hasSnapshot = !!selectionSnapshotRef.current?.text?.trim()
-    bubbleActiveRef.current = !!(activeEl && root.contains(activeEl)) || hasSnapshot
+    bubbleActiveRef.current = !!(activeEl && root.contains(activeEl))
     logSelectionBubbleDebug('mark-inactive-check', {
       activeElementTag: (activeEl as HTMLElement | null)?.tagName || null,
       activeElementClass: (activeEl as HTMLElement | null)?.className || null,
       keepActive: bubbleActiveRef.current,
-      hasSnapshot,
       isStreaming,
       chatOpen,
     })
@@ -620,7 +618,7 @@ export default function SelectionPolishBubble({
         onFocusCapture={markActive}
         onKeyDownCapture={(e) => e.stopPropagation()}
         onBlurCapture={() => {
-          if (isStreaming || chatOpen || !!selectionSnapshotRef.current?.text?.trim()) {
+          if (isStreaming || chatOpen) {
             bubbleActiveRef.current = true
             return
           }
@@ -629,13 +627,20 @@ export default function SelectionPolishBubble({
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-6 h-6 rounded-md bg-gradient-to-br from-violet-500 to-purple-600 shrink-0">
-            <Sparkles className="w-3.5 h-3.5 text-white" />
+        <div className="flex items-center gap-3 min-w-0 w-full">
+          <div
+            className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 shadow-md ring-1 ring-white/25 dark:ring-white/10 bg-gradient-to-br from-indigo-600 via-indigo-700 to-slate-900 dark:from-indigo-500 dark:via-violet-700 dark:to-slate-950"
+            aria-hidden
+          >
+            <Sparkles className="w-[17px] h-[17px] text-white drop-shadow-sm" strokeWidth={2.2} />
           </div>
-          <div className="flex flex-col leading-none mr-1 shrink-0">
-            <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">AI 改写</span>
-            <span className="text-[10px] text-violet-400 dark:text-violet-500">划词优化</span>
+          <div className="flex flex-col justify-center gap-0.5 mr-0.5 shrink-0 min-w-[4.5rem]">
+            <span className="text-[13px] font-semibold tracking-wide text-slate-900 dark:text-slate-50 leading-none">
+              AI 改写
+            </span>
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-none tracking-wide">
+              划词优化
+            </span>
           </div>
           <input
             ref={inputRef}
@@ -680,9 +685,12 @@ export default function SelectionPolishBubble({
       </div>
 
       {chatOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40" onClick={handleCancelPreview}>
+        <div
+          className="selection-polish-chat fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
+          onClick={handleCancelPreview}
+        >
           <div
-            className="bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 w-full max-w-3xl mx-4 max-h-[85vh] overflow-hidden flex flex-col"
+            className="selection-polish-chat bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 w-full max-w-3xl mx-4 max-h-[85vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-200 dark:border-neutral-800">

@@ -309,6 +309,31 @@ const RichEditor = ({
     editor?.view.dispatch(editor.state.tr.setMeta(selectionLockPluginKey, { clear: true }))
   }, [editor])
 
+  useEffect(() => {
+    if (!editor || !lockedSelection) return
+    const handleGlobalPointerDown = (event: PointerEvent) => {
+      const target = event.target as HTMLElement | null
+      const inEditor = !!(target && editor.view.dom.contains(target))
+      const inBubble = !!target?.closest('.ai-polish-bubble')
+      const inPolishDialog = !!target?.closest('.selection-polish-chat')
+      if (inEditor || inBubble || inPolishDialog) return
+
+      logSelectionLockDebug('global-unlock-outside-click', {
+        targetTag: target?.tagName || null,
+        targetClass: target?.className || null,
+      })
+      bubbleActiveRef.current = false
+      handleUnlockSelection()
+      selectionSnapshotRef.current = null
+      lastCapturedSelectionRef.current = null
+    }
+
+    document.addEventListener('pointerdown', handleGlobalPointerDown, true)
+    return () => {
+      document.removeEventListener('pointerdown', handleGlobalPointerDown, true)
+    }
+  }, [editor, handleUnlockSelection, lockedSelection])
+
   if (!editor) {
     return null
   }
@@ -579,18 +604,23 @@ const RichEditor = ({
                 bubbleActiveRef.current = true
                 return
               }
-              if (lockedSelection) {
-                bubbleActiveRef.current = true
-                return
-              }
               bubbleActiveRef.current = false
             },
           }}
           shouldShow={({ editor: e }: { editor: Editor }) => {
             // Keep bubble visible while user is interacting with it
-            if (lockedSelection) return true
             if (bubbleActiveRef.current) return true
             if (!e) return false
+            const activeEl = document.activeElement as HTMLElement | null
+            const activeInEditor = !!(activeEl && e.view.dom.contains(activeEl))
+            const activeInBubble = !!activeEl?.closest('.ai-polish-bubble')
+            if (!activeInEditor && !activeInBubble) {
+              logSelectionLockDebug('shouldShow-false-not-focused', {
+                activeElementTag: activeEl?.tagName || null,
+                activeElementClass: activeEl?.className || null,
+              })
+              return false
+            }
             const { from, to } = e.state.selection
             const text = e.state.doc.textBetween(from, to, '\n')
             const shouldShowNow = text.length >= 2
