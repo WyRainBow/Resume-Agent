@@ -76,6 +76,16 @@ export default function SelectionPolishBubble({
     return normalized.includes('加粗') || normalized.includes('加黑') || normalized.includes('bold')
   }
 
+  const isDirectFormatInstruction = (value: string): boolean => {
+    const normalized = value.trim()
+    if (!normalized) return false
+    return (
+      shouldBoldAll(normalized) ||
+      isRemoveBoldInstruction(normalized) ||
+      shouldConvertUlToOl(normalized)
+    )
+  }
+
   const stripBoldMarkup = (html: string): string => {
     if (!html) return html
     return html
@@ -328,10 +338,24 @@ export default function SelectionPolishBubble({
     if (!selectedText.trim()) return
 
     setInput('')
-    setIsStreaming(true)
     setError(null)
     bubbleActiveRef.current = true
 
+    // 纯格式指令本地处理：确保“划到哪儿就只改哪儿”
+    if (isDirectFormatInstruction(instruction)) {
+      const normalized = applyInstructionTransforms(selectedHtml, [instruction])
+      setLatestPolished(normalized)
+      setChatMessages([
+        { id: `o-${Date.now()}`, type: 'original', content: selectedHtml },
+        { id: `u-${Date.now()}`, type: 'user', content: instruction },
+        { id: `a-${Date.now()}`, type: 'ai', content: normalized },
+      ])
+      setChatOpen(true)
+      bubbleActiveRef.current = false
+      return
+    }
+
+    setIsStreaming(true)
     abortRef.current?.abort()
     abortRef.current = new AbortController()
 
@@ -382,6 +406,19 @@ export default function SelectionPolishBubble({
 
     const baseText = latestPolished || selectionSnapshotRef.current?.html || selectionSnapshotRef.current?.text || ''
     if (!baseText.trim()) return
+
+    // 对话框里的纯格式指令也本地处理，避免超出原选区语义
+    if (isDirectFormatInstruction(instruction)) {
+      const normalized = applyInstructionTransforms(baseText, [instruction])
+      setChatInput('')
+      setLatestPolished(normalized)
+      setChatMessages((prev) => [
+        ...prev,
+        { id: `u-${Date.now()}`, type: 'user', content: instruction },
+        { id: `a-${Date.now()}`, type: 'ai', content: normalized, isStreaming: false },
+      ])
+      return
+    }
 
     const aiId = `a-${Date.now()}`
     setChatInput('')
@@ -461,28 +498,13 @@ export default function SelectionPolishBubble({
       .find((m) => m.type === 'ai' && (m.content || '').trim())?.content || ''
     const effectivePolished = (latestPolished || fallbackPolished || '').trim()
 
-    console.error('[POLISH APPLY DEBUG][precheck]', {
-      hasSnapshot: !!snapshot,
-      hasFallbackSnapshot: !!fallbackSnapshot,
-      latestPolishedLen: latestPolished.length,
-      fallbackPolishedLen: fallbackPolished.length,
-    })
-
     if (!effectiveSnapshot || !effectivePolished) {
       setChatOpen(false)
       bubbleActiveRef.current = false
       return
     }
     const instructions = chatMessages.filter((m) => m.type === 'user').map((m) => m.content)
-    const mergedInstructions = instructions.join(' ')
-    const forceBold = shouldBoldAll(mergedInstructions) && !isRemoveBoldInstruction(mergedInstructions)
-    const forceUnbold = isRemoveBoldInstruction(mergedInstructions)
     const finalContent = applyInstructionTransforms(effectivePolished, instructions)
-    console.error('[POLISH APPLY DEBUG][input]', {
-      instructions,
-      latestPolished: effectivePolished,
-      finalContent,
-    })
     if (!finalContent.trim()) {
       setError('改写内容为空，无法应用')
       return
@@ -504,33 +526,15 @@ export default function SelectionPolishBubble({
         preserveWhitespace: true,
         context: state.doc.resolve(from),
       })
-      console.error('[POLISH APPLY DEBUG][parsedSlice]', {
-        from,
-        to,
-        parsedSlice: parsedSlice.toJSON(),
-      })
       if (parsedSlice.content.size > 0) {
         const tr = state.tr.replaceRange(from, to, parsedSlice)
         if (tr.docChanged) {
           editor.view.dispatch(tr.scrollIntoView())
-          requestAnimationFrame(() => {
-            // 兜底：只要用户明确要求“加粗/去粗”，强制对当前区间应用 mark
-            if (forceBold) {
-              editor.chain().focus().setTextSelection({ from, to }).setBold().run()
-            } else if (forceUnbold) {
-              editor.chain().focus().setTextSelection({ from, to }).unsetBold().run()
-            }
-          })
-          requestAnimationFrame(() => {
-            console.error('[POLISH APPLY DEBUG][after-dispatch-html]', {
-              html: editor.getHTML(),
-            })
-          })
         } else {
-          console.warn('[POLISH APPLY DEBUG] transaction not changed')
+          console.warn('[POLISH APPLY] transaction not changed')
         }
       } else {
-        console.warn('[POLISH APPLY DEBUG] parsedSlice empty')
+        console.warn('[POLISH APPLY] parsedSlice empty')
       }
     })
   }
@@ -703,10 +707,7 @@ export default function SelectionPolishBubble({
                   取消
                 </button>
                 <button
-                  onClick={() => {
-                    console.error('[POLISH APPLY DEBUG][button-click]')
-                    handleApplyPreview()
-                  }}
+                  onClick={handleApplyPreview}
                   disabled={!latestPolished.trim()}
                   className="flex-1 rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
