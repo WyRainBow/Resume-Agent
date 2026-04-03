@@ -629,10 +629,10 @@ export default function SelectionPolishBubble({
       >
         <div className="flex items-center gap-3 min-w-0 w-full">
           <div
-            className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 shadow-md ring-1 ring-white/25 dark:ring-white/10 bg-gradient-to-br from-indigo-600 via-indigo-700 to-slate-900 dark:from-indigo-500 dark:via-violet-700 dark:to-slate-950"
+            className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 border border-slate-300/80 bg-slate-100 shadow-sm dark:border-slate-600 dark:bg-slate-700"
             aria-hidden
           >
-            <Sparkles className="w-[17px] h-[17px] text-white drop-shadow-sm" strokeWidth={2.2} />
+            <Sparkles className="w-[17px] h-[17px] text-slate-800 dark:text-slate-100" strokeWidth={2.2} />
           </div>
           <div className="flex flex-col justify-center gap-0.5 mr-0.5 shrink-0 min-w-[4.5rem]">
             <span className="text-[13px] font-semibold tracking-wide text-slate-900 dark:text-slate-50 leading-none">
@@ -660,7 +660,7 @@ export default function SelectionPolishBubble({
               })
             }}
             onKeyDown={handleKeyDown}
-            placeholder="输入 AI 改写指令，如：更专业..."
+            placeholder=" 输入改写指令例如：更专业..."
             disabled={isStreaming}
             className="ai-polish-input"
           />

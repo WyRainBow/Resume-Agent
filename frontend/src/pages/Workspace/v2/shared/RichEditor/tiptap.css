@@ -282,9 +282,9 @@
   width: 42px;
   height: 42px;
   border-radius: 14px;
-  background: linear-gradient(145deg, #4f46e5 0%, #3730a3 48%, #1e1b4b 100%);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: #e5e7eb;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
   cursor: pointer;
   transition:
     transform 0.18s ease,
@@ -292,16 +292,17 @@
     filter 0.18s ease;
   flex-shrink: 0;
   box-shadow:
-    0 8px 18px rgba(49, 46, 129, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    0 6px 14px rgba(15, 23, 42, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .ai-polish-send:hover:not(:disabled) {
-  filter: brightness(1.06);
+  filter: brightness(1);
   transform: translateY(-1px);
   box-shadow:
-    0 12px 26px rgba(49, 46, 129, 0.42),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+    0 10px 20px rgba(15, 23, 42, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  background: #f1f5f9;
 }
 
 .ai-polish-send:active:not(:disabled) {
@@ -312,25 +313,37 @@
 .ai-polish-send:focus-visible {
   outline: none;
   box-shadow:
-    0 0 0 3px rgba(99, 102, 241, 0.35),
-    0 8px 18px rgba(49, 46, 129, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    0 0 0 3px rgba(148, 163, 184, 0.35),
+    0 8px 18px rgba(15, 23, 42, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
 }
 
 .dark .ai-polish-send {
-  background: linear-gradient(145deg, #6366f1 0%, #4f46e5 50%, #312e81 100%);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: #334155;
+  border-color: #475569;
+  color: #f8fafc;
 }
 
 .dark .ai-polish-send:hover:not(:disabled) {
+  background: #475569;
   box-shadow:
-    0 12px 28px rgba(79, 70, 229, 0.4),
+    0 12px 28px rgba(2, 6, 23, 0.45),
     inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
 
+.ai-polish-send svg {
+  color: currentColor;
+}
+
 .ai-polish-send:disabled {
-  opacity: 0.42;
+  opacity: 1;
   cursor: not-allowed;
   transform: none;
   filter: none;
+  background: #e5e7eb;
+  border-color: #cbd5e1;
+  color: #64748b;
+  box-shadow:
+    0 6px 14px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
