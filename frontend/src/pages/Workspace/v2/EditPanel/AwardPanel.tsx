@@ -7,6 +7,9 @@ import { PlusCircle, Wand2, ChevronDown, Eye, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { Award } from '../types'
 import Field from './Field'
+import MonthYearPicker from '../shared/MonthYearPicker'
+
+const AWARD_LEVEL_OPTIONS = ['', '校级', '省级', '市级', '国家级'] as const
 
 interface AwardPanelProps {
   awards: Award[]
@@ -103,9 +106,44 @@ function AwardItem({
                     className="grid grid-cols-2 gap-4"
                   >
                     <Field index={0} label="奖项名称" value={award.title} onChange={(v) => handleChange('title', v)} placeholder="如：国家奖学金" />
-                    <Field index={1} label="颁发机构" value={award.issuer || ''} onChange={(v) => handleChange('issuer', v)} placeholder="如：教育部" />
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2, delay: 1 * 0.05, ease: 'easeOut' }}
+                      className="space-y-2"
+                    >
+                      <label className="text-sm text-gray-600 dark:text-neutral-300">级别</label>
+                      <select
+                        value={award.issuer || ''}
+                        onChange={(e) => handleChange('issuer', e.target.value)}
+                        className={cn(
+                          'w-full px-3 py-2 rounded-md border',
+                          'bg-white border-gray-200 text-gray-700',
+                          'dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-200',
+                          'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary'
+                        )}
+                      >
+                        <option value="">请选择级别</option>
+                        {AWARD_LEVEL_OPTIONS.filter((v) => v).map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+                    </motion.div>
                   </motion.div>
-                  <Field index={2} label="获奖时间" value={award.date || ''} onChange={(v) => handleChange('date', v)} placeholder="如：2023.09" />
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2, delay: 2 * 0.05, ease: 'easeOut' }}
+                  >
+                    <MonthYearPicker
+                      label="获奖时间"
+                      value={award.date || ''}
+                      onChange={(v) => handleChange('date', v)}
+                      placeholder="如：2023-09"
+                    />
+                  </motion.div>
                   <Field index={3} label="奖项描述" value={award.description || ''} onChange={(v) => handleChange('description', v)} type="textarea" placeholder="简要描述..." />
                 </div>
               </div>

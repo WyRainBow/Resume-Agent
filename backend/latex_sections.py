@@ -654,10 +654,18 @@ def generate_section_awards(resume_data: Dict[str, Any], section_titles: Dict[st
             title = escape_latex(a.get('title') or '')
             issuer = escape_latex(a.get('issuer') or '')
             date = escape_latex(a.get('date') or '')
+            description = escape_latex(a.get('description') or '')
             parts = [s for s in [title, issuer] if s]
-            subsection_title = " - ".join(parts) if parts else title or issuer
+            subsection_title = " - ".join(parts) if parts else ""
+            if description:
+                subsection_title = f"{subsection_title}：{description}" if subsection_title else description
+            if not subsection_title and date:
+                subsection_title = f"获奖时间：{date}"
             if subsection_title:
-                award_items.append(f"  \\item {subsection_title}" + (f" ({date})" if date else ""))
+                if date and "获奖时间：" not in subsection_title:
+                    award_items.append(f"  \\item {subsection_title} ({date})")
+                else:
+                    award_items.append(f"  \\item {subsection_title}")
 
         # 只有在有内容时才创建section和itemize
         if award_items:
