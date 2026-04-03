@@ -160,6 +160,7 @@ export interface GlobalSettings {
   projectLinkDisplay?: 'below' | 'inline' | 'icon'  // 项目链接显示位置：下方 | 标题右侧 | 图标
   projectLinkLabel?: string  // 项目链接前缀：'' 无前缀 | '链接' | 'GitHub' | 自定义文字
   experienceGap?: number  // 经历项之间的间距（ex），默认 1，0 表示无间距
+  projectExperienceGap?: number  // 项目经历项之间的间距（ex），默认 0 表示无间距
   // LaTeX 排版设置
   latexFontSize?: number  // LaTeX 字体大小: 9, 10, 11, 12
   latexMargin?: 'tight' | 'compact' | 'standard' | 'relaxed' | 'wide'  // 页面边距

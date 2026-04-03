@@ -67,6 +67,8 @@ export const initialResumeData: ResumeData = {
     pagePadding: 40,
     sectionSpacing: 20,
     paragraphSpacing: 10,
+    experienceGap: 0,
+    projectExperienceGap: 0,
     // LaTeX 排版设置
     latexFontSize: 11,       // 默认 11pt
     latexMargin: 'standard', // 默认标准边距
