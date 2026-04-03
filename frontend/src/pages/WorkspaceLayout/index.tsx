@@ -18,12 +18,13 @@ import {
   LayoutTemplate,
   History,
   Sparkles,
+  Shield,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentResumeId } from "@/services/resumeStorage";
 import { RecentSessions } from "@/components/sidebar/RecentSessions";
-import { canUseAgentFeature, getApiBaseUrl } from "@/lib/runtimeEnv";
+import { canUseAdminFeature, canUseAgentFeature, getApiBaseUrl } from "@/lib/runtimeEnv";
 
 // 工作区类型
 type WorkspaceType =
@@ -31,7 +32,8 @@ type WorkspaceType =
   | "agent"
   | "myResumes"
   | "settings"
-  | "templates";
+  | "templates"
+  | "admin";
 
 function getAuthHeaders(extra: Record<string, string> = {}): Record<string, string> {
   const token = localStorage.getItem("auth_token");
@@ -150,6 +152,9 @@ export default function WorkspaceLayout({
     if (location.pathname === "/settings") {
       return "settings";
     }
+    if (location.pathname === "/admin") {
+      return "admin";
+    }
     if (location.pathname === "/templates") {
       return "templates";
     }
@@ -162,6 +167,7 @@ export default function WorkspaceLayout({
 
   const currentWorkspace = getCurrentWorkspace();
   const canUseAgent = isAuthenticated && canUseAgentFeature();
+  const canUseAdmin = isAuthenticated && canUseAdminFeature();
 
   useEffect(() => {
     if (currentWorkspace !== "agent") return;
@@ -196,6 +202,7 @@ export default function WorkspaceLayout({
     }
     if (workspace === "myResumes") return "/my-resumes";
     if (workspace === "settings") return "/settings";
+    if (workspace === "admin") return "/admin";
     if (workspace === "templates") return "/templates";
     return "/workspace";
   };
@@ -394,6 +401,27 @@ export default function WorkspaceLayout({
                 <span className="text-base font-medium">我的简历</span>
               )}
             </button>
+
+            {canUseAdmin && (
+              <button
+                onClick={(e) => handleWorkspaceChange("admin", e)}
+                className={cn(
+                  "w-full rounded-lg transition-all duration-200",
+                  sidebarCollapsed
+                    ? "flex flex-col items-center justify-center gap-1 py-2.5"
+                    : "flex items-center gap-2.5 py-2.5 px-2.5",
+                  currentWorkspace === "admin"
+                    ? "bg-slate-100 text-slate-900"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
+                )}
+                title="后台管理系统"
+              >
+                <Shield className="w-6 h-6 shrink-0" />
+                {!sidebarCollapsed && (
+                  <span className="text-base font-medium">后台管理系统</span>
+                )}
+              </button>
+            )}
           </nav>
 
           {/* 分隔线 */}

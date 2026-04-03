@@ -3,11 +3,12 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthModal } from './components/AuthModal'
 import { ThemeInit } from './components/ThemeInit'
 import ErrorBoundary from './ErrorBoundary'
-import { canUseAgentFeature } from './lib/runtimeEnv'
+import { canUseAgentFeature, canUseAdminFeature } from './lib/runtimeEnv'
 import ResumeDashboard from './pages/ResumeDashboard'
 import { ResumeProvider } from './contexts/ResumeContext'
 
 const AgentChat = lazy(() => import('./pages/AgentChat/SophiaChat'))
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 const CreateNew = lazy(() => import('./pages/CreateNew'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const LoginPage = lazy(() => import('./pages/Login'))
@@ -30,6 +31,7 @@ function RouteFallback() {
 
 function App() {
   const canUseAgent = canUseAgentFeature()
+  const canUseAdmin = canUseAdminFeature()
   try {
     return (
       <ErrorBoundary>
@@ -64,6 +66,11 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/my-resumes" element={<ResumeDashboard />} />
               <Route path="/settings" element={<SettingsPage />} />
+              {canUseAdmin ? (
+                <Route path="/admin" element={<AdminDashboard />} />
+              ) : (
+                <Route path="/admin" element={<Navigate to="/workspace" replace />} />
+              )}
               <Route path="/create-new" element={<CreateNew />} />
               <Route path="/share/:shareId" element={<SharePage />} />
             </Routes>

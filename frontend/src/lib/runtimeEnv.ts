@@ -120,3 +120,10 @@ export function canUseAgentFeature(): boolean {
   const role = getStoredAuthRole()
   return role === 'admin' || role === 'member'
 }
+
+export function canUseAdminFeature(): boolean {
+  const token = localStorage.getItem('auth_token')
+  if (!token) return false
+  const role = getStoredAuthRole()
+  return role === 'admin' || role === 'member'
+}

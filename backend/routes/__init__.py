@@ -13,6 +13,7 @@ from .school_logos import router as school_logos_router
 from .photos import router as photos_router
 from .asr import router as asr_router
 from .semantic_search import router as semantic_search_router
+from .admin import router as admin_router
 
 # TTS 路由（优先使用 edge-tts，如果不可用则尝试 Coqui TTS）
 try:
@@ -45,4 +46,5 @@ __all__ = [
     'tts_router',
     'asr_router',
     'semantic_search_router',
+    'admin_router',
 ]
