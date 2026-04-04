@@ -32,6 +32,7 @@ try:
     from chunk_processor import split_resume_text, merge_resume_chunks
     from parallel_chunk_processor import parse_resume_text_parallel
     from config.parallel_config import get_parallel_config
+    from prompt_templates import render_rewrite_text_prompt
     from backend.core.logger import get_logger, write_llm_debug
     from services.pdf_parser import extract_markdown_from_pdf
     from services.zhipu_layout import recognize_with_ocr
@@ -60,6 +61,7 @@ except ImportError:
     from backend.chunk_processor import split_resume_text, merge_resume_chunks
     from backend.parallel_chunk_processor import parse_resume_text_parallel
     from backend.config.parallel_config import get_parallel_config
+    from backend.prompt_templates import render_rewrite_text_prompt
     from core.logger import get_logger, write_llm_debug
     from backend.services.pdf_parser import extract_markdown_from_pdf
     from backend.services.zhipu_layout import recognize_with_ocr
@@ -748,20 +750,11 @@ async def rewrite_text_stream(body: RewriteTextStreamRequest):
     path_hint = body.path or "selected_text"
     locale = body.locale or "zh"
 
-    prompt = (
-        "你是简历优化助手。请严格按用户指令改写文本片段。\n"
-        f"- 语言: {locale}\n"
-        f"- 字段路径: {path_hint}\n"
-        f"- 改写指令: {instruction}\n\n"
-        "要求：\n"
-        "1. 仅输出改写后的文本，不要解释，不要使用代码块。\n"
-        "2. 保持事实不变，不编造经历与数据。\n"
-        "3. 保持原段落结构，除非指令明确要求改结构。\n"
-        "4. 若原文包含 HTML 标签（如 <strong>/<ul>/<li>），必须输出 HTML 片段，不要改成 Markdown（例如不要输出 **加粗**）。\n"
-        "5. 若原文包含 HTML 标签，按指令调整标签样式；未要求变更的标签尽量保留。\n"
-        "6. 当用户要求\"去掉加粗/取消加粗\"时，移除 <strong>/<b> 以及 font-weight:bold 样式，不要再输出任何加粗效果。\n"
-        "7. 当用户要求加粗（加粗/bold/加黑）时，无论原文是否含 HTML 标签，都必须使用 <strong> 标签包裹需要加粗的内容，不要使用 ** Markdown 语法。\n\n"
-        f"原文：\n{source_text}\n"
+    prompt = render_rewrite_text_prompt(
+        locale=locale,
+        path_hint=path_hint,
+        instruction=instruction,
+        source_text=source_text,
     )
 
     async def generate():

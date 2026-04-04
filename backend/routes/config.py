@@ -3,7 +3,8 @@
 """
 import os
 from pathlib import Path
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
 
 try:
     from dotenv import load_dotenv
@@ -14,13 +15,22 @@ except ImportError:
 try:
     from models import SaveKeysRequest, AITestRequest, ChatRequest
     from llm import call_llm, get_ai_config
+    from middleware.auth import require_admin_or_member
+    from prompt_templates import get_prompt_templates, save_prompt_templates
 except ImportError:  # fallback
     from backend.models import SaveKeysRequest, AITestRequest, ChatRequest
     from backend.llm import call_llm, get_ai_config
+    from backend.middleware.auth import require_admin_or_member
+    from backend.prompt_templates import get_prompt_templates, save_prompt_templates
 
 router = APIRouter(prefix="/api", tags=["Config"])
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
+
+
+class SavePromptsRequest(BaseModel):
+    rewrite_text_prompt_template: str | None = None
+    rewrite_default_instruction: str | None = None
 
 
 @router.get("/ai/config")
@@ -153,6 +163,22 @@ async def save_keys(body: SaveKeysRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"保存失败: {str(e)}")
+
+
+@router.get("/config/prompts")
+async def get_prompts(_current_user=Depends(require_admin_or_member)):
+    """获取提示词模板配置（后台管理）"""
+    return get_prompt_templates()
+
+
+@router.put("/config/prompts")
+async def save_prompts(body: SavePromptsRequest, _current_user=Depends(require_admin_or_member)):
+    """保存提示词模板配置（后台管理）"""
+    updated = save_prompt_templates({
+        "rewrite_text_prompt_template": body.rewrite_text_prompt_template or "",
+        "rewrite_default_instruction": body.rewrite_default_instruction or "",
+    })
+    return {"success": True, "prompts": updated}
 
 
 @router.get("/ai/test-keys")
