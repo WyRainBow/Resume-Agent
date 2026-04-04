@@ -16,12 +16,20 @@ try:
     from models import SaveKeysRequest, AITestRequest, ChatRequest
     from llm import call_llm, get_ai_config
     from middleware.auth import require_admin_or_member
-    from prompt_templates import get_prompt_templates, save_prompt_templates
+    from prompt_templates import (
+        get_prompt_templates,
+        save_prompt_templates,
+        get_prompt_registry,
+    )
 except ImportError:  # fallback
     from backend.models import SaveKeysRequest, AITestRequest, ChatRequest
     from backend.llm import call_llm, get_ai_config
     from backend.middleware.auth import require_admin_or_member
-    from backend.prompt_templates import get_prompt_templates, save_prompt_templates
+    from backend.prompt_templates import (
+        get_prompt_templates,
+        save_prompt_templates,
+        get_prompt_registry,
+    )
 
 router = APIRouter(prefix="/api", tags=["Config"])
 
@@ -29,8 +37,9 @@ ROOT_DIR = Path(__file__).resolve().parents[2]
 
 
 class SavePromptsRequest(BaseModel):
-    rewrite_text_prompt_template: str | None = None
-    rewrite_default_instruction: str | None = None
+    prompts: dict[str, str] | None = None
+    rewrite_text_prompt_template: str | None = None  # backward compatible
+    rewrite_default_instruction: str | None = None  # backward compatible
 
 
 @router.get("/ai/config")
@@ -168,16 +177,24 @@ async def save_keys(body: SaveKeysRequest):
 @router.get("/config/prompts")
 async def get_prompts(_current_user=Depends(require_admin_or_member)):
     """获取提示词模板配置（后台管理）"""
-    return get_prompt_templates()
+    return {
+        "items": get_prompt_registry(),
+        "templates": get_prompt_templates(),
+    }
 
 
 @router.put("/config/prompts")
 async def save_prompts(body: SavePromptsRequest, _current_user=Depends(require_admin_or_member)):
     """保存提示词模板配置（后台管理）"""
-    updated = save_prompt_templates({
-        "rewrite_text_prompt_template": body.rewrite_text_prompt_template or "",
-        "rewrite_default_instruction": body.rewrite_default_instruction or "",
-    })
+    updates: dict[str, str] = {}
+    if body.prompts:
+        updates.update(body.prompts)
+    if body.rewrite_text_prompt_template:
+        updates["rewrite_text_prompt_template"] = body.rewrite_text_prompt_template
+    if body.rewrite_default_instruction:
+        updates["rewrite_default_instruction"] = body.rewrite_default_instruction
+
+    updated = save_prompt_templates(updates)
     return {"success": True, "prompts": updated}
 
 
