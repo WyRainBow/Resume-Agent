@@ -608,8 +608,17 @@ const RichEditor = ({
             },
           }}
           shouldShow={({ editor: e }: { editor: Editor }) => {
-            // Keep bubble visible while user is interacting with it
-            if (bubbleActiveRef.current) return true
+            // Keep bubble visible only when there is a valid locked selection snapshot
+            if (bubbleActiveRef.current) {
+              const snapshot = selectionSnapshotRef.current
+              const hasValidSnapshot =
+                !!snapshot &&
+                snapshot.from < snapshot.to &&
+                !!snapshot.text?.trim()
+              if (hasValidSnapshot) return true
+              bubbleActiveRef.current = false
+              return false
+            }
             if (!e) return false
             const activeEl = document.activeElement as HTMLElement | null
             const activeInEditor = !!(activeEl && e.view.dom.contains(activeEl))
@@ -623,7 +632,7 @@ const RichEditor = ({
             }
             const { from, to } = e.state.selection
             const text = e.state.doc.textBetween(from, to, '\n')
-            const shouldShowNow = text.length >= 2
+            const shouldShowNow = from < to && text.trim().length >= 2
             if (!shouldShowNow) return false
 
             const last = lastCapturedSelectionRef.current

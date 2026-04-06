@@ -32,6 +32,7 @@ try:
     from chunk_processor import split_resume_text, merge_resume_chunks
     from parallel_chunk_processor import parse_resume_text_parallel
     from config.parallel_config import get_parallel_config
+    from prompt_templates import render_rewrite_text_prompt
     from backend.core.logger import get_logger, write_llm_debug
     from services.pdf_parser import extract_markdown_from_pdf
     from services.zhipu_layout import recognize_with_ocr
@@ -60,6 +61,7 @@ except ImportError:
     from backend.chunk_processor import split_resume_text, merge_resume_chunks
     from backend.parallel_chunk_processor import parse_resume_text_parallel
     from backend.config.parallel_config import get_parallel_config
+    from backend.prompt_templates import render_rewrite_text_prompt
     from core.logger import get_logger, write_llm_debug
     from backend.services.pdf_parser import extract_markdown_from_pdf
     from backend.services.zhipu_layout import recognize_with_ocr
@@ -76,6 +78,14 @@ class RewriteTextStreamRequest(BaseModel):
     """划词改写流式请求（不依赖完整 resume 结构）"""
     provider: Optional[str] = Field(default=None)
     text: str = Field(..., description="选中的原始文本")
+    instruction: str = Field(..., description="改写指令")
+    path: Optional[str] = Field(default=None, description="可选，来源字段路径")
+    locale: str = Field(default="zh")
+
+
+class RewriteIntentRequest(BaseModel):
+    provider: Optional[str] = Field(default=None)
+    text: str = Field(default="")
     instruction: str = Field(..., description="改写指令")
     path: Optional[str] = Field(default=None, description="可选，来源字段路径")
     locale: str = Field(default="zh")
@@ -106,6 +116,143 @@ def parse_json_response(cleaned: str) -> Dict:
         if start != -1 and end != -1 and end > start:
             return _json.loads(cleaned[start : end + 1])
         raise
+
+
+def _rule_detect_rewrite_intents(instruction: str) -> tuple[list[str], float]:
+    value = (instruction or "").strip().lower()
+    if not value:
+        return ["rewrite"], 0.0
+
+    has_bold = ("加粗" in value) or ("加黑" in value) or ("bold" in value)
+    wants_rewrite = (
+        ("优化" in value)
+        or ("润色" in value)
+        or ("改写" in value)
+        or ("更专业" in value)
+        or ("更简洁" in value)
+        or ("更有力" in value)
+        or ("重写" in value)
+    )
+    if ("去掉加粗" in value) or ("取消加粗" in value) or ("不要加粗" in value) or ("remove bold" in value):
+        return ["remove_bold"], 0.99
+    if ("无序列表改成有序列表" in value) or ("无序改有序" in value) or ("改成有序列表" in value):
+        return ["list_transform"], 0.98
+    if has_bold and (
+        ("全部" in value) or ("整段" in value) or ("全段" in value) or ("整体" in value) or ("通篇" in value) or ("所有" in value)
+    ):
+        return (["rewrite", "full_bold"] if wants_rewrite else ["full_bold"]), 0.97
+    if has_bold and (
+        ("一些" in value)
+        or ("有些" in value)
+        or ("部分" in value)
+        or ("重点" in value)
+        or ("关键词" in value)
+        or ("你觉得" in value)
+        or ("挑" in value)
+        or ("该加粗" in value)
+    ):
+        return (["rewrite", "selective_bold"] if wants_rewrite else ["selective_bold"]), 0.95
+    if has_bold:
+        return (["rewrite", "full_bold"] if wants_rewrite else ["full_bold"]), 0.72
+    return ["rewrite"], 0.9
+
+
+def _llm_detect_rewrite_intent(
+    *,
+    provider: str,
+    instruction: str,
+    source_text: str,
+    path_hint: str,
+    locale: str,
+) -> tuple[Optional[list[str]], float]:
+    prompt = f"""你是一个文本编辑意图分类器。请基于用户指令判断意图类别。
+
+可选意图：
+1. full_bold：全部/整段加粗
+2. selective_bold：选择性加粗（技术关键词、数字指标、重点词）
+3. remove_bold：去掉加粗
+4. list_transform：列表结构转换（如无序转有序）
+5. rewrite：普通改写润色
+
+输入信息：
+- 语言: {locale}
+- 路径: {path_hint}
+- 用户指令: {instruction}
+- 选中文本片段(可截断): {source_text[:600]}
+
+只输出 JSON：
+{{
+  "intents": ["rewrite", "selective_bold"],
+  "confidence": 0.0
+}}
+"""
+    try:
+        raw = call_llm(provider, prompt)
+        cleaned = clean_llm_response(raw)
+        data = parse_json_response(cleaned)
+        raw_intents = data.get("intents")
+        if not raw_intents and data.get("intent"):
+            raw_intents = [data.get("intent")]
+        intents = [str(i).strip() for i in (raw_intents or []) if str(i).strip()]
+        confidence = float(data.get("confidence", 0.0))
+        valid = {"full_bold", "selective_bold", "remove_bold", "list_transform", "rewrite"}
+        normalized: list[str] = []
+        for intent in intents:
+            if intent in valid and intent not in normalized:
+                normalized.append(intent)
+        if normalized:
+            return normalized, max(0.0, min(1.0, confidence))
+    except Exception:
+        return None, 0.0
+    return None, 0.0
+
+
+@router.post("/resume/rewrite-text/intent")
+async def detect_rewrite_text_intent(body: RewriteIntentRequest):
+    instruction = (body.instruction or "").strip()
+    if not instruction:
+        raise HTTPException(status_code=400, detail="instruction 不能为空")
+
+    provider = body.provider or DEFAULT_AI_PROVIDER
+    source_text = (body.text or "").strip()
+    path_hint = body.path or "selected_text"
+    locale = body.locale or "zh"
+
+    rule_intents, rule_confidence = _rule_detect_rewrite_intents(instruction)
+    llm_intents, llm_confidence = _llm_detect_rewrite_intent(
+        provider=provider,
+        instruction=instruction,
+        source_text=source_text,
+        path_hint=path_hint,
+        locale=locale,
+    )
+
+    if llm_intents and llm_confidence >= 0.7:
+        return {
+            "intent": llm_intents[0],
+            "intents": llm_intents,
+            "confidence": llm_confidence,
+            "source": "llm",
+            "rule_intent": rule_intents[0],
+            "rule_intents": rule_intents,
+            "rule_confidence": rule_confidence,
+            "llm_intent": llm_intents[0],
+            "llm_intents": llm_intents,
+            "llm_confidence": llm_confidence,
+        }
+
+    return {
+        "intent": rule_intents[0],
+        "intents": rule_intents,
+        "confidence": rule_confidence,
+        "source": "rule",
+        "rule_intent": rule_intents[0],
+        "rule_intents": rule_intents,
+        "rule_confidence": rule_confidence,
+        "llm_intent": (llm_intents[0] if llm_intents else None),
+        "llm_intents": llm_intents,
+        "llm_confidence": llm_confidence,
+    }
 
 
 @router.post("/resume/generate", response_model=ResumeGenerateResponse)
@@ -748,20 +895,11 @@ async def rewrite_text_stream(body: RewriteTextStreamRequest):
     path_hint = body.path or "selected_text"
     locale = body.locale or "zh"
 
-    prompt = (
-        "你是简历优化助手。请严格按用户指令改写文本片段。\n"
-        f"- 语言: {locale}\n"
-        f"- 字段路径: {path_hint}\n"
-        f"- 改写指令: {instruction}\n\n"
-        "要求：\n"
-        "1. 仅输出改写后的文本，不要解释，不要使用代码块。\n"
-        "2. 保持事实不变，不编造经历与数据。\n"
-        "3. 保持原段落结构，除非指令明确要求改结构。\n"
-        "4. 若原文包含 HTML 标签（如 <strong>/<ul>/<li>），必须输出 HTML 片段，不要改成 Markdown（例如不要输出 **加粗**）。\n"
-        "5. 若原文包含 HTML 标签，按指令调整标签样式；未要求变更的标签尽量保留。\n"
-        "6. 当用户要求\"去掉加粗/取消加粗\"时，移除 <strong>/<b> 以及 font-weight:bold 样式，不要再输出任何加粗效果。\n"
-        "7. 当用户要求加粗（加粗/bold/加黑）时，无论原文是否含 HTML 标签，都必须使用 <strong> 标签包裹需要加粗的内容，不要使用 ** Markdown 语法。\n\n"
-        f"原文：\n{source_text}\n"
+    prompt = render_rewrite_text_prompt(
+        locale=locale,
+        path_hint=path_hint,
+        instruction=instruction,
+        source_text=source_text,
     )
 
     async def generate():

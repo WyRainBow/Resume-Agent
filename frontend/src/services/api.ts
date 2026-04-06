@@ -747,3 +747,21 @@ export async function rewriteTextStream(
     onError?.(error instanceof Error ? error.message : '划词改写失败')
   }
 }
+
+export type RewriteTextIntent = 'full_bold' | 'selective_bold' | 'remove_bold' | 'list_transform' | 'rewrite'
+
+export async function detectRewriteTextIntent(
+  text: string,
+  instruction: string,
+  path: string,
+): Promise<{ intent: RewriteTextIntent; intents?: RewriteTextIntent[]; confidence: number; source?: string }> {
+  const url = `${getApiBaseUrl()}/api/resume/rewrite-text/intent`
+  const { data } = await axios.post(url, {
+    provider: 'deepseek',
+    text,
+    instruction,
+    path,
+    locale: 'zh',
+  })
+  return data as { intent: RewriteTextIntent; intents?: RewriteTextIntent[]; confidence: number; source?: string }
+}

@@ -2,6 +2,10 @@
 提示词构建模块
 """
 from typing import Any
+try:
+    from prompt_templates import get_rewrite_default_instruction
+except ImportError:
+    from backend.prompt_templates import get_rewrite_default_instruction
 
 
 def build_resume_prompt(instruction: str, locale: str = "zh") -> str:
@@ -80,15 +84,7 @@ def build_rewrite_prompt(path: str, original_value: Any, instruction: str, local
         field_context = ""
 
     # 默认润色指令（如果用户没有提供具体指令）
-    default_polish_instruction = """请优化这段文本，使其更加专业、简洁、有吸引力。
-优化原则：
-1. 使用更专业的词汇和表达方式
-2. 突出关键成就和技能
-3. 保持简洁清晰，避免冗余
-4. 使用主动语气，以动词开头
-5. 量化成果，突出影响（如：提升30%、节省50%时间等）
-6. 保持原有信息的完整性
-7. 保留HTML格式标签（如 <strong>、<ul>、<li> 等）"""
+    default_polish_instruction = get_rewrite_default_instruction()
 
     final_instruction = instruction.strip() if instruction.strip() else default_polish_instruction
 

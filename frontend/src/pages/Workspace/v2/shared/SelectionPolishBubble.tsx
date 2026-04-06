@@ -4,7 +4,7 @@
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { Loader2, Sparkles, Send, X, Check, Eye } from 'lucide-react'
-import { rewriteTextStream } from '../../../../services/api'
+import { rewriteTextStream, detectRewriteTextIntent, type RewriteTextIntent } from '../../../../services/api'
 import type { Editor } from '@tiptap/core'
 import { DOMParser as ProseMirrorDOMParser } from 'prosemirror-model'
 
@@ -48,6 +48,7 @@ export default function SelectionPolishBubble({
   const inputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const insidePointerRef = useRef(false)
 
   const isRemoveBoldInstruction = (value: string): boolean => {
     const normalized = value.trim().toLowerCase()
@@ -78,10 +79,42 @@ export default function SelectionPolishBubble({
     return normalized.includes('技术关键词') && normalized.includes('加粗')
   }
 
+  const isSelectiveBoldInstruction = (value: string): boolean => {
+    const normalized = value.trim().toLowerCase()
+    if (!normalized) return false
+    if (!normalized.includes('加粗') && !normalized.includes('加黑') && !normalized.includes('bold')) return false
+    return (
+      normalized.includes('一些') ||
+      normalized.includes('有些') ||
+      normalized.includes('部分') ||
+      normalized.includes('重点') ||
+      normalized.includes('关键词') ||
+      normalized.includes('你觉得') ||
+      normalized.includes('挑') ||
+      normalized.includes('该加粗')
+    )
+  }
+
+  const isExplicitFullBoldInstruction = (value: string): boolean => {
+    const normalized = value.trim().toLowerCase()
+    if (!normalized) return false
+    if (!normalized.includes('加粗') && !normalized.includes('加黑') && !normalized.includes('bold')) return false
+    return (
+      normalized.includes('全部') ||
+      normalized.includes('整段') ||
+      normalized.includes('全段') ||
+      normalized.includes('整体') ||
+      normalized.includes('通篇') ||
+      normalized.includes('所有')
+    )
+  }
+
   const shouldBoldAll = (value: string): boolean => {
     const normalized = value.trim().toLowerCase()
     if (!normalized) return false
     if (isRemoveBoldInstruction(normalized)) return false
+    if (isSelectiveBoldInstruction(normalized)) return false
+    if (isExplicitFullBoldInstruction(normalized)) return true
     return normalized.includes('加粗') || normalized.includes('加黑') || normalized.includes('bold')
   }
 
@@ -93,6 +126,44 @@ export default function SelectionPolishBubble({
       isRemoveBoldInstruction(normalized) ||
       shouldConvertUlToOl(normalized)
     )
+  }
+
+  const localFallbackIntents = (instruction: string): RewriteTextIntent[] => {
+    const normalized = instruction.trim()
+    const hasRewriteIntent =
+      normalized.includes('优化') ||
+      normalized.includes('润色') ||
+      normalized.includes('改写') ||
+      normalized.includes('更专业') ||
+      normalized.includes('更简洁') ||
+      normalized.includes('重写')
+    if (isRemoveBoldInstruction(normalized)) return ['remove_bold']
+    if (shouldConvertUlToOl(normalized)) return ['list_transform']
+    if (isSelectiveBoldInstruction(normalized)) return hasRewriteIntent ? ['rewrite', 'selective_bold'] : ['selective_bold']
+    if (shouldBoldAll(normalized)) return hasRewriteIntent ? ['rewrite', 'full_bold'] : ['full_bold']
+    return ['rewrite']
+  }
+
+  const detectIntents = async (instruction: string, baseText: string): Promise<RewriteTextIntent[]> => {
+    try {
+      const result = await detectRewriteTextIntent(baseText, instruction, polishPath)
+      if (Array.isArray(result?.intents) && result.intents.length > 0) {
+        return result.intents
+      }
+      if (result?.intent) return [result.intent]
+    } catch {
+      // ignore and fallback to local rules
+    }
+    return localFallbackIntents(instruction)
+  }
+
+  const intentInstructionPatch = (intents: RewriteTextIntent[], instruction: string): string[] => {
+    const patched = [instruction]
+    if (intents.includes('remove_bold')) patched.push('取消加粗')
+    if (intents.includes('list_transform')) patched.push('无序列表改成有序列表')
+    if (intents.includes('selective_bold')) patched.push('挑重点加粗，优先技术关键词和数字指标')
+    if (intents.includes('full_bold')) patched.push('全部加粗')
+    return patched
   }
 
   const stripBoldMarkup = (html: string): string => {
@@ -235,6 +306,67 @@ export default function SelectionPolishBubble({
     return root.innerHTML
   }
 
+  const inferKeywordsFromHtml = (html: string): string[] => {
+    if (!html) return []
+    const text = html
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (!text) return []
+
+    const keywords = new Set<string>()
+
+    const chineseTechTerms = [
+      '高风险SQL',
+      'SQL',
+      '慢查询',
+      '执行计划',
+      '索引',
+      '联合索引',
+      '覆盖索引',
+      'JOIN',
+      'API',
+      '毫秒级',
+      '毫秒',
+      '游标分页',
+      '深分页',
+      '全表扫描',
+      '读写分离',
+      '只读实例',
+      'RO',
+      '主库',
+      '缓存',
+      '并发',
+      '链路',
+      '架构',
+      'SLA',
+      'QPS',
+      '延迟',
+    ]
+
+    for (const term of chineseTechTerms) {
+      if (text.includes(term)) keywords.add(term)
+    }
+
+    const metricMatches = text.match(/\d+(?:\.\d+)?(?:%|\+|ms|s|秒|万|百万|亿|条|行|倍|个|年|月)/gi) || []
+    metricMatches.forEach((m) => keywords.add(m))
+
+    const enTokens = text.match(/\b[A-Za-z][A-Za-z0-9.+#/-]{1,24}\b/g) || []
+    for (const token of enTokens) {
+      const lower = token.toLowerCase()
+      if (
+        token === token.toUpperCase() ||
+        ['mysql', 'redis', 'kafka', 'docker', 'kubernetes', 'spring', 'java', 'python', 'golang'].includes(lower)
+      ) {
+        keywords.add(token)
+      }
+    }
+
+    return Array.from(keywords)
+      .filter((v) => v.length >= 2)
+      .sort((a, b) => b.length - a.length)
+  }
+
   const convertUlToOl = (html: string): string => {
     if (!html) return html
     return html
@@ -290,7 +422,10 @@ export default function SelectionPolishBubble({
       result = convertUlToOl(result)
     }
 
-    const keywords = extractBoldKeywords(instructions)
+    let keywords = extractBoldKeywords(instructions)
+    if (keywords.length === 0 && isSelectiveBoldInstruction(merged)) {
+      keywords = inferKeywordsFromHtml(result)
+    }
     if (keywords.length > 0) {
       result = boldKeywordsInHtml(result, keywords)
     } else if (shouldBoldAll(merged)) {
@@ -337,7 +472,6 @@ export default function SelectionPolishBubble({
         })
       } else {
         logSelectionBubbleDebug('mount-empty-selection')
-        onUnlockSelection()
       }
     }
     bubbleActiveRef.current = true
@@ -354,7 +488,7 @@ export default function SelectionPolishBubble({
     }
   }, [bubbleActiveRef, editor, onLockSelection, onUnlockSelection, selectionSnapshotRef])
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const instruction = input.trim()
     if (!instruction || isStreaming) return
 
@@ -369,9 +503,11 @@ export default function SelectionPolishBubble({
     setError(null)
     bubbleActiveRef.current = true
 
-    // 纯格式指令本地处理：确保“划到哪儿就只改哪儿”
-    if (isDirectFormatInstruction(instruction)) {
-      const normalized = applyInstructionTransforms(selectedHtml, [instruction])
+    const intents = await detectIntents(instruction, selectedHtml)
+    const needsRewrite = intents.includes('rewrite')
+
+    if (!needsRewrite) {
+      const normalized = applyInstructionTransforms(selectedHtml, intentInstructionPatch(intents, instruction))
       setLatestPolished(normalized)
       setChatMessages([
         { id: `o-${Date.now()}`, type: 'original', content: selectedHtml },
@@ -399,7 +535,10 @@ export default function SelectionPolishBubble({
       () => {
         setIsStreaming(false)
         if (fullContent.trim()) {
-          const normalized = normalizeMarkdownBoldToHtml(fullContent)
+          let normalized = normalizeMarkdownBoldToHtml(fullContent)
+          if (intents.some((intent) => intent !== 'rewrite')) {
+            normalized = applyInstructionTransforms(normalized, intentInstructionPatch(intents, instruction))
+          }
           setLatestPolished(normalized)
           setChatMessages([
             { id: `o-${Date.now()}`, type: 'original', content: selectedHtml },
@@ -428,16 +567,17 @@ export default function SelectionPolishBubble({
     })
   }, [chatOpen, chatMessages, chatStreaming])
 
-  const sendFollowup = useCallback(() => {
+  const sendFollowup = useCallback(async () => {
     const instruction = chatInput.trim()
     if (!instruction || chatStreaming) return
 
     const baseText = latestPolished || selectionSnapshotRef.current?.html || selectionSnapshotRef.current?.text || ''
     if (!baseText.trim()) return
 
-    // 对话框里的纯格式指令也本地处理，避免超出原选区语义
-    if (isDirectFormatInstruction(instruction)) {
-      const normalized = applyInstructionTransforms(baseText, [instruction])
+    const intents = await detectIntents(instruction, baseText)
+    const needsRewrite = intents.includes('rewrite')
+    if (!needsRewrite) {
+      const normalized = applyInstructionTransforms(baseText, intentInstructionPatch(intents, instruction))
       setChatInput('')
       setLatestPolished(normalized)
       setChatMessages((prev) => [
@@ -474,7 +614,10 @@ export default function SelectionPolishBubble({
       () => {
         setChatStreaming(false)
         if (full.trim()) {
-          const normalized = normalizeMarkdownBoldToHtml(full)
+          let normalized = normalizeMarkdownBoldToHtml(full)
+          if (intents.some((intent) => intent !== 'rewrite')) {
+            normalized = applyInstructionTransforms(normalized, intentInstructionPatch(intents, instruction))
+          }
           setLatestPolished(normalized)
           setChatMessages((prev) =>
             prev.map((m) => (m.id === aiId ? { ...m, content: normalized, isStreaming: false } : m)),
@@ -512,6 +655,10 @@ export default function SelectionPolishBubble({
 
   const markActive = () => {
     logSelectionBubbleDebug('mark-active')
+    insidePointerRef.current = true
+    setTimeout(() => {
+      insidePointerRef.current = false
+    }, 150)
     bubbleActiveRef.current = true
   }
 
@@ -584,12 +731,15 @@ export default function SelectionPolishBubble({
   }
 
   const markInactiveIfOutside = () => {
+    if (insidePointerRef.current) {
+      logSelectionBubbleDebug('mark-inactive-skip-inside-pointer')
+      bubbleActiveRef.current = true
+      return
+    }
     const root = rootRef.current
     if (!root) {
       logSelectionBubbleDebug('inactive-no-root')
       bubbleActiveRef.current = false
-      selectionSnapshotRef.current = null
-      onUnlockSelection()
       return
     }
     const activeEl = document.activeElement
@@ -602,8 +752,9 @@ export default function SelectionPolishBubble({
       chatOpen,
     })
     if (!bubbleActiveRef.current) {
-      selectionSnapshotRef.current = null
-      onUnlockSelection()
+      // 不在 blur 阶段解锁，避免点击气泡输入框时选区高亮被误清除。
+      // 解锁统一交给：外部点击 / 取消 / 应用改写 / Esc。
+      logSelectionBubbleDebug('inactive-defer-unlock')
     }
   }
 
