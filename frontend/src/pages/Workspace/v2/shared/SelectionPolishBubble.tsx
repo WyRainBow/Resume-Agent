@@ -79,10 +79,42 @@ export default function SelectionPolishBubble({
     return normalized.includes('技术关键词') && normalized.includes('加粗')
   }
 
+  const isSelectiveBoldInstruction = (value: string): boolean => {
+    const normalized = value.trim().toLowerCase()
+    if (!normalized) return false
+    if (!normalized.includes('加粗') && !normalized.includes('加黑') && !normalized.includes('bold')) return false
+    return (
+      normalized.includes('一些') ||
+      normalized.includes('有些') ||
+      normalized.includes('部分') ||
+      normalized.includes('重点') ||
+      normalized.includes('关键词') ||
+      normalized.includes('你觉得') ||
+      normalized.includes('挑') ||
+      normalized.includes('该加粗')
+    )
+  }
+
+  const isExplicitFullBoldInstruction = (value: string): boolean => {
+    const normalized = value.trim().toLowerCase()
+    if (!normalized) return false
+    if (!normalized.includes('加粗') && !normalized.includes('加黑') && !normalized.includes('bold')) return false
+    return (
+      normalized.includes('全部') ||
+      normalized.includes('整段') ||
+      normalized.includes('全段') ||
+      normalized.includes('整体') ||
+      normalized.includes('通篇') ||
+      normalized.includes('所有')
+    )
+  }
+
   const shouldBoldAll = (value: string): boolean => {
     const normalized = value.trim().toLowerCase()
     if (!normalized) return false
     if (isRemoveBoldInstruction(normalized)) return false
+    if (isSelectiveBoldInstruction(normalized)) return false
+    if (isExplicitFullBoldInstruction(normalized)) return true
     return normalized.includes('加粗') || normalized.includes('加黑') || normalized.includes('bold')
   }
 
@@ -236,6 +268,67 @@ export default function SelectionPolishBubble({
     return root.innerHTML
   }
 
+  const inferKeywordsFromHtml = (html: string): string[] => {
+    if (!html) return []
+    const text = html
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (!text) return []
+
+    const keywords = new Set<string>()
+
+    const chineseTechTerms = [
+      '高风险SQL',
+      'SQL',
+      '慢查询',
+      '执行计划',
+      '索引',
+      '联合索引',
+      '覆盖索引',
+      'JOIN',
+      'API',
+      '毫秒级',
+      '毫秒',
+      '游标分页',
+      '深分页',
+      '全表扫描',
+      '读写分离',
+      '只读实例',
+      'RO',
+      '主库',
+      '缓存',
+      '并发',
+      '链路',
+      '架构',
+      'SLA',
+      'QPS',
+      '延迟',
+    ]
+
+    for (const term of chineseTechTerms) {
+      if (text.includes(term)) keywords.add(term)
+    }
+
+    const metricMatches = text.match(/\d+(?:\.\d+)?(?:%|\+|ms|s|秒|万|百万|亿|条|行|倍|个|年|月)/gi) || []
+    metricMatches.forEach((m) => keywords.add(m))
+
+    const enTokens = text.match(/\b[A-Za-z][A-Za-z0-9.+#/-]{1,24}\b/g) || []
+    for (const token of enTokens) {
+      const lower = token.toLowerCase()
+      if (
+        token === token.toUpperCase() ||
+        ['mysql', 'redis', 'kafka', 'docker', 'kubernetes', 'spring', 'java', 'python', 'golang'].includes(lower)
+      ) {
+        keywords.add(token)
+      }
+    }
+
+    return Array.from(keywords)
+      .filter((v) => v.length >= 2)
+      .sort((a, b) => b.length - a.length)
+  }
+
   const convertUlToOl = (html: string): string => {
     if (!html) return html
     return html
@@ -291,7 +384,10 @@ export default function SelectionPolishBubble({
       result = convertUlToOl(result)
     }
 
-    const keywords = extractBoldKeywords(instructions)
+    let keywords = extractBoldKeywords(instructions)
+    if (keywords.length === 0 && isSelectiveBoldInstruction(merged)) {
+      keywords = inferKeywordsFromHtml(result)
+    }
     if (keywords.length > 0) {
       result = boldKeywordsInHtml(result, keywords)
     } else if (shouldBoldAll(merged)) {
