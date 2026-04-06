@@ -48,6 +48,7 @@ export default function SelectionPolishBubble({
   const inputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const insidePointerRef = useRef(false)
 
   const isRemoveBoldInstruction = (value: string): boolean => {
     const normalized = value.trim().toLowerCase()
@@ -337,7 +338,6 @@ export default function SelectionPolishBubble({
         })
       } else {
         logSelectionBubbleDebug('mount-empty-selection')
-        onUnlockSelection()
       }
     }
     bubbleActiveRef.current = true
@@ -512,6 +512,10 @@ export default function SelectionPolishBubble({
 
   const markActive = () => {
     logSelectionBubbleDebug('mark-active')
+    insidePointerRef.current = true
+    setTimeout(() => {
+      insidePointerRef.current = false
+    }, 150)
     bubbleActiveRef.current = true
   }
 
@@ -584,12 +588,15 @@ export default function SelectionPolishBubble({
   }
 
   const markInactiveIfOutside = () => {
+    if (insidePointerRef.current) {
+      logSelectionBubbleDebug('mark-inactive-skip-inside-pointer')
+      bubbleActiveRef.current = true
+      return
+    }
     const root = rootRef.current
     if (!root) {
       logSelectionBubbleDebug('inactive-no-root')
       bubbleActiveRef.current = false
-      selectionSnapshotRef.current = null
-      onUnlockSelection()
       return
     }
     const activeEl = document.activeElement
@@ -602,8 +609,9 @@ export default function SelectionPolishBubble({
       chatOpen,
     })
     if (!bubbleActiveRef.current) {
-      selectionSnapshotRef.current = null
-      onUnlockSelection()
+      // 不在 blur 阶段解锁，避免点击气泡输入框时选区高亮被误清除。
+      // 解锁统一交给：外部点击 / 取消 / 应用改写 / Esc。
+      logSelectionBubbleDebug('inactive-defer-unlock')
     }
   }
 
