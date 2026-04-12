@@ -17,9 +17,9 @@ sse-starlette==1.8.2
 sqlalchemy>=2.0.36
 alembic==1.13.1
 pymysql==1.1.0
-psycopg[binary]==3.1.19  # PostgreSQL driver (psycopg3)
-psycopg2-binary>=2.9.0  # PostgreSQL driver (psycopg2，postgresql+psycopg2:// 时使用)
-pgvector>=0.2.0  # PostgreSQL vector extension support
+psycopg[binary]==3.1.19
+psycopg2-binary>=2.9.0
+pgvector>=0.2.0
 
 # Authentication
 python-jose[cryptography]==3.3.0
@@ -46,7 +46,7 @@ duckduckgo_search~=7.5.3
 numpy<2.0.0
 datasets~=3.4.1
 html2text~=2024.2.26
-# mineru requires pillow>=11.0.0; crawl4ai>=0.8.0 supports pillow>=10.4
+# mineru and crawl4ai require newer pillow
 pillow>=11.0.0,<13
 gymnasium~=1.1.1
 PyMuPDF>=1.24.0
@@ -79,9 +79,9 @@ huggingface-hub>=0.32.4,<1
 python-multipart~=0.0.22
 cos-python-sdk-v5>=1.9.30
 
-# TTS (Text-to-Speech) - Edge TTS（推荐）或 Coqui TTS
+# TTS
 edge-tts>=6.1.0
-# 如果需要使用 Coqui TTS（需要声音克隆），取消下面的注释
+# Uncomment the lines below only when Coqui TTS is needed.
 # coqui-tts>=0.22.0
 # torch>=2.0.0
 # torchaudio>=2.0.0

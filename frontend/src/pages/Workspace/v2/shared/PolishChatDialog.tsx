@@ -5,6 +5,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { Loader2, Sparkles, Send, X, Eye, Check, Zap } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
+import { DEFAULT_AI_PROVIDER } from '@/lib/aiProvider'
 import { rewriteResumeStream } from '../../../../services/api'
 import { useTypewriter } from '../../../../hooks/useTypewriter'
 import type { ResumeData } from '../../types'
@@ -136,7 +137,7 @@ export default function PolishChatDialog({
 
     try {
       await rewriteResumeStream(
-        'deepseek',
+        DEFAULT_AI_PROVIDER,
         resumeData as any,
         path,
         instruction,

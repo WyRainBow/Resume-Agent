@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { TimerDisplay, useTimer } from '../../../../hooks/useTimer'
 import { useTypewriter } from '../../../../hooks/useTypewriter'
 import { cn } from '../../../../lib/utils'
+import { DEFAULT_AI_PROVIDER } from '@/lib/aiProvider'
 import { rewriteResumeStream } from '../../../../services/api'
 import type { Education } from '../types'
 
@@ -200,7 +201,7 @@ export default function AIWriteDialog({
     abortControllerRef.current = new AbortController()
     
     const prompt = buildPrompt(educationData, regenerateCountRef.current, customInstruction)
-    console.log('[AIWriteDialog] 开始生成，使用 DeepSeek 模型')
+    console.log('[AIWriteDialog] 开始生成，使用默认 AI 模型')
     console.log('[AIWriteDialog] 是否重新生成:', isRegenerate)
     console.log('[AIWriteDialog] 重新生成次数:', regenerateCountRef.current)
     console.log('[AIWriteDialog] 用户指令:', customInstruction)
@@ -233,7 +234,7 @@ export default function AIWriteDialog({
       }
       
       await rewriteResumeStream(
-        'deepseek',
+        DEFAULT_AI_PROVIDER,
         mockResume,
         'education[0].description',  // 使用正确的路径格式
         prompt,

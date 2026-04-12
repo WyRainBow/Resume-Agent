@@ -1,14 +1,43 @@
-# Agent LLM 配置 - 使用 DeepSeek
-# API key 从环境变量读取，请在 .env 文件中配置
 [llm]
-model = "deepseek-v3"
+model = "deepseek-v3.2"
 base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 api_key = "${DASHSCOPE_API_KEY}"
 max_tokens = 8192
 temperature = 0.3
 api_type = "openai"
 
-# Vision model (如果需要)
+[llm.kimi]
+model = "kimi-for-coding"
+base_url = "https://api.kimi.com/coding"
+api_key = "${KIMI_API_KEY}"
+max_tokens = 8192
+temperature = 0.3
+api_type = "anthropic"
+
+[llm.deepseek]
+model = "deepseek-v3.2"
+base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+api_key = "${DASHSCOPE_API_KEY}"
+max_tokens = 8192
+temperature = 0.3
+api_type = "openai"
+
+[llm.doubao]
+model = "doubao-seed-1-6-lite-251015"
+base_url = "https://ark.cn-beijing.volces.com/api/v3"
+api_key = "${DOUBAO_API_KEY}"
+max_tokens = 8192
+temperature = 0.3
+api_type = "openai"
+
+[llm.openai]
+model = "gpt-4o-mini"
+base_url = "https://api.openai.com/v1"
+api_key = "${OPENAI_API_KEY}"
+max_tokens = 8192
+temperature = 0.3
+api_type = "openai"
+
 [llm.vision]
 model = "deepseek-v3"
 base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"

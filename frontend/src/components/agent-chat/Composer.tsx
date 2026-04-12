@@ -9,8 +9,13 @@ import {
   X,
 } from "lucide-react";
 
+import ComposerModelSelect from "@/components/agent-chat/ComposerModelSelect";
+import type { AgentModelOption } from "@/services/agentModels";
+
 interface ComposerProps {
+  agentModelOptions: AgentModelOption[];
   input: string;
+  isLoadingAgentModels: boolean;
   isProcessing: boolean;
   isUploadingFile: boolean;
   isVoiceRecording: boolean;
@@ -19,7 +24,9 @@ interface ComposerProps {
   isResumePreviewActive: boolean;
   pendingAttachments: File[];
   fileInputRef: React.RefObject<HTMLInputElement | null>;
+  selectedAgentModel: string;
   onSubmit: (e: React.FormEvent) => void;
+  onAgentModelChange: (value: string) => void;
   onInputChange: (value: string) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
@@ -30,8 +37,81 @@ interface ComposerProps {
   onStopVoiceRecording: () => void;
 }
 
-export default function Composer({
+function ComposerActionButton({
+  isProcessing,
+  isUploadingFile,
   input,
+  pendingAttachments,
+  isVoiceRecording,
+  isVoiceProcessing,
+  isVoiceSpeaking,
+  onStartVoiceRecording,
+  onStopVoiceRecording,
+}: {
+  isProcessing: boolean;
+  isUploadingFile: boolean;
+  input: string;
+  pendingAttachments: File[];
+  isVoiceRecording: boolean;
+  isVoiceProcessing: boolean;
+  isVoiceSpeaking: boolean;
+  onStartVoiceRecording: () => void;
+  onStopVoiceRecording: () => void;
+}) {
+  if (input.trim() || pendingAttachments.length > 0) {
+    return (
+      <button
+        type="submit"
+        disabled={isProcessing || isUploadingFile}
+        className={`size-8 rounded-full flex items-center justify-center transition-colors ${
+          isProcessing || isUploadingFile
+            ? "cursor-not-allowed bg-slate-200 text-slate-400 dark:bg-slate-700"
+            : "bg-indigo-600 text-white hover:bg-indigo-700"
+        }`}
+        title={isProcessing ? "等待当前消息处理完成" : "发送消息"}
+        aria-label="发送消息"
+      >
+        <ArrowUp className="size-4" />
+      </button>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={isVoiceRecording ? onStopVoiceRecording : onStartVoiceRecording}
+      disabled={isProcessing || isVoiceProcessing}
+      className={`size-8 rounded-full flex items-center justify-center transition-all ${
+        isVoiceRecording
+          ? "animate-pulse bg-red-500 text-white"
+          : isVoiceSpeaking
+          ? "bg-green-500 text-white"
+          : "bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 dark:bg-slate-800"
+      } ${isVoiceProcessing ? "cursor-not-allowed opacity-50" : ""}`}
+      title={
+        isVoiceProcessing
+          ? "语音识别中..."
+          : isVoiceRecording
+          ? "正在录音，点击停止"
+          : "语音输入"
+      }
+      aria-label="语音输入"
+    >
+      {isVoiceProcessing ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : isVoiceRecording ? (
+        <StopCircle className="size-4" />
+      ) : (
+        <Mic className="size-4" />
+      )}
+    </button>
+  );
+}
+
+export default function Composer({
+  agentModelOptions,
+  input,
+  isLoadingAgentModels,
   isProcessing,
   isUploadingFile,
   isVoiceRecording,
@@ -40,7 +120,9 @@ export default function Composer({
   isResumePreviewActive,
   pendingAttachments,
   fileInputRef,
+  selectedAgentModel,
   onSubmit,
+  onAgentModelChange,
   onInputChange,
   onKeyDown,
   onFileChange,
@@ -91,7 +173,7 @@ export default function Composer({
           placeholder={
             isProcessing
               ? "正在处理中，可以继续输入..."
-              : "输入消息...（例如：生成一份关于 AI 发展趋势的报告）"
+              : "输入消息...（例如：帮我优化这份简历的项目经历）"
           }
           className="min-h-[92px] w-full resize-none bg-transparent px-4 pt-3 text-base text-slate-700 outline-none placeholder-slate-400 dark:text-slate-200"
         />
@@ -132,50 +214,27 @@ export default function Composer({
             </button>
           </div>
 
-          {input.trim() || pendingAttachments.length > 0 ? (
-            <button
-              type="submit"
-              disabled={isProcessing || isUploadingFile}
-              className={`size-8 rounded-full flex items-center justify-center transition-colors ${
-                isProcessing || isUploadingFile
-                  ? "cursor-not-allowed bg-slate-200 text-slate-400 dark:bg-slate-700"
-                  : "bg-indigo-600 text-white hover:bg-indigo-700"
-              }`}
-              title={isProcessing ? "等待当前消息处理完成" : "发送消息"}
-              aria-label="发送消息"
-            >
-              <ArrowUp className="size-4" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={isVoiceRecording ? onStopVoiceRecording : onStartVoiceRecording}
-              disabled={isProcessing || isVoiceProcessing}
-              className={`size-8 rounded-full flex items-center justify-center transition-all ${
-                isVoiceRecording
-                  ? "animate-pulse bg-red-500 text-white"
-                  : isVoiceSpeaking
-                  ? "bg-green-500 text-white"
-                  : "bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 dark:bg-slate-800"
-              } ${isVoiceProcessing ? "cursor-not-allowed opacity-50" : ""}`}
-              title={
-                isVoiceProcessing
-                  ? "识别中..."
-                  : isVoiceRecording
-                  ? "正在录音，点击停止"
-                  : "语音输入"
-              }
-              aria-label="语音输入"
-            >
-              {isVoiceProcessing ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : isVoiceRecording ? (
-                <StopCircle className="size-4" />
-              ) : (
-                <Mic className="size-4" />
-              )}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            <ComposerModelSelect
+              options={agentModelOptions}
+              value={selectedAgentModel}
+              isLoading={isLoadingAgentModels}
+              isDisabled={isProcessing || isUploadingFile}
+              onChange={onAgentModelChange}
+            />
+
+            <ComposerActionButton
+              isProcessing={isProcessing}
+              isUploadingFile={isUploadingFile}
+              input={input}
+              pendingAttachments={pendingAttachments}
+              isVoiceRecording={isVoiceRecording}
+              isVoiceProcessing={isVoiceProcessing}
+              isVoiceSpeaking={isVoiceSpeaking}
+              onStartVoiceRecording={onStartVoiceRecording}
+              onStopVoiceRecording={onStopVoiceRecording}
+            />
+          </div>
         </div>
       </div>
     </form>

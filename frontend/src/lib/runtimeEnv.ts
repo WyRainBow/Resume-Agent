@@ -4,6 +4,7 @@ const ENV_STORAGE_KEY = 'resume_agent_env'
 const AGENT_ENABLED_OVERRIDE_KEY = 'resume_agent_enabled_override'
 const DEFAULT_LOCAL_API_BASE = 'http://127.0.0.1:9000'
 const DEFAULT_REMOTE_API_BASE = 'https://resumegenkk.xyz'
+const PRIVILEGED_ROLES = new Set(['admin', 'member'])
 
 function normalizeBaseUrl(url: string): string {
   const raw = String(url || '').trim()
@@ -89,7 +90,14 @@ export function setAgentEnabledOverride(enabled: boolean): void {
 }
 
 export function getStoredAuthRole(): string {
+  let cachedUserRole = ''
   try {
+    const authUserRaw = localStorage.getItem('auth_user')
+    if (authUserRaw) {
+      const authUser = JSON.parse(authUserRaw)
+      cachedUserRole = String(authUser?.role || '').toLowerCase()
+    }
+
     const token = localStorage.getItem('auth_token')
     if (token) {
       const payloadPart = token.split('.')[1]
@@ -98,19 +106,15 @@ export function getStoredAuthRole(): string {
         const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
         const payload = JSON.parse(atob(padded))
         const tokenRole = String(payload?.role || '').toLowerCase()
+        if (PRIVILEGED_ROLES.has(tokenRole)) return tokenRole
+        if (PRIVILEGED_ROLES.has(cachedUserRole)) return cachedUserRole
         if (tokenRole) return tokenRole
       }
-    }
-
-    const authUserRaw = localStorage.getItem('auth_user')
-    if (authUserRaw) {
-      const authUser = JSON.parse(authUserRaw)
-      return String(authUser?.role || '').toLowerCase()
     }
   } catch {
     // no-op
   }
-  return ''
+  return cachedUserRole
 }
 
 export function canUseAgentFeature(): boolean {

@@ -31,8 +31,9 @@ if config.config_file_name is not None:
 from database import Base, DATABASE_URL  # noqa: E402
 import models  # noqa: F401, E402  确保模型被加载
 
-# Set SQLAlchemy URL from environment
-config.set_main_option("sqlalchemy.url", DATABASE_URL)
+# Set SQLAlchemy URL from explicit config override first, then fall back to runtime DATABASE_URL.
+configured_database_url = config.attributes.get("configured_database_url") or DATABASE_URL
+config.set_main_option("sqlalchemy.url", configured_database_url)
 
 # add your model's MetaData object here
 # for 'autogenerate' support

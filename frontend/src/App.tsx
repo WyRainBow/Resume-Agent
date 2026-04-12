@@ -1,7 +1,8 @@
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useMemo } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthModal } from './components/AuthModal'
 import { ThemeInit } from './components/ThemeInit'
+import { useAuth } from './contexts/AuthContext'
 import ErrorBoundary from './ErrorBoundary'
 import { canUseAgentFeature } from './lib/runtimeEnv'
 import ResumeDashboard from './pages/ResumeDashboard'
@@ -29,7 +30,11 @@ function RouteFallback() {
 }
 
 function App() {
-  const canUseAgent = canUseAgentFeature()
+  const { token, user } = useAuth()
+  const canUseAgent = useMemo(
+    () => canUseAgentFeature(),
+    [token, user?.role]
+  )
   try {
     return (
       <ErrorBoundary>

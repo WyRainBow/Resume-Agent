@@ -16,11 +16,16 @@ branch_labels = None
 depends_on = None
 
 
+def _is_postgresql() -> bool:
+    return op.get_bind().dialect.name == "postgresql"
+
+
 def upgrade() -> None:
     # 启用 pgvector 扩展（PostgreSQL）
     # 注意：需要先在数据库中安装 pgvector 扩展
     # CREATE EXTENSION IF NOT EXISTS vector;
-    op.execute("CREATE EXTENSION IF NOT EXISTS vector;")
+    if _is_postgresql():
+        op.execute("CREATE EXTENSION IF NOT EXISTS vector;")
 
     # 创建简历向量嵌入表
     op.create_table(

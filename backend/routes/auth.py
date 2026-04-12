@@ -34,6 +34,7 @@ class UserResponse(BaseModel):
     id: int
     username: str
     email: Optional[str] = None
+    role: str
 
 
 class TokenResponse(BaseModel):
@@ -78,7 +79,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
         logger.debug(f"[注册] 创建用户对象")
         try:
             # email 字段保留兼容：默认与 username 相同
-            user = User(username=username, email=username, password_hash=password_hash)
+            user = User(username=username, email=username, password_hash=password_hash, role="admin")
             logger.debug(f"[注册] 用户对象创建成功")
         except Exception as e:
             logger.error(f"[注册] 创建用户对象失败: {str(e)}")
@@ -121,7 +122,7 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
 
         return TokenResponse(
             access_token=token,
-            user=UserResponse(id=user.id, username=user.username, email=user.email)
+            user=UserResponse(id=user.id, username=user.username, email=user.email, role=user.role)
         )
     
     except HTTPException:
@@ -221,11 +222,11 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
     logger.info(f"[登录] 登录流程完成 user_id={user.id} 总耗时 {(time.perf_counter() - t0) * 1000:.1f}ms")
     return TokenResponse(
         access_token=token,
-        user=UserResponse(id=user.id, username=user.username, email=user.email)
+        user=UserResponse(id=user.id, username=user.username, email=user.email, role=user.role)
     )
 
 
 @router.get("/me", response_model=UserResponse)
 def me(current_user: User = Depends(get_current_user)):
     """获取当前用户信息"""
-    return UserResponse(id=current_user.id, username=current_user.username, email=current_user.email)
+    return UserResponse(id=current_user.id, username=current_user.username, email=current_user.email, role=current_user.role)

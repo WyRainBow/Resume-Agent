@@ -10,6 +10,7 @@ export interface AgentStreamEvent {
 export interface AgentStreamPayload {
   message: string;
   conversation_id?: string | null;
+  llm_profile?: string | null;
   resume_data?: any;
 }
 

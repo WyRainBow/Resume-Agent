@@ -21,7 +21,7 @@ try:
         SectionParseRequest,
         RewriteRequest,
     )
-    from llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
+    from llm import call_llm, call_llm_stream, resolve_default_provider
     from prompts import (
         build_resume_prompt,
         build_resume_markdown_prompt,
@@ -49,7 +49,7 @@ except ImportError:
         SectionParseRequest,
         RewriteRequest,
     )
-    from backend.llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
+    from backend.llm import call_llm, call_llm_stream, resolve_default_provider
     from backend.prompts import (
         build_resume_prompt,
         build_resume_markdown_prompt,
@@ -204,7 +204,7 @@ async def parse_resume_text(body: ResumeParseRequest):
     logger.info("========== 收到解析请求 ==========")
     logger.info(f"文本长度: {len(body.text)} 字符")
 
-    provider = body.provider or DEFAULT_AI_PROVIDER
+    provider = body.provider or resolve_default_provider()
     print(f"Provider: {provider}", file=sys.stderr, flush=True)
     logger.info(f"Provider: {provider}")
 
@@ -444,7 +444,7 @@ async def upload_resume_pdf(
 
 async def _parse_resume_serial(body: ResumeParseRequest):
     """串行解析简历文本（原有逻辑）"""
-    provider = body.provider or DEFAULT_AI_PROVIDER
+    provider = body.provider or resolve_default_provider()
     model = getattr(body, "model", None)
 
     # 格式定义
@@ -615,7 +615,7 @@ async def _parse_resume_serial(body: ResumeParseRequest):
 @router.post("/resume/parse-section")
 async def parse_section_text(body: SectionParseRequest):
     """AI 解析单个模块文本 → 结构化数据"""
-    provider = body.provider or DEFAULT_AI_PROVIDER
+    provider = body.provider or resolve_default_provider()
     model = body.model  # 获取用户指定的模型
 
     section_prompt = SECTION_PROMPTS.get(body.section_type, "提取信息,输出JSON")
@@ -709,7 +709,7 @@ async def rewrite_resume_stream(body: RewriteRequest):
         raise HTTPException(status_code=400, detail=f"路径错误：{e}")
 
     # 默认使用 deepseek（如果未指定 provider）
-    provider = body.provider or DEFAULT_AI_PROVIDER
+    provider = body.provider or resolve_default_provider()
 
     prompt = build_rewrite_prompt(body.path, cur_value, body.instruction, body.locale, body.history)
 
@@ -744,7 +744,7 @@ async def rewrite_text_stream(body: RewriteTextStreamRequest):
     if not instruction:
         raise HTTPException(status_code=400, detail="instruction 不能为空")
 
-    provider = body.provider or DEFAULT_AI_PROVIDER
+    provider = body.provider or resolve_default_provider()
     path_hint = body.path or "selected_text"
     locale = body.locale or "zh"
 

@@ -6,6 +6,7 @@ type User = {
   id: number
   username: string
   email?: string
+  role?: string
 }
 
 type AuthContextValue = {
@@ -41,6 +42,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [modalMode, setModalMode] = useState<'login' | 'register'>('login')
 
   useEffect(() => {
+    const clearAuthState = () => {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(USER_KEY)
+      setAuthToken(null)
+      setUser(null)
+      setToken(null)
+    }
+
+    const refreshCurrentUser = async (savedToken: string) => {
+      try {
+        const currentUser = await getCurrentUser()
+        setUser(currentUser)
+        setToken(savedToken)
+        localStorage.setItem(USER_KEY, JSON.stringify(currentUser))
+      } catch (err) {
+        if (isUnauthorizedError(err)) clearAuthState()
+      }
+    }
+
     const init = async () => {
       const savedToken = localStorage.getItem(TOKEN_KEY)
       const savedUserRaw = localStorage.getItem(USER_KEY)
@@ -65,22 +85,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (hasHydratedLocalUser) {
           // 本地已存在登录态时直接放行，避免进入仪表盘时额外触发 /api/auth/me 慢查询
           setLoading(false)
+          void refreshCurrentUser(savedToken)
           return
         }
 
         try {
-          const currentUser = await getCurrentUser()
-          setUser(currentUser)
-          setToken(savedToken)
-          localStorage.setItem(USER_KEY, JSON.stringify(currentUser))
+          await refreshCurrentUser(savedToken)
         } catch (err) {
-          if (isUnauthorizedError(err)) {
-            localStorage.removeItem(TOKEN_KEY)
-            localStorage.removeItem(USER_KEY)
-            setAuthToken(null)
-            setUser(null)
-            setToken(null)
-          }
+          if (isUnauthorizedError(err)) clearAuthState()
         }
       }
       setLoading(false)

@@ -35,6 +35,7 @@ except Exception:
     pass
 
 from backend.core.logger import bridge_std_logging_to_loguru, get_logger, setup_logging
+from backend.schema_bootstrap import upgrade_database_schema
 
 LOG_MODE = os.getenv("LOG_MODE", "console")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
@@ -229,10 +230,16 @@ async def startup_event():
 
     logger.info("========== 后端服务启动 ==========")
     logger.info(f"日志目录: {LOG_DIR}")
+    upgrade_database_schema()
+    logger.info("[startup] database schema upgraded to head")
     
     try:
         simple = import_module_candidates(["backend.simple", "simple"])
         # 从环境变量同步 API Key 到 simple 模块
+        kimi_key = os.getenv("KIMI_API_KEY", "")
+        if kimi_key:
+            logger.info(f"[配置] 已从 .env 加载 KIMI_API_KEY: {kimi_key[:10]}...")
+
         zhipu_key = os.getenv("ZHIPU_API_KEY", "")
         if zhipu_key:
             simple.ZHIPU_API_KEY = zhipu_key

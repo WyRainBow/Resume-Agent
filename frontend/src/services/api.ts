@@ -1,16 +1,17 @@
 import axios from 'axios'
 import { getApiBaseUrl } from '@/lib/runtimeEnv'
+import { DEFAULT_AI_PROVIDER, type AIProvider } from '@/lib/aiProvider'
 import type { Resume } from '@/types/resume'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
 import { DEFAULT_RESUME_TEMPLATE } from '@/data/defaultTemplate'
 
-export async function aiTest(provider: 'zhipu' | 'doubao', prompt: string) {
+export async function aiTest(provider: AIProvider, prompt: string) {
   const url = `${getApiBaseUrl()}/api/ai/test`
   const { data } = await axios.post(url, { provider, prompt })
   return data as { provider: string; result: string; usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number } }
 }
 
-export async function generateResume(provider: 'zhipu' | 'doubao', instruction: string, locale: 'zh' | 'en' = 'zh') {
+export async function generateResume(provider: AIProvider, instruction: string, locale: 'zh' | 'en' = 'zh') {
   const url = `${getApiBaseUrl()}/api/resume/generate`
   const { data } = await axios.post(url, { provider, instruction, locale })
   return data as { provider: string; resume: Resume }
@@ -36,7 +37,7 @@ export async function generateResumeStream(
     const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ provider: 'doubao', instruction, locale })
+      body: JSON.stringify({ provider: DEFAULT_AI_PROVIDER, instruction, locale })
     })
     
     if (!response.ok) {
@@ -394,7 +395,7 @@ export async function renderPDFStream(
   return blob
 }
 
-export async function rewriteResume(provider: 'zhipu' | 'doubao', resume: Resume, path: string, instruction: string) {
+export async function rewriteResume(provider: AIProvider, resume: Resume, path: string, instruction: string) {
   const url = `${getApiBaseUrl()}/api/resume/rewrite`
   const { data } = await axios.post(url, { provider, resume, path, instruction })
   return data as { resume: Resume }
@@ -404,7 +405,7 @@ export async function rewriteResume(provider: 'zhipu' | 'doubao', resume: Resume
  * 流式 AI 改写 - 实时显示生成内容
  */
 export async function rewriteResumeStream(
-  provider: 'zhipu' | 'doubao' | 'deepseek',
+  provider: AIProvider,
   resume: Resume,
   path: string,
   instruction: string,
@@ -672,7 +673,7 @@ export async function rewriteTextStream(
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        provider: 'deepseek',
+        provider: DEFAULT_AI_PROVIDER,
         text,
         instruction,
         path,

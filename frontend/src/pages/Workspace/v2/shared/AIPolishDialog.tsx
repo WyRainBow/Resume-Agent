@@ -5,6 +5,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { Loader2, Sparkles, Wand2, Zap } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
+import { DEFAULT_AI_PROVIDER } from '@/lib/aiProvider'
 import { rewriteResumeStream } from '../../../../services/api'
 import { useTypewriter } from '../../../../hooks/useTypewriter'
 import type { ResumeData } from '../../types'
@@ -50,7 +51,7 @@ export default function AIPolishDialog({
       const instruction = '请优化这段文本，使其更加专业、简洁、有吸引力。使用更专业的词汇，突出关键成就，保持简洁清晰，使用主动语气，保留原有HTML格式标签（如 <strong>、<ul>、<li> 等）。'
 
       await rewriteResumeStream(
-        'zhipu', // 默认使用智谱模型
+        DEFAULT_AI_PROVIDER,
         resumeData as any,
         path,
         instruction,

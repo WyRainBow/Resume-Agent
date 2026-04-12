@@ -16,19 +16,15 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../../../../lib/utils";
 import FileUploadZone from "./FileUploadZone";
+import { AI_PROVIDER_LABELS, DEFAULT_AI_MODEL } from "@/lib/aiProvider";
 import { getApiBaseUrl } from "@/lib/runtimeEnv";
 
-// DeepSeek 官方 logo（Wikimedia Commons，MIT/Expat）
-const DEEPSEEK_LOGO_URL =
-  "https://upload.wikimedia.org/wikipedia/commons/e/ec/DeepSeek_logo.svg";
-
-// 可用的 AI 模型列表
 const AI_MODELS = [
   {
-    id: "deepseek-v3.2",
-    name: "DeepSeek",
-    description: "智能解析简历内容",
-    logoUrl: DEEPSEEK_LOGO_URL,
+    id: "kimi-for-coding",
+    name: "Kimi For Coding",
+    description: "Kimi Code Anthropic Messages ????",
+    logoUrl: null,
   },
 ];
 
@@ -83,7 +79,7 @@ export function AIImportModal({
   const [parsedData, setParsedData] = useState<any>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [finalTime, setFinalTime] = useState<number | null>(null);
-  const [selectedModel, setSelectedModel] = useState("deepseek-v3.2");
+  const [selectedModel, setSelectedModel] = useState(DEFAULT_AI_MODEL);
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [copied, setCopied] = useState(false);
@@ -406,10 +402,10 @@ export function AIImportModal({
                 </div>
                 {testKeysResult && !("_" in testKeysResult) && (
                   <div className="mb-2 text-xs text-slate-600 dark:text-slate-400 space-y-1">
-                    {(["zhipu", "doubao", "deepseek"] as const).map((key) => {
+                    {(["kimi", "zhipu", "doubao", "deepseek"] as const).map((key) => {
                       const r = testKeysResult[key];
                       if (!r) return null;
-                      const label = { zhipu: "智谱", doubao: "豆包", deepseek: "DeepSeek" }[key];
+                      const label = AI_PROVIDER_LABELS[key];
                       const text = !r.configured
                         ? `${label}: 未配置`
                         : r.ok

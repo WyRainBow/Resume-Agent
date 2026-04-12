@@ -16,12 +16,19 @@ import uuid
 from datetime import datetime
 from typing import AsyncGenerator, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from openai import PermissionDeniedError
 
 from backend.agent.agent.manus import Manus
 from backend.agent.config import NetworkConfig, config
+from backend.agent.llm import LLM
+from backend.agent.model_profiles import (
+    get_profile_disabled_reason,
+    is_profile_configured,
+    is_profile_supported,
+    resolve_profile_name,
+)
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -52,6 +59,7 @@ HEARTBEAT_V2_ENABLED = (
 
 def _get_or_create_session(
     conversation_id: str,
+    llm_profile: Optional[str] = None,
     resume_path: Optional[str] = None,
     resume_data: Optional[dict] = None,
 ) -> dict:
@@ -84,6 +92,8 @@ def _get_or_create_session(
                     logger.info(f"[SSE] Cleared memory for session: {conversation_id}")
             del _active_sessions[conversation_id]
 
+    resolved_profile = resolve_profile_name(llm_profile)
+
     if conversation_id not in _active_sessions:
         from backend.agent.memory import ChatHistoryManager
         from backend.agent.tool.resume_data_store import ResumeDataStore
@@ -102,7 +112,10 @@ def _get_or_create_session(
             try:
                 # Use network configuration manager's context manager
                 with network_config.without_proxy():
-                    agent = Manus(session_id=conversation_id)
+                    agent = Manus(
+                        session_id=conversation_id,
+                        llm=LLM(config_name=resolved_profile),
+                    )
                 chat_history = conversation_manager.get_or_create_history(
                     conversation_id
                 )
@@ -133,11 +146,22 @@ def _get_or_create_session(
         _active_sessions[conversation_id] = {
             "agent": agent,
             "chat_history": chat_history,
+            "llm_profile": resolved_profile,
             "resume_path": resume_path,
             "created_at": datetime.now(),
         }
         logger.info(f"[SSE] Created new session: {conversation_id}")
     else:
+        session = _active_sessions[conversation_id]
+        if session.get("llm_profile") != resolved_profile:
+            agent = session.get("agent")
+            if agent is not None:
+                agent.llm = LLM(config_name=resolved_profile)
+                if hasattr(agent, "_conversation_state") and agent._conversation_state:
+                    agent._conversation_state.llm = agent.llm
+                if hasattr(agent, "_ensure_conversation_state_llm"):
+                    agent._ensure_conversation_state_llm()
+            session["llm_profile"] = resolved_profile
         # Update resume path if provided
         if resume_path:
             _active_sessions[conversation_id]["resume_path"] = resume_path
@@ -185,6 +209,7 @@ def _cleanup_session(conversation_id: str) -> None:
 async def _stream_event_generator(
     conversation_id: str,
     prompt: str,
+    llm_profile: Optional[str] = None,
     resume_path: Optional[str] = None,
     resume_data: Optional[dict] = None,
     cursor: Optional[str] = None,
@@ -210,7 +235,12 @@ async def _stream_event_generator(
         f"[SSE Generator] Starting generator for conversation: {conversation_id}"
     )
     try:
-        session = _get_or_create_session(conversation_id, resume_path, resume_data)
+        session = _get_or_create_session(
+            conversation_id=conversation_id,
+            llm_profile=llm_profile,
+            resume_path=resume_path,
+            resume_data=resume_data,
+        )
         agent = session["agent"]
         chat_history = session["chat_history"]
         logger.info(f"[SSE Generator] Session created/retrieved successfully")
@@ -433,6 +463,19 @@ async def stream_events(request: StreamRequest) -> StreamingResponse:
     if not prompt:
         raise HTTPException(status_code=422, detail="Missing prompt/message")
 
+    llm_profile = resolve_profile_name(request.llm_profile)
+    if not is_profile_supported(llm_profile):
+        raise HTTPException(
+            status_code=400,
+            detail=get_profile_disabled_reason(llm_profile)
+            or f"当前 agent 暂不支持所选模型: {llm_profile}",
+        )
+    if not is_profile_configured(llm_profile):
+        raise HTTPException(
+            status_code=400,
+            detail=f"所选模型尚未配置可用的 API Key: {llm_profile}",
+        )
+
     logger.info(f"[SSE] Starting stream for conversation: {conversation_id}")
 
     # 🚨 增加防护：同一 sessionId 正在运行时，停止旧的 stream。
@@ -468,6 +511,7 @@ async def stream_events(request: StreamRequest) -> StreamingResponse:
         _stream_event_generator(
             conversation_id=conversation_id,
             prompt=prompt,
+            llm_profile=llm_profile,
             resume_path=request.resume_path,
             resume_data=request.resume_data,
             cursor=request.cursor,

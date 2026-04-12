@@ -171,6 +171,7 @@ export interface UseCLTPOptions {
   conversationId?: string;
   baseUrl?: string;
   heartbeatTimeout?: number;
+  llmProfile?: string | null;
   resumeData?: any;
   onSSEEvent?: (event: SSEEvent) => void;
 }
@@ -180,6 +181,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
   const {
     conversationId,
     baseUrl = getApiBaseUrl(),
+    llmProfile,
     resumeData,
     onSSEEvent,
   } = options;
@@ -192,8 +194,13 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
   const [answerCompleteCount, setAnswerCompleteCount] = useState(0);
 
   const abortRef = useRef<AbortController | null>(null);
+  const llmProfileRef = useRef<string | null>(llmProfile ?? null);
   const resumeDataRef = useRef<any>(resumeData);
   const onSSEEventRef = useRef<typeof onSSEEvent>(onSSEEvent);
+
+  useEffect(() => {
+    llmProfileRef.current = llmProfile ?? null;
+  }, [llmProfile]);
 
   useEffect(() => {
     resumeDataRef.current = resumeData;
@@ -258,6 +265,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
           {
             message: content,
             conversation_id: conversationId || null,
+            llm_profile: llmProfileRef.current,
             resume_data:
               resumeDataOverride !== undefined
                 ? resumeDataOverride

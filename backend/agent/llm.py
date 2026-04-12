@@ -26,6 +26,7 @@ from tenacity import (
 from backend.agent.bedrock import BedrockClient
 from backend.agent.config import LLMSettings, NetworkConfig, config
 from backend.agent.exceptions import TokenLimitExceeded
+from backend.agent.llm_adapters import AnthropicMessagesAdapter
 from backend.agent.llm_streaming.tool_call_assembler import ToolCallAssembler
 from backend.core.logger import get_logger  # Assuming a logger is set up in your app
 
@@ -50,6 +51,13 @@ MULTIMODAL_MODELS = [
 ]
 
 _tiktoken_cache: Dict[str, tiktoken.Encoding] = {}
+
+
+def _normalize_api_base_url(base_url: str) -> str:
+    normalized = (base_url or "").strip().rstrip("/")
+    if normalized.endswith("/v1/v1"):
+        return normalized[:-3]
+    return normalized
 
 
 def _get_tiktoken_encoding(model: str) -> Optional[tiktoken.Encoding]:
@@ -232,7 +240,7 @@ class LLM:
             self.api_type = llm_config.api_type
             self.api_key = llm_config.api_key
             self.api_version = llm_config.api_version
-            self.base_url = llm_config.base_url
+            self.base_url = _normalize_api_base_url(llm_config.base_url)
 
             # Add token counting related attributes
             self.total_input_tokens = 0
@@ -245,6 +253,13 @@ class LLM:
 
             # Initialize tokenizer with cache + proxy guard
             self.tokenizer = _get_tiktoken_encoding(self.model)
+            timeout = httpx.Timeout(
+                connect=30.0,
+                read=300.0,
+                write=30.0,
+                pool=30.0,
+            )
+            self.anthropic_adapter: AnthropicMessagesAdapter | None = None
 
             if self.api_type == "azure":
                 self.client = AsyncAzureOpenAI(
@@ -254,6 +269,16 @@ class LLM:
                 )
             elif self.api_type == "aws":
                 self.client = BedrockClient()
+            elif self.api_type == "anthropic":
+                self.client = None
+                self.anthropic_adapter = AnthropicMessagesAdapter(
+                    model=self.model,
+                    base_url=self.base_url,
+                    api_key=self.api_key,
+                    max_tokens=self.max_tokens,
+                    temperature=self.temperature,
+                    timeout=timeout,
+                )
             else:
                 # 配置超时和重试，解决 APIConnectionError
                 timeout = httpx.Timeout(
@@ -535,14 +560,19 @@ class LLM:
             else:
                 messages = self.format_messages(messages, supports_images)
 
-            # Calculate input token count
             input_tokens = self.count_message_tokens(messages)
-
-            # Check if token limits are exceeded
             if not self.check_token_limit(input_tokens):
                 error_message = self.get_limit_error_message(input_tokens)
-                # Raise a special exception that won't be retried
                 raise TokenLimitExceeded(error_message)
+
+            if self.anthropic_adapter is not None:
+                response_text = await self.anthropic_adapter.ask(
+                    messages=messages,
+                    temperature=temperature,
+                    stream=stream,
+                )
+                self.update_token_count(input_tokens, self.count_tokens(response_text))
+                return response_text
 
             params = {
                 "model": self.model,
@@ -857,6 +887,25 @@ class LLM:
                     if not isinstance(tool, dict) or "type" not in tool:
                         raise ValueError("Each tool must be a dict with 'type' field")
 
+            if self.anthropic_adapter is not None:
+                response = await self.anthropic_adapter.ask_tool(
+                    messages=messages,
+                    tools=tools,
+                    tool_choice=tool_choice,
+                    temperature=temperature,
+                )
+                if response is not None:
+                    tool_call_payloads = [
+                        item.model_dump() if hasattr(item, "model_dump") else item
+                        for item in (response.tool_calls or [])
+                    ]
+                    self.update_token_count(
+                        input_tokens,
+                        self.count_tokens(response.content or "")
+                        + self.count_tool_calls(tool_call_payloads),
+                    )
+                return response
+
             # Set up the completion request
             params = {
                 "model": self.model,
@@ -966,6 +1015,25 @@ class LLM:
                 for tool in tools:
                     if not isinstance(tool, dict) or "type" not in tool:
                         raise ValueError("Each tool must be a dict with 'type' field")
+
+            if self.anthropic_adapter is not None:
+                self.update_token_count(input_tokens)
+                response = await self.anthropic_adapter.ask_tool_stream(
+                    messages=messages,
+                    tools=tools,
+                    tool_choice=tool_choice,
+                    temperature=temperature,
+                    on_content_delta=on_content_delta,
+                    cancel_event=cancel_event,
+                )
+                tool_call_payloads = [
+                    item.model_dump() if hasattr(item, "model_dump") else item
+                    for item in ((response.tool_calls or []) if response else [])
+                ]
+                self.total_completion_tokens += self.count_tokens(
+                    response.content or ""
+                ) + self.count_tool_calls(tool_call_payloads)
+                return response
 
             params = {
                 "model": self.model,

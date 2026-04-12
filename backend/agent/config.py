@@ -133,7 +133,14 @@ class NetworkConfig(BaseModel):
             return
         
         original = {}
-        proxy_keys = ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy")
+        proxy_keys = (
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "ALL_PROXY",
+            "http_proxy",
+            "https_proxy",
+            "all_proxy",
+        )
         for key in proxy_keys:
             original[key] = os.environ.pop(key, None)
         

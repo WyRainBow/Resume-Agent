@@ -21,9 +21,12 @@ except ImportError:
     from backend.database import Base
 
 
+AIProvider = Literal["kimi", "zhipu", "doubao", "deepseek"]
+
+
 class RewriteRequest(BaseModel):
     """重写请求"""
-    provider: Literal["zhipu", "doubao", "deepseek"] = Field(default="doubao")
+    provider: AIProvider = Field(default="kimi")
     resume: Dict[str, Any]
     path: str = Field(..., description="JSON 路径，如 summary 或 experience[0].achievements[1]")
     instruction: str = Field(..., description="修改意图，如：更量化、更贴合后端 JD")
@@ -33,13 +36,13 @@ class RewriteRequest(BaseModel):
 
 class AITestRequest(BaseModel):
     """AI 测试请求"""
-    provider: Literal["zhipu", "doubao", "deepseek"] = Field(default="doubao")
+    provider: AIProvider = Field(default="kimi")
     prompt: str = Field(..., description="测试提示词")
 
 
 class ResumeGenerateRequest(BaseModel):
     """简历生成请求"""
-    provider: Literal["zhipu", "doubao", "deepseek"] = Field(default="deepseek")
+    provider: AIProvider = Field(default="kimi")
     instruction: str = Field(..., description="一句话或少量信息，说明岗位/经历/技能等")
     locale: Literal["zh", "en"] = Field(default="zh", description="输出语言")
 
@@ -72,6 +75,7 @@ class RenderPDFRequest(BaseModel):
 
 class SaveKeysRequest(BaseModel):
     """保存 API Key 请求"""
+    kimi_key: Optional[str] = None
     zhipu_key: Optional[str] = None
     doubao_key: Optional[str] = None
     deepseek_key: Optional[str] = None
@@ -93,14 +97,14 @@ class SectionParseRequest(BaseModel):
     """单模块 AI 解析请求"""
     text: str = Field(..., description="用户粘贴的模块文本")
     section_type: str = Field(..., description="模块类型: contact/education/experience/projects/skills/awards/summary/opensource")
-    provider: Optional[Literal["zhipu", "doubao", "deepseek"]] = Field(default=None)
+    provider: Optional[AIProvider] = Field(default=None)
     model: Optional[str] = Field(default=None, description="可选，指定具体模型 (如 deepseek-v3.2, deepseek-reasoner)")
 
 
 class ResumeParseRequest(BaseModel):
     """简历解析请求"""
     text: str = Field(..., description="用户粘贴的简历文本")
-    provider: Optional[Literal["zhipu", "doubao", "deepseek"]] = Field(default=None)
+    provider: Optional[AIProvider] = Field(default=None)
     model: Optional[str] = Field(default=None, description="可选，指定具体模型 (如 deepseek-v3.2, deepseek-reasoner)")
 
 
@@ -123,7 +127,7 @@ class User(Base):
     # 管理用字段：最近登录 IP、API 额度、角色权限
     last_login_ip = Column(String(45), nullable=True, index=True)   # 最近一次登录 IP，IPv6 最长约 45 字符
     api_quota = Column(Integer, nullable=True)         # API 调用额度上限，NULL 表示不限制
-    role = Column(String(32), nullable=False, server_default="user", index=True)  # 角色：user / admin 等
+    role = Column(String(32), nullable=False, server_default="admin", index=True)  # 角色：user / admin 等
 
     resumes = relationship(
         lambda: Resume,

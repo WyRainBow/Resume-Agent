@@ -26,6 +26,13 @@ import {
   type ResumeData,
 } from "@/pages/Workspace/v2/types";
 import { getResume, getAllResumes, saveResume } from "@/services/resumeStorage";
+import {
+  fetchAgentModels,
+  readStoredAgentModelProfile,
+  resolvePreferredAgentModel,
+  type AgentModelOption,
+  writeStoredAgentModelProfile,
+} from "@/services/agentModels";
 import type { SavedResume } from "@/services/storage/StorageAdapter";
 import {
   renderPDFStream,
@@ -408,6 +415,43 @@ function SophiaChatContent() {
       ? { ...extra, Authorization: `Bearer ${token}` }
       : { ...extra };
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadAgentModels = async () => {
+      setIsLoadingAgentModels(true);
+      try {
+        const response = await fetchAgentModels(apiBaseUrl, getAuthHeaders());
+        if (!mounted) {
+          return;
+        }
+        setAgentModelOptions(response.models);
+        setSelectedAgentModel((current) => {
+          const resolved = resolvePreferredAgentModel(
+            response.models,
+            current || response.selected,
+          );
+          if (resolved) {
+            writeStoredAgentModelProfile(resolved);
+          }
+          return resolved;
+        });
+      } catch (error) {
+        console.error("[AgentChat] Failed to load agent models:", error);
+      } finally {
+        if (mounted) {
+          setIsLoadingAgentModels(false);
+        }
+      }
+    };
+
+    void loadAgentModels();
+
+    return () => {
+      mounted = false;
+    };
+  }, [apiBaseUrl, getAuthHeaders]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
@@ -434,6 +478,11 @@ function SophiaChatContent() {
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [loadingResume, setLoadingResume] = useState(true);
+  const [agentModelOptions, setAgentModelOptions] = useState<AgentModelOption[]>([]);
+  const [isLoadingAgentModels, setIsLoadingAgentModels] = useState(true);
+  const [selectedAgentModel, setSelectedAgentModel] = useState(
+    () => readStoredAgentModelProfile() ?? "",
+  );
 
   // 简历卡片相关状态
   const [loadedResumes, setLoadedResumes] = useState<
@@ -641,6 +690,12 @@ function SophiaChatContent() {
   useEffect(() => {
     resumeDataRef.current = resumeData;
   }, [resumeData]);
+
+  const handleAgentModelChange = useCallback((modelId: string) => {
+    setSelectedAgentModel(modelId);
+    writeStoredAgentModelProfile(modelId);
+    setResumeError(null);
+  }, []);
 
   const selectedLoadedResume = useMemo(() => {
     if (!selectedResumeId) return null;
@@ -1239,6 +1294,7 @@ function SophiaChatContent() {
     conversationId,
     baseUrl: apiBaseUrl,
     heartbeatTimeout: SSE_HEARTBEAT_TIMEOUT,
+    llmProfile: selectedAgentModel,
     resumeData: normalizedResume,
     onSSEEvent: useCallback((event: SSEEvent) => {
       // Intercept resume_patch and resume_generated events before routing
@@ -3560,7 +3616,9 @@ function SophiaChatContent() {
                   </div>
                 )}
                 <Composer
+                  agentModelOptions={agentModelOptions}
                   input={input}
+                  isLoadingAgentModels={isLoadingAgentModels}
                   isProcessing={isProcessing}
                   isUploadingFile={isUploadingFile}
                   isVoiceRecording={isVoiceRecording}
@@ -3569,7 +3627,9 @@ function SophiaChatContent() {
                   isResumePreviewActive={isResumePreviewActive}
                   pendingAttachments={pendingAttachments}
                   fileInputRef={fileInputRef}
+                  selectedAgentModel={selectedAgentModel}
                   onSubmit={handleSubmit}
+                  onAgentModelChange={handleAgentModelChange}
                   onInputChange={setInput}
                   onKeyDown={handleComposerKeyDown}
                   onFileChange={handleUploadFile}

@@ -20,6 +20,7 @@ class StreamRequest(BaseModel):
     prompt: Optional[str] = Field(None, description="User message to send to the agent")
     message: Optional[str] = Field(None, description="Alias for prompt")
     conversation_id: Optional[str] = Field(None, description="Conversation ID for context")
+    llm_profile: Optional[str] = Field(None, description="Named LLM profile for this conversation")
     resume_path: Optional[str] = Field(None, description="Path to resume file")
     resume_data: Optional[dict] = Field(None, description="Resume data payload")
     cursor: Optional[str] = Field(None, description="Cursor for resume/reconnect")
