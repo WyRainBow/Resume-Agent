@@ -43,7 +43,8 @@ def get_current_user(
             raise HTTPException(status_code=401, detail="Token 格式错误")
 
     user = None
-    db_error: Optional[Exception] = None
+    connection_error: Optional[Exception] = None
+    query_error: Optional[SQLAlchemyError] = None
     # MySQL 偶发断连/接口层异常时做短重试，降低瞬时抖动导致的 503
     for attempt in range(1, MAX_AUTH_DB_RETRIES + 1):
         try:
@@ -64,10 +65,11 @@ def get_current_user(
                 .filter(User.id == user_id)
                 .first()
             )
-            db_error = None
+            connection_error = None
+            query_error = None
             break
         except (OperationalError, InterfaceError, DisconnectionError, DBAPIError) as exc:
-            db_error = exc
+            connection_error = exc
             try:
                 db.rollback()
             except Exception:
@@ -84,12 +86,14 @@ def get_current_user(
                 sleep(0.15 * attempt)
                 continue
         except SQLAlchemyError as exc:
-            db_error = exc
+            query_error = exc
             db.rollback()
             logger.error(f"[鉴权] get_current_user 数据库查询失败: {exc}")
             break
 
-    if db_error is not None:
+    if query_error is not None:
+        raise HTTPException(status_code=500, detail="服务端数据库查询异常、请稍后重试")
+    if connection_error is not None:
         raise HTTPException(status_code=503, detail="数据库连接异常、请稍后重试")
     if not user:
         raise HTTPException(status_code=401, detail="用户不存在")

@@ -126,6 +126,18 @@ export async function saveResume(resume: Resume | ResumeData, id?: string): Prom
   }
 }
 
+export async function saveResumeStrict(
+  resume: Resume | ResumeData,
+  id?: string,
+): Promise<SavedResume> {
+  if (!isAuthenticated()) {
+    return await localAdapter.saveResume(resume, id)
+  }
+  const saved = await databaseAdapter.saveResume(resume, id)
+  await localAdapter.saveResume(resume, saved.id)
+  return saved
+}
+
 /**
  * 删除简历
  */

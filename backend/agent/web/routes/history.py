@@ -25,6 +25,7 @@ router = APIRouter(prefix="/history", tags=["history"])
 storage = get_conversation_storage()
 conversation_manager = ConversationManager(storage=storage)
 _save_fingerprint_cache: dict[str, tuple[int, str]] = {}
+DEFAULT_SESSION_HISTORY_LIMIT = 200
 
 
 def _save_cache_key(user_id: int, session_id: str) -> str:
@@ -260,7 +261,7 @@ async def list_sessions(
 async def get_session_messages(
     session_id: str,
     offset: int = 0,
-    limit: int = 200,
+    limit: int = DEFAULT_SESSION_HISTORY_LIMIT,
     current_user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get session history with pagination."""
@@ -269,10 +270,15 @@ async def get_session_messages(
         if not session_data:
             raise HTTPException(status_code=404, detail="Session not found")
         messages = conversation_manager.get_history(session_id, user_id=current_user.id)
-        sliced = messages[offset: offset + limit]
+        normalized_offset = max(0, offset)
+        sliced = (
+            messages[normalized_offset:]
+            if limit <= 0
+            else messages[normalized_offset: normalized_offset + limit]
+        )
         return {
             "session_id": session_id,
-            "offset": offset,
+            "offset": normalized_offset,
             "limit": limit,
             "total": len(messages),
             "messages": [

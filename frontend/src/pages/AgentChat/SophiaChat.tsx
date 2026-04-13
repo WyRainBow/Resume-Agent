@@ -58,6 +58,7 @@ import React, {
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import EnhancedMarkdown from "@/components/chat/EnhancedMarkdown";
 import Composer from "@/components/agent-chat/Composer";
+import { JDAnalysisDrawer } from "@/components/agent-chat/JDAnalysisDrawer";
 import MessageTimeline from "@/components/agent-chat/MessageTimeline";
 import StreamingLane from "@/components/agent-chat/StreamingLane";
 import { useTextStream } from "@/hooks/useTextStream";
@@ -65,15 +66,24 @@ import { useToolEventRouter } from "@/hooks/agent-chat/useToolEventRouter";
 import { useStreamRunController } from "@/hooks/agent-chat/useStreamRunController";
 import { useMessageTimeline } from "@/hooks/agent-chat/useMessageTimeline";
 import {
-  applyPatchPaths,
   extractResumeEditDiff as extractResumeEditDiffFromMarkdown,
   normalizeResumePatchValue,
   stripResumeEditMarkdown,
 } from "@/utils/resumePatch";
+import { detectJDIntent } from "@/utils/jdIntent";
+import {
+  buildJDAnalysisErrorMessage,
+  buildJDAnalysisResultMessage,
+  buildJDAnalysisStartMessage,
+  buildJDIntentAcknowledgement,
+  buildJDResumeSavedMessage,
+  buildJDRunUserMessage,
+  buildJDSavedMessage,
+} from "@/utils/jdChat";
 
 import WorkspaceLayout from "@/pages/WorkspaceLayout";
 import CustomScrollbar from "@/components/common/CustomScrollbar";
-import { useResumeContext, type PendingPatch } from '../../contexts/ResumeContext';
+import { useResumeContext } from '../../contexts/ResumeContext';
 import { ResumeDiffCard } from '../../components/agent-chat/ResumeDiffCard';
 import { ResumeGeneratedCard } from '../../components/agent-chat/ResumeGeneratedCard';
 
@@ -83,6 +93,7 @@ import { ResumeGeneratedCard } from '../../components/agent-chat/ResumeGenerated
 // ============================================================================
 
 const SSE_HEARTBEAT_TIMEOUT = 60000; // 60 seconds
+const SESSION_HISTORY_FULL_LIMIT = 0;
 const HISTORY_APPEND_MODE =
   String(import.meta.env.VITE_AGENT_HISTORY_APPEND_MODE ?? "true").toLowerCase() !==
   "false";
@@ -124,6 +135,18 @@ function toStringList(value: unknown): string[] {
 function listToHtml(items: string[]): string {
   if (!items.length) return "";
   return `<ul>${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
+}
+
+function buildSessionHistoryUrl(apiBaseUrl: string, sessionId: string): string {
+  const params = new URLSearchParams();
+  params.set("limit", String(SESSION_HISTORY_FULL_LIMIT));
+  return `${apiBaseUrl}/api/agent/history/sessions/${sessionId}?${params.toString()}`;
+}
+
+function buildMessageDedupKey(message: Message): string {
+  const content = typeof message.content === "string" ? message.content.trim() : "";
+  const thought = typeof message.thought === "string" ? message.thought.trim() : "";
+  return `${message.role}|${content}|${thought}`;
 }
 
 function splitDateRange(rawDate: string): {
@@ -323,6 +346,19 @@ function isWorkspaceResumeData(data: unknown): data is ResumeData {
   );
 }
 
+function withResumeMeta(
+  saved: SavedResume,
+  fallbackUserId?: number | null,
+): ResumeData {
+  const data = (saved.data || {}) as Record<string, any>;
+  return {
+    ...(data as ResumeData),
+    id: saved.id,
+    resume_id: saved.id,
+    user_id: data.user_id ?? fallbackUserId ?? null,
+  } as ResumeData;
+}
+
 interface SearchResultItem {
   position?: number;
   url?: string;
@@ -453,6 +489,7 @@ function SophiaChatContent() {
     };
   }, [apiBaseUrl, getAuthHeaders]);
   const [messages, setMessages] = useState<Message[]>([]);
+  const messagesRef = useRef<Message[]>([]);
   const [input, setInput] = useState("");
   const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -513,9 +550,21 @@ function SophiaChatContent() {
   const [resumeEditError, setLastError] = useState<{ message: string } | null>(null);
 
   // ResumeContext integration
-  const { pendingPatches, pushPatch, patchAppliedAt } = useResumeContext();
+  const {
+    resume: draftResume,
+    pendingPatches,
+    pushPatch,
+    patchAppliedAt,
+    setResume,
+  } = useResumeContext();
   const [generatedResume, setGeneratedResume] = useState<{
     resume: any; summary: string
+  } | null>(null);
+  const [isJDAnalysisDrawerOpen, setIsJDAnalysisDrawerOpen] = useState(false);
+  const [jdIntentDraft, setJdIntentDraft] = useState<{
+    sourceType: "url" | "text";
+    value: string;
+    key: string;
   } | null>(null);
   // Track current assistant message ID for patch association
   const currentAssistantMessageIdRef = useRef<string | null>(null);
@@ -540,6 +589,10 @@ function SophiaChatContent() {
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
   // 语音输入
   const {
     isRecording: isVoiceRecording,
@@ -558,6 +611,11 @@ function SophiaChatContent() {
   // 初始化会话：有 sessionId 用指定会话；否则默认加载“最新会话”
   useEffect(() => {
     let mounted = true;
+    if (initialSessionResolved) {
+      return () => {
+        mounted = false;
+      };
+    }
     const params = new URLSearchParams(location.search);
     const explicitSessionId = params.get("sessionId");
     const hasExplicitId = !!explicitSessionId?.trim();
@@ -627,7 +685,14 @@ function SophiaChatContent() {
     return () => {
       mounted = false;
     };
-  }, [apiBaseUrl, getAuthHeaders, navigate, location.search, conversationId]);
+  }, [
+    apiBaseUrl,
+    conversationId,
+    getAuthHeaders,
+    initialSessionResolved,
+    location.search,
+    navigate,
+  ]);
 
   // 简历选择器状态
   const [showResumeSelector, setShowResumeSelector] = useState(false);
@@ -706,6 +771,15 @@ function SophiaChatContent() {
     }
     return null;
   }, [loadedResumes, selectedResumeId]);
+  const jdTargetResume = useMemo(() => {
+    if (selectedLoadedResume) return selectedLoadedResume;
+    return loadedResumes.length ? loadedResumes[loadedResumes.length - 1] : null;
+  }, [loadedResumes, selectedLoadedResume]);
+  const jdTargetResumeData = jdTargetResume?.resumeData || resumeData || null;
+
+  useEffect(() => {
+    setResume(jdTargetResumeData);
+  }, [jdTargetResumeData, setResume]);
 
   const selectedResumePdfState = selectedResumeId
     ? resumePdfPreview[selectedResumeId] || EMPTY_RESUME_PDF_STATE
@@ -1490,7 +1564,7 @@ function SophiaChatContent() {
           return;
         }
         const resp = await fetch(
-          `${apiBaseUrl}/api/agent/history/sessions/${conversationId}`,
+          buildSessionHistoryUrl(apiBaseUrl, conversationId),
           {
             headers: getAuthHeaders(),
           },
@@ -1625,45 +1699,23 @@ function SophiaChatContent() {
   // When a patch is applied via ResumeContext, also update local resumeData and
   // loadedResumes so the PDF re-renders with the new content.
   useEffect(() => {
-    if (!patchAppliedAt) return;
+    if (!patchAppliedAt || !draftResume) return;
 
-    // Apply all accepted patches to local resumeData (idempotent re-apply is safe)
-    setResumeData(prev => {
-      if (!prev) return prev;
-      let updated: ResumeData = prev;
-      for (const patch of pendingPatches) {
-        if (patch.status === 'applied') {
-          updated = applyPatchPaths(updated, patch.paths, patch.after) as ResumeData;
-        }
-      }
-      return updated;
-    });
-
-    // Also update loadedResumes so selectedLoadedResume reflects the new data,
-    // which triggers the PDF auto-render effect.
-    setLoadedResumes(prev => {
-      const targetId = selectedResumeId || prev[0]?.id;
+    setResumeData(draftResume);
+    setLoadedResumes((prev) => {
+      const targetId = jdTargetResume?.id || selectedResumeId || prev[0]?.id;
       if (!targetId) return prev;
-      return prev.map(item => {
-        if (item.id !== targetId || !item.resumeData) return item;
-        let updated: ResumeData = item.resumeData;
-        for (const patch of pendingPatches) {
-          if (patch.status === 'applied') {
-            updated = applyPatchPaths(updated, patch.paths, patch.after) as ResumeData;
-          }
-        }
-        return { ...item, resumeData: updated };
-      });
+      return prev.map((item) =>
+        item.id === targetId ? { ...item, resumeData: draftResume } : item,
+      );
     });
-
-    setResumePdfPreview(prev => {
-      const targetId = selectedResumeId || Object.keys(prev)[0];
+    setResumePdfPreview((prev) => {
+      const targetId = jdTargetResume?.id || selectedResumeId || Object.keys(prev)[0];
       if (!targetId) return prev;
       return { ...prev, [targetId]: { ...EMPTY_RESUME_PDF_STATE } };
     });
     setAllowPdfAutoRender(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patchAppliedAt]);
+  }, [draftResume, jdTargetResume?.id, patchAppliedAt, selectedResumeId]);
 
   useEffect(() => {
     if (answerCompleteCount <= 0 || !resumeId) {
@@ -2464,6 +2516,35 @@ function SophiaChatContent() {
     persistSessionSnapshot,
   ]);
 
+  const ensureSessionForLocalMessages = useCallback(() => {
+    let sessionId = currentSessionId || conversationId;
+    if (!sessionId || sessionId.trim() === "") {
+      sessionId = `conv-${Date.now()}`;
+      setConversationId(sessionId);
+    }
+    if (!currentSessionId) {
+      setCurrentSessionId(sessionId);
+    }
+    return sessionId;
+  }, [conversationId, currentSessionId]);
+
+  const pushLocalMessages = useCallback(
+    (entries: Message[]) => {
+      if (!entries.length) return;
+      const currentMessages = messagesRef.current;
+      const nextMessages = [...currentMessages, ...entries];
+      messagesRef.current = nextMessages;
+      setMessages(nextMessages);
+      const sessionId = ensureSessionForLocalMessages();
+      void persistSessionSnapshot(
+        sessionId,
+        nextMessages,
+        currentMessages.length === 0,
+      );
+    },
+    [ensureSessionForLocalMessages, persistSessionSnapshot],
+  );
+
   useEffect(() => {
     const handleBeforeUnload = () => {
       const pending = scheduledSaveRef.current;
@@ -2516,77 +2597,16 @@ function SophiaChatContent() {
 
   const dedupeLoadedMessages = (messages: Message[]) => {
     if (messages.length <= 1) return messages;
-
     const deduped: Message[] = [];
-    const seenByRole = new Map<string, Set<string>>();
-    const getSeenSet = (role: string) => {
-      const key = role || "unknown";
-      if (!seenByRole.has(key)) {
-        seenByRole.set(key, new Set<string>());
-      }
-      return seenByRole.get(key)!;
-    };
+    let previousKey = "";
 
-    for (const msg of messages) {
-      const contentKey = (typeof msg.content === "string" ? msg.content : "").trim();
-      const roleKey = msg.role || "unknown";
-      const seenContents = getSeenSet(roleKey);
-
-      // 用户多次发送相同文本属于正常行为，不能在加载时去重。
-      if (roleKey === "user") {
-        deduped.push(msg);
+    for (const message of messages) {
+      const currentKey = buildMessageDedupKey(message);
+      if (currentKey === previousKey) {
         continue;
       }
-
-      // 仅在 assistant 消息中进行扩展去重逻辑，避免误伤 user 消息
-      let cleanContent = contentKey;
-      if (roleKey === "assistant" && contentKey.includes("Response:")) {
-        cleanContent =
-          contentKey.split("Response:").pop()?.trim() || contentKey;
-      }
-
-      // 检查是否已存在相同或相似的内容（assistant）
-      // 检查完全匹配
-      if (seenContents.has(contentKey)) {
-        console.log(
-          "[AgentChat] Duplicate message skipped (exact match):",
-          contentKey.slice(0, 50),
-        );
-        continue;
-      }
-
-      if (roleKey === "assistant") {
-        // 检查 Response 部分匹配
-        if (seenContents.has(cleanContent)) {
-          console.log(
-            "[AgentChat] Duplicate message skipped (response match):",
-            cleanContent.slice(0, 50),
-          );
-          continue;
-        }
-
-        // 检查包含关系：已存在的消息是否包含当前消息的 Response 部分
-        let isDuplicate = false;
-        for (const seen of seenContents) {
-          if (seen.includes(cleanContent) || cleanContent.includes(seen)) {
-            console.log(
-              "[AgentChat] Duplicate message skipped (contains match):",
-              cleanContent.slice(0, 50),
-            );
-            isDuplicate = true;
-            break;
-          }
-        }
-        if (isDuplicate) {
-          continue;
-        }
-      }
-
-      seenContents.add(contentKey);
-      if (roleKey === "assistant") {
-        seenContents.add(cleanContent); // 同时记录 Response 部分
-      }
-      deduped.push(msg);
+      deduped.push(message);
+      previousKey = currentKey;
     }
 
     return deduped;
@@ -2636,7 +2656,7 @@ function SophiaChatContent() {
 
     try {
       const resp = await fetch(
-        `${apiBaseUrl}/api/agent/history/sessions/${sessionId}`,
+        buildSessionHistoryUrl(apiBaseUrl, sessionId),
         {
           headers: getAuthHeaders(),
         },
@@ -2813,11 +2833,18 @@ function SophiaChatContent() {
   }, [finalizeStream, saveCurrentSession, waitForPendingSave, navigate]);
 
   const handleSelectSession = useCallback(
-    (sessionId: string) => {
-      loadSession(sessionId);
+    async (sessionId: string) => {
+      if (!sessionId.trim()) {
+        void createNewSession();
+        setIsSidebarOpen(false);
+        return;
+      }
+      saveCurrentSession();
+      await waitForPendingSave();
+      navigate(`/agent/new?sessionId=${sessionId}`);
       setIsSidebarOpen(false);
     },
-    [loadSession],
+    [createNewSession, navigate, saveCurrentSession, waitForPendingSave],
   );
 
   const handleCreateSession = useCallback(() => {
@@ -3037,6 +3064,52 @@ function SophiaChatContent() {
     ],
   );
 
+  const handleJDResumeSaved = useCallback(
+    (saved: SavedResume) => {
+      const savedResumeData = withResumeMeta(saved, user?.id ?? null);
+      const targetId = jdTargetResume?.id || selectedResumeId || saved.id;
+      setResume(savedResumeData);
+      setResumeData(savedResumeData);
+      setSelectedResumeId(saved.id);
+      setLoadedResumes((prev) => {
+        const existingIndex = prev.findIndex((item) => item.id === targetId);
+        if (existingIndex >= 0) {
+          const next = [...prev];
+          next[existingIndex] = {
+            ...next[existingIndex],
+            id: saved.id,
+            name: saved.name,
+            resumeData: savedResumeData,
+          };
+          return next;
+        }
+        return [
+          ...prev,
+          {
+            id: saved.id,
+            name: saved.name,
+            messageId: `jd-resume-save-${Date.now()}`,
+            resumeData: savedResumeData,
+          },
+        ];
+      });
+      setResumePdfPreview((prev) => ({
+        ...prev,
+        [saved.id]: { ...EMPTY_RESUME_PDF_STATE },
+      }));
+      setAllowPdfAutoRender(true);
+      pushLocalMessages([
+        {
+          id: `jd-resume-saved-${Date.now()}`,
+          role: "assistant",
+          content: buildJDResumeSavedMessage(saved.name),
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    },
+    [jdTargetResume?.id, pushLocalMessages, selectedResumeId, setResume, user?.id],
+  );
+
   const handleUploadFile = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const selectedFiles = Array.from(event.target.files ?? []);
@@ -3188,6 +3261,30 @@ function SophiaChatContent() {
     setPendingAttachments([]);
     try {
       if (!hasAttachments) {
+        const jdIntent = detectJDIntent(userMessage);
+        if (jdIntent) {
+          pushLocalMessages([
+            {
+              id: `jd-intent-user-${Date.now()}`,
+              role: "user",
+              content: userMessage,
+              timestamp: new Date().toISOString(),
+            },
+            {
+              id: `jd-intent-assistant-${Date.now()}`,
+              role: "assistant",
+              content: buildJDIntentAcknowledgement(userMessage),
+              timestamp: new Date().toISOString(),
+            },
+          ]);
+          setIsJDAnalysisDrawerOpen(true);
+          setJdIntentDraft({
+            sourceType: jdIntent.sourceType,
+            value: jdIntent.value,
+            key: `${Date.now()}`,
+          });
+          return;
+        }
         await sendUserTextMessage(userMessage);
         return;
       }
@@ -3382,7 +3479,7 @@ function SophiaChatContent() {
       <div className="h-full bg-slate-50 dark:bg-slate-950 flex flex-col overflow-hidden">
         <div className="flex-1 flex overflow-hidden relative">
           {/* Left: Chat */}
-          <section className="flex-1 min-w-0 flex flex-col h-full">
+          <section className="relative flex-1 min-w-0 flex flex-col h-full">
             <CustomScrollbar as="main" className="flex-1 px-4 py-8 flex flex-col">
               <div className="max-w-3xl mx-auto w-full flex-1 flex flex-col">
                 {loadingResume && (
@@ -3437,6 +3534,7 @@ function SophiaChatContent() {
                             title: "岗位分析",
                             desc: "“分析这个 JD，看我的简历还需要补充什么？”",
                             color: "bg-blue-50 dark:bg-blue-900/20",
+                            onClick: () => setIsJDAnalysisDrawerOpen(true),
                           },
                           {
                             icon: (
@@ -3607,6 +3705,13 @@ function SophiaChatContent() {
                   (messages.length > 0 || Boolean(selectedResumeId)) && (
                   <div className="flex gap-2 mb-3">
                     <button
+                      onClick={() => setIsJDAnalysisDrawerOpen(true)}
+                      className="px-3 py-1.5 text-xs font-medium text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-full hover:bg-indigo-100 transition-colors flex items-center gap-1"
+                    >
+                      <Briefcase className="w-3 h-3" />
+                      JD 分析
+                    </button>
+                    <button
                       onClick={() => void sendUserTextMessage("帮我从招聘者的角度进行简历诊断")}
                       className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-100 rounded-full hover:bg-blue-100 transition-colors flex items-center gap-1"
                     >
@@ -3641,6 +3746,62 @@ function SophiaChatContent() {
                 />
               </div>
             </div>
+            <JDAnalysisDrawer
+              open={isJDAnalysisDrawerOpen}
+              resumeId={jdTargetResume?.id || null}
+              resumeData={jdTargetResumeData}
+              llmProfile={selectedAgentModel}
+              intentDraft={jdIntentDraft}
+              onClose={() => setIsJDAnalysisDrawerOpen(false)}
+              onRequestResume={() => setShowResumeSelector(true)}
+              onSaveJD={(jd) => {
+                pushLocalMessages([
+                  {
+                    id: `jd-saved-${Date.now()}`,
+                    role: "assistant",
+                    content: buildJDSavedMessage(jd),
+                    timestamp: new Date().toISOString(),
+                  },
+                ]);
+              }}
+              onAnalysisStart={(jd) => {
+                pushLocalMessages([
+                  {
+                    id: `jd-run-user-${Date.now()}`,
+                    role: "user",
+                    content: buildJDRunUserMessage(jd),
+                    timestamp: new Date().toISOString(),
+                  },
+                  {
+                    id: `jd-run-start-${Date.now()}`,
+                    role: "assistant",
+                    content: buildJDAnalysisStartMessage(jd),
+                    timestamp: new Date().toISOString(),
+                  },
+                ]);
+              }}
+              onAnalysisResult={(jd, analysisResult) => {
+                pushLocalMessages([
+                  {
+                    id: `jd-run-result-${Date.now()}`,
+                    role: "assistant",
+                    content: buildJDAnalysisResultMessage(jd, analysisResult),
+                    timestamp: new Date().toISOString(),
+                  },
+                ]);
+              }}
+              onAnalysisError={(jd, message) => {
+                pushLocalMessages([
+                  {
+                    id: `jd-run-error-${Date.now()}`,
+                    role: "assistant",
+                    content: buildJDAnalysisErrorMessage(jd, message),
+                    timestamp: new Date().toISOString(),
+                  },
+                ]);
+              }}
+              onResumeSaved={handleJDResumeSaved}
+            />
           </section>
 
           {/* Right: Resume Preview - 只在有选中简历时显示 */}

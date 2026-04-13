@@ -2,21 +2,23 @@
 Alembic 环境配置
 """
 from __future__ import with_statement
-import os
+
 import sys
 from logging.config import fileConfig
 from pathlib import Path
 
+from alembic import context
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
-from alembic import context
-
-# 让 alembic 能找到项目代码
+# 让 alembic 能找到项目代码，并统一走 backend.* 导入路径
 CURRENT_DIR = Path(__file__).resolve().parent
-PROJECT_ROOT = CURRENT_DIR.parent
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+BACKEND_DIR = CURRENT_DIR.parent
+PROJECT_ROOT = BACKEND_DIR.parent
+for path in (PROJECT_ROOT, BACKEND_DIR):
+    path_str = str(path)
+    if path_str not in sys.path:
+        sys.path.insert(0, path_str)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -28,8 +30,14 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # 导入数据库配置和模型
-from database import Base, DATABASE_URL  # noqa: E402
-import models  # noqa: F401, E402  确保模型被加载
+try:
+    from backend.database import Base, DATABASE_URL  # noqa: E402
+    import backend.models  # noqa: F401, E402
+    import backend.jd_models  # noqa: F401, E402
+except ImportError:
+    from database import Base, DATABASE_URL  # noqa: E402
+    import models  # noqa: F401, E402
+    import jd_models  # noqa: F401, E402
 
 # Set SQLAlchemy URL from explicit config override first, then fall back to runtime DATABASE_URL.
 configured_database_url = config.attributes.get("configured_database_url") or DATABASE_URL

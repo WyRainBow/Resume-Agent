@@ -80,6 +80,7 @@ logos_router = routes_module.logos_router
 school_logos_router = routes_module.school_logos_router
 photos_router = routes_module.photos_router
 asr_router = routes_module.asr_router
+jds_router = routes_module.jds_router
 semantic_search_router = routes_module.semantic_search_router
 
 # 初始化 FastAPI 应用
@@ -123,6 +124,7 @@ logger.info(
 )
 app.include_router(photos_router)
 app.include_router(asr_router)
+app.include_router(jds_router)
 app.include_router(semantic_search_router)
 
 # 注册 OpenManus 路由（合并后）

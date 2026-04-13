@@ -1,79 +1,104 @@
-import React, { createContext, useContext, useState, useCallback } from 'react'
+import React, { createContext, useCallback, useContext, useState } from 'react'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
+import { saveResumeStrict } from '@/services/resumeStorage'
+import type { SavedResume } from '@/services/storage/StorageAdapter'
 import { applyPatchPaths } from '@/utils/resumePatch'
-import { saveResume } from '@/services/resumeStorage'
 
 export interface PendingPatch {
-  patch_id:   string
+  patch_id: string
   message_id: string
-  paths:      string[]
-  before:     Record<string, any>
-  after:      Record<string, any>
-  summary:    string
-  status:     'pending' | 'applied' | 'rejected'
+  paths: string[]
+  before: Record<string, any>
+  after: Record<string, any>
+  summary: string
+  status: 'pending' | 'applied' | 'rejected'
 }
 
 interface ResumeContextValue {
-  resume:         ResumeData | null
+  resume: ResumeData | null
   pendingPatches: PendingPatch[]
-  patchAppliedAt: number        // timestamp bumped after each applyPatch — lets consumers trigger PDF re-render
-  setResume:      (r: ResumeData | null) => void
-  pushPatch:      (patch: Omit<PendingPatch, 'status'>) => void
-  applyPatch:     (patch_id: string) => void
-  rejectPatch:    (patch_id: string) => void
+  patchAppliedAt: number
+  setResume: (resume: ResumeData | null) => void
+  pushPatch: (patch: Omit<PendingPatch, 'status'>) => void
+  applyPatch: (patchId: string) => void
+  applyPatchDraft: (patch: Omit<PendingPatch, 'status'>) => void
+  rejectPatch: (patchId: string) => void
+  saveResumeDraft: () => Promise<SavedResume | null>
 }
 
 const ResumeContext = createContext<ResumeContextValue | null>(null)
+
+function applyPatchToResume(
+  current: ResumeData,
+  patch: Omit<PendingPatch, 'status'>,
+): ResumeData {
+  return applyPatchPaths(current, patch.paths, patch.after) as ResumeData
+}
 
 export function ResumeProvider({ children }: { children: React.ReactNode }) {
   const [resume, setResumeState] = useState<ResumeData | null>(null)
   const [pendingPatches, setPendingPatches] = useState<PendingPatch[]>([])
   const [patchAppliedAt, setPatchAppliedAt] = useState(0)
 
-  const persistResume = useCallback((payload: ResumeData) => {
-    const resumeId = (payload as any).resume_id ?? (payload as any).id
-    void saveResume(payload, resumeId || undefined).catch((error) => {
-      console.error('[ResumeContext] 保存简历失败:', error)
-    })
+  const setResume = useCallback((nextResume: ResumeData | null) => {
+    setResumeState(nextResume)
   }, [])
-
-  const setResume = useCallback((newResume: ResumeData | null) => {
-    if (!newResume) { setResumeState(null); return }
-    persistResume(newResume)
-    setResumeState(newResume)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persistResume])
 
   const pushPatch = useCallback((patch: Omit<PendingPatch, 'status'>) => {
-    setPendingPatches(prev => [...prev, { ...patch, status: 'pending' }])
+    setPendingPatches((prev) => [...prev, { ...patch, status: 'pending' }])
   }, [])
 
-  const applyPatch = useCallback((patch_id: string) => {
-    setPendingPatches(prev => {
-      const patch = prev.find(p => p.patch_id === patch_id)
-      if (!patch) return prev
-      setResumeState(current => {
+  const applyPatch = useCallback((patchId: string) => {
+    setPendingPatches((prev) => {
+      const target = prev.find((item) => item.patch_id === patchId)
+      if (!target) return prev
+      setResumeState((current) => {
         if (!current) return current
-        const updated = applyPatchPaths(current, patch.paths, patch.after) as ResumeData
-        persistResume(updated)
-        return updated
+        return applyPatchToResume(current, target)
       })
-      return prev.map(p => p.patch_id === patch_id ? { ...p, status: 'applied' } : p)
+      return prev.map((item) =>
+        item.patch_id === patchId ? { ...item, status: 'applied' } : item,
+      )
     })
     setPatchAppliedAt(Date.now())
-  }, [persistResume])
+  }, [])
 
-  const rejectPatch = useCallback((patch_id: string) => {
-    setPendingPatches(prev =>
-      prev.map(p => p.patch_id === patch_id ? { ...p, status: 'rejected' } : p)
+  const applyPatchDraft = useCallback((patch: Omit<PendingPatch, 'status'>) => {
+    setResumeState((current) => {
+      if (!current) return current
+      return applyPatchToResume(current, patch)
+    })
+    setPatchAppliedAt(Date.now())
+  }, [])
+
+  const rejectPatch = useCallback((patchId: string) => {
+    setPendingPatches((prev) =>
+      prev.map((item) =>
+        item.patch_id === patchId ? { ...item, status: 'rejected' } : item,
+      ),
     )
   }, [])
 
+  const saveResumeDraft = useCallback(async () => {
+    if (!resume) return null
+    const resumeId = (resume as any).resume_id ?? (resume as any).id
+    return await saveResumeStrict(resume, resumeId || undefined)
+  }, [resume])
+
   return (
-    <ResumeContext.Provider value={{
-      resume, pendingPatches, patchAppliedAt,
-      setResume, pushPatch, applyPatch, rejectPatch,
-    }}>
+    <ResumeContext.Provider
+      value={{
+        resume,
+        pendingPatches,
+        patchAppliedAt,
+        setResume,
+        pushPatch,
+        applyPatch,
+        applyPatchDraft,
+        rejectPatch,
+        saveResumeDraft,
+      }}
+    >
       {children}
     </ResumeContext.Provider>
   )
