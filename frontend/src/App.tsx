@@ -4,6 +4,7 @@ import { AuthModal } from './components/AuthModal'
 import { ThemeInit } from './components/ThemeInit'
 import ErrorBoundary from './ErrorBoundary'
 import { canUseAgentFeature, canUseAdminFeature } from './lib/runtimeEnv'
+import { useAuth } from './contexts/AuthContext'
 import ResumeDashboard from './pages/ResumeDashboard'
 import { ResumeProvider } from './contexts/ResumeContext'
 
@@ -30,9 +31,14 @@ function RouteFallback() {
 }
 
 function App() {
-  const canUseAgent = canUseAgentFeature()
-  const canUseAdmin = canUseAdminFeature()
+  // 订阅 AuthContext，确保登录/登出后路由权限会更新
+  const { isAuthenticated, loading: authLoading } = useAuth()
+  const canUseAgent = !authLoading && isAuthenticated && canUseAgentFeature()
+  const canUseAdmin = !authLoading && isAuthenticated && canUseAdminFeature()
   try {
+    if (authLoading) {
+      return <RouteFallback />
+    }
     return (
       <ErrorBoundary>
         <ResumeProvider>
