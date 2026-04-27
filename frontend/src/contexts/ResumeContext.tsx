@@ -32,6 +32,7 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
 
   const persistResume = useCallback((payload: ResumeData) => {
     const resumeId = (payload as any).resume_id ?? (payload as any).id
+    if (!resumeId) return
     void saveResume(payload, resumeId || undefined).catch((error) => {
       console.error('[ResumeContext] 保存简历失败:', error)
     })
@@ -39,10 +40,9 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
 
   const setResume = useCallback((newResume: ResumeData | null) => {
     if (!newResume) { setResumeState(null); return }
-    persistResume(newResume)
     setResumeState(newResume)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persistResume])
+  }, [])
 
   const pushPatch = useCallback((patch: Omit<PendingPatch, 'status'>) => {
     setPendingPatches(prev => [...prev, { ...patch, status: 'pending' }])

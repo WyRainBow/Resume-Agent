@@ -4,7 +4,7 @@
  */
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { Loader2, Sparkles, Send, X, Check, Eye } from 'lucide-react'
-import { rewriteTextStream } from '../../../../services/api'
+import { rewriteTextStream, detectRewriteTextIntent, type RewriteTextIntent } from '../../../../services/api'
 import type { Editor } from '@tiptap/core'
 import { DOMParser as ProseMirrorDOMParser } from 'prosemirror-model'
 
@@ -12,13 +12,23 @@ interface SelectionPolishBubbleProps {
   editor: Editor
   polishPath: string
   bubbleActiveRef: React.MutableRefObject<boolean>
+  selectionSnapshotRef: React.MutableRefObject<{ from: number; to: number; text: string; html: string } | null>
+  onLockSelection: (selection: { from: number; to: number }) => void
+  onUnlockSelection: () => void
 }
 
 export default function SelectionPolishBubble({
   editor,
   polishPath,
   bubbleActiveRef,
+  selectionSnapshotRef,
+  onLockSelection,
+  onUnlockSelection,
 }: SelectionPolishBubbleProps) {
+  const logSelectionBubbleDebug = (event: string, data?: Record<string, unknown>) => {
+    console.log(`[SELECTION LOCK DEBUG][Bubble][${event}]`, data || {})
+  }
+
   type ChatMessage = {
     id: string
     type: 'original' | 'user' | 'ai'
@@ -37,8 +47,8 @@ export default function SelectionPolishBubble({
   const rootRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const abortRef = useRef<AbortController | null>(null)
-  const selectionSnapshotRef = useRef<{ from: number; to: number; text: string; html: string } | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const insidePointerRef = useRef(false)
 
   const isRemoveBoldInstruction = (value: string): boolean => {
     const normalized = value.trim().toLowerCase()
@@ -69,11 +79,91 @@ export default function SelectionPolishBubble({
     return normalized.includes('技术关键词') && normalized.includes('加粗')
   }
 
+  const isSelectiveBoldInstruction = (value: string): boolean => {
+    const normalized = value.trim().toLowerCase()
+    if (!normalized) return false
+    if (!normalized.includes('加粗') && !normalized.includes('加黑') && !normalized.includes('bold')) return false
+    return (
+      normalized.includes('一些') ||
+      normalized.includes('有些') ||
+      normalized.includes('部分') ||
+      normalized.includes('重点') ||
+      normalized.includes('关键词') ||
+      normalized.includes('你觉得') ||
+      normalized.includes('挑') ||
+      normalized.includes('该加粗')
+    )
+  }
+
+  const isExplicitFullBoldInstruction = (value: string): boolean => {
+    const normalized = value.trim().toLowerCase()
+    if (!normalized) return false
+    if (!normalized.includes('加粗') && !normalized.includes('加黑') && !normalized.includes('bold')) return false
+    return (
+      normalized.includes('全部') ||
+      normalized.includes('整段') ||
+      normalized.includes('全段') ||
+      normalized.includes('整体') ||
+      normalized.includes('通篇') ||
+      normalized.includes('所有')
+    )
+  }
+
   const shouldBoldAll = (value: string): boolean => {
     const normalized = value.trim().toLowerCase()
     if (!normalized) return false
     if (isRemoveBoldInstruction(normalized)) return false
+    if (isSelectiveBoldInstruction(normalized)) return false
+    if (isExplicitFullBoldInstruction(normalized)) return true
     return normalized.includes('加粗') || normalized.includes('加黑') || normalized.includes('bold')
+  }
+
+  const isDirectFormatInstruction = (value: string): boolean => {
+    const normalized = value.trim()
+    if (!normalized) return false
+    return (
+      shouldBoldAll(normalized) ||
+      isRemoveBoldInstruction(normalized) ||
+      shouldConvertUlToOl(normalized)
+    )
+  }
+
+  const localFallbackIntents = (instruction: string): RewriteTextIntent[] => {
+    const normalized = instruction.trim()
+    const hasRewriteIntent =
+      normalized.includes('优化') ||
+      normalized.includes('润色') ||
+      normalized.includes('改写') ||
+      normalized.includes('更专业') ||
+      normalized.includes('更简洁') ||
+      normalized.includes('重写')
+    if (isRemoveBoldInstruction(normalized)) return ['remove_bold']
+    if (shouldConvertUlToOl(normalized)) return ['list_transform']
+    if (isSelectiveBoldInstruction(normalized)) return hasRewriteIntent ? ['rewrite', 'selective_bold'] : ['selective_bold']
+    if (shouldBoldAll(normalized)) return hasRewriteIntent ? ['rewrite', 'full_bold'] : ['full_bold']
+    return ['rewrite']
+  }
+
+  const detectIntents = async (instruction: string, baseText: string): Promise<RewriteTextIntent[]> => {
+    try {
+      const result = await detectRewriteTextIntent(baseText, instruction, polishPath)
+      if (Array.isArray(result?.intents) && result.intents.length > 0) {
+        return result.intents
+      }
+      if (result?.intent) return [result.intent]
+    } catch {
+      // ignore and fallback to local rules
+    }
+    return localFallbackIntents(instruction)
+  }
+
+  const intentInstructionPatch = (intents: RewriteTextIntent[], instruction: string): string[] => {
+    const patched = [instruction]
+    if (intents.includes('remove_bold')) patched.push('取消加粗')
+    if (intents.includes('list_transform')) patched.push('无序列表改成有序列表')
+    if (intents.includes('selective_bold')) patched.push('挑重点加粗，优先技术关键词和数字指标')
+    if (intents.includes('full_bold')) patched.push('全部加粗')
+    return patched
   }
 
   const stripBoldMarkup = (html: string): string => {
@@ -216,6 +306,67 @@ export default function SelectionPolishBubble({
     return root.innerHTML
   }
 
+  const inferKeywordsFromHtml = (html: string): string[] => {
+    if (!html) return []
+    const text = html
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (!text) return []
+
+    const keywords = new Set<string>()
+
+    const chineseTechTerms = [
+      '高风险SQL',
+      'SQL',
+      '慢查询',
+      '执行计划',
+      '索引',
+      '联合索引',
+      '覆盖索引',
+      'JOIN',
+      'API',
+      '毫秒级',
+      '毫秒',
+      '游标分页',
+      '深分页',
+      '全表扫描',
+      '读写分离',
+      '只读实例',
+      'RO',
+      '主库',
+      '缓存',
+      '并发',
+      '链路',
+      '架构',
+      'SLA',
+      'QPS',
+      '延迟',
+    ]
+
+    for (const term of chineseTechTerms) {
+      if (text.includes(term)) keywords.add(term)
+    }
+
+    const metricMatches = text.match(/\d+(?:\.\d+)?(?:%|\+|ms|s|秒|万|百万|亿|条|行|倍|个|年|月)/gi) || []
+    metricMatches.forEach((m) => keywords.add(m))
+
+    const enTokens = text.match(/\b[A-Za-z][A-Za-z0-9.+#/-]{1,24}\b/g) || []
+    for (const token of enTokens) {
+      const lower = token.toLowerCase()
+      if (
+        token === token.toUpperCase() ||
+        ['mysql', 'redis', 'kafka', 'docker', 'kubernetes', 'spring', 'java', 'python', 'golang'].includes(lower)
+      ) {
+        keywords.add(token)
+      }
+    }
+
+    return Array.from(keywords)
+      .filter((v) => v.length >= 2)
+      .sort((a, b) => b.length - a.length)
+  }
+
   const convertUlToOl = (html: string): string => {
     if (!html) return html
     return html
@@ -271,7 +422,10 @@ export default function SelectionPolishBubble({
       result = convertUlToOl(result)
     }
 
-    const keywords = extractBoldKeywords(instructions)
+    let keywords = extractBoldKeywords(instructions)
+    if (keywords.length === 0 && isSelectiveBoldInstruction(merged)) {
+      keywords = inferKeywordsFromHtml(result)
+    }
     if (keywords.length > 0) {
       result = boldKeywordsInHtml(result, keywords)
     } else if (shouldBoldAll(merged)) {
@@ -297,26 +451,44 @@ export default function SelectionPolishBubble({
     }
 
     if (plainText.trim()) {
+      logSelectionBubbleDebug('mount-snapshot', {
+        from,
+        to,
+        textLength: plainText.length,
+      })
       selectionSnapshotRef.current = {
         from,
         to,
         text: plainText,
         html: html || plainText,
       }
+      onLockSelection({ from, to })
+    } else {
+      if (selectionSnapshotRef.current?.text?.trim()) {
+        logSelectionBubbleDebug('mount-empty-selection-keep-snapshot', {
+          from: selectionSnapshotRef.current.from,
+          to: selectionSnapshotRef.current.to,
+          textLength: selectionSnapshotRef.current.text.length,
+        })
+      } else {
+        logSelectionBubbleDebug('mount-empty-selection')
+      }
     }
     bubbleActiveRef.current = true
 
     const timer = setTimeout(() => {
+      logSelectionBubbleDebug('focus-input')
       inputRef.current?.focus()
     }, 50)
 
     return () => {
+      logSelectionBubbleDebug('unmount-bubble')
       bubbleActiveRef.current = false
       clearTimeout(timer)
     }
-  }, [bubbleActiveRef, editor])
+  }, [bubbleActiveRef, editor, onLockSelection, onUnlockSelection, selectionSnapshotRef])
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const instruction = input.trim()
     if (!instruction || isStreaming) return
 
@@ -328,10 +500,26 @@ export default function SelectionPolishBubble({
     if (!selectedText.trim()) return
 
     setInput('')
-    setIsStreaming(true)
     setError(null)
     bubbleActiveRef.current = true
 
+    const intents = await detectIntents(instruction, selectedHtml)
+    const needsRewrite = intents.includes('rewrite')
+
+    if (!needsRewrite) {
+      const normalized = applyInstructionTransforms(selectedHtml, intentInstructionPatch(intents, instruction))
+      setLatestPolished(normalized)
+      setChatMessages([
+        { id: `o-${Date.now()}`, type: 'original', content: selectedHtml },
+        { id: `u-${Date.now()}`, type: 'user', content: instruction },
+        { id: `a-${Date.now()}`, type: 'ai', content: normalized },
+      ])
+      setChatOpen(true)
+      bubbleActiveRef.current = false
+      return
+    }
+
+    setIsStreaming(true)
     abortRef.current?.abort()
     abortRef.current = new AbortController()
 
@@ -347,7 +535,10 @@ export default function SelectionPolishBubble({
       () => {
         setIsStreaming(false)
         if (fullContent.trim()) {
-          const normalized = normalizeMarkdownBoldToHtml(fullContent)
+          let normalized = normalizeMarkdownBoldToHtml(fullContent)
+          if (intents.some((intent) => intent !== 'rewrite')) {
+            normalized = applyInstructionTransforms(normalized, intentInstructionPatch(intents, instruction))
+          }
           setLatestPolished(normalized)
           setChatMessages([
             { id: `o-${Date.now()}`, type: 'original', content: selectedHtml },
@@ -376,12 +567,26 @@ export default function SelectionPolishBubble({
     })
   }, [chatOpen, chatMessages, chatStreaming])
 
-  const sendFollowup = useCallback(() => {
+  const sendFollowup = useCallback(async () => {
     const instruction = chatInput.trim()
     if (!instruction || chatStreaming) return
 
     const baseText = latestPolished || selectionSnapshotRef.current?.html || selectionSnapshotRef.current?.text || ''
     if (!baseText.trim()) return
+
+    const intents = await detectIntents(instruction, baseText)
+    const needsRewrite = intents.includes('rewrite')
+    if (!needsRewrite) {
+      const normalized = applyInstructionTransforms(baseText, intentInstructionPatch(intents, instruction))
+      setChatInput('')
+      setLatestPolished(normalized)
+      setChatMessages((prev) => [
+        ...prev,
+        { id: `u-${Date.now()}`, type: 'user', content: instruction },
+        { id: `a-${Date.now()}`, type: 'ai', content: normalized, isStreaming: false },
+      ])
+      return
+    }
 
     const aiId = `a-${Date.now()}`
     setChatInput('')
@@ -409,7 +614,10 @@ export default function SelectionPolishBubble({
       () => {
         setChatStreaming(false)
         if (full.trim()) {
-          const normalized = normalizeMarkdownBoldToHtml(full)
+          let normalized = normalizeMarkdownBoldToHtml(full)
+          if (intents.some((intent) => intent !== 'rewrite')) {
+            normalized = applyInstructionTransforms(normalized, intentInstructionPatch(intents, instruction))
+          }
           setLatestPolished(normalized)
           setChatMessages((prev) =>
             prev.map((m) => (m.id === aiId ? { ...m, content: normalized, isStreaming: false } : m)),
@@ -439,94 +647,115 @@ export default function SelectionPolishBubble({
     if (e.key === 'Escape') {
       e.preventDefault()
       bubbleActiveRef.current = false
+      selectionSnapshotRef.current = null
+      onUnlockSelection()
       editor.commands.focus()
     }
   }
 
   const markActive = () => {
+    logSelectionBubbleDebug('mark-active')
+    insidePointerRef.current = true
+    setTimeout(() => {
+      insidePointerRef.current = false
+    }, 150)
     bubbleActiveRef.current = true
   }
 
   const handleApplyPreview = () => {
     const snapshot = selectionSnapshotRef.current
-    if (!snapshot || !latestPolished.trim()) {
+    const fallbackSnapshot = (() => {
+      const { from, to } = editor.state.selection
+      const text = editor.state.doc.textBetween(from, to, '\n')
+      if (!text.trim()) return null
+      return { from, to, text, html: text }
+    })()
+    const effectiveSnapshot = snapshot || fallbackSnapshot
+    const fallbackPolished = [...chatMessages]
+      .reverse()
+      .find((m) => m.type === 'ai' && (m.content || '').trim())?.content || ''
+    const effectivePolished = (latestPolished || fallbackPolished || '').trim()
+
+    if (!effectiveSnapshot || !effectivePolished) {
       setChatOpen(false)
       bubbleActiveRef.current = false
+      selectionSnapshotRef.current = null
+      onUnlockSelection()
       return
     }
     const instructions = chatMessages.filter((m) => m.type === 'user').map((m) => m.content)
-    const finalContent = applyInstructionTransforms(latestPolished, instructions)
+    const finalContent = applyInstructionTransforms(effectivePolished, instructions)
     if (!finalContent.trim()) {
       setError('改写内容为空，无法应用')
       return
     }
 
-    const { from, to } = snapshot
-    const merged = instructions.join(' ')
-
-    // 判断是否为纯格式变更（文字内容没变）
-    const originalPlain = snapshot.text.replace(/\s+/g, ' ').trim()
-    const tempDiv = document.createElement('div')
-    tempDiv.innerHTML = finalContent
-    const finalPlain = (tempDiv.textContent || '').replace(/\s+/g, ' ').trim()
-    const isFormatOnly = originalPlain === finalPlain
-
-    const wantBold = shouldBoldAll(merged) && !isRemoveBoldInstruction(merged)
-    const wantUnbold = isRemoveBoldInstruction(merged)
+    const { from, to } = effectiveSnapshot
 
     // 先关闭弹窗，让编辑器恢复焦点后再操作
     setChatOpen(false)
     bubbleActiveRef.current = false
+    selectionSnapshotRef.current = null
+    onUnlockSelection()
 
     requestAnimationFrame(() => {
-      if (isFormatOnly && wantBold) {
-        // 纯加粗：复用工具栏 toggleBold 机制
-        editor.chain()
-          .focus()
-          .setTextSelection({ from, to })
-          .setBold()
-          .run()
-      } else if (isFormatOnly && wantUnbold) {
-        // 纯去粗
-        editor.chain()
-          .focus()
-          .setTextSelection({ from, to })
-          .unsetBold()
-          .run()
-      } else {
-        // 文字内容有变化：用 ProseMirror 事务替换
-        const { state } = editor
-        const container = document.createElement('div')
-        container.innerHTML = finalContent
-        const parser = ProseMirrorDOMParser.fromSchema(state.schema)
-        const parsedSlice = parser.parseSlice(container, {
-          preserveWhitespace: true,
-          context: state.doc.resolve(from),
-        })
-        if (parsedSlice.content.size > 0) {
-          const tr = state.tr.replaceRange(from, to, parsedSlice)
-          if (tr.docChanged) {
-            editor.view.dispatch(tr.scrollIntoView())
-          }
+      // 统一按最终 HTML 结果替换选区，避免 setBold/unsetBold 受选区状态影响导致样式未落地
+      const { state } = editor
+      const container = document.createElement('div')
+      container.innerHTML = finalContent
+      const parser = ProseMirrorDOMParser.fromSchema(state.schema)
+      const parsedSlice = parser.parseSlice(container, {
+        preserveWhitespace: true,
+        context: state.doc.resolve(from),
+      })
+      if (parsedSlice.content.size > 0) {
+        const tr = state.tr.replaceRange(from, to, parsedSlice)
+        if (tr.docChanged) {
+          editor.view.dispatch(tr.scrollIntoView())
+        } else {
+          console.warn('[POLISH APPLY] transaction not changed')
         }
+      } else {
+        console.warn('[POLISH APPLY] parsedSlice empty')
       }
     })
   }
 
   const handleCancelPreview = () => {
+    logSelectionBubbleDebug('cancel-preview')
     setChatOpen(false)
     bubbleActiveRef.current = false
+    selectionSnapshotRef.current = null
+    onUnlockSelection()
     editor.commands.focus()
   }
 
   const markInactiveIfOutside = () => {
+    if (insidePointerRef.current) {
+      logSelectionBubbleDebug('mark-inactive-skip-inside-pointer')
+      bubbleActiveRef.current = true
+      return
+    }
     const root = rootRef.current
     if (!root) {
+      logSelectionBubbleDebug('inactive-no-root')
       bubbleActiveRef.current = false
       return
     }
     const activeEl = document.activeElement
     bubbleActiveRef.current = !!(activeEl && root.contains(activeEl))
+    logSelectionBubbleDebug('mark-inactive-check', {
+      activeElementTag: (activeEl as HTMLElement | null)?.tagName || null,
+      activeElementClass: (activeEl as HTMLElement | null)?.className || null,
+      keepActive: bubbleActiveRef.current,
+      isStreaming,
+      chatOpen,
+    })
+    if (!bubbleActiveRef.current) {
+      // 不在 blur 阶段解锁，避免点击气泡输入框时选区高亮被误清除。
+      // 解锁统一交给：外部点击 / 取消 / 应用改写 / Esc。
+      logSelectionBubbleDebug('inactive-defer-unlock')
+    }
   }
 
   return (
@@ -534,34 +763,55 @@ export default function SelectionPolishBubble({
       <div
         ref={rootRef}
         className="ai-polish-bubble"
+        onPointerDownCapture={markActive}
+        onMouseDownCapture={markActive}
         onMouseEnter={markActive}
         onFocusCapture={markActive}
         onKeyDownCapture={(e) => e.stopPropagation()}
-      onBlurCapture={() => {
-        if (isStreaming || chatOpen) {
-          bubbleActiveRef.current = true
-          return
-        }
+        onBlurCapture={() => {
+          if (isStreaming || chatOpen) {
+            bubbleActiveRef.current = true
+            return
+          }
           setTimeout(markInactiveIfOutside, 0)
         }}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center gap-2">
-          <div className="flex items-center justify-center w-6 h-6 rounded-md bg-gradient-to-br from-violet-500 to-purple-600 shrink-0">
-            <Sparkles className="w-3.5 h-3.5 text-white" />
+        <div className="flex items-center gap-3 min-w-0 w-full">
+          <div
+            className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0 border border-slate-300/80 bg-slate-100 shadow-sm dark:border-slate-600 dark:bg-slate-700"
+            aria-hidden
+          >
+            <Sparkles className="w-[17px] h-[17px] text-slate-800 dark:text-slate-100" strokeWidth={2.2} />
           </div>
-          <div className="flex flex-col leading-none mr-1 shrink-0">
-            <span className="text-[11px] font-semibold text-violet-700 dark:text-violet-300">AI 改写</span>
-            <span className="text-[10px] text-violet-400 dark:text-violet-500">划词优化</span>
+          <div className="flex flex-col justify-center gap-0.5 mr-0.5 shrink-0 min-w-[4.5rem]">
+            <span className="text-[13px] font-semibold tracking-wide text-slate-900 dark:text-slate-50 leading-none">
+              AI 改写
+            </span>
+            <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-none tracking-wide">
+              划词优化
+            </span>
           </div>
           <input
             ref={inputRef}
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onFocus={() => {
+              logSelectionBubbleDebug('input-focus', {
+                hasSnapshot: !!selectionSnapshotRef.current,
+                bubbleActive: bubbleActiveRef.current,
+              })
+            }}
+            onBlur={() => {
+              logSelectionBubbleDebug('input-blur', {
+                hasSnapshot: !!selectionSnapshotRef.current,
+                bubbleActive: bubbleActiveRef.current,
+              })
+            }}
             onKeyDown={handleKeyDown}
-            placeholder="输入 AI 改写指令，如：更专业..."
+            placeholder=" 输入改写指令例如：更专业..."
             disabled={isStreaming}
             className="ai-polish-input"
           />
@@ -586,9 +836,12 @@ export default function SelectionPolishBubble({
       </div>
 
       {chatOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40" onClick={handleCancelPreview}>
+        <div
+          className="selection-polish-chat fixed inset-0 z-[60] flex items-center justify-center bg-black/40"
+          onClick={handleCancelPreview}
+        >
           <div
-            className="bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 w-full max-w-3xl mx-4 max-h-[85vh] overflow-hidden flex flex-col"
+            className="selection-polish-chat bg-white dark:bg-neutral-900 rounded-xl shadow-2xl border border-neutral-200 dark:border-neutral-800 w-full max-w-3xl mx-4 max-h-[85vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-200 dark:border-neutral-800">

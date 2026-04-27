@@ -3,11 +3,13 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthModal } from './components/AuthModal'
 import { ThemeInit } from './components/ThemeInit'
 import ErrorBoundary from './ErrorBoundary'
-import { canUseAgentFeature } from './lib/runtimeEnv'
+import { canUseAgentFeature, canUseAdminFeature } from './lib/runtimeEnv'
+import { useAuth } from './contexts/AuthContext'
 import ResumeDashboard from './pages/ResumeDashboard'
 import { ResumeProvider } from './contexts/ResumeContext'
 
 const AgentChat = lazy(() => import('./pages/AgentChat/SophiaChat'))
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
 const CreateNew = lazy(() => import('./pages/CreateNew'))
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const LoginPage = lazy(() => import('./pages/Login'))
@@ -29,8 +31,14 @@ function RouteFallback() {
 }
 
 function App() {
-  const canUseAgent = canUseAgentFeature()
+  // 订阅 AuthContext，确保登录/登出后路由权限会更新
+  const { isAuthenticated, loading: authLoading } = useAuth()
+  const canUseAgent = !authLoading && isAuthenticated && canUseAgentFeature()
+  const canUseAdmin = !authLoading && isAuthenticated && canUseAdminFeature()
   try {
+    if (authLoading) {
+      return <RouteFallback />
+    }
     return (
       <ErrorBoundary>
         <ResumeProvider>
@@ -64,6 +72,11 @@ function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/my-resumes" element={<ResumeDashboard />} />
               <Route path="/settings" element={<SettingsPage />} />
+              {canUseAdmin ? (
+                <Route path="/admin" element={<AdminDashboard />} />
+              ) : (
+                <Route path="/admin" element={<Navigate to="/workspace" replace />} />
+              )}
               <Route path="/create-new" element={<CreateNew />} />
               <Route path="/share/:shareId" element={<SharePage />} />
             </Routes>

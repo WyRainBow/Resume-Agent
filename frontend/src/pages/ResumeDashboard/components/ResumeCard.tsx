@@ -7,7 +7,7 @@ import { FileText, Trash2 } from './Icons'
 import { cn } from '@/lib/utils'
 import type { SavedResume } from '@/services/resumeStorage'
 
-// 格式化时间为 年/月/日 时:分:秒
+// 格式化时间为 年/月/日 时:分
 const formatDateTime = (timestamp: number): string => {
   const date = new Date(timestamp)
   const year = date.getFullYear()
@@ -15,8 +15,7 @@ const formatDateTime = (timestamp: number): string => {
   const day = String(date.getDate()).padStart(2, '0')
   const hours = String(date.getHours()).padStart(2, '0')
   const minutes = String(date.getMinutes()).padStart(2, '0')
-  const seconds = String(date.getSeconds()).padStart(2, '0')
-  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`
+  return `${year}/${month}/${day} ${hours}:${minutes}`
 }
 
 interface ResumeCardProps {
@@ -123,14 +122,14 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
 
       <Card
         className={cn(
-          "relative overflow-visible border border-slate-200/60 transition-all duration-300 h-[380px] flex flex-col rounded-2xl",
+          "relative overflow-visible border border-slate-200/60 transition-all duration-300 min-h-[380px] flex flex-col rounded-2xl",
           "bg-white dark:bg-slate-900/40 backdrop-blur-xl",
           "shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.2)]",
           "hover:shadow-[0_20px_40px_rgba(0,0,0,0.08)] dark:hover:shadow-[0_20px_40px_rgba(0,0,0,0.3)]",
           isMultiSelectMode && isSelected && "ring-2 ring-slate-900"
         )}
       >
-        <CardContent className="relative flex-1 pt-12 text-center flex flex-col items-center z-10">
+        <CardContent className="relative flex-1 min-h-0 pt-12 text-center flex flex-col items-center z-10">
           <motion.div
             className="mb-6 p-6 rounded-[24px] bg-slate-50 dark:bg-slate-800/50 text-slate-900 dark:text-white shadow-sm border border-slate-100 dark:border-slate-800"
             whileHover={{ scale: 1.05, rotate: 5 }}
@@ -184,22 +183,22 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
             <div className="flex items-center justify-center gap-1.5">
               <span>创建时间</span>
               <span className="text-slate-300 dark:text-slate-700">/</span>
-              <span>{formatDateTime(resume.createdAt).split(' ')[0]}</span>
+              <span>{formatDateTime(resume.createdAt)}</span>
             </div>
             <div className="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-              <span>更新时间 {formatDateTime(resume.updatedAt).split(' ')[0]}</span>
+              <span>更新时间 {formatDateTime(resume.updatedAt)}</span>
             </div>
           </div>
         </CardContent>
 
-        <CardFooter className="relative z-10 pt-0 pb-6 px-6 gap-3">
+        <CardFooter className="relative z-10 mt-auto pt-0 pb-6 px-4 gap-2 flex-nowrap">
           {/* 置顶按钮 */}
           {onTogglePin && (
             <Button
               variant="ghost"
               className={cn(
-                "h-11 w-11 p-0 rounded-xl transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50",
+                "h-10 w-10 shrink-0 p-0 rounded-xl transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50",
                 resume.pinned
                   ? "bg-slate-900 text-white shadow-lg shadow-slate-200"
                   : "bg-slate-100/50 hover:bg-slate-50 dark:bg-slate-800/50 dark:hover:bg-slate-900/30 text-slate-400 hover:text-slate-900 dark:text-slate-500 dark:hover:text-slate-400"
@@ -217,7 +216,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
           )}
           <Button
             variant="ghost"
-            className="flex-1 h-11 rounded-xl font-semibold bg-slate-100/80 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition-all duration-300 border border-slate-200/50"
+            className="flex-1 min-w-0 h-10 px-2 rounded-xl text-sm font-semibold bg-slate-100/80 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition-all duration-300 border border-slate-200/50"
             onClick={(e) => {
               e.stopPropagation();
               onEdit(resume.id);
@@ -228,7 +227,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
           {onDuplicate && (
             <Button
               variant="ghost"
-              className="h-11 px-3 rounded-xl bg-slate-100/80 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition-all duration-300 border border-slate-200/50 inline-flex items-center gap-1.5"
+              className="flex-1 min-w-0 h-10 px-2 rounded-xl bg-slate-100/80 hover:bg-slate-200 text-slate-700 hover:text-slate-900 transition-all duration-300 border border-slate-200/50 inline-flex items-center justify-center gap-1"
               onClick={(e) => {
                 e.stopPropagation();
                 onDuplicate(resume.id);
@@ -236,13 +235,13 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
               title="复制一个一模一样的简历"
               aria-label="复制一个一模一样的简历"
             >
-              <Copy className="h-4 w-4" />
-              复制
+              <Copy className="h-4 w-4 shrink-0 max-[270px]:hidden" />
+              <span className="truncate">复制</span>
             </Button>
           )}
           <Button
             variant="ghost"
-            className="h-11 w-11 p-0 rounded-xl bg-slate-100/50 hover:bg-red-50 dark:bg-slate-800/50 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-red-400 transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50"
+            className="h-10 w-10 shrink-0 p-0 rounded-xl bg-slate-100/50 hover:bg-red-50 dark:bg-slate-800/50 dark:hover:bg-red-900/30 text-slate-400 hover:text-red-600 dark:text-slate-500 dark:hover:text-red-400 transition-all duration-300 border border-slate-200/50 dark:border-slate-700/50"
             onClick={(e) => {
               e.stopPropagation();
               onDelete(resume.id);

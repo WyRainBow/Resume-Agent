@@ -373,11 +373,20 @@ export function SidePanel({
 
             {/* 经历项间距 */}
             <div>
-              <label className={labelClass}>实习经历间距</label>
+              <label className={labelClass}>多段实习经历之间的间距</label>
               <DropdownSelect
                 options={EXPERIENCE_GAP_OPTIONS}
                 value={globalSettings.experienceGap ?? 0}
                 onChange={(v) => updateGlobalSettings({ experienceGap: v })}
+              />
+            </div>
+
+            <div>
+              <label className={labelClass}>多段项目经历之间的间距</label>
+              <DropdownSelect
+                options={EXPERIENCE_GAP_OPTIONS}
+                value={globalSettings.projectExperienceGap ?? 0}
+                onChange={(v) => updateGlobalSettings({ projectExperienceGap: v })}
               />
             </div>
 

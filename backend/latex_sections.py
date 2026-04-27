@@ -303,6 +303,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
     global_settings = resume_data.get('globalSettings') or {}
     link_display = global_settings.get('projectLinkDisplay', 'inline')
     link_label = global_settings.get('projectLinkLabel', '链接')
+    project_experience_gap = global_settings.get('projectExperienceGap', 0)
     if isinstance(projects, list) and projects:
         content.append(f"\\section{{{escape_latex(section_title)}}}")
         content.append("")
@@ -447,6 +448,9 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
 
                 content.append("")
                 content.append("")
+                if pidx < len(projects) - 1 and project_experience_gap and project_experience_gap > 0:
+                    content.append(f"\\vspace{{{project_experience_gap}ex}}")
+                    content.append("")
     return content
 
 def generate_section_skills(resume_data: Dict[str, Any], section_titles: Dict[str, str] = None) -> List[str]:

@@ -116,7 +116,12 @@ export async function generateResumeStream(
   }
 }
 
-export async function renderPDF(resume: Resume, _useDemo: boolean = false, sectionOrder?: string[]): Promise<Blob> {
+export async function renderPDF(
+  resume: Resume,
+  _useDemo: boolean = false,
+  sectionOrder?: string[],
+  signal?: AbortSignal
+): Promise<Blob> {
   const traceId = `pdf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const mappedOrder = sectionOrder?.map(s => s === 'experience' ? 'internships' : s)
   console.log('[PDF TRACE][renderPDF:start]', {
@@ -133,6 +138,7 @@ export async function renderPDF(resume: Resume, _useDemo: boolean = false, secti
       { resume, section_order: mappedOrder },
       {
         responseType: 'blob',
+        signal,
         headers: {
           'X-PDF-Trace-Id': traceId,
           'X-PDF-Trace-Source': 'api.renderPDF',
@@ -178,6 +184,7 @@ export async function renderPDFStream(
     traceId?: string
     source?: string
     trigger?: string
+    signal?: AbortSignal
   }
 ): Promise<Blob> {
   const traceId = context?.traceId || `pdfs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -222,6 +229,7 @@ export async function renderPDFStream(
       'X-PDF-Trace-Source': traceSource,
       'X-PDF-Trace-Trigger': traceTrigger,
     },
+    signal: context?.signal,
     body: JSON.stringify({ resume, section_order: mappedOrder })
   })
 
@@ -746,4 +754,22 @@ export async function rewriteTextStream(
     if ((error as Error).name === 'AbortError') return
     onError?.(error instanceof Error ? error.message : '划词改写失败')
   }
+}
+
+export type RewriteTextIntent = 'full_bold' | 'selective_bold' | 'remove_bold' | 'list_transform' | 'rewrite'
+
+export async function detectRewriteTextIntent(
+  text: string,
+  instruction: string,
+  path: string,
+): Promise<{ intent: RewriteTextIntent; intents?: RewriteTextIntent[]; confidence: number; source?: string }> {
+  const url = `${getApiBaseUrl()}/api/resume/rewrite-text/intent`
+  const { data } = await axios.post(url, {
+    provider: 'deepseek',
+    text,
+    instruction,
+    path,
+    locale: 'zh',
+  })
+  return data as { intent: RewriteTextIntent; intents?: RewriteTextIntent[]; confidence: number; source?: string }
 }

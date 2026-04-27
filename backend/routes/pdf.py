@@ -4,6 +4,7 @@ PDF 渲染路由 - 使用 LaTeX 生成专业简历 PDF
 import time
 from pathlib import Path
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
@@ -15,6 +16,27 @@ except ImportError:
     from backend.models import RenderPDFRequest
 
 router = APIRouter(prefix="/api", tags=["PDF"])
+
+
+def _resolve_template_dir() -> Path:
+    current_dir = Path(__file__).resolve().parent
+    return current_dir.parents[1] / "latex-resume-template"
+
+
+def _prepare_latex_content(resume_data, section_order):
+    try:
+        from backend.latex_generator import json_to_latex
+    except ImportError:
+        from latex_generator import json_to_latex
+    return json_to_latex(resume_data, section_order)
+
+
+def _compile_pdf_bytes(latex_content: str, template_dir: Path, resume_data):
+    try:
+        from backend.latex_generator import compile_latex_to_pdf
+    except ImportError:
+        from latex_generator import compile_latex_to_pdf
+    return compile_latex_to_pdf(latex_content, template_dir, resume_data=resume_data).getvalue()
 
 def _resume_brief(resume_data):
     if not isinstance(resume_data, dict):
@@ -53,20 +75,22 @@ async def render_pdf(body: RenderPDFRequest, request: Request):
     )
 
     try:
-        try:
-            from backend.latex_generator import render_pdf_from_resume_latex
-        except ImportError:
-            from latex_generator import render_pdf_from_resume_latex
-        pdf_io = render_pdf_from_resume_latex(resume_data, body.section_order)
+        latex_content = await run_in_threadpool(_prepare_latex_content, resume_data, body.section_order)
+        pdf_bytes = await run_in_threadpool(
+            _compile_pdf_bytes,
+            latex_content,
+            _resolve_template_dir(),
+            resume_data,
+        )
 
         render_time = time.time() - start_time
         print(
             f"[PDF TRACE][render:done] trace_id={trace_id} elapsed={render_time:.2f}s "
-            f"bytes={len(pdf_io.getvalue())}"
+            f"bytes={len(pdf_bytes)}"
         )
 
         return StreamingResponse(
-            pdf_io,
+            iter([pdf_bytes]),
             media_type="application/pdf",
             headers={
                 "Content-Disposition": 'inline; filename="resume.pdf"',
@@ -107,21 +131,15 @@ async def render_pdf_stream(body: RenderPDFRequest, request: Request):
             yield dict(event="start", data="开始生成PDF...")
 
             # 转换为 LaTeX
-            try:
-                from backend.latex_generator import json_to_latex, compile_latex_to_pdf
-            except ImportError:
-                from latex_generator import json_to_latex, compile_latex_to_pdf
-
             latex_start = time.time()
             yield dict(event="progress", data="正在生成LaTeX代码...")
 
-            # 获取模板目录
-            current_dir = Path(__file__).resolve().parent
-            root_dir = current_dir.parents[1]  # Go up two levels to reach project root
-            template_dir = root_dir / "latex-resume-template"
-
             # 生成 LaTeX
-            latex_content = json_to_latex(resume_data, body.section_order)
+            latex_content = await run_in_threadpool(
+                _prepare_latex_content,
+                resume_data,
+                body.section_order,
+            )
             latex_time = time.time() - latex_start
             print(
                 f"[PDF TRACE][stream:latex-ready] trace_id={trace_id} "
@@ -134,9 +152,13 @@ async def render_pdf_stream(body: RenderPDFRequest, request: Request):
             yield dict(event="progress", data="正在编译PDF（可能需要几秒）...")
 
             try:
-                pdf_io = compile_latex_to_pdf(latex_content, template_dir, resume_data=resume_data)
+                pdf_bytes = await run_in_threadpool(
+                    _compile_pdf_bytes,
+                    latex_content,
+                    _resolve_template_dir(),
+                    resume_data,
+                )
                 compile_time = time.time() - compile_start
-                pdf_bytes = pdf_io.getvalue()
                 print(
                     f"[PDF TRACE][stream:compile-done] trace_id={trace_id} "
                     f"elapsed={compile_time:.2f}s pdf_bytes={len(pdf_bytes)}"

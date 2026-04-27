@@ -1,10 +1,13 @@
 # AI 润色功能 — 整体架构
 
-> 最后更新：2026-03-31
+> 最后更新：2026-04-06
 
 ## 功能概述
 
-AI 润色是 Resume-Agent 中对简历字段内容进行智能改写的核心功能。用户在编辑简历时，可通过工具栏按钮触发 AI 对当前字段进行润色，支持多轮对话式交互。
+AI 润色是 Resume-Agent 中对简历内容进行智能改写与格式优化的核心能力。当前支持两类入口：
+
+- **整字段润色**：工具栏按钮触发，对整个字段进行多轮对话式优化
+- **划词润色**：在编辑区选中局部文本后触发，支持局部改写/加粗/去加粗/列表转换等
 
 ## 架构总览
 
@@ -14,10 +17,11 @@ AI 润色是 Resume-Agent 中对简历字段内容进行智能改写的核心功
 │                                                          │
 │  RichEditor (富文本编辑器)                                │
 │    ├─ 工具栏 [AI 润色] 按钮                               │
-│    └─ PolishChatDialog (对话式润色弹窗)                    │
-│         ├─ useTypewriter (打字机效果 hook)                 │
-│         ├─ DiffOverlay (对比浮层)                          │
-│         └─ api.ts → rewriteResumeStream() (SSE 流式调用)  │
+│    ├─ PolishChatDialog (整字段多轮润色弹窗)                 │
+│    │    └─ api.ts → rewriteResumeStream() (SSE 流式调用)   │
+│    └─ SelectionPolishBubble (划词改写气泡)                  │
+│         ├─ api.ts → detectRewriteTextIntent()              │
+│         └─ api.ts → rewriteTextStream()                    │
 │                                                          │
 ├──────────────────────────────────────────────────────────┤
 │  后端 (FastAPI)                                          │
@@ -30,6 +34,8 @@ AI 润色是 Resume-Agent 中对简历字段内容进行智能改写的核心功
 │    └─ SSE 流式返回 { content } / [DONE]                   │
 │                                                          │
 │  POST /api/resume/rewrite (非流式，备用)                   │
+│  POST /api/resume/rewrite-text/stream（划词流式改写）       │
+│  POST /api/resume/rewrite-text/intent（意图识别）          │
 │                                                          │
 ├──────────────────────────────────────────────────────────┤
 │  LLM 层                                                  │
@@ -41,7 +47,7 @@ AI 润色是 Resume-Agent 中对简历字段内容进行智能改写的核心功
 └──────────────────────────────────────────────────────────┘
 ```
 
-## 数据流
+## 数据流（整字段润色）
 
 ```
 1. 用户点击 [AI 润色]
@@ -70,6 +76,31 @@ AI 润色是 Resume-Agent 中对简历字段内容进行智能改写的核心功
    → 用户点 [应用此版本] → onApply(content) → onChange 更新编辑器
 ```
 
+## 数据流（划词润色：三层执行链）
+
+```
+1. 用户在 RichEditor 中选中局部文本
+   → BubbleMenu 出现 SelectionPolishBubble
+
+2. 用户输入指令（例如“优化一下并把重点指标加粗”）
+   → 前端调用 POST /api/resume/rewrite-text/intent
+
+3. 意图识别（三层）
+   L1 规则识别（快速）
+   L2 LLM 意图识别（返回 confidence）
+   L3 意图决策（llm_confidence >= 0.7 用 LLM，否则回退规则）
+
+4. 返回复合意图 intents[]
+   例如 ["rewrite","selective_bold"] / ["full_bold"] / ["remove_bold"]
+
+5. 执行层按顺序处理
+   - 包含 rewrite：先走 /api/resume/rewrite-text/stream 改写
+   - 其余格式意图（bold/remove/list）在前端本地结构化处理
+
+6. 用户点击“应用改写”
+   → 仅替换当前锁定选区
+```
+
 ## 核心模块
 
 ### 后端
@@ -78,9 +109,10 @@ AI 润色是 Resume-Agent 中对简历字段内容进行智能改写的核心功
 |------|------|
 | `backend/models.py` | `RewriteRequest` — 请求体定义（provider, resume, path, instruction, locale, history） |
 | `backend/prompts.py` | `build_rewrite_prompt()` — 根据 path 注入字段感知上下文，拼装多轮 history |
-| `backend/routes/resume.py` | `/resume/rewrite` 和 `/resume/rewrite/stream` — 改写端点 |
+| `backend/routes/resume.py` | `/resume/rewrite`、`/resume/rewrite/stream`、`/resume/rewrite-text/stream`、`/resume/rewrite-text/intent` |
 | `backend/llm.py` | `call_llm()` / `call_llm_stream()` — 统一 LLM 调用入口 |
 | `backend/simple.py` | 各 provider 的具体 API 调用实现 |
+| `backend/prompt_templates.py` | 润色 Prompt 配置中心（默认模板 + 配置文件读取） |
 
 ### 前端
 
@@ -88,7 +120,7 @@ AI 润色是 Resume-Agent 中对简历字段内容进行智能改写的核心功
 |------|------|
 | `frontend/.../RichEditor/index.tsx` | 富文本编辑器，工具栏包含 [AI 润色] 按钮，触发 PolishChatDialog |
 | `frontend/.../PolishChatDialog.tsx` | 对话式润色弹窗 — 消息列表、快捷标签、输入框、对比浮层 |
-| `frontend/.../AIPolishDialog.tsx` | 旧版单轮润色弹窗（保留未删，不再引用） |
+| `frontend/.../SelectionPolishBubble.tsx` | 划词润色交互、意图识别接入、复合意图执行 |
 | `frontend/src/services/api.ts` | `rewriteResumeStream()` — SSE 流式请求 + onComplete 去重 |
 | `frontend/src/hooks/useTypewriter.ts` | 打字机效果 hook — 流式文本逐字显示 |
 
@@ -125,6 +157,23 @@ data: [DONE]
 
 非流式改写，一次性返回结果。
 
+### POST /api/resume/rewrite-text/intent
+
+划词指令意图识别接口，返回单意图与复合意图（`intents[]`）及置信度：
+
+```json
+{
+  "intent": "rewrite",
+  "intents": ["rewrite", "selective_bold"],
+  "confidence": 0.86,
+  "source": "llm"
+}
+```
+
+### POST /api/resume/rewrite-text/stream
+
+划词流式改写接口。通常由 `intents[]` 包含 `rewrite` 时触发。
+
 ## 多轮对话机制
 
 - 后端 **无状态**，不存储对话上下文
@@ -142,6 +191,18 @@ data: [DONE]
 | `experience[n]` / `internship[n]` | 工作经历，突出业务影响和成长轨迹 |
 | `skill` / `skillContent` | 专业技能，分类清晰，体现广度和深度 |
 | `openSource[n]` | 开源贡献，突出社区影响和技术能力 |
+
+## 复合意图（intents[]）策略
+
+当前划词链路支持复合意图，典型如下：
+
+| 用户指令 | 识别结果 |
+|---|---|
+| 优化一下 | `["rewrite"]` |
+| 全部加粗 | `["full_bold"]` |
+| 挑一些重点加粗 | `["selective_bold"]` |
+| 优化一下并突出重点 | `["rewrite", "selective_bold"]` |
+| 取消加粗 | `["remove_bold"]` |
 
 ## 快捷标签
 
@@ -175,6 +236,9 @@ PolishChatDialog 根据字段类型动态显示快捷标签，用户点击即发
 
 ## 触发方式
 
-当前仅支持 **整字段润色**（通过工具栏按钮）。用户选中编辑器内容后无法对局部进行改写。
+当前支持：
 
-> 划词修改（Selection Polish）设计见 `2026-03-31-selection-polish-design.md`
+- **整字段润色**：工具栏 [AI 润色]
+- **局部划词润色**：选中文本后自动浮出 SelectionPolishBubble
+
+> 详细划词交互设计见 `2026-03-31-selection-polish-design.md`

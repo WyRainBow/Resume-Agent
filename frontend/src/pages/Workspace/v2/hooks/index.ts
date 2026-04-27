@@ -4,4 +4,5 @@
 export { useResumeData } from './useResumeData'
 export { usePDFOperations } from './usePDFOperations'
 export { useAIImport } from './useAIImport'
+export { useAutoSaveResume } from './useAutoSaveResume'
 

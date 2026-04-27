@@ -2,7 +2,7 @@
  * PDF 操作 Hook
  */
 import { saveAs } from 'file-saver'
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { renderPDFStream, renderPDF } from '../../../../services/api'
 import { saveResume, setCurrentResumeId } from '../../../../services/resumeStorage'
 import type { ResumeData } from '../types'
@@ -20,7 +20,15 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
   const [progress, setProgress] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
   const resumeDataRef = useRef(resumeData)
+  const dataVersionRef = useRef(0)
+  const activeRenderIdRef = useRef(0)
+  const activeAbortControllerRef = useRef<AbortController | null>(null)
   resumeDataRef.current = resumeData
+
+  useEffect(() => {
+    dataVersionRef.current += 1
+    activeAbortControllerRef.current?.abort()
+  }, [resumeData])
 
   const getErrorMessage = (error: unknown): string => {
     if (error instanceof Error) return error.message
@@ -34,6 +42,17 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
 
   // 渲染 PDF：始终用 ref 取最新数据，供防抖/延迟调用时使用
   const handleRender = useCallback(async () => {
+    const renderVersion = dataVersionRef.current
+    const renderId = activeRenderIdRef.current + 1
+    const abortController = new AbortController()
+    activeRenderIdRef.current = renderId
+    activeAbortControllerRef.current?.abort()
+    activeAbortControllerRef.current = abortController
+    const isCurrentRender = () =>
+      renderId === activeRenderIdRef.current &&
+      renderVersion === dataVersionRef.current &&
+      !abortController.signal.aborted
+
     setLoading(true)
     setProgress('正在准备数据...')
 
@@ -47,21 +66,35 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
         blob = await renderPDFStream(
           backendData as any,
           backendData.sectionOrder,
-          (p) => setProgress(p),
-          () => setProgress('渲染完成！'),
-          (err) => setProgress(`错误: ${err}`)
+          (p) => {
+            if (isCurrentRender()) setProgress(p)
+          },
+          () => {
+            if (isCurrentRender()) setProgress('渲染完成！')
+          },
+          (err) => {
+            if (isCurrentRender()) setProgress(`错误: ${err}`)
+          },
+          {
+            source: 'workspace.v2',
+            trigger: 'auto-render',
+            signal: abortController.signal,
+          }
         )
       } catch (streamError) {
         const streamErrorMsg = getErrorMessage(streamError)
+        if (!isCurrentRender()) return
         console.error('PDF 流式渲染失败，尝试普通渲染:', streamError)
         setProgress(`流式渲染失败：${streamErrorMsg}\n正在切换为普通渲染...`)
         try {
           blob = await renderPDF(
             backendData as any,
             false,
-            backendData.sectionOrder
+            backendData.sectionOrder,
+            abortController.signal
           )
         } catch (normalError) {
+          if (!isCurrentRender()) return
           const normalErrorMsg = getErrorMessage(normalError)
           throw new Error(
             `流式渲染失败：${streamErrorMsg}\n普通渲染失败：${normalErrorMsg}`
@@ -69,14 +102,19 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
         }
       }
 
+      if (!isCurrentRender()) return
       setPdfBlob(blob)
       setProgress('')
     } catch (error) {
+      if (!isCurrentRender()) return
       const message = getErrorMessage(error)
       console.error('PDF 渲染失败:', error)
       setProgress(`渲染失败：${message}`)
     } finally {
-      setLoading(false)
+      if (activeAbortControllerRef.current === abortController) {
+        activeAbortControllerRef.current = null
+        setLoading(false)
+      }
     }
   }, [])
 
