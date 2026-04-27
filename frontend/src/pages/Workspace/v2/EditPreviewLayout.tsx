@@ -59,6 +59,7 @@ interface EditPreviewLayoutProps {
   pdfBlob: Blob | null;
   loading: boolean;
   progress: string;
+  autoRenderPending?: boolean;
   handleRender: () => void;
   handleDownload: () => void;
 }
@@ -135,6 +136,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
     pdfBlob,
     loading,
     progress,
+    autoRenderPending,
     handleRender,
     handleDownload,
   } = props;
@@ -340,6 +342,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
             pdfBlob={pdfBlob}
             loading={loading}
             progress={progress}
+            autoRenderPending={autoRenderPending}
             onRender={handleRender}
             onDownload={handleDownload}
           />

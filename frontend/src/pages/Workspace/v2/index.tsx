@@ -2,7 +2,7 @@
  * Workspace v2 - 编辑区主入口
  * 使用 WorkspaceLayout 包裹，提供统一的侧边栏布局
  */
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 // Hooks
 import { useAIImport, usePDFOperations, useResumeData } from './hooks'
@@ -14,6 +14,7 @@ import EditPreviewLayout from './EditPreviewLayout'
 import AIImportModal from './shared/AIImportModal'
 
 type EditMode = 'click' | 'scroll'
+const PDF_RENDER_DEBOUNCE_MS = 2000
 
 export default function WorkspaceV2() {
   // 编辑模式状态
@@ -24,6 +25,7 @@ export default function WorkspaceV2() {
   const [initialResumeData, setInitialResumeData] = useState<any>(null)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null)
+  const [isAutoRenderPending, setIsAutoRenderPending] = useState(false)
   // 简历数据管理
   const {
     resumeData,
@@ -32,6 +34,7 @@ export default function WorkspaceV2() {
     setActiveSection,
     currentResumeId,
     setCurrentId,
+    isDataLoaded,
     updateBasicInfo,
     updateProject,
     deleteProject,
@@ -123,16 +126,53 @@ export default function WorkspaceV2() {
   }, [hasUnsavedChanges])
 
   const renderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const hasPendingRenderRef = useRef(false)
+  const loadingRef = useRef(loading)
+  const autoRenderInitializedRef = useRef(false)
 
-  // 简历数据变化时自动触发 PDF 渲染（仅 LaTeX，防抖）
   useEffect(() => {
-    if (resumeData.templateType === 'html' || loading) return
+    loadingRef.current = loading
+  }, [loading])
+
+  const scheduleRender = useCallback((delayMs: number) => {
     if (renderTimerRef.current) clearTimeout(renderTimerRef.current)
-    renderTimerRef.current = setTimeout(() => handleRender(), 300)
+    renderTimerRef.current = setTimeout(() => {
+      if (loadingRef.current) return
+      if (!hasPendingRenderRef.current) return
+      hasPendingRenderRef.current = false
+      setIsAutoRenderPending(false)
+      handleRender()
+    }, delayMs)
+  }, [handleRender])
+
+  // 简历数据变化时自动触发 PDF 渲染（仅 LaTeX）
+  // 策略：编辑空闲一段时间后统一渲染，避免每次输入都刷新 PDF
+  useEffect(() => {
+    if (!isDataLoaded) return
+    if (resumeData.templateType === 'html') return
+    if (!autoRenderInitializedRef.current) {
+      autoRenderInitializedRef.current = true
+      setIsAutoRenderPending(false)
+      return
+    }
+    hasPendingRenderRef.current = true
+    setIsAutoRenderPending(true)
+    scheduleRender(PDF_RENDER_DEBOUNCE_MS)
+  }, [resumeData, isDataLoaded, scheduleRender])
+
+  // 若渲染期间继续有编辑，等当前渲染结束后再补一次（合并多次变更）
+  useEffect(() => {
+    if (resumeData.templateType === 'html') return
+    if (!loading && hasPendingRenderRef.current) {
+      scheduleRender(PDF_RENDER_DEBOUNCE_MS)
+    }
+  }, [loading, resumeData.templateType, scheduleRender])
+
+  useEffect(() => {
     return () => {
       if (renderTimerRef.current) clearTimeout(renderTimerRef.current)
     }
-  }, [resumeData])
+  }, [])
 
   // 导出 JSON
   const handleExportJSON = () => {
@@ -240,6 +280,7 @@ export default function WorkspaceV2() {
         pdfBlob={pdfBlob}
         loading={loading}
         progress={progress}
+        autoRenderPending={isAutoRenderPending}
         handleRender={handleRender}
         handleDownload={handleDownload}
         editMode={editMode}

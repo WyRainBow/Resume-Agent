@@ -7,7 +7,7 @@ import { FileText, Trash2 } from './Icons'
 import { cn } from '@/lib/utils'
 import type { SavedResume } from '@/services/resumeStorage'
 
-// 格式化时间为 年/月/日 时:分:秒
+// 格式化时间为 年/月/日 时:分
 const formatDateTime = (timestamp: number): string => {
   const date = new Date(timestamp)
   const year = date.getFullYear()
@@ -15,8 +15,7 @@ const formatDateTime = (timestamp: number): string => {
   const day = String(date.getDate()).padStart(2, '0')
   const hours = String(date.getHours()).padStart(2, '0')
   const minutes = String(date.getMinutes()).padStart(2, '0')
-  const seconds = String(date.getSeconds()).padStart(2, '0')
-  return `${year}/${month}/${day} ${hours}:${minutes}:${seconds}`
+  return `${year}/${month}/${day} ${hours}:${minutes}`
 }
 
 interface ResumeCardProps {
@@ -184,11 +183,11 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
             <div className="flex items-center justify-center gap-1.5">
               <span>创建时间</span>
               <span className="text-slate-300 dark:text-slate-700">/</span>
-              <span>{formatDateTime(resume.createdAt).split(' ')[0]}</span>
+              <span>{formatDateTime(resume.createdAt)}</span>
             </div>
             <div className="flex items-center justify-center gap-2 text-slate-500 dark:text-slate-400">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-              <span>更新时间 {formatDateTime(resume.updatedAt).split(' ')[0]}</span>
+              <span>更新时间 {formatDateTime(resume.updatedAt)}</span>
             </div>
           </div>
         </CardContent>

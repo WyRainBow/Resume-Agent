@@ -6,11 +6,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import { cn } from '../../../../lib/utils'
-import { saveResume, setCurrentResumeId } from '../../../../services/resumeStorage'
 import html2pdf from 'html2pdf.js'
 
 // Hooks
-import { useResumeData, usePDFOperations, useAIImport } from '../hooks'
+import { useResumeData, usePDFOperations, useAIImport, useAutoSaveResume } from '../hooks'
 
 // 组件
 import EditPreviewLayout from '../EditPreviewLayout'
@@ -38,6 +37,7 @@ export default function HTMLWorkspace() {
     setActiveSection,
     currentResumeId,
     setCurrentId,
+    isDataLoaded,
     updateBasicInfo,
     updateProject,
     deleteProject,
@@ -89,89 +89,14 @@ export default function HTMLWorkspace() {
 
   // 文件输入引用（用于导入 JSON）
   const fileInputRef = useRef<HTMLInputElement>(null)
-  
-  // 防抖保存定时器
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const lastSavedDataRef = useRef<string>('')
 
-  // 自动保存函数（防抖）
-  const autoSave = useCallback(() => {
-    // 清除之前的定时器
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current)
-    }
-    
-    // 设置新的定时器，500ms 后保存
-    saveTimerRef.current = setTimeout(() => {
-      void (async () => {
-        try {
-          const currentDataStr = JSON.stringify(resumeData)
-          // 只有当数据真正变化时才保存
-          if (currentDataStr !== lastSavedDataRef.current) {
-            const saved = await saveResume(resumeData, currentResumeId || undefined)
-            // 如果保存后获得了新的 ID，更新 currentResumeId
-            if (!currentResumeId && saved.id) {
-              setCurrentId(saved.id)
-              setCurrentResumeId(saved.id)
-            }
-            lastSavedDataRef.current = currentDataStr
-            console.log('自动保存成功', saved.id)
-          }
-        } catch (error) {
-          console.error('自动保存失败:', error)
-        }
-      })()
-    }, 500)
-  }, [resumeData, currentResumeId, setCurrentId])
-
-  // 立即保存函数（用于失焦时）
-  const saveImmediately = useCallback(() => {
-    // 清除防抖定时器
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = null
-    }
-    
-    void (async () => {
-      try {
-        const currentDataStr = JSON.stringify(resumeData)
-        if (currentDataStr !== lastSavedDataRef.current) {
-          const saved = await saveResume(resumeData, currentResumeId || undefined)
-          // 如果保存后获得了新的 ID，更新 currentResumeId
-          if (!currentResumeId && saved.id) {
-            setCurrentId(saved.id)
-            setCurrentResumeId(saved.id)
-          }
-          lastSavedDataRef.current = currentDataStr
-          console.log('立即保存成功', saved.id)
-        }
-      } catch (error) {
-        console.error('立即保存失败:', error)
-      }
-    })()
-  }, [resumeData, currentResumeId, setCurrentId])
-
-  // 如果路由携带 resumeId，则设置为当前简历 ID，保持与路由一致
-  useEffect(() => {
-    if (resumeId) {
-      setCurrentId(resumeId)
-      setCurrentResumeId(resumeId)
-    }
-  }, [resumeId, setCurrentId])
-
-  // 监听简历数据变化，自动保存（防抖）
-  useEffect(() => {
-    if (resumeData) {
-      autoSave()
-    }
-    
-    // 清理定时器
-    return () => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current)
-      }
-    }
-  }, [resumeData, autoSave])
+  const { saveNow } = useAutoSaveResume({
+    resumeData,
+    currentResumeId,
+    routeResumeId: resumeId,
+    isDataLoaded,
+    setCurrentId,
+  })
 
   // 全局点击事件：点击任意区域时立即保存（排除交互元素）
   useEffect(() => {
@@ -187,7 +112,7 @@ export default function HTMLWorkspace() {
       
       // 点击非交互区域时保存
       if (!isEditable) {
-        saveImmediately()
+        void saveNow()
       }
     }
 
@@ -196,13 +121,12 @@ export default function HTMLWorkspace() {
     return () => {
       document.removeEventListener('mousedown', handleGlobalClick)
     }
-  }, [saveImmediately])
+  }, [saveNow])
 
   // 监听编辑状态：页面加载时保存初始状态
   useEffect(() => {
     if (!initialResumeData) {
       setInitialResumeData(JSON.stringify(resumeData))
-      lastSavedDataRef.current = JSON.stringify(resumeData)
     }
   }, [])
 

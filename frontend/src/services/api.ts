@@ -116,7 +116,12 @@ export async function generateResumeStream(
   }
 }
 
-export async function renderPDF(resume: Resume, _useDemo: boolean = false, sectionOrder?: string[]): Promise<Blob> {
+export async function renderPDF(
+  resume: Resume,
+  _useDemo: boolean = false,
+  sectionOrder?: string[],
+  signal?: AbortSignal
+): Promise<Blob> {
   const traceId = `pdf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const mappedOrder = sectionOrder?.map(s => s === 'experience' ? 'internships' : s)
   console.log('[PDF TRACE][renderPDF:start]', {
@@ -133,6 +138,7 @@ export async function renderPDF(resume: Resume, _useDemo: boolean = false, secti
       { resume, section_order: mappedOrder },
       {
         responseType: 'blob',
+        signal,
         headers: {
           'X-PDF-Trace-Id': traceId,
           'X-PDF-Trace-Source': 'api.renderPDF',
@@ -178,6 +184,7 @@ export async function renderPDFStream(
     traceId?: string
     source?: string
     trigger?: string
+    signal?: AbortSignal
   }
 ): Promise<Blob> {
   const traceId = context?.traceId || `pdfs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -222,6 +229,7 @@ export async function renderPDFStream(
       'X-PDF-Trace-Source': traceSource,
       'X-PDF-Trace-Trigger': traceTrigger,
     },
+    signal: context?.signal,
     body: JSON.stringify({ resume, section_order: mappedOrder })
   })
 

@@ -3,11 +3,10 @@
  * 专门用于 LaTeX 模板的编辑和 PDF 渲染
  */
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { cn } from '../../../../lib/utils'
+import { useParams } from 'react-router-dom'
 
 // Hooks
-import { useResumeData, usePDFOperations, useAIImport } from '../hooks'
-import { saveResume, setCurrentResumeId } from '@/services/resumeStorage'
+import { useResumeData, usePDFOperations, useAIImport, useAutoSaveResume } from '../hooks'
 
 // 组件
 import { Header } from '../components'
@@ -16,8 +15,10 @@ import AIImportModal from '../shared/AIImportModal'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 
 type EditMode = 'click' | 'scroll'
+const PDF_RENDER_DEBOUNCE_MS = 2000
 
 export default function LaTeXWorkspace() {
+  const { resumeId } = useParams<{ resumeId?: string }>()
   // 编辑模式状态
   const [editMode, setEditMode] = useState<EditMode>('click')
   
@@ -26,6 +27,7 @@ export default function LaTeXWorkspace() {
   const [initialResumeData, setInitialResumeData] = useState<any>(null)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null)
+  const [isAutoRenderPending, setIsAutoRenderPending] = useState(false)
 
   // 简历数据管理
   const {
@@ -88,77 +90,52 @@ export default function LaTeXWorkspace() {
   // 文件输入引用（用于导入 JSON）
   const fileInputRef = useRef<HTMLInputElement>(null)
   
-  // 防抖保存定时器
-  const saveTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const lastSavedDataRef = useRef<string>('')
-  
   // 防抖渲染定时器
   const renderTimerRef = useRef<NodeJS.Timeout | null>(null)
   const lastRenderedDataRef = useRef<string>('')
   const initialRenderTriggeredRef = useRef(false)
+  const autoRenderInitializedRef = useRef(false)
   const resumeDataRef = useRef(resumeData)
+  const loadingRef = useRef(loading)
   resumeDataRef.current = resumeData
+  loadingRef.current = loading
 
-  // 自动保存函数（防抖）
-  const autoSave = useCallback(() => {
-    // 清除之前的定时器
-    if (saveTimerRef.current) {
-      clearTimeout(saveTimerRef.current)
-    }
-    
-    // 设置新的定时器，500ms 后保存
-    saveTimerRef.current = setTimeout(() => {
-      void (async () => {
-        try {
-          const currentDataStr = JSON.stringify(resumeData)
-          // 只有当数据真正变化时才保存
-          if (currentDataStr !== lastSavedDataRef.current) {
-            const saved = await saveResume(resumeData as any, currentResumeId || undefined)
-            // 如果保存后获得了新的 ID，更新 currentResumeId
-            if (!currentResumeId && saved.id) {
-              setCurrentId(saved.id)
-              setCurrentResumeId(saved.id)
-            }
-            lastSavedDataRef.current = currentDataStr
-            console.log('自动保存成功', saved.id)
-          }
-        } catch (error) {
-          console.error('自动保存失败:', error)
-        }
-      })()
-    }, 500)
-  }, [resumeData, currentResumeId, setCurrentId])
+  useAutoSaveResume({
+    resumeData,
+    currentResumeId,
+    routeResumeId: resumeId,
+    isDataLoaded,
+    setCurrentId,
+  })
 
-  // 自动渲染函数（防抖）：timeout 内用 ref 取最新 resumeData，避免闭包旧数据
+  // 自动渲染函数（防抖）：编辑停止一段时间后，统一刷新 PDF
   const autoRender = useCallback(() => {
     if (renderTimerRef.current) clearTimeout(renderTimerRef.current)
     renderTimerRef.current = setTimeout(() => {
       const currentDataStr = JSON.stringify(resumeDataRef.current)
-      if (currentDataStr !== lastRenderedDataRef.current && !loading) {
-        lastRenderedDataRef.current = currentDataStr
-        handleRender()
+      if (currentDataStr === lastRenderedDataRef.current) {
+        setIsAutoRenderPending(false)
+        return
       }
-    }, 800)
-  }, [loading, handleRender])
-
-  // 监听简历数据变化，自动保存（防抖）
-  useEffect(() => {
-    if (resumeData) {
-      autoSave()
-    }
-    
-    // 清理定时器
-    return () => {
-      if (saveTimerRef.current) {
-        clearTimeout(saveTimerRef.current)
-      }
-    }
-  }, [resumeData, autoSave])
+      if (loadingRef.current) return
+      lastRenderedDataRef.current = currentDataStr
+      setIsAutoRenderPending(false)
+      handleRender()
+    }, PDF_RENDER_DEBOUNCE_MS)
+  }, [handleRender])
 
   // 监听简历数据变化，自动渲染（防抖）
   useEffect(() => {
     // 只有数据加载完成后才启用自动渲染
     if (isDataLoaded && resumeData) {
+      const currentDataStr = JSON.stringify(resumeData)
+      if (!autoRenderInitializedRef.current) {
+        autoRenderInitializedRef.current = true
+        lastRenderedDataRef.current = currentDataStr
+        setIsAutoRenderPending(false)
+        return
+      }
+      setIsAutoRenderPending(true)
       autoRender()
     }
     
@@ -169,6 +146,12 @@ export default function LaTeXWorkspace() {
       }
     }
   }, [resumeData, isDataLoaded, autoRender])
+
+  useEffect(() => {
+    if (!loading && isAutoRenderPending) {
+      autoRender()
+    }
+  }, [loading, isAutoRenderPending, autoRender])
 
   // 监听编辑状态：页面加载时保存初始状态
   useEffect(() => {
@@ -323,6 +306,7 @@ export default function LaTeXWorkspace() {
         pdfBlob={pdfBlob}
         loading={loading}
         progress={progress}
+        autoRenderPending={isAutoRenderPending}
         handleRender={handleRender}
         handleDownload={handleDownload}
         editMode={editMode}

@@ -14,6 +14,7 @@ interface PreviewPanelProps {
   pdfBlob: Blob | null
   loading: boolean
   progress: string
+  autoRenderPending?: boolean
   onRender: () => void
   onDownload: () => void
 }
@@ -23,6 +24,7 @@ export function PreviewPanel({
   pdfBlob,
   loading,
   progress,
+  autoRenderPending = false,
   onRender,
   onDownload,
 }: PreviewPanelProps) {
@@ -75,6 +77,11 @@ export function PreviewPanel({
   }
 
   const displayPercent = Math.round(effectiveScale * 100)
+  const showStatus = !isHTMLTemplate && (loading || autoRenderPending)
+  const statusText = loading
+    ? (progress || '正在更新 PDF 预览...')
+    : '已记录修改，停止输入 2 秒后更新预览'
+
   const applyPercentInput = (raw: string) => {
     const n = parseFloat(raw.replace(/[^\d.]/g, ''))
     if (!Number.isFinite(n)) return
@@ -119,7 +126,7 @@ export function PreviewPanel({
               >
                 <span className="relative flex items-center gap-2">
                   <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
-                  {loading ? '渲染中...' : '渲染 PDF'}
+                  {loading ? '更新中...' : autoRenderPending ? '立即更新 PDF' : '渲染 PDF'}
                 </span>
               </button>
             </div>
@@ -127,15 +134,19 @@ export function PreviewPanel({
       </div>
 
       {/* 进度提示 */}
-      {loading && progress && (
+      {showStatus && (
         <div className={cn(
           "px-4 py-2.5 text-sm font-medium flex items-center gap-2",
-          isHTMLTemplate 
-            ? "bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 text-emerald-600 dark:text-emerald-400 border-b border-emerald-100 dark:border-emerald-800/30"
-            : "bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 text-indigo-600 dark:text-indigo-400 border-b border-indigo-100 dark:border-indigo-800/30"
+          loading
+            ? "bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 text-indigo-600 dark:text-indigo-400 border-b border-indigo-100 dark:border-indigo-800/30"
+            : "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/15 dark:to-orange-900/15 text-amber-700 dark:text-amber-300 border-b border-amber-100 dark:border-amber-800/30"
         )}>
-          <Sparkles className="w-4 h-4 animate-pulse" />
-          {progress}
+          {loading ? (
+            <Sparkles className="w-4 h-4 animate-pulse" />
+          ) : (
+            <FileText className="w-4 h-4" />
+          )}
+          {statusText}
         </div>
       )}
 
