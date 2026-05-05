@@ -121,6 +121,8 @@ export function EditPanel({
           <BasicPanel
             basic={resumeData.basic}
             onUpdate={updateBasicInfo}
+            globalSettings={resumeData.globalSettings}
+            updateGlobalSettings={updateGlobalSettings}
           />
         )
 

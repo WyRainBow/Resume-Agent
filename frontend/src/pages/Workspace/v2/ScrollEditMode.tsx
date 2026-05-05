@@ -142,6 +142,8 @@ export default function ScrollEditMode({
           <BasicPanel
             basic={resumeData.basic}
             onUpdate={updateBasicInfo}
+            globalSettings={resumeData.globalSettings}
+            updateGlobalSettings={updateGlobalSettings}
           />
         )
 

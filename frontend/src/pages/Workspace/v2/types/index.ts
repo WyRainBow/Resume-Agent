@@ -169,6 +169,7 @@ export interface GlobalSettings {
   latexHeaderTopGapPx?: number  // 头部顶部空白（px，可为负）
   latexHeaderNameContactGapPx?: number  // 姓名与联系信息间距调整（px，可为负）
   latexHeaderBottomGapPx?: number  // 联系信息下方空白（px，可为负）
+  birthDateDisplayMode?: 'birthDate' | 'age'  // 年龄渲染模式：显示出生年月 | 仅显示年龄
 }
 
 /**

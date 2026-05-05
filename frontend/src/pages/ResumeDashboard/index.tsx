@@ -272,10 +272,11 @@ const ResumeDashboard = () => {
               <CreateCard onClick={createResume} />
 
               <AnimatePresence>
-                {resumes.map((resume) => (
+                {resumes.map((resume, idx) => (
                   <ResumeCard
                     key={resume.id}
                     resume={resume}
+                    index={idx + 1}
                     onEdit={editResume}
                     onDelete={deleteResume}
                     onDuplicate={duplicateResume}

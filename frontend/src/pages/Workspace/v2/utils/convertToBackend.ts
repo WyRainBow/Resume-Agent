@@ -6,6 +6,7 @@ import { stripHtmlTags } from './textUtils'
 
 export interface BackendResumeData {
   name: string
+  birthDate?: string
   photo?: string
   photoOffsetX?: number
   photoOffsetY?: number
@@ -94,6 +95,7 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
 
   return {
     name: data.basic.name,
+    ...(data.basic.birthDate ? { birthDate: data.basic.birthDate } : {}),
     ...(data.basic.photo ? { photo: data.basic.photo } : {}),
     ...(typeof data.basic.photoOffsetX === 'number' ? { photoOffsetX: data.basic.photoOffsetX } : {}),
     ...(typeof data.basic.photoOffsetY === 'number' ? { photoOffsetY: data.basic.photoOffsetY } : {}),

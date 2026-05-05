@@ -14,6 +14,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Dict, Any, List
 from io import BytesIO
+from datetime import date
 
 from .latex_utils import escape_latex, normalize_resume_data
 from .latex_sections import SECTION_GENERATORS, DEFAULT_SECTION_ORDER, generate_section_custom
@@ -36,6 +37,35 @@ def _px_to_pt(px: float) -> float:
     为保证 0.5 步进在 PDF 预览中可感知，这里使用增强系数。
     """
     return px * 4.0
+
+
+def _compute_age_from_birth_date(birth_date: str) -> int | None:
+    """
+    支持 YYYY-MM / YYYY-MM-DD，返回年龄（整岁）。
+    """
+    if not isinstance(birth_date, str):
+        return None
+    raw = birth_date.strip()
+    if not raw:
+        return None
+    try:
+        parts = raw.split("-")
+        if len(parts) < 2:
+            return None
+        y = int(parts[0])
+        m = int(parts[1])
+        d = int(parts[2]) if len(parts) >= 3 and parts[2].isdigit() else 1
+        if m < 1 or m > 12 or d < 1 or d > 31:
+            return None
+        today = date.today()
+        age = today.year - y
+        if (today.month, today.day) < (m, d):
+            age -= 1
+        if age < 0 or age > 120:
+            return None
+        return age
+    except Exception:
+        return None
 
 
 def _summarize_latex_error(error_msg: str, max_chars: int = 2000) -> str:
@@ -255,6 +285,16 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     location = escape_latex(contact.get('location') or '')
     employement_status = escape_latex(resume_data.get('employementStatus') or '')
     blog = resume_data.get('blog') or ''  # 不 escape，保留原始 URL 给 \href
+    birth_date_raw = resume_data.get('birthDate') or resume_data.get('birth_date') or ''
+    birth_display_mode = (global_settings.get('birthDateDisplayMode') or 'birthDate') if isinstance(global_settings, dict) else 'birthDate'
+    age = _compute_age_from_birth_date(birth_date_raw) if isinstance(birth_date_raw, str) else None
+    if isinstance(birth_date_raw, str) and birth_date_raw.strip():
+        if birth_display_mode == 'age':
+            age_text = f"{age}岁" if age is not None else birth_date_raw.strip()
+        else:
+            age_text = birth_date_raw.strip()
+        age_text = escape_latex(age_text)
+        employement_status = f"{employement_status} · {age_text}".strip(" ·") if employement_status else age_text
 
     # 有照片时，右侧叠加照片，不改变姓名/联系信息的居中布局
     if resume_data.get("photo"):

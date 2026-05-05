@@ -23,6 +23,8 @@ interface ResumeCardProps {
   onEdit: (id: string) => void
   onDelete: (id: string) => void
   onDuplicate?: (id: string) => void
+  /** 卡片序号（从 1 开始） */
+  index?: number
   /** 是否处于多选模式 */
   isMultiSelectMode?: boolean
   /** 是否被选中（用于批量删除） */
@@ -40,6 +42,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
   onEdit,
   onDelete,
   onDuplicate,
+  index,
   isMultiSelectMode = false,
   isSelected = false,
   onSelectChange,
@@ -86,6 +89,29 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
       whileHover={{ y: -8, transition: { duration: 0.2 } }}
       className="relative group"
     >
+      {typeof index === 'number' && index > 0 && (
+        <div
+          className={cn(
+            'absolute top-4 z-20 pointer-events-none',
+            isMultiSelectMode ? 'left-12' : 'left-4'
+          )}
+        >
+          <div
+            className={cn(
+              'h-7 min-w-7 px-2 rounded-full flex items-center justify-center',
+              'bg-slate-100 text-slate-700',
+              'dark:bg-slate-800/70 dark:text-slate-200',
+              'text-xs font-black tracking-tight',
+              'shadow-[0_6px_18px_rgba(15,23,42,0.08)]',
+              'ring-1 ring-slate-200/80 dark:ring-slate-700/60'
+            )}
+            title={`第 ${index} 个`}
+          >
+            {index}
+          </div>
+        </div>
+      )}
+
       {/* 置顶状态的发光背景 */}
       {resume.pinned && (
         <div className="absolute -inset-0.5 bg-gradient-to-r from-amber-400 to-orange-400 rounded-2xl blur opacity-20 dark:opacity-30" />

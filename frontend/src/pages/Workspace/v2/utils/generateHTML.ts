@@ -6,6 +6,33 @@ import { getLogoUrl } from '../constants/companyLogos'
 import { getSchoolLogoUrl } from '../constants/schoolLogos'
 import { stripHtmlTags } from './textUtils'
 
+function getAgeFromBirthDate(birthDate: string): number | null {
+  const raw = (birthDate || '').trim()
+  if (!raw) return null
+  const m = raw.match(/^(\d{4})-(\d{2})(?:-(\d{2}))?$/)
+  if (!m) return null
+  const y = Number(m[1])
+  const mo = Number(m[2])
+  if (!Number.isFinite(y) || !Number.isFinite(mo) || mo < 1 || mo > 12) return null
+  const d = m[3] ? Number(m[3]) : 1
+  const now = new Date()
+  let age = now.getFullYear() - y
+  const nowMonth = now.getMonth() + 1
+  const nowDay = now.getDate()
+  if (nowMonth < mo || (nowMonth === mo && nowDay < d)) age -= 1
+  return age >= 0 && age <= 120 ? age : null
+}
+
+function formatBirthDateForHeader(birthDate: string, mode: 'birthDate' | 'age'): string {
+  const raw = (birthDate || '').trim()
+  if (!raw) return ''
+  const age = getAgeFromBirthDate(raw)
+  if (mode === 'age') {
+    return age !== null ? `${age}岁` : raw
+  }
+  return raw
+}
+
 // 生成单个模块的 HTML
 function generateSectionHTML(section: { id: string; title: string }, resumeData: ResumeData): string {
   const { basic, experience, education, projects, openSource, awards, selfEvaluation, skillContent } = resumeData
@@ -424,6 +451,11 @@ export function generateHTMLFile(resumeData: ResumeData): string {
             ${basic.phone ? `<div class="info-item">📞 ${escapeHtml(basic.phone)}</div>` : ''}
             ${basic.email ? `<div class="info-item">📧 ${escapeHtml(basic.email)}</div>` : ''}
             ${basic.location ? `<div class="info-item">📍 ${escapeHtml(basic.location)}</div>` : ''}
+            ${basic.birthDate ? (() => {
+              const mode = resumeData.globalSettings?.birthDateDisplayMode || 'birthDate'
+              const text = formatBirthDateForHeader(basic.birthDate, mode)
+              return text ? `<div class="info-item">🎂 ${escapeHtml(text)}</div>` : ''
+            })() : ''}
             ${basic.blog ? `<div class="info-item">🔗 <a href="${escapeHtml(basic.blog)}" target="_blank" rel="noopener noreferrer">${escapeHtml(basic.blog)}</a></div>` : ''}
           </div>
         </div>
