@@ -57,6 +57,7 @@ export default function HTMLWorkspace() {
     addCustomItem,
     updateCustomItem,
     deleteCustomItem,
+    updateSelfEvaluation,
     updateSkillContent,
     updateMenuSections,
     reorderSections,
@@ -409,6 +410,7 @@ export default function HTMLWorkspace() {
         addCustomItem={addCustomItem}
         updateCustomItem={updateCustomItem}
         deleteCustomItem={deleteCustomItem}
+        updateSelfEvaluation={updateSelfEvaluation}
         updateSkillContent={updateSkillContent}
         handleAIImport={handleAIImport}
         pdfBlob={pdfBlob}
@@ -473,4 +475,3 @@ export default function HTMLWorkspace() {
     </WorkspaceLayout>
   )
 }
-

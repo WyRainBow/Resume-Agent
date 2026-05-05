@@ -16,7 +16,7 @@ interface HTMLTemplateRendererProps {
 
 // 渲染单个模块的函数
 const renderSection = (section: { id: string; title: string }, resumeData: ResumeData) => {
-  const { basic, experience, education, projects, openSource, awards, skillContent } = resumeData
+  const { basic, experience, education, projects, openSource, awards, selfEvaluation, skillContent } = resumeData
   const sectionId = section.id
   const sectionTitle = section.title
 
@@ -33,6 +33,18 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
           <div
             className="section-content"
             dangerouslySetInnerHTML={{ __html: skillContent }}
+          />
+        </section>
+      )
+
+    case 'selfEvaluation':
+      if (!selfEvaluation) return null
+      return (
+        <section key="selfEvaluation" className="template-section">
+          <h2 className="section-title">{sectionTitle}</h2>
+          <div
+            className="section-content"
+            dangerouslySetInnerHTML={{ __html: selfEvaluation }}
           />
         </section>
       )

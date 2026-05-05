@@ -19,6 +19,7 @@ export interface BackendResumeData {
   employementStatus?: string
   blog?: string
   objective: string
+  summary?: string
   skillContent?: string  // HTML 格式的专业技能内容
   skills: { category: string; details: string }[]
   internships: {
@@ -75,6 +76,7 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
     experience: 'internships',
     projects: 'projects',
     openSource: 'open_source',
+    selfEvaluation: 'summary',
     awards: 'awards',
     education: 'education',
   }
@@ -105,6 +107,7 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
     ...(data.basic.employementStatus ? { employementStatus: data.basic.employementStatus } : {}),
     ...(data.basic.blog ? { blog: data.basic.blog } : {}),
     objective: data.basic.title,
+    summary: data.selfEvaluation || '',
     skillContent: data.skillContent || '',  // 直接传递 HTML 内容
     skills: data.skillContent ? [{ category: '', details: data.skillContent }] : [],  // 兼容旧格式
     internships: data.experience.filter(e => e.visible !== false).map((e) => ({

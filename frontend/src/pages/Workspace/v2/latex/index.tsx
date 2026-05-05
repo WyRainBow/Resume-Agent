@@ -57,6 +57,7 @@ export default function LaTeXWorkspace() {
     addCustomItem,
     updateCustomItem,
     deleteCustomItem,
+    updateSelfEvaluation,
     updateSkillContent,
     updateMenuSections,
     reorderSections,
@@ -301,6 +302,7 @@ export default function LaTeXWorkspace() {
         addCustomItem={addCustomItem}
         updateCustomItem={updateCustomItem}
         deleteCustomItem={deleteCustomItem}
+        updateSelfEvaluation={updateSelfEvaluation}
         updateSkillContent={updateSkillContent}
         handleAIImport={handleAIImport}
         pdfBlob={pdfBlob}

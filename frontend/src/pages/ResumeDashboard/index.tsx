@@ -148,6 +148,9 @@ const ResumeDashboard = () => {
         description: a.description || '',
         visible: true,
       })) || [],
+      selfEvaluation: typeof data.summary === 'string' && data.summary.trim()
+        ? `<p>${data.summary}</p>`
+        : '',
       skillContent: (() => {
         if (data.skills && data.skills.length > 0) {
           const allItems: string[] = []

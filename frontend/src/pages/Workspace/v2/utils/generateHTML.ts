@@ -8,7 +8,7 @@ import { stripHtmlTags } from './textUtils'
 
 // 生成单个模块的 HTML
 function generateSectionHTML(section: { id: string; title: string }, resumeData: ResumeData): string {
-  const { basic, experience, education, projects, openSource, awards, skillContent } = resumeData
+  const { basic, experience, education, projects, openSource, awards, selfEvaluation, skillContent } = resumeData
   const sectionId = section.id
   const sectionTitle = section.title
 
@@ -22,6 +22,15 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
         <section class="template-section">
           <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
           <div class="section-content">${skillContent}</div>
+        </section>
+      `
+
+    case 'selfEvaluation':
+      if (!selfEvaluation) return ''
+      return `
+        <section class="template-section">
+          <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
+          <div class="section-content">${selfEvaluation}</div>
         </section>
       `
 

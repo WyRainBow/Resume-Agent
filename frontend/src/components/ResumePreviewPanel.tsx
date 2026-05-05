@@ -95,6 +95,11 @@ function normalizeResumeData(data: any): ResumeData {
     // 自定义数据
     customData: oldData.customData || {},
 
+    // 自我评价
+    selfEvaluation: typeof oldData.selfEvaluation === 'string'
+      ? oldData.selfEvaluation
+      : (typeof oldData.summary === 'string' ? `<p>${oldData.summary}</p>` : ''),
+
     // 技能内容（HTML 格式）
     skillContent: normalizeSkills(oldData.skills || oldData.sections?.skills?.items || oldData.sections?.skills || []),
 
@@ -179,10 +184,11 @@ function normalizeSkills(data: any): string {
 function getDefaultMenuSections() {
   return [
     { id: 'basic', title: '基本信息', icon: '👤', enabled: true, order: 0 },
-    { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 1 },
-    { id: 'experience', title: '工作经历', icon: '💼', enabled: true, order: 2 },
-    { id: 'projects', title: '项目经历', icon: '🚀', enabled: true, order: 3 },
-    { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 4 },
+    { id: 'selfEvaluation', title: '自我评价', icon: '📝', enabled: true, order: 1 },
+    { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 2 },
+    { id: 'experience', title: '工作经历', icon: '💼', enabled: true, order: 3 },
+    { id: 'projects', title: '项目经历', icon: '🚀', enabled: true, order: 4 },
+    { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 5 },
   ];
 }
 

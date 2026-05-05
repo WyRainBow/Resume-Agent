@@ -54,6 +54,7 @@ export default function WorkspaceV2() {
     addCustomItem,
     updateCustomItem,
     deleteCustomItem,
+    updateSelfEvaluation,
     updateSkillContent,
     updateMenuSections,
     reorderSections,
@@ -275,6 +276,7 @@ export default function WorkspaceV2() {
         addCustomItem={addCustomItem}
         updateCustomItem={updateCustomItem}
         deleteCustomItem={deleteCustomItem}
+        updateSelfEvaluation={updateSelfEvaluation}
         updateSkillContent={updateSkillContent}
         handleAIImport={handleAIImport}
         pdfBlob={pdfBlob}

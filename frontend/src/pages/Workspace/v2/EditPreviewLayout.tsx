@@ -54,6 +54,7 @@ interface EditPreviewLayoutProps {
   addCustomItem: (sectionId: string) => void;
   updateCustomItem: (sectionId: string, item: CustomItem) => void;
   deleteCustomItem: (sectionId: string, itemId: string) => void;
+  updateSelfEvaluation: (content: string) => void;
   updateSkillContent: (content: string) => void;
   handleAIImport: (section: string) => void;
   pdfBlob: Blob | null;
@@ -131,6 +132,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
     addCustomItem,
     updateCustomItem,
     deleteCustomItem,
+    updateSelfEvaluation,
     updateSkillContent,
     handleAIImport,
     pdfBlob,
@@ -262,6 +264,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                   addCustomItem={addCustomItem}
                   updateCustomItem={updateCustomItem}
                   deleteCustomItem={deleteCustomItem}
+                  updateSelfEvaluation={updateSelfEvaluation}
                   updateSkillContent={updateSkillContent}
                   updateMenuSections={updateMenuSections}
                   updateGlobalSettings={updateGlobalSettings}
@@ -313,6 +316,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                   addCustomItem={addCustomItem}
                   updateCustomItem={updateCustomItem}
                   deleteCustomItem={deleteCustomItem}
+                  updateSelfEvaluation={updateSelfEvaluation}
                   updateSkillContent={updateSkillContent}
                   updateGlobalSettings={updateGlobalSettings}
                   updateMenuSections={updateMenuSections}

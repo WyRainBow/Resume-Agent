@@ -48,17 +48,19 @@ export const initialResumeData: ResumeData = {
   openSource: [],
   awards: [],
   customData: {},
+  selfEvaluation: '',
   skillContent: '',
   activeSection: 'basic',
   draggingProjectId: null,
   menuSections: [
     { id: 'basic', title: '基本信息', icon: '👤', enabled: true, order: 0 },
-    { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 1 },
-    { id: 'experience', title: '实习经历', icon: '💼', enabled: true, order: 2 },
-    { id: 'projects', title: '项目经历', icon: '🚀', enabled: true, order: 3 },
-    { id: 'openSource', title: '开源经历', icon: '🔗', enabled: true, order: 4 },
-    { id: 'awards', title: '荣誉奖项', icon: '🎖️', enabled: true, order: 5 },
-    { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 6 },
+    { id: 'selfEvaluation', title: '自我评价', icon: '📝', enabled: true, order: 1 },
+    { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 2 },
+    { id: 'experience', title: '实习经历', icon: '💼', enabled: true, order: 3 },
+    { id: 'projects', title: '项目经历', icon: '🚀', enabled: true, order: 4 },
+    { id: 'openSource', title: '开源经历', icon: '🔗', enabled: true, order: 5 },
+    { id: 'awards', title: '荣誉奖项', icon: '🎖️', enabled: true, order: 6 },
+    { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 7 },
   ],
   globalSettings: {
     lineHeight: 1.5,
@@ -180,6 +182,10 @@ function convertTemplateToResumeData(template: Resume): ResumeData {
       }
     })
     .join('')
+  const legacySummary = (template as any).summary
+  const selfEvaluation = typeof legacySummary === 'string' && legacySummary.trim()
+    ? `<p>${legacySummary}</p>`
+    : ''
 
   return {
     ...initialResumeData,
@@ -196,6 +202,7 @@ function convertTemplateToResumeData(template: Resume): ResumeData {
     projects,
     openSource,
     awards,
+    selfEvaluation,
     skillContent,
   }
 }
@@ -230,11 +237,16 @@ export const loadFromStorage = (): ResumeData => {
       const existingIds = new Set(data.menuSections.map(s => s.id))
       const newSections = initialResumeData.menuSections.filter(s => !existingIds.has(s.id))
       if (newSections.length > 0) {
-        data.menuSections = [...data.menuSections, ...newSections]
+        data.menuSections = [...data.menuSections, ...newSections].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
       }
       // 确保新字段存在
       if (!data.openSource) data.openSource = []
       if (!data.awards) data.awards = []
+      if (typeof data.selfEvaluation !== 'string') {
+        data.selfEvaluation = typeof (data as any).summary === 'string'
+          ? `<p>${(data as any).summary}</p>`
+          : ''
+      }
       data.customData = normalizeCustomData(data.customData)
       if (!data.templateType) data.templateType = 'latex'  // 默认 LaTeX 模板
       if (storageUpdated) {

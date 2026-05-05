@@ -15,7 +15,11 @@ def generate_section_summary(resume_data: Dict[str, Any], section_titles: Dict[s
     title = (section_titles or {}).get('summary', '个人总结')
     if isinstance(summary, str) and summary.strip():
         content.append(f"\\section{{{escape_latex(title)}}}")
-        content.append(escape_latex(summary.strip()))
+        summary_text = summary.strip()
+        if '<' in summary_text and '>' in summary_text:
+            content.append(html_to_latex(summary_text))
+        else:
+            content.append(escape_latex(summary_text))
         content.append("")
     return content
 
@@ -607,7 +611,6 @@ def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict
                 # 补充说明 details/description（富文本 HTML，与实习经历列表风格一致）
                 details = ed.get('details') or ([ed.get('description')] if ed.get('description') else [])
                 if isinstance(details, list) and details:
-                    has_list_wrapper = False
                     for d in details:
                         if not isinstance(d, str) or not d.strip():
                             continue
@@ -628,17 +631,9 @@ def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict
                                     )
                                     content.append(converted)
                                 else:
-                                    if not has_list_wrapper:
-                                        content.append(r"\begin{itemize}[label=\footnotesize$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
-                                        has_list_wrapper = True
-                                    content.append(f"  \\item {converted}")
+                                    content.append(converted.strip())
                         else:
-                            if not has_list_wrapper:
-                                content.append(r"\begin{itemize}[label=\footnotesize$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
-                                has_list_wrapper = True
-                            content.append(f"  \\item {escape_latex(d)}")
-                    if has_list_wrapper:
-                        content.append(r"\end{itemize}")
+                            content.append(escape_latex(d))
             content.append("")
     return content
 
