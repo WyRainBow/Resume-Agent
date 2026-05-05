@@ -80,7 +80,7 @@ export function PreviewPanel({
   const showStatus = !isHTMLTemplate && (loading || autoRenderPending)
   const statusText = loading
     ? (progress || '正在更新 PDF 预览...')
-    : '已记录修改，停止输入 2 秒后更新预览'
+    : '已记录修改、停止输入 2 秒后更新预览'
 
   const applyPercentInput = (raw: string) => {
     const n = parseFloat(raw.replace(/[^\d.]/g, ''))

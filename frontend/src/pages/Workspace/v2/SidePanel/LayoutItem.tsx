@@ -15,6 +15,7 @@ const DEFAULT_SECTION_IDS = new Set([
   'openSource',
   'skills',
   'awards',
+  'selfEvaluation',
 ])
 
 interface LayoutItemProps {
