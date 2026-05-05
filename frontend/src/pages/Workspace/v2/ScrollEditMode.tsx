@@ -221,6 +221,8 @@ export default function ScrollEditMode({
             onDelete={deleteAward}
             onReorder={reorderAwards}
             onAIImport={handleAIImport ? () => handleAIImport('awards') : undefined}
+            awardsListType={resumeData.globalSettings?.awardsListType || 'unordered'}
+            onChangeAwardsListType={(type) => updateGlobalSettings({ awardsListType: type })}
           />
         )
 

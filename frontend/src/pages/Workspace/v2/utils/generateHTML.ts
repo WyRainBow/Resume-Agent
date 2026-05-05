@@ -164,22 +164,24 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
 
     case 'awards':
       if (awards.length === 0) return ''
+      const awardsListType = resumeData.globalSettings?.awardsListType || 'unordered'
+      const listTag = awardsListType === 'ordered' ? 'ol' : 'ul'
       return `
         <section class="template-section">
           <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
           <div class="section-content">
-            ${awards.map(award => `
-              <div class="item">
-                <div class="item-header">
-                  <div class="item-title-group">
-                    <h3 class="item-title">${escapeHtml(stripHtmlTags(award.title))}</h3>
-                    ${award.issuer ? `<span class="item-subtitle">${escapeHtml(stripHtmlTags(award.issuer))}</span>` : ''}
-                  </div>
-                  ${award.date ? `<span class="item-date">${escapeHtml(award.date)}</span>` : ''}
-                </div>
-                ${award.description ? `<p class="item-description">${escapeHtml(award.description)}</p>` : ''}
-              </div>
-            `).join('')}
+            <${listTag}>
+              ${awards.map((award) => {
+                const title = stripHtmlTags(award.title || '')
+                const issuer = stripHtmlTags(award.issuer || '')
+                const date = award.date || ''
+                const desc = award.description || ''
+                const parts = [title, issuer].filter(Boolean).join(' - ')
+                const main = desc ? (parts ? `${parts}：${desc}` : desc) : (parts || '')
+                const text = date ? (main ? `${main}（${date}）` : date) : main
+                return `<li>${escapeHtml(text)}</li>`
+              }).join('')}
+            </${listTag}>
           </div>
         </section>
       `

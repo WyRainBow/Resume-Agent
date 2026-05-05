@@ -279,24 +279,24 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
 
     case 'awards':
       if (awards.length === 0) return null
+      const awardsListType = resumeData.globalSettings?.awardsListType || 'unordered'
+      const AwardsListTag = (awardsListType === 'ordered' ? 'ol' : 'ul') as 'ol' | 'ul'
       return (
         <section key="awards" className="template-section">
           <h2 className="section-title">{sectionTitle}</h2>
           <div className="section-content">
-            {awards.map((award) => (
-              <div key={award.id} className="item">
-                <div className="item-header">
-                  <div className="item-title-group">
-                    <h3 className="item-title">{stripHtmlTags(award.title)}</h3>
-                    {award.issuer && <span className="item-subtitle">{stripHtmlTags(award.issuer)}</span>}
-                  </div>
-                  {award.date && <span className="item-date">{award.date}</span>}
-                </div>
-                {award.description && (
-                  <p className="item-description">{award.description}</p>
-                )}
-              </div>
-            ))}
+            <AwardsListTag>
+              {awards.map((award) => {
+                const title = stripHtmlTags(award.title || '')
+                const issuer = stripHtmlTags(award.issuer || '')
+                const date = award.date || ''
+                const desc = award.description || ''
+                const parts = [title, issuer].filter(Boolean).join(' - ')
+                const main = desc ? (parts ? `${parts}：${desc}` : desc) : (parts || '')
+                const text = date ? (main ? `${main}（${date}）` : date) : main
+                return <li key={award.id}>{text}</li>
+              })}
+            </AwardsListTag>
           </div>
         </section>
       )

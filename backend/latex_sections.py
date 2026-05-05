@@ -642,6 +642,8 @@ def generate_section_awards(resume_data: Dict[str, Any], section_titles: Dict[st
     content = []
     awards = resume_data.get('awards') or []
     section_title = (section_titles or {}).get('awards', '荣誉奖项')
+    global_settings = resume_data.get('globalSettings') or {}
+    list_type = global_settings.get('awardsListType', 'unordered')
     if isinstance(awards, list) and awards:
         # 先收集有效的奖项内容
         award_items = []
@@ -669,9 +671,17 @@ def generate_section_awards(resume_data: Dict[str, Any], section_titles: Dict[st
         # 只有在有内容时才创建section和itemize
         if award_items:
             content.append(f"\\section{{{escape_latex(section_title)}}}")
-            content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
-            content.extend(award_items)
-            content.append(r"\end{itemize}")
+            if list_type == 'ordered':
+                # 有序列表：显示数字编号
+                content.append(r"\begin{enumerate}[label=\arabic*.,leftmargin=*,labelsep=0.5em,topsep=0.2ex,partopsep=0ex,itemsep=0ex,parsep=0.2ex]")
+                # award_items 目前已带 \item 前缀，enumerate/itemize 通用
+                content.extend(award_items)
+                content.append(r"\end{enumerate}")
+            else:
+                # 无序列表：显示圆点
+                content.append(r"\begin{itemize}[label=\footnotesize$\bullet$,leftmargin=*,labelsep=0.5em,topsep=0.2ex,partopsep=0ex,itemsep=0ex,parsep=0.2ex,itemindent=0em]")
+                content.extend(award_items)
+                content.append(r"\end{itemize}")
             content.append("")
     return content
 

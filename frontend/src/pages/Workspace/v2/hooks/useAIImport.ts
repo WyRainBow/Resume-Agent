@@ -210,7 +210,7 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
   const formatHighlightsToHtml = formatHighlightsToHtmlModule
 
   // AI 解析结果处理
-  const handleAISave = useCallback((data: any) => {
+  const handleAISave = useCallback((data: any, meta?: { awardsListType?: 'unordered' | 'ordered' }) => {
     console.log('AI parsed data:', data, 'for section:', aiModalSection)
 
     // 读取格式信息
@@ -377,7 +377,7 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
       }))
     } else {
       // 分模块导入
-      handleSectionImport(aiModalSection, data, setResumeData)
+      handleSectionImport(aiModalSection, data, setResumeData, meta)
     }
   }, [aiModalSection, setResumeData])
 
@@ -396,7 +396,8 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
 function handleSectionImport(
   section: string,
   data: any,
-  setResumeData: React.Dispatch<React.SetStateAction<ResumeData>>
+  setResumeData: React.Dispatch<React.SetStateAction<ResumeData>>,
+  meta?: { awardsListType?: 'unordered' | 'ordered' }
 ) {
   switch (section) {
     case 'education':
@@ -601,6 +602,9 @@ function handleSectionImport(
         setResumeData((prev) => ({
           ...prev,
           awards: [...(prev.awards || []), ...newAwards],
+          globalSettings: meta?.awardsListType
+            ? { ...(prev.globalSettings || {}), awardsListType: meta.awardsListType }
+            : prev.globalSettings,
         }))
       }
       break

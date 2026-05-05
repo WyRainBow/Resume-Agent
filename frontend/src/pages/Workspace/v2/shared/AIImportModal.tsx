@@ -49,7 +49,7 @@ export interface AIImportModalProps {
   sectionType: SectionType | string;
   sectionTitle: string;
   onClose: () => void;
-  onSave: (data: any) => void;
+  onSave: (data: any, meta?: { awardsListType?: 'unordered' | 'ordered' }) => void;
 }
 
 // AI 导入提示词占位符
@@ -92,6 +92,7 @@ export function AIImportModal({
   const [copied, setCopied] = useState(false);
   const [importMode, setImportMode] = useState<"file" | "text">("file");
   const [currentStep, setCurrentStep] = useState<"input" | "results">("input");
+  const [awardsListType, setAwardsListType] = useState<'unordered' | 'ordered'>('unordered');
   const [testKeysLoading, setTestKeysLoading] = useState(false);
   const [testKeysResult, setTestKeysResult] = useState<Record<
     string,
@@ -148,6 +149,7 @@ export function AIImportModal({
       setSelectedFile(null);
       setImportMode("file");
       setCurrentStep("input");
+      setAwardsListType('unordered');
     }
   }, [isOpen]);
 
@@ -255,7 +257,11 @@ export function AIImportModal({
   // 保存数据
   const handleSave = () => {
     if (parsedData) {
-      onSave(parsedData);
+      if (sectionType === 'awards') {
+        onSave(parsedData, { awardsListType });
+      } else {
+        onSave(parsedData);
+      }
       onClose();
     }
   };
@@ -679,6 +685,39 @@ export function AIImportModal({
                 </div>
               ) : (
                 <div className="space-y-2 flex-1 flex flex-col">
+                  {sectionType === 'awards' && (
+                    <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                      <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        列表样式
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAwardsListType('unordered')}
+                          className={cn(
+                            'px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors',
+                            awardsListType === 'unordered'
+                              ? 'bg-slate-900 text-white border-slate-900'
+                              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800',
+                          )}
+                        >
+                          无序列表
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAwardsListType('ordered')}
+                          className={cn(
+                            'px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors',
+                            awardsListType === 'ordered'
+                              ? 'bg-slate-900 text-white border-slate-900'
+                              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800',
+                          )}
+                        >
+                          有序列表
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex-shrink-0">
                     文本内容
                     <span className="text-xs text-slate-400 dark:text-slate-500 ml-2">

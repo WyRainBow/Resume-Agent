@@ -203,6 +203,8 @@ export function EditPanel({
             onDelete={deleteAward}
             onReorder={reorderAwards}
             onAIImport={onAIImport ? () => onAIImport('awards') : undefined}
+            awardsListType={resumeData.globalSettings?.awardsListType || 'unordered'}
+            onChangeAwardsListType={(type) => updateGlobalSettings({ awardsListType: type })}
           />
         )
 
