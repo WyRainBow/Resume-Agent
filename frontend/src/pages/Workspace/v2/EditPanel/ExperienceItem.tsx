@@ -362,7 +362,7 @@ const ExperienceEditor = ({
             <div className="mb-2 rounded-lg border border-slate-200/80 bg-slate-50/80 p-2.5 dark:border-neutral-700 dark:bg-neutral-900/50">
               <div className={cn('min-w-0', isCompactLayout ? 'space-y-2' : 'flex items-center gap-2')}>
                 <div className={cn('min-w-0', isCompactLayout ? 'space-y-2' : 'contents')}>
-                  <label className="shrink-0 text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">公司名称</label>
+                  <label className="shrink-0 text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">公司 LOGO：</label>
                   <div className={cn(isCompactLayout ? 'flex items-center gap-2' : 'contents')}>
                     <LogoSelector
                       selectedKey={experience.companyLogo}
@@ -439,6 +439,7 @@ const ExperienceEditor = ({
             )}
             <Field
               index={0}
+              label="公司名字："
               value={experience.company}
               onChange={(value) => handleChange('company', value)}
               placeholder="请输入公司名称"
