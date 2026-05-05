@@ -17,5 +17,6 @@ def test_photo_x_offset_is_applied_after_image_in_right_aligned_box():
     photo_line = next(line for line in latex.splitlines() if "{photo}" in line)
 
     assert "\\includegraphics" in photo_line
-    assert "\\hspace*{1.50cm}" in photo_line
-    assert photo_line.index("\\includegraphics") < photo_line.index("\\hspace*{1.50cm}")
+    # photoOffsetX 正值应向右偏移：通过在图片后追加负 hspace 实现
+    assert "\\hspace*{-1.50cm}" in photo_line
+    assert photo_line.index("\\includegraphics") < photo_line.index("\\hspace*{-1.50cm}")

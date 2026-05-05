@@ -227,6 +227,9 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
                         onChange={(e) => onUpdate({ photoOffsetX: Number(e.target.value) })}
                         className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
                       />
+                      <div className="text-[10px] text-slate-400">
+                        负值向左、正值向右
+                      </div>
                     </div>
                     <div className="space-y-1.5">
                       <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider">Y 偏移</label>

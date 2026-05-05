@@ -262,8 +262,8 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
         photo_offset_y = _safe_float(resume_data.get("photoOffsetY"), -2.0, -6.0, 6.0)
         photo_width_cm = _safe_float(resume_data.get("photoWidthCm"), 3.0, 1.2, 6.0)
         photo_height_cm = _safe_float(resume_data.get("photoHeightCm"), 3.0, 1.2, 8.0)
-        # 右对齐锚点：在图片后追加空白才能改变右边界；x 正值代表向左偏移。
-        x_shift_cm = photo_offset_x
+        # 右对齐锚点：在图片后追加空白才能改变右边界；x 正值代表向右偏移（与前端输入一致）。
+        x_shift_cm = -photo_offset_x
         latex_content.append(
             f"\\noindent\\makebox[\\textwidth][r]{{\\raisebox{{{photo_offset_y:.2f}cm}}[0pt][0pt]{{\\includegraphics[width={photo_width_cm:.2f}cm,height={photo_height_cm:.2f}cm,keepaspectratio]{{photo}}}}\\hspace*{{{x_shift_cm:.2f}cm}}}}"
         )

@@ -26,7 +26,7 @@ export interface BasicInfo {
   employementStatus?: string
   blog?: string
   photo?: string
-  photoOffsetX?: number  // 照片横向偏移（cm，正值向左）
+  photoOffsetX?: number  // 照片横向偏移（cm，正值向右）
   photoOffsetY?: number  // 照片纵向偏移（cm，正值向上）
   photoWidthCm?: number  // 照片宽度（cm）
   photoHeightCm?: number  // 照片高度（cm）
