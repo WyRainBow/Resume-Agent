@@ -111,10 +111,10 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
                 transition={{ duration: 0.25, delay: 3 * 0.04, ease: 'easeOut' }}
                 className="space-y-2"
               >
-                <label className="text-sm text-gray-600 dark:text-neutral-300">生日</label>
+                <label className="text-sm text-gray-600 dark:text-neutral-300">年龄</label>
                 <InlineDatePicker
                   value={basic?.birthDate || null}
-                  placeholder="选择日期"
+                  placeholder="选择年月"
                   onSelect={(value) => onUpdate({ birthDate: value ?? '' })}
                 />
               </motion.div>
