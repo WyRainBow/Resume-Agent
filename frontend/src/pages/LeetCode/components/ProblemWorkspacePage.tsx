@@ -933,12 +933,7 @@ export function ProblemWorkspacePage() {
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/80">
-                      <div className="mb-3">
-                        <div className="font-semibold">时间与空间复杂度</div>
-                        <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                          根据编辑器中 Go 代码的静态扫描自动生成：标出各 for 的出现行、块嵌套与启发式迭代说明；复杂度结论为常见算法直觉，非定理证明。
-                        </p>
-                      </div>
+                      <div className="mb-3 font-semibold">时间与空间复杂度</div>
                       <div className="grid gap-3 sm:grid-cols-2">
                         <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-600 dark:bg-slate-900/50">
                           <div className="text-[10px] uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">渐进时间</div>
@@ -949,46 +944,6 @@ export function ProblemWorkspacePage() {
                           <div className="mt-1 text-sm font-medium text-slate-800 dark:text-slate-100">{complexityInsight.spaceLabel}</div>
                         </div>
                       </div>
-                      <div className="mt-4 space-y-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                        {complexityInsight.reasons.map((text, i) => (
-                          <p key={i} className={text.startsWith('L') ? 'pl-2 font-mono text-xs text-slate-500 dark:text-slate-400' : ''}>
-                            {text}
-                          </p>
-                        ))}
-                      </div>
-                      {complexityInsight.loops.length > 0 ? (
-                        <div className="mt-4 overflow-x-auto">
-                          <table className="w-full min-w-[36rem] border-collapse text-left text-xs">
-                            <thead>
-                              <tr className="border-b border-slate-200 dark:border-slate-600">
-                                <th className="py-2 pr-3 font-semibold text-slate-500 dark:text-slate-400">行</th>
-                                <th className="py-2 pr-3 font-semibold text-slate-500 dark:text-slate-400">块深度</th>
-                                <th className="py-2 pr-3 font-semibold text-slate-500 dark:text-slate-400">for 嵌套</th>
-                                <th className="py-2 pr-3 font-semibold text-slate-500 dark:text-slate-400">代码片段</th>
-                                <th className="py-2 font-semibold text-slate-500 dark:text-slate-400">迭代/次数直觉</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {complexityInsight.loops.map((L, idx) => (
-                                <tr key={`${L.line}-${idx}`} className="border-b border-slate-100 dark:border-slate-700/80">
-                                  <td className="align-top py-2 pr-3 font-mono text-emerald-700 dark:text-emerald-400">{L.line}</td>
-                                  <td className="align-top py-2 pr-3 font-mono text-slate-600 dark:text-slate-300">{L.blockDepth}</td>
-                                  <td className="align-top py-2 pr-3 font-mono text-slate-600 dark:text-slate-300">{L.forNestLevel}</td>
-                                  <td className="align-top py-2 pr-3 break-all font-mono text-slate-700 dark:text-slate-200">{L.snippet}</td>
-                                  <td className="align-top py-2 text-slate-600 dark:text-slate-400">{L.iterationHint}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                          <p className="mt-2 text-[11px] leading-4 text-slate-400 dark:text-slate-500">
-                            「块深度」= 进入该行时未闭合的{' '}
-                            <span className="font-mono">{`{`}</span>
-                            层数。「for 嵌套」= 按出现顺序用栈估算的互相嵌套层数（并列 for 会回到较浅层）。精确执行次数需代入 n 与不变式，无法由本表唯一确定。
-                          </p>
-                        </div>
-                      ) : (
-                        <div className="mt-3 text-sm text-slate-400 dark:text-slate-500">未检测到 for / range 循环。</div>
-                      )}
                     </div>
                   </div>
             </div>
