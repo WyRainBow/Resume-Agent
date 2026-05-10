@@ -71,32 +71,32 @@ export function ProblemEditorForm({ initialProblem, onCancel, onSave }: ProblemE
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-end">
-      <div className="h-full w-full max-w-3xl overflow-y-auto bg-[#111111] text-white shadow-2xl">
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-white/10 bg-[#151515] px-6 py-4">
+    <div className="fixed inset-0 z-50 bg-slate-900/25 backdrop-blur-sm flex justify-end">
+      <div className="h-full w-full max-w-3xl overflow-y-auto bg-white text-slate-900 shadow-2xl">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
           <div>
             <h2 className="text-xl font-bold">{initialProblem ? '编辑题目' : '新增自定义题'}</h2>
-            <p className="text-sm text-white/55">文件驱动和页面管理共用同一套 JSON 结构。</p>
+            <p className="text-sm text-slate-500">文件驱动和页面管理共用同一套 JSON 结构。</p>
           </div>
           <div className="flex gap-3">
-            <button className="rounded-lg border border-white/15 px-4 py-2 text-sm" onClick={onCancel}>取消</button>
+            <button className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700" onClick={onCancel}>取消</button>
             <button className="rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-black" onClick={handleSubmit}>保存题目</button>
           </div>
         </div>
         <div className="space-y-6 px-6 py-6">
-          {error ? <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">{error}</div> : null}
+          {error ? <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">{error}</div> : null}
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm">
               <span>标题</span>
-              <input className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2" value={problem.title} onChange={e => setProblem(prev => ({ ...prev, title: e.target.value }))} />
+              <input className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2" value={problem.title} onChange={e => setProblem(prev => ({ ...prev, title: e.target.value }))} />
             </label>
             <label className="space-y-2 text-sm">
               <span>Slug</span>
-              <input className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2" value={problem.slug} onChange={e => setProblem(prev => ({ ...prev, slug: e.target.value }))} />
+              <input className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2" value={problem.slug} onChange={e => setProblem(prev => ({ ...prev, slug: e.target.value }))} />
             </label>
             <label className="space-y-2 text-sm">
               <span>难度</span>
-              <select className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2" value={problem.difficulty} onChange={e => setProblem(prev => ({ ...prev, difficulty: e.target.value as LeetCodeProblem['difficulty'] }))}>
+              <select className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2" value={problem.difficulty} onChange={e => setProblem(prev => ({ ...prev, difficulty: e.target.value as LeetCodeProblem['difficulty'] }))}>
                 <option value="Easy">Easy</option>
                 <option value="Medium">Medium</option>
                 <option value="Hard">Hard</option>
@@ -104,39 +104,39 @@ export function ProblemEditorForm({ initialProblem, onCancel, onSave }: ProblemE
             </label>
             <label className="space-y-2 text-sm">
               <span>标签（逗号分隔）</span>
-              <input className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2" value={tagsText} onChange={e => setTagsText(e.target.value)} />
+              <input className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2" value={tagsText} onChange={e => setTagsText(e.target.value)} />
             </label>
           </div>
 
           <label className="block space-y-2 text-sm">
             <span>题目描述</span>
-            <textarea className="min-h-28 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-3" value={problem.description} onChange={e => setProblem(prev => ({ ...prev, description: e.target.value }))} />
+            <textarea className="min-h-28 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-3" value={problem.description} onChange={e => setProblem(prev => ({ ...prev, description: e.target.value }))} />
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm">
               <span>约束（每行一条）</span>
-              <textarea className="min-h-28 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-3" value={constraintsText} onChange={e => setConstraintsText(e.target.value)} />
+              <textarea className="min-h-28 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-3" value={constraintsText} onChange={e => setConstraintsText(e.target.value)} />
             </label>
             <label className="space-y-2 text-sm">
               <span>提示（每行一条）</span>
-              <textarea className="min-h-28 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-3" value={hintsText} onChange={e => setHintsText(e.target.value)} />
+              <textarea className="min-h-28 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-3" value={hintsText} onChange={e => setHintsText(e.target.value)} />
             </label>
           </div>
 
           <label className="block space-y-2 text-sm">
             <span>Go Starter Code</span>
-            <textarea className="min-h-60 w-full rounded-lg border border-white/10 bg-[#0b1020] px-3 py-3 font-mono text-sm text-emerald-100" value={problem.starterCode} onChange={e => setProblem(prev => ({ ...prev, starterCode: e.target.value }))} />
+            <textarea className="min-h-60 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-sm text-slate-800" value={problem.starterCode} onChange={e => setProblem(prev => ({ ...prev, starterCode: e.target.value }))} />
           </label>
 
           <div className="grid gap-4 md:grid-cols-2">
             <label className="space-y-2 text-sm">
               <span>公开测试用例 JSON</span>
-              <textarea className="min-h-72 w-full rounded-lg border border-white/10 bg-[#0b1020] px-3 py-3 font-mono text-sm text-white/85" value={visibleCasesText} onChange={e => setVisibleCasesText(e.target.value)} />
+              <textarea className="min-h-72 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-sm text-slate-800" value={visibleCasesText} onChange={e => setVisibleCasesText(e.target.value)} />
             </label>
             <label className="space-y-2 text-sm">
               <span>隐藏测试用例 JSON</span>
-              <textarea className="min-h-72 w-full rounded-lg border border-white/10 bg-[#0b1020] px-3 py-3 font-mono text-sm text-white/85" value={hiddenCasesText} onChange={e => setHiddenCasesText(e.target.value)} />
+              <textarea className="min-h-72 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 font-mono text-sm text-slate-800" value={hiddenCasesText} onChange={e => setHiddenCasesText(e.target.value)} />
             </label>
           </div>
         </div>
