@@ -1,0 +1,6 @@
+{
+  "slug": "quick-sort",
+  "language": "go",
+  "code": "package main\n\nfunc quickSort(nums []int) []int {\n\treturn nums\n}\n\nfunc main(){\n    nums:= []int{1,2,3}\n    \n    quickSort(nums)\n    \n    fmt.Println(nums)\n}",
+  "updatedAt": "2026-05-10T07:27:25.508638Z"
+}
