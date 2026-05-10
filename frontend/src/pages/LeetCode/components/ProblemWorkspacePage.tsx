@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type UIEvent } from 'react'
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type UIEvent,
+} from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import { cn } from '@/lib/utils'
@@ -7,6 +16,21 @@ import type { LeetCodeProblem, ProblemTestCase, RunResponse, SubmissionRecord } 
 
 function formatValue(value: unknown) {
   return JSON.stringify(value, null, 2)
+}
+
+/** 合法 JSON 压成单行；解析失败则保持原字符串便于继续输入 */
+function compactJsonText(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return raw
+  try {
+    return JSON.stringify(JSON.parse(trimmed))
+  } catch {
+    return raw
+  }
+}
+
+function displayJsonOneLine(value: unknown) {
+  return JSON.stringify(value)
 }
 
 /** 光标所在行前导空白（空格与 Tab），用于回车继承缩进 */
@@ -60,7 +84,7 @@ export function ProblemWorkspacePage() {
   const [submitResult, setSubmitResult] = useState<RunResponse | null>(null)
   const [submissions, setSubmissions] = useState<SubmissionRecord[]>([])
   const [selectedCaseId, setSelectedCaseId] = useState('')
-  const [customInput, setCustomInput] = useState('{\n  "head": [1,2,3,4,5,6,7,8],\n  "k": 3\n}')
+  const [customInput, setCustomInput] = useState('{"head":[1,2,3,4,5,6,7,8],"k":3}')
   const [customExpected, setCustomExpected] = useState('[3,2,1,6,5,4,8,7]')
   const [busy, setBusy] = useState<'run' | 'submit' | null>(null)
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle')
@@ -79,6 +103,9 @@ export function ProblemWorkspacePage() {
   })
   const lineNumberRef = useRef<HTMLDivElement | null>(null)
   const appearanceMenuRef = useRef<HTMLDivElement | null>(null)
+  const customInputJsonRef = useRef<HTMLTextAreaElement | null>(null)
+  const customExpectedJsonRef = useRef<HTMLTextAreaElement | null>(null)
+  const jsonCaretRestoreRef = useRef<{ target: 'input' | 'expected'; position: number } | null>(null)
   const [appearance, setAppearance] = useState<WorkspaceAppearance>(() => readStoredAppearance())
   const [appearanceMenuOpen, setAppearanceMenuOpen] = useState(false)
 
@@ -116,8 +143,8 @@ export function ProblemWorkspacePage() {
           hintsText: problemData.hints.join('\n'),
         })
         if (problemData.visibleTestCases[0]) {
-          setCustomInput(JSON.stringify(problemData.visibleTestCases[0].input, null, 2))
-          setCustomExpected(JSON.stringify(problemData.visibleTestCases[0].expected, null, 2))
+          setCustomInput(displayJsonOneLine(problemData.visibleTestCases[0].input))
+          setCustomExpected(displayJsonOneLine(problemData.visibleTestCases[0].expected))
         }
       } catch (err) {
         if (disposed) return
@@ -170,6 +197,31 @@ export function ProblemWorkspacePage() {
     return problem?.visibleTestCases.find(item => item.id === selectedCaseId) ?? problem?.visibleTestCases[0] ?? null
   }, [problem, selectedCaseId])
 
+  useLayoutEffect(() => {
+    const job = jsonCaretRestoreRef.current
+    if (!job) return
+    jsonCaretRestoreRef.current = null
+    const el = job.target === 'input' ? customInputJsonRef.current : customExpectedJsonRef.current
+    if (el && document.activeElement === el) {
+      const p = Math.min(job.position, el.value.length)
+      el.setSelectionRange(p, p)
+    }
+  }, [customInput, customExpected])
+
+  function compactJsonPaste(
+    target: 'input' | 'expected',
+    event: ClipboardEvent<HTMLTextAreaElement>,
+    setValue: (next: string) => void,
+  ) {
+    event.preventDefault()
+    const el = event.currentTarget
+    const merged =
+      `${el.value.slice(0, el.selectionStart)}${event.clipboardData.getData('text/plain')}${el.value.slice(el.selectionEnd)}`
+    const next = compactJsonText(merged)
+    jsonCaretRestoreRef.current = { target, position: next.length }
+    setValue(next)
+  }
+
   async function handleRun() {
     if (!problem) return
     try {
@@ -209,7 +261,22 @@ export function ProblemWorkspacePage() {
 
   async function handleCopyRunResult() {
     if (!runResult) return
-    const content = [
+    const pr = runResult.programRun
+    const programBlock =
+      pr == null
+        ? []
+        : [
+            '--- 程序输出 · go run 原文 ---',
+            `programRun.status: ${pr.status}`,
+            `programRun.exitCode: ${pr.exitCode ?? 'null'}`,
+            `programRun.durationMs: ${pr.durationMs}`,
+            pr.stderr ? `programRun.stderr:\n${pr.stderr}` : '',
+            pr.stdout ? `programRun.stdout:\n${pr.stdout}` : '',
+            '',
+          ]
+
+    const caseBlock = [
+      '--- 评测用例 ---',
       `status: ${runResult.status}`,
       `passed: ${runResult.summary.passed}/${runResult.summary.total}`,
       '',
@@ -222,8 +289,8 @@ export function ProblemWorkspacePage() {
         '',
       ]),
     ]
-      .filter(Boolean)
-      .join('\n')
+
+    const content = [...programBlock, ...caseBlock].filter(Boolean).join('\n')
 
     try {
       await navigator.clipboard.writeText(content)
@@ -557,22 +624,45 @@ export function ProblemWorkspacePage() {
                       <div className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">公开用例</div>
                       <div className="flex flex-wrap gap-2">
                         {problem.visibleTestCases.map(item => (
-                          <button key={item.id} className={`rounded-lg px-3 py-2 text-sm ${selectedCaseId === item.id ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'border border-slate-200 bg-white text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300'}`} onClick={() => setSelectedCaseId(item.id)}>{item.id}</button>
+                          <button
+                            key={item.id}
+                            type="button"
+                            className={`rounded-lg px-3 py-2 text-sm ${selectedCaseId === item.id ? 'bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900' : 'border border-slate-200 bg-white text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}
+                            onClick={() => setSelectedCaseId(item.id)}
+                          >
+                            {item.id}
+                          </button>
                         ))}
                       </div>
                     </div>
                     <label className="block">
                       <div className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">自定义输入 JSON</div>
-                      <textarea className="min-h-32 w-full rounded-xl border border-slate-200 bg-white px-3 py-3 font-mono text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200" value={customInput} onChange={e => setCustomInput(e.target.value)} />
+                      <textarea
+                        ref={customInputJsonRef}
+                        className="min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 font-mono text-sm leading-6 text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
+                        value={customInput}
+                        spellCheck={false}
+                        onChange={e => setCustomInput(e.target.value)}
+                        onBlur={e => setCustomInput(compactJsonText(e.target.value))}
+                        onPaste={e => compactJsonPaste('input', e, setCustomInput)}
+                      />
                     </label>
                     <label className="block">
                       <div className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">期望输出 JSON</div>
-                      <textarea className="min-h-24 w-full rounded-xl border border-slate-200 bg-white px-3 py-3 font-mono text-sm text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200" value={customExpected} onChange={e => setCustomExpected(e.target.value)} />
+                      <textarea
+                        ref={customExpectedJsonRef}
+                        className="min-h-10 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 font-mono text-sm leading-6 text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
+                        value={customExpected}
+                        spellCheck={false}
+                        onChange={e => setCustomExpected(e.target.value)}
+                        onBlur={e => setCustomExpected(compactJsonText(e.target.value))}
+                        onPaste={e => compactJsonPaste('expected', e, setCustomExpected)}
+                      />
                     </label>
                     {selectedCase ? (
                       <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
                         <div className="font-semibold">当前公开用例</div>
-                        <pre className="mt-3 whitespace-pre-wrap text-slate-600 dark:text-slate-300">{formatValue(selectedCase.input)}</pre>
+                        <pre className="mt-3 whitespace-pre-wrap break-all font-mono text-xs text-slate-600 dark:text-slate-300">{displayJsonOneLine(selectedCase.input)}</pre>
                       </div>
                     ) : null}
                   </div>
@@ -581,6 +671,55 @@ export function ProblemWorkspacePage() {
 
                   <div className="space-y-4">
                     {error ? <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-600 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400">{error}</div> : null}
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/80">
+                      <div className="mb-2 flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <div className="font-semibold">程序输出</div>
+                          <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                            等同本地对当前编辑器源码执行 go run（含你的 package main 与 func main）。与下方「运行结果」互不替代：即使判题未通过或答案不对，仍可在此看到 println 输出与编译报错。
+                          </p>
+                        </div>
+                        {runResult?.programRun ? (
+                          <div className="flex flex-wrap items-center gap-2 text-xs">
+                            <span
+                              className={
+                                runResult.programRun.status === 'success'
+                                  ? 'rounded-full bg-emerald-500/15 px-2.5 py-0.5 font-medium text-emerald-700 dark:text-emerald-400'
+                                  : runResult.programRun.status === 'timeout'
+                                    ? 'rounded-full bg-amber-500/15 px-2.5 py-0.5 font-medium text-amber-700 dark:text-amber-400'
+                                    : 'rounded-full bg-rose-500/15 px-2.5 py-0.5 font-medium text-rose-700 dark:text-rose-400'
+                              }
+                            >
+                              {runResult.programRun.status === 'success'
+                                ? '正常退出'
+                                : runResult.programRun.status === 'timeout'
+                                  ? '超时'
+                                  : '编译或运行失败'}
+                            </span>
+                            <span className="text-slate-500 dark:text-slate-400">
+                              exit {runResult.programRun.exitCode ?? '—'} · {runResult.programRun.durationMs} ms
+                            </span>
+                          </div>
+                        ) : null}
+                      </div>
+                      {!runResult ? (
+                        <div className="text-sm text-slate-400 dark:text-slate-500">点击顶部「运行」后即显示程序控制台输出。</div>
+                      ) : runResult.programRun == null ? (
+                        <div className="text-sm text-slate-400 dark:text-slate-500">当前后端未返回 programRun（请确认服务已更新）。</div>
+                      ) : (
+                        <div className="space-y-3">
+                          {runResult.programRun.stderr ? (
+                            <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs leading-relaxed text-rose-900 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-100">
+                              {runResult.programRun.stderr}
+                            </pre>
+                          ) : null}
+                          <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-950 p-3 font-mono text-xs leading-relaxed text-slate-100 dark:border-slate-600 dark:bg-slate-950">
+                            {runResult.programRun.stdout || '（标准输出为空）'}
+                          </pre>
+                        </div>
+                      )}
+                    </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800/80">
                       <div className="mb-3 flex items-center justify-between">

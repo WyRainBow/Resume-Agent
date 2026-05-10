@@ -90,7 +90,13 @@ def test_problem_crud_and_execution(tmp_path: Path):
         },
     )
     assert run_response.status_code == 200
-    assert run_response.json()["status"] == "accepted"
+    body = run_response.json()
+    assert body["status"] == "accepted"
+    assert "programRun" in body
+    pr = body["programRun"]
+    assert pr["status"] == "error"
+    stderr = pr["stderr"]
+    assert "main" in stderr.lower()
 
     submit_response = client.post(
         "/api/leetcode/submit",

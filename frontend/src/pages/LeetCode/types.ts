@@ -54,6 +54,14 @@ export interface RunCaseResult {
   durationMs: number
 }
 
+export interface RawProgramRunResult {
+  status: 'success' | 'error' | 'timeout'
+  exitCode: number | null
+  stdout: string
+  stderr: string
+  durationMs: number
+}
+
 export interface RunResponse {
   status: 'accepted' | 'wrong_answer' | 'runtime_error' | 'timeout'
   summary: {
@@ -61,6 +69,8 @@ export interface RunResponse {
     total: number
   }
   results: RunCaseResult[]
+  /** 编辑器源码原文 go run（含 main），与评测用例独立 */
+  programRun?: RawProgramRunResult
 }
 
 export interface SubmissionRecord extends RunResponse {

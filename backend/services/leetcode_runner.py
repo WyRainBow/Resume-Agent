@@ -9,6 +9,14 @@ import textwrap
 import time
 from pathlib import Path
 
+_MAX_PROGRAM_OUTPUT_CHARS = 256 * 1024
+
+
+def _truncate_output(text: str) -> str:
+    if len(text) <= _MAX_PROGRAM_OUTPUT_CHARS:
+        return text
+    return text[:_MAX_PROGRAM_OUTPUT_CHARS] + "\n... (output truncated)"
+
 
 class LeetCodeRunner:
     def __init__(self, runtime_dir: str | Path):
@@ -74,6 +82,43 @@ class LeetCodeRunner:
                 "stderr": "Execution timed out",
                 "expected": case.get("expected"),
                 "actual": None,
+                "durationMs": duration_ms,
+            }
+        finally:
+            shutil.rmtree(work_dir, ignore_errors=True)
+
+    def run_raw_program(self, code: str) -> dict:
+        """按编辑器原文执行 main.go（IDE 模式）：展示 fmt.Print 与编译/运行错误。"""
+        start = time.perf_counter()
+        work_dir = Path(tempfile.mkdtemp(prefix="leetcode_raw_", dir=self.runtime_dir))
+        try:
+            main_file = work_dir / "main.go"
+            body = code if code.endswith("\n") else code + "\n"
+            main_file.write_text(body, encoding="utf-8")
+            try:
+                completed = subprocess.run(
+                    ["go", "run", main_file.name],
+                    cwd=work_dir,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+            except subprocess.TimeoutExpired:
+                duration_ms = int((time.perf_counter() - start) * 1000)
+                return {
+                    "status": "timeout",
+                    "exitCode": None,
+                    "stdout": "",
+                    "stderr": _truncate_output("Program execution timed out."),
+                    "durationMs": duration_ms,
+                }
+            duration_ms = int((time.perf_counter() - start) * 1000)
+            ok = completed.returncode == 0
+            return {
+                "status": "success" if ok else "error",
+                "exitCode": completed.returncode,
+                "stdout": _truncate_output(completed.stdout.rstrip("\n")),
+                "stderr": _truncate_output(completed.stderr.rstrip("\n")),
                 "durationMs": duration_ms,
             }
         finally:

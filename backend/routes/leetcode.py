@@ -79,6 +79,7 @@ def create_router(base_dir: str | Path | None = None) -> APIRouter:
         problem = store.get_problem(payload.slug)
         cases = [item.model_dump() if hasattr(item, "model_dump") else item.dict() for item in payload.testCases]
         result = runner.run_cases(problem, payload.code, cases)
+        result["programRun"] = runner.run_raw_program(payload.code)
         return result
 
     @router.post("/submit")
