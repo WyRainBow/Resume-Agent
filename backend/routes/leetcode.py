@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from backend.services.leetcode_runner import LeetCodeRunner
@@ -75,11 +75,13 @@ def create_router(base_dir: str | Path | None = None) -> APIRouter:
         return store.list_submissions(slug)
 
     @router.post("/run")
-    async def run_problem(payload: RunPayload):
+    async def run_problem(payload: RunPayload, response: Response):
         problem = store.get_problem(payload.slug)
         cases = [item.model_dump() if hasattr(item, "model_dump") else item.dict() for item in payload.testCases]
         result = runner.run_cases(problem, payload.code, cases)
         result["programRun"] = runner.run_raw_program(payload.code)
+        # 便于在浏览器 Network 里区分「新代码进程」与未重载的旧 uvicorn（仅靠 JSON 键无法自证）
+        response.headers["X-LeetCode-ProgramRun"] = "1"
         return result
 
     @router.post("/submit")

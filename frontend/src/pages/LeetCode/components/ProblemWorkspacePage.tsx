@@ -713,17 +713,32 @@ export function ProblemWorkspacePage() {
                             ，因此无法展示「原文 go run」的控制台输出（与下方评测是否通过无关）。
                           </p>
                           <p className="text-xs leading-5">
-                            本地请在仓库根目录重启后端，例如：{' '}
+                            本地环境与「有没有 programRun」无关，关键在<strong>实际处理 /api 请求的那条进程</strong>。若响应里仍无{' '}
+                            <span className="font-mono">programRun</span>，几乎总是{' '}
+                            <strong className="text-slate-500 dark:text-slate-400">
+                              本机占用 9000 端口的仍是旧 uvicorn/Docker（未载入当前仓库路由）
+                            </strong>
+                            。请先结束该进程再在仓库根目录启动：{' '}
                             <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px] text-slate-700 dark:bg-slate-900/80 dark:text-slate-300">
                               python3 -m uvicorn backend.main:app --host 127.0.0.1 --port 9000 --reload
                             </code>
-                            ，并确认已拉取包含 <span className="font-mono">leetcode.py</span> 中写入 programRun 的版本。使用「远程开发」时，需在服务器部署同一版后端；
-                            机上需安装 <span className="font-mono">go</span> 且在 PATH 中。
+                            （不要用「仅刷新页面」代替重启后端。）远端环境需部署含 <span className="font-mono">programRun</span> 的同一版后端；运行机上需{' '}
+                            <span className="font-mono">go</span> 在 PATH。
                           </p>
                           <p className="text-xs text-slate-500 dark:text-slate-600">
                             当前前端环境：{getRuntimeEnv()}
                             {' · '}API：
                             {getApiBaseUrl() || '同源（经 Vite 代理，通常为 http://127.0.0.1:9000）'}
+                            {' · '}
+                            本次 /run 响应头声明 programRun：
+                            <span className="font-mono">
+                              {' '}
+                              {runResult.supportsProgramRunFeature === true
+                                ? '是（若为旧逻辑则说明代理/多端冲突，仍以 JSON 为准）'
+                                : runResult.supportsProgramRunFeature === false
+                                  ? '否 — 断定当前后端进程未更新，务必重启'
+                                  : '未知（请开 Network 看是否有 X-LeetCode-ProgramRun: 1）'}
+                            </span>
                           </p>
                         </div>
                       ) : (

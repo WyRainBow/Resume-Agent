@@ -93,6 +93,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-LeetCode-ProgramRun"],
 )
 register_observability_handlers(app)
 

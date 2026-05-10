@@ -71,6 +71,10 @@ export interface RunResponse {
   results: RunCaseResult[]
   /** 编辑器源码原文 go run（含 main），与评测用例独立 */
   programRun?: RawProgramRunResult
+  /**
+   * 前端注入：响应头 `X-LeetCode-ProgramRun: 1` 时为 true，表示当前连到的后端声明支持 programRun（用于诊断占用 9000 的旧进程）。
+   */
+  supportsProgramRunFeature?: boolean
 }
 
 export interface SubmissionRecord extends RunResponse {

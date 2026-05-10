@@ -90,6 +90,7 @@ def test_problem_crud_and_execution(tmp_path: Path):
         },
     )
     assert run_response.status_code == 200
+    assert run_response.headers.get("X-LeetCode-ProgramRun") == "1"
     body = run_response.json()
     assert body["status"] == "accepted"
     assert "programRun" in body

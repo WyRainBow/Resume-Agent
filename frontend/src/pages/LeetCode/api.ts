@@ -46,8 +46,11 @@ export async function saveDraft(slug: string, code: string) {
 }
 
 export async function runProblem(slug: string, code: string, testCases: ProblemTestCase[]) {
-  const { data } = await axios.post(`${apiBase()}/run`, { slug, code, testCases })
-  return normalizeRunResponse(data)
+  const { data, headers } = await axios.post(`${apiBase()}/run`, { slug, code, testCases })
+  const normalized = normalizeRunResponse(data)
+  const cap = headers['x-leetcode-programrun']
+  normalized.supportsProgramRunFeature = cap === '1'
+  return normalized
 }
 
 export async function submitProblem(slug: string, code: string) {
