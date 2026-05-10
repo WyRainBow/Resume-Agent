@@ -394,28 +394,27 @@ export function ProblemWorkspacePage() {
     <div className={themeOuter}>
       <div className="min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
       <div className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <Link to="/leetcode" className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700">返回题库</Link>
-          <div>
-            <div className="text-xs uppercase tracking-[0.2em] text-emerald-600/70 dark:text-emerald-400/90">Go / Local Judge</div>
-            <h1 className="text-lg font-bold">{problem.title}</h1>
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-3">
-          <div className="relative" ref={appearanceMenuRef}>
-            <button
-              type="button"
-              className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-              aria-expanded={appearanceMenuOpen}
-              aria-haspopup="menu"
-              onClick={() => setAppearanceMenuOpen(o => !o)}
-            >
-              外观
-            </button>
-            {appearanceMenuOpen ? (
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="min-w-0">
+              <div className="text-xs uppercase tracking-[0.2em] text-emerald-600/70 dark:text-emerald-400/90">Go / Local Judge</div>
+              <h1 className="truncate text-lg font-bold">{problem.title}</h1>
+            </div>
+            <div className="relative shrink-0 self-center" ref={appearanceMenuRef}>
+              <button
+                type="button"
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                aria-expanded={appearanceMenuOpen}
+                aria-haspopup="menu"
+                onClick={() => setAppearanceMenuOpen(o => !o)}
+              >
+                外观
+              </button>
+              {appearanceMenuOpen ? (
               <div
                 role="menu"
-                className="absolute right-0 top-full z-[100] mt-1.5 min-w-[10rem] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-900"
+                className="absolute left-0 top-full z-[100] mt-1.5 min-w-[10rem] overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-600 dark:bg-slate-900"
               >
                 <button
                   type="button"
@@ -448,11 +447,14 @@ export function ProblemWorkspacePage() {
                   {appearance === 'dark' ? <span className="ml-auto text-emerald-600 dark:text-emerald-400">✓</span> : null}
                 </button>
               </div>
-            ) : null}
+              ) : null}
+            </div>
           </div>
-          <button className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700" onClick={() => setCode(problem.starterCode)}>重置代码</button>
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
           <button className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-600 dark:bg-slate-600 dark:hover:bg-slate-500" onClick={handleRun} disabled={busy !== null}>{busy === 'run' ? '运行中...' : '运行'}</button>
           <button className="rounded-lg bg-emerald-400 px-4 py-2 text-sm font-semibold text-black dark:bg-emerald-500 dark:text-slate-950" onClick={handleSubmit} disabled={busy !== null}>{busy === 'submit' ? '提交中...' : '提交'}</button>
+          <button className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700" onClick={() => setCode(problem.starterCode)}>重置代码</button>
         </div>
       </div>
 
