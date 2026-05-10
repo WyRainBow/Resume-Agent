@@ -34,6 +34,20 @@ function displayJsonOneLine(value: unknown) {
   return JSON.stringify(value)
 }
 
+/** 成对括号/反引号；引号在 handleEditorKeyDown 中单独处理 */
+const BRACKET_PAIR: Record<string, string> = {
+  '{': '}',
+  '(': ')',
+  '[': ']',
+  '`': '`',
+}
+
+const CLOSE_SKIP = new Set(['}', ')', ']', '"', "'", '`'])
+
+function isWordChar(ch: string | undefined): boolean {
+  return ch !== undefined && /[0-9A-Za-z_]/.test(ch)
+}
+
 /** 光标所在行前导空白（空格与 Tab），用于回车继承缩进 */
 function leadingWhitespaceAt(value: string, position: number) {
   const lineStart = value.lastIndexOf('\n', Math.max(0, position - 1)) + 1
@@ -352,18 +366,116 @@ export function ProblemWorkspacePage() {
   }
 
   function handleEditorKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
-    if (event.key !== 'Enter' || event.altKey || event.nativeEvent.isComposing) return
-    // Shift/Ctrl/Meta + Enter 沿用浏览器默认行为
-    if (event.shiftKey || event.ctrlKey || event.metaKey) return
+    if (event.nativeEvent.isComposing) return
 
     const ta = event.currentTarget
     const { selectionStart: start, selectionEnd: end, value } = ta
+
+    // 空括号/引号对上按 Backspace 一次删掉一对（如 {|}）
+    if (event.key === 'Backspace' && start === end && start > 0 && start < value.length) {
+      const before = value[start - 1]
+      const after = value[start]
+      const expectedClose = BRACKET_PAIR[before] ?? (before === '"' ? '"' : before === "'" ? "'" : '')
+      if (expectedClose && after === expectedClose) {
+        event.preventDefault()
+        const next = value.slice(0, start - 1) + value.slice(start + 1)
+        const caret = start - 1
+        setCode(next)
+        requestAnimationFrame(() => {
+          ta.focus()
+          ta.selectionStart = ta.selectionEnd = caret
+        })
+        return
+      }
+    }
+
+    // 已存在闭合符时再输入相同字符 → 光标右移一格（不写两个 }}）
+    if (start === end && CLOSE_SKIP.has(event.key)) {
+      if (value[start] === event.key) {
+        event.preventDefault()
+        requestAnimationFrame(() => {
+          ta.focus()
+          ta.selectionStart = ta.selectionEnd = start + 1
+        })
+        return
+      }
+    }
+
+    const pairClose = BRACKET_PAIR[event.key]
+    if (pairClose) {
+      event.preventDefault()
+      const inner = value.slice(start, end)
+      const insertion = `${event.key}${inner}${pairClose}`
+      const next = value.slice(0, start) + insertion + value.slice(end)
+      const caret = start + 1 + inner.length
+      setCode(next)
+      requestAnimationFrame(() => {
+        ta.focus()
+        ta.selectionStart = ta.selectionEnd = caret
+      })
+      return
+    }
+
+    // 双引号：始终成对（Go 字符串）
+    if (event.key === '"') {
+      if (start === end && value[start] === '"') {
+        event.preventDefault()
+        requestAnimationFrame(() => {
+          ta.focus()
+          ta.selectionStart = ta.selectionEnd = start + 1
+        })
+        return
+      }
+      event.preventDefault()
+      const inner = value.slice(start, end)
+      const insertion = `"${inner}"`
+      const next = value.slice(0, start) + insertion + value.slice(end)
+      const caret = start + 1 + inner.length
+      setCode(next)
+      requestAnimationFrame(() => {
+        ta.focus()
+        ta.selectionStart = ta.selectionEnd = caret
+      })
+      return
+    }
+
+    // 单引号：仅在不像英文缩写（如 don't）时成对，避免误伤注释/自然语言
+    if (event.key === "'") {
+      const prev = start > 0 ? value[start - 1] : ''
+      if (isWordChar(prev)) {
+        return
+      }
+      if (start === end && value[start] === "'") {
+        event.preventDefault()
+        requestAnimationFrame(() => {
+          ta.focus()
+          ta.selectionStart = ta.selectionEnd = start + 1
+        })
+        return
+      }
+      event.preventDefault()
+      const inner = value.slice(start, end)
+      const insertion = `'${inner}'`
+      const next = value.slice(0, start) + insertion + value.slice(end)
+      const caret = start + 1 + inner.length
+      setCode(next)
+      requestAnimationFrame(() => {
+        ta.focus()
+        ta.selectionStart = ta.selectionEnd = caret
+      })
+      return
+    }
+
+    if (event.key !== 'Enter' || event.altKey) return
+    // Shift/Ctrl/Meta + Enter 沿用浏览器默认行为
+    if (event.shiftKey || event.ctrlKey || event.metaKey) return
+
     const indent = leadingWhitespaceAt(value, start)
     const insert = `\n${indent}`
     event.preventDefault()
-    const next = `${value.slice(0, start)}${insert}${value.slice(end)}`
+    const nextVal = `${value.slice(0, start)}${insert}${value.slice(end)}`
     const caretAfter = start + insert.length
-    setCode(next)
+    setCode(nextVal)
     requestAnimationFrame(() => {
       ta.focus()
       ta.selectionStart = ta.selectionEnd = caretAfter
