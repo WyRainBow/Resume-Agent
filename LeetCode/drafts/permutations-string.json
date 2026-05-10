@@ -1,0 +1,6 @@
+{
+  "slug": "permutations-string",
+  "language": "go",
+  "code": "package main\n\nimport \"fmt\"\n\nfunc sortBytes(b []byte) {\n\tn := len(b)\n\tfor i := 0; i < n; i++ {\n\t\tfor j := i + 1; j < n; j++ {\n\t\t\tif b[j] < b[i] {\n\t\t\t\tb[i], b[j] = b[j], b[i]\n\t\t\t}\n\t\t}\n\t}\n}\n\nfunc permute(s string) []string {\n\tb := []byte(s)\n\tsortBytes(b)\n\tn := len(b)\n\tused := make([]bool, n)\n\tcur := make([]byte, 0, n)\n\tvar out []string\n\tvar dfs func()\n\tdfs = func() {\n\t\tif len(cur) == n {\n\t\t\tout = append(out, string(cur))\n\t\t\treturn\n\t\t}\n\t\tfor i := 0; i < n; i++ {\n\t\t\tif used[i] {\n\t\t\t\tcontinue\n\t\t\t}\n\t\t\tused[i] = true\n\t\t\tcur = append(cur, b[i])\n\t\t\tdfs()\n\t\t\tcur = cur[:len(cur)-1]\n\t\t\tused[i] = false\n\t\t}\n\t}\n\tdfs()\n\treturn out\n}\n\nfunc main() {\n\tfmt.Println(permute(\"abc\"))\n}\n",
+  "updatedAt": "2026-05-10T09:05:00.000Z"
+}
