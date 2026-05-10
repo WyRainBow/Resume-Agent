@@ -260,9 +260,7 @@ export function ProblemWorkspacePage() {
         </div>
       </div>
 
-      <Group direction="vertical" className="min-h-[calc(100vh-73px)]">
-        <Panel defaultSize={72} minSize={35}>
-          <Group direction="horizontal" className="h-full">
+      <Group orientation="horizontal" className="min-h-[calc(100vh-73px)]">
             <Panel defaultSize={26} minSize={18} className="bg-white">
               <aside className="h-full border-r border-slate-200 bg-white">
                 <div className="h-full overflow-y-auto px-8 py-8">
@@ -392,37 +390,37 @@ export function ProblemWorkspacePage() {
 
             <ResizeHandle direction="horizontal" />
 
-            <Panel defaultSize={74} minSize={36} className="bg-white">
-              <section className="h-full border-b border-slate-200 bg-white">
-                <div className="border-b border-slate-200 px-5 py-3 text-sm text-slate-500">Go · 智能模式</div>
-                <div className="flex h-[calc(100%-45px)] min-h-[320px] overflow-hidden">
-                  <div
-                    ref={lineNumberRef}
-                    className="w-16 shrink-0 overflow-hidden border-r border-slate-200 bg-slate-100 py-4 text-right font-mono text-[15px] leading-7 text-slate-400"
-                  >
-                    {codeLines.map(line => (
-                      <div key={line} className="pr-4 select-none">
-                        {line}
+            <Panel defaultSize={74} minSize={36} className="min-h-0 bg-white">
+              <Group orientation="vertical" className="h-full">
+                <Panel defaultSize={58} minSize={28}>
+                  <section className="flex h-full min-h-0 flex-col border-b border-slate-200 bg-white">
+                    <div className="shrink-0 border-b border-slate-200 px-5 py-3 text-sm text-slate-500">Go · 智能模式</div>
+                    <div className="flex min-h-0 flex-1 overflow-hidden">
+                      <div
+                        ref={lineNumberRef}
+                        className="w-16 shrink-0 overflow-hidden border-r border-slate-200 bg-slate-100 py-4 text-right font-mono text-[15px] leading-7 text-slate-400"
+                      >
+                        {codeLines.map(line => (
+                          <div key={line} className="pr-4 select-none">
+                            {line}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                  <textarea
-                    className="h-full w-full resize-none bg-white px-5 py-4 font-mono text-[15px] leading-7 text-slate-800 outline-none"
-                    spellCheck={false}
-                    value={code}
-                    onChange={e => setCode(e.target.value)}
-                    onScroll={handleEditorScroll}
-                  />
-                </div>
-              </section>
-            </Panel>
-          </Group>
-        </Panel>
+                      <textarea
+                        className="h-full min-h-[200px] w-full resize-none bg-white px-5 py-4 font-mono text-[15px] leading-7 text-slate-800 outline-none"
+                        spellCheck={false}
+                        value={code}
+                        onChange={e => setCode(e.target.value)}
+                        onScroll={handleEditorScroll}
+                      />
+                    </div>
+                  </section>
+                </Panel>
 
-        <ResizeHandle direction="vertical" />
+                <ResizeHandle direction="vertical" />
 
-        <Panel defaultSize={28} minSize={18}>
-          <section className="h-full overflow-y-auto bg-slate-50">
+                <Panel defaultSize={42} minSize={20}>
+                  <section className="flex h-full min-h-0 flex-col overflow-y-auto bg-slate-50">
             <div className="border-b border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700">测试用例 / 结果</div>
             <div className="space-y-6 p-5">
                   <div className="space-y-4">
@@ -512,7 +510,9 @@ export function ProblemWorkspacePage() {
                   </div>
             </div>
           </section>
-        </Panel>
+                </Panel>
+              </Group>
+            </Panel>
       </Group>
     </div>
   )
