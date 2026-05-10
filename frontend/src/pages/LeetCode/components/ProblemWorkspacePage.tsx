@@ -11,6 +11,7 @@ import {
 import { Link, useParams } from 'react-router-dom'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import { cn } from '@/lib/utils'
+import { getApiBaseUrl, getRuntimeEnv } from '@/lib/runtimeEnv'
 import { getDraft, getProblem, listSubmissions, runProblem, saveDraft, submitProblem, updateProblem } from '../api'
 import type { LeetCodeProblem, ProblemTestCase, RunResponse, SubmissionRecord } from '../types'
 
@@ -677,7 +678,7 @@ export function ProblemWorkspacePage() {
                         <div>
                           <div className="font-semibold">程序输出</div>
                           <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                            等同本地对当前编辑器源码执行 go run（含你的 package main 与 func main）。与下方「运行结果」互不替代：即使判题未通过或答案不对，仍可在此看到 println 输出与编译报错。
+                            等同本地对当前编辑器源码执行 go run（含你的 package main 与 func main）、与下方「运行结果」互不替代：即使判题未通过或答案不对、仍可在此看到 println 输出与编译报错。
                           </p>
                         </div>
                         {runResult?.programRun ? (
@@ -706,7 +707,25 @@ export function ProblemWorkspacePage() {
                       {!runResult ? (
                         <div className="text-sm text-slate-400 dark:text-slate-500">点击顶部「运行」后即显示程序控制台输出。</div>
                       ) : runResult.programRun == null ? (
-                        <div className="text-sm text-slate-400 dark:text-slate-500">当前后端未返回 programRun（请确认服务已更新）。</div>
+                        <div className="space-y-2 text-sm text-slate-400 dark:text-slate-500">
+                          <p>
+                            后端未在 /run 响应里带上 <span className="font-mono text-slate-500 dark:text-slate-400">programRun</span>
+                            ，因此无法展示「原文 go run」的控制台输出（与下方评测是否通过无关）。
+                          </p>
+                          <p className="text-xs leading-5">
+                            本地请在仓库根目录重启后端，例如：{' '}
+                            <code className="rounded bg-slate-100 px-1 py-0.5 font-mono text-[11px] text-slate-700 dark:bg-slate-900/80 dark:text-slate-300">
+                              python3 -m uvicorn backend.main:app --host 127.0.0.1 --port 9000 --reload
+                            </code>
+                            ，并确认已拉取包含 <span className="font-mono">leetcode.py</span> 中写入 programRun 的版本。使用「远程开发」时，需在服务器部署同一版后端；
+                            机上需安装 <span className="font-mono">go</span> 且在 PATH 中。
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-600">
+                            当前前端环境：{getRuntimeEnv()}
+                            {' · '}API：
+                            {getApiBaseUrl() || '同源（经 Vite 代理，通常为 http://127.0.0.1:9000）'}
+                          </p>
+                        </div>
                       ) : (
                         <div className="space-y-3">
                           {runResult.programRun.stderr ? (

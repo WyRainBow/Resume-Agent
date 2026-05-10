@@ -4,6 +4,17 @@ import type { LeetCodeDraft, LeetCodeProblem, ProblemTestCase, RunResponse, Subm
 
 const apiBase = () => `${getApiBaseUrl()}/api/leetcode`
 
+/** 兼容驼峰或蛇形命名的 programRun，避免网关/中间层改写字段后与前端不一致 */
+function normalizeRunResponse(data: unknown): RunResponse {
+  const row = data as Record<string, unknown>
+  const pr = row.programRun ?? row.program_run
+  if (pr != null && typeof pr === 'object') {
+    const { program_run: _, ...rest } = row
+    return { ...rest, programRun: pr as RunResponse['programRun'] } as RunResponse
+  }
+  return data as RunResponse
+}
+
 export async function listProblems() {
   const { data } = await axios.get(`${apiBase()}/problems`)
   return data as LeetCodeProblem[]
@@ -36,7 +47,7 @@ export async function saveDraft(slug: string, code: string) {
 
 export async function runProblem(slug: string, code: string, testCases: ProblemTestCase[]) {
   const { data } = await axios.post(`${apiBase()}/run`, { slug, code, testCases })
-  return data as RunResponse
+  return normalizeRunResponse(data)
 }
 
 export async function submitProblem(slug: string, code: string) {
