@@ -1,0 +1,69 @@
+{
+  "id": "problem_reverse_nodes_in_k_group_full_tail",
+  "slug": "reverse-nodes-in-k-group-full-tail",
+  "title": "K 个一组反转链表（尾组也反转）",
+  "difficulty": "Hard",
+  "tags": ["Linked List", "Simulation"],
+  "source": "custom",
+  "description": "给你一个链表，每 k 个节点一组进行翻转。与 LeetCode 原题唯一不同的是：如果最后剩余节点数不足 k，这一组也需要继续翻转，而不是保持原顺序。",
+  "examples": [
+    {
+      "input": "head = [1,2,3,4,5,6,7,8], k = 3",
+      "output": "[3,2,1,6,5,4,8,7]",
+      "explanation": "前两组按 3 个一组翻转，最后剩余 [7,8] 也翻转成 [8,7]。"
+    }
+  ],
+  "constraints": [
+    "链表中节点数目 n >= 1",
+    "1 <= k <= n"
+  ],
+  "hints": [
+    "核心仍然是分组反转链表，只是尾组不足 k 时也不能跳过。",
+    "可以使用 dummy + pre + cur 的链表拼接方式。"
+  ],
+  "functionName": "reverseKGroup",
+  "signature": "func reverseKGroup(head *ListNode, k int) *ListNode",
+  "starterCode": "package main\n\ntype ListNode struct {\n\tVal  int\n\tNext *ListNode\n}\n\nfunc reverseKGroup(head *ListNode, k int) *ListNode {\n\treturn head\n}\n",
+  "visibleTestCases": [
+    {
+      "id": "case-1",
+      "input": {
+        "head": [1, 2, 3, 4, 5, 6, 7, 8],
+        "k": 3
+      },
+      "expected": [3, 2, 1, 6, 5, 4, 8, 7]
+    },
+    {
+      "id": "case-2",
+      "input": {
+        "head": [1, 2, 3, 4, 5],
+        "k": 2
+      },
+      "expected": [2, 1, 4, 3, 5]
+    }
+  ],
+  "hiddenTestCases": [
+    {
+      "id": "hidden-1",
+      "input": {
+        "head": [1, 2],
+        "k": 3
+      },
+      "expected": [2, 1]
+    },
+    {
+      "id": "hidden-2",
+      "input": {
+        "head": [1, 2, 3],
+        "k": 1
+      },
+      "expected": [1, 2, 3]
+    }
+  ],
+  "judge": {
+    "type": "function",
+    "entry": "reverseKGroup"
+  },
+  "createdAt": "2026-05-10T00:00:00.000Z",
+  "updatedAt": "2026-05-10T00:00:00.000Z"
+}

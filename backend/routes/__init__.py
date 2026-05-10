@@ -14,6 +14,7 @@ from .photos import router as photos_router
 from .asr import router as asr_router
 from .semantic_search import router as semantic_search_router
 from .admin import router as admin_router
+from .leetcode import router as leetcode_router
 
 # TTS 路由（优先使用 edge-tts，如果不可用则尝试 Coqui TTS）
 try:
@@ -47,4 +48,5 @@ __all__ = [
     'asr_router',
     'semantic_search_router',
     'admin_router',
+    'leetcode_router',
 ]

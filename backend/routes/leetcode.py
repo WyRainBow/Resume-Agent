@@ -1,0 +1,104 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
+from backend.services.leetcode_runner import LeetCodeRunner
+from backend.services.leetcode_store import LeetCodeStore
+
+
+class DraftPayload(BaseModel):
+    code: str
+
+
+class RunCasePayload(BaseModel):
+    id: str
+    input: dict
+    expected: object | None = None
+
+
+class RunPayload(BaseModel):
+    slug: str
+    code: str
+    testCases: list[RunCasePayload] = Field(default_factory=list)
+
+
+class SubmitPayload(BaseModel):
+    slug: str
+    code: str
+
+
+def create_router(base_dir: str | Path | None = None) -> APIRouter:
+    router = APIRouter(prefix="/api/leetcode", tags=["LeetCode"])
+    store = LeetCodeStore(base_dir=base_dir)
+    runner = LeetCodeRunner(runtime_dir=store.runtime_dir)
+
+    @router.get("/problems")
+    async def list_problems():
+        return store.list_problems()
+
+    @router.get("/problems/{slug}")
+    async def get_problem(slug: str):
+        try:
+            return store.get_problem(slug)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+    @router.post("/problems")
+    async def create_problem(problem: dict):
+        if store.problem_exists(problem["slug"]):
+            raise HTTPException(status_code=409, detail="Problem already exists")
+        return store.save_problem(problem)
+
+    @router.put("/problems/{slug}")
+    async def update_problem(slug: str, problem: dict):
+        if slug != problem.get("slug"):
+            raise HTTPException(status_code=400, detail="Slug mismatch")
+        return store.save_problem(problem)
+
+    @router.get("/drafts/{slug}")
+    async def get_draft(slug: str):
+        draft = store.get_draft(slug)
+        if draft is None:
+            return {"slug": slug, "language": "go", "code": "", "updatedAt": None}
+        return draft
+
+    @router.put("/drafts/{slug}")
+    async def save_draft(slug: str, payload: DraftPayload):
+        return store.save_draft(slug, payload.code)
+
+    @router.get("/submissions")
+    async def list_submissions(slug: str | None = None):
+        return store.list_submissions(slug)
+
+    @router.post("/run")
+    async def run_problem(payload: RunPayload):
+        problem = store.get_problem(payload.slug)
+        cases = [item.model_dump() if hasattr(item, "model_dump") else item.dict() for item in payload.testCases]
+        result = runner.run_cases(problem, payload.code, cases)
+        return result
+
+    @router.post("/submit")
+    async def submit_problem(payload: SubmitPayload):
+        problem = store.get_problem(payload.slug)
+        result = runner.submit_problem(problem, payload.code)
+        record = {
+            "id": f"sub_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S%f')}",
+            "slug": payload.slug,
+            "language": "go",
+            "code": payload.code,
+            "mode": "submit",
+            "status": result["status"],
+            "summary": result["summary"],
+            "results": result["results"],
+        }
+        store.save_submission(record)
+        return result
+
+    return router
+
+
+router = create_router()
