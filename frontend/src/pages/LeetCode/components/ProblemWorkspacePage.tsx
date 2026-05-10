@@ -13,6 +13,7 @@ import { Group, Panel, Separator } from 'react-resizable-panels'
 import { cn } from '@/lib/utils'
 import { getApiBaseUrl, getRuntimeEnv } from '@/lib/runtimeEnv'
 import { getDraft, getProblem, listSubmissions, runProblem, saveDraft, submitProblem, updateProblem } from '../api'
+import { DEFAULT_APP_DOCUMENT_TITLE, formatProblemTabTitle } from '../browserTabTitle'
 import type { LeetCodeProblem, ProblemTestCase, RunResponse, SubmissionRecord } from '../types'
 import { analyzeGoComplexity } from '../analyzeGoComplexity'
 
@@ -182,6 +183,14 @@ export function ProblemWorkspacePage() {
       disposed = true
     }
   }, [slug])
+
+  useEffect(() => {
+    if (!problem || problem.slug !== slug) return
+    document.title = formatProblemTabTitle(problem.title)
+    return () => {
+      document.title = DEFAULT_APP_DOCUMENT_TITLE
+    }
+  }, [problem, slug])
 
   useEffect(() => {
     try {

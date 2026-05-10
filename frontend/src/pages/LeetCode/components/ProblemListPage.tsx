@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { createProblem, updateProblem } from '../api'
+import { DEFAULT_APP_DOCUMENT_TITLE, formatProblemListTabTitle } from '../browserTabTitle'
 import type { LeetCodeProblem } from '../types'
 import { ProblemEditorForm } from './ProblemEditorForm'
 
@@ -25,6 +26,13 @@ function leetcodeHref(raw: string | undefined): string {
 }
 
 export function ProblemListPage({ problems, loading, error, onRefresh }: ProblemListPageProps) {
+  useEffect(() => {
+    document.title = formatProblemListTabTitle()
+    return () => {
+      document.title = DEFAULT_APP_DOCUMENT_TITLE
+    }
+  }, [])
+
   const [query, setQuery] = useState('')
   const [difficulty, setDifficulty] = useState<'All' | 'Easy' | 'Medium' | 'Hard'>('All')
   const [customOnly, setCustomOnly] = useState(false)
