@@ -1,0 +1,118 @@
+{
+  "id": "problem_heap_sort",
+  "slug": "heap-sort",
+  "title": "堆排序",
+  "difficulty": "Medium",
+  "tags": [
+    "排序",
+    "数组",
+    "堆"
+  ],
+  "source": "custom",
+  "leetcodeUrl": "https://leetcode.cn/problems/sort-an-array/",
+  "description": "给你一个整数数组 nums、请你用堆排序（Heap Sort）的思路将数组按升序排列并返回排序后的 nums。\n\n需在解法中体现建堆与反复取出堆顶（或下沉调整）等堆操作、避免直接调用标准库的排序实现作为主逻辑。",
+  "examples": [
+    {
+      "input": "nums = [5、1、1、2、0、0]",
+      "output": "[0、1、1、2、5]",
+      "explanation": "升序排序后的数组。"
+    }
+  ],
+  "constraints": [
+    "1 <= nums.length <= 5 * 10^4",
+    "-5 * 10^4 <= nums[i] <= 5 * 10^4"
+  ],
+  "hints": [
+    "可先构建大顶堆，再依次把堆顶与末尾交换并缩小堆区间、在下沉维护堆性质",
+    "也可用索引从 ⌊n/2⌋−1 到 0 做一次 sift-down 完成初始堆"
+  ],
+  "functionName": "heapSort",
+  "signature": "func heapSort(nums []int) []int",
+  "starterCode": "package main\n\nfunc heapSort(nums []int) []int {\n\treturn nums\n}\n",
+  "visibleTestCases": [
+    {
+      "id": "case-1",
+      "input": {
+        "nums": [
+          5,
+          1,
+          1,
+          2,
+          0,
+          0
+        ]
+      },
+      "expected": [
+        0,
+        0,
+        1,
+        1,
+        2,
+        5
+      ]
+    },
+    {
+      "id": "case-2",
+      "input": {
+        "nums": [
+          3,
+          2,
+          4,
+          1
+        ]
+      },
+      "expected": [
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  ],
+  "hiddenTestCases": [
+    {
+      "id": "hidden-1",
+      "input": {
+        "nums": [
+          1
+        ]
+      },
+      "expected": [
+        1
+      ]
+    },
+    {
+      "id": "hidden-2",
+      "input": {
+        "nums": [
+          9,
+          -3,
+          5,
+          2,
+          6,
+          8,
+          -6,
+          1,
+          3
+        ]
+      },
+      "expected": [
+        -6,
+        -3,
+        1,
+        2,
+        3,
+        5,
+        6,
+        8,
+        9
+      ]
+    }
+  ],
+  "judge": {
+    "type": "function",
+    "entry": "heapSort"
+  },
+  "createdAt": "2026-05-10T00:00:00.000Z",
+  "updatedAt": "2026-05-10T08:44:37.530627Z"
+}

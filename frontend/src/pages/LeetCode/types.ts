@@ -45,6 +45,13 @@ export interface LeetCodeDraft {
   updatedAt: string | null
 }
 
+export interface LeetCodeSolution {
+  slug: string
+  language: 'go'
+  code: string
+  updatedAt: string | null
+}
+
 export interface RunCaseResult {
   caseId: string
   passed: boolean

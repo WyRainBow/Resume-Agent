@@ -1,7 +1,7 @@
 {
   "id": "problem_byte_max_number_less_than_n",
   "slug": "byte-max-number-less-than-n",
-  "title": "最大数（小于 n）[字节面试题]",
+  "title": "最大数（小于 n）(字节经典面试题)",
   "difficulty": "Hard",
   "tags": [
     "贪心",
@@ -114,6 +114,6 @@
     "entry": "maxNumberLessThan"
   },
   "createdAt": "2026-05-10T00:00:00.000Z",
-  "updatedAt": "2026-05-10T08:36:48.284815Z",
+  "updatedAt": "2026-05-10T08:44:17.264218Z",
   "leetcodeUrl": "https://leetcode.cn/problems/largest-number/description/"
 }

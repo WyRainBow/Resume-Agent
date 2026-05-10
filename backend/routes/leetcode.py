@@ -70,6 +70,17 @@ def create_router(base_dir: str | Path | None = None) -> APIRouter:
     async def save_draft(slug: str, payload: DraftPayload):
         return store.save_draft(slug, payload.code)
 
+    @router.get("/solutions/{slug}")
+    async def get_solution(slug: str):
+        solution = store.get_solution(slug)
+        if solution is None:
+            return {"slug": slug, "language": "go", "code": "", "updatedAt": None}
+        return solution
+
+    @router.put("/solutions/{slug}")
+    async def save_solution(slug: str, payload: DraftPayload):
+        return store.save_solution(slug, payload.code)
+
     @router.get("/submissions")
     async def list_submissions(slug: str | None = None):
         return store.list_submissions(slug)

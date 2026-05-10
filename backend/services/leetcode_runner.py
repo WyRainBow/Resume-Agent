@@ -142,6 +142,8 @@ class LeetCodeRunner:
         }
 
     def _build_program(self, problem: dict, user_code: str, case: dict) -> str:
+        if problem.get("judge", {}).get("type") == "class":
+            return self._build_class_program(problem, user_code, case)
         function_name = (
             problem.get("judge", {}).get("entry")
             or problem.get("functionName")
@@ -176,6 +178,67 @@ class LeetCodeRunner:
             \t{joined_declarations}
             \tresult := {function_name}({joined_args})
             \t{result_encoding}
+            \tif err != nil {{
+            \t\tpanic(err)
+            \t}}
+            \tfmt.Println(string(encoded))
+            }}
+            """
+        ).strip() + "\n"
+
+    def _build_class_program(self, problem: dict, user_code: str, case: dict) -> str:
+        judge = problem.get("judge", {})
+        constructor_name = judge.get("constructor") or "Constructor"
+        class_name = judge.get("className") or problem.get("functionName") or "Solution"
+        method_map: dict[str, str] = judge.get("methods") or {}
+        void_methods = set(judge.get("voidMethods") or [])
+        input_data = case.get("input", {})
+        operations = input_data.get("operations", [])
+        arguments = input_data.get("arguments", [])
+        if not operations or not arguments or len(operations) != len(arguments):
+            raise ValueError("Class-style judge requires aligned operations and arguments")
+
+        op_json = json.dumps(operations, ensure_ascii=False)
+        arg_json = json.dumps(arguments, ensure_ascii=False)
+        trimmed = self._normalize_user_code(user_code)
+        method_blocks: list[str] = []
+        for index, operation in enumerate(operations[1:], start=1):
+            method_name = method_map.get(operation, operation)
+            args_expr = ", ".join(f"args[{index}][{i}]" for i in range(len(arguments[index])))
+            if operation in void_methods:
+                method_blocks.append(
+                    textwrap.dedent(
+                        f"""
+                        {class_name}.{method_name}({args_expr})
+                        results = append(results, nil)
+                        """
+                    ).strip()
+                )
+            else:
+                method_blocks.append(f"results = append(results, {class_name}.{method_name}({args_expr}))")
+        method_code = "\n\t".join(method_blocks)
+        constructor_args = ", ".join(f"args[0][{i}]" for i in range(len(arguments[0])))
+        return textwrap.dedent(
+            f"""
+            package main
+
+            import (
+            \t"encoding/json"
+            \t"fmt"
+            )
+
+            {trimmed}
+
+            func main() {{
+            \tvar operations []string
+            \tif err := json.Unmarshal([]byte(`{op_json}`), &operations); err != nil {{ panic(err) }}
+            \tvar args [][]int
+            \tif err := json.Unmarshal([]byte(`{arg_json}`), &args); err != nil {{ panic(err) }}
+            \tresults := make([]interface{{}}, 0, len(operations))
+            \t{class_name} := {constructor_name}({constructor_args})
+            \tresults = append(results, nil)
+            \t{method_code}
+            \tencoded, err := json.Marshal(results)
             \tif err != nil {{
             \t\tpanic(err)
             \t}}

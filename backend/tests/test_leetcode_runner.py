@@ -178,3 +178,113 @@ def test_run_cases_accepts_standalone_program_by_ignoring_user_main(tmp_path: Pa
 
     assert result["status"] == "accepted"
     assert result["results"][0]["passed"] is True
+
+
+def make_class_problem() -> dict:
+    return {
+        "slug": "lru-cache",
+        "functionName": "LRUCache",
+        "signature": "",
+        "judge": {
+            "type": "class",
+            "constructor": "Constructor",
+            "className": "LRUCache",
+            "methods": {
+                "get": "Get",
+                "put": "Put"
+            },
+            "voidMethods": ["put"],
+        },
+        "visibleTestCases": [
+            {
+                "id": "case-1",
+                "input": {
+                    "operations": ["LRUCache", "put", "put", "get", "put", "get", "put", "get", "get", "get"],
+                    "arguments": [[2], [1, 1], [2, 2], [1], [3, 3], [2], [4, 4], [1], [3], [4]],
+                },
+                "expected": [None, None, None, 1, None, -1, None, -1, 3, 4],
+            }
+        ],
+        "hiddenTestCases": [],
+    }
+
+
+GOOD_CLASS_CODE = """package main
+
+type node struct {
+\tkey  int
+\tval  int
+\tprev *node
+\tnext *node
+}
+
+type LRUCache struct {
+\tcap   int
+\tcache map[int]*node
+\thead  *node
+\ttail  *node
+}
+
+func Constructor(capacity int) LRUCache {
+\thead := &node{}
+\ttail := &node{}
+\thead.next = tail
+\ttail.prev = head
+\treturn LRUCache{
+\t\tcap:   capacity,
+\t\tcache: make(map[int]*node),
+\t\thead:  head,
+\t\ttail:  tail,
+\t}
+}
+
+func (c *LRUCache) Get(key int) int {
+\tif nd, ok := c.cache[key]; ok {
+\t\tc.moveToFront(nd)
+\t\treturn nd.val
+\t}
+\treturn -1
+}
+
+func (c *LRUCache) Put(key int, value int) {
+\tif nd, ok := c.cache[key]; ok {
+\t\tnd.val = value
+\t\tc.moveToFront(nd)
+\t\treturn
+\t}
+\tnd := &node{key: key, val: value}
+\tc.cache[key] = nd
+\tc.addFront(nd)
+\tif len(c.cache) > c.cap {
+\t\tremoved := c.tail.prev
+\t\tc.remove(removed)
+\t\tdelete(c.cache, removed.key)
+\t}
+}
+
+func (c *LRUCache) addFront(nd *node) {
+\tnd.prev = c.head
+\tnd.next = c.head.next
+\tc.head.next.prev = nd
+\tc.head.next = nd
+}
+
+func (c *LRUCache) remove(nd *node) {
+\tnd.prev.next = nd.next
+\tnd.next.prev = nd.prev
+}
+
+func (c *LRUCache) moveToFront(nd *node) {
+\tc.remove(nd)
+\tc.addFront(nd)
+}
+"""
+
+
+def test_run_cases_supports_class_style_problem(tmp_path: Path):
+    runner = LeetCodeRunner(runtime_dir=tmp_path)
+    result = runner.run_cases(make_class_problem(), GOOD_CLASS_CODE, make_class_problem()["visibleTestCases"])
+
+    assert result["status"] == "accepted"
+    assert result["summary"]["passed"] == 1
+    assert result["results"][0]["actual"] == [None, None, None, 1, None, -1, None, -1, 3, 4]

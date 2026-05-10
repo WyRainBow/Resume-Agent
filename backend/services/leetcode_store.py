@@ -15,12 +15,14 @@ class LeetCodeStore:
         self.base_dir = Path(base_dir) if base_dir else project_root / "LeetCode"
         self.problems_dir = self.base_dir / "problems"
         self.drafts_dir = self.base_dir / "drafts"
+        self.solutions_dir = self.base_dir / "solutions"
         self.submissions_dir = self.base_dir / "submissions"
         self.runtime_dir = self.base_dir / "runtime"
         for directory in (
             self.base_dir,
             self.problems_dir,
             self.drafts_dir,
+            self.solutions_dir,
             self.submissions_dir,
             self.runtime_dir,
         ):
@@ -67,6 +69,22 @@ class LeetCodeStore:
             "updatedAt": _now_iso(),
         }
         self._write_json(self.drafts_dir / f"{slug}.json", payload)
+        return payload
+
+    def get_solution(self, slug: str) -> dict | None:
+        path = self.solutions_dir / f"{slug}.json"
+        if not path.exists():
+            return None
+        return self._load_json(path)
+
+    def save_solution(self, slug: str, code: str, language: str = "go") -> dict:
+        payload = {
+            "slug": slug,
+            "language": language,
+            "code": code,
+            "updatedAt": _now_iso(),
+        }
+        self._write_json(self.solutions_dir / f"{slug}.json", payload)
         return payload
 
     def save_submission(self, record: dict) -> dict:

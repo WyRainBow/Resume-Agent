@@ -1,6 +1,6 @@
 import axios from 'axios'
 import { getApiBaseUrl } from '@/lib/runtimeEnv'
-import type { LeetCodeDraft, LeetCodeProblem, ProblemTestCase, RunResponse, SubmissionRecord } from './types'
+import type { LeetCodeDraft, LeetCodeProblem, LeetCodeSolution, ProblemTestCase, RunResponse, SubmissionRecord } from './types'
 
 const apiBase = () => `${getApiBaseUrl()}/api/leetcode`
 
@@ -43,6 +43,16 @@ export async function getDraft(slug: string) {
 export async function saveDraft(slug: string, code: string) {
   const { data } = await axios.put(`${apiBase()}/drafts/${slug}`, { code })
   return data as LeetCodeDraft
+}
+
+export async function getSolution(slug: string) {
+  const { data } = await axios.get(`${apiBase()}/solutions/${slug}`)
+  return data as LeetCodeSolution
+}
+
+export async function saveSolution(slug: string, code: string) {
+  const { data } = await axios.put(`${apiBase()}/solutions/${slug}`, { code })
+  return data as LeetCodeSolution
 }
 
 export async function runProblem(slug: string, code: string, testCases: ProblemTestCase[]) {

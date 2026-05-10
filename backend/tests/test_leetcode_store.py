@@ -92,3 +92,17 @@ def test_draft_and_submission_persistence(tmp_path: Path):
     submissions = store.list_submissions("sample-problem")
     assert len(submissions) == 1
     assert submissions[0]["id"] == "sub-1"
+
+
+def test_solution_persistence(tmp_path: Path):
+    store = LeetCodeStore(base_dir=tmp_path)
+    code = "package main\n\nfunc quickSort(nums []int) []int { return nums }\n"
+
+    solution = store.save_solution("quick-sort", code)
+    loaded = store.get_solution("quick-sort")
+
+    assert solution["slug"] == "quick-sort"
+    assert solution["language"] == "go"
+    assert solution["code"] == code
+    assert loaded is not None
+    assert loaded["code"] == code

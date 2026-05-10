@@ -12,8 +12,9 @@ import { Link, useParams } from 'react-router-dom'
 import { Group, Panel, Separator } from 'react-resizable-panels'
 import { cn } from '@/lib/utils'
 import { getApiBaseUrl, getRuntimeEnv } from '@/lib/runtimeEnv'
-import { getDraft, getProblem, listSubmissions, runProblem, saveDraft, submitProblem, updateProblem } from '../api'
+import { getDraft, getProblem, getSolution, listSubmissions, runProblem, saveDraft, saveSolution, submitProblem, updateProblem } from '../api'
 import { DEFAULT_APP_DOCUMENT_TITLE, formatProblemTabTitle } from '../browserTabTitle'
+import { formatLocalDateTime } from '../formatLocalDateTime'
 import type { LeetCodeProblem, ProblemTestCase, RunResponse, SubmissionRecord } from '../types'
 import { analyzeGoComplexity } from '../analyzeGoComplexity'
 
@@ -41,6 +42,66 @@ function displayJsonOneLine(value: unknown) {
   return JSON.stringify(value)
 }
 
+function renderDescriptionBlocks(text: string) {
+  const lines = text.split('\n')
+  const blocks: Array<{ type: 'paragraph' | 'list'; lines: string[] }> = []
+  let paragraph: string[] = []
+  let list: string[] = []
+
+  function flushParagraph() {
+    if (paragraph.length > 0) {
+      blocks.push({ type: 'paragraph', lines: paragraph })
+      paragraph = []
+    }
+  }
+
+  function flushList() {
+    if (list.length > 0) {
+      blocks.push({ type: 'list', lines: list })
+      list = []
+    }
+  }
+
+  for (const rawLine of lines) {
+    const line = rawLine.trimEnd()
+    const trimmed = line.trim()
+    if (!trimmed) {
+      flushParagraph()
+      flushList()
+      continue
+    }
+    if (trimmed.startsWith('- ')) {
+      flushParagraph()
+      list.push(trimmed.slice(2).trim())
+      continue
+    }
+    flushList()
+    paragraph.push(trimmed)
+  }
+
+  flushParagraph()
+  flushList()
+
+  return blocks
+}
+
+function renderInlineCode(text: string) {
+  const parts = text.split(/(`[^`]+`)/g).filter(Boolean)
+  return parts.map((part, index) => {
+    if (part.startsWith('`') && part.endsWith('`') && part.length >= 2) {
+      return (
+        <code
+          key={`${part}-${index}`}
+          className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[0.95em] text-slate-700 dark:bg-slate-800 dark:text-slate-200"
+        >
+          {part.slice(1, -1)}
+        </code>
+      )
+    }
+    return <span key={`${part}-${index}`}>{part}</span>
+  })
+}
+
 /** 成对括号/反引号；引号在 handleEditorKeyDown 中单独处理 */
 const BRACKET_PAIR: Record<string, string> = {
   '{': '}',
@@ -65,6 +126,7 @@ function leadingWhitespaceAt(value: string, position: number) {
 
 const APPEARANCE_STORAGE_KEY = 'leetcode-problem-appearance'
 type WorkspaceAppearance = 'light' | 'dark'
+type ProblemSideTab = 'description' | 'submissions' | 'solution'
 
 function readStoredAppearance(): WorkspaceAppearance {
   try {
@@ -105,6 +167,7 @@ export function ProblemWorkspacePage() {
   const [runResult, setRunResult] = useState<RunResponse | null>(null)
   const [submitResult, setSubmitResult] = useState<RunResponse | null>(null)
   const [submissions, setSubmissions] = useState<SubmissionRecord[]>([])
+  const [solutionCode, setSolutionCode] = useState('')
   const [selectedCaseId, setSelectedCaseId] = useState('')
   const [customInput, setCustomInput] = useState('{"head":[1,2,3,4,5,6,7,8],"k":3}')
   const [customExpected, setCustomExpected] = useState('[3,2,1,6,5,4,8,7]')
@@ -112,6 +175,7 @@ export function ProblemWorkspacePage() {
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle')
   const [editingInfo, setEditingInfo] = useState(false)
   const [savingInfo, setSavingInfo] = useState(false)
+  const [savingSolution, setSavingSolution] = useState(false)
   const [infoDraft, setInfoDraft] = useState({
     title: '',
     difficulty: 'Medium',
@@ -124,17 +188,24 @@ export function ProblemWorkspacePage() {
     hintsText: '',
   })
   const lineNumberRef = useRef<HTMLDivElement | null>(null)
+  const solutionLineNumberRef = useRef<HTMLDivElement | null>(null)
   const appearanceMenuRef = useRef<HTMLDivElement | null>(null)
   const customInputJsonRef = useRef<HTMLTextAreaElement | null>(null)
   const customExpectedJsonRef = useRef<HTMLTextAreaElement | null>(null)
   const jsonCaretRestoreRef = useRef<{ target: 'input' | 'expected'; position: number } | null>(null)
   const [appearance, setAppearance] = useState<WorkspaceAppearance>(() => readStoredAppearance())
   const [appearanceMenuOpen, setAppearanceMenuOpen] = useState(false)
+  const [activeSideTab, setActiveSideTab] = useState<ProblemSideTab>('description')
 
   const codeLines = useMemo(() => {
     const count = Math.max(code.split('\n').length, 1)
     return Array.from({ length: count }, (_, index) => index + 1)
   }, [code])
+
+  const solutionCodeLines = useMemo(() => {
+    const count = Math.max(solutionCode.split('\n').length, 1)
+    return Array.from({ length: count }, (_, index) => index + 1)
+  }, [solutionCode])
 
   const complexityInsight = useMemo(() => analyzeGoComplexity(code), [code])
 
@@ -145,7 +216,8 @@ export function ProblemWorkspacePage() {
       try {
         setLoading(true)
         setError('')
-        const [problemData, draftData, submissionData] = await Promise.all([
+        const [solutionData, problemData, draftData, submissionData] = await Promise.all([
+          getSolution(slug),
           getProblem(slug),
           getDraft(slug),
           listSubmissions(slug),
@@ -153,6 +225,7 @@ export function ProblemWorkspacePage() {
         if (disposed) return
         setProblem(problemData)
         setCode(draftData.code || problemData.starterCode)
+        setSolutionCode(solutionData.code || '')
         setSubmissions(submissionData)
         setSelectedCaseId(problemData.visibleTestCases[0]?.id || '')
         setInfoDraft({
@@ -376,13 +449,30 @@ export function ProblemWorkspacePage() {
     }
   }
 
-  function handleEditorScroll(event: UIEvent<HTMLTextAreaElement>) {
-    if (lineNumberRef.current) {
-      lineNumberRef.current.scrollTop = event.currentTarget.scrollTop
+  async function handleSaveSolution() {
+    if (!problem) return
+    try {
+      setSavingSolution(true)
+      setError('')
+      const saved = await saveSolution(problem.slug, solutionCode)
+      setSolutionCode(saved.code)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '保存标准答案失败')
+    } finally {
+      setSavingSolution(false)
     }
   }
 
-  function handleEditorKeyDown(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
+  function handleEditorScroll(event: UIEvent<HTMLTextAreaElement>, targetRef: React.RefObject<HTMLDivElement | null>) {
+    if (targetRef.current) {
+      targetRef.current.scrollTop = event.currentTarget.scrollTop
+    }
+  }
+
+  function handleEditorKeyDown(
+    event: ReactKeyboardEvent<HTMLTextAreaElement>,
+    setValue: (next: string) => void,
+  ) {
     if (event.nativeEvent.isComposing) return
 
     const ta = event.currentTarget
@@ -397,7 +487,7 @@ export function ProblemWorkspacePage() {
         event.preventDefault()
         const next = value.slice(0, start - 1) + value.slice(start + 1)
         const caret = start - 1
-        setCode(next)
+        setValue(next)
         requestAnimationFrame(() => {
           ta.focus()
           ta.selectionStart = ta.selectionEnd = caret
@@ -425,7 +515,7 @@ export function ProblemWorkspacePage() {
       const insertion = `${event.key}${inner}${pairClose}`
       const next = value.slice(0, start) + insertion + value.slice(end)
       const caret = start + 1 + inner.length
-      setCode(next)
+      setValue(next)
       requestAnimationFrame(() => {
         ta.focus()
         ta.selectionStart = ta.selectionEnd = caret
@@ -448,7 +538,7 @@ export function ProblemWorkspacePage() {
       const insertion = `"${inner}"`
       const next = value.slice(0, start) + insertion + value.slice(end)
       const caret = start + 1 + inner.length
-      setCode(next)
+      setValue(next)
       requestAnimationFrame(() => {
         ta.focus()
         ta.selectionStart = ta.selectionEnd = caret
@@ -475,7 +565,7 @@ export function ProblemWorkspacePage() {
       const insertion = `'${inner}'`
       const next = value.slice(0, start) + insertion + value.slice(end)
       const caret = start + 1 + inner.length
-      setCode(next)
+      setValue(next)
       requestAnimationFrame(() => {
         ta.focus()
         ta.selectionStart = ta.selectionEnd = caret
@@ -492,11 +582,19 @@ export function ProblemWorkspacePage() {
     event.preventDefault()
     const nextVal = `${value.slice(0, start)}${insert}${value.slice(end)}`
     const caretAfter = start + insert.length
-    setCode(nextVal)
+    setValue(nextVal)
     requestAnimationFrame(() => {
       ta.focus()
       ta.selectionStart = ta.selectionEnd = caretAfter
     })
+  }
+
+  function getSubmissionStatusClass(status: SubmissionRecord['status']) {
+    return status === 'accepted'
+      ? 'text-emerald-600 dark:text-emerald-400'
+      : status === 'wrong_answer'
+        ? 'text-amber-600 dark:text-amber-400'
+        : 'text-rose-600 dark:text-rose-400'
   }
 
   if (loading) {
@@ -590,7 +688,49 @@ export function ProblemWorkspacePage() {
       <Group orientation="horizontal" className="min-h-[calc(100vh-73px)]">
             <Panel defaultSize={26} minSize={18} className="bg-white dark:bg-slate-900">
               <aside className="h-full border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
-                <div className="h-full overflow-y-auto px-8 py-8">
+                <div className="border-b border-slate-200 px-6 pt-4 dark:border-slate-700">
+                  <div className="flex items-center gap-6 text-sm">
+                    <button
+                      type="button"
+                      className={cn(
+                        'border-b-2 pb-3 font-semibold transition',
+                        activeSideTab === 'description'
+                          ? 'border-emerald-500 text-slate-900 dark:text-slate-100'
+                          : 'border-transparent text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300',
+                      )}
+                      onClick={() => setActiveSideTab('description')}
+                    >
+                      题目描述
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(
+                        'border-b-2 pb-3 font-semibold transition',
+                        activeSideTab === 'submissions'
+                          ? 'border-emerald-500 text-slate-900 dark:text-slate-100'
+                          : 'border-transparent text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300',
+                      )}
+                      onClick={() => setActiveSideTab('submissions')}
+                    >
+                      最近提交
+                    </button>
+                    <button
+                      type="button"
+                      className={cn(
+                        'border-b-2 pb-3 font-semibold transition',
+                        activeSideTab === 'solution'
+                          ? 'border-emerald-500 text-slate-900 dark:text-slate-100'
+                          : 'border-transparent text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300',
+                      )}
+                      onClick={() => setActiveSideTab('solution')}
+                    >
+                      标准答案
+                    </button>
+                  </div>
+                </div>
+                <div className="h-[calc(100%-57px)] overflow-y-auto px-8 py-8">
+            {activeSideTab === 'description' ? (
+              <>
             <div className="mb-4 flex items-start justify-between gap-3">
               <div className="flex flex-wrap items-center gap-3">
                 {editingInfo ? (
@@ -648,7 +788,26 @@ export function ProblemWorkspacePage() {
                 />
               </div>
             ) : (
-              <p className="whitespace-pre-wrap text-[15px] leading-7 text-slate-700 dark:text-slate-300">{problem.description}</p>
+              <div className="space-y-4 text-[15px] leading-7 text-slate-700 dark:text-slate-300">
+                {renderDescriptionBlocks(problem.description).map((block, index) =>
+                  block.type === 'list' ? (
+                    <ul key={`list-${index}`} className="list-disc space-y-2 pl-5">
+                      {block.lines.map(item => (
+                        <li key={item}>{renderInlineCode(item)}</li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p key={`paragraph-${index}`} className="whitespace-pre-wrap">
+                      {block.lines.map((line, lineIndex) => (
+                        <span key={`${line}-${lineIndex}`}>
+                          {lineIndex > 0 ? <br /> : null}
+                          {renderInlineCode(line)}
+                        </span>
+                      ))}
+                    </p>
+                  ),
+                )}
+              </div>
             )}
 
             {(editingInfo || problem.examples.length > 0) ? (
@@ -661,10 +820,29 @@ export function ProblemWorkspacePage() {
                     <textarea className="min-h-20 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200" value={infoDraft.exampleExplanation} onChange={e => setInfoDraft(prev => ({ ...prev, exampleExplanation: e.target.value }))} placeholder="解释" />
                   </div>
                 ) : problem.examples.map((example, index) => (
-                  <div key={`${example.input}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
-                    <div><span className="font-semibold">输入：</span>{example.input}</div>
-                    <div className="mt-2"><span className="font-semibold">输出：</span>{example.output}</div>
-                    {example.explanation ? <div className="mt-2 text-slate-500 dark:text-slate-400"><span className="font-semibold">解释：</span>{example.explanation}</div> : null}
+                  <div key={`${example.input}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+                    <div className="space-y-4">
+                      <div>
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">输入</div>
+                        <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-white px-4 py-3 font-mono text-[13px] leading-6 text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200">
+                          {example.input}
+                        </pre>
+                      </div>
+                      <div>
+                        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">输出</div>
+                        <pre className="overflow-x-auto whitespace-pre-wrap break-words rounded-xl border border-slate-200 bg-white px-4 py-3 font-mono text-[13px] leading-6 text-slate-700 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200">
+                          {example.output}
+                        </pre>
+                      </div>
+                      {example.explanation ? (
+                        <div>
+                          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">解释</div>
+                          <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 leading-7 text-slate-600 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300">
+                            {example.explanation}
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 ))}
               </section>
@@ -695,22 +873,74 @@ export function ProblemWorkspacePage() {
                 )}
               </section>
             ) : null}
-
-            <section className="mt-8">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">最近提交</h2>
-              <div className="mt-3 space-y-3">
-                {submissions.length === 0 ? <div className="text-sm text-slate-400 dark:text-slate-500">还没有提交记录。</div> : null}
-                {submissions.slice(0, 5).map(item => (
-                  <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-800/80">
-                    <div className="flex items-center justify-between">
-                      <span className={item.status === 'accepted' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}>{item.status}</span>
-                      <span className="text-slate-400 dark:text-slate-500">{new Date(item.createdAt).toLocaleString()}</span>
-                    </div>
-                    <div className="mt-1 text-slate-500 dark:text-slate-400">{item.summary.passed} / {item.summary.total} cases</div>
+              </>
+            ) : activeSideTab === 'submissions' ? (
+              <section>
+                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">最近提交</h2>
+                <div className="mt-5 space-y-3">
+                  {submissions.length === 0 ? <div className="text-sm text-slate-400 dark:text-slate-500">还没有提交记录。</div> : null}
+                  {submissions.slice(0, 20).map(item => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className="block w-full rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 text-left transition hover:border-slate-300 hover:bg-white dark:border-slate-700 dark:bg-slate-800/70 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className={cn('text-lg font-semibold', getSubmissionStatusClass(item.status))}>{item.status}</div>
+                          <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{item.summary.passed} / {item.summary.total} cases</div>
+                        </div>
+                        <div className="shrink-0 text-sm text-slate-400 dark:text-slate-500">{formatLocalDateTime(item.createdAt)}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : (
+              <section className="flex h-full min-h-0 flex-col">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">标准答案</h2>
+                    <p className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                      这里保存这道题的标准 Go 答案、和右侧刷题草稿分开、不参与运行或提交。
+                    </p>
                   </div>
-                ))}
-              </div>
-            </section>
+                  <button
+                    type="button"
+                    className="rounded-lg bg-emerald-400 px-4 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-60 dark:bg-emerald-500 dark:text-slate-950"
+                    onClick={handleSaveSolution}
+                    disabled={savingSolution}
+                  >
+                    {savingSolution ? '保存中...' : '保存'}
+                  </button>
+                </div>
+                <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+                  <div className="border-b border-slate-200 px-4 py-3 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">Go 标准答案</div>
+                  <div className="flex h-[64rem] overflow-hidden">
+                    <div
+                      ref={solutionLineNumberRef}
+                      className="w-16 shrink-0 overflow-hidden border-r border-slate-200 bg-slate-100 py-4 text-right font-mono text-[15px] leading-7 text-slate-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-500"
+                    >
+                      {solutionCodeLines.map(line => (
+                        <div key={line} className="pr-4 select-none">
+                          {line}
+                        </div>
+                      ))}
+                    </div>
+                    <textarea
+                      className="h-full w-full resize-none overflow-auto bg-white px-5 py-4 font-mono text-[15px] leading-7 text-slate-800 outline-none dark:bg-slate-900 dark:text-slate-200"
+                      spellCheck={false}
+                      wrap="off"
+                      value={solutionCode}
+                      onChange={e => setSolutionCode(e.target.value)}
+                      onKeyDown={e => handleEditorKeyDown(e, setSolutionCode)}
+                      onScroll={e => handleEditorScroll(e, solutionLineNumberRef)}
+                      placeholder="把这道题的标准 Go 答案保存在这里"
+                    />
+                  </div>
+                </div>
+              </section>
+            )}
                 </div>
               </aside>
             </Panel>
@@ -738,8 +968,8 @@ export function ProblemWorkspacePage() {
                     spellCheck={false}
                     value={code}
                     onChange={e => setCode(e.target.value)}
-                    onKeyDown={handleEditorKeyDown}
-                    onScroll={handleEditorScroll}
+                    onKeyDown={e => handleEditorKeyDown(e, setCode)}
+                    onScroll={e => handleEditorScroll(e, lineNumberRef)}
                   />
                     </div>
                   </section>

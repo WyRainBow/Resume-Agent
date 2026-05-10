@@ -105,3 +105,29 @@ def test_problem_crud_and_execution(tmp_path: Path):
     )
     assert submit_response.status_code == 200
     assert submit_response.json()["status"] == "accepted"
+
+
+def test_solution_api(tmp_path: Path):
+    client = make_client(tmp_path)
+    problem = make_problem("api-problem")
+
+    create_response = client.post("/api/leetcode/problems", json=problem)
+    assert create_response.status_code == 200
+
+    get_response = client.get("/api/leetcode/solutions/api-problem")
+    assert get_response.status_code == 200
+    assert get_response.json() == {
+        "slug": "api-problem",
+        "language": "go",
+        "code": "",
+        "updatedAt": None,
+    }
+
+    save_response = client.put("/api/leetcode/solutions/api-problem", json={"code": GOOD_CODE})
+    assert save_response.status_code == 200
+    assert save_response.json()["slug"] == "api-problem"
+    assert save_response.json()["code"] == GOOD_CODE
+
+    fetch_again = client.get("/api/leetcode/solutions/api-problem")
+    assert fetch_again.status_code == 200
+    assert fetch_again.json()["code"] == GOOD_CODE
