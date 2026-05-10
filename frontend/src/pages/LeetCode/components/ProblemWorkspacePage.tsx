@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type UIEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Group, Panel, Separator } from 'react-resizable-panels'
-import { getDraft, getProblem, listSubmissions, runProblem, saveDraft, submitProblem } from '../api'
+import { getDraft, getProblem, listSubmissions, runProblem, saveDraft, submitProblem, updateProblem } from '../api'
 import type { LeetCodeProblem, ProblemTestCase, RunResponse, SubmissionRecord } from '../types'
 
 function formatValue(value: unknown) {
@@ -42,6 +42,19 @@ export function ProblemWorkspacePage() {
   const [customExpected, setCustomExpected] = useState('[3,2,1,6,5,4,8,7]')
   const [busy, setBusy] = useState<'run' | 'submit' | null>(null)
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'error'>('idle')
+  const [editingInfo, setEditingInfo] = useState(false)
+  const [savingInfo, setSavingInfo] = useState(false)
+  const [infoDraft, setInfoDraft] = useState({
+    title: '',
+    difficulty: 'Medium',
+    tagsText: '',
+    description: '',
+    exampleInput: '',
+    exampleOutput: '',
+    exampleExplanation: '',
+    constraintsText: '',
+    hintsText: '',
+  })
   const lineNumberRef = useRef<HTMLDivElement | null>(null)
 
   const codeLines = useMemo(() => {
@@ -66,6 +79,17 @@ export function ProblemWorkspacePage() {
         setCode(draftData.code || problemData.starterCode)
         setSubmissions(submissionData)
         setSelectedCaseId(problemData.visibleTestCases[0]?.id || '')
+        setInfoDraft({
+          title: problemData.title,
+          difficulty: problemData.difficulty,
+          tagsText: problemData.tags.join(', '),
+          description: problemData.description,
+          exampleInput: problemData.examples[0]?.input || '',
+          exampleOutput: problemData.examples[0]?.output || '',
+          exampleExplanation: problemData.examples[0]?.explanation || '',
+          constraintsText: problemData.constraints.join('\n'),
+          hintsText: problemData.hints.join('\n'),
+        })
         if (problemData.visibleTestCases[0]) {
           setCustomInput(JSON.stringify(problemData.visibleTestCases[0].input, null, 2))
           setCustomExpected(JSON.stringify(problemData.visibleTestCases[0].expected, null, 2))
@@ -161,6 +185,48 @@ export function ProblemWorkspacePage() {
     }
   }
 
+  async function handleSaveInfo() {
+    if (!problem) return
+    try {
+      setSavingInfo(true)
+      setError('')
+      const nextProblem: LeetCodeProblem = {
+        ...problem,
+        title: infoDraft.title.trim() || problem.title,
+        difficulty: infoDraft.difficulty as LeetCodeProblem['difficulty'],
+        tags: infoDraft.tagsText.split(',').map(item => item.trim()).filter(Boolean),
+        description: infoDraft.description.trim(),
+        examples: [
+          {
+            input: infoDraft.exampleInput.trim(),
+            output: infoDraft.exampleOutput.trim(),
+            explanation: infoDraft.exampleExplanation.trim() || undefined,
+          },
+        ].filter(item => item.input || item.output),
+        constraints: infoDraft.constraintsText.split('\n').map(item => item.trim()).filter(Boolean),
+        hints: infoDraft.hintsText.split('\n').map(item => item.trim()).filter(Boolean),
+      }
+      const saved = await updateProblem(nextProblem)
+      setProblem(saved)
+      setInfoDraft({
+        title: saved.title,
+        difficulty: saved.difficulty,
+        tagsText: saved.tags.join(', '),
+        description: saved.description,
+        exampleInput: saved.examples[0]?.input || '',
+        exampleOutput: saved.examples[0]?.output || '',
+        exampleExplanation: saved.examples[0]?.explanation || '',
+        constraintsText: saved.constraints.join('\n'),
+        hintsText: saved.hints.join('\n'),
+      })
+      setEditingInfo(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '保存题目信息失败')
+    } finally {
+      setSavingInfo(false)
+    }
+  }
+
   function handleEditorScroll(event: UIEvent<HTMLTextAreaElement>) {
     if (lineNumberRef.current) {
       lineNumberRef.current.scrollTop = event.currentTarget.scrollTop
@@ -200,18 +266,76 @@ export function ProblemWorkspacePage() {
             <Panel defaultSize={26} minSize={18} className="bg-[#121212]">
               <aside className="h-full border-r border-white/10 bg-[#121212]">
                 <div className="h-full overflow-y-auto px-8 py-8">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="rounded-full bg-rose-500/10 px-3 py-1 text-xs text-rose-300">{problem.difficulty}</span>
-              {problem.tags.map(tag => (
-                <span key={tag} className="rounded-full bg-white/6 px-3 py-1 text-xs text-white/65">{tag}</span>
-              ))}
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-3">
+                {editingInfo ? (
+                  <>
+                    <select
+                      className="rounded-full border border-white/10 bg-rose-500/10 px-3 py-1 text-xs text-rose-300"
+                      value={infoDraft.difficulty}
+                      onChange={e => setInfoDraft(prev => ({ ...prev, difficulty: e.target.value }))}
+                    >
+                      <option value="Easy">Easy</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Hard">Hard</option>
+                    </select>
+                    <input
+                      className="min-w-40 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/80 outline-none"
+                      value={infoDraft.tagsText}
+                      onChange={e => setInfoDraft(prev => ({ ...prev, tagsText: e.target.value }))}
+                      placeholder="标签，逗号分隔"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <span className="rounded-full bg-rose-500/10 px-3 py-1 text-xs text-rose-300">{problem.difficulty}</span>
+                    {problem.tags.map(tag => (
+                      <span key={tag} className="rounded-full bg-white/6 px-3 py-1 text-xs text-white/65">{tag}</span>
+                    ))}
+                  </>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {editingInfo ? (
+                  <>
+                    <button className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/60" onClick={() => setEditingInfo(false)}>取消</button>
+                    <button className="rounded-lg bg-emerald-400 px-3 py-1.5 text-xs font-semibold text-black" onClick={handleSaveInfo} disabled={savingInfo}>{savingInfo ? '保存中...' : '保存'}</button>
+                  </>
+                ) : (
+                  <button className="rounded-lg border border-white/10 px-3 py-1.5 text-xs text-white/70 hover:bg-white/5" onClick={() => setEditingInfo(true)}>编辑</button>
+                )}
+              </div>
             </div>
-            <p className="whitespace-pre-wrap text-[15px] leading-7 text-white/82">{problem.description}</p>
 
-            {problem.examples.length > 0 ? (
+            {editingInfo ? (
+              <div className="mb-6 space-y-4">
+                <input
+                  className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-lg font-bold text-white outline-none"
+                  value={infoDraft.title}
+                  onChange={e => setInfoDraft(prev => ({ ...prev, title: e.target.value }))}
+                  placeholder="题目标题"
+                />
+                <textarea
+                  className="min-h-32 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-[15px] leading-7 text-white/82 outline-none"
+                  value={infoDraft.description}
+                  onChange={e => setInfoDraft(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="题目描述"
+                />
+              </div>
+            ) : (
+              <p className="whitespace-pre-wrap text-[15px] leading-7 text-white/82">{problem.description}</p>
+            )}
+
+            {(editingInfo || problem.examples.length > 0) ? (
               <section className="mt-8 space-y-4">
                 <h2 className="text-xl font-bold">示例</h2>
-                {problem.examples.map((example, index) => (
+                {editingInfo ? (
+                  <div className="space-y-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm">
+                    <textarea className="min-h-20 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 outline-none" value={infoDraft.exampleInput} onChange={e => setInfoDraft(prev => ({ ...prev, exampleInput: e.target.value }))} placeholder="输入" />
+                    <textarea className="min-h-20 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 outline-none" value={infoDraft.exampleOutput} onChange={e => setInfoDraft(prev => ({ ...prev, exampleOutput: e.target.value }))} placeholder="输出" />
+                    <textarea className="min-h-20 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 outline-none" value={infoDraft.exampleExplanation} onChange={e => setInfoDraft(prev => ({ ...prev, exampleExplanation: e.target.value }))} placeholder="解释" />
+                  </div>
+                ) : problem.examples.map((example, index) => (
                   <div key={`${example.input}-${index}`} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm">
                     <div><span className="font-semibold">输入：</span>{example.input}</div>
                     <div className="mt-2"><span className="font-semibold">输出：</span>{example.output}</div>
@@ -221,21 +345,29 @@ export function ProblemWorkspacePage() {
               </section>
             ) : null}
 
-            {problem.constraints.length > 0 ? (
+            {(editingInfo || problem.constraints.length > 0) ? (
               <section className="mt-8">
                 <h2 className="text-xl font-bold">约束</h2>
-                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-white/75">
-                  {problem.constraints.map(item => <li key={item}>{item}</li>)}
-                </ul>
+                {editingInfo ? (
+                  <textarea className="mt-3 min-h-28 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/75 outline-none" value={infoDraft.constraintsText} onChange={e => setInfoDraft(prev => ({ ...prev, constraintsText: e.target.value }))} placeholder="每行一条约束" />
+                ) : (
+                  <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-white/75">
+                    {problem.constraints.map(item => <li key={item}>{item}</li>)}
+                  </ul>
+                )}
               </section>
             ) : null}
 
-            {problem.hints.length > 0 ? (
+            {(editingInfo || problem.hints.length > 0) ? (
               <section className="mt-8">
                 <h2 className="text-xl font-bold">提示</h2>
-                <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-white/75">
-                  {problem.hints.map(item => <li key={item}>{item}</li>)}
-                </ul>
+                {editingInfo ? (
+                  <textarea className="mt-3 min-h-28 w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/75 outline-none" value={infoDraft.hintsText} onChange={e => setInfoDraft(prev => ({ ...prev, hintsText: e.target.value }))} placeholder="每行一条提示" />
+                ) : (
+                  <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-white/75">
+                    {problem.hints.map(item => <li key={item}>{item}</li>)}
+                  </ul>
+                )}
               </section>
             ) : null}
 
