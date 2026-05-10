@@ -8,30 +8,26 @@
     "字符串"
   ],
   "source": "custom",
-  "description": "给定一个由**互不相同**字符组成的字符串 s，返回它的**全排列**：每个排列是一个字符串，放在一个 `[]string` 里。\n\n本题与 LeetCode 「全排列」相同思想，区别是输入为**无重复字符的字符串**而非整数数组。返回值需与评测用例完全一致：等同「先对 s 中字符升序排序」，再按该顺序对下标做回溯时得到的排列顺序（与这些排列作为字符串的字典序一致）。判题会合并你的代码生成 `main`，**不会沿用你文件里的 import**，因此若要对字符排序请自写简单排序或使用不依赖标准库 `sort` 的写法。",
+  "leetcodeUrl": "https://leetcode.cn/problems/permutations/",
+  "description": "给定一个由互不相同字符组成的字符串 s、返回其所有排列（全排列）、以字符串切片形式给出\n\n请将结果中每一个排列按普通字符串理解、并把整个切片按字典序排序后返回、以便与评测用例一致（与 LeetCode「全排列」数组版思想相同、输入由数组改为字符串）",
   "examples": [
     {
       "input": "s = \"ab\"",
       "output": "[\"ab\", \"ba\"]",
-      "explanation": "两字符的全排列，按字典序排列结果切片"
-    },
-    {
-      "input": "s = \"abc\"",
-      "output": "[\"abc\", \"acb\", \"bac\", \"bca\", \"cab\", \"cba\"]",
-      "explanation": "3! 种排列"
+      "explanation": "两个字符的两类排列、整体按字典序排序后为 [\"ab\",\"ba\"]"
     }
   ],
   "constraints": [
     "1 <= len(s) <= 8",
-    "s 仅含可打印 ASCII，且字符互不重复"
+    "s 仅含可打印 ASCII、且字符互不重复"
   ],
   "hints": [
-    "可先转成 []byte 并手写一次升序排序（冒泡/插入均可），再对下标做「选/不选」式回溯。",
-    "字符互异时，按排序后的下标顺序 DFS，生成的排列顺序即与 expected 一致。"
+    "可沿用排列类题目的回溯/交换思路、把「选下标」改成「选剩余字符」",
+    "若已得到全部排列、最后用 sort.Strings 排序再返回即可满足判题顺序。"
   ],
   "functionName": "permute",
   "signature": "func permute(s string) []string",
-  "starterCode": "package main\n\nfunc permute(s string) []string {\n\treturn nil\n}\n",
+  "starterCode": "package main\n\nimport \"sort\"\n\nfunc permute(s string) []string {\n\treturn nil\n}\n",
   "visibleTestCases": [
     {
       "id": "case-1",
@@ -88,5 +84,5 @@
     "entry": "permute"
   },
   "createdAt": "2026-05-10T09:00:00.000Z",
-  "updatedAt": "2026-05-10T09:05:00.000Z"
+  "updatedAt": "2026-05-10T08:03:30.277998Z"
 }

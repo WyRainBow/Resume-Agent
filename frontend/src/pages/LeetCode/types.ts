@@ -32,6 +32,8 @@ export interface LeetCodeProblem {
     type: string
     entry: string
   }
+  /** LeetCode / 力扣 原题链接，可留空 */
+  leetcodeUrl?: string
   createdAt: string
   updatedAt: string
 }

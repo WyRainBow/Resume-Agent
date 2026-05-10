@@ -2,5 +2,5 @@
   "slug": "reverse-nodes-in-k-group-full-tail",
   "language": "go",
   "code": "package main\n\ntype ListNode struct {\n\tVal  int\n\tNext *ListNode\n}\n\nfunc reverseKGroup(head *ListNode, k int) *ListNode {\n\treturn head\n}\n",
-  "updatedAt": "2026-05-10T07:50:15.133003Z"
+  "updatedAt": "2026-05-10T08:37:17.899245Z"
 }

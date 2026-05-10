@@ -4,10 +4,11 @@
   "title": "K 个一组反转链表（尾组也反转）字节题库",
   "difficulty": "Hard",
   "tags": [
-    "Linked List",
-    "Simulation"
+    "链表",
+    "模拟"
   ],
   "source": "custom",
+  "leetcodeUrl": "https://leetcode.cn/problems/reverse-nodes-in-k-group/",
   "description": "给你一个链表、每 k 个节点一组进行翻转。与 LeetCode 原题唯一不同的是：如果最后剩余节点数不足 k、这一组也需要继续翻转、而不是保持原顺序。",
   "examples": [
     {

@@ -4,11 +4,12 @@
   "title": "快速排序",
   "difficulty": "Medium",
   "tags": [
-    "Sorting",
-    "Array",
-    "Divide and Conquer"
+    "排序",
+    "数组",
+    "分治"
   ],
   "source": "custom",
+  "leetcodeUrl": "https://leetcode.cn/problems/sort-an-array/",
   "description": "给你一个整数数组 nums、请你使用快速排序的思想将数组按升序排列、并返回排序后的数组",
   "examples": [
     {

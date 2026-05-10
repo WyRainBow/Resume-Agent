@@ -29,6 +29,7 @@ const newProblemTemplate = (): LeetCodeProblem => ({
     type: 'function',
     entry: 'solve',
   },
+  leetcodeUrl: '',
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 })
@@ -55,8 +56,10 @@ export function ProblemEditorForm({ initialProblem, onCancel, onSave }: ProblemE
   async function handleSubmit() {
     try {
       setError('')
+      const leetcodeTrimmed = (problem.leetcodeUrl ?? '').trim()
       const payload: LeetCodeProblem = {
         ...problem,
+        leetcodeUrl: leetcodeTrimmed ? leetcodeTrimmed : undefined,
         tags: tagsText.split(',').map(item => item.trim()).filter(Boolean),
         constraints: constraintsText.split('\n').map(item => item.trim()).filter(Boolean),
         hints: hintsText.split('\n').map(item => item.trim()).filter(Boolean),
@@ -105,6 +108,15 @@ export function ProblemEditorForm({ initialProblem, onCancel, onSave }: ProblemE
             <label className="space-y-2 text-sm">
               <span>标签（逗号分隔）</span>
               <input className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2" value={tagsText} onChange={e => setTagsText(e.target.value)} />
+            </label>
+            <label className="space-y-2 text-sm md:col-span-2">
+              <span>力扣原题链接（可选，含 https）</span>
+              <input
+                className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs"
+                placeholder="https://leetcode.cn/problems/reverse-linked-list/"
+                value={problem.leetcodeUrl ?? ''}
+                onChange={e => setProblem(prev => ({ ...prev, leetcodeUrl: e.target.value }))}
+              />
             </label>
           </div>
 

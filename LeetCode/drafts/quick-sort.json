@@ -2,5 +2,5 @@
   "slug": "quick-sort",
   "language": "go",
   "code": "package main\n\nimport \"fmt\"\n\nfunc quickSort(nums []int) []int {\n\tif len(nums) <= 1 {\n\t\treturn nums\n\t}\n\tquickSortRange(nums, 0, len(nums)-1)\n\treturn nums\n}\n\nfunc quickSortRange(nums []int, left, right int) {\n\tif left >= right {\n\t\treturn\n\t}\n\tp := partition(nums, left, right)\n\tquickSortRange(nums, left, p-1)\n\tquickSortRange(nums, p+1, right)\n}\n\nfunc partition(nums []int, left, right int) int {\n\tpivot := nums[right]\n\ti := left\n\tfor j := left; j < right; j++ {\n\t\tif nums[j] < pivot {\n\t\t\tnums[i], nums[j] = nums[j], nums[i]\n\t\t\ti++\n\t\t}\n\t}\n\tnums[i], nums[right] = nums[right], nums[i]\n\treturn i\n}\n\nfunc main() {\n\tnums := []int{5, 2, 3, 1, 4}\n\tfmt.Println(quickSort(nums))\n}",
-  "updatedAt": "2026-05-10T07:55:01.984878Z"
+  "updatedAt": "2026-05-10T07:58:42.802496Z"
 }
