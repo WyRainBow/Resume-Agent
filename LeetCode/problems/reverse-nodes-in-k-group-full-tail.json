@@ -1,7 +1,7 @@
 {
   "id": "problem_reverse_nodes_in_k_group_full_tail",
   "slug": "reverse-nodes-in-k-group-full-tail",
-  "title": "K 个一组反转链表（尾组也反转）",
+  "title": "K 个一组反转链表（尾组也反转）字节题库",
   "difficulty": "Hard",
   "tags": [
     "Linked List",
@@ -112,5 +112,5 @@
     "entry": "reverseKGroup"
   },
   "createdAt": "2026-05-10T00:00:00.000Z",
-  "updatedAt": "2026-05-10T07:12:25.741502Z"
+  "updatedAt": "2026-05-10T07:48:36.540251Z"
 }

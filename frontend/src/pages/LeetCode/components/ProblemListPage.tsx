@@ -52,7 +52,7 @@ export function ProblemListPage({ problems, loading, error, onRefresh }: Problem
           <div>
             <div className="mb-2 text-sm uppercase tracking-[0.25em] text-amber-600/70">LeetCode Workspace</div>
             <h1 className="text-4xl font-black tracking-tight">题库</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-500">支持文件预置题和页面新增题，第一版只做 Go，运行和提交都走真实后端判题。</p>
+            <p className="mt-2 max-w-2xl text-sm text-slate-500">支持文件预置题和页面新增题、第一版只做 Go、运行和提交都走真实后端判题。</p>
           </div>
           <button className="rounded-xl bg-emerald-400 px-5 py-3 text-sm font-bold text-black shadow-[0_0_30px_rgba(74,222,128,0.25)]" onClick={() => setCreating(true)}>新增自定义题</button>
         </div>
