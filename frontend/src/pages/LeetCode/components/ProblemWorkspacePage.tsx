@@ -15,8 +15,13 @@ import { getApiBaseUrl, getRuntimeEnv } from '@/lib/runtimeEnv'
 import { getDraft, getProblem, listSubmissions, runProblem, saveDraft, submitProblem, updateProblem } from '../api'
 import type { LeetCodeProblem, ProblemTestCase, RunResponse, SubmissionRecord } from '../types'
 
-function formatValue(value: unknown) {
-  return JSON.stringify(value, null, 2)
+function formatValue(value: unknown): string {
+  if (value === undefined) return 'undefined'
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
 }
 
 /** 合法 JSON 压成单行；解析失败则保持原字符串便于继续输入 */
@@ -892,8 +897,8 @@ export function ProblemWorkspacePage() {
                                 <span className={item.passed ? 'text-emerald-600' : 'text-rose-600'}>{item.status}</span>
                               </div>
                               <div className="mt-2 grid gap-3 md:grid-cols-2">
-                                <pre className="whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-300">expected: {formatValue(item.expected)}</pre>
-                                <pre className="whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-300">actual: {formatValue(item.actual)}</pre>
+                                <pre className="break-all whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-300">expected: {formatValue(item.expected)}</pre>
+                                <pre className="break-all whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-300">actual: {formatValue(item.actual)}</pre>
                               </div>
                               {item.stderr ? <pre className="mt-3 whitespace-pre-wrap rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-600 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-400">stderr: {item.stderr}</pre> : null}
                               {item.stdout ? <pre className="mt-3 whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-300">stdout: {item.stdout}</pre> : null}
