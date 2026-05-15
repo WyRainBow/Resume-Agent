@@ -1,0 +1,6 @@
+{
+  "slug": "quick-sort",
+  "language": "go",
+  "code": "package main\n\nimport \"fmt\"\n\nfunc quickSort(nums []int, left, right int) {\n        if left >= right {\n                return\n        }\n\n        pivotIndex := partition(nums, left, right)\n\n        quickSort(nums, left, pivotIndex-1)\n        quickSort(nums, pivotIndex+1, right)\n}\n\nfunc partition(nums []int, left, right int) int {\n        pivot := nums[right]\n        i := left\n\n        for j := left; j < right; j++ {\n                if nums[j] < pivot {\n                        nums[i], nums[j] = nums[j], nums[i]\n                        i++\n                }\n        }\n\n        nums[i], nums[right] = nums[right], nums[i]\n        return i\n}\n\nfunc main() {\n        nums := []int{5, 2, 3, 1, 4}\n        quickSort(nums, 0, len(nums)-1)\n        fmt.Println(nums)\n}  \n\n\n\n\t",
+  "updatedAt": "2026-05-10T14:38:17.114765Z"
+}

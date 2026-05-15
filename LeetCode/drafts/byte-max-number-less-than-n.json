@@ -2,5 +2,5 @@
   "slug": "byte-max-number-less-than-n",
   "language": "go",
   "code": "package main\n\nfunc maxNumberLessThan(n int, digits []int) int {\n\treturn -1\n}\n",
-  "updatedAt": "2026-05-10T08:36:48.908300Z"
+  "updatedAt": "2026-05-10T14:19:27.581854Z"
 }

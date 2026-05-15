@@ -1,0 +1,6 @@
+{
+  "slug": "lru-cache",
+  "language": "go",
+  "code": "package main\n\nfunc simulateLRU(capacity int, operations [][]int) []int {\n\treturn []int{}\n}\n",
+  "updatedAt": "2026-05-10T16:01:32.052260Z"
+}
