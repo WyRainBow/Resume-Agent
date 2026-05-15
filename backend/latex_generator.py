@@ -16,7 +16,7 @@ from typing import Dict, Any, List
 from io import BytesIO
 from datetime import date
 
-from .latex_utils import escape_latex, normalize_resume_data
+from .latex_utils import escape_latex, normalize_resume_data, resolve_xelatex_executable, subprocess_env_with_xelatex_bin
 from .latex_sections import SECTION_GENERATORS, DEFAULT_SECTION_ORDER, generate_section_custom
 from .company_logos import download_logos_to_dir
 from .school_logos import download_school_logos_to_dir, is_school_logo_latex_supported
@@ -423,8 +423,8 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path, resume_data: Di
         tex_file = Path(temp_dir) / 'resume.tex'
         tex_file.write_text(latex_content, encoding='utf-8')
 
-        # 检查 xelatex 是否可用
-        xelatex_path = shutil.which('xelatex')
+        # 检查 xelatex 是否可用（Windows 下额外搜索 MiKTeX 常见路径）
+        xelatex_path = resolve_xelatex_executable()
         if not xelatex_path:
             # 提供安装说明
             install_hint = """
@@ -450,13 +450,15 @@ LaTeX (XeLaTeX) 未安装。请运行以下命令安装：
             str(tex_file)
         ]
 
-        # 只编译一次，简化逻辑
+        # 只编译一次；Windows MiKTeX 首次运行可能按需装包，给足时间
+        _latex_env = subprocess_env_with_xelatex_bin(xelatex_path)
         result = subprocess.run(
             compile_cmd,
             cwd=temp_dir,
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=180,
+            env=_latex_env,
         )
 
         if result.returncode != 0:

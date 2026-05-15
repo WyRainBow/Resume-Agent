@@ -312,9 +312,8 @@ export async function renderPDFStream(
     console.log('[PDF TRACE][stream:chunk]', { traceId, chunkBytes: chunk.length })
     buffer += chunk
 
-    // SSE格式：事件之间用双换行符分隔
-    // 但单个事件可能跨越多个数据块
-    const events = buffer.split('\n\n')
+    // SSE格式：事件之间用双换行符分隔（Windows 后端可能产生 \r\n，先统一）
+    const events = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n\n')
     buffer = events.pop() || ''  // 保留最后一个可能不完整的事件
     console.log('[PDF TRACE][stream:buffer]', { traceId, events: events.length, bufferLen: buffer.length })
 
@@ -390,8 +389,8 @@ export async function renderPDFStream(
       preview: buffer.substring(0, 200),
     })
 
-    // 解析剩余缓冲区中的事件
-    const lines = buffer.split('\n')
+    // 解析剩余缓冲区中的事件（先统一换行符）
+    const lines = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
     let eventType: string | null = null
     let eventData: string | null = null
 
