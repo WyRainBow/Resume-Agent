@@ -26,10 +26,8 @@ frontend/.env.production
 !.env.example
 !frontend/.env.example
 
-# IDE
+# IDE — 整目录不提交（含 tasks.json、settings.json 等）
 .vscode/
-!.vscode/
-!.vscode/tasks.json
 .idea/
 *.swp
 *.swo
@@ -115,7 +113,6 @@ docs/**
 config/
 image.png
 .cursor/mcp.json
-.vscode/settings.json
 backend/agent/tool/feishu_remote_mcp.py
 backend/scripts/ocr_image_zhipu.py
 images/
