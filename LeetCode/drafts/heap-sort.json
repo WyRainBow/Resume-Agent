@@ -1,0 +1,6 @@
+{
+  "slug": "heap-sort",
+  "language": "go",
+  "code": "package main\n\nfunc heapSort(nums []int) []int {\n\treturn nums\n}\n",
+  "updatedAt": "2026-05-10T16:01:47.221587Z"
+}

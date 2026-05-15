@@ -1,0 +1,118 @@
+{
+  "id": "problem_quick_sort",
+  "slug": "quick-sort",
+  "title": "快速排序",
+  "difficulty": "Medium",
+  "tags": [
+    "排序",
+    "数组",
+    "分治"
+  ],
+  "source": "custom",
+  "leetcodeUrl": "https://leetcode.cn/problems/sort-an-array/",
+  "description": "给你一个整数数组 nums、请你使用快速排序的思想将数组按升序排列、并返回排序后的数组",
+  "examples": [
+    {
+      "input": "nums = [5、1、1、2、0、0]",
+      "output": "[0、1、1、2、5]",
+      "explanation": "将数组按升序排列后返回"
+    }
+  ],
+  "constraints": [
+    "1 <= nums.length <= 5 * 10^4",
+    "-5 * 10^4 <= nums[i] <= 5 * 10^4"
+  ],
+  "hints": [
+    "可以原地完成排序、再返回 nums。",
+    "注意处理重复元素和基准值划分。"
+  ],
+  "functionName": "quickSort",
+  "signature": "func quickSort(nums []int) []int",
+  "starterCode": "package main\n\nfunc quickSort(nums []int) []int {\n\treturn nums\n}\n",
+  "visibleTestCases": [
+    {
+      "id": "case-1",
+      "input": {
+        "nums": [
+          5,
+          1,
+          1,
+          2,
+          0,
+          0
+        ]
+      },
+      "expected": [
+        0,
+        0,
+        1,
+        1,
+        2,
+        5
+      ]
+    },
+    {
+      "id": "case-2",
+      "input": {
+        "nums": [
+          3,
+          2,
+          4,
+          1
+        ]
+      },
+      "expected": [
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  ],
+  "hiddenTestCases": [
+    {
+      "id": "hidden-1",
+      "input": {
+        "nums": [
+          1
+        ]
+      },
+      "expected": [
+        1
+      ]
+    },
+    {
+      "id": "hidden-2",
+      "input": {
+        "nums": [
+          9,
+          -3,
+          5,
+          2,
+          6,
+          8,
+          -6,
+          1,
+          3
+        ]
+      },
+      "expected": [
+        -6,
+        -3,
+        1,
+        2,
+        3,
+        5,
+        6,
+        8,
+        9
+      ]
+    }
+  ],
+  "judge": {
+    "type": "function",
+    "entry": "quickSort"
+  },
+  "createdAt": "2026-05-10T00:00:00.000Z",
+  "updatedAt": "2026-05-10T07:26:35.350659Z"
+}

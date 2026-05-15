@@ -1,0 +1,77 @@
+{
+  "id": "sub_20260510064840215644",
+  "slug": "reverse-nodes-in-k-group-full-tail",
+  "language": "go",
+  "code": "package main\n\nimport \"fmt\"\n\nfunc reverseKGroup(nums []int, k int) []int {\n\n\tn := len(nums)\n\n\tfor i := 0; i < n; i += k {\n\n\t\tleft := i\n\t\tright := min(i+k-1, n-1)\n\n\t\t// 反转当前组\n\t\tfor left < right {\n\t\t\tnums[left], nums[right] = nums[right], nums[left]\n\t\t\tleft++\n\t\t\tright--\n\t\t}\n\t}\n\n\treturn nums\n}\n\nfunc min(a, b int) int {\n\tif a < b {\n\t\treturn a\n\t}\n\treturn b\n}\n\nfunc main() {\n\n\tnums := []int{1, 2, 3, 4, 5, 6, 7, 8}\n\tk := 3\n\n\tresult := reverseKGroup(nums, k)\n\n\tfmt.Println(result)f\n}",
+  "mode": "submit",
+  "status": "runtime_error",
+  "summary": {
+    "passed": 0,
+    "total": 4
+  },
+  "results": [
+    {
+      "caseId": "case-1",
+      "passed": false,
+      "status": "runtime_error",
+      "stdout": "",
+      "stderr": "# command-line-arguments\n./main.go:42:21: syntax error: unexpected name f at end of statement",
+      "expected": [
+        3,
+        2,
+        1,
+        6,
+        5,
+        4,
+        8,
+        7
+      ],
+      "actual": null,
+      "durationMs": 366
+    },
+    {
+      "caseId": "case-2",
+      "passed": false,
+      "status": "runtime_error",
+      "stdout": "",
+      "stderr": "# command-line-arguments\n./main.go:42:21: syntax error: unexpected name f at end of statement",
+      "expected": [
+        2,
+        1,
+        4,
+        3,
+        5
+      ],
+      "actual": null,
+      "durationMs": 58
+    },
+    {
+      "caseId": "hidden-1",
+      "passed": false,
+      "status": "runtime_error",
+      "stdout": "",
+      "stderr": "# command-line-arguments\n./main.go:42:21: syntax error: unexpected name f at end of statement",
+      "expected": [
+        2,
+        1
+      ],
+      "actual": null,
+      "durationMs": 53
+    },
+    {
+      "caseId": "hidden-2",
+      "passed": false,
+      "status": "runtime_error",
+      "stdout": "",
+      "stderr": "# command-line-arguments\n./main.go:42:21: syntax error: unexpected name f at end of statement",
+      "expected": [
+        1,
+        2,
+        3
+      ],
+      "actual": null,
+      "durationMs": 51
+    }
+  ],
+  "createdAt": "2026-05-10T06:48:40.215706Z"
+}

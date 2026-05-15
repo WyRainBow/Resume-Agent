@@ -18,6 +18,7 @@ const SharePage = lazy(() => import('./pages/SharePage'))
 const Workspace = lazy(() => import('./pages/Workspace/v2'))
 const HTMLWorkspace = lazy(() => import('./pages/Workspace/v2/html'))
 const LaTeXWorkspace = lazy(() => import('./pages/Workspace/v2/latex'))
+const LeetCodePage = lazy(() => import('./pages/LeetCode'))
 
 function RouteFallback() {
   return (
@@ -78,6 +79,7 @@ function App() {
                 <Route path="/admin" element={<Navigate to="/workspace" replace />} />
               )}
               <Route path="/create-new" element={<CreateNew />} />
+              <Route path="/leetcode/*" element={<LeetCodePage />} />
               <Route path="/share/:shareId" element={<SharePage />} />
             </Routes>
           </Suspense>
