@@ -72,6 +72,9 @@ export default function LaTeXWorkspace() {
     loading,
     progress,
     saveSuccess,
+    renderMode,
+    canUseRemoteRender,
+    setRenderMode,
     handleRender,
     handleDownload,
     handleSaveToDashboard,
@@ -309,6 +312,9 @@ export default function LaTeXWorkspace() {
         loading={loading}
         progress={progress}
         autoRenderPending={isAutoRenderPending}
+        renderMode={renderMode}
+        canUseRemoteRender={canUseRemoteRender}
+        setRenderMode={setRenderMode}
         handleRender={handleRender}
         handleDownload={handleDownload}
         editMode={editMode}

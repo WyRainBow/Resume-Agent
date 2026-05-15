@@ -4,6 +4,8 @@
 import { saveAs } from 'file-saver'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { renderPDFStream, renderPDF } from '../../../../services/api'
+import { getStoredAuthRole } from '@/lib/runtimeEnv'
+import { getStoredPDFRenderMode, setStoredPDFRenderMode, type PDFRenderMode } from '@/services/pdfRenderMode'
 import { saveResume, setCurrentResumeId } from '../../../../services/resumeStorage'
 import type { ResumeData } from '../types'
 import { convertToBackendFormat } from '../utils/convertToBackend'
@@ -19,11 +21,28 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState('')
   const [saveSuccess, setSaveSuccess] = useState(false)
+  const [renderMode, setRenderMode] = useState<PDFRenderMode>(getStoredPDFRenderMode())
   const resumeDataRef = useRef(resumeData)
+  const renderModeRef = useRef<PDFRenderMode>(renderMode)
   const dataVersionRef = useRef(0)
   const activeRenderIdRef = useRef(0)
   const activeAbortControllerRef = useRef<AbortController | null>(null)
   resumeDataRef.current = resumeData
+  renderModeRef.current = renderMode
+  const isAdmin = getStoredAuthRole() === 'admin'
+
+  useEffect(() => {
+    if (!isAdmin && renderMode !== 'local') {
+      setRenderMode('local')
+      setStoredPDFRenderMode('local')
+      return
+    }
+    setStoredPDFRenderMode(renderMode)
+    console.info('[PDF TRACE][render-mode:stored]', {
+      renderMode,
+      isAdmin,
+    })
+  }, [isAdmin, renderMode])
 
   useEffect(() => {
     dataVersionRef.current += 1
@@ -59,6 +78,10 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
     try {
       const data = resumeDataRef.current
       const backendData = convertToBackendFormat(data)
+      console.info('[PDF TRACE][render:dispatch]', {
+        renderMode: renderModeRef.current,
+        trigger: 'workspace.v2',
+      })
       setProgress('正在渲染 PDF...')
 
       let blob: Blob
@@ -79,6 +102,7 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
             source: 'workspace.v2',
             trigger: 'auto-render',
             signal: abortController.signal,
+            renderMode: renderModeRef.current,
           }
         )
       } catch (streamError) {
@@ -91,7 +115,8 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
             backendData as any,
             false,
             backendData.sectionOrder,
-            abortController.signal
+            abortController.signal,
+            renderModeRef.current,
           )
         } catch (normalError) {
           if (!isCurrentRender()) return
@@ -155,6 +180,9 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
     loading,
     progress,
     saveSuccess,
+    renderMode,
+    canUseRemoteRender: isAdmin,
+    setRenderMode,
     handleRender,
     handleDownload,
     handleSaveToDashboard,

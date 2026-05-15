@@ -22,6 +22,7 @@ import type {
   Award,
   CustomItem,
 } from "./types";
+import type { PDFRenderMode } from "@/services/pdfRenderMode";
 
 type EditMode = "click" | "scroll";
 
@@ -61,6 +62,9 @@ interface EditPreviewLayoutProps {
   loading: boolean;
   progress: string;
   autoRenderPending?: boolean;
+  renderMode?: PDFRenderMode;
+  canUseRemoteRender?: boolean;
+  setRenderMode?: (mode: PDFRenderMode) => void;
   handleRender: () => void;
   handleDownload: () => void;
 }
@@ -139,6 +143,9 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
     loading,
     progress,
     autoRenderPending,
+    renderMode = "local",
+    canUseRemoteRender = false,
+    setRenderMode = () => {},
     handleRender,
     handleDownload,
   } = props;
@@ -347,6 +354,9 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
             loading={loading}
             progress={progress}
             autoRenderPending={autoRenderPending}
+            renderMode={renderMode}
+            canUseRemoteRender={canUseRemoteRender}
+            onRenderModeChange={setRenderMode}
             onRender={handleRender}
             onDownload={handleDownload}
           />
