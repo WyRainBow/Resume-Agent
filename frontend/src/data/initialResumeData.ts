@@ -53,11 +53,11 @@ export const initialResumeData: ResumeData = {
   customData: {},
   selfEvaluation: '<p>具备扎实的前端开发基础，熟悉 React、TypeScript 与工程化实践，关注用户体验、性能优化和组件复用。</p>',
   menuSections: [
-    { id: 'selfEvaluation', title: '自我评价', icon: '📝', enabled: true, order: 0 },
-    { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 1 },
-    { id: 'experience', title: '工作经历', icon: '💼', enabled: true, order: 2 },
-    { id: 'projects', title: '项目经历', icon: '🚀', enabled: true, order: 3 },
-    { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 4 },
-    { id: 'awards', title: '证书荣誉', icon: '🏆', enabled: true, order: 5 },
+    { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 0 },
+    { id: 'experience', title: '工作经历', icon: '💼', enabled: true, order: 1 },
+    { id: 'projects', title: '项目经历', icon: '🚀', enabled: true, order: 2 },
+    { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 3 },
+    { id: 'awards', title: '证书荣誉', icon: '🏆', enabled: true, order: 4 },
+    { id: 'selfEvaluation', title: '自我评价', icon: '📝', enabled: true, order: 5 },
   ]
 }

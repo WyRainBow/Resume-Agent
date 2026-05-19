@@ -10,6 +10,7 @@ import { uploadUserPhoto } from '@/services/photoService'
 import { InlineDatePicker } from '@/components/InlineDatePicker'
 import type { BasicInfo, GlobalSettings } from '../types'
 import Field from './Field'
+import { getAgeFromBirthDate } from '../utils/birthDateDisplay'
 
 interface BasicPanelProps {
   basic: BasicInfo
@@ -67,6 +68,11 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
   const photoWidthCm = basic?.photoWidthCm ?? 3
   const photoHeightCm = basic?.photoHeightCm ?? 3
   const birthDateDisplayMode = globalSettings?.birthDateDisplayMode || 'birthDate'
+  const birthDateLabel = basic?.birthDate?.trim() || '2003-05'
+  const ageLabel = (() => {
+    const age = getAgeFromBirthDate(basic?.birthDate || '')
+    return age !== null ? `${age} 岁` : '23 岁'
+  })()
 
   return (
     <div className="space-y-6 p-6">
@@ -100,14 +106,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Field
-                index={2}
-                label="状态"
-                value={basic?.employementStatus || ''}
-                onChange={(value) => onUpdate({ employementStatus: value })}
-                placeholder="如：在职、离职"
-              />
+            <div className="grid grid-cols-1 gap-4">
               <motion.div
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -135,8 +134,8 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                     )}
                     title="选择渲染方式"
                   >
-                    <option value="birthDate">显示 2003-05</option>
-                    <option value="age">显示 23 岁</option>
+                    <option value="birthDate">显示 {birthDateLabel}</option>
+                    <option value="age">显示 {ageLabel}</option>
                   </select>
                 </div>
               </motion.div>

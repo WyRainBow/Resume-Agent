@@ -3,7 +3,7 @@
  */
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getCurrentResumeId, setCurrentResumeId, getResume } from '../../../../services/resumeStorage'
-import { loadFromStorage, STORAGE_KEY } from '../constants'
+import { loadFromStorage, STORAGE_KEY, isLegacyDefaultMenuOrder, migrateMenuSectionsToLatestDefault } from '../constants'
 import { stripPhotoFromResumeData } from '@/services/storage/sanitizeResume'
 import { useLocation, useParams } from 'react-router-dom'
 import { useResumeContext } from '@/contexts/ResumeContext'
@@ -114,6 +114,13 @@ export function useResumeData() {
       const saved = await getResume(id)
       if (saved && saved.data) {
         const data = saved.data as any
+        const nextMenuSections = Array.isArray(data.menuSections)
+          ? (
+              isLegacyDefaultMenuOrder(data.menuSections)
+                ? migrateMenuSectionsToLatestDefault(data.menuSections)
+                : data.menuSections
+            )
+          : undefined
         setResumeData(prev => ({
           ...prev,
           basic: { ...prev.basic, ...(data.basic || {}), name: saved.name },
@@ -126,7 +133,7 @@ export function useResumeData() {
             ? data.selfEvaluation
             : (typeof data.summary === 'string' ? `<p>${data.summary}</p>` : prev.selfEvaluation),
           skillContent: data.skillContent || prev.skillContent,  // 加载技能内容
-          menuSections: data.menuSections || prev.menuSections,  // 加载菜单配置
+          menuSections: nextMenuSections || prev.menuSections,  // 加载菜单配置
           globalSettings: data.globalSettings ? { ...prev.globalSettings, ...data.globalSettings } : prev.globalSettings,  // 加载全局设置
           customData: data.customData !== undefined
             ? normalizeCustomData(data.customData)

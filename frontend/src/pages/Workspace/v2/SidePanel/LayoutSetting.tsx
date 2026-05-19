@@ -23,10 +23,11 @@ const LayoutSetting = ({
   updateMenuSections,
   reorderSections,
 }: LayoutSettingProps) => {
+  const sortedSections = [...menuSections].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   // 基本信息模块（固定在最上面，不可拖拽）
-  const basicSection = menuSections.find((item) => item.id === 'basic')
+  const basicSection = sortedSections.find((item) => item.id === 'basic')
   // 可拖拽的模块
-  const draggableSections = menuSections.filter((item) => item.id !== 'basic')
+  const draggableSections = sortedSections.filter((item) => item.id !== 'basic')
 
   return (
     <div className="space-y-4 rounded-lg bg-white dark:bg-neutral-900/30">
@@ -39,7 +40,7 @@ const LayoutSetting = ({
           setActiveSection={setActiveSection}
           toggleSectionVisibility={toggleSectionVisibility}
           updateMenuSections={updateMenuSections}
-          menuSections={menuSections}
+          menuSections={sortedSections}
         />
       )}
 
@@ -50,7 +51,7 @@ const LayoutSetting = ({
         onReorder={(newOrder) => {
           // 保持基本信息在最前面
           const updatedSections = [
-            ...menuSections.filter((item) => item.id === 'basic'),
+            ...sortedSections.filter((item) => item.id === 'basic'),
             ...newOrder,
           ]
           reorderSections(updatedSections)
@@ -65,7 +66,7 @@ const LayoutSetting = ({
             setActiveSection={setActiveSection}
             toggleSectionVisibility={toggleSectionVisibility}
             updateMenuSections={updateMenuSections}
-            menuSections={menuSections}
+            menuSections={sortedSections}
           />
         ))}
       </Reorder.Group>
@@ -74,5 +75,4 @@ const LayoutSetting = ({
 }
 
 export default LayoutSetting
-
 

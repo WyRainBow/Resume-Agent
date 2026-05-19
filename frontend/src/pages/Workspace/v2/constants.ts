@@ -7,6 +7,42 @@ import { DEFAULT_RESUME_TEMPLATE } from '../../../data/defaultTemplate'
 
 export const STORAGE_KEY = 'resume_v2_data'
 
+export const LEGACY_DEFAULT_MENU_SECTION_IDS = [
+  'basic',
+  'selfEvaluation',
+  'skills',
+  'experience',
+  'projects',
+  'openSource',
+  'awards',
+  'education',
+] as const
+
+export function isLegacyDefaultMenuOrder(menuSections: ResumeData['menuSections']): boolean {
+  const ids = (menuSections || [])
+    .slice()
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+    .map((section) => section.id)
+  return (
+    ids.length === LEGACY_DEFAULT_MENU_SECTION_IDS.length &&
+    ids.every((id, index) => id === LEGACY_DEFAULT_MENU_SECTION_IDS[index])
+  )
+}
+
+export function migrateMenuSectionsToLatestDefault(
+  menuSections: ResumeData['menuSections'],
+): ResumeData['menuSections'] {
+  const latestById = new Map(initialResumeData.menuSections.map((section) => [section.id, section]))
+  return menuSections
+    .map((section) => {
+      const latest = latestById.get(section.id)
+      return latest
+        ? { ...section, order: latest.order }
+        : section
+    })
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+}
+
 const normalizeCustomData = (raw: unknown): ResumeData['customData'] => {
   if (!raw || typeof raw !== 'object') return {}
   return Object.entries(raw as Record<string, unknown>).reduce<ResumeData['customData']>((acc, [sectionId, items]) => {
@@ -54,13 +90,13 @@ export const initialResumeData: ResumeData = {
   draggingProjectId: null,
   menuSections: [
     { id: 'basic', title: '基本信息', icon: '👤', enabled: true, order: 0 },
-    { id: 'selfEvaluation', title: '自我评价', icon: '📝', enabled: true, order: 1 },
-    { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 2 },
-    { id: 'experience', title: '实习经历', icon: '💼', enabled: true, order: 3 },
-    { id: 'projects', title: '项目经历', icon: '🚀', enabled: true, order: 4 },
-    { id: 'openSource', title: '开源经历', icon: '🔗', enabled: true, order: 5 },
+    { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 1 },
+    { id: 'experience', title: '实习经历', icon: '💼', enabled: true, order: 2 },
+    { id: 'projects', title: '项目经历', icon: '🚀', enabled: true, order: 3 },
+    { id: 'openSource', title: '开源经历', icon: '🔗', enabled: true, order: 4 },
+    { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 5 },
     { id: 'awards', title: '荣誉奖项', icon: '🎖️', enabled: true, order: 6 },
-    { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 7 },
+    { id: 'selfEvaluation', title: '自我评价', icon: '📝', enabled: true, order: 7 },
   ],
   globalSettings: {
     lineHeight: 1.5,
@@ -238,6 +274,10 @@ export const loadFromStorage = (): ResumeData => {
       const newSections = initialResumeData.menuSections.filter(s => !existingIds.has(s.id))
       if (newSections.length > 0) {
         data.menuSections = [...data.menuSections, ...newSections].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      }
+      if (isLegacyDefaultMenuOrder(data.menuSections)) {
+        data.menuSections = migrateMenuSectionsToLatestDefault(data.menuSections)
+        storageUpdated = true
       }
       // 确保新字段存在
       if (!data.openSource) data.openSource = []

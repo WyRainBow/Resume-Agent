@@ -2,6 +2,7 @@
  * 将前端 ResumeData 转换为后端需要的格式
  */
 import type { ResumeData, CustomItem } from '../types'
+import { resolveEmploymentStatusForRender } from './birthDateDisplay'
 import { stripHtmlTags } from './textUtils'
 
 export interface BackendResumeData {
@@ -93,6 +94,13 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
     return acc
   }, {})
 
+  const birthDateDisplayMode = data.globalSettings?.birthDateDisplayMode || 'birthDate'
+  const employementStatus = resolveEmploymentStatusForRender(
+    data.basic.employementStatus,
+    data.basic.birthDate,
+    birthDateDisplayMode
+  )
+
   return {
     name: data.basic.name,
     ...(data.basic.birthDate ? { birthDate: data.basic.birthDate } : {}),
@@ -106,7 +114,7 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
       email: data.basic.email,
       location: data.basic.location,
     },
-    ...(data.basic.employementStatus ? { employementStatus: data.basic.employementStatus } : {}),
+    ...(employementStatus ? { employementStatus } : {}),
     ...(data.basic.blog ? { blog: data.basic.blog } : {}),
     objective: data.basic.title,
     summary: data.selfEvaluation || '',

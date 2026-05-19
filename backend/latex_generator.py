@@ -3,6 +3,7 @@ LaTeX 简历生成模块
 将简历 JSON 转换为 LaTeX 代码，并编译为 PDF
 """
 import os
+import re
 import subprocess
 import tempfile
 import shutil
@@ -66,6 +67,87 @@ def _compute_age_from_birth_date(birth_date: str) -> int | None:
         return age
     except Exception:
         return None
+
+
+def _format_birth_contact_text(birth_date_raw: str, birth_display_mode: str) -> str:
+    """根据展示模式生成联系栏中的生日/年龄文案（未转义）。"""
+    raw = birth_date_raw.strip()
+    if not raw:
+        return ""
+    if birth_display_mode == "age":
+        age = _compute_age_from_birth_date(raw)
+        return f"{age}岁" if age is not None else raw
+    return raw
+
+
+def _compact_contact_token(text: str) -> str:
+    return re.sub(r"[\s：:·\-]+", "", text or "").lower()
+
+
+def _collapse_duplicate_contact_segments(status: str) -> str:
+    """折叠「21 岁 · 21 岁」等重复片段，避免历史脏数据原样输出。"""
+    status = (status or "").strip()
+    if not status:
+        return ""
+    parts = [p.strip() for p in re.split(r"\s*·\s*", status) if p.strip()]
+    if len(parts) < 2:
+        return status
+    compact_parts = [_compact_contact_token(p) for p in parts]
+    if len(set(compact_parts)) == 1:
+        return parts[0]
+    deduped: list[str] = []
+    for i, part in enumerate(parts):
+        if i > 0 and compact_parts[i] == compact_parts[i - 1]:
+            continue
+        deduped.append(part)
+    return " · ".join(deduped)
+
+
+_AGE_ONLY_RE = re.compile(r"^(?:年龄[：:]\s*)?\d{1,3}\s*岁$")
+_DATE_ONLY_RE = re.compile(r"^\d{4}[-/]\d{2}(?:[-/]\d{2})?$")
+
+
+def _status_is_pure_age_or_date(status: str) -> bool:
+    """状态字段是否仅为年龄（如 '21 岁'）或生日年月（如 '2005-03'），是则直接替换。"""
+    s = (status or "").strip()
+    return bool(_AGE_ONLY_RE.match(s) or _DATE_ONLY_RE.match(s))
+
+
+def _status_duplicates_birth(status: str, birth_text: str, birth_date_raw: str) -> bool:
+    """状态字段已包含与 birthDate 相同的年龄/年月时，不再重复拼接。"""
+    status = (status or "").strip()
+    if not status or not birth_text:
+        return False
+    compact_status = _compact_contact_token(status)
+    for token in (birth_text, birth_date_raw.strip()):
+        if token and _compact_contact_token(token) in compact_status:
+            return True
+    birth_digits = re.sub(r"\D", "", _compact_contact_token(birth_text))
+    status_digits = re.sub(r"\D", "", compact_status)
+    if birth_digits and birth_digits == status_digits:
+        return True
+    return False
+
+
+def _merge_contact_status_with_birth(
+    employement_status: str,
+    birth_date_raw: str,
+    birth_display_mode: str,
+) -> str:
+    status = _collapse_duplicate_contact_segments(employement_status or "")
+    if not birth_date_raw.strip():
+        return status
+    birth_text = _format_birth_contact_text(birth_date_raw, birth_display_mode)
+    if not birth_text:
+        return status
+    # 状态字段只是一个年龄/日期时，直接用最新计算值替换（避免跨年后出现「20 岁 · 21 岁」）
+    if status and _status_is_pure_age_or_date(status):
+        return birth_text
+    if _status_duplicates_birth(status, birth_text, birth_date_raw):
+        return birth_text or status
+    if status:
+        return f"{status} · {birth_text}"
+    return birth_text
 
 
 def _summarize_latex_error(error_msg: str, max_chars: int = 2000) -> str:
@@ -283,18 +365,19 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     """求职意向：优先从 objective 获取，其次从 contact.role 获取"""
     role = escape_latex(resume_data.get('objective') or contact.get('role') or '')
     location = escape_latex(contact.get('location') or '')
-    employement_status = escape_latex(resume_data.get('employementStatus') or '')
-    blog = resume_data.get('blog') or ''  # 不 escape，保留原始 URL 给 \href
     birth_date_raw = resume_data.get('birthDate') or resume_data.get('birth_date') or ''
     birth_display_mode = (global_settings.get('birthDateDisplayMode') or 'birthDate') if isinstance(global_settings, dict) else 'birthDate'
-    age = _compute_age_from_birth_date(birth_date_raw) if isinstance(birth_date_raw, str) else None
-    if isinstance(birth_date_raw, str) and birth_date_raw.strip():
-        if birth_display_mode == 'age':
-            age_text = f"{age}岁" if age is not None else birth_date_raw.strip()
-        else:
-            age_text = birth_date_raw.strip()
-        age_text = escape_latex(age_text)
-        employement_status = f"{employement_status} · {age_text}".strip(" ·") if employement_status else age_text
+    raw_employement_status = resume_data.get('employementStatus') or ''
+    if isinstance(birth_date_raw, str):
+        merged_status = _merge_contact_status_with_birth(
+            raw_employement_status,
+            birth_date_raw,
+            birth_display_mode,
+        )
+    else:
+        merged_status = raw_employement_status
+    employement_status = escape_latex(merged_status)
+    blog = resume_data.get('blog') or ''  # 不 escape，保留原始 URL 给 \href
 
     # 有照片时，右侧叠加照片，不改变姓名/联系信息的居中布局
     if resume_data.get("photo"):
