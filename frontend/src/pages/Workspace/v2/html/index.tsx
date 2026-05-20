@@ -16,7 +16,7 @@ import EditPreviewLayout from '../EditPreviewLayout'
 import AIImportModal from '../shared/AIImportModal'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 
-type EditMode = 'click' | 'scroll'
+type EditMode = 'click' | 'scroll' | 'json'
 
 export default function HTMLWorkspace() {
   const { resumeId } = useParams<{ resumeId?: string }>()
@@ -384,6 +384,7 @@ export default function HTMLWorkspace() {
       {/* 编辑 + 预览布局 */}
       <EditPreviewLayout
         resumeData={resumeData}
+        setResumeData={setResumeData}
         activeSection={activeSection}
         setActiveSection={setActiveSection}
         toggleSectionVisibility={toggleSectionVisibility}

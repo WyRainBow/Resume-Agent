@@ -14,7 +14,7 @@ import EditPreviewLayout from '../EditPreviewLayout'
 import AIImportModal from '../shared/AIImportModal'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 
-type EditMode = 'click' | 'scroll'
+type EditMode = 'click' | 'scroll' | 'json'
 const PDF_RENDER_DEBOUNCE_MS = 2000
 
 export default function LaTeXWorkspace() {
@@ -279,6 +279,7 @@ export default function LaTeXWorkspace() {
       {/* 编辑 + 预览三列布局 */}
       <EditPreviewLayout
         resumeData={resumeData}
+        setResumeData={setResumeData}
         activeSection={activeSection}
         setActiveSection={setActiveSection}
         toggleSectionVisibility={toggleSectionVisibility}
