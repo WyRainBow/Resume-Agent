@@ -819,3 +819,13 @@ export async function detectRewriteTextIntent(
   })
   return data as { intent: RewriteTextIntent; intents?: RewriteTextIntent[]; confidence: number; source?: string }
 }
+
+export const scoreResume = async (resumeId: string, jdText: string) => {
+  const response = await fetch(`${getApiBaseUrl()}/api/resume/score`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ resume_id: resumeId, jd_text: jdText }),
+  })
+  if (!response.ok) throw new Error('评分失败')
+  return response.json()
+}

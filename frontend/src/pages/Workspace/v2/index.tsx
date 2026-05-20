@@ -12,6 +12,8 @@ import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import { Header } from './components'
 import EditPreviewLayout from './EditPreviewLayout'
 import AIImportModal from './shared/AIImportModal'
+import { ScoreCard } from '@/components/ScoreCard'
+import { scoreResume } from '@/services/api'
 
 type EditMode = 'click' | 'scroll'
 const PDF_RENDER_DEBOUNCE_MS = 2000
@@ -26,6 +28,9 @@ export default function WorkspaceV2() {
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null)
   const [isAutoRenderPending, setIsAutoRenderPending] = useState(false)
+  // 评分状态
+  const [jdText, setJdText] = useState('')
+  const [scoreData, setScoreData] = useState<any>(null)
   // 简历数据管理
   const {
     resumeData,
@@ -175,6 +180,13 @@ export default function WorkspaceV2() {
     }
   }, [])
 
+  // JD 文本变化时自动触发评分
+  useEffect(() => {
+    if (currentResumeId && jdText && jdText.trim().length > 10 && !scoreData) {
+      scoreResume(currentResumeId, jdText).then(setScoreData).catch(console.error)
+    }
+  }, [currentResumeId, jdText, scoreData])
+
   // 导出 JSON
   const handleExportJSON = () => {
     try {
@@ -287,6 +299,18 @@ export default function WorkspaceV2() {
         handleDownload={handleDownload}
         editMode={editMode}
       />
+
+      {/* JD 评分输入区域 */}
+      <div className="mt-4 mx-4 mb-4 p-4 border border-gray-200 rounded-lg">
+        <h3 className="text-sm font-medium mb-2">职位描述匹配评分</h3>
+        <textarea
+          value={jdText}
+          onChange={(e) => { setJdText(e.target.value); setScoreData(null); }}
+          placeholder="粘贴职位描述，AI将自动分析简历与JD的匹配度..."
+          className="w-full min-h-[80px] p-2 border border-gray-200 rounded text-sm"
+        />
+        {scoreData && <ScoreCard {...scoreData} />}
+      </div>
 
       {/* 隐藏的文件输入（用于导入 JSON） */}
       <input
