@@ -8,7 +8,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
@@ -20,6 +20,9 @@ try:
         ResumeParseRequest,
         SectionParseRequest,
         RewriteRequest,
+        ScoreRequest,
+        ScoreResponse,
+        User,
     )
     from llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
     from prompts import (
@@ -37,6 +40,9 @@ try:
     from services.pdf_parser import extract_markdown_from_pdf
     from services.zhipu_layout import recognize_with_ocr
     from services.resume_assembler import assemble_resume_data
+    from database import get_db
+    from middleware.auth import get_current_user
+    from sqlalchemy.orm import Session
 except ImportError:
     # 确保 backend 目录在 sys.path 中
     backend_dir = Path(__file__).resolve().parent.parent
@@ -49,6 +55,9 @@ except ImportError:
         ResumeParseRequest,
         SectionParseRequest,
         RewriteRequest,
+        ScoreRequest,
+        ScoreResponse,
+        User,
     )
     from backend.llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
     from backend.prompts import (
@@ -66,6 +75,9 @@ except ImportError:
     from backend.services.pdf_parser import extract_markdown_from_pdf
     from backend.services.zhipu_layout import recognize_with_ocr
     from backend.services.resume_assembler import assemble_resume_data
+    from backend.database import get_db
+    from backend.middleware.auth import get_current_user
+    from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api", tags=["Resume"])
@@ -919,3 +931,34 @@ async def rewrite_text_stream(body: RewriteTextStreamRequest):
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.post("/resume/score", response_model=ScoreResponse)
+async def score_resume(
+    request: ScoreRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    对简历进行JD匹配评分
+
+    输入：简历ID + JD文本
+    输出：3维度评分 + 总体匹配度
+    """
+    if not request.jd_text or not request.jd_text.strip():
+        raise HTTPException(status_code=400, detail="JD文本不能为空")
+
+    try:
+        from services.scoring_service import ScoringService
+
+        service = ScoringService(db)
+        result = service.score_resume(
+            resume_id=request.resume_id,
+            user_id=current_user.id,
+            jd_text=request.jd_text,
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"评分失败: {str(e)}")
