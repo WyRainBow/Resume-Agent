@@ -13,10 +13,10 @@ interface ScoreCardProps {
 }
 
 export const ScoreCard: React.FC<ScoreCardProps> = ({ overallScore, dimensions, jdText }) => {
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return '#52c41a';
-    if (score >= 60) return '#faad14';
-    return '#ff4d4f';
+  const getScoreColorClass = (score: number) => {
+    if (score >= 80) return 'text-green-500';
+    if (score >= 60) return 'text-yellow-500';
+    return 'text-red-500';
   };
 
   return (
@@ -24,7 +24,7 @@ export const ScoreCard: React.FC<ScoreCardProps> = ({ overallScore, dimensions, 
       <h3 className="mb-3">简历评分</h3>
 
       <div className="mb-4">
-        <span className="text-2xl font-bold" style={{ color: getScoreColor(overallScore) }}>
+        <span className={`text-2xl font-bold ${getScoreColorClass(overallScore)}`}>
           {overallScore}
         </span>
         <span className="text-gray-500"> / 100 总体匹配度</span>
@@ -34,7 +34,7 @@ export const ScoreCard: React.FC<ScoreCardProps> = ({ overallScore, dimensions, 
         {dimensions.map((dim) => (
           <div key={dim.name} className="flex-1 p-3 bg-gray-100 rounded-md">
             <div className="text-sm text-gray-500 mb-1">{dim.name}</div>
-            <div className="text-xl font-bold" style={{ color: getScoreColor(dim.score) }}>
+            <div className={`text-xl font-bold ${getScoreColorClass(dim.score)}`}>
               {dim.score}
             </div>
           </div>
