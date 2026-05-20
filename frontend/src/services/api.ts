@@ -820,12 +820,15 @@ export async function detectRewriteTextIntent(
   return data as { intent: RewriteTextIntent; intents?: RewriteTextIntent[]; confidence: number; source?: string }
 }
 
-export const scoreResume = async (resumeId: string, jdText: string) => {
-  const response = await fetch(`${getApiBaseUrl()}/api/resume/score`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ resume_id: resumeId, jd_text: jdText }),
+export const scoreResume = async (resumeId: string, jdText: string): Promise<any> => {
+  const response = await axios.post(`${getApiBaseUrl()}/api/resume/score`, {
+    resume_id: resumeId,
+    jd_text: jdText,
+  }, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
   })
-  if (!response.ok) throw new Error('评分失败')
-  return response.json()
+  return response.data
 }

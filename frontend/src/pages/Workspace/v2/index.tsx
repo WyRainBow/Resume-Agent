@@ -182,10 +182,10 @@ export default function WorkspaceV2() {
 
   // JD 文本变化时自动触发评分
   useEffect(() => {
-    if (currentResumeId && jdText && jdText.trim().length > 10 && !scoreData) {
+    if (currentResumeId && jdText && jdText.trim().length > 10) {
       scoreResume(currentResumeId, jdText).then(setScoreData).catch(console.error)
     }
-  }, [currentResumeId, jdText, scoreData])
+  }, [currentResumeId, jdText])
 
   // 导出 JSON
   const handleExportJSON = () => {
