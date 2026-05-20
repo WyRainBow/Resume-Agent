@@ -20,33 +20,33 @@ export const ScoreCard: React.FC<ScoreCardProps> = ({ overallScore, dimensions, 
   };
 
   return (
-    <div className="score-card" style={{ padding: '16px', border: '1px solid #e8e8e8', borderRadius: '8px', marginTop: '16px' }}>
-      <h3 style={{ marginBottom: '12px' }}>简历评分</h3>
+    <div className="score-card p-4 border border-gray-200 rounded-lg mt-4">
+      <h3 className="mb-3">简历评分</h3>
 
-      <div style={{ marginBottom: '16px' }}>
-        <span style={{ fontSize: '24px', fontWeight: 'bold', color: getScoreColor(overallScore) }}>
+      <div className="mb-4">
+        <span className="text-2xl font-bold" style={{ color: getScoreColor(overallScore) }}>
           {overallScore}
         </span>
-        <span style={{ color: '#666' }}> / 100 总体匹配度</span>
+        <span className="text-gray-500"> / 100 总体匹配度</span>
       </div>
 
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+      <div className="flex gap-3 mb-4">
         {dimensions.map((dim) => (
-          <div key={dim.name} style={{ flex: 1, padding: '12px', background: '#f5f5f5', borderRadius: '6px' }}>
-            <div style={{ fontSize: '14px', color: '#666', marginBottom: '4px' }}>{dim.name}</div>
-            <div style={{ fontSize: '20px', fontWeight: 'bold', color: getScoreColor(dim.score) }}>
+          <div key={dim.name} className="flex-1 p-3 bg-gray-100 rounded-md">
+            <div className="text-sm text-gray-500 mb-1">{dim.name}</div>
+            <div className="text-xl font-bold" style={{ color: getScoreColor(dim.score) }}>
               {dim.score}
             </div>
           </div>
         ))}
       </div>
 
-      <div style={{ marginTop: '16px' }}>
-        <h4 style={{ fontSize: '14px', marginBottom: '8px' }}>详细分析</h4>
+      <div className="mt-4">
+        <h4 className="text-sm mb-2">详细分析</h4>
         {dimensions.map((dim) => (
-          <div key={dim.name} style={{ marginBottom: '12px' }}>
-            <div style={{ fontWeight: 'bold', marginBottom: '4px' }}>{dim.name}</div>
-            <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: '#666' }}>
+          <div key={dim.name} className="mb-3">
+            <div className="font-bold mb-1">{dim.name}</div>
+            <ul className="m-0 pl-5 text-[13px] text-gray-500">
               {dim.reasons.map((reason, idx) => (
                 <li key={idx}>{reason}</li>
               ))}
