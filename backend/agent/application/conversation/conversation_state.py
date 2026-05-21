@@ -352,7 +352,8 @@ class ConversationStateManager:
             }
 
         # 🚀 快速加载简历路径：本地规则优先，不走 LLM 意图分类
-        if self.is_fast_load_resume(user_input):
+        # 但如果简历已加载，跳过此快路径，让 Hybrid + LLM 直接回答
+        if self.is_fast_load_resume(user_input) and not self.context.resume_loaded:
             file_path = self._extract_resume_file_path(user_input)
             tool_name = "cv_reader_agent" if file_path else "show_resume"
             tool_args = {"file_path": file_path} if file_path else {}
@@ -424,10 +425,34 @@ class ConversationStateManager:
                         if file_path:
                             tool_args["file_path"] = file_path
                             top_intent = Intent.LOAD_RESUME
+                        elif self.context.resume_loaded:
+                            # 简历已加载，不走 LOAD_RESUME 快路径
+                            # 交给 Hybrid + LLM 直接基于 context 回答
+                            return {
+                                "intent": Intent.UNKNOWN,
+                                "tool": None,
+                                "tool_args": {},
+                                "context_prompt": "",
+                                "should_skip_llm": False,
+                                "enhanced_query": user_input,
+                                "intent_result": intent_result,
+                                "intent_source": "enhanced_rule_hybrid_fallback",
+                            }
                         else:
                             tool_name = "show_resume"
                             top_intent = Intent.LOAD_RESUME
                     elif tool_name == "show_resume":
+                        if self.context.resume_loaded:
+                            return {
+                                "intent": Intent.UNKNOWN,
+                                "tool": None,
+                                "tool_args": {},
+                                "context_prompt": "",
+                                "should_skip_llm": False,
+                                "enhanced_query": user_input,
+                                "intent_result": intent_result,
+                                "intent_source": "enhanced_rule_hybrid_fallback",
+                            }
                         top_intent = Intent.LOAD_RESUME
 
                     result = {
@@ -497,6 +522,9 @@ class ConversationStateManager:
             if file_path:
                 result["tool"] = "cv_reader_agent"
                 result["tool_args"] = {"file_path": file_path}
+            elif self.context.resume_loaded:
+                result["intent"] = Intent.UNKNOWN
+                result["tool"] = None
             else:
                 result["tool"] = "show_resume"
         else:
