@@ -9,6 +9,11 @@ from pathlib import Path
 from typing import Optional
 from io import BytesIO
 
+try:
+    from .latex_utils import resolve_xelatex_executable, subprocess_env_with_xelatex_bin
+except ImportError:
+    from latex_utils import resolve_xelatex_executable, subprocess_env_with_xelatex_bin
+
 
 def compile_latex_raw(latex_content: str) -> BytesIO:
     """
@@ -56,8 +61,8 @@ def compile_latex_raw(latex_content: str) -> BytesIO:
         tex_file = Path(temp_dir) / 'resume.tex'
         tex_file.write_text(latex_content, encoding='utf-8')
         
-        # 检查 xelatex 是否可用
-        xelatex_path = shutil.which('xelatex')
+        # 检查 xelatex 是否可用（Windows 下额外搜索 MiKTeX 常见路径）
+        xelatex_path = resolve_xelatex_executable()
         if not xelatex_path:
             # 提供安装说明
             install_hint = """
@@ -83,12 +88,14 @@ LaTeX (XeLaTeX) 未安装。请运行以下命令安装：
             str(tex_file)
         ]
         
+        _latex_env = subprocess_env_with_xelatex_bin(xelatex_path)
         result = subprocess.run(
             compile_cmd,
             cwd=temp_dir,
             capture_output=True,
             text=True,
-            timeout=60
+            timeout=180,
+            env=_latex_env,
         )
         
         if result.returncode != 0:

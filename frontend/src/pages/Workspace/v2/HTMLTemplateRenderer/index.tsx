@@ -8,6 +8,7 @@ import type { ResumeData } from '../types'
 import { getLogoUrl } from '../constants/companyLogos'
 import { getSchoolLogoUrl } from '../constants/schoolLogos'
 import { stripHtmlTags } from '../utils'
+import { formatBirthDateForHeader, resolveEmploymentStatusForRender } from '../utils/birthDateDisplay'
 import './styles.css'
 
 interface HTMLTemplateRendererProps {
@@ -16,7 +17,7 @@ interface HTMLTemplateRendererProps {
 
 // 渲染单个模块的函数
 const renderSection = (section: { id: string; title: string }, resumeData: ResumeData) => {
-  const { basic, experience, education, projects, openSource, awards, skillContent } = resumeData
+  const { basic, experience, education, projects, openSource, awards, selfEvaluation, skillContent } = resumeData
   const sectionId = section.id
   const sectionTitle = section.title
 
@@ -33,6 +34,18 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
           <div
             className="section-content"
             dangerouslySetInnerHTML={{ __html: skillContent }}
+          />
+        </section>
+      )
+
+    case 'selfEvaluation':
+      if (!selfEvaluation) return null
+      return (
+        <section key="selfEvaluation" className="template-section">
+          <h2 className="section-title">{sectionTitle}</h2>
+          <div
+            className="section-content"
+            dangerouslySetInnerHTML={{ __html: selfEvaluation }}
           />
         </section>
       )
@@ -267,24 +280,24 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
 
     case 'awards':
       if (awards.length === 0) return null
+      const awardsListType = resumeData.globalSettings?.awardsListType || 'unordered'
+      const AwardsListTag = (awardsListType === 'ordered' ? 'ol' : 'ul') as 'ol' | 'ul'
       return (
         <section key="awards" className="template-section">
           <h2 className="section-title">{sectionTitle}</h2>
           <div className="section-content">
-            {awards.map((award) => (
-              <div key={award.id} className="item">
-                <div className="item-header">
-                  <div className="item-title-group">
-                    <h3 className="item-title">{stripHtmlTags(award.title)}</h3>
-                    {award.issuer && <span className="item-subtitle">{stripHtmlTags(award.issuer)}</span>}
-                  </div>
-                  {award.date && <span className="item-date">{award.date}</span>}
-                </div>
-                {award.description && (
-                  <p className="item-description">{award.description}</p>
-                )}
-              </div>
-            ))}
+            <AwardsListTag>
+              {awards.map((award) => {
+                const title = stripHtmlTags(award.title || '')
+                const issuer = stripHtmlTags(award.issuer || '')
+                const date = award.date || ''
+                const desc = award.description || ''
+                const parts = [title, issuer].filter(Boolean).join(' - ')
+                const main = desc ? (parts ? `${parts}：${desc}` : desc) : (parts || '')
+                const text = date ? (main ? `${main}（${date}）` : date) : main
+                return <li key={award.id}>{text}</li>
+              })}
+            </AwardsListTag>
           </div>
         </section>
       )
@@ -342,12 +355,26 @@ export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resu
             {basic.phone && <div className="info-item">📞 {basic.phone}</div>}
             {basic.email && <div className="info-item">📧 {basic.email}</div>}
             {basic.location && <div className="info-item">📍 {basic.location}</div>}
+            {basic.birthDate && (
+              <div className="info-item">
+                🎂 {formatBirthDateForHeader(
+                  basic.birthDate || '',
+                  resumeData.globalSettings?.birthDateDisplayMode || 'birthDate'
+                )}
+              </div>
+            )}
             {basic.blog && <div className="info-item">🔗 <a href={basic.blog} target="_blank" rel="noopener noreferrer">{basic.blog}</a></div>}
           </div>
         </div>
-        {basic.employementStatus && (
-          <div className="employment-status">{basic.employementStatus}</div>
-        )}
+        {(() => {
+          const mode = resumeData.globalSettings?.birthDateDisplayMode || 'birthDate'
+          const status = resolveEmploymentStatusForRender(
+            basic.employementStatus,
+            basic.birthDate,
+            mode
+          )
+          return status ? <div className="employment-status">{status}</div> : null
+        })()}
       </header>
 
       <div className="template-content">

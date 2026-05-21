@@ -1,0 +1,85 @@
+{
+  "id": "sub_20260510084330262755",
+  "slug": "byte-max-number-less-than-n",
+  "language": "go",
+  "code": "package main\n\nfunc maxNumberLessThan(n int, digits []int) int {\n\treturn -1\n}\n",
+  "mode": "submit",
+  "status": "wrong_answer",
+  "summary": {
+    "passed": 1,
+    "total": 7
+  },
+  "results": [
+    {
+      "caseId": "case-1",
+      "passed": false,
+      "status": "wrong_answer",
+      "stdout": "-1",
+      "stderr": "",
+      "expected": 22999,
+      "actual": -1,
+      "durationMs": 450
+    },
+    {
+      "caseId": "case-2",
+      "passed": false,
+      "status": "wrong_answer",
+      "stdout": "-1",
+      "stderr": "",
+      "expected": 2,
+      "actual": -1,
+      "durationMs": 476
+    },
+    {
+      "caseId": "hidden-1",
+      "passed": false,
+      "status": "wrong_answer",
+      "stdout": "-1",
+      "stderr": "",
+      "expected": 111,
+      "actual": -1,
+      "durationMs": 449
+    },
+    {
+      "caseId": "hidden-2",
+      "passed": true,
+      "status": "accepted",
+      "stdout": "-1",
+      "stderr": "",
+      "expected": -1,
+      "actual": -1,
+      "durationMs": 393
+    },
+    {
+      "caseId": "hidden-3",
+      "passed": false,
+      "status": "wrong_answer",
+      "stdout": "-1",
+      "stderr": "",
+      "expected": 99,
+      "actual": -1,
+      "durationMs": 412
+    },
+    {
+      "caseId": "hidden-4",
+      "passed": false,
+      "status": "wrong_answer",
+      "stdout": "-1",
+      "stderr": "",
+      "expected": 1222,
+      "actual": -1,
+      "durationMs": 324
+    },
+    {
+      "caseId": "hidden-5",
+      "passed": false,
+      "status": "wrong_answer",
+      "stdout": "-1",
+      "stderr": "",
+      "expected": 99,
+      "actual": -1,
+      "durationMs": 345
+    }
+  ],
+  "createdAt": "2026-05-10T08:43:30.262871Z"
+}

@@ -3,6 +3,46 @@ import { getApiBaseUrl } from '@/lib/runtimeEnv'
 import type { Resume } from '@/types/resume'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
 import { DEFAULT_RESUME_TEMPLATE } from '@/data/defaultTemplate'
+import type { PDFRenderMode } from './pdfRenderMode'
+
+function getPDFRenderEndpoint(path: '/api/pdf/render' | '/api/pdf/render/stream', mode: PDFRenderMode): string {
+  if (mode === 'remote') {
+    return `${getApiBaseUrl()}/api/admin/pdf${path.replace('/api/pdf', '')}`
+  }
+  return `${getApiBaseUrl()}${path}`
+}
+
+function getAuthHeaders(): Record<string, string> {
+  try {
+    const token = localStorage.getItem('auth_token')
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  } catch {
+    return {}
+  }
+}
+
+export async function logPDFRenderModeChange(fromMode: PDFRenderMode, toMode: PDFRenderMode): Promise<void> {
+  const url = `${getApiBaseUrl()}/api/admin/pdf/render-mode/log`
+  try {
+    await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify({
+        from_mode: fromMode,
+        to_mode: toMode,
+      }),
+    })
+  } catch (error) {
+    console.warn('[PDF TRACE][render-mode:backend-log-failed]', {
+      fromMode,
+      toMode,
+      error,
+    })
+  }
+}
 
 export async function aiTest(provider: 'zhipu' | 'doubao', prompt: string) {
   const url = `${getApiBaseUrl()}/api/ai/test`
@@ -120,18 +160,20 @@ export async function renderPDF(
   resume: Resume,
   _useDemo: boolean = false,
   sectionOrder?: string[],
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  renderMode: PDFRenderMode = 'local',
 ): Promise<Blob> {
   const traceId = `pdf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const mappedOrder = sectionOrder?.map(s => s === 'experience' ? 'internships' : s)
   console.log('[PDF TRACE][renderPDF:start]', {
     traceId,
+    renderMode,
     sectionOrder: mappedOrder,
     resumeKeys: Object.keys((resume || {}) as any).slice(0, 20),
   })
 
   // 使用非流式端点进行简单的PDF渲染
-  const url = `${getApiBaseUrl()}/api/pdf/render`
+  const url = getPDFRenderEndpoint('/api/pdf/render', renderMode)
   try {
     const { data } = await axios.post(
       url,
@@ -142,6 +184,7 @@ export async function renderPDF(
         headers: {
           'X-PDF-Trace-Id': traceId,
           'X-PDF-Trace-Source': 'api.renderPDF',
+          ...getAuthHeaders(),
         },
       }
     )
@@ -185,6 +228,7 @@ export async function renderPDFStream(
     source?: string
     trigger?: string
     signal?: AbortSignal
+    renderMode?: PDFRenderMode
   }
 ): Promise<Blob> {
   const traceId = context?.traceId || `pdfs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -196,6 +240,7 @@ export async function renderPDFStream(
     traceId,
     traceSource,
     traceTrigger,
+    renderMode: context?.renderMode || 'local',
     sessionId: context?.sessionId,
     resumeId: context?.resumeId,
     sectionOrder,
@@ -204,7 +249,7 @@ export async function renderPDFStream(
 
   onProgress?.('开始生成PDF...')
 
-  const url = `${getApiBaseUrl()}/api/pdf/render/stream`
+  const url = getPDFRenderEndpoint('/api/pdf/render/stream', context?.renderMode || 'local')
   // 将 experience 映射为 internships（因为数据存在 internships 字段）
   const mappedOrder = sectionOrder?.map(s => s === 'experience' ? 'internships' : s)
 
@@ -213,6 +258,7 @@ export async function renderPDFStream(
     traceSource,
     traceTrigger,
     url,
+    renderMode: context?.renderMode || 'local',
     sessionId: context?.sessionId,
     resumeId: context?.resumeId,
     mappedOrder,
@@ -228,6 +274,7 @@ export async function renderPDFStream(
       'X-PDF-Trace-Id': traceId,
       'X-PDF-Trace-Source': traceSource,
       'X-PDF-Trace-Trigger': traceTrigger,
+      ...getAuthHeaders(),
     },
     signal: context?.signal,
     body: JSON.stringify({ resume, section_order: mappedOrder })
@@ -265,9 +312,8 @@ export async function renderPDFStream(
     console.log('[PDF TRACE][stream:chunk]', { traceId, chunkBytes: chunk.length })
     buffer += chunk
 
-    // SSE格式：事件之间用双换行符分隔
-    // 但单个事件可能跨越多个数据块
-    const events = buffer.split('\n\n')
+    // SSE格式：事件之间用双换行符分隔（Windows 后端可能产生 \r\n，先统一）
+    const events = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n\n')
     buffer = events.pop() || ''  // 保留最后一个可能不完整的事件
     console.log('[PDF TRACE][stream:buffer]', { traceId, events: events.length, bufferLen: buffer.length })
 
@@ -343,8 +389,8 @@ export async function renderPDFStream(
       preview: buffer.substring(0, 200),
     })
 
-    // 解析剩余缓冲区中的事件
-    const lines = buffer.split('\n')
+    // 解析剩余缓冲区中的事件（先统一换行符）
+    const lines = buffer.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
     let eventType: string | null = null
     let eventData: string | null = null
 
@@ -772,4 +818,17 @@ export async function detectRewriteTextIntent(
     locale: 'zh',
   })
   return data as { intent: RewriteTextIntent; intents?: RewriteTextIntent[]; confidence: number; source?: string }
+}
+
+export const scoreResume = async (resumeId: string, jdText: string): Promise<any> => {
+  const response = await axios.post(`${getApiBaseUrl()}/api/resume/score`, {
+    resume_id: resumeId,
+    jd_text: jdText,
+  }, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeaders(),
+    },
+  })
+  return response.data
 }

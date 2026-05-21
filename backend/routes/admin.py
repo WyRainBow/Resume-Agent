@@ -1,15 +1,30 @@
 """
 后台管理路由
 """
-from fastapi import APIRouter, Depends
+import os
+import logging
+from urllib.parse import urlparse
+import importlib
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response, StreamingResponse
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sse_starlette.sse import EventSourceResponse
 
 from database import get_db
-from models import User
-from middleware.auth import require_admin_or_member
+from models import RenderPDFRequest, User
+from middleware.auth import require_admin_only, require_admin_or_member
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
+logger = logging.getLogger("backend")
+
+
+class PDFRenderModeLogRequest(BaseModel):
+    from_mode: str
+    to_mode: str
 
 
 @router.get("/stats/users")
@@ -22,3 +37,187 @@ def get_user_stats(
         "total_users": int(total_users),
     }
 
+
+@router.post("/pdf/render-mode/log")
+async def log_pdf_render_mode_change(
+    body: PDFRenderModeLogRequest,
+    request: Request,
+    current_user: User = Depends(require_admin_only),
+):
+    logger.info(
+        "[Admin PDF] render mode changed user=%s role=%s from=%s to=%s client=%s referer=%s",
+        current_user.username,
+        current_user.role,
+        body.from_mode,
+        body.to_mode,
+        request.client.host if request.client else "-",
+        request.headers.get("referer") or "-",
+    )
+    return {"ok": True}
+
+
+def _get_remote_pdf_render_base_url() -> str:
+    base_url = os.getenv("REMOTE_PDF_RENDER_BASE_URL", "").strip().rstrip("/")
+    if not base_url:
+        raise HTTPException(status_code=503, detail="未配置远程 PDF 渲染服务")
+    if not (base_url.startswith("http://") or base_url.startswith("https://")):
+        base_url = f"https://{base_url}"
+    return base_url
+
+
+def _build_remote_pdf_headers(request: Request) -> dict[str, str]:
+    headers = {"Content-Type": "application/json"}
+    passthrough_headers = [
+        "X-PDF-Trace-Id",
+        "X-PDF-Trace-Source",
+        "X-PDF-Trace-Trigger",
+        "X-Agent-Session-Id",
+        "X-Agent-Resume-Id",
+    ]
+    for header_name in passthrough_headers:
+        header_value = request.headers.get(header_name)
+        if header_value:
+            headers[header_name] = header_value
+
+    remote_token = os.getenv("REMOTE_PDF_RENDER_TOKEN", "").strip()
+    if remote_token:
+        headers["X-Remote-Render-Token"] = remote_token
+    return headers
+
+
+def _is_self_remote_target(base_url: str, request: Request) -> bool:
+    parsed = urlparse(base_url)
+    host = (parsed.hostname or "").strip().lower()
+    port = parsed.port
+    backend_port = int(os.getenv("BACKEND_PORT", "9000"))
+    request_host = (request.url.hostname or "").strip().lower()
+    request_port = request.url.port or backend_port
+
+    local_hosts = {"127.0.0.1", "localhost", "0.0.0.0", request_host}
+    target_port = port or (443 if parsed.scheme == "https" else 80)
+    return host in local_hosts and target_port == request_port
+
+
+async def _dispatch_local_pdf(*, path: str, body: RenderPDFRequest, request: Request):
+    logger.info(
+        "[Admin PDF] self-target detected, bypass proxy path=%s trace_id=%s",
+        path,
+        request.headers.get("X-PDF-Trace-Id") or "-",
+    )
+    pdf_route = importlib.import_module("backend.routes.pdf")
+    if path.endswith("/stream"):
+        return await pdf_route.render_pdf_stream(body, request)
+    return await pdf_route.render_pdf(body, request)
+
+
+async def _proxy_remote_pdf(*, path: str, body: RenderPDFRequest, request: Request):
+    base_url = _get_remote_pdf_render_base_url()
+    if _is_self_remote_target(base_url, request):
+        return await _dispatch_local_pdf(path=path, body=body, request=request)
+
+    target_url = f"{base_url}{path}"
+    payload = body.model_dump() if hasattr(body, "model_dump") else body.dict()
+    headers = _build_remote_pdf_headers(request)
+    timeout = httpx.Timeout(connect=15.0, read=300.0, write=60.0, pool=15.0)
+    logger.info(
+        "[Admin PDF] remote proxy start path=%s trace_id=%s target=%s section_order=%s",
+        path,
+        request.headers.get("X-PDF-Trace-Id") or "-",
+        target_url,
+        body.section_order,
+    )
+
+    if path.endswith("/stream"):
+        logger.info(
+            "[Admin PDF] remote stream uses local SSE wrapper trace_id=%s target=%s",
+            request.headers.get("X-PDF-Trace-Id") or "-",
+            f"{base_url}/api/pdf/render",
+        )
+
+        async def _generate():
+            trace_id = request.headers.get("X-PDF-Trace-Id") or "-"
+            yield dict(event="start", data="开始远程生成PDF...")
+            yield dict(event="progress", data="正在请求远程渲染服务...")
+            try:
+                async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
+                    upstream = await client.post(
+                        f"{base_url}/api/pdf/render",
+                        json=payload,
+                        headers=headers,
+                    )
+                    logger.info(
+                        "[Admin PDF] remote wrapped render response status=%s trace_id=%s content_type=%s",
+                        upstream.status_code,
+                        trace_id,
+                        upstream.headers.get("content-type"),
+                    )
+                    if upstream.status_code >= 400:
+                        detail = upstream.text
+                        yield dict(event="error", data=detail or f"远程渲染失败: HTTP {upstream.status_code}")
+                        return
+
+                    yield dict(event="progress", data="远程服务已返回 PDF")
+                    pdf_hex = upstream.content.hex()
+                    yield dict(event="pdf", data=pdf_hex)
+            except Exception as exc:
+                logger.exception(
+                    "[Admin PDF] remote wrapped stream failed trace_id=%s error=%s",
+                    trace_id,
+                    exc,
+                )
+                yield dict(event="error", data=f"远程渲染代理失败: {exc}")
+
+        return EventSourceResponse(_generate())
+
+    async with httpx.AsyncClient(timeout=timeout, trust_env=False) as client:
+        upstream = await client.post(target_url, json=payload, headers=headers)
+        logger.info(
+            "[Admin PDF] remote response status=%s trace_id=%s content_type=%s",
+            upstream.status_code,
+            request.headers.get("X-PDF-Trace-Id") or "-",
+            upstream.headers.get("content-type"),
+        )
+        return Response(
+            content=upstream.content,
+            status_code=upstream.status_code,
+            media_type=upstream.headers.get("content-type") or None,
+            headers={
+                key: value
+                for key, value in {
+                    "Content-Disposition": upstream.headers.get("content-disposition"),
+                    "X-Render-Time": upstream.headers.get("x-render-time"),
+                    "X-PDF-Trace-Id": upstream.headers.get("x-pdf-trace-id"),
+                }.items()
+                if value
+            },
+        )
+
+
+@router.post("/pdf/render")
+async def remote_render_pdf(
+    body: RenderPDFRequest,
+    request: Request,
+    current_user: User = Depends(require_admin_only),
+):
+    logger.info(
+        "[Admin PDF] local request accepted user=%s role=%s mode=remote path=/api/admin/pdf/render trace_id=%s",
+        current_user.username,
+        current_user.role,
+        request.headers.get("X-PDF-Trace-Id") or "-",
+    )
+    return await _proxy_remote_pdf(path="/api/pdf/render", body=body, request=request)
+
+
+@router.post("/pdf/render/stream")
+async def remote_render_pdf_stream(
+    body: RenderPDFRequest,
+    request: Request,
+    current_user: User = Depends(require_admin_only),
+):
+    logger.info(
+        "[Admin PDF] local request accepted user=%s role=%s mode=remote path=/api/admin/pdf/render/stream trace_id=%s",
+        current_user.username,
+        current_user.role,
+        request.headers.get("X-PDF-Trace-Id") or "-",
+    )
+    return await _proxy_remote_pdf(path="/api/pdf/render/stream", body=body, request=request)

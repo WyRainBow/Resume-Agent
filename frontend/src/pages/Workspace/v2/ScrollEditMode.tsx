@@ -12,6 +12,7 @@ import ProjectPanel from './EditPanel/ProjectPanel'
 import ExperiencePanel from './EditPanel/ExperiencePanel'
 import EducationPanel from './EditPanel/EducationPanel'
 import SkillPanel from './EditPanel/SkillPanel'
+import SelfEvaluationPanel from './EditPanel/SelfEvaluationPanel'
 import OpenSourcePanel from './EditPanel/OpenSourcePanel'
 import AwardPanel from './EditPanel/AwardPanel'
 import CustomPanel from './EditPanel/CustomPanel'
@@ -38,6 +39,7 @@ interface ScrollEditModeProps {
   addCustomItem: (sectionId: string) => void
   updateCustomItem: (sectionId: string, item: CustomItem) => void
   deleteCustomItem: (sectionId: string, itemId: string) => void
+  updateSelfEvaluation: (content: string) => void
   updateSkillContent: (content: string) => void
   updateGlobalSettings: (settings: Partial<GlobalSettings>) => void
   updateMenuSections: (sections: MenuSection[]) => void
@@ -66,6 +68,7 @@ export default function ScrollEditMode({
   addCustomItem,
   updateCustomItem,
   deleteCustomItem,
+  updateSelfEvaluation,
   updateSkillContent,
   updateGlobalSettings,
   updateMenuSections,
@@ -139,6 +142,8 @@ export default function ScrollEditMode({
           <BasicPanel
             basic={resumeData.basic}
             onUpdate={updateBasicInfo}
+            globalSettings={resumeData.globalSettings}
+            updateGlobalSettings={updateGlobalSettings}
           />
         )
 
@@ -187,6 +192,16 @@ export default function ScrollEditMode({
           />
         )
 
+      case 'selfEvaluation':
+        return (
+          <SelfEvaluationPanel
+            content={resumeData.selfEvaluation}
+            onUpdate={updateSelfEvaluation}
+            onAIImport={handleAIImport ? () => handleAIImport('selfEvaluation') : undefined}
+            resumeData={resumeData}
+          />
+        )
+
       case 'openSource':
         return (
           <OpenSourcePanel
@@ -208,6 +223,8 @@ export default function ScrollEditMode({
             onDelete={deleteAward}
             onReorder={reorderAwards}
             onAIImport={handleAIImport ? () => handleAIImport('awards') : undefined}
+            awardsListType={resumeData.globalSettings?.awardsListType || 'unordered'}
+            onChangeAwardsListType={(type) => updateGlobalSettings({ awardsListType: type })}
           />
         )
 

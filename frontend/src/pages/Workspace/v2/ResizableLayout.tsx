@@ -34,6 +34,7 @@ interface ResizableLayoutProps {
   updateAward: (award: Award) => void
   deleteAward: (id: string) => void
   reorderAwards: (awards: Award[]) => void
+  updateSelfEvaluation: (content: string) => void
   updateSkillContent: (content: string) => void
   handleAIImport: (section: string) => void
   pdfBlob: Blob | null
@@ -122,10 +123,11 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
     updateOpenSource,
     deleteOpenSource,
     reorderOpenSources,
-    updateAward,
-    deleteAward,
-    reorderAwards,
-    updateSkillContent,
+  updateAward,
+  deleteAward,
+  reorderAwards,
+  updateSelfEvaluation,
+  updateSkillContent,
     handleAIImport,
     pdfBlob,
     loading,
@@ -260,6 +262,7 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
           updateAward={updateAward}
           deleteAward={deleteAward}
           reorderAwards={reorderAwards}
+          updateSelfEvaluation={updateSelfEvaluation}
           updateSkillContent={updateSkillContent}
           updateMenuSections={updateMenuSections}
           updateGlobalSettings={updateGlobalSettings}

@@ -473,7 +473,7 @@ const EducationItem = ({
                         <div className="rounded-lg border border-slate-200/80 bg-slate-50/60 p-2 dark:border-neutral-700 dark:bg-neutral-900/40">
                           <div className="flex flex-wrap items-center gap-2">
                             <label className="text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">
-                              学校
+                              学校 LOGO：
                             </label>
                             <SchoolLogoSelector
                               selectedKey={education.schoolLogo}
@@ -544,6 +544,7 @@ const EducationItem = ({
                         )}
                         <Field
                           index={0}
+                          label="学校名字："
                           value={education.school}
                           onChange={(v) => onUpdate({ ...education, school: v })}
                           placeholder="请输入学校名称"
@@ -576,7 +577,7 @@ const EducationItem = ({
                           <div className="flex flex-wrap items-center gap-2 min-w-0">
                             <div className="flex min-w-0 items-center gap-2">
                               <label className="shrink-0 text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">
-                                学校
+                                学校 LOGO：
                               </label>
                               <SchoolLogoSelector
                                 selectedKey={education.schoolLogo}
@@ -648,6 +649,7 @@ const EducationItem = ({
                         )}
                         <Field
                           index={0}
+                          label="学校名字："
                           value={education.school}
                           onChange={(v) => onUpdate({ ...education, school: v })}
                           placeholder="请输入学校名称"

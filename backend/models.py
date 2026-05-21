@@ -301,3 +301,45 @@ class ResumeEmbedding(Base):
     extra_metadata = Column("metadata", JSON, nullable=True)  # 额外信息，如职位名称、公司等
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
+# ======================
+# 简历评分模型
+# ======================
+
+class ScoreRequest(BaseModel):
+    """简历评分请求"""
+    resume_id: str = Field(..., description="简历ID")
+    jd_text: str = Field(..., description="职位描述文本")
+
+
+class DimensionScore(BaseModel):
+    """单个维度评分"""
+    name: str  # 维度名称
+    score: float  # 分数 0-100
+    reasons: List[str]  # 匹配/不匹配原因
+
+
+class ScoreResponse(BaseModel):
+    """简历评分响应"""
+    resume_id: str
+    overall_score: float  # 总体匹配度
+    dimensions: List[DimensionScore]
+    created_at: str
+
+
+class ScoreResult(Base):
+    """简历评分结果"""
+    __tablename__ = "score_results"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    resume_id = Column(String(255), ForeignKey("resumes.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    jd_text = Column(Text, nullable=False)  # 原始JD文本
+    overall_score = Column(Float, nullable=False)
+    skill_experience_score = Column(Float, nullable=False)  # 技能与经验匹配
+    education_score = Column(Float, nullable=False)  # 教育背景匹配
+    project_overall_score = Column(Float, nullable=False)  # 项目与整体匹配
+    dimension_reasons = Column(JSON, nullable=False)  # 各维度原因 {dimension_name: [reasons]}
+    created_at = Column(DateTime(timezone=True), server_default=func.now())

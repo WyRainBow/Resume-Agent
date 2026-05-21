@@ -3,6 +3,7 @@ LaTeX 简历生成模块
 将简历 JSON 转换为 LaTeX 代码，并编译为 PDF
 """
 import os
+import re
 import subprocess
 import tempfile
 import shutil
@@ -14,8 +15,9 @@ import urllib.parse
 from pathlib import Path
 from typing import Dict, Any, List
 from io import BytesIO
+from datetime import date
 
-from .latex_utils import escape_latex, normalize_resume_data
+from .latex_utils import escape_latex, normalize_resume_data, resolve_xelatex_executable, subprocess_env_with_xelatex_bin
 from .latex_sections import SECTION_GENERATORS, DEFAULT_SECTION_ORDER, generate_section_custom
 from .company_logos import download_logos_to_dir
 from .school_logos import download_school_logos_to_dir, is_school_logo_latex_supported
@@ -36,6 +38,116 @@ def _px_to_pt(px: float) -> float:
     为保证 0.5 步进在 PDF 预览中可感知，这里使用增强系数。
     """
     return px * 4.0
+
+
+def _compute_age_from_birth_date(birth_date: str) -> int | None:
+    """
+    支持 YYYY-MM / YYYY-MM-DD，返回年龄（整岁）。
+    """
+    if not isinstance(birth_date, str):
+        return None
+    raw = birth_date.strip()
+    if not raw:
+        return None
+    try:
+        parts = raw.split("-")
+        if len(parts) < 2:
+            return None
+        y = int(parts[0])
+        m = int(parts[1])
+        d = int(parts[2]) if len(parts) >= 3 and parts[2].isdigit() else 1
+        if m < 1 or m > 12 or d < 1 or d > 31:
+            return None
+        today = date.today()
+        age = today.year - y
+        if (today.month, today.day) < (m, d):
+            age -= 1
+        if age < 0 or age > 120:
+            return None
+        return age
+    except Exception:
+        return None
+
+
+def _format_birth_contact_text(birth_date_raw: str, birth_display_mode: str) -> str:
+    """根据展示模式生成联系栏中的生日/年龄文案（未转义）。"""
+    raw = birth_date_raw.strip()
+    if not raw:
+        return ""
+    if birth_display_mode == "age":
+        age = _compute_age_from_birth_date(raw)
+        return f"{age}岁" if age is not None else raw
+    return raw
+
+
+def _compact_contact_token(text: str) -> str:
+    return re.sub(r"[\s：:·\-]+", "", text or "").lower()
+
+
+def _collapse_duplicate_contact_segments(status: str) -> str:
+    """折叠「21 岁 · 21 岁」等重复片段，避免历史脏数据原样输出。"""
+    status = (status or "").strip()
+    if not status:
+        return ""
+    parts = [p.strip() for p in re.split(r"\s*·\s*", status) if p.strip()]
+    if len(parts) < 2:
+        return status
+    compact_parts = [_compact_contact_token(p) for p in parts]
+    if len(set(compact_parts)) == 1:
+        return parts[0]
+    deduped: list[str] = []
+    for i, part in enumerate(parts):
+        if i > 0 and compact_parts[i] == compact_parts[i - 1]:
+            continue
+        deduped.append(part)
+    return " · ".join(deduped)
+
+
+_AGE_ONLY_RE = re.compile(r"^(?:年龄[：:]\s*)?\d{1,3}\s*岁$")
+_DATE_ONLY_RE = re.compile(r"^\d{4}[-/]\d{2}(?:[-/]\d{2})?$")
+
+
+def _status_is_pure_age_or_date(status: str) -> bool:
+    """状态字段是否仅为年龄（如 '21 岁'）或生日年月（如 '2005-03'），是则直接替换。"""
+    s = (status or "").strip()
+    return bool(_AGE_ONLY_RE.match(s) or _DATE_ONLY_RE.match(s))
+
+
+def _status_duplicates_birth(status: str, birth_text: str, birth_date_raw: str) -> bool:
+    """状态字段已包含与 birthDate 相同的年龄/年月时，不再重复拼接。"""
+    status = (status or "").strip()
+    if not status or not birth_text:
+        return False
+    compact_status = _compact_contact_token(status)
+    for token in (birth_text, birth_date_raw.strip()):
+        if token and _compact_contact_token(token) in compact_status:
+            return True
+    birth_digits = re.sub(r"\D", "", _compact_contact_token(birth_text))
+    status_digits = re.sub(r"\D", "", compact_status)
+    if birth_digits and birth_digits == status_digits:
+        return True
+    return False
+
+
+def _merge_contact_status_with_birth(
+    employement_status: str,
+    birth_date_raw: str,
+    birth_display_mode: str,
+) -> str:
+    status = _collapse_duplicate_contact_segments(employement_status or "")
+    if not birth_date_raw.strip():
+        return status
+    birth_text = _format_birth_contact_text(birth_date_raw, birth_display_mode)
+    if not birth_text:
+        return status
+    # 状态字段只是一个年龄/日期时，直接用最新计算值替换（避免跨年后出现「20 岁 · 21 岁」）
+    if status and _status_is_pure_age_or_date(status):
+        return birth_text
+    if _status_duplicates_birth(status, birth_text, birth_date_raw):
+        return birth_text or status
+    if status:
+        return f"{status} · {birth_text}"
+    return birth_text
 
 
 def _summarize_latex_error(error_msg: str, max_chars: int = 2000) -> str:
@@ -253,7 +365,18 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     """求职意向：优先从 objective 获取，其次从 contact.role 获取"""
     role = escape_latex(resume_data.get('objective') or contact.get('role') or '')
     location = escape_latex(contact.get('location') or '')
-    employement_status = escape_latex(resume_data.get('employementStatus') or '')
+    birth_date_raw = resume_data.get('birthDate') or resume_data.get('birth_date') or ''
+    birth_display_mode = (global_settings.get('birthDateDisplayMode') or 'birthDate') if isinstance(global_settings, dict) else 'birthDate'
+    raw_employement_status = resume_data.get('employementStatus') or ''
+    if isinstance(birth_date_raw, str):
+        merged_status = _merge_contact_status_with_birth(
+            raw_employement_status,
+            birth_date_raw,
+            birth_display_mode,
+        )
+    else:
+        merged_status = raw_employement_status
+    employement_status = escape_latex(merged_status)
     blog = resume_data.get('blog') or ''  # 不 escape，保留原始 URL 给 \href
 
     # 有照片时，右侧叠加照片，不改变姓名/联系信息的居中布局
@@ -262,10 +385,10 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
         photo_offset_y = _safe_float(resume_data.get("photoOffsetY"), -2.0, -6.0, 6.0)
         photo_width_cm = _safe_float(resume_data.get("photoWidthCm"), 3.0, 1.2, 6.0)
         photo_height_cm = _safe_float(resume_data.get("photoHeightCm"), 3.0, 1.2, 8.0)
-        # 右对齐锚点：x 正值代表向左偏移
+        # 右对齐锚点：在图片后追加空白才能改变右边界；x 正值代表向右偏移（与前端输入一致）。
         x_shift_cm = -photo_offset_x
         latex_content.append(
-            f"\\noindent\\makebox[\\textwidth][r]{{\\hspace*{{{x_shift_cm:.2f}cm}}\\raisebox{{{photo_offset_y:.2f}cm}}[0pt][0pt]{{\\includegraphics[width={photo_width_cm:.2f}cm,height={photo_height_cm:.2f}cm,keepaspectratio]{{photo}}}}}}"
+            f"\\noindent\\makebox[\\textwidth][r]{{\\raisebox{{{photo_offset_y:.2f}cm}}[0pt][0pt]{{\\includegraphics[width={photo_width_cm:.2f}cm,height={photo_height_cm:.2f}cm,keepaspectratio]{{photo}}}}\\hspace*{{{x_shift_cm:.2f}cm}}}}"
         )
         # 覆盖浮层不应拉开标题区高度
         latex_content.append(r"\vspace{-1.1\baselineskip}")
@@ -383,8 +506,8 @@ def compile_latex_to_pdf(latex_content: str, template_dir: Path, resume_data: Di
         tex_file = Path(temp_dir) / 'resume.tex'
         tex_file.write_text(latex_content, encoding='utf-8')
 
-        # 检查 xelatex 是否可用
-        xelatex_path = shutil.which('xelatex')
+        # 检查 xelatex 是否可用（Windows 下额外搜索 MiKTeX 常见路径）
+        xelatex_path = resolve_xelatex_executable()
         if not xelatex_path:
             # 提供安装说明
             install_hint = """
@@ -410,13 +533,15 @@ LaTeX (XeLaTeX) 未安装。请运行以下命令安装：
             str(tex_file)
         ]
 
-        # 只编译一次，简化逻辑
+        # 只编译一次；Windows MiKTeX 首次运行可能按需装包，给足时间
+        _latex_env = subprocess_env_with_xelatex_bin(xelatex_path)
         result = subprocess.run(
             compile_cmd,
             cwd=temp_dir,
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=180,
+            env=_latex_env,
         )
 
         if result.returncode != 0:

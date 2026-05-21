@@ -81,6 +81,7 @@ photos_router = routes_module.photos_router
 asr_router = routes_module.asr_router
 semantic_search_router = routes_module.semantic_search_router
 admin_router = routes_module.admin_router
+leetcode_router = routes_module.leetcode_router
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="Resume API")
@@ -92,6 +93,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-LeetCode-ProgramRun"],
 )
 register_observability_handlers(app)
 
@@ -125,6 +127,7 @@ app.include_router(photos_router)
 app.include_router(asr_router)
 app.include_router(semantic_search_router)
 app.include_router(admin_router)
+app.include_router(leetcode_router)
 
 # 注册 OpenManus 路由（合并后）
 AGENT_BACKEND_BASE_URL = os.getenv("AGENT_BACKEND_BASE_URL", "").strip().rstrip("/")

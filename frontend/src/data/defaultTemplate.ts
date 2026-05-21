@@ -103,6 +103,7 @@ export const DEFAULT_RESUME_TEMPLATE: ResumeData = {
   ],
   awards: [],
   customData: {},
+  selfEvaluation: "<p>具备扎实的计算机基础与后端开发能力，熟悉 Java/Golang、数据库、缓存与常见工程化实践，关注系统性能优化与稳定性建设。</p>",
   skillContent: "<p></p><ul class=\"custom-list\"><li><p><strong>后端</strong>：熟悉 Java 编程语言、Golang 编程语言等原理</p></li><li><p><strong>数据库</strong>：熟悉 MySQL、MongoDB、ES 等主流数据库原理。有优秀的 SQL 调优经验</p></li><li><p><strong>缓存</strong>：熟悉 Redis 底层数据结构、分布式锁等机制。熟悉缓存击穿、穿透、雪崩概念</p></li><li><p><strong>计算机网络</strong>：熟悉 TCP、UDP、HTTP、HTTPS 等网络协议。掌握 TCP 三次握手、四次挥手等机制</p></li><li><p><strong>操作系统</strong>：熟悉进程、线程、虚拟内存、I/O 多路复用等。掌握进程间通信和多线程同步技术</p></li><li><p><strong>AI</strong>：了解 RAG、FunctionCall、LLM Prompt 提示词工程</p></li></ul><p></p>",
   activeSection: "basic",
   draggingProjectId: null,
@@ -113,7 +114,8 @@ export const DEFAULT_RESUME_TEMPLATE: ResumeData = {
     { id: 'projects', title: '项目经历', icon: '🚀', enabled: true, order: 3 },
     { id: 'openSource', title: '开源经历', icon: '🔗', enabled: true, order: 4 },
     { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 5 },
-    { id: 'awards', title: '荣誉奖项', icon: '🏆', enabled: true, order: 6 }
+    { id: 'awards', title: '荣誉奖项', icon: '🏆', enabled: true, order: 6 },
+    { id: 'selfEvaluation', title: '自我评价', icon: '📝', enabled: true, order: 7 }
   ],
   globalSettings: {
     lineHeight: 1.5,

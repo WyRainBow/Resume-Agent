@@ -8,15 +8,18 @@ import { cn } from '../../../../lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { uploadUserPhoto } from '@/services/photoService'
 import { InlineDatePicker } from '@/components/InlineDatePicker'
-import type { BasicInfo } from '../types'
+import type { BasicInfo, GlobalSettings } from '../types'
 import Field from './Field'
+import { getAgeFromBirthDate } from '../utils/birthDateDisplay'
 
 interface BasicPanelProps {
   basic: BasicInfo
   onUpdate: (data: Partial<BasicInfo>) => void
+  globalSettings?: GlobalSettings
+  updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }
 
-const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
+const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: BasicPanelProps) => {
   const { isAuthenticated, token, openModal } = useAuth()
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -64,6 +67,12 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
   const photoOffsetYDisplay = normalizeDecimal(photoOffsetY + 2, 2)
   const photoWidthCm = basic?.photoWidthCm ?? 3
   const photoHeightCm = basic?.photoHeightCm ?? 3
+  const birthDateDisplayMode = globalSettings?.birthDateDisplayMode || 'birthDate'
+  const birthDateLabel = basic?.birthDate?.trim() || '2003-05'
+  const ageLabel = (() => {
+    const age = getAgeFromBirthDate(basic?.birthDate || '')
+    return age !== null ? `${age} 岁` : '23 岁'
+  })()
 
   return (
     <div className="space-y-6 p-6">
@@ -97,26 +106,38 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <Field
-                index={2}
-                label="状态"
-                value={basic?.employementStatus || ''}
-                onChange={(value) => onUpdate({ employementStatus: value })}
-                placeholder="如：在职、离职"
-              />
+            <div className="grid grid-cols-1 gap-4">
               <motion.div
                 initial={{ opacity: 0, y: 15 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.25, delay: 3 * 0.04, ease: 'easeOut' }}
                 className="space-y-2"
               >
-                <label className="text-sm text-gray-600 dark:text-neutral-300">生日</label>
-                <InlineDatePicker
-                  value={basic?.birthDate || null}
-                  placeholder="选择日期"
-                  onSelect={(value) => onUpdate({ birthDate: value ?? '' })}
-                />
+                <label className="text-sm text-gray-600 dark:text-neutral-300">年龄</label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <InlineDatePicker
+                      value={basic?.birthDate || null}
+                      placeholder="选择年月"
+                      onSelect={(value) => onUpdate({ birthDate: value ?? '' })}
+                    />
+                  </div>
+                  <select
+                    value={birthDateDisplayMode}
+                    onChange={(e) => updateGlobalSettings?.({ birthDateDisplayMode: e.target.value as 'birthDate' | 'age' })}
+                    className={cn(
+                      'h-11 rounded-xl border px-3 text-sm font-semibold',
+                      'bg-white dark:bg-slate-900',
+                      'border-slate-300 dark:border-slate-600',
+                      'text-slate-700 dark:text-slate-200',
+                      'focus:outline-none focus:ring-2 focus:ring-blue-500/30'
+                    )}
+                    title="选择渲染方式"
+                  >
+                    <option value="birthDate">显示 {birthDateLabel}</option>
+                    <option value="age">显示 {ageLabel}</option>
+                  </select>
+                </div>
               </motion.div>
             </div>
 
@@ -227,6 +248,9 @@ const BasicPanel = ({ basic, onUpdate }: BasicPanelProps) => {
                         onChange={(e) => onUpdate({ photoOffsetX: Number(e.target.value) })}
                         className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
                       />
+                      <div className="text-[10px] text-slate-400">
+                        负值向左、正值向右
+                      </div>
                     </div>
                     <div className="space-y-1.5">
                       <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider">Y 偏移</label>

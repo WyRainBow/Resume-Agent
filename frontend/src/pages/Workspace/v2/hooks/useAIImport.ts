@@ -187,6 +187,7 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
   const handleAIImport = useCallback((section: string) => {
     const sectionMap: Record<string, string> = {
       skills: '专业技能',
+      selfEvaluation: '自我评价',
       experience: '实习经历',
       projects: '项目经历',
       education: '教育经历',
@@ -209,7 +210,7 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
   const formatHighlightsToHtml = formatHighlightsToHtmlModule
 
   // AI 解析结果处理
-  const handleAISave = useCallback((data: any) => {
+  const handleAISave = useCallback((data: any, meta?: { awardsListType?: 'unordered' | 'ordered' }) => {
     console.log('AI parsed data:', data, 'for section:', aiModalSection)
 
     // 读取格式信息
@@ -330,6 +331,9 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
           description: a.description || '',
           visible: true,
         })) || prev.awards,
+        selfEvaluation: typeof data.summary === 'string' && data.summary.trim()
+          ? `<p>${data.summary}</p>`
+          : prev.selfEvaluation,
         skillContent: (() => {
           // 强制格式化 skills 为标准 HTML 列表
           // 目标格式: <ul><li><p><strong>分类</strong>：描述</p></li>...</ul>
@@ -373,7 +377,7 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
       }))
     } else {
       // 分模块导入
-      handleSectionImport(aiModalSection, data, setResumeData)
+      handleSectionImport(aiModalSection, data, setResumeData, meta)
     }
   }, [aiModalSection, setResumeData])
 
@@ -392,7 +396,8 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
 function handleSectionImport(
   section: string,
   data: any,
-  setResumeData: React.Dispatch<React.SetStateAction<ResumeData>>
+  setResumeData: React.Dispatch<React.SetStateAction<ResumeData>>,
+  meta?: { awardsListType?: 'unordered' | 'ordered' }
 ) {
   switch (section) {
     case 'education':
@@ -550,6 +555,19 @@ function handleSectionImport(
       }
       break
 
+    case 'selfEvaluation': {
+      const summary = typeof data === 'string'
+        ? data
+        : (typeof data?.summary === 'string' ? data.summary : '')
+      if (summary.trim()) {
+        setResumeData((prev) => ({
+          ...prev,
+          selfEvaluation: `<p>${summary.trim()}</p>`,
+        }))
+      }
+      break
+    }
+
     case 'openSource':
       if (Array.isArray(data)) {
         const newOpenSources = data.map((o: any, i: number) => ({
@@ -584,6 +602,9 @@ function handleSectionImport(
         setResumeData((prev) => ({
           ...prev,
           awards: [...(prev.awards || []), ...newAwards],
+          globalSettings: meta?.awardsListType
+            ? { ...(prev.globalSettings || {}), awardsListType: meta.awardsListType }
+            : prev.globalSettings,
         }))
       }
       break

@@ -15,7 +15,11 @@ def generate_section_summary(resume_data: Dict[str, Any], section_titles: Dict[s
     title = (section_titles or {}).get('summary', '个人总结')
     if isinstance(summary, str) and summary.strip():
         content.append(f"\\section{{{escape_latex(title)}}}")
-        content.append(escape_latex(summary.strip()))
+        summary_text = summary.strip()
+        if '<' in summary_text and '>' in summary_text:
+            content.append(html_to_latex(summary_text))
+        else:
+            content.append(escape_latex(summary_text))
         content.append("")
     return content
 
@@ -607,7 +611,6 @@ def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict
                 # 补充说明 details/description（富文本 HTML，与实习经历列表风格一致）
                 details = ed.get('details') or ([ed.get('description')] if ed.get('description') else [])
                 if isinstance(details, list) and details:
-                    has_list_wrapper = False
                     for d in details:
                         if not isinstance(d, str) or not d.strip():
                             continue
@@ -628,17 +631,9 @@ def generate_section_education(resume_data: Dict[str, Any], section_titles: Dict
                                     )
                                     content.append(converted)
                                 else:
-                                    if not has_list_wrapper:
-                                        content.append(r"\begin{itemize}[label=\footnotesize$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
-                                        has_list_wrapper = True
-                                    content.append(f"  \\item {converted}")
+                                    content.append(converted.strip())
                         else:
-                            if not has_list_wrapper:
-                                content.append(r"\begin{itemize}[label=\footnotesize$\bullet$,parsep=0.2ex,itemsep=0ex,leftmargin=*,labelsep=0.5em,itemindent=0em]")
-                                has_list_wrapper = True
-                            content.append(f"  \\item {escape_latex(d)}")
-                    if has_list_wrapper:
-                        content.append(r"\end{itemize}")
+                            content.append(escape_latex(d))
             content.append("")
     return content
 
@@ -647,6 +642,8 @@ def generate_section_awards(resume_data: Dict[str, Any], section_titles: Dict[st
     content = []
     awards = resume_data.get('awards') or []
     section_title = (section_titles or {}).get('awards', '荣誉奖项')
+    global_settings = resume_data.get('globalSettings') or {}
+    list_type = global_settings.get('awardsListType', 'unordered')
     if isinstance(awards, list) and awards:
         # 先收集有效的奖项内容
         award_items = []
@@ -674,9 +671,17 @@ def generate_section_awards(resume_data: Dict[str, Any], section_titles: Dict[st
         # 只有在有内容时才创建section和itemize
         if award_items:
             content.append(f"\\section{{{escape_latex(section_title)}}}")
-            content.append(r"\begin{itemize}[label={},parsep=0.2ex]")
-            content.extend(award_items)
-            content.append(r"\end{itemize}")
+            if list_type == 'ordered':
+                # 有序列表：显示数字编号
+                content.append(r"\begin{enumerate}[label=\arabic*.,leftmargin=*,labelsep=0.5em,topsep=0.2ex,partopsep=0ex,itemsep=0ex,parsep=0.2ex]")
+                # award_items 目前已带 \item 前缀，enumerate/itemize 通用
+                content.extend(award_items)
+                content.append(r"\end{enumerate}")
+            else:
+                # 无序列表：显示圆点
+                content.append(r"\begin{itemize}[label=\footnotesize$\bullet$,leftmargin=*,labelsep=0.5em,topsep=0.2ex,partopsep=0ex,itemsep=0ex,parsep=0.2ex,itemindent=0em]")
+                content.extend(award_items)
+                content.append(r"\end{itemize}")
             content.append("")
     return content
 

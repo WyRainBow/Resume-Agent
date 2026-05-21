@@ -8,7 +8,17 @@ import { cn } from '@/lib/utils'
 
 function parseDateString(value: string | null | undefined): Date | null {
   if (!value) return null
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
+  const raw = value.trim()
+  // 支持 YYYY-MM 与 YYYY-MM-DD
+  const ym = /^(\d{4})-(\d{2})$/.exec(raw)
+  if (ym) {
+    const y = Number(ym[1])
+    const mo = Number(ym[2]) - 1
+    const dt = new Date(y, mo, 1)
+    if (dt.getFullYear() !== y || dt.getMonth() !== mo) return null
+    return dt
+  }
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw)
   if (!m) return null
   const y = Number(m[1])
   const mo = Number(m[2]) - 1
@@ -21,8 +31,7 @@ function parseDateString(value: string | null | undefined): Date | null {
 function formatDateString(dt: Date): string {
   const y = dt.getFullYear()
   const m = String(dt.getMonth() + 1).padStart(2, '0')
-  const d = String(dt.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
+  return `${y}-${m}`
 }
 
 export interface InlineDatePickerProps {
@@ -49,6 +58,7 @@ export function InlineDatePicker({
   const today = new Date()
   const [currentYear, setCurrentYear] = useState(selectedDate?.getFullYear() ?? today.getFullYear())
   const [currentMonth, setCurrentMonth] = useState(selectedDate?.getMonth() ?? today.getMonth())
+  const [view, setView] = useState<'month' | 'year'>('month')
 
   useEffect(() => {
     if (!open) return
@@ -71,27 +81,10 @@ export function InlineDatePicker({
       left: rect.left,
       width: Math.max(rect.width, 280),
     })
-  }, [open, currentYear, currentMonth])
-
-  const firstDay = new Date(currentYear, currentMonth, 1)
-  const startWeekday = firstDay.getDay()
-  const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate()
-  const prevDays = new Date(currentYear, currentMonth, 0).getDate()
-
-  const dayCells: Array<{ day: number; inMonth: boolean; date: Date }> = []
-  for (let i = startWeekday - 1; i >= 0; i -= 1) {
-    const day = prevDays - i
-    dayCells.push({ day, inMonth: false, date: new Date(currentYear, currentMonth - 1, day) })
-  }
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    dayCells.push({ day, inMonth: true, date: new Date(currentYear, currentMonth, day) })
-  }
-  while (dayCells.length < 42) {
-    const day = dayCells.length - (startWeekday + daysInMonth) + 1
-    dayCells.push({ day, inMonth: false, date: new Date(currentYear, currentMonth + 1, day) })
-  }
+  }, [open, currentYear, currentMonth, view])
 
   const selectedStr = selectedDate ? formatDateString(selectedDate) : ''
+  const decadeStart = Math.floor(currentYear / 10) * 10
 
   return (
     <>
@@ -121,65 +114,104 @@ export function InlineDatePicker({
                   type="button"
                   className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
                   onClick={() => {
-                    if (currentMonth === 0) {
-                      setCurrentYear((y) => y - 1)
-                      setCurrentMonth(11)
-                    } else {
-                      setCurrentMonth((m) => m - 1)
+                    if (view === 'month') {
+                      if (currentMonth === 0) {
+                        setCurrentYear((y) => y - 1)
+                        setCurrentMonth(11)
+                      } else {
+                        setCurrentMonth((m) => m - 1)
+                      }
+                      return
                     }
+                    setCurrentYear((y) => y - 10)
                   }}
                 >
                   <ChevronLeft className="w-4 h-4 text-slate-600" />
                 </button>
-                <div className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                  {currentYear}年 {String(currentMonth + 1).padStart(2, '0')}月
-                </div>
+                <button
+                  type="button"
+                  className="text-sm font-semibold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 px-2 py-1 rounded-md"
+                  onClick={() => setView((v) => (v === 'month' ? 'year' : 'month'))}
+                  title="点击切换年份选择"
+                >
+                  {view === 'month'
+                    ? `${currentYear}年`
+                    : `${decadeStart} - ${decadeStart + 9}`}
+                </button>
                 <button
                   type="button"
                   className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800"
                   onClick={() => {
-                    if (currentMonth === 11) {
-                      setCurrentYear((y) => y + 1)
-                      setCurrentMonth(0)
-                    } else {
-                      setCurrentMonth((m) => m + 1)
+                    if (view === 'month') {
+                      if (currentMonth === 11) {
+                        setCurrentYear((y) => y + 1)
+                        setCurrentMonth(0)
+                      } else {
+                        setCurrentMonth((m) => m + 1)
+                      }
+                      return
                     }
+                    setCurrentYear((y) => y + 10)
                   }}
                 >
                   <ChevronRight className="w-4 h-4 text-slate-600" />
                 </button>
               </div>
-              <div className="grid grid-cols-7 text-xs text-slate-500 px-1 mb-1">
-                {['日', '一', '二', '三', '四', '五', '六'].map((w) => (
-                  <span key={w} className="text-center py-1">{w}</span>
-                ))}
-              </div>
-              <div className="grid grid-cols-7 gap-1">
-                {dayCells.map((cell, idx) => {
-                  const dateStr = formatDateString(cell.date)
-                  const active = dateStr === selectedStr
-                  return (
-                    <button
-                      key={`${dateStr}-${idx}`}
-                      type="button"
-                      className={cn(
-                        'h-8 rounded-md text-sm transition-colors',
-                        active
-                          ? 'bg-blue-600 text-white'
-                          : cell.inMonth
-                            ? 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
-                            : 'text-slate-300 dark:text-slate-600 hover:bg-slate-100/60'
-                      )}
-                      onClick={() => {
-                        onSelect(dateStr)
-                        setOpen(false)
-                      }}
-                    >
-                      {cell.day}
-                    </button>
-                  )
-                })}
-              </div>
+              {view === 'month' ? (
+                <div className="grid grid-cols-4 gap-2 py-2">
+                  {Array.from({ length: 12 }).map((_, i) => {
+                    const m = i + 1
+                    const valueStr = `${currentYear}-${String(m).padStart(2, '0')}`
+                    const active = valueStr === selectedStr
+                    return (
+                      <button
+                        key={valueStr}
+                        type="button"
+                        className={cn(
+                          'h-10 rounded-lg text-sm font-medium transition-colors',
+                          active
+                            ? 'bg-blue-600 text-white'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                        )}
+                        onClick={() => {
+                          onSelect(valueStr)
+                          setOpen(false)
+                        }}
+                      >
+                        {m}月
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div className="grid grid-cols-4 gap-2 py-2">
+                  {Array.from({ length: 12 }).map((_, i) => {
+                    const y = decadeStart - 1 + i
+                    const isInDecade = y >= decadeStart && y <= decadeStart + 9
+                    const active = selectedDate ? selectedDate.getFullYear() === y : false
+                    return (
+                      <button
+                        key={y}
+                        type="button"
+                        className={cn(
+                          'h-10 rounded-lg text-sm font-medium transition-colors',
+                          active
+                            ? 'bg-blue-600 text-white'
+                            : isInDecade
+                              ? 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+                              : 'text-slate-300 dark:text-slate-600 hover:bg-slate-100/60'
+                        )}
+                        onClick={() => {
+                          setCurrentYear(y)
+                          setView('month')
+                        }}
+                      >
+                        {y}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
               <div className="mt-3 flex justify-between gap-2">
                 <button
                   type="button"
@@ -195,7 +227,8 @@ export function InlineDatePicker({
                   type="button"
                   className="h-8 px-3 rounded-md border border-slate-300 text-sm text-slate-600 hover:bg-slate-50"
                   onClick={() => {
-                    onSelect(formatDateString(new Date()))
+                    const now = new Date()
+                    onSelect(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`)
                     setOpen(false)
                   }}
                 >

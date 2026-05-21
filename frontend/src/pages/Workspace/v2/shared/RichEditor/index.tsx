@@ -44,6 +44,9 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { ResumeData, Education } from '../../types'
 import './tiptap.css'
 
+/** false：不渲染划词改写气泡与弹窗；工具栏「AI 润色」打开的对话框仍可用 */
+const ENABLE_SELECTION_POLISH_UI = false
+
 // Debug logging disabled in production
 const logDebug = (_message: string, _data?: Record<string, any>) => {}
 // #endregion agent log helper
@@ -579,8 +582,9 @@ const RichEditor = ({
       {/* 编辑区域 */}
       <EditorContent editor={editor} />
 
-      {/* 划词修改气泡 — 选中文本后浮出 */}
-      {editor && (
+      {/* 划词改写气泡 — 可由 ENABLE_SELECTION_POLISH_UI 关闭 */}
+      {ENABLE_SELECTION_POLISH_UI &&
+        editor && (
         <BubbleMenu
           editor={editor}
           tippyOptions={{

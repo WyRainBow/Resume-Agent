@@ -290,6 +290,9 @@ function normalizeImportedResumeToCanonical(
     openSource,
     awards,
     customData: {},
+    selfEvaluation: toText(source.selfEvaluation)
+      ? toText(source.selfEvaluation)
+      : (toText(source.summary) ? `<p>${toText(source.summary)}</p>` : ""),
     skillContent:
       toText(source.skillContent) ||
       toText(source.skills) ||

@@ -148,6 +148,9 @@ const ResumeDashboard = () => {
         description: a.description || '',
         visible: true,
       })) || [],
+      selfEvaluation: typeof data.summary === 'string' && data.summary.trim()
+        ? `<p>${data.summary}</p>`
+        : '',
       skillContent: (() => {
         if (data.skills && data.skills.length > 0) {
           const allItems: string[] = []
@@ -269,10 +272,11 @@ const ResumeDashboard = () => {
               <CreateCard onClick={createResume} />
 
               <AnimatePresence>
-                {resumes.map((resume) => (
+                {resumes.map((resume, idx) => (
                   <ResumeCard
                     key={resume.id}
                     resume={resume}
+                    index={idx + 1}
                     onEdit={editResume}
                     onDelete={deleteResume}
                     onDuplicate={duplicateResume}

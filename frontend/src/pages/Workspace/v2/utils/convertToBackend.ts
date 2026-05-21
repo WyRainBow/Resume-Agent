@@ -2,10 +2,12 @@
  * 将前端 ResumeData 转换为后端需要的格式
  */
 import type { ResumeData, CustomItem } from '../types'
+import { resolveEmploymentStatusForRender } from './birthDateDisplay'
 import { stripHtmlTags } from './textUtils'
 
 export interface BackendResumeData {
   name: string
+  birthDate?: string
   photo?: string
   photoOffsetX?: number
   photoOffsetY?: number
@@ -19,6 +21,7 @@ export interface BackendResumeData {
   employementStatus?: string
   blog?: string
   objective: string
+  summary?: string
   skillContent?: string  // HTML 格式的专业技能内容
   skills: { category: string; details: string }[]
   internships: {
@@ -75,6 +78,7 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
     experience: 'internships',
     projects: 'projects',
     openSource: 'open_source',
+    selfEvaluation: 'summary',
     awards: 'awards',
     education: 'education',
   }
@@ -90,8 +94,16 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
     return acc
   }, {})
 
+  const birthDateDisplayMode = data.globalSettings?.birthDateDisplayMode || 'birthDate'
+  const employementStatus = resolveEmploymentStatusForRender(
+    data.basic.employementStatus,
+    data.basic.birthDate,
+    birthDateDisplayMode
+  )
+
   return {
     name: data.basic.name,
+    ...(data.basic.birthDate ? { birthDate: data.basic.birthDate } : {}),
     ...(data.basic.photo ? { photo: data.basic.photo } : {}),
     ...(typeof data.basic.photoOffsetX === 'number' ? { photoOffsetX: data.basic.photoOffsetX } : {}),
     ...(typeof data.basic.photoOffsetY === 'number' ? { photoOffsetY: data.basic.photoOffsetY } : {}),
@@ -102,9 +114,10 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
       email: data.basic.email,
       location: data.basic.location,
     },
-    ...(data.basic.employementStatus ? { employementStatus: data.basic.employementStatus } : {}),
+    ...(employementStatus ? { employementStatus } : {}),
     ...(data.basic.blog ? { blog: data.basic.blog } : {}),
     objective: data.basic.title,
+    summary: data.selfEvaluation || '',
     skillContent: data.skillContent || '',  // 直接传递 HTML 内容
     skills: data.skillContent ? [{ category: '', details: data.skillContent }] : [],  // 兼容旧格式
     internships: data.experience.filter(e => e.visible !== false).map((e) => ({

@@ -1,0 +1,79 @@
+{
+  "id": "sub_20260510075211680938",
+  "slug": "quick-sort",
+  "language": "go",
+  "code": "package main\n\nimport \"fmt\"\n\nfunc quickSort(nums []int, left, right int) {\n\tif left >= right {\n\t\treturn\n\t}\n\n\tpivotIndex := partition(nums, left, right)\n\n\tquickSort(nums, left, pivotIndex-1)\n\tquickSort(nums, pivotIndex+1, right)\n}\n\nfunc partition(nums []int, left, right int) int {\n\n\t// 选择最后一个元素作为 pivot\n\tpivot := nums[right]\n\n\ti := left\n\n\t// j 负责遍历\n\tfor j := left; j < right; j++ {\n\n\t\t// 小于 pivot 放左边\n\t\tif nums[j] < pivot {\n\t\t\tnums[i], nums[j] = nums[j], nums[i]\n\t\t\ti++\n\t\t}\n\t}\n\n\t// pivot 放到正确位置\n\tnums[i], nums[right] = nums[right], nums[i]\n\n\treturn i\n}\n\nfunc main() {\n\n\tnums := []int{5, 2, 3, 1, 4}\n\n\tquickSort(nums, 0, len(nums)-1)\n\n\tfmt.Println(nums)\n}",
+  "mode": "submit",
+  "status": "runtime_error",
+  "summary": {
+    "passed": 0,
+    "total": 4
+  },
+  "results": [
+    {
+      "caseId": "case-1",
+      "passed": false,
+      "status": "runtime_error",
+      "stdout": "",
+      "stderr": "# command-line-arguments\n./main.go:47:24: quickSort(nums) (no value) used as value\n./main.go:47:34: not enough arguments in call to quickSort\n\thave ([]int)\n\twant ([]int, int, int)",
+      "expected": [
+        0,
+        0,
+        1,
+        1,
+        2,
+        5
+      ],
+      "actual": null,
+      "durationMs": 182
+    },
+    {
+      "caseId": "case-2",
+      "passed": false,
+      "status": "runtime_error",
+      "stdout": "",
+      "stderr": "# command-line-arguments\n./main.go:47:24: quickSort(nums) (no value) used as value\n./main.go:47:34: not enough arguments in call to quickSort\n\thave ([]int)\n\twant ([]int, int, int)",
+      "expected": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "actual": null,
+      "durationMs": 63
+    },
+    {
+      "caseId": "hidden-1",
+      "passed": false,
+      "status": "runtime_error",
+      "stdout": "",
+      "stderr": "# command-line-arguments\n./main.go:47:24: quickSort(nums) (no value) used as value\n./main.go:47:34: not enough arguments in call to quickSort\n\thave ([]int)\n\twant ([]int, int, int)",
+      "expected": [
+        1
+      ],
+      "actual": null,
+      "durationMs": 58
+    },
+    {
+      "caseId": "hidden-2",
+      "passed": false,
+      "status": "runtime_error",
+      "stdout": "",
+      "stderr": "# command-line-arguments\n./main.go:47:24: quickSort(nums) (no value) used as value\n./main.go:47:34: not enough arguments in call to quickSort\n\thave ([]int)\n\twant ([]int, int, int)",
+      "expected": [
+        -6,
+        -3,
+        1,
+        2,
+        3,
+        5,
+        6,
+        8,
+        9
+      ],
+      "actual": null,
+      "durationMs": 51
+    }
+  ],
+  "createdAt": "2026-05-10T07:52:11.681013Z"
+}

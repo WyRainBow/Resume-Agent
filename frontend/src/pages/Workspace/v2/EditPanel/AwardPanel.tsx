@@ -17,6 +17,8 @@ interface AwardPanelProps {
   onDelete: (id: string) => void
   onReorder: (awards: Award[]) => void
   onAIImport?: () => void
+  awardsListType?: 'unordered' | 'ordered'
+  onChangeAwardsListType?: (type: 'unordered' | 'ordered') => void
 }
 
 const generateId = () => {
@@ -155,7 +157,15 @@ function AwardItem({
   )
 }
 
-export default function AwardPanel({ awards, onUpdate, onDelete, onReorder, onAIImport }: AwardPanelProps) {
+export default function AwardPanel({
+  awards,
+  onUpdate,
+  onDelete,
+  onReorder,
+  onAIImport,
+  awardsListType = 'unordered',
+  onChangeAwardsListType,
+}: AwardPanelProps) {
   const handleCreate = () => {
     const newItem: Award = {
       id: generateId(),
@@ -170,6 +180,38 @@ export default function AwardPanel({ awards, onUpdate, onDelete, onReorder, onAI
 
   return (
     <div className={cn('space-y-4 px-4 py-4 rounded-lg', 'bg-white dark:bg-neutral-900/30')}>
+      <div className="flex items-center justify-between gap-3 p-3 rounded-lg border border-slate-200 dark:border-neutral-800 bg-white dark:bg-neutral-900/30">
+        <div className="text-sm font-medium text-gray-700 dark:text-neutral-200">
+          列表样式
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => onChangeAwardsListType?.('unordered')}
+            className={cn(
+              'px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors',
+              awardsListType === 'unordered'
+                ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-black dark:border-white'
+                : 'bg-white dark:bg-neutral-900/30 text-gray-700 dark:text-neutral-200 border-slate-200 dark:border-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-800/60',
+            )}
+          >
+            无序列表
+          </button>
+          <button
+            type="button"
+            onClick={() => onChangeAwardsListType?.('ordered')}
+            className={cn(
+              'px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors',
+              awardsListType === 'ordered'
+                ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-black dark:border-white'
+                : 'bg-white dark:bg-neutral-900/30 text-gray-700 dark:text-neutral-200 border-slate-200 dark:border-neutral-800 hover:bg-slate-50 dark:hover:bg-neutral-800/60',
+            )}
+          >
+            有序列表
+          </button>
+        </div>
+      </div>
+
       {onAIImport && (
         <button
           onClick={onAIImport}

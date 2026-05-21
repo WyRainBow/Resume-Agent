@@ -3,11 +3,11 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, BookmarkPlus, Upload, LayoutGrid, List, ChevronRight, Sparkles } from 'lucide-react'
+import { Check, BookmarkPlus, Upload, LayoutGrid, List, ChevronRight, Sparkles, Code2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { ExportButton } from './ExportButton'
 
-type EditMode = 'click' | 'scroll'
+type EditMode = 'click' | 'scroll' | 'json'
 
 interface HeaderProps {
   saveSuccess: boolean
@@ -85,6 +85,19 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
             >
               <LayoutGrid className="w-4 h-4" />
               滚动编辑
+            </button>
+            <button
+              onClick={() => onEditModeChange('json')}
+              className={cn(
+                "px-4 py-2 rounded-lg text-sm font-bold transition-all duration-300",
+                "flex items-center gap-2",
+                editMode === 'json'
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100"
+                  : "text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
+              )}
+            >
+              <Code2 className="w-4 h-4" />
+              JSON 编辑
             </button>
         </div>
       </motion.div>

@@ -38,6 +38,7 @@ export type SectionType =
   | "experience"
   | "projects"
   | "skills"
+  | "selfEvaluation"
   | "awards"
   | "summary"
   | "opensource"
@@ -48,7 +49,7 @@ export interface AIImportModalProps {
   sectionType: SectionType | string;
   sectionTitle: string;
   onClose: () => void;
-  onSave: (data: any) => void;
+  onSave: (data: any, meta?: { awardsListType?: 'unordered' | 'ordered' }) => void;
 }
 
 // AI 导入提示词占位符
@@ -63,6 +64,8 @@ const aiImportPlaceholders: Record<string, string> = {
     "智能简历系统\n技术负责人 · 2023.01 - 2023.06\n- 使用 React + FastAPI 开发\n- 集成 AI 自动生成功能\nGitHub: https://github.com/xxx/resume",
   skills:
     "编程语言: Java, Python, Go\n数据库: MySQL, Redis, MongoDB\n框架: Spring Boot, FastAPI",
+  selfEvaluation:
+    "具备扎实的后端开发基础，熟悉 Java/Go、MySQL、Redis 与微服务架构，关注系统性能优化、稳定性建设和工程化落地。",
   awards: "国家奖学金 · 2023\nACM 省级一等奖 · 2022\n优秀毕业生 · 2024",
   summary:
     "3年后端开发经验，熟悉 Java/Go 技术栈，擅长高并发系统设计与优化，有丰富的微服务架构经验。",
@@ -89,6 +92,7 @@ export function AIImportModal({
   const [copied, setCopied] = useState(false);
   const [importMode, setImportMode] = useState<"file" | "text">("file");
   const [currentStep, setCurrentStep] = useState<"input" | "results">("input");
+  const [awardsListType, setAwardsListType] = useState<'unordered' | 'ordered'>('unordered');
   const [testKeysLoading, setTestKeysLoading] = useState(false);
   const [testKeysResult, setTestKeysResult] = useState<Record<
     string,
@@ -145,6 +149,7 @@ export function AIImportModal({
       setSelectedFile(null);
       setImportMode("file");
       setCurrentStep("input");
+      setAwardsListType('unordered');
     }
   }, [isOpen]);
 
@@ -157,7 +162,11 @@ export function AIImportModal({
     try {
       // 处理命名不一致：openSource -> opensource
       const normalizedType =
-        sectionType === "openSource" ? "opensource" : sectionType;
+        sectionType === "openSource"
+          ? "opensource"
+          : sectionType === "selfEvaluation"
+            ? "summary"
+            : sectionType;
 
       // 根据是否全局导入选择不同的 API
       const apiBase = getApiBaseUrl();
@@ -248,7 +257,11 @@ export function AIImportModal({
   // 保存数据
   const handleSave = () => {
     if (parsedData) {
-      onSave(parsedData);
+      if (sectionType === 'awards') {
+        onSave(parsedData, { awardsListType });
+      } else {
+        onSave(parsedData);
+      }
       onClose();
     }
   };
@@ -672,6 +685,39 @@ export function AIImportModal({
                 </div>
               ) : (
                 <div className="space-y-2 flex-1 flex flex-col">
+                  {sectionType === 'awards' && (
+                    <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+                      <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        列表样式
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAwardsListType('unordered')}
+                          className={cn(
+                            'px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors',
+                            awardsListType === 'unordered'
+                              ? 'bg-slate-900 text-white border-slate-900'
+                              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800',
+                          )}
+                        >
+                          无序列表
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAwardsListType('ordered')}
+                          className={cn(
+                            'px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors',
+                            awardsListType === 'ordered'
+                              ? 'bg-slate-900 text-white border-slate-900'
+                              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800',
+                          )}
+                        >
+                          有序列表
+                        </button>
+                      </div>
+                    </div>
+                  )}
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex-shrink-0">
                     文本内容
                     <span className="text-xs text-slate-400 dark:text-slate-500 ml-2">
@@ -684,7 +730,11 @@ export function AIImportModal({
                     onKeyDown={(e) => {
                       if (e.key === "Tab") {
                         const normalizedType =
-                          sectionType === "openSource" ? "opensource" : sectionType;
+                          sectionType === "openSource"
+                            ? "opensource"
+                            : sectionType === "selfEvaluation"
+                              ? "summary"
+                              : sectionType;
                         const placeholder =
                           aiImportPlaceholders[normalizedType] || "";
                         if (
@@ -698,7 +748,11 @@ export function AIImportModal({
                     }}
                     placeholder={(() => {
                       const normalizedType =
-                        sectionType === "openSource" ? "opensource" : sectionType;
+                        sectionType === "openSource"
+                          ? "opensource"
+                          : sectionType === "selfEvaluation"
+                            ? "summary"
+                            : sectionType;
                       return (
                         aiImportPlaceholders[normalizedType] || "请输入文本内容..."
                       );

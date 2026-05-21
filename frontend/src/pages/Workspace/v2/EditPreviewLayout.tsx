@@ -9,6 +9,7 @@ import { cn } from "../../../lib/utils";
 import EditPanel from "./EditPanel";
 import PreviewPanel from "./PreviewPanel";
 import ScrollEditMode from "./ScrollEditMode";
+import JsonEditMode from "./JsonEditMode";
 import SidePanel from "./SidePanel";
 import type {
   ResumeData,
@@ -22,12 +23,14 @@ import type {
   Award,
   CustomItem,
 } from "./types";
+import type { PDFRenderMode } from "@/services/pdfRenderMode";
 
-type EditMode = "click" | "scroll";
+type EditMode = "click" | "scroll" | "json";
 
 interface EditPreviewLayoutProps {
   editMode: EditMode;
   resumeData: ResumeData;
+  setResumeData: (data: ResumeData) => void;
   activeSection: string;
   setActiveSection: (id: string) => void;
   toggleSectionVisibility: (id: string) => void;
@@ -54,12 +57,16 @@ interface EditPreviewLayoutProps {
   addCustomItem: (sectionId: string) => void;
   updateCustomItem: (sectionId: string, item: CustomItem) => void;
   deleteCustomItem: (sectionId: string, itemId: string) => void;
+  updateSelfEvaluation: (content: string) => void;
   updateSkillContent: (content: string) => void;
   handleAIImport: (section: string) => void;
   pdfBlob: Blob | null;
   loading: boolean;
   progress: string;
   autoRenderPending?: boolean;
+  renderMode?: PDFRenderMode;
+  canUseRemoteRender?: boolean;
+  setRenderMode?: (mode: PDFRenderMode) => void;
   handleRender: () => void;
   handleDownload: () => void;
 }
@@ -105,6 +112,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
   const {
     editMode,
     resumeData,
+    setResumeData,
     activeSection,
     setActiveSection,
     toggleSectionVisibility,
@@ -131,12 +139,16 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
     addCustomItem,
     updateCustomItem,
     deleteCustomItem,
+    updateSelfEvaluation,
     updateSkillContent,
     handleAIImport,
     pdfBlob,
     loading,
     progress,
     autoRenderPending,
+    renderMode = "local",
+    canUseRemoteRender = false,
+    setRenderMode = () => {},
     handleRender,
     handleDownload,
   } = props;
@@ -262,6 +274,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                   addCustomItem={addCustomItem}
                   updateCustomItem={updateCustomItem}
                   deleteCustomItem={deleteCustomItem}
+                  updateSelfEvaluation={updateSelfEvaluation}
                   updateSkillContent={updateSkillContent}
                   updateMenuSections={updateMenuSections}
                   updateGlobalSettings={updateGlobalSettings}
@@ -275,7 +288,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                 onDragEnd={handleDragEnd}
               />
           </div>
-        ) : (
+        ) : editMode === "scroll" ? (
           <div className="flex">
               {/* 滚动编辑模式：两列布局 */}
               {/* 第一列：滚动编辑区域 */}
@@ -313,6 +326,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                   addCustomItem={addCustomItem}
                   updateCustomItem={updateCustomItem}
                   deleteCustomItem={deleteCustomItem}
+                  updateSelfEvaluation={updateSelfEvaluation}
                   updateSkillContent={updateSkillContent}
                   updateGlobalSettings={updateGlobalSettings}
                   updateMenuSections={updateMenuSections}
@@ -321,6 +335,32 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
               </div>
 
               {/* 分隔线（可拖拽调整编辑面板宽度） */}
+              <DragHandle
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+              />
+          </div>
+        ) : (
+          <div className="flex">
+              {/* JSON 编辑模式：直接编辑完整 ResumeData，合法后同步到统一状态源 */}
+              <div
+                ref={scrollEditPanelRef}
+                className={cn(
+                  "h-full overflow-hidden shrink-0",
+                  "bg-white/80 dark:bg-slate-900/80",
+                  "backdrop-blur-sm border-r border-slate-200 dark:border-slate-800",
+                )}
+                style={{
+                  width: editPanelWidth,
+                  transition: "none",
+                }}
+              >
+                <JsonEditMode
+                  resumeData={resumeData}
+                  onUpdate={setResumeData}
+                />
+              </div>
+
               <DragHandle
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
@@ -343,6 +383,9 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
             loading={loading}
             progress={progress}
             autoRenderPending={autoRenderPending}
+            renderMode={renderMode}
+            canUseRemoteRender={canUseRemoteRender}
+            onRenderModeChange={setRenderMode}
             onRender={handleRender}
             onDownload={handleDownload}
           />

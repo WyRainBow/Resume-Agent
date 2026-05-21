@@ -26,7 +26,7 @@ export interface BasicInfo {
   employementStatus?: string
   blog?: string
   photo?: string
-  photoOffsetX?: number  // 照片横向偏移（cm，正值向左）
+  photoOffsetX?: number  // 照片横向偏移（cm，正值向右）
   photoOffsetY?: number  // 照片纵向偏移（cm，正值向上）
   photoWidthCm?: number  // 照片宽度（cm）
   photoHeightCm?: number  // 照片高度（cm）
@@ -155,6 +155,7 @@ export interface GlobalSettings {
   companyNameFontSize?: number  // 公司名称字号（px），默认跟随 item-title 15px
   companyLogoSize?: number  // 公司 Logo 大小（px），默认 20，范围 14-32
   experienceListType?: 'none' | 'unordered' | 'ordered'  // 工作经历列表类型：无列表、无序列表、有序列表
+  awardsListType?: 'unordered' | 'ordered'  // 荣誉奖项列表类型：无序列表/有序列表
   openSourceRepoDisplay?: 'below' | 'inline' | 'icon'  // 开源经历仓库链接显示位置：下方 | 标题右侧 | 图标
   openSourceRepoLabel?: string  // 开源仓库链接前缀：'' 无前缀 | '仓库' | 'GitHub' | 自定义文字
   projectLinkDisplay?: 'below' | 'inline' | 'icon'  // 项目链接显示位置：下方 | 标题右侧 | 图标
@@ -168,6 +169,7 @@ export interface GlobalSettings {
   latexHeaderTopGapPx?: number  // 头部顶部空白（px，可为负）
   latexHeaderNameContactGapPx?: number  // 姓名与联系信息间距调整（px，可为负）
   latexHeaderBottomGapPx?: number  // 联系信息下方空白（px，可为负）
+  birthDateDisplayMode?: 'birthDate' | 'age'  // 年龄渲染模式：显示出生年月 | 仅显示年龄
 }
 
 /**
@@ -188,6 +190,7 @@ export interface ResumeData {
   openSource: OpenSource[]
   awards: Award[]
   customData: Record<string, CustomItem[]>
+  selfEvaluation: string  // HTML 格式
   skillContent: string  // HTML 格式
   activeSection: string
   draggingProjectId: string | null
@@ -200,12 +203,13 @@ export interface ResumeData {
  */
 export const DEFAULT_MENU_SECTIONS: MenuSection[] = [
   { id: 'basic', title: '基本信息', icon: '👤', enabled: true, order: 0 },
-  { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 1 },
+  { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 1 },
   { id: 'experience', title: '实习经历', icon: '💼', enabled: true, order: 2 },
   { id: 'projects', title: '项目经历', icon: '🚀', enabled: true, order: 3 },
   { id: 'openSource', title: '开源经历', icon: '🔗', enabled: true, order: 4 },
-  { id: 'awards', title: '荣誉奖项', icon: '😄', enabled: true, order: 5 },
-  { id: 'education', title: '教育经历', icon: '🎓', enabled: true, order: 6 },
+  { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 5 },
+  { id: 'awards', title: '荣誉奖项', icon: '😄', enabled: true, order: 6 },
+  { id: 'selfEvaluation', title: '自我评价', icon: '📝', enabled: true, order: 7 },
 ]
 
 /**

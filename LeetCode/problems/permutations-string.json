@@ -1,0 +1,88 @@
+{
+  "id": "problem_permutations_string",
+  "slug": "permutations-string",
+  "title": "全排列（字符串）",
+  "difficulty": "Medium",
+  "tags": [
+    "回溯",
+    "字符串"
+  ],
+  "source": "custom",
+  "leetcodeUrl": "https://leetcode.cn/problems/permutations/",
+  "description": "给定一个由互不相同字符组成的字符串 s、返回其所有排列（全排列）、以字符串切片形式给出\n\n请将结果中每一个排列按普通字符串理解、并把整个切片按字典序排序后返回、以便与评测用例一致（与 LeetCode「全排列」数组版思想相同、输入由数组改为字符串）",
+  "examples": [
+    {
+      "input": "s = \"ab\"",
+      "output": "[\"ab\", \"ba\"]",
+      "explanation": "两个字符的两类排列、整体按字典序排序后为 [\"ab\",\"ba\"]"
+    }
+  ],
+  "constraints": [
+    "1 <= len(s) <= 8",
+    "s 仅含可打印 ASCII、且字符互不重复"
+  ],
+  "hints": [
+    "可沿用排列类题目的回溯/交换思路、把「选下标」改成「选剩余字符」",
+    "若已得到全部排列、最后用 sort.Strings 排序再返回即可满足判题顺序。"
+  ],
+  "functionName": "permute",
+  "signature": "func permute(s string) []string",
+  "starterCode": "package main\n\nimport \"sort\"\n\nfunc permute(s string) []string {\n\treturn nil\n}\n",
+  "visibleTestCases": [
+    {
+      "id": "case-1",
+      "input": {
+        "s": "ab"
+      },
+      "expected": [
+        "ab",
+        "ba"
+      ]
+    },
+    {
+      "id": "case-2",
+      "input": {
+        "s": "abc"
+      },
+      "expected": [
+        "abc",
+        "acb",
+        "bac",
+        "bca",
+        "cab",
+        "cba"
+      ]
+    }
+  ],
+  "hiddenTestCases": [
+    {
+      "id": "hidden-1",
+      "input": {
+        "s": "a"
+      },
+      "expected": [
+        "a"
+      ]
+    },
+    {
+      "id": "hidden-2",
+      "input": {
+        "s": "dog"
+      },
+      "expected": [
+        "dgo",
+        "dog",
+        "gdo",
+        "god",
+        "odg",
+        "ogd"
+      ]
+    }
+  ],
+  "judge": {
+    "type": "function",
+    "entry": "permute"
+  },
+  "createdAt": "2026-05-10T09:00:00.000Z",
+  "updatedAt": "2026-05-10T08:03:30.277998Z"
+}

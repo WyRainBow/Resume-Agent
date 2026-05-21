@@ -2,8 +2,11 @@
 LaTeX 工具函数模块
 提供 LaTeX 特殊字符转义和简历数据标准化功能
 """
+import os
 import re
-from typing import Dict, Any
+import shutil
+from pathlib import Path
+from typing import Dict, Any, List, Optional
 
 
 def strip_html_tags(text: str) -> str:
@@ -187,3 +190,50 @@ def normalize_item(item: Dict[str, Any], field_mapping: Dict[str, str]) -> Dict[
             normalized_item[english_key] = v
     
     return normalized_item
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Windows 兼容：xelatex 路径解析
+# MiKTeX 在 Windows 上常装到 %LOCALAPPDATA%\Programs\MiKTeX，但后台进程的
+# PATH 里往往不包含这个目录，导致 shutil.which('xelatex') 返回 None。
+# resolve_xelatex_executable() 先走标准 PATH，找不到再查 Windows 常见安装路径。
+# ──────────────────────────────────────────────────────────────────────────────
+
+def resolve_xelatex_executable() -> Optional[str]:
+    """查找 xelatex 可执行路径，Windows 下额外搜索 MiKTeX 常见安装目录。"""
+    # 优先走系统 PATH（与原有逻辑相同）
+    found = shutil.which("xelatex") or shutil.which("xelatex.exe")
+    if found:
+        return found
+
+    if os.name != "nt":
+        return None
+
+    # Windows：枚举常见 MiKTeX 安装位置
+    candidates: List[Path] = []
+    local_appdata = os.environ.get("LOCALAPPDATA", "")
+    if local_appdata:
+        candidates.append(
+            Path(local_appdata) / "Programs" / "MiKTeX" / "miktex" / "bin" / "x64" / "xelatex.exe"
+        )
+    for env_var in ("ProgramFiles", "ProgramFiles(x86)", "ProgramW6432"):
+        base = os.environ.get(env_var, "")
+        if base:
+            candidates.append(Path(base) / "MiKTeX" / "miktex" / "bin" / "x64" / "xelatex.exe")
+
+    for p in candidates:
+        try:
+            if p.is_file():
+                return str(p.resolve())
+        except OSError:
+            continue
+    return None
+
+
+def subprocess_env_with_xelatex_bin(xelatex_path: str) -> dict:
+    """返回在 PATH 最前面插入 xelatex 所在目录的环境变量字典，
+    确保同目录的 kpsewhich 等工具也能被子进程找到。"""
+    env = os.environ.copy()
+    bin_dir = str(Path(xelatex_path).resolve().parent)
+    env["PATH"] = bin_dir + os.pathsep + env.get("PATH", "")
+    return env

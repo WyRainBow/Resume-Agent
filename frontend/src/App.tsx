@@ -1,23 +1,25 @@
-import { Suspense, lazy } from 'react'
+import { Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthModal } from './components/AuthModal'
 import { ThemeInit } from './components/ThemeInit'
 import ErrorBoundary from './ErrorBoundary'
+import { lazyWithRetry } from './lib/lazyWithRetry'
 import { canUseAgentFeature, canUseAdminFeature } from './lib/runtimeEnv'
 import { useAuth } from './contexts/AuthContext'
 import ResumeDashboard from './pages/ResumeDashboard'
 import { ResumeProvider } from './contexts/ResumeContext'
 
-const AgentChat = lazy(() => import('./pages/AgentChat/SophiaChat'))
-const AdminDashboard = lazy(() => import('./pages/AdminDashboard'))
-const CreateNew = lazy(() => import('./pages/CreateNew'))
-const LandingPage = lazy(() => import('./pages/LandingPage'))
-const LoginPage = lazy(() => import('./pages/Login'))
-const SettingsPage = lazy(() => import('./pages/Settings'))
-const SharePage = lazy(() => import('./pages/SharePage'))
-const Workspace = lazy(() => import('./pages/Workspace/v2'))
-const HTMLWorkspace = lazy(() => import('./pages/Workspace/v2/html'))
-const LaTeXWorkspace = lazy(() => import('./pages/Workspace/v2/latex'))
+const AgentChat = lazyWithRetry(() => import('./pages/AgentChat/SophiaChat'))
+const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'))
+const CreateNew = lazyWithRetry(() => import('./pages/CreateNew'))
+const LandingPage = lazyWithRetry(() => import('./pages/LandingPage'))
+const LoginPage = lazyWithRetry(() => import('./pages/Login'))
+const SettingsPage = lazyWithRetry(() => import('./pages/Settings'))
+const SharePage = lazyWithRetry(() => import('./pages/SharePage'))
+const Workspace = lazyWithRetry(() => import('./pages/Workspace/v2'))
+const HTMLWorkspace = lazyWithRetry(() => import('./pages/Workspace/v2/html'))
+const LaTeXWorkspace = lazyWithRetry(() => import('./pages/Workspace/v2/latex'))
+const LeetCodePage = lazyWithRetry(() => import('./pages/LeetCode'))
 
 function RouteFallback() {
   return (
@@ -78,6 +80,7 @@ function App() {
                 <Route path="/admin" element={<Navigate to="/workspace" replace />} />
               )}
               <Route path="/create-new" element={<CreateNew />} />
+              <Route path="/leetcode/*" element={<LeetCodePage />} />
               <Route path="/share/:shareId" element={<SharePage />} />
             </Routes>
           </Suspense>

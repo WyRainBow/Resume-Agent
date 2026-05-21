@@ -8,13 +8,18 @@ import { cn } from '../../../../lib/utils'
 import { PDFViewerSelector } from '../../../../components/PDFEditor'
 import { HTMLTemplateRenderer } from '../HTMLTemplateRenderer'
 import type { ResumeData } from '../types'
+import type { PDFRenderMode } from '@/services/pdfRenderMode'
+import { logPDFRenderModeChange } from '@/services/api'
 
 interface PreviewPanelProps {
-  resumeData: ResumeData
+  resumeData?: ResumeData
   pdfBlob: Blob | null
   loading: boolean
   progress: string
   autoRenderPending?: boolean
+  renderMode?: PDFRenderMode
+  canUseRemoteRender?: boolean
+  onRenderModeChange?: (mode: PDFRenderMode) => void
   onRender: () => void
   onDownload: () => void
 }
@@ -25,6 +30,9 @@ export function PreviewPanel({
   loading,
   progress,
   autoRenderPending = false,
+  renderMode = 'local',
+  canUseRemoteRender = false,
+  onRenderModeChange = () => {},
   onRender,
   onDownload,
 }: PreviewPanelProps) {
@@ -33,7 +41,7 @@ export function PreviewPanel({
   const [userScale, setUserScale] = useState<number | null>(null)
   const [scalePercentInput, setScalePercentInput] = useState('')
 
-  const isHTMLTemplate = resumeData.templateType === 'html'
+  const isHTMLTemplate = resumeData?.templateType === 'html'
 
   const MIN_SCALE = 0.5
   const MAX_SCALE = 2.5
@@ -80,7 +88,7 @@ export function PreviewPanel({
   const showStatus = !isHTMLTemplate && (loading || autoRenderPending)
   const statusText = loading
     ? (progress || '正在更新 PDF 预览...')
-    : '已记录修改，停止输入 2 秒后更新预览'
+    : '已记录修改:停止输入 2 秒后更新预览'
 
   const applyPercentInput = (raw: string) => {
     const n = parseFloat(raw.replace(/[^\d.]/g, ''))
@@ -129,6 +137,33 @@ export function PreviewPanel({
                   {loading ? '更新中...' : autoRenderPending ? '立即更新 PDF' : '渲染 PDF'}
                 </span>
               </button>
+              {canUseRemoteRender && (
+                <label className="relative">
+                  <span className="sr-only">选择 PDF 渲染环境</span>
+                  <select
+                    value={renderMode}
+                    onChange={(e) => {
+                      const nextMode = e.target.value as PDFRenderMode
+                      console.info('[PDF TRACE][render-mode:change]', {
+                        from: renderMode,
+                        to: nextMode,
+                      })
+                      void logPDFRenderModeChange(renderMode, nextMode)
+                      onRenderModeChange(nextMode)
+                    }}
+                    className={cn(
+                      'min-w-[120px] rounded-lg border px-4 py-2.5 pr-8 text-sm font-semibold',
+                      'bg-white text-slate-700 border-slate-200 shadow-sm',
+                      'hover:border-slate-300 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100',
+                      'dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600 dark:hover:border-slate-500 dark:focus:ring-blue-900/40'
+                    )}
+                    title="选择 PDF 渲染环境"
+                  >
+                    <option value="local">本地渲染</option>
+                    <option value="remote">远程渲染</option>
+                  </select>
+                </label>
+              )}
             </div>
           )}
       </div>
@@ -161,7 +196,7 @@ export function PreviewPanel({
         {isHTMLTemplate ? (
           // HTML 模板：实时预览
           <div className="flex justify-center w-full p-4">
-            <HTMLTemplateRenderer resumeData={resumeData} />
+            <HTMLTemplateRenderer resumeData={resumeData!} />
           </div>
         ) : (
           // LaTeX 模板：PDF 预览 + 底部缩放栏（− / 百分比可编辑 / + / 适应宽度）
@@ -262,5 +297,3 @@ export function PreviewPanel({
 }
 
 export default PreviewPanel
-
-

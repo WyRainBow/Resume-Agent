@@ -4,11 +4,12 @@
 import type { ResumeData } from '../types'
 import { getLogoUrl } from '../constants/companyLogos'
 import { getSchoolLogoUrl } from '../constants/schoolLogos'
+import { formatBirthDateForHeader, resolveEmploymentStatusForRender } from './birthDateDisplay'
 import { stripHtmlTags } from './textUtils'
 
 // 生成单个模块的 HTML
 function generateSectionHTML(section: { id: string; title: string }, resumeData: ResumeData): string {
-  const { basic, experience, education, projects, openSource, awards, skillContent } = resumeData
+  const { basic, experience, education, projects, openSource, awards, selfEvaluation, skillContent } = resumeData
   const sectionId = section.id
   const sectionTitle = section.title
 
@@ -22,6 +23,15 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
         <section class="template-section">
           <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
           <div class="section-content">${skillContent}</div>
+        </section>
+      `
+
+    case 'selfEvaluation':
+      if (!selfEvaluation) return ''
+      return `
+        <section class="template-section">
+          <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
+          <div class="section-content">${selfEvaluation}</div>
         </section>
       `
 
@@ -155,22 +165,24 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
 
     case 'awards':
       if (awards.length === 0) return ''
+      const awardsListType = resumeData.globalSettings?.awardsListType || 'unordered'
+      const listTag = awardsListType === 'ordered' ? 'ol' : 'ul'
       return `
         <section class="template-section">
           <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
           <div class="section-content">
-            ${awards.map(award => `
-              <div class="item">
-                <div class="item-header">
-                  <div class="item-title-group">
-                    <h3 class="item-title">${escapeHtml(stripHtmlTags(award.title))}</h3>
-                    ${award.issuer ? `<span class="item-subtitle">${escapeHtml(stripHtmlTags(award.issuer))}</span>` : ''}
-                  </div>
-                  ${award.date ? `<span class="item-date">${escapeHtml(award.date)}</span>` : ''}
-                </div>
-                ${award.description ? `<p class="item-description">${escapeHtml(award.description)}</p>` : ''}
-              </div>
-            `).join('')}
+            <${listTag}>
+              ${awards.map((award) => {
+                const title = stripHtmlTags(award.title || '')
+                const issuer = stripHtmlTags(award.issuer || '')
+                const date = award.date || ''
+                const desc = award.description || ''
+                const parts = [title, issuer].filter(Boolean).join(' - ')
+                const main = desc ? (parts ? `${parts}：${desc}` : desc) : (parts || '')
+                const text = date ? (main ? `${main}（${date}）` : date) : main
+                return `<li>${escapeHtml(text)}</li>`
+              }).join('')}
+            </${listTag}>
           </div>
         </section>
       `
@@ -413,10 +425,23 @@ export function generateHTMLFile(resumeData: ResumeData): string {
             ${basic.phone ? `<div class="info-item">📞 ${escapeHtml(basic.phone)}</div>` : ''}
             ${basic.email ? `<div class="info-item">📧 ${escapeHtml(basic.email)}</div>` : ''}
             ${basic.location ? `<div class="info-item">📍 ${escapeHtml(basic.location)}</div>` : ''}
+            ${basic.birthDate ? (() => {
+              const mode = resumeData.globalSettings?.birthDateDisplayMode || 'birthDate'
+              const text = formatBirthDateForHeader(basic.birthDate, mode)
+              return text ? `<div class="info-item">🎂 ${escapeHtml(text)}</div>` : ''
+            })() : ''}
             ${basic.blog ? `<div class="info-item">🔗 <a href="${escapeHtml(basic.blog)}" target="_blank" rel="noopener noreferrer">${escapeHtml(basic.blog)}</a></div>` : ''}
           </div>
         </div>
-        ${basic.employementStatus ? `<div class="employment-status">${escapeHtml(basic.employementStatus)}</div>` : ''}
+        ${(() => {
+          const mode = resumeData.globalSettings?.birthDateDisplayMode || 'birthDate'
+          const status = resolveEmploymentStatusForRender(
+            basic.employementStatus,
+            basic.birthDate,
+            mode
+          )
+          return status ? `<div class="employment-status">${escapeHtml(status)}</div>` : ''
+        })()}
       </header>
 
       <div class="template-content">
