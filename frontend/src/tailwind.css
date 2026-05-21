@@ -17,6 +17,50 @@
   .no-spinner {
     -moz-appearance: textfield;
   }
+
+  @keyframes chat-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .chat-message-enter {
+    animation: chat-fade-in 0.35s ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .chat-message-enter {
+      animation: none;
+    }
+  }
+
+  .diff-rich-content ul,
+  .diff-rich-content ol {
+    margin: 0.5rem 0 0.5rem 1.25rem;
+    padding: 0;
+  }
+
+  .diff-rich-content li {
+    margin-bottom: 0.35rem;
+  }
+
+  .diff-rich-content p {
+    margin: 0.35rem 0;
+  }
+
+  .diff-rich-content strong {
+    font-weight: 600;
+    color: #1c1f21;
+  }
+
+  .diff-rich-content .custom-list {
+    list-style: disc;
+  }
 }
 
 @layer base {

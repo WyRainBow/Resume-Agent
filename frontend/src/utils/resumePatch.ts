@@ -244,6 +244,8 @@ function looksLikeHtml(value: string): boolean {
   return /<([a-z][^/>]*?)>/i.test(value)
 }
 
+export { looksLikeHtml }
+
 function toInlineHtml(text: string): string {
   const escaped = text
     .replace(/&/g, '&amp;')
@@ -435,6 +437,39 @@ export function stripInternalMarkers(content: string): string {
     .trim()
 }
 
+/** 移除模型 reasoning / think 标签，避免泄漏到聊天正文。 */
+export function stripReasoningTags(content: string): string {
+  if (!content) return ''
+  return content
+    .replace(/[\s\S]*?<\/think>/gi, '')
+    .replace(/[\s\S]*?<\/redacted_reasoning>/gi, '')
+    .replace(/<(?:think|redacted_reasoning)[^>]*>[\s\S]*?(?:<\/(?:think|redacted_reasoning)>|$)/gi, '')
+    .trim()
+}
+
+function looksLikeToolPayload(content: string): boolean {
+  const text = content.trim()
+  if (!text) return false
+  if (looksLikeHtml(text)) return true
+  if (text.startsWith('{') && text.endsWith('}')) return true
+  if (/\\["']/.test(text) && /<[a-z][^>]*>/i.test(text)) return true
+  return false
+}
+
+/**
+ * 清洗助手消息正文：去内部标记 / reasoning，并在有 patch 卡片时隐藏工具原始 payload。
+ */
+export function sanitizeAssistantMessageContent(
+  content: string,
+  options?: { suppressWhenPatchCard?: boolean },
+): string {
+  let text = stripReasoningTags(stripInternalMarkers(content))
+  if (options?.suppressWhenPatchCard && looksLikeToolPayload(text)) {
+    return ''
+  }
+  return text.trim()
+}
+
 /**
  * 将实习/经历条目格式化为 diff 卡片可读文案（非 JSON）。
  */
@@ -608,4 +643,50 @@ export function formatResumeDiffPreview(value?: string): string {
   const MAX_LEN = 900
   if (compacted.length <= MAX_LEN) return compacted
   return `${compacted.slice(0, MAX_LEN)}\n...（内容较长，已截断展示）`
+}
+
+export type DiffDisplayMode = 'html' | 'text'
+
+export interface DiffDisplayContent {
+  mode: DiffDisplayMode
+  content: string
+}
+
+function extractRawFromPatchPayload(
+  paths: string[] | undefined,
+  payload: Record<string, unknown> | undefined,
+): string {
+  if (!payload || typeof payload !== 'object') return ''
+  if ('_raw' in payload) {
+    return String((payload as { _raw?: unknown })._raw ?? '').trim()
+  }
+  const path = paths?.[0] || ''
+  if (path) {
+    const byPath = getByPath(payload, path)
+    if (typeof byPath === 'string') return byPath.trim()
+  }
+  const vals = Object.values(payload)
+  if (vals.length === 1 && typeof vals[0] === 'string') {
+    return vals[0].trim()
+  }
+  return ''
+}
+
+/** 获取 diff 展示内容：优先保留 HTML 富文本，否则回退纯文本。 */
+export function getDiffDisplayContent(value?: string): DiffDisplayContent {
+  const raw = String(value || '').trim()
+  if (!raw) return { mode: 'text', content: '' }
+  if (looksLikeHtml(raw)) return { mode: 'html', content: raw }
+  return { mode: 'text', content: formatResumeDiffPreview(raw) }
+}
+
+export function getPatchDiffDisplay(
+  paths: string[] | undefined,
+  payload: Record<string, unknown> | undefined,
+): DiffDisplayContent {
+  const raw = extractRawFromPatchPayload(paths, payload)
+  if (raw && looksLikeHtml(raw)) {
+    return { mode: 'html', content: raw }
+  }
+  return { mode: 'text', content: formatPatchDiffSide(paths, payload) }
 }

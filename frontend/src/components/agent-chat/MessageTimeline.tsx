@@ -1,6 +1,6 @@
 import React, { Fragment } from "react";
 import { Check, Copy, FileText, RotateCcw } from "lucide-react";
-import EnhancedMarkdown from "@/components/chat/EnhancedMarkdown";
+import ResumeMarkdown from "@/components/agent-chat/ResumeMarkdown";
 import ResumeCard from "@/components/chat/ResumeCard";
 import ResumeEditDiffCard from "@/components/chat/ResumeEditDiffCard";
 import SearchCard from "@/components/chat/SearchCard";
@@ -11,10 +11,15 @@ import DiagnosisToolCards, {
   type DiagnosisToolStructuredData,
 } from "@/components/agent-chat/DiagnosisToolCards";
 import { ResumeDiffCard } from "@/components/agent-chat/ResumeDiffCard";
+import { AssistantPaperCard } from "@/components/agent-chat/AssistantPaperCard";
 import type { PendingPatch } from "@/contexts/ResumeContext";
 import type { Message } from "@/types/chat";
 import type { ResumeData } from "@/pages/Workspace/v2/types";
-import { formatResumeDiffPreview, stripInternalMarkers } from "@/utils/resumePatch";
+import {
+  formatResumeDiffPreview,
+  sanitizeAssistantMessageContent,
+  stripReasoningTags,
+} from "@/utils/resumePatch";
 
 interface LoadedResumeItem {
   id: string;
@@ -142,9 +147,10 @@ export default function MessageTimeline({
         const patchesForMessage = (pendingPatches ?? []).filter(
           (p) => p.message_id === msg.id,
         );
+        const hasPatchCards = patchesForMessage.length > 0;
         // 有 patch 卡片时不再渲染旧路径的 ResumeEditDiffCard，避免重复
         const effectiveDiff =
-          patchesForMessage.length > 0
+          hasPatchCards
             ? null
             : sanitizeResumeDiffData(editDiffForMessage?.data);
         const searchForMessage = searchResults.find((r) => r.messageId === msg.id);
@@ -154,36 +160,39 @@ export default function MessageTimeline({
         const rawThought = (msg.thought || "").trim();
         const thoughtContent = isPlaceholderThought(rawThought) ? "" : rawThought;
         const { cleanedThought, embeddedResponse } =
-          splitEmbeddedResponseFromThought(thoughtContent);
-        const sanitizedContent = stripInternalMarkers(
-          effectiveDiff
+          splitEmbeddedResponseFromThought(stripReasoningTags(thoughtContent));
+        const sanitizedContent = sanitizeAssistantMessageContent(
+          hasPatchCards || effectiveDiff
             ? stripResumeEditMarkdown(msg.content || "")
             : msg.content || "",
+          { suppressWhenPatchCard: hasPatchCards },
         );
-        const effectiveContent = getDiffFallbackResponse(
-          Boolean(effectiveDiff),
-          (sanitizedContent.trim() || embeddedResponse).trim(),
-          effectiveDiff,
-        );
+        const effectiveContent = hasPatchCards
+          ? ""
+          : getDiffFallbackResponse(
+              Boolean(effectiveDiff),
+              (sanitizedContent.trim() || embeddedResponse).trim(),
+              effectiveDiff,
+            );
 
         if (msg.role === "user") {
           return (
-            <div key={msg.id || idx} className="mb-6 flex justify-end">
+            <div key={msg.id || idx} className="chat-message-enter mb-6 flex justify-end group/user">
               <div className="max-w-[80%]">
-                <div className="mb-1 text-right text-xs text-gray-400">
-                  {new Date().toLocaleString()}
+                <div className="mb-1 text-right text-[11px] text-chat-ink-muted/70 opacity-0 transition-opacity group-hover/user:opacity-100">
+                  {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                 </div>
                 {msg.attachments && msg.attachments.length > 0 && (
                   <div className="mb-2 flex flex-wrap justify-end gap-2">
                     {msg.attachments.map((file, i) => (
                       <div
                         key={i}
-                        className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs text-gray-600 shadow-sm"
+                        className="flex items-center gap-2 rounded-lg border border-chat-border bg-chat-surface px-3 py-2 text-xs text-chat-ink-muted shadow-sm"
                       >
-                        <FileText className="size-4 text-indigo-500" />
+                        <FileText className="size-4 text-chat-accent" />
                         <div className="flex flex-col">
-                          <span className="max-w-[150px] truncate font-medium">{file.name}</span>
-                          <span className="text-[10px] text-gray-400">
+                          <span className="max-w-[150px] truncate font-medium text-chat-ink">{file.name}</span>
+                          <span className="text-[10px] text-chat-ink-muted/80">
                             {`${((file.size ?? 0) / 1024).toFixed(1)} KB`}
                           </span>
                         </div>
@@ -191,7 +200,7 @@ export default function MessageTimeline({
                     ))}
                   </div>
                 )}
-                <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 text-gray-800">
+                <div className="rounded-2xl rounded-br-md bg-chat-user-bubble px-4 py-3 text-chat-ink shadow-sm dark:bg-slate-800 dark:text-slate-100">
                   {msg.content
                     .split("\n\n已上传并解析 PDF 文件")[0]
                     .split("\n\n文件《")[0]}
@@ -200,17 +209,6 @@ export default function MessageTimeline({
             </div>
           );
         }
-
-        return (
-          <Fragment key={msg.id || idx}>
-            {cleanedThought && (
-              <ThoughtProcess
-                content={cleanedThought}
-                isStreaming={false}
-                isLatest={false}
-                defaultExpanded={false}
-              />
-            )}
 
         const hasAssistantContent =
           diagnosisForMessage.length > 0 ||
@@ -233,11 +231,7 @@ export default function MessageTimeline({
             )}
 
             {hasAssistantContent && (
-              <div className="mb-8 border border-slate-200/50 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm relative overflow-hidden">
-                {/* Left brand line for warm paper aesthetic */}
-                <div className="absolute top-0 bottom-0 left-0 w-1 bg-amber-500/30 dark:bg-amber-500/20" />
-
-                <div className="pl-2">
+              <AssistantPaperCard>
                   {diagnosisForMessage.length > 0 && (
                     <DiagnosisToolCards items={diagnosisForMessage} className="mb-4" />
                   )}
@@ -259,8 +253,8 @@ export default function MessageTimeline({
                   )}
 
                   {effectiveContent && (
-                    <div className="mb-6 text-slate-800 dark:text-slate-100 font-sans tracking-wide leading-relaxed">
-                      <EnhancedMarkdown>{effectiveContent}</EnhancedMarkdown>
+                    <div className="mb-6 text-chat-ink dark:text-slate-100 font-chat tracking-wide leading-relaxed">
+                      <ResumeMarkdown>{effectiveContent}</ResumeMarkdown>
                     </div>
                   )}
 
@@ -292,24 +286,25 @@ export default function MessageTimeline({
                   )}
 
                   {msg.content && (
-                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800/60 flex gap-2">
+                    <div className="mt-4 pt-4 border-t border-chat-border/60 dark:border-slate-800/60 flex items-center gap-1 opacity-70 transition-opacity group-hover:opacity-100">
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(msg.content);
                           onSetCopiedId(msg.id || String(idx));
                           setTimeout(() => onSetCopiedId(null), 2000);
                         }}
-                        className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                        className="rounded p-1.5 text-chat-ink-muted transition-colors hover:bg-chat-canvas hover:text-chat-ink"
                         title="复制内容"
                       >
                         {copiedId === (msg.id || String(idx)) ? (
-                          <Check className="h-4 w-4 text-green-500" />
+                          <Check className="h-4 w-4 text-emerald-600" />
                         ) : (
                           <Copy className="h-4 w-4" />
                         )}
                       </button>
+                      <div className="hidden items-center gap-1 group-hover:flex">
                       <button
-                        className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                        className="rounded p-1.5 text-chat-ink-muted transition-colors hover:bg-chat-canvas hover:text-chat-ink"
                         title="赞"
                       >
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -322,7 +317,7 @@ export default function MessageTimeline({
                         </svg>
                       </button>
                       <button
-                        className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                        className="rounded p-1.5 text-chat-ink-muted transition-colors hover:bg-chat-canvas hover:text-chat-ink"
                         title="踩"
                       >
                         <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -337,25 +332,23 @@ export default function MessageTimeline({
                       <TTSButton text={msg.content} />
                       <button
                         onClick={onRegenerate}
-                        className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                        className="rounded p-1.5 text-chat-ink-muted transition-colors hover:bg-chat-canvas hover:text-chat-ink"
                         title="重新生成"
                       >
                         <RotateCcw className="h-4 w-4" />
                       </button>
-                      <button className="rounded p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600">
+                      <button className="rounded p-1.5 text-chat-ink-muted transition-colors hover:bg-chat-canvas hover:text-chat-ink">
                         <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
                           <circle cx="12" cy="12" r="1.5" />
                           <circle cx="6" cy="12" r="1.5" />
                           <circle cx="18" cy="12" r="1.5" />
                         </svg>
                       </button>
+                      </div>
                     </div>
                   )}
-                </div>
-              </div>
+              </AssistantPaperCard>
             )}
-          </Fragment>
-        );
           </Fragment>
         );
       })}

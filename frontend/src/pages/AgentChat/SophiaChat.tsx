@@ -2900,8 +2900,15 @@ function SophiaChatContent() {
       // 加载选中的简历数据
       const resolvedUserId =
         user?.id ?? (selectedResume as any).user_id ?? null;
+      const rawData = (selectedResume.data || {}) as Record<string, unknown>;
+      const normalizedBase = isWorkspaceResumeData(rawData)
+        ? (rawData as ResumeData)
+        : normalizeImportedResumeToCanonical(rawData as Record<string, any>, {
+            resumeId: selectedResume.id,
+            title: selectedResume.name,
+          });
       const resumeDataWithMeta = {
-        ...(selectedResume.data || {}),
+        ...normalizedBase,
         resume_id: selectedResume.id,
         user_id: resolvedUserId,
         alias: selectedResume.alias,
@@ -2928,7 +2935,7 @@ function SophiaChatContent() {
         return [...filtered, nextEntry];
       });
 
-      // 自动选中该简历，显示在右侧
+      // 自动选中该简历，显示在右侧（默认 LaTeX PDF 预览）
       setAllowPdfAutoRender(true);
       setSelectedResumeId(selectedResume.id);
       setShowResumeSelector(false);
@@ -3411,7 +3418,7 @@ function SophiaChatContent() {
 
   return (
     <WorkspaceLayout>
-      <div className="h-full bg-[#FAF9F5] dark:bg-slate-950 flex flex-col overflow-hidden">
+      <div className="h-full bg-chat-canvas dark:bg-slate-950 flex flex-col overflow-hidden font-chat">
         <div className="flex-1 flex overflow-hidden relative">
           {/* Left: Chat */}
           <section className="flex-1 min-w-0 flex flex-col h-full">
@@ -3447,10 +3454,10 @@ function SophiaChatContent() {
                       <div className="flex-[0.8]" />
 
                       <div className="text-center mb-12">
-                        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">
+                        <h1 className="text-3xl font-bold text-chat-ink dark:text-white mb-3 tracking-tight">
                           你好：我是你的 Resume AI 助手
                         </h1>
-                        <p className="text-slate-500 dark:text-slate-400 text-lg max-w-md mx-auto">
+                        <p className="text-chat-ink-muted dark:text-slate-400 text-lg max-w-md mx-auto">
                           我可以帮你优化简历、分析岗位匹配度，或者进行模拟面试。
                         </p>
                       </div>
@@ -3494,17 +3501,17 @@ function SophiaChatContent() {
                                 setInput(item.desc.replace(/[“”]/g, ""));
                               }
                             }}
-                            className="flex flex-col items-start p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-md transition-all text-left group"
+                            className="flex flex-col items-start p-4 rounded-xl border border-chat-border dark:border-slate-800 bg-chat-surface dark:bg-slate-900 hover:border-chat-accent/50 dark:hover:border-amber-500/30 hover:shadow-md transition-all text-left group"
                           >
                             <div
                               className={`p-2 rounded-lg ${item.color} mb-3 group-hover:scale-110 transition-transform`}
                             >
                               {item.icon}
                             </div>
-                            <h3 className="font-semibold text-slate-900 dark:text-white mb-1">
+                            <h3 className="font-semibold text-chat-ink dark:text-white mb-1">
                               {item.title}
                             </h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">
+                            <p className="text-sm text-chat-ink-muted dark:text-slate-400 line-clamp-2">
                               {item.desc}
                             </p>
                           </button>
@@ -3547,7 +3554,12 @@ function SophiaChatContent() {
                   isProcessing={isProcessing}
                   suggestions={currentSuggestions}
                   onSuggestionClick={(msg) => setInput(msg)}
-                  shouldHideResponseInChat={false}
+                  shouldHideResponseInChat={pendingPatches.some(
+                    (p) => p.message_id === "current",
+                  )}
+                  hasPendingPatchCards={pendingPatches.some(
+                    (p) => p.message_id === "current",
+                  )}
                   currentEditDiff={
                     // 当前轮已经有任何 patch 卡片（无论状态），就不再走旧的 editDiff 路径
                     pendingPatches.some(p => p.message_id === 'current')
@@ -3630,7 +3642,7 @@ function SophiaChatContent() {
             </CustomScrollbar>
 
             {/* Input Area */}
-            <div className="bg-[#FAF9F5] dark:bg-slate-950 px-4 py-4 pb-8">
+            <div className="bg-chat-canvas dark:bg-slate-950 px-4 py-4 pb-8">
               <div className="max-w-3xl mx-auto w-full">
                 {/* 快捷按钮 */}
                 {!isProcessing &&
@@ -3672,11 +3684,11 @@ function SophiaChatContent() {
 
           {/* Right: Resume Preview - 只在有选中简历时显示 */}
           {selectedResumeId && (
-            <CustomScrollbar as="aside" className="w-[45%] min-w-[420px] bg-slate-50 border-l border-slate-200 flex flex-col">
-              <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10 shrink-0">
+            <CustomScrollbar as="aside" className="w-[45%] min-w-[420px] bg-slate-50 border-l border-slate-200 flex flex-col dark:bg-slate-900 dark:border-slate-800">
+              <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10 shrink-0 dark:border-slate-800 dark:bg-slate-900">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-sm font-semibold text-slate-700">
+                    <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
                       简历 PDF 预览
                     </h2>
                     {selectedLoadedResume && (
@@ -3695,7 +3707,7 @@ function SophiaChatContent() {
                             true,
                           )
                         }
-                        className="text-xs text-indigo-600 hover:text-indigo-700 px-2 py-1 rounded hover:bg-indigo-50"
+                        className="text-xs text-indigo-600 hover:text-indigo-700 px-2 py-1 rounded hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-slate-800"
                       >
                         {selectedResumePdfState.loading ? "取消并重试" : "重新渲染"}
                       </button>
@@ -3705,7 +3717,7 @@ function SophiaChatContent() {
                         setAllowPdfAutoRender(false);
                         setSelectedResumeId(null);
                       }}
-                      className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
+                      className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100 dark:text-slate-400 dark:hover:bg-slate-800"
                     >
                       关闭
                     </button>
@@ -3714,59 +3726,59 @@ function SophiaChatContent() {
               </div>
               <div className="flex-1 min-h-0 flex flex-col">
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                  <CustomScrollbar className="flex-1 bg-slate-100/70 p-4">
+                  <CustomScrollbar className="flex-1 bg-slate-100/70 p-4 dark:bg-slate-950/40">
                     {!selectedLoadedResume && (
                       <div className="text-sm text-slate-500">
                         正在加载简历...
                       </div>
                     )}
 
-                      {selectedLoadedResume &&
-                        selectedResumePdfState.loading &&
-                        !selectedResumePdfState.blob && (
-                          <div className="h-full flex items-center justify-center">
-                            <div className="text-center">
-                              <div className="mx-auto mb-3 size-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                              <p className="text-sm text-slate-500 text-pretty">
-                                {selectedResumePdfState.progress ||
-                                  "正在渲染简历 PDF..."}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                      {selectedLoadedResume && selectedResumePdfState.error && (
+                    {selectedLoadedResume &&
+                      selectedResumePdfState.loading &&
+                      !selectedResumePdfState.blob && (
                         <div className="h-full flex items-center justify-center">
-                          <div className="max-w-sm text-center">
-                            <p className="text-sm text-red-500 text-pretty">
-                              {selectedResumePdfState.error}
+                          <div className="text-center">
+                            <div className="mx-auto mb-3 size-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                            <p className="text-sm text-slate-500 text-pretty">
+                              {selectedResumePdfState.progress ||
+                                "正在渲染简历 PDF..."}
                             </p>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void renderResumePdfPreview(
-                                  selectedLoadedResume,
-                                  true,
-                                )
-                              }
-                              className="mt-3 text-xs text-indigo-600 hover:text-indigo-700"
-                            >
-                              点击重试
-                            </button>
                           </div>
                         </div>
                       )}
 
-                      {selectedLoadedResume && selectedResumePdfState.blob && (
-                        <div className="flex justify-center">
-                          <PDFViewerSelector
-                            pdfBlob={selectedResumePdfState.blob}
-                            scale={1}
-                          />
+                    {selectedLoadedResume && selectedResumePdfState.error && (
+                      <div className="h-full flex items-center justify-center">
+                        <div className="max-w-sm text-center">
+                          <p className="text-sm text-red-500 text-pretty">
+                            {selectedResumePdfState.error}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void renderResumePdfPreview(
+                                selectedLoadedResume,
+                                true,
+                              )
+                            }
+                            className="mt-3 text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
+                          >
+                            点击重试
+                          </button>
                         </div>
-                      )}
-                    </CustomScrollbar>
-                  </div>
+                      </div>
+                    )}
+
+                    {selectedLoadedResume && selectedResumePdfState.blob && (
+                      <div className="flex justify-center">
+                        <PDFViewerSelector
+                          pdfBlob={selectedResumePdfState.blob}
+                          scale={1}
+                        />
+                      </div>
+                    )}
+                  </CustomScrollbar>
+                </div>
               </div>
             </CustomScrollbar>
           )}

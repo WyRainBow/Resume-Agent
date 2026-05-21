@@ -49,23 +49,23 @@ export default function ThoughtProcess({
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex gap-1 items-center">
-          <span className="text-neutral-500 text-sm font-normal">Thought Process</span>
+          <span className="text-chat-ink-muted text-sm font-normal">Thought Process</span>
           <ChevronUp
             size={12}
-            className={`text-neutral-400 transition-transform duration-200 ${expanded ? "" : "rotate-180"}`}
+            className={`text-chat-ink-muted/70 transition-transform duration-200 ${expanded ? "" : "rotate-180"}`}
           />
         </div>
         {isStreaming && (
           <div className="flex gap-1 ml-1">
-            <span className="w-1 h-1 bg-neutral-300 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-            <span className="w-1 h-1 bg-neutral-300 rounded-full animate-bounce" style={{ animationDelay: "100ms" }} />
-            <span className="w-1 h-1 bg-neutral-300 rounded-full animate-bounce" style={{ animationDelay: "200ms" }} />
+            <span className="w-1 h-1 bg-chat-accent/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+            <span className="w-1 h-1 bg-chat-accent/60 rounded-full animate-bounce" style={{ animationDelay: "100ms" }} />
+            <span className="w-1 h-1 bg-chat-accent/60 rounded-full animate-bounce" style={{ animationDelay: "200ms" }} />
           </div>
         )}
       </div>
 
       {expanded && (
-        <div className="text-neutral-500 text-sm leading-relaxed pl-0 font-normal whitespace-pre-wrap break-words">
+        <div className="text-chat-ink-muted text-sm leading-relaxed pl-0 font-normal whitespace-pre-wrap break-words">
           {textToShow}
         </div>
       )}

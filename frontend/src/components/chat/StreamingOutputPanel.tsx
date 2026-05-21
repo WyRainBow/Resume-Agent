@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import ThoughtProcess from './ThoughtProcess';
 import StreamingResponse from './StreamingResponse';
+import { AssistantPaperCard } from '@/components/agent-chat/AssistantPaperCard';
 
 export interface StreamRenderModel {
   thought: string;
@@ -122,11 +123,7 @@ export default function StreamingOutputPanel({
 
       {/* 统一的纸张卡片容器，包裹所有 Assistant 输出内容 */}
       {hasSubsequentContent && (
-        <div className="mb-8 border border-slate-200/50 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-2xl p-5 shadow-sm relative overflow-hidden">
-          {/* Left brand line for warm paper aesthetic */}
-          <div className="absolute top-0 bottom-0 left-0 w-1 bg-amber-500/30 dark:bg-amber-500/20" />
-
-          <div className="pl-2">
+        <AssistantPaperCard>
             {canShowSubsequentContent && currentSearch && renderSearchCard && (
               <div className="my-4">
                 {renderSearchCard(currentSearch.data)}
@@ -146,8 +143,7 @@ export default function StreamingOutputPanel({
             )}
 
             {canShowSubsequentContent && children}
-          </div>
-        </div>
+        </AssistantPaperCard>
       )}
     </>
   );
