@@ -11,6 +11,7 @@ import re
 import uuid
 from backend.agent.tool.base import BaseTool, ToolResult
 from backend.agent.tool.resume_data_store import ResumeDataStore
+from backend.agent.utils.json_path import set_by_path
 from backend.agent.utils.resume_richtext import is_richtext_path, normalize_editor_value
 from backend.agent.llm import LLM
 from backend.core.logger import get_logger
@@ -68,6 +69,12 @@ Execute modifications immediately when user provides specific details.
 
     class Config:
         arbitrary_types_allowed = True
+
+    @staticmethod
+    def _values_equal(old_val: Any, new_val: Any) -> bool:
+        if old_val == new_val:
+            return True
+        return str(old_val or "").strip() == str(new_val or "").strip()
 
     @staticmethod
     def _stringify_value(value: Any) -> str:
@@ -147,14 +154,24 @@ Execute modifications immediately when user provides specific details.
             result = await cv_editor.edit_resume(normalized_path, action, value)
 
             if result.get("success"):
+                old_val = result.get("old_value")
+                new_val = result.get("new_value")
+
+                # 无实质变更：不弹 diff 卡片、不写库
+                if action == "update" and self._values_equal(old_val, new_val):
+                    logger.info(
+                        f"[CVEditorAgentTool] No-op update skipped: {normalized_path}"
+                    )
+                    return ToolResult(
+                        output=f"✅ {normalized_path} 内容未变化，已跳过更新。"
+                    )
+
                 # 同步更新 ResumeDataStore（因为 CVEditor 直接修改了传入的字典引用）
                 ResumeDataStore.set_data(resume_data, session_id=self.session_id)
                 # 尝试写回 AI 简历存储（如有 resume_id/user_id）
                 persisted = ResumeDataStore.persist_data(self.session_id)
 
                 # 格式化成功消息
-                old_val = result.get("old_value")
-                new_val = result.get("new_value")
                 output = f"✅ {result.get('message', 'Edit completed')}"
                 if not persisted:
                     # 🔧 改进：检查持久化失败的具体原因
@@ -194,14 +211,23 @@ Execute modifications immediately when user provides specific details.
                     output += f"\nIndex: {result['new_index']}"
                 patch_id = str(uuid.uuid4())
                 path_str = normalized_path
-                before_text = self._stringify_value(old_val)
-                after_text = self._stringify_value(new_val)
+                before_payload: Dict[str, Any] = {"_raw": self._stringify_value(old_val)}
+                after_payload: Dict[str, Any] = {"_raw": self._stringify_value(new_val)}
+
+                # add：必须指向具体下标，避免前端把整段 experience 替换成 JSON 字符串
+                if action == "add" and "new_index" in result:
+                    idx = int(result["new_index"])
+                    path_str = f"{normalized_path}[{idx}]"
+                    before_payload = {}
+                    after_payload = {}
+                    set_by_path(after_payload, path_str, new_val)
+
                 structured_data = {
                     "type": "resume_patch",
                     "patch_id": patch_id,
                     "paths": [path_str],
-                    "before": {"_raw": before_text},
-                    "after": {"_raw": after_text},
+                    "before": before_payload,
+                    "after": after_payload,
                     "summary": f"修改了 {path_str}",
                 }
                 return ToolResult(output=output, system=json.dumps(structured_data, ensure_ascii=False))

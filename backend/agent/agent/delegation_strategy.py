@@ -12,7 +12,7 @@ class AgentDelegationStrategy:
             "parallel": True,
         },
         "optimize_section": {
-            "analyzers": ["{section}_analyzer"],
+            "analyzers": ["work_experience_analyzer"],
             "optimizer": "resume_optimizer",
             "parallel": False,
         },
@@ -29,12 +29,8 @@ class AgentDelegationStrategy:
             return cls.STRATEGIES["analyze_resume"].copy()
         if intent == Intent.OPTIMIZE_SECTION:
             strategy = cls.STRATEGIES["optimize_section"].copy()
-            if section:
-                mapped = cls._map_section_to_analyzer(section)
-                if mapped:
-                    strategy["analyzers"] = [mapped]
-                else:
-                    strategy["analyzers"] = []
+            mapped = cls._map_section_to_analyzer(section) if section else None
+            strategy["analyzers"] = [mapped] if mapped else ["work_experience_analyzer"]
             return strategy
         if intent == Intent.FULL_OPTIMIZE:
             return cls.STRATEGIES["full_optimize"].copy()

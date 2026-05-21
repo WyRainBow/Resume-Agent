@@ -30,6 +30,10 @@ from backend.agent.memory import (
     ConversationState,
     Intent,
 )
+from backend.agent.application.conversation.conversation_state import (
+    is_add_experience_query,
+    is_read_only_query,
+)
 from backend.agent.schema import Message, Role, ToolCall
 from backend.agent.agent.shared_state import AgentSharedState
 from backend.agent.agent.capability import CapabilityRegistry, ResumeCapability
@@ -201,6 +205,19 @@ class Manus(ToolCallAgent):
         tasks = [self.delegate_to_agent(name) for name in analyzers]
         results = await asyncio.gather(*tasks)
         return results
+
+    async def execute_tool(self, command: ToolCall) -> str:
+        """只读查看轮次拦截误触发的简历编辑工具。"""
+        name = ""
+        if command and command.function:
+            name = command.function.name or ""
+        if getattr(self, "_current_turn_read_only", False) and name == "cv_editor_agent":
+            logger.info("📖 只读轮次拦截 cv_editor_agent 调用")
+            return (
+                "错误：本轮为只读查看请求，禁止修改简历。"
+                "请直接根据 system prompt 中已注入的简历内容回答用户，勿再调用编辑工具。"
+            )
+        return await super().execute_tool(command)
 
     def _resolve_analyzers_by_section(self, section: Optional[str]) -> List[str]:
         """Resolve analyzers list by section."""
@@ -665,54 +682,6 @@ class Manus(ToolCallAgent):
             for keyword in ("STAR", "Situation", "Action", "Result", "情境", "行动", "结果")
         )
 
-    def _extract_recent_optimization_text(self) -> Optional[str]:
-        """提取最近一轮可用于直接写回的优化正文。"""
-        for msg in reversed(self.memory.messages[-14:]):
-            role_val = msg.role if isinstance(msg.role, str) else msg.role.value
-            if role_val != "assistant":
-                continue
-            body = self._extract_response_body(msg.content or "")
-            if self._is_actionable_optimization_text(body):
-                return body
-        return None
-
-    def _build_generic_star_optimization(self) -> Optional[tuple[str, str]]:
-        """
-        构造兜底 STAR 文本（当历史里没有可直接写回的优化正文时）。
-        返回 (path, optimized_text)。
-        """
-        resume_data = ResumeDataStore.get_data(self.session_id) or {}
-        if not isinstance(resume_data, dict):
-            return None
-        path = self._resolve_primary_experience_text_path()
-        if not path:
-            return None
-        exp0 = (resume_data.get("experience") or [{}])[0]
-        if not isinstance(exp0, dict):
-            return None
-        company = str(exp0.get("company") or "该公司").strip() or "该公司"
-        title = str(exp0.get("position") or exp0.get("title") or "后端开发实习生").strip() or "后端开发实习生"
-        base_text = ""
-        field = path.split(".")[-1]
-        if isinstance(exp0.get(field), str):
-            base_text = exp0.get(field).strip()
-        if not base_text:
-            return None
-        base_summary = self._to_plain_text(base_text)
-        if len(base_summary) > 180:
-            base_summary = f"{base_summary[:180]}..."
-
-        optimized = (
-            f"{company} | {title}\n"
-            "Situation（情境）：在实习期间参与核心后端业务开发，面对稳定性与性能优化需求。\n"
-            "Task（任务）：负责关键模块迭代与服务性能优化，保障核心链路稳定运行。\n"
-            f"Action（行动）：基于现有工作内容“{base_summary}”进行结构化重写，补全职责边界、技术动作与实施路径，"
-            "并按高并发场景优化接口与数据访问策略。\n"
-            "Result（结果）：形成可量化、可复用的项目表达模板，显著提升经历表述清晰度与面试可讲述性。"
-            "（如有具体指标可继续替换为真实数据）"
-        )
-        return path, optimized
-
     async def _generate_dynamic_prompts(self, user_input: str, intent: "Intent" = None) -> tuple:
         """
         根据用户输入和对话状态动态生成提示词（Hybrid 模式）
@@ -751,6 +720,22 @@ class Manus(ToolCallAgent):
         if resume_text:
             system_prompt = f"{system_prompt}\n\n{resume_text}"
             logger.info("📋 简历内容已注入 system prompt（Hybrid 模式）")
+
+        if is_read_only_query(user_input or ""):
+            system_prompt = (
+                f"{system_prompt}\n\n"
+                "## 本轮约束（只读查看）\n"
+                "用户正在读取/查看简历内容。**禁止**调用 cv_editor_agent，"
+                "不要修改姓名或任何字段；直接基于上方简历内容完整回答。\n"
+            )
+        elif is_add_experience_query(user_input or ""):
+            system_prompt = (
+                f"{system_prompt}\n\n"
+                "## 本轮约束（新增经历）\n"
+                "用户要导入/新增一段实习或工作经历：使用 cv_editor_agent，"
+                "action=add，path=experience，value 为完整条目对象（company/position/date/details）。\n"
+                "details 必须用 HTML 无序列表（ul.custom-list + strong），禁止 STAR 模板，禁止覆盖 experience[0]。\n"
+            )
 
         next_step = await self._generate_next_step_prompt(intent)
 
@@ -961,6 +946,9 @@ class Manus(ToolCallAgent):
         """
         # 获取最后的用户输入
         user_input = self._get_last_user_input()
+        self._current_turn_read_only = is_read_only_query(user_input)
+        if self._current_turn_read_only:
+            logger.info("📖 只读查看轮次：禁止 cv_editor_agent")
         self._sync_resume_loaded_state()
 
         # 两阶段执行编辑：先给用户“正在修改”反馈，再在下一步实际调用编辑工具。
@@ -1077,7 +1065,9 @@ class Manus(ToolCallAgent):
                     recent_editor_tool_msg = msg
                     break
 
-            if recent_editor_tool_msg is not None:
+            if recent_editor_tool_msg is not None and not getattr(
+                self, "_current_turn_read_only", False
+            ):
                 logger.info("✅ cv_editor_agent 已执行，直接结束避免重复调用工具")
                 # After cv_editor_agent runs, emit a short confirmation via answer
                 # and stop — do NOT return True (which would let LLM pick tools again).
@@ -1123,14 +1113,21 @@ class Manus(ToolCallAgent):
                     logger.debug(f"已更新用户消息为增强查询: {enhanced_query}")
                     break
 
-        # 优化确认快路径：用户明确要求“直接更新/应用优化”时，优先触发写回工具。
-        # 该分支必须放在分析/优化委托之前，避免被再次进入优化问答流程。
-        if self._looks_like_optimize_confirm(user_input):
+        # 优化确认快路径：仅当用户明确确认「应用/写回」上一轮优化建议时触发。
+        # 新增经历、只读查看不得进入此分支。
+        if (
+            not is_read_only_query(user_input)
+            and not is_add_experience_query(user_input)
+            and self._looks_like_optimize_confirm(user_input)
+        ):
             if await self._handle_optimize_confirm():
                 logger.info("🧭 optimize confirmation mapped to cv_editor_agent")
                 return True
 
-        if intent in [Intent.ANALYZE_RESUME, Intent.OPTIMIZE_SECTION, Intent.FULL_OPTIMIZE]:
+        if (
+            intent in [Intent.ANALYZE_RESUME, Intent.OPTIMIZE_SECTION, Intent.FULL_OPTIMIZE]
+            and not is_add_experience_query(user_input)
+        ):
             section = tool_args.get("section") if isinstance(tool_args, dict) else None
             try:
                 resume_data_snapshot = ResumeDataStore.get_data(self.session_id)
@@ -1596,14 +1593,26 @@ class Manus(ToolCallAgent):
 
     @staticmethod
     def _looks_like_optimize_confirm(text: str) -> bool:
+        """仅匹配用户明确确认应用上一轮优化建议的短句，避免正文里的「优化」「应用」误触发。"""
         normalized = (text or "").strip().lower()
-        if not normalized:
+        if not normalized or len(normalized) > 80:
             return False
-        patterns = (
-            r"(可以|好的|同意|确认|行|开始|请)",
-            r"(更新|应用|写回|保存|优化|改|修改|替换)",
+        if is_add_experience_query(normalized) or is_read_only_query(normalized):
+            return False
+        explicit = (
+            r"^(可以|好的|同意|确认|请).{0,12}(应用|写回|更新|保存)",
+            r"^(应用|写回|确认应用).{0,12}(优化|修改|建议|吧|了)?$",
+            r"^就按.{0,8}(优化|建议|方案)",
+            r"^直接(应用|写回|更新)",
         )
-        return all(re.search(pattern, normalized) for pattern in patterns)
+        if any(re.search(p, normalized) for p in explicit):
+            return True
+        # 极短确认：≤12 字且同时含确认词 + 写回词（排除单字「行」）
+        if len(normalized) <= 12:
+            has_confirm = bool(re.search(r"(可以|好的|同意|确认|请|就按)", normalized))
+            has_apply = bool(re.search(r"(应用优化|写回|更新到|保存)", normalized))
+            return has_confirm and has_apply
+        return False
 
     async def _handle_optimize_confirm(self) -> bool:
         """处理用户确认优化意图"""
@@ -1665,68 +1674,8 @@ class Manus(ToolCallAgent):
                     logger.debug(f"解析优化建议失败: {e}")
                     continue
 
-        # Fallback: 直接从最近 assistant 的 STAR 优化正文写回工作经历详情。
-        star_text = self._extract_recent_optimization_text()
-        if star_text:
-            star_text = self._sanitize_optimization_text(star_text)
-            if not self._is_reasonable_optimization_text(star_text):
-                logger.info("⚠️ skip oversized/repeated optimization text, fallback to generic STAR")
-                star_text = None
-        edit_path = self._resolve_primary_experience_text_path() or "experience[0].details"
-
-        if star_text and self._has_resume_data_in_store():
-            manual_tool_call = ToolCall(
-                id="call_apply_star_fallback",
-                function={
-                    "name": "cv_editor_agent",
-                    "arguments": json.dumps(
-                        {
-                            "path": edit_path,
-                            "action": "update",
-                            "value": star_text,
-                        }
-                    ),
-                },
-            )
-            self.tool_calls = [manual_tool_call]
-            self.memory.add_message(
-                Message.from_tool_calls(
-                    content=f"✅ 正在应用优化：将 STAR 优化描述写回 `{edit_path}`",
-                    tool_calls=[manual_tool_call],
-                )
-            )
-            logger.info(f"🔧 Fallback apply optimization: {edit_path}")
-            self._just_applied_optimization = True
-            return True
-
-        generic_star = self._build_generic_star_optimization()
-        if generic_star and self._has_resume_data_in_store():
-            generic_path, generic_text = generic_star
-            manual_tool_call = ToolCall(
-                id="call_apply_star_generic",
-                function={
-                    "name": "cv_editor_agent",
-                    "arguments": json.dumps(
-                        {
-                            "path": generic_path,
-                            "action": "update",
-                            "value": generic_text,
-                        }
-                    ),
-                },
-            )
-            self.tool_calls = [manual_tool_call]
-            self.memory.add_message(
-                Message.from_tool_calls(
-                    content=f"✅ 正在应用优化：使用 STAR 模板写回 `{generic_path}`",
-                    tool_calls=[manual_tool_call],
-                )
-            )
-            logger.info(f"🔧 Generic STAR fallback apply: {generic_path}")
-            self._just_applied_optimization = True
-            return True
-
-        # 无法解析 JSON，让 LLM 处理
+        # 无结构化优化建议时交给 LLM，禁止 STAR/通用模板兜底写回
+        logger.info("⚠️ optimize confirm: no actionable suggestion from analyzer, defer to LLM")
         return False
 
     def _get_last_ai_message(self) -> Optional[str]:

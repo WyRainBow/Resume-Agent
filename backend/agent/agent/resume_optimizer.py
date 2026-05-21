@@ -10,6 +10,9 @@ class ResumeOptimizerAgent:
 
     name: str = "ResumeOptimizerAgent"
 
+    def __init__(self, session_id: Optional[str] = None) -> None:
+        self.session_id = session_id
+
     def generate_suggestions(
         self,
         analysis_results: List[Dict],
