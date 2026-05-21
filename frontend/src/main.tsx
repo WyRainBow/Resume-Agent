@@ -5,6 +5,9 @@ import App from './App'
 import { AuthProvider } from './contexts/AuthContext'
 import { EnvironmentProvider } from './contexts/EnvironmentContext'
 
+// 应用成功启动后清除 chunk 热更新标记，避免影响后续正常导航
+sessionStorage.removeItem('resume-agent:chunk-reload')
+
 try {
   const root = ReactDOM.createRoot(document.getElementById('root')!);
   root.render(
