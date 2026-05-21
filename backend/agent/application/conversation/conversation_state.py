@@ -614,7 +614,7 @@ class ConversationStateManager:
     def _extract_section(self, text: str) -> Optional[str]:
         """Extract section name from text."""
         section_map = {
-            "工作经历": ["工作经历", "工作经验", "工作"],
+            "工作经历": ["工作经历", "工作经验", "工作", "实习经历", "实习"],
             "教育背景": ["教育背景", "教育经历", "教育"],
             "技能": ["技能", "技术栈"],
             "项目经历": ["项目经历", "项目"],

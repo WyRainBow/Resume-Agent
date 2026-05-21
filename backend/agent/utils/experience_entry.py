@@ -50,6 +50,118 @@ def resolve_experience_add_path(path: str, resume_data: Dict[str, Any]) -> str:
     return "experience"
 
 
+_OPTIMIZE_QUERY_PREFIX_RE = re.compile(
+    r"^(优化|改进|润色|修改|完善|一下|请|帮我|我的|这段|这个|关于|针对)+"
+)
+_OPTIMIZE_QUERY_SUFFIX_RE = re.compile(
+    r"(实习|经历|工作|条目|部分|内容|一下)+$"
+)
+
+
+def _clean_experience_query_fragment(fragment: str) -> str:
+    """去掉查询片段首尾的功能词，保留「美的」等公司简称。"""
+    cleaned = (fragment or "").strip()
+    if not cleaned:
+        return ""
+    previous = None
+    while cleaned != previous:
+        previous = cleaned
+        cleaned = _OPTIMIZE_QUERY_PREFIX_RE.sub("", cleaned)
+        cleaned = _OPTIMIZE_QUERY_SUFFIX_RE.sub("", cleaned)
+    return cleaned.strip()
+
+
+def _extract_experience_query_tokens(normalized_text: str) -> List[str]:
+    """从「优化一下美的实习」类输入提取可能的公司/岗位关键词。"""
+    text = (normalized_text or "").strip()
+    if not text:
+        return []
+
+    tokens: List[str] = []
+    seen: set[str] = set()
+
+    def _add(raw: str) -> None:
+        cleaned = _clean_experience_query_fragment(raw)
+        if len(cleaned) >= 2 and cleaned not in seen:
+            seen.add(cleaned)
+            tokens.append(cleaned)
+
+    _add(text)
+    for match in re.finditer(r"[\u4e00-\u9fffA-Za-z0-9]{2,12}", text):
+        _add(match.group(0))
+
+    tokens.sort(key=len, reverse=True)
+    return tokens
+
+
+def _experience_company_label(raw: Dict[str, Any]) -> str:
+    return str(
+        raw.get("company") or raw.get("title") or raw.get("organization") or ""
+    ).strip()
+
+
+def resolve_experience_target_index(
+    user_input: str,
+    resume_data: Dict[str, Any],
+) -> Optional[int]:
+    """从用户输入中匹配 experience 条目下标（如「优化美的实习」→ 美的集团）。"""
+    text = (user_input or "").strip()
+    if not text:
+        return None
+
+    experiences = resume_data.get("experience")
+    if not isinstance(experiences, list) or not experiences:
+        return None
+
+    normalized = text.replace(" ", "")
+    query_tokens = _extract_experience_query_tokens(normalized)
+    candidates: List[tuple[int, int, str]] = []
+
+    for idx, raw in enumerate(experiences):
+        if not isinstance(raw, dict):
+            continue
+        company = _experience_company_label(raw)
+        position = str(raw.get("position") or raw.get("role") or "").strip()
+        if not company and not position:
+            continue
+
+        company_key = company.replace(" ", "")
+        company_short = company.split("|")[0].split("—")[0].split("-")[0].strip()
+        company_short_key = company_short.replace(" ", "")
+        position_key = position.replace(" ", "")
+
+        score = 0
+        if company_key and company_key in normalized:
+            score = max(score, len(company_key) + 10)
+        if company_short_key and company_short_key in normalized:
+            score = max(score, len(company_short_key) + 8)
+
+        for token in re.split(r"[\|｜—\-/（）()]", company):
+            token = token.strip().replace(" ", "")
+            if len(token) >= 2 and token in normalized:
+                score = max(score, len(token) + 3)
+
+        # 用户可能只说简称，如「美的」→「美的集团」
+        for keyword in query_tokens:
+            if company_key and keyword in company_key:
+                score = max(score, len(keyword) + 15)
+            if company_key and company_key in keyword:
+                score = max(score, len(company_key) + 12)
+            if company_short_key and keyword in company_short_key:
+                score = max(score, len(keyword) + 13)
+            if position_key and keyword in position_key:
+                score = max(score, len(keyword) + 6)
+
+        if score > 0:
+            candidates.append((score, idx, company or position))
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda item: (-item[0], item[1]))
+    return candidates[0][1]
+
+
 def normalize_experience_add_entry(
     value: Any,
     *,
@@ -204,6 +316,19 @@ def sanitize_resume_payload(resume_data: Dict[str, Any]) -> Dict[str, Any]:
     return data
 
 
+_INDEXED_ARRAY_ITEM_RE = re.compile(r"^(experience|internships)\[(\d+)\]$")
+
+
+def is_indexed_array_item_path(path: str) -> bool:
+    """路径是否为 experience[i] / internships[i] 形式的数组项。"""
+    return bool(_INDEXED_ARRAY_ITEM_RE.match((path or "").strip()))
+
+
+def build_indexed_patch_before(path: str, value: Any) -> Dict[str, Any]:
+    """delete/update 的 before 侧：与 add 的 after 相同索引结构。"""
+    return build_indexed_patch_after(path, value)
+
+
 def build_indexed_patch_after(path: str, value: Any) -> Dict[str, Any]:
     """
     构造 resume_patch 的 after，避免 set_by_path 产生 [null, null, item]。
@@ -220,3 +345,20 @@ def build_indexed_patch_after(path: str, value: Any) -> Dict[str, Any]:
     payload: Dict[str, Any] = {}
     set_by_path(payload, path, value)
     return payload
+
+
+def build_optimization_resume_patch(suggestion: Dict[str, Any]) -> Dict[str, Any]:
+    """将优化建议转为 resume_patch，供前端 ResumeDiffCard 展示与应用。"""
+    apply_path = str(suggestion.get("apply_path") or "").strip() or "experience[0].details"
+    current = str(suggestion.get("current") or "")
+    optimized = str(suggestion.get("optimized") or "")
+    title = str(suggestion.get("title") or "优化建议")
+    return {
+        "type": "resume_patch",
+        "patch_id": str(uuid.uuid4()),
+        "operation": "update",
+        "paths": [apply_path],
+        "before": {"_raw": current},
+        "after": {"_raw": optimized},
+        "summary": title,
+    }

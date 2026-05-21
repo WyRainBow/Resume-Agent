@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback } from 'react'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
-import { applyPatchPaths } from '@/utils/resumePatch'
+import { applyPatchPaths, inferPatchOperation, type ResumePatchOperation } from '@/utils/resumePatch'
 import { saveResume } from '@/services/resumeStorage'
 
 export type PendingPatchStatus = 'pending' | 'applied' | 'rejected' | 'superseded'
@@ -12,6 +12,7 @@ export interface PendingPatch {
   before:     Record<string, any>
   after:      Record<string, any>
   summary:    string
+  operation?: ResumePatchOperation
   status:     PendingPatchStatus
 }
 
@@ -39,7 +40,10 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
   const [patchAppliedAt, setPatchAppliedAt] = useState(0)
 
   const persistResume = useCallback((payload: ResumeData) => {
-    const resumeId = (payload as any).resume_id ?? (payload as any).id
+    const resumeId =
+      (payload as any).resume_id ??
+      (payload as any)._meta?.resume_id ??
+      (payload as any).id
     if (!resumeId) return
     void saveResume(payload, resumeId || undefined).catch((error) => {
       console.error('[ResumeContext] 保存简历失败:', error)
@@ -62,7 +66,8 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
       if (!patch) return prev
       setResumeState(current => {
         if (!current) return current
-        const updated = applyPatchPaths(current, patch.paths, patch.after) as ResumeData
+        const op = inferPatchOperation(patch) as ResumePatchOperation
+        const updated = applyPatchPaths(current, patch.paths, patch.after, op) as ResumeData
         persistResume(updated)
         return updated
       })

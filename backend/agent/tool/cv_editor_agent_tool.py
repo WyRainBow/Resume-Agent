@@ -13,7 +13,9 @@ from backend.agent.tool.base import BaseTool, ToolResult
 from backend.agent.tool.resume_data_store import ResumeDataStore
 from backend.agent.utils.experience_entry import (
     build_indexed_patch_after,
+    build_indexed_patch_before,
     coerce_tool_value,
+    is_indexed_array_item_path,
     normalize_experience_add_entry,
     resolve_experience_add_path,
     to_internships_schema,
@@ -120,6 +122,29 @@ Execute modifications immediately when user provides specific details.
 
         raise ValueError("当前简历中未找到可修改的实习/经历条目，请先完善对应内容")
 
+    @staticmethod
+    def _is_empty_experience_entry(value: Any) -> bool:
+        """判断 update 值是否等价于“删除整条经历”（避免前端留下未命名公司）。"""
+        if value is None:
+            return True
+        if isinstance(value, str) and not value.strip():
+            return True
+        if not isinstance(value, dict):
+            return False
+        company = str(
+            value.get("company") or value.get("title") or value.get("organization") or ""
+        ).strip()
+        position = str(
+            value.get("position") or value.get("subtitle") or value.get("role") or ""
+        ).strip()
+        details = value.get("details") or value.get("description") or ""
+        if isinstance(details, list):
+            details = "\n".join(str(x) for x in details)
+        details = str(details or "").strip()
+        if details and re.search(r"<[a-z][^>]*>", details, re.I):
+            details = re.sub(r"<[^>]+>", "", details).strip()
+        return not company and not position and not details
+
     async def execute(self, path: str, action: str, value: Any = None) -> ToolResult:
         """执行简历编辑
 
@@ -170,6 +195,13 @@ Execute modifications immediately when user provides specific details.
                     and ("**" in value or re.search(r"^\d+\.\s", value, re.M))
                 ):
                     value = normalize_editor_value(value, normalized_path)
+
+            # update 空对象到 experience[i] 等价于 delete，避免内存/DB 留下空占位条目
+            if action == "update" and is_indexed_array_item_path(normalized_path):
+                coerced = coerce_tool_value(value)
+                if self._is_empty_experience_entry(coerced):
+                    action = "delete"
+                    value = None
 
             # 执行编辑操作
             result = await cv_editor.edit_resume(normalized_path, action, value)
@@ -232,6 +264,7 @@ Execute modifications immediately when user provides specific details.
                     output += f"\nIndex: {result['new_index']}"
                 patch_id = str(uuid.uuid4())
                 path_str = normalized_path
+                patch_operation = action
                 before_payload: Dict[str, Any] = {"_raw": self._stringify_value(old_val)}
                 after_payload: Dict[str, Any] = {"_raw": self._stringify_value(new_val)}
 
@@ -241,14 +274,34 @@ Execute modifications immediately when user provides specific details.
                     path_str = f"{normalized_path}[{idx}]"
                     before_payload = {}
                     after_payload = build_indexed_patch_after(path_str, new_val)
+                elif action == "delete":
+                    after_payload = {}
+                    if is_indexed_array_item_path(path_str) and old_val is not None:
+                        before_payload = build_indexed_patch_before(path_str, old_val)
+                    else:
+                        before_payload = {"_raw": self._stringify_value(old_val)}
+                elif action == "update" and is_indexed_array_item_path(path_str):
+                    if self._is_empty_experience_entry(new_val):
+                        patch_operation = "delete"
+                        after_payload = {}
+                        before_payload = build_indexed_patch_before(path_str, old_val)
+                    else:
+                        before_payload = build_indexed_patch_before(path_str, old_val)
+                        after_payload = build_indexed_patch_after(path_str, new_val)
 
+                summary = (
+                    f"删除了 {path_str}"
+                    if patch_operation == "delete"
+                    else f"修改了 {path_str}"
+                )
                 structured_data = {
                     "type": "resume_patch",
                     "patch_id": patch_id,
+                    "operation": patch_operation,
                     "paths": [path_str],
                     "before": before_payload,
                     "after": after_payload,
-                    "summary": f"修改了 {path_str}",
+                    "summary": summary,
                 }
                 return ToolResult(output=output, system=json.dumps(structured_data, ensure_ascii=False))
             else:

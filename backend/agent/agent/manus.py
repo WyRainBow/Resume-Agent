@@ -34,6 +34,10 @@ from backend.agent.application.conversation.conversation_state import (
     is_add_experience_query,
     is_read_only_query,
 )
+from backend.agent.utils.experience_entry import (
+    build_optimization_resume_patch,
+    resolve_experience_target_index,
+)
 from backend.agent.schema import Message, Role, ToolCall
 from backend.agent.agent.shared_state import AgentSharedState
 from backend.agent.agent.capability import CapabilityRegistry, ResumeCapability
@@ -91,6 +95,7 @@ class Manus(ToolCallAgent):
     _shared_state: AgentSharedState = PrivateAttr(default=None)
     _skills_cache: Dict[str, str] = PrivateAttr(default_factory=dict)
     _pending_immediate_stream: Optional[Dict[str, Any]] = PrivateAttr(default=None)  # 立即流式推送的消息
+    _pending_resume_patches: List[Dict[str, Any]] = PrivateAttr(default_factory=list)
 
     @model_validator(mode="after")
     def initialize_helper(self) -> "Manus":
@@ -177,7 +182,10 @@ class Manus(ToolCallAgent):
             resume_data = ResumeDataStore.get_data(self.session_id)
 
         if hasattr(agent, "analyze"):
-            return await agent.analyze(resume_data)
+            analyze_kwargs: Dict[str, Any] = {}
+            if kwargs.get("target_index") is not None:
+                analyze_kwargs["target_index"] = kwargs["target_index"]
+            return await agent.analyze(resume_data, **analyze_kwargs)
 
         analysis_results = kwargs.get("analysis_results")
         if hasattr(agent, "optimize") and analysis_results is not None:
@@ -198,11 +206,13 @@ class Manus(ToolCallAgent):
         analyzers = self._resolve_analyzers_by_section(section)
         return await self._parallel_delegate_analyzers(analyzers)
 
-    async def _parallel_delegate_analyzers(self, analyzers: List[str]) -> List[Dict[str, Any]]:
+    async def _parallel_delegate_analyzers(
+        self, analyzers: List[str], **kwargs: Any
+    ) -> List[Dict[str, Any]]:
         """并行委托给分析 Agent。"""
         if not analyzers:
             return []
-        tasks = [self.delegate_to_agent(name) for name in analyzers]
+        tasks = [self.delegate_to_agent(name, **kwargs) for name in analyzers]
         results = await asyncio.gather(*tasks)
         return results
 
@@ -483,22 +493,70 @@ class Manus(ToolCallAgent):
         lines = [title, ""]
         for idx, suggestion in enumerate(suggestions, 1):
             lines.append(f"### 建议 {idx}: {suggestion.get('title', '优化建议')}")
-            current = suggestion.get("current", "")
-            optimized = suggestion.get("optimized", "")
-            explanation = suggestion.get("explanation", "")
-            apply_path = suggestion.get("apply_path")
+            current = str(suggestion.get("current", "") or "").strip()
+            optimized = str(suggestion.get("optimized", "") or "").strip()
+            explanation = str(suggestion.get("explanation", "") or "").strip()
             if current:
-                lines.append(f"- 当前: {current}")
+                lines.append(f"**修改前**")
+                lines.append(current)
+                lines.append("")
             if optimized:
-                lines.append(f"- 优化: {optimized}")
-            if explanation:
-                lines.append(f"- 说明: {explanation}")
-            if apply_path:
-                lines.append(f"- 路径: `{apply_path}`")
-            lines.append("")
+                lines.append(f"**修改后（参考）**")
+                lines.append(optimized)
+                lines.append("")
+            if explanation and explanation != optimized:
+                lines.append(f"**说明**：{explanation}")
+                lines.append("")
 
-        lines.append("是否要应用这些优化？请告诉我需要应用的建议序号。")
-        return "\n".join(lines)
+        lines.append("如需应用上述改写，请回复「应用建议 1」或说明要改哪一段。")
+        return "\n".join(lines).strip()
+
+    def queue_resume_patch(self, patch: Dict[str, Any]) -> None:
+        """暂存 resume_patch，由 AgentStream 在 step 结束后 emit。"""
+        self._pending_resume_patches.append(patch)
+
+    def drain_resume_patches(self) -> List[Dict[str, Any]]:
+        """取出并清空待发送的 resume_patch 列表。"""
+        patches = list(self._pending_resume_patches)
+        self._pending_resume_patches = []
+        return patches
+
+    def _queue_optimization_patches(self, suggestions: List[Dict[str, Any]]) -> int:
+        """将优化建议转为 resume_patch，返回成功入队数量。"""
+        count = 0
+        for suggestion in suggestions:
+            optimized = str(suggestion.get("optimized") or "").strip()
+            apply_path = str(suggestion.get("apply_path") or "").strip()
+            if not optimized or not apply_path or apply_path == "experience":
+                continue
+            self.queue_resume_patch(build_optimization_resume_patch(suggestion))
+            count += 1
+        return count
+
+    def _optimization_assistant_reply(
+        self,
+        suggestions: Dict[str, Any],
+        *,
+        patch_count: int,
+        default_label: str = "实习经历",
+    ) -> str:
+        """优化结果有 diff 卡片时用短回复，否则回退 markdown 长文。"""
+        if patch_count <= 0:
+            return self._format_optimization_suggestions(suggestions)
+
+        items = suggestions.get("optimization_suggestions") or []
+        label = default_label
+        if items:
+            title = str(items[0].get("title") or "").strip()
+            title_match = re.match(r"优化\s*(.+?)(?:的)?实习经历\s*$", title)
+            if title_match:
+                label = title_match.group(1).strip() or default_label
+            elif title.startswith("优化 "):
+                label = title[3:].strip() or default_label
+
+        if patch_count == 1:
+            return f"已为 **{label}** 生成优化对比，请在下方卡片确认是否应用。"
+        return f"已生成 **{patch_count}** 处优化对比，请在下方卡片逐条确认是否应用。"
 
     @staticmethod
     def _is_injected_system_user_message(content: str) -> bool:
@@ -517,15 +575,42 @@ class Manus(ToolCallAgent):
         )
         return any(marker in text[:300] for marker in injected_markers)
 
+    def _get_last_user_message_idx(self) -> int:
+        """返回最后一条真实用户消息在 memory 中的下标，不存在则 -1。"""
+        for idx in range(len(self.memory.messages) - 1, -1, -1):
+            msg = self.memory.messages[idx]
+            role_val = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+            if role_val != "user" or not msg.content:
+                continue
+            content = msg.content.strip()
+            if not self._is_injected_system_user_message(content):
+                return idx
+        return -1
+
     def _get_last_user_input(self) -> str:
         """获取最后一条真正的用户输入（过滤系统提示词，保留长文本粘贴）。"""
-        for msg in reversed(self.memory.messages):
-            role_val = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
-            if role_val == "user" and msg.content:
-                content = msg.content.strip()
-                if not self._is_injected_system_user_message(content):
-                    return content
-        return ""
+        idx = self._get_last_user_message_idx()
+        if idx < 0:
+            return ""
+        return (self.memory.messages[idx].content or "").strip()
+
+    def _sync_turn_read_only_flag(self, user_input: str) -> None:
+        """同一用户轮次内只计算一次只读标志，避免多步 think 反复重算。"""
+        last_user_idx = self._get_last_user_message_idx()
+        locked_idx = getattr(self, "_read_only_locked_user_idx", -2)
+        if last_user_idx == locked_idx:
+            return
+
+        self._read_only_locked_user_idx = last_user_idx
+        if is_add_experience_query(user_input):
+            self._current_turn_read_only = False
+        else:
+            self._current_turn_read_only = is_read_only_query(user_input)
+
+        if self._current_turn_read_only:
+            logger.info("📖 只读查看轮次：禁止 cv_editor_agent")
+        elif is_add_experience_query(user_input):
+            logger.info("📎 新增经历轮次：允许 cv_editor_agent")
 
     @staticmethod
     def _extract_replace_request(user_input: str) -> Optional[tuple[str, str]]:
@@ -955,16 +1040,9 @@ class Manus(ToolCallAgent):
         1. 特殊意图（GREETING、LOAD_RESUME）直接处理
         2. 其他意图交给 LLM 自然处理，依赖自动终止机制
         """
-        # 获取最后的用户输入
+        # 获取最后的用户输入；同一轮内锁定只读/可写模式
         user_input = self._get_last_user_input()
-        if is_add_experience_query(user_input):
-            self._current_turn_read_only = False
-        else:
-            self._current_turn_read_only = is_read_only_query(user_input)
-        if self._current_turn_read_only:
-            logger.info("📖 只读查看轮次：禁止 cv_editor_agent")
-        elif is_add_experience_query(user_input):
-            logger.info("📎 新增经历轮次：允许 cv_editor_agent")
+        self._sync_turn_read_only_flag(user_input)
         self._sync_resume_loaded_state()
 
         # 两阶段执行编辑：先给用户“正在修改”反馈，再在下一步实际调用编辑工具。
@@ -1326,12 +1404,84 @@ class Manus(ToolCallAgent):
                     return False
 
                 if intent == Intent.OPTIMIZE_SECTION:
-                    analysis_results = await self._parallel_delegate_analyzers(analyzers or [])
-                    suggestions = await self.delegate_to_agent(
-                        strategy.get("optimizer", "resume_optimizer") if strategy else "resume_optimizer",
-                        analysis_results=analysis_results,
+                    target_index = resolve_experience_target_index(
+                        user_input, resume_data_snapshot or {}
                     )
-                    content = self._format_optimization_suggestions(suggestions)
+                    experiences = (resume_data_snapshot or {}).get("experience") or []
+
+                    # 指定公司/条目时：直接给出完整 before/after，不走碎片化规则 issue
+                    if target_index is not None and target_index < len(experiences):
+                        analyzer = AgentRegistry.create(
+                            "work_experience_analyzer", session_id=self.session_id
+                        )
+                        opt = await analyzer.optimize(
+                            resume_data_snapshot or {},
+                            issue_id=f"work-enhance-{target_index}",
+                        )
+                        company = experiences[target_index].get("company") or "该段经历"
+                        suggestions = {
+                            "optimization_suggestions": [
+                                {
+                                    "title": f"优化 {company} 的实习经历",
+                                    "current": opt.get("current", ""),
+                                    "optimized": opt.get("optimized", ""),
+                                    "explanation": opt.get("explanation", ""),
+                                    "apply_path": opt.get("apply_path"),
+                                }
+                            ]
+                        }
+                    else:
+                        analysis_results = await self._parallel_delegate_analyzers(
+                            analyzers or [],
+                            target_index=target_index,
+                        )
+                        suggestions = await self.delegate_to_agent(
+                            strategy.get("optimizer", "resume_optimizer") if strategy else "resume_optimizer",
+                            analysis_results=analysis_results,
+                            resume_data=resume_data_snapshot,
+                        )
+                        if not (suggestions.get("optimization_suggestions") or []):
+                            fallback_idx = target_index
+                            if fallback_idx is None:
+                                fallback_idx = resolve_experience_target_index(
+                                    user_input, resume_data_snapshot or {}
+                                )
+                            if fallback_idx is None:
+                                fallback_idx = 0
+                            analyzer = AgentRegistry.create(
+                                "work_experience_analyzer", session_id=self.session_id
+                            )
+                            opt = await analyzer.optimize(
+                                resume_data_snapshot or {},
+                                issue_id=f"work-enhance-{fallback_idx}",
+                            )
+                            suggestions = {
+                                "optimization_suggestions": [
+                                    {
+                                        "title": f"优化 {((resume_data_snapshot or {}).get('experience') or [{}])[fallback_idx].get('company', '该段经历')} 的实习经历",
+                                        "current": opt.get("current", ""),
+                                        "optimized": opt.get("optimized", ""),
+                                        "explanation": opt.get("explanation", ""),
+                                        "apply_path": opt.get("apply_path"),
+                                    }
+                                ]
+                            }
+                    suggestions_list = suggestions.get("optimization_suggestions") or []
+                    patch_count = self._queue_optimization_patches(suggestions_list)
+                    default_label = "实习经历"
+                    resolved_idx = target_index
+                    if resolved_idx is None and suggestions_list:
+                        apply_path = str(suggestions_list[0].get("apply_path") or "")
+                        idx_match = re.search(r"experience\[(\d+)\]", apply_path)
+                        if idx_match:
+                            resolved_idx = int(idx_match.group(1))
+                    if resolved_idx is not None and resolved_idx < len(experiences):
+                        default_label = experiences[resolved_idx].get("company") or default_label
+                    content = self._optimization_assistant_reply(
+                        suggestions,
+                        patch_count=patch_count,
+                        default_label=default_label,
+                    )
                     self.memory.add_message(Message.assistant_message(content))
                     from backend.agent.schema import AgentState
                     self.state = AgentState.FINISHED
@@ -1343,7 +1493,16 @@ class Manus(ToolCallAgent):
                         strategy.get("optimizer", "resume_optimizer") if strategy else "resume_optimizer",
                         analysis_results=analysis_results,
                     )
-                    content = self._format_optimization_suggestions(suggestions, full=True)
+                    suggestions_list = suggestions.get("optimization_suggestions") or []
+                    patch_count = self._queue_optimization_patches(suggestions_list)
+                    if patch_count > 0:
+                        content = self._optimization_assistant_reply(
+                            suggestions,
+                            patch_count=patch_count,
+                            default_label="简历",
+                        )
+                    else:
+                        content = self._format_optimization_suggestions(suggestions, full=True)
                     self.memory.add_message(Message.assistant_message(content))
                     from backend.agent.schema import AgentState
                     self.state = AgentState.FINISHED

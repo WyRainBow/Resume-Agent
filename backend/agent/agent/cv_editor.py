@@ -216,12 +216,17 @@ You can edit this resume using update, add, or delete operations.
     def _delete(self, path: str) -> Dict[str, Any]:
         """删除操作"""
         try:
-            old_value = delete_by_path(self._resume_data, path)
+            parts = parse_path(path)
+            old_value = None
+            if exists_path(self._resume_data, parts):
+                _, _, old_value = get_by_path(self._resume_data, parts)
+            delete_by_path(self._resume_data, path)
             return {
                 "success": True,
                 "message": f"Successfully deleted: {path}",
                 "path": path,
-                "deleted_value": str(old_value)[:100]  # 限制长度
+                "old_value": old_value,
+                "new_value": None,
             }
         except ValueError as e:
             return {

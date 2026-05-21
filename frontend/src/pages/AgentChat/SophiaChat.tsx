@@ -60,6 +60,7 @@ import { useMessageTimeline } from "@/hooks/agent-chat/useMessageTimeline";
 import {
   applyPatchPaths,
   extractResumeEditDiff as extractResumeEditDiffFromMarkdown,
+  inferPatchOperation,
   normalizeResumePatchValue,
   stripResumeEditMarkdown,
 } from "@/utils/resumePatch";
@@ -473,6 +474,7 @@ function SophiaChatContent() {
     patchAppliedAt,
     supersedePendingPatches,
     rebindCurrentPatches,
+    setResume,
   } = useResumeContext();
   const [generatedResume, setGeneratedResume] = useState<{
     resume: any; summary: string
@@ -1302,6 +1304,7 @@ function SophiaChatContent() {
           before:     patch.before     ?? {},
           after:      patch.after      ?? {},
           summary:    patch.summary    ?? '',
+          operation:  patch.operation  ?? 'set',
         });
         return;
       }
@@ -1610,6 +1613,12 @@ function SophiaChatContent() {
   }, [conversationId, currentSessionId, initialSessionResolved, apiBaseUrl, getAuthHeaders, location.search]); // 仅在会话确定后加载
 
   useEffect(() => {
+    if (resumeData) {
+      setResume(resumeData);
+    }
+  }, [resumeData, setResume]);
+
+  useEffect(() => {
     if (!lastError) return;
     setResumeError(lastError);
   }, [lastError]);
@@ -1625,7 +1634,8 @@ function SophiaChatContent() {
       let updated: ResumeData = prev;
       for (const patch of pendingPatches) {
         if (patch.status === 'applied') {
-          updated = applyPatchPaths(updated, patch.paths, patch.after) as ResumeData;
+          const op = inferPatchOperation(patch);
+          updated = applyPatchPaths(updated, patch.paths, patch.after, op) as ResumeData;
         }
       }
       return updated;
@@ -1641,7 +1651,8 @@ function SophiaChatContent() {
         let updated: ResumeData = item.resumeData;
         for (const patch of pendingPatches) {
           if (patch.status === 'applied') {
-            updated = applyPatchPaths(updated, patch.paths, patch.after) as ResumeData;
+            const op = inferPatchOperation(patch);
+            updated = applyPatchPaths(updated, patch.paths, patch.after, op) as ResumeData;
           }
         }
         return { ...item, resumeData: updated };
@@ -1691,6 +1702,18 @@ function SophiaChatContent() {
             },
           };
           setResumeData(resumeDataWithMeta as ResumeData);
+          setResume(resumeDataWithMeta as ResumeData);
+          setLoadedResumes((prev) => {
+            const targetId = selectedResumeId || resumeId;
+            if (!targetId) return prev;
+            const exists = prev.some((item) => item.id === targetId);
+            if (!exists) return prev;
+            return prev.map((item) =>
+              item.id === targetId
+                ? { ...item, resumeData: resumeDataWithMeta as ResumeData }
+                : item,
+            );
+          });
           console.log(
             "[AgentChat] Resume data refreshed after agent completion",
           );
@@ -3413,7 +3436,7 @@ function SophiaChatContent() {
 
                       <div className="text-center mb-12">
                         <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">
-                          你好，我是你的 Resume AI 助手
+                          你好：我是你的 Resume AI 助手
                         </h1>
                         <p className="text-slate-500 dark:text-slate-400 text-lg max-w-md mx-auto">
                           我可以帮你优化简历、分析岗位匹配度，或者进行模拟面试。
