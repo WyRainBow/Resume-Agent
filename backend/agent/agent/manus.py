@@ -211,11 +211,15 @@ class Manus(ToolCallAgent):
         name = ""
         if command and command.function:
             name = command.function.name or ""
-        if getattr(self, "_current_turn_read_only", False) and name == "cv_editor_agent":
-            logger.info("📖 只读轮次拦截 cv_editor_agent 调用")
+        if getattr(self, "_current_turn_read_only", False) and name in (
+            "cv_editor_agent",
+            "str_replace_editor",
+        ):
+            logger.info(f"📖 只读轮次拦截 {name} 调用")
             return (
-                "错误：本轮为只读查看请求，禁止修改简历。"
-                "请直接根据 system prompt 中已注入的简历内容回答用户，勿再调用编辑工具。"
+                "错误：本轮为只读查看请求，禁止修改代码或简历。"
+                "请直接根据 system prompt 中已注入的「# CV/Resume Context」完整回答，"
+                "勿调用 cv_editor_agent、str_replace_editor 或任何文件编辑工具。"
             )
         return await super().execute_tool(command)
 
@@ -496,28 +500,30 @@ class Manus(ToolCallAgent):
         lines.append("是否要应用这些优化？请告诉我需要应用的建议序号。")
         return "\n".join(lines)
 
-    def _get_last_user_input(self) -> str:
-        """获取最后一条真正的用户输入（过滤系统提示词）"""
-        # 系统提示词的特征
-        system_patterns = [
-            "## ",  # Markdown 标题
-            "**重要",  # 重要提示
-            "工具选择",  # 工具选择规则
-            "根据用户输入",  # 系统指令
-            "意图识别",  # 系统指令
-            "cv_reader_agent",  # 工具名
-            "cv_analyzer_agent",
-            "cv_editor_agent",
-        ]
+    @staticmethod
+    def _is_injected_system_user_message(content: str) -> bool:
+        """识别以 user 角色注入的系统指令（非真实用户输入）。"""
+        text = (content or "").strip()
+        if not text:
+            return True
+        # 仅匹配明确的系统注入格式，避免误伤长段实习/项目粘贴
+        if text.startswith("## ") and "用户输入" in text[:200]:
+            return True
+        injected_markers = (
+            "根据用户输入，请选择",
+            "意图识别结果",
+            "工具选择规则",
+            "**重要：本轮",
+        )
+        return any(marker in text[:300] for marker in injected_markers)
 
+    def _get_last_user_input(self) -> str:
+        """获取最后一条真正的用户输入（过滤系统提示词，保留长文本粘贴）。"""
         for msg in reversed(self.memory.messages):
             role_val = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
             if role_val == "user" and msg.content:
                 content = msg.content.strip()
-                # 检查是否是系统提示词
-                is_system = any(pattern in content for pattern in system_patterns)
-                # 真正的用户输入通常较短
-                if not is_system and len(content) < 500:
+                if not self._is_injected_system_user_message(content):
                     return content
         return ""
 
@@ -725,16 +731,20 @@ class Manus(ToolCallAgent):
             system_prompt = (
                 f"{system_prompt}\n\n"
                 "## 本轮约束（只读查看）\n"
-                "用户正在读取/查看简历内容。**禁止**调用 cv_editor_agent，"
-                "不要修改姓名或任何字段；直接基于上方简历内容完整回答。\n"
+                "用户正在读取/查看简历内容。**禁止**调用 cv_editor_agent、str_replace_editor"
+                "及任何写文件/改代码工具；不要修改简历。"
+                "必须直接根据上方「# CV/Resume Context」完整输出原文，禁止去查源码。\n"
+                "每条经历的 Details 按多行要点列出（保留 - 开头的子项），不要合并成一大段。\n"
             )
         elif is_add_experience_query(user_input or ""):
             system_prompt = (
                 f"{system_prompt}\n\n"
                 "## 本轮约束（新增经历）\n"
-                "用户要导入/新增一段实习或工作经历：使用 cv_editor_agent，"
+                "用户要导入/新增一段实习或工作经历：**本轮不是只读**，必须调用 cv_editor_agent；"
+                "禁止声称「只读模式」「无法修改」。\n"
                 "action=add，path=experience，value 为**单个 JSON 对象**（勿把整个对象再 stringify 成字符串）。\n"
                 "字段：company、position、date（不要用 period）、details（HTML ul.custom-list + strong）。\n"
+                "details 每条成果单独一个 <li>，禁止把 1.2.3. 或分号分隔的多条成就写进同一个 <li>。\n"
                 "禁止 STAR 模板，禁止 update experience[0]，必须 append 新条。\n"
             )
 
@@ -947,9 +957,14 @@ class Manus(ToolCallAgent):
         """
         # 获取最后的用户输入
         user_input = self._get_last_user_input()
-        self._current_turn_read_only = is_read_only_query(user_input)
+        if is_add_experience_query(user_input):
+            self._current_turn_read_only = False
+        else:
+            self._current_turn_read_only = is_read_only_query(user_input)
         if self._current_turn_read_only:
             logger.info("📖 只读查看轮次：禁止 cv_editor_agent")
+        elif is_add_experience_query(user_input):
+            logger.info("📎 新增经历轮次：允许 cv_editor_agent")
         self._sync_resume_loaded_state()
 
         # 两阶段执行编辑：先给用户“正在修改”反馈，再在下一步实际调用编辑工具。

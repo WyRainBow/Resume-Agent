@@ -199,7 +199,9 @@ def _download_user_photo_to_dir(photo_url: str, temp_dir: str) -> str | None:
         logos_dir = Path(temp_dir) / "logos"
         logos_dir.mkdir(parents=True, exist_ok=True)
         local_path = logos_dir / local_name
-        urllib.request.urlretrieve(photo_url, str(local_path))
+        from .company_logos import _download_url_to_path
+
+        _download_url_to_path(photo_url, local_path, timeout=15.0)
         return local_name
     except Exception:
         return None

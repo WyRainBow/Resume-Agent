@@ -321,10 +321,6 @@ export function stripInternalMarkers(content: string): string {
     .trim()
 }
 
-function looksLikeHtml(value: string): boolean {
-  return /<[a-z][^>]*>/i.test(value || '')
-}
-
 /**
  * 将实习/经历条目格式化为 diff 卡片可读文案（非 JSON）。
  */
@@ -348,7 +344,24 @@ export function formatExperienceEntryForDiff(entry: Record<string, unknown>): st
     lines.push(`${headerParts.join(' | ')}${date ? `（${date}）` : ''}`)
   }
   if (details) {
-    lines.push(looksLikeHtml(details) ? htmlToReadableText(details) : formatResumeDiffPreview(details))
+    let readable = looksLikeHtml(details)
+      ? htmlToReadableText(details)
+      : formatResumeDiffPreview(details)
+    const liCount = looksLikeHtml(details) ? (details.match(/<li/gi) || []).length : 0
+    if (liCount <= 1 && readable.includes('；')) {
+      const parts = readable
+        .split('；')
+        .map((p) => p.trim())
+        .filter(Boolean)
+      if (parts.length >= 2) {
+        readable = parts
+          .map((p, i) =>
+            i === 0 && /(如下|包括|主要有)$/.test(p) ? p : `- ${p.replace(/^[-•]\s*/, '')}`,
+          )
+          .join('\n')
+      }
+    }
+    lines.push(readable)
   }
   return lines.join('\n\n').trim()
 }
@@ -416,6 +429,8 @@ function htmlToReadableText(value: string): string {
     .replace(/<\/p>/gi, '\n')
     .replace(/<\/div>/gi, '\n')
     .replace(/<\/h[1-6]>/gi, '\n')
+    .replace(/<li[^>]*>\s*<p[^>]*>/gi, '\n- ')
+    .replace(/<\/p>\s*<\/li>/gi, '\n')
     .replace(/<li[^>]*>/gi, '\n- ')
     .replace(/<\/li>/gi, '\n')
     .replace(/<\/ul>|<\/ol>/gi, '\n')

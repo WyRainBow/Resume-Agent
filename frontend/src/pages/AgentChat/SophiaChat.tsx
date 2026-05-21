@@ -681,6 +681,8 @@ function SophiaChatContent() {
     [],
   );
 
+  const pdfRenderAbortRef = useRef<AbortController | null>(null);
+
   const renderResumePdfPreview = useCallback(
     async (
       resumeEntry: {
@@ -700,13 +702,28 @@ function SophiaChatContent() {
       if (!resumeEntry.resumeData) return;
 
       const currentState = resumePdfPreview[resumeEntry.id];
-      if (!force && (currentState?.loading || currentState?.blob)) {
+      if (!force && currentState?.loading) {
         console.log(
-          "[DEBUG] renderResumePdfPreview skipped (already loading or has blob)",
+          "[DEBUG] renderResumePdfPreview skipped (already loading)",
+        );
+        return;
+      }
+      if (!force && currentState?.blob) {
+        console.log(
+          "[DEBUG] renderResumePdfPreview skipped (already has blob)",
         );
         return;
       }
 
+      pdfRenderAbortRef.current?.abort();
+      const abortController = new AbortController();
+      pdfRenderAbortRef.current = abortController;
+      const renderTimeoutMs = 120_000;
+      const timeoutId = window.setTimeout(() => {
+        abortController.abort();
+      }, renderTimeoutMs);
+
+      try {
       if (!isWorkspaceResumeData(resumeEntry.resumeData)) {
         updateResumePdfState(resumeEntry.id, {
           blob: null,
@@ -722,8 +739,6 @@ function SophiaChatContent() {
         progress: "正在渲染 PDF...",
         error: null,
       });
-
-      try {
         const backendData = convertToBackendFormat(resumeEntry.resumeData);
         const renderSessionId = currentSessionId || conversationId;
         const traceId = `sophia-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -753,6 +768,7 @@ function SophiaChatContent() {
             traceId,
             source: "SophiaChat.renderResumePdfPreview",
             trigger: force ? "manual-retry" : "auto-effect",
+            signal: abortController.signal,
           },
         );
 
@@ -763,15 +779,23 @@ function SophiaChatContent() {
           error: null,
         });
       } catch (error) {
+        const aborted =
+          error instanceof Error && error.name === "AbortError";
         updateResumePdfState(resumeEntry.id, {
           blob: null,
           loading: false,
           progress: "",
-          error:
-            error instanceof Error
+          error: aborted
+            ? "PDF 渲染超时或已取消，请点击重新渲染。"
+            : error instanceof Error
               ? error.message
               : "PDF 渲染失败，请稍后重试。",
         });
+      } finally {
+        window.clearTimeout(timeoutId);
+        if (pdfRenderAbortRef.current === abortController) {
+          pdfRenderAbortRef.current = null;
+        }
       }
     },
     [
@@ -3644,10 +3668,9 @@ function SophiaChatContent() {
                             true,
                           )
                         }
-                        disabled={selectedResumePdfState.loading}
-                        className="text-xs text-indigo-600 hover:text-indigo-700 disabled:text-slate-400 disabled:cursor-not-allowed px-2 py-1 rounded hover:bg-indigo-50"
+                        className="text-xs text-indigo-600 hover:text-indigo-700 px-2 py-1 rounded hover:bg-indigo-50"
                       >
-                        重新渲染
+                        {selectedResumePdfState.loading ? "取消并重试" : "重新渲染"}
                       </button>
                     )}
                     <button

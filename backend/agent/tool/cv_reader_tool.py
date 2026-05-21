@@ -4,8 +4,22 @@ CV Reader Tool - 读取简历上下文的工具
 用于在 Agent 对话中获取简历的具体模块信息
 """
 
-from typing import Optional
+import re
+from typing import Any, Dict, Optional
 from backend.agent.tool.base import BaseTool
+from backend.agent.utils.experience_entry import coerce_tool_value
+from backend.agent.utils.resume_richtext import html_to_context_text
+
+
+def _as_record(item: Any) -> Dict[str, Any]:
+    """列表项可能是历史污染的 JSON 字符串，统一为 dict。"""
+    if isinstance(item, dict):
+        return item
+    if isinstance(item, str):
+        parsed = coerce_tool_value(item)
+        if isinstance(parsed, dict):
+            return parsed
+    return {}
 
 
 def strip_html(html: str) -> str:
@@ -66,6 +80,10 @@ Returns the resume content in a structured, readable format."""
         lines = ["# CV/Resume Context\n"]
 
         basic = resume.get("basic", {})
+        if isinstance(basic, str):
+            basic = {"name": basic}
+        elif not isinstance(basic, dict):
+            basic = {}
         if basic:
             lines.append("## Basic Information  (path prefix: basic.*)")
             lines.append(f"Name: {basic.get('name', 'N/A')}")
@@ -85,6 +103,7 @@ Returns the resume content in a structured, readable format."""
             seen = set()
             unique_education = []
             for edu in education:
+                edu = _as_record(edu)
                 school = edu.get('school', '')
                 degree = edu.get('degree', '')
                 key = f"{school}_{degree}"
@@ -110,11 +129,26 @@ Returns the resume content in a structured, readable format."""
         if experience:
             lines.append("## Work Experience  (path prefix: experience[N].*)")
             for i, exp in enumerate(experience):
-                lines.append(f"### [{i}] {exp.get('company')} | {exp.get('position')}")
-                lines.append(f"  Period: {exp.get('date')}")
-                if exp.get('details'):
-                    lines.append(f"  Details:")
-                    lines.append(f"  {strip_html(exp.get('details'))}")
+                exp = _as_record(exp)
+                company = exp.get("company") or exp.get("title") or "未知公司"
+                position = exp.get("position") or exp.get("subtitle") or ""
+                date = exp.get("date") or exp.get("period") or ""
+                details = exp.get("details") or exp.get("description") or ""
+                if isinstance(exp.get("highlights"), list) and exp["highlights"]:
+                    details = details or str(exp["highlights"][0])
+                lines.append(f"### [{i}] {company} | {position}")
+                lines.append(f"  Period: {date}")
+                if details:
+                    lines.append("  Details:")
+                    body = (
+                        html_to_context_text(str(details))
+                        if re.search(r"<[a-z]", str(details), re.I)
+                        else strip_html(str(details))
+                    )
+                    for detail_line in body.split("\n"):
+                        detail_line = detail_line.strip()
+                        if detail_line:
+                            lines.append(f"  {detail_line}")
                 lines.append("")
 
         projects = resume.get("projects", [])
@@ -240,11 +274,24 @@ Returns the resume content in a structured, readable format."""
             return "No experience data."
         lines = []
         for i, exp in enumerate(experience):
-            lines.append(f"### [{i}] {exp.get('company')} | {exp.get('position')}")
-            lines.append(f"  Period: {exp.get('date')}")
-            if exp.get('details'):
-                lines.append(f"  Details:")
-                lines.append(f"  {strip_html(exp.get('details'))}")
+            exp = _as_record(exp)
+            company = exp.get("company") or exp.get("title") or "未知公司"
+            position = exp.get("position") or exp.get("subtitle") or ""
+            date = exp.get("date") or exp.get("period") or ""
+            details = exp.get("details") or exp.get("description") or ""
+            lines.append(f"### [{i}] {company} | {position}")
+            lines.append(f"  Period: {date}")
+            if details:
+                lines.append("  Details:")
+                body = (
+                    html_to_context_text(str(details))
+                    if re.search(r"<[a-z]", str(details), re.I)
+                    else strip_html(str(details))
+                )
+                for detail_line in body.split("\n"):
+                    detail_line = detail_line.strip()
+                    if detail_line:
+                        lines.append(f"  {detail_line}")
             lines.append("")
         return "\n".join(lines)
 

@@ -77,12 +77,77 @@ def _merge_title_body(title_line: str, body_lines: List[str]) -> str:
     return f"<li><p>{title}</p></li>"
 
 
+def _expand_inline_numbered_items(text: str) -> str:
+    """把同一行里内嵌的「1. 2. 3.」「· 子项」拆成多行，避免合并成单个 li。"""
+    if not text:
+        return text
+    s = text.replace("\r\n", "\n")
+    s = re.sub(r"([：:])\s*(\d+\.\s+)", r"\1\n\2", s)
+    s = re.sub(r"([。；;])\s*(\d+\.\s+)", r"\1\n\2", s)
+    s = re.sub(r"(?<!\n)(\d+\.\s+)", r"\n\1", s)
+    s = re.sub(r"\s*·\s+", r"\n- ", s)
+    s = re.sub(r"\s+[-•]\s+", r"\n- ", s)
+    return _expand_semicolon_items(s)
+
+
+def _expand_semicolon_items(text: str) -> str:
+    """把「A；B；C」式长句拆成多行列表项（常见于 LLM 一段写满）。"""
+    if not text or text.count("；") < 2:
+        return text
+    parts = [p.strip() for p in text.split("；") if p.strip()]
+    if len(parts) < 2:
+        return text
+    if not all(len(p) >= 6 for p in parts):
+        return text
+    # 首段若是引导语（如「核心成果如下」），保留为独立行
+    lines: List[str] = []
+    for i, part in enumerate(parts):
+        if i == 0 and re.search(r"(如下|包括|主要有|分别为)\s*$", part):
+            lines.append(part)
+            continue
+        lines.append(f"- {part}")
+    return "\n".join(lines)
+
+
+def html_to_context_text(html: str) -> str:
+    """HTML 富文本 → 多行纯文本（保留列表结构，供 Hybrid 读取注入）。"""
+    if not html or not isinstance(html, str):
+        return ""
+    if not re.search(r"<[a-z][^>]*>", html, re.I):
+        return html.strip()
+
+    text = html
+    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.I)
+    text = re.sub(r"</p>", "\n", text, flags=re.I)
+    text = re.sub(r"</div>", "\n", text, flags=re.I)
+    text = re.sub(r"<li[^>]*>\s*<p[^>]*>", "\n- ", text, flags=re.I)
+    text = re.sub(r"</p>\s*</li>", "", text, flags=re.I)
+    text = re.sub(r"<li[^>]*>", "\n- ", text, flags=re.I)
+    text = re.sub(r"</li>", "", text, flags=re.I)
+    text = re.sub(r"</ul>|</ol>", "\n", text, flags=re.I)
+    text = re.sub(r"<strong[^>]*>", "**", text, flags=re.I)
+    text = re.sub(r"</strong>", "**", text, flags=re.I)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = text.replace("&nbsp;", " ").replace("&amp;", "&")
+    text = text.replace("&lt;", "<").replace("&gt;", ">")
+
+    lines: List[str] = []
+    for line in text.split("\n"):
+        line = re.sub(r"[ \t]{2,}", " ", line).strip()
+        if not line:
+            continue
+        if lines and lines[-1] == line:
+            continue
+        lines.append(line)
+    return "\n".join(lines)
+
+
 def plain_text_to_resume_html(text: str) -> str:
     """Markdown/纯文本 → 简历 HTML（无序列表 custom-list，禁止有序列表）。"""
     if not text or not isinstance(text, str):
         return text
 
-    raw = text.strip()
+    raw = _expand_inline_numbered_items(text.strip())
     if not raw:
         return raw
 
