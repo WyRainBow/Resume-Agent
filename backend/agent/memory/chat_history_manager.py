@@ -35,6 +35,8 @@ class ChatHistoryManager:
         include_system: bool = True,
         session_id: Optional[str] = None,
         storage: Optional[Any] = None,
+        user_id: Optional[int] = None,
+        is_admin: bool = False,
     ):
         """
         Initialize the chat history manager.
@@ -52,6 +54,8 @@ class ChatHistoryManager:
         self.session_id = session_id or "default"
         self._history = InMemoryChatMessageHistory()
         self._storage = storage
+        self._user_id = user_id
+        self._is_admin = is_admin
 
     def _trim_history(self) -> None:
         """
@@ -197,14 +201,24 @@ class ChatHistoryManager:
         """Load history from storage if available."""
         if not self._storage:
             return
-        loaded = self._storage.load_messages(self.session_id)
+        loaded = self._storage.load_messages(
+            self.session_id,
+            user_id=self._user_id,
+            is_admin=self._is_admin,
+        )
         if loaded:
             self.load_messages(loaded)
 
     def export_to_file(self, export_path: str, fmt: str = "json") -> str:
         """Export current conversation to file."""
         if self._storage:
-            return self._storage.export_session(self.session_id, export_path, fmt=fmt)
+            return self._storage.export_session(
+                self.session_id,
+                export_path,
+                fmt=fmt,
+                user_id=self._user_id,
+                is_admin=self._is_admin,
+            )
         # Fallback export when storage is not configured
         data = {
             "session_id": self.session_id,
@@ -236,7 +250,12 @@ class ChatHistoryManager:
         if not self._storage:
             return
         try:
-            self._storage.save_session(self.session_id, self.get_messages())
+            self._storage.save_session(
+                self.session_id,
+                self.get_messages(),
+                user_id=self._user_id,
+                is_admin=self._is_admin,
+            )
         except Exception as exc:
             logger.warning(
                 f"Failed to persist chat history for {self.session_id}: {exc}"

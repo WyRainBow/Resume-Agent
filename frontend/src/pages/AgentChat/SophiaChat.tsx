@@ -19,6 +19,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEnvironment } from "@/contexts/EnvironmentContext";
 import { useCLTP } from "@/hooks/useCLTP";
 import { canUseAgentFeature } from "@/lib/runtimeEnv";
+import {
+  getSessionLimitMessage,
+  isSessionLimitExceededResponse,
+  parseSessionLimits,
+} from "@/utils/sessionLimits";
 import AgentPdfPreviewPanel from "@/components/agent-chat/AgentPdfPreviewPanel";
 import { convertToBackendFormat } from "@/pages/Workspace/v2/utils/convertToBackend";
 import {
@@ -525,20 +530,31 @@ function SophiaChatContent() {
     },
   });
 
-  // 初始化会话：有 sessionId 用指定会话；否则默认加载“最新会话”
+  // 初始化会话：仅首次进入页面时执行；有 sessionId 用指定会话，否则默认加载最新会话
   useEffect(() => {
+    if (hasBootstrappedSessionRef.current) {
+      return;
+    }
+
     let mounted = true;
     const params = new URLSearchParams(location.search);
     const explicitSessionId = params.get("sessionId");
     const hasExplicitId = !!explicitSessionId?.trim();
     const token = localStorage.getItem("auth_token");
+    const forceNew = (location.state as { forceNew?: number } | null)?.forceNew;
+
+    if (forceNew || isCreatingNewSessionRef.current) {
+      hasBootstrappedSessionRef.current = true;
+      setInitialSessionResolved(true);
+      return () => {
+        mounted = false;
+      };
+    }
 
     if (hasExplicitId) {
-      // URL 显式指定会话时，不做额外探测
       const sid = explicitSessionId!.trim();
-      if (conversationId !== sid) {
-        setConversationId(sid);
-      }
+      setConversationId(sid);
+      hasBootstrappedSessionRef.current = true;
       setInitialSessionResolved(true);
       return () => {
         mounted = false;
@@ -546,7 +562,7 @@ function SophiaChatContent() {
     }
 
     if (!token) {
-      // 未登录时不请求历史会话，直接进入新会话状态
+      hasBootstrappedSessionRef.current = true;
       setInitialSessionResolved(true);
       return () => {
         mounted = false;
@@ -563,11 +579,9 @@ function SophiaChatContent() {
         );
         if (!mounted) return;
         if (resp.status === 401) {
-          // token 失效或登录态未就绪：保持新会话，不报错
           return;
         }
         if (resp.status === 404) {
-          // core native 模式可能未挂载 history 路由，关闭前端 history save/restore
           historyApiUnavailableRef.current = true;
           return;
         }
@@ -578,7 +592,7 @@ function SophiaChatContent() {
             : null;
           const latestId =
             typeof latest?.session_id === "string" ? latest.session_id : "";
-          if (latestId) {
+          if (latestId && !isCreatingNewSessionRef.current) {
             setConversationId(latestId);
             navigate(`/agent/new?sessionId=${latestId}`, { replace: true });
           }
@@ -587,6 +601,7 @@ function SophiaChatContent() {
         console.error("[AgentChat] Failed to bootstrap latest session:", error);
       } finally {
         if (mounted) {
+          hasBootstrappedSessionRef.current = true;
           setInitialSessionResolved(true);
         }
       }
@@ -597,7 +612,7 @@ function SophiaChatContent() {
     return () => {
       mounted = false;
     };
-  }, [apiBaseUrl, getAuthHeaders, navigate, location.search, conversationId]);
+  }, [apiBaseUrl, getAuthHeaders, navigate, location.search, location.state]);
 
   // 简历选择器状态
   const [showResumeSelector, setShowResumeSelector] = useState(false);
@@ -650,6 +665,7 @@ function SophiaChatContent() {
   const finalizeRetryAttemptsRef = useRef(0);
   const prevRouteSessionIdRef = useRef<string | null>(null);
   const isCreatingNewSessionRef = useRef(false);
+  const hasBootstrappedSessionRef = useRef(false);
   const { rebindCurrentMessageId } = useMessageTimeline();
   
   const normalizedResume = useMemo(() => {
@@ -2051,6 +2067,31 @@ function SophiaChatContent() {
     setSessionsRefreshKey((prev) => prev + 1);
   }, []);
 
+  const checkCanCreateSession = useCallback(async (): Promise<boolean> => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) {
+      return true;
+    }
+    try {
+      const resp = await fetch(
+        `${apiBaseUrl}/api/agent/history/sessions/list?page=1&page_size=1`,
+        { headers: getAuthHeaders() },
+      );
+      if (!resp.ok) {
+        return true;
+      }
+      const data = await resp.json();
+      const limits = parseSessionLimits(data);
+      if (!limits.can_create) {
+        alert(getSessionLimitMessage(limits));
+        return false;
+      }
+      return true;
+    } catch {
+      return true;
+    }
+  }, [apiBaseUrl, getAuthHeaders]);
+
   // 检测并加载简历
   const detectAndLoadResume = useCallback(
     async (input: string, messageId: string) => {
@@ -2301,18 +2342,34 @@ function SophiaChatContent() {
               return;
             }
             let errorDetail = "";
+            let parsedError: unknown = null;
             try {
               const raw = await resp.clone().text();
               if (raw) {
                 try {
-                  const parsed = JSON.parse(raw);
-                  errorDetail = parsed?.message || parsed?.detail || raw;
+                  parsedError = JSON.parse(raw);
+                  const parsed = parsedError as {
+                    message?: string;
+                    detail?: string | { message?: string };
+                  };
+                  errorDetail =
+                    parsed?.message ||
+                    (typeof parsed?.detail === "string"
+                      ? parsed.detail
+                      : parsed?.detail?.message) ||
+                    raw;
                 } catch {
                   errorDetail = raw;
                 }
               }
             } catch {
               // ignore parse errors
+            }
+            if (isSessionLimitExceededResponse(resp.status, parsedError)) {
+              alert(getSessionLimitMessage());
+              queuedSaveRef.current = null;
+              scheduledSaveRef.current = null;
+              return;
             }
             console.error(
               `[AgentChat] Failed to save session: ${resp.status}${
@@ -2507,7 +2564,60 @@ function SophiaChatContent() {
     };
   }, [persistSessionSnapshot]);
 
+  const resetToBlankSession = useCallback(() => {
+    isCreatingNewSessionRef.current = true;
+    hasBootstrappedSessionRef.current = true;
+    setInitialSessionResolved(true);
+
+    pendingSaveRef.current = false;
+    queuedSaveRef.current = null;
+    scheduledSaveRef.current = null;
+    if (saveDebounceTimerRef.current) {
+      clearTimeout(saveDebounceTimerRef.current);
+      saveDebounceTimerRef.current = null;
+    }
+
+    const newId = `conv-${Date.now()}`;
+    setMessages([]);
+    setCurrentSessionId(newId);
+    setConversationId(newId);
+    lastPersistedCountBySessionRef.current[newId] = 0;
+    lastSavedKeyRef.current = "";
+    setSelectedResumeId(null);
+    setAllowPdfAutoRender(false);
+    setLoadedResumes([]);
+    setDiagnosisToolEvents([]);
+    setSearchResults([]);
+    setResumeEditDiffs([]);
+    setActiveSearchPanel(null);
+    setResumePdfPreview({});
+    setResumeError(null);
+    finalizeStream();
+
+    navigate("/agent/new", { replace: true });
+    window.setTimeout(() => {
+      isCreatingNewSessionRef.current = false;
+    }, 0);
+  }, [finalizeStream, navigate]);
+
   const deleteSession = async (sessionId: string) => {
+    const routeSessionId =
+      new URLSearchParams(location.search).get("sessionId")?.trim() || null;
+    const isActiveSession =
+      sessionId === conversationId ||
+      sessionId === currentSessionId ||
+      sessionId === routeSessionId;
+
+    if (isActiveSession) {
+      pendingSaveRef.current = false;
+      queuedSaveRef.current = null;
+      scheduledSaveRef.current = null;
+      if (saveDebounceTimerRef.current) {
+        clearTimeout(saveDebounceTimerRef.current);
+        saveDebounceTimerRef.current = null;
+      }
+    }
+
     try {
       const resp = await fetch(
         `${apiBaseUrl}/api/agent/history/${sessionId}`,
@@ -2518,22 +2628,26 @@ function SophiaChatContent() {
       );
       if (!resp.ok) throw new Error(`Failed to delete session: ${resp.status}`);
 
-      // Clear active session memory on backend
       fetch(`${apiBaseUrl}/api/agent/stream/session/${sessionId}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
       }).catch(() => undefined);
 
-      if (currentSessionId === sessionId) {
-        const newId = `conv-${Date.now()}`;
-        setMessages([]);
-        setCurrentSessionId(newId);
-        setConversationId(newId);
-        lastPersistedCountBySessionRef.current[newId] = 0;
-        finalizeStream();
+      try {
+        localStorage.removeItem(`ui_state:${sessionId}`);
+      } catch {
+        // ignore storage errors
       }
+      delete lastPersistedCountBySessionRef.current[sessionId];
+
       refreshSessions();
+
+      if (isActiveSession) {
+        resetToBlankSession();
+      }
     } catch (error) {
       console.error("[AgentChat] Failed to delete session:", error);
+      alert("删除会话失败，请稍后重试");
     }
   };
 
@@ -2804,9 +2918,19 @@ function SophiaChatContent() {
   };
 
   const createNewSession = useCallback(async () => {
+    isCreatingNewSessionRef.current = true;
+    hasBootstrappedSessionRef.current = true;
+    setInitialSessionResolved(true);
+
     // 先尽量保存当前会话，避免切换后丢失上下文
     saveCurrentSession();
     await waitForPendingSave();
+
+    const canCreate = await checkCanCreateSession();
+    if (!canCreate) {
+      isCreatingNewSessionRef.current = false;
+      return;
+    }
 
     // 确保切换会话前清除任何待保存标记
     pendingSaveRef.current = false;
@@ -2817,6 +2941,7 @@ function SophiaChatContent() {
     setCurrentSessionId(newId);
     setConversationId(newId);
     lastPersistedCountBySessionRef.current[newId] = 0;
+    lastSavedKeyRef.current = "";
     setSelectedResumeId(null);
     setAllowPdfAutoRender(false);
     setLoadedResumes([]);
@@ -2827,20 +2952,33 @@ function SophiaChatContent() {
     setResumePdfPreview({});
     finalizeStream();
 
-    // Navigate to clean URL
-    isCreatingNewSessionRef.current = true;
-    navigate('/agent/new', { replace: true });
+    navigate("/agent/new", { replace: true });
+
+    window.setTimeout(() => {
+      isCreatingNewSessionRef.current = false;
+    }, 0);
 
     // 不再立即持久化空会话，只在用户发送第一条消息时才真正创建并入库
     // 这样可以避免用户点击+按钮后没有输入消息就产生空会话
-  }, [finalizeStream, saveCurrentSession, waitForPendingSave, navigate]);
+  }, [
+    checkCanCreateSession,
+    finalizeStream,
+    saveCurrentSession,
+    waitForPendingSave,
+    navigate,
+  ]);
 
   const handleSelectSession = useCallback(
     (sessionId: string) => {
-      loadSession(sessionId);
+      if (!sessionId) {
+        void createNewSession();
+        setIsSidebarOpen(false);
+        return;
+      }
+      navigate(`/agent/new?sessionId=${sessionId}`, { replace: true });
       setIsSidebarOpen(false);
     },
-    [loadSession],
+    [createNewSession, navigate],
   );
 
   const handleCreateSession = useCallback(() => {
@@ -2870,19 +3008,21 @@ function SophiaChatContent() {
     if (routeSessionId) {
       if (routeSessionId === currentSessionId) return;
       if (isLoadingSession) return;
-      // If createNewSession just ran and navigate hasn't changed URL yet,
-      // the old routeSessionId may still be in the URL — skip loading it.
       if (isCreatingNewSessionRef.current) return;
       void loadSession(routeSessionId);
       return;
     }
 
-    // 从历史会话URL切回 /agent/new（无 sessionId）时，主动创建空白新会话
-    // 或者当 URL 没有 sessionId 但当前 session 却是一个已有的 session 时，也重置
+    if (isCreatingNewSessionRef.current) {
+      return;
+    }
+
+    // 从历史会话 URL 切回 /agent/new（无 sessionId）时，主动创建空白新会话
     if (!isLoadingSession) {
-      if (isCreatingNewSessionRef.current) {
-        isCreatingNewSessionRef.current = false;
-      } else if (previousRouteSessionId || (currentSessionId && !currentSessionId.startsWith('conv-'))) {
+      if (
+        previousRouteSessionId ||
+        (currentSessionId && !currentSessionId.startsWith("conv-"))
+      ) {
         void createNewSession();
       }
     }
@@ -3420,12 +3560,34 @@ function SophiaChatContent() {
     finalizeStream();
   };
 
+  const activeSessionId = currentSessionId || conversationId;
+
   return (
-    <WorkspaceLayout>
+    <WorkspaceLayout
+      agentSession={{
+        currentSessionId: activeSessionId,
+        sessionsRefreshKey,
+        onSelectSession: handleSelectSession,
+        onCreateSession: handleCreateSession,
+        onDeleteSession: deleteSession,
+        onRenameSession: renameSession,
+      }}
+    >
       <div className="h-full bg-chat-canvas dark:bg-slate-950 flex flex-col overflow-hidden font-chat">
         <div className="flex-1 flex overflow-hidden relative">
           {/* Left: Chat */}
           <section className="flex-1 min-w-0 flex flex-col h-full">
+            <div className="shrink-0 px-4 py-2 border-b border-chat-border/40 dark:border-slate-800 flex items-center justify-between gap-3 bg-chat-canvas/80 dark:bg-slate-950/80">
+              <div className="min-w-0 flex items-center gap-2 text-xs text-gray-400">
+                <span className="shrink-0">会话 ID</span>
+                <code
+                  className="truncate rounded bg-slate-100 dark:bg-slate-900 px-2 py-0.5 text-[11px] text-slate-600 dark:text-slate-300 font-mono"
+                  title={activeSessionId || undefined}
+                >
+                  {activeSessionId || "—"}
+                </code>
+              </div>
+            </div>
             <CustomScrollbar as="main" className="flex-1 px-4 py-8 flex flex-col">
               <div className="max-w-3xl mx-auto w-full flex-1 flex flex-col">
                 {loadingResume && (
