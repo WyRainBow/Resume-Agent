@@ -402,6 +402,25 @@ export default function WorkspaceLayout({
               )}
             </button>
 
+            <button
+              onClick={(e) => handleWorkspaceChange("templates", e)}
+              className={cn(
+                "w-full rounded-lg transition-all duration-200",
+                sidebarCollapsed
+                  ? "flex flex-col items-center justify-center gap-1 py-2.5"
+                  : "flex items-center gap-2.5 py-2.5 px-2.5",
+                currentWorkspace === "templates"
+                  ? "bg-slate-100 text-slate-900"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
+              )}
+              title="模板广场"
+            >
+              <LayoutTemplate className="w-6 h-6 shrink-0" />
+              {!sidebarCollapsed && (
+                <span className="text-base font-medium">模板广场</span>
+              )}
+            </button>
+
             {canUseAdmin && (
               <button
                 onClick={(e) => handleWorkspaceChange("admin", e)}

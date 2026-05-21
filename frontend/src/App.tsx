@@ -16,6 +16,7 @@ const LandingPage = lazyWithRetry(() => import('./pages/LandingPage'))
 const LoginPage = lazyWithRetry(() => import('./pages/Login'))
 const SettingsPage = lazyWithRetry(() => import('./pages/Settings'))
 const SharePage = lazyWithRetry(() => import('./pages/SharePage'))
+const TemplatesPage = lazyWithRetry(() => import('./pages/Templates'))
 const Workspace = lazyWithRetry(() => import('./pages/Workspace/v2'))
 const HTMLWorkspace = lazyWithRetry(() => import('./pages/Workspace/v2/html'))
 const LaTeXWorkspace = lazyWithRetry(() => import('./pages/Workspace/v2/latex'))
@@ -73,6 +74,7 @@ function App() {
               {/* 其他路由 */}
               <Route path="/login" element={<LoginPage />} />
               <Route path="/my-resumes" element={<ResumeDashboard />} />
+              <Route path="/templates" element={<TemplatesPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               {canUseAdmin ? (
                 <Route path="/admin" element={<AdminDashboard />} />

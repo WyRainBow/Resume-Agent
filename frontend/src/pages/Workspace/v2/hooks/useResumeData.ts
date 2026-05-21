@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { getCurrentResumeId, setCurrentResumeId, getResume } from '../../../../services/resumeStorage'
 import { loadFromStorage, STORAGE_KEY, isLegacyDefaultMenuOrder, migrateMenuSectionsToLatestDefault } from '../constants'
 import { stripPhotoFromResumeData } from '@/services/storage/sanitizeResume'
+import { normalizeLatexTemplateId } from '@/services/resumeTemplates'
 import { useLocation, useParams } from 'react-router-dom'
 import { useResumeContext } from '@/contexts/ResumeContext'
 import type {
@@ -93,10 +94,17 @@ export function useResumeData() {
     const loadResume = async () => {
       // /workspace/latex（不带 ID）始终按“新建默认模板”处理，避免旧缓存覆盖模板更新
       if (location.pathname === '/workspace/latex' && !routeResumeId) {
+        const queryTemplateId = new URLSearchParams(location.search).get('templateId')
+        const stateTemplateId = (location.state as { templateId?: string } | null)?.templateId
+        const templateId = normalizeLatexTemplateId(queryTemplateId || stateTemplateId)
         setCurrentResumeId(null)
         setCurrentId(null)
         localStorage.removeItem(STORAGE_KEY)
-        setResumeData(loadFromStorage())
+        setResumeData({
+          ...loadFromStorage(),
+          templateId,
+          templateType: 'latex',
+        })
         setIsDataLoaded(true)
         return
       }
@@ -148,7 +156,7 @@ export function useResumeData() {
     }
 
     loadResume()
-  }, [location.pathname, routeResumeId])
+  }, [location.pathname, location.search, location.state, routeResumeId])
 
   // 自动保存到 localStorage
   useEffect(() => {

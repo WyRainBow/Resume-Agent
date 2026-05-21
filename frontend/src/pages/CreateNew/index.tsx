@@ -1,6 +1,6 @@
 /**
  * 创建简历入口页面
- * 两个选项：AI 智能导入、使用默认模板 LaTeX 生成简历
+ * 两个选项：AI 智能导入、选择 LaTeX 模板生成简历
  */
 import { motion } from 'framer-motion'
 import {
@@ -8,10 +8,9 @@ import {
   CheckCircle,
   Sparkles,
   Upload,
-  FileCode
+  LayoutTemplate
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { setCurrentResumeId } from '@/services/resumeStorage'
 
 const fadeInUp = {
   initial: { opacity: 0, y: 30 },
@@ -35,10 +34,7 @@ export default function CreateNew() {
   }
 
   const handleLatexTemplate = () => {
-    // 强制从默认模板新建，避免继续加载上一次编辑的简历
-    setCurrentResumeId(null)
-    localStorage.removeItem('resume_v2_data')
-    navigate('/workspace/latex')
+    navigate('/templates')
   }
 
   return (
@@ -76,7 +72,7 @@ export default function CreateNew() {
             选择创建方式
           </h1>
           <p className="text-lg text-slate-500 font-medium max-w-2xl mx-auto">
-            通过导入 PDF 解析、或使用默认 LaTeX 模板快速开始
+            通过导入 PDF 解析、或从 LaTeX 模板广场快速开始
           </p>
         </motion.div>
 
@@ -86,7 +82,7 @@ export default function CreateNew() {
           animate="animate"
           className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full"
         >
-          {/* 1. 默认模板 LaTeX（推荐） */}
+          {/* 1. LaTeX 模板广场（推荐） */}
           <motion.div
             variants={fadeInUp}
             whileHover={{ y: -8 }}
@@ -102,14 +98,14 @@ export default function CreateNew() {
             <div className="relative h-full p-6 bg-white rounded-2xl border-2 border-indigo-100 hover:border-indigo-300 shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_20px_50px_rgba(79,70,229,0.12)] transition-all duration-300">
               <div className="flex flex-col h-full">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-lg">
-                  <FileCode className="w-7 h-7 text-white" />
+                  <LayoutTemplate className="w-7 h-7 text-white" />
                 </div>
-                <h3 className="text-xl font-black text-slate-900 mb-2">默认模板 LaTeX</h3>
+                <h3 className="text-xl font-black text-slate-900 mb-2">LaTeX 模板广场</h3>
                 <p className="text-slate-500 font-medium text-sm mb-4 leading-relaxed">
-                  使用 LaTeX 默认模板从零填写、渲染 PDF
+                  选择 LaTeX 模板后从零填写、渲染 PDF
                 </p>
                 <div className="space-y-2 mb-4">
-                  {['LaTeX 模板编辑', '渲染 PDF 下载'].map((text, i) => (
+                  {['模板广场选择', '渲染 PDF 下载'].map((text, i) => (
                     <div key={i} className="flex items-center gap-2 text-sm">
                       <CheckCircle className="w-4 h-4 text-emerald-500 flex-shrink-0" />
                       <span className="text-slate-600 font-medium">{text}</span>
@@ -118,7 +114,7 @@ export default function CreateNew() {
                 </div>
                 <div className="mt-auto">
                   <div className="flex items-center justify-center gap-2 w-full py-3 bg-emerald-600 text-white rounded-xl font-bold text-sm shadow-lg group-hover:bg-emerald-700 transition-all">
-                    使用模板 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    选择模板 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </div>
               </div>
