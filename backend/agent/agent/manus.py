@@ -715,18 +715,17 @@ class Manus(ToolCallAgent):
 
     async def _generate_dynamic_prompts(self, user_input: str, intent: "Intent" = None) -> tuple:
         """
-        根据用户输入和对话状态动态生成提示词
+        根据用户输入和对话状态动态生成提示词（Hybrid 模式）
 
-        简化版：让 LLM 自主理解意图并决定工具调用
+        Hybrid：简历内容注入 system prompt context，读免费，写走 tool。
 
         返回: (system_prompt, next_step_prompt)
         """
         logger.info(f"🔍 获取到的用户输入: {user_input[:100] if user_input else '(空)'}")
 
-        # 生成简单的上下文描述
         context_parts = []
         if self._conversation_state.context.resume_loaded:
-            context_parts.append("✅ 简历已加载")
+            context_parts.append("✅ 简历已加载（完整内容见下方）")
         else:
             context_parts.append("⚠️ 简历未加载，建议先加载简历")
 
@@ -735,7 +734,6 @@ class Manus(ToolCallAgent):
 
         context = "\n".join(context_parts) if context_parts else "初始状态"
 
-        # 生成系统提示词
         system_prompt = SYSTEM_PROMPT.replace(
             "{directory}", str(config.workspace_root)
         ).replace(
@@ -744,16 +742,38 @@ class Manus(ToolCallAgent):
         capability = CapabilityRegistry.get(self.capability)
         if capability.instructions_addendum:
             system_prompt = f"{system_prompt}\n\n{capability.instructions_addendum}"
-        # 根据用户输入动态注入 skills 指导（backend/agent/skills）
         skills_addendum = self._build_skill_addendum(user_input or "")
         if skills_addendum:
             system_prompt = f"{system_prompt}\n\n{skills_addendum}"
 
-        # 生成下一步提示词（传入 intent 用于判断是否需要决策逻辑）
+        # Hybrid: 注入简历内容到 system prompt
+        resume_text = self._format_resume_for_context()
+        if resume_text:
+            system_prompt = f"{system_prompt}\n\n{resume_text}"
+            logger.info("📋 简历内容已注入 system prompt（Hybrid 模式）")
+
         next_step = await self._generate_next_step_prompt(intent)
 
         logger.info(f"💭 提示词已生成，当前状态: {context}")
         return system_prompt, next_step
+
+    def _format_resume_for_context(self) -> str:
+        """将当前简历格式化为可注入 system prompt 的文本。
+
+        使用 ReadCVContext 复用已有的格式化逻辑（含索引标记和 path 提示），
+        确保 LLM 看到的和 cv_editor_agent 操作的是同一份数据。
+        """
+        resume_data = ResumeDataStore.get_data(self.session_id)
+        if not resume_data:
+            return ""
+        try:
+            from backend.agent.tool.cv_reader_tool import ReadCVContext
+            reader = ReadCVContext()
+            reader.set_resume_data(resume_data)
+            return reader._format_full_resume()
+        except Exception as exc:
+            logger.warning(f"格式化简历注入 context 失败: {exc}")
+            return ""
 
     def _build_skill_addendum(self, user_input: str) -> str:
         """
