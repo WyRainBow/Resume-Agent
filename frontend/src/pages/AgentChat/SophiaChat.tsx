@@ -30,7 +30,7 @@ import {
   DEFAULT_MENU_SECTIONS,
   type ResumeData,
 } from "@/pages/Workspace/v2/types";
-import { getResume, getAllResumes, saveResume } from "@/services/resumeStorage";
+import { getResume, getAllResumes, saveResume, setCurrentResumeId } from "@/services/resumeStorage";
 import type { SavedResume } from "@/services/storage/StorageAdapter";
 import {
   renderPDFStream,
@@ -326,9 +326,65 @@ function isWorkspaceResumeData(data: unknown): data is ResumeData {
 }
 
 function isLoadResumeIntentText(text: string): boolean {
-  return /(?:加载|打开|查看|显示|选择).*(?:简历|resume|cv)|(?:简历|resume|cv).*(?:加载|打开|选择)/i.test(
-    (text || "").trim(),
+  const normalized = (text || "").trim();
+  if (!normalized) return false;
+  if (
+    /(?:加载|打开|查看|显示|选择).*(?:简历|resume|cv)|(?:简历|resume|cv).*(?:加载|打开|选择)/i.test(
+      normalized,
+    )
+  ) {
+    return true;
+  }
+  return isExploratoryUserMessage(normalized);
+}
+
+function isExploratoryUserMessage(text: string): boolean {
+  const normalized = (text || "").trim();
+  if (!normalized) return false;
+  if (
+    normalized.length <= 16 &&
+    /^(?:你好|hello|hi|hey)[!！?？\s，,。.]*$/i.test(normalized)
+  ) {
+    return true;
+  }
+  return (
+    /(?:你能|你可以|会).*(?:做什么|帮我什么|什么功能)/i.test(normalized) ||
+    /^(?:你好|hello|hi)[!！?？\s，,]*(?:你能|你可以)/i.test(normalized)
   );
+}
+
+function assistantSuggestsLoadResume(answer: string): boolean {
+  const text = (answer || "").trim();
+  if (!text) return false;
+  return (
+    /(?:加载|打开|查看|选择|看看|创建|新建).{0,16}(?:简历|cv)/i.test(text) ||
+    /(?:简历|cv).{0,12}(?:加载|打开|选择|看看|创建|新建)/i.test(text) ||
+    (/简历/i.test(text) &&
+      /(?:先|不妨|建议|可以).{0,8}(?:加载|打开|选择|看看|创建)/i.test(text))
+  );
+}
+
+function shouldAutoOpenResumeSelector(
+  answer: string,
+  userMessage: string,
+): boolean {
+  const reply = (answer || "").trim();
+  if (!reply) return false;
+
+  if (assistantSuggestsLoadResume(reply)) return true;
+
+  // 尚未加载简历时，AI 引导用户进入简历相关能力 → 主动弹出选择器
+  if (/(?:简历|cv)/i.test(reply)) {
+    if (/(?:加载|打开|查看|选择|看看|创建|新建)/i.test(reply)) return true;
+    if (/(?:优化|润色|诊断|修改|分析|匹配|审查)/i.test(reply)) return true;
+    if (/(?:想|还是|或者|要不要|是否|直接开始)/i.test(reply)) return true;
+  }
+
+  if (isExploratoryUserMessage(userMessage) && /(?:简历|优化|诊断)/i.test(reply)) {
+    return true;
+  }
+
+  return false;
 }
 
 interface SearchResultItem {
@@ -2021,6 +2077,19 @@ function SophiaChatContent() {
       window.clearTimeout(finalizeRetryTimerRef.current);
       finalizeRetryTimerRef.current = null;
     }
+
+    const hasResumeContext =
+      !!resumeDataRef.current ||
+      loadedResumes.some((item) => !!item.resumeData) ||
+      !!selectedResumeId;
+    if (
+      !hasResumeContext &&
+      shouldAutoOpenResumeSelector(answer || "", normalizedLatestUserMessage)
+    ) {
+      setResumeError(null);
+      setShowResumeSelector(true);
+    }
+
     finalizeStream();
   }, [
     finalizeStream,
@@ -2028,6 +2097,8 @@ function SophiaChatContent() {
     currentThought,
     resumeEditDiffs,
     messages,
+    loadedResumes,
+    selectedResumeId,
   ]);
 
   const finalizeAfterTypewriter = useCallback(() => {
@@ -3114,7 +3185,10 @@ function SophiaChatContent() {
   const handleCreateResume = useCallback(() => {
     setShowResumeSelector(false);
     setPendingResumeInput("");
-    navigate("/workspace/html");
+    // 与「创建新简历」页一致：清空旧缓存，进入 LaTeX 默认模板（张三示例简历）
+    setCurrentResumeId(null);
+    localStorage.removeItem("resume_v2_data");
+    navigate("/workspace/latex");
   }, [navigate]);
 
   const sendUserTextMessage = useCallback(

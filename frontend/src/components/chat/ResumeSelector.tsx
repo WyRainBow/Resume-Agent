@@ -169,7 +169,7 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
                 <span className="text-sm font-medium text-slate-800">创建一份简历</span>
               </div>
               <p className="text-xs text-slate-500 mt-2 text-pretty">
-                跳转到编辑区创建并完善新简历。
+                跳转到 LaTeX 编辑区，使用默认模板创建简历。
               </p>
             </button>
 
