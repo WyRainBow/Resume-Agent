@@ -1,0 +1,9 @@
+{
+  "id": "classic",
+  "name": "经典 LaTeX",
+  "description": "适合程序员通用投递的单栏经典模板",
+  "type": "latex",
+  "category": "通用",
+  "tags": ["经典", "单栏", "ATS友好"],
+  "preview": "resume.preview.png"
+}

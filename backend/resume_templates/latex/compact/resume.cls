@@ -1,0 +1,124 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesClass{resume}[2015/05/25 An elegant Résumé class]
+
+% 声明字体大小选项，并传递给 article 类
+\DeclareOption{9pt}{\PassOptionsToClass{9pt}{article}}
+\DeclareOption{10pt}{\PassOptionsToClass{10pt}{article}}
+\DeclareOption{11pt}{\PassOptionsToClass{11pt}{article}}
+\DeclareOption{12pt}{\PassOptionsToClass{12pt}{article}}
+\DeclareOption*{\PassOptionsToClass{\CurrentOption}{article}}
+\ExecuteOptions{11pt}  % 默认 11pt
+\ProcessOptions\relax
+
+\LoadClass{article}
+
+% disable indent globally
+\setlength{\parindent}{0pt}
+% some general improvements, defines the XeTeX logo
+\RequirePackage{xltxtra}
+% use xifthen
+\RequirePackage{xifthen}
+% use fontawesome
+\RequirePackage{fontawesome}
+% use xcolor for customizing color
+\RequirePackage[usenames,dvipsnames]{xcolor}
+% loading fonts
+\RequirePackage{fontspec}
+% Main document font
+\setmainfont[
+  Path = fonts/Main/ ,
+  Extension = .otf ,
+  UprightFont = *-regular ,
+  BoldFont = *-bold ,
+  ItalicFont = *-italic ,
+  BoldItalicFont = *-bolditalic ,
+  SmallCapsFont = Fontin-SmallCaps
+]{texgyretermes}
+
+\RequirePackage[
+	a4paper,
+	left=0.4in,
+	right=0.4in,
+	top=0.40in,
+	bottom=0.4in,
+	nohead
+]{geometry}
+
+\RequirePackage{titlesec}
+\RequirePackage{enumitem}
+% hyperref for links
+\RequirePackage[hidelinks]{hyperref}
+\setlist{noitemsep} % removes spacing from items but leaves space around the whole list
+%\setlist{nosep} % removes all vertical spacing within and around the list
+\setlist[itemize]{topsep=0.25em, leftmargin=*, labelsep=0.5em, label=\footnotesize$\bullet$, itemindent=0em}
+\setlist[enumerate]{topsep=0.25em, leftmargin=1.5pc}
+% \RequirePackage[super]{nth}  % 注释掉，如果不需要序数词功能
+
+\titleformat{\section}         % Customise the \section command 
+  {\Large\scshape\raggedright} % Make the \section headers large (\Large),
+                               % small capitals (\scshape) and left aligned (\raggedright)
+  {}{0em}                      % Can be used to give a prefix to all sections, like 'Section ...'
+  {}                           % Can be used to insert code before the heading
+  [\titlerule]                 % Inserts a horizontal line after the heading
+\titlespacing*{\section}{0cm}{*1}{*1}
+
+\titleformat{\subsection}
+  {\large\raggedright}
+  {}{0em}
+  {}
+\titlespacing*{\subsection}{0cm}{*1}{*0.5}
+
+% 时间列统一固定宽度（使用绝对单位，避免不同字号导致列宽漂移）
+\newcommand{\daterightcolwidth}{4.6cm}
+\newcommand{\dateleftcolwidth}{\dimexpr\textwidth-\daterightcolwidth\relax}
+\newcommand{\datedsection}[2]{%
+  \section[#1]{%
+    \parbox[t]{\dateleftcolwidth}{\raggedright #1}%
+    \hfill
+    {\normalsize\makebox[\daterightcolwidth][r]{#2}}%
+  }%
+}
+% 时间线固定宽度右对齐，各模块（教育/实习/项目/开源）严格共用同一列
+\newcommand{\datedsubsection}[2]{%
+  \subsection[#1]{%
+    \parbox[t]{\dateleftcolwidth}{\raggedright #1}%
+    \hfill
+    {\normalsize\makebox[\daterightcolwidth][r]{#2}}%
+  }%
+}
+\newcommand{\datedline}[2]{%
+  {\par
+    \parbox[t]{\dateleftcolwidth}{\raggedright #1}%
+    \hfill
+    {\normalsize\makebox[\daterightcolwidth][r]{#2}}
+  \par}%
+}
+
+\newcommand{\name}[1]{
+  \centerline{\Huge\scshape{#1}}
+  \vspace{1.2ex}
+}
+
+\newcommand{\contactInfo}[5]{
+  \begin{center}
+  \sffamily\small
+  {#1}
+  \ifthenelse{\isempty{#2}}{}{\textperiodcentered\ \ {#2}}
+  \ifthenelse{\isempty{#3}}{}{\textperiodcentered\ \ {#3}}
+  \ifthenelse{\isempty{#4}}{}{\textperiodcentered\ \ {#4}}
+  \ifthenelse{\isempty{#5}}{}{\textperiodcentered\ \ {#5}}
+  \end{center}
+  \vspace{-0.8ex}
+}
+
+\newcommand{\blogLine}[1]{
+  \ifthenelse{\isempty{#1}}{}{
+    \vspace{-0.5ex}
+    \centerline{\sffamily\footnotesize \href{#1}{#1}}
+  }
+}
+
+\newcommand{\role}[2]{
+  {\par \textit{#1} ~ #2 \par}
+  \vspace{0.5ex}
+}

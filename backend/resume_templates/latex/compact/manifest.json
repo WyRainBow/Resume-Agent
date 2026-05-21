@@ -1,0 +1,9 @@
+{
+  "id": "compact",
+  "name": "紧凑 LaTeX",
+  "description": "适合内容较多且希望压缩到一页的紧凑模板",
+  "type": "latex",
+  "category": "通用",
+  "tags": ["紧凑", "单栏", "一页优先"],
+  "preview": "resume.preview.png"
+}
