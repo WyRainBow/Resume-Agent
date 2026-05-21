@@ -14,7 +14,13 @@ from backend.agent.config import config
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
-from backend.agent.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT, GREETING_FAST_PATH_PROMPT
+from backend.agent.prompt.manus import (
+    GREETING_FAST_PATH_PROMPT,
+    NEXT_STEP_PROMPT,
+    OPTIMIZE_SECTION_LLM_ADDENDUM,
+    SYSTEM_PROMPT,
+)
+from backend.agent.utils.resume_richtext import html_to_context_text, normalize_editor_value
 from backend.agent.prompt.load_resume import build_load_resume_fast_path_prompt
 from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, GenerateResumeTool, ShowResumeTool, Terminate, ToolCollection, WebSearch
 try:
@@ -55,6 +61,8 @@ LOAD_RESUME_LLM_HINT_ENABLED = (
 EDIT_PRE_TOOL_DELAY_MS = int(
     os.getenv("AGENT_EDIT_PRE_TOOL_DELAY_MS", "450").strip() or "450"
 )
+
+_RULE_BASED_NOISE_RE = re.compile(r"[（(]建议补充量化结果[^）)]*[）)]")
 
 
 class Manus(ToolCallAgent):
@@ -521,6 +529,112 @@ class Manus(ToolCallAgent):
         self._pending_resume_patches = []
         return patches
 
+    @staticmethod
+    def _parse_optimize_llm_json(raw: str) -> Optional[Dict[str, Any]]:
+        text = (raw or "").strip()
+        if not text:
+            return None
+        fence = re.search(r"```(?:json)?\s*([\s\S]*?)```", text, flags=re.I)
+        if fence:
+            text = fence.group(1).strip()
+        try:
+            data = json.loads(text)
+            return data if isinstance(data, dict) else None
+        except json.JSONDecodeError:
+            start = text.find("{")
+            end = text.rfind("}")
+            if start < 0 or end <= start:
+                return None
+            try:
+                data = json.loads(text[start : end + 1])
+                return data if isinstance(data, dict) else None
+            except json.JSONDecodeError:
+                return None
+
+    async def _llm_optimize_section_patch(
+        self,
+        user_input: str,
+        resume_data: Dict[str, Any],
+        target_index: int,
+    ) -> Optional[Dict[str, Any]]:
+        """用 Manus 主 LLM + Hybrid 简历 context 生成优化 diff（恢复改前高质量路径）。"""
+        experiences = resume_data.get("experience") or []
+        if target_index < 0 or target_index >= len(experiences):
+            return None
+
+        target = experiences[target_index]
+        company = re.sub(r"\*+", "", str(target.get("company") or "该段经历")).strip()
+        position = str(target.get("position") or "").strip()
+        apply_path = f"experience[{target_index}].details"
+
+        raw_details = target.get("details") or target.get("description") or ""
+        current_plain = _RULE_BASED_NOISE_RE.sub(
+            "", html_to_context_text(str(raw_details))
+        ).strip()
+        if not current_plain:
+            current_plain = "（空）"
+
+        base_system, _ = await self._generate_dynamic_prompts(
+            user_input, Intent.OPTIMIZE_SECTION
+        )
+        system_prompt = f"{base_system}\n\n{OPTIMIZE_SECTION_LLM_ADDENDUM}"
+        user_prompt = (
+            f"请优化 path={apply_path} 对应的实习/工作经历。\n"
+            f"公司：{company}\n"
+            f"岗位：{position or '（未填写）'}\n"
+            f"用户原话：{user_input.strip() or '优化表述，突出贡献与量化成果'}\n\n"
+            f"当前 details（纯文本，请在此基础上深度改写）：\n{current_plain[:2800]}"
+        )
+
+        try:
+            raw = await self.llm.ask(
+                messages=[{"role": "user", "content": user_prompt}],
+                system_msgs=[{"role": "system", "content": system_prompt}],
+                stream=False,
+                temperature=0.55,
+            )
+        except Exception as exc:
+            logger.warning(f"[Manus] LLM optimize section failed: {exc}")
+            return None
+
+        parsed = self._parse_optimize_llm_json(raw or "")
+        if not parsed:
+            logger.warning("[Manus] LLM optimize section returned non-JSON response")
+            return None
+
+        optimized_html = str(
+            parsed.get("optimized_html")
+            or parsed.get("optimized")
+            or parsed.get("details")
+            or ""
+        ).strip()
+        if not optimized_html:
+            logger.warning("[Manus] LLM optimize section missing optimized_html")
+            return None
+
+        optimized_html = str(
+            normalize_editor_value(optimized_html, apply_path)
+        ).strip()
+        explanation = str(parsed.get("explanation") or "").strip()
+        if not explanation:
+            explanation = f"基于完整简历 context，按四要素重写 {company} 的经历。"
+
+        logger.info(
+            f"[Manus] LLM optimize section ok: company={company}, "
+            f"index={target_index}, chars={len(optimized_html)}"
+        )
+        return {
+            "optimization_suggestions": [
+                {
+                    "title": f"优化 {company} 的实习经历",
+                    "current": current_plain[:900],
+                    "optimized": optimized_html,
+                    "explanation": explanation,
+                    "apply_path": apply_path,
+                }
+            ]
+        }
+
     def _queue_optimization_patches(self, suggestions: List[Dict[str, Any]]) -> int:
         """将优化建议转为 resume_patch，返回成功入队数量。"""
         count = 0
@@ -550,13 +664,15 @@ class Manus(ToolCallAgent):
             title = str(items[0].get("title") or "").strip()
             title_match = re.match(r"优化\s*(.+?)(?:的)?实习经历\s*$", title)
             if title_match:
-                label = title_match.group(1).strip() or default_label
+                label = re.sub(r"\*+", "", title_match.group(1)).strip() or default_label
             elif title.startswith("优化 "):
-                label = title[3:].strip() or default_label
+                label = re.sub(r"\*+", "", title[3:]).strip() or default_label
+
+        label = re.sub(r"\*+", "", label).strip() or default_label
 
         if patch_count == 1:
-            return f"已为 **{label}** 生成优化对比，请在下方卡片确认是否应用。"
-        return f"已生成 **{patch_count}** 处优化对比，请在下方卡片逐条确认是否应用。"
+            return f"已为「{label}」生成优化对比，请在下方卡片确认是否应用。"
+        return f"已生成 {patch_count} 处优化对比，请在下方卡片逐条确认是否应用。"
 
     @staticmethod
     def _is_injected_system_user_message(content: str) -> bool:
@@ -1409,45 +1525,40 @@ class Manus(ToolCallAgent):
                     )
                     experiences = (resume_data_snapshot or {}).get("experience") or []
 
-                    # 指定公司/条目时：直接给出完整 before/after，不走碎片化规则 issue
-                    if target_index is not None and target_index < len(experiences):
-                        analyzer = AgentRegistry.create(
-                            "work_experience_analyzer", session_id=self.session_id
-                        )
-                        opt = await analyzer.optimize(
+                    suggestions: Optional[Dict[str, Any]] = None
+                    resolved_idx = target_index
+                    if resolved_idx is not None and resolved_idx < len(experiences):
+                        suggestions = await self._llm_optimize_section_patch(
+                            user_input,
                             resume_data_snapshot or {},
-                            issue_id=f"work-enhance-{target_index}",
+                            resolved_idx,
                         )
-                        company = experiences[target_index].get("company") or "该段经历"
-                        suggestions = {
-                            "optimization_suggestions": [
-                                {
-                                    "title": f"优化 {company} 的实习经历",
-                                    "current": opt.get("current", ""),
-                                    "optimized": opt.get("optimized", ""),
-                                    "explanation": opt.get("explanation", ""),
-                                    "apply_path": opt.get("apply_path"),
-                                }
-                            ]
-                        }
-                    else:
-                        analysis_results = await self._parallel_delegate_analyzers(
-                            analyzers or [],
-                            target_index=target_index,
+
+                    if not (suggestions and suggestions.get("optimization_suggestions")):
+                        fallback_idx = resolved_idx
+                        if fallback_idx is None:
+                            fallback_idx = resolve_experience_target_index(
+                                user_input, resume_data_snapshot or {}
+                            )
+                        if fallback_idx is None and experiences:
+                            fallback_idx = 0
+                        if fallback_idx is not None and fallback_idx < len(experiences):
+                            suggestions = await self._llm_optimize_section_patch(
+                                user_input,
+                                resume_data_snapshot or {},
+                                fallback_idx,
+                            )
+                            resolved_idx = fallback_idx
+
+                    if not (suggestions and suggestions.get("optimization_suggestions")):
+                        logger.info(
+                            "[Manus] LLM optimize section empty, fallback to rule analyzer"
                         )
-                        suggestions = await self.delegate_to_agent(
-                            strategy.get("optimizer", "resume_optimizer") if strategy else "resume_optimizer",
-                            analysis_results=analysis_results,
-                            resume_data=resume_data_snapshot,
-                        )
-                        if not (suggestions.get("optimization_suggestions") or []):
-                            fallback_idx = target_index
-                            if fallback_idx is None:
-                                fallback_idx = resolve_experience_target_index(
-                                    user_input, resume_data_snapshot or {}
-                                )
-                            if fallback_idx is None:
-                                fallback_idx = 0
+                        fallback_idx = resolved_idx if resolved_idx is not None else 0
+                        if experiences:
+                            fallback_idx = min(
+                                max(fallback_idx, 0), len(experiences) - 1
+                            )
                             analyzer = AgentRegistry.create(
                                 "work_experience_analyzer", session_id=self.session_id
                             )
@@ -1455,10 +1566,15 @@ class Manus(ToolCallAgent):
                                 resume_data_snapshot or {},
                                 issue_id=f"work-enhance-{fallback_idx}",
                             )
+                            company = re.sub(
+                                r"\*+",
+                                "",
+                                str(experiences[fallback_idx].get("company") or "该段经历"),
+                            ).strip() or "该段经历"
                             suggestions = {
                                 "optimization_suggestions": [
                                     {
-                                        "title": f"优化 {((resume_data_snapshot or {}).get('experience') or [{}])[fallback_idx].get('company', '该段经历')} 的实习经历",
+                                        "title": f"优化 {company} 的实习经历",
                                         "current": opt.get("current", ""),
                                         "optimized": opt.get("optimized", ""),
                                         "explanation": opt.get("explanation", ""),
@@ -1466,10 +1582,12 @@ class Manus(ToolCallAgent):
                                     }
                                 ]
                             }
+                            resolved_idx = fallback_idx
+                        else:
+                            suggestions = {"optimization_suggestions": []}
                     suggestions_list = suggestions.get("optimization_suggestions") or []
                     patch_count = self._queue_optimization_patches(suggestions_list)
                     default_label = "实习经历"
-                    resolved_idx = target_index
                     if resolved_idx is None and suggestions_list:
                         apply_path = str(suggestions_list[0].get("apply_path") or "")
                         idx_match = re.search(r"experience\[(\d+)\]", apply_path)

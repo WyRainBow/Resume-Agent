@@ -352,7 +352,7 @@ def build_optimization_resume_patch(suggestion: Dict[str, Any]) -> Dict[str, Any
     apply_path = str(suggestion.get("apply_path") or "").strip() or "experience[0].details"
     current = str(suggestion.get("current") or "")
     optimized = str(suggestion.get("optimized") or "")
-    title = str(suggestion.get("title") or "优化建议")
+    title = re.sub(r"\*+", "", str(suggestion.get("title") or "优化建议")).strip()
     return {
         "type": "resume_patch",
         "patch_id": str(uuid.uuid4()),

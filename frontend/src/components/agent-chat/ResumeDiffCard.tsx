@@ -64,6 +64,23 @@ function DiffContent({ text, variant }: { text: string; variant: 'before' | 'aft
 
 const COLLAPSE_THRESHOLD = 300
 
+/** 将 summary 中的 **bold** 转为 React 节点（CompactStatusRow 不走 Markdown 渲染）。 */
+function renderPatchSummary(summary: string): React.ReactNode {
+  if (!summary.includes('**')) return summary
+  const parts = summary.split(/(\*\*[^*]+\*\*)/g)
+  return parts.map((part, index) => {
+    const match = part.match(/^\*\*(.+)\*\*$/)
+    if (match) {
+      return (
+        <strong key={`bold-${index}`} className="font-semibold">
+          {match[1]}
+        </strong>
+      )
+    }
+    return <React.Fragment key={`text-${index}`}>{part}</React.Fragment>
+  })
+}
+
 /**
  * 已处理（applied / rejected / superseded）状态下的紧凑摘要行。
  * 保留在历史中，让用户清晰看到这条修改的最终命运。
@@ -91,7 +108,7 @@ function CompactStatusRow({
     >
       <span className="shrink-0">{icon}</span>
       <span className="font-medium shrink-0">{label}</span>
-      <span className="truncate opacity-80">{patch.summary}</span>
+      <span className="truncate opacity-80">{renderPatchSummary(patch.summary)}</span>
     </div>
   )
 }
@@ -139,7 +156,7 @@ export function ResumeDiffCard({ patch }: { patch: PendingPatch }) {
   return (
     <div className="rounded-xl border border-blue-200 bg-white shadow-sm overflow-hidden">
       <div className="px-4 py-2.5 bg-blue-50 border-b border-blue-100 flex items-center justify-between">
-        <span className="text-sm font-medium text-blue-800">{patch.summary}</span>
+        <span className="text-sm font-medium text-blue-800">{renderPatchSummary(patch.summary)}</span>
         {isLong && (
           <button
             onClick={() => setExpanded(!expanded)}

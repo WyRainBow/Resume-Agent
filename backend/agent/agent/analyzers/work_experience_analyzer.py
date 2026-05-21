@@ -25,10 +25,14 @@ _ACTION_VERBS = (
     "重构",
 )
 
+_RULE_BASED_NOISE_RE = re.compile(
+    r"[（(]建议补充量化结果[^）)]*[）)]"
+)
+
 
 @AgentRegistry.register("work_experience_analyzer")
 class WorkExperienceAnalyzerAgent(BaseModuleAnalyzer):
-    """工作经历专项分析 Agent（轻量规则版）"""
+    """工作经历专项分析 Agent（分析走规则；optimize 仅作 LLM 失败时的兜底）"""
 
     name: str = "WorkExperienceAnalyzerAgent"
     module_name: str = "work_experience"
@@ -40,6 +44,7 @@ class WorkExperienceAnalyzerAgent(BaseModuleAnalyzer):
         if not raw:
             return ""
         text = html_to_context_text(str(raw))
+        text = _RULE_BASED_NOISE_RE.sub("", text)
         return re.sub(r"\n{3,}", "\n\n", text).strip()
 
     @staticmethod
@@ -154,10 +159,11 @@ class WorkExperienceAnalyzerAgent(BaseModuleAnalyzer):
         enhanced: List[str] = []
         for line in lines[:6]:
             bullet = line.rstrip("。；; ")
+            bullet = _RULE_BASED_NOISE_RE.sub("", bullet).strip()
+            if not bullet:
+                continue
             if not any(v in bullet[:12] for v in _ACTION_VERBS):
                 bullet = f"负责{bullet}" if not bullet.startswith("负责") else bullet
-            if not _METRICS_RE.search(bullet):
-                bullet = f"{bullet}（建议补充量化结果，如提升 XX% / 降低 XXms）"
             enhanced.append(f"- {bullet}")
 
         return f"{header}\n" + "\n".join(enhanced)
@@ -245,7 +251,7 @@ class WorkExperienceAnalyzerAgent(BaseModuleAnalyzer):
             "module": self.module_name,
             "current": current[:900],
             "optimized": optimized,
-            "explanation": f"针对 {company} 的经历，从结构、动词与量化三个维度给出可直接参考的改写示例。",
+            "explanation": f"针对 {company} 的规则化参考（Manus LLM 不可用时的兜底）。",
             "apply_path": f"experience[{target_index}].details",
         }
 
