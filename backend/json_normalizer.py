@@ -256,6 +256,13 @@ class ResumeNormalizer:
             standardized['internships'] = self._standardize_experience_list(
                 standardized['internships']
             )
+            try:
+                from backend.chunk_processor import _fix_internship_entries
+            except ImportError:
+                from chunk_processor import _fix_internship_entries
+            standardized['internships'] = _fix_internship_entries(
+                standardized['internships']
+            )
 
         """
         标准化工作经历

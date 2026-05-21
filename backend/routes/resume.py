@@ -34,6 +34,8 @@ try:
     from json_path import parse_path, get_by_path, set_by_path
     from chunk_processor import split_resume_text, merge_resume_chunks
     from parallel_chunk_processor import parse_resume_text_parallel
+    from resume_text_preprocessor import normalize_pasted_resume_text
+    from resume_parse_rules import RESUME_PARSE_EXTRA_RULES
     from config.parallel_config import get_parallel_config
     from prompt_templates import render_rewrite_text_prompt
     from backend.core.logger import get_logger, write_llm_debug
@@ -69,6 +71,8 @@ except ImportError:
     from backend.json_path import parse_path, get_by_path, set_by_path
     from backend.chunk_processor import split_resume_text, merge_resume_chunks
     from backend.parallel_chunk_processor import parse_resume_text_parallel
+    from backend.resume_text_preprocessor import normalize_pasted_resume_text
+    from backend.resume_parse_rules import RESUME_PARSE_EXTRA_RULES
     from backend.config.parallel_config import get_parallel_config
     from backend.prompt_templates import render_rewrite_text_prompt
     from core.logger import get_logger, write_llm_debug
@@ -357,11 +361,12 @@ async def generate_resume_stream(body: ResumeGenerateRequest):
 @router.post("/resume/parse")
 async def parse_resume_text(body: ResumeParseRequest):
     """AI 解析简历文本 → 结构化简历 JSON（支持并行分块处理）"""
+    body_text = normalize_pasted_resume_text(body.text)
     # 使用 print 和 logger 双重记录，确保能看到日志
     print("========== 收到解析请求 ==========", file=sys.stderr, flush=True)
-    print(f"文本长度: {len(body.text)} 字符", file=sys.stderr, flush=True)
+    print(f"文本长度: {len(body_text)} 字符", file=sys.stderr, flush=True)
     logger.info("========== 收到解析请求 ==========")
-    logger.info(f"文本长度: {len(body.text)} 字符")
+    logger.info(f"文本长度: {len(body_text)} 字符")
 
     provider = body.provider or DEFAULT_AI_PROVIDER
     print(f"Provider: {provider}", file=sys.stderr, flush=True)
@@ -378,14 +383,15 @@ async def parse_resume_text(body: ResumeParseRequest):
     logger.info(f"use_parallel: {use_parallel}, enabled: {config.get('enabled')}")
 
     chunk_threshold = config.get("chunk_threshold", 500)
+    serial_body = body.model_copy(update={"text": body_text})
     print(
-        f"chunk_threshold: {chunk_threshold}, text_length: {len(body.text)}",
+        f"chunk_threshold: {chunk_threshold}, text_length: {len(body_text)}",
         file=sys.stderr,
         flush=True,
     )
-    if use_parallel and len(body.text) > chunk_threshold:
+    if use_parallel and len(body_text) > chunk_threshold:
         print("========== 并行处理开始 ==========", file=sys.stderr, flush=True)
-        print(f"文本长度: {len(body.text)} 字符", file=sys.stderr, flush=True)
+        print(f"文本长度: {len(body_text)} 字符", file=sys.stderr, flush=True)
         print(f"阈值: {chunk_threshold} 字符", file=sys.stderr, flush=True)
         print(
             f"配置: max_concurrent={config.get('max_concurrent')}, max_chunk_size={config.get('max_chunk_size')}",
@@ -393,7 +399,7 @@ async def parse_resume_text(body: ResumeParseRequest):
             flush=True,
         )
         logger.info("========== 并行处理开始 ==========")
-        logger.info(f"文本长度: {len(body.text)} 字符")
+        logger.info(f"文本长度: {len(body_text)} 字符")
         logger.info(f"阈值: {chunk_threshold} 字符")
         logger.info(
             f"配置: max_concurrent={config.get('max_concurrent')}, max_chunk_size={config.get('max_chunk_size')}"
@@ -404,7 +410,7 @@ async def parse_resume_text(body: ResumeParseRequest):
         try:
             # 使用异步并行处理
             short_data = await parse_resume_text_parallel(
-                text=body.text,
+                text=body_text,
                 provider=provider,
                 max_concurrent=config.get("max_concurrent"),
                 max_chunk_size=config.get("max_chunk_size", 300),
@@ -422,7 +428,7 @@ async def parse_resume_text(body: ResumeParseRequest):
             logger.error(f"错误详情:\n{traceback.format_exc()}")
             logger.warning("回退到串行模式...")
             # 回退到原有的串行处理
-            result = await _parse_resume_serial(body)
+            result = await _parse_resume_serial(serial_body)
             if isinstance(result, dict) and "resume" in result:
                 return result
             else:
@@ -444,9 +450,9 @@ async def parse_resume_text(body: ResumeParseRequest):
                 return {"resume": data, "provider": provider}
     else:
         # 短文本或禁用并行时，使用原有的处理方式
-        if len(body.text) > config.get("chunk_threshold", 500):
-            logger.info(f"文本长度 {len(body.text)}，使用串行分块处理")
-        result = await _parse_resume_serial(body)
+        if len(body_text) > config.get("chunk_threshold", 500):
+            logger.info(f"文本长度 {len(body_text)}，使用串行分块处理")
+        result = await _parse_resume_serial(serial_body)
         if isinstance(result, dict) and "resume" in result:
             return result
         else:
@@ -605,6 +611,7 @@ async def _parse_resume_serial(body: ResumeParseRequest):
     """串行解析简历文本（原有逻辑）"""
     provider = body.provider or DEFAULT_AI_PROVIDER
     model = getattr(body, "model", None)
+    text = normalize_pasted_resume_text(body.text)
 
     # 格式定义
     schema_desc = """格式:{"name":"姓名","contact":{"phone":"电话","email":"邮箱"},"objective":"求职意向","education":[{"title":"学校","subtitle":"专业","degree":"学位(本科/硕士/博士)","date":"时间","details":["荣誉"]}],"internships":[{"title":"公司","subtitle":"职位","date":"时间","highlights":["工作内容"]}],"projects":[{"title":"项目名","subtitle":"角色","date":"时间","description":"项目描述(可选)","highlights":["描述"]}],"openSource":[{"title":"开源项目","subtitle":"角色/描述","date":"时间(格式: 2023.01-2023.12 或 2023.01-至今)","items":["贡献描述"],"repoUrl":"仓库链接"}],"skills":[{"category":"类别","details":"技能描述"}],"awards":["奖项"]}
@@ -612,17 +619,18 @@ async def _parse_resume_serial(body: ResumeParseRequest):
 重要说明：
 1. 技能描述：如果原文中技能描述部分有多行，每行以"-"开头，应该将每一行作为一个独立的技能项，格式为{"category":"","details":"该行的完整内容(去掉开头的破折号)"}
 2. 项目经历（极其重要，必须严格遵守）：
-   - 只有"### xxx"或"## xxx"开头的才是项目标题，如"### RAG知识库助手"是项目名
+   - "### xxx"或"## xxx"开头的是项目标题；若无 markdown 标题，则「项目经历：」后第一行是项目名
    - 项目描述段落（从项目标题后、技术栈前的完整段落）必须放入"description"字段
    - 技术栈信息（如"技术栈：SpringBoot MySQL..."）应该附加到 description 字段末尾
-   - "- **标题**：描述"格式是项目的功能亮点，必须放入该项目的"highlights"数组，绝不能作为独立项目！
+   - "- **标题**：描述"或 "- 架构设计：描述"格式是项目的功能亮点，必须放入该项目的"highlights"数组，绝不能作为独立项目！
    - highlights数组中的每一项应该保持原文格式，包括加粗标记
-   - 如果只看到功能亮点（"- **xxx**：描述"）而没有项目标题，将这些放入highlights数组，title留空，系统会自动合并"""
+   - 如果只看到功能亮点（"- **xxx**：描述"）而没有项目标题，将这些放入highlights数组，title留空，系统会自动合并
+""" + RESUME_PARSE_EXTRA_RULES
 
     # 如果文本过长，使用分块处理
-    if len(body.text) > 800:
-        print(f"[解析] 文本长度 {len(body.text)}，启用分块处理")
-        chunks = split_resume_text(body.text, max_chunk_size=300)
+    if len(text) > 800:
+        print(f"[解析] 文本长度 {len(text)}，启用分块处理")
+        chunks = split_resume_text(text, max_chunk_size=300)
         chunks_results = []
 
         for i, chunk in enumerate(chunks):
@@ -728,7 +736,7 @@ async def _parse_resume_serial(body: ResumeParseRequest):
 注意：highlights数组中每项不要开头的"- "符号，前端会用无序列表渲染！
 
 简历文本:
-{body.text}
+{text}
 {schema_desc}"""
 
         try:
