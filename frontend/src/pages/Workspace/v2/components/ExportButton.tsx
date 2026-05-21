@@ -13,13 +13,19 @@ import {
   ensureDirectoryPermission,
   writePdfToDirectory,
 } from "@/services/pdfExportPreferences";
+import {
+  fetchPdfDownloadQuota,
+  recordPdfDownload,
+  type PdfDownloadQuota,
+} from "@/services/api";
+import { getStoredAuthRole } from "@/lib/runtimeEnv";
 
 interface ExportButtonProps {
   resumeData: Record<string, any>;
   resumeName?: string;
   onExportJSON?: () => void;
   pdfBlob?: Blob | null;
-  onDownloadPDF?: () => void;
+  onDownloadPDF?: () => void | Promise<void>;
 }
 
 export function ExportButton({
@@ -30,7 +36,11 @@ export function ExportButton({
   onDownloadPDF,
 }: ExportButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [quota, setQuota] = useState<PdfDownloadQuota | null>(null);
+  const [quotaLoading, setQuotaLoading] = useState(false);
+  const [quotaError, setQuotaError] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const isAdmin = getStoredAuthRole() === "admin";
 
   const getPdfFileName = () => {
     const safeName = (resumeName || "简历")
@@ -53,19 +63,50 @@ export function ExportButton({
     URL.revokeObjectURL(url);
   };
 
-  // 导出 PDF - 仅用于 LaTeX 模板
-  const handleExportPDF = () => {
-    setIsOpen(false);
-    if (pdfBlob) {
-      if (onDownloadPDF) {
-        onDownloadPDF();
-      } else {
-        downloadBlob(pdfBlob, getPdfFileName());
-      }
-      return;
+  const refreshQuota = async () => {
+    setQuotaLoading(true);
+    setQuotaError(null);
+    try {
+      setQuota(await fetchPdfDownloadQuota());
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "无法读取下载额度";
+      setQuotaError(message);
+    } finally {
+      setQuotaLoading(false);
     }
-    if (!pdfBlob) {
-      alert('请先点击"渲染 PDF"按钮生成 PDF，然后再下载');
+  };
+
+  const getQuotaText = () => {
+    if (quotaLoading) return "正在读取下载额度";
+    if (quotaError) return "下载额度读取失败";
+    if (!quota) return "下载次数额度";
+    if (quota.unlimited) return "PDF 下载不限次数";
+    return `剩余 ${quota.remaining ?? 0}/${quota.limit ?? 10} 次下载`;
+  };
+
+  const quotaIsExhausted = Boolean(
+    quota && !quota.unlimited && (quota.remaining ?? 0) <= 0,
+  );
+
+  // 导出 PDF - 仅用于 LaTeX 模板
+  const handleExportPDF = async () => {
+    setIsOpen(false);
+    try {
+      if (pdfBlob) {
+        if (onDownloadPDF) {
+          await onDownloadPDF();
+        } else {
+          await recordPdfDownload();
+          downloadBlob(pdfBlob, getPdfFileName());
+        }
+        void refreshQuota();
+        return;
+      }
+      if (!pdfBlob) {
+        alert('请先点击"渲染 PDF"按钮生成 PDF，然后再下载');
+      }
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "PDF 下载失败，请重试");
     }
   };
 
@@ -84,7 +125,9 @@ export function ExportButton({
         if (dirHandle) {
           const granted = await ensureDirectoryPermission(dirHandle);
           if (granted) {
+            await recordPdfDownload();
             await writePdfToDirectory(dirHandle, filename, pdfBlob);
+            void refreshQuota();
             const dirLabel =
               getDefaultPDFDirectoryLabel() ||
               (typeof dirHandle?.name === "string" ? dirHandle.name : "默认目录");
@@ -113,10 +156,12 @@ export function ExportButton({
       | undefined;
     if (typeof showSaveFilePickerFn !== "function") {
       if (onDownloadPDF) {
-        onDownloadPDF();
+        await onDownloadPDF();
       } else {
+        await recordPdfDownload();
         downloadBlob(pdfBlob, filename);
       }
+      void refreshQuota();
       alert("当前浏览器不支持自定义路径，已使用默认下载方式");
       return;
     }
@@ -127,18 +172,23 @@ export function ExportButton({
           { description: "PDF 文件", accept: { "application/pdf": [".pdf"] } },
         ],
       });
+      await recordPdfDownload();
       const writable = await fileHandle.createWritable();
       await writable.write(pdfBlob);
       await writable.close();
+      void refreshQuota();
     } catch (error: any) {
       if (error?.name === "AbortError") return;
       console.error("另存为 PDF 失败:", error);
-      alert("另存为失败，请重试");
+      alert(error instanceof Error ? error.message : "另存为失败，请重试");
     }
   };
 
   // 导出 JSON
   const handleExportJSONClick = () => {
+    if (!isAdmin) {
+      return;
+    }
     if (onExportJSON) {
       onExportJSON();
     } else {
@@ -174,6 +224,12 @@ export function ExportButton({
       document.addEventListener("mousedown", handleClickOutside);
       return () =>
         document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      void refreshQuota();
     }
   }, [isOpen]);
 
@@ -237,6 +293,16 @@ export function ExportButton({
                     需要先渲染 PDF
                   </div>
                 )}
+                <div
+                  className={cn(
+                    "text-xs mt-1",
+                    quotaIsExhausted
+                      ? "text-red-500 dark:text-red-400"
+                      : "text-slate-400 dark:text-slate-500",
+                  )}
+                >
+                  {getQuotaText()}
+                </div>
               </div>
             </button>
           )}
@@ -268,11 +334,22 @@ export function ExportButton({
                 <div className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                   选择保存路径与文件名
                 </div>
+                <div
+                  className={cn(
+                    "text-xs mt-1",
+                    quotaIsExhausted
+                      ? "text-red-500 dark:text-red-400"
+                      : "text-slate-400 dark:text-slate-500",
+                  )}
+                >
+                  {getQuotaText()}
+                </div>
               </div>
             </button>
           )}
 
-          {/* JSON 导出卡片 */}
+          {/* JSON 导出卡片（仅管理员可见） */}
+          {isAdmin && (
           <button
             onClick={handleExportJSONClick}
             className={cn(
@@ -301,6 +378,7 @@ export function ExportButton({
               </div>
             </div>
           </button>
+          )}
         </div>
       )}
     </div>

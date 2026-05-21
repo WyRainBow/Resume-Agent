@@ -124,6 +124,7 @@ class User(Base):
     last_login_ip = Column(String(45), nullable=True, index=True)   # 最近一次登录 IP，IPv6 最长约 45 字符
     api_quota = Column(Integer, nullable=True)         # API 调用额度上限，NULL 表示不限制
     role = Column(String(32), nullable=False, server_default="user", index=True)  # 角色：user / admin 等
+    pdf_download_count = Column(Integer, nullable=False, server_default="0")  # 已成功生成 PDF 次数
 
     resumes = relationship(
         lambda: Resume,

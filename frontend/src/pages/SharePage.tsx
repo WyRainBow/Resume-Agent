@@ -3,11 +3,12 @@ import { useParams } from 'react-router-dom'
 import { Download, Copy, Check, ZoomIn, ZoomOut, Maximize2, FileText, Eye, Calendar, RefreshCw } from 'lucide-react'
 import { cn } from '../lib/utils'
 import { PDFViewerSelector } from '../components/PDFEditor'
-import { renderPDFStream } from '../services/api'
+import { recordPdfDownload, renderPDFStream } from '../services/api'
 import { convertToBackendFormat } from './Workspace/v2/utils/convertToBackend'
 import { saveAs } from 'file-saver'
 import type { ResumeData } from './Workspace/v2/types'
 import { getApiBaseUrl } from '@/lib/runtimeEnv'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface SharedResume {
   success: boolean
@@ -19,6 +20,7 @@ interface SharedResume {
 
 export default function SharePage() {
   const { shareId } = useParams<{ shareId: string }>()
+  const { isAuthenticated, loading: authLoading, openModal } = useAuth()
   const [resume, setResume] = useState<SharedResume | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -60,6 +62,11 @@ export default function SharePage() {
   // 使用正确的 API 渲染 PDF
   const handleRenderPDF = useCallback(async () => {
     if (!resume?.data) return
+    if (!isAuthenticated) {
+      setPdfProgress('登录后可预览和下载 PDF')
+      openModal('login')
+      return
+    }
     
     setPdfLoading(true)
     setPdfProgress('正在准备数据...')
@@ -86,17 +93,22 @@ export default function SharePage() {
     } finally {
       setPdfLoading(false)
     }
-  }, [resume?.data])
+  }, [isAuthenticated, openModal, resume?.data])
 
-  // 页面加载时自动渲染 PDF
+  // 页面加载时自动渲染 PDF（需登录，受下载次数限制）
   useEffect(() => {
+    if (authLoading) return
+    if (!isAuthenticated) {
+      setPdfProgress('登录后可预览和下载 PDF')
+      return
+    }
     if (resume?.data && !pdfBlob && !pdfLoading) {
       const timer = setTimeout(() => {
         handleRenderPDF()
-      }, 300) // 延迟300ms确保页面完全加载
+      }, 300)
       return () => clearTimeout(timer)
     }
-  }, [resume?.data]) // 只依赖 resume?.data，避免重复渲染
+  }, [authLoading, handleRenderPDF, isAuthenticated, pdfBlob, pdfLoading, resume?.data])
 
   // 清理文件名：去除首尾空格，将多个连续空格替换为单个空格
   const cleanFileName = (name: string | undefined): string => {
@@ -104,15 +116,20 @@ export default function SharePage() {
     return name.trim().replace(/\s+/g, ' ')
   }
 
-  const handleDownloadPDF = useCallback(() => {
+  const handleDownloadPDF = useCallback(async () => {
     if (!pdfBlob || !resume) return
     
     const name = cleanFileName(resume.name)
     const date = new Date().toISOString().split('T')[0]
     const filename = `${name}_简历_${date}.pdf`
     
-    const file = new File([pdfBlob], filename, { type: 'application/pdf' })
-    saveAs(file, filename)
+    try {
+      await recordPdfDownload()
+      const file = new File([pdfBlob], filename, { type: 'application/pdf' })
+      saveAs(file, filename)
+    } catch (error) {
+      setPdfProgress(`下载失败: ${(error as Error).message}`)
+    }
   }, [pdfBlob, resume])
 
   const handleCopyLink = async () => {
@@ -222,6 +239,31 @@ export default function SharePage() {
               </>
             )}
           </button>
+
+          {!isAuthenticated ? (
+            <button
+              onClick={() => openModal('login')}
+              className={cn(
+                'px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-medium',
+                'bg-blue-600 text-white hover:bg-blue-700',
+                'transition-all duration-200'
+              )}
+            >
+              登录后下载
+            </button>
+          ) : !pdfBlob && !pdfLoading ? (
+            <button
+              onClick={handleRenderPDF}
+              className={cn(
+                'px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-medium',
+                'bg-blue-600 text-white hover:bg-blue-700',
+                'transition-all duration-200'
+              )}
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              生成 PDF
+            </button>
+          ) : null}
 
           {/* 下载 PDF 按钮 */}
           <button

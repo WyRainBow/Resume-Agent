@@ -3,7 +3,7 @@
  */
 import { saveAs } from 'file-saver'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { renderPDFStream, renderPDF } from '../../../../services/api'
+import { recordPdfDownload, renderPDFStream, renderPDF } from '../../../../services/api'
 import { getStoredAuthRole } from '@/lib/runtimeEnv'
 import { getStoredPDFRenderMode, setStoredPDFRenderMode, type PDFRenderMode } from '@/services/pdfRenderMode'
 import { saveResume, setCurrentResumeId } from '../../../../services/resumeStorage'
@@ -150,12 +150,20 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
   }
 
   // 下载 PDF
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
     if (!pdfBlob) return
 
     const name = cleanFileName(resumeData.basic.name)
     const date = new Date().toISOString().split('T')[0]
     const filename = `${name}_简历_${date}.pdf`
+
+    try {
+      await recordPdfDownload()
+    } catch (error) {
+      const message = getErrorMessage(error)
+      setProgress(`下载失败：${message}`)
+      return
+    }
 
     const file = new File([pdfBlob], filename, { type: 'application/pdf' })
     saveAs(file, filename)

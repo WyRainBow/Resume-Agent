@@ -2,20 +2,36 @@
 PDF 渲染路由 - 使用 LaTeX 生成专业简历 PDF
 """
 import time
+import logging
 from pathlib import Path
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
-from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 try:
-    from models import RenderPDFRequest
+    from models import RenderPDFRequest, User
+    from database import get_db
+    from middleware.auth import get_current_user
+    from services.pdf_download_quota import (
+        assert_pdf_download_allowed,
+        build_quota_payload,
+        record_successful_pdf_download,
+    )
 except ImportError:
-    from backend.models import RenderPDFRequest
+    from backend.models import RenderPDFRequest, User
+    from backend.database import get_db
+    from backend.middleware.auth import get_current_user
+    from backend.services.pdf_download_quota import (
+        assert_pdf_download_allowed,
+        build_quota_payload,
+        record_successful_pdf_download,
+    )
 
 router = APIRouter(prefix="/api", tags=["PDF"])
+logger = logging.getLogger("backend")
 
 
 def _resolve_template_dir() -> Path:
@@ -38,6 +54,7 @@ def _compile_pdf_bytes(latex_content: str, template_dir: Path, resume_data):
         from latex_generator import compile_latex_to_pdf
     return compile_latex_to_pdf(latex_content, template_dir, resume_data=resume_data).getvalue()
 
+
 def _resume_brief(resume_data):
     if not isinstance(resume_data, dict):
         return {"type": type(resume_data).__name__}
@@ -49,12 +66,68 @@ def _resume_brief(resume_data):
         "has_projects": "projects" in resume_data,
     }
 
+
 class CompileLatexRequest(BaseModel):
     """LaTeX 编译请求"""
     latex_content: str
 
+
+@router.get("/pdf/quota")
+async def get_pdf_download_quota(
+    current_user: User = Depends(get_current_user),
+):
+    """查询当前用户 PDF 下载配额。"""
+    return build_quota_payload(current_user)
+
+
+@router.post("/pdf/downloads/record")
+async def record_pdf_download(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """记录一次真实 PDF 下载。预览/渲染不消耗下载次数。"""
+    before_quota = build_quota_payload(current_user)
+    logger.info(
+        "[PDF DOWNLOAD][record_request] user_id=%s username=%s role=%s used=%s limit=%s remaining=%s",
+        current_user.id,
+        current_user.username,
+        current_user.role,
+        before_quota["used"],
+        before_quota["limit"],
+        before_quota["remaining"],
+    )
+    try:
+        assert_pdf_download_allowed(current_user)
+        record_successful_pdf_download(current_user, db)
+    except HTTPException as exc:
+        detail = exc.detail
+        code = detail.get("code") if isinstance(detail, dict) else None
+        message = detail.get("message") if isinstance(detail, dict) else str(detail)
+        logger.warning(
+            "[PDF DOWNLOAD][record_denied] status=%s code=%s message=%s user_id=%s "
+            "username=%s role=%s used=%s limit=%s remaining=%s",
+            exc.status_code,
+            code or "-",
+            message,
+            current_user.id,
+            current_user.username,
+            current_user.role,
+            before_quota["used"],
+            before_quota["limit"],
+            before_quota["remaining"],
+        )
+        raise
+
+    return build_quota_payload(current_user)
+
+
 @router.post("/pdf/render")
-async def render_pdf(body: RenderPDFRequest, request: Request):
+async def render_pdf(
+    body: RenderPDFRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     将简历 JSON 渲染为 PDF 并返回
     使用 LaTeX (xelatex) 生成专业排版的简历
@@ -68,6 +141,7 @@ async def render_pdf(body: RenderPDFRequest, request: Request):
     client = request.client.host if request.client else "-"
     print(
         f"[PDF TRACE][render:request] trace_id={trace_id} source={trace_source} trigger={trace_trigger} "
+        f"user_id={current_user.id} role={current_user.role} "
         f"session_id={request.headers.get('X-Agent-Session-Id') or '-'} "
         f"resume_id={request.headers.get('X-Agent-Resume-Id') or '-'} client={client} "
         f"origin={request.headers.get('origin') or '-'} referer={request.headers.get('referer') or '-'} "
@@ -84,9 +158,10 @@ async def render_pdf(body: RenderPDFRequest, request: Request):
         )
 
         render_time = time.time() - start_time
+        quota = build_quota_payload(current_user)
         print(
             f"[PDF TRACE][render:done] trace_id={trace_id} elapsed={render_time:.2f}s "
-            f"bytes={len(pdf_bytes)}"
+            f"bytes={len(pdf_bytes)} user_id={current_user.id} pdf_used={quota['used']}"
         )
 
         return StreamingResponse(
@@ -96,19 +171,26 @@ async def render_pdf(body: RenderPDFRequest, request: Request):
                 "Content-Disposition": 'inline; filename="resume.pdf"',
                 "X-Render-Time": str(render_time),
                 "X-PDF-Trace-Id": trace_id,
+                "X-PDF-Download-Remaining": str(quota["remaining"] if quota["remaining"] is not None else -1),
             },
         )
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"[PDF TRACE][render:error] trace_id={trace_id} error={e}")
         raise HTTPException(status_code=500, detail=f"PDF 渲染失败: {e}")
 
 
 @router.post("/pdf/render/stream")
-async def render_pdf_stream(body: RenderPDFRequest, request: Request):
+async def render_pdf_stream(
+    body: RenderPDFRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     流式渲染PDF，提供实时进度反馈
     """
-
     session_id = request.headers.get("X-Agent-Session-Id")
     resume_id = request.headers.get("X-Agent-Resume-Id")
     trace_id = request.headers.get("X-PDF-Trace-Id") or f"backend-s-{int(time.time() * 1000)}"
@@ -120,21 +202,19 @@ async def render_pdf_stream(body: RenderPDFRequest, request: Request):
         resume_data = body.resume
         print(
             f"[PDF TRACE][stream:request] trace_id={trace_id} source={trace_source} trigger={trace_trigger} "
+            f"user_id={current_user.id} role={current_user.role} "
             f"session_id={session_id or '-'} resume_id={resume_id or '-'} client={client} "
             f"origin={request.headers.get('origin') or '-'} referer={request.headers.get('referer') or '-'} "
             f"section_order={body.section_order} resume_brief={_resume_brief(resume_data)}"
         )
 
         try:
-            # 发送开始事件
             print(f"[PDF TRACE][stream:start] trace_id={trace_id}")
             yield dict(event="start", data="开始生成PDF...")
 
-            # 转换为 LaTeX
             latex_start = time.time()
             yield dict(event="progress", data="正在生成LaTeX代码...")
 
-            # 生成 LaTeX
             latex_content = await run_in_threadpool(
                 _prepare_latex_content,
                 resume_data,
@@ -147,7 +227,6 @@ async def render_pdf_stream(body: RenderPDFRequest, request: Request):
             )
             yield dict(event="progress", data=f"LaTeX代码生成完成 ({latex_time:.1f}s)")
 
-            # 编译PDF
             compile_start = time.time()
             yield dict(event="progress", data="正在编译PDF（可能需要几秒）...")
 
@@ -165,28 +244,49 @@ async def render_pdf_stream(body: RenderPDFRequest, request: Request):
                 )
                 yield dict(event="progress", data=f"PDF编译完成 ({compile_time:.1f}s)")
 
-                # 发送PDF
-                pdf_hex = pdf_bytes.hex()
+                quota = build_quota_payload(current_user)
 
+                pdf_hex = pdf_bytes.hex()
                 yield dict(event="pdf", data=pdf_hex)
+                yield dict(
+                    event="quota",
+                    data=str(
+                        {
+                            "remaining": quota["remaining"],
+                            "used": quota["used"],
+                            "limit": quota["limit"],
+                        }
+                    ),
+                )
                 print(
                     f"[PDF TRACE][stream:done] trace_id={trace_id} session_id={session_id or '-'} "
-                    f"resume_id={resume_id or '-'} size={len(pdf_hex)/2} bytes"
+                    f"resume_id={resume_id or '-'} size={len(pdf_hex)/2} bytes user_id={current_user.id} "
+                    f"pdf_used={quota['used']}"
                 )
+
+            except HTTPException as exc:
+                detail = exc.detail
+                if isinstance(detail, dict):
+                    message = detail.get("message") or str(detail)
+                else:
+                    message = str(detail)
+                yield dict(event="error", data=message)
 
             except Exception as e:
                 import traceback
                 error_msg = f"LaTeX编译错误: {str(e)}\n{traceback.format_exc()}"
                 print(f"[PDF TRACE][stream:compile-error] trace_id={trace_id} detail={error_msg}")
-                # 发送完整的错误信息（最多5000字符，避免过长）
                 error_data = str(e) if len(str(e)) <= 5000 else str(e)[:5000] + "...(错误信息过长，已截断)"
                 yield dict(event="error", data=error_data)
 
+        except HTTPException as exc:
+            detail = exc.detail
+            message = detail.get("message") if isinstance(detail, dict) else str(detail)
+            yield dict(event="error", data=message or "PDF 下载次数已达上限")
         except Exception as e:
             import traceback
             error_msg = f"PDF生成失败: {str(e)}\n{traceback.format_exc()}"
             print(f"[PDF TRACE][stream:error] trace_id={trace_id} detail={error_msg}")
-            # 发送完整的错误信息（最多5000字符）
             error_data = str(e) if len(str(e)) <= 5000 else str(e)[:5000] + "...(错误信息过长，已截断)"
             yield dict(event="error", data=error_data)
 
@@ -194,27 +294,33 @@ async def render_pdf_stream(body: RenderPDFRequest, request: Request):
 
 
 @router.post("/pdf/compile-latex")
-async def compile_latex(body: CompileLatexRequest):
+async def compile_latex(
+    body: CompileLatexRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     直接编译 LaTeX 源代码为 PDF
     使用 slager 原版样式（与 slager.link 完全一致）
     """
     start_time = time.time()
-    
+
     try:
         try:
             from backend.latex_compiler import compile_latex_raw
         except ImportError:
             from latex_compiler import compile_latex_raw
         pdf_io = compile_latex_raw(body.latex_content)
-        
+
         render_time = time.time() - start_time
-        print(f"[LaTeX 编译] 完成，耗时: {render_time:.2f}秒")
-        
+        print(f"[LaTeX 编译] 完成，耗时: {render_time:.2f}秒, user_id={current_user.id}")
+
         return StreamingResponse(pdf_io, media_type='application/pdf', headers={
             'Content-Disposition': 'inline; filename="resume.pdf"',
             'X-Render-Time': str(render_time)
         })
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         error_msg = f"LaTeX 编译失败: {str(e)}"
@@ -223,7 +329,11 @@ async def compile_latex(body: CompileLatexRequest):
 
 
 @router.post("/pdf/compile-latex/stream")
-async def compile_latex_stream(body: CompileLatexRequest):
+async def compile_latex_stream(
+    body: CompileLatexRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     流式编译 LaTeX 源代码为 PDF，提供实时进度反馈
     """
@@ -231,31 +341,33 @@ async def compile_latex_stream(body: CompileLatexRequest):
         try:
             yield dict(event="start", data="开始编译 LaTeX...")
             yield dict(event="progress", data="正在准备编译环境...")
-            
+
             compile_start = time.time()
-            
+
             try:
                 from backend.latex_compiler import compile_latex_raw
             except ImportError:
                 from latex_compiler import compile_latex_raw
             yield dict(event="progress", data="正在编译 PDF（可能需要几秒）...")
-            
+
             pdf_io = compile_latex_raw(body.latex_content)
             compile_time = time.time() - compile_start
-            
+
             yield dict(event="progress", data=f"PDF 编译完成 ({compile_time:.1f}s)")
-            
-            # 发送 PDF 数据
+
             pdf_hex = pdf_io.getvalue().hex()
             yield dict(event="pdf", data=pdf_hex)
-            print(f"[LaTeX 编译] 成功，大小: {len(pdf_hex)/2} 字节")
-            
+            print(f"[LaTeX 编译] 成功，大小: {len(pdf_hex)/2} 字节, user_id={current_user.id}")
+
+        except HTTPException as exc:
+            detail = exc.detail
+            message = detail.get("message") if isinstance(detail, dict) else str(detail)
+            yield dict(event="error", data=message or "PDF 下载次数已达上限")
         except Exception as e:
             import traceback
             error_msg = f"LaTeX 编译错误: {str(e)}"
             print(f"[错误] {error_msg}\n{traceback.format_exc()}")
-            # 发送完整的错误信息（最多5000字符）
             error_data = str(e) if len(str(e)) <= 5000 else str(e)[:5000] + "...(错误信息过长，已截断)"
             yield dict(event="error", data=error_data)
-    
+
     return EventSourceResponse(generate())

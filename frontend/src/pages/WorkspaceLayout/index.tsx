@@ -10,8 +10,6 @@ import {
   FileText,
   Settings,
   ChevronDown,
-  Save,
-  Download,
   LogIn,
   User,
   LogOut,
@@ -114,14 +112,12 @@ export type AgentSessionHandlers = {
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode;
-  onSave?: () => void;
   onDownload?: () => void;
   agentSession?: AgentSessionHandlers;
 }
 
 export default function WorkspaceLayout({
   children,
-  onSave,
   onDownload,
   agentSession,
 }: WorkspaceLayoutProps) {
@@ -452,55 +448,6 @@ export default function WorkspaceLayout({
                 <Shield className="w-6 h-6 shrink-0" />
                 {!sidebarCollapsed && (
                   <span className="text-base font-medium">后台管理系统</span>
-                )}
-              </button>
-            )}
-          </nav>
-
-          {/* 分隔线 */}
-          <div className="border-t border-slate-100 dark:border-slate-800 my-1 shrink-0" />
-
-          {/* 其他导航 */}
-          <nav
-            className={cn(
-              "space-y-0.5 flex flex-col shrink-0",
-              sidebarCollapsed ? "items-center" : "",
-            )}
-          >
-            {/* 保存按钮 - 仅在编辑区显示 */}
-            {currentWorkspace === "edit" && onSave && (
-              <button
-                onClick={onSave}
-                className={cn(
-                  "w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all",
-                  sidebarCollapsed
-                    ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                    : "flex items-center gap-2.5 py-2.5 px-2.5",
-                )}
-                title="保存简历"
-              >
-                <Save className="w-6 h-6 shrink-0" />
-                {!sidebarCollapsed && (
-                  <span className="text-base font-medium">保存</span>
-                )}
-              </button>
-            )}
-
-            {/* 下载按钮 - 仅在编辑区显示 */}
-            {currentWorkspace === "edit" && onDownload && (
-              <button
-                onClick={onDownload}
-                className={cn(
-                  "w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all",
-                  sidebarCollapsed
-                    ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                    : "flex items-center gap-2.5 py-2.5 px-2.5",
-                )}
-                title="下载PDF"
-              >
-                <Download className="w-6 h-6 shrink-0" />
-                {!sidebarCollapsed && (
-                  <span className="text-base font-medium">下载</span>
                 )}
               </button>
             )}
