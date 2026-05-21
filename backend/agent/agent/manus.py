@@ -1525,8 +1525,11 @@ class Manus(ToolCallAgent):
                     )
                     experiences = (resume_data_snapshot or {}).get("experience") or []
 
-                    suggestions: Optional[Dict[str, Any]] = None
                     resolved_idx = target_index
+                    if resolved_idx is None and experiences:
+                        resolved_idx = 0
+
+                    suggestions: Optional[Dict[str, Any]] = None
                     if resolved_idx is not None and resolved_idx < len(experiences):
                         suggestions = await self._llm_optimize_section_patch(
                             user_input,
@@ -1534,69 +1537,20 @@ class Manus(ToolCallAgent):
                             resolved_idx,
                         )
 
-                    if not (suggestions and suggestions.get("optimization_suggestions")):
-                        fallback_idx = resolved_idx
-                        if fallback_idx is None:
-                            fallback_idx = resolve_experience_target_index(
-                                user_input, resume_data_snapshot or {}
-                            )
-                        if fallback_idx is None and experiences:
-                            fallback_idx = 0
-                        if fallback_idx is not None and fallback_idx < len(experiences):
-                            suggestions = await self._llm_optimize_section_patch(
-                                user_input,
-                                resume_data_snapshot or {},
-                                fallback_idx,
-                            )
-                            resolved_idx = fallback_idx
-
-                    if not (suggestions and suggestions.get("optimization_suggestions")):
-                        logger.info(
-                            "[Manus] LLM optimize section empty, fallback to rule analyzer"
-                        )
-                        fallback_idx = resolved_idx if resolved_idx is not None else 0
-                        if experiences:
-                            fallback_idx = min(
-                                max(fallback_idx, 0), len(experiences) - 1
-                            )
-                            analyzer = AgentRegistry.create(
-                                "work_experience_analyzer", session_id=self.session_id
-                            )
-                            opt = await analyzer.optimize(
-                                resume_data_snapshot or {},
-                                issue_id=f"work-enhance-{fallback_idx}",
-                            )
-                            company = re.sub(
-                                r"\*+",
-                                "",
-                                str(experiences[fallback_idx].get("company") or "该段经历"),
-                            ).strip() or "该段经历"
-                            suggestions = {
-                                "optimization_suggestions": [
-                                    {
-                                        "title": f"优化 {company} 的实习经历",
-                                        "current": opt.get("current", ""),
-                                        "optimized": opt.get("optimized", ""),
-                                        "explanation": opt.get("explanation", ""),
-                                        "apply_path": opt.get("apply_path"),
-                                    }
-                                ]
-                            }
-                            resolved_idx = fallback_idx
-                        else:
-                            suggestions = {"optimization_suggestions": []}
-                    suggestions_list = suggestions.get("optimization_suggestions") or []
+                    suggestions_list = (suggestions or {}).get("optimization_suggestions") or []
                     patch_count = self._queue_optimization_patches(suggestions_list)
                     default_label = "实习经历"
-                    if resolved_idx is None and suggestions_list:
-                        apply_path = str(suggestions_list[0].get("apply_path") or "")
-                        idx_match = re.search(r"experience\[(\d+)\]", apply_path)
-                        if idx_match:
-                            resolved_idx = int(idx_match.group(1))
                     if resolved_idx is not None and resolved_idx < len(experiences):
-                        default_label = experiences[resolved_idx].get("company") or default_label
+                        default_label = (
+                            re.sub(
+                                r"\*+",
+                                "",
+                                str(experiences[resolved_idx].get("company") or default_label),
+                            ).strip()
+                            or default_label
+                        )
                     content = self._optimization_assistant_reply(
-                        suggestions,
+                        suggestions or {"optimization_suggestions": []},
                         patch_count=patch_count,
                         default_label=default_label,
                     )
