@@ -11,7 +11,13 @@ import re
 import uuid
 from backend.agent.tool.base import BaseTool, ToolResult
 from backend.agent.tool.resume_data_store import ResumeDataStore
-from backend.agent.utils.json_path import set_by_path
+from backend.agent.utils.experience_entry import (
+    build_indexed_patch_after,
+    coerce_tool_value,
+    normalize_experience_add_entry,
+    resolve_experience_add_path,
+    to_internships_schema,
+)
 from backend.agent.utils.resume_richtext import is_richtext_path, normalize_editor_value
 from backend.agent.llm import LLM
 from backend.core.logger import get_logger
@@ -133,6 +139,21 @@ Execute modifications immediately when user provides specific details.
 
         try:
             normalized_path, simple_edit_meta = self._resolve_simple_edit_path(path, resume_data)
+
+            if action == "add":
+                normalized_path = resolve_experience_add_path(normalized_path, resume_data)
+                value = coerce_tool_value(value)
+                if isinstance(value, dict):
+                    workspace_entry = normalize_experience_add_entry(
+                        value,
+                        array_path=normalized_path,
+                        index_hint=len(resume_data.get(normalized_path) or []),
+                    )
+                    if normalized_path == "internships":
+                        value = to_internships_schema(workspace_entry)
+                    else:
+                        value = workspace_entry
+
             # 延迟导入避免循环依赖
             from backend.agent.agent.cv_editor import CVEditor
 
@@ -142,8 +163,8 @@ Execute modifications immediately when user provides specific details.
             # 加载简历数据（传入引用，所以修改会直接影响原始数据）
             cv_editor.load_resume(resume_data)
 
-            # 富文本字段：将 LLM 的 Markdown/编号列表规范为 HTML 无序列表
-            if action in ("update", "add") and value is not None:
+            # 富文本字段：将 LLM 的 Markdown/编号列表规范为 HTML 无序列表（add 已在上方规范化）
+            if action == "update" and value is not None:
                 if is_richtext_path(normalized_path) or (
                     isinstance(value, str)
                     and ("**" in value or re.search(r"^\d+\.\s", value, re.M))
@@ -219,8 +240,7 @@ Execute modifications immediately when user provides specific details.
                     idx = int(result["new_index"])
                     path_str = f"{normalized_path}[{idx}]"
                     before_payload = {}
-                    after_payload = {}
-                    set_by_path(after_payload, path_str, new_val)
+                    after_payload = build_indexed_patch_after(path_str, new_val)
 
                 structured_data = {
                     "type": "resume_patch",

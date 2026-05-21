@@ -1,19 +1,7 @@
 import React, { useState } from 'react'
 import { Check, ChevronDown, ChevronUp, X, SkipForward } from 'lucide-react'
 import { useResumeContext, type PendingPatch } from '../../contexts/ResumeContext'
-import { formatResumeDiffPreview } from '../../utils/resumePatch'
-
-function extractRawText(value: Record<string, any>): string {
-  if (value && typeof value === 'object' && '_raw' in value) {
-    return String((value as any)._raw ?? '')
-  }
-  if (!value || typeof value !== 'object') return String(value ?? '')
-  const vals = Object.values(value)
-  if (vals.length === 1 && typeof vals[0] === 'string') {
-    return vals[0]
-  }
-  return JSON.stringify(value, null, 2)
-}
+import { formatPatchDiffSide } from '../../utils/resumePatch'
 
 function isEmptyContent(text: string): boolean {
   const t = text.trim().toLowerCase()
@@ -143,8 +131,8 @@ export function ResumeDiffCard({ patch }: { patch: PendingPatch }) {
     )
   }
 
-  const beforeText = formatResumeDiffPreview(extractRawText(patch.before))
-  const afterText = formatResumeDiffPreview(extractRawText(patch.after))
+  const beforeText = formatPatchDiffSide(patch.paths, patch.before)
+  const afterText = formatPatchDiffSide(patch.paths, patch.after)
   const isLong = beforeText.length > COLLAPSE_THRESHOLD || afterText.length > COLLAPSE_THRESHOLD
   const showFull = expanded || !isLong
 

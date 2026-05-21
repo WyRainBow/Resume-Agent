@@ -21,6 +21,52 @@ export function setByPath(obj: any, path: string, value: any): any {
   return result
 }
 
+const EXPERIENCE_INDEX_PATH_RE = /^experience\[(\d+)\]$/
+
+/**
+ * 将 Agent 写入的条目规范为前端 Experience 结构（避免 JSON 字符串 / period 字段）。
+ */
+export function normalizeExperiencePatchItem(value: unknown): unknown {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        return normalizeExperiencePatchItem(JSON.parse(trimmed))
+      } catch {
+        return value
+      }
+    }
+    return value
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value
+  }
+  const v = value as Record<string, unknown>
+  const company = String(v.company ?? v.title ?? v.organization ?? '').trim()
+  const position = String(v.position ?? v.subtitle ?? v.role ?? '').trim()
+  const date = String(v.date ?? v.period ?? v.duration ?? '').trim()
+  let details = v.details ?? v.description ?? ''
+  if (Array.isArray(details)) {
+    details = details.map((x) => String(x)).join('\n')
+  }
+  details = String(details ?? '')
+  if (!company && !position && !details) {
+    return value
+  }
+  return {
+    id: String(v.id || `exp_${Date.now()}`),
+    company,
+    position,
+    date,
+    details,
+    visible: v.visible !== false,
+    ...(v.companyLogo ? { companyLogo: v.companyLogo } : {}),
+    ...(typeof v.companyLogoSize === 'number'
+      ? { companyLogoSize: v.companyLogoSize }
+      : {}),
+  }
+}
+
 /**
  * 按 paths 数组批量写入 after 中的值到 resume。
  * 支持两种 after 格式：
@@ -35,15 +81,22 @@ export function applyPatchPaths(resume: any, paths: string[], after: any): any {
   if (after && typeof after === 'object' && '_raw' in after) {
     const rawValue = (after as any)._raw
     for (const path of paths) {
-      result = setByPath(result, path, rawValue)
+      let v = rawValue
+      if (EXPERIENCE_INDEX_PATH_RE.test(path)) {
+        v = normalizeExperiencePatchItem(v)
+      }
+      result = setByPath(result, path, v)
     }
     return result
   }
 
   // Normal nested format: extract value at each path from after object
   for (const path of paths) {
-    const value = getByPath(after, path)
+    let value = getByPath(after, path)
     if (value !== undefined) {
+      if (EXPERIENCE_INDEX_PATH_RE.test(path)) {
+        value = normalizeExperiencePatchItem(value)
+      }
       result = setByPath(result, path, value)
     }
   }
@@ -266,6 +319,94 @@ export function stripInternalMarkers(content: string): string {
     .replace(/%%SUGGESTIONS%%[\s\S]*?%%END%%/g, '')
     .replace(/%%SUGGESTIONS%%[\s\S]*/g, '')
     .trim()
+}
+
+function looksLikeHtml(value: string): boolean {
+  return /<[a-z][^>]*>/i.test(value || '')
+}
+
+/**
+ * 将实习/经历条目格式化为 diff 卡片可读文案（非 JSON）。
+ */
+export function formatExperienceEntryForDiff(entry: Record<string, unknown>): string {
+  const company = String(entry.company ?? entry.title ?? entry.organization ?? '').trim()
+  const position = String(entry.position ?? entry.subtitle ?? entry.role ?? '').trim()
+  const date = String(entry.date ?? entry.period ?? entry.duration ?? '').trim()
+
+  let details = entry.details ?? entry.description ?? ''
+  if (Array.isArray(entry.highlights)) {
+    details = (entry.highlights as unknown[])
+      .map((x) => String(x))
+      .filter(Boolean)
+      .join('\n')
+  }
+  details = String(details ?? '').trim()
+
+  const headerParts = [company, position].filter(Boolean)
+  const lines: string[] = []
+  if (headerParts.length) {
+    lines.push(`${headerParts.join(' | ')}${date ? `（${date}）` : ''}`)
+  }
+  if (details) {
+    lines.push(looksLikeHtml(details) ? htmlToReadableText(details) : formatResumeDiffPreview(details))
+  }
+  return lines.join('\n\n').trim()
+}
+
+function tryParseJsonObject(raw: string): Record<string, unknown> | null {
+  const text = raw.trim()
+  if (!text.startsWith('{')) return null
+  try {
+    const parsed = JSON.parse(text)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 将 resume_patch 的 before/after 转为用户可读文本（避免直接展示 JSON）。
+ */
+export function formatPatchDiffSide(
+  paths: string[] | undefined,
+  payload: Record<string, unknown> | undefined,
+): string {
+  if (!payload || typeof payload !== 'object') return ''
+
+  if ('_raw' in payload) {
+    const raw = String((payload as { _raw?: unknown })._raw ?? '').trim()
+    if (!raw) return ''
+    const parsed = tryParseJsonObject(raw)
+    if (parsed && (parsed.company || parsed.title || parsed.details || parsed.highlights)) {
+      return formatExperienceEntryForDiff(parsed)
+    }
+    return formatResumeDiffPreview(raw)
+  }
+
+  const path = paths?.[0] || ''
+  if (EXPERIENCE_INDEX_PATH_RE.test(path)) {
+    let item = getByPath(payload, path)
+    if (!item && Array.isArray((payload as { experience?: unknown }).experience)) {
+      const idx = Number(path.match(EXPERIENCE_INDEX_PATH_RE)?.[1])
+      item = (payload as { experience: unknown[] }).experience[idx]
+    }
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const normalized = normalizeExperiencePatchItem(item) as Record<string, unknown>
+      return formatExperienceEntryForDiff(normalized)
+    }
+  }
+
+  const vals = Object.values(payload)
+  if (vals.length === 1 && vals[0] && typeof vals[0] === 'object' && !Array.isArray(vals[0])) {
+    const only = vals[0] as Record<string, unknown>
+    if (only.company || only.title || only.details || only.highlights) {
+      return formatExperienceEntryForDiff(only)
+    }
+  }
+
+  return formatResumeDiffPreview(JSON.stringify(payload, null, 2))
 }
 
 function htmlToReadableText(value: string): string {

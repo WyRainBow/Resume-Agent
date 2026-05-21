@@ -733,8 +733,9 @@ class Manus(ToolCallAgent):
                 f"{system_prompt}\n\n"
                 "## 本轮约束（新增经历）\n"
                 "用户要导入/新增一段实习或工作经历：使用 cv_editor_agent，"
-                "action=add，path=experience，value 为完整条目对象（company/position/date/details）。\n"
-                "details 必须用 HTML 无序列表（ul.custom-list + strong），禁止 STAR 模板，禁止覆盖 experience[0]。\n"
+                "action=add，path=experience，value 为**单个 JSON 对象**（勿把整个对象再 stringify 成字符串）。\n"
+                "字段：company、position、date（不要用 period）、details（HTML ul.custom-list + strong）。\n"
+                "禁止 STAR 模板，禁止 update experience[0]，必须 append 新条。\n"
             )
 
         next_step = await self._generate_next_step_prompt(intent)
