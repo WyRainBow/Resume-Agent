@@ -10,6 +10,7 @@ export interface ParsedResumeEntry {
   subtitle?: string;
   period?: string;
   lines: ParsedResumeLine[];
+  rawBody?: string;
 }
 
 export interface ParsedResumeSection {
@@ -23,7 +24,7 @@ const SECTION_HINT =
   /work experience|education|projects|open source|skills|awards|basic information|self evaluation|internship|experience|实习|工作|教育|项目|开源|技能|奖项|基本信息|自我评价/i;
 
 const ENTRY_HEADER_RE =
-  /^###\s*(?:\[(\d+)\]|([①②③④⑤⑥⑦⑧⑨⑩])|(\d+[.)]))?\s*(.+)$/;
+  /^###\s*(?:\[(\d+)\]|([①②③④⑤⑥⑦⑧⑨⑩1️⃣2️⃣3️⃣4️⃣5️⃣])|(\d+[.)]))?\s*(.+)$/;
 
 const PERIOD_RE = /^(?:\s*)?(?:Period|Date|时间|日期)[:：]\s*(.+)$/i;
 const LABEL_RE = /^(?:\s*)?(Description|Details|Role|Repo|Link|GPA|Issuer|Email|Phone|Location|Summary|Position|Name|Target Position)[:：]\s*(.+)$/i;
@@ -39,21 +40,37 @@ const CIRCLED_NUM_MAP: Record<string, number> = {
   "⑧": 7,
   "⑨": 8,
   "⑩": 9,
+  "1️⃣": 0,
+  "2️⃣": 1,
+  "3️⃣": 2,
+  "4️⃣": 3,
+  "5️⃣": 4,
 };
 
 function stripMarkdownBold(text: string): string {
   return text.replace(/\*\*/g, "").trim();
 }
 
+function stripDecorativePrefix(text: string): string {
+  let cleaned = (text || "").trim();
+  cleaned = cleaned.replace(/^#+\s*/g, "").trim();
+  // 去掉标题前的装饰 emoji（如 📁、🔗）
+  cleaned = cleaned.replace(/^[\p{Extended_Pictographic}\u2600-\u27BF]\s*/u, "").trim();
+  cleaned = cleaned.replace(/^#+\s*/g, "").trim();
+  return cleaned;
+}
+
 function cleanSectionTitle(raw: string): { title: string; pathHint?: string } {
   const pathMatch = raw.match(/^(.*?)\s*\(\s*path(?: prefix)?[:：]\s*([^)]+)\)/i);
   if (pathMatch) {
     return {
-      title: stripMarkdownBold(pathMatch[1]).replace(/\s{2,}/g, " ").trim(),
+      title: stripDecorativePrefix(stripMarkdownBold(pathMatch[1])).replace(/\s{2,}/g, " ").trim(),
       pathHint: pathMatch[2].trim(),
     };
   }
-  return { title: stripMarkdownBold(raw).replace(/\s{2,}/g, " ").trim() };
+  return {
+    title: stripDecorativePrefix(stripMarkdownBold(raw)).replace(/\s{2,}/g, " ").trim(),
+  };
 }
 
 function parseEntryHeader(line: string): ParsedResumeEntry | null {
@@ -139,6 +156,15 @@ export function isResumeStructuredContent(content: string): boolean {
   return resumeSections.length >= 1 && (h2Lines.length >= 2 || /^###\s+/m.test(text));
 }
 
+function isResumeSectionTitle(title: string): boolean {
+  return SECTION_HINT.test(title);
+}
+
+function isSectionDisplayable(section: ParsedResumeSection): boolean {
+  if (section.entries.length > 0) return true;
+  return Boolean((section.preamble || "").trim());
+}
+
 export function parseResumeMarkdown(content: string): ParsedResumeSection[] {
   const normalized = (content || "")
     .replace(/^#\s+CV\/Resume Context\s*$/gim, "")
@@ -152,12 +178,17 @@ export function parseResumeMarkdown(content: string): ParsedResumeSection[] {
     const { title, pathHint } = cleanSectionTitle(titleLine || "未命名模块");
     const body = restLines.join("\n").trim();
     if (!body) {
-      sections.push({ title, pathHint, entries: [], preamble: "" });
+      if (isResumeSectionTitle(title) || pathHint) {
+        sections.push({ title, pathHint, entries: [], preamble: "" });
+      }
       continue;
     }
 
     const entryChunks = body.split(/^###\s+/m);
     if (entryChunks.length <= 1) {
+      if (!isResumeSectionTitle(title) && !pathHint) {
+        continue;
+      }
       sections.push({
         title,
         pathHint,
@@ -191,11 +222,12 @@ export function parseResumeMarkdown(content: string): ParsedResumeSection[] {
         entry.lines.push(parsedLine);
       }
 
+      entry.rawBody = entryLines.join("\n").trim();
       entries.push(entry);
     }
 
     sections.push({ title, pathHint, entries });
   }
 
-  return sections;
+  return sections.filter(isSectionDisplayable);
 }

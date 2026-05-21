@@ -1,5 +1,6 @@
 import React from "react";
 import type { DiffDisplayContent } from "@/utils/resumePatch";
+import { linkifyHtmlContent, linkifyTextNodes } from "@/utils/linkifyText";
 
 interface DiffRichContentProps {
   display: DiffDisplayContent;
@@ -32,27 +33,27 @@ function PlainDiffLines({ text, variant }: { text: string; variant: "before" | "
           return (
             <div key={i} className="flex gap-1.5 py-0.5 pl-2">
               <span className="shrink-0 text-chat-accent">•</span>
-              <span>{trimmed.replace(/^[-•]\s*/, "")}</span>
+              <span>{linkifyTextNodes(trimmed.replace(/^[-•]\s*/, ""))}</span>
             </div>
           );
         }
         if (isNumbered) {
           return (
             <div key={i} className="py-0.5 font-medium">
-              {trimmed}
+              {linkifyTextNodes(trimmed)}
             </div>
           );
         }
         if (isHeading) {
           return (
             <div key={i} className="pb-0.5 pt-2 font-medium text-chat-ink">
-              {trimmed}
+              {linkifyTextNodes(trimmed)}
             </div>
           );
         }
         return (
           <div key={i} className="py-0.5">
-            {trimmed}
+            {linkifyTextNodes(trimmed)}
           </div>
         );
       })}
@@ -75,7 +76,7 @@ export default function DiffRichContent({ display, variant }: DiffRichContentPro
         className={`diff-rich-content text-sm leading-relaxed ${
           variant === "before" ? "text-chat-ink-muted" : "text-chat-ink"
         }`}
-        dangerouslySetInnerHTML={{ __html: display.content }}
+        dangerouslySetInnerHTML={{ __html: linkifyHtmlContent(display.content) }}
       />
     );
   }

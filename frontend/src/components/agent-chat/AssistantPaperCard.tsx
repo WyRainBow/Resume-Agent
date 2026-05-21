@@ -12,7 +12,7 @@ export function AssistantPaperCard({
 }: AssistantPaperCardProps) {
   return (
     <div
-      className={`chat-message-enter mb-8 group border border-chat-border/80 dark:border-slate-800 bg-chat-surface dark:bg-slate-900 rounded-2xl p-5 shadow-sm relative overflow-hidden ${className}`}
+      className={`chat-message-enter mb-4 group border border-chat-border/80 dark:border-slate-800 bg-chat-surface dark:bg-slate-900 rounded-2xl p-3 shadow-sm relative overflow-hidden ${className}`}
     >
       <div className="absolute top-0 bottom-0 left-0 w-1 bg-chat-accent/35 dark:bg-amber-500/20" />
       <div className="pl-2">{children}</div>

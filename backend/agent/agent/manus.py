@@ -41,10 +41,12 @@ from backend.agent.application.conversation.conversation_state import (
     is_read_only_query,
 )
 from backend.agent.utils.experience_entry import (
+    OptimizeTarget,
     build_optimization_resume_patch,
+    build_optimize_clarification_suggestions,
     is_generic_optimize_section_query,
-    resolve_experience_list,
-    resolve_experience_target_index,
+    list_optimize_targets,
+    resolve_optimize_target,
 )
 from backend.agent.schema import Message, Role, ToolCall
 from backend.agent.agent.shared_state import AgentSharedState
@@ -653,19 +655,30 @@ class Manus(ToolCallAgent):
         self,
         user_input: str,
         resume_data: Dict[str, Any],
-        target_index: int,
+        target: OptimizeTarget,
     ) -> Optional[Dict[str, Any]]:
         """用 Manus 主 LLM + Hybrid 简历 context 生成优化 diff（恢复改前高质量路径）。"""
-        array_path, experiences = resolve_experience_list(resume_data)
-        if target_index < 0 or target_index >= len(experiences):
+        entries = resume_data.get(target.array_path) or []
+        if not isinstance(entries, list) or target.index < 0 or target.index >= len(entries):
             return None
 
-        target = experiences[target_index]
-        company = re.sub(r"\*+", "", str(target.get("company") or "该段经历")).strip()
-        position = str(target.get("position") or "").strip()
-        apply_path = f"{array_path}[{target_index}].details"
+        target_entry = entries[target.index]
+        if not isinstance(target_entry, dict):
+            return None
 
-        raw_details = target.get("details") or target.get("description") or ""
+        company = re.sub(r"\*+", "", target.label).strip() or "该段经历"
+        position = str(
+            target_entry.get("position") or target_entry.get("role") or ""
+        ).strip()
+        apply_path = f"{target.array_path}[{target.index}].{target.value_field}"
+        section_cn = "开源经历" if target.section_kind == "opensource" else "实习/工作经历"
+
+        raw_details = (
+            target_entry.get(target.value_field)
+            or target_entry.get("details")
+            or target_entry.get("description")
+            or ""
+        )
         current_plain = _RULE_BASED_NOISE_RE.sub(
             "", html_to_context_text(str(raw_details))
         ).strip()
@@ -677,11 +690,11 @@ class Manus(ToolCallAgent):
         )
         system_prompt = f"{base_system}\n\n{OPTIMIZE_SECTION_LLM_ADDENDUM}"
         user_prompt = (
-            f"请优化 path={apply_path} 对应的实习/工作经历。\n"
-            f"公司：{company}\n"
-            f"岗位：{position or '（未填写）'}\n"
+            f"请优化 path={apply_path} 对应的{section_cn}。\n"
+            f"标题：{company}\n"
+            f"岗位/角色：{position or '（未填写）'}\n"
             f"用户原话：{user_input.strip() or '优化表述，突出贡献与量化成果'}\n\n"
-            f"当前 details（纯文本，请在此基础上深度改写）：\n{current_plain[:2800]}"
+            f"当前内容（纯文本，请在此基础上深度改写）：\n{current_plain[:2800]}"
         )
         retry_suffix = (
             "\n\n【重要】不要输出思考过程。"
@@ -736,13 +749,14 @@ class Manus(ToolCallAgent):
             explanation = f"基于完整简历 context，按四要素重写 {company} 的经历。"
 
         logger.info(
-            f"[Manus] LLM optimize section ok: company={company}, "
-            f"index={target_index}, chars={len(optimized_html)}"
+            f"[Manus] LLM optimize section ok: label={company}, "
+            f"path={apply_path}, chars={len(optimized_html)}"
         )
+        section_label = "开源经历" if target.section_kind == "opensource" else "实习经历"
         return {
             "optimization_suggestions": [
                 {
-                    "title": f"优化 {company} 的实习经历",
+                    "title": f"优化 {company} 的{section_label}",
                     "current": current_plain[:900],
                     "optimized": optimized_html,
                     "explanation": explanation,
@@ -781,7 +795,10 @@ class Manus(ToolCallAgent):
         label = default_label
         if items:
             title = str(items[0].get("title") or "").strip()
-            title_match = re.match(r"优化\s*(.+?)(?:的)?实习经历\s*$", title)
+            title_match = re.match(
+                r"优化\s*(.+?)(?:的)?(?:实习经历|开源经历)\s*$",
+                title,
+            )
             if title_match:
                 label = re.sub(r"\*+", "", title_match.group(1)).strip() or default_label
             elif title.startswith("优化 "):
@@ -795,32 +812,14 @@ class Manus(ToolCallAgent):
 
     @staticmethod
     def _build_optimize_target_clarification_message(
-        experiences: List[Dict[str, Any]],
+        resume_data: Dict[str, Any],
         *,
         intro: Optional[str] = None,
     ) -> str:
         """未指定优化目标且有多段经历时，列出可选项并附带快捷按钮。"""
-        items: List[Dict[str, str]] = []
-        for idx, exp in enumerate(experiences):
-            if not isinstance(exp, dict):
-                continue
-            company = re.sub(
-                r"\*+",
-                "",
-                str(exp.get("company") or exp.get("title") or f"第{idx + 1}段"),
-            ).strip() or f"第{idx + 1}段"
-            position = str(exp.get("position") or exp.get("role") or "").strip()
-            position = re.sub(r"\*+", "", position).strip()
-            display = f"{company} · {position}" if position else company
-            items.append(
-                {
-                    "text": display,
-                    "msg": f"优化{company}的实习经历",
-                }
-            )
-
+        items = build_optimize_clarification_suggestions(resume_data)
         suggestions_json = json.dumps(items, ensure_ascii=False)
-        lead = intro or "好的！在优化之前，请问您想优化哪一段实习/工作经历？"
+        lead = intro or "好的！在优化之前，请问您想优化哪一段经历？"
         return f"{lead}\n\n%%SUGGESTIONS%%{suggestions_json}%%END%%"
 
     @staticmethod
@@ -1669,14 +1668,24 @@ class Manus(ToolCallAgent):
                     return False
 
                 if intent == Intent.OPTIMIZE_SECTION:
-                    target_index = resolve_experience_target_index(
-                        user_input, resume_data_snapshot or {}
+                    resume_snapshot = resume_data_snapshot or {}
+                    recent_assistant = [
+                        (m.content or "")
+                        for m in self.memory.messages
+                        if hasattr(m, "role") and (
+                            m.role if isinstance(m.role, str) else m.role.value
+                        ) == "assistant"
+                    ][-5:]
+                    optimize_target = resolve_optimize_target(
+                        user_input,
+                        recent_assistant,
+                        resume_snapshot,
                     )
-                    _, experiences = resolve_experience_list(resume_data_snapshot or {})
+                    all_targets = list_optimize_targets(resume_snapshot)
 
-                    if not experiences:
+                    if not all_targets:
                         content = (
-                            "当前简历里还没有可优化的实习/工作经历。"
+                            "当前简历里还没有可优化的实习/工作或开源经历。"
                             "您可以先导入一段，再让我帮您优化表述。"
                         )
                         self.memory.add_message(Message.assistant_message(content))
@@ -1684,65 +1693,70 @@ class Manus(ToolCallAgent):
                         self.state = AgentState.FINISHED
                         return False
 
-                    if target_index is None:
-                        if len(experiences) > 1:
-                            if is_generic_optimize_section_query(user_input):
-                                content = self._build_optimize_target_clarification_message(
-                                    experiences
-                                )
-                                log_msg = (
-                                    "✅ OPTIMIZE_SECTION: asked user to pick experience target"
-                                )
-                            else:
-                                from backend.agent.utils.experience_entry import (
-                                    _clean_experience_query_fragment,
-                                    _normalize_optimize_query_text,
-                                )
+                    if optimize_target is None and len(all_targets) > 1:
+                        if is_generic_optimize_section_query(user_input):
+                            content = self._build_optimize_target_clarification_message(
+                                resume_snapshot
+                            )
+                            log_msg = (
+                                "✅ OPTIMIZE_SECTION: asked user to pick optimize target"
+                            )
+                        else:
+                            from backend.agent.utils.experience_entry import (
+                                _clean_experience_query_fragment,
+                                _normalize_optimize_query_text,
+                            )
 
-                                core = _clean_experience_query_fragment(
-                                    _normalize_optimize_query_text(user_input or "")
-                                )
-                                label = re.sub(r"\*+", "", core).strip() or "该段经历"
-                                content = self._build_optimize_target_clarification_message(
-                                    experiences,
-                                    intro=(
-                                        f"抱歉，未能准确匹配「{label}」。"
-                                        "请从下方选择要优化的经历："
-                                    ),
-                                )
-                                log_msg = (
-                                    "⚠️ OPTIMIZE_SECTION: target mismatch, "
-                                    f"label={label}"
-                                )
-                            self.memory.add_message(Message.assistant_message(content))
-                            from backend.agent.schema import AgentState
-                            self.state = AgentState.FINISHED
-                            logger.info(log_msg)
-                            return False
-                        target_index = 0
+                            core = _clean_experience_query_fragment(
+                                _normalize_optimize_query_text(user_input or "")
+                            )
+                            label = re.sub(r"\*+", "", core).strip() or "该段经历"
+                            content = self._build_optimize_target_clarification_message(
+                                resume_snapshot,
+                                intro=(
+                                    f"抱歉，未能准确匹配「{label}」。"
+                                    "请从下方选择要优化的经历："
+                                ),
+                            )
+                            log_msg = (
+                                "⚠️ OPTIMIZE_SECTION: target mismatch, "
+                                f"label={label}"
+                            )
+                        self.memory.add_message(Message.assistant_message(content))
+                        from backend.agent.schema import AgentState
+                        self.state = AgentState.FINISHED
+                        logger.info(log_msg)
+                        return False
 
-                    resolved_idx = target_index
+                    if optimize_target is None:
+                        optimize_target = all_targets[0]
+
+                    if optimize_target.section_kind == "experience":
+                        logger.info(
+                            "🎯 OPTIMIZE_SECTION: target=%s[%s].%s",
+                            optimize_target.array_path,
+                            optimize_target.index,
+                            optimize_target.value_field,
+                        )
+                    else:
+                        logger.info(
+                            "🎯 OPTIMIZE_SECTION: opensource target=%s[%s].%s label=%s",
+                            optimize_target.array_path,
+                            optimize_target.index,
+                            optimize_target.value_field,
+                            optimize_target.label,
+                        )
 
                     suggestions: Optional[Dict[str, Any]] = None
-                    if resolved_idx is not None and resolved_idx < len(experiences):
-                        suggestions = await self._llm_optimize_section_patch(
-                            user_input,
-                            resume_data_snapshot or {},
-                            resolved_idx,
-                        )
+                    suggestions = await self._llm_optimize_section_patch(
+                        user_input,
+                        resume_snapshot,
+                        optimize_target,
+                    )
 
                     suggestions_list = (suggestions or {}).get("optimization_suggestions") or []
                     patch_count = self._queue_optimization_patches(suggestions_list)
-                    default_label = "实习经历"
-                    if resolved_idx is not None and resolved_idx < len(experiences):
-                        default_label = (
-                            re.sub(
-                                r"\*+",
-                                "",
-                                str(experiences[resolved_idx].get("company") or default_label),
-                            ).strip()
-                            or default_label
-                        )
+                    default_label = optimize_target.label or "该段经历"
                     content = self._optimization_assistant_reply(
                         suggestions or {"optimization_suggestions": []},
                         patch_count=patch_count,

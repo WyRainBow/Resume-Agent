@@ -6,7 +6,8 @@ import json
 import re
 import uuid
 import copy
-from typing import Any, Dict, List, Optional
+from dataclasses import dataclass
+from typing import Any, Dict, List, Literal, Optional
 
 from backend.agent.utils.resume_richtext import (
     html_to_context_text,
@@ -121,6 +122,223 @@ def is_generic_optimize_section_query(user_input: str) -> bool:
     normalized = _normalize_optimize_query_text(user_input or "")
     core = _clean_experience_query_fragment(normalized)
     return len(core) < 2
+
+
+SectionKind = Literal["experience", "opensource"]
+
+
+@dataclass(frozen=True)
+class OptimizeTarget:
+    array_path: str
+    index: int
+    value_field: str
+    label: str
+    section_kind: SectionKind
+
+
+def _opensource_list(resume_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    raw = resume_data.get("openSource")
+    if isinstance(raw, list):
+        return [item for item in raw if isinstance(item, dict)]
+    return []
+
+
+def _entry_display_label(raw: Dict[str, Any], kind: SectionKind) -> str:
+    if kind == "opensource":
+        return re.sub(r"\*+", "", str(raw.get("name") or raw.get("title") or "")).strip()
+    return re.sub(r"\*+", "", _experience_company_label(raw)).strip()
+
+
+def _section_cn_name(kind: SectionKind) -> str:
+    return "开源经历" if kind == "opensource" else "实习经历"
+
+
+def _iter_optimize_sections(
+    resume_data: Dict[str, Any],
+) -> List[tuple[str, SectionKind, List[Dict[str, Any]], str]]:
+    sections: List[tuple[str, SectionKind, List[Dict[str, Any]], str]] = []
+    exp_path, experiences = resolve_experience_list(resume_data)
+    if experiences:
+        sections.append((exp_path, "experience", experiences, "details"))
+    opensource = _opensource_list(resume_data)
+    if opensource:
+        sections.append(("openSource", "opensource", opensource, "description"))
+    return sections
+
+
+def _make_optimize_target(
+    array_path: str,
+    index: int,
+    raw: Dict[str, Any],
+    kind: SectionKind,
+    value_field: str,
+) -> OptimizeTarget:
+    return OptimizeTarget(
+        array_path=array_path,
+        index=index,
+        value_field=value_field,
+        label=_entry_display_label(raw, kind) or f"第{index + 1}段",
+        section_kind=kind,
+    )
+
+
+def list_optimize_targets(resume_data: Dict[str, Any]) -> List[OptimizeTarget]:
+    targets: List[OptimizeTarget] = []
+    for array_path, kind, entries, value_field in _iter_optimize_sections(resume_data):
+        for idx, raw in enumerate(entries):
+            targets.append(_make_optimize_target(array_path, idx, raw, kind, value_field))
+    return targets
+
+
+def build_optimize_clarification_suggestions(
+    resume_data: Dict[str, Any],
+) -> List[Dict[str, str]]:
+    items: List[Dict[str, str]] = []
+    for array_path, kind, entries, _ in _iter_optimize_sections(resume_data):
+        for idx, raw in enumerate(entries):
+            if not isinstance(raw, dict):
+                continue
+            label = _entry_display_label(raw, kind) or f"第{idx + 1}段"
+            section_name = _section_cn_name(kind)
+            if kind == "experience":
+                position = re.sub(
+                    r"\*+",
+                    "",
+                    str(raw.get("position") or raw.get("role") or "").strip(),
+                ).strip()
+                display = f"{label} · {position}" if position else label
+            else:
+                display = label
+            items.append(
+                {
+                    "text": display,
+                    "msg": f"优化{label}的{section_name}",
+                }
+            )
+    return items
+
+
+def _score_entry_against_text(
+    normalized_text: str,
+    raw: Dict[str, Any],
+    kind: SectionKind,
+) -> int:
+    label = _normalize_match_text(_entry_display_label(raw, kind))
+    if not label:
+        return 0
+
+    score = 0
+    if label in normalized_text:
+        score = max(score, len(label) + 10)
+
+    short = label.split("|")[0].split("—")[0].split("-")[0].strip()
+    if len(short) >= 2 and short in normalized_text:
+        score = max(score, len(short) + 8)
+
+    for token in re.split(r"[\|｜—\-/（）()]", label):
+        token = _normalize_match_text(token)
+        if len(token) >= 2 and token in normalized_text:
+            score = max(score, len(token) + 3)
+
+    if kind == "experience":
+        position = _normalize_match_text(
+            str(raw.get("position") or raw.get("role") or "").strip()
+        )
+        if position and position in normalized_text:
+            score = max(score, len(position) + 6)
+
+    query_tokens = _extract_experience_query_tokens(normalized_text)
+    for keyword in query_tokens:
+        keyword = _normalize_match_text(keyword)
+        if len(keyword) < 2:
+            continue
+        if keyword in label:
+            score = max(score, len(keyword) + 15)
+        if label in keyword:
+            score = max(score, len(label) + 12)
+        if len(short) >= 2 and keyword in short:
+            score = max(score, len(keyword) + 13)
+
+    return score
+
+
+def _resolve_best_target_in_text(
+    text: str,
+    resume_data: Dict[str, Any],
+) -> Optional[OptimizeTarget]:
+    normalized = _normalize_match_text(text)
+    if not normalized:
+        return None
+
+    candidates: List[tuple[int, OptimizeTarget]] = []
+    for array_path, kind, entries, value_field in _iter_optimize_sections(resume_data):
+        for idx, raw in enumerate(entries):
+            if not isinstance(raw, dict):
+                continue
+            score = _score_entry_against_text(normalized, raw, kind)
+            if score > 0:
+                candidates.append(
+                    (
+                        score,
+                        _make_optimize_target(array_path, idx, raw, kind, value_field),
+                    )
+                )
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda item: (-item[0], item[1].index))
+    if len(candidates) >= 2 and candidates[0][0] - candidates[1][0] < 3:
+        return None
+    return candidates[0][1]
+
+
+def resolve_optimize_target_from_input(
+    user_input: str,
+    resume_data: Dict[str, Any],
+) -> Optional[OptimizeTarget]:
+    text = (user_input or "").strip()
+    if not text or is_generic_optimize_section_query(text):
+        return None
+    return _resolve_best_target_in_text(text, resume_data)
+
+
+def resolve_optimize_target_from_context(
+    recent_assistant_messages: List[str],
+    resume_data: Dict[str, Any],
+) -> Optional[OptimizeTarget]:
+    """从最近 assistant 消息推断优化目标（如刚展示完 Dubbo 开源经历后用户说「优化」）。"""
+    if not recent_assistant_messages:
+        return None
+
+    for msg in reversed(recent_assistant_messages[-3:]):
+        target = _resolve_best_target_in_text(msg or "", resume_data)
+        if target:
+            return target
+    return None
+
+
+def resolve_optimize_target(
+    user_input: str,
+    recent_assistant_messages: List[str],
+    resume_data: Dict[str, Any],
+) -> Optional[OptimizeTarget]:
+    """综合用户输入与对话上下文解析优化目标。"""
+    target = resolve_optimize_target_from_input(user_input, resume_data)
+    if target:
+        return target
+    return resolve_optimize_target_from_context(recent_assistant_messages, resume_data)
+
+
+def resolve_experience_target_from_context(
+    recent_assistant_messages: List[str],
+    resume_data: Dict[str, Any],
+) -> Optional[int]:
+    """兼容旧接口：仅返回 experience/internships 下标。"""
+    target = resolve_optimize_target_from_context(recent_assistant_messages, resume_data)
+    if target and target.section_kind == "experience":
+        return target.index
+    return None
 
 
 def resolve_experience_list(resume_data: Dict[str, Any]) -> tuple[str, List[Dict[str, Any]]]:

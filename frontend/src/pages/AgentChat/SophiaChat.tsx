@@ -3398,6 +3398,10 @@ function SophiaChatContent() {
       if (event.key !== "Enter" || event.shiftKey) {
         return;
       }
+      // 输入法 composing 期间（如中文选词按 Enter 确认）不提交
+      if (event.nativeEvent.isComposing) {
+        return;
+      }
       event.preventDefault();
       if (!input.trim() || isProcessing) {
         return;

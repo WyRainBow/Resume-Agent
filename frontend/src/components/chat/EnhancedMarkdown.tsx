@@ -193,6 +193,17 @@ export default function EnhancedMarkdown({
           remarkPlugins={SHARED_REMARK_PLUGINS}
           key={content.substring(0, 100)} // 添加 key 避免 React 警告
           components={{
+          a: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href?: string }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline decoration-blue-600/40 underline-offset-2 hover:text-blue-700 break-all"
+              {...props}
+            >
+              {children}
+            </a>
+          ),
           // 自定义段落样式
           p: ({ node, children, ...props }: any) => {
             const text = String(children);
