@@ -3,7 +3,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, BookmarkPlus, Upload, LayoutGrid, List, ChevronRight, Sparkles, Code2 } from 'lucide-react'
+import { Check, BookmarkPlus, Upload, LayoutGrid, List, ChevronRight, Sparkles, Code2, LayoutTemplate } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { ExportButton } from './ExportButton'
 
@@ -21,9 +21,10 @@ interface HeaderProps {
   onDownloadPDF?: () => void
   editMode?: EditMode
   onEditModeChange?: (mode: EditMode) => void
+  onOpenTemplateSwitcher?: () => void
 }
 
-export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF, editMode, onEditModeChange }: HeaderProps) {
+export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF, editMode, onEditModeChange, onOpenTemplateSwitcher }: HeaderProps) {
   const [importMenuOpen, setImportMenuOpen] = useState(false)
   const importMenuRef = useRef<HTMLDivElement>(null)
 
@@ -110,6 +111,21 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4, delay: 0.3 }}
       >
+        {onOpenTemplateSwitcher && (
+          <button
+            onClick={onOpenTemplateSwitcher}
+            className={cn(
+              "px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-300 flex items-center gap-2",
+              "bg-white border border-slate-200 dark:border-slate-800",
+              "text-slate-700 dark:text-slate-300 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-slate-700",
+              "active:scale-95 shadow-sm"
+            )}
+          >
+            <LayoutTemplate className="w-4 h-4 text-emerald-600" />
+            更换模板
+          </button>
+        )}
+
         {/* 统一导入下拉：AI 导入 / JSON 导入 */}
         {(onGlobalAIImport || onImportJSON) && (
           <div className="relative" ref={importMenuRef}>

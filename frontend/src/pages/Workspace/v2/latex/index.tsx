@@ -9,10 +9,11 @@ import { useParams } from 'react-router-dom'
 import { useResumeData, usePDFOperations, useAIImport, useAutoSaveResume } from '../hooks'
 
 // 组件
-import { Header } from '../components'
+import { Header, TemplateSwitcherModal } from '../components'
 import EditPreviewLayout from '../EditPreviewLayout'
 import AIImportModal from '../shared/AIImportModal'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
+import { normalizeLatexTemplateId } from '@/services/resumeTemplates'
 
 type EditMode = 'click' | 'scroll' | 'json'
 const PDF_RENDER_DEBOUNCE_MS = 2000
@@ -28,6 +29,7 @@ export default function LaTeXWorkspace() {
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null)
   const [isAutoRenderPending, setIsAutoRenderPending] = useState(false)
+  const [templateSwitcherOpen, setTemplateSwitcherOpen] = useState(false)
 
   // 简历数据管理
   const {
@@ -259,6 +261,16 @@ export default function LaTeXWorkspace() {
     event.target.value = ''
   }
 
+  const handleSelectTemplate = useCallback((templateId: string) => {
+    const normalizedTemplateId = normalizeLatexTemplateId(templateId)
+    setResumeData((prev) => ({
+      ...prev,
+      templateId: normalizedTemplateId,
+      templateType: 'latex',
+      updatedAt: new Date().toISOString(),
+    }))
+  }, [setResumeData])
+
   return (
     <WorkspaceLayout onSave={handleSaveToDashboard} onDownload={pdfBlob ? handleDownload : undefined}>
       {/* 顶部导航栏 */}
@@ -274,6 +286,7 @@ export default function LaTeXWorkspace() {
         onDownloadPDF={handleDownload}
         editMode={editMode}
         onEditModeChange={setEditMode}
+        onOpenTemplateSwitcher={() => setTemplateSwitcherOpen(true)}
       />
 
       {/* 编辑 + 预览三列布局 */}
@@ -337,6 +350,13 @@ export default function LaTeXWorkspace() {
         sectionTitle={aiModalTitle}
         onClose={() => setAiModalOpen(false)}
         onSave={handleAISave}
+      />
+
+      <TemplateSwitcherModal
+        isOpen={templateSwitcherOpen}
+        currentTemplateId={resumeData.templateId}
+        onClose={() => setTemplateSwitcherOpen(false)}
+        onSelect={handleSelectTemplate}
       />
 
       {/* 未保存提醒对话框 */}

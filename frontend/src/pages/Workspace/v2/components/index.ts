@@ -3,4 +3,4 @@
  */
 export { Header } from './Header'
 export { BackgroundDecoration } from './BackgroundDecoration'
-
+export { TemplateSwitcherModal } from './TemplateSwitcherModal'
