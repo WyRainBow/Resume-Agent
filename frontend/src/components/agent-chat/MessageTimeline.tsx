@@ -12,6 +12,7 @@ import DiagnosisToolCards, {
 } from "@/components/agent-chat/DiagnosisToolCards";
 import { ResumeDiffCard } from "@/components/agent-chat/ResumeDiffCard";
 import { AssistantPaperCard } from "@/components/agent-chat/AssistantPaperCard";
+import { ParseImportTimerBadge } from "@/components/agent-chat/ParseImportTimerBadge";
 import type { PendingPatch } from "@/contexts/ResumeContext";
 import type { Message } from "@/types/chat";
 import type { ResumeData } from "@/pages/Workspace/v2/types";
@@ -254,7 +255,19 @@ export default function MessageTimeline({
 
                   {effectiveContent && (
                     <div className="mb-2 text-chat-ink dark:text-slate-100 font-chat tracking-wide leading-relaxed">
-                      <ResumeMarkdown>{effectiveContent}</ResumeMarkdown>
+                      <div className="flex flex-wrap items-start gap-2">
+                        <div className="min-w-0 flex-1">
+                          <ResumeMarkdown>{effectiveContent}</ResumeMarkdown>
+                        </div>
+                        {(msg.meta?.pasteImportParsing ||
+                          msg.meta?.parseElapsedMs != null) && (
+                          <ParseImportTimerBadge
+                            startedAt={msg.meta?.parseStartedAt}
+                            elapsedMs={msg.meta?.parseElapsedMs}
+                            active={Boolean(msg.meta?.pasteImportParsing)}
+                          />
+                        )}
+                      </div>
                     </div>
                   )}
 

@@ -16,7 +16,10 @@ import re
 from backend.core.logger import get_logger
 from backend.agent.domain.intent.edit_rules import parse_fast_simple_edit_text
 from backend.agent.domain.intent.greeting_rules import is_fast_greeting_text
-from backend.agent.domain.intent.load_resume_rules import is_fast_load_resume_text
+from backend.agent.domain.intent.load_resume_rules import (
+    is_fast_load_resume_text,
+    is_pasted_resume_import_text,
+)
 
 logger = get_logger(__name__)
 FAST_GREETING_ENABLED = (
@@ -180,30 +183,50 @@ class ConversationStateManager:
         return parse_fast_simple_edit_text(user_input)
 
     @staticmethod
+    def _looks_like_real_file_path(candidate: str) -> bool:
+        """过滤 Java/Go 等技术词被误识别为 /Go 这类路径的情况。"""
+        path = (candidate or "").strip().strip("'\"")
+        if not path:
+            return False
+        if re.search(r"\.(?:md|txt|json|yaml|yml|pdf|docx?)$", path, re.IGNORECASE):
+            return True
+        if re.match(r"^[A-Za-z]:\\", path):
+            return True
+        if re.match(r"^(?:~\/|\./|\.\./).+", path):
+            return True
+        if path.startswith("/") and path.count("/") >= 2:
+            return True
+        return False
+
+    @staticmethod
     def _extract_resume_file_path(user_input: str) -> Optional[str]:
         """从输入中提取简历文件路径（用于 cv_reader_agent）。"""
         raw = (user_input or "").strip()
-        if not raw:
+        if not raw or is_pasted_resume_import_text(raw):
             return None
 
         patterns = [
-            r"(?:加载|导入|读取)\s*简历(?:文件)?\s*[:：]?\s*([^\s]+)",
-            r"(?:load|import|read)\s*(?:resume|cv)\s*[:：]?\s*([^\s]+)",
+            r"(?:加载|导入|读取)\s*(?:我的)?简历(?:文件)?\s*[:：]?\s*([^\s]+)",
+            r"(?:load|import|read)\s*(?:my\s+)?(?:resume|cv)\s*[:：]?\s*([^\s]+)",
         ]
         for pattern in patterns:
             match = re.search(pattern, raw, re.IGNORECASE)
             if match:
                 candidate = (match.group(1) or "").strip().strip("'\"")
-                if candidate:
+                if candidate and ConversationStateManager._looks_like_real_file_path(
+                    candidate
+                ):
                     return candidate
 
         direct_path = re.search(
-            r"((?:/|~\/|\.\/|\.\./)[^\s]+|[A-Za-z]:\\[^\s]+|[^\s]+\.(?:md|txt|json|yaml|yml|pdf|docx?))",
+            r"((?:~\/|\./|\.\./)[^\s]+|[A-Za-z]:\\[^\s]+|[^\s]+\.(?:md|txt|json|yaml|yml|pdf|docx?))",
             raw,
             re.IGNORECASE,
         )
         if direct_path:
-            return direct_path.group(1).strip().strip("'\"")
+            candidate = direct_path.group(1).strip().strip("'\"")
+            if ConversationStateManager._looks_like_real_file_path(candidate):
+                return candidate
 
         return None
 
@@ -365,6 +388,19 @@ class ConversationStateManager:
             }
         """
         self.context.turn_count += 1
+
+        # 对话粘贴导入：不应走 load_resume / cv_reader 文件路径逻辑
+        if is_pasted_resume_import_text(user_input):
+            return {
+                "intent": Intent.UNKNOWN,
+                "tool": None,
+                "tool_args": {},
+                "context_prompt": "",
+                "should_skip_llm": False,
+                "enhanced_query": user_input,
+                "intent_result": None,
+                "intent_source": "paste_import_guard",
+            }
 
         # 🚀 快速问候路径：直接命中，不走 LLM/工具识别
         if self.is_fast_greeting(user_input):

@@ -32,6 +32,7 @@ import {
 } from "@/pages/Workspace/v2/types";
 import { DEFAULT_RESUME_TEMPLATE } from "@/data/defaultTemplate";
 import { getResume, getAllResumes, saveResume, setCurrentResumeId } from "@/services/resumeStorage";
+import { parseResumeText } from "@/services/resumeParse";
 import type { SavedResume } from "@/services/storage/StorageAdapter";
 import {
   renderPDFStream,
@@ -338,10 +339,15 @@ function isCreateResumeIntentText(text: string): boolean {
 function isSelectExistingResumeIntentText(text: string): boolean {
   const normalized = (text || "").trim();
   if (!normalized || isCreateResumeIntentText(normalized)) return false;
+  // 「导入我的简历内容：…」是粘贴导入，不是选择已有简历
+  if (/^导入(?:我的)?(?:简历|cv)/i.test(normalized)) return false;
   return (
-    /(?:加载|打开|查看|显示|选择).*(?:已有|保存的|我的)?.{0,6}(?:简历|resume|cv)|(?:已有|保存的|我的).{0,6}(?:简历|resume|cv)|(?:简历|resume|cv).*(?:加载|打开|选择)|选择已有简历/i.test(
+    /^(?:加载|打开|查看|显示|选择).*(?:已有|保存的|我的)?.{0,6}(?:简历|resume|cv)/i.test(
       normalized,
-    )
+    ) ||
+    /^(?:已有|保存的).{0,6}(?:简历|resume|cv)/i.test(normalized) ||
+    /^(?:简历|resume|cv).*(?:加载|打开|选择)/i.test(normalized) ||
+    /^选择已有简历/i.test(normalized)
   );
 }
 
@@ -355,6 +361,55 @@ function isGreetingOnlyText(text: string): boolean {
   return (
     normalized.length <= 20 &&
     /^(?:你好|您好|hello|hi|hey|在吗|哈喽)[!！?？\s，,。.~～]*$/i.test(normalized)
+  );
+}
+
+const PASTE_IMPORT_EXPLICIT_RES = [
+  /^导入(?:我的)?(?:简历|cv)(?:内容)?\s*[：:]\s*([\s\S]+)/i,
+  /^import\s+(?:my\s+)?(?:resume|cv)(?:\s+content)?\s*[：:]\s*([\s\S]+)/i,
+];
+
+function isResumeLikePasteText(text: string): boolean {
+  let score = 0;
+  if (/教育经历|education|大学|学院|硕士|本科|学士/i.test(text)) score += 1;
+  if (/实习|工作|项目|经历|internship|experience|project/i.test(text)) score += 1;
+  if (/(?:1[3-9]\d{9})|@\w+\.|邮箱|电话|📞|📧/i.test(text)) score += 1;
+  if (/求职意向|objective|专业技能|skills/i.test(text)) score += 1;
+  return score >= 3 || (score >= 2 && text.length >= 400);
+}
+
+/** 从用户消息中提取待解析的简历正文（对话粘贴导入 fast path） */
+function extractPasteImportResumeText(text: string): string | null {
+  const trimmed = (text || "").trim();
+  if (!trimmed) return null;
+
+  for (const pattern of PASTE_IMPORT_EXPLICIT_RES) {
+    const explicitMatch = trimmed.match(pattern);
+    if (explicitMatch?.[1]?.trim()) {
+      const body = explicitMatch[1].trim();
+      return body.length >= 50 ? body : null;
+    }
+  }
+
+  if (trimmed.length < 200) return null;
+  if (
+    /^(?:帮我|请)?(?:优化|润色|改写|诊断|分析|读取|查看|显示)/i.test(trimmed)
+  ) {
+    return null;
+  }
+  if (isSelectExistingResumeIntentText(trimmed)) return null;
+  if (isCreateResumeIntentText(trimmed)) return null;
+
+  return isResumeLikePasteText(trimmed) ? trimmed : null;
+}
+
+function resolveImportedResumeDisplayName(data: Record<string, unknown>): string {
+  const contact = (data.contact || {}) as Record<string, unknown>;
+  return (
+    toText(data.name) ||
+    toText((data.basic as Record<string, unknown> | undefined)?.name) ||
+    toText(contact.name) ||
+    "导入的简历"
   );
 }
 
@@ -665,6 +720,7 @@ function SophiaChatContent() {
   const resumeDataRef = useRef<ResumeData | null>(null);
 
   const [isUploadingFile, setIsUploadingFile] = useState(false);
+  const [isPasteImporting, setIsPasteImporting] = useState(false);
   const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -3172,7 +3228,7 @@ function SophiaChatContent() {
       setPendingResumeInput("");
       try {
         const resumeId = `resume_latex_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-        const displayName = toText(data.name) || "导入的简历";
+        const displayName = resolveImportedResumeDisplayName(data);
         const normalized = normalizeImportedResumeToCanonical(data, {
           resumeId,
           title: `${displayName}的简历`,
@@ -3205,6 +3261,121 @@ function SophiaChatContent() {
       conversationId,
       currentSessionId,
       persistSessionSnapshot,
+    ],
+  );
+
+  const importPastedResumeInChat = useCallback(
+    async (
+      userMessage: string,
+      resumeText: string,
+      userMessageId: string,
+      nextMessages: Message[],
+      isFirstMessage: boolean,
+      validConversationId: string,
+    ) => {
+      const parsingMsgId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const parseStartedAt = Date.now();
+      const parsingAssistantMsg: Message = {
+        id: parsingMsgId,
+        role: "assistant",
+        content: "正在 AI 解析简历内容、请稍候（长文本可能需要几十秒）…",
+        timestamp: new Date().toISOString(),
+        meta: {
+          pasteImportParsing: true,
+          parseStartedAt,
+        },
+      };
+      const messagesWithParsing = [...nextMessages, parsingAssistantMsg];
+      setMessages(messagesWithParsing);
+      await persistSessionSnapshot(
+        validConversationId,
+        messagesWithParsing,
+        isFirstMessage,
+      );
+
+      setIsPasteImporting(true);
+      setResumeError(null);
+      try {
+        const parsed = await parseResumeText(apiBaseUrl, resumeText);
+        const displayName = resolveImportedResumeDisplayName(parsed);
+
+        const existingResumeId =
+          resumeDataRef.current?.id ||
+          selectedResumeId ||
+          loadedResumes[loadedResumes.length - 1]?.id ||
+          null;
+        const canUpdateExisting =
+          !!existingResumeId &&
+          !String(existingResumeId).startsWith("uploaded-pdf-");
+
+        const targetResumeId =
+          canUpdateExisting && existingResumeId
+            ? String(existingResumeId)
+            : `resume_latex_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+
+        const normalized = normalizeImportedResumeToCanonical(parsed, {
+          resumeId: targetResumeId,
+          title: `${displayName}的简历`,
+        });
+        const saved = await saveResume(normalized, targetResumeId);
+        setCurrentResumeId(saved.id);
+        await applyResumeToChat(saved, userMessageId);
+
+        const successContent = canUpdateExisting
+          ? `已将粘贴内容解析并写入当前简历「${saved.name}」，右侧可预览。如需继续优化某段经历，直接告诉我即可。`
+          : `已通过 AI 解析导入简历「${saved.name}」，右侧可预览。你可以继续告诉我需要优化哪些内容。`;
+
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
+            msg.id === parsingMsgId
+              ? {
+                  ...msg,
+                  content: successContent,
+                  timestamp: new Date().toISOString(),
+                  meta: {
+                    pasteImportParsing: false,
+                    parseStartedAt,
+                    parseElapsedMs: Date.now() - parseStartedAt,
+                  },
+                }
+              : msg,
+          );
+          void persistSessionSnapshot(validConversationId, updated, false);
+          return updated;
+        });
+      } catch (error) {
+        console.error("[AgentChat] 对话粘贴导入失败:", error);
+        const errText =
+          error instanceof Error ? error.message : "简历解析失败，请稍后重试。";
+        setResumeError(errText);
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
+            msg.id === parsingMsgId
+              ? {
+                  ...msg,
+                  content: `简历解析失败：${errText}。你也可以点击「展示简历」→「导入简历」重试。`,
+                  timestamp: new Date().toISOString(),
+                  meta: {
+                    pasteImportParsing: false,
+                    parseStartedAt,
+                    parseElapsedMs: Date.now() - parseStartedAt,
+                  },
+                }
+              : msg,
+          );
+          void persistSessionSnapshot(validConversationId, updated, false);
+          return updated;
+        });
+      } finally {
+        setIsPasteImporting(false);
+      }
+    },
+    [
+      apiBaseUrl,
+      applyResumeToChat,
+      loadedResumes,
+      persistSessionSnapshot,
+      selectedResumeId,
     ],
   );
 
@@ -3246,11 +3417,56 @@ function SophiaChatContent() {
     ) => {
       if (
         (!userMessage.trim() && (!attachments || attachments.length === 0)) ||
-        isProcessing
+        isProcessing ||
+        isPasteImporting
       )
         return;
 
       const trimmedMessage = userMessage.trim();
+      const pasteResumeText =
+        !attachments || attachments.length === 0
+          ? extractPasteImportResumeText(trimmedMessage)
+          : null;
+
+      // 粘贴导入优先于 Agent：走 /api/resume/parse 全量结构化
+      if (pasteResumeText) {
+        const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const userMessageEntry: Message = {
+          id: uniqueId,
+          role: "user",
+          content: userMessage,
+          timestamp: new Date().toISOString(),
+        };
+        const nextMessages = [...messages, userMessageEntry];
+        const isFirstMessage = messages.length === 0;
+        setMessages(nextMessages);
+
+        let validConversationId = conversationId;
+        if (!validConversationId || validConversationId.trim() === "") {
+          validConversationId = `conv-${Date.now()}`;
+          setConversationId(validConversationId);
+        }
+        if (!currentSessionId) {
+          setCurrentSessionId(validConversationId);
+        }
+        if (isFirstMessage) {
+          await persistSessionSnapshot(
+            validConversationId,
+            nextMessages,
+            true,
+          );
+        }
+
+        await importPastedResumeInChat(
+          userMessage,
+          pasteResumeText,
+          uniqueId,
+          nextMessages,
+          isFirstMessage,
+          validConversationId,
+        );
+        return;
+      }
 
       // 发送普通消息时关闭选择器，避免与流式回复叠在一起并反复触发滚动
       if (!isSelectExistingResumeIntentText(trimmedMessage)) {
@@ -3450,6 +3666,8 @@ function SophiaChatContent() {
       sendMessage,
       createDefaultResumeInChat,
       loadedResumes,
+      importPastedResumeInChat,
+      isPasteImporting,
     ],
   );
 
@@ -3770,7 +3988,7 @@ function SophiaChatContent() {
     e.preventDefault();
     const trimmedInput = input.trim();
     const hasAttachments = pendingAttachments.length > 0;
-    if ((!trimmedInput && !hasAttachments) || isProcessing || isUploadingFile)
+    if ((!trimmedInput && !hasAttachments) || isProcessing || isUploadingFile || isPasteImporting)
       return;
 
     // 每轮新消息开始前清理可能残留的状态
@@ -3805,7 +4023,7 @@ function SophiaChatContent() {
         return;
       }
       event.preventDefault();
-      if (!input.trim() || isProcessing) {
+      if (!input.trim() || isProcessing || isPasteImporting) {
         return;
       }
       event.currentTarget.form?.requestSubmit();
@@ -4077,7 +4295,7 @@ function SophiaChatContent() {
               <div className="max-w-3xl mx-auto w-full">
                 <Composer
                   input={input}
-                  isProcessing={isProcessing}
+                  isProcessing={isProcessing || isPasteImporting}
                   isUploadingFile={isUploadingFile}
                   isVoiceRecording={isVoiceRecording}
                   isVoiceProcessing={isVoiceProcessing}
