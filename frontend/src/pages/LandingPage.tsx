@@ -6,11 +6,13 @@ import {
   LogOut,
   Github,
   MessageCircle,
+  Sparkles,
   X
 } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
+import { isAgentEnabled } from '@/lib/runtimeEnv'
 
 // 刷新时标题/副标题轻微弹出（偏慢）
 const popIn = {
@@ -22,12 +24,18 @@ const popIn = {
 export default function LandingPage() {
   const navigate = useNavigate()
   const { isAuthenticated, user, logout, openModal } = useAuth()
+  const agentEnabled = isAgentEnabled()
   const [isScrolled, setIsScrolled] = useState(false)
   const [showLogoutMenu, setShowLogoutMenu] = useState(false)
   const [showWechatCard, setShowWechatCard] = useState(false)
   const [githubStars, setGithubStars] = useState<number | null>(null)
   const logoutMenuRef = useRef<HTMLDivElement>(null)
   const wechatMenuRef = useRef<HTMLDivElement>(null)
+
+  const handleOpenAgent = () => {
+    if (!agentEnabled) return
+    navigate('/agent/new')
+  }
 
   // 拉取 GitHub star 数（公开 API，无需 token）
   useEffect(() => {
@@ -140,6 +148,17 @@ export default function LandingPage() {
                 <span className="tabular-nums text-sm font-bold tracking-tight opacity-90">{githubStars.toLocaleString()}</span>
               )}
             </motion.a>
+            {agentEnabled && (
+              <motion.button
+                whileHover={{ scale: 1.02, y: -1 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={handleOpenAgent}
+                className="hidden md:flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-xl font-bold border border-indigo-100 hover:border-indigo-200 hover:bg-indigo-100 transition-all shadow-sm"
+              >
+                <Sparkles className="w-4 h-4 shrink-0" />
+                AI 助手
+              </motion.button>
+            )}
             <motion.button
               whileHover={{ scale: 1.02, y: -1 }}
               whileTap={{ scale: 0.98 }}
@@ -203,15 +222,32 @@ export default function LandingPage() {
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.35 }}
-            className="flex flex-col sm:flex-row items-center justify-center gap-6"
+            className="flex flex-col items-center justify-center gap-4"
           >
-            <button
-              onClick={() => navigate('/create-new')}
-              className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold text-lg hover:bg-slate-800 transition-all flex items-center gap-3 group"
-            >
-              开始创建
-              <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-5">
+              <button
+                onClick={() => navigate('/create-new')}
+                className="px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold text-lg hover:bg-slate-800 transition-all flex items-center gap-3 group"
+              >
+                开始创建
+                <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </button>
+              {agentEnabled && (
+                <button
+                  onClick={handleOpenAgent}
+                  className="px-8 py-4 bg-white text-indigo-700 rounded-2xl font-bold text-lg hover:bg-indigo-50 transition-all flex items-center gap-3 border-2 border-indigo-100 hover:border-indigo-200 group shadow-sm"
+                >
+                  <Sparkles className="w-5 h-5 text-indigo-500 group-hover:scale-110 transition-transform" />
+                  体验 AI 助手
+                  <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </button>
+              )}
+            </div>
+            {agentEnabled && (
+              <p className="text-sm text-slate-500 max-w-md">
+                智能润色简历、分析岗位匹配、模拟面试 — 登录后即可开始对话
+              </p>
+            )}
           </motion.div>
           </div>
 

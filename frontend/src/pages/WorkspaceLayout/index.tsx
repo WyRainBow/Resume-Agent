@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentResumeId } from "@/services/resumeStorage";
 import { RecentSessions } from "@/components/sidebar/RecentSessions";
-import { canUseAdminFeature, canUseAgentFeature, getApiBaseUrl } from "@/lib/runtimeEnv";
+import { canUseAdminFeature, canUseAgentFeature, getApiBaseUrl, isAgentEnabled } from "@/lib/runtimeEnv";
 
 // 工作区类型
 type WorkspaceType =
@@ -177,14 +177,10 @@ export default function WorkspaceLayout({
   };
 
   const currentWorkspace = getCurrentWorkspace();
+  const agentEnabled = isAgentEnabled();
   const canUseAgent = isAuthenticated && canUseAgentFeature();
   const canUseAdmin = isAuthenticated && canUseAdminFeature();
 
-  useEffect(() => {
-    if (currentWorkspace !== "agent") return;
-    if (canUseAgent) return;
-    navigate("/workspace", { replace: true });
-  }, [canUseAgent, currentWorkspace, navigate]);
   const sidebarWidthPx = sidebarCollapsed ? 96 : 260;
 
   // 点击外部区域关闭下拉菜单
@@ -389,7 +385,7 @@ export default function WorkspaceLayout({
             </button>
 
             {/* AI 对话区 */}
-            {canUseAgent && (
+            {agentEnabled && (
               <button
                 onClick={(e) => handleWorkspaceChange("agent", e)}
                 className={cn(

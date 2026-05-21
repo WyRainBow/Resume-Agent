@@ -18,7 +18,7 @@ import { RecentSessions } from "@/components/sidebar/RecentSessions";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEnvironment } from "@/contexts/EnvironmentContext";
 import { useCLTP } from "@/hooks/useCLTP";
-import { canUseAgentFeature } from "@/lib/runtimeEnv";
+import { isAgentEnabled } from "@/lib/runtimeEnv";
 import {
   getSessionLimitMessage,
   isSessionLimitExceededResponse,
@@ -405,7 +405,7 @@ interface DiagnosisToolStructuredData {
 // ============================================================================
 
 export default function SophiaChat() {
-  if (!canUseAgentFeature()) {
+  if (!isAgentEnabled()) {
     return null;
   }
   return <SophiaChatContent />;
@@ -415,8 +415,19 @@ function SophiaChatContent() {
   const location = useLocation();
   const navigate = useNavigate();
   const { resumeId } = useParams();
-  const { user } = useAuth();
+  const { user, isAuthenticated, openModal } = useAuth();
   const { apiBaseUrl } = useEnvironment();
+  const loginPromptedRef = useRef(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loginPromptedRef.current = false;
+      return;
+    }
+    if (loginPromptedRef.current) return;
+    loginPromptedRef.current = true;
+    openModal("login");
+  }, [isAuthenticated, openModal]);
   const getAuthHeaders = useCallback((extra: Record<string, string> = {}) => {
     const token = localStorage.getItem("auth_token");
     return token
