@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { renderPDFStream, renderPDF } from '../../../../services/api'
 import { getStoredAuthRole } from '@/lib/runtimeEnv'
 import { getStoredPDFRenderMode, setStoredPDFRenderMode, type PDFRenderMode } from '@/services/pdfRenderMode'
+import { normalizeLatexTemplateId } from '@/services/resumeTemplates'
 import { saveResume, setCurrentResumeId } from '../../../../services/resumeStorage'
 import type { ResumeData } from '../types'
 import { convertToBackendFormat } from '../utils/convertToBackend'
@@ -78,8 +79,10 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
     try {
       const data = resumeDataRef.current
       const backendData = convertToBackendFormat(data)
+      const templateId = normalizeLatexTemplateId(data.templateId)
       console.info('[PDF TRACE][render:dispatch]', {
         renderMode: renderModeRef.current,
+        templateId,
         trigger: 'workspace.v2',
       })
       setProgress('正在渲染 PDF...')
@@ -103,6 +106,7 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
             trigger: 'auto-render',
             signal: abortController.signal,
             renderMode: renderModeRef.current,
+            templateId,
           }
         )
       } catch (streamError) {
@@ -117,6 +121,7 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
             backendData.sectionOrder,
             abortController.signal,
             renderModeRef.current,
+            templateId,
           )
         } catch (normalError) {
           if (!isCurrentRender()) return

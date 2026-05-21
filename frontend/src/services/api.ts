@@ -4,6 +4,7 @@ import type { Resume } from '@/types/resume'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
 import { DEFAULT_RESUME_TEMPLATE } from '@/data/defaultTemplate'
 import type { PDFRenderMode } from './pdfRenderMode'
+import { normalizeLatexTemplateId } from './resumeTemplates'
 
 function getPDFRenderEndpoint(path: '/api/pdf/render' | '/api/pdf/render/stream', mode: PDFRenderMode): string {
   if (mode === 'remote') {
@@ -162,12 +163,15 @@ export async function renderPDF(
   sectionOrder?: string[],
   signal?: AbortSignal,
   renderMode: PDFRenderMode = 'local',
+  templateId?: string | null,
 ): Promise<Blob> {
   const traceId = `pdf-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const mappedOrder = sectionOrder?.map(s => s === 'experience' ? 'internships' : s)
+  const normalizedTemplateId = normalizeLatexTemplateId(templateId || (resume as any)?.templateId)
   console.log('[PDF TRACE][renderPDF:start]', {
     traceId,
     renderMode,
+    templateId: normalizedTemplateId,
     sectionOrder: mappedOrder,
     resumeKeys: Object.keys((resume || {}) as any).slice(0, 20),
   })
@@ -177,7 +181,7 @@ export async function renderPDF(
   try {
     const { data } = await axios.post(
       url,
-      { resume, section_order: mappedOrder },
+      { resume, section_order: mappedOrder, template_id: normalizedTemplateId },
       {
         responseType: 'blob',
         signal,
@@ -229,11 +233,13 @@ export async function renderPDFStream(
     trigger?: string
     signal?: AbortSignal
     renderMode?: PDFRenderMode
+    templateId?: string | null
   }
 ): Promise<Blob> {
   const traceId = context?.traceId || `pdfs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const traceSource = context?.source || 'api.renderPDFStream'
   const traceTrigger = context?.trigger || 'unknown'
+  const normalizedTemplateId = normalizeLatexTemplateId(context?.templateId || (resume as any)?.templateId)
   const callerStack = new Error().stack?.split('\n').slice(2, 6).join(' <- ')
 
   console.log('[PDF TRACE][stream:start]', {
@@ -241,6 +247,7 @@ export async function renderPDFStream(
     traceSource,
     traceTrigger,
     renderMode: context?.renderMode || 'local',
+    templateId: normalizedTemplateId,
     sessionId: context?.sessionId,
     resumeId: context?.resumeId,
     sectionOrder,
@@ -259,6 +266,7 @@ export async function renderPDFStream(
     traceTrigger,
     url,
     renderMode: context?.renderMode || 'local',
+    templateId: normalizedTemplateId,
     sessionId: context?.sessionId,
     resumeId: context?.resumeId,
     mappedOrder,
@@ -277,7 +285,7 @@ export async function renderPDFStream(
       ...getAuthHeaders(),
     },
     signal: context?.signal,
-    body: JSON.stringify({ resume, section_order: mappedOrder })
+    body: JSON.stringify({ resume, section_order: mappedOrder, template_id: normalizedTemplateId })
   })
 
   console.log('[PDF TRACE][stream:response]', {

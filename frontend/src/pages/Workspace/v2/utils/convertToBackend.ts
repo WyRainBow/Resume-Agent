@@ -2,11 +2,13 @@
  * 将前端 ResumeData 转换为后端需要的格式
  */
 import type { ResumeData, CustomItem } from '../types'
+import { normalizeLatexTemplateId } from '@/services/resumeTemplates'
 import { resolveEmploymentStatusForRender } from './birthDateDisplay'
 import { stripHtmlTags } from './textUtils'
 
 export interface BackendResumeData {
   name: string
+  templateId?: string | null
   birthDate?: string
   photo?: string
   photoOffsetX?: number
@@ -103,6 +105,7 @@ export function convertToBackendFormat(data: ResumeData): BackendResumeData {
 
   return {
     name: data.basic.name,
+    templateId: normalizeLatexTemplateId(data.templateId),
     ...(data.basic.birthDate ? { birthDate: data.basic.birthDate } : {}),
     ...(data.basic.photo ? { photo: data.basic.photo } : {}),
     ...(typeof data.basic.photoOffsetX === 'number' ? { photoOffsetX: data.basic.photoOffsetX } : {}),
