@@ -10,9 +10,11 @@ import TTSButton from "@/components/chat/TTSButton";
 import DiagnosisToolCards, {
   type DiagnosisToolStructuredData,
 } from "@/components/agent-chat/DiagnosisToolCards";
+import { ResumeDiffCard } from "@/components/agent-chat/ResumeDiffCard";
+import type { PendingPatch } from "@/contexts/ResumeContext";
 import type { Message } from "@/types/chat";
 import type { ResumeData } from "@/pages/Workspace/v2/types";
-import { formatResumeDiffPreview } from "@/utils/resumePatch";
+import { formatResumeDiffPreview, stripInternalMarkers } from "@/utils/resumePatch";
 
 interface LoadedResumeItem {
   id: string;
@@ -54,6 +56,8 @@ interface MessageTimelineProps {
   searchResults: SearchResultEntry[];
   resumeEditDiffs: ResumeEditDiffEntry[];
   diagnosisToolEvents: DiagnosisToolEntry[];
+  /** 所有 patch（pending / applied / rejected / superseded）按 message_id 渲染到对应历史消息下方。 */
+  pendingPatches?: PendingPatch[];
   copiedId: string | null;
   stripResumeEditMarkdown: (content: string) => string;
   onSetCopiedId: (id: string | null) => void;
@@ -120,6 +124,7 @@ export default function MessageTimeline({
   searchResults,
   resumeEditDiffs,
   diagnosisToolEvents,
+  pendingPatches,
   copiedId,
   stripResumeEditMarkdown,
   onSetCopiedId,
@@ -134,7 +139,14 @@ export default function MessageTimeline({
       {messages.map((msg, idx) => {
         const resumeForMessage = loadedResumes.find((r) => r.messageId === msg.id);
         const editDiffForMessage = resumeEditDiffs.find((r) => r.messageId === msg.id);
-        const effectiveDiff = sanitizeResumeDiffData(editDiffForMessage?.data);
+        const patchesForMessage = (pendingPatches ?? []).filter(
+          (p) => p.message_id === msg.id,
+        );
+        // 有 patch 卡片时不再渲染旧路径的 ResumeEditDiffCard，避免重复
+        const effectiveDiff =
+          patchesForMessage.length > 0
+            ? null
+            : sanitizeResumeDiffData(editDiffForMessage?.data);
         const searchForMessage = searchResults.find((r) => r.messageId === msg.id);
         const diagnosisForMessage = diagnosisToolEvents
           .filter((item) => item.messageId === msg.id)
@@ -143,12 +155,14 @@ export default function MessageTimeline({
         const thoughtContent = isPlaceholderThought(rawThought) ? "" : rawThought;
         const { cleanedThought, embeddedResponse } =
           splitEmbeddedResponseFromThought(thoughtContent);
-        const sanitizedContent = effectiveDiff
-          ? stripResumeEditMarkdown(msg.content || "")
-          : msg.content || "";
+        const sanitizedContent = stripInternalMarkers(
+          effectiveDiff
+            ? stripResumeEditMarkdown(msg.content || "")
+            : msg.content || "",
+        );
         const effectiveContent = getDiffFallbackResponse(
           Boolean(effectiveDiff),
-          ((sanitizedContent || "").trim() || embeddedResponse).trim(),
+          (sanitizedContent.trim() || embeddedResponse).trim(),
           effectiveDiff,
         );
 
@@ -229,6 +243,14 @@ export default function MessageTimeline({
                 before={effectiveDiff.before || ""}
                 after={effectiveDiff.after || ""}
               />
+            )}
+
+            {patchesForMessage.length > 0 && (
+              <div className="mb-4 space-y-2">
+                {patchesForMessage.map((patch) => (
+                  <ResumeDiffCard key={patch.patch_id} patch={patch} />
+                ))}
+              </div>
             )}
 
             {msg.content && (

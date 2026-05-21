@@ -467,12 +467,20 @@ function SophiaChatContent() {
   const [resumeEditError, setLastError] = useState<{ message: string } | null>(null);
 
   // ResumeContext integration
-  const { pendingPatches, pushPatch, patchAppliedAt } = useResumeContext();
+  const {
+    pendingPatches,
+    pushPatch,
+    patchAppliedAt,
+    supersedePendingPatches,
+    rebindCurrentPatches,
+  } = useResumeContext();
   const [generatedResume, setGeneratedResume] = useState<{
     resume: any; summary: string
   } | null>(null);
   // Track current assistant message ID for patch association
   const currentAssistantMessageIdRef = useRef<string | null>(null);
+  // When resume_patch events are received, skip the old cv_editor_agent edit diff path
+  const hasPatchInCurrentStreamRef = useRef(false);
 
   const [streamDoneTick, setStreamDoneTick] = useState(0);
   const [activeRunId, setActiveRunId] = useState(0);
@@ -1224,9 +1232,21 @@ function SophiaChatContent() {
     },
     upsertSearchResult,
     upsertLoadedResume,
-    upsertResumeEditDiff,
+    upsertResumeEditDiff: (messageId: string, data: ResumeEditDiffStructuredData) => {
+      if (hasPatchInCurrentStreamRef.current) {
+        console.log("[AgentChat] Skipping old editDiff — resume_patch path is active");
+        return;
+      }
+      upsertResumeEditDiff(messageId, data);
+    },
     upsertDiagnosisToolEvent,
-    applyResumeEditDiff,
+    applyResumeEditDiff: (data: ResumeEditDiffStructuredData) => {
+      if (hasPatchInCurrentStreamRef.current) {
+        console.log("[AgentChat] Skipping old applyEditDiff — resume_patch path is active");
+        return;
+      }
+      applyResumeEditDiff(data);
+    },
   });
 
   const {
@@ -1246,13 +1266,14 @@ function SophiaChatContent() {
     onSSEEvent: useCallback((event: SSEEvent) => {
       // Intercept resume_patch and resume_generated events before routing
       if ((event as any).type === 'resume_patch') {
-        // SSE structure: {type, data: {type, data: {patch_id, ...}, ...}}
-        // parseBlock sets event.data = outer data object; actual patch is in event.data.data
+        hasPatchInCurrentStreamRef.current = true;
         const outerData = (event as any).data ?? {}
         const patch = outerData.data ?? outerData
         pushPatch({
           patch_id:   patch.patch_id   ?? `patch-${Date.now()}`,
-          message_id: currentAssistantMessageIdRef.current ?? Date.now().toString(),
+          // 与 resumeEditDiffs 一致，用 'current' 标记当前流式消息，
+          // finalize 时再通过 rebindCurrentPatches 绑定到真实 message_id。
+          message_id: 'current',
           paths:      patch.paths      ?? [],
           before:     patch.before     ?? {},
           after:      patch.after      ?? {},
@@ -1889,6 +1910,8 @@ function SophiaChatContent() {
     setLoadedResumes((prev) => rebindCurrentMessageId(prev, uniqueId));
     setResumeEditDiffs((prev) => rebindCurrentMessageId(prev, uniqueId));
     setDiagnosisToolEvents((prev) => rebindCurrentMessageId(prev, uniqueId));
+    // 把当前流式 patch 绑定到这条 finalize 后的 assistant 消息上
+    rebindCurrentPatches(uniqueId);
 
     setMessages((prev) => {
       const last = prev[prev.length - 1];
@@ -2896,6 +2919,9 @@ function SophiaChatContent() {
 
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       currentRunUserInputRef.current = userMessage.trim();
+      hasPatchInCurrentStreamRef.current = false;
+      // 新一轮消息开始：把上一轮未处理的 pending patch 标记为 superseded
+      supersedePendingPatches();
       setCurrentSuggestions([]);
       setSearchResults((prev) =>
         prev.filter((item) => item.messageId !== "current"),
@@ -3451,6 +3477,7 @@ function SophiaChatContent() {
                   searchResults={searchResults}
                   resumeEditDiffs={resumeEditDiffs}
                   diagnosisToolEvents={diagnosisToolEvents}
+                  pendingPatches={pendingPatches}
                   copiedId={copiedId}
                   stripResumeEditMarkdown={stripResumeEditMarkdown}
                   onSetCopiedId={setCopiedId}
@@ -3479,7 +3506,12 @@ function SophiaChatContent() {
                   suggestions={currentSuggestions}
                   onSuggestionClick={(msg) => setInput(msg)}
                   shouldHideResponseInChat={false}
-                  currentEditDiff={resumeEditDiffs.find((r) => r.messageId === "current")}
+                  currentEditDiff={
+                    // 当前轮已经有任何 patch 卡片（无论状态），就不再走旧的 editDiff 路径
+                    pendingPatches.some(p => p.message_id === 'current')
+                      ? undefined
+                      : resumeEditDiffs.find((r) => r.messageId === "current")
+                  }
                   currentSearch={searchResults.find((r) => r.messageId === "current")}
                   currentDiagnosisTools={diagnosisToolEvents
                     .filter((item) => item.messageId === "current")
@@ -3489,11 +3521,12 @@ function SophiaChatContent() {
                   onResponseTypewriterComplete={finalizeAfterTypewriter}
                 />
 
-                {/* ResumeDiffCards for pending patches (grouped by message) */}
-                {pendingPatches.length > 0 && (
-                  <div className="px-4 py-1">
+                {/* 仅渲染当前流式消息 (message_id === 'current') 的 patch 卡片；
+                    历史消息的 patch 卡片由 MessageTimeline 按 message_id 关联渲染。 */}
+                {pendingPatches.some(p => p.message_id === 'current') && (
+                  <div className="px-4 py-1 space-y-2">
                     {pendingPatches
-                      .filter(p => p.status === 'pending')
+                      .filter(p => p.message_id === 'current')
                       .map(patch => (
                         <ResumeDiffCard key={patch.patch_id} patch={patch} />
                       ))

@@ -249,10 +249,22 @@ export function extractResumeEditDiff(content: string): {
 export function stripResumeEditMarkdown(content: string): string {
   if (!content) return ''
   const beforePos = findLabelPosition(content, BEFORE_LABEL)
-  if (!beforePos) return content.trim()
+  if (!beforePos) return stripInternalMarkers(content).trim()
+  return stripInternalMarkers(
+    content
+      .slice(0, beforePos.index)
+      .replace(/\n{3,}/g, '\n\n'),
+  ).trim()
+}
+
+/**
+ * 清除后端内部协议标记（如 %%SUGGESTIONS%%...%%END%%），防止泄漏到 UI。
+ */
+export function stripInternalMarkers(content: string): string {
+  if (!content) return ''
   return content
-    .slice(0, beforePos.index)
-    .replace(/\n{3,}/g, '\n\n')
+    .replace(/%%SUGGESTIONS%%[\s\S]*?%%END%%/g, '')
+    .replace(/%%SUGGESTIONS%%[\s\S]*/g, '')
     .trim()
 }
 

@@ -6,7 +6,7 @@ import StreamingOutputPanel from "@/components/chat/StreamingOutputPanel";
 import DiagnosisToolCards, {
   type DiagnosisToolStructuredData,
 } from "@/components/agent-chat/DiagnosisToolCards";
-import { formatResumeDiffPreview } from "@/utils/resumePatch";
+import { formatResumeDiffPreview, stripInternalMarkers } from "@/utils/resumePatch";
 
 interface SearchData {
   query: string;
@@ -107,12 +107,14 @@ export default function StreamingLane({
   const { cleanedThought, embeddedResponse } = splitEmbeddedResponseFromThought(currentThought);
   const answerCandidate = (currentAnswer || "").trim() ? currentAnswer : embeddedResponse;
   const effectiveCurrentDiff = sanitizeResumeDiffData(currentEditDiff?.data);
-  const sanitizedCurrentAnswerRaw = effectiveCurrentDiff
-    ? stripResumeEditMarkdown(answerCandidate || "")
-    : answerCandidate;
+  const sanitizedCurrentAnswerRaw = stripInternalMarkers(
+    effectiveCurrentDiff
+      ? stripResumeEditMarkdown(answerCandidate || "")
+      : answerCandidate || "",
+  );
   const sanitizedCurrentAnswer = getDiffFallbackResponse(
     Boolean(effectiveCurrentDiff),
-    (sanitizedCurrentAnswerRaw || "").trim(),
+    sanitizedCurrentAnswerRaw.trim(),
     effectiveCurrentDiff,
   );
 
