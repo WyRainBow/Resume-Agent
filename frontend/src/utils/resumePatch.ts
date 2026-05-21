@@ -21,13 +21,173 @@ export function setByPath(obj: any, path: string, value: any): any {
   return result
 }
 
+const EXPERIENCE_INDEX_PATH_RE = /^experience\[(\d+)\]$/
+
+export type ResumePatchOperation = 'add' | 'update' | 'delete' | 'set'
+
+function stripHtmlForEmptyCheck(value: string): string {
+  return value.replace(/<[^>]+>/g, '').replace(/&nbsp;/gi, ' ').trim()
+}
+
+export function isEmptyExperienceEntry(value: unknown): boolean {
+  if (value == null) return true
+  if (typeof value === 'string') {
+    const text = stripHtmlForEmptyCheck(value)
+    return text === '' || text === 'null' || text === 'undefined'
+  }
+  if (typeof value !== 'object' || Array.isArray(value)) return false
+  const v = value as Record<string, unknown>
+  const company = String(v.company ?? v.title ?? v.organization ?? '').trim()
+  const position = String(v.position ?? v.subtitle ?? v.role ?? '').trim()
+  let details = v.details ?? v.description ?? ''
+  if (Array.isArray(details)) {
+    details = details.map((x) => String(x)).join('')
+  }
+  details = stripHtmlForEmptyCheck(String(details ?? ''))
+  return !company && !position && !details
+}
+
+/** 清理 apply patch 后残留的空经历占位（UI 会显示为「未命名公司」）。 */
+export function pruneEmptyExperienceEntries(resume: any): any {
+  if (!resume || !Array.isArray(resume.experience)) return resume
+  const result = structuredClone(resume)
+  result.experience = result.experience.filter(
+    (item: unknown) => !isEmptyExperienceEntry(item),
+  )
+  return result
+}
+
+export function inferPatchOperation(patch: {
+  operation?: string
+  paths?: string[]
+  before?: Record<string, unknown>
+  after?: Record<string, unknown>
+  summary?: string
+}): ResumePatchOperation {
+  const op = patch.operation
+  if (op === 'add' || op === 'update' || op === 'delete') {
+    return op
+  }
+  if (patch.summary?.startsWith('删除了')) return 'delete'
+  const after = patch.after ?? {}
+  const before = patch.before ?? {}
+  const path = patch.paths?.[0] ?? ''
+  if (
+    Object.keys(after).length === 0 &&
+    Object.keys(before).length > 0 &&
+    EXPERIENCE_INDEX_PATH_RE.test(path)
+  ) {
+    return 'delete'
+  }
+  if (EXPERIENCE_INDEX_PATH_RE.test(path)) {
+    const nextVal = getByPath(after, path)
+    if (isEmptyExperienceEntry(nextVal)) return 'delete'
+  }
+  return 'set'
+}
+
+/**
+ * 将 Agent 写入的条目规范为前端 Experience 结构（避免 JSON 字符串 / period 字段）。
+ */
+export function normalizeExperiencePatchItem(value: unknown): unknown {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+      try {
+        return normalizeExperiencePatchItem(JSON.parse(trimmed))
+      } catch {
+        return value
+      }
+    }
+    return value
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return value
+  }
+  const v = value as Record<string, unknown>
+  const company = String(v.company ?? v.title ?? v.organization ?? '').trim()
+  const position = String(v.position ?? v.subtitle ?? v.role ?? '').trim()
+  const date = String(v.date ?? v.period ?? v.duration ?? '').trim()
+  let details = v.details ?? v.description ?? ''
+  if (Array.isArray(details)) {
+    details = details.map((x) => String(x)).join('\n')
+  }
+  details = String(details ?? '')
+  if (!company && !position && !details) {
+    return value
+  }
+  return {
+    id: String(v.id || `exp_${Date.now()}`),
+    company,
+    position,
+    date,
+    details,
+    visible: v.visible !== false,
+    ...(v.companyLogo ? { companyLogo: v.companyLogo } : {}),
+    ...(typeof v.companyLogoSize === 'number'
+      ? { companyLogoSize: v.companyLogoSize }
+      : {}),
+  }
+}
+
+/**
+ * 按 paths 数组批量写入 after 中的值到 resume。
+ * 支持 operation=delete 时从数组 splice 删除 experience[i]。
+ */
+export function deleteByPath(obj: any, path: string): any {
+  const parts = path.replace(/\[(\d+)\]/g, '.$1').split('.').filter(Boolean)
+  if (parts.length === 0) return obj
+
+  const result = structuredClone(obj)
+  let curr: any = result
+
+  for (let i = 0; i < parts.length - 1; i++) {
+    curr = curr?.[parts[i]]
+    if (curr == null) return result
+  }
+
+  const last = parts[parts.length - 1]
+  if (/^\d+$/.test(last)) {
+    const idx = Number(last)
+    const parentKey = parts[parts.length - 2]
+    const parent = parts.length >= 2 ? result[parentKey] : result
+    if (Array.isArray(parent) && idx >= 0 && idx < parent.length) {
+      parent.splice(idx, 1)
+    }
+    return result
+  }
+
+  if (curr && typeof curr === 'object' && last in curr) {
+    delete curr[last]
+  }
+  return result
+}
+
 /**
  * 按 paths 数组批量写入 after 中的值到 resume。
  * 支持两种 after 格式：
  *   1. 嵌套结构: {experience: [{details: "..."}]}  → getByPath 取值
  *   2. 扁平 _raw 格式: {_raw: "新内容"} → 直接将 _raw 写入每个 path
  */
-export function applyPatchPaths(resume: any, paths: string[], after: any): any {
+export function applyPatchPaths(
+  resume: any,
+  paths: string[],
+  after: any,
+  operation: ResumePatchOperation = 'set',
+): any {
+  const op =
+    operation === 'set'
+      ? inferPatchOperation({ operation, paths, after })
+      : operation
+
+  if (op === 'delete') {
+    let result = resume
+    for (const path of paths) {
+      result = deleteByPath(result, path)
+    }
+    return pruneEmptyExperienceEntries(result)
+  }
+
   let result = resume
 
   // Backend sends {_raw: "..."} when the change is a single string value.
@@ -35,19 +195,26 @@ export function applyPatchPaths(resume: any, paths: string[], after: any): any {
   if (after && typeof after === 'object' && '_raw' in after) {
     const rawValue = (after as any)._raw
     for (const path of paths) {
-      result = setByPath(result, path, rawValue)
+      let v = rawValue
+      if (EXPERIENCE_INDEX_PATH_RE.test(path)) {
+        v = normalizeExperiencePatchItem(v)
+      }
+      result = setByPath(result, path, v)
     }
     return result
   }
 
   // Normal nested format: extract value at each path from after object
   for (const path of paths) {
-    const value = getByPath(after, path)
+    let value = getByPath(after, path)
     if (value !== undefined) {
+      if (EXPERIENCE_INDEX_PATH_RE.test(path)) {
+        value = normalizeExperiencePatchItem(value)
+      }
       result = setByPath(result, path, value)
     }
   }
-  return result
+  return pruneEmptyExperienceEntries(result)
 }
 
 // ---------------------------------------------------------------------------
@@ -76,6 +243,8 @@ function stripMarkdownMarkers(value: string): string {
 function looksLikeHtml(value: string): boolean {
   return /<([a-z][^/>]*?)>/i.test(value)
 }
+
+export { looksLikeHtml }
 
 function toInlineHtml(text: string): string {
   const escaped = text
@@ -249,11 +418,157 @@ export function extractResumeEditDiff(content: string): {
 export function stripResumeEditMarkdown(content: string): string {
   if (!content) return ''
   const beforePos = findLabelPosition(content, BEFORE_LABEL)
-  if (!beforePos) return content.trim()
+  if (!beforePos) return stripInternalMarkers(content).trim()
+  return stripInternalMarkers(
+    content
+      .slice(0, beforePos.index)
+      .replace(/\n{3,}/g, '\n\n'),
+  ).trim()
+}
+
+/**
+ * 清除后端内部协议标记（如 %%SUGGESTIONS%%...%%END%%），防止泄漏到 UI。
+ */
+export function stripInternalMarkers(content: string): string {
+  if (!content) return ''
   return content
-    .slice(0, beforePos.index)
-    .replace(/\n{3,}/g, '\n\n')
+    .replace(/%%SUGGESTIONS%%[\s\S]*?%%END%%/g, '')
+    .replace(/%%SUGGESTIONS%%[\s\S]*/g, '')
     .trim()
+}
+
+/** 移除模型 reasoning / think 标签，避免泄漏到聊天正文。 */
+export function stripReasoningTags(content: string): string {
+  if (!content) return ''
+  return content
+    .replace(/[\s\S]*?<\/think>/gi, '')
+    .replace(/[\s\S]*?<\/redacted_reasoning>/gi, '')
+    .replace(/<(?:think|redacted_reasoning)[^>]*>[\s\S]*?(?:<\/(?:think|redacted_reasoning)>|$)/gi, '')
+    .trim()
+}
+
+function looksLikeToolPayload(content: string): boolean {
+  const text = content.trim()
+  if (!text) return false
+  if (looksLikeHtml(text)) return true
+  if (text.startsWith('{') && text.endsWith('}')) return true
+  if (/\\["']/.test(text) && /<[a-z][^>]*>/i.test(text)) return true
+  return false
+}
+
+/**
+ * 清洗助手消息正文：去内部标记 / reasoning，并在有 patch 卡片时隐藏工具原始 payload。
+ */
+export function sanitizeAssistantMessageContent(
+  content: string,
+  options?: { suppressWhenPatchCard?: boolean },
+): string {
+  let text = stripReasoningTags(stripInternalMarkers(content))
+  if (options?.suppressWhenPatchCard && looksLikeToolPayload(text)) {
+    return ''
+  }
+  return text.trim()
+}
+
+/**
+ * 将实习/经历条目格式化为 diff 卡片可读文案（非 JSON）。
+ */
+export function formatExperienceEntryForDiff(entry: Record<string, unknown>): string {
+  const company = String(entry.company ?? entry.title ?? entry.organization ?? '').trim()
+  const position = String(entry.position ?? entry.subtitle ?? entry.role ?? '').trim()
+  const date = String(entry.date ?? entry.period ?? entry.duration ?? '').trim()
+
+  let details = entry.details ?? entry.description ?? ''
+  if (Array.isArray(entry.highlights)) {
+    details = (entry.highlights as unknown[])
+      .map((x) => String(x))
+      .filter(Boolean)
+      .join('\n')
+  }
+  details = String(details ?? '').trim()
+
+  const headerParts = [company, position].filter(Boolean)
+  const lines: string[] = []
+  if (headerParts.length) {
+    lines.push(`${headerParts.join(' | ')}${date ? `（${date}）` : ''}`)
+  }
+  if (details) {
+    let readable = looksLikeHtml(details)
+      ? htmlToReadableText(details)
+      : formatResumeDiffPreview(details)
+    const liCount = looksLikeHtml(details) ? (details.match(/<li/gi) || []).length : 0
+    if (liCount <= 1 && readable.includes('；')) {
+      const parts = readable
+        .split('；')
+        .map((p) => p.trim())
+        .filter(Boolean)
+      if (parts.length >= 2) {
+        readable = parts
+          .map((p, i) =>
+            i === 0 && /(如下|包括|主要有)$/.test(p) ? p : `- ${p.replace(/^[-•]\s*/, '')}`,
+          )
+          .join('\n')
+      }
+    }
+    lines.push(readable)
+  }
+  return lines.join('\n\n').trim()
+}
+
+function tryParseJsonObject(raw: string): Record<string, unknown> | null {
+  const text = raw.trim()
+  if (!text.startsWith('{')) return null
+  try {
+    const parsed = JSON.parse(text)
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 将 resume_patch 的 before/after 转为用户可读文本（避免直接展示 JSON）。
+ */
+export function formatPatchDiffSide(
+  paths: string[] | undefined,
+  payload: Record<string, unknown> | undefined,
+): string {
+  if (!payload || typeof payload !== 'object') return ''
+
+  if ('_raw' in payload) {
+    const raw = String((payload as { _raw?: unknown })._raw ?? '').trim()
+    if (!raw) return ''
+    const parsed = tryParseJsonObject(raw)
+    if (parsed && (parsed.company || parsed.title || parsed.details || parsed.highlights)) {
+      return formatExperienceEntryForDiff(parsed)
+    }
+    return formatResumeDiffPreview(raw)
+  }
+
+  const path = paths?.[0] || ''
+  if (EXPERIENCE_INDEX_PATH_RE.test(path)) {
+    let item = getByPath(payload, path)
+    if (!item && Array.isArray((payload as { experience?: unknown }).experience)) {
+      const idx = Number(path.match(EXPERIENCE_INDEX_PATH_RE)?.[1])
+      item = (payload as { experience: unknown[] }).experience[idx]
+    }
+    if (item && typeof item === 'object' && !Array.isArray(item)) {
+      const normalized = normalizeExperiencePatchItem(item) as Record<string, unknown>
+      return formatExperienceEntryForDiff(normalized)
+    }
+  }
+
+  const vals = Object.values(payload)
+  if (vals.length === 1 && vals[0] && typeof vals[0] === 'object' && !Array.isArray(vals[0])) {
+    const only = vals[0] as Record<string, unknown>
+    if (only.company || only.title || only.details || only.highlights) {
+      return formatExperienceEntryForDiff(only)
+    }
+  }
+
+  return formatResumeDiffPreview(JSON.stringify(payload, null, 2))
 }
 
 function htmlToReadableText(value: string): string {
@@ -263,6 +578,8 @@ function htmlToReadableText(value: string): string {
     .replace(/<\/p>/gi, '\n')
     .replace(/<\/div>/gi, '\n')
     .replace(/<\/h[1-6]>/gi, '\n')
+    .replace(/<li[^>]*>\s*<p[^>]*>/gi, '\n- ')
+    .replace(/<\/p>\s*<\/li>/gi, '\n')
     .replace(/<li[^>]*>/gi, '\n- ')
     .replace(/<\/li>/gi, '\n')
     .replace(/<\/ul>|<\/ol>/gi, '\n')
@@ -326,4 +643,50 @@ export function formatResumeDiffPreview(value?: string): string {
   const MAX_LEN = 900
   if (compacted.length <= MAX_LEN) return compacted
   return `${compacted.slice(0, MAX_LEN)}\n...（内容较长，已截断展示）`
+}
+
+export type DiffDisplayMode = 'html' | 'text'
+
+export interface DiffDisplayContent {
+  mode: DiffDisplayMode
+  content: string
+}
+
+function extractRawFromPatchPayload(
+  paths: string[] | undefined,
+  payload: Record<string, unknown> | undefined,
+): string {
+  if (!payload || typeof payload !== 'object') return ''
+  if ('_raw' in payload) {
+    return String((payload as { _raw?: unknown })._raw ?? '').trim()
+  }
+  const path = paths?.[0] || ''
+  if (path) {
+    const byPath = getByPath(payload, path)
+    if (typeof byPath === 'string') return byPath.trim()
+  }
+  const vals = Object.values(payload)
+  if (vals.length === 1 && typeof vals[0] === 'string') {
+    return vals[0].trim()
+  }
+  return ''
+}
+
+/** 获取 diff 展示内容：优先保留 HTML 富文本，否则回退纯文本。 */
+export function getDiffDisplayContent(value?: string): DiffDisplayContent {
+  const raw = String(value || '').trim()
+  if (!raw) return { mode: 'text', content: '' }
+  if (looksLikeHtml(raw)) return { mode: 'html', content: raw }
+  return { mode: 'text', content: formatResumeDiffPreview(raw) }
+}
+
+export function getPatchDiffDisplay(
+  paths: string[] | undefined,
+  payload: Record<string, unknown> | undefined,
+): DiffDisplayContent {
+  const raw = extractRawFromPatchPayload(paths, payload)
+  if (raw && looksLikeHtml(raw)) {
+    return { mode: 'html', content: raw }
+  }
+  return { mode: 'text', content: formatPatchDiffSide(paths, payload) }
 }

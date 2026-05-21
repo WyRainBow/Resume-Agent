@@ -682,6 +682,25 @@ class AgentStream:
                             self.agent.clear_stream_content_callback()
                         self._stream_cancel_event = None
 
+                    if hasattr(self.agent, "drain_resume_patches"):
+                        from backend.agent.web.streaming.events import ResumePatchEvent
+
+                        for patch in self.agent.drain_resume_patches():
+                            logger.info(
+                                "[AgentStream] Emitting queued resume_patch: "
+                                f"patch_id={patch.get('patch_id', '')}, "
+                                f"paths={patch.get('paths', [])}"
+                            )
+                            yield ResumePatchEvent(
+                                patch_id=patch.get("patch_id", ""),
+                                paths=patch.get("paths", []),
+                                before=patch.get("before", {}),
+                                after=patch.get("after", {}),
+                                summary=patch.get("summary", ""),
+                                operation=patch.get("operation", "update"),
+                                session_id=self._session_id,
+                            )
+
                     # 🚨 step_task 可能在 while 循环内就完成了（队列为空），在退出循环后检查 pending
                     if hasattr(self.agent, "_pending_immediate_stream") and self.agent._pending_immediate_stream:
                         pending = self.agent._pending_immediate_stream
@@ -786,7 +805,11 @@ class AgentStream:
                             step_state.last_stream_response = response_part or pending_delta or pending_content
                             step_state.last_stream_text = pending_content
 
-                    logger.info(f"🔍 [DEBUG] step() 返回: {step_result}, agent.state: {self.agent.state}, _answer_sent_in_loop: {self._answer_sent_in_loop}")
+                    safe_step = str(step_result).replace("<", r"\<").replace(">", r"\>")
+                    logger.info(
+                        f"🔍 [DEBUG] step() 返回: {safe_step}, agent.state: {self.agent.state}, "
+                        f"_answer_sent_in_loop: {self._answer_sent_in_loop}"
+                    )
 
                     # step 收尾：避免“流式末尾文本”与“memory 最终文本”不一致
                     final_step_content = self._get_latest_assistant_content()
@@ -1085,6 +1108,7 @@ class AgentStream:
                                     before=structured_data.get("before", {}),
                                     after=structured_data.get("after", {}),
                                     summary=structured_data.get("summary", ""),
+                                    operation=structured_data.get("operation", "set"),
                                     session_id=self._session_id,
                                 )
 

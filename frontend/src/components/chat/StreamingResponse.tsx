@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import EnhancedMarkdown from "./EnhancedMarkdown";
+import ResumeMarkdown from "@/components/agent-chat/ResumeMarkdown";
 
 export interface StreamingResponseProps {
   content: string;
@@ -13,7 +13,7 @@ export default function StreamingResponse({
   content,
   canStart,
   isStreaming = true,
-  className = "text-gray-800 mb-6",
+  className = "text-chat-ink mb-6",
   onTypewriterComplete,
 }: StreamingResponseProps) {
   const completeNotifiedRef = useRef(false);
@@ -34,7 +34,7 @@ export default function StreamingResponse({
 
   return (
     <div className={className}>
-      <EnhancedMarkdown>{content || ""}</EnhancedMarkdown>
+      <ResumeMarkdown>{content || ""}</ResumeMarkdown>
       {isStreaming && (
         <span className="ml-1 inline-flex items-center gap-0.5 text-slate-400 align-middle">
           <span className="h-1 w-1 animate-bounce rounded-full bg-current [animation-delay:0ms]" />

@@ -15,8 +15,12 @@ from sqlalchemy.exc import DBAPIError, DisconnectionError, InterfaceError, Opera
 from backend.agent.memory.chat_history_manager import ChatHistoryManager
 from backend.agent.memory.conversation_manager import ConversationManager
 from backend.agent.cltp.storage.factory import get_conversation_storage
+from backend.agent.cltp.storage.session_limits import (
+    SessionLimitExceeded,
+    session_limit_status,
+)
 from backend.agent.schema import Message
-from backend.middleware.auth import get_current_user
+from backend.middleware.auth import get_current_user, require_admin_only
 from backend.models import User
 
 logger = logging.getLogger(__name__)
@@ -45,6 +49,18 @@ def _history_error_detail(message: str, action: str = "CHECK_SERVER_LOGS") -> di
 
 def _is_db_connection_error(exc: Exception) -> bool:
     return isinstance(exc, (OperationalError, InterfaceError, DisconnectionError, DBAPIError))
+
+
+def _raise_session_limit_error(exc: SessionLimitExceeded) -> None:
+    raise HTTPException(
+        status_code=403,
+        detail={
+            "code": "SESSION_LIMIT_EXCEEDED",
+            "message": f"历史会话已达上限（{exc.limit} 条），请先删除后再新建",
+            "max_sessions": exc.limit,
+            "current_count": exc.current,
+        },
+    ) from exc
 
 
 def _raise_history_error(route: str, exc: Exception) -> None:
@@ -148,7 +164,10 @@ async def clear_history(
     """
     try:
         # Import _active_sessions from stream module to clean up active session
-        from backend.agent.web.routes.stream import _active_sessions
+        from backend.agent.web.routes.stream import (
+            _active_sessions,
+            clear_active_sessions_for_user,
+        )
         
         session_data = storage.load_session(session_id, user_id=current_user.id)
         if not session_data:
@@ -249,11 +268,60 @@ async def list_sessions(
                 "page_size": page_size,
                 "total_pages": total_pages,
             },
+            "limits": session_limit_status(storage, current_user.id),
         }
     except HTTPException:
         raise
     except Exception as e:
         _raise_history_error("list_sessions", e)
+
+
+@router.get("/admin/sessions/list")
+async def admin_list_sessions(
+    page: int = 1,
+    page_size: int = 20,
+    current_user: User = Depends(require_admin_only),
+) -> dict[str, Any]:
+    """管理员查看全部用户的历史会话。"""
+    try:
+        metas = conversation_manager.list_sessions(all_users=True)
+        metas.sort(
+            key=lambda m: (m.updated_at or m.created_at or ""),
+            reverse=True,
+        )
+
+        total = len(metas)
+        page_size = max(1, page_size)
+        page = max(1, page)
+        total_pages = (total + page_size - 1) // page_size if total else 0
+
+        start = (page - 1) * page_size
+        end = start + page_size
+        sliced = metas[start:end]
+
+        return {
+            "sessions": [
+                {
+                    "session_id": m.session_id,
+                    "title": m.title,
+                    "created_at": m.created_at,
+                    "updated_at": m.updated_at,
+                    "message_count": m.message_count,
+                    "user_id": getattr(m, "user_id", None),
+                }
+                for m in sliced
+            ],
+            "pagination": {
+                "total": total,
+                "page": page,
+                "page_size": page_size,
+                "total_pages": total_pages,
+            },
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        _raise_history_error("admin_list_sessions", e)
 
 
 @router.get("/sessions/{session_id}")
@@ -344,6 +412,8 @@ async def save_session_messages(
             "message_count": meta.message_count,
             "skipped": False,
         }
+    except SessionLimitExceeded as exc:
+        _raise_session_limit_error(exc)
     except HTTPException:
         raise
     except Exception as e:
@@ -447,6 +517,8 @@ async def append_session_messages(
             "new_seq": new_seq,
             "skipped": skipped,
         }
+    except SessionLimitExceeded as exc:
+        _raise_session_limit_error(exc)
     except HTTPException:
         raise
     except Exception as e:
@@ -540,7 +612,10 @@ async def batch_delete_sessions(
     """
     try:
         # Import _active_sessions from stream module to clean up active sessions
-        from backend.agent.web.routes.stream import _active_sessions
+        from backend.agent.web.routes.stream import (
+            _active_sessions,
+            clear_active_sessions_for_user,
+        )
         
         deleted_count = conversation_manager.delete_sessions(
             request.session_ids, user_id=current_user.id
@@ -575,7 +650,10 @@ async def delete_all_sessions(
     """
     try:
         # Import _active_sessions from stream module to clean up active sessions
-        from backend.agent.web.routes.stream import _active_sessions
+        from backend.agent.web.routes.stream import (
+            _active_sessions,
+            clear_active_sessions_for_user,
+        )
         
         # Get all session IDs before deletion
         all_sessions = conversation_manager.list_sessions(user_id=current_user.id)
@@ -583,9 +661,12 @@ async def delete_all_sessions(
         
         deleted_count = conversation_manager.delete_all_sessions(user_id=current_user.id)
         
-        # Clean up all active sessions in memory
-        _active_sessions.clear()
-        logger.info(f"[History] Cleared all active sessions (count: {len(session_ids)})")
+        # Clean up active sessions in memory for current user only
+        clear_active_sessions_for_user(current_user.id)
+        logger.info(
+            f"[History] Cleared active sessions for user {current_user.id} "
+            f"(deleted {deleted_count} persisted sessions)"
+        )
         
         logger.info(f"Deleted all {deleted_count} sessions")
         return {

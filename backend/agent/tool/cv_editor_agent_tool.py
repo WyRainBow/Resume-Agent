@@ -11,6 +11,16 @@ import re
 import uuid
 from backend.agent.tool.base import BaseTool, ToolResult
 from backend.agent.tool.resume_data_store import ResumeDataStore
+from backend.agent.utils.experience_entry import (
+    build_indexed_patch_after,
+    build_indexed_patch_before,
+    coerce_tool_value,
+    is_indexed_array_item_path,
+    normalize_experience_add_entry,
+    resolve_experience_add_path,
+    to_internships_schema,
+)
+from backend.agent.utils.resume_richtext import is_richtext_path, normalize_editor_value
 from backend.agent.llm import LLM
 from backend.core.logger import get_logger
 
@@ -69,6 +79,12 @@ Execute modifications immediately when user provides specific details.
         arbitrary_types_allowed = True
 
     @staticmethod
+    def _values_equal(old_val: Any, new_val: Any) -> bool:
+        if old_val == new_val:
+            return True
+        return str(old_val or "").strip() == str(new_val or "").strip()
+
+    @staticmethod
     def _stringify_value(value: Any) -> str:
         if isinstance(value, (dict, list)):
             return json.dumps(value, ensure_ascii=False, indent=2)
@@ -106,6 +122,29 @@ Execute modifications immediately when user provides specific details.
 
         raise ValueError("当前简历中未找到可修改的实习/经历条目，请先完善对应内容")
 
+    @staticmethod
+    def _is_empty_experience_entry(value: Any) -> bool:
+        """判断 update 值是否等价于“删除整条经历”（避免前端留下未命名公司）。"""
+        if value is None:
+            return True
+        if isinstance(value, str) and not value.strip():
+            return True
+        if not isinstance(value, dict):
+            return False
+        company = str(
+            value.get("company") or value.get("title") or value.get("organization") or ""
+        ).strip()
+        position = str(
+            value.get("position") or value.get("subtitle") or value.get("role") or ""
+        ).strip()
+        details = value.get("details") or value.get("description") or ""
+        if isinstance(details, list):
+            details = "\n".join(str(x) for x in details)
+        details = str(details or "").strip()
+        if details and re.search(r"<[a-z][^>]*>", details, re.I):
+            details = re.sub(r"<[^>]+>", "", details).strip()
+        return not company and not position and not details
+
     async def execute(self, path: str, action: str, value: Any = None) -> ToolResult:
         """执行简历编辑
 
@@ -125,6 +164,21 @@ Execute modifications immediately when user provides specific details.
 
         try:
             normalized_path, simple_edit_meta = self._resolve_simple_edit_path(path, resume_data)
+
+            if action == "add":
+                normalized_path = resolve_experience_add_path(normalized_path, resume_data)
+                value = coerce_tool_value(value)
+                if isinstance(value, dict):
+                    workspace_entry = normalize_experience_add_entry(
+                        value,
+                        array_path=normalized_path,
+                        index_hint=len(resume_data.get(normalized_path) or []),
+                    )
+                    if normalized_path == "internships":
+                        value = to_internships_schema(workspace_entry)
+                    else:
+                        value = workspace_entry
+
             # 延迟导入避免循环依赖
             from backend.agent.agent.cv_editor import CVEditor
 
@@ -134,18 +188,43 @@ Execute modifications immediately when user provides specific details.
             # 加载简历数据（传入引用，所以修改会直接影响原始数据）
             cv_editor.load_resume(resume_data)
 
+            # 富文本字段：将 LLM 的 Markdown/编号列表规范为 HTML 无序列表（add 已在上方规范化）
+            if action == "update" and value is not None:
+                if is_richtext_path(normalized_path) or (
+                    isinstance(value, str)
+                    and ("**" in value or re.search(r"^\d+\.\s", value, re.M))
+                ):
+                    value = normalize_editor_value(value, normalized_path)
+
+            # update 空对象到 experience[i] 等价于 delete，避免内存/DB 留下空占位条目
+            if action == "update" and is_indexed_array_item_path(normalized_path):
+                coerced = coerce_tool_value(value)
+                if self._is_empty_experience_entry(coerced):
+                    action = "delete"
+                    value = None
+
             # 执行编辑操作
             result = await cv_editor.edit_resume(normalized_path, action, value)
 
             if result.get("success"):
+                old_val = result.get("old_value")
+                new_val = result.get("new_value")
+
+                # 无实质变更：不弹 diff 卡片、不写库
+                if action == "update" and self._values_equal(old_val, new_val):
+                    logger.info(
+                        f"[CVEditorAgentTool] No-op update skipped: {normalized_path}"
+                    )
+                    return ToolResult(
+                        output=f"✅ {normalized_path} 内容未变化，已跳过更新。"
+                    )
+
                 # 同步更新 ResumeDataStore（因为 CVEditor 直接修改了传入的字典引用）
                 ResumeDataStore.set_data(resume_data, session_id=self.session_id)
                 # 尝试写回 AI 简历存储（如有 resume_id/user_id）
                 persisted = ResumeDataStore.persist_data(self.session_id)
 
                 # 格式化成功消息
-                old_val = result.get("old_value")
-                new_val = result.get("new_value")
                 output = f"✅ {result.get('message', 'Edit completed')}"
                 if not persisted:
                     # 🔧 改进：检查持久化失败的具体原因
@@ -185,15 +264,44 @@ Execute modifications immediately when user provides specific details.
                     output += f"\nIndex: {result['new_index']}"
                 patch_id = str(uuid.uuid4())
                 path_str = normalized_path
-                before_text = self._stringify_value(old_val)
-                after_text = self._stringify_value(new_val)
+                patch_operation = action
+                before_payload: Dict[str, Any] = {"_raw": self._stringify_value(old_val)}
+                after_payload: Dict[str, Any] = {"_raw": self._stringify_value(new_val)}
+
+                # add：必须指向具体下标，避免前端把整段 experience 替换成 JSON 字符串
+                if action == "add" and "new_index" in result:
+                    idx = int(result["new_index"])
+                    path_str = f"{normalized_path}[{idx}]"
+                    before_payload = {}
+                    after_payload = build_indexed_patch_after(path_str, new_val)
+                elif action == "delete":
+                    after_payload = {}
+                    if is_indexed_array_item_path(path_str) and old_val is not None:
+                        before_payload = build_indexed_patch_before(path_str, old_val)
+                    else:
+                        before_payload = {"_raw": self._stringify_value(old_val)}
+                elif action == "update" and is_indexed_array_item_path(path_str):
+                    if self._is_empty_experience_entry(new_val):
+                        patch_operation = "delete"
+                        after_payload = {}
+                        before_payload = build_indexed_patch_before(path_str, old_val)
+                    else:
+                        before_payload = build_indexed_patch_before(path_str, old_val)
+                        after_payload = build_indexed_patch_after(path_str, new_val)
+
+                summary = (
+                    f"删除了 {path_str}"
+                    if patch_operation == "delete"
+                    else f"修改了 {path_str}"
+                )
                 structured_data = {
                     "type": "resume_patch",
                     "patch_id": patch_id,
+                    "operation": patch_operation,
                     "paths": [path_str],
-                    "before": {"_raw": before_text},
-                    "after": {"_raw": after_text},
-                    "summary": f"修改了 {path_str}",
+                    "before": before_payload,
+                    "after": after_payload,
+                    "summary": summary,
                 }
                 return ToolResult(output=output, system=json.dumps(structured_data, ensure_ascii=False))
             else:

@@ -1,5 +1,6 @@
 import React from 'react'
 import { Search, ChevronRight, Clock } from 'lucide-react'
+import { AgentSpecialCard } from '@/components/agent-chat/AgentSpecialCard'
 
 interface SearchCardProps {
   query: string
@@ -17,51 +18,28 @@ export default function SearchCard({
   className = '',
 }: SearchCardProps) {
   return (
-    <div
-      className={`
-        relative mt-4 mb-2 rounded-xl border border-gray-200 bg-gray-50/70
-        hover:bg-gray-100/70 transition-all cursor-pointer group
-        ${className}
-      `}
+    <AgentSpecialCard
+      className={`my-4 ${className}`}
+      icon={<Search className="h-4 w-4" />}
+      title={query || '搜索结果'}
+      subtitle="搜索网页"
       onClick={onOpen}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onOpen?.()
-        }
-      }}
-    >
-      <div className="flex items-center gap-4 p-4">
-        <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-gradient-to-br from-slate-700 to-slate-900 flex items-center justify-center shadow-sm">
-          <Search className="w-6 h-6 text-white" />
-        </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 text-xs text-slate-500 mb-1">
-            <span>搜索网页</span>
-            {searchTime && (
-              <>
-                <span className="text-gray-300">•</span>
-                <Clock className="w-3 h-3" />
-                <span className="text-emerald-600 font-medium">{searchTime}</span>
-              </>
-            )}
-          </div>
-          <div className="font-semibold text-gray-900 truncate">{query || '搜索结果'}</div>
-          <div className="text-xs text-gray-400 mt-1 group-hover:text-gray-600 transition-colors">
-            点击查看完整结果列表
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <span className="px-2 py-1 rounded-full bg-white border border-gray-200 text-xs font-medium">
+      badge={
+        <div className="flex items-center gap-2 text-sm text-chat-ink-muted">
+          {searchTime && (
+            <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
+              <Clock className="h-3 w-3" />
+              {searchTime}
+            </span>
+          )}
+          <span className="rounded-full border border-chat-border bg-chat-surface px-2 py-1 text-xs font-medium">
             {totalResults} 个结果
           </span>
-          <ChevronRight className="w-4 h-4 text-gray-400" />
+          <ChevronRight className="h-4 w-4 text-chat-accent" />
         </div>
-      </div>
-    </div>
+      }
+    >
+      <p className="text-sm text-chat-ink-muted">点击查看完整结果列表</p>
+    </AgentSpecialCard>
   )
 }

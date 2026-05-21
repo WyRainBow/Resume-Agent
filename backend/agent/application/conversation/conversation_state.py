@@ -29,6 +29,35 @@ FAST_SIMPLE_EDIT_ENABLED = (
     os.getenv("AGENT_FAST_SIMPLE_EDIT_ENABLED", "true").strip().lower() != "false"
 )
 
+# 只读查看：读取/展示简历内容，不含优化/修改意图
+_READ_ONLY_QUERY_RE = re.compile(
+    r"(读取|查看|展示|显示|列出|看看|给我看|告诉我|说一下|发我)"
+)
+_WRITE_QUERY_RE = re.compile(
+    r"(优化|修改|更新|添加|删除|导入|新增|录入|插入|改成|改为|润色|改写|写入|应用|替换|设置|编辑)"
+)
+
+
+def is_read_only_query(user_input: str) -> bool:
+    """用户是否在只读查看简历（不应触发 cv_editor）。"""
+    text = (user_input or "").strip()
+    if not text:
+        return False
+    if _WRITE_QUERY_RE.search(text):
+        return False
+    return bool(_READ_ONLY_QUERY_RE.search(text))
+
+
+_ADD_EXPERIENCE_RE = re.compile(
+    r"(导入|新增|添加|录入|插入|写入).{0,40}(经历|实习|工作|岗位)"
+    r"|(帮我|请)?(导入|新增|添加).{0,12}(一段|一条)?.{0,20}实习"
+)
+
+
+def is_add_experience_query(user_input: str) -> bool:
+    """用户是否在新增/导入一段经历（应走 add，禁止 STAR 兜底写回）。"""
+    return bool(_ADD_EXPERIENCE_RE.search((user_input or "").strip()))
+
 # 可选导入新的意图识别系统
 try:
     from backend.agent.domain.intent.intent_enhancer import AgentIntentEnhancer
@@ -352,7 +381,8 @@ class ConversationStateManager:
             }
 
         # 🚀 快速加载简历路径：本地规则优先，不走 LLM 意图分类
-        if self.is_fast_load_resume(user_input):
+        # 但如果简历已加载，跳过此快路径，让 Hybrid + LLM 直接回答
+        if self.is_fast_load_resume(user_input) and not self.context.resume_loaded:
             file_path = self._extract_resume_file_path(user_input)
             tool_name = "cv_reader_agent" if file_path else "show_resume"
             tool_args = {"file_path": file_path} if file_path else {}
@@ -368,6 +398,18 @@ class ConversationStateManager:
             }
 
         # 🚀 简单编辑路径：本地规则优先，不走 LLM 意图分类
+        if is_add_experience_query(user_input):
+            return {
+                "intent": Intent.EDIT_CV,
+                "tool": None,
+                "tool_args": {},
+                "context_prompt": "",
+                "should_skip_llm": False,
+                "enhanced_query": user_input,
+                "intent_result": None,
+                "intent_source": "fast_rule_add_experience",
+            }
+
         simple_edit_payload = self.parse_fast_simple_edit(user_input)
         if simple_edit_payload:
             return {
@@ -424,10 +466,34 @@ class ConversationStateManager:
                         if file_path:
                             tool_args["file_path"] = file_path
                             top_intent = Intent.LOAD_RESUME
+                        elif self.context.resume_loaded:
+                            # 简历已加载，不走 LOAD_RESUME 快路径
+                            # 交给 Hybrid + LLM 直接基于 context 回答
+                            return {
+                                "intent": Intent.UNKNOWN,
+                                "tool": None,
+                                "tool_args": {},
+                                "context_prompt": "",
+                                "should_skip_llm": False,
+                                "enhanced_query": user_input,
+                                "intent_result": intent_result,
+                                "intent_source": "enhanced_rule_hybrid_fallback",
+                            }
                         else:
                             tool_name = "show_resume"
                             top_intent = Intent.LOAD_RESUME
                     elif tool_name == "show_resume":
+                        if self.context.resume_loaded:
+                            return {
+                                "intent": Intent.UNKNOWN,
+                                "tool": None,
+                                "tool_args": {},
+                                "context_prompt": "",
+                                "should_skip_llm": False,
+                                "enhanced_query": user_input,
+                                "intent_result": intent_result,
+                                "intent_source": "enhanced_rule_hybrid_fallback",
+                            }
                         top_intent = Intent.LOAD_RESUME
 
                     result = {
@@ -497,6 +563,9 @@ class ConversationStateManager:
             if file_path:
                 result["tool"] = "cv_reader_agent"
                 result["tool_args"] = {"file_path": file_path}
+            elif self.context.resume_loaded:
+                result["intent"] = Intent.UNKNOWN
+                result["tool"] = None
             else:
                 result["tool"] = "show_resume"
         else:
@@ -513,6 +582,9 @@ class ConversationStateManager:
         if not text:
             return None, None
 
+        if is_add_experience_query(text):
+            return Intent.EDIT_CV, self._extract_section(text.strip().lower())
+
         normalized = text.strip().lower()
         section = self._extract_section(normalized)
 
@@ -526,10 +598,14 @@ class ConversationStateManager:
             if section or any(w in normalized for w in ["经历", "条", "第一", "第二", "第三", "腾讯", "工作", "项目", "教育"]):
                 return Intent.EDIT_CV, section
 
-        if "优化" in normalized:
+        # 描述正文里可能出现「SQL优化」「应用」等词，不能据此判为优化意图
+        if "优化" in normalized and not is_add_experience_query(text):
             return Intent.OPTIMIZE_SECTION, section
 
-        if "分析" in normalized or "评估" in normalized or "诊断" in normalized:
+        if (
+            ("分析" in normalized or "评估" in normalized or "诊断" in normalized)
+            and not is_add_experience_query(text)
+        ):
             if "简历" in normalized or section or "诊断" in normalized:
                 return Intent.ANALYZE_RESUME, section
 
@@ -538,7 +614,7 @@ class ConversationStateManager:
     def _extract_section(self, text: str) -> Optional[str]:
         """Extract section name from text."""
         section_map = {
-            "工作经历": ["工作经历", "工作经验", "工作"],
+            "工作经历": ["工作经历", "工作经验", "工作", "实习经历", "实习"],
             "教育背景": ["教育背景", "教育经历", "教育"],
             "技能": ["技能", "技术栈"],
             "项目经历": ["项目经历", "项目"],

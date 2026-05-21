@@ -387,6 +387,13 @@ def get_logo_local_path(key: str) -> Path | None:
     return None
 
 
+def _download_url_to_path(url: str, local_path: Path, timeout: float = 15.0) -> None:
+    """带超时的 HTTP 下载，避免 PDF 编译阶段 urlretrieve 无限挂起。"""
+    req = urllib.request.Request(url, headers={"User-Agent": "Resume-Agent/1.0"})
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        local_path.write_bytes(resp.read())
+
+
 def download_logos_to_dir(internships: list, target_dir: str) -> dict[int, str]:
     """
     将 internships 中用到的 Logo 写入目标目录：优先从 COS 下载，失败时回退本地复制
@@ -411,7 +418,7 @@ def download_logos_to_dir(internships: list, target_dir: str) -> dict[int, str]:
         if cos_url:
             try:
                 print(f"[Logo] 下载: {cos_url} -> {local_path}")
-                urllib.request.urlretrieve(cos_url, str(local_path))
+                _download_url_to_path(cos_url, local_path)
                 logo_map[idx] = local_filename
                 print(f"[Logo] 下载成功: {local_filename} ({local_path.stat().st_size} bytes)")
                 continue

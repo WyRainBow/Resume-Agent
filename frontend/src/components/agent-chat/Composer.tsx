@@ -60,20 +60,20 @@ export default function Composer({
         className="hidden"
         onChange={onFileChange}
       />
-      <div className="rounded-2xl border border-slate-300 bg-white transition-all focus-within:border-indigo-400 focus-within:ring-1 focus-within:ring-indigo-400/20 dark:border-slate-700 dark:bg-slate-800">
+      <div className="rounded-2xl border border-chat-border bg-chat-surface shadow-sm transition-all focus-within:border-chat-accent/60 focus-within:ring-2 focus-within:ring-chat-accent/15 dark:border-slate-700 dark:bg-slate-800">
         {pendingAttachments.length > 0 && (
           <div className="flex flex-wrap gap-2 px-3 pt-3">
             {pendingAttachments.map((file) => (
               <div
                 key={`${file.name}-${file.size}-${file.lastModified}`}
-                className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-600 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
+                className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-chat-border bg-chat-canvas px-2 py-1 text-xs text-chat-ink-muted dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
               >
-                <FileText className="size-3.5 shrink-0 text-indigo-500" />
+                <FileText className="size-3.5 shrink-0 text-chat-accent" />
                 <span className="max-w-[220px] truncate">{file.name}</span>
                 <button
                   type="button"
                   onClick={() => onRemoveAttachment(file)}
-                  className="rounded p-0.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  className="rounded p-0.5 text-chat-ink-muted hover:text-chat-ink dark:hover:text-slate-200"
                   aria-label="移除已上传文件"
                   title="移除文件"
                 >
@@ -91,9 +91,9 @@ export default function Composer({
           placeholder={
             isProcessing
               ? "正在处理中，可以继续输入..."
-              : "输入消息...（例如：生成一份关于 AI 发展趋势的报告）"
+              : "输入消息...（例如：帮我优化腾讯的实习经历）"
           }
-          className="min-h-[92px] w-full resize-none bg-transparent px-4 pt-3 text-base text-slate-700 outline-none placeholder-slate-400 dark:text-slate-200"
+          className="min-h-[92px] w-full resize-none bg-transparent px-4 pt-3 text-base text-chat-ink outline-none placeholder:text-chat-ink-muted/70 dark:text-slate-200"
         />
 
         <div className="flex items-center justify-between px-3 pb-3">
@@ -104,8 +104,8 @@ export default function Composer({
               disabled={isProcessing || isUploadingFile}
               className={`size-8 rounded-full border flex items-center justify-center transition-colors ${
                 isProcessing || isUploadingFile
-                  ? "cursor-not-allowed border-slate-200 text-slate-300 dark:border-slate-600 dark:text-slate-500"
-                  : "border-slate-300 text-slate-500 hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-600 dark:hover:border-indigo-500"
+                  ? "cursor-not-allowed border-chat-border/60 text-chat-ink-muted/40 dark:border-slate-600 dark:text-slate-500"
+                  : "border-chat-border text-chat-ink-muted hover:border-chat-accent/50 hover:text-chat-accent-deep dark:border-slate-600"
               }`}
               title={isUploadingFile ? "上传中..." : "上传文件"}
               aria-label="上传文件"
@@ -117,12 +117,12 @@ export default function Composer({
               type="button"
               onClick={onShowResumeSelector}
               disabled={isProcessing}
-              className={`h-8 rounded-md border px-2.5 flex items-center gap-1.5 transition-colors ${
+              className={`h-8 rounded-lg border px-2.5 flex items-center gap-1.5 transition-colors ${
                 isProcessing
-                  ? "cursor-not-allowed border-slate-200 text-slate-300 dark:border-slate-600 dark:text-slate-500"
+                  ? "cursor-not-allowed border-chat-border/60 text-chat-ink-muted/40 dark:border-slate-600 dark:text-slate-500"
                   : isResumePreviewActive
-                  ? "border-indigo-300 bg-indigo-50 text-indigo-600 shadow-sm dark:border-indigo-500/60 dark:bg-indigo-500/15 dark:text-indigo-300"
-                  : "border-slate-300 text-slate-500 hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-600 dark:hover:border-indigo-500"
+                  ? "border-chat-accent/50 bg-chat-canvas text-chat-accent-deep shadow-sm dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
+                  : "border-chat-border text-chat-ink-muted hover:border-chat-accent/50 hover:text-chat-accent-deep dark:border-slate-600"
               }`}
               title="展示简历"
               aria-label="展示简历"
@@ -136,15 +136,15 @@ export default function Composer({
             <button
               type="submit"
               disabled={isProcessing || isUploadingFile}
-              className={`size-8 rounded-full flex items-center justify-center transition-colors ${
+              className={`size-8 rounded-full flex items-center justify-center transition-colors shadow-sm ${
                 isProcessing || isUploadingFile
-                  ? "cursor-not-allowed bg-slate-200 text-slate-400 dark:bg-slate-700"
-                  : "bg-indigo-600 text-white hover:bg-indigo-700"
+                  ? "cursor-not-allowed border border-chat-border bg-chat-canvas text-chat-ink-muted dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                  : "border border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700"
               }`}
               title={isProcessing ? "等待当前消息处理完成" : "发送消息"}
               aria-label="发送消息"
             >
-              <ArrowUp className="size-4" />
+              <ArrowUp className="size-4" strokeWidth={2.5} />
             </button>
           ) : (
             <button
@@ -155,8 +155,8 @@ export default function Composer({
                 isVoiceRecording
                   ? "animate-pulse bg-red-500 text-white"
                   : isVoiceSpeaking
-                  ? "bg-green-500 text-white"
-                  : "bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 dark:bg-slate-800"
+                  ? "bg-emerald-600 text-white"
+                  : "bg-chat-canvas text-chat-ink-muted hover:bg-chat-user-bubble hover:text-chat-accent-deep dark:bg-slate-800"
               } ${isVoiceProcessing ? "cursor-not-allowed opacity-50" : ""}`}
               title={
                 isVoiceProcessing

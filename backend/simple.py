@@ -10,7 +10,7 @@
 - DOUBAO_MODEL（默认 doubao-seed-1-6-lite-251015）
 - DOUBAO_BASE_URL（默认 https://ark.cn-beijing.volces.com/api/v3）
 - DASHSCOPE_API_KEY
-- DEEPSEEK_MODEL（默认 deepseek-v3.2）
+- DEEPSEEK_MODEL（默认 deepseek-v4-flash）
 - DEEPSEEK_BASE_URL（默认 https://dashscope.aliyuncs.com/compatible-mode/v1）
 """
 import os
@@ -47,7 +47,7 @@ DOUBAO_BASE_URL = os.getenv("DOUBAO_BASE_URL", "https://ark.cn-beijing.volces.co
 
 """DeepSeek 配置"""
 DEEPSEEK_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
-DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v3.2")
+DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-v4-flash")
 DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
 
 

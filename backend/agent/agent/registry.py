@@ -28,5 +28,9 @@ class AgentRegistry:
         if name in cls._factories:
             return cls._factories[name](**kwargs)
         if name in cls._agents:
-            return cls._agents[name](**kwargs)
+            agent_cls = cls._agents[name]
+            try:
+                return agent_cls(**kwargs)
+            except TypeError:
+                return agent_cls()
         raise ValueError(f"Unknown agent type: {name}")

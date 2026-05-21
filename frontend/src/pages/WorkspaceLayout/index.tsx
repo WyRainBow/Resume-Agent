@@ -103,16 +103,27 @@ function AgentIcon({ active = false }: { active?: boolean }) {
   );
 }
 
+export type AgentSessionHandlers = {
+  currentSessionId: string | null;
+  sessionsRefreshKey?: number;
+  onSelectSession: (sessionId: string) => void;
+  onCreateSession: () => void;
+  onDeleteSession: (sessionId: string) => Promise<void> | void;
+  onRenameSession: (sessionId: string, title: string) => Promise<void> | void;
+};
+
 interface WorkspaceLayoutProps {
   children: React.ReactNode;
   onSave?: () => void;
   onDownload?: () => void;
+  agentSession?: AgentSessionHandlers;
 }
 
 export default function WorkspaceLayout({
   children,
   onSave,
   onDownload,
+  agentSession,
 }: WorkspaceLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -221,16 +232,28 @@ export default function WorkspaceLayout({
 
   const handleSelectSession = (sessionId: string) => {
     if (!canUseAgent) return;
+    if (agentSession?.onSelectSession) {
+      agentSession.onSelectSession(sessionId);
+      return;
+    }
     navigate(`/agent/new?sessionId=${sessionId}`, { replace: true });
   };
 
   const handleCreateSession = () => {
     if (!canUseAgent) return;
+    if (agentSession?.onCreateSession) {
+      agentSession.onCreateSession();
+      return;
+    }
     navigate("/agent/new", { state: { forceNew: Date.now() } });
   };
 
   const deleteSession = async (sessionId: string) => {
     if (!canUseAgent) return;
+    if (agentSession?.onDeleteSession) {
+      await agentSession.onDeleteSession(sessionId);
+      return;
+    }
     try {
       const resp = await fetch(
         `${getApiBaseUrl()}/api/agent/history/${sessionId}`,
@@ -245,6 +268,10 @@ export default function WorkspaceLayout({
 
   const renameSession = async (sessionId: string, title: string) => {
     if (!canUseAgent) return;
+    if (agentSession?.onRenameSession) {
+      await agentSession.onRenameSession(sessionId, title);
+      return;
+    }
     try {
       const resp = await fetch(
         `${getApiBaseUrl()}/api/agent/history/sessions/${sessionId}/title`,
@@ -260,6 +287,16 @@ export default function WorkspaceLayout({
       console.error("Failed to rename session:", error);
     }
   };
+
+  const sidebarCurrentSessionId =
+    agentSession?.currentSessionId ??
+    ((new URLSearchParams(location.search).get("sessionId") ||
+      (location.pathname.startsWith("/agent/")
+        ? location.pathname.split("/").pop()
+        : null)) as string | null);
+
+  const sidebarSessionsRefreshKey =
+    agentSession?.sessionsRefreshKey ?? sessionsRefreshKey;
 
   return (
     <div className="h-screen flex overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans selection:bg-slate-200 selection:text-slate-900">
@@ -351,7 +388,7 @@ export default function WorkspaceLayout({
               )}
             </button>
 
-            {/* AI 对话区（仅 admin/member） */}
+            {/* AI 对话区 */}
             {canUseAgent && (
               <button
                 onClick={(e) => handleWorkspaceChange("agent", e)}
@@ -480,17 +517,12 @@ export default function WorkspaceLayout({
           {!sidebarCollapsed && canUseAgent && (
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <RecentSessions
-                currentSessionId={
-                  (new URLSearchParams(location.search).get("sessionId") ||
-                    (location.pathname.startsWith("/agent/")
-                      ? location.pathname.split("/").pop()
-                      : null)) as string | null
-                }
+                currentSessionId={sidebarCurrentSessionId}
                 onSelectSession={handleSelectSession}
                 onCreateSession={handleCreateSession}
                 onDeleteSession={deleteSession}
                 onRenameSession={renameSession}
-                refreshKey={sessionsRefreshKey}
+                refreshKey={sidebarSessionsRefreshKey}
               />
             </div>
           )}

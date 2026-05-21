@@ -17,6 +17,76 @@
   .no-spinner {
     -moz-appearance: textfield;
   }
+
+  @keyframes chat-fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .chat-message-enter {
+    animation: chat-fade-in 0.35s ease-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .chat-message-enter {
+      animation: none;
+    }
+  }
+
+  .diff-rich-content ul,
+  .diff-rich-content ol {
+    margin: 0.5rem 0 0.5rem 1.25rem;
+    padding: 0;
+  }
+
+  .diff-rich-content li {
+    margin-bottom: 0.35rem;
+  }
+
+  .diff-rich-content p {
+    margin: 0.35rem 0;
+  }
+
+  .diff-rich-content strong {
+    font-weight: 600;
+    color: #1c1f21;
+  }
+
+  .diff-rich-content .custom-list {
+    list-style: disc;
+  }
+
+  .diff-rich-content a,
+  .resume-entry-markdown a {
+    color: #2563eb;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    word-break: break-all;
+  }
+
+  .diff-rich-content a:hover,
+  .resume-entry-markdown a:hover {
+    color: #1d4ed8;
+  }
+
+  .resume-entry-markdown .prose {
+    font-size: 0.875rem;
+    line-height: 1.625;
+  }
+
+  .resume-entry-markdown .prose p {
+    margin-bottom: 0.5rem;
+  }
+
+  .resume-entry-markdown .prose table {
+    font-size: 0.8125rem;
+  }
 }
 
 @layer base {

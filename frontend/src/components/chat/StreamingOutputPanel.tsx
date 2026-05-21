@@ -1,6 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import ThoughtProcess from './ThoughtProcess';
 import StreamingResponse from './StreamingResponse';
+import { AssistantPaperCard } from '@/components/agent-chat/AssistantPaperCard';
 
 export interface StreamRenderModel {
   thought: string;
@@ -102,6 +103,12 @@ export default function StreamingOutputPanel({
 
   const canShowSubsequentContent = true;
 
+  const hasSubsequentContent =
+    currentSearch ||
+    answer.trim() ||
+    currentEditDiff ||
+    children;
+
   return (
     <>
       {/* 1. Thought Process 优先显示 */}
@@ -114,29 +121,30 @@ export default function StreamingOutputPanel({
         />
       )}
 
-      {/* 2. 搜索卡片在 Thought Process 完成后、Response 之前显示 */}
-      {canShowSubsequentContent && currentSearch && renderSearchCard && (
-        <div className="my-4">
-          {renderSearchCard(currentSearch.data)}
-        </div>
+      {/* 统一的纸张卡片容器，包裹所有 Assistant 输出内容 */}
+      {hasSubsequentContent && (
+        <AssistantPaperCard>
+            {canShowSubsequentContent && currentSearch && renderSearchCard && (
+              <div className="my-4">
+                {renderSearchCard(currentSearch.data)}
+              </div>
+            )}
+
+            <StreamingResponse
+              content={answer}
+              canStart={!shouldHideResponseInChat}
+              isStreaming={processing}
+            />
+
+            {canShowSubsequentContent && currentEditDiff && renderEditDiffCard && (
+              <div className="my-4">
+                {renderEditDiffCard(currentEditDiff)}
+              </div>
+            )}
+
+            {canShowSubsequentContent && children}
+        </AssistantPaperCard>
       )}
-
-      {/* 3. Response */}
-      <StreamingResponse
-        content={answer}
-        canStart={!shouldHideResponseInChat}
-        isStreaming={processing}
-      />
-
-      {/* 4. 简历修改前后对比卡（在 Response 之后） */}
-      {canShowSubsequentContent && currentEditDiff && renderEditDiffCard && (
-        <div className="my-4">
-          {renderEditDiffCard(currentEditDiff)}
-        </div>
-      )}
-
-      {/* 5. 额外的检测器或卡片 */}
-      {canShowSubsequentContent && children}
     </>
   );
 }

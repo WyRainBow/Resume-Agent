@@ -19,7 +19,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEnvironment } from "@/contexts/EnvironmentContext";
 import { useCLTP } from "@/hooks/useCLTP";
 import { canUseAgentFeature } from "@/lib/runtimeEnv";
-import { PDFViewerSelector } from "@/components/PDFEditor";
+import {
+  getSessionLimitMessage,
+  isSessionLimitExceededResponse,
+  parseSessionLimits,
+} from "@/utils/sessionLimits";
+import AgentPdfPreviewPanel from "@/components/agent-chat/AgentPdfPreviewPanel";
 import { convertToBackendFormat } from "@/pages/Workspace/v2/utils/convertToBackend";
 import {
   DEFAULT_MENU_SECTIONS,
@@ -60,6 +65,7 @@ import { useMessageTimeline } from "@/hooks/agent-chat/useMessageTimeline";
 import {
   applyPatchPaths,
   extractResumeEditDiff as extractResumeEditDiffFromMarkdown,
+  inferPatchOperation,
   normalizeResumePatchValue,
   stripResumeEditMarkdown,
 } from "@/utils/resumePatch";
@@ -319,6 +325,12 @@ function isWorkspaceResumeData(data: unknown): data is ResumeData {
   );
 }
 
+function isLoadResumeIntentText(text: string): boolean {
+  return /(?:加载|打开|查看|显示|选择).*(?:简历|resume|cv)|(?:简历|resume|cv).*(?:加载|打开|选择)/i.test(
+    (text || "").trim(),
+  );
+}
+
 interface SearchResultItem {
   position?: number;
   url?: string;
@@ -467,12 +479,21 @@ function SophiaChatContent() {
   const [resumeEditError, setLastError] = useState<{ message: string } | null>(null);
 
   // ResumeContext integration
-  const { pendingPatches, pushPatch, patchAppliedAt } = useResumeContext();
+  const {
+    pendingPatches,
+    pushPatch,
+    patchAppliedAt,
+    supersedePendingPatches,
+    rebindCurrentPatches,
+    setResume,
+  } = useResumeContext();
   const [generatedResume, setGeneratedResume] = useState<{
     resume: any; summary: string
   } | null>(null);
   // Track current assistant message ID for patch association
   const currentAssistantMessageIdRef = useRef<string | null>(null);
+  // When resume_patch events are received, skip the old cv_editor_agent edit diff path
+  const hasPatchInCurrentStreamRef = useRef(false);
 
   const [streamDoneTick, setStreamDoneTick] = useState(0);
   const [activeRunId, setActiveRunId] = useState(0);
@@ -509,20 +530,31 @@ function SophiaChatContent() {
     },
   });
 
-  // 初始化会话：有 sessionId 用指定会话；否则默认加载“最新会话”
+  // 初始化会话：仅首次进入页面时执行；有 sessionId 用指定会话，否则默认加载最新会话
   useEffect(() => {
+    if (hasBootstrappedSessionRef.current) {
+      return;
+    }
+
     let mounted = true;
     const params = new URLSearchParams(location.search);
     const explicitSessionId = params.get("sessionId");
     const hasExplicitId = !!explicitSessionId?.trim();
     const token = localStorage.getItem("auth_token");
+    const forceNew = (location.state as { forceNew?: number } | null)?.forceNew;
+
+    if (forceNew || isCreatingNewSessionRef.current) {
+      hasBootstrappedSessionRef.current = true;
+      setInitialSessionResolved(true);
+      return () => {
+        mounted = false;
+      };
+    }
 
     if (hasExplicitId) {
-      // URL 显式指定会话时，不做额外探测
       const sid = explicitSessionId!.trim();
-      if (conversationId !== sid) {
-        setConversationId(sid);
-      }
+      setConversationId(sid);
+      hasBootstrappedSessionRef.current = true;
       setInitialSessionResolved(true);
       return () => {
         mounted = false;
@@ -530,7 +562,7 @@ function SophiaChatContent() {
     }
 
     if (!token) {
-      // 未登录时不请求历史会话，直接进入新会话状态
+      hasBootstrappedSessionRef.current = true;
       setInitialSessionResolved(true);
       return () => {
         mounted = false;
@@ -547,11 +579,9 @@ function SophiaChatContent() {
         );
         if (!mounted) return;
         if (resp.status === 401) {
-          // token 失效或登录态未就绪：保持新会话，不报错
           return;
         }
         if (resp.status === 404) {
-          // core native 模式可能未挂载 history 路由，关闭前端 history save/restore
           historyApiUnavailableRef.current = true;
           return;
         }
@@ -562,7 +592,7 @@ function SophiaChatContent() {
             : null;
           const latestId =
             typeof latest?.session_id === "string" ? latest.session_id : "";
-          if (latestId) {
+          if (latestId && !isCreatingNewSessionRef.current) {
             setConversationId(latestId);
             navigate(`/agent/new?sessionId=${latestId}`, { replace: true });
           }
@@ -571,6 +601,7 @@ function SophiaChatContent() {
         console.error("[AgentChat] Failed to bootstrap latest session:", error);
       } finally {
         if (mounted) {
+          hasBootstrappedSessionRef.current = true;
           setInitialSessionResolved(true);
         }
       }
@@ -581,7 +612,7 @@ function SophiaChatContent() {
     return () => {
       mounted = false;
     };
-  }, [apiBaseUrl, getAuthHeaders, navigate, location.search, conversationId]);
+  }, [apiBaseUrl, getAuthHeaders, navigate, location.search, location.state]);
 
   // 简历选择器状态
   const [showResumeSelector, setShowResumeSelector] = useState(false);
@@ -634,6 +665,7 @@ function SophiaChatContent() {
   const finalizeRetryAttemptsRef = useRef(0);
   const prevRouteSessionIdRef = useRef<string | null>(null);
   const isCreatingNewSessionRef = useRef(false);
+  const hasBootstrappedSessionRef = useRef(false);
   const { rebindCurrentMessageId } = useMessageTimeline();
   
   const normalizedResume = useMemo(() => {
@@ -673,6 +705,8 @@ function SophiaChatContent() {
     [],
   );
 
+  const pdfRenderAbortRef = useRef<AbortController | null>(null);
+
   const renderResumePdfPreview = useCallback(
     async (
       resumeEntry: {
@@ -692,13 +726,28 @@ function SophiaChatContent() {
       if (!resumeEntry.resumeData) return;
 
       const currentState = resumePdfPreview[resumeEntry.id];
-      if (!force && (currentState?.loading || currentState?.blob)) {
+      if (!force && currentState?.loading) {
         console.log(
-          "[DEBUG] renderResumePdfPreview skipped (already loading or has blob)",
+          "[DEBUG] renderResumePdfPreview skipped (already loading)",
+        );
+        return;
+      }
+      if (!force && currentState?.blob) {
+        console.log(
+          "[DEBUG] renderResumePdfPreview skipped (already has blob)",
         );
         return;
       }
 
+      pdfRenderAbortRef.current?.abort();
+      const abortController = new AbortController();
+      pdfRenderAbortRef.current = abortController;
+      const renderTimeoutMs = 120_000;
+      const timeoutId = window.setTimeout(() => {
+        abortController.abort();
+      }, renderTimeoutMs);
+
+      try {
       if (!isWorkspaceResumeData(resumeEntry.resumeData)) {
         updateResumePdfState(resumeEntry.id, {
           blob: null,
@@ -714,8 +763,6 @@ function SophiaChatContent() {
         progress: "正在渲染 PDF...",
         error: null,
       });
-
-      try {
         const backendData = convertToBackendFormat(resumeEntry.resumeData);
         const renderSessionId = currentSessionId || conversationId;
         const traceId = `sophia-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -745,6 +792,7 @@ function SophiaChatContent() {
             traceId,
             source: "SophiaChat.renderResumePdfPreview",
             trigger: force ? "manual-retry" : "auto-effect",
+            signal: abortController.signal,
           },
         );
 
@@ -755,15 +803,23 @@ function SophiaChatContent() {
           error: null,
         });
       } catch (error) {
+        const aborted =
+          error instanceof Error && error.name === "AbortError";
         updateResumePdfState(resumeEntry.id, {
           blob: null,
           loading: false,
           progress: "",
-          error:
-            error instanceof Error
+          error: aborted
+            ? "PDF 渲染超时或已取消，请点击重新渲染。"
+            : error instanceof Error
               ? error.message
               : "PDF 渲染失败，请稍后重试。",
         });
+      } finally {
+        window.clearTimeout(timeoutId);
+        if (pdfRenderAbortRef.current === abortController) {
+          pdfRenderAbortRef.current = null;
+        }
       }
     },
     [
@@ -1179,10 +1235,7 @@ function SophiaChatContent() {
     onShowResumeSelector: () => {
       // 只在“加载简历”相关意图时展示选择器，避免编辑流程被 show_resume 误触发打断。
       const text = currentRunUserInputRef.current.trim();
-      const isLoadResumeIntent =
-        /(?:加载|打开|查看|显示|选择).*(?:简历|resume|cv)|(?:简历|resume|cv).*(?:加载|打开|选择)/i.test(
-          text,
-        );
+      const isLoadResumeIntent = isLoadResumeIntentText(text);
       const hasResumeContext =
         !!resumeDataRef.current ||
         loadedResumes.some((item) => !!item.resumeData);
@@ -1191,6 +1244,7 @@ function SophiaChatContent() {
       // - 若会话没有简历上下文：仍需展示选择器，避免卡在“处理中”
       if (!isLoadResumeIntent && hasResumeContext) {
         console.warn("[AgentChat] Ignore show_resume selector for non-load intent:", text);
+        setShowResumeSelector(false);
         return;
       }
       if (!isLoadResumeIntent && text) {
@@ -1224,9 +1278,21 @@ function SophiaChatContent() {
     },
     upsertSearchResult,
     upsertLoadedResume,
-    upsertResumeEditDiff,
+    upsertResumeEditDiff: (messageId: string, data: ResumeEditDiffStructuredData) => {
+      if (hasPatchInCurrentStreamRef.current) {
+        console.log("[AgentChat] Skipping old editDiff — resume_patch path is active");
+        return;
+      }
+      upsertResumeEditDiff(messageId, data);
+    },
     upsertDiagnosisToolEvent,
-    applyResumeEditDiff,
+    applyResumeEditDiff: (data: ResumeEditDiffStructuredData) => {
+      if (hasPatchInCurrentStreamRef.current) {
+        console.log("[AgentChat] Skipping old applyEditDiff — resume_patch path is active");
+        return;
+      }
+      applyResumeEditDiff(data);
+    },
   });
 
   const {
@@ -1246,17 +1312,19 @@ function SophiaChatContent() {
     onSSEEvent: useCallback((event: SSEEvent) => {
       // Intercept resume_patch and resume_generated events before routing
       if ((event as any).type === 'resume_patch') {
-        // SSE structure: {type, data: {type, data: {patch_id, ...}, ...}}
-        // parseBlock sets event.data = outer data object; actual patch is in event.data.data
+        hasPatchInCurrentStreamRef.current = true;
         const outerData = (event as any).data ?? {}
         const patch = outerData.data ?? outerData
         pushPatch({
           patch_id:   patch.patch_id   ?? `patch-${Date.now()}`,
-          message_id: currentAssistantMessageIdRef.current ?? Date.now().toString(),
+          // 与 resumeEditDiffs 一致，用 'current' 标记当前流式消息，
+          // finalize 时再通过 rebindCurrentPatches 绑定到真实 message_id。
+          message_id: 'current',
           paths:      patch.paths      ?? [],
           before:     patch.before     ?? {},
           after:      patch.after      ?? {},
           summary:    patch.summary    ?? '',
+          operation:  patch.operation  ?? 'set',
         });
         return;
       }
@@ -1565,6 +1633,12 @@ function SophiaChatContent() {
   }, [conversationId, currentSessionId, initialSessionResolved, apiBaseUrl, getAuthHeaders, location.search]); // 仅在会话确定后加载
 
   useEffect(() => {
+    if (resumeData) {
+      setResume(resumeData);
+    }
+  }, [resumeData, setResume]);
+
+  useEffect(() => {
     if (!lastError) return;
     setResumeError(lastError);
   }, [lastError]);
@@ -1580,7 +1654,8 @@ function SophiaChatContent() {
       let updated: ResumeData = prev;
       for (const patch of pendingPatches) {
         if (patch.status === 'applied') {
-          updated = applyPatchPaths(updated, patch.paths, patch.after) as ResumeData;
+          const op = inferPatchOperation(patch);
+          updated = applyPatchPaths(updated, patch.paths, patch.after, op) as ResumeData;
         }
       }
       return updated;
@@ -1596,7 +1671,8 @@ function SophiaChatContent() {
         let updated: ResumeData = item.resumeData;
         for (const patch of pendingPatches) {
           if (patch.status === 'applied') {
-            updated = applyPatchPaths(updated, patch.paths, patch.after) as ResumeData;
+            const op = inferPatchOperation(patch);
+            updated = applyPatchPaths(updated, patch.paths, patch.after, op) as ResumeData;
           }
         }
         return { ...item, resumeData: updated };
@@ -1646,6 +1722,18 @@ function SophiaChatContent() {
             },
           };
           setResumeData(resumeDataWithMeta as ResumeData);
+          setResume(resumeDataWithMeta as ResumeData);
+          setLoadedResumes((prev) => {
+            const targetId = selectedResumeId || resumeId;
+            if (!targetId) return prev;
+            const exists = prev.some((item) => item.id === targetId);
+            if (!exists) return prev;
+            return prev.map((item) =>
+              item.id === targetId
+                ? { ...item, resumeData: resumeDataWithMeta as ResumeData }
+                : item,
+            );
+          });
           console.log(
             "[AgentChat] Resume data refreshed after agent completion",
           );
@@ -1665,6 +1753,8 @@ function SophiaChatContent() {
 
   // Auto-scroll to bottom (throttled to reduce layout thrash during streaming)
   useEffect(() => {
+    // 选择器打开时不跟随流式输出滚动，避免页面一直被“拽”到底部
+    if (showResumeSelector) return;
     if (autoScrollTimerRef.current !== null) {
       window.clearTimeout(autoScrollTimerRef.current);
     }
@@ -1675,7 +1765,7 @@ function SophiaChatContent() {
       });
       autoScrollTimerRef.current = null;
     }, isProcessing ? 90 : 140);
-  }, [messages, currentThought, currentAnswer, isProcessing]);
+  }, [messages, currentThought, currentAnswer, isProcessing, showResumeSelector]);
 
   useEffect(() => {
     return () => {
@@ -1686,12 +1776,12 @@ function SophiaChatContent() {
     };
   }, []);
 
-  // 打开“展示简历”卡片或切换其步骤时，确保卡片完整进入可视区域，避免被输入区遮挡。
+  // 打开「展示简历」选择器时滚到对话底部，确保卡片在可视区域内。
   useEffect(() => {
     if (!showResumeSelector) return;
     const timer = window.setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-    }, 50);
+    }, 120);
     return () => {
       window.clearTimeout(timer);
     };
@@ -1889,6 +1979,8 @@ function SophiaChatContent() {
     setLoadedResumes((prev) => rebindCurrentMessageId(prev, uniqueId));
     setResumeEditDiffs((prev) => rebindCurrentMessageId(prev, uniqueId));
     setDiagnosisToolEvents((prev) => rebindCurrentMessageId(prev, uniqueId));
+    // 把当前流式 patch 绑定到这条 finalize 后的 assistant 消息上
+    rebindCurrentPatches(uniqueId);
 
     setMessages((prev) => {
       const last = prev[prev.length - 1];
@@ -1974,6 +2066,31 @@ function SophiaChatContent() {
   const refreshSessions = useCallback(() => {
     setSessionsRefreshKey((prev) => prev + 1);
   }, []);
+
+  const checkCanCreateSession = useCallback(async (): Promise<boolean> => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) {
+      return true;
+    }
+    try {
+      const resp = await fetch(
+        `${apiBaseUrl}/api/agent/history/sessions/list?page=1&page_size=1`,
+        { headers: getAuthHeaders() },
+      );
+      if (!resp.ok) {
+        return true;
+      }
+      const data = await resp.json();
+      const limits = parseSessionLimits(data);
+      if (!limits.can_create) {
+        alert(getSessionLimitMessage(limits));
+        return false;
+      }
+      return true;
+    } catch {
+      return true;
+    }
+  }, [apiBaseUrl, getAuthHeaders]);
 
   // 检测并加载简历
   const detectAndLoadResume = useCallback(
@@ -2225,18 +2342,34 @@ function SophiaChatContent() {
               return;
             }
             let errorDetail = "";
+            let parsedError: unknown = null;
             try {
               const raw = await resp.clone().text();
               if (raw) {
                 try {
-                  const parsed = JSON.parse(raw);
-                  errorDetail = parsed?.message || parsed?.detail || raw;
+                  parsedError = JSON.parse(raw);
+                  const parsed = parsedError as {
+                    message?: string;
+                    detail?: string | { message?: string };
+                  };
+                  errorDetail =
+                    parsed?.message ||
+                    (typeof parsed?.detail === "string"
+                      ? parsed.detail
+                      : parsed?.detail?.message) ||
+                    raw;
                 } catch {
                   errorDetail = raw;
                 }
               }
             } catch {
               // ignore parse errors
+            }
+            if (isSessionLimitExceededResponse(resp.status, parsedError)) {
+              alert(getSessionLimitMessage());
+              queuedSaveRef.current = null;
+              scheduledSaveRef.current = null;
+              return;
             }
             console.error(
               `[AgentChat] Failed to save session: ${resp.status}${
@@ -2431,7 +2564,60 @@ function SophiaChatContent() {
     };
   }, [persistSessionSnapshot]);
 
+  const resetToBlankSession = useCallback(() => {
+    isCreatingNewSessionRef.current = true;
+    hasBootstrappedSessionRef.current = true;
+    setInitialSessionResolved(true);
+
+    pendingSaveRef.current = false;
+    queuedSaveRef.current = null;
+    scheduledSaveRef.current = null;
+    if (saveDebounceTimerRef.current) {
+      clearTimeout(saveDebounceTimerRef.current);
+      saveDebounceTimerRef.current = null;
+    }
+
+    const newId = `conv-${Date.now()}`;
+    setMessages([]);
+    setCurrentSessionId(newId);
+    setConversationId(newId);
+    lastPersistedCountBySessionRef.current[newId] = 0;
+    lastSavedKeyRef.current = "";
+    setSelectedResumeId(null);
+    setAllowPdfAutoRender(false);
+    setLoadedResumes([]);
+    setDiagnosisToolEvents([]);
+    setSearchResults([]);
+    setResumeEditDiffs([]);
+    setActiveSearchPanel(null);
+    setResumePdfPreview({});
+    setResumeError(null);
+    finalizeStream();
+
+    navigate("/agent/new", { replace: true });
+    window.setTimeout(() => {
+      isCreatingNewSessionRef.current = false;
+    }, 0);
+  }, [finalizeStream, navigate]);
+
   const deleteSession = async (sessionId: string) => {
+    const routeSessionId =
+      new URLSearchParams(location.search).get("sessionId")?.trim() || null;
+    const isActiveSession =
+      sessionId === conversationId ||
+      sessionId === currentSessionId ||
+      sessionId === routeSessionId;
+
+    if (isActiveSession) {
+      pendingSaveRef.current = false;
+      queuedSaveRef.current = null;
+      scheduledSaveRef.current = null;
+      if (saveDebounceTimerRef.current) {
+        clearTimeout(saveDebounceTimerRef.current);
+        saveDebounceTimerRef.current = null;
+      }
+    }
+
     try {
       const resp = await fetch(
         `${apiBaseUrl}/api/agent/history/${sessionId}`,
@@ -2442,22 +2628,26 @@ function SophiaChatContent() {
       );
       if (!resp.ok) throw new Error(`Failed to delete session: ${resp.status}`);
 
-      // Clear active session memory on backend
       fetch(`${apiBaseUrl}/api/agent/stream/session/${sessionId}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
       }).catch(() => undefined);
 
-      if (currentSessionId === sessionId) {
-        const newId = `conv-${Date.now()}`;
-        setMessages([]);
-        setCurrentSessionId(newId);
-        setConversationId(newId);
-        lastPersistedCountBySessionRef.current[newId] = 0;
-        finalizeStream();
+      try {
+        localStorage.removeItem(`ui_state:${sessionId}`);
+      } catch {
+        // ignore storage errors
       }
+      delete lastPersistedCountBySessionRef.current[sessionId];
+
       refreshSessions();
+
+      if (isActiveSession) {
+        resetToBlankSession();
+      }
     } catch (error) {
       console.error("[AgentChat] Failed to delete session:", error);
+      alert("删除会话失败，请稍后重试");
     }
   };
 
@@ -2728,9 +2918,19 @@ function SophiaChatContent() {
   };
 
   const createNewSession = useCallback(async () => {
+    isCreatingNewSessionRef.current = true;
+    hasBootstrappedSessionRef.current = true;
+    setInitialSessionResolved(true);
+
     // 先尽量保存当前会话，避免切换后丢失上下文
     saveCurrentSession();
     await waitForPendingSave();
+
+    const canCreate = await checkCanCreateSession();
+    if (!canCreate) {
+      isCreatingNewSessionRef.current = false;
+      return;
+    }
 
     // 确保切换会话前清除任何待保存标记
     pendingSaveRef.current = false;
@@ -2741,6 +2941,7 @@ function SophiaChatContent() {
     setCurrentSessionId(newId);
     setConversationId(newId);
     lastPersistedCountBySessionRef.current[newId] = 0;
+    lastSavedKeyRef.current = "";
     setSelectedResumeId(null);
     setAllowPdfAutoRender(false);
     setLoadedResumes([]);
@@ -2751,20 +2952,33 @@ function SophiaChatContent() {
     setResumePdfPreview({});
     finalizeStream();
 
-    // Navigate to clean URL
-    isCreatingNewSessionRef.current = true;
-    navigate('/agent/new', { replace: true });
+    navigate("/agent/new", { replace: true });
+
+    window.setTimeout(() => {
+      isCreatingNewSessionRef.current = false;
+    }, 0);
 
     // 不再立即持久化空会话，只在用户发送第一条消息时才真正创建并入库
     // 这样可以避免用户点击+按钮后没有输入消息就产生空会话
-  }, [finalizeStream, saveCurrentSession, waitForPendingSave, navigate]);
+  }, [
+    checkCanCreateSession,
+    finalizeStream,
+    saveCurrentSession,
+    waitForPendingSave,
+    navigate,
+  ]);
 
   const handleSelectSession = useCallback(
     (sessionId: string) => {
-      loadSession(sessionId);
+      if (!sessionId) {
+        void createNewSession();
+        setIsSidebarOpen(false);
+        return;
+      }
+      navigate(`/agent/new?sessionId=${sessionId}`, { replace: true });
       setIsSidebarOpen(false);
     },
-    [loadSession],
+    [createNewSession, navigate],
   );
 
   const handleCreateSession = useCallback(() => {
@@ -2794,19 +3008,21 @@ function SophiaChatContent() {
     if (routeSessionId) {
       if (routeSessionId === currentSessionId) return;
       if (isLoadingSession) return;
-      // If createNewSession just ran and navigate hasn't changed URL yet,
-      // the old routeSessionId may still be in the URL — skip loading it.
       if (isCreatingNewSessionRef.current) return;
       void loadSession(routeSessionId);
       return;
     }
 
-    // 从历史会话URL切回 /agent/new（无 sessionId）时，主动创建空白新会话
-    // 或者当 URL 没有 sessionId 但当前 session 却是一个已有的 session 时，也重置
+    if (isCreatingNewSessionRef.current) {
+      return;
+    }
+
+    // 从历史会话 URL 切回 /agent/new（无 sessionId）时，主动创建空白新会话
     if (!isLoadingSession) {
-      if (isCreatingNewSessionRef.current) {
-        isCreatingNewSessionRef.current = false;
-      } else if (previousRouteSessionId || (currentSessionId && !currentSessionId.startsWith('conv-'))) {
+      if (
+        previousRouteSessionId ||
+        (currentSessionId && !currentSessionId.startsWith("conv-"))
+      ) {
         void createNewSession();
       }
     }
@@ -2824,8 +3040,15 @@ function SophiaChatContent() {
       // 加载选中的简历数据
       const resolvedUserId =
         user?.id ?? (selectedResume as any).user_id ?? null;
+      const rawData = (selectedResume.data || {}) as Record<string, unknown>;
+      const normalizedBase = isWorkspaceResumeData(rawData)
+        ? (rawData as ResumeData)
+        : normalizeImportedResumeToCanonical(rawData as Record<string, any>, {
+            resumeId: selectedResume.id,
+            title: selectedResume.name,
+          });
       const resumeDataWithMeta = {
-        ...(selectedResume.data || {}),
+        ...normalizedBase,
         resume_id: selectedResume.id,
         user_id: resolvedUserId,
         alias: selectedResume.alias,
@@ -2852,9 +3075,10 @@ function SophiaChatContent() {
         return [...filtered, nextEntry];
       });
 
-      // 自动选中该简历，显示在右侧
+      // 自动选中该简历，显示在右侧（默认 LaTeX PDF 预览）
       setAllowPdfAutoRender(true);
       setSelectedResumeId(selectedResume.id);
+      setShowResumeSelector(false);
 
       // 若有待重放输入，且当前还处于处理态，先强制收口上一轮，避免输入框一直卡在“处理中”。
       if (pendingResumeInput.trim() && isProcessing) {
@@ -2894,8 +3118,16 @@ function SophiaChatContent() {
       )
         return;
 
+      // 发送普通消息时关闭选择器，避免与流式回复叠在一起并反复触发滚动
+      if (!isLoadResumeIntentText(userMessage)) {
+        setShowResumeSelector(false);
+      }
+
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       currentRunUserInputRef.current = userMessage.trim();
+      hasPatchInCurrentStreamRef.current = false;
+      // 新一轮消息开始：把上一轮未处理的 pending patch 标记为 superseded
+      supersedePendingPatches();
       setCurrentSuggestions([]);
       setSearchResults((prev) =>
         prev.filter((item) => item.messageId !== "current"),
@@ -3306,6 +3538,10 @@ function SophiaChatContent() {
       if (event.key !== "Enter" || event.shiftKey) {
         return;
       }
+      // 输入法 composing 期间（如中文选词按 Enter 确认）不提交
+      if (event.nativeEvent.isComposing) {
+        return;
+      }
       event.preventDefault();
       if (!input.trim() || isProcessing) {
         return;
@@ -3324,12 +3560,34 @@ function SophiaChatContent() {
     finalizeStream();
   };
 
+  const activeSessionId = currentSessionId || conversationId;
+
   return (
-    <WorkspaceLayout>
-      <div className="h-full bg-slate-50 dark:bg-slate-950 flex flex-col overflow-hidden">
+    <WorkspaceLayout
+      agentSession={{
+        currentSessionId: activeSessionId,
+        sessionsRefreshKey,
+        onSelectSession: handleSelectSession,
+        onCreateSession: handleCreateSession,
+        onDeleteSession: deleteSession,
+        onRenameSession: renameSession,
+      }}
+    >
+      <div className="h-full bg-chat-canvas dark:bg-slate-950 flex flex-col overflow-hidden font-chat">
         <div className="flex-1 flex overflow-hidden relative">
           {/* Left: Chat */}
           <section className="flex-1 min-w-0 flex flex-col h-full">
+            <div className="shrink-0 px-4 py-2 border-b border-chat-border/40 dark:border-slate-800 flex items-center justify-between gap-3 bg-chat-canvas/80 dark:bg-slate-950/80">
+              <div className="min-w-0 flex items-center gap-2 text-xs text-gray-400">
+                <span className="shrink-0">会话 ID</span>
+                <code
+                  className="truncate rounded bg-slate-100 dark:bg-slate-900 px-2 py-0.5 text-[11px] text-slate-600 dark:text-slate-300 font-mono"
+                  title={activeSessionId || undefined}
+                >
+                  {activeSessionId || "—"}
+                </code>
+              </div>
+            </div>
             <CustomScrollbar as="main" className="flex-1 px-4 py-8 flex flex-col">
               <div className="max-w-3xl mx-auto w-full flex-1 flex flex-col">
                 {loadingResume && (
@@ -3362,10 +3620,10 @@ function SophiaChatContent() {
                       <div className="flex-[0.8]" />
 
                       <div className="text-center mb-12">
-                        <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-3 tracking-tight">
-                          你好，我是你的 Resume AI 助手
+                        <h1 className="text-3xl font-bold text-chat-ink dark:text-white mb-3 tracking-tight">
+                          你好：我是你的 Resume AI 助手
                         </h1>
-                        <p className="text-slate-500 dark:text-slate-400 text-lg max-w-md mx-auto">
+                        <p className="text-chat-ink-muted dark:text-slate-400 text-lg max-w-md mx-auto">
                           我可以帮你优化简历、分析岗位匹配度，或者进行模拟面试。
                         </p>
                       </div>
@@ -3409,17 +3667,17 @@ function SophiaChatContent() {
                                 setInput(item.desc.replace(/[“”]/g, ""));
                               }
                             }}
-                            className="flex flex-col items-start p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-500 dark:hover:border-indigo-400 hover:shadow-md transition-all text-left group"
+                            className="flex flex-col items-start p-4 rounded-xl border border-chat-border dark:border-slate-800 bg-chat-surface dark:bg-slate-900 hover:border-chat-accent/50 dark:hover:border-amber-500/30 hover:shadow-md transition-all text-left group"
                           >
                             <div
                               className={`p-2 rounded-lg ${item.color} mb-3 group-hover:scale-110 transition-transform`}
                             >
                               {item.icon}
                             </div>
-                            <h3 className="font-semibold text-slate-900 dark:text-white mb-1">
+                            <h3 className="font-semibold text-chat-ink dark:text-white mb-1">
                               {item.title}
                             </h3>
-                            <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">
+                            <p className="text-sm text-chat-ink-muted dark:text-slate-400 line-clamp-2">
                               {item.desc}
                             </p>
                           </button>
@@ -3428,29 +3686,13 @@ function SophiaChatContent() {
                     </div>
                   )}
 
-                {/* 简历选择器：固定在对话流上方，避免被后续输出挤到下方 */}
-                {showResumeSelector && (
-                  <ResumeSelector
-                    onSelect={handleResumeSelect}
-                    onCreateResume={handleCreateResume}
-                    onCancel={handleResumeSelectorCancel}
-                    onLayoutChange={() => {
-                      window.setTimeout(() => {
-                        messagesEndRef.current?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "end",
-                        });
-                      }, 50);
-                    }}
-                  />
-                )}
-
                 <MessageTimeline
                   messages={messages}
                   loadedResumes={loadedResumes}
                   searchResults={searchResults}
                   resumeEditDiffs={resumeEditDiffs}
                   diagnosisToolEvents={diagnosisToolEvents}
+                  pendingPatches={pendingPatches}
                   copiedId={copiedId}
                   stripResumeEditMarkdown={stripResumeEditMarkdown}
                   onSetCopiedId={setCopiedId}
@@ -3478,8 +3720,18 @@ function SophiaChatContent() {
                   isProcessing={isProcessing}
                   suggestions={currentSuggestions}
                   onSuggestionClick={(msg) => setInput(msg)}
-                  shouldHideResponseInChat={false}
-                  currentEditDiff={resumeEditDiffs.find((r) => r.messageId === "current")}
+                  shouldHideResponseInChat={pendingPatches.some(
+                    (p) => p.message_id === "current",
+                  )}
+                  hasPendingPatchCards={pendingPatches.some(
+                    (p) => p.message_id === "current",
+                  )}
+                  currentEditDiff={
+                    // 当前轮已经有任何 patch 卡片（无论状态），就不再走旧的 editDiff 路径
+                    pendingPatches.some(p => p.message_id === 'current')
+                      ? undefined
+                      : resumeEditDiffs.find((r) => r.messageId === "current")
+                  }
                   currentSearch={searchResults.find((r) => r.messageId === "current")}
                   currentDiagnosisTools={diagnosisToolEvents
                     .filter((item) => item.messageId === "current")
@@ -3489,11 +3741,12 @@ function SophiaChatContent() {
                   onResponseTypewriterComplete={finalizeAfterTypewriter}
                 />
 
-                {/* ResumeDiffCards for pending patches (grouped by message) */}
-                {pendingPatches.length > 0 && (
-                  <div className="px-4 py-1">
+                {/* 仅渲染当前流式消息 (message_id === 'current') 的 patch 卡片；
+                    历史消息的 patch 卡片由 MessageTimeline 按 message_id 关联渲染。 */}
+                {pendingPatches.some(p => p.message_id === 'current') && (
+                  <div className="px-4 py-1 space-y-2">
                     {pendingPatches
-                      .filter(p => p.status === 'pending')
+                      .filter(p => p.message_id === 'current')
                       .map(patch => (
                         <ResumeDiffCard key={patch.patch_id} patch={patch} />
                       ))
@@ -3510,6 +3763,15 @@ function SophiaChatContent() {
                       onDismiss={() => setGeneratedResume(null)}
                     />
                   </div>
+                )}
+
+                {/* 简历选择器：放在对话流末尾，与最新消息同区域展示 */}
+                {showResumeSelector && (
+                  <ResumeSelector
+                    onSelect={handleResumeSelect}
+                    onCreateResume={handleCreateResume}
+                    onCancel={handleResumeSelectorCancel}
+                  />
                 )}
 
                 {/* Loading */}
@@ -3546,7 +3808,7 @@ function SophiaChatContent() {
             </CustomScrollbar>
 
             {/* Input Area */}
-            <div className="bg-slate-50 dark:bg-slate-950 px-4 py-4 pb-8">
+            <div className="bg-chat-canvas dark:bg-slate-950 px-4 py-4 pb-8">
               <div className="max-w-3xl mx-auto w-full">
                 {/* 快捷按钮 */}
                 {!isProcessing &&
@@ -3588,104 +3850,22 @@ function SophiaChatContent() {
 
           {/* Right: Resume Preview - 只在有选中简历时显示 */}
           {selectedResumeId && (
-            <CustomScrollbar as="aside" className="w-[45%] min-w-[420px] bg-slate-50 border-l border-slate-200 flex flex-col">
-              <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10 shrink-0">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-sm font-semibold text-slate-700">
-                      简历 PDF 预览
-                    </h2>
-                    {selectedLoadedResume && (
-                      <p className="text-xs text-slate-400 mt-1">
-                        {selectedLoadedResume.name}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {selectedLoadedResume && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void renderResumePdfPreview(
-                            selectedLoadedResume,
-                            true,
-                          )
-                        }
-                        disabled={selectedResumePdfState.loading}
-                        className="text-xs text-indigo-600 hover:text-indigo-700 disabled:text-slate-400 disabled:cursor-not-allowed px-2 py-1 rounded hover:bg-indigo-50"
-                      >
-                        重新渲染
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setAllowPdfAutoRender(false);
-                        setSelectedResumeId(null);
-                      }}
-                      className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100"
-                    >
-                      关闭
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="flex-1 min-h-0 flex flex-col">
-                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                  <CustomScrollbar className="flex-1 bg-slate-100/70 p-4">
-                    {!selectedLoadedResume && (
-                      <div className="text-sm text-slate-500">
-                        正在加载简历...
-                      </div>
-                    )}
-
-                      {selectedLoadedResume &&
-                        selectedResumePdfState.loading &&
-                        !selectedResumePdfState.blob && (
-                          <div className="h-full flex items-center justify-center">
-                            <div className="text-center">
-                              <div className="mx-auto mb-3 size-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                              <p className="text-sm text-slate-500 text-pretty">
-                                {selectedResumePdfState.progress ||
-                                  "正在渲染简历 PDF..."}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-
-                      {selectedLoadedResume && selectedResumePdfState.error && (
-                        <div className="h-full flex items-center justify-center">
-                          <div className="max-w-sm text-center">
-                            <p className="text-sm text-red-500 text-pretty">
-                              {selectedResumePdfState.error}
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                void renderResumePdfPreview(
-                                  selectedLoadedResume,
-                                  true,
-                                )
-                              }
-                              className="mt-3 text-xs text-indigo-600 hover:text-indigo-700"
-                            >
-                              点击重试
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {selectedLoadedResume && selectedResumePdfState.blob && (
-                        <div className="flex justify-center">
-                          <PDFViewerSelector
-                            pdfBlob={selectedResumePdfState.blob}
-                            scale={1}
-                          />
-                        </div>
-                      )}
-                    </CustomScrollbar>
-                  </div>
-              </div>
-            </CustomScrollbar>
+            <AgentPdfPreviewPanel
+              resumeName={selectedLoadedResume?.name}
+              pdfBlob={selectedResumePdfState.blob}
+              loading={selectedResumePdfState.loading}
+              progress={selectedResumePdfState.progress}
+              error={selectedResumePdfState.error}
+              onRerender={() => {
+                if (selectedLoadedResume) {
+                  void renderResumePdfPreview(selectedLoadedResume, true);
+                }
+              }}
+              onClose={() => {
+                setAllowPdfAutoRender(false);
+                setSelectedResumeId(null);
+              }}
+            />
           )}
         </div>
         <SearchResultPanel
