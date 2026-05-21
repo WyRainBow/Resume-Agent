@@ -58,16 +58,23 @@ _OPTIMIZE_QUERY_SUFFIX_RE = re.compile(
 )
 
 
+def _normalize_match_text(text: str) -> str:
+    """匹配用：去掉 markdown 强调与空白。"""
+    return re.sub(r"\*+", "", (text or "")).replace(" ", "").strip()
+
+
 def _clean_experience_query_fragment(fragment: str) -> str:
     """去掉查询片段首尾的功能词，保留「美的」等公司简称。"""
-    cleaned = (fragment or "").strip()
+    cleaned = _normalize_match_text(fragment)
     if not cleaned:
         return ""
+    cleaned = re.sub(r"的+$", "", cleaned)
     previous = None
     while cleaned != previous:
         previous = cleaned
         cleaned = _OPTIMIZE_QUERY_PREFIX_RE.sub("", cleaned)
         cleaned = _OPTIMIZE_QUERY_SUFFIX_RE.sub("", cleaned)
+        cleaned = re.sub(r"的+$", "", cleaned)
     return cleaned.strip()
 
 
@@ -102,11 +109,33 @@ def _experience_company_label(raw: Dict[str, Any]) -> str:
 
 def _normalize_optimize_query_text(text: str) -> str:
     """去掉优化指令常见尾缀，便于匹配公司简称。"""
-    normalized = (text or "").strip().replace(" ", "")
+    normalized = _normalize_match_text(text)
     for suffix in ("的内容", "的描述", "的经历", "的实习", "的工作"):
         if normalized.endswith(suffix):
             normalized = normalized[: -len(suffix)]
     return normalized
+
+
+def is_generic_optimize_section_query(user_input: str) -> bool:
+    """是否为未指明具体经历的泛化优化请求（如「优化实习经历」）。"""
+    normalized = _normalize_optimize_query_text(user_input or "")
+    core = _clean_experience_query_fragment(normalized)
+    return len(core) < 2
+
+
+def resolve_experience_list(resume_data: Dict[str, Any]) -> tuple[str, List[Dict[str, Any]]]:
+    """返回当前简历用于优化/匹配的经历数组路径与条目。"""
+    exp = resume_data.get("experience")
+    if isinstance(exp, list) and exp:
+        return "experience", exp
+    intern = resume_data.get("internships")
+    if isinstance(intern, list) and intern:
+        return "internships", intern
+    if isinstance(exp, list):
+        return "experience", exp
+    if isinstance(intern, list):
+        return "internships", intern
+    return "experience", []
 
 
 def resolve_experience_target_index(
@@ -118,8 +147,8 @@ def resolve_experience_target_index(
     if not text:
         return None
 
-    experiences = resume_data.get("experience")
-    if not isinstance(experiences, list) or not experiences:
+    _, experiences = resolve_experience_list(resume_data)
+    if not experiences:
         return None
 
     normalized = _normalize_optimize_query_text(text)
@@ -129,15 +158,17 @@ def resolve_experience_target_index(
     for idx, raw in enumerate(experiences):
         if not isinstance(raw, dict):
             continue
-        company = _experience_company_label(raw)
-        position = str(raw.get("position") or raw.get("role") or "").strip()
+        company = _normalize_match_text(_experience_company_label(raw))
+        position = _normalize_match_text(
+            str(raw.get("position") or raw.get("role") or "").strip()
+        )
         if not company and not position:
             continue
 
-        company_key = company.replace(" ", "")
+        company_key = company
         company_short = company.split("|")[0].split("—")[0].split("-")[0].strip()
-        company_short_key = company_short.replace(" ", "")
-        position_key = position.replace(" ", "")
+        company_short_key = company_short
+        position_key = position
 
         score = 0
         if company_key and company_key in normalized:
@@ -146,12 +177,15 @@ def resolve_experience_target_index(
             score = max(score, len(company_short_key) + 8)
 
         for token in re.split(r"[\|｜—\-/（）()]", company):
-            token = token.strip().replace(" ", "")
+            token = _normalize_match_text(token)
             if len(token) >= 2 and token in normalized:
                 score = max(score, len(token) + 3)
 
         # 用户可能只说简称，如「美的」→「美的集团」
         for keyword in query_tokens:
+            keyword = _normalize_match_text(keyword)
+            if len(keyword) < 2:
+                continue
             if company_key and keyword in company_key:
                 score = max(score, len(keyword) + 15)
             if company_key and company_key in keyword:

@@ -42,6 +42,8 @@ from backend.agent.application.conversation.conversation_state import (
 )
 from backend.agent.utils.experience_entry import (
     build_optimization_resume_patch,
+    is_generic_optimize_section_query,
+    resolve_experience_list,
     resolve_experience_target_index,
 )
 from backend.agent.schema import Message, Role, ToolCall
@@ -654,14 +656,14 @@ class Manus(ToolCallAgent):
         target_index: int,
     ) -> Optional[Dict[str, Any]]:
         """用 Manus 主 LLM + Hybrid 简历 context 生成优化 diff（恢复改前高质量路径）。"""
-        experiences = resume_data.get("experience") or []
+        array_path, experiences = resolve_experience_list(resume_data)
         if target_index < 0 or target_index >= len(experiences):
             return None
 
         target = experiences[target_index]
         company = re.sub(r"\*+", "", str(target.get("company") or "该段经历")).strip()
         position = str(target.get("position") or "").strip()
-        apply_path = f"experience[{target_index}].details"
+        apply_path = f"{array_path}[{target_index}].details"
 
         raw_details = target.get("details") or target.get("description") or ""
         current_plain = _RULE_BASED_NOISE_RE.sub(
@@ -794,6 +796,8 @@ class Manus(ToolCallAgent):
     @staticmethod
     def _build_optimize_target_clarification_message(
         experiences: List[Dict[str, Any]],
+        *,
+        intro: Optional[str] = None,
     ) -> str:
         """未指定优化目标且有多段经历时，列出可选项并附带快捷按钮。"""
         items: List[Dict[str, str]] = []
@@ -806,6 +810,7 @@ class Manus(ToolCallAgent):
                 str(exp.get("company") or exp.get("title") or f"第{idx + 1}段"),
             ).strip() or f"第{idx + 1}段"
             position = str(exp.get("position") or exp.get("role") or "").strip()
+            position = re.sub(r"\*+", "", position).strip()
             display = f"{company} · {position}" if position else company
             items.append(
                 {
@@ -815,10 +820,8 @@ class Manus(ToolCallAgent):
             )
 
         suggestions_json = json.dumps(items, ensure_ascii=False)
-        return (
-            "好的！在优化之前，请问您想优化哪一段实习/工作经历？\n\n"
-            f"%%SUGGESTIONS%%{suggestions_json}%%END%%"
-        )
+        lead = intro or "好的！在优化之前，请问您想优化哪一段实习/工作经历？"
+        return f"{lead}\n\n%%SUGGESTIONS%%{suggestions_json}%%END%%"
 
     @staticmethod
     def _is_injected_system_user_message(content: str) -> bool:
@@ -1669,7 +1672,7 @@ class Manus(ToolCallAgent):
                     target_index = resolve_experience_target_index(
                         user_input, resume_data_snapshot or {}
                     )
-                    experiences = (resume_data_snapshot or {}).get("experience") or []
+                    _, experiences = resolve_experience_list(resume_data_snapshot or {})
 
                     if not experiences:
                         content = (
@@ -1683,15 +1686,38 @@ class Manus(ToolCallAgent):
 
                     if target_index is None:
                         if len(experiences) > 1:
-                            content = self._build_optimize_target_clarification_message(
-                                experiences
-                            )
+                            if is_generic_optimize_section_query(user_input):
+                                content = self._build_optimize_target_clarification_message(
+                                    experiences
+                                )
+                                log_msg = (
+                                    "✅ OPTIMIZE_SECTION: asked user to pick experience target"
+                                )
+                            else:
+                                from backend.agent.utils.experience_entry import (
+                                    _clean_experience_query_fragment,
+                                    _normalize_optimize_query_text,
+                                )
+
+                                core = _clean_experience_query_fragment(
+                                    _normalize_optimize_query_text(user_input or "")
+                                )
+                                label = re.sub(r"\*+", "", core).strip() or "该段经历"
+                                content = self._build_optimize_target_clarification_message(
+                                    experiences,
+                                    intro=(
+                                        f"抱歉，未能准确匹配「{label}」。"
+                                        "请从下方选择要优化的经历："
+                                    ),
+                                )
+                                log_msg = (
+                                    "⚠️ OPTIMIZE_SECTION: target mismatch, "
+                                    f"label={label}"
+                                )
                             self.memory.add_message(Message.assistant_message(content))
                             from backend.agent.schema import AgentState
                             self.state = AgentState.FINISHED
-                            logger.info(
-                                "✅ OPTIMIZE_SECTION: asked user to pick experience target"
-                            )
+                            logger.info(log_msg)
                             return False
                         target_index = 0
 
