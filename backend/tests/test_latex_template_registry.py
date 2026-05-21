@@ -3,9 +3,11 @@ import os
 import sys
 
 import pytest
+from fastapi.testclient import TestClient
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
+from backend.main import app
 from backend.resume_templates.latex.registry import (
     DEFAULT_TEMPLATE_ID,
     list_latex_templates,
@@ -39,3 +41,25 @@ def test_manifest_preview_path_stays_inside_template_dir():
 
     assert preview is not None
     assert Path(preview).resolve().is_relative_to(resolved.template_dir.resolve())
+
+
+def test_list_resume_templates_api_returns_latex_templates():
+    client = TestClient(app)
+
+    response = client.get("/api/resume-templates?type=latex")
+
+    assert response.status_code == 200
+    payload = response.json()
+    ids = {item["id"] for item in payload["data"]}
+    assert {"classic", "compact"}.issubset(ids)
+    assert all(item["type"] == "latex" for item in payload["data"])
+
+
+def test_template_preview_api_returns_png():
+    client = TestClient(app)
+
+    response = client.get("/api/resume-templates/classic/preview")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "image/png"
+    assert response.content.startswith(b"\x89PNG")
