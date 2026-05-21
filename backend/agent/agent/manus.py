@@ -1830,6 +1830,10 @@ class Manus(ToolCallAgent):
             logger.info("👋 GREETING: fast path without tools")
             base_system_prompt, _ = await self._generate_dynamic_prompts(user_input, intent)
             system_content = f"{base_system_prompt}\n\n{GREETING_FAST_PATH_PROMPT}"
+            greeting_fallback = (
+                "Thought: 用户打招呼，热情回应并引导创建简历。\n"
+                "Response: 你好 👋 直接说「帮我创建一份模板默认简历」，我会在对话区为你创建并展示。"
+            )
             try:
                 raw = await self.llm.ask(
                     messages=[{"role": "user", "content": user_input}],
@@ -1844,10 +1848,10 @@ class Manus(ToolCallAgent):
                     return False
             except Exception as _greeting_err:
                 logger.warning(f"👋 GREETING fast path failed, falling back: {_greeting_err}")
-            # 回退到父类 think()（带工具）
-            self.system_prompt = system_content
-            self.next_step_prompt = ""
-            return await super().think()
+            self.memory.add_message(Message.assistant_message(greeting_fallback))
+            from backend.agent.schema import AgentState
+            self.state = AgentState.FINISHED
+            return False
 
         # 🎯 LOAD_RESUME 意图：直接调用工具
         if tool and self._conversation_state.should_use_tool_directly(intent):
@@ -1990,8 +1994,8 @@ class Manus(ToolCallAgent):
             )
         elif tool == "show_resume":
             fallback = (
-                "Thought: 我识别到你要加载简历，先打开选择面板方便你切换或新建。\n"
-                "Response: 请在下面选择\"创建一份简历\"或\"选择已有简历\"。"
+                "Thought: 我识别到你想开始处理简历，先确认创建还是加载已有。\n"
+                "Response: 你可以直接说「帮我创建一份模板默认简历」，我会在对话区创建并展示；或说「选择已有简历」从列表加载。"
             )
 
         if not LOAD_RESUME_LLM_HINT_ENABLED or not getattr(self, "llm", None):

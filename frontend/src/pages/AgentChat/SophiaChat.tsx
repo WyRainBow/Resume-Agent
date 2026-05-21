@@ -30,6 +30,7 @@ import {
   DEFAULT_MENU_SECTIONS,
   type ResumeData,
 } from "@/pages/Workspace/v2/types";
+import { DEFAULT_RESUME_TEMPLATE } from "@/data/defaultTemplate";
 import { getResume, getAllResumes, saveResume, setCurrentResumeId } from "@/services/resumeStorage";
 import type { SavedResume } from "@/services/storage/StorageAdapter";
 import {
@@ -75,6 +76,7 @@ import CustomScrollbar from "@/components/common/CustomScrollbar";
 import { useResumeContext, type PendingPatch } from '../../contexts/ResumeContext';
 import { ResumeDiffCard } from '../../components/agent-chat/ResumeDiffCard';
 import { ResumeGeneratedCard } from '../../components/agent-chat/ResumeGeneratedCard';
+import AIImportModal from "@/pages/Workspace/v2/shared/AIImportModal";
 
 // 报告内容视图组件
 // ============================================================================
@@ -325,67 +327,41 @@ function isWorkspaceResumeData(data: unknown): data is ResumeData {
   );
 }
 
-function isLoadResumeIntentText(text: string): boolean {
+function isCreateResumeIntentText(text: string): boolean {
   const normalized = (text || "").trim();
   if (!normalized) return false;
-  if (
-    /(?:加载|打开|查看|显示|选择).*(?:简历|resume|cv)|(?:简历|resume|cv).*(?:加载|打开|选择)/i.test(
+  return /(?:帮我|请|想要|想)?(?:创建|新建|做|生成|弄).{0,8}(?:一份|一个|份)?(?:简历|cv)|(?:创建|新建).{0,4}简历/i.test(
+    normalized,
+  );
+}
+
+function isSelectExistingResumeIntentText(text: string): boolean {
+  const normalized = (text || "").trim();
+  if (!normalized || isCreateResumeIntentText(normalized)) return false;
+  return (
+    /(?:加载|打开|查看|显示|选择).*(?:已有|保存的|我的)?.{0,6}(?:简历|resume|cv)|(?:已有|保存的|我的).{0,6}(?:简历|resume|cv)|(?:简历|resume|cv).*(?:加载|打开|选择)|选择已有简历/i.test(
       normalized,
     )
-  ) {
-    return true;
-  }
-  return isExploratoryUserMessage(normalized);
+  );
 }
 
-function isExploratoryUserMessage(text: string): boolean {
+function isLoadResumeIntentText(text: string): boolean {
+  return isSelectExistingResumeIntentText(text);
+}
+
+function isGreetingOnlyText(text: string): boolean {
   const normalized = (text || "").trim();
   if (!normalized) return false;
-  if (
-    normalized.length <= 16 &&
-    /^(?:你好|hello|hi|hey)[!！?？\s，,。.]*$/i.test(normalized)
-  ) {
-    return true;
-  }
   return (
-    /(?:你能|你可以|会).*(?:做什么|帮我什么|什么功能)/i.test(normalized) ||
-    /^(?:你好|hello|hi)[!！?？\s，,]*(?:你能|你可以)/i.test(normalized)
+    normalized.length <= 20 &&
+    /^(?:你好|您好|hello|hi|hey|在吗|哈喽)[!！?？\s，,。.~～]*$/i.test(normalized)
   );
 }
 
-function assistantSuggestsLoadResume(answer: string): boolean {
-  const text = (answer || "").trim();
-  if (!text) return false;
-  return (
-    /(?:加载|打开|查看|选择|看看|创建|新建).{0,16}(?:简历|cv)/i.test(text) ||
-    /(?:简历|cv).{0,12}(?:加载|打开|选择|看看|创建|新建)/i.test(text) ||
-    (/简历/i.test(text) &&
-      /(?:先|不妨|建议|可以).{0,8}(?:加载|打开|选择|看看|创建)/i.test(text))
-  );
-}
+const CREATE_DEFAULT_RESUME_PROMPT = "帮我创建一份模板默认简历";
 
-function shouldAutoOpenResumeSelector(
-  answer: string,
-  userMessage: string,
-): boolean {
-  const reply = (answer || "").trim();
-  if (!reply) return false;
-
-  if (assistantSuggestsLoadResume(reply)) return true;
-
-  // 尚未加载简历时，AI 引导用户进入简历相关能力 → 主动弹出选择器
-  if (/(?:简历|cv)/i.test(reply)) {
-    if (/(?:加载|打开|查看|选择|看看|创建|新建)/i.test(reply)) return true;
-    if (/(?:优化|润色|诊断|修改|分析|匹配|审查)/i.test(reply)) return true;
-    if (/(?:想|还是|或者|要不要|是否|直接开始)/i.test(reply)) return true;
-  }
-
-  if (isExploratoryUserMessage(userMessage) && /(?:简历|优化|诊断)/i.test(reply)) {
-    return true;
-  }
-
-  return false;
-}
+const GREETING_CREATE_RESUME_GUIDANCE =
+  "你好 👋 请选择下方方式开始处理简历。";
 
 interface SearchResultItem {
   position?: number;
@@ -683,6 +659,7 @@ function SophiaChatContent() {
 
   // 简历选择器状态
   const [showResumeSelector, setShowResumeSelector] = useState(false);
+  const [aiImportModalOpen, setAiImportModalOpen] = useState(false);
   const currentRunUserInputRef = useRef("");
   const [pendingResumeInput, setPendingResumeInput] = useState<string>(""); // 暂存用户输入，选择简历后继续处理
   const resumeDataRef = useRef<ResumeData | null>(null);
@@ -1300,21 +1277,11 @@ function SophiaChatContent() {
     },
     onError: (message) => setResumeError(message),
     onShowResumeSelector: () => {
-      // 只在“加载简历”相关意图时展示选择器，避免编辑流程被 show_resume 误触发打断。
       const text = currentRunUserInputRef.current.trim();
-      const isLoadResumeIntent = isLoadResumeIntentText(text);
-      const hasResumeContext =
-        !!resumeDataRef.current ||
-        loadedResumes.some((item) => !!item.resumeData);
-      // 非“加载简历”意图：
-      // - 若当前会话已持有简历上下文：忽略本次 show_resume，并在本轮结束后自动重放用户输入
-      // - 若会话没有简历上下文：仍需展示选择器，避免卡在“处理中”
-      if (!isLoadResumeIntent && hasResumeContext) {
-        console.warn("[AgentChat] Ignore show_resume selector for non-load intent:", text);
-        setShowResumeSelector(false);
+      if (isCreateResumeIntentText(text)) {
         return;
       }
-      if (!isLoadResumeIntent && text) {
+      if (text) {
         setPendingResumeInput(text);
       }
       setResumeError(null);
@@ -2076,18 +2043,6 @@ function SophiaChatContent() {
     if (finalizeRetryTimerRef.current !== null) {
       window.clearTimeout(finalizeRetryTimerRef.current);
       finalizeRetryTimerRef.current = null;
-    }
-
-    const hasResumeContext =
-      !!resumeDataRef.current ||
-      loadedResumes.some((item) => !!item.resumeData) ||
-      !!selectedResumeId;
-    if (
-      !hasResumeContext &&
-      shouldAutoOpenResumeSelector(answer || "", normalizedLatestUserMessage)
-    ) {
-      setResumeError(null);
-      setShowResumeSelector(true);
     }
 
     finalizeStream();
@@ -3116,10 +3071,8 @@ function SophiaChatContent() {
     createNewSession,
   ]);
 
-  // 处理简历选择
-  const handleResumeSelect = useCallback(
-    async (selectedResume: SavedResume) => {
-      // 加载选中的简历数据
+  const applyResumeToChat = useCallback(
+    async (selectedResume: SavedResume, messageId?: string) => {
       const resolvedUserId =
         user?.id ?? (selectedResume as any).user_id ?? null;
       const rawData = (selectedResume.data || {}) as Record<string, unknown>;
@@ -3140,40 +3093,64 @@ function SophiaChatContent() {
         },
       } as unknown as ResumeData;
 
-      // 设置简历数据
       resumeDataRef.current = resumeDataWithMeta;
       setResumeData(resumeDataWithMeta);
 
-      // 添加到加载的简历列表，以便在右侧显示
-      const messageId = `resume-select-${Date.now()}`;
+      const linkedMessageId = messageId ?? `resume-select-${Date.now()}`;
       setLoadedResumes((prev) => {
         const nextEntry = {
           id: selectedResume.id,
           name: selectedResume.name,
-          messageId,
+          messageId: linkedMessageId,
           resumeData: resumeDataWithMeta,
         };
         const filtered = prev.filter((item) => item.id !== selectedResume.id);
         return [...filtered, nextEntry];
       });
 
-      // 自动选中该简历，显示在右侧（默认 LaTeX PDF 预览）
       setAllowPdfAutoRender(true);
       setSelectedResumeId(selectedResume.id);
       setShowResumeSelector(false);
 
-      // 若有待重放输入，且当前还处于处理态，先强制收口上一轮，避免输入框一直卡在“处理中”。
-      if (pendingResumeInput.trim() && isProcessing) {
-        finalizeStream();
-      }
-
       console.log(
-        "[AgentChat] 简历已选择并加载:",
+        "[AgentChat] 简历已加载到对话区:",
         selectedResume.id,
         selectedResume.name,
       );
     },
-    [user?.id, pendingResumeInput, isProcessing, finalizeStream],
+    [user?.id],
+  );
+
+  const createDefaultResumeInChat = useCallback(
+    async (messageId?: string) => {
+      const template = structuredClone(DEFAULT_RESUME_TEMPLATE);
+      const resumeId = `resume_latex_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      const now = new Date().toISOString();
+      template.id = resumeId;
+      template.createdAt = now;
+      template.updatedAt = now;
+      template.title = template.basic?.name
+        ? `${template.basic.name}的简历`
+        : "我的简历";
+
+      const saved = await saveResume(template, resumeId);
+      setCurrentResumeId(saved.id);
+      await applyResumeToChat(saved, messageId);
+      return saved;
+    },
+    [applyResumeToChat],
+  );
+
+  // 处理简历选择
+  const handleResumeSelect = useCallback(
+    async (selectedResume: SavedResume) => {
+      await applyResumeToChat(selectedResume);
+
+      if (pendingResumeInput.trim() && isProcessing) {
+        finalizeStream();
+      }
+    },
+    [applyResumeToChat, pendingResumeInput, isProcessing, finalizeStream],
   );
 
   // 取消简历选择
@@ -3182,14 +3159,84 @@ function SophiaChatContent() {
     setPendingResumeInput("");
   }, []);
 
-  const handleCreateResume = useCallback(() => {
+  const handleImportResume = useCallback(() => {
     setShowResumeSelector(false);
     setPendingResumeInput("");
-    // 与「创建新简历」页一致：清空旧缓存，进入 LaTeX 默认模板（张三示例简历）
-    setCurrentResumeId(null);
-    localStorage.removeItem("resume_v2_data");
-    navigate("/workspace/latex");
-  }, [navigate]);
+    setAiImportModalOpen(true);
+  }, []);
+
+  const handleAIImportSave = useCallback(
+    async (data: Record<string, unknown>) => {
+      setAiImportModalOpen(false);
+      setShowResumeSelector(false);
+      setPendingResumeInput("");
+      try {
+        const resumeId = `resume_latex_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+        const displayName = toText(data.name) || "导入的简历";
+        const normalized = normalizeImportedResumeToCanonical(data, {
+          resumeId,
+          title: `${displayName}的简历`,
+        });
+        const saved = await saveResume(normalized, resumeId);
+        setCurrentResumeId(saved.id);
+        await applyResumeToChat(saved);
+
+        const assistantMsg: Message = {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          role: "assistant",
+          content: `已通过 AI 智能导入简历「${saved.name}」，右侧可预览。你可以继续告诉我需要优化哪些内容。`,
+          timestamp: new Date().toISOString(),
+        };
+        setMessages((prev) => {
+          const updated = [...prev, assistantMsg];
+          const validConversationId =
+            conversationId?.trim() || currentSessionId || `conv-${Date.now()}`;
+          void persistSessionSnapshot(validConversationId, updated, false);
+          return updated;
+        });
+        setResumeError(null);
+      } catch (error) {
+        console.error("[AgentChat] AI 导入简历失败:", error);
+        setResumeError("AI 导入简历失败，请稍后重试。");
+      }
+    },
+    [
+      applyResumeToChat,
+      conversationId,
+      currentSessionId,
+      persistSessionSnapshot,
+    ],
+  );
+
+  const handleCreateResume = useCallback(async () => {
+    setShowResumeSelector(false);
+    setPendingResumeInput("");
+    try {
+      const saved = await createDefaultResumeInChat();
+      const assistantMsg: Message = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        role: "assistant",
+        content: `已为你创建默认 LaTeX 简历「${saved.name}」，右侧可预览。你可以继续告诉我需要优化哪些内容。`,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => {
+        const updated = [...prev, assistantMsg];
+        const validConversationId =
+          conversationId?.trim() || currentSessionId || `conv-${Date.now()}`;
+        void persistSessionSnapshot(validConversationId, updated, false);
+        return updated;
+      });
+      setResumeError(null);
+    } catch (error) {
+      console.error("[AgentChat] 创建默认简历失败:", error);
+      setResumeError("创建简历失败，请稍后重试。");
+    }
+  }, [
+    createDefaultResumeInChat,
+    conversationId,
+    currentSessionId,
+    persistSessionSnapshot,
+  ]);
 
   const sendUserTextMessage = useCallback(
     async (
@@ -3203,9 +3250,112 @@ function SophiaChatContent() {
       )
         return;
 
+      const trimmedMessage = userMessage.trim();
+
       // 发送普通消息时关闭选择器，避免与流式回复叠在一起并反复触发滚动
-      if (!isLoadResumeIntentText(userMessage)) {
+      if (!isSelectExistingResumeIntentText(trimmedMessage)) {
         setShowResumeSelector(false);
+      }
+
+      if (
+        isCreateResumeIntentText(trimmedMessage) &&
+        (!attachments || attachments.length === 0)
+      ) {
+        const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const userMessageEntry: Message = {
+          id: uniqueId,
+          role: "user",
+          content: userMessage,
+          timestamp: new Date().toISOString(),
+        };
+        const nextMessages = [...messages, userMessageEntry];
+        const isFirstMessage = messages.length === 0;
+        setMessages(nextMessages);
+
+        let validConversationId = conversationId;
+        if (!validConversationId || validConversationId.trim() === "") {
+          validConversationId = `conv-${Date.now()}`;
+          setConversationId(validConversationId);
+        }
+        if (!currentSessionId) {
+          setCurrentSessionId(validConversationId);
+        }
+        if (isFirstMessage) {
+          await persistSessionSnapshot(
+            validConversationId,
+            nextMessages,
+            true,
+          );
+        }
+
+        try {
+          const saved = await createDefaultResumeInChat(uniqueId);
+          const assistantMsg: Message = {
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            role: "assistant",
+            content: `已为你创建默认 LaTeX 简历「${saved.name}」，右侧可预览。你可以继续告诉我需要优化哪些内容，或说「选择已有简历」加载其他简历。`,
+            timestamp: new Date().toISOString(),
+          };
+          const finalMessages = [...nextMessages, assistantMsg];
+          setMessages(finalMessages);
+          await persistSessionSnapshot(
+            validConversationId,
+            finalMessages,
+            isFirstMessage,
+          );
+          setResumeError(null);
+        } catch (error) {
+          console.error("[AgentChat] 创建默认简历失败:", error);
+          setResumeError("创建简历失败，请稍后重试。");
+        }
+        return;
+      }
+
+      const hasResumeContext =
+        !!resumeDataRef.current ||
+        loadedResumes.some((item) => !!item.resumeData);
+
+      if (
+        isGreetingOnlyText(trimmedMessage) &&
+        (!attachments || attachments.length === 0) &&
+        !hasResumeContext
+      ) {
+        const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        const userMessageEntry: Message = {
+          id: uniqueId,
+          role: "user",
+          content: userMessage,
+          timestamp: new Date().toISOString(),
+        };
+        const nextMessages = [...messages, userMessageEntry];
+        const isFirstMessage = messages.length === 0;
+        setMessages(nextMessages);
+
+        let validConversationId = conversationId;
+        if (!validConversationId || validConversationId.trim() === "") {
+          validConversationId = `conv-${Date.now()}`;
+          setConversationId(validConversationId);
+        }
+        if (!currentSessionId) {
+          setCurrentSessionId(validConversationId);
+        }
+
+        const assistantMsg: Message = {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          role: "assistant",
+          content: GREETING_CREATE_RESUME_GUIDANCE,
+          timestamp: new Date().toISOString(),
+        };
+        const finalMessages = [...nextMessages, assistantMsg];
+        setMessages(finalMessages);
+        setShowResumeSelector(true);
+        await persistSessionSnapshot(
+          validConversationId,
+          finalMessages,
+          isFirstMessage,
+        );
+        setResumeError(null);
+        return;
       }
 
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -3298,8 +3448,190 @@ function SophiaChatContent() {
       currentSessionId,
       persistSessionSnapshot,
       sendMessage,
+      createDefaultResumeInChat,
+      loadedResumes,
     ],
   );
+
+  const submitMessageWithAttachments = useCallback(
+    async (userMessage: string, attachmentsToProcess: File[]) => {
+      setResumeError(null);
+      setIsUploadingFile(true);
+      try {
+        const attachmentBlocks: string[] = [];
+        let latestResumeDataForRequest: ResumeData | null = null;
+
+        for (const file of attachmentsToProcess) {
+          const isPdf =
+            file.type === "application/pdf" ||
+            file.name.toLowerCase().endsWith(".pdf");
+          if (isPdf) {
+            const resumeEntryId = `uploaded-pdf-${file.lastModified}-${file.size}`;
+            const resumeDisplayName =
+              file.name.replace(/\.pdf$/i, "") || "上传简历";
+            const uploadMessageId = `upload-pdf-${file.lastModified}-${file.size}`;
+
+            setLoadedResumes((prev) => {
+              const nextEntry = {
+                id: resumeEntryId,
+                name: resumeDisplayName,
+                messageId: uploadMessageId,
+              };
+              const existingIndex = prev.findIndex(
+                (item) => item.id === resumeEntryId,
+              );
+              if (existingIndex >= 0) {
+                const updated = [...prev];
+                updated[existingIndex] = {
+                  ...updated[existingIndex],
+                  ...nextEntry,
+                };
+                return updated;
+              }
+              return [...prev, nextEntry];
+            });
+            updateResumePdfState(resumeEntryId, {
+              blob: file,
+              loading: true,
+              progress: "已加载原始 PDF，正在解析简历内容...",
+              error: null,
+            });
+            setAllowPdfAutoRender(true);
+            setSelectedResumeId(resumeEntryId);
+
+            const formData = new FormData();
+            formData.append("file", file);
+
+            const response = await fetch(`${apiBaseUrl}/api/resume/upload-pdf`, {
+              method: "POST",
+              body: formData,
+            });
+            if (!response.ok) {
+              throw new Error(`PDF 解析失败: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const parsedResume = data?.resume;
+            if (parsedResume && typeof parsedResume === "object") {
+              const resolvedUserId = user?.id ?? null;
+              const canonical = normalizeImportedResumeToCanonical(
+                parsedResume as Record<string, any>,
+                {
+                  resumeId: resumeEntryId,
+                  title: resumeDisplayName,
+                },
+              );
+              const resumeDataWithMeta = {
+                ...canonical,
+                user_id: resolvedUserId,
+                resume_id: resumeEntryId,
+                _meta: {
+                  ...(canonical as any)._meta,
+                  user_id: resolvedUserId,
+                  resume_id: resumeEntryId,
+                },
+              } as ResumeData;
+              latestResumeDataForRequest = resumeDataWithMeta;
+              setResumeData(resumeDataWithMeta);
+              try {
+                await saveResume(resumeDataWithMeta, resumeEntryId);
+              } catch (saveError) {
+                console.warn("[AgentChat] 上传简历保存失败:", saveError);
+              }
+              setLoadedResumes((prev) => {
+                const nextEntry = {
+                  id: resumeEntryId,
+                  name: resumeDisplayName,
+                  messageId: uploadMessageId,
+                  resumeData: resumeDataWithMeta,
+                };
+                const existingIndex = prev.findIndex(
+                  (item) => item.id === resumeEntryId,
+                );
+                if (existingIndex >= 0) {
+                  const updated = [...prev];
+                  updated[existingIndex] = nextEntry;
+                  return updated;
+                }
+                return [...prev, nextEntry];
+              });
+              updateResumePdfState(resumeEntryId, {
+                loading: false,
+                progress: "",
+                error: null,
+              });
+              attachmentBlocks.push(
+                `已上传并解析 PDF 文件《${file.name}》。请基于这份简历内容进行分析并给出优化建议。`,
+              );
+            } else {
+              updateResumePdfState(resumeEntryId, {
+                loading: false,
+                progress: "",
+                error: "未解析出结构化简历内容，当前展示原始 PDF。",
+              });
+              attachmentBlocks.push(
+                `已上传 PDF 文件《${file.name}》，但未解析出结构化简历内容。`,
+              );
+            }
+            continue;
+          }
+
+          const isTextLike =
+            file.type.startsWith("text/") ||
+            /\.(txt|md|json|csv)$/i.test(file.name);
+          if (!isTextLike) {
+            throw new Error("仅支持 pdf/txt/md/json/csv 文件");
+          }
+
+          const rawText = await file.text();
+          const maxLen = 12000;
+          const clipped = rawText.slice(0, maxLen);
+          const truncatedNote =
+            rawText.length > maxLen
+              ? "\n[文件内容过长，已截断为前 12000 字符]"
+              : "";
+          attachmentBlocks.push(
+            `文件《${file.name}》内容：\n${clipped}${truncatedNote}`,
+          );
+        }
+
+        const baseMessage =
+          userMessage || "我上传了附件，请先提炼关键信息并给出下一步建议。";
+        const finalMessage = attachmentBlocks.length
+          ? `${baseMessage}\n\n${attachmentBlocks.join("\n\n")}`
+          : baseMessage;
+        await sendUserTextMessage(
+          finalMessage,
+          attachmentsToProcess,
+          latestResumeDataForRequest,
+        );
+      } catch (error) {
+        console.error("[AgentChat] Failed to send message:", error);
+        setResumeError(
+          error instanceof Error ? error.message : "文件上传失败，请稍后重试",
+        );
+        throw error;
+      } finally {
+        setIsUploadingFile(false);
+      }
+    },
+    [
+      apiBaseUrl,
+      user?.id,
+      sendUserTextMessage,
+      updateResumePdfState,
+      setResumeData,
+      setLoadedResumes,
+      setAllowPdfAutoRender,
+      setSelectedResumeId,
+    ],
+  );
+
+  const handleFillCreateResumePrompt = useCallback(() => {
+    setShowResumeSelector(false);
+    setPendingResumeInput("");
+    void sendUserTextMessage(CREATE_DEFAULT_RESUME_PROMPT);
+  }, [sendUserTextMessage]);
 
   const handleUploadFile = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -3456,165 +3788,10 @@ function SophiaChatContent() {
         return;
       }
 
-      setIsUploadingFile(true);
-      const attachmentBlocks: string[] = [];
-      let latestResumeDataForRequest: ResumeData | null = null;
-
-      for (const file of attachmentsToProcess) {
-        const isPdf =
-          file.type === "application/pdf" ||
-          file.name.toLowerCase().endsWith(".pdf");
-        if (isPdf) {
-          const resumeEntryId = `uploaded-pdf-${file.lastModified}-${file.size}`;
-          const resumeDisplayName =
-            file.name.replace(/\.pdf$/i, "") || "上传简历";
-          const uploadMessageId = `upload-pdf-${file.lastModified}-${file.size}`;
-
-          // 1) 先本地预览：不等待后端解析完成
-          setLoadedResumes((prev) => {
-            const nextEntry = {
-              id: resumeEntryId,
-              name: resumeDisplayName,
-              messageId: uploadMessageId,
-            };
-            const existingIndex = prev.findIndex(
-              (item) => item.id === resumeEntryId,
-            );
-            if (existingIndex >= 0) {
-              const updated = [...prev];
-              updated[existingIndex] = {
-                ...updated[existingIndex],
-                ...nextEntry,
-              };
-              return updated;
-            }
-            return [...prev, nextEntry];
-          });
-          updateResumePdfState(resumeEntryId, {
-            blob: file,
-            loading: true,
-            progress: "已加载原始 PDF，正在解析简历内容...",
-            error: null,
-          });
-          setAllowPdfAutoRender(true);
-          setSelectedResumeId(resumeEntryId);
-
-          // 2) 后台继续上传与结构化解析
-          const formData = new FormData();
-          formData.append("file", file);
-
-          const response = await fetch(`${apiBaseUrl}/api/resume/upload-pdf`, {
-            method: "POST",
-            body: formData,
-          });
-          if (!response.ok) {
-            throw new Error(`PDF 解析失败: ${response.status}`);
-          }
-
-          const data = await response.json();
-          const parsedResume = data?.resume;
-          if (parsedResume && typeof parsedResume === "object") {
-            const resolvedUserId = user?.id ?? null;
-            const canonical = normalizeImportedResumeToCanonical(
-              parsedResume as Record<string, any>,
-              {
-                resumeId: resumeEntryId,
-                title: resumeDisplayName,
-              },
-            );
-            const resumeDataWithMeta = {
-              ...canonical,
-              user_id: resolvedUserId,
-              resume_id: resumeEntryId,
-              _meta: {
-                ...(canonical as any)._meta,
-                user_id: resolvedUserId,
-                resume_id: resumeEntryId,
-              },
-            } as ResumeData;
-            latestResumeDataForRequest = resumeDataWithMeta;
-            setResumeData(resumeDataWithMeta);
-            // 上传成功后尝试持久化到简历存储（登录态会入库，未登录回落本地）
-            try {
-              await saveResume(resumeDataWithMeta, resumeEntryId);
-            } catch (saveError) {
-              console.warn("[AgentChat] 上传简历保存失败:", saveError);
-            }
-            setLoadedResumes((prev) => {
-              const nextEntry = {
-                id: resumeEntryId,
-                name: resumeDisplayName,
-                messageId: uploadMessageId,
-                resumeData: resumeDataWithMeta,
-              };
-              const existingIndex = prev.findIndex(
-                (item) => item.id === resumeEntryId,
-              );
-              if (existingIndex >= 0) {
-                const updated = [...prev];
-                updated[existingIndex] = nextEntry;
-                return updated;
-              }
-              return [...prev, nextEntry];
-            });
-            updateResumePdfState(resumeEntryId, {
-              loading: false,
-              progress: "",
-              error: null,
-            });
-            attachmentBlocks.push(
-              `已上传并解析 PDF 文件《${file.name}》。请基于这份简历内容进行分析并给出优化建议。`,
-            );
-          } else {
-            updateResumePdfState(resumeEntryId, {
-              loading: false,
-              progress: "",
-              error: "未解析出结构化简历内容，当前展示原始 PDF。",
-            });
-            attachmentBlocks.push(
-              `已上传 PDF 文件《${file.name}》，但未解析出结构化简历内容。`,
-            );
-          }
-          continue;
-        }
-
-        const isTextLike =
-          file.type.startsWith("text/") ||
-          /\.(txt|md|json|csv)$/i.test(file.name);
-        if (!isTextLike) {
-          throw new Error("仅支持 pdf/txt/md/json/csv 文件");
-        }
-
-        const rawText = await file.text();
-        const maxLen = 12000;
-        const clipped = rawText.slice(0, maxLen);
-        const truncatedNote =
-          rawText.length > maxLen
-            ? "\n[文件内容过长，已截断为前 12000 字符]"
-            : "";
-        attachmentBlocks.push(
-          `文件《${file.name}》内容：\n${clipped}${truncatedNote}`,
-        );
-      }
-
-      const baseMessage =
-        userMessage || "我上传了附件，请先提炼关键信息并给出下一步建议。";
-      const finalMessage = attachmentBlocks.length
-        ? `${baseMessage}\n\n${attachmentBlocks.join("\n\n")}`
-        : baseMessage;
-      await sendUserTextMessage(
-        finalMessage,
-        attachmentsToProcess,
-        latestResumeDataForRequest,
-      );
+      await submitMessageWithAttachments(userMessage, attachmentsToProcess);
     } catch (error) {
       console.error("[AgentChat] Failed to send message:", error);
       setPendingAttachments(attachmentsToProcess);
-      setResumeError(
-        error instanceof Error ? error.message : "文件上传失败，请稍后重试",
-      );
-    } finally {
-      setIsUploadingFile(false);
     }
   };
 
@@ -3709,7 +3886,7 @@ function SophiaChatContent() {
                           你好：我是你的 Resume AI 助手
                         </h1>
                         <p className="text-chat-ink-muted dark:text-slate-400 text-lg max-w-md mx-auto">
-                          我可以帮你优化简历、分析岗位匹配度，或者进行模拟面试。
+                          试试说「{CREATE_DEFAULT_RESUME_PROMPT}」，我会在对话区创建并展示；也可以让我优化、诊断已有简历。
                         </p>
                       </div>
 
@@ -3717,10 +3894,10 @@ function SophiaChatContent() {
                         {[
                           {
                             icon: <Wand2 className="w-5 h-5 text-amber-500" />,
-                            title: "简历润色",
-                            desc: "“帮我优化这段工作描述，突出我的领导力。”",
+                            title: "创建简历",
+                            desc: CREATE_DEFAULT_RESUME_PROMPT,
                             color: "bg-amber-50 dark:bg-amber-900/20",
-                            onClick: () => setShowResumeSelector(true),
+                            autoSend: true,
                           },
                           {
                             icon: <Search className="w-5 h-5 text-blue-500" />,
@@ -3746,10 +3923,11 @@ function SophiaChatContent() {
                           <button
                             key={i}
                             onClick={() => {
-                              if (item.onClick) {
-                                item.onClick();
+                              const text = item.desc.replace(/[“”]/g, "");
+                              if ("autoSend" in item && item.autoSend) {
+                                void sendUserTextMessage(text);
                               } else {
-                                setInput(item.desc.replace(/[“”]/g, ""));
+                                setInput(text);
                               }
                             }}
                             className="flex flex-col items-start p-4 rounded-xl border border-chat-border dark:border-slate-800 bg-chat-surface dark:bg-slate-900 hover:border-chat-accent/50 dark:hover:border-amber-500/30 hover:shadow-md transition-all text-left group"
@@ -3855,6 +4033,8 @@ function SophiaChatContent() {
                   <ResumeSelector
                     onSelect={handleResumeSelect}
                     onCreateResume={handleCreateResume}
+                    onImportResume={handleImportResume}
+                    onFillCreatePrompt={handleFillCreateResumePrompt}
                     onCancel={handleResumeSelectorCancel}
                   />
                 )}
@@ -3895,20 +4075,6 @@ function SophiaChatContent() {
             {/* Input Area */}
             <div className="bg-chat-canvas dark:bg-slate-950 px-4 py-4 pb-8">
               <div className="max-w-3xl mx-auto w-full">
-                {/* 快捷按钮 */}
-                {!isProcessing &&
-                  !currentAnswer.trim() &&
-                  (messages.length > 0 || Boolean(selectedResumeId)) && (
-                  <div className="flex gap-2 mb-3">
-                    <button
-                      onClick={() => void sendUserTextMessage("帮我从招聘者的角度进行简历诊断")}
-                      className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 border border-blue-100 rounded-full hover:bg-blue-100 transition-colors flex items-center gap-1"
-                    >
-                      <Search className="w-3 h-3" />
-                      简历诊断
-                    </button>
-                  </div>
-                )}
                 <Composer
                   input={input}
                   isProcessing={isProcessing}
@@ -3959,6 +4125,13 @@ function SophiaChatContent() {
           totalResults={activeSearchPanel?.total_results || 0}
           results={activeSearchPanel?.results || []}
           onClose={() => setActiveSearchPanel(null)}
+        />
+        <AIImportModal
+          isOpen={aiImportModalOpen}
+          sectionType="all"
+          sectionTitle="导入简历"
+          onClose={() => setAiImportModalOpen(false)}
+          onSave={handleAIImportSave}
         />
       </div>
     </WorkspaceLayout>

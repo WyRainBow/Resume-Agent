@@ -90,8 +90,8 @@ export default function Composer({
           onKeyDown={onKeyDown}
           placeholder={
             isProcessing
-              ? "正在处理中，可以继续输入..."
-              : "输入消息...（例如：帮我优化腾讯的实习经历）"
+              ? "正在处理中、可以继续输入..."
+              : "输入消息...（例如：帮我创建一份模板默认简历）"
           }
           className="min-h-[92px] w-full resize-none bg-transparent px-4 pt-3 text-base text-chat-ink outline-none placeholder:text-chat-ink-muted/70 dark:text-slate-200"
         />

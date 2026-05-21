@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ChevronLeft, ChevronRight, FilePlus2, FileText } from 'lucide-react'
+import { ArrowLeft, ChevronLeft, ChevronRight, FilePlus2, FileText, MessageSquare, Upload } from 'lucide-react'
 import { getAllResumes } from '@/services/resumeStorage'
 import type { SavedResume } from '@/services/storage/StorageAdapter'
 
 interface ResumeSelectorProps {
   onSelect: (resume: SavedResume) => void
   onCreateResume?: () => void
+  onImportResume?: () => void
+  onFillCreatePrompt?: () => void
   onCancel?: () => void
   onLayoutChange?: () => void
 }
@@ -16,6 +18,8 @@ const RESUMES_PER_PAGE = 3
 export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
   onSelect,
   onCreateResume,
+  onImportResume,
+  onFillCreatePrompt,
   onCancel,
   onLayoutChange,
 }) => {
@@ -142,49 +146,62 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
         <div className="bg-white rounded-2xl p-5 my-4 shadow-sm border border-slate-200">
           <div className="flex items-start justify-between mb-4 gap-3">
             <div>
-              <h3 className="text-sm font-semibold text-slate-700 text-balance">加载简历</h3>
+              <h3 className="text-sm font-semibold text-slate-700 text-balance">开始处理简历</h3>
               <p className="text-xs text-slate-400 mt-1 text-pretty">
-                请选择下一步：创建新简历，或从已有简历中选择。
+                选择一种方式开始：对话创建、导入、新建，或加载已有简历。
               </p>
             </div>
             {onCancel && (
               <button
                 type="button"
                 onClick={onCancel}
-                className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 transition-colors"
+                className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 transition-colors shrink-0"
               >
                 取消
               </button>
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {onFillCreatePrompt && (
+            <button
+              type="button"
+              onClick={onFillCreatePrompt}
+              className="w-full flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-7 mb-3 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors text-center"
+            >
+              <MessageSquare className="size-6 text-indigo-500 mb-2" />
+              <span className="text-base font-semibold text-slate-800">
+                对话创建简历
+                <span className="ml-1.5 text-sm font-normal text-indigo-500">（推荐）</span>
+              </span>
+            </button>
+          )}
+
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => onImportResume?.()}
+              className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors text-center"
+            >
+              <Upload className="size-4 text-indigo-500 mb-1.5" />
+              <span className="text-xs font-medium text-slate-800 leading-snug">导入简历</span>
+            </button>
+
             <button
               type="button"
               onClick={() => onCreateResume?.()}
-              className="w-full text-left rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors"
+              className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors text-center"
             >
-              <div className="flex items-center gap-2">
-                <FilePlus2 className="size-4 text-indigo-500" />
-                <span className="text-sm font-medium text-slate-800">创建一份简历</span>
-              </div>
-              <p className="text-xs text-slate-500 mt-2 text-pretty">
-                跳转到 LaTeX 编辑区，使用默认模板创建简历。
-              </p>
+              <FilePlus2 className="size-4 text-indigo-500 mb-1.5" />
+              <span className="text-xs font-medium text-slate-800 leading-snug">创建一份简历</span>
             </button>
 
             <button
               type="button"
               onClick={handleSelectExistingClick}
-              className="w-full text-left rounded-xl border border-slate-200 bg-slate-50 px-4 py-4 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors"
+              className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors text-center"
             >
-              <div className="flex items-center gap-2">
-                <FileText className="size-4 text-indigo-500" />
-                <span className="text-sm font-medium text-slate-800">选择已有简历</span>
-              </div>
-              <p className="text-xs text-slate-500 mt-2 text-pretty">
-                从已保存简历中选择并加载到当前对话。
-              </p>
+              <FileText className="size-4 text-indigo-500 mb-1.5" />
+              <span className="text-xs font-medium text-slate-800 leading-snug">选择已有简历</span>
             </button>
           </div>
         </div>

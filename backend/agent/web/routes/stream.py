@@ -46,6 +46,9 @@ conversation_manager = ConversationManager(storage=storage)
 # Store active sessions (conversation_id -> agent instance)
 _active_sessions: dict[str, dict] = {}
 
+# In-memory session TTL — evict idle agent sessions to cap memory growth
+_SESSION_TTL_SECONDS = int(os.getenv("AGENT_SESSION_TTL_SECONDS", "3600"))
+
 # Heartbeat configuration
 HEARTBEAT_INTERVAL = 55  # seconds — 心跳间隔，前端超时为 60s，需留 5s 余量
 HEARTBEAT_V2_ENABLED = (
