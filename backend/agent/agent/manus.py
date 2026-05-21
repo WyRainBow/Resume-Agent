@@ -530,26 +530,122 @@ class Manus(ToolCallAgent):
         return patches
 
     @staticmethod
-    def _parse_optimize_llm_json(raw: str) -> Optional[Dict[str, Any]]:
+    def _strip_llm_thinking_prefix(raw: str) -> str:
+        """去掉 DashScope/DeepSeek 等模型附带的 thinking 前缀。"""
         text = (raw or "").strip()
         if not text:
+            return ""
+        think_end = ("</" + "redacted_thinking" + ">", "</" + "think" + ">")
+        for marker in think_end:
+            idx = text.rfind(marker)
+            if idx >= 0:
+                return text[idx + len(marker) :].strip()
+        stripped = re.sub(
+            r"^<(?:think|redacted_thinking)>[\s\S]*?</(?:think|redacted_thinking)>\s*",
+            "",
+            text,
+            count=1,
+            flags=re.I,
+        )
+        return stripped.strip() or text
+
+    @staticmethod
+    def _extract_json_object_with_key(text: str, key: str) -> Optional[str]:
+        """按括号匹配提取包含指定 key 的 JSON 对象（避免 thinking 里的 { 干扰）。"""
+        anchor = text.rfind(f'"{key}"')
+        if anchor < 0:
             return None
+        start = text.rfind("{", 0, anchor)
+        if start < 0:
+            return None
+
+        depth = 0
+        in_string = False
+        escape = False
+        for idx in range(start, len(text)):
+            ch = text[idx]
+            if in_string:
+                if escape:
+                    escape = False
+                elif ch == "\\":
+                    escape = True
+                elif ch == '"':
+                    in_string = False
+                continue
+            if ch == '"':
+                in_string = True
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start : idx + 1]
+        return None
+
+    @staticmethod
+    def _decode_json_string_literal(raw: str) -> str:
+        try:
+            return json.loads(f'"{raw}"')
+        except json.JSONDecodeError:
+            return (
+                (raw or "")
+                .replace("\\n", "\n")
+                .replace("\\t", "\t")
+                .replace('\\"', '"')
+                .replace("\\/", "/")
+            )
+
+    @classmethod
+    def _parse_optimize_llm_json(cls, raw: str) -> Optional[Dict[str, Any]]:
+        text = cls._strip_llm_thinking_prefix(raw)
+        if not text:
+            return None
+
         fence = re.search(r"```(?:json)?\s*([\s\S]*?)```", text, flags=re.I)
         if fence:
             text = fence.group(1).strip()
-        try:
-            data = json.loads(text)
-            return data if isinstance(data, dict) else None
-        except json.JSONDecodeError:
-            start = text.find("{")
-            end = text.rfind("}")
-            if start < 0 or end <= start:
-                return None
+
+        candidates: List[str] = [text]
+        blob = cls._extract_json_object_with_key(text, "optimized_html")
+        if blob:
+            candidates.insert(0, blob)
+        start = text.find("{")
+        end = text.rfind("}")
+        if start >= 0 and end > start:
+            candidates.append(text[start : end + 1])
+
+        for candidate in candidates:
             try:
-                data = json.loads(text[start : end + 1])
-                return data if isinstance(data, dict) else None
+                data = json.loads(candidate)
             except json.JSONDecodeError:
-                return None
+                continue
+            if isinstance(data, dict) and (
+                data.get("optimized_html") or data.get("optimized") or data.get("details")
+            ):
+                return data
+
+        html_match = re.search(
+            r'"optimized_html"\s*:\s*"((?:\\.|[^"\\])*)"',
+            text,
+            flags=re.S,
+        )
+        if not html_match:
+            return None
+
+        optimized_html = cls._decode_json_string_literal(html_match.group(1)).strip()
+        if not optimized_html:
+            return None
+
+        explanation = ""
+        exp_match = re.search(
+            r'"explanation"\s*:\s*"((?:\\.|[^"\\])*)"',
+            text,
+            flags=re.S,
+        )
+        if exp_match:
+            explanation = cls._decode_json_string_literal(exp_match.group(1)).strip()
+
+        return {"optimized_html": optimized_html, "explanation": explanation}
 
     async def _llm_optimize_section_patch(
         self,
@@ -585,21 +681,39 @@ class Manus(ToolCallAgent):
             f"用户原话：{user_input.strip() or '优化表述，突出贡献与量化成果'}\n\n"
             f"当前 details（纯文本，请在此基础上深度改写）：\n{current_plain[:2800]}"
         )
+        retry_suffix = (
+            "\n\n【重要】不要输出思考过程。"
+            "只输出一行 JSON，第一字符必须是 {，包含 optimized_html 与 explanation。"
+        )
 
-        try:
-            raw = await self.llm.ask(
-                messages=[{"role": "user", "content": user_prompt}],
-                system_msgs=[{"role": "system", "content": system_prompt}],
-                stream=False,
-                temperature=0.55,
+        parsed: Optional[Dict[str, Any]] = None
+        raw = ""
+        for attempt in range(2):
+            prompt = user_prompt if attempt == 0 else f"{user_prompt}{retry_suffix}"
+            try:
+                raw = await self.llm.ask(
+                    messages=[{"role": "user", "content": prompt}],
+                    system_msgs=[{"role": "system", "content": system_prompt}],
+                    stream=False,
+                    temperature=0.55,
+                )
+            except Exception as exc:
+                logger.warning(f"[Manus] LLM optimize section failed: {exc}")
+                return None
+
+            parsed = self._parse_optimize_llm_json(raw or "")
+            if parsed:
+                break
+            logger.warning(
+                "[Manus] LLM optimize section returned non-JSON response "
+                f"(attempt={attempt + 1}, chars={len(raw or '')})"
             )
-        except Exception as exc:
-            logger.warning(f"[Manus] LLM optimize section failed: {exc}")
-            return None
 
-        parsed = self._parse_optimize_llm_json(raw or "")
         if not parsed:
-            logger.warning("[Manus] LLM optimize section returned non-JSON response")
+            logger.debug(
+                "[Manus] LLM optimize raw tail: %s",
+                (raw or "")[-400:],
+            )
             return None
 
         optimized_html = str(
@@ -656,7 +770,10 @@ class Manus(ToolCallAgent):
     ) -> str:
         """优化结果有 diff 卡片时用短回复，否则回退 markdown 长文。"""
         if patch_count <= 0:
-            return self._format_optimization_suggestions(suggestions)
+            label = re.sub(r"\*+", "", default_label).strip() or "该段经历"
+            if label not in ("实习经历", "简历"):
+                return f"暂时未能为「{label}」生成优化对比，请稍后重试。"
+            return "未生成可用的优化建议，请稍后重试或指定要优化的经历。"
 
         items = suggestions.get("optimization_suggestions") or []
         label = default_label
@@ -673,6 +790,35 @@ class Manus(ToolCallAgent):
         if patch_count == 1:
             return f"已为「{label}」生成优化对比，请在下方卡片确认是否应用。"
         return f"已生成 {patch_count} 处优化对比，请在下方卡片逐条确认是否应用。"
+
+    @staticmethod
+    def _build_optimize_target_clarification_message(
+        experiences: List[Dict[str, Any]],
+    ) -> str:
+        """未指定优化目标且有多段经历时，列出可选项并附带快捷按钮。"""
+        items: List[Dict[str, str]] = []
+        for idx, exp in enumerate(experiences):
+            if not isinstance(exp, dict):
+                continue
+            company = re.sub(
+                r"\*+",
+                "",
+                str(exp.get("company") or exp.get("title") or f"第{idx + 1}段"),
+            ).strip() or f"第{idx + 1}段"
+            position = str(exp.get("position") or exp.get("role") or "").strip()
+            display = f"{company} · {position}" if position else company
+            items.append(
+                {
+                    "text": display,
+                    "msg": f"优化{company}的实习经历",
+                }
+            )
+
+        suggestions_json = json.dumps(items, ensure_ascii=False)
+        return (
+            "好的！在优化之前，请问您想优化哪一段实习/工作经历？\n\n"
+            f"%%SUGGESTIONS%%{suggestions_json}%%END%%"
+        )
 
     @staticmethod
     def _is_injected_system_user_message(content: str) -> bool:
@@ -1525,9 +1671,31 @@ class Manus(ToolCallAgent):
                     )
                     experiences = (resume_data_snapshot or {}).get("experience") or []
 
+                    if not experiences:
+                        content = (
+                            "当前简历里还没有可优化的实习/工作经历。"
+                            "您可以先导入一段，再让我帮您优化表述。"
+                        )
+                        self.memory.add_message(Message.assistant_message(content))
+                        from backend.agent.schema import AgentState
+                        self.state = AgentState.FINISHED
+                        return False
+
+                    if target_index is None:
+                        if len(experiences) > 1:
+                            content = self._build_optimize_target_clarification_message(
+                                experiences
+                            )
+                            self.memory.add_message(Message.assistant_message(content))
+                            from backend.agent.schema import AgentState
+                            self.state = AgentState.FINISHED
+                            logger.info(
+                                "✅ OPTIMIZE_SECTION: asked user to pick experience target"
+                            )
+                            return False
+                        target_index = 0
+
                     resolved_idx = target_index
-                    if resolved_idx is None and experiences:
-                        resolved_idx = 0
 
                     suggestions: Optional[Dict[str, Any]] = None
                     if resolved_idx is not None and resolved_idx < len(experiences):

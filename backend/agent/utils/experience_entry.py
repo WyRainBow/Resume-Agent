@@ -100,6 +100,15 @@ def _experience_company_label(raw: Dict[str, Any]) -> str:
     ).strip()
 
 
+def _normalize_optimize_query_text(text: str) -> str:
+    """去掉优化指令常见尾缀，便于匹配公司简称。"""
+    normalized = (text or "").strip().replace(" ", "")
+    for suffix in ("的内容", "的描述", "的经历", "的实习", "的工作"):
+        if normalized.endswith(suffix):
+            normalized = normalized[: -len(suffix)]
+    return normalized
+
+
 def resolve_experience_target_index(
     user_input: str,
     resume_data: Dict[str, Any],
@@ -113,7 +122,7 @@ def resolve_experience_target_index(
     if not isinstance(experiences, list) or not experiences:
         return None
 
-    normalized = text.replace(" ", "")
+    normalized = _normalize_optimize_query_text(text)
     query_tokens = _extract_experience_query_tokens(normalized)
     candidates: List[tuple[int, int, str]] = []
 

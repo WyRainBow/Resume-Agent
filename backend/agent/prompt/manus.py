@@ -217,8 +217,9 @@ OPTIMIZE_SECTION_LLM_ADDENDUM = """
 - 缺数字时不编造，写清动作+技术+系统价值即可
 
 ### 输出格式（严格遵守）
-- 只输出 JSON，不要其它文字：
+- **禁止**输出思考过程、分析草稿、markdown 或「修改前/修改后」对比文字
+- 回复第一字符必须是 `{`，只输出一行 JSON：
   {"optimized_html":"<p>...</p><ul class=\\"custom-list\\"><li><p><strong>小标题</strong>：...</p></li></ul>", "explanation":"一句话说明优化策略"}
 - optimized_html 必须是 HTML 富文本（同上文 cv_editor 规则），禁止 Markdown
-- **不要调用任何工具**，不要输出「修改前/修改后」对比文字
+- **不要调用任何工具**
 """
