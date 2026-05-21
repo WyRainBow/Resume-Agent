@@ -68,6 +68,7 @@ class RenderPDFRequest(BaseModel):
     demo: Optional[bool] = False
     section_order: Optional[List[str]] = None
     engine: Optional[str] = "latex"
+    template_id: Optional[str] = None
 
 
 class SaveKeysRequest(BaseModel):

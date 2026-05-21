@@ -15,28 +15,35 @@ try:
 except ImportError:
     from backend.models import RenderPDFRequest
 
+try:
+    from backend.latex_generator import compile_latex_to_pdf
+    from backend.resume_templates.latex.registry import DEFAULT_TEMPLATE_ID, resolve_latex_template
+except ImportError:
+    from latex_generator import compile_latex_to_pdf
+    from resume_templates.latex.registry import DEFAULT_TEMPLATE_ID, resolve_latex_template
+
 router = APIRouter(prefix="/api", tags=["PDF"])
 
 
-def _resolve_template_dir() -> Path:
-    current_dir = Path(__file__).resolve().parent
-    return current_dir.parents[1] / "latex-resume-template"
-
-
-def _prepare_latex_content(resume_data, section_order):
-    try:
-        from backend.latex_generator import json_to_latex
-    except ImportError:
-        from latex_generator import json_to_latex
-    return json_to_latex(resume_data, section_order)
-
-
 def _compile_pdf_bytes(latex_content: str, template_dir: Path, resume_data):
-    try:
-        from backend.latex_generator import compile_latex_to_pdf
-    except ImportError:
-        from latex_generator import compile_latex_to_pdf
     return compile_latex_to_pdf(latex_content, template_dir, resume_data=resume_data).getvalue()
+
+
+def _resolve_request_template_id(resume_data, request_template_id):
+    if request_template_id:
+        return request_template_id
+    if isinstance(resume_data, dict) and resume_data.get("templateId"):
+        return resume_data["templateId"]
+    return DEFAULT_TEMPLATE_ID
+
+
+def _resolve_request_template(resume_data, request_template_id):
+    template_id = _resolve_request_template_id(resume_data, request_template_id)
+    try:
+        return resolve_latex_template(template_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=f"模板不存在: {template_id}") from exc
+
 
 def _resume_brief(resume_data):
     if not isinstance(resume_data, dict):
@@ -62,6 +69,7 @@ async def render_pdf(body: RenderPDFRequest, request: Request):
     """
     start_time = time.time()
     resume_data = body.resume
+    template = _resolve_request_template(resume_data, body.template_id)
     trace_id = request.headers.get("X-PDF-Trace-Id") or f"backend-{int(start_time * 1000)}"
     trace_source = request.headers.get("X-PDF-Trace-Source") or "-"
     trace_trigger = request.headers.get("X-PDF-Trace-Trigger") or "-"
@@ -71,22 +79,23 @@ async def render_pdf(body: RenderPDFRequest, request: Request):
         f"session_id={request.headers.get('X-Agent-Session-Id') or '-'} "
         f"resume_id={request.headers.get('X-Agent-Resume-Id') or '-'} client={client} "
         f"origin={request.headers.get('origin') or '-'} referer={request.headers.get('referer') or '-'} "
-        f"section_order={body.section_order} resume_brief={_resume_brief(resume_data)}"
+        f"template_id={template.meta.id} section_order={body.section_order} "
+        f"resume_brief={_resume_brief(resume_data)}"
     )
 
     try:
-        latex_content = await run_in_threadpool(_prepare_latex_content, resume_data, body.section_order)
+        latex_content = await run_in_threadpool(template.renderer.render, resume_data, body.section_order)
         pdf_bytes = await run_in_threadpool(
             _compile_pdf_bytes,
             latex_content,
-            _resolve_template_dir(),
+            template.template_dir,
             resume_data,
         )
 
         render_time = time.time() - start_time
         print(
             f"[PDF TRACE][render:done] trace_id={trace_id} elapsed={render_time:.2f}s "
-            f"bytes={len(pdf_bytes)}"
+            f"template_id={template.meta.id} bytes={len(pdf_bytes)}"
         )
 
         return StreamingResponse(
@@ -111,18 +120,20 @@ async def render_pdf_stream(body: RenderPDFRequest, request: Request):
 
     session_id = request.headers.get("X-Agent-Session-Id")
     resume_id = request.headers.get("X-Agent-Resume-Id")
+    resume_data = body.resume
+    template = _resolve_request_template(resume_data, body.template_id)
     trace_id = request.headers.get("X-PDF-Trace-Id") or f"backend-s-{int(time.time() * 1000)}"
     trace_source = request.headers.get("X-PDF-Trace-Source") or "-"
     trace_trigger = request.headers.get("X-PDF-Trace-Trigger") or "-"
     client = request.client.host if request.client else "-"
 
     async def generate_pdf():
-        resume_data = body.resume
         print(
             f"[PDF TRACE][stream:request] trace_id={trace_id} source={trace_source} trigger={trace_trigger} "
             f"session_id={session_id or '-'} resume_id={resume_id or '-'} client={client} "
             f"origin={request.headers.get('origin') or '-'} referer={request.headers.get('referer') or '-'} "
-            f"section_order={body.section_order} resume_brief={_resume_brief(resume_data)}"
+            f"template_id={template.meta.id} section_order={body.section_order} "
+            f"resume_brief={_resume_brief(resume_data)}"
         )
 
         try:
@@ -136,7 +147,7 @@ async def render_pdf_stream(body: RenderPDFRequest, request: Request):
 
             # 生成 LaTeX
             latex_content = await run_in_threadpool(
-                _prepare_latex_content,
+                template.renderer.render,
                 resume_data,
                 body.section_order,
             )
@@ -155,13 +166,13 @@ async def render_pdf_stream(body: RenderPDFRequest, request: Request):
                 pdf_bytes = await run_in_threadpool(
                     _compile_pdf_bytes,
                     latex_content,
-                    _resolve_template_dir(),
+                    template.template_dir,
                     resume_data,
                 )
                 compile_time = time.time() - compile_start
                 print(
                     f"[PDF TRACE][stream:compile-done] trace_id={trace_id} "
-                    f"elapsed={compile_time:.2f}s pdf_bytes={len(pdf_bytes)}"
+                    f"template_id={template.meta.id} elapsed={compile_time:.2f}s pdf_bytes={len(pdf_bytes)}"
                 )
                 yield dict(event="progress", data=f"PDF编译完成 ({compile_time:.1f}s)")
 
@@ -171,7 +182,7 @@ async def render_pdf_stream(body: RenderPDFRequest, request: Request):
                 yield dict(event="pdf", data=pdf_hex)
                 print(
                     f"[PDF TRACE][stream:done] trace_id={trace_id} session_id={session_id or '-'} "
-                    f"resume_id={resume_id or '-'} size={len(pdf_hex)/2} bytes"
+                    f"resume_id={resume_id or '-'} template_id={template.meta.id} size={len(pdf_hex)/2} bytes"
                 )
 
             except Exception as e:
