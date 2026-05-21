@@ -11,6 +11,7 @@ import re
 import uuid
 from backend.agent.tool.base import BaseTool, ToolResult
 from backend.agent.tool.resume_data_store import ResumeDataStore
+from backend.agent.utils.resume_richtext import is_richtext_path, normalize_editor_value
 from backend.agent.llm import LLM
 from backend.core.logger import get_logger
 
@@ -133,6 +134,14 @@ Execute modifications immediately when user provides specific details.
 
             # 加载简历数据（传入引用，所以修改会直接影响原始数据）
             cv_editor.load_resume(resume_data)
+
+            # 富文本字段：将 LLM 的 Markdown/编号列表规范为 HTML 无序列表
+            if action in ("update", "add") and value is not None:
+                if is_richtext_path(normalized_path) or (
+                    isinstance(value, str)
+                    and ("**" in value or re.search(r"^\d+\.\s", value, re.M))
+                ):
+                    value = normalize_editor_value(value, normalized_path)
 
             # 执行编辑操作
             result = await cv_editor.edit_resume(normalized_path, action, value)

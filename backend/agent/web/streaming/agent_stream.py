@@ -786,7 +786,11 @@ class AgentStream:
                             step_state.last_stream_response = response_part or pending_delta or pending_content
                             step_state.last_stream_text = pending_content
 
-                    logger.info(f"🔍 [DEBUG] step() 返回: {step_result}, agent.state: {self.agent.state}, _answer_sent_in_loop: {self._answer_sent_in_loop}")
+                    safe_step = str(step_result).replace("<", r"\<").replace(">", r"\>")
+                    logger.info(
+                        f"🔍 [DEBUG] step() 返回: {safe_step}, agent.state: {self.agent.state}, "
+                        f"_answer_sent_in_loop: {self._answer_sent_in_loop}"
+                    )
 
                     # step 收尾：避免“流式末尾文本”与“memory 最终文本”不一致
                     final_step_content = self._get_latest_assistant_content()
