@@ -62,7 +62,7 @@ function ResumeEntryBlock({ entry }: { entry: ParsedResumeEntry }) {
   const otherLines = entry.lines.filter((line) => line.type !== "bullet");
 
   return (
-    <div className="rounded-xl border border-chat-border/60 bg-white/80 p-4 shadow-sm dark:bg-slate-900/40">
+    <div className="rounded-xl border border-chat-border/60 bg-white/80 p-3 shadow-sm dark:bg-slate-900/40">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
@@ -85,19 +85,21 @@ function ResumeEntryBlock({ entry }: { entry: ParsedResumeEntry }) {
       </div>
 
       {entry.rawBody ? (
-        <div className="mt-3 resume-entry-markdown border-t border-chat-border/40 pt-3">
-          <EnhancedMarkdown>{entry.rawBody}</EnhancedMarkdown>
+        <div className="mt-2 resume-entry-markdown">
+          <EnhancedMarkdown className="prose-headings:mt-0 prose-headings:mb-1 prose-p:mb-1.5 prose-ul:mb-0 prose-li:mb-0.5">
+            {entry.rawBody}
+          </EnhancedMarkdown>
         </div>
       ) : (
         <>
           {otherLines.length > 0 && (
-            <div className="mt-3 space-y-1.5 border-t border-chat-border/40 pt-3">
+            <div className="mt-2 space-y-1 border-t border-chat-border/40 pt-2">
               {otherLines.map(renderLine)}
             </div>
           )}
 
           {bullets.length > 0 && (
-            <ul className="mt-3 space-y-1.5 border-t border-chat-border/40 pt-3">
+            <ul className="mt-2 space-y-1 border-t border-chat-border/40 pt-2">
               {bullets.map(renderLine)}
             </ul>
           )}
@@ -108,6 +110,8 @@ function ResumeEntryBlock({ entry }: { entry: ParsedResumeEntry }) {
 }
 
 function SectionHeading({ section }: { section: ParsedResumeSection }) {
+  if (!section.title.trim()) return null;
+
   return (
     <div className="flex items-center gap-2 pb-1">
       <span className="text-blue-600/80">{sectionIcon(section.title)}</span>
@@ -119,12 +123,18 @@ function SectionHeading({ section }: { section: ParsedResumeSection }) {
   );
 }
 
-function ResumeSectionCard({ section }: { section: ParsedResumeSection }) {
+function ResumeSectionCard({
+  section,
+  compact = false,
+}: {
+  section: ParsedResumeSection;
+  compact?: boolean;
+}) {
   if (section.entries.length > 0) {
     return (
-      <div className="space-y-3">
+      <div className={compact ? "space-y-2" : "space-y-3"}>
         <SectionHeading section={section} />
-        <div className="space-y-3">
+        <div className={compact ? "space-y-2" : "space-y-3"}>
           {section.entries.map((entry, index) => (
             <ResumeEntryBlock key={`${entry.title}-${index}`} entry={entry} />
           ))}
@@ -134,9 +144,9 @@ function ResumeSectionCard({ section }: { section: ParsedResumeSection }) {
   }
 
   return (
-    <div className="space-y-2">
+    <div className={compact ? "space-y-1.5" : "space-y-2"}>
       <SectionHeading section={section} />
-      <div className="resume-entry-markdown rounded-xl border border-chat-border/60 bg-white/80 p-4 shadow-sm dark:bg-slate-900/40">
+      <div className="resume-entry-markdown rounded-xl border border-chat-border/60 bg-white/80 p-3 shadow-sm dark:bg-slate-900/40">
         <EnhancedMarkdown>{section.preamble || ""}</EnhancedMarkdown>
       </div>
     </div>
@@ -146,18 +156,24 @@ function ResumeSectionCard({ section }: { section: ParsedResumeSection }) {
 interface ResumeSectionBlockProps {
   sections: ParsedResumeSection[];
   className?: string;
+  compact?: boolean;
 }
 
 export default function ResumeSectionBlock({
   sections,
   className = "",
+  compact = false,
 }: ResumeSectionBlockProps) {
   if (!sections.length) return null;
 
   return (
-    <div className={`space-y-5 ${className}`}>
+    <div className={`${compact ? "space-y-2" : "space-y-5"} ${className}`}>
       {sections.map((section, index) => (
-        <ResumeSectionCard key={`${section.title}-${index}`} section={section} />
+        <ResumeSectionCard
+          key={`${section.title}-${index}`}
+          section={section}
+          compact={compact}
+        />
       ))}
     </div>
   );

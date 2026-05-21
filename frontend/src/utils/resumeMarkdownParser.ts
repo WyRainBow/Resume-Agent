@@ -142,8 +142,78 @@ function isStandalonePeriod(line: string): string | null {
   return null;
 }
 
+/** 去掉 Agent 常用的装饰性分隔线，避免渲染成大段空白 */
+export function stripDecorativeDividers(content: string): string {
+  return (content || "")
+    .replace(/^\s*[-*_]{3,}\s*$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+/** 拆分引导语、结构化正文与结尾追问 */
+export function splitResumeMessageFrame(content: string): {
+  prefix: string;
+  core: string;
+  suffix: string;
+} {
+  const text = stripDecorativeDividers(content);
+  const structMatch = text.match(/^###\s+/m) || text.match(/^##\s+/m);
+  if (!structMatch || structMatch.index === undefined) {
+    return { prefix: "", core: text, suffix: "" };
+  }
+
+  const prefix = text.slice(0, structMatch.index).trim();
+  let core = text.slice(structMatch.index).trim();
+
+  const suffixMatch = core.match(/\n\n+(请问[\s\S]+)$/);
+  let suffix = "";
+  if (suffixMatch && suffixMatch.index !== undefined) {
+    suffix = suffixMatch[1].trim();
+    core = core.slice(0, suffixMatch.index).trim();
+  }
+
+  return { prefix, core, suffix };
+}
+
+function parseEntryList(entryChunks: string[]): ParsedResumeEntry[] {
+  const entries: ParsedResumeEntry[] = [];
+
+  for (const entryChunk of entryChunks) {
+    const [headerLine, ...entryLines] = entryChunk.split("\n");
+    const entry = parseEntryHeader(`### ${headerLine}`);
+    if (!entry) continue;
+
+    for (const rawLine of entryLines) {
+      const period = isStandalonePeriod(rawLine);
+      if (period && !entry.period) {
+        entry.period = period;
+        continue;
+      }
+
+      const parsedLine = parseBodyLine(rawLine);
+      if (!parsedLine) continue;
+
+      if (
+        parsedLine.type === "label" &&
+        parsedLine.label &&
+        /period|date|时间|日期/i.test(parsedLine.label)
+      ) {
+        entry.period = parsedLine.text;
+        continue;
+      }
+
+      entry.lines.push(parsedLine);
+    }
+
+    entry.rawBody = entryLines.join("\n").trim();
+    entries.push(entry);
+  }
+
+  return entries;
+}
+
 export function isResumeStructuredContent(content: string): boolean {
-  const text = (content || "").trim();
+  const text = stripDecorativeDividers(content || "");
   if (!text) return false;
   if (/CV\/Resume Context/i.test(text)) return true;
   if (/path prefix:/i.test(text)) return true;
@@ -166,9 +236,17 @@ function isSectionDisplayable(section: ParsedResumeSection): boolean {
 }
 
 export function parseResumeMarkdown(content: string): ParsedResumeSection[] {
-  const normalized = (content || "")
+  const normalized = stripDecorativeDividers(content)
     .replace(/^#\s+CV\/Resume Context\s*$/gim, "")
     .trim();
+
+  if (/^###\s+/m.test(normalized) && !/^##\s+/m.test(normalized)) {
+    const entryChunks = normalized.split(/^###\s+/m).slice(1);
+    const entries = parseEntryList(entryChunks);
+    if (entries.length > 0) {
+      return [{ title: "", entries }];
+    }
+  }
 
   const chunks = normalized.split(/^##\s+/m).filter(Boolean);
   const sections: ParsedResumeSection[] = [];
@@ -198,33 +276,7 @@ export function parseResumeMarkdown(content: string): ParsedResumeSection[] {
       continue;
     }
 
-    const entries: ParsedResumeEntry[] = [];
-    for (const entryChunk of entryChunks.slice(1)) {
-      const [headerLine, ...entryLines] = entryChunk.split("\n");
-      const entry = parseEntryHeader(`### ${headerLine}`);
-      if (!entry) continue;
-
-      for (const rawLine of entryLines) {
-        const period = isStandalonePeriod(rawLine);
-        if (period && !entry.period) {
-          entry.period = period;
-          continue;
-        }
-
-        const parsedLine = parseBodyLine(rawLine);
-        if (!parsedLine) continue;
-
-        if (parsedLine.type === "label" && parsedLine.label && /period|date|时间|日期/i.test(parsedLine.label)) {
-          entry.period = parsedLine.text;
-          continue;
-        }
-
-        entry.lines.push(parsedLine);
-      }
-
-      entry.rawBody = entryLines.join("\n").trim();
-      entries.push(entry);
-    }
+    const entries = parseEntryList(entryChunks.slice(1));
 
     sections.push({ title, pathHint, entries });
   }

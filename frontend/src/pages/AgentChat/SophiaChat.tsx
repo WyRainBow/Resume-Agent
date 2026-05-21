@@ -19,7 +19,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEnvironment } from "@/contexts/EnvironmentContext";
 import { useCLTP } from "@/hooks/useCLTP";
 import { canUseAgentFeature } from "@/lib/runtimeEnv";
-import { PDFViewerSelector } from "@/components/PDFEditor";
+import AgentPdfPreviewPanel from "@/components/agent-chat/AgentPdfPreviewPanel";
 import { convertToBackendFormat } from "@/pages/Workspace/v2/utils/convertToBackend";
 import {
   DEFAULT_MENU_SECTIONS,
@@ -3688,103 +3688,22 @@ function SophiaChatContent() {
 
           {/* Right: Resume Preview - 只在有选中简历时显示 */}
           {selectedResumeId && (
-            <CustomScrollbar as="aside" className="w-[45%] min-w-[420px] bg-slate-50 border-l border-slate-200 flex flex-col dark:bg-slate-900 dark:border-slate-800">
-              <div className="border-b border-slate-200 bg-white px-6 py-4 sticky top-0 z-10 shrink-0 dark:border-slate-800 dark:bg-slate-900">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                      简历 PDF 预览
-                    </h2>
-                    {selectedLoadedResume && (
-                      <p className="text-xs text-slate-400 mt-1">
-                        {selectedLoadedResume.name}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {selectedLoadedResume && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          void renderResumePdfPreview(
-                            selectedLoadedResume,
-                            true,
-                          )
-                        }
-                        className="text-xs text-indigo-600 hover:text-indigo-700 px-2 py-1 rounded hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-slate-800"
-                      >
-                        {selectedResumePdfState.loading ? "取消并重试" : "重新渲染"}
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setAllowPdfAutoRender(false);
-                        setSelectedResumeId(null);
-                      }}
-                      className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                    >
-                      关闭
-                    </button>
-                  </div>
-                </div>
-              </div>
-              <div className="flex-1 min-h-0 flex flex-col">
-                <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-                  <CustomScrollbar className="flex-1 bg-slate-100/70 p-4 dark:bg-slate-950/40">
-                    {!selectedLoadedResume && (
-                      <div className="text-sm text-slate-500">
-                        正在加载简历...
-                      </div>
-                    )}
-
-                    {selectedLoadedResume &&
-                      selectedResumePdfState.loading &&
-                      !selectedResumePdfState.blob && (
-                        <div className="h-full flex items-center justify-center">
-                          <div className="text-center">
-                            <div className="mx-auto mb-3 size-8 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
-                            <p className="text-sm text-slate-500 text-pretty">
-                              {selectedResumePdfState.progress ||
-                                "正在渲染简历 PDF..."}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                    {selectedLoadedResume && selectedResumePdfState.error && (
-                      <div className="h-full flex items-center justify-center">
-                        <div className="max-w-sm text-center">
-                          <p className="text-sm text-red-500 text-pretty">
-                            {selectedResumePdfState.error}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              void renderResumePdfPreview(
-                                selectedLoadedResume,
-                                true,
-                              )
-                            }
-                            className="mt-3 text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400"
-                          >
-                            点击重试
-                          </button>
-                        </div>
-                      </div>
-                    )}
-
-                    {selectedLoadedResume && selectedResumePdfState.blob && (
-                      <div className="flex justify-center">
-                        <PDFViewerSelector
-                          pdfBlob={selectedResumePdfState.blob}
-                          scale={1}
-                        />
-                      </div>
-                    )}
-                  </CustomScrollbar>
-                </div>
-              </div>
-            </CustomScrollbar>
+            <AgentPdfPreviewPanel
+              resumeName={selectedLoadedResume?.name}
+              pdfBlob={selectedResumePdfState.blob}
+              loading={selectedResumePdfState.loading}
+              progress={selectedResumePdfState.progress}
+              error={selectedResumePdfState.error}
+              onRerender={() => {
+                if (selectedLoadedResume) {
+                  void renderResumePdfPreview(selectedLoadedResume, true);
+                }
+              }}
+              onClose={() => {
+                setAllowPdfAutoRender(false);
+                setSelectedResumeId(null);
+              }}
+            />
           )}
         </div>
         <SearchResultPanel

@@ -253,7 +253,7 @@ export default function MessageTimeline({
                   )}
 
                   {effectiveContent && (
-                    <div className="mb-6 text-chat-ink dark:text-slate-100 font-chat tracking-wide leading-relaxed">
+                    <div className="mb-2 text-chat-ink dark:text-slate-100 font-chat tracking-wide leading-relaxed">
                       <ResumeMarkdown>{effectiveContent}</ResumeMarkdown>
                     </div>
                   )}

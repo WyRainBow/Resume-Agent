@@ -64,18 +64,28 @@ def _normalize_match_text(text: str) -> str:
     return re.sub(r"\*+", "", (text or "")).replace(" ", "").strip()
 
 
+def _strip_trailing_de(text: str) -> str:
+    """去掉尾缀「的」，但保留「美的」等两字简称。"""
+    if len(text) <= 2:
+        return text
+    return re.sub(r"的+$", "", text)
+
+
 def _clean_experience_query_fragment(fragment: str) -> str:
     """去掉查询片段首尾的功能词，保留「美的」等公司简称。"""
     cleaned = _normalize_match_text(fragment)
     if not cleaned:
         return ""
-    cleaned = re.sub(r"的+$", "", cleaned)
+    cleaned = _strip_trailing_de(cleaned)
     previous = None
     while cleaned != previous:
         previous = cleaned
         cleaned = _OPTIMIZE_QUERY_PREFIX_RE.sub("", cleaned)
-        cleaned = _OPTIMIZE_QUERY_SUFFIX_RE.sub("", cleaned)
-        cleaned = re.sub(r"的+$", "", cleaned)
+        next_cleaned = _OPTIMIZE_QUERY_SUFFIX_RE.sub("", cleaned)
+        if len(next_cleaned) < 2 <= len(cleaned):
+            break
+        cleaned = next_cleaned
+        cleaned = _strip_trailing_de(cleaned)
     return cleaned.strip()
 
 
@@ -111,9 +121,24 @@ def _experience_company_label(raw: Dict[str, Any]) -> str:
 def _normalize_optimize_query_text(text: str) -> str:
     """去掉优化指令常见尾缀，便于匹配公司简称。"""
     normalized = _normalize_match_text(text)
-    for suffix in ("的内容", "的描述", "的经历", "的实习", "的工作"):
-        if normalized.endswith(suffix):
-            normalized = normalized[: -len(suffix)]
+    suffixes = (
+        "的内容",
+        "的描述",
+        "的经历",
+        "的实习经历",
+        "的工作经历",
+        "的实习",
+        "的工作",
+    )
+    for suffix in suffixes:
+        if not normalized.endswith(suffix):
+            continue
+        candidate = normalized[: -len(suffix)]
+        # 避免「优化美的实习」→「优化美」误截断公司简称
+        probe = _clean_experience_query_fragment(candidate)
+        if len(probe) >= 2:
+            normalized = candidate
+            break
     return normalized
 
 
@@ -121,7 +146,19 @@ def is_generic_optimize_section_query(user_input: str) -> bool:
     """是否为未指明具体经历的泛化优化请求（如「优化实习经历」）。"""
     normalized = _normalize_optimize_query_text(user_input or "")
     core = _clean_experience_query_fragment(normalized)
-    return len(core) < 2
+    if len(core) < 2:
+        return True
+    if core in {
+        "实习",
+        "经历",
+        "工作",
+        "实习经历",
+        "工作经历",
+        "开源",
+        "开源经历",
+    }:
+        return True
+    return False
 
 
 SectionKind = Literal["experience", "opensource"]
@@ -300,7 +337,15 @@ def resolve_optimize_target_from_input(
     text = (user_input or "").strip()
     if not text or is_generic_optimize_section_query(text):
         return None
-    return _resolve_best_target_in_text(text, resume_data)
+
+    target = _resolve_best_target_in_text(text, resume_data)
+    if target:
+        return target
+
+    focused = _clean_experience_query_fragment(_normalize_optimize_query_text(text))
+    if focused and focused != _normalize_match_text(text):
+        return _resolve_best_target_in_text(focused, resume_data)
+    return None
 
 
 def resolve_optimize_target_from_context(
@@ -315,6 +360,17 @@ def resolve_optimize_target_from_context(
         target = _resolve_best_target_in_text(msg or "", resume_data)
         if target:
             return target
+
+        # 单条 ### 标题经历：用户泛化说「优化」时直接命中
+        headers = re.findall(
+            r"^###\s*(?:\[\d+\]\s*)?(.+?)\s*$",
+            msg or "",
+            re.MULTILINE,
+        )
+        if len(headers) == 1:
+            header_target = _resolve_best_target_in_text(headers[0], resume_data)
+            if header_target:
+                return header_target
     return None
 
 
