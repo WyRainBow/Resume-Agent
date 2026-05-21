@@ -12,6 +12,35 @@ from backend.agent.agent.toolcall import ToolCallAgent
 from backend.agent.tool import ToolCollection, Terminate, CreateChatCompletion
 from backend.agent.utils.json_path import parse_path, get_by_path, set_by_path, delete_by_path, exists_path
 
+PATH_ALIASES = {
+    "opensource": "openSource",
+    "open_source": "openSource",
+    "skillcontent": "skillContent",
+    "selfevaluation": "selfEvaluation",
+    "self_evaluation": "selfEvaluation",
+    "startdate": "startDate",
+    "enddate": "endDate",
+    "companaylogo": "companyLogo",
+    "companylogo": "companyLogo",
+}
+
+
+def normalize_path(path: str) -> str:
+    """将 LLM 可能输出的路径别名归一化为 JSON 中的真实 key。"""
+    parts = path.split(".")
+    normalized = []
+    for part in parts:
+        bracket_idx = part.find("[")
+        if bracket_idx != -1:
+            key = part[:bracket_idx]
+            suffix = part[bracket_idx:]
+        else:
+            key = part
+            suffix = ""
+        key = PATH_ALIASES.get(key.lower(), key)
+        normalized.append(f"{key}{suffix}")
+    return ".".join(normalized)
+
 
 class CVEditor(ToolCallAgent):
     """简历编辑 Agent
@@ -101,6 +130,8 @@ You can edit this resume using update, add, or delete operations.
                 "message": "No resume data loaded. Please load a resume first.",
                 "error_type": "NO_RESUME"
             }
+
+        path = normalize_path(path)
 
         try:
             if action == "update":

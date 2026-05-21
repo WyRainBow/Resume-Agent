@@ -164,6 +164,8 @@ def _cleanup_session(conversation_id: str) -> None:
 
     Evicts sessions older than _SESSION_TTL_SECONDS to prevent unbounded growth.
     """
+    from backend.agent.tool.resume_data_store import ResumeDataStore
+
     now = datetime.now()
     stale = [
         cid
@@ -179,6 +181,7 @@ def _cleanup_session(conversation_id: str) -> None:
                     agent.memory.messages.clear()
             except Exception:
                 pass
+        ResumeDataStore.clear_data(cid)
         logger.info(f"[SSE] Evicted stale session: {cid}")
 
 
@@ -521,10 +524,12 @@ async def clear_session(conversation_id: str) -> dict:
     Returns:
         Status message
     """
+    from backend.agent.tool.resume_data_store import ResumeDataStore
+
+    ResumeDataStore.clear_data(conversation_id)
     if conversation_id in _active_sessions:
         del _active_sessions[conversation_id]
         logger.info(f"[SSE] Cleared session: {conversation_id}")
         return {"status": "cleared", "conversation_id": conversation_id}
-    # Idempotent delete: do not 404 for missing session
     logger.info(f"[SSE] Session not found (already cleared): {conversation_id}")
     return {"status": "not_found", "conversation_id": conversation_id}

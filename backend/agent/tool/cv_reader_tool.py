@@ -131,7 +131,7 @@ Returns the resume content in a structured, readable format."""
 
         opensource = resume.get("openSource", [])
         if opensource:
-            lines.append("## Open Source  (path prefix: opensource[N].*)")
+            lines.append("## Open Source  (path prefix: openSource[N].*)")
             for i, os_item in enumerate(opensource):
                 lines.append(f"### [{i}] {os_item.get('name', '')}")
                 if os_item.get('role'):
