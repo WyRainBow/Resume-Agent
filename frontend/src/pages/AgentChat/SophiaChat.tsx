@@ -3411,7 +3411,7 @@ function SophiaChatContent() {
 
   return (
     <WorkspaceLayout>
-      <div className="h-full bg-slate-50 dark:bg-slate-950 flex flex-col overflow-hidden">
+      <div className="h-full bg-[#FAF9F5] dark:bg-slate-950 flex flex-col overflow-hidden">
         <div className="flex-1 flex overflow-hidden relative">
           {/* Left: Chat */}
           <section className="flex-1 min-w-0 flex flex-col h-full">
@@ -3630,7 +3630,7 @@ function SophiaChatContent() {
             </CustomScrollbar>
 
             {/* Input Area */}
-            <div className="bg-slate-50 dark:bg-slate-950 px-4 py-4 pb-8">
+            <div className="bg-[#FAF9F5] dark:bg-slate-950 px-4 py-4 pb-8">
               <div className="max-w-3xl mx-auto w-full">
                 {/* 快捷按钮 */}
                 {!isProcessing &&
