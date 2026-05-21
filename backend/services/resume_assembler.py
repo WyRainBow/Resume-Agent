@@ -48,7 +48,7 @@ except ImportError:
     )
 
 
-DEEPSEEK_MODEL = "deepseek-v3.2"
+DEEPSEEK_MODEL = "deepseek-v4-flash"
 DEEPSEEK_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
 _deepseek_client: Optional[OpenAI] = None

@@ -25,8 +25,14 @@ const DEEPSEEK_LOGO_URL =
 // 可用的 AI 模型列表
 const AI_MODELS = [
   {
+    id: "deepseek-v4-flash",
+    name: "DeepSeek V4 Flash",
+    description: "智能解析简历内容（快速）",
+    logoUrl: DEEPSEEK_LOGO_URL,
+  },
+  {
     id: "deepseek-v3.2",
-    name: "DeepSeek",
+    name: "DeepSeek V3.2",
     description: "智能解析简历内容",
     logoUrl: DEEPSEEK_LOGO_URL,
   },
@@ -86,7 +92,7 @@ export function AIImportModal({
   const [parsedData, setParsedData] = useState<any>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [finalTime, setFinalTime] = useState<number | null>(null);
-  const [selectedModel, setSelectedModel] = useState("deepseek-v3.2");
+  const [selectedModel, setSelectedModel] = useState("deepseek-v4-flash");
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [copied, setCopied] = useState(false);
