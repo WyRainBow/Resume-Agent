@@ -320,6 +320,12 @@ function isWorkspaceResumeData(data: unknown): data is ResumeData {
   );
 }
 
+function isLoadResumeIntentText(text: string): boolean {
+  return /(?:加载|打开|查看|显示|选择).*(?:简历|resume|cv)|(?:简历|resume|cv).*(?:加载|打开|选择)/i.test(
+    (text || "").trim(),
+  );
+}
+
 interface SearchResultItem {
   position?: number;
   url?: string;
@@ -1213,10 +1219,7 @@ function SophiaChatContent() {
     onShowResumeSelector: () => {
       // 只在“加载简历”相关意图时展示选择器，避免编辑流程被 show_resume 误触发打断。
       const text = currentRunUserInputRef.current.trim();
-      const isLoadResumeIntent =
-        /(?:加载|打开|查看|显示|选择).*(?:简历|resume|cv)|(?:简历|resume|cv).*(?:加载|打开|选择)/i.test(
-          text,
-        );
+      const isLoadResumeIntent = isLoadResumeIntentText(text);
       const hasResumeContext =
         !!resumeDataRef.current ||
         loadedResumes.some((item) => !!item.resumeData);
@@ -1225,6 +1228,7 @@ function SophiaChatContent() {
       // - 若会话没有简历上下文：仍需展示选择器，避免卡在“处理中”
       if (!isLoadResumeIntent && hasResumeContext) {
         console.warn("[AgentChat] Ignore show_resume selector for non-load intent:", text);
+        setShowResumeSelector(false);
         return;
       }
       if (!isLoadResumeIntent && text) {
@@ -1733,6 +1737,8 @@ function SophiaChatContent() {
 
   // Auto-scroll to bottom (throttled to reduce layout thrash during streaming)
   useEffect(() => {
+    // 选择器打开时不跟随流式输出滚动，避免页面一直被“拽”到底部
+    if (showResumeSelector) return;
     if (autoScrollTimerRef.current !== null) {
       window.clearTimeout(autoScrollTimerRef.current);
     }
@@ -1743,7 +1749,7 @@ function SophiaChatContent() {
       });
       autoScrollTimerRef.current = null;
     }, isProcessing ? 90 : 140);
-  }, [messages, currentThought, currentAnswer, isProcessing]);
+  }, [messages, currentThought, currentAnswer, isProcessing, showResumeSelector]);
 
   useEffect(() => {
     return () => {
@@ -1754,12 +1760,12 @@ function SophiaChatContent() {
     };
   }, []);
 
-  // 打开“展示简历”卡片或切换其步骤时，确保卡片完整进入可视区域，避免被输入区遮挡。
+  // 打开「展示简历」选择器时滚到对话底部，确保卡片在可视区域内。
   useEffect(() => {
     if (!showResumeSelector) return;
     const timer = window.setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-    }, 50);
+    }, 120);
     return () => {
       window.clearTimeout(timer);
     };
@@ -2925,6 +2931,7 @@ function SophiaChatContent() {
       // 自动选中该简历，显示在右侧
       setAllowPdfAutoRender(true);
       setSelectedResumeId(selectedResume.id);
+      setShowResumeSelector(false);
 
       // 若有待重放输入，且当前还处于处理态，先强制收口上一轮，避免输入框一直卡在“处理中”。
       if (pendingResumeInput.trim() && isProcessing) {
@@ -2963,6 +2970,11 @@ function SophiaChatContent() {
         isProcessing
       )
         return;
+
+      // 发送普通消息时关闭选择器，避免与流式回复叠在一起并反复触发滚动
+      if (!isLoadResumeIntentText(userMessage)) {
+        setShowResumeSelector(false);
+      }
 
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       currentRunUserInputRef.current = userMessage.trim();
@@ -3501,23 +3513,6 @@ function SophiaChatContent() {
                     </div>
                   )}
 
-                {/* 简历选择器：固定在对话流上方，避免被后续输出挤到下方 */}
-                {showResumeSelector && (
-                  <ResumeSelector
-                    onSelect={handleResumeSelect}
-                    onCreateResume={handleCreateResume}
-                    onCancel={handleResumeSelectorCancel}
-                    onLayoutChange={() => {
-                      window.setTimeout(() => {
-                        messagesEndRef.current?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "end",
-                        });
-                      }, 50);
-                    }}
-                  />
-                )}
-
                 <MessageTimeline
                   messages={messages}
                   loadedResumes={loadedResumes}
@@ -3590,6 +3585,15 @@ function SophiaChatContent() {
                       onDismiss={() => setGeneratedResume(null)}
                     />
                   </div>
+                )}
+
+                {/* 简历选择器：放在对话流末尾，与最新消息同区域展示 */}
+                {showResumeSelector && (
+                  <ResumeSelector
+                    onSelect={handleResumeSelect}
+                    onCreateResume={handleCreateResume}
+                    onCancel={handleResumeSelectorCancel}
+                  />
                 )}
 
                 {/* Loading */}
