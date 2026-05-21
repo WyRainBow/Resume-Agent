@@ -61,13 +61,13 @@ Returns the resume content in a structured, readable format."""
         return self._format_section(section)
 
     def _format_full_resume(self) -> str:
-        """格式化完整简历"""
+        """格式化完整简历，带索引标记方便 AI 定位 path"""
         resume = self._resume_data
-        lines = ["# CV/Resume Context\n", "=" * 50, "\n"]
+        lines = ["# CV/Resume Context\n"]
 
         basic = resume.get("basic", {})
         if basic:
-            lines.append("## Basic Information")
+            lines.append("## Basic Information  (path prefix: basic.*)")
             lines.append(f"Name: {basic.get('name', 'N/A')}")
             lines.append(f"Target Position: {basic.get('title', 'N/A')}")
             if basic.get('email'):
@@ -76,12 +76,12 @@ Returns the resume content in a structured, readable format."""
                 lines.append(f"Phone: {basic.get('phone')}")
             if basic.get('location'):
                 lines.append(f"Location: {basic.get('location')}")
+            if basic.get('summary'):
+                lines.append(f"Summary: {strip_html(basic.get('summary'))}")
             lines.append("")
 
-        # 教育经历
         education = resume.get("education", [])
         if education:
-            # 去重：根据学校名称和学位去重
             seen = set()
             unique_education = []
             for edu in education:
@@ -93,68 +93,76 @@ Returns the resume content in a structured, readable format."""
                     unique_education.append(edu)
 
             if unique_education:
-                lines.append("## Education")
-                for edu in unique_education:
+                lines.append("## Education  (path prefix: education[N].*)")
+                for i, edu in enumerate(unique_education):
                     degree = edu.get('degree', '')
                     major = edu.get('major', '')
                     degree_major = f"{degree} in {major}" if degree and major else (degree or major or '')
-                    lines.append(f"- **{edu.get('school')}** | {degree_major}")
+                    lines.append(f"### [{i}] {edu.get('school')} | {degree_major}")
                     lines.append(f"  Period: {edu.get('startDate')} - {edu.get('endDate')}")
+                    if edu.get('gpa'):
+                        lines.append(f"  GPA: {edu.get('gpa')}")
                     if edu.get('description'):
                         lines.append(f"  Description: {strip_html(edu.get('description'))}")
                     lines.append("")
 
-        # 工作经历
         experience = resume.get("experience", [])
         if experience:
-            lines.append("## Work Experience")
-            for exp in experience:
-                lines.append(f"- **{exp.get('company')}** | {exp.get('position')}")
+            lines.append("## Work Experience  (path prefix: experience[N].*)")
+            for i, exp in enumerate(experience):
+                lines.append(f"### [{i}] {exp.get('company')} | {exp.get('position')}")
                 lines.append(f"  Period: {exp.get('date')}")
                 if exp.get('details'):
-                    lines.append(f"  Details: {strip_html(exp.get('details'))}")
+                    lines.append(f"  Details:")
+                    lines.append(f"  {strip_html(exp.get('details'))}")
                 lines.append("")
 
-        # 项目经历
         projects = resume.get("projects", [])
         if projects:
-            lines.append("## Projects")
-            for proj in projects:
-                lines.append(f"- **{proj.get('name')}** | {proj.get('role')}")
-                lines.append(f"  Period: {proj.get('date')}")
+            lines.append("## Projects  (path prefix: projects[N].*)")
+            for i, proj in enumerate(projects):
+                lines.append(f"### [{i}] {proj.get('name')} | {proj.get('role', '')}")
+                lines.append(f"  Period: {proj.get('date', '')}")
                 if proj.get('description'):
                     lines.append(f"  Description: {strip_html(proj.get('description'))}")
                 if proj.get('link'):
                     lines.append(f"  Link: {proj.get('link')}")
                 lines.append("")
 
-        # 开源经历
         opensource = resume.get("openSource", [])
         if opensource:
-            lines.append("## Open Source")
-            for os in opensource:
-                lines.append(f"- **{os.get('name')}**")
-                if os.get('role'):
-                    lines.append(f"  Role: {os.get('role')}")
-                if os.get('description'):
-                    lines.append(f"  Description: {strip_html(os.get('description'))}")
-                if os.get('repo'):
-                    lines.append(f"  Repo: {os.get('repo')}")
+            lines.append("## Open Source  (path prefix: opensource[N].*)")
+            for i, os_item in enumerate(opensource):
+                lines.append(f"### [{i}] {os_item.get('name', '')}")
+                if os_item.get('role'):
+                    lines.append(f"  Role: {os_item.get('role')}")
+                if os_item.get('date'):
+                    lines.append(f"  Period: {os_item.get('date')}")
+                if os_item.get('description'):
+                    lines.append(f"  Description: {strip_html(os_item.get('description'))}")
+                if os_item.get('repo'):
+                    lines.append(f"  Repo: {os_item.get('repo')}")
+                if os_item.get('link'):
+                    lines.append(f"  Link: {os_item.get('link')}")
                 lines.append("")
 
-        # 技能
         skills = resume.get("skillContent", "")
         if skills:
-            lines.append("## Skills")
+            lines.append("## Skills  (path: skillContent)")
             lines.append(strip_html(skills))
             lines.append("")
 
-        # 荣誉奖项
+        self_eval = resume.get("selfEvaluation", "")
+        if self_eval:
+            lines.append("## Self Evaluation  (path: selfEvaluation)")
+            lines.append(strip_html(self_eval))
+            lines.append("")
+
         awards = resume.get("awards", [])
         if awards:
-            lines.append("## Awards")
-            for award in awards:
-                lines.append(f"- **{award.get('title')}**")
+            lines.append("## Awards  (path prefix: awards[N].*)")
+            for i, award in enumerate(awards):
+                lines.append(f"### [{i}] {award.get('title', '')}")
                 if award.get('issuer'):
                     lines.append(f"  Issuer: {award.get('issuer')}")
                 if award.get('date'):
@@ -199,13 +207,11 @@ Returns the resume content in a structured, readable format."""
         if not education:
             return "No education data."
 
-        # 去重：根据学校名称和学位去重
         seen = set()
         unique_education = []
         for edu in education:
             school = edu.get('school', '')
             degree = edu.get('degree', '')
-            # 创建唯一标识
             key = f"{school}_{degree}"
             if key not in seen and school:
                 seen.add(key)
@@ -218,10 +224,14 @@ Returns the resume content in a structured, readable format."""
         for edu in unique_education:
             degree = edu.get('degree', '')
             major = edu.get('major', '')
-            # 格式化学位和专业信息
             degree_major = f"{degree} in {major}" if degree and major else (degree or major or '')
             lines.append(f"- **{edu.get('school')}** | {degree_major}")
-            lines.append(f"  {edu.get('startDate')} - {edu.get('endDate')}")
+            lines.append(f"  Period: {edu.get('startDate')} - {edu.get('endDate')}")
+            if edu.get('gpa'):
+                lines.append(f"  GPA: {edu.get('gpa')}")
+            if edu.get('description'):
+                lines.append(f"  Description: {strip_html(edu.get('description'))}")
+            lines.append("")
         return "\n".join(lines)
 
     def _format_experience(self, resume: dict) -> str:
@@ -229,13 +239,13 @@ Returns the resume content in a structured, readable format."""
         if not experience:
             return "No experience data."
         lines = []
-        for exp in experience:
-            lines.append(f"- **{exp.get('company')}** | {exp.get('position')}")
-            lines.append(f"  {exp.get('date')}")
-            # 🔧 修复：输出 details 字段的详细内容
+        for i, exp in enumerate(experience):
+            lines.append(f"### [{i}] {exp.get('company')} | {exp.get('position')}")
+            lines.append(f"  Period: {exp.get('date')}")
             if exp.get('details'):
-                details_text = strip_html(exp.get('details'))
-                lines.append(f"  Details:\n  {details_text}")
+                lines.append(f"  Details:")
+                lines.append(f"  {strip_html(exp.get('details'))}")
+            lines.append("")
         return "\n".join(lines)
 
     def _format_projects(self, resume: dict) -> str:
@@ -243,9 +253,14 @@ Returns the resume content in a structured, readable format."""
         if not projects:
             return "No projects data."
         lines = []
-        for proj in projects:
-            lines.append(f"- **{proj.get('name')}** | {proj.get('role')}")
-            lines.append(f"  {proj.get('date')}")
+        for i, proj in enumerate(projects):
+            lines.append(f"### [{i}] {proj.get('name')} | {proj.get('role', '')}")
+            lines.append(f"  Period: {proj.get('date', '')}")
+            if proj.get('description'):
+                lines.append(f"  Description: {strip_html(proj.get('description'))}")
+            if proj.get('link'):
+                lines.append(f"  Link: {proj.get('link')}")
+            lines.append("")
         return "\n".join(lines)
 
     def _format_skills(self, resume: dict) -> str:
@@ -255,10 +270,32 @@ Returns the resume content in a structured, readable format."""
         awards = resume.get("awards", [])
         if not awards:
             return "No awards data."
-        return "\n".join(f"- **{a.get('title')}**" for a in awards)
+        lines = []
+        for award in awards:
+            lines.append(f"- **{award.get('title', '')}**")
+            if award.get('issuer'):
+                lines.append(f"  Issuer: {award.get('issuer')}")
+            if award.get('date'):
+                lines.append(f"  Date: {award.get('date')}")
+            lines.append("")
+        return "\n".join(lines)
 
     def _format_opensource(self, resume: dict) -> str:
         opensource = resume.get("openSource", [])
         if not opensource:
             return "No open source data."
-        return "\n".join(f"- **{os.get('name')}**" for os in opensource)
+        lines = []
+        for i, os_item in enumerate(opensource):
+            lines.append(f"### [{i}] {os_item.get('name', '')}")
+            if os_item.get('role'):
+                lines.append(f"  Role: {os_item.get('role')}")
+            if os_item.get('date'):
+                lines.append(f"  Period: {os_item.get('date')}")
+            if os_item.get('description'):
+                lines.append(f"  Description: {strip_html(os_item.get('description'))}")
+            if os_item.get('repo'):
+                lines.append(f"  Repo: {os_item.get('repo')}")
+            if os_item.get('link'):
+                lines.append(f"  Link: {os_item.get('link')}")
+            lines.append("")
+        return "\n".join(lines)
