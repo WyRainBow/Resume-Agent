@@ -94,7 +94,7 @@ export default function AgentPdfPreviewPanel({
               <p className="mt-0.5 truncate text-xs text-chat-ink-muted">{resumeName}</p>
             )}
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
+          <div className="inline-flex shrink-0 items-center gap-0.5 rounded-xl border border-chat-border/70 bg-chat-surface/90 p-1 shadow-sm backdrop-blur-sm dark:border-slate-700/80 dark:bg-slate-900/90">
             <button
               type="button"
               onClick={() => {
@@ -109,26 +109,31 @@ export default function AgentPdfPreviewPanel({
                 URL.revokeObjectURL(url);
               }}
               disabled={!pdfBlob}
-              className="inline-flex items-center gap-1 rounded-lg border border-chat-border bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-emerald-400 dark:hover:bg-slate-700"
+              title="下载 PDF"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-red-600 dark:hover:bg-red-500"
             >
-              <Download className="size-3.5" />
-              下载 PDF
+              <Download className="size-3.5" strokeWidth={2.25} />
+              下载
             </button>
+            <span className="mx-0.5 h-4 w-px bg-chat-border/80 dark:bg-slate-700" aria-hidden />
             <button
               type="button"
               onClick={onRerender}
               disabled={loading}
-              className="inline-flex items-center gap-1 rounded-lg border border-chat-border bg-white px-2.5 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-blue-400 dark:hover:bg-slate-700"
+              title={loading ? "正在渲染" : "重新渲染 PDF"}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-blue-600 dark:hover:bg-blue-500"
             >
-              <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
-              {loading ? "渲染中" : "重新渲染"}
+              <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} strokeWidth={2.25} />
+              {loading ? "渲染中" : "刷新"}
             </button>
+            <span className="mx-0.5 h-4 w-px bg-chat-border/80 dark:bg-slate-700" aria-hidden />
             <button
               type="button"
               onClick={onClose}
-              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium text-chat-ink-muted transition-colors hover:bg-chat-canvas dark:hover:bg-slate-800"
+              title="关闭预览"
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-chat-ink-muted transition-colors hover:bg-chat-canvas hover:text-chat-ink active:scale-[0.98] dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
-              <X className="size-3.5" />
+              <X className="size-3.5" strokeWidth={2.25} />
               关闭
             </button>
           </div>
