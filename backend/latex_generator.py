@@ -379,24 +379,34 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     employement_status = escape_latex(merged_status)
     blog = resume_data.get('blog') or ''  # 不 escape，保留原始 URL 给 \href
 
-    # 有照片时，右侧叠加照片，不改变姓名/联系信息的居中布局
-    if resume_data.get("photo"):
+    photo_placement = str(global_settings.get("photoPlacement") or "right").lower()
+    if photo_placement not in {"left", "right", "none"}:
+        photo_placement = "right"
+    should_render_photo = bool(resume_data.get("photo")) and photo_placement != "none"
+
+    # 有照片时叠加渲染，不改变姓名/联系信息的居中布局
+    if should_render_photo:
         photo_offset_x = _safe_float(resume_data.get("photoOffsetX"), 0.0, -6.0, 6.0)
         photo_offset_y = _safe_float(resume_data.get("photoOffsetY"), -2.0, -6.0, 6.0)
         photo_width_cm = _safe_float(resume_data.get("photoWidthCm"), 3.0, 1.2, 6.0)
         photo_height_cm = _safe_float(resume_data.get("photoHeightCm"), 3.0, 1.2, 8.0)
-        # 右对齐锚点：在图片后追加空白才能改变右边界；x 正值代表向右偏移（与前端输入一致）。
-        x_shift_cm = -photo_offset_x
-        latex_content.append(
-            f"\\noindent\\makebox[\\textwidth][r]{{\\raisebox{{{photo_offset_y:.2f}cm}}[0pt][0pt]{{\\includegraphics[width={photo_width_cm:.2f}cm,height={photo_height_cm:.2f}cm,keepaspectratio]{{photo}}}}\\hspace*{{{x_shift_cm:.2f}cm}}}}"
-        )
+        if photo_placement == "left":
+            latex_content.append(
+                f"\\noindent\\makebox[\\textwidth][l]{{\\hspace*{{{photo_offset_x:.2f}cm}}\\raisebox{{{photo_offset_y:.2f}cm}}[0pt][0pt]{{\\includegraphics[width={photo_width_cm:.2f}cm,height={photo_height_cm:.2f}cm,keepaspectratio]{{photo}}}}}}"
+            )
+        else:
+            # 右对齐锚点：在图片后追加空白才能改变右边界；x 正值代表向右偏移（与前端输入一致）。
+            x_shift_cm = -photo_offset_x
+            latex_content.append(
+                f"\\noindent\\makebox[\\textwidth][r]{{\\raisebox{{{photo_offset_y:.2f}cm}}[0pt][0pt]{{\\includegraphics[width={photo_width_cm:.2f}cm,height={photo_height_cm:.2f}cm,keepaspectratio]{{photo}}}}\\hspace*{{{x_shift_cm:.2f}cm}}}}"
+            )
         # 覆盖浮层不应拉开标题区高度
         latex_content.append(r"\vspace{-1.1\baselineskip}")
 
     latex_content.append(f"\\name{{{escape_latex(name)}}}")
     latex_content.append("")
     # 姓名与联系信息间距调节：保留有照片时的默认压缩，再叠加用户设置
-    if resume_data.get("photo"):
+    if should_render_photo:
         latex_content.append(r"\vspace{-0.8ex}")
     if abs(header_name_contact_gap_px) > 0.01:
         latex_content.append(f"\\vspace{{{_px_to_pt(header_name_contact_gap_px):.2f}pt}}")

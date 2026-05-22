@@ -170,6 +170,7 @@ export interface GlobalSettings {
   latexHeaderNameContactGapPx?: number  // 姓名与联系信息间距调整（px，可为负）
   latexHeaderBottomGapPx?: number  // 联系信息下方空白（px，可为负）
   birthDateDisplayMode?: 'birthDate' | 'age'  // 年龄渲染模式：显示出生年月 | 仅显示年龄
+  photoPlacement?: 'left' | 'right' | 'none'
 }
 
 /**
@@ -182,6 +183,7 @@ export interface ResumeData {
   updatedAt: string
   templateId: string | null
   templateType?: 'latex' | 'html'  // 模板类型：latex 或 html，默认 latex
+  directionTemplateId?: string | null
   alias?: string  // 备注/别名
   basic: BasicInfo
   education: Education[]

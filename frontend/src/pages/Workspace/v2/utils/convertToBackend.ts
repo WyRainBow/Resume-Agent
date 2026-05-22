@@ -70,6 +70,7 @@ export interface BackendResumeData {
   customData?: Record<string, CustomItem[]>
   globalSettings?: {
     experienceListType?: 'none' | 'unordered' | 'ordered'
+    photoPlacement?: 'left' | 'right' | 'none'
     [key: string]: any
   }
 }

@@ -6,6 +6,7 @@ import { getCurrentResumeId, setCurrentResumeId, getResume } from '../../../../s
 import { loadFromStorage, STORAGE_KEY, isLegacyDefaultMenuOrder, migrateMenuSectionsToLatestDefault } from '../constants'
 import { stripPhotoFromResumeData } from '@/services/storage/sanitizeResume'
 import { normalizeLatexTemplateId } from '@/services/resumeTemplates'
+import { createResumeFromDirectionTemplate } from '@/data/resumeDirectionTemplates'
 import { useLocation, useParams } from 'react-router-dom'
 import { useResumeContext } from '@/contexts/ResumeContext'
 import type {
@@ -94,17 +95,23 @@ export function useResumeData() {
     const loadResume = async () => {
       // /workspace/latex（不带 ID）始终按“新建默认模板”处理，避免旧缓存覆盖模板更新
       if (location.pathname === '/workspace/latex' && !routeResumeId) {
-        const queryTemplateId = new URLSearchParams(location.search).get('templateId')
-        const stateTemplateId = (location.state as { templateId?: string } | null)?.templateId
+        const searchParams = new URLSearchParams(location.search)
+        const state = location.state as { templateId?: string; directionTemplateId?: string } | null
+        const directionTemplateId = searchParams.get('directionTemplateId') || state?.directionTemplateId
+        const queryTemplateId = searchParams.get('templateId')
+        const stateTemplateId = state?.templateId
         const templateId = normalizeLatexTemplateId(queryTemplateId || stateTemplateId)
+        const nextResumeData = directionTemplateId
+          ? createResumeFromDirectionTemplate(directionTemplateId)
+          : {
+              ...loadFromStorage(),
+              templateId,
+              templateType: 'latex' as const,
+            }
         setCurrentResumeId(null)
         setCurrentId(null)
         localStorage.removeItem(STORAGE_KEY)
-        setResumeData({
-          ...loadFromStorage(),
-          templateId,
-          templateType: 'latex',
-        })
+        setResumeData(nextResumeData)
         setIsDataLoaded(true)
         return
       }
@@ -148,6 +155,7 @@ export function useResumeData() {
             : prev.customData,  // 加载自定义数据
           templateType: data.templateType || prev.templateType,  // 保留模板类型
           templateId: data.templateId || prev.templateId,  // 保留模板 ID
+          directionTemplateId: data.directionTemplateId ?? prev.directionTemplateId,
         }))
         setCurrentId(id)
       }
