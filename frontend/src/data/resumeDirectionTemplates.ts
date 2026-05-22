@@ -19,6 +19,7 @@ export interface ResumeDirectionTemplate {
   category: string
   tags: string[]
   bestFor: string[]
+  previewImageUrl?: string
   latexTemplateId?: string
   photoPlacement: PhotoPlacement
   sections: ResumeDirectionSection[]
@@ -26,6 +27,7 @@ export interface ResumeDirectionTemplate {
 }
 
 export const DEFAULT_RESUME_DIRECTION_TEMPLATE_ID = 'software-engineering'
+export const DEFAULT_DIRECTION_TEMPLATE_PREVIEW_URL = '/api/resume-templates/classic/preview'
 
 const COMMON_SETTINGS: Partial<GlobalSettings> = {
   latexFontSize: 11,

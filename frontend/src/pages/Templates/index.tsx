@@ -3,6 +3,7 @@ import { ArrowRight, CheckCircle, FileText, Image, LayoutTemplate, ListChecks, S
 import { useNavigate } from 'react-router-dom'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import {
+  DEFAULT_DIRECTION_TEMPLATE_PREVIEW_URL,
   DEFAULT_RESUME_DIRECTION_TEMPLATE_ID,
   RESUME_DIRECTION_TEMPLATES,
   type PhotoPlacement,
@@ -22,6 +23,7 @@ export default function TemplatesPage() {
   const navigate = useNavigate()
   const [selectedTemplateId, setSelectedTemplateId] = useState(DEFAULT_RESUME_DIRECTION_TEMPLATE_ID)
   const [keyword, setKeyword] = useState('')
+  const [failedPreviewIds, setFailedPreviewIds] = useState<Set<string>>(() => new Set())
 
   const templates = useMemo(() => {
     const query = keyword.trim().toLowerCase()
@@ -56,10 +58,18 @@ export default function TemplatesPage() {
     })
   }
 
+  const handlePreviewError = (templateId: string) => {
+    setFailedPreviewIds((current) => {
+      const next = new Set(current)
+      next.add(templateId)
+      return next
+    })
+  }
+
   return (
     <WorkspaceLayout>
       <div className="h-full min-h-0 overflow-auto bg-slate-50">
-        <div className="mx-auto flex min-h-full w-full max-w-7xl flex-col px-6 py-6 lg:px-8">
+        <div className="mx-auto flex min-h-full w-full max-w-[1800px] flex-col px-4 py-6 sm:px-6 2xl:px-8">
           <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1 text-sm font-medium text-slate-600 shadow-sm">
@@ -94,16 +104,18 @@ export default function TemplatesPage() {
             </div>
           </header>
 
-          <div className="grid flex-1 gap-6 py-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+          <div className="grid flex-1 gap-6 py-6 lg:grid-cols-[minmax(0,1fr)_320px]">
             <section className="min-w-0">
               {templates.length === 0 ? (
                 <div className="rounded-lg border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
                   没有匹配的模板
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
                   {templates.map((template) => {
                     const selected = selectedTemplate?.id === template.id
+                    const previewImageUrl = template.previewImageUrl || DEFAULT_DIRECTION_TEMPLATE_PREVIEW_URL
+                    const previewFailed = failedPreviewIds.has(template.id)
                     return (
                       <button
                         key={template.id}
@@ -115,41 +127,19 @@ export default function TemplatesPage() {
                           selected ? 'border-slate-950 ring-2 ring-slate-950/10' : 'border-slate-200',
                         )}
                       >
-                        <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-100 p-4">
-                          <div className="h-full rounded-md border border-slate-200 bg-white p-4 shadow-sm">
-                            <div
-                              className={cn(
-                                'relative min-h-16 border-b border-slate-200 pb-3',
-                                template.photoPlacement === 'left' && 'pl-16',
-                                template.photoPlacement === 'right' && 'pr-16',
-                              )}
-                            >
-                              {template.photoPlacement !== 'none' ? (
-                                <div
-                                  className={cn(
-                                    'absolute top-0 h-14 w-11 rounded-sm border border-slate-300 bg-slate-100',
-                                    template.photoPlacement === 'left' ? 'left-0' : 'right-0',
-                                  )}
-                                >
-                                  <Image className="m-auto mt-4 h-5 w-5 text-slate-400" />
-                                </div>
-                              ) : null}
-                              <div className="h-3 w-24 rounded bg-slate-900" />
-                              <div className="mt-2 h-2 w-32 rounded bg-slate-300" />
-                              <div className="mt-1 h-2 w-28 rounded bg-slate-200" />
+                        <div className="relative aspect-[3/4] w-full overflow-hidden bg-slate-100 p-3">
+                          {previewFailed ? (
+                            <div className="flex h-full w-full items-center justify-center rounded-md border border-slate-200 bg-white text-slate-400 shadow-sm">
+                              <FileText className="h-12 w-12" />
                             </div>
-                            <div className="mt-4 space-y-3">
-                              {template.sections.slice(1, 6).map((section) => (
-                                <div key={section.id}>
-                                  <div className="h-2.5 w-20 rounded bg-emerald-700" />
-                                  <div className="mt-2 space-y-1">
-                                    <div className="h-1.5 w-full rounded bg-slate-200" />
-                                    <div className="h-1.5 w-4/5 rounded bg-slate-200" />
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
+                          ) : (
+                            <img
+                              src={previewImageUrl}
+                              alt={`${template.name} preview`}
+                              onError={() => handlePreviewError(template.id)}
+                              className="h-full w-full rounded-md border border-slate-200 bg-white object-contain p-2 shadow-sm transition duration-300 group-hover:scale-[1.01]"
+                            />
+                          )}
                           {selected ? (
                             <div className="absolute right-3 top-3 rounded-full bg-slate-950 p-1.5 text-white shadow">
                               <CheckCircle className="h-4 w-4" />
