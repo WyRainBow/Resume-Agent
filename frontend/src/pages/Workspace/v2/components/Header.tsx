@@ -100,7 +100,7 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
               )}
             >
               <Code2 className="w-4 h-4" />
-              JSON 编辑
+              JSON 编辑（仅管理员）
             </button>
             )}
         </div>

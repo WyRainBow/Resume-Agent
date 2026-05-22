@@ -371,10 +371,10 @@ export function ExportButton({
             {/* 内容 */}
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-slate-900 dark:text-slate-100 text-base mb-1">
-                导出 JSON
+                导出 JSON（仅管理员）
               </div>
               <div className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                下载 JSON 格式的简历快照。用于备份简历数据。
+                下载 JSON 格式的简历原始数据，用于备份和导出。
               </div>
             </div>
           </button>
