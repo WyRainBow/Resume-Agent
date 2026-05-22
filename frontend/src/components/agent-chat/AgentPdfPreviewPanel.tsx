@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Minus, Plus, RefreshCw, X } from "lucide-react";
+import { Minus, Plus, RefreshCw, X, Download } from "lucide-react";
 import { PDFViewerSelector } from "@/components/PDFEditor";
 import CustomScrollbar from "@/components/common/CustomScrollbar";
 
@@ -95,6 +95,25 @@ export default function AgentPdfPreviewPanel({
             )}
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                if (!pdfBlob) return;
+                const url = URL.createObjectURL(pdfBlob);
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = `${resumeName || "resume"}.pdf`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+              }}
+              disabled={!pdfBlob}
+              className="inline-flex items-center gap-1 rounded-lg border border-chat-border bg-white px-2.5 py-1.5 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-700 dark:bg-slate-800 dark:text-emerald-400 dark:hover:bg-slate-700"
+            >
+              <Download className="size-3.5" />
+              下载 PDF
+            </button>
             <button
               type="button"
               onClick={onRerender}
