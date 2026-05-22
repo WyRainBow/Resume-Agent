@@ -68,6 +68,7 @@ def _get_remote_pdf_render_base_url() -> str:
 def _build_remote_pdf_headers(request: Request) -> dict[str, str]:
     headers = {"Content-Type": "application/json"}
     passthrough_headers = [
+        "Authorization",
         "X-PDF-Trace-Id",
         "X-PDF-Trace-Source",
         "X-PDF-Trace-Trigger",
@@ -98,7 +99,14 @@ def _is_self_remote_target(base_url: str, request: Request) -> bool:
     return host in local_hosts and target_port == request_port
 
 
-async def _dispatch_local_pdf(*, path: str, body: RenderPDFRequest, request: Request):
+async def _dispatch_local_pdf(
+    *,
+    path: str,
+    body: RenderPDFRequest,
+    request: Request,
+    current_user: User,
+    db: Session,
+):
     logger.info(
         "[Admin PDF] self-target detected, bypass proxy path=%s trace_id=%s",
         path,
@@ -106,14 +114,27 @@ async def _dispatch_local_pdf(*, path: str, body: RenderPDFRequest, request: Req
     )
     pdf_route = importlib.import_module("backend.routes.pdf")
     if path.endswith("/stream"):
-        return await pdf_route.render_pdf_stream(body, request)
-    return await pdf_route.render_pdf(body, request)
+        return await pdf_route.render_pdf_stream(body, request, current_user, db)
+    return await pdf_route.render_pdf(body, request, current_user, db)
 
 
-async def _proxy_remote_pdf(*, path: str, body: RenderPDFRequest, request: Request):
+async def _proxy_remote_pdf(
+    *,
+    path: str,
+    body: RenderPDFRequest,
+    request: Request,
+    current_user: User,
+    db: Session,
+):
     base_url = _get_remote_pdf_render_base_url()
     if _is_self_remote_target(base_url, request):
-        return await _dispatch_local_pdf(path=path, body=body, request=request)
+        return await _dispatch_local_pdf(
+            path=path,
+            body=body,
+            request=request,
+            current_user=current_user,
+            db=db,
+        )
 
     target_url = f"{base_url}{path}"
     payload = body.model_dump() if hasattr(body, "model_dump") else body.dict()
@@ -198,6 +219,7 @@ async def remote_render_pdf(
     body: RenderPDFRequest,
     request: Request,
     current_user: User = Depends(require_admin_only),
+    db: Session = Depends(get_db),
 ):
     logger.info(
         "[Admin PDF] local request accepted user=%s role=%s mode=remote path=/api/admin/pdf/render trace_id=%s",
@@ -205,7 +227,13 @@ async def remote_render_pdf(
         current_user.role,
         request.headers.get("X-PDF-Trace-Id") or "-",
     )
-    return await _proxy_remote_pdf(path="/api/pdf/render", body=body, request=request)
+    return await _proxy_remote_pdf(
+        path="/api/pdf/render",
+        body=body,
+        request=request,
+        current_user=current_user,
+        db=db,
+    )
 
 
 @router.post("/pdf/render/stream")
@@ -213,6 +241,7 @@ async def remote_render_pdf_stream(
     body: RenderPDFRequest,
     request: Request,
     current_user: User = Depends(require_admin_only),
+    db: Session = Depends(get_db),
 ):
     logger.info(
         "[Admin PDF] local request accepted user=%s role=%s mode=remote path=/api/admin/pdf/render/stream trace_id=%s",
@@ -220,4 +249,10 @@ async def remote_render_pdf_stream(
         current_user.role,
         request.headers.get("X-PDF-Trace-Id") or "-",
     )
-    return await _proxy_remote_pdf(path="/api/pdf/render/stream", body=body, request=request)
+    return await _proxy_remote_pdf(
+        path="/api/pdf/render/stream",
+        body=body,
+        request=request,
+        current_user=current_user,
+        db=db,
+    )

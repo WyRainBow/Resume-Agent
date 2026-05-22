@@ -86,7 +86,7 @@ const ExperiencePanel = ({
         )}
       >
         <PlusCircle className="w-4 h-4" />
-        添加工作经历
+        添加实习经历
       </button>
     </div>
   )

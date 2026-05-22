@@ -8,6 +8,7 @@
 from typing import Optional, Dict, Any
 
 from backend.agent.agent.shared_state import AgentSharedState
+from backend.agent.utils.experience_entry import sanitize_resume_payload
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -34,40 +35,78 @@ class ResumeDataStore:
     def _extract_name(resume_data: dict) -> Optional[str]:
         """尽量从简历数据中提取名称"""
         basics = resume_data.get("basic") or resume_data.get("basics") or {}
-        return basics.get("name")
+        if isinstance(basics, str):
+            return basics.strip() or None
+        if isinstance(basics, dict):
+            return basics.get("name")
+        return None
+
+    @staticmethod
+    def _needs_sanitize(resume_data: dict) -> bool:
+        basic = resume_data.get("basic") or resume_data.get("basics")
+        if isinstance(basic, str):
+            return True
+        exp = resume_data.get("experience")
+        if isinstance(exp, list):
+            for item in exp:
+                if item is None or item == {} or isinstance(item, str):
+                    return True
+        return False
+
+    @classmethod
+    def _prepare_data(cls, resume_data: dict) -> dict:
+        if not isinstance(resume_data, dict):
+            return {}
+        if not cls._needs_sanitize(resume_data):
+            return resume_data
+        return sanitize_resume_payload(resume_data)
 
     @classmethod
     def set_data(cls, resume_data: dict, session_id: Optional[str] = None):
-        """设置简历数据"""
-        cls._data = resume_data
+        """设置简历数据（严格按 session 隔离）"""
+        cleaned = cls._prepare_data(resume_data)
         if session_id:
-            cls._data_by_session[session_id] = resume_data
-            cls._meta_by_session[session_id] = cls._extract_meta(resume_data)
+            cls._data_by_session[session_id] = cleaned
+            cls._meta_by_session[session_id] = cls._extract_meta(cleaned)
             shared_state = cls._shared_state_by_session.get(session_id)
             if shared_state:
-                shared_state.set("resume_data", resume_data)
+                shared_state.set("resume_data", cleaned)
+        else:
+            cls._data = cleaned
 
     @classmethod
     def get_data(cls, session_id: Optional[str] = None) -> Optional[dict]:
-        """获取简历数据"""
+        """获取简历数据（严格按 session，不 fallback 到全局）"""
         if session_id:
+            raw: Optional[dict] = None
             shared_state = cls._shared_state_by_session.get(session_id)
             if shared_state and shared_state.has("resume_data"):
-                return shared_state.get("resume_data")
-            if session_id in cls._data_by_session:
-                return cls._data_by_session[session_id]
-        return cls._data
+                raw = shared_state.get("resume_data")
+            elif session_id in cls._data_by_session:
+                raw = cls._data_by_session[session_id]
+            if raw is None:
+                return None
+            cleaned = cls._prepare_data(raw)
+            if cleaned != raw:
+                cls._data_by_session[session_id] = cleaned
+                if shared_state:
+                    shared_state.set("resume_data", cleaned)
+            return cleaned
+        if cls._data is None:
+            return None
+        return cls._prepare_data(cls._data)
 
     @classmethod
     def clear_data(cls, session_id: Optional[str] = None):
         """清空简历数据"""
-        cls._data = None
-        if session_id and session_id in cls._data_by_session:
+        if session_id:
             cls._data_by_session.pop(session_id, None)
             cls._meta_by_session.pop(session_id, None)
-            shared_state = cls._shared_state_by_session.get(session_id)
+            shared_state = cls._shared_state_by_session.pop(session_id, None)
             if shared_state:
                 shared_state.delete("resume_data")
+        else:
+            cls._data = None
 
     @classmethod
     def set_shared_state(cls, session_id: str, state: AgentSharedState):

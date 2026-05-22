@@ -16,13 +16,16 @@ import uuid
 from datetime import datetime
 from typing import AsyncGenerator, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import StreamingResponse
 from openai import PermissionDeniedError
 
 from backend.agent.agent.manus import Manus
 from backend.agent.config import NetworkConfig, config
 from backend.core.logger import get_logger
+from backend.middleware.auth import get_current_user
+from backend.models import User
+from backend.agent.cltp.storage.session_scope import SessionAccessError
 
 logger = get_logger(__name__)
 from backend.agent.schema import AgentState as SchemaAgentState, Message, Role
@@ -43,6 +46,9 @@ conversation_manager = ConversationManager(storage=storage)
 # Store active sessions (conversation_id -> agent instance)
 _active_sessions: dict[str, dict] = {}
 
+# In-memory session TTL — evict idle agent sessions to cap memory growth
+_SESSION_TTL_SECONDS = int(os.getenv("AGENT_SESSION_TTL_SECONDS", "3600"))
+
 # Heartbeat configuration
 HEARTBEAT_INTERVAL = 55  # seconds — 心跳间隔，前端超时为 60s，需留 5s 余量
 HEARTBEAT_V2_ENABLED = (
@@ -50,8 +56,21 @@ HEARTBEAT_V2_ENABLED = (
 )
 
 
+def _is_admin(user: User) -> bool:
+    return getattr(user, "role", None) == "admin"
+
+
+def _assert_session_access(conversation_id: str, user: User) -> None:
+    owner_id = conversation_manager.get_session_owner(conversation_id)
+    if owner_id is None:
+        return
+    if owner_id != user.id and not _is_admin(user):
+        raise HTTPException(status_code=403, detail="无权访问该会话")
+
+
 def _get_or_create_session(
     conversation_id: str,
+    user: User,
     resume_path: Optional[str] = None,
     resume_data: Optional[dict] = None,
 ) -> dict:
@@ -64,10 +83,19 @@ def _get_or_create_session(
     Returns:
         Session dict containing agent and chat history
     """
+    _assert_session_access(conversation_id, user)
+
     # Check if session exists in memory but file has been deleted
     if conversation_id in _active_sessions:
+        session_user_id = _active_sessions[conversation_id].get("user_id")
+        if session_user_id not in (None, user.id) and not _is_admin(user):
+            raise HTTPException(status_code=403, detail="无权访问该会话")
         # Verify file still exists in storage
-        existing_messages = storage.load_messages(conversation_id)
+        existing_messages = storage.load_messages(
+            conversation_id,
+            user_id=user.id,
+            is_admin=_is_admin(user),
+        )
         if not existing_messages:
             # File has been deleted, but session still exists in memory
             # Clean up old session and create a new one
@@ -104,7 +132,9 @@ def _get_or_create_session(
                 with network_config.without_proxy():
                     agent = Manus(session_id=conversation_id)
                 chat_history = conversation_manager.get_or_create_history(
-                    conversation_id
+                    conversation_id,
+                    user_id=user.id,
+                    is_admin=_is_admin(user),
                 )
                 break
             except Exception as exc:
@@ -135,6 +165,7 @@ def _get_or_create_session(
             "chat_history": chat_history,
             "resume_path": resume_path,
             "created_at": datetime.now(),
+            "user_id": user.id,
         }
         logger.info(f"[SSE] Created new session: {conversation_id}")
     else:
@@ -156,7 +187,16 @@ def _get_or_create_session(
     return _active_sessions[conversation_id]
 
 
-_SESSION_TTL_SECONDS = 2 * 3600  # 2 hours
+def clear_active_sessions_for_user(user_id: int) -> None:
+    """Remove in-memory agent sessions owned by a user."""
+    stale_ids = [
+        conversation_id
+        for conversation_id, session in list(_active_sessions.items())
+        if session.get("user_id") == user_id
+    ]
+    for conversation_id in stale_ids:
+        del _active_sessions[conversation_id]
+        logger.info(f"[SSE] Cleared active session for user {user_id}: {conversation_id}")
 
 
 def _cleanup_session(conversation_id: str) -> None:
@@ -164,6 +204,8 @@ def _cleanup_session(conversation_id: str) -> None:
 
     Evicts sessions older than _SESSION_TTL_SECONDS to prevent unbounded growth.
     """
+    from backend.agent.tool.resume_data_store import ResumeDataStore
+
     now = datetime.now()
     stale = [
         cid
@@ -179,12 +221,14 @@ def _cleanup_session(conversation_id: str) -> None:
                     agent.memory.messages.clear()
             except Exception:
                 pass
+        ResumeDataStore.clear_data(cid)
         logger.info(f"[SSE] Evicted stale session: {cid}")
 
 
 async def _stream_event_generator(
     conversation_id: str,
     prompt: str,
+    user: User,
     resume_path: Optional[str] = None,
     resume_data: Optional[dict] = None,
     cursor: Optional[str] = None,
@@ -210,7 +254,9 @@ async def _stream_event_generator(
         f"[SSE Generator] Starting generator for conversation: {conversation_id}"
     )
     try:
-        session = _get_or_create_session(conversation_id, resume_path, resume_data)
+        session = _get_or_create_session(
+            conversation_id, user, resume_path, resume_data
+        )
         agent = session["agent"]
         chat_history = session["chat_history"]
         logger.info(f"[SSE Generator] Session created/retrieved successfully")
@@ -412,7 +458,10 @@ async def _stream_event_generator(
 
 
 @router.post("/stream")
-async def stream_events(request: StreamRequest) -> StreamingResponse:
+async def stream_events(
+    request: StreamRequest,
+    current_user: User = Depends(get_current_user),
+) -> StreamingResponse:
     """SSE streaming endpoint for agent interaction.
 
     This endpoint:
@@ -433,7 +482,11 @@ async def stream_events(request: StreamRequest) -> StreamingResponse:
     if not prompt:
         raise HTTPException(status_code=422, detail="Missing prompt/message")
 
-    logger.info(f"[SSE] Starting stream for conversation: {conversation_id}")
+    _assert_session_access(conversation_id, current_user)
+
+    logger.info(
+        f"[SSE] Starting stream for conversation: {conversation_id} user={current_user.id}"
+    )
 
     # 🚨 增加防护：同一 sessionId 正在运行时，停止旧的 stream。
     # 这样可以防止多个 tab 或快速切换导致并发冲突，同时能通过 reason 区分是“新请求打断”还是“手动停止”。
@@ -468,6 +521,7 @@ async def stream_events(request: StreamRequest) -> StreamingResponse:
         _stream_event_generator(
             conversation_id=conversation_id,
             prompt=prompt,
+            user=current_user,
             resume_path=request.resume_path,
             resume_data=request.resume_data,
             cursor=request.cursor,
@@ -485,7 +539,11 @@ async def stream_events(request: StreamRequest) -> StreamingResponse:
 
 
 @router.post("/stream/stop/{conversation_id}")
-async def stop_stream(conversation_id: str, request: Request) -> dict:
+async def stop_stream(
+    conversation_id: str,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+) -> dict:
     """Stop an active stream.
 
     Args:
@@ -501,6 +559,8 @@ async def stop_stream(conversation_id: str, request: Request) -> dict:
     user_agent = request.headers.get("user-agent", "unknown")
     logger.info(f"[SSE] Stop request for {conversation_id} from {client_host} (UA: {user_agent})")
 
+    _assert_session_access(conversation_id, current_user)
+
     success = await stream_processor.stop_stream(conversation_id)
 
     if success:
@@ -512,7 +572,10 @@ async def stop_stream(conversation_id: str, request: Request) -> dict:
 
 
 @router.delete("/stream/session/{conversation_id}")
-async def clear_session(conversation_id: str) -> dict:
+async def clear_session(
+    conversation_id: str,
+    current_user: User = Depends(get_current_user),
+) -> dict:
     """Clear a conversation session.
 
     Args:
@@ -521,10 +584,14 @@ async def clear_session(conversation_id: str) -> dict:
     Returns:
         Status message
     """
+    from backend.agent.tool.resume_data_store import ResumeDataStore
+
+    _assert_session_access(conversation_id, current_user)
+
+    ResumeDataStore.clear_data(conversation_id)
     if conversation_id in _active_sessions:
         del _active_sessions[conversation_id]
         logger.info(f"[SSE] Cleared session: {conversation_id}")
         return {"status": "cleared", "conversation_id": conversation_id}
-    # Idempotent delete: do not 404 for missing session
     logger.info(f"[SSE] Session not found (already cleared): {conversation_id}")
     return {"status": "not_found", "conversation_id": conversation_id}

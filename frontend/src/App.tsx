@@ -4,7 +4,7 @@ import { AuthModal } from './components/AuthModal'
 import { ThemeInit } from './components/ThemeInit'
 import ErrorBoundary from './ErrorBoundary'
 import { lazyWithRetry } from './lib/lazyWithRetry'
-import { canUseAgentFeature, canUseAdminFeature } from './lib/runtimeEnv'
+import { canUseAdminFeature, isAgentEnabled } from './lib/runtimeEnv'
 import { useAuth } from './contexts/AuthContext'
 import ResumeDashboard from './pages/ResumeDashboard'
 import { ResumeProvider } from './contexts/ResumeContext'
@@ -36,7 +36,7 @@ function RouteFallback() {
 function App() {
   // 订阅 AuthContext，确保登录/登出后路由权限会更新
   const { isAuthenticated, loading: authLoading } = useAuth()
-  const canUseAgent = !authLoading && isAuthenticated && canUseAgentFeature()
+  const agentPageEnabled = isAgentEnabled()
   const canUseAdmin = !authLoading && isAuthenticated && canUseAdminFeature()
   try {
     if (authLoading) {
@@ -56,7 +56,7 @@ function App() {
               <Route path="/workspace/latex/:resumeId" element={<LaTeXWorkspace />} />
               <Route path="/workspace/html" element={<HTMLWorkspace />} />
               <Route path="/workspace/html/:resumeId" element={<HTMLWorkspace />} />
-              {canUseAgent ? (
+              {agentPageEnabled ? (
                 <>
                   <Route path="/agent/new" element={<AgentChat />} />
                   <Route path="/agent/:resumeId" element={<AgentChat />} />

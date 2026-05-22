@@ -172,27 +172,39 @@ export default function EnhancedMarkdown({
   }
   
   return (
-    <div className={className}>
+    <div>
       <div
-        className="prose prose-base max-w-none
-          prose-headings:text-gray-900 prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
+        className={`prose prose-base max-w-none
+          prose-headings:text-chat-ink prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
           prose-h1:text-xl prose-h2:text-lg prose-h3:text-base
-          prose-p:text-gray-700 prose-p:leading-relaxed prose-p:mb-2 prose-p:text-[16px]
-          prose-strong:text-gray-900 prose-strong:font-semibold
+          prose-p:text-chat-ink/90 prose-p:leading-relaxed prose-p:mb-2 prose-p:text-[16px]
+          prose-strong:text-chat-ink prose-strong:font-semibold
           prose-ul:list-disc prose-ul:ml-4 prose-ul:mb-2 prose-ul:text-[16px] prose-ul:space-y-0.5
           prose-ol:list-decimal prose-ol:ml-4 prose-ol:mb-2 prose-ol:text-[16px] prose-ol:space-y-0.5
-          prose-li:text-gray-700 prose-li:mb-1
-          prose-code:text-[16px] prose-code:bg-gray-200 prose-code:px-1 prose-code:py-0.5 prose-code:rounded
-          prose-blockquote:border-l-4 prose-blockquote:border-gray-300 prose-blockquote:pl-3 prose-blockquote:italic prose-blockquote:text-[16px]
-          prose-a:text-indigo-600 prose-a:underline hover:prose-a:text-indigo-800
-          prose-table:border-collapse prose-table:border prose-table:border-gray-300 prose-table:text-[16px]
-          prose-th:border prose-th:border-gray-300 prose-th:px-2 prose-th:py-1 prose-th:bg-gray-100
-          prose-td:border prose-td:border-gray-300 prose-td:px-2 prose-td:py-1"
+          prose-li:text-chat-ink/90 prose-li:mb-1
+          prose-hr:my-2 prose-hr:border-chat-border/40
+          prose-code:text-[16px] prose-code:bg-chat-canvas prose-code:px-1 prose-code:py-0.5 prose-code:rounded
+          prose-blockquote:border-l-4 prose-blockquote:border-chat-accent/40 prose-blockquote:pl-3 prose-blockquote:italic prose-blockquote:text-[16px]
+          prose-a:text-chat-accent-deep prose-a:underline hover:prose-a:text-chat-accent
+          prose-table:border-collapse prose-table:border prose-table:border-chat-border prose-table:text-[16px]
+          prose-th:border prose-th:border-chat-border prose-th:px-2 prose-th:py-1 prose-th:bg-chat-canvas
+          prose-td:border prose-td:border-chat-border prose-td:px-2 prose-td:py-1 ${className}`}
       >
         <ReactMarkdown
           remarkPlugins={SHARED_REMARK_PLUGINS}
           key={content.substring(0, 100)} // 添加 key 避免 React 警告
           components={{
+          a: ({ href, children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { href?: string }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline decoration-blue-600/40 underline-offset-2 hover:text-blue-700 break-all"
+              {...props}
+            >
+              {children}
+            </a>
+          ),
           // 自定义段落样式
           p: ({ node, children, ...props }: any) => {
             const text = String(children);

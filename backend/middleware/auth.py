@@ -57,6 +57,7 @@ def get_current_user(
                         User.role,
                         User.last_login_ip,
                         User.api_quota,
+                        User.pdf_download_count,
                         User.created_at,
                         User.updated_at,
                     )

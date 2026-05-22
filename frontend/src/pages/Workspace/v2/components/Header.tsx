@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import { Check, BookmarkPlus, Upload, LayoutGrid, List, ChevronRight, Sparkles, Code2, LayoutTemplate } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { ExportButton } from './ExportButton'
+import { getStoredAuthRole } from '@/lib/runtimeEnv'
 
 type EditMode = 'click' | 'scroll' | 'json'
 
@@ -18,7 +19,7 @@ interface HeaderProps {
   resumeData?: Record<string, any>
   resumeName?: string
   pdfBlob?: Blob | null
-  onDownloadPDF?: () => void
+  onDownloadPDF?: () => void | Promise<void>
   editMode?: EditMode
   onEditModeChange?: (mode: EditMode) => void
   onOpenTemplateSwitcher?: () => void
@@ -27,6 +28,7 @@ interface HeaderProps {
 export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF, editMode, onEditModeChange, onOpenTemplateSwitcher }: HeaderProps) {
   const [importMenuOpen, setImportMenuOpen] = useState(false)
   const importMenuRef = useRef<HTMLDivElement>(null)
+  const isAdmin = getStoredAuthRole() === 'admin'
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -87,6 +89,7 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
               <LayoutGrid className="w-4 h-4" />
               滚动编辑
             </button>
+            {isAdmin && (
             <button
               onClick={() => onEditModeChange('json')}
               className={cn(
@@ -98,8 +101,9 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
               )}
             >
               <Code2 className="w-4 h-4" />
-              JSON 编辑
+              JSON 编辑（仅管理员）
             </button>
+            )}
         </div>
       </motion.div>
       )}

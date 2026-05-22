@@ -400,7 +400,9 @@ class ToolCallAgent(ReActAgent):
                 result = result[: self.max_observe]
 
             logger.info(
-                f"🎯 Tool '{command.function.name}' completed its mission! Result: {result}"
+                "🎯 Tool '{}' completed its mission! Result: {}",
+                command.function.name,
+                self._sanitize_log_text(str(result)),
             )
 
             # Add tool response to memory

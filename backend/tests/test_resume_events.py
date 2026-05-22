@@ -26,12 +26,14 @@ def test_resume_patch_event_to_dict():
         before={"experience": [{"details": "负责后端开发"}]},
         after={"experience": [{"details": "主导重构，QPS提升3x"}]},
         summary="量化工作经历",
+        operation="update",
     )
     d = evt.to_dict()
     assert d["type"] == "resume_patch"
     assert d["data"]["patch_id"] == "p1"
     assert d["data"]["paths"] == ["experience[0].details"]
     assert d["data"]["summary"] == "量化工作经历"
+    assert d["data"]["operation"] == "update"
 
 def test_resume_generated_event_to_dict():
     evt = ResumeGeneratedEvent(

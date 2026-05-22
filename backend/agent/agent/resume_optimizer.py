@@ -10,6 +10,9 @@ class ResumeOptimizerAgent:
 
     name: str = "ResumeOptimizerAgent"
 
+    def __init__(self, session_id: Optional[str] = None) -> None:
+        self.session_id = session_id
+
     def generate_suggestions(
         self,
         analysis_results: List[Dict],
@@ -41,10 +44,10 @@ class ResumeOptimizerAgent:
                 suggestions.append(
                     {
                         "title": issue.get("problem", "优化建议"),
-                        "current": issue.get("current", ""),
-                        "optimized": issue.get("suggestion", ""),
+                        "current": issue.get("current") or issue.get("current_content", ""),
+                        "optimized": issue.get("optimized") or "",
                         "explanation": issue.get("suggestion", ""),
-                        "apply_path": apply_path,
+                        "apply_path": apply_path or issue.get("apply_path"),
                         "source_module": result.get("module"),
                     }
                 )

@@ -333,8 +333,16 @@ class ResumeUpdatedEvent(StreamEvent):
 class ResumePatchEvent(StreamEvent):
     """Agent 修改简历字段，携带 before/after diff"""
 
-    def __init__(self, patch_id: str, paths: list, before: dict, after: dict,
-                 summary: str, session_id: str | None = None):
+    def __init__(
+        self,
+        patch_id: str,
+        paths: list,
+        before: dict,
+        after: dict,
+        summary: str,
+        session_id: str | None = None,
+        operation: str = "set",
+    ):
         super().__init__(
             event_type=EventType.RESUME_PATCH,
             data={
@@ -343,6 +351,7 @@ class ResumePatchEvent(StreamEvent):
                 "before": before,
                 "after": after,
                 "summary": summary,
+                "operation": operation,
             },
             session_id=session_id,
         )

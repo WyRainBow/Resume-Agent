@@ -7,6 +7,27 @@ from typing import List, Dict, Any
 import re
 import sys
 
+try:
+    from backend.resume_text_preprocessor import normalize_pasted_resume_text
+except ImportError:
+    from resume_text_preprocessor import normalize_pasted_resume_text
+
+
+ORPHAN_INTERNSHIP_TITLE_PREFIXES = (
+    "架构设计",
+    "存储设计",
+    "核心实现",
+    "性能调优",
+    "参与",
+    "主要工作",
+    "阶段定时",
+    "核心职责",
+    "数据库设计",
+    "任务调度",
+    "服务治理",
+    "架构优化",
+)
+
 
 def split_resume_text(text: str, max_chunk_size: int = 400) -> List[Dict[str, str]]:
     """
@@ -25,7 +46,7 @@ def split_resume_text(text: str, max_chunk_size: int = 400) -> List[Dict[str, st
         text = text.split('正确的 JSON')[0]
     if '```json' in text:
         text = text.split('```json')[0]
-    text = text.strip()
+    text = normalize_pasted_resume_text(text.strip())
 
     """段落关键词"""
     section_keywords = ['实习经历', '项目经验', '项目经历', '开源经历', '专业技能', '教育经历']
@@ -347,6 +368,11 @@ def merge_resume_chunks(chunks_results: List[Dict[str, Any]]) -> Dict[str, Any]:
     if "projects" in merged and isinstance(merged["projects"], list):
         merged["projects"] = _fix_project_highlights(merged["projects"])
 
+    if "internships" in merged and isinstance(merged["internships"], list):
+        merged["internships"] = _fix_internship_entries(merged["internships"])
+
+    _relocate_project_like_skills(merged)
+
     return merged
 
 
@@ -510,3 +536,147 @@ def _fix_project_highlights(projects: List[Dict[str, Any]]) -> List[Dict[str, An
         i += 1
 
     return fixed_projects
+
+
+def _looks_like_internship_bullet_title(title: str) -> bool:
+    t = (title or "").strip()
+    if not t:
+        return False
+    if t.startswith("**"):
+        return True
+    if "：" in t and len(t) > 8:
+        return True
+    return any(t.startswith(prefix) for prefix in ORPHAN_INTERNSHIP_TITLE_PREFIXES)
+
+
+def _is_orphan_internship_entry(item: Dict[str, Any]) -> bool:
+    title = (item.get("title") or item.get("company") or "").strip()
+    subtitle = (item.get("subtitle") or item.get("position") or "").strip()
+    date = (item.get("date") or item.get("duration") or "").strip()
+
+    if title and subtitle and date and not _looks_like_internship_bullet_title(title):
+        return False
+
+    if not title:
+        return bool(
+            item.get("highlights")
+            or item.get("achievements")
+            or item.get("description")
+            or item.get("details")
+        )
+
+    if _looks_like_internship_bullet_title(title):
+        return True
+
+    if len(title) > 25 and any(ch in title for ch in "。，、"):
+        return True
+
+    highlights = item.get("highlights") or item.get("achievements")
+    if highlights and not subtitle and not date:
+        return True
+
+    return False
+
+
+def _append_internship_highlights(target: Dict[str, Any], source: Dict[str, Any]) -> None:
+    if target.get("highlights") is None:
+        target["highlights"] = []
+    elif not isinstance(target["highlights"], list):
+        target["highlights"] = [target["highlights"]]
+
+    for field in ("highlights", "achievements", "details"):
+        vals = source.get(field)
+        if not vals:
+            continue
+        if isinstance(vals, str):
+            vals = [vals]
+        target["highlights"].extend(vals)
+
+    title = (source.get("title") or "").strip()
+    subtitle = (source.get("subtitle") or "").strip()
+    description = (source.get("description") or "").strip()
+
+    if title and _looks_like_internship_bullet_title(title):
+        if subtitle and subtitle not in title:
+            entry = f"{title}：{subtitle}" if "：" not in title else f"{title}{subtitle}"
+        elif description and description not in title:
+            entry = f"{title}：{description}"
+        else:
+            entry = title
+        if entry not in target["highlights"]:
+            target["highlights"].append(entry)
+    elif description and description not in target["highlights"]:
+        target["highlights"].append(description)
+
+
+def _fix_internship_entries(internships: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """将误拆成多条的无公司名实习 bullet 合并回上一条实习。"""
+    if not internships:
+        return internships
+
+    fixed: List[Dict[str, Any]] = []
+    for item in internships:
+        if not isinstance(item, dict):
+            continue
+        if _is_orphan_internship_entry(item) and fixed:
+            _append_internship_highlights(fixed[-1], item)
+            continue
+        fixed.append(item)
+    return fixed
+
+
+PROJECT_LIKE_SKILL_KEYWORDS = (
+    "Flow Server",
+    "Worker",
+    "生产者-消费者",
+    "数据库设计",
+    "任务调度",
+    "服务治理",
+    "架构优化",
+    "异步调度框架",
+    "Scheduler",
+)
+
+
+def _relocate_project_like_skills(merged: Dict[str, Any]) -> None:
+    """部分粘贴简历会把项目 bullet 误解析进 skills，迁回 projects。"""
+    skills = merged.get("skills")
+    if not isinstance(skills, list) or not skills:
+        return
+
+    remaining = []
+    relocated: List[str] = []
+    for skill in skills:
+        if not isinstance(skill, dict):
+            remaining.append(skill)
+            continue
+        details = (skill.get("details") or skill.get("category") or "").strip()
+        if isinstance(details, str) and any(k in details for k in PROJECT_LIKE_SKILL_KEYWORDS):
+            relocated.append(details)
+        else:
+            remaining.append(skill)
+
+    if not relocated:
+        return
+
+    projects = merged.get("projects")
+    if not isinstance(projects, list):
+        projects = []
+        merged["projects"] = projects
+
+    if projects:
+        target = projects[-1]
+        if target.get("highlights") is None:
+            target["highlights"] = []
+        elif not isinstance(target["highlights"], list):
+            target["highlights"] = [target["highlights"]]
+        target["highlights"].extend(relocated)
+    else:
+        merged["projects"] = [
+            {
+                "title": "多阶段异步处理框架",
+                "highlights": relocated,
+            }
+        ]
+
+    merged["skills"] = remaining

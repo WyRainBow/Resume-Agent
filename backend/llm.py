@@ -38,12 +38,13 @@ except ImportError:
 # 全局 AI 配置
 DEFAULT_AI_PROVIDER = "deepseek"
 DEFAULT_AI_MODEL = {
-    "deepseek": "deepseek-v3.2"  # 默认使用 deepseek-v3.2
+    "deepseek": "deepseek-v4-flash"
 }
 
 # 支持的模型列表
 SUPPORTED_MODELS = {
-    "deepseek-v3.2": "DeepSeek V3.2 (快速)",
+    "deepseek-v4-flash": "DeepSeek V4 Flash (快速)",
+    "deepseek-v3.2": "DeepSeek V3.2",
     "deepseek-reasoner": "DeepSeek Reasoner (深度推理)"
 }
 

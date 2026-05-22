@@ -5,6 +5,12 @@ import CustomScrollbar from '../common/CustomScrollbar';
 import { useEnvironment } from '@/contexts/EnvironmentContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAgentEnabled } from '@/lib/runtimeEnv';
+import {
+  DEFAULT_SESSION_LIMITS,
+  getSessionLimitMessage,
+  parseSessionLimits,
+  type SessionLimits,
+} from '@/utils/sessionLimits';
 
 const PAGE_SIZE = 20;
 
@@ -70,6 +76,9 @@ export function RecentSessions({
   const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [sessionLimits, setSessionLimits] = useState<SessionLimits>(
+    DEFAULT_SESSION_LIMITS,
+  );
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const listContainerRef = useRef<HTMLDivElement>(null);
   const getAuthHeaders = useCallback((extra: Record<string, string> = {}) => {
@@ -163,6 +172,8 @@ export function RecentSessions({
             total_pages: 1,
           };
 
+          setSessionLimits(parseSessionLimits(data));
+
           setSessions((prev) =>
             mode === 'replace' ? nextSessions : [...prev, ...nextSessions]
           );
@@ -208,6 +219,7 @@ export function RecentSessions({
       });
       setIsLoading(false);
       setErrorMessage(null);
+      setSessionLimits(DEFAULT_SESSION_LIMITS);
       return;
     }
     refreshSessions();
@@ -295,6 +307,7 @@ export function RecentSessions({
       if (currentSessionId) {
         fetch(`${apiBaseUrl}/api/agent/stream/session/${currentSessionId}`, {
           method: 'DELETE',
+          headers: getAuthHeaders(),
         }).catch(() => undefined);
       }
 
@@ -315,6 +328,18 @@ export function RecentSessions({
   const handleSelectSession = (sessionId: string) => {
     onSelectSession(sessionId);
   };
+
+  const handleCreateSessionClick = () => {
+    if (!sessionLimits.can_create) {
+      alert(getSessionLimitMessage(sessionLimits));
+      return;
+    }
+    onCreateSession();
+  };
+
+  const createSessionTitle = sessionLimits.can_create
+    ? '新建会话'
+    : getSessionLimitMessage(sessionLimits);
 
   if (!agentEnabled) {
     return null;
@@ -438,14 +463,22 @@ export function RecentSessions({
       <div className="px-3 pt-6 mb-2 flex items-center justify-between">
         <div className="text-xs font-normal text-gray-500 truncate whitespace-nowrap">
           历史会话
+          <span className="ml-1 text-[10px] text-gray-400">
+            ({sessionLimits.current_count}/{sessionLimits.max_sessions})
+          </span>
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button
             type="button"
-            onClick={onCreateSession}
-            className="p-1 rounded hover:bg-gray-100/50 transition-colors text-gray-500 hover:text-gray-700"
-            title="新建会话"
-            aria-label="新建会话"
+            onClick={handleCreateSessionClick}
+            disabled={!sessionLimits.can_create}
+            className={`p-1 rounded transition-colors ${
+              sessionLimits.can_create
+                ? 'hover:bg-gray-100/50 text-gray-500 hover:text-gray-700'
+                : 'text-gray-300 cursor-not-allowed'
+            }`}
+            title={createSessionTitle}
+            aria-label={createSessionTitle}
           >
             <Plus className="w-4 h-4" />
           </button>

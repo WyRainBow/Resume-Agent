@@ -22,6 +22,59 @@ function getAuthHeaders(): Record<string, string> {
   }
 }
 
+function parseApiErrorDetail(raw: string): string {
+  try {
+    const parsed = JSON.parse(raw)
+    const detail = parsed?.detail
+    if (typeof detail === 'string') return detail
+    if (detail && typeof detail === 'object') {
+      const message = (detail as { message?: string }).message
+      if (message) return message
+      return JSON.stringify(detail)
+    }
+    return parsed?.message || raw
+  } catch {
+    return raw
+  }
+}
+
+export type PdfDownloadQuota = {
+  limit: number | null
+  used: number
+  remaining: number | null
+  unlimited: boolean
+}
+
+export async function fetchPdfDownloadQuota(): Promise<PdfDownloadQuota> {
+  const { data } = await axios.get(`${getApiBaseUrl()}/api/pdf/quota`, {
+    headers: getAuthHeaders(),
+  })
+  return data as PdfDownloadQuota
+}
+
+export async function recordPdfDownload(): Promise<PdfDownloadQuota> {
+  try {
+    const { data } = await axios.post(
+      `${getApiBaseUrl()}/api/pdf/downloads/record`,
+      {},
+      { headers: getAuthHeaders() },
+    )
+    return data as PdfDownloadQuota
+  } catch (error: any) {
+    if (error?.response?.status === 401) {
+      throw new Error('请先登录后再下载 PDF')
+    }
+    if (error?.response?.status === 403) {
+      throw new Error(
+        parseApiErrorDetail(JSON.stringify({ detail: error?.response?.data?.detail })) ||
+          'PDF 下载次数已达上限（10 次）',
+      )
+    }
+    const detail = error?.response?.data?.detail || error?.message || 'PDF 下载失败'
+    throw new Error(typeof detail === 'string' ? detail : parseApiErrorDetail(JSON.stringify({ detail })))
+  }
+}
+
 export async function logPDFRenderModeChange(fromMode: PDFRenderMode, toMode: PDFRenderMode): Promise<void> {
   const url = `${getApiBaseUrl()}/api/admin/pdf/render-mode/log`
   try {
@@ -200,14 +253,16 @@ export async function renderPDF(
       const blob = error?.response?.data
       if (blob instanceof Blob) {
         const text = await blob.text()
-        try {
-          const parsed = JSON.parse(text)
-          detail = parsed?.detail || text
-        } catch {
-          detail = text
-        }
+        detail = parseApiErrorDetail(text)
+      } else if (error?.response?.status === 401) {
+        detail = '请先登录后再下载 PDF'
+      } else if (error?.response?.status === 403) {
+        detail = parseApiErrorDetail(JSON.stringify({ detail: error?.response?.data?.detail })) || 'PDF 下载次数已达上限（10 次）'
       } else {
         detail = error?.response?.data?.detail || error?.message || ''
+        if (typeof detail !== 'string') {
+          detail = parseApiErrorDetail(JSON.stringify({ detail }))
+        }
       }
     } catch {
       detail = error?.message || ''
@@ -297,7 +352,13 @@ export async function renderPDFStream(
   if (!response.ok) {
     const errorText = await response.text()
     console.error('[PDF TRACE][stream:http-error]', { traceId, errorText })
-    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+    if (response.status === 401) {
+      throw new Error('请先登录后再下载 PDF')
+    }
+    if (response.status === 403) {
+      throw new Error(parseApiErrorDetail(errorText) || 'PDF 下载次数已达上限（10 次）')
+    }
+    throw new Error(parseApiErrorDetail(errorText) || `HTTP error! status: ${response.status}`)
   }
 
   const reader = response.body?.getReader()
@@ -595,14 +656,21 @@ export async function compileLatexStream(
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Cache-Control': 'no-cache'
+      'Cache-Control': 'no-cache',
+      ...getAuthHeaders(),
     },
     body: JSON.stringify({ latex_content: latexContent })
   })
   
   if (!response.ok) {
     const errorText = await response.text()
-    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
+    if (response.status === 401) {
+      throw new Error('请先登录后再下载 PDF')
+    }
+    if (response.status === 403) {
+      throw new Error(parseApiErrorDetail(errorText) || 'PDF 下载次数已达上限（10 次）')
+    }
+    throw new Error(parseApiErrorDetail(errorText) || `HTTP error! status: ${response.status}`)
   }
   
   const reader = response.body?.getReader()

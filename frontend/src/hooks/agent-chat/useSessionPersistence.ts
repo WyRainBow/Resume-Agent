@@ -273,7 +273,10 @@ export function useSessionPersistence({
         headers: getAuthHeaders(),
       });
       if (!resp.ok) throw new Error(`Failed to delete session: ${resp.status}`);
-      fetch(`${apiBaseUrl}/api/agent/stream/session/${sessionId}`, { method: "DELETE" }).catch(() => undefined);
+      fetch(`${apiBaseUrl}/api/agent/stream/session/${sessionId}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      }).catch(() => undefined);
 
       if (currentSessionId === sessionId) {
         const newId = `conv-${Date.now()}`;

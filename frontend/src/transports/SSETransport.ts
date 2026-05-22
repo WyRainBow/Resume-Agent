@@ -98,13 +98,19 @@ export class SSETransport {
       requestBody.resume_data = this.resumeData;
     }
 
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'text/event-stream',
-        },
+      const token = localStorage.getItem('auth_token');
+      const authHeaders: Record<string, string> = token
+        ? { Authorization: `Bearer ${token}` }
+        : {};
+
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'text/event-stream',
+            ...authHeaders,
+          },
         body: JSON.stringify(requestBody),
         signal: this.abortController.signal,
       });

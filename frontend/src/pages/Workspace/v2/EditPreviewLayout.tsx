@@ -24,6 +24,7 @@ import type {
   CustomItem,
 } from "./types";
 import type { PDFRenderMode } from "@/services/pdfRenderMode";
+import { getStoredAuthRole } from "@/lib/runtimeEnv";
 
 type EditMode = "click" | "scroll" | "json";
 
@@ -153,6 +154,9 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
     handleDownload,
   } = props;
 
+  const effectiveEditMode =
+    editMode === "json" && getStoredAuthRole() !== "admin" ? "click" : editMode;
+
   // 列宽状态
   const [sidePanelWidth] = useState(300); // 模块选择列宽度（固定）
   const [editPanelWidth, setEditPanelWidth] = useState(700); // 编辑面板宽度（可拖动调整，范围 400-1400px）
@@ -209,7 +213,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
     <div className="h-[calc(100vh-64px)] flex relative z-10 overflow-hidden">
       {/* 内容区域 */}
       <div className="flex-1 flex overflow-hidden">
-        {editMode === "click" ? (
+        {effectiveEditMode === "click" ? (
           <div className="flex">
               {/* 点击编辑模式：三列布局 */}
               {/* 第一列：模块选择（窄） */}
@@ -288,7 +292,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                 onDragEnd={handleDragEnd}
               />
           </div>
-        ) : editMode === "scroll" ? (
+        ) : effectiveEditMode === "scroll" ? (
           <div className="flex">
               {/* 滚动编辑模式：两列布局 */}
               {/* 第一列：滚动编辑区域 */}

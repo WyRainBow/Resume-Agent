@@ -10,8 +10,6 @@ import {
   FileText,
   Settings,
   ChevronDown,
-  Save,
-  Download,
   LogIn,
   User,
   LogOut,
@@ -24,7 +22,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentResumeId } from "@/services/resumeStorage";
 import { RecentSessions } from "@/components/sidebar/RecentSessions";
-import { canUseAdminFeature, canUseAgentFeature, getApiBaseUrl } from "@/lib/runtimeEnv";
+import { canUseAdminFeature, canUseAgentFeature, getApiBaseUrl, isAgentEnabled } from "@/lib/runtimeEnv";
 
 // 工作区类型
 type WorkspaceType =
@@ -103,16 +101,25 @@ function AgentIcon({ active = false }: { active?: boolean }) {
   );
 }
 
+export type AgentSessionHandlers = {
+  currentSessionId: string | null;
+  sessionsRefreshKey?: number;
+  onSelectSession: (sessionId: string) => void;
+  onCreateSession: () => void;
+  onDeleteSession: (sessionId: string) => Promise<void> | void;
+  onRenameSession: (sessionId: string, title: string) => Promise<void> | void;
+};
+
 interface WorkspaceLayoutProps {
   children: React.ReactNode;
-  onSave?: () => void;
   onDownload?: () => void;
+  agentSession?: AgentSessionHandlers;
 }
 
 export default function WorkspaceLayout({
   children,
-  onSave,
   onDownload,
+  agentSession,
 }: WorkspaceLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
@@ -166,14 +173,10 @@ export default function WorkspaceLayout({
   };
 
   const currentWorkspace = getCurrentWorkspace();
+  const agentEnabled = isAgentEnabled();
   const canUseAgent = isAuthenticated && canUseAgentFeature();
   const canUseAdmin = isAuthenticated && canUseAdminFeature();
 
-  useEffect(() => {
-    if (currentWorkspace !== "agent") return;
-    if (canUseAgent) return;
-    navigate("/workspace", { replace: true });
-  }, [canUseAgent, currentWorkspace, navigate]);
   const sidebarWidthPx = sidebarCollapsed ? 96 : 260;
 
   // 点击外部区域关闭下拉菜单
@@ -221,16 +224,28 @@ export default function WorkspaceLayout({
 
   const handleSelectSession = (sessionId: string) => {
     if (!canUseAgent) return;
+    if (agentSession?.onSelectSession) {
+      agentSession.onSelectSession(sessionId);
+      return;
+    }
     navigate(`/agent/new?sessionId=${sessionId}`, { replace: true });
   };
 
   const handleCreateSession = () => {
     if (!canUseAgent) return;
+    if (agentSession?.onCreateSession) {
+      agentSession.onCreateSession();
+      return;
+    }
     navigate("/agent/new", { state: { forceNew: Date.now() } });
   };
 
   const deleteSession = async (sessionId: string) => {
     if (!canUseAgent) return;
+    if (agentSession?.onDeleteSession) {
+      await agentSession.onDeleteSession(sessionId);
+      return;
+    }
     try {
       const resp = await fetch(
         `${getApiBaseUrl()}/api/agent/history/${sessionId}`,
@@ -245,6 +260,10 @@ export default function WorkspaceLayout({
 
   const renameSession = async (sessionId: string, title: string) => {
     if (!canUseAgent) return;
+    if (agentSession?.onRenameSession) {
+      await agentSession.onRenameSession(sessionId, title);
+      return;
+    }
     try {
       const resp = await fetch(
         `${getApiBaseUrl()}/api/agent/history/sessions/${sessionId}/title`,
@@ -260,6 +279,16 @@ export default function WorkspaceLayout({
       console.error("Failed to rename session:", error);
     }
   };
+
+  const sidebarCurrentSessionId =
+    agentSession?.currentSessionId ??
+    ((new URLSearchParams(location.search).get("sessionId") ||
+      (location.pathname.startsWith("/agent/")
+        ? location.pathname.split("/").pop()
+        : null)) as string | null);
+
+  const sidebarSessionsRefreshKey =
+    agentSession?.sessionsRefreshKey ?? sessionsRefreshKey;
 
   return (
     <div className="h-screen flex overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans selection:bg-slate-200 selection:text-slate-900">
@@ -351,8 +380,8 @@ export default function WorkspaceLayout({
               )}
             </button>
 
-            {/* AI 对话区（仅 admin/member） */}
-            {canUseAgent && (
+            {/* AI 对话区 */}
+            {agentEnabled && (
               <button
                 onClick={(e) => handleWorkspaceChange("agent", e)}
                 className={cn(
@@ -446,70 +475,16 @@ export default function WorkspaceLayout({
           {/* 分隔线 */}
           <div className="border-t border-slate-100 dark:border-slate-800 my-1 shrink-0" />
 
-          {/* 其他导航 */}
-          <nav
-            className={cn(
-              "space-y-0.5 flex flex-col shrink-0",
-              sidebarCollapsed ? "items-center" : "",
-            )}
-          >
-            {/* 保存按钮 - 仅在编辑区显示 */}
-            {currentWorkspace === "edit" && onSave && (
-              <button
-                onClick={onSave}
-                className={cn(
-                  "w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all",
-                  sidebarCollapsed
-                    ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                    : "flex items-center gap-2.5 py-2.5 px-2.5",
-                )}
-                title="保存简历"
-              >
-                <Save className="w-6 h-6 shrink-0" />
-                {!sidebarCollapsed && (
-                  <span className="text-base font-medium">保存</span>
-                )}
-              </button>
-            )}
-
-            {/* 下载按钮 - 仅在编辑区显示 */}
-            {currentWorkspace === "edit" && onDownload && (
-              <button
-                onClick={onDownload}
-                className={cn(
-                  "w-full rounded-lg text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all",
-                  sidebarCollapsed
-                    ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                    : "flex items-center gap-2.5 py-2.5 px-2.5",
-                )}
-                title="下载PDF"
-              >
-                <Download className="w-6 h-6 shrink-0" />
-                {!sidebarCollapsed && (
-                  <span className="text-base font-medium">下载</span>
-                )}
-              </button>
-            )}
-          </nav>
-
-          {/* 分隔线 */}
-          <div className="border-t border-slate-100 dark:border-slate-800 my-1 shrink-0" />
-
           {/* 历史会话 - 常驻显示 */}
           {!sidebarCollapsed && canUseAgent && (
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
               <RecentSessions
-                currentSessionId={
-                  (new URLSearchParams(location.search).get("sessionId") ||
-                    (location.pathname.startsWith("/agent/")
-                      ? location.pathname.split("/").pop()
-                      : null)) as string | null
-                }
+                currentSessionId={sidebarCurrentSessionId}
                 onSelectSession={handleSelectSession}
                 onCreateSession={handleCreateSession}
                 onDeleteSession={deleteSession}
                 onRenameSession={renameSession}
-                refreshKey={sessionsRefreshKey}
+                refreshKey={sidebarSessionsRefreshKey}
               />
             </div>
           )}

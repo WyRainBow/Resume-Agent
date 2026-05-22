@@ -24,6 +24,8 @@ except ImportError:
     from models import AgentConversation, AgentMessage
 
 from backend.agent.cltp.storage.conversation_storage import ConversationMeta
+from backend.agent.cltp.storage.session_scope import SessionAccessError
+from backend.agent.cltp.storage.session_limits import ensure_can_create_session
 
 logger = logging.getLogger(__name__)
 
@@ -245,13 +247,38 @@ class DBConversationStorage:
             query = query.filter(AgentConversation.user_id == user_id)
         return query.first()
 
+    def _fetch_conversation_any(
+        self, db, session_id: str
+    ) -> Optional[AgentConversation]:
+        return (
+            db.query(AgentConversation)
+            .filter(AgentConversation.session_id == session_id)
+            .first()
+        )
+
+    def get_session_owner(self, session_id: str) -> Optional[int]:
+        db = SessionLocal()
+        try:
+            conversation = self._fetch_conversation_any(db, session_id)
+            return conversation.user_id if conversation else None
+        finally:
+            db.close()
+
     def _validate_conversation_owner(
-        self, conversation: AgentConversation, user_id: Optional[int]
+        self,
+        conversation: AgentConversation,
+        user_id: Optional[int],
+        *,
+        is_admin: bool = False,
     ) -> None:
         if user_id is None:
             return
+        if is_admin:
+            return
+        if conversation.user_id is None:
+            raise SessionAccessError("SESSION_FORBIDDEN_OR_NOT_FOUND")
         if conversation.user_id != user_id:
-            raise PermissionError("SESSION_FORBIDDEN_OR_NOT_FOUND")
+            raise SessionAccessError("SESSION_FORBIDDEN_OR_NOT_FOUND")
 
     def _message_to_row(self, conversation_pk: int, seq: int, message: Message) -> AgentMessage:
         payload = self._serialize_message(message)
@@ -288,23 +315,31 @@ class DBConversationStorage:
         return self._deserialize_message(payload)
 
     def save_session(
-        self, session_id: str, messages: List[Message], user_id: Optional[int] = None
+        self,
+        session_id: str,
+        messages: List[Message],
+        user_id: Optional[int] = None,
+        *,
+        is_admin: bool = False,
     ) -> ConversationMeta:
         if not self._schema_supports_message_hash():
             logger.warning(
                 "[AgentStorage] DB schema missing agent_messages.message_hash; using legacy save path. "
                 "Please run: alembic upgrade head"
             )
-            return self._save_session_legacy(session_id, messages, user_id=user_id)
+            return self._save_session_legacy(
+                session_id, messages, user_id=user_id, is_admin=is_admin
+            )
 
         now = datetime.now()
         db = SessionLocal()
         try:
-            conversation = self._fetch_conversation_by_session(
-                db, session_id, user_id=user_id
-            )
+            conversation = self._fetch_conversation_any(db, session_id)
 
             if conversation is None:
+                ensure_can_create_session(
+                    self, session_id, user_id, is_admin=is_admin
+                )
                 conversation = AgentConversation(
                     session_id=session_id,
                     user_id=user_id,
@@ -317,7 +352,11 @@ class DBConversationStorage:
                 db.add(conversation)
                 db.flush()
             else:
-                self._validate_conversation_owner(conversation, user_id=user_id)
+                if conversation.user_id is None and user_id is not None:
+                    conversation.user_id = user_id
+                self._validate_conversation_owner(
+                    conversation, user_id, is_admin=is_admin
+                )
                 conversation.title = self._derive_title(messages)
                 conversation.message_count = len(messages)
                 conversation.updated_at = now
@@ -358,21 +397,29 @@ class DBConversationStorage:
                     "Please run: alembic upgrade head"
                 )
                 self._supports_message_hash = False
-                return self._save_session_legacy(session_id, messages, user_id=user_id)
+                return self._save_session_legacy(
+                    session_id, messages, user_id=user_id, is_admin=is_admin
+                )
             raise
         finally:
             db.close()
 
     def _save_session_legacy(
-        self, session_id: str, messages: List[Message], user_id: Optional[int] = None
+        self,
+        session_id: str,
+        messages: List[Message],
+        user_id: Optional[int] = None,
+        *,
+        is_admin: bool = False,
     ) -> ConversationMeta:
         now = datetime.now()
         db = SessionLocal()
         try:
-            conversation = self._fetch_conversation_by_session(
-                db, session_id, user_id=user_id
-            )
+            conversation = self._fetch_conversation_any(db, session_id)
             if conversation is None:
+                ensure_can_create_session(
+                    self, session_id, user_id, is_admin=is_admin
+                )
                 conversation = AgentConversation(
                     session_id=session_id,
                     user_id=user_id,
@@ -385,7 +432,11 @@ class DBConversationStorage:
                 db.add(conversation)
                 db.flush()
             else:
-                self._validate_conversation_owner(conversation, user_id=user_id)
+                if conversation.user_id is None and user_id is not None:
+                    conversation.user_id = user_id
+                self._validate_conversation_owner(
+                    conversation, user_id, is_admin=is_admin
+                )
                 conversation.title = self._derive_title(messages)
                 conversation.message_count = len(messages)
                 conversation.updated_at = now
@@ -441,10 +492,11 @@ class DBConversationStorage:
         now = datetime.now()
         db = SessionLocal()
         try:
-            conversation = self._fetch_conversation_by_session(
-                db, session_id, user_id=user_id
-            )
+            conversation = self._fetch_conversation_any(db, session_id)
             if conversation is None:
+                ensure_can_create_session(
+                    self, session_id, user_id, is_admin=False
+                )
                 conversation = AgentConversation(
                     session_id=session_id,
                     user_id=user_id,
@@ -458,7 +510,9 @@ class DBConversationStorage:
                 db.flush()
 
             else:
-                self._validate_conversation_owner(conversation, user_id=user_id)
+                if conversation.user_id is None and user_id is not None:
+                    conversation.user_id = user_id
+                self._validate_conversation_owner(conversation, user_id)
 
             existing_count = (
                 db.query(AgentMessage)
@@ -564,6 +618,9 @@ class DBConversationStorage:
                 db, session_id, user_id=user_id
             )
             if conversation is None:
+                ensure_can_create_session(
+                    self, session_id, user_id, is_admin=False
+                )
                 conversation = AgentConversation(
                     session_id=session_id,
                     user_id=user_id,
@@ -691,19 +748,28 @@ class DBConversationStorage:
             db.close()
 
     def load_session(
-        self, session_id: str, user_id: Optional[int] = None
+        self,
+        session_id: str,
+        user_id: Optional[int] = None,
+        *,
+        is_admin: bool = False,
     ) -> Optional[Dict[str, Any]]:
         if not self._schema_supports_message_hash():
-            return self._load_session_legacy(session_id, user_id=user_id)
+            return self._load_session_legacy(
+                session_id, user_id=user_id, is_admin=is_admin
+            )
 
         db = SessionLocal()
         try:
-            conversation = self._fetch_conversation_by_session(
-                db, session_id, user_id=user_id
-            )
+            conversation = self._fetch_conversation_any(db, session_id)
             if conversation is None:
                 return None
-            self._validate_conversation_owner(conversation, user_id=user_id)
+            try:
+                self._validate_conversation_owner(
+                    conversation, user_id, is_admin=is_admin
+                )
+            except SessionAccessError:
+                return None
 
             rows = (
                 db.query(AgentMessage)
@@ -727,22 +793,31 @@ class DBConversationStorage:
                     "switching to legacy read path. Please run: alembic upgrade head"
                 )
                 self._supports_message_hash = False
-                return self._load_session_legacy(session_id, user_id=user_id)
+                return self._load_session_legacy(
+                    session_id, user_id=user_id, is_admin=is_admin
+                )
             raise
         finally:
             db.close()
 
     def _load_session_legacy(
-        self, session_id: str, user_id: Optional[int] = None
+        self,
+        session_id: str,
+        user_id: Optional[int] = None,
+        *,
+        is_admin: bool = False,
     ) -> Optional[Dict[str, Any]]:
         db = SessionLocal()
         try:
-            conversation = self._fetch_conversation_by_session(
-                db, session_id, user_id=user_id
-            )
+            conversation = self._fetch_conversation_any(db, session_id)
             if conversation is None:
                 return None
-            self._validate_conversation_owner(conversation, user_id=user_id)
+            try:
+                self._validate_conversation_owner(
+                    conversation, user_id, is_admin=is_admin
+                )
+            except SessionAccessError:
+                return None
 
             rows = (
                 db.execute(
@@ -776,11 +851,18 @@ class DBConversationStorage:
         finally:
             db.close()
 
-    def list_sessions(self, user_id: Optional[int] = None) -> List[ConversationMeta]:
+    def list_sessions(
+        self,
+        user_id: Optional[int] = None,
+        *,
+        all_users: bool = False,
+    ) -> List[ConversationMeta]:
         db = SessionLocal()
         try:
             query = db.query(AgentConversation)
-            if user_id is not None:
+            if not all_users:
+                if user_id is None:
+                    return []
                 query = query.filter(AgentConversation.user_id == user_id)
             rows = query.order_by(
                 AgentConversation.last_message_at.desc(),
@@ -795,21 +877,28 @@ class DBConversationStorage:
                         updated_at=(row.last_message_at or row.updated_at or row.created_at).isoformat(),
                         title=row.title or "Conversation",
                         message_count=row.message_count or 0,
+                        user_id=row.user_id,
                     )
                 )
             return metas
         finally:
             db.close()
 
-    def delete_session(self, session_id: str, user_id: Optional[int] = None) -> bool:
+    def delete_session(
+        self,
+        session_id: str,
+        user_id: Optional[int] = None,
+        *,
+        is_admin: bool = False,
+    ) -> bool:
         db = SessionLocal()
         try:
-            conversation = self._fetch_conversation_by_session(
-                db, session_id, user_id=user_id
-            )
+            conversation = self._fetch_conversation_any(db, session_id)
             if conversation is None:
                 return False
-            self._validate_conversation_owner(conversation, user_id=user_id)
+            self._validate_conversation_owner(
+                conversation, user_id, is_admin=is_admin
+            )
             db.query(AgentMessage).filter(
                 AgentMessage.conversation_id == conversation.id
             ).delete(synchronize_session=False)
@@ -879,8 +968,14 @@ class DBConversationStorage:
             export_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
         return str(export_file)
 
-    def load_messages(self, session_id: str, user_id: Optional[int] = None) -> List[Message]:
-        data = self.load_session(session_id, user_id=user_id)
+    def load_messages(
+        self,
+        session_id: str,
+        user_id: Optional[int] = None,
+        *,
+        is_admin: bool = False,
+    ) -> List[Message]:
+        data = self.load_session(session_id, user_id=user_id, is_admin=is_admin)
         if not data:
             return []
         messages = []

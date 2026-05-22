@@ -28,20 +28,25 @@ export default {
           'Microsoft YaHei',
           'sans-serif',
         ],
-      },
-      typography: {
-        DEFAULT: {
-          css: {
-            'ul::marker': {
-              color: '#000000',
-            },
-            'ol::marker': {
-              color: '#000000',
-            },
-          },
-        },
+        chat: [
+          '"Noto Sans SC"',
+          'PingFang SC',
+          'Hiragino Sans GB',
+          'Microsoft YaHei UI',
+          'sans-serif',
+        ],
       },
       colors: {
+        chat: {
+          canvas: '#FAF9F5',
+          ink: '#1C1F21',
+          'ink-muted': '#5C6368',
+          accent: '#B29475',
+          'accent-deep': '#2E4A3F',
+          'user-bubble': '#F3EDE4',
+          surface: '#FFFFFF',
+          border: '#E8E4DC',
+        },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -74,6 +79,18 @@ export default {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+      },
+      typography: {
+        DEFAULT: {
+          css: {
+            'ul::marker': {
+              color: '#000000',
+            },
+            'ol::marker': {
+              color: '#000000',
+            },
+          },
         },
       },
       borderRadius: {

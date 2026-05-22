@@ -378,7 +378,6 @@ export default function HTMLWorkspace() {
 
   return (
     <WorkspaceLayout
-      onSave={handleSaveToDashboard}
       onDownload={handleDownloadPDF}
     >
       {/* 编辑 + 预览布局 */}
