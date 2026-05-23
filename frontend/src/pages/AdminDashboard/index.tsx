@@ -188,7 +188,7 @@ export default function AdminDashboardPage() {
             </div>
           )}
 
-          <section className="overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          {false && <section className="overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="border-b border-slate-200 bg-gradient-to-r from-slate-900 to-slate-700 px-6 py-5 dark:border-slate-800">
               <h2 className="text-xl font-semibold text-white">提示词管理</h2>
               <p className="mt-1 text-sm text-slate-200">统一管理系统 Prompt，支持后续持续扩展</p>
@@ -274,7 +274,7 @@ export default function AdminDashboardPage() {
                 </>
               )}
             </div>
-          </section>
+          </section>}
         </div>
       </div>
     </WorkspaceLayout>
