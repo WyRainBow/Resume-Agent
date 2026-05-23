@@ -2,6 +2,8 @@
 
 一句话输入、生成可编辑、可导出的专业简历。
 
+**在线体验：[https://resumegenkk.xyz](https://resumegenkk.xyz/)**
+
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ## 项目介绍
@@ -11,10 +13,13 @@ Resume-Agent 是一个面向中文求职场景的 AI 简历系统、提供从内
 ## 核心能力
 
 - AI 一键生成：根据一句话描述或原始文本快速生成结构化简历
-- 可视化编辑：左侧编辑、右侧实时预览、支持模块化调整
-- AI 辅助优化：支持分模块导入、改写、润色和内容增强
-- 高质量导出：基于 LaTeX 生成专业 PDF、支持中英文渲染
-- 工作流友好：支持从草稿到最终投递版本的持续迭代
+- AI 对话式修改：通过自然语言对话修改简历内容、支持增量编辑、润色、翻译等操作
+- AI 智能上传：上传 PDF / 图片简历、AI 自动解析为结构化数据并导入编辑
+- AI 简历诊断：围绕 JD 匹配、内容完整性、表达质量输出可解释评分和改进建议
+- AI 划词润色：选中任意文本、一键润色、翻译、扩写或缩写
+- 可视化编辑：左侧编辑、右侧实时预览、支持点击编辑和滚动编辑两种模式
+- 模板系统：内置多套 LaTeX / HTML 模板、支持模板切换和方向模板快速创建
+- 高质量导出：基于 LaTeX 生成专业 PDF、支持中英文渲染和浏览器端 PDF 导出
 
 ## 页面截图
 
@@ -26,6 +31,9 @@ Resume-Agent 是一个面向中文求职场景的 AI 简历系统、提供从内
 
 ### 工作区
 ![工作区](https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/readme/2026-03-27-workspace.png)
+
+### AI 对话
+![AI 对话](https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/readme/2026-05-23-agent-chat.png)
 
 ## 技术架构
 
