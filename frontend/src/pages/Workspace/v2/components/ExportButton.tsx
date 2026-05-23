@@ -92,6 +92,10 @@ export function ExportButton({
   const handleExportPDF = async () => {
     setIsOpen(false);
     try {
+      if (resumeData?.templateType === "html" && onDownloadPDF) {
+        await onDownloadPDF();
+        return;
+      }
       if (pdfBlob) {
         if (onDownloadPDF) {
           await onDownloadPDF();
@@ -233,6 +237,9 @@ export function ExportButton({
     }
   }, [isOpen]);
 
+  const canExportPDF =
+    resumeData?.templateType !== "html" || Boolean(onDownloadPDF);
+
   return (
     <div className="relative" ref={menuRef}>
       {/* 导出按钮 - 优化后的样式 */}
@@ -263,7 +270,7 @@ export function ExportButton({
       {isOpen && (
         <div className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden z-50 backdrop-blur-sm">
           {/* PDF 导出卡片 - 仅对 LaTeX 模板显示 */}
-          {resumeData?.templateType !== "html" && (
+          {canExportPDF && (
             <button
               onClick={handleExportPDF}
               className={cn(

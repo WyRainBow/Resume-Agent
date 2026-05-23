@@ -2,8 +2,9 @@ import axios from 'axios'
 import { getApiBaseUrl } from '@/lib/runtimeEnv'
 
 export const DEFAULT_LATEX_TEMPLATE_ID = 'classic'
+export const DEFAULT_HTML_TEMPLATE_ID = 'html-classic'
 
-export type ResumeTemplateType = 'latex'
+export type ResumeTemplateType = 'latex' | 'html'
 
 export interface ResumeTemplate {
   id: string
@@ -22,6 +23,13 @@ interface ResumeTemplateListResponse {
 export function normalizeLatexTemplateId(templateId?: string | null): string {
   if (!templateId || templateId === 'default') {
     return DEFAULT_LATEX_TEMPLATE_ID
+  }
+  return templateId
+}
+
+export function normalizeHtmlTemplateId(templateId?: string | null): string {
+  if (!templateId || templateId === 'default') {
+    return DEFAULT_HTML_TEMPLATE_ID
   }
   return templateId
 }

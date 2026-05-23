@@ -9,6 +9,7 @@ import { getLogoUrl } from '../constants/companyLogos'
 import { getSchoolLogoUrl } from '../constants/schoolLogos'
 import { stripHtmlTags } from '../utils'
 import { formatBirthDateForHeader, resolveEmploymentStatusForRender } from '../utils/birthDateDisplay'
+import { normalizeHtmlTemplateId } from '../html/templates/registry'
 import './styles.css'
 
 interface HTMLTemplateRendererProps {
@@ -333,7 +334,7 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
   }
 }
 
-export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resumeData }) => {
+const HTMLClassicTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resumeData }) => {
   const { basic, globalSettings } = resumeData
   const pagePadding = globalSettings?.pagePadding ?? 40
 
@@ -383,6 +384,16 @@ export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resu
       </div>
     </div>
   )
+}
+
+export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resumeData }) => {
+  const templateId = normalizeHtmlTemplateId(resumeData.templateId)
+
+  switch (templateId) {
+    case 'html-classic':
+    default:
+      return <HTMLClassicTemplateRenderer resumeData={resumeData} />
+  }
 }
 
 export default HTMLTemplateRenderer

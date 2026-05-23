@@ -5,7 +5,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { getCurrentResumeId, setCurrentResumeId, getResume } from '../../../../services/resumeStorage'
 import { loadFromStorage, STORAGE_KEY, isLegacyDefaultMenuOrder, migrateMenuSectionsToLatestDefault } from '../constants'
 import { stripPhotoFromResumeData } from '@/services/storage/sanitizeResume'
-import { normalizeLatexTemplateId } from '@/services/resumeTemplates'
+import { normalizeHtmlTemplateId, normalizeLatexTemplateId } from '@/services/resumeTemplates'
 import { createResumeFromDirectionTemplate } from '@/data/resumeDirectionTemplates'
 import { useLocation, useParams } from 'react-router-dom'
 import { useResumeContext } from '@/contexts/ResumeContext'
@@ -93,20 +93,23 @@ export function useResumeData() {
   // 从 Dashboard 进入时加载对应简历
   useEffect(() => {
     const loadResume = async () => {
-      // /workspace/latex（不带 ID）始终按“新建默认模板”处理，避免旧缓存覆盖模板更新
-      if (location.pathname === '/workspace/latex' && !routeResumeId) {
+      // /workspace/latex 和 /workspace/html（不带 ID）始终按“新建模板”处理，避免旧缓存覆盖模板更新
+      if ((location.pathname === '/workspace/latex' || location.pathname === '/workspace/html') && !routeResumeId) {
         const searchParams = new URLSearchParams(location.search)
         const state = location.state as { templateId?: string; directionTemplateId?: string } | null
         const directionTemplateId = searchParams.get('directionTemplateId') || state?.directionTemplateId
         const queryTemplateId = searchParams.get('templateId')
         const stateTemplateId = state?.templateId
-        const templateId = normalizeLatexTemplateId(queryTemplateId || stateTemplateId)
+        const routeTemplateType: NonNullable<ResumeData['templateType']> = location.pathname === '/workspace/html' ? 'html' : 'latex'
+        const templateId = routeTemplateType === 'html'
+          ? normalizeHtmlTemplateId(queryTemplateId || stateTemplateId)
+          : normalizeLatexTemplateId(queryTemplateId || stateTemplateId)
         const nextResumeData = directionTemplateId
           ? createResumeFromDirectionTemplate(directionTemplateId)
           : {
               ...loadFromStorage(),
               templateId,
-              templateType: 'latex' as const,
+              templateType: routeTemplateType,
             }
         setCurrentResumeId(null)
         setCurrentId(null)

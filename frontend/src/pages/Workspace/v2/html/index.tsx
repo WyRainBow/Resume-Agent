@@ -5,16 +5,17 @@
  */
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
-import { cn } from '../../../../lib/utils'
 import html2pdf from 'html2pdf.js'
 
 // Hooks
 import { useResumeData, usePDFOperations, useAIImport, useAutoSaveResume } from '../hooks'
 
 // 组件
+import { Header, TemplateSwitcherModal } from '../components'
 import EditPreviewLayout from '../EditPreviewLayout'
 import AIImportModal from '../shared/AIImportModal'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
+import { normalizeHtmlTemplateId } from './templates/registry'
 
 type EditMode = 'click' | 'scroll' | 'json'
 
@@ -28,6 +29,7 @@ export default function HTMLWorkspace() {
   const [initialResumeData, setInitialResumeData] = useState<any>(null)
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null)
+  const [templateSwitcherOpen, setTemplateSwitcherOpen] = useState(false)
 
   // 简历数据管理
   const {
@@ -376,10 +378,35 @@ export default function HTMLWorkspace() {
     event.target.value = ''
   }
 
+  const handleSelectTemplate = useCallback((templateId: string) => {
+    const normalizedTemplateId = normalizeHtmlTemplateId(templateId)
+    setResumeData((prev) => ({
+      ...prev,
+      templateId: normalizedTemplateId,
+      templateType: 'html',
+      updatedAt: new Date().toISOString(),
+    }))
+  }, [setResumeData])
+
   return (
     <WorkspaceLayout
       onDownload={handleDownloadPDF}
     >
+      <Header
+        saveSuccess={saveSuccess}
+        onGlobalAIImport={handleGlobalAIImport}
+        onSaveToDashboard={handleSaveToDashboard}
+        onExportJSON={handleExportJSON}
+        onImportJSON={handleImportJSON}
+        resumeData={resumeData}
+        resumeName={resumeData?.basic?.name || '我的简历'}
+        pdfBlob={pdfBlob}
+        onDownloadPDF={handleDownloadPDF}
+        editMode={editMode}
+        onEditModeChange={setEditMode}
+        onOpenTemplateSwitcher={() => setTemplateSwitcherOpen(true)}
+      />
+
       {/* 编辑 + 预览布局 */}
       <EditPreviewLayout
         resumeData={resumeData}
@@ -437,6 +464,14 @@ export default function HTMLWorkspace() {
         sectionTitle={aiModalTitle}
         onClose={() => setAiModalOpen(false)}
         onSave={handleAISave}
+      />
+
+      <TemplateSwitcherModal
+        isOpen={templateSwitcherOpen}
+        templateType="html"
+        currentTemplateId={resumeData.templateId}
+        onClose={() => setTemplateSwitcherOpen(false)}
+        onSelect={handleSelectTemplate}
       />
 
       {/* 未保存提醒对话框 */}

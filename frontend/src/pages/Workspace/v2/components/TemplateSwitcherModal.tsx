@@ -2,13 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle, FileText, RefreshCw, X } from 'lucide-react'
 import {
   listResumeTemplates,
+  normalizeHtmlTemplateId,
   normalizeLatexTemplateId,
   type ResumeTemplate,
+  type ResumeTemplateType,
 } from '@/services/resumeTemplates'
+import { listHtmlTemplates } from '../html/templates/registry'
 import { cn } from '@/lib/utils'
 
 interface TemplateSwitcherModalProps {
   isOpen: boolean
+  templateType?: ResumeTemplateType
   currentTemplateId?: string | null
   onClose: () => void
   onSelect: (templateId: string) => void
@@ -16,6 +20,7 @@ interface TemplateSwitcherModalProps {
 
 export function TemplateSwitcherModal({
   isOpen,
+  templateType = 'latex',
   currentTemplateId,
   onClose,
   onSelect,
@@ -23,7 +28,9 @@ export function TemplateSwitcherModal({
   const [templates, setTemplates] = useState<ResumeTemplate[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const normalizedCurrentTemplateId = normalizeLatexTemplateId(currentTemplateId)
+  const normalizedCurrentTemplateId = templateType === 'html'
+    ? normalizeHtmlTemplateId(currentTemplateId)
+    : normalizeLatexTemplateId(currentTemplateId)
 
   const currentTemplate = useMemo(
     () => templates.find((template) => template.id === normalizedCurrentTemplateId),
@@ -34,7 +41,7 @@ export function TemplateSwitcherModal({
     setLoading(true)
     setError(null)
     try {
-      setTemplates(await listResumeTemplates('latex'))
+      setTemplates(templateType === 'html' ? listHtmlTemplates() : await listResumeTemplates('latex'))
     } catch (err) {
       console.error('[TemplateSwitcher] failed to load templates:', err)
       setError(err instanceof Error ? err.message : '模板加载失败')
@@ -46,7 +53,7 @@ export function TemplateSwitcherModal({
   useEffect(() => {
     if (!isOpen || templates.length > 0) return
     void loadTemplates()
-  }, [isOpen, templates.length])
+  }, [isOpen, templateType, templates.length])
 
   useEffect(() => {
     if (!isOpen) return
@@ -60,7 +67,7 @@ export function TemplateSwitcherModal({
   if (!isOpen) return null
 
   const handleSelect = (templateId: string) => {
-    onSelect(normalizeLatexTemplateId(templateId))
+    onSelect(templateType === 'html' ? normalizeHtmlTemplateId(templateId) : normalizeLatexTemplateId(templateId))
     onClose()
   }
 
@@ -75,7 +82,9 @@ export function TemplateSwitcherModal({
       <div className="relative flex max-h-[86vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white shadow-2xl">
         <header className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
-            <h2 className="text-lg font-bold text-slate-950">更换 LaTeX 模板</h2>
+            <h2 className="text-lg font-bold text-slate-950">
+              更换 {templateType === 'html' ? 'HTML' : 'LaTeX'} 模板
+            </h2>
             <p className="mt-1 text-sm text-slate-500">
               当前模板：{currentTemplate?.name || normalizedCurrentTemplateId}
             </p>

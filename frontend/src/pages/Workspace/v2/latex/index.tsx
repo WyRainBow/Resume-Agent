@@ -354,6 +354,7 @@ export default function LaTeXWorkspace() {
 
       <TemplateSwitcherModal
         isOpen={templateSwitcherOpen}
+        templateType="latex"
         currentTemplateId={resumeData.templateId}
         onClose={() => setTemplateSwitcherOpen(false)}
         onSelect={handleSelectTemplate}
