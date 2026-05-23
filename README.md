@@ -67,17 +67,6 @@ uv pip install -r requirements.txt
 cd frontend && npm install
 ```
 
-### 配置环境变量
-
-在项目根目录创建 `.env`、至少配置 AI Key。若需要上传资源、还需配置 COS 参数。
-
-```bash
-DASHSCOPE_API_KEY=your_api_key
-COS_SECRET_ID=your_cos_secret_id
-COS_SECRET_KEY=your_cos_secret_key
-COS_REGION=ap-guangzhou
-COS_BUCKET=resumecos-1327706280
-```
 
 ### 启动服务
 
