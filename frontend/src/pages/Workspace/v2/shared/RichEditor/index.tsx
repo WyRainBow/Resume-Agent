@@ -218,6 +218,9 @@ const RichEditor = ({
   const selectionSnapshotRef = useRef<{ from: number; to: number; text: string; html: string } | null>(null)
   const lastCapturedSelectionRef = useRef<{ from: number; to: number } | null>(null)
   const [lockedSelection, setLockedSelection] = useState<{ from: number; to: number } | null>(null)
+  // 始终指向最新 onChange，防止 Tiptap onUpdate 捕获旧闭包
+  const onChangeRef = useRef(onChange)
+  onChangeRef.current = onChange
 
   const handlePolish = () => {
     if (resumeData) {
@@ -267,7 +270,7 @@ const RichEditor = ({
     ],
     content,
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML())
+      onChangeRef.current(editor.getHTML())
     },
     editorProps: {
       attributes: {

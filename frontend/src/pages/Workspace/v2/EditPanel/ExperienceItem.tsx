@@ -322,9 +322,12 @@ const ExperienceEditor = ({
   const canUploadLogo = !!user && (roleFromToken === 'admin' || roleFromToken === 'member')
   const headerRef = useRef<HTMLDivElement>(null)
   const isCompactLayout = useCompactLayout(headerRef, 720)
+  // 始终指向最新 experience，防止 handleChange 读取旧闭包
+  const experienceRef = useRef(experience)
+  experienceRef.current = experience
 
   const handleChange = (field: keyof Experience, value: string | boolean | number | undefined) => {
-    const updated = { ...experience, [field]: value }
+    const updated = { ...experienceRef.current, [field]: value }
     // 清除空字符串的 companyLogo
     if (field === 'companyLogo' && value === '') {
       delete updated.companyLogo
