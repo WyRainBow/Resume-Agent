@@ -1070,7 +1070,7 @@ export async function translateResume(fields: JdOptimizeField[], targetLang: str
 
 export interface HealthDimension {
   dimension: string
-  score: number
+  score: number | null
   comment: string
 }
 

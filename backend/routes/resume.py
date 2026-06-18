@@ -436,6 +436,45 @@ class TranslateRequest(BaseModel):
     locale: str = Field(default="zh")
 
 
+class HealthCheckRequest(BaseModel):
+    """通用简历体检（无需 JD，多字段）"""
+    provider: Optional[str] = Field(default=None)
+    fields: list[JdOptimizeField] = Field(default_factory=list)
+    locale: str = Field(default="zh")
+
+
+def _build_health_check_prompt(*, fields: list[JdOptimizeField], locale: str) -> str:
+    fields_block = "\n".join(
+        f'- key={f.key}｜{f.label or f.key}：{(f.content or "")[:1200]}' for f in fields
+    )
+    return f"""你是一名资深简历顾问。请对下面这份简历做一次"通用质量体检"（不依赖任何 JD），按维度打分并给出可落地的改进建议。
+
+评分维度（dimension 固定用这些名称）：
+- 完整度：关键模块与信息是否齐全
+- 表达质量：用词是否专业有力、是否避免空话套话
+- 量化成果：是否用数字/结果证明价值
+- 关键词丰富度：是否覆盖目标方向的技术/能力关键词
+- 格式规范：结构、长度、表达是否清晰规范
+
+简历字段（每条含唯一 key）：
+{fields_block}
+
+严格要求：
+1. 用{locale}语言输出。
+2. 每个维度给 0-100 的 score 和一句话 comment；overallScore 为整体分（0-100）。
+3. suggestions 给具体改写建议：original 必须是某字段里**逐字出现的连续片段**（便于程序精确替换），suggested 为改进后片段，reason 说明为何更好；只给确有价值的，宁缺毋滥。
+4. 不编造经历或数据。
+
+只输出 JSON，不要任何额外文字或代码块：
+{{
+  "overallScore": 0,
+  "dimensions": [{{"dimension": "完整度", "score": 0, "comment": "..."}}],
+  "suggestions": [{{"key": "字段key", "original": "原片段", "suggested": "改进后片段", "reason": "为何更好"}}],
+  "summary": "一句话总体评价"
+}}
+"""
+
+
 _TRANSLATE_LANG_NAMES = {
     "en": "英语", "zh": "中文", "ja": "日语", "ko": "韩语",
     "fr": "法语", "de": "德语", "es": "西班牙语", "pt": "葡萄牙语", "ru": "俄语",
@@ -597,6 +636,75 @@ async def translate_resume_fields(body: TranslateRequest):
         raise HTTPException(status_code=500, detail="翻译失败，请重试")
 
     return {"translations": translations}
+
+
+@router.post("/resume/health-check")
+async def resume_health_check(body: HealthCheckRequest):
+    """通用简历体检（无需 JD）：维度评分 + 逐条可应用建议。"""
+    fields = [f for f in (body.fields or []) if (f.content or "").strip()]
+    if not fields:
+        raise HTTPException(status_code=400, detail="没有可体检的字段内容")
+
+    provider = body.provider or DEFAULT_AI_PROVIDER
+    prompt = _build_health_check_prompt(fields=fields, locale=body.locale or "zh")
+
+    try:
+        raw = call_llm(provider, prompt)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
+
+    cleaned = clean_llm_response(raw)
+    try:
+        data = parse_json_response(cleaned)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"解析 JSON 失败: {e}")
+
+    def _clamp(value):
+        try:
+            return max(0, min(100, int(value)))
+        except (TypeError, ValueError):
+            return None
+
+    dimensions: list[dict] = []
+    for item in (data.get("dimensions") or []):
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("dimension", "")).strip()
+        if not name:
+            continue
+        dimensions.append({
+            "dimension": name,
+            "score": _clamp(item.get("score")),
+            "comment": str(item.get("comment", "")).strip(),
+        })
+
+    content_by_key = {f.key: (f.content or "") for f in fields}
+    suggestions: list[dict] = []
+    for item in (data.get("suggestions") or []):
+        if not isinstance(item, dict):
+            continue
+        key = str(item.get("key", "")).strip()
+        original = str(item.get("original", "")).strip()
+        suggested = str(item.get("suggested", "")).strip()
+        if not key or key not in content_by_key:
+            continue
+        if not original or not suggested or original == suggested:
+            continue
+        if original not in content_by_key[key]:
+            continue
+        suggestions.append({
+            "key": key,
+            "original": original,
+            "suggested": suggested,
+            "reason": str(item.get("reason", "")).strip(),
+        })
+
+    return {
+        "overallScore": _clamp(data.get("overallScore")),
+        "dimensions": dimensions,
+        "suggestions": suggestions,
+        "summary": str(data.get("summary", "")).strip(),
+    }
 
 
 @router.post("/resume/generate", response_model=ResumeGenerateResponse)

@@ -14,6 +14,7 @@ import EditPreviewLayout from './EditPreviewLayout'
 import AIImportModal from './shared/AIImportModal'
 import JdOptimizeDialog from './shared/JdOptimizeDialog'
 import TranslateDialog from './shared/TranslateDialog'
+import HealthCheckDialog from './shared/HealthCheckDialog'
 import AiAssistantChat from './shared/AiAssistantChat'
 import { ScoreCard } from '@/components/ScoreCard'
 import { scoreResume, type JdOptimizeField } from '@/services/api'
@@ -37,6 +38,7 @@ export default function WorkspaceV2() {
   const [scoreData, setScoreData] = useState<any>(null)
   const [showJdOptimize, setShowJdOptimize] = useState(false)
   const [showTranslate, setShowTranslate] = useState(false)
+  const [showHealthCheck, setShowHealthCheck] = useState(false)
   const jdTextareaRef = useRef<HTMLTextAreaElement>(null)
   // 简历数据管理
   const {
@@ -371,6 +373,14 @@ export default function WorkspaceV2() {
         onApply={applyTextReplacement}
       />
 
+      {/* 通用简历体检弹窗 */}
+      <HealthCheckDialog
+        open={showHealthCheck}
+        onOpenChange={setShowHealthCheck}
+        fields={jdFields}
+        onApply={applyTextReplacement}
+      />
+
       {/* AI 助手 —— 右下角可拖拽悬浮气泡 + 对话窗口 */}
       <AiAssistantChat
         resumeData={resumeData}
@@ -381,6 +391,7 @@ export default function WorkspaceV2() {
           jdTextareaRef.current?.focus()
         }}
         onTranslate={() => setShowTranslate(true)}
+        onHealthCheck={() => setShowHealthCheck(true)}
         hasContent={jdFields.length > 0}
       />
 

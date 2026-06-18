@@ -7,7 +7,7 @@
  * - 保留「针对 JD 优化」快捷入口。
  */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { Sparkles, X, Send, Target, Loader2, Square, Quote, Check, Languages } from 'lucide-react'
+import { Sparkles, X, Send, Target, Loader2, Square, Quote, Check, Languages, Stethoscope } from 'lucide-react'
 import { chatStream, rewriteTextStream, type ChatStreamMessage } from '@/services/api'
 import { stripHtmlTags } from '../utils/textUtils'
 import type { ResumeData } from '../types'
@@ -26,6 +26,8 @@ interface AiAssistantChatProps {
   onFocusJd: () => void
   /** 打开「简历一键翻译」弹窗 */
   onTranslate: () => void
+  /** 打开「简历体检」弹窗 */
+  onHealthCheck: () => void
   /** 简历是否有可处理的文本内容（决定翻译/体检是否可用） */
   hasContent: boolean
 }
@@ -76,7 +78,7 @@ function buildResumeContext(r: ResumeData): string {
   return lines.join('\n')
 }
 
-export default function AiAssistantChat({ resumeData, onJdOptimize, jdReady, onFocusJd, onTranslate, hasContent }: AiAssistantChatProps) {
+export default function AiAssistantChat({ resumeData, onJdOptimize, jdReady, onFocusJd, onTranslate, onHealthCheck, hasContent }: AiAssistantChatProps) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ChatItem[]>([])
   const [input, setInput] = useState('')
@@ -252,6 +254,14 @@ export default function AiAssistantChat({ resumeData, onJdOptimize, jdReady, onF
             >
               <Languages className="w-4 h-4 text-teal-500 shrink-0" />
               <span className="text-xs text-neutral-700 dark:text-neutral-200">简历一键翻译 / 双语</span>
+            </button>
+            <button
+              onClick={onHealthCheck}
+              disabled={!hasContent}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-violet-200 dark:border-violet-900/50 bg-violet-50/60 dark:bg-violet-950/20 hover:bg-violet-100/60 dark:hover:bg-violet-950/40 transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Stethoscope className="w-4 h-4 text-violet-500 shrink-0" />
+              <span className="text-xs text-neutral-700 dark:text-neutral-200">简历体检（无需 JD）</span>
             </button>
           </div>
 
