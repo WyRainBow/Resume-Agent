@@ -44,10 +44,11 @@ import { BubbleMenu } from '@tiptap/react/menus'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { ResumeData, Education } from '../../types'
+import { setActiveSelection } from '../activeSelectionStore'
 import './tiptap.css'
 
-/** false：不渲染划词改写气泡与弹窗；工具栏「AI 润色」打开的对话框仍可用 */
-const ENABLE_SELECTION_POLISH_UI = true
+/** false：不渲染旧划词改写气泡；划词改写已收编到右下角 AI 助手对话窗口 */
+const ENABLE_SELECTION_POLISH_UI = false
 
 // Debug logging disabled in production
 const logDebug = (_message: string, _data?: Record<string, any>) => {}
@@ -273,6 +274,20 @@ const RichEditor = ({
     content,
     onUpdate: ({ editor }) => {
       onChangeRef.current(editor.getHTML())
+    },
+    // 选中非空文本时推入全局选区通道，供右下角 AI 助手"引用选中 + 划词改写"使用
+    onSelectionUpdate: ({ editor }) => {
+      const { from, to } = editor.state.selection
+      const text = editor.state.doc.textBetween(from, to, '\n')
+      if (from >= to || text.trim().length < 2) return
+      let html = ''
+      const domSelection = window.getSelection()
+      if (domSelection && domSelection.rangeCount > 0) {
+        const container = document.createElement('div')
+        container.appendChild(domSelection.getRangeAt(0).cloneContents())
+        html = container.innerHTML
+      }
+      setActiveSelection({ editor, from, to, text, html: html || text, path: polishPath })
     },
     editorProps: {
       attributes: {
