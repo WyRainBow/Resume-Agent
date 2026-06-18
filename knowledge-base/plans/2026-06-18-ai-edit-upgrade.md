@@ -6,9 +6,19 @@
 
 ## 执行进展（2026-06-18，全自动模式）
 
-- ✅ **子任务1 完成**：修复并重启划词润色气泡。根因＝Tiptap v3 BubbleMenu 由 tippy 改 Floating UI，旧 `tippyOptions/onHidden` 失效；已迁移到 `options(placement/strategy/offset)+onHide`，打开 `ENABLE_SELECTION_POLISH_UI`，并把开发期调试日志改 no-op。build 通过 + 浏览器选词实测气泡正常浮出、console 无报错。提交：`dc24637`（plan 文档 `4f3876d`）。
-- ⛔ **阻塞**：本地 9000 端口被无关进程 `./ark conf/run.local.ini` 占用，**我们的 FastAPI 后端未运行**，所有 `/api/*` 返回 404。不擅自 kill 用户的 `ark` 进程。→ 后续依赖后端的子任务（流式导入、JD 分析、语法体检）无法端到端验证，本轮暂缓；待 9000 释放并启动 `backend.main:app` 后再做（这些可用 pytest TestClient 做接口级验证，但前端联调仍需服务在 9000）。
-- ⏭️ **桌面剩余项的取舍**：统一侧边 Copilot（P0-1）是对**现有可用润色功能**的重构，需后端流式联调验证才能保证不回归——在后端不可用期间不动它，避免改坏已上线功能。死代码 `AIPolishDialog.tsx` 按 CLAUDE.md「不相关死代码只指出不删除」保留。
+**已解阻塞**：9000 被无关进程 `./ark conf/run.local.ini` 占用、我们的后端未运行。未 kill `ark`，改为在 **9007** 启动 `backend.main:app`，并用 `VITE_DEV_PROXY_TARGET=http://127.0.0.1:9007` 重启前端代理（仅运行期 env，无代码改动），从而获得完整端到端验证能力（DeepSeek/智谱/DashScope key 均已配置）。
+
+- ✅ **子任务1**：修复并重启划词润色气泡。根因＝Tiptap v3 BubbleMenu 由 tippy 改 Floating UI，旧 `tippyOptions/onHidden` 失效；迁移到 `options(placement/strategy/offset)+onHide`，打开 `ENABLE_SELECTION_POLISH_UI`，调试日志 no-op。端到端实测：选词浮出气泡、意图识别（`加粗`→selective_bold 0.95）、改写流式（`精简`正确）。提交 `dc24637`。
+- ✅ **子任务2**：新增语法/表达体检弹窗 + 一键修复（对标 JadeAI Mode-B）。后端 `POST /api/resume/grammar-check`（无状态、结构化 + 边界校验），前端 `GrammarCheckDialog` + RichEditor 工具栏入口。端到端实测：专业技能体检得分 75、3 条 before→after 建议、一键全部修复正确写回编辑器。提交 `ca7c8bb`。
+- ✅ **子任务3**：补齐 ExperiencePanel/ProjectPanel/OpenSourcePanel 的 `resumeData` 透传（EditPanel + ScrollEditMode 两入口）。修复"工作内容/项目描述/开源描述"这些核心字段此前看不到 AI 润色/语法体检按钮的历史缺口。端到端实测：实习经历工作内容两按钮正常出现。提交 `26a97d9`。
+
+- ⏭️ **本轮未做（留待后续，规模/风险较大）**：
+  - **统一侧边 Copilot（P0-1）**：对现有可用润色功能的重构，回归风险高，建议单独排期 + 充分联调。
+  - **JD 一键优化（P1-1）**：whole-resume 跨字段应用较复杂，且与现有 `/api/resume/score`（JD 评分）存在能力重叠，需先界定边界。
+  - **导入流式化（P0-4）**：需重构现有 parse 为按 section SSE，触及已上线导入链路，单独排期。
+  - 死代码 `AIPolishDialog.tsx` 按 CLAUDE.md「不相关死代码只指出不删除」保留。
+
+> 运行环境说明：当前后端临时在 9007、前端代理指向 9007；项目标准口径是 9000。恢复标准：释放 9000 → `python -m uvicorn backend.main:app --port 9000` → 前端正常 `npm run dev` 即可（无需任何代码回滚）。
 
 ## Context（为什么做）
 
