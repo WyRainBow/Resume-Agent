@@ -3,9 +3,8 @@
  * 基于 TipTap，支持加粗、斜体、下划线、列表等格式
  * 输出 HTML 格式，后端转换为 LaTeX
  */
-import React, { useEffect, useRef, useState, useCallback } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
-import { Extension } from '@tiptap/core'
 import type { Editor } from '@tiptap/core'
 import StarterKit from '@tiptap/starter-kit'
 import TextAlign from '@tiptap/extension-text-align'
@@ -37,18 +36,12 @@ import { cn } from '../../../../../lib/utils'
 import { BetterSpace } from './BetterSpace'
 import PolishChatDialog from '../PolishChatDialog'
 import GrammarCheckDialog from '../GrammarCheckDialog'
-import SelectionPolishBubble from '../SelectionPolishBubble'
 
 import AIWriteDialog from '../AIWriteDialog'
-import { BubbleMenu } from '@tiptap/react/menus'
-import { Plugin, PluginKey } from '@tiptap/pm/state'
-import { Decoration, DecorationSet } from '@tiptap/pm/view'
 import type { ResumeData, Education } from '../../types'
 import { setActiveSelection } from '../activeSelectionStore'
 import './tiptap.css'
 
-/** false：不渲染旧划词改写气泡；划词改写已收编到右下角 AI 助手对话窗口 */
-const ENABLE_SELECTION_POLISH_UI = false
 
 // Debug logging disabled in production
 const logDebug = (_message: string, _data?: Record<string, any>) => {}
@@ -72,46 +65,6 @@ const logBoldDebugSnapshot = (editor: Editor, phase: 'before' | 'after') => {
     console.error(`[BOLD DEBUG][${phase}] snapshot failed`, error)
   }
 }
-
-// Debug logging disabled in production（与上方 logDebug 一致，保留调用点便于排障时打开）
-const logSelectionLockDebug = (_event: string, _data?: Record<string, unknown>) => {}
-
-const selectionLockPluginKey = new PluginKey<DecorationSet>('selectionLockHighlight')
-
-const SelectionLockHighlight = Extension.create({
-  name: 'selectionLockHighlight',
-  addProseMirrorPlugins() {
-    return [
-      new Plugin({
-        key: selectionLockPluginKey,
-        state: {
-          init: () => DecorationSet.empty,
-          apply(tr, old) {
-            const meta = tr.getMeta(selectionLockPluginKey) as
-              | { from?: number; to?: number; clear?: boolean }
-              | undefined
-            if (meta?.clear) return DecorationSet.empty
-            if (
-              typeof meta?.from === 'number' &&
-              typeof meta?.to === 'number' &&
-              meta.from < meta.to
-            ) {
-              return DecorationSet.create(tr.doc, [
-                Decoration.inline(meta.from, meta.to, { class: 'selection-lock-highlight' }),
-              ])
-            }
-            return tr.docChanged ? old.map(tr.mapping, tr.doc) : old
-          },
-        },
-        props: {
-          decorations(state) {
-            return selectionLockPluginKey.getState(state) as DecorationSet
-          },
-        },
-      }),
-    ]
-  },
-})
 
 const getListItemNestingLevel = (editor: Editor): number => {
   const { $from } = editor.state.selection
@@ -217,10 +170,6 @@ const RichEditor = ({
   const [showPolishDialog, setShowPolishDialog] = useState(false)
   const [showGrammarDialog, setShowGrammarDialog] = useState(false)
   const [showAIWriteDialog, setShowAIWriteDialog] = useState(false)
-  const bubbleActiveRef = useRef(false)
-  const selectionSnapshotRef = useRef<{ from: number; to: number; text: string; html: string } | null>(null)
-  const lastCapturedSelectionRef = useRef<{ from: number; to: number } | null>(null)
-  const [lockedSelection, setLockedSelection] = useState<{ from: number; to: number } | null>(null)
   // 始终指向最新 onChange，防止 Tiptap onUpdate 捕获旧闭包
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
@@ -269,7 +218,6 @@ const RichEditor = ({
       Color,
       Highlight.configure({ multicolor: true }),
       BetterSpace,
-      SelectionLockHighlight,
     ],
     content,
     onUpdate: ({ editor }) => {
@@ -314,48 +262,6 @@ const RichEditor = ({
       editor.commands.setContent(content, false)
     }
   }, [content, editor])
-
-  const handleLockSelection = useCallback(
-    (selection: { from: number; to: number }) => {
-      logSelectionLockDebug('lock-selection', selection)
-      setLockedSelection(selection)
-      editor?.view.dispatch(
-        editor.state.tr.setMeta(selectionLockPluginKey, { from: selection.from, to: selection.to }),
-      )
-    },
-    [editor],
-  )
-
-  const handleUnlockSelection = useCallback(() => {
-    logSelectionLockDebug('unlock-selection')
-    setLockedSelection(null)
-    editor?.view.dispatch(editor.state.tr.setMeta(selectionLockPluginKey, { clear: true }))
-  }, [editor])
-
-  useEffect(() => {
-    if (!editor || !lockedSelection) return
-    const handleGlobalPointerDown = (event: PointerEvent) => {
-      const target = event.target as HTMLElement | null
-      const inEditor = !!(target && editor.view.dom.contains(target))
-      const inBubble = !!target?.closest('.ai-polish-bubble')
-      const inPolishDialog = !!target?.closest('.selection-polish-chat')
-      if (inEditor || inBubble || inPolishDialog) return
-
-      logSelectionLockDebug('global-unlock-outside-click', {
-        targetTag: target?.tagName || null,
-        targetClass: target?.className || null,
-      })
-      bubbleActiveRef.current = false
-      handleUnlockSelection()
-      selectionSnapshotRef.current = null
-      lastCapturedSelectionRef.current = null
-    }
-
-    document.addEventListener('pointerdown', handleGlobalPointerDown, true)
-    return () => {
-      document.removeEventListener('pointerdown', handleGlobalPointerDown, true)
-    }
-  }, [editor, handleUnlockSelection, lockedSelection])
 
   if (!editor) {
     return null
@@ -612,99 +518,6 @@ const RichEditor = ({
 
       {/* 编辑区域 */}
       <EditorContent editor={editor} />
-
-      {/* 划词改写气泡 — 可由 ENABLE_SELECTION_POLISH_UI 关闭 */}
-      {ENABLE_SELECTION_POLISH_UI &&
-        editor && (
-        <BubbleMenu
-          editor={editor}
-          // Tiptap v3：BubbleMenu 改用 Floating UI（不再是 tippy）。
-          // 旧 tippyOptions（interactive/hideOnClick/popperOptions/onHidden）已失效，
-          // 迁移到 options：placement/strategy/offset + onHide 生命周期。
-          options={{
-            placement: 'top',
-            strategy: 'fixed',
-            offset: 8,
-            onHide: () => {
-              const activeEl = document.activeElement as HTMLElement | null
-              logSelectionLockDebug('bubble-onHide', {
-                activeElementTag: activeEl?.tagName || null,
-                activeElementClass: activeEl?.className || null,
-                activeInBubble: !!activeEl?.closest('.ai-polish-bubble'),
-                hasLockedSelection: !!lockedSelection,
-                bubbleActive: bubbleActiveRef.current,
-              })
-              if (activeEl?.closest('.ai-polish-bubble')) {
-                bubbleActiveRef.current = true
-                return
-              }
-              bubbleActiveRef.current = false
-            },
-          }}
-          shouldShow={({ editor: e }: { editor: Editor }) => {
-            // Keep bubble visible only when there is a valid locked selection snapshot
-            if (bubbleActiveRef.current) {
-              const snapshot = selectionSnapshotRef.current
-              const hasValidSnapshot =
-                !!snapshot &&
-                snapshot.from < snapshot.to &&
-                !!snapshot.text?.trim()
-              if (hasValidSnapshot) return true
-              bubbleActiveRef.current = false
-              return false
-            }
-            if (!e) return false
-            const activeEl = document.activeElement as HTMLElement | null
-            const activeInEditor = !!(activeEl && e.view.dom.contains(activeEl))
-            const activeInBubble = !!activeEl?.closest('.ai-polish-bubble')
-            if (!activeInEditor && !activeInBubble) {
-              logSelectionLockDebug('shouldShow-false-not-focused', {
-                activeElementTag: activeEl?.tagName || null,
-                activeElementClass: activeEl?.className || null,
-              })
-              return false
-            }
-            const { from, to } = e.state.selection
-            const text = e.state.doc.textBetween(from, to, '\n')
-            const shouldShowNow = from < to && text.trim().length >= 2
-            if (!shouldShowNow) return false
-
-            const last = lastCapturedSelectionRef.current
-            const changed = !last || last.from !== from || last.to !== to
-            if (changed) {
-              let html = ''
-              const domSelection = window.getSelection()
-              if (domSelection && domSelection.rangeCount > 0) {
-                const range = domSelection.getRangeAt(0)
-                const container = document.createElement('div')
-                container.appendChild(range.cloneContents())
-                html = container.innerHTML
-              }
-
-              selectionSnapshotRef.current = {
-                from,
-                to,
-                text,
-                html: html || text,
-              }
-              lastCapturedSelectionRef.current = { from, to }
-              handleLockSelection({ from, to })
-              logSelectionLockDebug('capture-from-shouldShow', { from, to, textLength: text.length })
-            }
-
-            return true
-          }}
-        >
-          <SelectionPolishBubble
-            editor={editor}
-            polishPath={polishPath}
-            bubbleActiveRef={bubbleActiveRef}
-            selectionSnapshotRef={selectionSnapshotRef}
-            onLockSelection={handleLockSelection}
-            onUnlockSelection={handleUnlockSelection}
-          />
-        </BubbleMenu>
-      )}
 
       {/* AI 润色对话框 */}
       {resumeData && (
