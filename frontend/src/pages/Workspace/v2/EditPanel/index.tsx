@@ -156,6 +156,7 @@ export function EditPanel({
             globalSettings={resumeData.globalSettings}
             updateGlobalSettings={updateGlobalSettings}
             onAIImport={onAIImport ? () => onAIImport('experience') : undefined}
+            resumeData={resumeData}
           />
         )
 
@@ -194,6 +195,7 @@ export function EditPanel({
             onAIImport={onAIImport ? () => onAIImport('openSource') : undefined}
             globalSettings={resumeData.globalSettings}
             updateGlobalSettings={updateGlobalSettings}
+            resumeData={resumeData}
           />
         )
 

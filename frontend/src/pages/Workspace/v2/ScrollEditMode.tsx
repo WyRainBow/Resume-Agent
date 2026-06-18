@@ -168,6 +168,7 @@ export default function ScrollEditMode({
             globalSettings={resumeData.globalSettings}
             updateGlobalSettings={updateGlobalSettings}
             onAIImport={handleAIImport ? () => handleAIImport('experience') : undefined}
+            resumeData={resumeData}
           />
         )
 
@@ -179,6 +180,7 @@ export default function ScrollEditMode({
             onDelete={deleteProject}
             onReorder={reorderProjects}
             onAIImport={handleAIImport ? () => handleAIImport('projects') : undefined}
+            resumeData={resumeData}
           />
         )
 
@@ -212,6 +214,7 @@ export default function ScrollEditMode({
             onAIImport={handleAIImport ? () => handleAIImport('openSource') : undefined}
             globalSettings={resumeData.globalSettings}
             updateGlobalSettings={updateGlobalSettings}
+            resumeData={resumeData}
           />
         )
 
