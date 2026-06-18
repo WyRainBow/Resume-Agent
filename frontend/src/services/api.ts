@@ -870,6 +870,104 @@ export async function rewriteTextStream(
   }
 }
 
+export interface ChatStreamMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+/** 轻量简历问答（流式）—— 供右下角悬浮 AI 助手对话窗口使用 */
+export async function chatStream(
+  messages: ChatStreamMessage[],
+  resumeContext: string,
+  onChunk: (chunk: string) => void,
+  onComplete?: () => void,
+  onError?: (error: string) => void,
+  signal?: AbortSignal,
+) {
+  const url = `${getApiBaseUrl()}/api/resume/chat/stream`
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        provider: 'deepseek',
+        messages,
+        resume_context: resumeContext,
+        locale: 'zh',
+      }),
+      signal,
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+
+    const reader = response.body?.getReader()
+    const decoder = new TextDecoder()
+
+    if (!reader) {
+      throw new Error('无法获取响应流')
+    }
+
+    let buffer = ''
+    let completed = false
+    const finish = () => {
+      if (completed) return
+      completed = true
+      onComplete?.()
+    }
+
+    const processLine = (line: string) => {
+      if (!line.startsWith('data: ')) return
+      const data = line.slice(6).trim()
+      if (data === '[DONE]') {
+        finish()
+        return
+      }
+      try {
+        const parsed = JSON.parse(data)
+        if (parsed.error) {
+          onError?.(parsed.error)
+          return
+        }
+        if (parsed.content) {
+          onChunk(parsed.content)
+        }
+      } catch {
+        // ignore parse errors
+      }
+    }
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+
+      buffer += decoder.decode(value, { stream: true })
+
+      const events = buffer.split('\n\n')
+      buffer = events.pop() || ''
+
+      for (const event of events) {
+        for (const line of event.split('\n')) {
+          processLine(line)
+        }
+      }
+    }
+
+    if (buffer.trim()) {
+      for (const line of buffer.split('\n')) {
+        processLine(line)
+      }
+    }
+
+    finish()
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') return
+    onError?.(error instanceof Error ? error.message : '对话失败')
+  }
+}
+
 export type RewriteTextIntent = 'full_bold' | 'selective_bold' | 'remove_bold' | 'list_transform' | 'rewrite'
 
 export async function detectRewriteTextIntent(

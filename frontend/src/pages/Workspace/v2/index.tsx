@@ -13,7 +13,7 @@ import { Header } from './components'
 import EditPreviewLayout from './EditPreviewLayout'
 import AIImportModal from './shared/AIImportModal'
 import JdOptimizeDialog from './shared/JdOptimizeDialog'
-import AiCopilotDock from './shared/AiCopilotDock'
+import AiAssistantChat from './shared/AiAssistantChat'
 import { ScoreCard } from '@/components/ScoreCard'
 import { scoreResume, type JdOptimizeField } from '@/services/api'
 import { stripHtmlTags } from './utils/textUtils'
@@ -361,8 +361,9 @@ export default function WorkspaceV2() {
         onApply={applyTextReplacement}
       />
 
-      {/* AI 助手 Dock —— 统一浮动入口 */}
-      <AiCopilotDock
+      {/* AI 助手 —— 右下角可拖拽悬浮气泡 + 对话窗口 */}
+      <AiAssistantChat
+        resumeData={resumeData}
         onJdOptimize={() => setShowJdOptimize(true)}
         jdReady={jdText.trim().length >= 10 && jdFields.length > 0}
         onFocusJd={() => {
