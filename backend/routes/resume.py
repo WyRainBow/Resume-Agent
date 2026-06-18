@@ -984,6 +984,67 @@ async def _parse_resume_serial(body: ResumeParseRequest):
         return {"resume": data, "provider": provider}
 
 
+_STREAM_PARSE_SCHEMA = '格式:{"name":"姓名","contact":{"phone":"电话","email":"邮箱"},"objective":"求职意向","education":[{"title":"学校","subtitle":"专业","degree":"学位(本科/硕士/博士)","date":"时间","details":["荣誉"]}],"internships":[{"title":"公司","subtitle":"职位","date":"时间","highlights":["工作内容"]}],"projects":[{"title":"项目名","subtitle":"角色","date":"时间","description":"项目描述(可选)","highlights":["描述"]}],"openSource":[{"title":"开源项目","subtitle":"角色/描述","date":"时间","items":["贡献描述"],"repoUrl":"仓库链接"}],"skills":[{"category":"类别","details":"技能描述"}],"awards":["奖项"]}'
+
+
+def _build_stream_parse_prompt(text: str) -> str:
+    return f"""从简历文本提取信息,只输出JSON(不要markdown,无数据的字段用空数组[]):
+
+解析规则：
+1. 技能：多行以"-"开头的技能描述，每行作为独立技能项 {{"category":"","details":"该行内容(去掉破折号)"}}
+2. 项目：项目描述段落放入"description"；以"- **标题**：描述"格式的功能亮点放入该项目"highlights"数组(保留**加粗**、去掉开头"- ")，不要并入 description
+3. 实习/工作的每条职责放入对应条目的"highlights"数组
+
+简历文本:
+{text}
+{_STREAM_PARSE_SCHEMA}"""
+
+
+@router.post("/resume/parse/stream")
+async def parse_resume_text_stream(body: ResumeParseRequest):
+    """流式解析简历文本：单次 LLM 流式输出 token 进度，结束时返回标准化 JSON。
+    与非流式 /resume/parse（含并行分块）并存，仅用于需要实时进度反馈的导入场景。"""
+    import asyncio
+
+    text = normalize_pasted_resume_text(body.text)
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="文本不能为空")
+    provider = body.provider or DEFAULT_AI_PROVIDER
+    prompt = _build_stream_parse_prompt(text)
+
+    async def generate():
+        full = ""
+        try:
+            yield f"data: {_json.dumps({'type': 'status', 'content': 'parsing'}, ensure_ascii=False)}\n\n"
+            for chunk in call_llm_stream(provider, prompt):
+                full += chunk
+                yield f"data: {_json.dumps({'type': 'progress', 'chars': len(full)}, ensure_ascii=False)}\n\n"
+                await asyncio.sleep(0)
+
+            cleaned = clean_llm_response(full)
+            data = parse_json_response(cleaned)
+            try:
+                from json_normalizer import normalize_resume_json
+                data = normalize_resume_json(data)
+            except Exception as norm_err:
+                logger.warning(f"流式解析标准化失败，返回原始数据: {norm_err}")
+
+            yield f"data: {_json.dumps({'type': 'json', 'content': data}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: {_json.dumps({'type': 'error', 'content': str(e)}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.post("/resume/parse-section")
 async def parse_section_text(body: SectionParseRequest):
     """AI 解析单个模块文本 → 结构化数据"""

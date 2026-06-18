@@ -89,6 +89,7 @@ export function AIImportModal({
 }: AIImportModalProps) {
   const [text, setText] = useState("");
   const [parsing, setParsing] = useState(false);
+  const [streamChars, setStreamChars] = useState(0);
   const [parsedData, setParsedData] = useState<any>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [finalTime, setFinalTime] = useState<number | null>(null);
@@ -164,57 +165,80 @@ export function AIImportModal({
     if (!text.trim()) return;
     setParsing(true);
     setParsedData(null);
+    setStreamChars(0);
+
+    const apiBase = getApiBaseUrl();
+    // 处理命名不一致：openSource -> opensource
+    const normalizedType =
+      sectionType === "openSource"
+        ? "opensource"
+        : sectionType === "selfEvaluation"
+          ? "summary"
+          : sectionType;
 
     try {
-      // 处理命名不一致：openSource -> opensource
-      const normalizedType =
-        sectionType === "openSource"
-          ? "opensource"
-          : sectionType === "selfEvaluation"
-            ? "summary"
-            : sectionType;
-
-      // 根据是否全局导入选择不同的 API
-      const apiBase = getApiBaseUrl();
-      const endpoint =
-        sectionType === "all"
-          ? `${apiBase}/api/resume/parse` // 全局解析
-          : `${apiBase}/api/resume/parse-section`; // 分模块解析
-
-      const body =
-        sectionType === "all"
-          ? { text: text.trim(), model: selectedModel }
-          : {
-              text: text.trim(),
-              section_type: normalizedType,
-              model: selectedModel,
-            };
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!response.ok) {
-        let errMsg = "解析失败";
-        try {
-          const err = await response.json();
-          errMsg = err.detail || errMsg;
-        } catch {
-          errMsg = `HTTP ${response.status}`;
-        }
-        throw new Error(errMsg);
-      }
-
-      const result = await response.json();
-      // 全局解析返回 { resume: {...} }，提取 resume 字段
       if (sectionType === "all") {
-        setParsedData(result.resume || result);
+        // 全局解析走流式接口，实时显示生成进度
+        const resp = await fetch(`${apiBase}/api/resume/parse/stream`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: text.trim(), model: selectedModel }),
+        });
+        if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
+
+        const reader = resp.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+        let resume: any = null;
+        let streamErr = "";
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const parts = buffer.split("\n\n");
+          buffer = parts.pop() || "";
+          for (const part of parts) {
+            const line = part.split("\n").find((l) => l.startsWith("data: "));
+            if (!line) continue;
+            const payload = line.slice(6).trim();
+            if (payload === "[DONE]") continue;
+            try {
+              const evt = JSON.parse(payload);
+              if (evt.type === "progress") setStreamChars(evt.chars || 0);
+              else if (evt.type === "json") resume = evt.content;
+              else if (evt.type === "error") streamErr = evt.content || "解析失败";
+            } catch {
+              /* 忽略不完整帧 */
+            }
+          }
+        }
+
+        if (streamErr) throw new Error(streamErr);
+        if (!resume) throw new Error("解析结果为空，请重试");
+        setParsedData(resume.resume || resume);
+        setCurrentStep("results");
       } else {
+        // 分模块解析（非流式）
+        const response = await fetch(`${apiBase}/api/resume/parse-section`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: text.trim(), section_type: normalizedType, model: selectedModel }),
+        });
+        if (!response.ok) {
+          let errMsg = "解析失败";
+          try {
+            const err = await response.json();
+            errMsg = err.detail || errMsg;
+          } catch {
+            errMsg = `HTTP ${response.status}`;
+          }
+          throw new Error(errMsg);
+        }
+        const result = await response.json();
         setParsedData(result.data || result);
+        setCurrentStep("results");
       }
-      setCurrentStep("results");
     } catch (err: any) {
       console.error("AI 解析失败:", err);
       alert("解析失败: " + err.message);
@@ -871,6 +895,12 @@ export function AIImportModal({
               )}>
                 {formatTime(elapsedTime)}
               </div>
+
+              {streamChars > 0 && (
+                <div className="mt-2 text-xs font-medium text-slate-400 dark:text-slate-500 tabular-nums">
+                  已生成 {streamChars} 字…
+                </div>
+              )}
             </div>
           )}
         </div>
