@@ -444,12 +444,15 @@ def _build_jd_optimize_prompt(*, jd_text: str, fields: list[JdOptimizeField], lo
 1. 用与简历相同的语言输出（中文内容就用中文）。
 2. 每条建议针对某个字段：给出该字段内**逐字出现的连续原片段** original 与改进后 suggested（自然融入 JD 关键词、更贴合岗位、突出量化成果），original 必须能在对应 key 的内容里精确匹配以便程序替换。
 3. 只给**确有价值**的建议，宁缺毋滥；不要编造经历、不得脱离原文事实。
-4. missingKeywords 列出 JD 要求但简历明显缺失的关键词。
+4. keywordMatches 列出 JD 要求且简历**已命中**的关键词；missingKeywords 列出 JD 要求但简历**明显缺失**的关键词（两者不重叠）。
 5. matchScore 为当前简历与 JD 的总体匹配度（0-100）。
+6. atsScore 为简历对 ATS（招聘方简历筛选系统）的兼容/通过度（0-100）：关键词覆盖、术语规范、可被机器解析的清晰表述越好分越高。
 
 只输出 JSON，不要任何额外文字或代码块：
 {{
   "matchScore": 0,
+  "atsScore": 0,
+  "keywordMatches": ["..."],
   "missingKeywords": ["..."],
   "suggestions": [
     {{"key": "字段key", "original": "原片段", "suggested": "改进后片段", "reason": "为何更匹配JD"}}
@@ -505,14 +508,18 @@ async def jd_optimize(body: JdOptimizeRequest):
         })
 
     missing = [str(k).strip() for k in (data.get("missingKeywords") or []) if str(k).strip()]
-    match_score = data.get("matchScore")
-    try:
-        match_score = max(0, min(100, int(match_score)))
-    except (TypeError, ValueError):
-        match_score = None
+    matched = [str(k).strip() for k in (data.get("keywordMatches") or []) if str(k).strip()]
+
+    def _clamp_score(value):
+        try:
+            return max(0, min(100, int(value)))
+        except (TypeError, ValueError):
+            return None
 
     return {
-        "matchScore": match_score,
+        "matchScore": _clamp_score(data.get("matchScore")),
+        "atsScore": _clamp_score(data.get("atsScore")),
+        "keywordMatches": matched,
         "missingKeywords": missing,
         "suggestions": suggestions,
     }

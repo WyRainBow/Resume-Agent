@@ -104,10 +104,15 @@ export default function JdOptimizeDialog({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             {result && result.matchScore !== null && (
               <div className={cn('text-sm font-bold tabular-nums', scoreColor(result.matchScore))}>
                 匹配 {result.matchScore}<span className="text-xs font-normal text-neutral-400">/100</span>
+              </div>
+            )}
+            {result && result.atsScore !== null && (
+              <div className={cn('text-sm font-bold tabular-nums', scoreColor(result.atsScore))} title="ATS（招聘方简历筛选系统）兼容度">
+                ATS {result.atsScore}<span className="text-xs font-normal text-neutral-400">/100</span>
               </div>
             )}
             <button
@@ -138,6 +143,19 @@ export default function JdOptimizeDialog({
 
           {!loading && !error && result && (
             <>
+              {result.keywordMatches.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1.5">已命中的 JD 关键词</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {result.keywordMatches.map((kw, i) => (
+                      <span key={i} className="px-2 py-0.5 rounded-full text-xs bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50">
+                        {kw}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {result.missingKeywords.length > 0 && (
                 <div className="mb-4">
                   <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1.5">JD 中缺失的关键词</p>

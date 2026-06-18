@@ -1028,6 +1028,8 @@ export interface JdSuggestion {
 
 export interface JdOptimizeResult {
   matchScore: number | null
+  atsScore: number | null
+  keywordMatches: string[]
   missingKeywords: string[]
   suggestions: JdSuggestion[]
 }
