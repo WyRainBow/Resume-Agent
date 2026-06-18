@@ -45,7 +45,7 @@ import type { ResumeData, Education } from '../../types'
 import './tiptap.css'
 
 /** false：不渲染划词改写气泡与弹窗；工具栏「AI 润色」打开的对话框仍可用 */
-const ENABLE_SELECTION_POLISH_UI = false
+const ENABLE_SELECTION_POLISH_UI = true
 
 // Debug logging disabled in production
 const logDebug = (_message: string, _data?: Record<string, any>) => {}
@@ -70,9 +70,8 @@ const logBoldDebugSnapshot = (editor: Editor, phase: 'before' | 'after') => {
   }
 }
 
-const logSelectionLockDebug = (event: string, data?: Record<string, unknown>) => {
-  console.log(`[SELECTION LOCK DEBUG][RichEditor][${event}]`, data || {})
-}
+// Debug logging disabled in production（与上方 logDebug 一致，保留调用点便于排障时打开）
+const logSelectionLockDebug = (_event: string, _data?: Record<string, unknown>) => {}
 
 const selectionLockPluginKey = new PluginKey<DecorationSet>('selectionLockHighlight')
 
@@ -590,17 +589,16 @@ const RichEditor = ({
         editor && (
         <BubbleMenu
           editor={editor}
-          tippyOptions={{
-            interactive: true,
+          // Tiptap v3：BubbleMenu 改用 Floating UI（不再是 tippy）。
+          // 旧 tippyOptions（interactive/hideOnClick/popperOptions/onHidden）已失效，
+          // 迁移到 options：placement/strategy/offset + onHide 生命周期。
+          options={{
             placement: 'top',
-            duration: 100,
-            hideOnClick: false,
-            popperOptions: {
-              strategy: 'fixed',
-            },
-            onHidden: () => {
+            strategy: 'fixed',
+            offset: 8,
+            onHide: () => {
               const activeEl = document.activeElement as HTMLElement | null
-              logSelectionLockDebug('bubble-onHidden', {
+              logSelectionLockDebug('bubble-onHide', {
                 activeElementTag: activeEl?.tagName || null,
                 activeElementClass: activeEl?.className || null,
                 activeInBubble: !!activeEl?.closest('.ai-polish-bubble'),

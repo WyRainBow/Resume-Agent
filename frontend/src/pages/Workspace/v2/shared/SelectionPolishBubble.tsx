@@ -25,9 +25,8 @@ export default function SelectionPolishBubble({
   onLockSelection,
   onUnlockSelection,
 }: SelectionPolishBubbleProps) {
-  const logSelectionBubbleDebug = (event: string, data?: Record<string, unknown>) => {
-    console.log(`[SELECTION LOCK DEBUG][Bubble][${event}]`, data || {})
-  }
+  // Debug logging disabled in production（保留调用点便于排障时打开）
+  const logSelectionBubbleDebug = (_event: string, _data?: Record<string, unknown>) => {}
 
   type ChatMessage = {
     id: string
