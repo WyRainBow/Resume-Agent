@@ -291,10 +291,10 @@ const RichEditor = ({
     immediatelyRender: false,
   })
 
-  // 内容变化时更新编辑器
+  // 内容变化时更新编辑器（false = 不触发 onUpdate，避免 programmatic 写回覆盖其他字段）
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content)
+      editor.commands.setContent(content, false)
     }
   }, [content, editor])
 
