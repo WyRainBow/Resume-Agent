@@ -3,7 +3,7 @@
  * AI 接口不返回真实进度，这里用渐近曲线（1 - e^-t）让进度平滑爬升到 ~90%，
  * 给用户“在跑”的反馈；任务结束时父级会卸载 loading 区块，进度条随之消失。
  */
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 interface AiProgressBarProps {
   /** 是否处于加载中（true 时开始爬升） */
@@ -20,24 +20,24 @@ export default function AiProgressBar({
   estimateMs = 12000,
 }: AiProgressBarProps) {
   const [progress, setProgress] = useState(0)
+  const progressRef = useRef(0)
 
   useEffect(() => {
-    if (!active) {
-      setProgress(0)
-      return
-    }
+    progressRef.current = 0
     setProgress(0)
+    if (!active) return
+
     const start = performance.now()
-    let raf = 0
-    const tick = (now: number) => {
-      const elapsed = now - start
+    // 用 setInterval 而非 requestAnimationFrame：标签页失焦/节流/休眠时
+    // RAF 会被暂停或降到 1Hz，导致后端已经 80% 时进度条仍卡在 0。
+    const id = window.setInterval(() => {
+      const elapsed = performance.now() - start
       // 渐近 90%：耗时越接近 estimateMs 越慢，永不到 100%（完成由父级卸载触发）
       const pct = 90 * (1 - Math.exp(-elapsed / (estimateMs * 0.5)))
+      progressRef.current = pct
       setProgress(pct)
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
+    }, 80)
+    return () => window.clearInterval(id)
   }, [active, estimateMs])
 
   return (
