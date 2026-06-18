@@ -12,6 +12,8 @@ import {
 } from 'lucide-react'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTheme } from '@/hooks/useTheme'
+import type { Theme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 import {
   getPDFExportPreferences,
@@ -23,9 +25,7 @@ import {
   getDefaultPDFDirectoryLabel,
 } from '@/services/pdfExportPreferences'
 
-const THEME_KEY = 'app-theme'
 const LANGUAGE_KEY = 'app-language'
-type Theme = 'light' | 'dark' | 'system'
 
 function getRoleFromToken(): string {
   try {
@@ -49,34 +49,6 @@ function getRoleFromToken(): string {
   } catch {
     return ''
   }
-}
-
-function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    try {
-      return (localStorage.getItem(THEME_KEY) as Theme) || 'light'
-    } catch {
-      return 'light'
-    }
-  })
-
-  useEffect(() => {
-    const root = document.documentElement
-    const apply = (dark: boolean) => {
-      if (dark) root.classList.add('dark')
-      else root.classList.remove('dark')
-    }
-    apply(theme === 'dark')
-  }, [theme])
-
-  const setTheme = (v: Theme) => {
-    setThemeState(v)
-    try {
-      localStorage.setItem(THEME_KEY, v)
-    } catch {}
-  }
-
-  return [theme, setTheme] as const
 }
 
 const LANG_OPTIONS = [
@@ -120,7 +92,7 @@ function Card({
 export default function SettingsPage() {
   const { user, isAuthenticated } = useAuth()
   const roleFromToken = getRoleFromToken()
-  const [theme, setTheme] = useTheme()
+  const { theme, setTheme } = useTheme()
   const [displayName, setDisplayName] = useState(user?.username ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
   const [language, setLanguage] = useState(() => {

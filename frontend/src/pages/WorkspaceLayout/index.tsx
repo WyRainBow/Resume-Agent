@@ -17,9 +17,12 @@ import {
   History,
   Sparkles,
   Shield,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/hooks/useTheme";
 import { getCurrentResumeId } from "@/services/resumeStorage";
 import { RecentSessions } from "@/components/sidebar/RecentSessions";
 import { canUseAdminFeature, canUseAgentFeature, getApiBaseUrl, isAgentEnabled } from "@/lib/runtimeEnv";
@@ -124,6 +127,7 @@ export default function WorkspaceLayout({
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, user, logout, openModal } = useAuth();
+  const { isDark, setTheme } = useTheme();
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
   const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
   const logoutMenuRef = useRef<HTMLDivElement>(null);
@@ -369,7 +373,7 @@ export default function WorkspaceLayout({
                   ? "flex flex-col items-center justify-center gap-1 py-2.5"
                   : "flex items-center gap-2.5 py-2.5 px-2.5",
                 currentWorkspace === "edit"
-                  ? "bg-slate-100 text-slate-900"
+                  ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
                   : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
               )}
               title="编辑区"
@@ -395,13 +399,13 @@ export default function WorkspaceLayout({
                 )}
                 title="AI 对话"
               >
-                <Sparkles className={cn("w-6 h-6 shrink-0", currentWorkspace === "agent" ? "text-slate-900" : "text-slate-600")} />
+                <Sparkles className={cn("w-6 h-6 shrink-0", currentWorkspace === "agent" ? "text-slate-900 dark:text-slate-100" : "text-slate-600 dark:text-slate-400")} />
                 {!sidebarCollapsed && (
                   <span
                     className={cn(
                       "text-base font-medium transition-colors duration-300",
                       currentWorkspace === "agent"
-                        ? "text-slate-900"
+                        ? "text-slate-900 dark:text-slate-100"
                         : "text-slate-600 dark:text-slate-400",
                     )}
                   >
@@ -420,7 +424,7 @@ export default function WorkspaceLayout({
                   ? "flex flex-col items-center justify-center gap-1 py-2.5"
                   : "flex items-center gap-2.5 py-2.5 px-2.5",
                 currentWorkspace === "myResumes"
-                  ? "bg-slate-100 text-slate-900"
+                  ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
                   : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
               )}
               title="我的简历"
@@ -471,8 +475,33 @@ export default function WorkspaceLayout({
           )}
         </div>
 
-        {/* 底部：登录组件（与导航风格统一，图标+用户名一行） */}
+        {/* 底部：主题切换 + 登录组件（与导航风格统一） */}
         <div className="py-4 px-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30">
+          {/* 深色 / 浅色切换 */}
+          <button
+            type="button"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+            className={cn(
+              "w-full rounded-xl transition-all duration-300 mb-2",
+              "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200",
+              sidebarCollapsed
+                ? "flex flex-col items-center justify-center gap-1 py-2.5"
+                : "flex items-center gap-2.5 py-2.5 px-2.5",
+            )}
+            title={isDark ? "切换到浅色模式" : "切换到深色模式"}
+          >
+            {isDark ? (
+              <Sun className="w-5 h-5 shrink-0" />
+            ) : (
+              <Moon className="w-5 h-5 shrink-0" />
+            )}
+            {!sidebarCollapsed && (
+              <span className="text-sm font-medium">
+                {isDark ? "浅色模式" : "深色模式"}
+              </span>
+            )}
+          </button>
+
           <div ref={logoutMenuRef} className="relative">
             {isAuthenticated ? (
               <div className="relative">

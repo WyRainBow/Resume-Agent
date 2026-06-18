@@ -1,18 +1,26 @@
 import { useEffect } from 'react'
-
-const THEME_KEY = 'app-theme'
+import { applyThemeClass, getStoredTheme, THEME_EVENT } from '@/lib/theme'
 
 export function ThemeInit() {
   useEffect(() => {
-    const stored = localStorage.getItem(THEME_KEY) as 'light' | 'dark' | 'system' | null
-    const root = document.documentElement
-    const apply = (dark: boolean) => {
-      if (dark) root.classList.add('dark')
-      else root.classList.remove('dark')
+    // 启动时按存储的主题套用（支持 light / dark / system）
+    applyThemeClass(getStoredTheme())
+
+    // 跟随系统：在 system 模式下，操作系统切换深浅色时实时重应用
+    const media = window.matchMedia?.('(prefers-color-scheme: dark)')
+    const onSystemChange = () => {
+      if (getStoredTheme() === 'system') applyThemeClass('system')
     }
-    // 默认浅色，不跟随系统；仅显式选择 dark 时用深色
-    if (stored === 'dark') apply(true)
-    else apply(false)
+    media?.addEventListener('change', onSystemChange)
+
+    // 其它组件改主题时已直接应用 class，这里再同步一次保证一致
+    const onThemeChange = () => applyThemeClass(getStoredTheme())
+    window.addEventListener(THEME_EVENT, onThemeChange)
+
+    return () => {
+      media?.removeEventListener('change', onSystemChange)
+      window.removeEventListener(THEME_EVENT, onThemeChange)
+    }
   }, [])
   return null
 }
