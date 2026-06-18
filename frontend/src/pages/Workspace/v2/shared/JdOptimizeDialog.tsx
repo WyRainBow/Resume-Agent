@@ -7,6 +7,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Loader2, Target, X, Check, Wand2, AlertTriangle } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { jdOptimize, type JdOptimizeField, type JdOptimizeResult } from '../../../../services/api'
+import AiProgressBar from './AiProgressBar'
 
 interface JdOptimizeDialogProps {
   open: boolean
@@ -134,8 +135,9 @@ export default function JdOptimizeDialog({
         <div className="flex-1 overflow-auto px-5 py-4 min-h-0">
           {loading && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-blue-500 mb-3" />
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">AI 正在对照 JD 分析简历...</p>
+              <Loader2 className="h-7 w-7 animate-spin text-blue-500 mb-4" />
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">AI 正在对照 JD 分析简历...</p>
+              <AiProgressBar active={loading} barClassName="bg-gradient-to-r from-blue-500 to-indigo-500" estimateMs={14000} />
             </div>
           )}
 
