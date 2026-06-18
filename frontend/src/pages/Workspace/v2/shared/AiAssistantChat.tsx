@@ -47,8 +47,11 @@ const ACCENT = 'emerald'
 
 const REWRITE_PRESETS = [
   { label: '润色', instruction: '润色这段文字，使表达更专业流畅' },
+  { label: '更专业', instruction: '用更专业的行业措辞改写这段文字，符合大厂简历风格' },
   { label: '更量化', instruction: '改写这段文字，补充量化指标与结果' },
+  { label: '换强动词', instruction: '把这段文字里的弱动词（负责、参与、协助等）换成主导、驱动、构建等强动作动词，保持事实不变' },
   { label: '更简洁', instruction: '精简这段文字，去掉冗余表达' },
+  { label: '扩写', instruction: '在不编造事实的前提下，补充这段经历的背景、动作与结果，使描述更充实' },
 ]
 
 const selKey = (s: ActiveSelection) => `${s.path}:${s.from}:${s.to}`
