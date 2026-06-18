@@ -4,6 +4,12 @@
 > 关联现状：`AIImportModal.tsx`、`SelectionPolishBubble.tsx`、`PolishChatDialog.tsx`
 > 关联旧文档：`specs/2026-03-31-polish-chat-design.md`、`specs/2026-03-31-selection-polish-design.md`、`plans/2026-05-20-resume-scoring-plan.md`
 
+## 执行进展（2026-06-18，全自动模式）
+
+- ✅ **子任务1 完成**：修复并重启划词润色气泡。根因＝Tiptap v3 BubbleMenu 由 tippy 改 Floating UI，旧 `tippyOptions/onHidden` 失效；已迁移到 `options(placement/strategy/offset)+onHide`，打开 `ENABLE_SELECTION_POLISH_UI`，并把开发期调试日志改 no-op。build 通过 + 浏览器选词实测气泡正常浮出、console 无报错。提交：`dc24637`（plan 文档 `4f3876d`）。
+- ⛔ **阻塞**：本地 9000 端口被无关进程 `./ark conf/run.local.ini` 占用，**我们的 FastAPI 后端未运行**，所有 `/api/*` 返回 404。不擅自 kill 用户的 `ark` 进程。→ 后续依赖后端的子任务（流式导入、JD 分析、语法体检）无法端到端验证，本轮暂缓；待 9000 释放并启动 `backend.main:app` 后再做（这些可用 pytest TestClient 做接口级验证，但前端联调仍需服务在 9000）。
+- ⏭️ **桌面剩余项的取舍**：统一侧边 Copilot（P0-1）是对**现有可用润色功能**的重构，需后端流式联调验证才能保证不回归——在后端不可用期间不动它，避免改坏已上线功能。死代码 `AIPolishDialog.tsx` 按 CLAUDE.md「不相关死代码只指出不删除」保留。
+
 ## Context（为什么做）
 
 Resume-Agent 已有三套 AI 辅助编辑能力，但彼此割裂、入口分散、移动端缺失，且能力停留在"单点改写/单次解析"，没有形成"理解简历 → 多轮优化 → 针对岗位改写"的闭环。本次升级对标 JadeAI 的流式交互、多角色对话、意图识别、移动端适配等成熟实践，把分散的 AI 入口整合为统一的「简历 AI Copilot」，并补齐移动端与岗位匹配闭环，目标是让"AI 改简历"从工具碎片升级为贯穿编辑全程的助手。
