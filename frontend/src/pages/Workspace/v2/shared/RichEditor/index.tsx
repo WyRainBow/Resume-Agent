@@ -29,12 +29,14 @@ import {
   Undo,
   Redo,
   Wand2,
+  SpellCheck,
   IndentIncrease,
   IndentDecrease,
 } from 'lucide-react'
 import { cn } from '../../../../../lib/utils'
 import { BetterSpace } from './BetterSpace'
 import PolishChatDialog from '../PolishChatDialog'
+import GrammarCheckDialog from '../GrammarCheckDialog'
 import SelectionPolishBubble from '../SelectionPolishBubble'
 
 import AIWriteDialog from '../AIWriteDialog'
@@ -212,6 +214,7 @@ const RichEditor = ({
   educationData,
 }: RichEditorProps) => {
   const [showPolishDialog, setShowPolishDialog] = useState(false)
+  const [showGrammarDialog, setShowGrammarDialog] = useState(false)
   const [showAIWriteDialog, setShowAIWriteDialog] = useState(false)
   const bubbleActiveRef = useRef(false)
   const selectionSnapshotRef = useRef<{ from: number; to: number; text: string; html: string } | null>(null)
@@ -578,6 +581,17 @@ const RichEditor = ({
               AI 润色
             </button>
           )}
+
+          {/* 语法 / 表达体检按钮 */}
+          {resumeData && (
+            <button
+              onClick={() => setShowGrammarDialog(true)}
+              className="ml-2 px-3 py-1.5 text-sm rounded-md bg-white text-black border border-slate-300 hover:bg-slate-50 shadow-sm transition-all duration-200 flex items-center gap-1 dark:bg-neutral-800 dark:text-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-700"
+            >
+              <SpellCheck className="h-4 w-4" />
+              语法体检
+            </button>
+          )}
         </div>
       </div>
 
@@ -685,6 +699,17 @@ const RichEditor = ({
           content={content || ''}
           onApply={handleApplyPolish}
           resumeData={resumeData}
+          path={polishPath}
+        />
+      )}
+
+      {/* 语法 / 表达体检对话框 */}
+      {resumeData && (
+        <GrammarCheckDialog
+          open={showGrammarDialog}
+          onOpenChange={setShowGrammarDialog}
+          content={content || ''}
+          onApply={handleApplyPolish}
           path={polishPath}
         />
       )}

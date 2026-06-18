@@ -888,6 +888,33 @@ export async function detectRewriteTextIntent(
   return data as { intent: RewriteTextIntent; intents?: RewriteTextIntent[]; confidence: number; source?: string }
 }
 
+export type GrammarIssueType = 'grammar' | 'wording' | 'vague' | 'quantify'
+
+export interface GrammarIssue {
+  original: string
+  suggestion: string
+  type: GrammarIssueType
+  severity: 'high' | 'medium' | 'low'
+}
+
+export interface GrammarCheckResult {
+  issues: GrammarIssue[]
+  summary: string
+  score: number | null
+}
+
+/** 单字段语法/表达体检：返回结构化 issues + 评分（非流式） */
+export async function grammarCheckField(text: string, path: string): Promise<GrammarCheckResult> {
+  const url = `${getApiBaseUrl()}/api/resume/grammar-check`
+  const { data } = await axios.post(url, {
+    provider: 'deepseek',
+    text,
+    path,
+    locale: 'zh',
+  })
+  return data as GrammarCheckResult
+}
+
 export const scoreResume = async (resumeId: string, jdText: string): Promise<any> => {
   const response = await axios.post(`${getApiBaseUrl()}/api/resume/score`, {
     resume_id: resumeId,

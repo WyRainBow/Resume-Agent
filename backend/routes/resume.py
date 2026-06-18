@@ -107,6 +107,14 @@ class RewriteIntentRequest(BaseModel):
     locale: str = Field(default="zh")
 
 
+class GrammarCheckRequest(BaseModel):
+    """单字段语法/表达体检（不依赖完整 resume 结构）"""
+    provider: Optional[str] = Field(default=None)
+    text: str = Field(..., description="待检查的字段内容（纯文本或 HTML）")
+    path: Optional[str] = Field(default=None, description="可选，来源字段路径，用于场景判断")
+    locale: str = Field(default="zh")
+
+
 def clean_llm_response(raw: str) -> str:
     """清理 LLM 返回的内容"""
     cleaned = re.sub(r"<\|begin_of_box\|>", "", raw)
@@ -268,6 +276,99 @@ async def detect_rewrite_text_intent(body: RewriteIntentRequest):
         "llm_intent": (llm_intents[0] if llm_intents else None),
         "llm_intents": llm_intents,
         "llm_confidence": llm_confidence,
+    }
+
+
+def _build_grammar_check_prompt(*, text: str, path_hint: str, locale: str) -> str:
+    return f"""你是一名资深简历写作教练。请对下面这段简历字段内容做"语法与表达体检"，找出可改进之处。
+
+检查维度（type 取值）：
+- grammar：语法错误、错别字、用词搭配错误
+- wording：弱动词、平淡/口语化表达，可替换为更专业有力的措辞
+- vague：含糊笼统、缺少信息量的描述
+- quantify：缺少量化指标、可补充数字/结果的地方
+
+严格要求：
+1. 用与内容相同的语言输出（内容是中文就用中文）。
+2. 每条 issue 的 "original" 必须是输入内容里**逐字出现的连续片段**（便于程序做精确替换），不要跨越标签、不要改写后再当原文。
+3. 只标注**确实值得改**的问题，宁缺毋滥；没有问题就返回空数组。
+4. "suggestion" 是该片段改进后的替换文本，需可直接替换原片段。
+5. severity 取 high/medium/low；score 为该字段整体写作质量分（0-100，100=很好）。
+
+输入信息：
+- 语言：{locale}
+- 字段路径：{path_hint or "未知"}
+- 字段内容：
+{text[:4000]}
+
+只输出 JSON，不要任何额外文字或代码块标记：
+{{
+  "issues": [
+    {{"original": "原片段", "suggestion": "改进后片段", "type": "wording", "severity": "medium"}}
+  ],
+  "summary": "一句话总体评价",
+  "score": 80
+}}
+"""
+
+
+@router.post("/resume/grammar-check")
+async def grammar_check(body: GrammarCheckRequest):
+    """单字段语法/表达体检：返回结构化 issues + 评分，供前端弹窗展示与一键修复。"""
+    raw_text = (body.text or "").strip()
+    if not raw_text:
+        raise HTTPException(status_code=400, detail="text 不能为空")
+
+    provider = body.provider or DEFAULT_AI_PROVIDER
+    prompt = _build_grammar_check_prompt(
+        text=raw_text,
+        path_hint=body.path or "",
+        locale=body.locale or "zh",
+    )
+
+    try:
+        raw = call_llm(provider, prompt)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
+
+    cleaned = clean_llm_response(raw)
+    try:
+        data = parse_json_response(cleaned)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"解析 JSON 失败: {e}")
+
+    # 校验 LLM 输出（系统边界）：只保留 original 在原文中逐字出现、且与 suggestion 不同的条目
+    valid_types = {"grammar", "wording", "vague", "quantify"}
+    valid_severity = {"high", "medium", "low"}
+    issues: list[dict] = []
+    for item in (data.get("issues") or []):
+        if not isinstance(item, dict):
+            continue
+        original = str(item.get("original", "")).strip()
+        suggestion = str(item.get("suggestion", "")).strip()
+        if not original or not suggestion or original == suggestion:
+            continue
+        if original not in raw_text:
+            continue
+        issue_type = str(item.get("type", "wording")).strip()
+        severity = str(item.get("severity", "medium")).strip()
+        issues.append({
+            "original": original,
+            "suggestion": suggestion,
+            "type": issue_type if issue_type in valid_types else "wording",
+            "severity": severity if severity in valid_severity else "medium",
+        })
+
+    score = data.get("score")
+    try:
+        score = max(0, min(100, int(score)))
+    except (TypeError, ValueError):
+        score = None
+
+    return {
+        "issues": issues,
+        "summary": str(data.get("summary", "")).strip(),
+        "score": score,
     }
 
 
