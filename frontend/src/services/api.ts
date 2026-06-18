@@ -1046,6 +1046,27 @@ export async function jdOptimize(fields: JdOptimizeField[], jdText: string): Pro
   return data as JdOptimizeResult
 }
 
+export type JdKeywordIntegrateResult =
+  | { integrated: false; keyword: string }
+  | { integrated: true; keyword: string; key: string; original: string; suggested: string; reason: string }
+
+/** 把某个 JD 缺失关键词自然融入最相关的字段，返回可确定性替换的 original/suggested */
+export async function jdIntegrateKeyword(
+  keyword: string,
+  fields: JdOptimizeField[],
+  jdText: string,
+): Promise<JdKeywordIntegrateResult> {
+  const url = `${getApiBaseUrl()}/api/resume/jd-keyword-integrate`
+  const { data } = await axios.post(url, {
+    provider: 'deepseek',
+    keyword,
+    jd_text: jdText,
+    fields,
+    locale: 'zh',
+  })
+  return data as JdKeywordIntegrateResult
+}
+
 export interface TranslationItem {
   key: string
   original: string

@@ -429,6 +429,15 @@ class JdOptimizeRequest(BaseModel):
     locale: str = Field(default="zh")
 
 
+class JdKeywordIntegrateRequest(BaseModel):
+    """把某个 JD 缺失关键词自然融入最相关的简历字段（无状态，多字段）"""
+    provider: Optional[str] = Field(default=None)
+    keyword: str = Field(..., description="待融入的 JD 关键词")
+    jd_text: str = Field(default="", description="目标岗位 JD 文本，作为融入语境参考")
+    fields: list[JdOptimizeField] = Field(default_factory=list)
+    locale: str = Field(default="zh")
+
+
 class TranslateRequest(BaseModel):
     """简历多字段翻译（复用 JdOptimizeField 的 key/label/content 形状）"""
     provider: Optional[str] = Field(default=None)
@@ -596,6 +605,76 @@ async def jd_optimize(body: JdOptimizeRequest):
         "keywordMatches": matched,
         "missingKeywords": missing,
         "suggestions": suggestions,
+    }
+
+
+def _build_jd_keyword_integrate_prompt(*, keyword: str, jd_text: str, fields: list[JdOptimizeField]) -> str:
+    fields_block = "\n".join(
+        f'- key={f.key}｜{f.label or f.key}：{(f.content or "")[:1200]}' for f in fields
+    )
+    jd_block = f"目标岗位 JD（语境参考）：\n{jd_text[:1500]}\n\n" if jd_text else ""
+    return f"""你是一名资深简历顾问。下面这个 JD 关键词在候选人简历中缺失，请把它**自然地融入最相关的一条经历**。
+
+待融入关键词：{keyword}
+
+{jd_block}候选人简历字段（每条含唯一 key）：
+{fields_block}
+
+严格要求：
+1. 用与简历相同的语言输出（中文内容就用中文）。
+2. 只挑**一个最相关**的字段：给出该字段内**逐字出现的连续原片段** original，与融入关键词后的 suggested；original 必须能在对应 key 的内容里精确匹配以便程序替换。
+3. 融入要自然贴合上下文、与已有事实一致，**不得编造**未发生的经历或数据；若该关键词无法真实自然地融入任何字段，则返回空对象 {{}}。
+4. suggested 应当真实体现该关键词或其等价表述，并尽量保留原片段的量化与结果。
+
+只输出 JSON，不要任何额外文字或代码块：
+{{"key": "字段key", "original": "原片段", "suggested": "融入关键词后的片段", "reason": "为何这样融入更匹配JD"}}
+"""
+
+
+@router.post("/resume/jd-keyword-integrate")
+async def jd_keyword_integrate(body: JdKeywordIntegrateRequest):
+    """把某个 JD 缺失关键词自然融入最相关的字段，返回可确定性替换的 original/suggested。"""
+    keyword = (body.keyword or "").strip()
+    if not keyword:
+        raise HTTPException(status_code=400, detail="keyword 不能为空")
+    fields = [f for f in (body.fields or []) if (f.content or "").strip()]
+    if not fields:
+        raise HTTPException(status_code=400, detail="没有可融入的字段内容")
+
+    provider = body.provider or DEFAULT_AI_PROVIDER
+    prompt = _build_jd_keyword_integrate_prompt(keyword=keyword, jd_text=(body.jd_text or "").strip(), fields=fields)
+
+    try:
+        raw = call_llm(provider, prompt)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
+
+    cleaned = clean_llm_response(raw)
+    try:
+        data = parse_json_response(cleaned)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"解析 JSON 失败: {e}")
+
+    # 校验 LLM 输出（系统边界）：original 必须逐字命中对应字段内容
+    content_by_key = {f.key: (f.content or "") for f in fields}
+    key = str(data.get("key", "")).strip()
+    original = str(data.get("original", "")).strip()
+    suggested = str(data.get("suggested", "")).strip()
+    ok = (
+        key in content_by_key
+        and original and suggested and original != suggested
+        and original in content_by_key[key]
+    )
+    if not ok:
+        return {"integrated": False, "keyword": keyword}
+
+    return {
+        "integrated": True,
+        "keyword": keyword,
+        "key": key,
+        "original": original,
+        "suggested": suggested,
+        "reason": str(data.get("reason", "")).strip(),
     }
 
 

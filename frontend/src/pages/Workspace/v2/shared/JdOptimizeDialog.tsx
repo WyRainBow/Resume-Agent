@@ -4,10 +4,16 @@
  * 支持逐条 / 一键应用（确定性 original→suggested 替换，由父级写回对应字段）。
  */
 import { useEffect, useState, useCallback } from 'react'
-import { Loader2, Target, X, Check, Wand2, AlertTriangle } from 'lucide-react'
+import { Loader2, Target, X, Check, Wand2, AlertTriangle, Plus } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
-import { jdOptimize, type JdOptimizeField, type JdOptimizeResult } from '../../../../services/api'
+import { jdOptimize, jdIntegrateKeyword, type JdOptimizeField, type JdOptimizeResult } from '../../../../services/api'
 import AiProgressBar from './AiProgressBar'
+
+/** 缺失关键词「一键融入」的单条状态 */
+type KeywordIntegration =
+  | { status: 'loading' }
+  | { status: 'failed' }
+  | { status: 'ready' | 'applied'; key: string; original: string; suggested: string; reason: string }
 
 interface JdOptimizeDialogProps {
   open: boolean
@@ -38,6 +44,7 @@ export default function JdOptimizeDialog({
   const [result, setResult] = useState<JdOptimizeResult | null>(null)
   const [applied, setApplied] = useState<Set<number>>(new Set())
   const [error, setError] = useState<string | null>(null)
+  const [integrations, setIntegrations] = useState<Record<string, KeywordIntegration>>({})
 
   const labelByKey = new Map(fields.map(f => [f.key, f.label]))
 
@@ -46,6 +53,7 @@ export default function JdOptimizeDialog({
     setError(null)
     setResult(null)
     setApplied(new Set())
+    setIntegrations({})
     try {
       const res = await jdOptimize(fields, jdText)
       setResult(res)
@@ -63,8 +71,33 @@ export default function JdOptimizeDialog({
       setResult(null)
       setApplied(new Set())
       setError(null)
+      setIntegrations({})
     }
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 缺失关键词「一键融入」：让 AI 把该关键词自然写进最相关的一条经历
+  const integrateKeyword = async (kw: string) => {
+    if (integrations[kw]) return // 进行中或已出结果，不重复请求
+    setIntegrations(prev => ({ ...prev, [kw]: { status: 'loading' } }))
+    try {
+      const res = await jdIntegrateKeyword(kw, fields, jdText)
+      setIntegrations(prev => ({
+        ...prev,
+        [kw]: res.integrated
+          ? { status: 'ready', key: res.key, original: res.original, suggested: res.suggested, reason: res.reason }
+          : { status: 'failed' },
+      }))
+    } catch {
+      setIntegrations(prev => ({ ...prev, [kw]: { status: 'failed' } }))
+    }
+  }
+
+  const applyIntegration = (kw: string) => {
+    const it = integrations[kw]
+    if (!it || it.status !== 'ready') return
+    onApply(it.key, it.original, it.suggested)
+    setIntegrations(prev => ({ ...prev, [kw]: { ...it, status: 'applied' } }))
+  }
 
   const applyOne = (idx: number) => {
     if (!result || applied.has(idx)) return
@@ -165,14 +198,89 @@ export default function JdOptimizeDialog({
 
               {result.missingKeywords.length > 0 && (
                 <div className="mb-4">
-                  <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1.5">JD 中缺失的关键词</p>
+                  <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1.5">
+                    JD 中缺失的关键词<span className="text-neutral-400 font-normal">（点击让 AI 融入相关经历）</span>
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {result.missingKeywords.map((kw, i) => (
-                      <span key={i} className="px-2 py-0.5 rounded-full text-xs bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/50">
-                        {kw}
-                      </span>
-                    ))}
+                    {result.missingKeywords.map((kw, i) => {
+                      const st = integrations[kw]
+                      const status = st?.status
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => integrateKeyword(kw)}
+                          disabled={status === 'loading' || status === 'ready' || status === 'applied'}
+                          title={status === 'failed' ? '难以自然融入，点击重试' : '点击让 AI 把该关键词融入最相关的经历'}
+                          className={cn(
+                            'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition-colors',
+                            status === 'applied' || status === 'ready'
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50'
+                              : status === 'failed'
+                              ? 'bg-neutral-50 text-neutral-400 border-neutral-200 line-through dark:bg-neutral-800/40 dark:border-neutral-700'
+                              : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/50 dark:hover:bg-amber-900/40'
+                          )}
+                        >
+                          {status === 'loading' ? (
+                            <Loader2 className="w-3 h-3 animate-spin" />
+                          ) : status === 'applied' || status === 'ready' ? (
+                            <Check className="w-3 h-3" />
+                          ) : status === 'failed' ? null : (
+                            <Plus className="w-3 h-3" />
+                          )}
+                          {kw}
+                        </button>
+                      )
+                    })}
                   </div>
+
+                  {/* 融入结果卡片：original → suggested，可应用 */}
+                  {result.missingKeywords.some(kw => {
+                    const s = integrations[kw]?.status
+                    return s === 'ready' || s === 'applied'
+                  }) && (
+                    <div className="mt-2.5 space-y-2">
+                      {result.missingKeywords.map(kw => {
+                        const it = integrations[kw]
+                        if (!it || (it.status !== 'ready' && it.status !== 'applied')) return null
+                        const isApplied = it.status === 'applied'
+                        return (
+                          <div
+                            key={kw}
+                            className={cn(
+                              'rounded-lg border p-3 transition-colors',
+                              isApplied
+                                ? 'border-emerald-200 bg-emerald-50/40 dark:border-emerald-900/40 dark:bg-emerald-950/10'
+                                : 'border-amber-200 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/10'
+                            )}
+                          >
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <span className="px-1.5 py-0.5 rounded text-[11px] font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                融入「{kw}」→ {labelByKey.get(it.key) || it.key}
+                              </span>
+                              {isApplied && (
+                                <span className="ml-auto flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                                  <Check className="w-3 h-3" /> 已应用
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-neutral-400 line-through decoration-red-300 mb-1">{it.original}</p>
+                            <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100">{it.suggested}</p>
+                            {it.reason && <p className="text-xs text-neutral-400 mt-1.5">理由：{it.reason}</p>}
+                            {!isApplied && (
+                              <div className="flex justify-end mt-2">
+                                <button
+                                  onClick={() => applyIntegration(kw)}
+                                  className="flex items-center gap-1 px-2.5 py-1 text-xs rounded-md bg-amber-500 hover:bg-amber-600 text-white font-medium transition-colors"
+                                >
+                                  <Check className="w-3 h-3" /> 应用
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
