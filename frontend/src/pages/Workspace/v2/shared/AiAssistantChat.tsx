@@ -283,7 +283,7 @@ export default function AiAssistantChat({ resumeData, onJdOptimize, jdReady, onF
               >
                 <Target className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                 <span className="text-xs text-neutral-600 dark:text-neutral-300">
-                  {jdReady ? '针对 JD 优化简历' : '先填职位描述，再按 JD 优化'}
+                  {jdReady ? '针对 JD 优化简历' : '先填职位描述、再按 JD 优化'}
                 </span>
               </motion.button>
               <motion.button
