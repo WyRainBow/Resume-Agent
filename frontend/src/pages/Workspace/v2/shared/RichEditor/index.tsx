@@ -235,7 +235,7 @@ const RichEditor = ({
         container.appendChild(domSelection.getRangeAt(0).cloneContents())
         html = container.innerHTML
       }
-      setActiveSelection({ editor, from, to, text, html: html || text, path: polishPath })
+      setActiveSelection({ editor, from, to, text, html: html || text, bold: editor.isActive('bold'), path: polishPath })
     },
     editorProps: {
       attributes: {

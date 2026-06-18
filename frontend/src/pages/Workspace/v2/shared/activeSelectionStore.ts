@@ -13,6 +13,8 @@ export interface ActiveSelection {
   to: number
   text: string
   html: string
+  /** 选区是否整体加粗（捕获时由 editor.isActive('bold') 判定，用于改写后保留加粗） */
+  bold: boolean
   /** 来源字段路径，如 selfEvaluation / projects.0.description，供改写接口做场景判断 */
   path: string
 }

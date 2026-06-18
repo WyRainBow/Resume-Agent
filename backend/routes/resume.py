@@ -490,7 +490,7 @@ def _build_translate_prompt(*, target_lang: str, fields: list[JdOptimizeField]) 
 
 严格要求：
 1. 忠实翻译，保留数字与量化指标；技术名词/公司名按行业惯例处理。
-2. 完整保留每个字段原有的 HTML 标签结构（如 <strong>、<ul>、<li>、<p>），只翻译标签之间的文字。
+2. 完整保留每个字段原有的 HTML 标签结构（如 <strong>、<ul>、<li>、<p>），只翻译标签之间的文字；<strong> 等强调标签必须套在对应的译词上，不得丢失加粗。
 3. 翻译要地道、符合目标语言的简历表达习惯，不逐字硬译；不新增或删减信息。
 
 待翻译字段（每条含唯一 key）：

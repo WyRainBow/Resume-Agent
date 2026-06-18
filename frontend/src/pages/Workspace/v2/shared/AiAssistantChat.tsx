@@ -52,7 +52,18 @@ const REWRITE_PRESETS = [
 ]
 
 const selKey = (s: ActiveSelection) => `${s.path}:${s.from}:${s.to}`
-const toApplyHtml = (s: string) => s.trim().replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+/**
+ * 把改写结果规范化为可写回的 HTML，保留加粗：
+ * 1. markdown `**x**` → `<strong>x</strong>`
+ * 2. 若结果不含任何标签、且原选区整体加粗（捕获时 editor.isActive('bold')），重新包裹以保留加粗
+ *    （注：选中加粗文字节点内部时 cloneContents 不带 <strong> 包裹，故用编辑器状态判断而非 HTML）
+ */
+const toApplyHtml = (s: string, wasBold = false) => {
+  const html = s.trim().replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  const hasTag = /<[a-z][\s\S]*>/i.test(html)
+  if (!hasTag && wasBold) return `<strong>${html}</strong>`
+  return html
+}
 
 /** 把当前简历压成精简文本，作为问答上下文，让回答贴合简历 */
 function buildResumeContext(r: ResumeData): string {
@@ -217,7 +228,7 @@ export default function AiAssistantChat({ resumeData, onJdOptimize, jdReady, onF
   const handleApply = useCallback((msgId: string) => {
     const msg = messages.find((m) => m.id === msgId)
     if (!msg?.apply) return
-    const ok = applyHtmlToSelection(msg.apply.sel, toApplyHtml(msg.content))
+    const ok = applyHtmlToSelection(msg.apply.sel, toApplyHtml(msg.content, msg.apply.sel.bold))
     if (!ok) return
     setMessages((prev) => prev.map((m) => (m.id === msgId ? { ...m, apply: { ...m.apply!, applied: true } } : m)))
     setDismissedKey(selKey(msg.apply.sel)) // 写回后选区位置已变，关闭引用
