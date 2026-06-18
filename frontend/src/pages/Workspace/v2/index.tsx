@@ -13,6 +13,7 @@ import { Header } from './components'
 import EditPreviewLayout from './EditPreviewLayout'
 import AIImportModal from './shared/AIImportModal'
 import JdOptimizeDialog from './shared/JdOptimizeDialog'
+import TranslateDialog from './shared/TranslateDialog'
 import AiAssistantChat from './shared/AiAssistantChat'
 import { ScoreCard } from '@/components/ScoreCard'
 import { scoreResume, type JdOptimizeField } from '@/services/api'
@@ -35,6 +36,7 @@ export default function WorkspaceV2() {
   const [jdText, setJdText] = useState('')
   const [scoreData, setScoreData] = useState<any>(null)
   const [showJdOptimize, setShowJdOptimize] = useState(false)
+  const [showTranslate, setShowTranslate] = useState(false)
   const jdTextareaRef = useRef<HTMLTextAreaElement>(null)
   // 简历数据管理
   const {
@@ -361,6 +363,14 @@ export default function WorkspaceV2() {
         onApply={applyTextReplacement}
       />
 
+      {/* 简历一键翻译弹窗 */}
+      <TranslateDialog
+        open={showTranslate}
+        onOpenChange={setShowTranslate}
+        fields={jdFields}
+        onApply={applyTextReplacement}
+      />
+
       {/* AI 助手 —— 右下角可拖拽悬浮气泡 + 对话窗口 */}
       <AiAssistantChat
         resumeData={resumeData}
@@ -370,6 +380,8 @@ export default function WorkspaceV2() {
           jdTextareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
           jdTextareaRef.current?.focus()
         }}
+        onTranslate={() => setShowTranslate(true)}
+        hasContent={jdFields.length > 0}
       />
 
       {/* 隐藏的文件输入（用于导入 JSON） */}

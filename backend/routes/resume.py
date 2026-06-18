@@ -428,6 +428,40 @@ class JdOptimizeRequest(BaseModel):
     locale: str = Field(default="zh")
 
 
+class TranslateRequest(BaseModel):
+    """简历多字段翻译（复用 JdOptimizeField 的 key/label/content 形状）"""
+    provider: Optional[str] = Field(default=None)
+    target_lang: str = Field(..., description="目标语言代码，如 en/zh/ja/ko")
+    fields: list[JdOptimizeField] = Field(default_factory=list)
+    locale: str = Field(default="zh")
+
+
+_TRANSLATE_LANG_NAMES = {
+    "en": "英语", "zh": "中文", "ja": "日语", "ko": "韩语",
+    "fr": "法语", "de": "德语", "es": "西班牙语", "pt": "葡萄牙语", "ru": "俄语",
+}
+
+
+def _build_translate_prompt(*, target_lang: str, fields: list[JdOptimizeField]) -> str:
+    lang_name = _TRANSLATE_LANG_NAMES.get(target_lang, target_lang)
+    fields_block = "\n".join(
+        f'- key={f.key}｜{f.label or f.key}：{(f.content or "")[:1500]}' for f in fields
+    )
+    return f"""你是一名专业的简历翻译。请把下列简历字段内容翻译成{lang_name}。
+
+严格要求：
+1. 忠实翻译，保留数字与量化指标；技术名词/公司名按行业惯例处理。
+2. 完整保留每个字段原有的 HTML 标签结构（如 <strong>、<ul>、<li>、<p>），只翻译标签之间的文字。
+3. 翻译要地道、符合目标语言的简历表达习惯，不逐字硬译；不新增或删减信息。
+
+待翻译字段（每条含唯一 key）：
+{fields_block}
+
+只输出 JSON，不要任何额外文字或代码块：
+{{"translations": [{{"key": "字段key", "translated": "翻译后的内容（保留 HTML 标签）"}}]}}
+"""
+
+
 def _build_jd_optimize_prompt(*, jd_text: str, fields: list[JdOptimizeField], locale: str) -> str:
     fields_block = "\n".join(
         f'- key={f.key}｜{f.label or f.key}：{(f.content or "")[:1200]}' for f in fields
@@ -523,6 +557,46 @@ async def jd_optimize(body: JdOptimizeRequest):
         "missingKeywords": missing,
         "suggestions": suggestions,
     }
+
+
+@router.post("/resume/translate")
+async def translate_resume_fields(body: TranslateRequest):
+    """简历多字段翻译：逐字段返回 original/translated，供前端预览并写回。"""
+    target = (body.target_lang or "").strip()
+    if not target:
+        raise HTTPException(status_code=400, detail="target_lang 不能为空")
+    fields = [f for f in (body.fields or []) if (f.content or "").strip()]
+    if not fields:
+        raise HTTPException(status_code=400, detail="没有可翻译的字段内容")
+
+    provider = body.provider or DEFAULT_AI_PROVIDER
+
+    # 逐字段翻译：每次调用输出受单字段约束，避免一次性翻译全部字段导致响应过大、超时重试耗尽
+    translations: list[dict] = []
+    failures = 0
+    for f in fields:
+        prompt = _build_translate_prompt(target_lang=target, fields=[f])
+        try:
+            raw = call_llm(provider, prompt)
+            data = parse_json_response(clean_llm_response(raw))
+        except Exception:
+            failures += 1
+            continue
+        translated = ""
+        for item in (data.get("translations") or []):
+            if isinstance(item, dict) and str(item.get("key", "")).strip() == f.key:
+                translated = str(item.get("translated", "")).strip()
+                break
+        if translated:
+            translations.append({"key": f.key, "original": f.content or "", "translated": translated})
+        else:
+            failures += 1
+
+    # 全部失败才视为接口错误，部分成功正常返回
+    if not translations and failures:
+        raise HTTPException(status_code=500, detail="翻译失败，请重试")
+
+    return {"translations": translations}
 
 
 @router.post("/resume/generate", response_model=ResumeGenerateResponse)

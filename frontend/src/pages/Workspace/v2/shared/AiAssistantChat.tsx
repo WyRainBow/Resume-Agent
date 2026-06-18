@@ -7,7 +7,7 @@
  * - 保留「针对 JD 优化」快捷入口。
  */
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { Sparkles, X, Send, Target, Loader2, Square, Quote, Check } from 'lucide-react'
+import { Sparkles, X, Send, Target, Loader2, Square, Quote, Check, Languages } from 'lucide-react'
 import { chatStream, rewriteTextStream, type ChatStreamMessage } from '@/services/api'
 import { stripHtmlTags } from '../utils/textUtils'
 import type { ResumeData } from '../types'
@@ -24,6 +24,10 @@ interface AiAssistantChatProps {
   onJdOptimize: () => void
   jdReady: boolean
   onFocusJd: () => void
+  /** 打开「简历一键翻译」弹窗 */
+  onTranslate: () => void
+  /** 简历是否有可处理的文本内容（决定翻译/体检是否可用） */
+  hasContent: boolean
 }
 
 interface ChatItem {
@@ -72,7 +76,7 @@ function buildResumeContext(r: ResumeData): string {
   return lines.join('\n')
 }
 
-export default function AiAssistantChat({ resumeData, onJdOptimize, jdReady, onFocusJd }: AiAssistantChatProps) {
+export default function AiAssistantChat({ resumeData, onJdOptimize, jdReady, onFocusJd, onTranslate, hasContent }: AiAssistantChatProps) {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<ChatItem[]>([])
   const [input, setInput] = useState('')
@@ -231,7 +235,7 @@ export default function AiAssistantChat({ resumeData, onJdOptimize, jdReady, onF
           </div>
 
           {/* 快捷动作 */}
-          <div className="px-3 py-2 border-b border-neutral-100 dark:border-neutral-800">
+          <div className="px-3 py-2 border-b border-neutral-100 dark:border-neutral-800 space-y-2">
             <button
               onClick={() => { if (jdReady) onJdOptimize(); else onFocusJd() }}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-blue-200 dark:border-blue-900/50 bg-blue-50/60 dark:bg-blue-950/20 hover:bg-blue-100/60 dark:hover:bg-blue-950/40 transition-colors text-left"
@@ -240,6 +244,14 @@ export default function AiAssistantChat({ resumeData, onJdOptimize, jdReady, onF
               <span className="text-xs text-neutral-700 dark:text-neutral-200">
                 {jdReady ? '针对 JD 优化简历' : '先填职位描述，再按 JD 优化'}
               </span>
+            </button>
+            <button
+              onClick={onTranslate}
+              disabled={!hasContent}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-teal-200 dark:border-teal-900/50 bg-teal-50/60 dark:bg-teal-950/20 hover:bg-teal-100/60 dark:hover:bg-teal-950/40 transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Languages className="w-4 h-4 text-teal-500 shrink-0" />
+              <span className="text-xs text-neutral-700 dark:text-neutral-200">简历一键翻译 / 双语</span>
             </button>
           </div>
 

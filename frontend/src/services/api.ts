@@ -1046,6 +1046,52 @@ export async function jdOptimize(fields: JdOptimizeField[], jdText: string): Pro
   return data as JdOptimizeResult
 }
 
+export interface TranslationItem {
+  key: string
+  original: string
+  translated: string
+}
+
+export interface TranslateResult {
+  translations: TranslationItem[]
+}
+
+/** 简历多字段翻译：逐字段返回 original/translated（非流式，结构化） */
+export async function translateResume(fields: JdOptimizeField[], targetLang: string): Promise<TranslateResult> {
+  const url = `${getApiBaseUrl()}/api/resume/translate`
+  const { data } = await axios.post(url, {
+    provider: 'deepseek',
+    target_lang: targetLang,
+    fields,
+    locale: 'zh',
+  })
+  return data as TranslateResult
+}
+
+export interface HealthDimension {
+  dimension: string
+  score: number
+  comment: string
+}
+
+export interface HealthCheckResult {
+  overallScore: number | null
+  dimensions: HealthDimension[]
+  suggestions: JdSuggestion[]
+  summary: string
+}
+
+/** 通用简历体检（无需 JD）：维度评分 + 逐条可应用建议（非流式，结构化） */
+export async function healthCheck(fields: JdOptimizeField[]): Promise<HealthCheckResult> {
+  const url = `${getApiBaseUrl()}/api/resume/health-check`
+  const { data } = await axios.post(url, {
+    provider: 'deepseek',
+    fields,
+    locale: 'zh',
+  })
+  return data as HealthCheckResult
+}
+
 export const scoreResume = async (resumeId: string, jdText: string): Promise<any> => {
   const response = await axios.post(`${getApiBaseUrl()}/api/resume/score`, {
     resume_id: resumeId,
