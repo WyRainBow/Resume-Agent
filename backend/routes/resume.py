@@ -7,7 +7,7 @@ import json as _json
 import os
 import sys
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
@@ -104,6 +104,19 @@ class RewriteIntentRequest(BaseModel):
     text: str = Field(default="")
     instruction: str = Field(..., description="改写指令")
     path: Optional[str] = Field(default=None, description="可选，来源字段路径")
+    locale: str = Field(default="zh")
+
+
+class ChatMessage(BaseModel):
+    role: str = Field(..., description="user 或 assistant")
+    content: str = Field(..., description="消息内容")
+
+
+class ChatStreamRequest(BaseModel):
+    """轻量简历问答流式请求（供右下角悬浮 AI 助手使用）"""
+    provider: Optional[str] = Field(default=None)
+    messages: List[ChatMessage] = Field(default_factory=list, description="多轮对话历史，最后一条为用户最新提问")
+    resume_context: Optional[str] = Field(default=None, description="可选，当前简历的精简文本，用于让回答贴合简历")
     locale: str = Field(default="zh")
 
 
@@ -277,6 +290,27 @@ async def detect_rewrite_text_intent(body: RewriteIntentRequest):
         "llm_intents": llm_intents,
         "llm_confidence": llm_confidence,
     }
+
+
+def _build_resume_chat_prompt(*, messages: List[ChatMessage], resume_context: str, locale: str) -> str:
+    history_text = "\n".join(
+        f"{'用户' if m.role == 'user' else '助手'}：{m.content.strip()}" for m in messages
+    )
+    context_block = (
+        f"\n\n【当前简历内容（供参考，回答需贴合，不要编造没有的经历或数据）】\n{resume_context.strip()[:4000]}"
+        if resume_context and resume_context.strip()
+        else ""
+    )
+    return f"""你是一名资深中文简历顾问，帮助用户优化简历、解答求职与简历写作相关的问题。
+
+要求：
+1. 用{locale}语言回答，专业但口语化，简洁直接，避免空话套话。
+2. 只回答与简历、求职、写作表达相关的问题；无关问题请礼貌地引导回简历主题。
+3. 如果用户要求改写某段文字，直接给出改写后的文本，不要绕弯。{context_block}
+
+【对话】
+{history_text}
+助手："""
 
 
 def _build_grammar_check_prompt(*, text: str, path_hint: str, locale: str) -> str:
@@ -1186,6 +1220,39 @@ async def rewrite_text_stream(body: RewriteTextStreamRequest):
         path_hint=path_hint,
         instruction=instruction,
         source_text=source_text,
+    )
+
+    async def generate():
+        try:
+            for chunk in call_llm_stream(provider, prompt):
+                yield f"data: {_json.dumps({'content': chunk}, ensure_ascii=False)}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: {_json.dumps({'error': str(e)}, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post("/resume/chat/stream")
+async def resume_chat_stream(body: ChatStreamRequest):
+    """轻量简历问答（流式）：供右下角悬浮 AI 助手对话窗口使用"""
+    messages = [m for m in body.messages if (m.content or "").strip()]
+    if not messages:
+        raise HTTPException(status_code=400, detail="messages 不能为空")
+
+    provider = body.provider or DEFAULT_AI_PROVIDER
+    prompt = _build_resume_chat_prompt(
+        messages=messages,
+        resume_context=body.resume_context or "",
+        locale=body.locale or "zh",
     )
 
     async def generate():
