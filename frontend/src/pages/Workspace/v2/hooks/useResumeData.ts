@@ -279,6 +279,33 @@ export function useResumeData() {
     setResumeData((prev) => ({ ...prev, skillContent: content }))
   }, [])
 
+  // 按字段 key 做一次确定性文本替换（供 JD 优化「应用」使用）。
+  // 用函数式更新，保证对同一字段连续多次替换（一键全部应用）能正确链式叠加。
+  const applyTextReplacement = useCallback((key: string, original: string, suggested: string) => {
+    if (!original || original === suggested) return
+    setResumeData((prev) => {
+      if (key === 'selfEvaluation') {
+        return { ...prev, selfEvaluation: (prev.selfEvaluation || '').replace(original, suggested) }
+      }
+      if (key === 'skillContent') {
+        return { ...prev, skillContent: (prev.skillContent || '').replace(original, suggested) }
+      }
+      if (key.startsWith('experience:')) {
+        const id = key.slice('experience:'.length)
+        return { ...prev, experience: prev.experience.map((e) => e.id === id ? { ...e, details: (e.details || '').replace(original, suggested) } : e) }
+      }
+      if (key.startsWith('project:')) {
+        const id = key.slice('project:'.length)
+        return { ...prev, projects: prev.projects.map((p) => p.id === id ? { ...p, description: (p.description || '').replace(original, suggested) } : p) }
+      }
+      if (key.startsWith('openSource:')) {
+        const id = key.slice('openSource:'.length)
+        return { ...prev, openSource: (prev.openSource || []).map((o) => o.id === id ? { ...o, description: (o.description || '').replace(original, suggested) } : o) }
+      }
+      return prev
+    })
+  }, [])
+
   // ============ 菜单/布局 ============
   const updateMenuSections = useCallback((sections: MenuSection[]) => {
     const sectionIds = new Set(sections.map((s) => s.id))
@@ -415,6 +442,8 @@ export function useResumeData() {
     // 技能
     updateSelfEvaluation,
     updateSkillContent,
+    // JD 优化逐条/批量应用
+    applyTextReplacement,
     // 菜单
     updateMenuSections,
     reorderSections,

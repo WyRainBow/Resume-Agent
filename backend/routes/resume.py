@@ -372,6 +372,110 @@ async def grammar_check(body: GrammarCheckRequest):
     }
 
 
+class JdOptimizeField(BaseModel):
+    key: str = Field(..., description="字段唯一标识，如 selfEvaluation / experience:<id>")
+    label: str = Field(default="", description="字段展示名")
+    content: str = Field(default="", description="字段当前内容（纯文本或 HTML）")
+
+
+class JdOptimizeRequest(BaseModel):
+    """针对 JD 的简历优化（无状态，多字段）"""
+    provider: Optional[str] = Field(default=None)
+    jd_text: str = Field(..., description="目标职位 JD 文本")
+    fields: list[JdOptimizeField] = Field(default_factory=list)
+    locale: str = Field(default="zh")
+
+
+def _build_jd_optimize_prompt(*, jd_text: str, fields: list[JdOptimizeField], locale: str) -> str:
+    fields_block = "\n".join(
+        f'- key={f.key}｜{f.label or f.key}：{(f.content or "")[:1200]}' for f in fields
+    )
+    return f"""你是一名资深简历顾问。请基于目标岗位 JD，给出让简历更匹配该岗位的改写建议。
+
+目标岗位 JD：
+{jd_text[:2500]}
+
+候选人简历字段（每条含唯一 key）：
+{fields_block}
+
+严格要求：
+1. 用与简历相同的语言输出（中文内容就用中文）。
+2. 每条建议针对某个字段：给出该字段内**逐字出现的连续原片段** original 与改进后 suggested（自然融入 JD 关键词、更贴合岗位、突出量化成果），original 必须能在对应 key 的内容里精确匹配以便程序替换。
+3. 只给**确有价值**的建议，宁缺毋滥；不要编造经历、不得脱离原文事实。
+4. missingKeywords 列出 JD 要求但简历明显缺失的关键词。
+5. matchScore 为当前简历与 JD 的总体匹配度（0-100）。
+
+只输出 JSON，不要任何额外文字或代码块：
+{{
+  "matchScore": 0,
+  "missingKeywords": ["..."],
+  "suggestions": [
+    {{"key": "字段key", "original": "原片段", "suggested": "改进后片段", "reason": "为何更匹配JD"}}
+  ]
+}}
+"""
+
+
+@router.post("/resume/jd-optimize")
+async def jd_optimize(body: JdOptimizeRequest):
+    """针对 JD 给出多字段优化建议（结构化），供前端弹窗展示与逐条/一键应用。"""
+    jd = (body.jd_text or "").strip()
+    if not jd:
+        raise HTTPException(status_code=400, detail="jd_text 不能为空")
+    fields = [f for f in (body.fields or []) if (f.content or "").strip()]
+    if not fields:
+        raise HTTPException(status_code=400, detail="没有可优化的字段内容")
+
+    provider = body.provider or DEFAULT_AI_PROVIDER
+    prompt = _build_jd_optimize_prompt(jd_text=jd, fields=fields, locale=body.locale or "zh")
+
+    try:
+        raw = call_llm(provider, prompt)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
+
+    cleaned = clean_llm_response(raw)
+    try:
+        data = parse_json_response(cleaned)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"解析 JSON 失败: {e}")
+
+    # 校验 LLM 输出（系统边界）：original 必须逐字命中对应字段内容
+    content_by_key = {f.key: (f.content or "") for f in fields}
+    suggestions: list[dict] = []
+    for item in (data.get("suggestions") or []):
+        if not isinstance(item, dict):
+            continue
+        key = str(item.get("key", "")).strip()
+        original = str(item.get("original", "")).strip()
+        suggested = str(item.get("suggested", "")).strip()
+        if not key or key not in content_by_key:
+            continue
+        if not original or not suggested or original == suggested:
+            continue
+        if original not in content_by_key[key]:
+            continue
+        suggestions.append({
+            "key": key,
+            "original": original,
+            "suggested": suggested,
+            "reason": str(item.get("reason", "")).strip(),
+        })
+
+    missing = [str(k).strip() for k in (data.get("missingKeywords") or []) if str(k).strip()]
+    match_score = data.get("matchScore")
+    try:
+        match_score = max(0, min(100, int(match_score)))
+    except (TypeError, ValueError):
+        match_score = None
+
+    return {
+        "matchScore": match_score,
+        "missingKeywords": missing,
+        "suggestions": suggestions,
+    }
+
+
 @router.post("/resume/generate", response_model=ResumeGenerateResponse)
 async def generate_resume(body: ResumeGenerateRequest):
     """一句话 → 结构化简历 JSON"""

@@ -915,6 +915,37 @@ export async function grammarCheckField(text: string, path: string): Promise<Gra
   return data as GrammarCheckResult
 }
 
+export interface JdOptimizeField {
+  key: string
+  label: string
+  content: string
+}
+
+export interface JdSuggestion {
+  key: string
+  original: string
+  suggested: string
+  reason: string
+}
+
+export interface JdOptimizeResult {
+  matchScore: number | null
+  missingKeywords: string[]
+  suggestions: JdSuggestion[]
+}
+
+/** 针对 JD 的多字段优化建议（非流式，结构化） */
+export async function jdOptimize(fields: JdOptimizeField[], jdText: string): Promise<JdOptimizeResult> {
+  const url = `${getApiBaseUrl()}/api/resume/jd-optimize`
+  const { data } = await axios.post(url, {
+    provider: 'deepseek',
+    jd_text: jdText,
+    fields,
+    locale: 'zh',
+  })
+  return data as JdOptimizeResult
+}
+
 export const scoreResume = async (resumeId: string, jdText: string): Promise<any> => {
   const response = await axios.post(`${getApiBaseUrl()}/api/resume/score`, {
     resume_id: resumeId,

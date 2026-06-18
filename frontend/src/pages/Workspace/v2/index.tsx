@@ -2,7 +2,7 @@
  * Workspace v2 - 编辑区主入口
  * 使用 WorkspaceLayout 包裹，提供统一的侧边栏布局
  */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 // Hooks
 import { useAIImport, usePDFOperations, useResumeData } from './hooks'
@@ -12,8 +12,10 @@ import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import { Header } from './components'
 import EditPreviewLayout from './EditPreviewLayout'
 import AIImportModal from './shared/AIImportModal'
+import JdOptimizeDialog from './shared/JdOptimizeDialog'
 import { ScoreCard } from '@/components/ScoreCard'
-import { scoreResume } from '@/services/api'
+import { scoreResume, type JdOptimizeField } from '@/services/api'
+import { stripHtmlTags } from './utils/textUtils'
 
 type EditMode = 'click' | 'scroll' | 'json'
 const PDF_RENDER_DEBOUNCE_MS = 2000
@@ -31,6 +33,7 @@ export default function WorkspaceV2() {
   // 评分状态
   const [jdText, setJdText] = useState('')
   const [scoreData, setScoreData] = useState<any>(null)
+  const [showJdOptimize, setShowJdOptimize] = useState(false)
   // 简历数据管理
   const {
     resumeData,
@@ -61,12 +64,34 @@ export default function WorkspaceV2() {
     deleteCustomItem,
     updateSelfEvaluation,
     updateSkillContent,
+    applyTextReplacement,
     updateMenuSections,
     reorderSections,
     toggleSectionVisibility,
     updateGlobalSettings,
     addCustomSection,
   } = useResumeData()
+
+  // 构建 JD 优化的可改写字段列表（自我评价 / 技能 / 各实习·项目·开源的正文）
+  const jdFields = useMemo<JdOptimizeField[]>(() => {
+    const fields: JdOptimizeField[] = []
+    if (resumeData.selfEvaluation?.trim()) {
+      fields.push({ key: 'selfEvaluation', label: '自我评价', content: resumeData.selfEvaluation })
+    }
+    if (resumeData.skillContent?.trim()) {
+      fields.push({ key: 'skillContent', label: '专业技能', content: resumeData.skillContent })
+    }
+    resumeData.experience?.forEach((e) => {
+      if (e.details?.trim()) fields.push({ key: `experience:${e.id}`, label: `实习·${stripHtmlTags(e.company) || '经历'}`, content: e.details })
+    })
+    resumeData.projects?.forEach((p) => {
+      if (p.description?.trim()) fields.push({ key: `project:${p.id}`, label: `项目·${stripHtmlTags(p.name) || ''}`, content: p.description })
+    })
+    resumeData.openSource?.forEach((o) => {
+      if (o.description?.trim()) fields.push({ key: `openSource:${o.id}`, label: `开源·${stripHtmlTags(o.name) || ''}`, content: o.description })
+    })
+    return fields
+  }, [resumeData])
 
   // 点击外部区域关闭下拉菜单
   // PDF 操作
@@ -302,16 +327,36 @@ export default function WorkspaceV2() {
       />
 
       {/* JD 评分输入区域 */}
-      <div className="mt-4 mx-4 mb-4 p-4 border border-gray-200 rounded-lg">
-        <h3 className="text-sm font-medium mb-2">职位描述匹配评分</h3>
+      <div className="mt-4 mx-4 mb-4 p-4 border border-gray-200 dark:border-neutral-800 rounded-lg">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-sm font-medium">职位描述匹配评分</h3>
+          <button
+            type="button"
+            onClick={() => setShowJdOptimize(true)}
+            disabled={jdText.trim().length < 10 || jdFields.length === 0}
+            className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-500 text-white hover:bg-blue-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title={jdText.trim().length < 10 ? '请先粘贴职位描述' : '让 AI 按该 JD 优化简历'}
+          >
+            AI 优化匹配 JD
+          </button>
+        </div>
         <textarea
           value={jdText}
           onChange={(e) => { setJdText(e.target.value); setScoreData(null); }}
           placeholder="粘贴职位描述，AI将自动分析简历与JD的匹配度..."
-          className="w-full min-h-[80px] p-2 border border-gray-200 rounded text-sm"
+          className="w-full min-h-[80px] p-2 border border-gray-200 dark:border-neutral-800 dark:bg-neutral-900 rounded text-sm"
         />
         {scoreData && <ScoreCard {...scoreData} />}
       </div>
+
+      {/* 针对 JD 优化弹窗 */}
+      <JdOptimizeDialog
+        open={showJdOptimize}
+        onOpenChange={setShowJdOptimize}
+        fields={jdFields}
+        jdText={jdText}
+        onApply={applyTextReplacement}
+      />
 
       {/* 隐藏的文件输入（用于导入 JSON） */}
       <input
