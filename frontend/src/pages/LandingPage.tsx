@@ -38,21 +38,21 @@ const CAPABILITIES = [
   {
     icon: FileText,
     title: '自然语言生成',
-    desc: '一句话描述经历，自动生成结构化、可直接编辑的简历。',
+    desc: '一句话描述经历、自动生成结构化、可直接编辑的简历。',
     span: 'lg:col-span-3',
     feature: true
   },
   {
     icon: Wand2,
     title: '划词润色改写',
-    desc: '选中任意一段，一键润色、量化、换强动词。',
+    desc: '选中任意一段、一键润色、量化、换强动词。',
     span: 'lg:col-span-3',
     feature: true
   },
   {
     icon: Target,
     title: 'JD 岗位匹配',
-    desc: '对照目标岗位诊断缺口，缺失关键词可一键融入经历。',
+    desc: '对照目标岗位诊断缺口、缺失关键词可一键融入经历。',
     span: 'lg:col-span-2'
   },
   {
@@ -70,7 +70,7 @@ const CAPABILITIES = [
   {
     icon: Download,
     title: '像素级 PDF 导出',
-    desc: 'LaTeX 排版引擎，一键导出干净精美的 PDF。',
+    desc: 'LaTeX 排版引擎、一键导出干净精美的 PDF。',
     span: 'lg:col-span-6'
   }
 ]
@@ -137,7 +137,7 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-hero antialiased selection:bg-emerald-200 selection:text-slate-900 overflow-x-hidden">
+    <div className="min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-hero antialiased selection:bg-blue-200 selection:text-slate-900 overflow-x-hidden">
       {/* 顶部导航 - 白底风格 */}
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         isScrolled
@@ -146,8 +146,8 @@ export default function LandingPage() {
       }`}>
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
         <div className="flex items-center gap-2.5 cursor-pointer group shrink-0 min-w-0" onClick={() => navigate('/')}>
-          <div className="w-10 h-10 bg-slate-900 dark:bg-white rounded-xl flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
-            <span className="text-white dark:text-slate-900 font-black text-base italic">RA</span>
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-500 dark:from-blue-500 dark:to-blue-400 rounded-xl flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
+            <span className="text-white font-black text-base italic">RA</span>
           </div>
           <span className="text-slate-900 dark:text-slate-100 font-bold text-lg truncate">Resume.AI</span>
         </div>
@@ -169,7 +169,7 @@ export default function LandingPage() {
                 onClick={() => setShowWechatCard((prev) => !prev)}
                 className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border border-slate-200 dark:border-slate-800 shadow-sm"
               >
-                <MessageCircle className="w-4 h-4 text-emerald-600 shrink-0" />
+                <MessageCircle className="w-4 h-4 text-blue-600 shrink-0" />
                 <span className="text-sm font-bold">联系我</span>
               </motion.button>
               <AnimatePresence>
@@ -225,7 +225,7 @@ export default function LandingPage() {
                 whileHover={{ scale: 1.02, y: -1 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleOpenAgent}
-                className="hidden md:flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-xl font-bold border border-emerald-100 dark:border-emerald-900/60 hover:border-emerald-200 dark:hover:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all shadow-sm"
+                className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-xl font-bold border border-blue-100 dark:border-blue-900/60 hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all shadow-sm"
               >
                 <Sparkles className="w-4 h-4 shrink-0" />
                 AI 助手
@@ -245,7 +245,7 @@ export default function LandingPage() {
 
       {/* Hero 区域 */}
       <section className="relative pt-32 pb-20 px-6 overflow-hidden">
-        {/* 背景：极轻的 emerald 光晕，单一品牌色 */}
+        {/* 背景：极轻的 blue 光晕，单一品牌色 */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[520px] bg-[radial-gradient(60%_60%_at_50%_0%,rgba(16,185,129,0.10),transparent_70%)] dark:bg-[radial-gradient(60%_60%_at_50%_0%,rgba(16,185,129,0.14),transparent_70%)]"
@@ -253,9 +253,9 @@ export default function LandingPage() {
         <div className="max-w-3xl mx-auto text-center">
           <motion.div
             {...popIn}
-            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[13px] font-semibold mb-7 tracking-wide bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-100 dark:border-emerald-900/50"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[13px] font-semibold mb-7 tracking-wide bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/50"
           >
-            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500" />
+            <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
             公益项目 · 完全免费
           </motion.div>
 
@@ -264,9 +264,9 @@ export default function LandingPage() {
             transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.12 }}
             className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.12] text-slate-900 dark:text-white"
           >
-            把经历，写成一份
+            把经历、写成一份
             <br className="hidden sm:block" />
-            <span className="text-emerald-600 dark:text-emerald-400">打动 HR</span> 的简历
+            <span className="text-blue-600 dark:text-blue-400">打动 HR</span> 的简历
           </motion.h1>
 
           <motion.p
@@ -274,7 +274,7 @@ export default function LandingPage() {
             transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.24 }}
             className="mt-6 text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl mx-auto"
           >
-            AI 生成、润色、岗位匹配到 PDF 导出，一站做完。所有功能完全免费，Token 不限量。
+            AI 生成、润色、岗位匹配到 PDF 导出、一站做完。所有功能完全免费、Token 不限量。
           </motion.p>
 
           <motion.div
@@ -292,7 +292,7 @@ export default function LandingPage() {
             {agentEnabled && (
               <button
                 onClick={handleOpenAgent}
-                className="w-full sm:w-auto px-7 py-3.5 bg-white dark:bg-slate-900 text-emerald-700 dark:text-emerald-300 rounded-xl font-bold text-base hover:bg-emerald-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 border border-emerald-200 dark:border-emerald-900/60 hover:border-emerald-300 dark:hover:border-emerald-800 group active:scale-[0.98]"
+                className="w-full sm:w-auto px-7 py-3.5 bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-300 rounded-xl font-bold text-base hover:bg-blue-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 border border-blue-200 dark:border-blue-900/60 hover:border-blue-300 dark:hover:border-blue-800 group active:scale-[0.98]"
               >
                 <Sparkles className="w-5 h-5 group-hover:scale-110 transition-transform" />
                 体验 AI 助手
@@ -306,10 +306,10 @@ export default function LandingPage() {
             href={REPO_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-5 inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+            className="mt-5 inline-flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
           >
             <Star className="w-4 h-4" />
-            觉得有用，欢迎在 GitHub 点个 Star
+            觉得有用、欢迎在 GitHub 点个 Star
           </motion.a>
         </div>
 
@@ -336,7 +336,7 @@ export default function LandingPage() {
               一份简历，从写到投，都帮你想到了
             </h2>
             <p className="mt-4 text-base text-slate-600 dark:text-slate-400 leading-relaxed">
-              围绕简历制作的全流程能力，每一步都由 AI 协助，不收费、不限量。
+              围绕简历制作的全流程能力、每一步都由 AI 协助、不收费、不限量。
             </p>
           </motion.div>
 
@@ -352,13 +352,13 @@ export default function LandingPage() {
                   transition={{ duration: 0.55, delay: i * 0.05, ease: [0.16, 1, 0.3, 1] }}
                   className={`${cap.span} group rounded-2xl p-6 sm:p-7 border transition-all ${
                     cap.feature
-                      ? 'border-emerald-100 dark:border-emerald-900/50 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/40 dark:to-slate-900 hover:border-emerald-200 dark:hover:border-emerald-800'
+                      ? 'border-blue-100 dark:border-blue-900/50 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/40 dark:to-slate-900 hover:border-blue-200 dark:hover:border-blue-800'
                       : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
                   }`}
                 >
                   <div className={`flex items-center justify-center w-11 h-11 rounded-xl mb-4 transition-transform group-hover:scale-105 ${
                     cap.feature
-                      ? 'bg-emerald-600 text-white'
+                      ? 'bg-blue-600 text-white'
                       : 'bg-slate-900 dark:bg-slate-800 text-white'
                   }`}>
                     <Icon className="w-5 h-5" />
@@ -387,12 +387,12 @@ export default function LandingPage() {
               免费开始制作你的简历
             </h2>
             <p className="mt-4 text-base text-slate-300 max-w-md mx-auto leading-relaxed">
-              不用注册付费，不限 Token，打开就能写。
+              不用注册付费、不限 Token、打开就能写。
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
               <button
                 onClick={() => navigate('/create-new')}
-                className="w-full sm:w-auto px-7 py-3.5 bg-white text-slate-900 rounded-xl font-bold text-base hover:bg-emerald-50 transition-all flex items-center justify-center gap-2 group active:scale-[0.98]"
+                className="w-full sm:w-auto px-7 py-3.5 bg-white text-slate-900 rounded-xl font-bold text-base hover:bg-blue-50 transition-all flex items-center justify-center gap-2 group active:scale-[0.98]"
               >
                 开始创建
                 <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
@@ -415,8 +415,8 @@ export default function LandingPage() {
       <footer className="border-t border-slate-200 dark:border-slate-800 px-6 py-10">
         <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-slate-900 dark:bg-white rounded-lg flex items-center justify-center shrink-0">
-              <span className="text-white dark:text-slate-900 font-black text-xs italic">RA</span>
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-500 dark:from-blue-500 dark:to-blue-400 rounded-lg flex items-center justify-center shrink-0">
+              <span className="text-white font-black text-xs italic">RA</span>
             </div>
             <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Resume.AI</span>
             <span className="text-sm text-slate-400 dark:text-slate-500">公益 AI 简历制作</span>
@@ -425,7 +425,7 @@ export default function LandingPage() {
             href={REPO_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+            className="inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
           >
             <Github className="w-4 h-4" />
             开源于 GitHub
