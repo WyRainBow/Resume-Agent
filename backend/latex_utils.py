@@ -207,6 +207,18 @@ def resolve_xelatex_executable() -> Optional[str]:
         return found
 
     if os.name != "nt":
+        # macOS：枚举常见 TeX 安装位置（BasicTeX / MacTeX）
+        mac_candidates = [
+            Path("/Library/TeX/texbin/xelatex"),
+            Path("/usr/local/texlive/bin/universal-apple/xelatex"),
+            Path("/usr/local/texlive/bin/x86_64-darwin/xelatex"),
+        ]
+        for p in mac_candidates:
+            try:
+                if p.exists():
+                    return str(p)  # 保留符号链接路径，TeX 依赖文件名判断运行格式
+            except OSError:
+                continue
         return None
 
     # Windows：枚举常见 MiKTeX 安装位置
