@@ -38,6 +38,7 @@
     "html2pdf.js": "^0.12.1",
     "lucide-react": "^0.561.0",
     "mermaid": "^11.12.2",
+    "motion": "^12.40.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^4.8.69",
     "react": "^18.3.1",
