@@ -13,6 +13,8 @@ interface TranslateDialogProps {
   onOpenChange: (open: boolean) => void
   fields: JdOptimizeField[]
   onApply: (key: string, original: string, suggested: string) => void
+  /** 批量应用：一次性写回所有条目，避免多次 setState */
+  onApplyBatch: (items: { key: string; original: string; suggested: string }[]) => void
 }
 
 const LANGUAGES: { code: string; label: string }[] = [
@@ -25,7 +27,7 @@ const LANGUAGES: { code: string; label: string }[] = [
   { code: 'es', label: '西班牙语 Español' },
 ]
 
-export default function TranslateDialog({ open, onOpenChange, fields, onApply }: TranslateDialogProps) {
+export default function TranslateDialog({ open, onOpenChange, fields, onApply, onApplyBatch }: TranslateDialogProps) {
   const [lang, setLang] = useState('en')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<TranslateResult | null>(null)
@@ -74,11 +76,13 @@ export default function TranslateDialog({ open, onOpenChange, fields, onApply }:
   const applyAll = () => {
     if (!result) return
     const next = new Set(applied)
+    const batch: { key: string; original: string; suggested: string }[] = []
     result.translations.forEach((t, idx) => {
       if (next.has(idx)) return
-      onApply(t.key, t.original, t.translated)
+      batch.push({ key: t.key, original: t.original, suggested: t.translated })
       next.add(idx)
     })
+    if (batch.length) onApplyBatch(batch)
     setApplied(next)
   }
 

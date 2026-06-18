@@ -13,6 +13,8 @@ interface HealthCheckDialogProps {
   onOpenChange: (open: boolean) => void
   fields: JdOptimizeField[]
   onApply: (key: string, original: string, suggested: string) => void
+  /** 批量应用：一次性写回所有条目，避免多次 setState */
+  onApplyBatch: (items: { key: string; original: string; suggested: string }[]) => void
 }
 
 function scoreColor(score: number | null): string {
@@ -29,7 +31,7 @@ function barColor(score: number | null): string {
   return 'bg-emerald-400'
 }
 
-export default function HealthCheckDialog({ open, onOpenChange, fields, onApply }: HealthCheckDialogProps) {
+export default function HealthCheckDialog({ open, onOpenChange, fields, onApply, onApplyBatch }: HealthCheckDialogProps) {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<HealthCheckResult | null>(null)
   const [applied, setApplied] = useState<Set<number>>(new Set())
@@ -72,11 +74,13 @@ export default function HealthCheckDialog({ open, onOpenChange, fields, onApply 
   const applyAll = () => {
     if (!result) return
     const next = new Set(applied)
+    const batch: { key: string; original: string; suggested: string }[] = []
     result.suggestions.forEach((s, idx) => {
       if (next.has(idx)) return
-      onApply(s.key, s.original, s.suggested)
+      batch.push({ key: s.key, original: s.original, suggested: s.suggested })
       next.add(idx)
     })
+    if (batch.length) onApplyBatch(batch)
     setApplied(next)
   }
 

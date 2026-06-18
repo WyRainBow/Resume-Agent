@@ -20,6 +20,29 @@ import type {
   GlobalSettings,
 } from '../types'
 
+/** 在简历数据上对某字段做一次确定性 original→suggested 替换，返回新数据（纯函数，供单条/批量复用） */
+function replaceInResume(prev: ResumeData, key: string, original: string, suggested: string): ResumeData {
+  if (key === 'selfEvaluation') {
+    return { ...prev, selfEvaluation: (prev.selfEvaluation || '').replace(original, suggested) }
+  }
+  if (key === 'skillContent') {
+    return { ...prev, skillContent: (prev.skillContent || '').replace(original, suggested) }
+  }
+  if (key.startsWith('experience:')) {
+    const id = key.slice('experience:'.length)
+    return { ...prev, experience: prev.experience.map((e) => e.id === id ? { ...e, details: (e.details || '').replace(original, suggested) } : e) }
+  }
+  if (key.startsWith('project:')) {
+    const id = key.slice('project:'.length)
+    return { ...prev, projects: prev.projects.map((p) => p.id === id ? { ...p, description: (p.description || '').replace(original, suggested) } : p) }
+  }
+  if (key.startsWith('openSource:')) {
+    const id = key.slice('openSource:'.length)
+    return { ...prev, openSource: (prev.openSource || []).map((o) => o.id === id ? { ...o, description: (o.description || '').replace(original, suggested) } : o) }
+  }
+  return prev
+}
+
 const normalizeCustomItem = (item: Partial<CustomItem>): CustomItem => ({
   id: item.id || `custom_item_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
   title: item.title || '',
@@ -283,27 +306,14 @@ export function useResumeData() {
   // 用函数式更新，保证对同一字段连续多次替换（一键全部应用）能正确链式叠加。
   const applyTextReplacement = useCallback((key: string, original: string, suggested: string) => {
     if (!original || original === suggested) return
-    setResumeData((prev) => {
-      if (key === 'selfEvaluation') {
-        return { ...prev, selfEvaluation: (prev.selfEvaluation || '').replace(original, suggested) }
-      }
-      if (key === 'skillContent') {
-        return { ...prev, skillContent: (prev.skillContent || '').replace(original, suggested) }
-      }
-      if (key.startsWith('experience:')) {
-        const id = key.slice('experience:'.length)
-        return { ...prev, experience: prev.experience.map((e) => e.id === id ? { ...e, details: (e.details || '').replace(original, suggested) } : e) }
-      }
-      if (key.startsWith('project:')) {
-        const id = key.slice('project:'.length)
-        return { ...prev, projects: prev.projects.map((p) => p.id === id ? { ...p, description: (p.description || '').replace(original, suggested) } : p) }
-      }
-      if (key.startsWith('openSource:')) {
-        const id = key.slice('openSource:'.length)
-        return { ...prev, openSource: (prev.openSource || []).map((o) => o.id === id ? { ...o, description: (o.description || '').replace(original, suggested) } : o) }
-      }
-      return prev
-    })
+    setResumeData((prev) => replaceInResume(prev, key, original, suggested))
+  }, [])
+
+  /** 批量替换：一次 setResumeData 应用所有条目，避免循环多次 setState 引发重复渲染 / React 警告 */
+  const applyTextReplacements = useCallback((items: { key: string; original: string; suggested: string }[]) => {
+    const valid = items.filter((it) => it.original && it.original !== it.suggested)
+    if (valid.length === 0) return
+    setResumeData((prev) => valid.reduce((acc, it) => replaceInResume(acc, it.key, it.original, it.suggested), prev))
   }, [])
 
   // ============ 菜单/布局 ============
@@ -444,6 +454,7 @@ export function useResumeData() {
     updateSkillContent,
     // JD 优化逐条/批量应用
     applyTextReplacement,
+    applyTextReplacements,
     // 菜单
     updateMenuSections,
     reorderSections,

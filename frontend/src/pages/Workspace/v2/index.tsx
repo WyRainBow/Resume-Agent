@@ -71,6 +71,7 @@ export default function WorkspaceV2() {
     updateSelfEvaluation,
     updateSkillContent,
     applyTextReplacement,
+    applyTextReplacements,
     updateMenuSections,
     reorderSections,
     toggleSectionVisibility,
@@ -363,6 +364,7 @@ export default function WorkspaceV2() {
         fields={jdFields}
         jdText={jdText}
         onApply={applyTextReplacement}
+        onApplyBatch={applyTextReplacements}
       />
 
       {/* 简历一键翻译弹窗 */}
@@ -371,6 +373,7 @@ export default function WorkspaceV2() {
         onOpenChange={setShowTranslate}
         fields={jdFields}
         onApply={applyTextReplacement}
+        onApplyBatch={applyTextReplacements}
       />
 
       {/* 通用简历体检弹窗 */}
@@ -379,6 +382,7 @@ export default function WorkspaceV2() {
         onOpenChange={setShowHealthCheck}
         fields={jdFields}
         onApply={applyTextReplacement}
+        onApplyBatch={applyTextReplacements}
       />
 
       {/* AI 助手 —— 右下角可拖拽悬浮气泡 + 对话窗口 */}

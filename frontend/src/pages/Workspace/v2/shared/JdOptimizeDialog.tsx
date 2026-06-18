@@ -14,6 +14,8 @@ interface JdOptimizeDialogProps {
   fields: JdOptimizeField[]
   jdText: string
   onApply: (key: string, original: string, suggested: string) => void
+  /** 批量应用：一次性写回所有条目，避免多次 setState */
+  onApplyBatch: (items: { key: string; original: string; suggested: string }[]) => void
 }
 
 function scoreColor(score: number | null): string {
@@ -29,6 +31,7 @@ export default function JdOptimizeDialog({
   fields,
   jdText,
   onApply,
+  onApplyBatch,
 }: JdOptimizeDialogProps) {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<JdOptimizeResult | null>(null)
@@ -72,11 +75,13 @@ export default function JdOptimizeDialog({
   const applyAll = () => {
     if (!result) return
     const next = new Set(applied)
+    const batch: { key: string; original: string; suggested: string }[] = []
     result.suggestions.forEach((s, idx) => {
       if (next.has(idx)) return
-      onApply(s.key, s.original, s.suggested)
+      batch.push({ key: s.key, original: s.original, suggested: s.suggested })
       next.add(idx)
     })
+    if (batch.length) onApplyBatch(batch)
     setApplied(next)
   }
 
