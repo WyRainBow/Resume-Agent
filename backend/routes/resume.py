@@ -6,6 +6,7 @@ import re
 import json as _json
 import os
 import sys
+import asyncio
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Depends
@@ -610,29 +611,30 @@ async def translate_resume_fields(body: TranslateRequest):
 
     provider = body.provider or DEFAULT_AI_PROVIDER
 
-    # 逐字段翻译：每次调用输出受单字段约束，避免一次性翻译全部字段导致响应过大、超时重试耗尽
-    translations: list[dict] = []
-    failures = 0
-    for f in fields:
-        prompt = _build_translate_prompt(target_lang=target, fields=[f])
-        try:
-            raw = call_llm(provider, prompt)
-            data = parse_json_response(clean_llm_response(raw))
-        except Exception:
-            failures += 1
-            continue
-        translated = ""
-        for item in (data.get("translations") or []):
-            if isinstance(item, dict) and str(item.get("key", "")).strip() == f.key:
-                translated = str(item.get("translated", "")).strip()
-                break
-        if translated:
-            translations.append({"key": f.key, "original": f.content or "", "translated": translated})
-        else:
-            failures += 1
+    # 逐字段翻译并发执行：每次调用输出受单字段约束（避免单次响应过大），
+    # 用信号量限并发 + to_thread 把同步 call_llm 丢到线程，gather 保持字段顺序。
+    sem = asyncio.Semaphore(5)
+
+    async def translate_one(f: JdOptimizeField):
+        async with sem:
+            prompt = _build_translate_prompt(target_lang=target, fields=[f])
+            try:
+                raw = await asyncio.to_thread(call_llm, provider, prompt)
+                data = parse_json_response(clean_llm_response(raw))
+            except Exception:
+                return None
+            for item in (data.get("translations") or []):
+                if isinstance(item, dict) and str(item.get("key", "")).strip() == f.key:
+                    translated = str(item.get("translated", "")).strip()
+                    if translated:
+                        return {"key": f.key, "original": f.content or "", "translated": translated}
+            return None
+
+    results = await asyncio.gather(*[translate_one(f) for f in fields])
+    translations = [r for r in results if r]
 
     # 全部失败才视为接口错误，部分成功正常返回
-    if not translations and failures:
+    if not translations and fields:
         raise HTTPException(status_code=500, detail="翻译失败，请重试")
 
     return {"translations": translations}
