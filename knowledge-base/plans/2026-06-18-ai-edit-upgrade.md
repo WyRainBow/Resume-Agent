@@ -12,10 +12,13 @@
 - ✅ **子任务2**：新增语法/表达体检弹窗 + 一键修复（对标 JadeAI Mode-B）。后端 `POST /api/resume/grammar-check`（无状态、结构化 + 边界校验），前端 `GrammarCheckDialog` + RichEditor 工具栏入口。端到端实测：专业技能体检得分 75、3 条 before→after 建议、一键全部修复正确写回编辑器。提交 `ca7c8bb`。
 - ✅ **子任务3**：补齐 ExperiencePanel/ProjectPanel/OpenSourcePanel 的 `resumeData` 透传（EditPanel + ScrollEditMode 两入口）。修复"工作内容/项目描述/开源描述"这些核心字段此前看不到 AI 润色/语法体检按钮的历史缺口。端到端实测：实习经历工作内容两按钮正常出现。提交 `26a97d9`。
 
-- ⏭️ **本轮未做（留待后续，规模/风险较大）**：
-  - **统一侧边 Copilot（P0-1）**：对现有可用润色功能的重构，回归风险高，建议单独排期 + 充分联调。
-  - **JD 一键优化（P1-1）**：whole-resume 跨字段应用较复杂，且与现有 `/api/resume/score`（JD 评分）存在能力重叠，需先界定边界。
-  - **导入流式化（P0-4）**：需重构现有 parse 为按 section SSE，触及已上线导入链路，单独排期。
+- ✅ **子任务4**：针对 JD 的简历一键优化（对标 JadeAI Mode-B）。后端 `POST /api/resume/jd-optimize`（无状态、多字段、结构化 + 边界校验）；前端 `JdOptimizeDialog` + `useResumeData.applyTextReplacement`（函数式更新，支持同字段连续替换链式叠加）+ JD 区「AI 优化匹配 JD」按钮。端到端实测：输入 JD 得匹配 60、缺失 Kubernetes/Kafka/云原生、5 条跨字段建议，一键全部应用后技能/经历字段正确写回。提交 `59280ce`。
+
+  > 与现有 `/api/resume/score` 的边界：score 是只读 JD 评分（dimension + reasons）；jd-optimize 是可应用的逐字段改写建议——互补不重叠。
+
+- ⏭️ **本轮未做（经技术评估，不适合自动化冲刺，需单独排期）**：
+  - **导入流式化（P0-4）**：现有 `parse_resume_text` 对常见长简历走 **并行分块**（`parse_resume_text_parallel`）。真正的逐段流式需改造这条并发敏感的工作管线以发射分块进度——对已上线导入风险高；唯一"简单版"（阻塞解析外套心跳事件）较现有计时器无实质提升。属高风险低收益，应专门做并配回归测试。
+  - **统一侧边 Copilot（P0-1）**：是对**当前可用**的 PolishChatDialog 的重构，而其价值已被本轮交付的逐字段能力（润色 + 语法体检 + JD 优化）大部分覆盖；全局编辑器 Copilot 还需产品决策（它相对逐字段工具与不可改动的 SophiaChat 增量价值是什么）。在无设计前重构可用代码，回归风险大于收益。
   - 死代码 `AIPolishDialog.tsx` 按 CLAUDE.md「不相关死代码只指出不删除」保留。
 
 > 运行环境说明：当前后端临时在 9007、前端代理指向 9007；项目标准口径是 9000。恢复标准：释放 9000 → `python -m uvicorn backend.main:app --port 9000` → 前端正常 `npm run dev` 即可（无需任何代码回滚）。
