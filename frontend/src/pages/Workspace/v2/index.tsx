@@ -13,6 +13,7 @@ import { Header } from './components'
 import EditPreviewLayout from './EditPreviewLayout'
 import AIImportModal from './shared/AIImportModal'
 import JdOptimizeDialog from './shared/JdOptimizeDialog'
+import AiCopilotDock from './shared/AiCopilotDock'
 import { ScoreCard } from '@/components/ScoreCard'
 import { scoreResume, type JdOptimizeField } from '@/services/api'
 import { stripHtmlTags } from './utils/textUtils'
@@ -34,6 +35,7 @@ export default function WorkspaceV2() {
   const [jdText, setJdText] = useState('')
   const [scoreData, setScoreData] = useState<any>(null)
   const [showJdOptimize, setShowJdOptimize] = useState(false)
+  const jdTextareaRef = useRef<HTMLTextAreaElement>(null)
   // 简历数据管理
   const {
     resumeData,
@@ -341,6 +343,7 @@ export default function WorkspaceV2() {
           </button>
         </div>
         <textarea
+          ref={jdTextareaRef}
           value={jdText}
           onChange={(e) => { setJdText(e.target.value); setScoreData(null); }}
           placeholder="粘贴职位描述，AI将自动分析简历与JD的匹配度..."
@@ -356,6 +359,16 @@ export default function WorkspaceV2() {
         fields={jdFields}
         jdText={jdText}
         onApply={applyTextReplacement}
+      />
+
+      {/* AI 助手 Dock —— 统一浮动入口 */}
+      <AiCopilotDock
+        onJdOptimize={() => setShowJdOptimize(true)}
+        jdReady={jdText.trim().length >= 10 && jdFields.length > 0}
+        onFocusJd={() => {
+          jdTextareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          jdTextareaRef.current?.focus()
+        }}
       />
 
       {/* 隐藏的文件输入（用于导入 JSON） */}
