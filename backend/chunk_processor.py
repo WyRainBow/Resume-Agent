@@ -543,6 +543,11 @@ def _looks_like_internship_bullet_title(title: str) -> bool:
     if not t:
         return False
     if t.startswith("**"):
+        # 整体被 ** 包裹且内部无冒号的，是被加粗的公司名（如 **美的集团**），
+        # 不是被加粗的 bullet 内容（如 **搜索服务拆分**：针对...），不应视为孤儿 bullet
+        wrapped = re.fullmatch(r"\*\*(.+?)\*\*", t)
+        if wrapped and "：" not in wrapped.group(1):
+            return False
         return True
     if "：" in t and len(t) > 8:
         return True
