@@ -113,6 +113,7 @@ export function AIImportModal({
   const [selectedVisionModel, setSelectedVisionModel] = useState("qwen-vl-max");
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [selectedImage2, setSelectedImage2] = useState<File | null>(null);
   const [copied, setCopied] = useState(false);
   const [importMode, setImportMode] = useState<"file" | "text">("file");
   const [currentStep, setCurrentStep] = useState<"input" | "results">("input");
@@ -171,6 +172,7 @@ export function AIImportModal({
       setParsedData(null);
       setFinalTime(null);
       setSelectedFile(null);
+      setSelectedImage2(null);
       setImportMode("file");
       setCurrentStep("input");
       setAwardsListType('unordered');
@@ -309,7 +311,8 @@ export function AIImportModal({
 
     try {
       const formData = new FormData();
-      formData.append("file", selectedFile);
+      formData.append("files", selectedFile);
+      if (selectedImage2) formData.append("files", selectedImage2);
       formData.append("model", selectedVisionModel);
 
       const response = await fetch(
@@ -687,7 +690,13 @@ export function AIImportModal({
                         <div className="flex-1 min-h-0 overflow-hidden">
                           <FileUploadZone
                             file={selectedFile}
-                            onFileSelect={setSelectedFile}
+                            onFileSelect={(f) => {
+                              setSelectedFile(f);
+                              // 首图清除或换成 PDF 时，第二张图一并清掉
+                              if (!f || !f.type.startsWith("image/")) {
+                                setSelectedImage2(null);
+                              }
+                            }}
                             acceptTypes={[
                               "application/pdf",
                               "image/jpeg",
@@ -697,6 +706,20 @@ export function AIImportModal({
                             hintLabel="PDF / JPG / PNG"
                           />
                         </div>
+                        {selectedFile?.type.startsWith("image/") && (
+                          <div className="flex-shrink-0 space-y-1">
+                            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                              第二张图片（可选，最多 2 张）
+                            </div>
+                            <FileUploadZone
+                              file={selectedImage2}
+                              onFileSelect={setSelectedImage2}
+                              acceptTypes={["image/jpeg", "image/png"]}
+                              acceptAttr=".jpg,.jpeg,.png"
+                              hintLabel="JPG / PNG"
+                            />
+                          </div>
+                        )}
                         {selectedFile?.type.startsWith("image/") && (
                           <div className="flex-shrink-0 space-y-2">
                             <div className="text-xs font-medium text-slate-500 dark:text-slate-400">

@@ -1128,32 +1128,45 @@ async def upload_resume_pdf(
         return {"resume": resume_data, "provider": "hybrid"}
 
 
+MAX_IMAGE_COUNT = 2
+
+
 @router.post("/resume/upload-image")
 async def upload_resume_image(
-    file: UploadFile = File(...),
+    files: List[UploadFile] = File(...),
     model: str = Form(default="qwen-vl-max"),
 ):
-    """上传简历图片(JPG/PNG)，经视觉模型识别 + 结构化为简历 JSON。
+    """上传简历图片(JPG/PNG，最多 2 张)，经视觉模型识别 + 结构化为简历 JSON。
 
+    多张图片按顺序识别后合并文本再结构化（适用于两页简历分两张图）。
     与 /resume/upload-pdf 同构返回 {"resume": ...}。
     视觉模型由前端传入：qwen-vl-max（默认）/ glm-ocr。
     """
-    if file.content_type not in SUPPORTED_IMAGE_TYPES:
-        raise HTTPException(status_code=400, detail="仅支持 JPG / PNG 图片")
-
-    image_bytes = await file.read()
-    if not image_bytes:
-        raise HTTPException(status_code=400, detail="文件为空")
-    if len(image_bytes) > MAX_PDF_SIZE_MB * 1024 * 1024:
+    if not files:
+        raise HTTPException(status_code=400, detail="请上传图片")
+    if len(files) > MAX_IMAGE_COUNT:
         raise HTTPException(
-            status_code=413, detail=f"文件过大，最大支持 {MAX_PDF_SIZE_MB}MB"
+            status_code=400, detail=f"最多支持 {MAX_IMAGE_COUNT} 张图片"
         )
 
-    # 步骤1：图片 → 文本（视觉识别）
-    try:
-        ocr_text = image_to_text(image_bytes, file.content_type, model)
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"图片识别失败: {e}")
+    # 步骤1：逐张图片 → 文本（视觉识别），按上传顺序合并
+    texts = []
+    for f in files:
+        if f.content_type not in SUPPORTED_IMAGE_TYPES:
+            raise HTTPException(status_code=400, detail="仅支持 JPG / PNG 图片")
+        image_bytes = await f.read()
+        if not image_bytes:
+            raise HTTPException(status_code=400, detail="文件为空")
+        if len(image_bytes) > MAX_PDF_SIZE_MB * 1024 * 1024:
+            raise HTTPException(
+                status_code=413, detail=f"单张图片过大，最大支持 {MAX_PDF_SIZE_MB}MB"
+            )
+        try:
+            texts.append(image_to_text(image_bytes, f.content_type, model))
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"图片识别失败: {e}")
+
+    ocr_text = "\n\n".join(t for t in texts if t.strip())
     if not ocr_text.strip():
         raise HTTPException(status_code=422, detail="未识别到文字，请换清晰的图片")
 
