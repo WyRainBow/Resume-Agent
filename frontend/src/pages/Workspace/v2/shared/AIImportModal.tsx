@@ -1,3 +1,4 @@
+
 /**
  * AI 导入弹窗组件（从 v1 移植）
  * 支持全局导入和分模块导入
@@ -11,6 +12,7 @@ import {
   X,
   Upload,
   FileText,
+  File,
   Sparkles,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
@@ -43,14 +45,12 @@ const VISION_MODELS = [
   {
     id: "qwen-vl-max",
     name: "通义千问 VL",
-    description: "图片识别（推荐，可用）",
-    needRecharge: false,
+    description: "图片识别",
   },
   {
     id: "glm-ocr",
     name: "智谱 GLM-OCR",
-    description: "文档 OCR（需账户充值）",
-    needRecharge: true,
+    description: "文档 OCR",
   },
 ];
 
@@ -115,7 +115,7 @@ export function AIImportModal({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedImage2, setSelectedImage2] = useState<File | null>(null);
   const [copied, setCopied] = useState(false);
-  const [importMode, setImportMode] = useState<"file" | "text">("file");
+  const [importMode, setImportMode] = useState<"pdf" | "image" | "text">("pdf");
   const [currentStep, setCurrentStep] = useState<"input" | "results">("input");
   const [awardsListType, setAwardsListType] = useState<'unordered' | 'ordered'>('unordered');
   const [testKeysLoading, setTestKeysLoading] = useState(false);
@@ -173,7 +173,7 @@ export function AIImportModal({
       setFinalTime(null);
       setSelectedFile(null);
       setSelectedImage2(null);
-      setImportMode("file");
+      setImportMode("pdf");
       setCurrentStep("input");
       setAwardsListType('unordered');
     }
@@ -655,10 +655,22 @@ export function AIImportModal({
                   {/* Tab 切换 */}
                   <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg flex-shrink-0">
                     <button
-                      onClick={() => setImportMode("file")}
+                      onClick={() => setImportMode("pdf")}
                       className={cn(
                         "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all",
-                        importMode === "file"
+                        importMode === "pdf"
+                          ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-indigo-400 shadow-sm"
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
+                      )}
+                    >
+                      <File className="w-4 h-4" />
+                      PDF 上传
+                    </button>
+                    <button
+                      onClick={() => setImportMode("image")}
+                      className={cn(
+                        "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all",
+                        importMode === "image"
                           ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-indigo-400 shadow-sm"
                           : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
                       )}
@@ -682,31 +694,52 @@ export function AIImportModal({
 
                   {/* 内容区域 */}
                   <div className="flex-1 flex flex-col min-h-[350px]">
-                    {importMode === "file" && (
+                    {importMode === "pdf" && (
                       <div className="flex-1 flex flex-col space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex-shrink-0">
-                          图片上传（支持 PDF）
+                          PDF 文件上传
                         </div>
                         <div className="flex-1 min-h-0 overflow-hidden">
                           <FileUploadZone
                             file={selectedFile}
-                            onFileSelect={(f) => {
-                              setSelectedFile(f);
-                              // 首图清除或换成 PDF 时，第二张图一并清掉
-                              if (!f || !f.type.startsWith("image/")) {
-                                setSelectedImage2(null);
-                              }
-                            }}
-                            acceptTypes={[
-                              "application/pdf",
-                              "image/jpeg",
-                              "image/png",
-                            ]}
-                            acceptAttr=".pdf,.jpg,.jpeg,.png"
-                            hintLabel="PDF / JPG / PNG"
+                            onFileSelect={setSelectedFile}
+                            acceptTypes={["application/pdf"]}
+                            acceptAttr=".pdf"
+                            hintLabel="仅支持 PDF"
                           />
                         </div>
-                        {selectedFile?.type.startsWith("image/") && (
+                        <button
+                          type="button"
+                          onClick={handlePdfUpload}
+                          disabled={!selectedFile || parsing}
+                          className={cn(
+                            "w-full rounded-lg px-4 py-2.5 text-sm font-semibold flex-shrink-0",
+                            "bg-slate-900 text-white shadow-lg shadow-slate-200",
+                            "hover:bg-slate-800",
+                            "disabled:opacity-50 disabled:cursor-not-allowed",
+                            "transition-all",
+                          )}
+                        >
+                          {parsing ? "解析中..." : "上传解析 PDF"}
+                        </button>
+                      </div>
+                    )}
+
+                    {importMode === "image" && (
+                      <div className="flex-1 flex flex-col space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex-shrink-0">
+                          图片上传
+                        </div>
+                        <div className="flex-1 min-h-0 overflow-hidden">
+                          <FileUploadZone
+                            file={selectedFile}
+                            onFileSelect={setSelectedFile}
+                            acceptTypes={["image/jpeg", "image/png"]}
+                            acceptAttr=".jpg,.jpeg,.png"
+                            hintLabel="JPG / PNG"
+                          />
+                        </div>
+                        {selectedFile && (
                           <div className="flex-shrink-0 space-y-1">
                             <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
                               第二张图片（可选，最多 2 张）
@@ -720,49 +753,36 @@ export function AIImportModal({
                             />
                           </div>
                         )}
-                        {selectedFile?.type.startsWith("image/") && (
-                          <div className="flex-shrink-0 space-y-2">
-                            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                              选择识别模型
-                            </div>
-                            <div className="flex gap-2">
-                              {VISION_MODELS.map((m) => (
-                                <button
-                                  key={m.id}
-                                  type="button"
-                                  onClick={() => setSelectedVisionModel(m.id)}
-                                  className={cn(
-                                    "flex-1 rounded-lg border px-3 py-2 text-left text-xs transition-all",
-                                    selectedVisionModel === m.id
-                                      ? "border-slate-900 bg-purple-50 dark:bg-purple-900/20"
-                                      : "border-slate-200 dark:border-slate-700",
-                                  )}
-                                >
-                                  <div className="font-semibold text-slate-800 dark:text-slate-100">
-                                    {m.name}
-                                  </div>
-                                  <div
-                                    className={cn(
-                                      "mt-0.5",
-                                      m.needRecharge
-                                        ? "text-amber-500"
-                                        : "text-slate-500 dark:text-slate-400",
-                                    )}
-                                  >
+                        <div className="flex-shrink-0 space-y-2">
+                          <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                            选择识别模型
+                          </div>
+                          <div className="flex gap-2">
+                            {VISION_MODELS.map((m) => (
+                              <button
+                                key={m.id}
+                                type="button"
+                                onClick={() => setSelectedVisionModel(m.id)}
+                                className={cn(
+                                  "flex-1 rounded-lg border px-3 py-2 text-left text-xs transition-all",
+                                  selectedVisionModel === m.id
+                                    ? "border-slate-900 bg-purple-50 dark:bg-purple-900/20"
+                                    : "border-slate-200 dark:border-slate-700",
+                                )}
+                              >
+                                <div className="font-semibold text-slate-800 dark:text-slate-100">
+                                  {m.name}
+                                </div>
+                                <div className="mt-0.5 text-slate-500 dark:text-slate-400">
                                     {m.description}
                                   </div>
-                                </button>
-                              ))}
-                            </div>
+                              </button>
+                            ))}
                           </div>
-                        )}
+                        </div>
                         <button
                           type="button"
-                          onClick={
-                            selectedFile?.type.startsWith("image/")
-                              ? handleImageUpload
-                              : handlePdfUpload
-                          }
+                          onClick={handleImageUpload}
                           disabled={!selectedFile || parsing}
                           className={cn(
                             "w-full rounded-lg px-4 py-2.5 text-sm font-semibold flex-shrink-0",
@@ -772,11 +792,7 @@ export function AIImportModal({
                             "transition-all",
                           )}
                         >
-                          {parsing
-                            ? "解析中..."
-                            : selectedFile?.type.startsWith("image/")
-                              ? "识别图片并解析"
-                              : "上传解析 PDF"}
+                          {parsing ? "解析中..." : "识别图片并解析"}
                         </button>
                       </div>
                     )}

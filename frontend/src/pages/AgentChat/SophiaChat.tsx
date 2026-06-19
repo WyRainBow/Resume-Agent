@@ -806,6 +806,7 @@ function SophiaChatContent() {
   );
 
   const pdfRenderAbortRef = useRef<AbortController | null>(null);
+  const pdfLoadingRef = useRef<Set<string>>(new Set());
 
   const renderResumePdfPreview = useCallback(
     async (
@@ -824,21 +825,22 @@ function SophiaChatContent() {
         new Error().stack?.split("\n").slice(2, 5).join(" <- "),
       );
       if (!resumeEntry.resumeData) return;
+      const resumeId = resumeEntry.id;
 
-      const currentState = resumePdfPreview[resumeEntry.id];
-      if (!force && currentState?.loading) {
+      if (!force && pdfLoadingRef.current.has(resumeId)) {
         console.log(
-          "[DEBUG] renderResumePdfPreview skipped (already loading)",
+          "[DEBUG] renderResumePdfPreview skipped (already loading via ref)",
         );
         return;
       }
-      if (!force && currentState?.blob) {
+      if (!force && resumePdfPreview[resumeId]?.blob) {
         console.log(
           "[DEBUG] renderResumePdfPreview skipped (already has blob)",
         );
         return;
       }
 
+      pdfLoadingRef.current.add(resumeId);
       pdfRenderAbortRef.current?.abort();
       const abortController = new AbortController();
       pdfRenderAbortRef.current = abortController;
@@ -917,14 +919,15 @@ function SophiaChatContent() {
         });
       } finally {
         window.clearTimeout(timeoutId);
+        pdfLoadingRef.current.delete(resumeId);
         if (pdfRenderAbortRef.current === abortController) {
           pdfRenderAbortRef.current = null;
         }
       }
     },
     [
-      resumePdfPreview,
       updateResumePdfState,
+      resumePdfPreview,
       currentSessionId,
       conversationId,
       selectedResumeId,

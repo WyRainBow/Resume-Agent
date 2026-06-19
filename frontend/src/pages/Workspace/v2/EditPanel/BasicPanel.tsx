@@ -166,6 +166,25 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
               placeholder="请输入所在城市"
             />
 
+            <div className="space-y-2">
+              <label className="text-sm text-gray-600 dark:text-neutral-300">联系方式显示样式</label>
+              <select
+                value={globalSettings?.contactLabelMode || 'icon'}
+                onChange={(e) => updateGlobalSettings?.({ contactLabelMode: e.target.value as 'icon' | 'text' | 'none' })}
+                className={cn(
+                  'h-11 w-full rounded-xl border px-3 text-sm font-medium',
+                  'bg-white dark:bg-slate-900',
+                  'border-slate-300 dark:border-slate-600',
+                  'text-slate-700 dark:text-slate-200',
+                  'focus:outline-none focus:ring-2 focus:ring-blue-500/30',
+                )}
+              >
+                <option value="icon">图标 + 值（如 📞 138xxxx）</option>
+                <option value="text">标签 + 值（如 电话：138xxxx）</option>
+                <option value="none">仅值（138xxxx）</option>
+              </select>
+            </div>
+
             <Field
               index={7}
               label="博客"

@@ -381,6 +381,31 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     employement_status = escape_latex(merged_status)
     blog = resume_data.get('blog') or ''  # 不 escape，保留原始 URL 给 \href
 
+    # contactLabelMode: 'icon'(默认，仅值·分隔) | 'text'(文字标签) | 'none'(仅值无标签)
+    contact_label_mode = (global_settings.get('contactLabelMode') or 'icon') if isinstance(global_settings, dict) else 'icon'
+
+    def _label(prefix, value):
+        """根据 label 模式给字段值加前缀"""
+        if not value:
+            return ''
+        if contact_label_mode == 'text':
+            return f'{prefix}{value}'
+        # icon / none: 无前缀
+        return value
+
+    # 根据模式给各字段追加 label 前缀
+    phone = _label('电话：', phone)
+    email = _label('邮箱：', email)
+    role = _label('岗位：', role)
+    location = _label('地点：', location)
+    # employment_status 已包含年龄/状态，label 与 birthDateDisplayMode 保持一致
+    if employement_status:
+        if contact_label_mode == 'text':
+            if birth_display_mode == 'age':
+                employement_status = f'年龄：{employement_status}'
+            else:
+                employement_status = f'生日：{employement_status}'
+
     # 有照片时，右侧叠加照片，不改变姓名/联系信息的居中布局
     if resume_data.get("photo"):
         photo_offset_x = _safe_float(resume_data.get("photoOffsetX"), 0.0, -6.0, 6.0)
@@ -405,7 +430,8 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     """contactInfo 格式: {phone}{email}{role}{location}{status}"""
     latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{role}}}{{{location}}}{{{employement_status}}}")
     if blog:
-        latex_content.append(f"\\blogLine{{{blog}}}")
+        blog_text = f'博客：{blog}' if contact_label_mode == 'text' else blog
+        latex_content.append(f"\\blogLine{{{blog_text}}}")
     if abs(header_bottom_gap_px) > 0.01:
         latex_content.append(f"\\vspace{{{_px_to_pt(header_bottom_gap_px):.2f}pt}}")
     latex_content.append("")

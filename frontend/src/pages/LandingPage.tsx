@@ -16,7 +16,9 @@ import {
   BarChart3,
   Download,
   ScanLine,
-  Star
+  Star,
+  ArrowUpRight,
+  CornerDownLeft
 } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -40,40 +42,129 @@ const CAPABILITIES = [
     title: '自然语言生成',
     desc: '一句话描述经历、自动生成结构化、可直接编辑的简历。',
     span: 'lg:col-span-3',
-    feature: true
+    variant: 'command'
   },
   {
     icon: Wand2,
     title: '划词润色改写',
     desc: '选中任意一段、一键润色、量化、换强动词。',
     span: 'lg:col-span-3',
-    feature: true
+    variant: 'standard'
   },
   {
     icon: Target,
     title: 'JD 岗位匹配',
     desc: '对照目标岗位诊断缺口、缺失关键词可一键融入经历。',
-    span: 'lg:col-span-2'
+    span: 'lg:col-span-2',
+    variant: 'standard'
   },
   {
     icon: ScanLine,
     title: '智能解析导入',
     desc: 'PDF 或文本简历一键解析为可编辑结构。',
-    span: 'lg:col-span-2'
+    span: 'lg:col-span-2',
+    variant: 'standard'
   },
   {
     icon: BarChart3,
     title: '简历质量评分',
     desc: '完整性、表达、匹配度多维打分并给出修改建议。',
-    span: 'lg:col-span-2'
+    span: 'lg:col-span-2',
+    variant: 'standard'
   },
   {
     icon: Download,
     title: '像素级 PDF 导出',
     desc: 'LaTeX 排版引擎、一键导出干净精美的 PDF。',
-    span: 'lg:col-span-6'
+    span: 'lg:col-span-6',
+    variant: 'pdf'
   }
-]
+] as const
+
+// 自然语言生成卡内的小型"命令条"预览（real component preview，非 fake screenshot）
+function CommandBar() {
+  const phrases = [
+    '一段在字节做推荐算法的实习，整理成简历条目',
+    '把大二做的课程设计包装成项目经历',
+    '把项目经历按 STAR 法则重写'
+  ]
+  const [idx, setIdx] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setIdx((i) => (i + 1) % phrases.length), 3200)
+    return () => clearInterval(t)
+  }, [])
+  return (
+    <div className="relative mt-4 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white/80 dark:bg-slate-950/60 backdrop-blur-sm px-3.5 py-2.5 flex items-center gap-2.5">
+      <span className="inline-block h-2 w-2 rounded-full bg-blue-500 animate-pulse shrink-0" />
+      <div className="flex-1 min-w-0 relative h-5 overflow-hidden">
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={idx}
+            initial={{ y: 12, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -12, opacity: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute inset-0 text-[13px] text-slate-600 dark:text-slate-300 truncate"
+          >
+            {phrases[idx]}
+          </motion.span>
+        </AnimatePresence>
+      </div>
+      <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 shrink-0">
+        <CornerDownLeft className="w-3 h-3" />
+        生成
+      </span>
+    </div>
+  )
+}
+
+// PDF 导出卡内的迷你简历预览条（结构化 hairline 简历骨架，非 div fake screenshot）
+function PdfPreview() {
+  return (
+    <div className="mt-5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-950 p-5 shadow-[0_18px_50px_-22px_rgba(15,23,42,0.18)] dark:shadow-[0_18px_50px_-22px_rgba(0,0,0,0.6)] relative overflow-hidden">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_60%_at_0%_0%,rgba(37,99,235,0.10),transparent_60%)]"
+      />
+      <div className="relative grid grid-cols-12 gap-x-4 gap-y-3 text-slate-700 dark:text-slate-300">
+        <div className="col-span-12 flex items-end justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
+          <div>
+            <div className="h-3 w-28 rounded-sm bg-slate-900 dark:bg-slate-100" />
+            <div className="mt-1.5 h-2 w-20 rounded-sm bg-slate-300 dark:bg-slate-600" />
+          </div>
+          <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-400">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-blue-500" />
+            A4 · 1 页
+          </div>
+        </div>
+        <div className="col-span-12 mt-1">
+          <div className="h-1.5 w-12 rounded-sm bg-blue-600 mb-2" />
+          <div className="space-y-1.5">
+            <div className="h-1.5 w-full rounded-sm bg-slate-200 dark:bg-slate-700" />
+            <div className="h-1.5 w-[92%] rounded-sm bg-slate-200 dark:bg-slate-700" />
+            <div className="h-1.5 w-[78%] rounded-sm bg-slate-200 dark:bg-slate-700" />
+          </div>
+        </div>
+        <div className="col-span-7">
+          <div className="h-1.5 w-16 rounded-sm bg-blue-600 mb-2" />
+          <div className="space-y-1.5">
+            <div className="h-1.5 w-[88%] rounded-sm bg-slate-200 dark:bg-slate-700" />
+            <div className="h-1.5 w-[70%] rounded-sm bg-slate-200 dark:bg-slate-700" />
+          </div>
+        </div>
+        <div className="col-span-5">
+          <div className="h-1.5 w-12 rounded-sm bg-blue-600 mb-2" />
+          <div className="flex flex-wrap gap-1">
+            <span className="h-3 w-10 rounded-sm bg-slate-200 dark:bg-slate-700" />
+            <span className="h-3 w-14 rounded-sm bg-slate-200 dark:bg-slate-700" />
+            <span className="h-3 w-8 rounded-sm bg-slate-200 dark:bg-slate-700" />
+            <span className="h-3 w-12 rounded-sm bg-slate-200 dark:bg-slate-700" />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function LandingPage() {
   const navigate = useNavigate()
@@ -333,7 +424,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <motion.div {...reveal} className="max-w-2xl">
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
-              一份简历，从写到投，都帮你想到了
+              一份简历、从写到投、都帮你想到了
             </h2>
             <p className="mt-4 text-base text-slate-600 dark:text-slate-400 leading-relaxed">
               围绕简历制作的全流程能力、每一步都由 AI 协助、不收费、不限量。
@@ -343,6 +434,7 @@ export default function LandingPage() {
           <div className="mt-12 grid grid-cols-1 lg:grid-cols-6 gap-4 sm:gap-5">
             {CAPABILITIES.map((cap, i) => {
               const Icon = cap.icon
+              const isHero = cap.variant === 'command' || cap.variant === 'pdf'
               return (
                 <motion.div
                   key={cap.title}
@@ -350,21 +442,29 @@ export default function LandingPage() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.3 }}
                   transition={{ duration: 0.55, delay: i * 0.05, ease: [0.16, 1, 0.3, 1] }}
-                  className={`${cap.span} group rounded-2xl p-6 sm:p-7 border transition-all ${
-                    cap.feature
+                  className={`${cap.span} group relative overflow-hidden rounded-2xl p-6 sm:p-7 border transition-all hover:-translate-y-0.5 hover:shadow-[0_18px_50px_-22px_rgba(37,99,235,0.35)] dark:hover:shadow-[0_18px_50px_-22px_rgba(37,99,235,0.45)] ${
+                    isHero
                       ? 'border-blue-100 dark:border-blue-900/50 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/40 dark:to-slate-900 hover:border-blue-200 dark:hover:border-blue-800'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-slate-300 dark:hover:border-slate-700'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-blue-200 dark:hover:border-blue-800'
                   }`}
                 >
+                  {isHero && (
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute -top-12 -right-12 h-32 w-32 rounded-full bg-blue-200/40 dark:bg-blue-500/20 blur-2xl"
+                    />
+                  )}
                   <div className={`flex items-center justify-center w-11 h-11 rounded-xl mb-4 transition-transform group-hover:scale-105 ${
-                    cap.feature
+                    isHero
                       ? 'bg-blue-600 text-white'
-                      : 'bg-slate-900 dark:bg-slate-800 text-white'
+                      : 'bg-slate-900 dark:bg-slate-800 text-white group-hover:bg-blue-600 dark:group-hover:bg-blue-500'
                   }`}>
                     <Icon className="w-5 h-5" />
                   </div>
                   <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{cap.title}</h3>
                   <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{cap.desc}</p>
+                  {cap.variant === 'command' && <CommandBar />}
+                  {cap.variant === 'pdf' && <PdfPreview />}
                 </motion.div>
               )
             })}
@@ -380,7 +480,7 @@ export default function LandingPage() {
         >
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(50%_70%_at_50%_0%,rgba(16,185,129,0.18),transparent_70%)]"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(50%_70%_at_50%_0%,rgba(59,130,246,0.22),transparent_70%)]"
           />
           <div className="relative">
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">

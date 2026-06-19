@@ -361,18 +361,49 @@ export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resu
             <p className="candidate-title">{basic.title || '求职者'}</p>
           </div>
           <div className="header-right">
-            {basic.phone && <div className="info-item">📞 {basic.phone}</div>}
-            {basic.email && <div className="info-item">📧 {basic.email}</div>}
-            {basic.location && <div className="info-item">📍 {basic.location}</div>}
-            {basic.birthDate && (
-              <div className="info-item">
-                🎂 {formatBirthDateForHeader(
-                  basic.birthDate || '',
-                  resumeData.globalSettings?.birthDateDisplayMode || 'birthDate'
-                )}
-              </div>
-            )}
-            {basic.blog && <div className="info-item">🔗 <a href={basic.blog} target="_blank" rel="noopener noreferrer">{basic.blog}</a></div>}
+            {basic.phone && (() => {
+              const mode = resumeData.globalSettings?.contactLabelMode || 'icon'
+              return (
+                <div className="info-item">
+                  {mode === 'icon' ? '📞 ' : mode === 'text' ? '电话：' : ''}{basic.phone}
+                </div>
+              )
+            })()}
+            {basic.email && (() => {
+              const mode = resumeData.globalSettings?.contactLabelMode || 'icon'
+              return (
+                <div className="info-item">
+                  {mode === 'icon' ? '📧 ' : mode === 'text' ? '邮箱：' : ''}{basic.email}
+                </div>
+              )
+            })()}
+            {basic.location && (() => {
+              const mode = resumeData.globalSettings?.contactLabelMode || 'icon'
+              return (
+                <div className="info-item">
+                  {mode === 'icon' ? '📍 ' : mode === 'text' ? '地点：' : ''}{basic.location}
+                </div>
+              )
+            })()}
+            {basic.birthDate && (() => {
+              const mode = resumeData.globalSettings?.contactLabelMode || 'icon'
+              const birthDisplayMode = resumeData.globalSettings?.birthDateDisplayMode || 'birthDate'
+              const label = mode === 'icon' ? '🎂 ' : mode === 'text' ? (birthDisplayMode === 'age' ? '年龄：' : '生日：') : ''
+              return (
+                <div className="info-item">
+                  {label}{formatBirthDateForHeader(basic.birthDate || '', birthDisplayMode)}
+                </div>
+              )
+            })()}
+            {basic.blog && (() => {
+              const mode = resumeData.globalSettings?.contactLabelMode || 'icon'
+              return (
+                <div className="info-item">
+                  {mode === 'icon' ? '🔗 ' : mode === 'text' ? '博客：' : ''}
+                  <a href={basic.blog} target="_blank" rel="noopener noreferrer">{basic.blog}</a>
+                </div>
+              )
+            })()}
           </div>
         </div>
         {(() => {
