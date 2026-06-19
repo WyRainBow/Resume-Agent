@@ -101,3 +101,51 @@ def test_custom_section_empty_item_title_renders_description_only():
     assert "未命名条目" not in latex
     assert "太阳能学报已录用一作" in latex
 
+
+def test_default_research_and_user_custom_sections_coexist():
+    """竞赛与科研（默认模块 custom_research）与用户新增自定义模块（custom_<ts>）应各自独立渲染。"""
+    resume = {
+        "name": "李嘉",
+        "contact": {"phone": "13800000000", "email": "a@b.com", "location": "上海"},
+        "objective": "算法工程师",
+        "sectionTitles": {
+            "custom_research": "竞赛与科研",
+            "custom_1718800000000": "社会实践",
+        },
+        "sectionOrder": ["custom_research", "custom_1718800000000"],
+        "customData": {
+            "custom_research": [
+                {
+                    "id": "r1",
+                    "title": "华为杯数学建模",
+                    "subtitle": "队长",
+                    "dateRange": "2024.09 - 2024.11",
+                    "description": "<p>全国三等奖</p>",
+                    "visible": True,
+                }
+            ],
+            "custom_1718800000000": [
+                {
+                    "id": "v1",
+                    "title": "支教志愿者",
+                    "subtitle": "",
+                    "dateRange": "",
+                    "description": "<p>暑期支教一个月</p>",
+                    "visible": True,
+                }
+            ],
+        },
+    }
+
+    latex = json_to_latex(resume, ["custom_research", "custom_1718800000000"])
+
+    # 两个模块的标题与内容都各自渲染，互不干扰
+    assert "\\section{竞赛与科研}" in latex
+    assert "\\section{社会实践}" in latex
+    assert "华为杯数学建模" in latex
+    assert "全国三等奖" in latex
+    assert "支教志愿者" in latex
+    assert "暑期支教一个月" in latex
+    # 竞赛与科研只作为模块名出现一次（条目标题「华为杯数学建模」与模块名不同，照常渲染）
+    assert latex.count("竞赛与科研") == 1
+
