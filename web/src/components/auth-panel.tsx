@@ -12,9 +12,17 @@ type AuthPanelProps = {
 };
 
 function formatPlanLabel(plan: string) {
-  if (plan === "free") return "Free";
-  if (plan === "pro") return "Pro";
+  if (plan === "free") return "免费版";
+  if (plan === "pro") return "专业版";
   return plan;
+}
+
+function formatSubscriptionStatus(status: string) {
+  if (status === "free") return "免费";
+  if (status === "active") return "生效中";
+  if (status === "canceled") return "已取消";
+  if (status === "past_due") return "待付款";
+  return status;
 }
 
 export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
@@ -25,7 +33,7 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [account, setAccount] = useState<AccountEntitlement | null>(null);
-  const [accountStatus, setAccountStatus] = useState("Waiting for sign-in.");
+  const [accountStatus, setAccountStatus] = useState("等待登录。");
   const [isSubmitting, startTransition] = useTransition();
 
   useEffect(() => {
@@ -44,24 +52,24 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
     let isActive = true;
 
     const loadAccount = async () => {
-      setAccountStatus("Loading account entitlements...");
+      setAccountStatus("正在加载账户权益...");
       try {
         const response = await fetch("/api/fastapi/account", {
           cache: "no-store",
         });
-        if (!response.ok) throw new Error(`Account proxy responded with ${response.status}`);
+        if (!response.ok) throw new Error(`账户接口返回 ${response.status}`);
 
         const data = (await response.json()) as AccountEntitlement;
         if (isActive) {
           setAccount(data);
-          setAccountStatus("Entitlements loaded from FastAPI.");
+          setAccountStatus("权益信息已加载。");
         }
       } catch (error) {
         if (!isActive) return;
         setAccountStatus(
           error instanceof Error
-            ? `FastAPI handoff pending: ${error.message}`
-            : "FastAPI handoff pending.",
+            ? `权益信息加载失败：${error.message}`
+            : "权益信息加载失败。",
         );
       }
     };
@@ -82,11 +90,11 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
           : await signUp.email({ email, password, name: name || email });
 
       if (result.error) {
-        setMessage(result.error.message || "Authentication failed.");
+        setMessage(result.error.message || "登录失败，请重试。");
         return;
       }
 
-      setMessage(mode === "signin" ? "Signed in." : "Account created.");
+      setMessage(mode === "signin" ? "登录成功。" : "账户已创建。");
     });
   };
 
@@ -99,13 +107,13 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
       });
 
       if (result.error) {
-        setMessage(result.error.message || "Google sign-in failed.");
+        setMessage(result.error.message || "Google 登录失败，请重试。");
       }
     });
   };
 
   if (isPending) {
-    return <div className="auth-card">Checking session...</div>;
+    return <div className="auth-card">正在检查登录状态...</div>;
   }
 
   if (session) {
@@ -128,42 +136,45 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
               </div>
             )}
             <div>
-              <p className="eyebrow">Profile</p>
+              <p className="eyebrow">个人资料</p>
               <h2>{session.user.name || session.user.email}</h2>
               <p className="muted">{session.user.email}</p>
             </div>
           </div>
           <div className="account-grid compact">
-            <span>User ID</span>
+            <span>用户 ID</span>
             <strong>{session.user.id}</strong>
           </div>
         </section>
 
         <section className="auth-card">
-          <p className="eyebrow">Plan</p>
+          <p className="eyebrow">套餐</p>
           <h2>{formatPlanLabel(entitlement?.plan || "free")}</h2>
           <p className="muted">
-            Subscription status: {entitlement?.subscription_status || accountStatus}
+            订阅状态：
+            {entitlement
+              ? formatSubscriptionStatus(entitlement.subscription_status)
+              : accountStatus}
           </p>
           <div className="account-grid">
-            <span>Credits</span>
+            <span>剩余额度</span>
             <strong>{entitlement ? entitlement.credits : "—"}</strong>
-            <span>Daily usage</span>
+            <span>今日用量</span>
             <strong>{entitlement ? entitlement.daily_usage_count : "—"}</strong>
-            <span>Period end</span>
-            <strong>{entitlement?.current_period_end || "Not subscribed"}</strong>
+            <span>周期截止</span>
+            <strong>{entitlement?.current_period_end || "未订阅"}</strong>
           </div>
         </section>
 
         <section className="auth-card">
-          <p className="eyebrow">Usage</p>
-          <h2>Resume actions</h2>
+          <p className="eyebrow">用量</p>
+          <h2>简历操作</h2>
           <p className="muted">
-            Credits and daily usage will gate PDF export, AI rewrite, and scoring once billing is enabled.
+            开通计费后，额度与每日用量将用于限制 PDF 导出、AI 改写和简历评分等功能。
           </p>
           <div className="usage-meter">
             <div className="usage-meter-label">
-              <span>Today</span>
+              <span>今日</span>
               <strong>{entitlement ? entitlement.daily_usage_count : 0}</strong>
             </div>
             <div className="usage-meter-track">
@@ -176,22 +187,22 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
         </section>
 
         <section className="auth-card">
-          <p className="eyebrow">Billing</p>
-          <h2>Payment portal</h2>
+          <p className="eyebrow">账单</p>
+          <h2>支付中心</h2>
           <p className="muted">
-            Stripe checkout and customer portal will land here. Provider IDs stay server-side until billing ships.
+            Stripe 结账与客户门户将在这里接入。支付相关 ID 仅在服务端保存，账单功能上线后可见。
           </p>
           <div className="account-grid">
-            <span>Customer ID</span>
-            <strong>{entitlement?.provider_customer_id || "Not linked"}</strong>
-            <span>Subscription ID</span>
-            <strong>{entitlement?.provider_subscription_id || "Not linked"}</strong>
+            <span>客户 ID</span>
+            <strong>{entitlement?.provider_customer_id || "未绑定"}</strong>
+            <span>订阅 ID</span>
+            <strong>{entitlement?.provider_subscription_id || "未绑定"}</strong>
           </div>
         </section>
 
         <section className="auth-card account-actions">
           <a className="primary-button continue-link" href={workspaceUrl}>
-            Open workspace
+            进入工作台
           </a>
           <button
             className="secondary-button"
@@ -206,7 +217,7 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
               })
             }
           >
-            Sign out
+            退出登录
           </button>
         </section>
       </section>
@@ -216,47 +227,47 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
   return (
     <section className="auth-card">
       <div>
-        <p className="eyebrow">Authentication foundation</p>
-        <h2>{mode === "signin" ? "Sign in to Resume Agent" : "Create your account"}</h2>
+        <p className="eyebrow">登录</p>
+        <h2>{mode === "signin" ? "登录 Resume Agent" : "创建你的账户"}</h2>
         <p className="muted">
-          Google login is the primary entry for overseas users. Email is kept as a fallback for local testing.
+          Google 登录是海外用户的主要入口，邮箱登录保留用于本地测试。
         </p>
       </div>
 
       <button className="google-button" onClick={submitGoogle} disabled={isSubmitting}>
-        Continue with Google
+        使用 Google 继续
       </button>
 
-      <div className="divider">or use email</div>
+      <div className="divider">或使用邮箱</div>
 
       {mode === "signup" ? (
         <label>
-          Name
-          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="Ada Lovelace" />
+          昵称
+          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：张三" />
         </label>
       ) : null}
 
       <label>
-        Email
+        邮箱
         <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" />
       </label>
 
       <label>
-        Password
+        密码
         <input
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          placeholder="At least 8 characters"
+          placeholder="至少 8 位字符"
           type="password"
         />
       </label>
 
       <button className="primary-button" onClick={submitEmail} disabled={isSubmitting || !email || !password}>
-        {isSubmitting ? "Working..." : mode === "signin" ? "Sign in" : "Create account"}
+        {isSubmitting ? "处理中..." : mode === "signin" ? "登录" : "创建账户"}
       </button>
 
       <button className="link-button" onClick={() => setMode(mode === "signin" ? "signup" : "signin")}>
-        {mode === "signin" ? "Need an account?" : "Already have an account?"}
+        {mode === "signin" ? "还没有账户？" : "已有账户？"}
       </button>
 
       {message ? <p className="status-message">{message}</p> : null}
