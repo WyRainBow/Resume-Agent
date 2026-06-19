@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { AuthPanel } from "@/components/auth-panel";
 import { auth } from "@/lib/auth";
-import { resolveReturnTo } from "@/lib/return-to";
+import { sanitizeReturnTo } from "@/lib/return-to";
 
 type AccountPageProps = {
   searchParams: Promise<{
@@ -12,7 +12,7 @@ type AccountPageProps = {
 
 export default async function AccountPage({ searchParams }: AccountPageProps) {
   const params = await searchParams;
-  const returnTo = resolveReturnTo(params.returnTo);
+  const returnTo = sanitizeReturnTo(params.returnTo);
   const session = await auth.api.getSession({
     headers: await headers(),
   });

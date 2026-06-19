@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getAuthHeaders } from '@/lib/authHeaders'
 import { getApiBaseUrl } from '@/lib/runtimeEnv'
 import type { Resume } from '@/types/resume'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
@@ -26,11 +27,6 @@ apiClient.interceptors.request.use((config) => {
   config.baseURL = getApiBaseUrl()
   return config
 })
-
-function getAuthHeaders() {
-  const token = localStorage.getItem(TOKEN_KEY)
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
 
 function toSavedResume(payload: any): SavedResume {
   // 尝试从 payload 或 data 中获取 templateType

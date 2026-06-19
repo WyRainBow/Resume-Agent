@@ -13,7 +13,7 @@
     "check:auth-migration": "node ../scripts/check-auth-migration-static.mjs",
     "migrate:auth-db": "bash ../scripts/migrate-better-auth-db.sh",
     "auth:generate": "auth generate",
-    "auth:migrate": "auth migrate"
+    "auth:migrate": "npx auth@latest migrate"
   },
   "dependencies": {
     "better-auth": "^1.6.19",

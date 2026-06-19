@@ -148,7 +148,7 @@ export function getStoredAuthRole(): string {
 export function canUseAgentFeature(): boolean {
   if (!isAgentEnabled()) return false
   const token = localStorage.getItem('auth_token')
-  return !!token
+  return Boolean(token)
 }
 
 export function canUseAdminFeature(): boolean {

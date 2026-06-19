@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getAuthHeaders } from '@/lib/authHeaders'
 import { getApiBaseUrl } from '@/lib/runtimeEnv'
 import type { SavedResume } from './storage/StorageAdapter'
 
@@ -23,11 +24,6 @@ apiClient.interceptors.request.use((config) => {
   config.baseURL = getApiBaseUrl()
   return config
 })
-
-function getAuthHeaders() {
-  const token = localStorage.getItem(TOKEN_KEY)
-  return token ? { Authorization: `Bearer ${token}` } : {}
-}
 
 function readLocalResumes(): SavedResume[] {
   try {

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
+import { getAuthHeaders } from '@/lib/authHeaders'
 import { getApiBaseUrl, canUseAdminFeature } from '@/lib/runtimeEnv'
 
 type UserStats = {
@@ -57,11 +58,6 @@ function parsePromptItems(payload: any): PromptItem[] {
       content,
     }
   })
-}
-
-function getAuthHeaders(extra: Record<string, string> = {}): Record<string, string> {
-  const token = localStorage.getItem('auth_token')
-  return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra }
 }
 
 export default function AdminDashboardPage() {

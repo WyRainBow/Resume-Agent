@@ -1,11 +1,12 @@
 """
-JWT 认证依赖
+JWT / BetterAuth 统一认证依赖
 """
-from typing import Optional
-from time import sleep
 import logging
-from fastapi import Depends, HTTPException, Header
-from sqlalchemy.orm import Session, load_only
+import os
+from time import sleep
+from typing import Optional
+
+from fastapi import Depends, Header, HTTPException
 from sqlalchemy.exc import (
     DBAPIError,
     DisconnectionError,
@@ -13,29 +14,31 @@ from sqlalchemy.exc import (
     OperationalError,
     SQLAlchemyError,
 )
+from sqlalchemy.orm import Session, load_only
 
+from auth import decode_access_token
+from backend.better_auth import BetterAuthUser, verify_better_auth_token
+from backend.services.better_auth_users import resolve_legacy_user
 from database import get_db
 from models import User
-from auth import decode_access_token
 
 logger = logging.getLogger("backend")
 MAX_AUTH_DB_RETRIES = 4
 
-def get_current_user(
-    authorization: Optional[str] = Header(default=None),
-    db: Session = Depends(get_db)
-) -> User:
-    """从 Authorization 头获取当前用户"""
-    if not authorization or not authorization.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="未提供有效的认证信息")
+_USER_LOAD_OPTIONS = load_only(
+    User.id,
+    User.username,
+    User.email,
+    User.role,
+    User.last_login_ip,
+    User.api_quota,
+    User.pdf_download_count,
+    User.created_at,
+    User.updated_at,
+)
 
-    token = authorization.split(" ", 1)[1].strip()
-    payload = decode_access_token(token)
-    if not payload or "sub" not in payload:
-        raise HTTPException(status_code=401, detail="Token 无效或已过期")
 
-    user_id = payload.get("sub")
-    # 处理 user_id 可能是字符串或整数的情况
+def _load_user_by_id(db: Session, user_id: object) -> User:
     if isinstance(user_id, str):
         try:
             user_id = int(user_id)
@@ -44,24 +47,11 @@ def get_current_user(
 
     user = None
     db_error: Optional[Exception] = None
-    # MySQL 偶发断连/接口层异常时做短重试，降低瞬时抖动导致的 503
     for attempt in range(1, MAX_AUTH_DB_RETRIES + 1):
         try:
             user = (
                 db.query(User)
-                .options(
-                    load_only(
-                        User.id,
-                        User.username,
-                        User.email,
-                        User.role,
-                        User.last_login_ip,
-                        User.api_quota,
-                        User.pdf_download_count,
-                        User.created_at,
-                        User.updated_at,
-                    )
-                )
+                .options(_USER_LOAD_OPTIONS)
                 .filter(User.id == user_id)
                 .first()
             )
@@ -73,7 +63,6 @@ def get_current_user(
                 db.rollback()
             except Exception:
                 pass
-            # 显式标记连接无效，避免重试复用坏连接
             try:
                 db.invalidate()
             except Exception:
@@ -95,6 +84,65 @@ def get_current_user(
     if not user:
         raise HTTPException(status_code=401, detail="用户不存在")
     return user
+
+
+def _resolve_trusted_better_auth_user(
+    x_internal_auth_secret: Optional[str],
+    x_better_auth_user_id: Optional[str],
+    x_better_auth_user_email: Optional[str],
+    x_better_auth_user_name: Optional[str],
+    x_better_auth_user_image: Optional[str],
+) -> Optional[BetterAuthUser]:
+    if not x_internal_auth_secret:
+        return None
+
+    internal_secret = os.getenv("FASTAPI_INTERNAL_AUTH_SECRET", "").strip()
+    if not internal_secret or x_internal_auth_secret != internal_secret:
+        raise HTTPException(status_code=401, detail="内部认证信息无效")
+    if not x_better_auth_user_id:
+        raise HTTPException(status_code=401, detail="缺少 BetterAuth 用户信息")
+
+    return BetterAuthUser(
+        id=x_better_auth_user_id,
+        email=x_better_auth_user_email,
+        name=x_better_auth_user_name,
+        image=x_better_auth_user_image,
+    )
+
+
+async def get_current_user(
+    authorization: Optional[str] = Header(default=None),
+    x_internal_auth_secret: Optional[str] = Header(default=None),
+    x_better_auth_user_id: Optional[str] = Header(default=None),
+    x_better_auth_user_email: Optional[str] = Header(default=None),
+    x_better_auth_user_name: Optional[str] = Header(default=None),
+    x_better_auth_user_image: Optional[str] = Header(default=None),
+    db: Session = Depends(get_db),
+) -> User:
+    """从 trusted headers、BetterAuth Bearer 或 JWT 获取当前用户。"""
+    trusted_user = _resolve_trusted_better_auth_user(
+        x_internal_auth_secret,
+        x_better_auth_user_id,
+        x_better_auth_user_email,
+        x_better_auth_user_name,
+        x_better_auth_user_image,
+    )
+    if trusted_user:
+        return resolve_legacy_user(db, trusted_user)
+
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="未提供有效的认证信息")
+
+    token = authorization.split(" ", 1)[1].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="未提供有效的认证信息")
+
+    payload = decode_access_token(token)
+    if payload and "sub" in payload:
+        return _load_user_by_id(db, payload.get("sub"))
+
+    better_user = await verify_better_auth_token(token)
+    return resolve_legacy_user(db, better_user)
 
 
 def require_admin_only(

@@ -27,7 +27,11 @@ const HOP_BY_HOP_HEADERS = new Set([
 ]);
 
 function buildTargetUrl(request: NextRequest, path: string[]) {
-  const target = new URL(`/api/${path.join("/")}`, getFastApiInternalBaseUrl());
+  const normalizedPath = path[0] === "api" ? path.slice(1) : path;
+  const target = new URL(
+    `/api/${normalizedPath.join("/")}`,
+    getFastApiInternalBaseUrl(),
+  );
   request.nextUrl.searchParams.forEach((value, key) => {
     target.searchParams.append(key, value);
   });

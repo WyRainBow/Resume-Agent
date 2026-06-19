@@ -11,6 +11,12 @@ type AuthPanelProps = {
   returnTo?: string;
 };
 
+function formatPlanLabel(plan: string) {
+  if (plan === "free") return "Free";
+  if (plan === "pro") return "Pro";
+  return plan;
+}
+
 export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
   const { data: session, isPending } = useSession();
   const [mode, setMode] = useState<Mode>("signin");
@@ -103,45 +109,106 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
   }
 
   if (session) {
+    const entitlement = account?.entitlement;
+    const workspaceUrl = returnTo || "http://localhost:5173/workspace";
+
     return (
-      <section className="auth-card">
-        <div>
-          <p className="eyebrow">Signed in</p>
-          <h2>{session.user.name || session.user.email}</h2>
-          <p className="muted">{session.user.email}</p>
-        </div>
-        <div className="account-grid">
-          <span>User ID</span>
-          <strong>{session.user.id}</strong>
-          <span>Plan</span>
-          <strong>{account?.entitlement.plan || "Pending FastAPI handoff"}</strong>
-          <span>Credits</span>
-          <strong>{account ? account.entitlement.credits : "Pending FastAPI handoff"}</strong>
-          <span>Daily usage</span>
-          <strong>{account ? account.entitlement.daily_usage_count : "Pending FastAPI handoff"}</strong>
-          <span>Status</span>
-          <strong>{account?.entitlement.subscription_status || accountStatus}</strong>
-        </div>
-        {returnTo ? (
-          <a className="primary-button continue-link" href={returnTo}>
-            Continue to workspace
+      <section className="account-shell">
+        <section className="auth-card account-profile-card">
+          <div className="account-profile-header">
+            {session.user.image ? (
+              <img
+                alt={session.user.name || session.user.email}
+                className="account-avatar"
+                src={session.user.image}
+              />
+            ) : (
+              <div className="account-avatar account-avatar-fallback">
+                {(session.user.name || session.user.email || "?").slice(0, 1).toUpperCase()}
+              </div>
+            )}
+            <div>
+              <p className="eyebrow">Profile</p>
+              <h2>{session.user.name || session.user.email}</h2>
+              <p className="muted">{session.user.email}</p>
+            </div>
+          </div>
+          <div className="account-grid compact">
+            <span>User ID</span>
+            <strong>{session.user.id}</strong>
+          </div>
+        </section>
+
+        <section className="auth-card">
+          <p className="eyebrow">Plan</p>
+          <h2>{formatPlanLabel(entitlement?.plan || "free")}</h2>
+          <p className="muted">
+            Subscription status: {entitlement?.subscription_status || accountStatus}
+          </p>
+          <div className="account-grid">
+            <span>Credits</span>
+            <strong>{entitlement ? entitlement.credits : "—"}</strong>
+            <span>Daily usage</span>
+            <strong>{entitlement ? entitlement.daily_usage_count : "—"}</strong>
+            <span>Period end</span>
+            <strong>{entitlement?.current_period_end || "Not subscribed"}</strong>
+          </div>
+        </section>
+
+        <section className="auth-card">
+          <p className="eyebrow">Usage</p>
+          <h2>Resume actions</h2>
+          <p className="muted">
+            Credits and daily usage will gate PDF export, AI rewrite, and scoring once billing is enabled.
+          </p>
+          <div className="usage-meter">
+            <div className="usage-meter-label">
+              <span>Today</span>
+              <strong>{entitlement ? entitlement.daily_usage_count : 0}</strong>
+            </div>
+            <div className="usage-meter-track">
+              <div
+                className="usage-meter-fill"
+                style={{ width: `${Math.min((entitlement?.daily_usage_count || 0) * 10, 100)}%` }}
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="auth-card">
+          <p className="eyebrow">Billing</p>
+          <h2>Payment portal</h2>
+          <p className="muted">
+            Stripe checkout and customer portal will land here. Provider IDs stay server-side until billing ships.
+          </p>
+          <div className="account-grid">
+            <span>Customer ID</span>
+            <strong>{entitlement?.provider_customer_id || "Not linked"}</strong>
+            <span>Subscription ID</span>
+            <strong>{entitlement?.provider_subscription_id || "Not linked"}</strong>
+          </div>
+        </section>
+
+        <section className="auth-card account-actions">
+          <a className="primary-button continue-link" href={workspaceUrl}>
+            Open workspace
           </a>
-        ) : null}
-        <button
-          className="secondary-button"
-          onClick={() =>
-            void signOut({
-              fetchOptions: {
-                onSuccess: () => {
-                  clearBearerToken();
-                  location.reload();
+          <button
+            className="secondary-button"
+            onClick={() =>
+              void signOut({
+                fetchOptions: {
+                  onSuccess: () => {
+                    clearBearerToken();
+                    location.reload();
+                  },
                 },
-              },
-            })
-          }
-        >
-          Sign out
-        </button>
+              })
+            }
+          >
+            Sign out
+          </button>
+        </section>
       </section>
     );
   }

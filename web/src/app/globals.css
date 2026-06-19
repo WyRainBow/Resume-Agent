@@ -241,6 +241,72 @@ input {
   overflow-wrap: anywhere;
 }
 
+.account-grid.compact {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.account-shell {
+  display: grid;
+  gap: 16px;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+.account-profile-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.account-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  object-fit: cover;
+}
+
+.account-avatar-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink);
+  color: white;
+  font-size: 28px;
+  font-weight: 800;
+}
+
+.account-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.usage-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.usage-meter-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+}
+
+.usage-meter-track {
+  height: 10px;
+  background: rgba(17, 24, 18, 0.08);
+  border: 1px solid var(--line);
+}
+
+.usage-meter-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
 .system-map {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

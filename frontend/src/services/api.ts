@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getAuthHeaders } from '@/lib/authHeaders'
 import { getApiBaseUrl } from '@/lib/runtimeEnv'
 import type { Resume } from '@/types/resume'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
@@ -10,15 +11,6 @@ function getPDFRenderEndpoint(path: '/api/pdf/render' | '/api/pdf/render/stream'
     return `${getApiBaseUrl()}/api/admin/pdf${path.replace('/api/pdf', '')}`
   }
   return `${getApiBaseUrl()}${path}`
-}
-
-function getAuthHeaders(): Record<string, string> {
-  try {
-    const token = localStorage.getItem('auth_token')
-    return token ? { Authorization: `Bearer ${token}` } : {}
-  } catch {
-    return {}
-  }
 }
 
 function parseApiErrorDetail(raw: string): string {
