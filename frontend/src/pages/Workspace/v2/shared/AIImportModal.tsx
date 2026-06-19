@@ -661,7 +661,7 @@ export function AIImportModal({
                       )}
                     >
                       <Upload className="w-4 h-4" />
-                      文件上传
+                      图片上传
                     </button>
                     <button
                       onClick={() => setImportMode("text")}
@@ -682,7 +682,7 @@ export function AIImportModal({
                     {importMode === "file" && (
                       <div className="flex-1 flex flex-col space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex-shrink-0">
-                          文件上传（PDF / 图片）
+                          图片上传（支持 PDF）
                         </div>
                         <div className="flex-1 min-h-0 overflow-hidden">
                           <FileUploadZone
