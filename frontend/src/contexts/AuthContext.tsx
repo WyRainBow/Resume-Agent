@@ -1,11 +1,20 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { isAuthWebEnabled } from '@/lib/runtimeEnv'
 import { getCurrentUser, login as loginApi, register as registerApi, setAuthToken } from '@/services/authService'
+import {
+  fetchBetterAuthSession,
+  redirectToAuthWebLogin,
+  signOutBetterAuth,
+  type BetterAuthSessionUser,
+} from '@/services/betterAuthSession'
 import { syncLocalToDatabase } from '@/services/syncService'
 
 type User = {
   id: number
   username: string
   email?: string
+  image?: string | null
+  betterAuthUserId?: string
 }
 
 type AuthContextValue = {
@@ -26,7 +35,18 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 const TOKEN_KEY = 'auth_token'
 const USER_KEY = 'auth_user'
+const BETTER_AUTH_TOKEN = 'better-auth-session'
 const LOGIN_SYNC_DELAY_MS = 2500
+
+function mapBetterAuthUser(sessionUser: BetterAuthSessionUser): User {
+  return {
+    id: 0,
+    username: sessionUser.name || sessionUser.email.split('@')[0],
+    email: sessionUser.email,
+    image: sessionUser.image,
+    betterAuthUserId: sessionUser.id,
+  }
+}
 
 function isUnauthorizedError(err: unknown): boolean {
   const status = (err as any)?.response?.status
@@ -42,6 +62,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const init = async () => {
+      if (isAuthWebEnabled()) {
+        const sessionUser = await fetchBetterAuthSession()
+        if (sessionUser) {
+          setUser(mapBetterAuthUser(sessionUser))
+          setToken(BETTER_AUTH_TOKEN)
+          setLoading(false)
+          return
+        }
+      }
+
       const savedToken = localStorage.getItem(TOKEN_KEY)
       const savedUserRaw = localStorage.getItem(USER_KEY)
       if (savedToken) {
@@ -120,14 +150,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(USER_KEY)
-    setAuthToken(null)
-    setUser(null)
-    setToken(null)
-  }, [])
+    void (async () => {
+      if (user?.betterAuthUserId) {
+        await signOutBetterAuth()
+      }
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(USER_KEY)
+      setAuthToken(null)
+      setUser(null)
+      setToken(null)
+    })()
+  }, [user?.betterAuthUserId])
 
   const openModal = useCallback((mode: 'login' | 'register' = 'login') => {
+    if (isAuthWebEnabled()) {
+      redirectToAuthWebLogin()
+      return
+    }
     setModalMode(mode)
     setIsModalOpen(true)
   }, [])
@@ -141,7 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       token,
       loading,
-      isAuthenticated: Boolean(token && user),
+      isAuthenticated: Boolean(user && (token || user.betterAuthUserId)),
       login,
       register,
       logout,

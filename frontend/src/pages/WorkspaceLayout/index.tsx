@@ -518,8 +518,12 @@ export default function WorkspaceLayout({
                   title={user?.username || user?.email}
                 >
                   <div className="relative shrink-0">
-                    <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
-                      <User className="w-5 h-5" />
+                    <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors overflow-hidden">
+                      {user?.image ? (
+                        <img src={user.image} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <User className="w-5 h-5" />
+                      )}
                     </div>
                     <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" />
                   </div>
