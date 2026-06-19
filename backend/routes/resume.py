@@ -43,6 +43,8 @@ try:
     from services.pdf_parser import extract_markdown_from_pdf
     from services.zhipu_layout import recognize_with_ocr
     from services.resume_assembler import assemble_resume_data
+    from services.vision_ocr import image_to_text, SUPPORTED_IMAGE_TYPES
+    from json_normalizer import normalize_resume_json
     from database import get_db
     from middleware.auth import get_current_user
     from sqlalchemy.orm import Session
@@ -80,6 +82,8 @@ except ImportError:
     from backend.services.pdf_parser import extract_markdown_from_pdf
     from backend.services.zhipu_layout import recognize_with_ocr
     from backend.services.resume_assembler import assemble_resume_data
+    from backend.services.vision_ocr import image_to_text, SUPPORTED_IMAGE_TYPES
+    from backend.json_normalizer import normalize_resume_json
     from backend.database import get_db
     from backend.middleware.auth import get_current_user
     from sqlalchemy.orm import Session
@@ -1122,6 +1126,51 @@ async def upload_resume_pdf(
     except Exception as e:
         logger.warning(f"JSON 标准化失败: {e}")
         return {"resume": resume_data, "provider": "hybrid"}
+
+
+@router.post("/resume/upload-image")
+async def upload_resume_image(
+    file: UploadFile = File(...),
+    model: str = Form(default="qwen-vl-max"),
+):
+    """上传简历图片(JPG/PNG)，经视觉模型识别 + 结构化为简历 JSON。
+
+    与 /resume/upload-pdf 同构返回 {"resume": ...}。
+    视觉模型由前端传入：qwen-vl-max（默认）/ glm-ocr。
+    """
+    if file.content_type not in SUPPORTED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="仅支持 JPG / PNG 图片")
+
+    image_bytes = await file.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="文件为空")
+    if len(image_bytes) > MAX_PDF_SIZE_MB * 1024 * 1024:
+        raise HTTPException(
+            status_code=413, detail=f"文件过大，最大支持 {MAX_PDF_SIZE_MB}MB"
+        )
+
+    # 步骤1：图片 → 文本（视觉识别）
+    try:
+        ocr_text = image_to_text(image_bytes, file.content_type, model)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"图片识别失败: {e}")
+    if not ocr_text.strip():
+        raise HTTPException(status_code=422, detail="未识别到文字，请换清晰的图片")
+
+    # 步骤2：文本 → 结构化简历（复用 PDF 同款组装）
+    try:
+        resume_data = assemble_resume_data(
+            raw_text=ocr_text, layout={}, ocr_text=ocr_text, model=None
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"简历结构化失败: {e}")
+
+    try:
+        normalized = normalize_resume_json(resume_data)
+        return {"resume": normalized, "provider": model}
+    except Exception as e:
+        logger.warning(f"JSON 标准化失败: {e}")
+        return {"resume": resume_data, "provider": model}
 
 
 async def _parse_resume_serial(body: ResumeParseRequest):
