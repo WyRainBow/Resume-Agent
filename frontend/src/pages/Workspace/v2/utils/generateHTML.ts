@@ -195,18 +195,24 @@ function generateSectionHTML(section: { id: string; title: string }, resumeData:
         <section class="template-section">
           <h2 class="section-title">${escapeHtml(sectionTitle)}</h2>
           <div class="section-content">
-            ${customItems.map(item => `
+            ${customItems.map(item => {
+              const itemTitle = stripHtmlTags(item.title || '').trim()
+              const itemSubtitle = stripHtmlTags(item.subtitle || '').trim()
+              // 条目标题为空或与模块名相同时视为冗余，不再作为子标题渲染（单块语义，避免重复）
+              const showTitle = !!itemTitle && itemTitle !== sectionTitle.trim()
+              const showHeader = showTitle || !!itemSubtitle || !!item.dateRange
+              return `
               <div class="item">
-                <div class="item-header">
+                ${showHeader ? `<div class="item-header">
                   <div class="item-title-group">
-                    <h3 class="item-title">${escapeHtml(stripHtmlTags(item.title))}</h3>
-                    ${item.subtitle ? `<span class="item-subtitle">${escapeHtml(stripHtmlTags(item.subtitle))}</span>` : ''}
+                    ${showTitle ? `<h3 class="item-title">${escapeHtml(itemTitle)}</h3>` : ''}
+                    ${itemSubtitle ? `<span class="item-subtitle">${escapeHtml(itemSubtitle)}</span>` : ''}
                   </div>
                   ${item.dateRange ? `<span class="item-date">${escapeHtml(item.dateRange)}</span>` : ''}
-                </div>
+                </div>` : ''}
                 ${item.description ? `<div class="item-description">${item.description}</div>` : ''}
               </div>
-            `).join('')}
+            `}).join('')}
           </div>
         </section>
       `

@@ -92,7 +92,7 @@ function CustomItemCard({
                     label="标题"
                     value={item.title}
                     onChange={(v) => handleChange('title', v)}
-                    placeholder="请输入标题"
+                    placeholder="留空则用模块名作为标题"
                   />
                   <Field
                     index={1}

@@ -813,19 +813,29 @@ def generate_section_custom(
         return content
 
     title = (section_titles or {}).get(section_id, '自定义模块')
+    section_title_raw = (title or '').strip()
     content.append(f"\\section{{{escape_latex(title)}}}")
 
     for item in visible_items:
-        item_title = escape_latex(item.get('title') or '')
-        item_subtitle = escape_latex(item.get('subtitle') or '')
-        item_date = escape_latex(item.get('dateRange') or '')
+        raw_title = (item.get('title') or '').strip()
+        raw_subtitle = (item.get('subtitle') or '').strip()
+        raw_date = (item.get('dateRange') or '').strip()
+
+        # 条目标题为空或与模块名相同时视为冗余，不再作为子标题渲染（单块语义，避免重复）
+        effective_title = '' if (not raw_title or raw_title == section_title_raw) else raw_title
+
+        item_title = escape_latex(effective_title)
+        item_subtitle = escape_latex(raw_subtitle)
+        item_date = escape_latex(raw_date)
 
         if item_title and item_subtitle:
             heading = f"{item_title}\\hspace{{0.2em}}\\textendash\\hspace{{0.2em}}{item_subtitle}"
         else:
-            heading = item_title or item_subtitle or '未命名条目'
+            heading = item_title or item_subtitle
 
-        content.append(f"\\datedsubsection{{\\normalsize {heading}}}{{\\normalsize {item_date}}}")
+        # 仅在有标题/副标题/日期时才输出子标题行，否则只渲染正文
+        if heading or item_date:
+            content.append(f"\\datedsubsection{{\\normalsize {heading}}}{{\\normalsize {item_date}}}")
 
         description = item.get('description') or ''
         if isinstance(description, str) and description.strip():

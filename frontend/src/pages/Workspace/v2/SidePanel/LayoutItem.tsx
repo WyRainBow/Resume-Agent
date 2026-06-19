@@ -16,6 +16,7 @@ const DEFAULT_SECTION_IDS = new Set([
   'skills',
   'awards',
   'selfEvaluation',
+  'custom_research',  // 竞赛与科研：默认模块，仅支持隐藏（数据走自定义模块管线）
 ])
 
 interface LayoutItemProps {

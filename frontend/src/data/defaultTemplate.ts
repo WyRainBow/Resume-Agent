@@ -115,7 +115,8 @@ export const DEFAULT_RESUME_TEMPLATE: ResumeData = {
     { id: 'openSource', title: '开源经历', icon: '🔗', enabled: true, order: 4 },
     { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 5 },
     { id: 'awards', title: '荣誉奖项', icon: '🏆', enabled: true, order: 6 },
-    { id: 'selfEvaluation', title: '自我评价', icon: '📝', enabled: true, order: 7 }
+    { id: 'selfEvaluation', title: '自我评价', icon: '📝', enabled: true, order: 7 },
+    { id: 'custom_research', title: '竞赛与科研', icon: '🔬', enabled: true, order: 8 }
   ],
   globalSettings: {
     lineHeight: 1.5,
