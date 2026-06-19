@@ -3,8 +3,9 @@
  */
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { getCurrentResumeId, setCurrentResumeId, getResume } from '../../../../services/resumeStorage'
-import { loadFromStorage, STORAGE_KEY, isLegacyDefaultMenuOrder, migrateMenuSectionsToLatestDefault } from '../constants'
+import { loadFromStorage, STORAGE_KEY, isLegacyDefaultMenuOrder, migrateMenuSectionsToLatestDefault, mergeMissingDefaultModules } from '../constants'
 import { stripPhotoFromResumeData } from '@/services/storage/sanitizeResume'
+import { stripHtmlTags } from '../utils/textUtils'
 import { useLocation, useParams } from 'react-router-dom'
 import { useResumeContext } from '@/contexts/ResumeContext'
 import type {
@@ -45,10 +46,10 @@ function replaceInResume(prev: ResumeData, key: string, original: string, sugges
 
 const normalizeCustomItem = (item: Partial<CustomItem>): CustomItem => ({
   id: item.id || `custom_item_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-  title: item.title || '',
-  subtitle: item.subtitle || '',
+  title: stripHtmlTags(item.title || ''),
+  subtitle: stripHtmlTags(item.subtitle || ''),
   dateRange: item.dateRange || '',
-  description: item.description || '',
+  description: item.description || '',  // 富文本 HTML，保留
   visible: item.visible !== false,
 })
 
@@ -141,7 +142,7 @@ export function useResumeData() {
           ? (
               isLegacyDefaultMenuOrder(data.menuSections)
                 ? migrateMenuSectionsToLatestDefault(data.menuSections)
-                : data.menuSections
+                : mergeMissingDefaultModules(data.menuSections)
             )
           : undefined
         setResumeData(prev => ({
@@ -390,7 +391,7 @@ export function useResumeData() {
         ...prev,
         customData: {
           ...prev.customData,
-          [sectionId]: items.map((it) => (it.id === item.id ? item : it)),
+          [sectionId]: items.map((it) => (it.id === item.id ? normalizeCustomItem(item) : it)),
         },
       }
     })

@@ -43,6 +43,7 @@ interface EditPanelProps {
   updateSelfEvaluation: (content: string) => void
   updateSkillContent: (content: string) => void
   updateMenuSections: (sections: MenuSection[]) => void
+  setResumeData: (updater: import('../types').ResumeData | ((prev: import('../types').ResumeData) => import('../types').ResumeData)) => void
   updateGlobalSettings: (settings: Partial<GlobalSettings>) => void
   // AI 导入回调
   onAIImport?: (section: string) => void
@@ -74,6 +75,7 @@ export function EditPanel({
   updateSelfEvaluation,
   updateSkillContent,
   updateMenuSections,
+  setResumeData,
   updateGlobalSettings,
   onAIImport,
 }: EditPanelProps) {
@@ -89,12 +91,14 @@ export function EditPanel({
     setIsEditingTitle(true)
   }
 
-  // 确认编辑
+  // 确认编辑：直接用 setResumeData 函数式更新，避免闭包捕获旧 menuSections
   const handleConfirm = () => {
-    const newSections = menuSections.map((s) =>
-      s.id === activeSection ? { ...s, title: editTitle } : s
-    )
-    updateMenuSections(newSections)
+    setResumeData((prev) => ({
+      ...prev,
+      menuSections: prev.menuSections.map((s) =>
+        s.id === activeSection ? { ...s, title: editTitle } : s
+      ),
+    }))
     setIsEditingTitle(false)
   }
 
@@ -264,15 +268,7 @@ export function EditPanel({
                   )}
                   type="text"
                   value={editTitle}
-                  onChange={(e) => {
-                    const newTitle = e.target.value
-                    setEditTitle(newTitle)
-                    // 实时更新 menuSections 以显示实时预览
-                    const newSections = menuSections.map((s) =>
-                      s.id === activeSection ? { ...s, title: newTitle } : s
-                    )
-                    updateMenuSections(newSections)
-                  }}
+                  onChange={(e) => setEditTitle(e.target.value)}
                   onKeyDown={handleKeyDown}
                   onClick={(e) => e.stopPropagation()}
                 />

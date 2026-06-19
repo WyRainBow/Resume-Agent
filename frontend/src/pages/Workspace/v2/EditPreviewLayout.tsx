@@ -31,7 +31,7 @@ type EditMode = "click" | "scroll" | "json";
 interface EditPreviewLayoutProps {
   editMode: EditMode;
   resumeData: ResumeData;
-  setResumeData: (data: ResumeData) => void;
+  setResumeData: (updater: ResumeData | ((prev: ResumeData) => ResumeData)) => void;
   activeSection: string;
   setActiveSection: (id: string) => void;
   toggleSectionVisibility: (id: string) => void;
@@ -281,6 +281,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                   updateSelfEvaluation={updateSelfEvaluation}
                   updateSkillContent={updateSkillContent}
                   updateMenuSections={updateMenuSections}
+                  setResumeData={setResumeData}
                   updateGlobalSettings={updateGlobalSettings}
                   onAIImport={handleAIImport}
                 />

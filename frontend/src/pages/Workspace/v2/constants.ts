@@ -4,6 +4,7 @@
 import type { ResumeData } from './types'
 import type { Resume } from '../../../types/resume'
 import { DEFAULT_RESUME_TEMPLATE } from '../../../data/defaultTemplate'
+import { stripHtmlTags } from './utils/textUtils'
 
 export const STORAGE_KEY = 'resume_v2_data'
 
@@ -43,6 +44,19 @@ export function migrateMenuSectionsToLatestDefault(
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
 }
 
+/**
+ * 补充缺失的默认模块（不修改已有条目的顺序）
+ * 用于处理旧数据迁移后仍缺少某些默认模块的情况（如 custom_research）
+ */
+export function mergeMissingDefaultModules(
+  menuSections: ResumeData['menuSections'],
+): ResumeData['menuSections'] {
+  const existingIds = new Set(menuSections.map((s) => s.id))
+  const missingDefaults = initialResumeData.menuSections.filter((s) => !existingIds.has(s.id))
+  if (missingDefaults.length === 0) return menuSections
+  return [...menuSections, ...missingDefaults].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+}
+
 const normalizeCustomData = (raw: unknown): ResumeData['customData'] => {
   if (!raw || typeof raw !== 'object') return {}
   return Object.entries(raw as Record<string, unknown>).reduce<ResumeData['customData']>((acc, [sectionId, items]) => {
@@ -51,8 +65,8 @@ const normalizeCustomData = (raw: unknown): ResumeData['customData'] => {
       .filter((item): item is Record<string, any> => !!item && typeof item === 'object')
       .map((item) => ({
         id: typeof item.id === 'string' && item.id.trim() ? item.id : `custom_item_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        title: typeof item.title === 'string' ? item.title : '',
-        subtitle: typeof item.subtitle === 'string' ? item.subtitle : '',
+        title: stripHtmlTags(typeof item.title === 'string' ? item.title : ''),
+        subtitle: stripHtmlTags(typeof item.subtitle === 'string' ? item.subtitle : ''),
         dateRange: typeof item.dateRange === 'string' ? item.dateRange : '',
         description: typeof item.description === 'string' ? item.description : '',
         visible: item.visible !== false,
@@ -97,7 +111,7 @@ export const initialResumeData: ResumeData = {
     { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 5 },
     { id: 'awards', title: '荣誉奖项', icon: '🎖️', enabled: true, order: 6 },
     { id: 'selfEvaluation', title: '自我评价', icon: '📝', enabled: true, order: 7 },
-    { id: 'custom_research', title: '竞赛与科研', icon: '🔬', enabled: true, order: 8 },
+    { id: 'custom_research', title: '竞赛科研', icon: '🔬', enabled: true, order: 8 },
   ],
   globalSettings: {
     lineHeight: 1.5,

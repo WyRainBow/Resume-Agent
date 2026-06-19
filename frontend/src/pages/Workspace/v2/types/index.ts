@@ -170,6 +170,7 @@ export interface GlobalSettings {
   latexHeaderNameContactGapPx?: number  // 姓名与联系信息间距调整（px，可为负）
   latexHeaderBottomGapPx?: number  // 联系信息下方空白（px，可为负）
   birthDateDisplayMode?: 'birthDate' | 'age'  // 年龄渲染模式：显示出生年月 | 仅显示年龄
+  contactLabelMode?: 'icon' | 'text' | 'none'  // 联系信息标签模式：icon（📞138xxxx）| text（电话：138xxxx）| none（138xxxx）
 }
 
 /**
@@ -210,7 +211,7 @@ export const DEFAULT_MENU_SECTIONS: MenuSection[] = [
   { id: 'skills', title: '专业技能', icon: '⚡', enabled: true, order: 5 },
   { id: 'awards', title: '荣誉奖项', icon: '😄', enabled: true, order: 6 },
   { id: 'selfEvaluation', title: '自我评价', icon: '📝', enabled: true, order: 7 },
-  { id: 'custom_research', title: '竞赛与科研', icon: '🔬', enabled: true, order: 8 },
+  { id: 'custom_research', title: '竞赛科研', icon: '🔬', enabled: true, order: 8 },
 ]
 
 /**

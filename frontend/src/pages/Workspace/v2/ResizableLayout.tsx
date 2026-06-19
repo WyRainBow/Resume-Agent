@@ -42,6 +42,7 @@ interface ResizableLayoutProps {
   progress: string
   handleRender: () => void
   handleDownload: () => void
+  setResumeData: (updater: ResumeData | ((prev: ResumeData) => ResumeData)) => void
 }
 
 // 拖拽分隔线组件
@@ -127,13 +128,14 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
   deleteAward,
   reorderAwards,
   updateSelfEvaluation,
-  updateSkillContent,
+    updateSkillContent,
     handleAIImport,
     pdfBlob,
     loading,
     progress,
     handleRender,
     handleDownload,
+    setResumeData,
   } = props
 
   // 列宽状态
@@ -265,6 +267,7 @@ export default function ResizableLayout(props: ResizableLayoutProps) {
           updateSelfEvaluation={updateSelfEvaluation}
           updateSkillContent={updateSkillContent}
           updateMenuSections={updateMenuSections}
+          setResumeData={setResumeData}
           updateGlobalSettings={updateGlobalSettings}
           onAIImport={handleAIImport}
         />
