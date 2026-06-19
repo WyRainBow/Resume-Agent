@@ -310,23 +310,32 @@ const renderSection = (section: { id: string; title: string }, resumeData: Resum
         <section key={sectionId} className="template-section">
           <h2 className="section-title">{sectionTitle}</h2>
           <div className="section-content">
-            {customItems.map((item) => (
-              <div key={item.id} className="item">
-                <div className="item-header">
-                  <div className="item-title-group">
-                    <h3 className="item-title">{stripHtmlTags(item.title)}</h3>
-                    {item.subtitle && <span className="item-subtitle">{stripHtmlTags(item.subtitle)}</span>}
-                  </div>
-                  {item.dateRange && <span className="item-date">{item.dateRange}</span>}
+            {customItems.map((item) => {
+              const itemTitle = stripHtmlTags(item.title || '').trim()
+              const itemSubtitle = stripHtmlTags(item.subtitle || '').trim()
+              // 条目标题为空或与模块名相同时视为冗余，不再作为子标题渲染（单块语义，避免重复）
+              const showTitle = !!itemTitle && itemTitle !== sectionTitle.trim()
+              const showHeader = showTitle || !!itemSubtitle || !!item.dateRange
+              return (
+                <div key={item.id} className="item">
+                  {showHeader && (
+                    <div className="item-header">
+                      <div className="item-title-group">
+                        {showTitle && <h3 className="item-title">{itemTitle}</h3>}
+                        {itemSubtitle && <span className="item-subtitle">{itemSubtitle}</span>}
+                      </div>
+                      {item.dateRange && <span className="item-date">{item.dateRange}</span>}
+                    </div>
+                  )}
+                  {item.description && (
+                    <div
+                      className="item-description"
+                      dangerouslySetInnerHTML={{ __html: item.description }}
+                    />
+                  )}
                 </div>
-                {item.description && (
-                  <div
-                    className="item-description"
-                    dangerouslySetInnerHTML={{ __html: item.description }}
-                  />
-                )}
-              </div>
-            ))}
+              )
+            })}
           </div>
         </section>
       )
