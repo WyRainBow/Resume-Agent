@@ -74,6 +74,7 @@ resume_router = routes_module.resume_router
 pdf_router = routes_module.pdf_router
 share_router = routes_module.share_router
 auth_router = routes_module.auth_router
+better_auth_router = routes_module.better_auth_router
 resumes_router = routes_module.resumes_router
 logos_router = routes_module.logos_router
 school_logos_router = routes_module.school_logos_router
@@ -115,6 +116,7 @@ app.include_router(resume_router)
 app.include_router(pdf_router)
 app.include_router(share_router)
 app.include_router(auth_router)
+app.include_router(better_auth_router)
 app.include_router(resumes_router)
 app.include_router(logos_router)
 app.include_router(school_logos_router)
@@ -243,17 +245,17 @@ async def startup_event():
             simple.ZHIPU_API_KEY = zhipu_key
             simple._zhipu_client = None  # 重置客户端，使用新的 API Key
             simple._last_zhipu_key = None
-            logger.info(f"[配置] 已从 .env 加载 ZHIPU_API_KEY: {zhipu_key[:10]}...")
+            logger.info("[配置] 已从环境变量加载 ZHIPU_API_KEY")
         
         doubao_key = os.getenv("DOUBAO_API_KEY", "")
         if doubao_key:
             simple.DOUBAO_API_KEY = doubao_key
-            logger.info(f"[配置] 已从 .env 加载 DOUBAO_API_KEY: {doubao_key[:10]}...")
+            logger.info("[配置] 已从环境变量加载 DOUBAO_API_KEY")
         
         deepseek_key = os.getenv("DASHSCOPE_API_KEY", "")
         if deepseek_key:
             simple.DEEPSEEK_API_KEY = deepseek_key
-            logger.info(f"[配置] 已从 .env 加载 DASHSCOPE_API_KEY: {deepseek_key[:10]}...")
+            logger.info("[配置] 已从环境变量加载 DASHSCOPE_API_KEY")
         
         simple.warmup_connection()
         logger.info("[启动优化] HTTP 连接已预热")

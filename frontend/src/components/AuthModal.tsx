@@ -2,9 +2,14 @@ import React, { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Mail, Lock, Loader2, Sparkles, LogIn, UserPlus } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import { buildAuthWebUrl, isAuthWebEnabled } from '@/lib/runtimeEnv'
 
 export const AuthModal: React.FC = () => {
   const { isModalOpen, closeModal, modalMode, login, register } = useAuth()
+  const authWebEnabled = isAuthWebEnabled()
+  const authWebUrl = authWebEnabled
+    ? buildAuthWebUrl('/account', `${window.location.origin}${window.location.pathname}${window.location.search}`)
+    : ''
   const [mode, setMode] = useState<'login' | 'register'>('login')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -89,6 +94,21 @@ export const AuthModal: React.FC = () => {
                 </p>
               </div>
 
+              {authWebUrl ? (
+                <div className="space-y-4">
+                  <a
+                    href={authWebUrl}
+                    className="w-full py-4 bg-slate-950 text-white rounded-2xl font-black text-sm shadow-xl shadow-slate-950/20 hover:bg-slate-800 transition-all flex items-center justify-center gap-3 active:scale-[0.98]"
+                  >
+                    <LogIn className="w-5 h-5" />
+                    使用新版登录
+                  </a>
+                  <p className="text-center text-xs font-medium text-slate-400">
+                    Google 登录、会话和用户权益由 Next.js + BetterAuth 处理
+                  </p>
+                </div>
+              ) : (
+                <>
               {/* 模式切换 */}
               <div className="flex p-1 bg-slate-100 rounded-2xl mb-8">
                 <button
@@ -189,6 +209,8 @@ export const AuthModal: React.FC = () => {
                   <a href="#" className="text-slate-900 font-bold hover:underline ml-1">隐私政策</a>
                 </p>
               </div>
+                </>
+              )}
             </div>
           </motion.div>
         </div>

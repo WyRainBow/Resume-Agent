@@ -77,6 +77,11 @@ test_api.sh
 !deploy.sh
 !railway-start.sh
 !scripts/export_agent_core.sh
+!scripts/check-auth-stack-env.sh
+!scripts/bootstrap-auth-env.sh
+!scripts/migrate-better-auth-db.sh
+!scripts/dev-auth-web.sh
+!scripts/smoke-auth-stack.sh
 
 
 

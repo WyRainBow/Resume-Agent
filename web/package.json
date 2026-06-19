@@ -1,0 +1,36 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "bootstrap:auth-env": "bash ../scripts/bootstrap-auth-env.sh",
+    "check:auth-env": "bash ../scripts/check-auth-stack-env.sh",
+    "check:auth-db": "node ../scripts/check-better-auth-db.mjs",
+    "check:auth-migration": "node ../scripts/check-auth-migration-static.mjs",
+    "migrate:auth-db": "bash ../scripts/migrate-better-auth-db.sh",
+    "auth:generate": "auth generate",
+    "auth:migrate": "auth migrate"
+  },
+  "dependencies": {
+    "better-auth": "^1.6.19",
+    "next": "16.2.9",
+    "pg": "^8.22.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/pg": "^8.20.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.9",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

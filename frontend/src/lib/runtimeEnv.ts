@@ -53,12 +53,44 @@ export function setRuntimeEnv(env: RuntimeEnv): void {
 }
 
 export function getApiBaseUrl(env: RuntimeEnv = getRuntimeEnv()): string {
+  const authProxyBase = getAuthWebApiProxyBaseUrl()
+  if (authProxyBase) return authProxyBase
+
   const baseMap = envBaseMap()
   // 本地开发时：
   // - local 走同源代理（'' -> localhost:5173/api/...）
   // - remote-dev 直连远程域名，确保环境切换生效
   if (import.meta.env.DEV && env === 'local') return ''
   return env === 'remote-dev' ? baseMap['remote-dev'] : baseMap.local
+}
+
+export function getAuthWebBaseUrl(): string {
+  return normalizeBaseUrl(import.meta.env.VITE_AUTH_WEB_URL || '')
+}
+
+export function isAuthWebEnabled(): boolean {
+  return Boolean(getAuthWebBaseUrl())
+}
+
+export function buildAuthWebUrl(path = '/account', returnTo?: string): string {
+  const base = getAuthWebBaseUrl()
+  if (!base) return ''
+
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  const url = new URL(normalizedPath, `${base}/`)
+  if (returnTo) {
+    url.searchParams.set('returnTo', returnTo)
+  }
+  return url.toString()
+}
+
+export function getAuthWebApiProxyBaseUrl(): string {
+  const enabled = String(import.meta.env.VITE_API_VIA_AUTH_WEB || '').trim().toLowerCase()
+  if (!['1', 'true', 'yes', 'on'].includes(enabled)) return ''
+
+  const authBase = getAuthWebBaseUrl()
+  if (!authBase) return ''
+  return `${authBase}/api/fastapi/proxy`
 }
 
 export function getRuntimeEnvOptions() {

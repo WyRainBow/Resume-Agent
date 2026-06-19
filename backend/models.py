@@ -135,6 +135,31 @@ class User(Base):
     )
 
 
+class BetterAuthEntitlement(Base):
+    """BetterAuth 用户的商业化权益模型。"""
+    __tablename__ = "better_auth_entitlements"
+    __table_args__ = {'extend_existing': True}
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    better_auth_user_id = Column(String(255), unique=True, nullable=False, index=True)
+    email = Column(String(255), nullable=True, index=True)
+    name = Column(String(255), nullable=True)
+    image = Column(Text, nullable=True)
+
+    plan = Column(String(64), nullable=False, server_default="free", index=True)
+    credits = Column(Integer, nullable=False, server_default="0")
+    daily_usage_count = Column(Integer, nullable=False, server_default="0")
+    last_usage_reset_at = Column(DateTime(timezone=True), nullable=True)
+
+    subscription_status = Column(String(64), nullable=False, server_default="free", index=True)
+    provider_customer_id = Column(String(255), nullable=True, index=True)
+    provider_subscription_id = Column(String(255), nullable=True, index=True)
+    current_period_end = Column(DateTime(timezone=True), nullable=True)
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), index=True)
+
+
 class Resume(Base):
     """简历模型"""
     __tablename__ = "resumes"
