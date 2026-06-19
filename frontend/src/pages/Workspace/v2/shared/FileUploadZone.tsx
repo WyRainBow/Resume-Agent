@@ -6,7 +6,12 @@ interface FileUploadZoneProps {
   file: File | null
   onFileSelect: (file: File | null) => void
   maxSizeMb?: number
-  accept?: string
+  /** 允许的 MIME 列表 */
+  acceptTypes?: string[]
+  /** input accept 属性字符串 */
+  acceptAttr?: string
+  /** 提示文案，如「PDF / JPG / PNG」 */
+  hintLabel?: string
 }
 
 const formatFileSize = (bytes: number) => {
@@ -19,15 +24,17 @@ export function FileUploadZone({
   file,
   onFileSelect,
   maxSizeMb = 10,
-  accept = 'application/pdf'
+  acceptTypes = ['application/pdf'],
+  acceptAttr = '.pdf',
+  hintLabel = 'PDF'
 }: FileUploadZoneProps) {
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const maxBytes = maxSizeMb * 1024 * 1024
 
   const validateFile = (nextFile: File) => {
-    if (nextFile.type !== accept) {
-      alert('仅支持 PDF 文件')
+    if (!acceptTypes.includes(nextFile.type)) {
+      alert(`仅支持 ${hintLabel} 文件`)
       return false
     }
     if (nextFile.size > maxBytes) {
@@ -71,7 +78,7 @@ export function FileUploadZone({
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf"
+          accept={acceptAttr}
           className="hidden"
           onChange={(event) => handleFiles(event.target.files)}
         />
@@ -119,7 +126,7 @@ export function FileUploadZone({
                 <UploadCloud className="h-6 w-6" />
               </div>
               <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">
-                点击或拖拽 PDF 文件到此处上传
+                点击或拖拽 {hintLabel} 文件到此处上传
               </p>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 单个文件最大支持 {maxSizeMb}MB
