@@ -301,6 +301,7 @@ def recognize_layout_from_image_bytes(
 def recognize_with_ocr(
     pdf_bytes: bytes,
     api_key: Optional[str] = None,
+    mime: str = "application/pdf",
 ) -> str:
     """
     使用智谱 glm-ocr layout_parsing API 直接解析 PDF，返回 Markdown 格式文本
@@ -316,9 +317,9 @@ def recognize_with_ocr(
     if not key:
         raise ValueError("ZHIPU_API_KEY 未配置")
     
-    # 将 PDF 转为 base64 data URI
+    # 将文件转为 base64 data URI（支持 PDF 与图片）
     pdf_base64 = base64.b64encode(pdf_bytes).decode("utf-8")
-    file_data = f"data:application/pdf;base64,{pdf_base64}"
+    file_data = f"data:{mime};base64,{pdf_base64}"
     
     api_url = "https://open.bigmodel.cn/api/paas/v4/layout_parsing"
     headers = {
