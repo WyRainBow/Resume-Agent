@@ -38,6 +38,22 @@ const AI_MODELS = [
   },
 ];
 
+// 视觉模型（图片识别），上传图片时由用户选择
+const VISION_MODELS = [
+  {
+    id: "qwen-vl-max",
+    name: "通义千问 VL",
+    description: "图片识别（推荐，可用）",
+    needRecharge: false,
+  },
+  {
+    id: "glm-ocr",
+    name: "智谱 GLM-OCR",
+    description: "文档 OCR（需账户充值）",
+    needRecharge: true,
+  },
+];
+
 export type SectionType =
   | "contact"
   | "education"
@@ -94,6 +110,7 @@ export function AIImportModal({
   const [elapsedTime, setElapsedTime] = useState(0);
   const [finalTime, setFinalTime] = useState<number | null>(null);
   const [selectedModel, setSelectedModel] = useState("deepseek-v4-flash");
+  const [selectedVisionModel, setSelectedVisionModel] = useState("qwen-vl-max");
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [copied, setCopied] = useState(false);
@@ -278,6 +295,44 @@ export function AIImportModal({
       setCurrentStep("results");
     } catch (err: any) {
       console.error("PDF 解析失败:", err);
+      alert("解析失败: " + err.message);
+    } finally {
+      setParsing(false);
+    }
+  };
+
+  // 图片上传解析（内联 fetch，镜像 handlePdfUpload）
+  const handleImageUpload = async () => {
+    if (!selectedFile) return;
+    setParsing(true);
+    setParsedData(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("model", selectedVisionModel);
+
+      const response = await fetch(
+        `${getApiBaseUrl()}/api/resume/upload-image`,
+        { method: "POST", body: formData },
+      );
+
+      if (!response.ok) {
+        let errMsg = "解析失败";
+        try {
+          const err = await response.json();
+          errMsg = err.detail || errMsg;
+        } catch {
+          errMsg = `HTTP ${response.status}`;
+        }
+        throw new Error(errMsg);
+      }
+
+      const result = await response.json();
+      setParsedData(result.resume || result.data || result);
+      setCurrentStep("results");
+    } catch (err: any) {
+      console.error("图片解析失败:", err);
       alert("解析失败: " + err.message);
     } finally {
       setParsing(false);
@@ -627,17 +682,64 @@ export function AIImportModal({
                     {importMode === "file" && (
                       <div className="flex-1 flex flex-col space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex-shrink-0">
-                          文件上传
+                          文件上传（PDF / 图片）
                         </div>
                         <div className="flex-1 min-h-0 overflow-hidden">
                           <FileUploadZone
                             file={selectedFile}
                             onFileSelect={setSelectedFile}
+                            acceptTypes={[
+                              "application/pdf",
+                              "image/jpeg",
+                              "image/png",
+                            ]}
+                            acceptAttr=".pdf,.jpg,.jpeg,.png"
+                            hintLabel="PDF / JPG / PNG"
                           />
                         </div>
+                        {selectedFile?.type.startsWith("image/") && (
+                          <div className="flex-shrink-0 space-y-2">
+                            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                              选择识别模型
+                            </div>
+                            <div className="flex gap-2">
+                              {VISION_MODELS.map((m) => (
+                                <button
+                                  key={m.id}
+                                  type="button"
+                                  onClick={() => setSelectedVisionModel(m.id)}
+                                  className={cn(
+                                    "flex-1 rounded-lg border px-3 py-2 text-left text-xs transition-all",
+                                    selectedVisionModel === m.id
+                                      ? "border-slate-900 bg-purple-50 dark:bg-purple-900/20"
+                                      : "border-slate-200 dark:border-slate-700",
+                                  )}
+                                >
+                                  <div className="font-semibold text-slate-800 dark:text-slate-100">
+                                    {m.name}
+                                  </div>
+                                  <div
+                                    className={cn(
+                                      "mt-0.5",
+                                      m.needRecharge
+                                        ? "text-amber-500"
+                                        : "text-slate-500 dark:text-slate-400",
+                                    )}
+                                  >
+                                    {m.description}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                         <button
                           type="button"
-                          onClick={handlePdfUpload}
+                          onClick={
+                            selectedFile?.type.startsWith("image/")
+                              ? handleImageUpload
+                              : handlePdfUpload
+                          }
                           disabled={!selectedFile || parsing}
                           className={cn(
                             "w-full rounded-lg px-4 py-2.5 text-sm font-semibold flex-shrink-0",
@@ -647,7 +749,11 @@ export function AIImportModal({
                             "transition-all",
                           )}
                         >
-                          {parsing ? "解析中..." : "上传解析 PDF"}
+                          {parsing
+                            ? "解析中..."
+                            : selectedFile?.type.startsWith("image/")
+                              ? "识别图片并解析"
+                              : "上传解析 PDF"}
                         </button>
                       </div>
                     )}
