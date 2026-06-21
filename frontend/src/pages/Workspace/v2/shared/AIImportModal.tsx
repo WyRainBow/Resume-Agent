@@ -203,7 +203,16 @@ export function AIImportModal({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: text.trim(), model: selectedModel }),
         });
-        if (!resp.ok || !resp.body) throw new Error(`HTTP ${resp.status}`);
+        if (!resp.ok || !resp.body) {
+          let errMsg = `HTTP ${resp.status}`;
+          try {
+            const err = await resp.json();
+            errMsg = (err as { detail?: string }).detail || errMsg;
+          } catch {
+            // 非 JSON 错误体保持 HTTP 状态码
+          }
+          throw new Error(errMsg);
+        }
 
         const reader = resp.body.getReader();
         const decoder = new TextDecoder();

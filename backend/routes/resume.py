@@ -1055,7 +1055,7 @@ async def upload_resume_pdf(
     # ========== 步骤1: 并行执行两路数据提取 ==========
     # 1) MinerU 文本提取（快速，~2秒）
     # 2) glm-ocr 直接解析 PDF（高质量，~4秒）
-    print(f"[PDF解析] 开始混合增强处理...", flush=True)
+    logger.info("[PDF解析] 开始混合增强处理...")
     step1_start = time.time()
 
     loop = asyncio.get_event_loop()
@@ -1072,23 +1072,22 @@ async def upload_resume_pdf(
         # MinerU（必须成功）
         try:
             markdown_text = await text_future
-            print(f"[PDF解析] MinerU 成功，文本长度: {len(markdown_text)}", flush=True)
+            logger.info(f"[PDF解析] MinerU 成功，文本长度: {len(markdown_text)}")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"PDF 预处理失败: {e}")
 
         # OCR（可选，失败不阻塞流程，因为 MinerU 已提供基础文本）
         try:
             ocr_text = await ocr_future
-            print(f"[PDF解析] glm-ocr 成功，文本长度: {len(ocr_text)}", flush=True)
+            logger.info(f"[PDF解析] glm-ocr 成功，文本长度: {len(ocr_text)}")
         except Exception as e:
-            print(
-                f"[PDF解析] glm-ocr 失败（不影响流程，使用 MinerU 文本）: {e}",
-                flush=True,
+            logger.warning(
+                f"[PDF解析] glm-ocr 失败（不影响流程，使用 MinerU 文本）: {e}"
             )
             ocr_text = ""
 
     step1_time = time.time() - step1_start
-    print(f"[PDF解析] 步骤1 完成 (MinerU+OCR 并行): {step1_time:.2f}s", flush=True)
+    logger.info(f"[PDF解析] 步骤1 完成 (MinerU+OCR 并行): {step1_time:.2f}s")
 
     # ========== 步骤2: DeepSeek 融合组装 ==========
     # DeepSeek 根据文本内容自行判断模块划分和格式特征
@@ -1103,16 +1102,14 @@ async def upload_resume_pdf(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"简历结构化失败: {e}")
     step2_time = time.time() - step2_start
-    print(f"[PDF解析] 步骤2 完成 (DeepSeek 融合组装): {step2_time:.2f}s", flush=True)
+    logger.info(f"[PDF解析] 步骤2 完成 (DeepSeek 融合组装): {step2_time:.2f}s")
 
     total_time = time.time() - total_start
-    print(
-        f"[PDF解析] 总耗时: {total_time:.2f}s (数据提取: {step1_time:.2f}s, 组装: {step2_time:.2f}s)",
-        flush=True,
+    logger.info(
+        f"[PDF解析] 总耗时: {total_time:.2f}s (数据提取: {step1_time:.2f}s, 组装: {step2_time:.2f}s)"
     )
-    print(
-        f"[PDF解析] 数据源: MinerU={len(markdown_text)}字符, OCR={len(ocr_text)}字符",
-        flush=True,
+    logger.info(
+        f"[PDF解析] 数据源: MinerU={len(markdown_text)}字符, OCR={len(ocr_text)}字符"
     )
 
     try:

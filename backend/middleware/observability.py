@@ -171,6 +171,15 @@ def register_observability_handlers(app: FastAPI) -> None:
     """注册中间件与兜底异常处理器。"""
     app.add_middleware(RequestObservabilityMiddleware)
 
+    @app.exception_handler(BrokenPipeError)
+    async def broken_pipe_handler(request: Request, exc: BrokenPipeError):
+        trace_id = getattr(request.state, "trace_id", None) or uuid4().hex
+        return JSONResponse(
+            status_code=499,
+            content={"detail": "客户端连接已断开", "trace_id": trace_id},
+            headers={"X-Trace-Id": trace_id},
+        )
+
     @app.exception_handler(Exception)
     async def global_exception_handler(request: Request, exc: Exception):
         trace_id = getattr(request.state, "trace_id", None) or uuid4().hex
