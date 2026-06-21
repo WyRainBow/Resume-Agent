@@ -1,4 +1,7 @@
+import { FetchTimeoutError, fetchWithTimeout } from '@/lib/fetchWithTimeout'
 import { buildAuthWebUrl, getAuthWebBaseUrl, isAuthWebEnabled } from '@/lib/runtimeEnv'
+
+const AUTH_SESSION_TIMEOUT_MS = 8_000
 
 export type BetterAuthSessionUser = {
   id: string
@@ -21,16 +24,32 @@ function authBridgeUrl(path: string) {
 export async function fetchBetterAuthSession(): Promise<BetterAuthSessionUser | null> {
   if (!isAuthWebEnabled()) return null
 
-  const response = await fetch(authBridgeUrl('/api/auth-bridge/session'), {
-    credentials: 'include',
-    cache: 'no-store',
-  })
+  const url = authBridgeUrl('/api/auth-bridge/session')
+  if (!url) return null
 
-  if (!response.ok) return null
+  try {
+    const response = await fetchWithTimeout(
+      url,
+      {
+        credentials: 'include',
+        cache: 'no-store',
+      },
+      AUTH_SESSION_TIMEOUT_MS,
+    )
 
-  const data = (await response.json()) as BetterAuthSessionResponse
-  if (!data.user?.id || !data.user.email) return null
-  return data.user
+    if (!response.ok) return null
+
+    const data = (await response.json()) as BetterAuthSessionResponse
+    if (!data.user?.id || !data.user.email) return null
+    return data.user
+  } catch (error) {
+    if (error instanceof FetchTimeoutError) {
+      console.warn('[Auth] BetterAuth session 请求超时，按未登录处理')
+      return null
+    }
+    console.warn('[Auth] BetterAuth session 请求失败，按未登录处理', error)
+    return null
+  }
 }
 
 export async function signOutBetterAuth(): Promise<void> {

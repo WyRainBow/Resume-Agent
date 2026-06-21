@@ -16,6 +16,9 @@ const pool =
     connectionString: databaseUrl || undefined,
     max: Number(process.env.BETTER_AUTH_DB_POOL_SIZE || "10"),
     idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: Number(
+      process.env.BETTER_AUTH_DB_CONNECT_TIMEOUT_MS || "5000",
+    ),
   });
 
 if (process.env.NODE_ENV !== "production") {

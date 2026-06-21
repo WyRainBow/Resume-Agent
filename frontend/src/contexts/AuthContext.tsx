@@ -62,21 +62,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const init = async () => {
-      if (isAuthWebEnabled()) {
-        const sessionUser = await fetchBetterAuthSession()
-        if (sessionUser) {
-          setUser(mapBetterAuthUser(sessionUser))
-          setToken(BETTER_AUTH_TOKEN)
-          setLoading(false)
+      try {
+        if (isAuthWebEnabled()) {
+          const sessionUser = await fetchBetterAuthSession()
+          if (sessionUser) {
+            setUser(mapBetterAuthUser(sessionUser))
+            setToken(BETTER_AUTH_TOKEN)
+            return
+          }
+
+          // BetterAuth 已启用时不再走 legacy JWT /api/auth/me，避免代理层查远程 DB 卡死首屏
+          localStorage.removeItem(TOKEN_KEY)
+          localStorage.removeItem(USER_KEY)
+          setAuthToken(null)
+          setUser(null)
+          setToken(null)
           return
         }
-      }
 
-      const savedToken = localStorage.getItem(TOKEN_KEY)
-      const savedUserRaw = localStorage.getItem(USER_KEY)
-      if (savedToken) {
+        const savedToken = localStorage.getItem(TOKEN_KEY)
+        const savedUserRaw = localStorage.getItem(USER_KEY)
+        if (!savedToken) return
+
         setAuthToken(savedToken)
-        let hasHydratedLocalUser = false
 
         // 优先使用本地缓存用户信息完成首屏鉴权态，避免刷新等待 /api/auth/me
         if (savedUserRaw) {
@@ -85,17 +93,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (parsed && typeof parsed.id === 'number' && typeof parsed.username === 'string') {
               setUser(parsed)
               setToken(savedToken)
-              hasHydratedLocalUser = true
+              return
             }
           } catch {
             localStorage.removeItem(USER_KEY)
           }
-        }
-
-        if (hasHydratedLocalUser) {
-          // 本地已存在登录态时直接放行，避免进入仪表盘时额外触发 /api/auth/me 慢查询
-          setLoading(false)
-          return
         }
 
         try {
@@ -112,11 +114,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setToken(null)
           }
         }
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
-    init()
+    void init()
   }, [])
 
   const login = useCallback(async (username: string, password: string) => {
