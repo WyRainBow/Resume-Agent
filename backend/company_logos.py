@@ -148,17 +148,11 @@ def clear_cache():
 
 def _list_cos_logo_keys() -> list[str]:
     """从 COS 的 company_logo/ 目录列出 Logo key（对象路径）。"""
-    from qcloud_cos import CosConfig, CosS3Client
+    from backend.core.cos_client import build_cos_s3_client
 
-    secret_id = os.getenv('COS_SECRET_ID', '')
-    secret_key = os.getenv('COS_SECRET_KEY', '')
-    region = os.getenv('COS_REGION', 'ap-guangzhou')
-    bucket = os.getenv('COS_BUCKET', 'resumecos-1327706280')
-    if not secret_id or not secret_key:
+    client, bucket = build_cos_s3_client()
+    if client is None:
         return []
-
-    config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key)
-    client = CosS3Client(config)
 
     keys: list[str] = []
     marker = ""
@@ -201,20 +195,15 @@ def sync_local_logos_from_cos(force: bool = False) -> int:
         if existing and not force:
             return len(existing)
 
-        from qcloud_cos import CosConfig, CosS3Client
-        secret_id = os.getenv('COS_SECRET_ID', '')
-        secret_key = os.getenv('COS_SECRET_KEY', '')
-        region = os.getenv('COS_REGION', 'ap-guangzhou')
-        bucket = os.getenv('COS_BUCKET', 'resumecos-1327706280')
-        if not secret_id or not secret_key:
+        from backend.core.cos_client import build_cos_s3_client
+
+        client, bucket = build_cos_s3_client()
+        if client is None:
             return len(existing)
 
         keys = _list_cos_logo_keys()
         if not keys:
             return len(existing)
-
-        config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key)
-        client = CosS3Client(config)
 
         if force:
             for p in LOCAL_LOGO_DIR.iterdir():
@@ -344,9 +333,18 @@ def _fallback_logos() -> list[dict]:
 
 
 def get_all_logos_with_urls() -> list[dict]:
-    """获取所有 Logo 列表：优先 COS，其次本地 images/logo。异常时返回 fallback 列表。"""
+    """获取所有 Logo 列表：生产优先 COS；本地开发可优先 images/logo。异常时返回 fallback 列表。"""
     global _cos_cache, _using_local
     try:
+        from backend.core.cos_client import prefer_local_assets
+
+        if prefer_local_assets():
+            local = _scan_local_logos()
+            if local:
+                _cos_cache = local
+                _using_local = True
+                return local
+
         cos = _scan_cos_logos()
         if cos:
             _using_local = False
@@ -389,8 +387,9 @@ def get_logo_local_path(key: str) -> Path | None:
 
 def _download_url_to_path(url: str, local_path: Path, timeout: float = 15.0) -> None:
     """带超时的 HTTP 下载，避免 PDF 编译阶段 urlretrieve 无限挂起。"""
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     req = urllib.request.Request(url, headers={"User-Agent": "Resume-Agent/1.0"})
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with opener.open(req, timeout=timeout) as resp:
         local_path.write_bytes(resp.read())
 
 

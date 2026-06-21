@@ -13,6 +13,7 @@ def test_get_all_logos_prefers_cos_over_local(monkeypatch):
     local = [{"key": "tencent", "name": "腾讯", "url": "/api/logos/file/tencent", "keywords": ["腾讯"]}]
     cos = [{"key": "tencent", "name": "腾讯", "url": "https://cos.example.com/tencent.png", "keywords": ["腾讯"]}]
 
+    monkeypatch.setenv("LOG_MODE", "production")
     monkeypatch.setattr(company_logos, "_scan_cos_logos", lambda: cos)
     monkeypatch.setattr(company_logos, "_scan_local_logos", lambda: local)
     company_logos.clear_cache()
@@ -20,6 +21,20 @@ def test_get_all_logos_prefers_cos_over_local(monkeypatch):
     logos = company_logos.get_all_logos_with_urls()
 
     assert logos == cos
+
+
+def test_get_all_logos_prefers_local_in_non_production(monkeypatch):
+    local = [{"key": "tencent", "name": "腾讯", "url": "/api/logos/file/tencent", "keywords": ["腾讯"]}]
+    cos = [{"key": "tencent", "name": "腾讯", "url": "https://cos.example.com/tencent.png", "keywords": ["腾讯"]}]
+
+    monkeypatch.setenv("LOG_MODE", "console")
+    monkeypatch.setattr(company_logos, "_scan_cos_logos", lambda: cos)
+    monkeypatch.setattr(company_logos, "_scan_local_logos", lambda: local)
+    company_logos.clear_cache()
+
+    logos = company_logos.get_all_logos_with_urls()
+
+    assert logos == local
 
 
 def test_get_logo_cos_url_uses_company_logo_prefix():

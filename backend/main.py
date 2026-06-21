@@ -34,6 +34,10 @@ try:
 except Exception:
     pass
 
+from backend.core.local_network import ensure_local_no_proxy
+
+ensure_local_no_proxy()
+
 from backend.core.logger import bridge_std_logging_to_loguru, get_logger, setup_logging
 
 LOG_MODE = os.getenv("LOG_MODE", "console")

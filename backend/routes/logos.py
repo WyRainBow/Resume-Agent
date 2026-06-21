@@ -4,6 +4,7 @@
 - GET  /api/logos/file/{key}  获取本地 Logo 图片（当使用 images/logo 时）
 - POST /api/logos/upload    上传自定义 Logo 到 COS
 """
+import asyncio
 import os
 import logging
 import mimetypes
@@ -45,7 +46,7 @@ async def get_logos():
     """获取所有可用的公司 Logo 列表（含 COS URL）。异常时始终返回 200 + 空列表，避免 500。"""
     try:
         m = _import_logos()
-        logos = m.get_all_logos_with_urls()
+        logos = await asyncio.to_thread(m.get_all_logos_with_urls)
         return JSONResponse(status_code=200, content={"logos": logos})
     except Exception as e:
         module_file = ""

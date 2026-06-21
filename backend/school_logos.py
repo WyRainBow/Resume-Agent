@@ -124,17 +124,11 @@ def _scan_local_school_logos() -> tuple[list[dict], list[dict]] | tuple[None, No
 
 
 def _list_cos_school_logo_keys() -> list[str]:
-    from qcloud_cos import CosConfig, CosS3Client
+    from backend.core.cos_client import build_cos_s3_client
 
-    secret_id = os.getenv("COS_SECRET_ID", "")
-    secret_key = os.getenv("COS_SECRET_KEY", "")
-    region = os.getenv("COS_REGION", "ap-guangzhou")
-    bucket = os.getenv("COS_BUCKET", "resumecos-1327706280")
-    if not secret_id or not secret_key:
+    client, bucket = build_cos_s3_client()
+    if client is None:
         return []
-
-    config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key)
-    client = CosS3Client(config)
 
     keys: list[str] = []
     for prefix in COS_PREFIXES:
@@ -212,6 +206,14 @@ def _scan_cos_school_logos() -> tuple[list[dict], list[dict]]:
 def get_all_school_logos_with_urls() -> list[dict]:
     global _using_local
 
+    from backend.core.cos_client import prefer_local_assets
+
+    if prefer_local_assets():
+        local_logos, _ = _scan_local_school_logos()
+        if local_logos:
+            _using_local = True
+            return local_logos
+
     cos_logos, _ = _scan_cos_school_logos()
     if cos_logos:
         _using_local = False
@@ -228,6 +230,14 @@ def get_all_school_logos_with_urls() -> list[dict]:
 
 def get_grouped_school_logos_with_urls() -> list[dict]:
     global _using_local
+
+    from backend.core.cos_client import prefer_local_assets
+
+    if prefer_local_assets():
+        local_logos, local_groups = _scan_local_school_logos()
+        if local_logos:
+            _using_local = True
+            return local_groups or []
 
     cos_logos, cos_groups = _scan_cos_school_logos()
     if cos_logos:
