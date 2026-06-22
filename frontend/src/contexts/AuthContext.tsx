@@ -3,6 +3,7 @@ import { isAuthWebEnabled } from '@/lib/runtimeEnv'
 import { getCurrentUser, login as loginApi, register as registerApi, setAuthToken } from '@/services/authService'
 import {
   fetchBetterAuthSession,
+  fetchLegacyUserId,
   redirectToAuthWebLogin,
   signOutBetterAuth,
   type BetterAuthSessionUser,
@@ -68,6 +69,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (sessionUser) {
             setUser(mapBetterAuthUser(sessionUser))
             setToken(BETTER_AUTH_TOKEN)
+            // 异步回填真实 legacy user.id（经 proxy + trusted headers），不阻塞首屏；
+            // 失败时保留 betterAuthUserId，id 维持 0，不影响登录态判断。
+            void fetchLegacyUserId().then((legacyId) => {
+              if (legacyId) {
+                setUser((prev) => (prev ? { ...prev, id: legacyId } : prev))
+              }
+            })
             return
           }
 
