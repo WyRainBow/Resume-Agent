@@ -15,6 +15,9 @@ dist/
 build/
 .vite/
 
+# CodeGraph 索引产物（本地代码图谱，不提交）
+.codegraph/
+
 # Environment
 .env
 .env.local
