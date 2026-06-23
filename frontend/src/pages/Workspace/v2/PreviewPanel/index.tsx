@@ -3,7 +3,7 @@
  * 支持 LaTeX PDF 渲染和 HTML 模板实时预览
  */
 import { useState, useRef, useEffect } from 'react'
-import { Download, RefreshCw, FileText, Sparkles, Minus, Plus } from 'lucide-react'
+import { Download, RefreshCw, FileText, Sparkles, Minus, Plus, AlertTriangle } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { PDFViewerSelector } from '../../../../components/PDFEditor'
 import { HTMLTemplateRenderer } from '../HTMLTemplateRenderer'
@@ -85,10 +85,15 @@ export function PreviewPanel({
   }
 
   const displayPercent = Math.round(effectiveScale * 100)
-  const showStatus = !isHTMLTemplate && (loading || autoRenderPending)
+  // 渲染失败时 usePDFOperations 会把错误留在 progress 且 loading 置 false（成功则清空 progress）。
+  // 据此把终态错误与进度区分开，避免错误信息被当成进度条静默吞掉。
+  const hasRenderError = !isHTMLTemplate && !loading && progress.trim() !== ''
+  const showStatus = !isHTMLTemplate && (loading || autoRenderPending || hasRenderError)
   const statusText = loading
     ? (progress || '正在更新 PDF 预览...')
-    : '已记录修改:停止输入 2 秒后更新预览'
+    : hasRenderError
+      ? progress
+      : '已记录修改:停止输入 2 秒后更新预览'
 
   const applyPercentInput = (raw: string) => {
     const n = parseFloat(raw.replace(/[^\d.]/g, ''))
@@ -172,11 +177,15 @@ export function PreviewPanel({
       {showStatus && (
         <div className={cn(
           "px-4 py-2.5 text-sm font-medium flex items-center gap-2",
-          loading
-            ? "bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 text-indigo-600 dark:text-indigo-400 border-b border-indigo-100 dark:border-indigo-800/30"
-            : "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/15 dark:to-orange-900/15 text-amber-700 dark:text-amber-300 border-b border-amber-100 dark:border-amber-800/30"
+          hasRenderError
+            ? "bg-gradient-to-r from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 text-red-600 dark:text-red-400 border-b border-red-100 dark:border-red-800/30 whitespace-pre-line"
+            : loading
+              ? "bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 text-indigo-600 dark:text-indigo-400 border-b border-indigo-100 dark:border-indigo-800/30"
+              : "bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/15 dark:to-orange-900/15 text-amber-700 dark:text-amber-300 border-b border-amber-100 dark:border-amber-800/30"
         )}>
-          {loading ? (
+          {hasRenderError ? (
+            <AlertTriangle className="w-4 h-4 shrink-0" />
+          ) : loading ? (
             <Sparkles className="w-4 h-4 animate-pulse" />
           ) : (
             <FileText className="w-4 h-4" />

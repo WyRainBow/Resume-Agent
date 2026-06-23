@@ -182,6 +182,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
     baseUrl = getApiBaseUrl(),
     resumeData,
     onSSEEvent,
+    heartbeatTimeout = 0,
   } = options;
 
   const [currentThought, setCurrentThought] = useState("");
@@ -267,6 +268,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
             baseUrl,
             signal: controller.signal,
             headers: authHeaders,
+            idleTimeoutMs: heartbeatTimeout,
             onEvent: (event) => {
               emitToPage(event);
 
@@ -348,6 +350,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
       resetStreamBuffers,
       conversationId,
       baseUrl,
+      heartbeatTimeout,
     ],
   );
 

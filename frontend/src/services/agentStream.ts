@@ -20,6 +20,9 @@ export interface AgentStreamHandlers {
   signal?: AbortSignal;
   baseUrl?: string;
   headers?: Record<string, string>;
+  /** 流式读取的空闲超时（毫秒）：超过该时长未收到任何数据块即判定连接中断。
+   *  后端每 55s 发心跳，故 60s 余量足够；传 <=0 或不传则不启用。 */
+  idleTimeoutMs?: number;
   onResumePatch?: (patch: {
     patch_id: string
     paths:    string[]
@@ -108,6 +111,7 @@ export async function streamAgent(
     signal,
     baseUrl = getApiBaseUrl(),
     headers = {},
+    idleTimeoutMs = 0,
   } = handlers;
 
   let doneEmitted = false;
@@ -150,8 +154,41 @@ export async function streamAgent(
     const decoder = new TextDecoder();
     let buffer = "";
 
+    // 空闲看门狗：每个数据块（含后端心跳）到达即重置；超过 idleTimeoutMs 仍无任何块，
+    // 判定为静默断流，取消 reader 并以超时错误退出，避免前端一直卡在“生成中”。
+    let idleTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearIdle = () => {
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+        idleTimer = null;
+      }
+    };
+    const readChunk = (): Promise<ReadableStreamReadResult<Uint8Array>> => {
+      if (idleTimeoutMs <= 0) return reader.read();
+      return new Promise((resolve, reject) => {
+        idleTimer = setTimeout(() => {
+          reader.cancel().catch(() => {});
+          reject(
+            new Error(
+              `流式响应空闲超过 ${Math.round(idleTimeoutMs / 1000)} 秒，连接可能已中断，请重试`,
+            ),
+          );
+        }, idleTimeoutMs);
+        reader.read().then(
+          (result) => {
+            clearIdle();
+            resolve(result);
+          },
+          (error) => {
+            clearIdle();
+            reject(error);
+          },
+        );
+      });
+    };
+
     while (true) {
-      const { done, value } = await reader.read();
+      const { done, value } = await readChunk();
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
