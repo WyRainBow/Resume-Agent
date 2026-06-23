@@ -226,7 +226,7 @@ export function ResumeDiffCard({ patch }: { patch: PendingPatch }) {
           <button
             type="button"
             onClick={() => applyPatch(patch.patch_id)}
-            className="flex-1 rounded-lg border border-blue-600 bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-700 hover:border-blue-700"
+            className="flex-1 rounded-lg border border-blue-600 bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-all active:scale-[0.98] hover:bg-blue-700 hover:border-blue-700"
           >
             <Check className="-mt-0.5 mr-1 inline-block h-4 w-4" />
             应用
@@ -234,7 +234,7 @@ export function ResumeDiffCard({ patch }: { patch: PendingPatch }) {
           <button
             type="button"
             onClick={() => rejectPatch(patch.patch_id)}
-            className="flex-1 rounded-lg border border-chat-border bg-white py-2.5 text-sm font-medium text-chat-ink transition-colors hover:bg-chat-canvas"
+            className="flex-1 rounded-lg border border-chat-border bg-white dark:bg-slate-800 py-2.5 text-sm font-medium text-chat-ink transition-all active:scale-[0.98] hover:bg-chat-canvas dark:hover:bg-slate-700"
           >
             <X className="-mt-0.5 mr-1 inline-block h-4 w-4" />
             拒绝
