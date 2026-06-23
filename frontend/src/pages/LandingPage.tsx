@@ -89,17 +89,17 @@ const PAIN_POINTS = [
   {
     icon: Moon,
     title: '改到半夜还是没底',
-    desc: '一句话经历不知道怎么写成简历，反复删改，仍然不确定写得够不够好。'
+    desc: '一句话经历不知道怎么写成简历、反复删改、仍然不确定写得够不够好。'
   },
   {
     icon: Frown,
     title: '投了几十份没回音',
-    desc: '不知道简历到底卡在哪、缺了什么关键词，也没人帮你对照岗位诊断。'
+    desc: '不知道简历到底卡在哪、缺了什么关键词、也没人帮你对照岗位诊断。'
   },
   {
     icon: Clock,
     title: '时间全耗在排版上',
-    desc: 'Word 调格式、对齐、换字体，真正该打磨的内容反而没精力顾。'
+    desc: 'Word 调格式、对齐、换字体、真正该打磨的内容反而没精力顾。'
   }
 ] as const
 
@@ -108,17 +108,17 @@ const STEPS = [
   {
     icon: ScanLine,
     title: '输入或导入',
-    desc: '一句话描述经历，或上传已有 PDF / 文本简历一键解析为可编辑结构。'
+    desc: '一句话描述经历、或上传已有 PDF / 文本简历一键解析为可编辑结构。'
   },
   {
     icon: Wand2,
     title: 'AI 协助打磨',
-    desc: '划词润色、按 JD 补缺口、多维评分给建议，对话式改到满意为止。'
+    desc: '划词润色、按 JD 补缺口、多维评分给建议、对话式改到满意为止。'
   },
   {
     icon: Download,
     title: '导出投递',
-    desc: 'LaTeX 排版实时预览，一键导出干净无水印的 A4 PDF，直接投递。'
+    desc: 'LaTeX 排版实时预览、一键导出干净无水印的 A4 PDF、直接投递。'
   }
 ] as const
 
@@ -514,10 +514,10 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <motion.div {...reveal} className="max-w-2xl">
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
-              写简历的累，你应该最懂
+              写简历的累、你应该最懂
             </h2>
             <p className="mt-4 text-base text-slate-600 dark:text-slate-400 leading-relaxed">
-              不是你不会写，是没人陪你把零散经历理清楚、对着岗位改到位。
+              不是你不会写、是没人陪你把零散经历理清楚、对着岗位改到位。
             </p>
           </motion.div>
 
