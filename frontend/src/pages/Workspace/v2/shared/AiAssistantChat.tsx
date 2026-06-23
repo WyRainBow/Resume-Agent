@@ -316,7 +316,7 @@ export default function AiAssistantChat({ resumeData, onJdOptimize, jdReady, onF
               {messages.length === 0 && (
                 <div className="text-center text-xs text-neutral-400 dark:text-neutral-500 mt-8 px-4 leading-relaxed">
                   有简历或求职问题都可以问我。<br />
-                  在正文里<strong>选中一段文字</strong>，还能直接让我改写并写回
+                  在正文里<strong>选中一段文字</strong>、还能直接让我改写并写回
                 </div>
               )}
               {messages.map((m) => (
