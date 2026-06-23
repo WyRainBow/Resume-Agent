@@ -154,7 +154,7 @@ export default function AccountPage() {
           <div className="flex items-start gap-2.5">
             <CreditCard className="w-5 h-5 text-slate-400 mt-0.5 shrink-0" />
             <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-              支付功能即将开放，账单与发票将在这里展示。
+              支付功能即将开放、账单与发票将在这里展示。
             </p>
           </div>
         </div>
