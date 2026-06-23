@@ -138,7 +138,18 @@ export default defineConfig(({ mode }) => {
     }
   },
   optimizeDeps: {
-    exclude: ['pdfjs-dist']
+    exclude: ['pdfjs-dist'],
+    // 预构建 Agent 对话页（懒加载 SophiaChat）才用到的重型 markdown / 图表依赖，
+    // 避免首次进入 /agent/new 时 Vite 才发现并即时重新优化，引发整页 reload 闪屏。
+    include: [
+      'react-markdown',
+      'remark-gfm',
+      'remark-breaks',
+      'mermaid',
+      'react-syntax-highlighter',
+      'react-syntax-highlighter/dist/esm/styles/prism',
+      'pdf-lib'
+    ]
   },
   worker: {
     format: 'es'
