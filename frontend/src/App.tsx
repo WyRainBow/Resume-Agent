@@ -1,6 +1,7 @@
 import { Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AuthModal } from './components/AuthModal'
+import { ChangelogModal } from './components/ChangelogModal'
 import { ThemeInit } from './components/ThemeInit'
 import ErrorBoundary from './ErrorBoundary'
 import { lazyWithRetry } from './lib/lazyWithRetry'
@@ -95,6 +96,7 @@ function App() {
             </Routes>
           </Suspense>
           <AuthModal />
+          <ChangelogModal />
         </BrowserRouter>
         </ResumeProvider>
       </ErrorBoundary>
