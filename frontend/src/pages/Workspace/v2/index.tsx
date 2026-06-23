@@ -22,6 +22,8 @@ import { stripHtmlTags } from './utils/textUtils'
 
 type EditMode = 'click' | 'scroll' | 'json'
 const PDF_RENDER_DEBOUNCE_MS = 2000
+// 首次加载的自动渲染延迟：短一点，打开工作台即出预览
+const PDF_RENDER_INITIAL_DELAY_MS = 300
 
 export default function WorkspaceV2() {
   // 编辑模式状态
@@ -190,7 +192,10 @@ export default function WorkspaceV2() {
     if (resumeData.templateType === 'html') return
     if (!autoRenderInitializedRef.current) {
       autoRenderInitializedRef.current = true
+      // 首次加载也自动渲染预览（渲染对所有人开放，无需登录）
+      hasPendingRenderRef.current = true
       setIsAutoRenderPending(false)
+      scheduleRender(PDF_RENDER_INITIAL_DELAY_MS)
       return
     }
     hasPendingRenderRef.current = true
