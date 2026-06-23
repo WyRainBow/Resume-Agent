@@ -153,13 +153,13 @@ export default function AgentPdfPreviewPanel({
         {!pdfBlob && !loading && error && (
           <div className="flex h-full min-h-[320px] items-center justify-center px-6">
             <div className="max-w-sm text-center">
-              <p className="text-sm text-red-500">{error}</p>
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
               <button
                 type="button"
                 onClick={onRerender}
-                className="mt-3 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-100 active:scale-[0.98] dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-400 dark:hover:bg-blue-900/40"
               >
-                点击重试
+                <RefreshCw className="size-3.5" /> 点击重试
               </button>
             </div>
           </div>

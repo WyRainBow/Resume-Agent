@@ -4074,23 +4074,23 @@ function SophiaChatContent() {
             <CustomScrollbar as="main" className="flex-1 px-4 py-8 flex flex-col">
               <div className="max-w-3xl mx-auto w-full flex-1 flex flex-col">
                 {loadingResume && (
-                  <div className="text-sm text-gray-400 mb-4">
+                  <div className="text-sm text-gray-400 dark:text-slate-500 mb-4">
                     正在加载简历...
                   </div>
                 )}
                 {resumeError && (
-                  <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
-                    <span className="text-sm text-red-600 flex-1">{resumeError}</span>
+                  <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-lg mb-4">
+                    <span className="text-sm text-red-600 dark:text-red-400 flex-1">{resumeError}</span>
                     <button
                       onClick={() => navigator.clipboard.writeText(resumeError)}
-                      className="text-xs text-red-500 hover:text-red-700 underline shrink-0"
+                      className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 underline shrink-0"
                     >
                       复制
                     </button>
                   </div>
                 )}
                 {isLoadingSession && (
-                  <div className="text-xs text-gray-400 mb-4">
+                  <div className="text-xs text-gray-400 dark:text-slate-500 mb-4">
                     正在加载会话...
                   </div>
                 )}

@@ -102,7 +102,7 @@ export default function Composer({
               type="button"
               onClick={onClickUpload}
               disabled={isProcessing || isUploadingFile}
-              className={`size-8 rounded-full border flex items-center justify-center transition-colors ${
+              className={`size-8 rounded-full border flex items-center justify-center transition-all active:scale-95 ${
                 isProcessing || isUploadingFile
                   ? "cursor-not-allowed border-chat-border/60 text-chat-ink-muted/40 dark:border-slate-600 dark:text-slate-500"
                   : "border-chat-border text-chat-ink-muted hover:border-chat-accent/50 hover:text-chat-accent-deep dark:border-slate-600"
@@ -117,7 +117,7 @@ export default function Composer({
               type="button"
               onClick={onShowResumeSelector}
               disabled={isProcessing}
-              className={`h-8 rounded-lg border px-2.5 flex items-center gap-1.5 transition-colors ${
+              className={`h-8 rounded-lg border px-2.5 flex items-center gap-1.5 transition-all active:scale-95 ${
                 isProcessing
                   ? "cursor-not-allowed border-chat-border/60 text-chat-ink-muted/40 dark:border-slate-600 dark:text-slate-500"
                   : isResumePreviewActive
@@ -136,7 +136,7 @@ export default function Composer({
             <button
               type="submit"
               disabled={isProcessing || isUploadingFile}
-              className={`size-8 rounded-full flex items-center justify-center transition-colors shadow-sm ${
+              className={`size-8 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-sm ${
                 isProcessing || isUploadingFile
                   ? "cursor-not-allowed border border-chat-border bg-chat-canvas text-chat-ink-muted dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
                   : "border border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700"
@@ -151,7 +151,7 @@ export default function Composer({
               type="button"
               onClick={isVoiceRecording ? onStopVoiceRecording : onStartVoiceRecording}
               disabled={isProcessing || isVoiceProcessing}
-              className={`size-8 rounded-full flex items-center justify-center transition-all ${
+              className={`size-8 rounded-full flex items-center justify-center transition-all active:scale-95 ${
                 isVoiceRecording
                   ? "animate-pulse bg-red-500 text-white"
                   : isVoiceSpeaking
