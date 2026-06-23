@@ -45,3 +45,16 @@
 - `/pricing` 未做：与定价/计费强绑定，按"支付暂不接入"刻意排除。
 - 法务文案为通用模板措辞，正式商用前建议法务复核；邮箱 `support@resumegenkk.xyz` 需确保可达。
 - 仅本地 dev 实测；生产可访问性随主站部署验证。
+
+## 5. 承接：Landing 使用流程区 + FAQ（commit 8722896）
+
+法务页上线后，按刘小排 `02-landing-page.md` 的页面层级补齐首页两屏缺失内容，
+均零支付依赖，且 FAQ 承接上述法务页：
+
+- **使用流程区**：输入/导入 → AI 协助打磨 → 导出投递，三步卡片（`frontend/src/pages/LandingPage.tsx`）。
+- **FAQ 区**：费用 / 格式 / 隐私 / AI 可靠性 / 退款 五问；隐私→`/privacy`、可靠性→`/terms`、退款→`/refund`。
+  轻量手风琴（`openFaq` state + framer-motion 高度过渡），首项默认展开。
+- 验证：`npm run build` ✓ 7.30s；Playwright 实测两屏渲染、FAQ 单开折叠、法务页内链跳转均正确。
+
+> 用户中心 `/account`、History 页**有意未做**：其 Plan/Usage/Billing/History 模块依赖额度与支付后端，
+> 在"支付暂不接入"约束下属推测性占位，按 CLAUDE.md「不做推测性设计」暂缓。
