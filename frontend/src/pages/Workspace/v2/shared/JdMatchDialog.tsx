@@ -65,7 +65,7 @@ export default function JdMatchDialog({
             <div>
               <h2 className="text-base font-semibold text-neutral-800 dark:text-neutral-100">JD 匹配优化</h2>
               <p className="text-xs text-neutral-500 dark:text-neutral-400">
-                粘贴目标岗位描述、AI 分析匹配度并按 JD 优化简历
+                粘贴目标岗位描述:AI 分析匹配度并按 JD 优化简历
               </p>
             </div>
           </div>
@@ -86,12 +86,12 @@ export default function JdMatchDialog({
             ref={textareaRef}
             value={jdText}
             onChange={e => onJdTextChange(e.target.value)}
-            placeholder="粘贴目标岗位的职位描述，例如：负责后端微服务架构设计与落地，要求熟悉 Go / Kubernetes / gRPC……"
+            placeholder="粘贴目标岗位的职位描述：例如：负责后端微服务架构设计与落地、要求熟悉 Go / Kubernetes / gRPC……"
             className="w-full min-h-[140px] p-3 border border-neutral-200 dark:border-neutral-800 dark:bg-neutral-900 rounded-lg text-sm resize-y focus:outline-none focus:ring-2 focus:ring-blue-500/40"
           />
 
           {!jdFilled && (
-            <p className="mt-2 text-xs text-neutral-400">粘贴完整 JD 后，AI 会自动分析简历与岗位的匹配度。</p>
+            <p className="mt-2 text-xs text-neutral-400">粘贴完整 JD 后、AI 会自动分析简历与岗位的匹配度。</p>
           )}
 
           {jdFilled && scoring && !scoreData && (

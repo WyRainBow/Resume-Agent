@@ -12,47 +12,50 @@ interface ScoreCardProps {
   jdText: string;
 }
 
-export const ScoreCard: React.FC<ScoreCardProps> = ({ overallScore, dimensions, jdText }) => {
-  const getScoreColorClass = (score: number) => {
-    if (score >= 80) return 'text-green-500';
-    if (score >= 60) return 'text-yellow-500';
-    return 'text-red-500';
-  };
+function scoreColor(score: number): string {
+  if (score >= 80) return 'text-emerald-500';
+  if (score >= 60) return 'text-amber-500';
+  return 'text-red-500';
+}
 
+export const ScoreCard: React.FC<ScoreCardProps> = ({ overallScore, dimensions }) => {
   return (
-    <div className="score-card p-4 border border-gray-200 rounded-lg mt-4">
-      <h3 className="mb-3">简历评分</h3>
+    <div className="mt-4 rounded-lg border border-neutral-200 dark:border-neutral-800 bg-neutral-50/60 dark:bg-neutral-800/30 p-4">
+      <div className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-2">匹配度评分</div>
 
-      <div className="mb-4">
-        <span className={`text-2xl font-bold ${getScoreColorClass(overallScore)}`}>
-          {overallScore}
-        </span>
-        <span className="text-gray-500"> / 100 总体匹配度</span>
+      <div className="flex items-baseline gap-1.5 mb-3">
+        <span className={`text-2xl font-bold tabular-nums ${scoreColor(overallScore)}`}>{overallScore}</span>
+        <span className="text-xs text-neutral-400">/ 100</span>
       </div>
 
-      <div className="flex gap-3 mb-4">
-        {dimensions.map((dim) => (
-          <div key={dim.name} className="flex-1 p-3 bg-gray-100 rounded-md">
-            <div className="text-sm text-gray-500 mb-1">{dim.name}</div>
-            <div className={`text-xl font-bold ${getScoreColorClass(dim.score)}`}>
-              {dim.score}
+      {dimensions.length > 0 && (
+        <div className="flex gap-2 mb-4">
+          {dimensions.map((dim) => (
+            <div
+              key={dim.name}
+              className="flex-1 rounded-md border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 px-3 py-2 text-center"
+            >
+              <div className="text-[11px] text-neutral-500 dark:text-neutral-400 mb-0.5">{dim.name}</div>
+              <div className={`text-lg font-bold tabular-nums ${scoreColor(dim.score)}`}>{dim.score}</div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
-      <div className="mt-4">
-        <h4 className="text-sm mb-2">详细分析</h4>
-        {dimensions.map((dim) => (
-          <div key={dim.name} className="mb-3">
-            <div className="font-bold mb-1">{dim.name}</div>
-            <ul className="m-0 pl-5 text-[13px] text-gray-500">
-              {dim.reasons.map((reason, idx) => (
-                <li key={idx}>{reason}</li>
-              ))}
-            </ul>
-          </div>
-        ))}
+      <div className="space-y-2.5">
+        {dimensions.map(
+          (dim) =>
+            dim.reasons.length > 0 && (
+              <div key={dim.name}>
+                <div className="text-xs font-medium text-neutral-700 dark:text-neutral-300 mb-1">{dim.name}</div>
+                <ul className="list-disc pl-4 space-y-0.5 text-xs text-neutral-500 dark:text-neutral-400">
+                  {dim.reasons.map((reason, idx) => (
+                    <li key={idx}>{reason}</li>
+                  ))}
+                </ul>
+              </div>
+            )
+        )}
       </div>
     </div>
   );
