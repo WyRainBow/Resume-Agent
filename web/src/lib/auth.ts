@@ -25,6 +25,20 @@ if (process.env.NODE_ENV !== "production") {
   globalForAuth.authPgPool = pool;
 }
 
+const cookieDomain = process.env.BETTER_AUTH_COOKIE_DOMAIN;
+
+const trustedOrigins = Array.from(
+  new Set(
+    [
+      process.env.BETTER_AUTH_URL || "http://localhost:3000",
+      ...(process.env.AUTH_PROXY_ALLOWED_ORIGINS
+        ?.split(",")
+        .map((origin) => origin.trim().replace(/\/$/, ""))
+        .filter(Boolean) || []),
+    ].filter(Boolean),
+  ),
+);
+
 export const auth = betterAuth({
   appName: "Resume Agent",
   baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
@@ -32,9 +46,22 @@ export const auth = betterAuth({
     process.env.BETTER_AUTH_SECRET ||
     "development-only-change-me-before-production-32-chars",
   database: pool,
+  trustedOrigins,
   emailAndPassword: {
     enabled: true,
   },
+  // 鉴权层与前端在同一根域的不同子域（如 auth.example.com / example.com）时，
+  // 需要把会话 cookie 种到根域，前端才能跨子域读到登录态。
+  advanced: cookieDomain
+    ? {
+        // 跨子域 cookie 走 SameSite=None，必须强制 Secure，否则浏览器拒收
+        useSecureCookies: true,
+        crossSubDomainCookies: {
+          enabled: true,
+          domain: cookieDomain,
+        },
+      }
+    : undefined,
   socialProviders: {
     google: {
       clientId: process.env.AUTH_GOOGLE_ID || process.env.GOOGLE_CLIENT_ID || "",
