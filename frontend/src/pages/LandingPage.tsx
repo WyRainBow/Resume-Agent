@@ -2,7 +2,6 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import {
   ChevronRight,
   LogIn,
-  User,
   LogOut,
   Github,
   MessageCircle,
@@ -25,6 +24,7 @@ import {
 import { useEffect, useState, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { Avatar } from '@/components/Avatar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/hooks/useTheme'
 import { isAgentEnabled } from '@/lib/runtimeEnv'
@@ -443,11 +443,9 @@ export default function LandingPage() {
           <motion.h1
             {...popIn}
             transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.12 }}
-            className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.12] text-slate-900 dark:text-white"
+            className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.1] text-slate-900 dark:text-white"
           >
-            把经历、写成一份
-            <br className="hidden sm:block" />
-            <span className="text-blue-600 dark:text-blue-400">打动 HR</span> 的简历
+            一站式<span className="text-blue-600 dark:text-blue-400">简历工程</span>
           </motion.h1>
 
           <motion.p
@@ -785,18 +783,21 @@ export default function LandingPage() {
         {isAuthenticated ? (
           <div className="relative">
             <motion.div
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              className="flex items-center gap-3 px-4 py-2.5 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer group"
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              className="flex items-center gap-2.5 pl-2 pr-4 py-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-full shadow-lg shadow-slate-900/5 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all cursor-pointer"
               onClick={() => setShowLogoutMenu(!showLogoutMenu)}
             >
-              <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors">
-                <User className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">已登录</span>
-                <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{user?.username || user?.email}</span>
-              </div>
+              <Avatar
+                src={user?.image}
+                name={user?.username}
+                email={user?.email}
+                className="w-8 h-8"
+                textClassName="text-sm"
+              />
+              <span className="text-sm font-bold text-slate-900 dark:text-slate-100 max-w-[150px] truncate">
+                {user?.username || user?.email}
+              </span>
             </motion.div>
 
             {/* 退出按钮下拉菜单 */}
