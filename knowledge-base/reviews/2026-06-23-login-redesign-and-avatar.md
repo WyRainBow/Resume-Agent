@@ -59,3 +59,21 @@ JSX 改动能热更新，但 CSS pipeline 缓存独立、不失效。
   登录态刷新自验（破图问题由 referrerPolicy 修复）
 - CDP 截图脚本留存于本会话 scratchpad（`cdp_shot.py` / `cdp_check.py` / `cdp_fill.py`），
   关键技巧：`websocket.create_connection(..., suppress_origin=True)` 绕过 9222 的 Origin 校验
+- 登录态（coco yu）补验：Google 头像在侧栏 / 设置卡 / 账户页均正常加载（破图已修复）；
+  「我的账户」订阅状态/今日用量/账单卡渲染正确；侧栏「账户与额度」入口与额度数字正常
+
+## 6. 账户中心归一（架构决策）
+
+此前有两个 `/account`：前端 `5173/account`(「我的账户」) 与鉴权层 `3000/account`(「账户与权益中心」)，
+内容重叠、用户跳转易混。决策：
+
+- **`5173/account`「我的账户」= 唯一面向用户的账户中心**。已并入鉴权层独有的今日用量、
+  订阅状态，新增账单占位卡；数据统一来自 `fetchUserEntitlement()`（`/api/auth/better/account`）。
+- **`3000/account` 退回纯登录 / OAuth 桥**：登录卡 + 登录后自动跳回 returnTo，其登录态仪表盘
+  不再作为用户入口（正常流程几乎不展示）。未删除，作为 OAuth 落地页保留。
+- 工作台侧栏与「我的简历」顶部入口均指向 `5173/account`。
+
+## 7. 文案风格
+
+按用户偏好，并列短语/分句统一用顿号（、）而非逗号（，）：定价页、首页痛点区 /
+功能卡 / 使用流程文案均已调整。后续新增中文文案沿用此风格。
