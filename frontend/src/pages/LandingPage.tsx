@@ -21,6 +21,7 @@ import {
   CornerDownLeft
 } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
+import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/hooks/useTheme'
@@ -80,6 +81,73 @@ const CAPABILITIES = [
     variant: 'pdf'
   }
 ] as const
+
+// 使用流程：输入 -> 处理 -> 得到结果（对应"买时间"链路里的体验环节）
+const STEPS = [
+  {
+    icon: ScanLine,
+    title: '输入或导入',
+    desc: '一句话描述经历，或上传已有 PDF / 文本简历一键解析为可编辑结构。'
+  },
+  {
+    icon: Wand2,
+    title: 'AI 协助打磨',
+    desc: '划词润色、按 JD 补缺口、多维评分给建议，对话式改到满意为止。'
+  },
+  {
+    icon: Download,
+    title: '导出投递',
+    desc: 'LaTeX 排版实时预览，一键导出干净无水印的 A4 PDF，直接投递。'
+  }
+] as const
+
+// FAQ：解释费用、格式、隐私、可靠性与退款，承接页脚法务页
+const FAQ_ITEMS: { q: string; a: ReactNode }[] = [
+  {
+    q: '这个产品收费吗？',
+    a: '当前完全免费、不限 Token、无需付费即可使用全部简历制作功能。'
+  },
+  {
+    q: '支持导入哪些简历格式？',
+    a: '支持 PDF 与纯文本简历，上传后会自动解析为可编辑的结构化内容。'
+  },
+  {
+    q: '我的简历数据安全吗？',
+    a: (
+      <>
+        我们仅在为你提供功能所必需的范围内处理简历数据，具体收集与使用方式见{' '}
+        <Link to="/privacy" className="text-blue-600 dark:text-blue-400 hover:underline">
+          隐私政策
+        </Link>
+        。
+      </>
+    )
+  },
+  {
+    q: 'AI 生成的内容可靠吗？',
+    a: (
+      <>
+        AI 生成的文本与建议仅供参考，可能存在不准确之处，请在采用前自行核对，详见{' '}
+        <Link to="/terms" className="text-blue-600 dark:text-blue-400 hover:underline">
+          服务条款
+        </Link>
+        。
+      </>
+    )
+  },
+  {
+    q: '未来会收费吗？能退款吗？',
+    a: (
+      <>
+        当前以免费功能为主。如未来推出付费额度，计费与退款规则将提前公示，可先参阅{' '}
+        <Link to="/refund" className="text-blue-600 dark:text-blue-400 hover:underline">
+          退款政策
+        </Link>
+        。
+      </>
+    )
+  }
+]
 
 // 自然语言生成卡内的小型"命令条"预览（real component preview，非 fake screenshot）
 function CommandBar() {
@@ -176,6 +244,7 @@ export default function LandingPage() {
   const [showLogoutMenu, setShowLogoutMenu] = useState(false)
   const [showWechatCard, setShowWechatCard] = useState(false)
   const [githubStars, setGithubStars] = useState<number | null>(null)
+  const [openFaq, setOpenFaq] = useState<number | null>(0)
   const logoutMenuRef = useRef<HTMLDivElement>(null)
   const wechatMenuRef = useRef<HTMLDivElement>(null)
 
@@ -466,6 +535,101 @@ export default function LandingPage() {
                   {cap.variant === 'command' && <CommandBar />}
                   {cap.variant === 'pdf' && <PdfPreview />}
                 </motion.div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* 使用流程区：三步 */}
+      <section className="px-6 py-20 sm:py-24 bg-slate-50 dark:bg-slate-900/40 border-y border-slate-200 dark:border-slate-800">
+        <div className="max-w-6xl mx-auto">
+          <motion.div {...reveal} className="max-w-2xl">
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
+              三步、把零散经历变成能投的简历
+            </h2>
+            <p className="mt-4 text-base text-slate-600 dark:text-slate-400 leading-relaxed">
+              从输入到导出、全程 AI 协助、不需要排版、不需要纠结措辞。
+            </p>
+          </motion.div>
+
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-5">
+            {STEPS.map((step, i) => {
+              const Icon = step.icon
+              return (
+                <motion.div
+                  key={step.title}
+                  initial={reduceMotion ? false : { opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.3 }}
+                  transition={{ duration: 0.55, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                  className="relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 sm:p-7"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-blue-600 text-white">
+                      <Icon className="w-5 h-5" />
+                    </div>
+                    <span className="text-4xl font-black text-slate-100 dark:text-slate-800 leading-none select-none">
+                      {i + 1}
+                    </span>
+                  </div>
+                  <h3 className="mt-5 text-lg font-bold text-slate-900 dark:text-slate-100">{step.title}</h3>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{step.desc}</p>
+                </motion.div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ 区 */}
+      <section className="px-6 py-20 sm:py-28">
+        <div className="max-w-3xl mx-auto">
+          <motion.div {...reveal} className="text-center">
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
+              常见问题
+            </h2>
+            <p className="mt-4 text-base text-slate-600 dark:text-slate-400 leading-relaxed">
+              关于费用、格式、隐私与可靠性的解答。
+            </p>
+          </motion.div>
+
+          <div className="mt-10 divide-y divide-slate-200 dark:divide-slate-800 border-y border-slate-200 dark:border-slate-800">
+            {FAQ_ITEMS.map((item, i) => {
+              const open = openFaq === i
+              return (
+                <div key={item.q}>
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaq(open ? null : i)}
+                    aria-expanded={open}
+                    className="w-full flex items-center justify-between gap-4 py-5 text-left group"
+                  >
+                    <span className="text-[15px] sm:text-base font-semibold text-slate-900 dark:text-slate-100">
+                      {item.q}
+                    </span>
+                    <ChevronRight
+                      className={`w-5 h-5 shrink-0 text-slate-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-transform ${
+                        open ? 'rotate-90' : ''
+                      }`}
+                    />
+                  </button>
+                  <AnimatePresence initial={false}>
+                    {open && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+                        className="overflow-hidden"
+                      >
+                        <p className="pb-5 text-[15px] leading-relaxed text-slate-600 dark:text-slate-400">
+                          {item.a}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               )
             })}
           </div>
