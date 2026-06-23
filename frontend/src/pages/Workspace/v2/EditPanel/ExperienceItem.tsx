@@ -105,6 +105,12 @@ function LogoSelector({
     // 重置 input，允许重复选择同一文件
     e.target.value = ''
 
+    // 前端预校验：与后端 2MB 限制一致，避免上传后才失败
+    if (file.size > 2 * 1024 * 1024) {
+      alert('图片过大，最大支持 2MB')
+      return
+    }
+
     setUploading(true)
     try {
       const newLogo = await uploadLogo(file)

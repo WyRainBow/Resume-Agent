@@ -42,6 +42,16 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
       return
     }
 
+    // 前端预校验：与后端 2MB / 图片类型限制一致，避免上传后才失败
+    if (!file.type.startsWith('image/')) {
+      alert('仅支持图片文件')
+      return
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      alert('图片过大，最大支持 2MB')
+      return
+    }
+
     setUploading(true)
     try {
       const result = await uploadUserPhoto(file, token)
@@ -220,7 +230,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg,image/webp"
                 onChange={handleFileChange}
                 className="hidden"
               />
