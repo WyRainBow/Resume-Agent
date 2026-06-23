@@ -28,7 +28,9 @@
 | `23ac741` | chore | `.gitignore` 忽略本地 codegraph 索引 |
 | `17de7b6` | feat | 法务页 terms/privacy/refund + 首页页脚入口 |
 | `8722896` | feat | 首页"使用流程区"+"FAQ 区" |
-| `8b1a437` | docs | 记录 Landing 增强 |
+| `8b1a437` / `52f879a` / `188a2e9` | docs | 记录 Landing 增强、会话总结、同步既有跟踪文档状态 |
+| `de0a88b` | feat | 首页"痛点区" |
+| `525a2a8` | fix(seo) | 修域名/favicon/theme-color + robots/sitemap |
 
 ### 1.1 登录闭环修复（`55a1426`）
 
@@ -73,6 +75,17 @@
   其中 3 问内链到法务页（`/privacy` `/terms` `/refund`），与 1.2 形成闭环。
 - 验证：`npm run build` ✓；Playwright 实测各屏渲染、FAQ 单开折叠、内链跳转均正确。
 
+### 1.4 SEO / 上线打磨（`525a2a8`）
+
+按刘小排 `07-launch-checklist.md` 的"SEO / 页面性能 / 社交分享图 / Logo和icon"打磨项，
+修 `frontend/index.html` 若干上线前真实缺陷（零支付依赖）：
+
+- og:url / twitter:url 写错域名 `resume-agent.com` → `resumegenkk.xyz`。
+- favicon 原引用 1.4MB `product-preview.png` → 478B 品牌 SVG（`public/favicon.svg`，RA 蓝标）。
+- 移除引用不存在文件的 `apple-touch-icon`（消除 404）；theme-color 黑绿 → 品牌蓝 `#2563eb`。
+- og/twitter image 改绝对 URL；新增 `public/robots.txt` + `sitemap.xml`（首页 + 三法务页）。
+- 验证：`npm run build` ✓；HTTP 实测 favicon.svg / robots.txt / sitemap.xml 均 200 + 正确 content-type。
+
 ---
 
 ## 2. 未做 / 刻意暂缓（含原因）
@@ -111,11 +124,21 @@
 
 ### 3.1 零支付依赖、可立即做（优先）
 
-- ~~Landing 痛点区~~ ✅ 已做。Landing 结构已对齐文档 `02`。仅剩 before/after 视觉或演示 GIF
-  （文档 `02` 建议的首屏视觉，目前 Hero 用真实产品截图，可选增强）。
-- **Settings 页完善**：`frontend/src/pages/Settings/index.tsx` 已存在（367 行，已含主题/语言/快捷键/导出/账号权限），
-  仅"删除账号"待补，但需后端 DELETE user 接口，非纯前端。
-- **登录缺口 3/4/6 中不依赖支付的部分**：Admin 权限改读 BetterAuth role（缺口 6）属纯代码，可做。
+> 来源：刘小排文档全量梳理（`01`–`10`），下列为已确认零支付依赖、可验证的剩余项。
+
+- ~~Landing 痛点区~~ ✅ 已做；~~SEO/favicon/robots~~ ✅ 已做（`525a2a8`）。
+- **首屏 before/after 视觉或演示 GIF**（文档 `02` 首屏视觉建议）：当前 Hero 用真实产品截图，可选增强。
+- **错误状态 / loading 友好提示巡检**（文档 `07` 产品体验检查、AI 功能检查）：
+  逐个核对核心链路（生成、解析、PDF 导出、上传）是否都有 loading 与失败提示、上传大小限制。
+- **移动端可用性巡检**（文档 `07` 产品体验检查"移动端是否可用"）：Landing 与工作台窄屏走查。
+- **文案精细化**（文档 `07` 打磨方向第 6）：首屏一句话、CTA 文案 A/B 候选。
+- **Admin 权限改读 BetterAuth role**（缺口 6，纯代码）：需先定 admin 指派机制，略有设计成本。
+- **Settings"删除账号"**：需后端 DELETE user 接口，非纯前端。
+
+### 3.x 战略类（文档判断框架，非编码）
+
+- 文档 `01`/`09`：MicroSaaS 想法验证、定价策略、获客 Playbook——属产品决策，不在代码范围。
+- 文档 `10`：提示词模板——可在需要时用于生成 Landing/用户分层文案。
 
 ### 3.2 需外部配置（非纯代码）
 
