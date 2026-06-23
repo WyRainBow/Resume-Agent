@@ -478,30 +478,32 @@ export default function WorkspaceLayout({
 
         {/* 底部：主题切换 + 登录组件（与导航风格统一） */}
         <div className="py-4 px-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30">
-          {/* 深色 / 浅色切换 */}
-          <button
-            type="button"
-            onClick={() => setTheme(isDark ? "light" : "dark")}
-            className={cn(
-              "w-full rounded-xl transition-all duration-300 mb-2",
-              "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200",
-              sidebarCollapsed
-                ? "flex flex-col items-center justify-center gap-1 py-2.5"
-                : "flex items-center gap-2.5 py-2.5 px-2.5",
-            )}
-            title={isDark ? "切换到浅色模式" : "切换到深色模式"}
-          >
-            {isDark ? (
-              <Sun className="w-5 h-5 shrink-0" />
-            ) : (
-              <Moon className="w-5 h-5 shrink-0" />
-            )}
-            {!sidebarCollapsed && (
-              <span className="text-sm font-medium">
-                {isDark ? "浅色模式" : "深色模式"}
-              </span>
-            )}
-          </button>
+          {/* 深色 / 浅色切换：登录态下移入用户下拉，未登录时保留此处 */}
+          {!isAuthenticated && (
+            <button
+              type="button"
+              onClick={() => setTheme(isDark ? "light" : "dark")}
+              className={cn(
+                "w-full rounded-xl transition-all duration-300 mb-2",
+                "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200",
+                sidebarCollapsed
+                  ? "flex flex-col items-center justify-center gap-1 py-2.5"
+                  : "flex items-center gap-2.5 py-2.5 px-2.5",
+              )}
+              title={isDark ? "切换到浅色模式" : "切换到深色模式"}
+            >
+              {isDark ? (
+                <Sun className="w-5 h-5 shrink-0" />
+              ) : (
+                <Moon className="w-5 h-5 shrink-0" />
+              )}
+              {!sidebarCollapsed && (
+                <span className="text-sm font-medium">
+                  {isDark ? "浅色模式" : "深色模式"}
+                </span>
+              )}
+            </button>
+          )}
 
           <div ref={logoutMenuRef} className="relative">
             {isAuthenticated ? (
@@ -518,16 +520,13 @@ export default function WorkspaceLayout({
                   )}
                   title={user?.username || user?.email}
                 >
-                  <div className="relative shrink-0">
-                    <Avatar
-                      src={user?.image}
-                      name={user?.username}
-                      email={user?.email}
-                      className="w-9 h-9 group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors"
-                      textClassName="text-sm"
-                    />
-                    <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" />
-                  </div>
+                  <Avatar
+                    src={user?.image}
+                    name={user?.username}
+                    email={user?.email}
+                    className="w-9 h-9 group-hover:bg-slate-200 dark:group-hover:bg-slate-700 transition-colors"
+                    textClassName="text-sm"
+                  />
                   {!sidebarCollapsed && (
                     <div className="flex flex-col items-start min-w-0 flex-1">
                       <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate w-full text-left">
@@ -586,6 +585,17 @@ export default function WorkspaceLayout({
                       >
                         <Settings className="w-4 h-4 shrink-0" />
                         个人设置
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTheme(isDark ? "light" : "dark")}
+                        className={cn(
+                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all",
+                          "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white",
+                        )}
+                      >
+                        {isDark ? <Sun className="w-4 h-4 shrink-0" /> : <Moon className="w-4 h-4 shrink-0" />}
+                        {isDark ? "浅色模式" : "深色模式"}
                       </button>
                       <button
                         type="button"
