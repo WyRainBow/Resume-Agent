@@ -9,6 +9,7 @@ import { getStoredPDFRenderMode, setStoredPDFRenderMode, type PDFRenderMode } fr
 import { saveResume, setCurrentResumeId } from '../../../../services/resumeStorage'
 import type { ResumeData } from '../types'
 import { convertToBackendFormat } from '../utils/convertToBackend'
+import { useAuth } from '@/contexts/AuthContext'
 
 interface UsePDFOperationsProps {
   resumeData: ResumeData
@@ -17,6 +18,7 @@ interface UsePDFOperationsProps {
 }
 
 export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: UsePDFOperationsProps) {
+  const { isAuthenticated, openModal } = useAuth()
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null)
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState('')
@@ -153,6 +155,13 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
   const handleDownload = useCallback(async () => {
     if (!pdfBlob) return
 
+    // 导出/下载需要登录（预览渲染对所有人开放）
+    if (!isAuthenticated) {
+      openModal('login')
+      setProgress('请先登录后再导出 PDF')
+      return
+    }
+
     const name = cleanFileName(resumeData.basic.name)
     const date = new Date().toISOString().split('T')[0]
     const filename = `${name}_简历_${date}.pdf`
@@ -167,7 +176,7 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
 
     const file = new File([pdfBlob], filename, { type: 'application/pdf' })
     saveAs(file, filename)
-  }, [pdfBlob, resumeData.basic.name])
+  }, [pdfBlob, resumeData.basic.name, isAuthenticated, openModal])
 
   // 保存到 Dashboard
   const handleSaveToDashboard = useCallback(async () => {

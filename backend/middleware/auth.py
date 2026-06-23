@@ -145,6 +145,34 @@ async def get_current_user(
     return resolve_legacy_user(db, better_user)
 
 
+async def get_current_user_optional(
+    authorization: Optional[str] = Header(default=None),
+    x_internal_auth_secret: Optional[str] = Header(default=None),
+    x_better_auth_user_id: Optional[str] = Header(default=None),
+    x_better_auth_user_email: Optional[str] = Header(default=None),
+    x_better_auth_user_name: Optional[str] = Header(default=None),
+    x_better_auth_user_image: Optional[str] = Header(default=None),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    """与 get_current_user 相同，但无有效认证时返回 None 而非 401。
+
+    用于匿名可访问的端点（如 PDF 渲染预览）：登录与否都能渲染，
+    是否登录的差异交给调用方按 current_user 是否为 None 处理。
+    """
+    try:
+        return await get_current_user(
+            authorization=authorization,
+            x_internal_auth_secret=x_internal_auth_secret,
+            x_better_auth_user_id=x_better_auth_user_id,
+            x_better_auth_user_email=x_better_auth_user_email,
+            x_better_auth_user_name=x_better_auth_user_name,
+            x_better_auth_user_image=x_better_auth_user_image,
+            db=db,
+        )
+    except HTTPException:
+        return None
+
+
 def require_admin_only(
     current_user: User = Depends(get_current_user),
 ) -> User:

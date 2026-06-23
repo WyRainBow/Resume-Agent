@@ -4,6 +4,7 @@ PDF 渲染路由 - 使用 LaTeX 生成专业简历 PDF
 import time
 import logging
 from pathlib import Path
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
@@ -14,7 +15,7 @@ from sqlalchemy.orm import Session
 try:
     from models import RenderPDFRequest, User
     from database import get_db
-    from middleware.auth import get_current_user
+    from middleware.auth import get_current_user, get_current_user_optional
     from services.pdf_download_quota import (
         assert_pdf_download_allowed,
         build_quota_payload,
@@ -23,7 +24,7 @@ try:
 except ImportError:
     from backend.models import RenderPDFRequest, User
     from backend.database import get_db
-    from backend.middleware.auth import get_current_user
+    from backend.middleware.auth import get_current_user, get_current_user_optional
     from backend.services.pdf_download_quota import (
         assert_pdf_download_allowed,
         build_quota_payload,
@@ -125,7 +126,7 @@ async def record_pdf_download(
 async def render_pdf(
     body: RenderPDFRequest,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
     """
@@ -139,9 +140,11 @@ async def render_pdf(
     trace_source = request.headers.get("X-PDF-Trace-Source") or "-"
     trace_trigger = request.headers.get("X-PDF-Trace-Trigger") or "-"
     client = request.client.host if request.client else "-"
+    uid = current_user.id if current_user else "anon"
+    urole = current_user.role if current_user else "anon"
     print(
         f"[PDF TRACE][render:request] trace_id={trace_id} source={trace_source} trigger={trace_trigger} "
-        f"user_id={current_user.id} role={current_user.role} "
+        f"user_id={uid} role={urole} "
         f"session_id={request.headers.get('X-Agent-Session-Id') or '-'} "
         f"resume_id={request.headers.get('X-Agent-Resume-Id') or '-'} client={client} "
         f"origin={request.headers.get('origin') or '-'} referer={request.headers.get('referer') or '-'} "
@@ -158,10 +161,10 @@ async def render_pdf(
         )
 
         render_time = time.time() - start_time
-        quota = build_quota_payload(current_user)
+        quota = build_quota_payload(current_user) if current_user else None
         print(
             f"[PDF TRACE][render:done] trace_id={trace_id} elapsed={render_time:.2f}s "
-            f"bytes={len(pdf_bytes)} user_id={current_user.id} pdf_used={quota['used']}"
+            f"bytes={len(pdf_bytes)} user_id={uid} pdf_used={quota['used'] if quota else '-'}"
         )
 
         return StreamingResponse(
@@ -171,7 +174,7 @@ async def render_pdf(
                 "Content-Disposition": 'inline; filename="resume.pdf"',
                 "X-Render-Time": str(render_time),
                 "X-PDF-Trace-Id": trace_id,
-                "X-PDF-Download-Remaining": str(quota["remaining"] if quota["remaining"] is not None else -1),
+                "X-PDF-Download-Remaining": str(quota["remaining"] if quota and quota["remaining"] is not None else -1),
             },
         )
     except HTTPException:
@@ -185,7 +188,7 @@ async def render_pdf(
 async def render_pdf_stream(
     body: RenderPDFRequest,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
     """
@@ -200,9 +203,11 @@ async def render_pdf_stream(
 
     async def generate_pdf():
         resume_data = body.resume
+        uid = current_user.id if current_user else "anon"
+        urole = current_user.role if current_user else "anon"
         print(
             f"[PDF TRACE][stream:request] trace_id={trace_id} source={trace_source} trigger={trace_trigger} "
-            f"user_id={current_user.id} role={current_user.role} "
+            f"user_id={uid} role={urole} "
             f"session_id={session_id or '-'} resume_id={resume_id or '-'} client={client} "
             f"origin={request.headers.get('origin') or '-'} referer={request.headers.get('referer') or '-'} "
             f"section_order={body.section_order} resume_brief={_resume_brief(resume_data)}"
@@ -244,24 +249,25 @@ async def render_pdf_stream(
                 )
                 yield dict(event="progress", data=f"PDF编译完成 ({compile_time:.1f}s)")
 
-                quota = build_quota_payload(current_user)
+                quota = build_quota_payload(current_user) if current_user else None
 
                 pdf_hex = pdf_bytes.hex()
                 yield dict(event="pdf", data=pdf_hex)
-                yield dict(
-                    event="quota",
-                    data=str(
-                        {
-                            "remaining": quota["remaining"],
-                            "used": quota["used"],
-                            "limit": quota["limit"],
-                        }
-                    ),
-                )
+                if quota:
+                    yield dict(
+                        event="quota",
+                        data=str(
+                            {
+                                "remaining": quota["remaining"],
+                                "used": quota["used"],
+                                "limit": quota["limit"],
+                            }
+                        ),
+                    )
                 print(
                     f"[PDF TRACE][stream:done] trace_id={trace_id} session_id={session_id or '-'} "
-                    f"resume_id={resume_id or '-'} size={len(pdf_hex)/2} bytes user_id={current_user.id} "
-                    f"pdf_used={quota['used']}"
+                    f"resume_id={resume_id or '-'} size={len(pdf_hex)/2} bytes user_id={uid} "
+                    f"pdf_used={quota['used'] if quota else '-'}"
                 )
 
             except HTTPException as exc:
