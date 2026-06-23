@@ -110,7 +110,7 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
       </div>
 
       <div className="login-head">
-        <h2>{mode === "signin" ? "欢迎回来" : "创建你的账户"}</h2>
+        <h2>{mode === "signin" ? "登录 Resume.AI" : "创建你的账户"}</h2>
         <p className="muted">
           {mode === "signin"
             ? "登录以继续创建你的简历"
