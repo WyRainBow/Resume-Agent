@@ -816,7 +816,7 @@ export default function LandingPage() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute bottom-full left-0 mb-2 w-full"
+                  className="absolute bottom-full left-0 mb-2 min-w-[140px]"
                 >
                   <motion.button
                     whileHover={{ scale: 1.05 }}
@@ -825,7 +825,7 @@ export default function LandingPage() {
                       setShowLogoutMenu(false)
                       logout()
                     }}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-red-200 dark:border-red-900/50 hover:border-red-300 dark:hover:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
+                    className="w-full flex items-center justify-center gap-2 whitespace-nowrap px-4 py-2.5 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-red-200 dark:border-red-900/50 hover:border-red-300 dark:hover:border-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
                   >
                     <LogOut className="w-4 h-4 text-red-600 dark:text-red-400" />
                     <span className="text-sm font-bold text-red-600 dark:text-red-400">退出登录</span>
