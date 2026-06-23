@@ -364,3 +364,283 @@ input {
     margin-top: 36px;
   }
 }
+
+/* ============================================================
+   登录界面（未登录态）— 对齐 Resume.AI 蓝色品牌，聚焦居中卡片。
+   全部作用域限定在 .auth-screen 之下，账户面板与首页沿用原有样式。
+   ============================================================ */
+.auth-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  min-height: 100dvh;
+  padding: 24px;
+  background:
+    radial-gradient(58% 48% at 50% 0%, rgba(37, 99, 235, 0.1), transparent 70%),
+    radial-gradient(42% 42% at 100% 100%, rgba(59, 130, 246, 0.08), transparent 72%),
+    #f7f9fc;
+}
+
+.auth-screen .login-card {
+  width: 100%;
+  max-width: 420px;
+  gap: 0;
+  border: 1px solid #e7ecf3;
+  border-radius: 20px;
+  background: #ffffff;
+  padding: 36px 32px 28px;
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 24px 60px -22px rgba(37, 99, 235, 0.22);
+  animation: login-rise 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes login-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.auth-screen .login-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 26px;
+}
+
+.auth-screen .login-logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: #ffffff;
+  font-weight: 900;
+  font-style: italic;
+  font-size: 13px;
+  letter-spacing: -0.02em;
+  box-shadow: 0 4px 12px -2px rgba(37, 99, 235, 0.5);
+}
+
+.auth-screen .login-wordmark {
+  font-weight: 800;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+}
+
+.auth-screen .login-head {
+  margin-bottom: 22px;
+}
+
+.auth-screen .login-head h2 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.auth-screen .login-head .muted {
+  margin: 0;
+  font-size: 14.5px;
+  color: #64748b;
+}
+
+/* Google 按钮：白底 + 描边 + 真实四色 G */
+.auth-screen .google-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #dbe2ea;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #1f2937;
+  font-weight: 700;
+  font-size: 15px;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.06s ease;
+}
+
+.auth-screen .google-button:hover:not(:disabled) {
+  background: #f8fafc;
+  border-color: #c5d0dd;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.06);
+}
+
+.auth-screen .google-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.auth-screen .google-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-screen .google-button svg {
+  flex-shrink: 0;
+}
+
+/* 分割线 */
+.auth-screen .divider {
+  margin: 18px 0;
+  font-size: 12.5px;
+  color: #94a3b8;
+}
+
+.auth-screen .divider::before,
+.auth-screen .divider::after {
+  background: #e7ecf3;
+}
+
+/* 表单输入 */
+.auth-screen .login-card label {
+  gap: 7px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.auth-screen .login-card input {
+  min-height: 46px;
+  border: 1px solid #dbe2ea;
+  border-radius: 11px;
+  background: #ffffff;
+  padding: 0 14px;
+  font-size: 14.5px;
+  color: #0f172a;
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.auth-screen .login-card input::placeholder {
+  color: #9aa6b4;
+}
+
+.auth-screen .login-card input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3.5px rgba(59, 130, 246, 0.15);
+}
+
+/* 主按钮：品牌蓝 */
+.auth-screen .primary-button {
+  min-height: 48px;
+  margin-top: 2px;
+  border-radius: 12px;
+  background: #2563eb;
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 15px;
+  box-shadow: 0 8px 20px -8px rgba(37, 99, 235, 0.6);
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.06s ease;
+}
+
+.auth-screen .primary-button:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.auth-screen .primary-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.auth-screen .primary-button:disabled {
+  opacity: 0.5;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* 文字链接 */
+.auth-screen .link-button {
+  min-height: auto;
+  margin-top: 16px;
+  background: transparent;
+  color: #2563eb;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.auth-screen .link-button:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.auth-screen .status-message {
+  margin-top: 10px;
+  font-size: 13.5px;
+  text-align: center;
+  color: #2563eb;
+}
+
+/* 返回首页 */
+.auth-screen-home {
+  color: #64748b;
+  font-size: 13.5px;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.auth-screen-home:hover {
+  color: #2563eb;
+}
+
+/* 会话检查中的加载态 */
+.auth-screen .login-pending {
+  align-items: center;
+  gap: 14px;
+  padding: 44px 32px;
+}
+
+.auth-screen .login-spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 3px solid rgba(37, 99, 235, 0.18);
+  border-top-color: #2563eb;
+  animation: login-spin 0.7s linear infinite;
+}
+
+@keyframes login-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-screen .login-card {
+    animation: none;
+  }
+  .auth-screen .login-spinner {
+    animation-duration: 1.4s;
+  }
+}
+
+@media (max-width: 480px) {
+  .auth-screen .login-card {
+    padding: 28px 22px 24px;
+    border-radius: 18px;
+  }
+  .auth-screen .login-head h2 {
+    font-size: 23px;
+  }
+}

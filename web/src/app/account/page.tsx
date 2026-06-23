@@ -23,6 +23,17 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
     headers: await headers(),
   });
 
+  if (!session) {
+    return (
+      <main className="auth-screen">
+        <AuthPanel returnTo={returnTo} />
+        <Link href="/" className="auth-screen-home">
+          ← 返回首页
+        </Link>
+      </main>
+    );
+  }
+
   return (
     <main className="shell">
       <nav className="topbar">
@@ -35,7 +46,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
       </nav>
       <section className="hero compact">
         <p className="eyebrow">用户中心</p>
-        <h1>{session ? "账户与权益中心" : "请先登录"}</h1>
+        <h1>账户与权益中心</h1>
         <p>
           在这里管理登录状态、套餐、额度、订阅状态，以及未来的账单入口。
         </p>
