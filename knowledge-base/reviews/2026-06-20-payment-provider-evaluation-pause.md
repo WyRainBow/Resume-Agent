@@ -153,7 +153,7 @@ Creem Dashboard → Finance / Balance → Payout Account → Sumsub 身份验证
 | `better_auth_entitlements` 充值逻辑 | ❌ 未实现 |
 | `/account` 购买按钮 | ❌ 未实现 |
 | 环境变量 `PADDLE_*` / `CREEM_*` | ❌ 未配置 |
-| `resumegenkk.xyz` 法务页 `/terms` `/privacy` `/refund` `/pricing` | ❌ **未上线**（Paddle 域名审核、MoR 通用要求均需要） |
+| `resumegenkk.xyz` 法务页 `/terms` `/privacy` `/refund` | ⚠️ **前端已实现待部署**（2026-06-23，`17de7b6`；首页页脚已可点击）；`/pricing` 仍未做 |
 | 路线图 | `knowledge-base/plans/2026-06-20-auth-commercialization-roadmap.md` |
 
 ### 恢复接入时推荐技术路线
@@ -187,7 +187,7 @@ Paddle 路径（国内买家微信）：
 
 ### 恢复前建议完成的准备
 
-- [ ] `resumegenkk.xyz` 上线 `/pricing` `/terms` `/privacy` `/refund`，首页页脚可点击
+- [~] `resumegenkk.xyz` 法务页：`/terms` `/privacy` `/refund` 前端已实现 + 首页页脚可点击（2026-06-23，`17de7b6`），**待部署**；`/pricing` 仍未做
 - [ ] Creem：按人工客服指引修正 KYC 材料（Individual、证件清晰、姓名与支付宝一致）
 - [ ] Paddle：填默认付款链接；个体户执照或改 Individual；沙盒测试卡 `4242...` 跑通
 - [ ] 确定主力 provider：大陆个人收款优先 **Creem**；国内买家微信优先 **Paddle**
@@ -223,3 +223,4 @@ Paddle 路径（国内买家微信）：
 | 日期 | 说明 |
 |------|------|
 | 2026-06-20 | 完成 LS / Paddle / Creem 探索；决定**支付接入暂停**；本文建档 |
+| 2026-06-23 | 法务页前端落地（`17de7b6`），同步「代码现状」与「恢复前准备」中法务页状态为待部署；支付仍暂停 |

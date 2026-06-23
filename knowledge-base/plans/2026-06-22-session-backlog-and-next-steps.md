@@ -132,7 +132,7 @@ bash scripts/smoke-auth-stack.sh
 
 #### 代码改动（生产前必做）
 
-- [ ] `web/src/lib/return-to.ts` — `ALLOWED_RETURN_HOSTS` 增加 `resumegenkk.xyz`
+- [x] `web/src/lib/return-to.ts` — 白名单环境变量化（`55a1426`，生产配 `AUTH_PROXY_ALLOWED_ORIGINS` 即可）
 - [ ] `web/src/lib/cors.ts` / 环境变量 — 允许生产 Vite Origin
 - [ ] Google Cloud 添加回调：`https://auth.resumegenkk.xyz/api/auth/callback/google`
 - [ ] 验证跨域 Cookie（`auth.*` ↔ 主站）策略
@@ -150,8 +150,8 @@ bash scripts/smoke-auth-stack.sh
 | 问题 | 现象 | 计划修复 |
 |------|------|----------|
 | 远程 PG 慢 | session 曾卡 70s+，首屏 loading | 本地开发改用本地 PG 或连接池；生产 PG 同区域部署 |
-| BetterAuth 前端 `id: 0` | `mapBetterAuthUser` 写死 `id: 0` | 登录后调 FastAPI 解析 legacy user，回填真实 `user.id` |
-| Agent `user_id=0` | `cv_editor_agent` 持久化失败 | 同上：trusted handoff 后统一用 legacy `User.id` |
+| ~~BetterAuth 前端 `id: 0`~~ ✅ 已修（`55a1426`） | `mapBetterAuthUser` 曾写死 `id: 0` | `fetchLegacyUserId()` 经代理 `/api/auth/me` 回填真实 `user.id`（仅 API 走代理时生效） |
+| Agent `user_id=0` | `cv_editor_agent` 持久化失败 | 前端 id 已回填；端到端持久化待 P0 运行时实测确认 |
 | Admin 权限 | 纯 BetterAuth 可能进不了 `/admin` | 按 email 映射 legacy role，或单独 admin 白名单 |
 | Legacy 与 BetterAuth 未统一合并 | 同邮箱可能有两套 id | 明确合并策略文档 + 一次性迁移脚本（P0 后） |
 
@@ -210,7 +210,7 @@ Agent 侧每次 `resume_patch` / `resume_updated` 会：
 
 - Creem / Paddle checkout + webhook
 - `better_auth_entitlements` 扣减、注册赠 credits
-- `/terms` `/privacy` `/refund` `/pricing`
+- ~~`/terms` `/privacy` `/refund`~~ ✅ 前端已实现（`17de7b6`，待部署到主站）；`/pricing` 仍待做（与计费绑定）
 
 ### P2（体验与架构）
 
@@ -233,6 +233,11 @@ Agent 侧每次 `resume_patch` / `resume_updated` 会：
         ↓
 ⑤ P1 支付与额度（MoR 审核通过后）
 ```
+
+> 进度（2026-06-23，commit `55a1426` → `52f879a`）：
+> ① 的代码门槛部分（return-to 白名单）与 ② 的前端 `id:0` 回填**已完成**，部署 + OAuth + 冒烟仍待做；
+> 此外已超额完成 P1 法务页前端（`/terms` `/privacy` `/refund`）与首页 FAQ/使用流程转化优化。
+> 详见 `knowledge-base/reviews/2026-06-23-session-summary.md`。
 
 ---
 

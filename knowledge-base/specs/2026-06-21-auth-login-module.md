@@ -239,18 +239,22 @@ bash scripts/smoke-auth-stack.sh
 
 ## 已知缺口（本地 → 生产前需处理）
 
-1. **`return-to` 白名单仅 localhost**  
-   `web/src/lib/return-to.ts` 的 `ALLOWED_RETURN_HOSTS` 未含 `resumegenkk.xyz`，生产登录后无法安全回跳工作台。
+> 进度（2026-06-23）：缺口 1、5 已通过代码修复关闭（commit `55a1426`），详见
+> `knowledge-base/reviews/2026-06-23-auth-login-closure-fixes.md`。其余为外部配置 / 待生产验证。
+
+1. ~~**`return-to` 白名单仅 localhost**~~ → ✅ **已修（`55a1426`）**  
+   `web/src/lib/return-to.ts` 改为读 `AUTH_PROXY_ALLOWED_ORIGINS` / `AUTH_DEFAULT_RETURN_TO` 自动加入白名单，生产只需配环境变量、无需改码。
 
 2. **CORS 白名单仅 localhost**  
-   `web/src/lib/cors.ts` 默认 + `AUTH_PROXY_ALLOWED_ORIGINS` 需加入生产 Origin。
+   `web/src/lib/cors.ts` 默认 + `AUTH_PROXY_ALLOWED_ORIGINS` 需加入生产 Origin（纯配置，无需改码）。
 
 3. **Google OAuth 回调 URI** 仅配了本地，未加 `https://auth.resumegenkk.xyz/api/auth/callback/google`。
 
 4. **跨域 Cookie** 生产子域 `auth.resumegenkk.xyz` ↔ `resumegenkk.xyz` 需验证 `SameSite` / `Secure` 策略。
 
-5. **Legacy 与 BetterAuth 用户未统一合并策略**  
-   同邮箱可能匹配 legacy user，但 BetterAuth `id` 与 legacy `id` 在前端展示不一致（Vite 侧 `id: 0`）。
+5. ~~**Legacy 与 BetterAuth 用户未统一合并策略（Vite 侧 `id: 0`）**~~ → ✅ **前端展示已修（`55a1426`）**  
+   `betterAuthSession.fetchLegacyUserId()` 经 Next 代理 `/api/auth/me` 回填真实 legacy `User.id`；
+   后端的统一合并策略（一次性迁移脚本）仍待生产前设计。
 
 6. **Admin 权限**  
    `canUseAdminFeature()` 仍读 legacy JWT role；纯 BetterAuth 登录可能进不了 `/admin`。
@@ -310,8 +314,8 @@ bash scripts/smoke-auth-stack.sh
 
 #### P0-3 代码改动（生产前必做）
 
-- [ ] `web/src/lib/return-to.ts` — `ALLOWED_RETURN_HOSTS` 增加 `resumegenkk.xyz`
-- [ ] `web/src/lib/cors.ts` / 环境变量 — 允许生产 Vite Origin
+- [x] `web/src/lib/return-to.ts` — 白名单环境变量化（`55a1426`，生产配 `AUTH_PROXY_ALLOWED_ORIGINS` 即可）
+- [ ] `web/src/lib/cors.ts` / 环境变量 — 允许生产 Vite Origin（纯配置）
 - [ ] Google Cloud Console 添加回调：`https://auth.resumegenkk.xyz/api/auth/callback/google`
 - [ ] BetterAuth `trustedOrigins`（若需显式配置）包含生产域名
 
