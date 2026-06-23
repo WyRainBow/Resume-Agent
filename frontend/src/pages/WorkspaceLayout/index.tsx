@@ -18,6 +18,7 @@ import {
   Shield,
   Sun,
   Moon,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
@@ -553,6 +554,25 @@ export default function WorkspaceLayout({
                       <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 mb-1">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">账号管理</p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowLogoutMenu(false);
+                          navigate("/account");
+                        }}
+                        className={cn(
+                          "w-full flex items-center justify-between gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all",
+                          "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white",
+                        )}
+                      >
+                        <span className="flex items-center gap-2.5">
+                          <Zap className="w-4 h-4 shrink-0 text-blue-500" />
+                          账户与额度
+                        </span>
+                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
+                          {user?.credits ?? 0}
+                        </span>
+                      </button>
                       <button
                         type="button"
                         onClick={(e) => {
