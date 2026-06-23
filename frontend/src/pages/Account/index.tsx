@@ -1,7 +1,8 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Mail, Zap, LogOut, ArrowLeft, ShieldCheck } from 'lucide-react'
+import { Mail, Zap, LogOut, ArrowLeft, ShieldCheck, Activity, CreditCard } from 'lucide-react'
 import { Avatar } from '@/components/Avatar'
+import { fetchUserEntitlement, type UserEntitlement } from '@/services/api'
 import { useAuth } from '@/contexts/AuthContext'
 
 const PLAN_LABEL: Record<string, string> = {
@@ -16,9 +17,30 @@ const PLAN_COLOR: Record<string, string> = {
   pro: 'bg-purple-50 text-purple-600',
 }
 
+const SUB_STATUS_LABEL: Record<string, string> = {
+  free: '免费',
+  active: '生效中',
+  canceled: '已取消',
+  past_due: '待付款',
+}
+
 export default function AccountPage() {
   const { user, isAuthenticated, logout, loading } = useAuth()
   const navigate = useNavigate()
+  const [entitlement, setEntitlement] = useState<UserEntitlement | null>(null)
+
+  useEffect(() => {
+    if (!isAuthenticated) return
+    let active = true
+    fetchUserEntitlement()
+      .then((ent) => {
+        if (active) setEntitlement(ent)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [isAuthenticated])
 
   if (loading) {
     return (
@@ -37,8 +59,10 @@ export default function AccountPage() {
     )
   }
 
-  const plan = user?.plan || 'free'
-  const credits = user?.credits ?? 0
+  const plan = entitlement?.plan ?? user?.plan ?? 'free'
+  const credits = entitlement?.credits ?? user?.credits ?? 0
+  const dailyUsage = entitlement?.daily_usage_count ?? 0
+  const subStatus = entitlement?.subscription_status ?? 'free'
 
   const handleLogout = () => {
     logout()
@@ -82,28 +106,57 @@ export default function AccountPage() {
         {/* 套餐与额度卡 */}
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 mb-4">
           <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">套餐与额度</h2>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-slate-400" />
-              <span className="text-sm text-slate-600 dark:text-slate-300">当前套餐</span>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-slate-400" />
+                <span className="text-sm text-slate-600 dark:text-slate-300">当前套餐</span>
+              </div>
+              <span className={`text-xs font-bold px-3 py-1 rounded-full ${PLAN_COLOR[plan] || PLAN_COLOR.free}`}>
+                {PLAN_LABEL[plan] || plan}
+              </span>
             </div>
-            <span className={`text-xs font-bold px-3 py-1 rounded-full ${PLAN_COLOR[plan] || PLAN_COLOR.free}`}>
-              {PLAN_LABEL[plan] || plan}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Zap className="w-5 h-5 text-blue-400" />
-              <span className="text-sm text-slate-600 dark:text-slate-300">剩余额度</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-slate-400" />
+                <span className="text-sm text-slate-600 dark:text-slate-300">订阅状态</span>
+              </div>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">
+                {SUB_STATUS_LABEL[subStatus] || subStatus}
+              </span>
             </div>
-            <span className="text-xl font-black text-blue-600">{credits}</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Zap className="w-5 h-5 text-blue-400" />
+                <span className="text-sm text-slate-600 dark:text-slate-300">剩余额度</span>
+              </div>
+              <span className="text-xl font-black text-blue-600">{credits}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Activity className="w-5 h-5 text-slate-400" />
+                <span className="text-sm text-slate-600 dark:text-slate-300">今日用量</span>
+              </div>
+              <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{dailyUsage}</span>
+            </div>
           </div>
           <Link
             to="/pricing"
-            className="mt-4 block w-full text-center py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold transition-colors"
+            className="mt-5 block w-full text-center py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold transition-colors"
           >
             购买额度
           </Link>
+        </div>
+
+        {/* 账单卡 */}
+        <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 mb-4">
+          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">账单</h2>
+          <div className="flex items-start gap-2.5">
+            <CreditCard className="w-5 h-5 text-slate-400 mt-0.5 shrink-0" />
+            <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+              支付功能即将开放，账单与发票将在这里展示。
+            </p>
+          </div>
         </div>
 
         {/* 退出 */}
