@@ -81,4 +81,4 @@ export function LegalList({ items }: { items: ReactNode[] }) {
   )
 }
 
-export const SUPPORT_EMAIL = 'support@resumegenkk.xyz'
+export const SUPPORT_EMAIL = '3658043236@qq.com'

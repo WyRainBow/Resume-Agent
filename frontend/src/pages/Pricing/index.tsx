@@ -158,7 +158,7 @@ export default function PricingPage() {
         </div>
 
         <p className="text-center text-xs text-slate-400 mt-8">
-          额度永不过期 · 支持支付宝付款（即将开放）· 有问题请联系 support@resumegenkk.xyz
+          额度永不过期 · 支持支付宝付款（即将开放）· 有问题请联系 3658043236@qq.com
         </p>
       </div>
     </div>
