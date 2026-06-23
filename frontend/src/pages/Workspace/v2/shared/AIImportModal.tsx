@@ -19,6 +19,10 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "../../../../lib/utils";
 import FileUploadZone from "./FileUploadZone";
 import { getApiBaseUrl } from "@/lib/runtimeEnv";
+import { FetchTimeoutError, fetchWithTimeout } from "@/lib/fetchWithTimeout";
+
+// 简历解析走大模型，耗时较长，给一个宽松上限避免后端挂死时前端一直卡在"解析中"
+const PARSE_TIMEOUT_MS = 60_000;
 
 // DeepSeek 官方 logo（Wikimedia Commons，MIT/Expat）
 const DEEPSEEK_LOGO_URL =
@@ -285,10 +289,11 @@ export function AIImportModal({
       formData.append("file", selectedFile);
       formData.append("model", selectedModel);
 
-      const response = await fetch(`${getApiBaseUrl()}/api/resume/upload-pdf`, {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetchWithTimeout(
+        `${getApiBaseUrl()}/api/resume/upload-pdf`,
+        { method: "POST", body: formData },
+        PARSE_TIMEOUT_MS,
+      );
 
       if (!response.ok) {
         let errMsg = "解析失败";
@@ -306,7 +311,11 @@ export function AIImportModal({
       setCurrentStep("results");
     } catch (err: any) {
       console.error("PDF 解析失败:", err);
-      alert("解析失败: " + err.message);
+      if (err instanceof FetchTimeoutError) {
+        alert("解析超时，请检查网络后重试，或换一份更小的 PDF");
+      } else {
+        alert("解析失败: " + err.message);
+      }
     } finally {
       setParsing(false);
     }
@@ -324,9 +333,10 @@ export function AIImportModal({
       if (selectedImage2) formData.append("files", selectedImage2);
       formData.append("model", selectedVisionModel);
 
-      const response = await fetch(
+      const response = await fetchWithTimeout(
         `${getApiBaseUrl()}/api/resume/upload-image`,
         { method: "POST", body: formData },
+        PARSE_TIMEOUT_MS,
       );
 
       if (!response.ok) {
@@ -345,7 +355,11 @@ export function AIImportModal({
       setCurrentStep("results");
     } catch (err: any) {
       console.error("图片解析失败:", err);
-      alert("解析失败: " + err.message);
+      if (err instanceof FetchTimeoutError) {
+        alert("解析超时，请检查网络后重试，或换一张更清晰的图片");
+      } else {
+        alert("解析失败: " + err.message);
+      }
     } finally {
       setParsing(false);
     }
