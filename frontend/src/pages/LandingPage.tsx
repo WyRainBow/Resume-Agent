@@ -4,7 +4,6 @@ import {
   LogIn,
   LogOut,
   Github,
-  MessageCircle,
   Sparkles,
   Sun,
   Moon,
@@ -28,6 +27,15 @@ import { Avatar } from '@/components/Avatar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/hooks/useTheme'
 import { isAgentEnabled } from '@/lib/runtimeEnv'
+
+/** 微信 logo（Simple Icons 路径），用于「联系我」——点开是微信二维码。 */
+function WechatIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 4.882-1.98 7.32-1.434C20.49 5.7 16.96 2.188 8.691 2.188zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 0 1 .598.082l1.584.926a.272.272 0 0 0 .14.047c.134 0 .24-.111.24-.247 0-.06-.023-.12-.038-.177l-.327-1.233a.582.582 0 0 1-.023-.156.49.49 0 0 1 .201-.398C23.024 18.48 24 16.82 24 14.98c0-3.21-2.931-5.837-6.656-6.088zm-2.53 3.274c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.97-.982zm4.844 0c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.969-.982z" />
+    </svg>
+  )
+}
 
 // 刷新时标题/副标题轻微弹出（偏慢）
 const popIn = {
@@ -348,9 +356,9 @@ export default function LandingPage() {
                 whileHover={{ y: -1 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setShowWechatCard((prev) => !prev)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border border-slate-200 dark:border-slate-800 shadow-sm"
+                className="flex items-center gap-2 h-9 px-3 rounded-xl bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border border-slate-200 dark:border-slate-800 shadow-sm"
               >
-                <MessageCircle className="w-4 h-4 text-blue-600 shrink-0" />
+                <WechatIcon className="w-4 h-4 shrink-0 text-[#07C160]" />
                 <span className="text-sm font-bold">联系我</span>
               </motion.button>
               <AnimatePresence>
@@ -394,7 +402,7 @@ export default function LandingPage() {
               rel="noopener noreferrer"
               whileHover={{ y: -1 }}
               whileTap={{ scale: 0.98 }}
-              className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-slate-800 text-white hover:bg-slate-800 dark:hover:bg-slate-700 transition-all border border-slate-800 dark:border-slate-700 shadow-sm"
+              className="hidden md:flex items-center gap-2 h-9 px-3 rounded-xl bg-slate-900 dark:bg-slate-800 text-white hover:bg-slate-800 dark:hover:bg-slate-700 transition-all border border-slate-800 dark:border-slate-700 shadow-sm"
             >
               <Github className="w-5 h-5 shrink-0" />
               {githubStars !== null && (
@@ -406,7 +414,7 @@ export default function LandingPage() {
                 whileHover={{ scale: 1.02, y: -1 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleOpenAgent}
-                className="hidden md:flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-xl font-bold border border-blue-100 dark:border-blue-900/60 hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all shadow-sm"
+                className="hidden md:flex items-center gap-2 h-9 px-3.5 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 rounded-xl font-bold border border-blue-100 dark:border-blue-900/60 hover:border-blue-200 dark:hover:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-all shadow-sm"
               >
                 <Sparkles className="w-4 h-4 shrink-0" />
                 AI 助手
@@ -416,7 +424,7 @@ export default function LandingPage() {
               whileHover={{ scale: 1.02, y: -1 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate('/my-resumes')}
-              className="px-4 sm:px-6 py-2 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-xl font-bold border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"
+              className="h-9 inline-flex items-center justify-center px-4 sm:px-5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-xl font-bold border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all shadow-sm"
             >
               我的简历
             </motion.button>
@@ -828,15 +836,15 @@ export default function LandingPage() {
           </div>
         ) : (
           <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             onClick={() => openModal('login')}
-            className="flex items-center gap-3 px-4 py-2.5 bg-white dark:bg-slate-900 rounded-xl shadow-lg border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all group"
+            className="flex items-center gap-2.5 pl-2 pr-5 py-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur rounded-full shadow-lg shadow-slate-900/5 border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 transition-all"
           >
-            <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center group-hover:bg-slate-700 dark:group-hover:bg-slate-600 transition-colors">
-              <LogIn className="w-4 h-4 text-slate-600 dark:text-slate-300 group-hover:text-white transition-colors" />
-            </div>
-            <span className="text-sm font-bold text-slate-900 dark:text-slate-100">登录/注册</span>
+            <span className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+              <LogIn className="w-4 h-4 text-white" />
+            </span>
+            <span className="text-sm font-bold text-slate-900 dark:text-slate-100">登录 / 注册</span>
           </motion.button>
         )}
       </motion.div>
