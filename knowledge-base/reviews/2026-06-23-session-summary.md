@@ -60,14 +60,18 @@
 - `App.tsx` 接 3 条 `lazyWithRetry` 路由；`LandingPage` 页脚加 3 条法务链接。
 - 验证：`npm run build` ✓；Playwright 实测三页渲染、内链、邮箱链接、页脚入口均正确。
 
-### 1.3 Landing 使用流程 + FAQ（`8722896`）
+### 1.3 Landing 痛点区 + 使用流程 + FAQ（`8722896` + 后续 commit）
 
-按刘小排 `02-landing-page.md` 页面层级，补首页缺失两屏，零支付依赖：
+按刘小排 `02-landing-page.md` 页面层级补首页缺失内容，零支付依赖。补完后 Landing
+结构已对齐文档建议（Hero → 痛点 → 解决方案/核心功能 → 使用流程 → FAQ → CTA，
+仅"定价区"因支付门控未做）：
 
+- **痛点区**：改到半夜没底 / 投了没回音 / 时间耗在排版，三张 muted 卡片，
+  承接 Landing"解决我正在烦的问题"这一职，与下方蓝色解决方案区形成问题→答案对比。
 - **使用流程区**：输入/导入 → AI 协助打磨 → 导出投递，三步卡片。
 - **FAQ 区**：费用 / 格式 / 隐私 / AI 可靠性 / 退款 五问，轻量手风琴（首项默认展开）；
   其中 3 问内链到法务页（`/privacy` `/terms` `/refund`），与 1.2 形成闭环。
-- 验证：`npm run build` ✓ 7.30s；Playwright 实测两屏渲染、FAQ 单开折叠、内链跳转均正确。
+- 验证：`npm run build` ✓；Playwright 实测各屏渲染、FAQ 单开折叠、内链跳转均正确。
 
 ---
 
@@ -107,10 +111,10 @@
 
 ### 3.1 零支付依赖、可立即做（优先）
 
-- **Landing 继续打磨**：痛点区 / before-after 视觉 / 真实产品截图（文档 `02` 建议的首屏视觉），
-  目前 Hero 用的是结构化骨架预览，可补一段 GIF 或 before/after。
-- **Settings 页完善**：`frontend/src/pages/Settings/index.tsx` 已存在（367 行），
-  可补语言 / 主题 / 删除账号等非支付项（文档 `03` 用户中心 Settings 模块的可做部分）。
+- ~~Landing 痛点区~~ ✅ 已做。Landing 结构已对齐文档 `02`。仅剩 before/after 视觉或演示 GIF
+  （文档 `02` 建议的首屏视觉，目前 Hero 用真实产品截图，可选增强）。
+- **Settings 页完善**：`frontend/src/pages/Settings/index.tsx` 已存在（367 行，已含主题/语言/快捷键/导出/账号权限），
+  仅"删除账号"待补，但需后端 DELETE user 接口，非纯前端。
 - **登录缺口 3/4/6 中不依赖支付的部分**：Admin 权限改读 BetterAuth role（缺口 6）属纯代码，可做。
 
 ### 3.2 需外部配置（非纯代码）

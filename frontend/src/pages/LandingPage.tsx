@@ -18,7 +18,9 @@ import {
   ScanLine,
   Star,
   ArrowUpRight,
-  CornerDownLeft
+  CornerDownLeft,
+  Clock,
+  Frown
 } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 import type { ReactNode } from 'react'
@@ -79,6 +81,25 @@ const CAPABILITIES = [
     desc: 'LaTeX 排版引擎、一键导出干净精美的 PDF。',
     span: 'lg:col-span-6',
     variant: 'pdf'
+  }
+] as const
+
+// 痛点区：说出求职者正在经历的麻烦（对应 Landing"解决我正在烦的问题"这一职）
+const PAIN_POINTS = [
+  {
+    icon: Moon,
+    title: '改到半夜还是没底',
+    desc: '一句话经历不知道怎么写成简历，反复删改，仍然不确定写得够不够好。'
+  },
+  {
+    icon: Frown,
+    title: '投了几十份没回音',
+    desc: '不知道简历到底卡在哪、缺了什么关键词，也没人帮你对照岗位诊断。'
+  },
+  {
+    icon: Clock,
+    title: '时间全耗在排版上',
+    desc: 'Word 调格式、对齐、换字体，真正该打磨的内容反而没精力顾。'
   }
 ] as const
 
@@ -488,8 +509,44 @@ export default function LandingPage() {
         </motion.div>
       </section>
 
+      {/* 痛点区 */}
+      <section className="px-6 pt-8 pb-20 sm:pb-24">
+        <div className="max-w-6xl mx-auto">
+          <motion.div {...reveal} className="max-w-2xl">
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
+              写简历的累，你应该最懂
+            </h2>
+            <p className="mt-4 text-base text-slate-600 dark:text-slate-400 leading-relaxed">
+              不是你不会写，是没人陪你把零散经历理清楚、对着岗位改到位。
+            </p>
+          </motion.div>
+
+          <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-5">
+            {PAIN_POINTS.map((pain, i) => {
+              const Icon = pain.icon
+              return (
+                <motion.div
+                  key={pain.title}
+                  initial={reduceMotion ? false : { opacity: 0, y: 24 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, amount: 0.3 }}
+                  transition={{ duration: 0.55, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                  className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/40 p-6 sm:p-7"
+                >
+                  <div className="flex items-center justify-center w-11 h-11 rounded-xl bg-slate-200/70 dark:bg-slate-800 text-slate-500 dark:text-slate-400 mb-4">
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">{pain.title}</h3>
+                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{pain.desc}</p>
+                </motion.div>
+              )
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* 能力区域 - bento 网格 */}
-      <section className="px-6 py-20 sm:py-28">
+      <section className="px-6 pt-4 pb-20 sm:pb-28">
         <div className="max-w-6xl mx-auto">
           <motion.div {...reveal} className="max-w-2xl">
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
