@@ -23,22 +23,29 @@
 - **alert → toast 全站化**：仓库**当前没有任何 toast/通知系统**（无 sonner/react-hot-toast）。
   为这些提示引入 toast 库属新增基础设施 + 大范围改写，违背"简单优先 / 不引入单次抽象"。
   现有约定就是 `alert()`，本次维持，仅在缺口处补提示。
-- **PDF 渲染错误展示**（`usePDFOperations` → `PreviewPanel`）：错误经单一 `progress` 字符串展示，
-  且 `finally` 把 `loading` 置 false 后状态栏不再显示——要做对需新增独立 error 态并贯穿
-  `usePDFOperations → index → ResizableLayout → EditPreviewLayout → PreviewPanel`（4–5 文件），
-  且必须**起后端真实跑 PDF 失败路径**验证。本地无后端，盲改高风险，暂缓。
-- **Agent SSE 静默断流提示**：显式 error 事件**已有**处理（`useToolEventRouter.ts:80` →
-  "流式请求失败，请稍后重试" → `setResumeError`）。仅"网络静默掉线、流无错误事件直接结束"
-  这一窄缝可能未覆盖，但其修复要动 `SophiaChat`（约 4000 行）的流式状态机，且需**起后端 + LLM
-  端到端**验证，盲改易引入新 bug（参见本会话曾因依赖优化引入 `/agent/new` 闪屏），暂缓。
+- **PDF 渲染错误展示** → ✅ 已做（`0989462`，见 3.1）。
+- **Agent SSE 静默断流提示** → ✅ 已做（`0989462`，见 3.1）。
+
+### 3.1 后续补做（`0989462`，浏览器实测）
+
+之前因"无后端、盲改高风险"暂缓的两项，用**更内聚的方案**实现并实测：
+
+- **PDF 渲染错误展示**：未走"新增 error 态贯穿 5 文件"的重型路线，改为在 `PreviewPanel`
+  单文件按 `!loading && progress!==""` 判定终态错误（成功时 `progress` 被清空），红色告警横幅展示，
+  区别于 indigo 进度 / amber 待更新。实测：后端 down 时点「渲染 PDF」→ 红色横幅显示
+  「渲染失败：…HTTP 500…」（修复前该错误被静默吞掉）。
+- **Agent SSE 静默断流**：根因是 `useCLTP` 的 `heartbeatTimeout(60s)` 是**死 prop**、
+  `streamAgent` 读循环无空闲上限；后端本就每 55s 发心跳（注释写明"前端超时 60s"），契约缺前端半边。
+  `streamAgent` 新增 `idleTimeoutMs` 看门狗（每块/心跳到达即重置，超时 cancel reader 报错退出），
+  `useCLTP` 透传 `heartbeatTimeout`。实测 `/agent/new` 正常加载无回归；60s 静默 stall 完整复现
+  需"可连上后挂起"的服务端，已如实标注。
 
 ## 4. 验证
 
 - `fc8d3a5` / `4790f6d`：`npm run build` 均 ✓。预校验与超时为确定性同步/超时逻辑，
   置于异步调用前，构建 + 代码审查即可确认；完整上传/解析运行需后端，已如实标注。
 
-## 5. 待办（需后端在跑时再做，按用户影响排序）
+## 5. 剩余待办
 
-1. PDF 渲染失败的独立错误态 + 红色样式（贯穿渲染链路，需后端 PDF 失败路径实测）。
-2. Agent SSE 静默断流的兜底提示（需后端 + LLM 端到端）。
-3. 照片/logo 上传失败的"重试"引导（低优先）。
+- 照片/logo 上传失败的"重试"引导（低优先）。
+- SSE 60s 静默 stall 的端到端复现（需可"连上后挂起"的服务端或故障注入）。
