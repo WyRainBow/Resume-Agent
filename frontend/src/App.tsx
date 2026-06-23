@@ -20,6 +20,9 @@ const Workspace = lazyWithRetry(() => import('./pages/Workspace/v2'))
 const HTMLWorkspace = lazyWithRetry(() => import('./pages/Workspace/v2/html'))
 const LaTeXWorkspace = lazyWithRetry(() => import('./pages/Workspace/v2/latex'))
 const LeetCodePage = lazyWithRetry(() => import('./pages/LeetCode'))
+const TermsPage = lazyWithRetry(() => import('./pages/Legal/Terms'))
+const PrivacyPage = lazyWithRetry(() => import('./pages/Legal/Privacy'))
+const RefundPage = lazyWithRetry(() => import('./pages/Legal/Refund'))
 
 function RouteFallback() {
   return (
@@ -82,6 +85,9 @@ function App() {
               <Route path="/create-new" element={<CreateNew />} />
               <Route path="/leetcode/*" element={<LeetCodePage />} />
               <Route path="/share/:shareId" element={<SharePage />} />
+              <Route path="/terms" element={<TermsPage />} />
+              <Route path="/privacy" element={<PrivacyPage />} />
+              <Route path="/refund" element={<RefundPage />} />
             </Routes>
           </Suspense>
           <AuthModal />

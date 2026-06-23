@@ -21,7 +21,7 @@ import {
   CornerDownLeft
 } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/hooks/useTheme'
 import { isAgentEnabled } from '@/lib/runtimeEnv'
@@ -521,15 +521,35 @@ export default function LandingPage() {
             <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Resume.AI</span>
             <span className="text-sm text-slate-400 dark:text-slate-500">公益 AI 简历制作</span>
           </div>
-          <a
-            href={REPO_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-          >
-            <Github className="w-4 h-4" />
-            开源于 GitHub
-          </a>
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+            <Link
+              to="/terms"
+              className="text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            >
+              服务条款
+            </Link>
+            <Link
+              to="/privacy"
+              className="text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            >
+              隐私政策
+            </Link>
+            <Link
+              to="/refund"
+              className="text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            >
+              退款政策
+            </Link>
+            <a
+              href={REPO_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            >
+              <Github className="w-4 h-4" />
+              开源于 GitHub
+            </a>
+          </div>
         </div>
       </footer>
 
