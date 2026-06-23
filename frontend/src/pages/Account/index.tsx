@@ -1,6 +1,7 @@
 import React from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { User, Mail, Zap, LogOut, ArrowLeft, ShieldCheck } from 'lucide-react'
+import { Mail, Zap, LogOut, ArrowLeft, ShieldCheck } from 'lucide-react'
+import { Avatar } from '@/components/Avatar'
 import { useAuth } from '@/contexts/AuthContext'
 
 const PLAN_LABEL: Record<string, string> = {
@@ -61,13 +62,13 @@ export default function AccountPage() {
         <div className="bg-white dark:bg-slate-800 rounded-2xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 mb-4">
           <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">个人信息</h2>
           <div className="flex items-center gap-4">
-            {user?.image ? (
-              <img src={user.image} alt="avatar" className="w-14 h-14 rounded-full object-cover" />
-            ) : (
-              <div className="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center">
-                <User className="w-7 h-7 text-blue-500" />
-              </div>
-            )}
+            <Avatar
+              src={user?.image}
+              name={user?.username}
+              email={user?.email}
+              className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 text-blue-500 border-transparent"
+              textClassName="text-xl"
+            />
             <div>
               <p className="font-semibold text-slate-800 dark:text-slate-100">{user?.username || '未设置昵称'}</p>
               <p className="text-sm text-slate-500 flex items-center gap-1 mt-0.5">

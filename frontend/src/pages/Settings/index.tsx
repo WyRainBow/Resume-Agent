@@ -11,6 +11,7 @@ import {
   FolderOpen,
 } from 'lucide-react'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
+import { Avatar } from '@/components/Avatar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/hooks/useTheme'
 import type { Theme } from '@/lib/theme'
@@ -191,6 +192,21 @@ export default function SettingsPage() {
           </div>
 
           <Card icon={<Shield className="w-4 h-4" />} title="账号与权限" desc="账号基础信息与当前权限角色。">
+            <div className="flex items-center gap-4 mb-5">
+              <Avatar
+                src={user?.image}
+                name={displayName || user?.username}
+                email={email || user?.email}
+                className="w-16 h-16"
+                textClassName="text-2xl"
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
+                  {displayName || user?.username || '未设置昵称'}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">头像来自你的登录账户</p>
+              </div>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-slate-600 dark:text-slate-400 mb-1.5">显示名称</label>
