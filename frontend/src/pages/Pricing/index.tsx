@@ -1,7 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, Zap, ArrowLeft } from 'lucide-react'
-import { mockCheckout } from '@/services/api'
 import { useAuth } from '@/contexts/AuthContext'
 
 const PACKAGES = [
@@ -40,28 +39,16 @@ const PACKAGES = [
   },
 ] as const
 
-type PackageId = 'starter' | 'pro'
-
 export default function PricingPage() {
-  const { user, isAuthenticated, openModal, refreshEntitlement } = useAuth()
-  const [loading, setLoading] = useState<PackageId | null>(null)
-  const [done, setDone] = useState<PackageId | null>(null)
+  const { user, isAuthenticated } = useAuth()
+  const [notice, setNotice] = useState(false)
+  const noticeTimer = useRef<number | null>(null)
 
-  const handleBuy = async (pkgId: PackageId) => {
-    if (!isAuthenticated) {
-      openModal('login')
-      return
-    }
-    setLoading(pkgId)
-    try {
-      await mockCheckout(pkgId)
-      await refreshEntitlement()
-      setDone(pkgId)
-    } catch {
-      alert('购买失败，请稍后重试')
-    } finally {
-      setLoading(null)
-    }
+  // 支付尚未接入：点击购买只提示「即将开放」，不发起真实充值。
+  const handleBuy = () => {
+    setNotice(true)
+    if (noticeTimer.current) window.clearTimeout(noticeTimer.current)
+    noticeTimer.current = window.setTimeout(() => setNotice(false), 2600)
   }
 
   return (
@@ -77,7 +64,7 @@ export default function PricingPage() {
 
         <div className="text-center mb-12">
           <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-3">选择套餐</h1>
-          <p className="text-slate-500">按需购买，无订阅，永不过期</p>
+          <p className="text-slate-500">按需购买、无订阅、永不过期</p>
           {isAuthenticated && user?.credits !== undefined && (
             <p className="mt-2 text-sm text-blue-600 font-medium">
               当前剩余：<span className="font-black">{user.credits}</span> 额度
@@ -85,7 +72,7 @@ export default function PricingPage() {
           )}
           <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium">
             <Zap className="w-3.5 h-3.5" />
-            当前为测试模式，购买不扣款，额度直接到账
+            支付功能即将开放、敬请期待
           </div>
         </div>
 
@@ -138,19 +125,14 @@ export default function PricingPage() {
                 </div>
               ) : (
                 <button
-                  onClick={() => handleBuy(pkg.id as PackageId)}
-                  disabled={loading === pkg.id}
-                  className={`w-full py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 disabled:opacity-60 ${
+                  onClick={handleBuy}
+                  className={`w-full py-2.5 rounded-xl text-sm font-bold transition-all active:scale-95 ${
                     pkg.highlight
                       ? 'bg-white text-blue-600 hover:bg-blue-50'
                       : 'bg-blue-500 text-white hover:bg-blue-600'
                   }`}
                 >
-                  {loading === pkg.id
-                    ? '处理中...'
-                    : done === pkg.id
-                      ? '✓ 已到账'
-                      : pkg.cta}
+                  {pkg.cta}
                 </button>
               )}
             </div>
@@ -161,6 +143,15 @@ export default function PricingPage() {
           额度永不过期 · 支持支付宝付款（即将开放）· 有问题请联系 3658043236@qq.com
         </p>
       </div>
+
+      {notice && (
+        <div
+          role="status"
+          className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-xl bg-slate-900/95 text-white text-sm font-medium shadow-xl shadow-slate-900/20 backdrop-blur"
+        >
+          支付功能尚未开通，敬请期待
+        </div>
+      )}
     </div>
   )
 }
