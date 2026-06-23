@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
+import { LATEST_CHANGELOG } from "@/data/changelog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
 import { getCurrentResumeId } from "@/services/resumeStorage";
@@ -638,7 +639,7 @@ export default function WorkspaceLayout({
           </div>
           {!sidebarCollapsed && (
             <div className="flex items-center justify-center gap-2 mt-3 px-2">
-              <span className="text-[10px] font-medium text-slate-400 dark:text-slate-600 tracking-wider">VERSION 2.0.4</span>
+              <span className="text-[10px] font-medium text-slate-400 dark:text-slate-600 tracking-wider">VERSION {LATEST_CHANGELOG.version}</span>
             </div>
           )}
         </div>
