@@ -29,6 +29,29 @@ function parseApiErrorDetail(raw: string): string {
   }
 }
 
+export type UserEntitlement = {
+  plan: string
+  credits: number
+  daily_usage_count: number
+  subscription_status: string
+}
+
+export async function fetchUserEntitlement(): Promise<UserEntitlement> {
+  const { data } = await axios.get(`${getApiBaseUrl()}/api/auth/better/account`, {
+    headers: getAuthHeaders(),
+  })
+  return (data as { entitlement: UserEntitlement }).entitlement
+}
+
+export async function mockCheckout(packageName: 'starter' | 'pro'): Promise<UserEntitlement> {
+  const { data } = await axios.post(
+    `${getApiBaseUrl()}/api/billing/mock-checkout`,
+    { package: packageName },
+    { headers: getAuthHeaders() },
+  )
+  return data as UserEntitlement
+}
+
 export type PdfDownloadQuota = {
   limit: number | null
   used: number

@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { isAuthWebEnabled } from '@/lib/runtimeEnv'
 import { getCurrentUser, login as loginApi, register as registerApi, setAuthToken } from '@/services/authService'
+import { fetchUserEntitlement } from '@/services/api'
 import {
   fetchBetterAuthSession,
   fetchLegacyUserId,
@@ -16,6 +17,8 @@ type User = {
   email?: string
   image?: string | null
   betterAuthUserId?: string
+  credits?: number
+  plan?: string
 }
 
 type AuthContextValue = {
@@ -26,6 +29,7 @@ type AuthContextValue = {
   login: (username: string, password: string) => Promise<void>
   register: (username: string, password: string) => Promise<void>
   logout: () => void
+  refreshEntitlement: () => Promise<void>
   isModalOpen: boolean
   openModal: (mode?: 'login' | 'register') => void
   closeModal: () => void
@@ -76,6 +80,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setUser((prev) => (prev ? { ...prev, id: legacyId } : prev))
               }
             })
+            // 异步拉取额度，不阻塞首屏
+            void fetchUserEntitlement().then((ent) => {
+              setUser((prev) =>
+                prev ? { ...prev, credits: ent.credits, plan: ent.plan } : prev,
+              )
+            }).catch(() => {/* 拉取失败不影响登录态 */})
             return
           }
 
@@ -160,6 +170,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, LOGIN_SYNC_DELAY_MS)
   }, [])
 
+  const refreshEntitlement = useCallback(async () => {
+    try {
+      const ent = await fetchUserEntitlement()
+      setUser((prev) => (prev ? { ...prev, credits: ent.credits, plan: ent.plan } : prev))
+    } catch {
+      // ignore
+    }
+  }, [])
+
   const logout = useCallback(() => {
     void (async () => {
       if (user?.betterAuthUserId) {
@@ -195,12 +214,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       register,
       logout,
+      refreshEntitlement,
       isModalOpen,
       openModal,
       closeModal,
       modalMode
     }),
-    [user, token, loading, login, register, logout, isModalOpen, openModal, closeModal, modalMode]
+    [user, token, loading, login, register, logout, refreshEntitlement, isModalOpen, openModal, closeModal, modalMode]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

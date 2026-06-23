@@ -23,6 +23,8 @@ const LeetCodePage = lazyWithRetry(() => import('./pages/LeetCode'))
 const TermsPage = lazyWithRetry(() => import('./pages/Legal/Terms'))
 const PrivacyPage = lazyWithRetry(() => import('./pages/Legal/Privacy'))
 const RefundPage = lazyWithRetry(() => import('./pages/Legal/Refund'))
+const AccountPage = lazyWithRetry(() => import('./pages/Account'))
+const PricingPage = lazyWithRetry(() => import('./pages/Pricing'))
 
 function RouteFallback() {
   return (
@@ -88,6 +90,8 @@ function App() {
               <Route path="/terms" element={<TermsPage />} />
               <Route path="/privacy" element={<PrivacyPage />} />
               <Route path="/refund" element={<RefundPage />} />
+              <Route path="/account" element={<AccountPage />} />
+              <Route path="/pricing" element={<PricingPage />} />
             </Routes>
           </Suspense>
           <AuthModal />
