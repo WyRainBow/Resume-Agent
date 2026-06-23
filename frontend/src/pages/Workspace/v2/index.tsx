@@ -13,10 +13,10 @@ import { Header } from './components'
 import EditPreviewLayout from './EditPreviewLayout'
 import AIImportModal from './shared/AIImportModal'
 import JdOptimizeDialog from './shared/JdOptimizeDialog'
+import JdMatchDialog from './shared/JdMatchDialog'
 import TranslateDialog from './shared/TranslateDialog'
 import HealthCheckDialog from './shared/HealthCheckDialog'
 import AiAssistantChat from './shared/AiAssistantChat'
-import { ScoreCard } from '@/components/ScoreCard'
 import { scoreResume, type JdOptimizeField } from '@/services/api'
 import { stripHtmlTags } from './utils/textUtils'
 
@@ -38,10 +38,11 @@ export default function WorkspaceV2() {
   // 评分状态
   const [jdText, setJdText] = useState('')
   const [scoreData, setScoreData] = useState<any>(null)
+  const [scoring, setScoring] = useState(false)
+  const [showJdMatch, setShowJdMatch] = useState(false)
   const [showJdOptimize, setShowJdOptimize] = useState(false)
   const [showTranslate, setShowTranslate] = useState(false)
   const [showHealthCheck, setShowHealthCheck] = useState(false)
-  const jdTextareaRef = useRef<HTMLTextAreaElement>(null)
   // 简历数据管理
   const {
     resumeData,
@@ -220,7 +221,11 @@ export default function WorkspaceV2() {
   // JD 文本变化时自动触发评分
   useEffect(() => {
     if (currentResumeId && jdText && jdText.trim().length > 10) {
-      scoreResume(currentResumeId, jdText).then(setScoreData).catch(console.error)
+      setScoring(true)
+      scoreResume(currentResumeId, jdText)
+        .then(setScoreData)
+        .catch(console.error)
+        .finally(() => setScoring(false))
     }
   }, [currentResumeId, jdText])
 
@@ -338,29 +343,17 @@ export default function WorkspaceV2() {
         editMode={editMode}
       />
 
-      {/* JD 评分输入区域 */}
-      <div className="mt-4 mx-4 mb-4 p-4 border border-gray-200 dark:border-neutral-800 rounded-lg">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-medium">职位描述匹配评分</h3>
-          <button
-            type="button"
-            onClick={() => setShowJdOptimize(true)}
-            disabled={jdText.trim().length < 10 || jdFields.length === 0}
-            className="px-3 py-1.5 text-xs font-medium rounded-md bg-blue-500 text-white hover:bg-blue-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            title={jdText.trim().length < 10 ? '请先粘贴职位描述' : '让 AI 按该 JD 优化简历'}
-          >
-            AI 优化匹配 JD
-          </button>
-        </div>
-        <textarea
-          ref={jdTextareaRef}
-          value={jdText}
-          onChange={(e) => { setJdText(e.target.value); setScoreData(null); }}
-          placeholder="粘贴职位描述，AI将自动分析简历与JD的匹配度..."
-          className="w-full min-h-[80px] p-2 border border-gray-200 dark:border-neutral-800 dark:bg-neutral-900 rounded text-sm"
-        />
-        {scoreData && <ScoreCard {...scoreData} />}
-      </div>
+      {/* JD 匹配优化 —— 聚焦弹窗（粘 JD → 多维评分 → 一键深度优化），取代页面底部常驻大框 */}
+      <JdMatchDialog
+        open={showJdMatch}
+        onOpenChange={setShowJdMatch}
+        jdText={jdText}
+        onJdTextChange={(v) => { setJdText(v); setScoreData(null) }}
+        scoreData={scoreData}
+        scoring={scoring}
+        hasContent={jdFields.length > 0}
+        onOptimize={() => { setShowJdMatch(false); setShowJdOptimize(true) }}
+      />
 
       {/* 针对 JD 优化弹窗 */}
       <JdOptimizeDialog
@@ -393,12 +386,9 @@ export default function WorkspaceV2() {
       {/* AI 助手 —— 右下角可拖拽悬浮气泡 + 对话窗口 */}
       <AiAssistantChat
         resumeData={resumeData}
-        onJdOptimize={() => setShowJdOptimize(true)}
+        onJdOptimize={() => setShowJdMatch(true)}
         jdReady={jdText.trim().length >= 10 && jdFields.length > 0}
-        onFocusJd={() => {
-          jdTextareaRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          jdTextareaRef.current?.focus()
-        }}
+        onFocusJd={() => setShowJdMatch(true)}
         onTranslate={() => setShowTranslate(true)}
         onHealthCheck={() => setShowHealthCheck(true)}
         hasContent={jdFields.length > 0}
