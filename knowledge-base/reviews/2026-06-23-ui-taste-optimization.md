@@ -69,3 +69,25 @@
   1. **CDP 测试复用单标签，绝不 flood**。
   2. 超长会话定期清理后台进程。
   3. 恢复手段：`pkill` 三端（尤其 `.venv` 后端 `uvicorn`）+ 关多余 Chrome 标签释放内存。
+
+---
+
+## 后续修复（2026-06-24）
+
+### 4. JD 优化建议卡富文本渲染（`a67b238`）
+
+- **现象**：「针对 JD 优化简历」弹窗里每条 before→after 建议，把富文本字段的 HTML（`<ul class="custom-list"><li><p><strong>…`）当纯文本直接显示，裸标签堆叠、格式混乱。
+- **根因**：`shared/JdOptimizeDialog.tsx` 直接 `{it.original}` / `{s.suggested}` 渲染，而 skills / 经历等字段的值本就是 TipTap 输出的 HTML 串（应用时要写回字段，**数据必须保留 HTML**，不能在数据层 strip）。
+- **改为**：新增 `RichFieldText` 渲染器，按 `looksLikeHtml`（复用 `utils/resumePatch`）分流：
+  - HTML → `.diff-rich-content` 容器 + `dangerouslySetInnerHTML`（复用 `utils/linkifyText` 的 `linkifyHtmlContent`），正确渲染圆点列表与 `<strong>` 加粗；
+  - 纯文本 → 保留换行直显。
+  - 修改前弱化（`neutral-400`）、修改后强调（`neutral-800` 加粗），与对话区 diff 卡 `components/agent-chat/DiffRichContent.tsx` 同一视觉语言；去掉套在多行 HTML 列表上很乱的删除线。
+- **复用而非新造**：检测（`looksLikeHtml`）、安全渲染（`.diff-rich-content` 全局样式）、URL 链接化（`linkifyHtmlContent`）全部复用既有设施，改动集中在 **1 个 helper + 4 处替换**。
+- **验证**：`npm run build` 通过；真实走 workspace → AI 助手 →「JD 匹配优化」→ 粘贴架构师 JD → 一键优化，LLM 返回 9 条建议，建议卡富文本正确渲染、不再露标签。
+
+### 其它 06-24 改动（同属本轮前端/agent 优化）
+
+- `641f674`：把 `AgentChat/SophiaChat.tsx` 内联对话空态抽成 `components/agent-chat/ChatEmptyState.tsx`（纯展示、行为一致），瘦身巨型组件。
+- `d4cccdd`：`frontend/package.json` 的 `dev` 脚本移除 `clean:vite`，`.vite` 缓存跨重启持久化，消除首进 `/agent/new` 的冷启动整页 reload 闪屏。
+
+> 本地 agent 鉴权 401（前端缺 `VITE_API_VIA_AUTH_WEB=true` + 后端 `FASTAPI_INTERNAL_AUTH_SECRET` 末尾 `=` 丢失）属**环境配置**问题，修复落在 gitignored 的本地 env 文件、不入库，已记入部署 runbook 排障表，不在此 UI 记录展开。
