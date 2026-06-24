@@ -170,8 +170,14 @@ export interface GlobalSettings {
   latexHeaderNameContactGapPx?: number  // 姓名与联系信息间距调整（px，可为负）
   latexHeaderBottomGapPx?: number  // 联系信息下方空白（px，可为负）
   birthDateDisplayMode?: 'birthDate' | 'age'  // 年龄渲染模式：显示出生年月 | 仅显示年龄
-  contactLabelMode?: 'icon' | 'text' | 'none'  // 联系信息标签模式：icon（📞138xxxx）| text（电话：138xxxx）| none（138xxxx）
+  /** @deprecated 改用 fieldLabelModes（每字段）；仅保留用于老简历迁移读取的兜底种子 */
+  contactLabelMode?: 'icon' | 'text' | 'none'
+  // 每字段显示样式，key: title/birthDate/email/phone/location/blog；缺失时回退 contactLabelMode→'icon'
+  fieldLabelModes?: Record<string, FieldLabelMode>
 }
+
+/** 基本信息字段前缀样式：icon（📧值）| text（邮箱：值）| none（仅值） */
+export type FieldLabelMode = 'icon' | 'text' | 'none'
 
 /**
  * 完整简历数据

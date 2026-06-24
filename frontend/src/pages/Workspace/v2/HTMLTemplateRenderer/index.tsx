@@ -9,6 +9,7 @@ import { getLogoUrl } from '../constants/companyLogos'
 import { getSchoolLogoUrl } from '../constants/schoolLogos'
 import { stripHtmlTags } from '../utils'
 import { formatBirthDateForHeader, resolveEmploymentStatusForRender } from '../utils/birthDateDisplay'
+import { resolveFieldMode, resolveFieldIcon, fieldTextLabel, fieldPrefix } from '../utils/fieldDisplayStyle'
 import './styles.css'
 
 interface HTMLTemplateRendererProps {
@@ -346,6 +347,14 @@ export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resu
   const { basic, globalSettings } = resumeData
   const pagePadding = globalSettings?.pagePadding ?? 40
 
+  // 每字段显示样式前缀（icon→"📧 " / text→"邮箱：" / none→""）
+  const prefixFor = (key: string) =>
+    fieldPrefix(
+      resolveFieldMode(key, globalSettings),
+      resolveFieldIcon(key, basic),
+      fieldTextLabel(key, globalSettings?.birthDateDisplayMode),
+    )
+
   // 根据 menuSections 的顺序渲染模块（排除 basic，因为它在 header 中）
   const sectionsToRender = resumeData.menuSections
     .filter(section => section.id !== 'basic' && section.enabled)
@@ -358,52 +367,35 @@ export const HTMLTemplateRenderer: React.FC<HTMLTemplateRendererProps> = ({ resu
         <div className="header-main">
           <div className="header-left">
             <h1 className="candidate-name">{basic.name || '未命名'}</h1>
-            <p className="candidate-title">{basic.title || '求职者'}</p>
+            <p className="candidate-title">{basic.title ? prefixFor('title') : ''}{basic.title || '求职者'}</p>
           </div>
           <div className="header-right">
-            {basic.phone && (() => {
-              const mode = resumeData.globalSettings?.contactLabelMode || 'icon'
-              return (
-                <div className="info-item">
-                  {mode === 'icon' ? '📞 ' : mode === 'text' ? '电话：' : ''}{basic.phone}
-                </div>
-              )
-            })()}
-            {basic.email && (() => {
-              const mode = resumeData.globalSettings?.contactLabelMode || 'icon'
-              return (
-                <div className="info-item">
-                  {mode === 'icon' ? '📧 ' : mode === 'text' ? '邮箱：' : ''}{basic.email}
-                </div>
-              )
-            })()}
-            {basic.location && (() => {
-              const mode = resumeData.globalSettings?.contactLabelMode || 'icon'
-              return (
-                <div className="info-item">
-                  {mode === 'icon' ? '📍 ' : mode === 'text' ? '地点：' : ''}{basic.location}
-                </div>
-              )
-            })()}
-            {basic.birthDate && (() => {
-              const mode = resumeData.globalSettings?.contactLabelMode || 'icon'
-              const birthDisplayMode = resumeData.globalSettings?.birthDateDisplayMode || 'birthDate'
-              const label = mode === 'icon' ? '🎂 ' : mode === 'text' ? (birthDisplayMode === 'age' ? '年龄：' : '生日：') : ''
-              return (
-                <div className="info-item">
-                  {label}{formatBirthDateForHeader(basic.birthDate || '', birthDisplayMode)}
-                </div>
-              )
-            })()}
-            {basic.blog && (() => {
-              const mode = resumeData.globalSettings?.contactLabelMode || 'icon'
-              return (
-                <div className="info-item">
-                  {mode === 'icon' ? '🔗 ' : mode === 'text' ? '博客：' : ''}
-                  <a href={basic.blog} target="_blank" rel="noopener noreferrer">{basic.blog}</a>
-                </div>
-              )
-            })()}
+            {basic.phone && (
+              <div className="info-item">
+                {prefixFor('phone')}{basic.phone}
+              </div>
+            )}
+            {basic.email && (
+              <div className="info-item">
+                {prefixFor('email')}{basic.email}
+              </div>
+            )}
+            {basic.location && (
+              <div className="info-item">
+                {prefixFor('location')}{basic.location}
+              </div>
+            )}
+            {basic.birthDate && (
+              <div className="info-item">
+                {prefixFor('birthDate')}{formatBirthDateForHeader(basic.birthDate || '', globalSettings?.birthDateDisplayMode || 'birthDate')}
+              </div>
+            )}
+            {basic.blog && (
+              <div className="info-item">
+                {prefixFor('blog')}
+                <a href={basic.blog} target="_blank" rel="noopener noreferrer">{basic.blog}</a>
+              </div>
+            )}
           </div>
         </div>
         {(() => {

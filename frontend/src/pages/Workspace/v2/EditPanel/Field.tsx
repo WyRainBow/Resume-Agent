@@ -26,6 +26,7 @@ interface FieldProps {
   index?: number  // 用于级联动画延迟
   rightActions?: React.ReactNode
   controlsLayout?: 'overlay' | 'below'
+  labelExtra?: React.ReactNode  // 标签行右侧附加控件（如字段显示样式切换）
 }
 
 const Field = ({
@@ -42,6 +43,7 @@ const Field = ({
   index = 0,
   rightActions,
   controlsLayout = 'overlay',
+  labelExtra,
 }: FieldProps) => {
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -144,10 +146,21 @@ const Field = ({
 
   return (
     <motion.div {...fieldAnimation} className="space-y-2">
-      {label && (
-        <label className="text-sm text-gray-600 dark:text-neutral-300">
-          {label}
-        </label>
+      {labelExtra ? (
+        <div className="flex items-center justify-between gap-2">
+          {label && (
+            <label className="text-sm text-gray-600 dark:text-neutral-300">
+              {label}
+            </label>
+          )}
+          {labelExtra}
+        </div>
+      ) : (
+        label && (
+          <label className="text-sm text-gray-600 dark:text-neutral-300">
+            {label}
+          </label>
+        )
       )}
       <input
         ref={inputRef}

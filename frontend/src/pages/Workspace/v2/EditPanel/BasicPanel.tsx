@@ -8,9 +8,11 @@ import { cn } from '../../../../lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { uploadUserPhoto } from '@/services/photoService'
 import { InlineDatePicker } from '@/components/InlineDatePicker'
-import type { BasicInfo, GlobalSettings } from '../types'
+import type { BasicInfo, GlobalSettings, FieldLabelMode } from '../types'
 import Field from './Field'
+import FieldStyleToggle from './FieldStyleToggle'
 import { getAgeFromBirthDate } from '../utils/birthDateDisplay'
+import { resolveFieldMode, resolveFieldIcon } from '../utils/fieldDisplayStyle'
 
 interface BasicPanelProps {
   basic: BasicInfo
@@ -84,6 +86,22 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
     return age !== null ? `${age} 岁` : '23 岁'
   })()
 
+  // 每字段「显示样式」切换：mode 落 globalSettings.fieldLabelModes，自定义 emoji 落 basic.icons
+  const setFieldMode = (key: string, mode: FieldLabelMode) =>
+    updateGlobalSettings?.({
+      fieldLabelModes: { ...globalSettings?.fieldLabelModes, [key]: mode },
+    })
+  const setFieldIcon = (key: string, icon: string) =>
+    onUpdate({ icons: { ...basic?.icons, [key]: icon } })
+  const styleToggle = (key: string) => (
+    <FieldStyleToggle
+      mode={resolveFieldMode(key, globalSettings)}
+      icon={resolveFieldIcon(key, basic)}
+      onModeChange={(mode) => setFieldMode(key, mode)}
+      onIconChange={(icon) => setFieldIcon(key, icon)}
+    />
+  )
+
   return (
     <div className="space-y-6 p-6">
       {/* 资料 */}
@@ -113,6 +131,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                 value={basic?.title || ''}
                 onChange={(value) => onUpdate({ title: value })}
                 placeholder="请输入目标职位"
+                labelExtra={styleToggle('title')}
               />
             </div>
 
@@ -123,7 +142,10 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                 transition={{ duration: 0.25, delay: 3 * 0.04, ease: 'easeOut' }}
                 className="space-y-2"
               >
-                <label className="text-sm text-gray-600 dark:text-neutral-300">年龄</label>
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-sm text-gray-600 dark:text-neutral-300">年龄</label>
+                  {styleToggle('birthDate')}
+                </div>
                 <div className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
                     <InlineDatePicker
@@ -158,6 +180,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                 value={basic?.email || ''}
                 onChange={(value) => onUpdate({ email: value })}
                 placeholder="请输入邮箱"
+                labelExtra={styleToggle('email')}
               />
               <Field
                 index={5}
@@ -165,6 +188,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                 value={basic?.phone || ''}
                 onChange={(value) => onUpdate({ phone: value })}
                 placeholder="请输入电话"
+                labelExtra={styleToggle('phone')}
               />
             </div>
 
@@ -174,26 +198,8 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
               value={basic?.location || ''}
               onChange={(value) => onUpdate({ location: value })}
               placeholder="请输入所在城市"
+              labelExtra={styleToggle('location')}
             />
-
-            <div className="space-y-2">
-              <label className="text-sm text-gray-600 dark:text-neutral-300">联系方式显示样式</label>
-              <select
-                value={globalSettings?.contactLabelMode || 'icon'}
-                onChange={(e) => updateGlobalSettings?.({ contactLabelMode: e.target.value as 'icon' | 'text' | 'none' })}
-                className={cn(
-                  'h-11 w-full rounded-xl border px-3 text-sm font-medium',
-                  'bg-white dark:bg-slate-900',
-                  'border-slate-300 dark:border-slate-600',
-                  'text-slate-700 dark:text-slate-200',
-                  'focus:outline-none focus:ring-2 focus:ring-blue-500/30',
-                )}
-              >
-                <option value="icon">图标 + 值（如 📞 138xxxx）</option>
-                <option value="text">标签 + 值（如 电话：138xxxx）</option>
-                <option value="none">仅值（138xxxx）</option>
-              </select>
-            </div>
 
             <Field
               index={7}
@@ -201,6 +207,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
               value={basic?.blog || ''}
               onChange={(value) => onUpdate({ blog: value })}
               placeholder="如：https://blog.example.com"
+              labelExtra={styleToggle('blog')}
             />
           </div>
 

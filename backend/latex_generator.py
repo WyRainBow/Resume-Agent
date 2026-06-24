@@ -381,26 +381,32 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     employement_status = escape_latex(merged_status)
     blog = resume_data.get('blog') or ''  # 不 escape，保留原始 URL 给 \href
 
-    # contactLabelMode: 'icon'(默认，仅值·分隔) | 'text'(文字标签) | 'none'(仅值无标签)
-    contact_label_mode = (global_settings.get('contactLabelMode') or 'icon') if isinstance(global_settings, dict) else 'icon'
+    # 每字段显示样式 fieldLabelModes（icon/text/none）；缺失回退老简历全局 contactLabelMode，再回退 'icon'。
+    # 注：PDF 无 emoji 字体，icon 模式等价「仅值」（与 none 一致），仅 text 模式加中文前缀。
+    field_label_modes = global_settings.get('fieldLabelModes') if isinstance(global_settings, dict) else None
+    field_label_modes = field_label_modes if isinstance(field_label_modes, dict) else {}
+    legacy_label_mode = (global_settings.get('contactLabelMode') if isinstance(global_settings, dict) else None) or 'icon'
 
-    def _label(prefix, value):
-        """根据 label 模式给字段值加前缀"""
+    def _field_mode(key):
+        mode = field_label_modes.get(key)
+        return mode if mode in ('icon', 'text', 'none') else legacy_label_mode
+
+    def _label(key, prefix, value):
+        """text 模式加中文前缀；icon/none 仅值（PDF 不渲染 emoji）"""
         if not value:
             return ''
-        if contact_label_mode == 'text':
+        if _field_mode(key) == 'text':
             return f'{prefix}{value}'
-        # icon / none: 无前缀
         return value
 
-    # 根据模式给各字段追加 label 前缀
-    phone = _label('电话：', phone)
-    email = _label('邮箱：', email)
-    role = _label('岗位：', role)
-    location = _label('地点：', location)
-    # employment_status 已包含年龄/状态，label 与 birthDateDisplayMode 保持一致
+    # 根据每字段模式追加 label 前缀
+    phone = _label('phone', '电话：', phone)
+    email = _label('email', '邮箱：', email)
+    role = _label('title', '求职意向：', role)
+    location = _label('location', '地点：', location)
+    # employment_status 已含年龄/状态，label 跟随 birthDate 字段模式与 birthDateDisplayMode
     if employement_status:
-        if contact_label_mode == 'text':
+        if _field_mode('birthDate') == 'text':
             if birth_display_mode == 'age':
                 employement_status = f'年龄：{employement_status}'
             else:
@@ -430,7 +436,7 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     """contactInfo 格式: {phone}{email}{role}{location}{status}"""
     latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{role}}}{{{location}}}{{{employement_status}}}")
     if blog:
-        blog_text = f'博客：{blog}' if contact_label_mode == 'text' else blog
+        blog_text = f'博客：{blog}' if _field_mode('blog') == 'text' else blog
         latex_content.append(f"\\blogLine{{{blog_text}}}")
     if abs(header_bottom_gap_px) > 0.01:
         latex_content.append(f"\\vspace{{{_px_to_pt(header_bottom_gap_px):.2f}pt}}")
