@@ -91,3 +91,13 @@
 - `d4cccdd`：`frontend/package.json` 的 `dev` 脚本移除 `clean:vite`，`.vite` 缓存跨重启持久化，消除首进 `/agent/new` 的冷启动整页 reload 闪屏。
 
 > 本地 agent 鉴权 401（前端缺 `VITE_API_VIA_AUTH_WEB=true` + 后端 `FASTAPI_INTERNAL_AUTH_SECRET` 末尾 `=` 丢失）属**环境配置**问题，修复落在 gitignored 的本地 env 文件、不入库，已记入部署 runbook 排障表，不在此 UI 记录展开。
+
+### 5. 历史会话操作收敛进 ⋮ 菜单，对齐 Claude.ai Recents（`277d473`）
+
+- **原状**：侧栏「历史会话」区操作图标散落——标题栏并排 3 枚（＋新建 / 刷新 / 删除全部），会话项 hover 又露出 铅笔+垃圾桶 两枚。图标多、视觉杂乱，与参考的 Claude.ai「Recents」（操作收进单个 ⋮ 下拉）差距明显。
+- **改为**：操作收敛进 ⋮ 上下文菜单，仅保留高频的 ＋新建 常驻。
+  - **会话项**：hover 由「铅笔+垃圾桶」收敛为单个 ⋮ →「重命名 / 删除(红)」；菜单打开时该会话项保持高亮（`menuOpenId`）。并移除标题左侧的聊天气泡图标（`MessageSquare`），改为「纯文本标题 + 时间」，与 Claude.ai「Recents」无前缀图标的极简条目一致（`MessageSquare` 已成孤儿 import，同步删除）。
+  - **标题栏**：仅 ＋新建 常驻，刷新 / 删除全部会话(红) 收进 ⋮（删除全部仅在有会话时出现）。
+- **新组件 `components/common/ActionMenu.tsx`**：轻量上下文「动作」菜单，**刻意与选择型 `PortalDropdown` 区分**——后者是「选中某个值」（ChevronDown + 选中态 Check、`value/onSelect`、全宽触发），本组件是「执行某个动作」（⋮ 触发、`items[].onSelect`、支持 `danger`/`disabled`/`icon`/`align`/`onOpenChange`）。两者都 `createPortal` 到 `body` + `getBoundingClientRect` 定位，**避免被侧栏 `overflow` 裁剪**；外点击 / Esc 关闭。
+- **复用要点**：后续任何「⋮ 操作菜单」一律用 `ActionMenu`，不要再在元素上 inline 堆 hover 图标按钮；「选值」用 `PortalDropdown`、「执行动作」用 `ActionMenu`，语义不要混。
+- **验证**：`npm run build` 通过；浏览器实测（用 JS 注入精确取 `getBoundingClientRect` + 原生 `click`，规避截图缩放导致的坐标偏移）——标题栏 ⋮ = {刷新, 删除全部会话(red)}，会话 ⋮ = {重命名, 删除(red)}；点「重命名」→ 进入内联编辑（input 预填「你好」），点「删除」→ 弹确认框「确定要删除此会话吗？删除后无法恢复。」+ 取消/确定删除。测试均以「取消」收尾，未真实删除数据。

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Loader2, MessageSquare, Pencil, Plus, RefreshCw, Trash2, X, Trash, AlertTriangle } from 'lucide-react';
+import { Check, Loader2, Pencil, Plus, RefreshCw, Trash2, X, Trash, AlertTriangle } from 'lucide-react';
 import { SidebarTooltip } from './SidebarTooltip';
 import CustomScrollbar from '../common/CustomScrollbar';
 import ActionMenu from '../common/ActionMenu';
@@ -549,13 +549,6 @@ export function RecentSessions({
                     }
                   }}
                 >
-                    <MessageSquare
-                      className={`w-3.5 h-3.5 shrink-0 ${
-                        isActive
-                          ? 'text-indigo-600 opacity-80'
-                          : 'text-gray-400 opacity-70 group-hover:opacity-100'
-                      }`}
-                    />
                     <div className="flex-1 min-w-0">
                       {editingSessionId === session.session_id ? (
                         <input
