@@ -56,3 +56,42 @@ DB 中 `coco-yu`（weiyu9484@gmail.com）`role=admin`，`/api/auth/me` 经代理
 
 后续任何「按角色显示」的前端功能，角色一律走 `getStoredAuthRole()`，不要再依赖
 `localStorage.auth_token` 的存在性；BetterAuth 模式的角色来源是 `auth_user.role`。
+
+---
+
+## 同源问题：历史会话列表消失（2026-06-24 续，提交 59c0de7）
+
+### 现象
+
+BetterAuth 登录态下，工作台左侧边栏「历史会话」列表整体消失，连入口都不渲染。
+
+### 根因（同一 bug 类的第 3 次）
+
+三层都把 `localStorage.auth_token` 的存在性当登录态判断，BetterAuth 下 token 恒为空：
+
+1. `WorkspaceLayout` 用 `canUseAgentFeature()` 门控整个 `RecentSessions`，而
+   `canUseAgentFeature()` 返回 `Boolean(localStorage.auth_token)` → false → 组件根本不挂载。
+2. `RecentSessions.fetchPage()` 开头 `if (!token) { setSessions([]); return }`，
+   即便挂载也会先把列表清空。
+3. 三处 agent-history fetch（list / delete-all / clear-active）未带 `credentials: 'include'`，
+   经 Next 代理时不携带 BetterAuth cookie。
+
+### 修复（2 处外科改动）
+
+- `runtimeEnv.ts`：`canUseAgentFeature()` 只判定 Agent 开关（`return isAgentEnabled()`）。
+  登录态交给唯一调用方 `WorkspaceLayout` 的 `isAuthenticated`（React 鉴权状态，是即时且
+  模式无关的唯一可信来源）。原本 `isAuthenticated && canUseAgentFeature()` 里的二次
+  localStorage 取值既冗余又脆弱——正是这条冗余推导造成了本 bug 类反复出现。
+- `RecentSessions.tsx`：删掉 `fetchPage` 里会清空列表的 token 守卫；list / delete-all /
+  clear-active 三处 fetch 补 `credentials: 'include'`。
+
+### 验证
+
+- 运行时（BetterAuth coco yu）：侧边栏「历史会话 (3/3)」三条会话即时恢复，无空态闪烁。
+- `cd frontend && npm run build` 通过。
+
+### 复用要点补充
+
+「是否登录」的唯一可信来源是 React 的 `useAuth().isAuthenticated`，不是 localStorage。
+非 React 的工具函数若被 `isAuthenticated && fn()` 形式调用，`fn()` 内不要再自行从
+localStorage 推导登录态——只判定它真正独占的关注点（如功能开关）。
