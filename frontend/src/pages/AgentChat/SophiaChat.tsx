@@ -4042,6 +4042,34 @@ function SophiaChatContent() {
 
   const activeSessionId = currentSessionId || conversationId;
 
+  // 空态（无消息、非处理中、非简历选择器）：参考 Manus 把输入框居中展示，
+  // 输入框移进 ChatEmptyState；有消息时回到底部输入区。
+  const isEmptyState =
+    messages.length === 0 && !isProcessing && !showResumeSelector;
+
+  const composerNode = (
+    <Composer
+      input={input}
+      isProcessing={isProcessing || isPasteImporting}
+      isUploadingFile={isUploadingFile}
+      isVoiceRecording={isVoiceRecording}
+      isVoiceProcessing={isVoiceProcessing}
+      isVoiceSpeaking={isVoiceSpeaking}
+      isResumePreviewActive={isResumePreviewActive}
+      pendingAttachments={pendingAttachments}
+      fileInputRef={fileInputRef}
+      onSubmit={handleSubmit}
+      onInputChange={setInput}
+      onKeyDown={handleComposerKeyDown}
+      onFileChange={handleUploadFile}
+      onRemoveAttachment={handleRemoveAttachment}
+      onClickUpload={handleClickUpload}
+      onShowResumeSelector={() => setShowResumeSelector(true)}
+      onStartVoiceRecording={startVoiceRecording}
+      onStopVoiceRecording={stopVoiceRecording}
+    />
+  );
+
   return (
     <WorkspaceLayout
       agentSession={{
@@ -4092,15 +4120,14 @@ function SophiaChatContent() {
                   </div>
                 )}
 
-                {messages.length === 0 &&
-                  !isProcessing &&
-                  !showResumeSelector && (
-                    <ChatEmptyState
-                      createDefaultPrompt={CREATE_DEFAULT_RESUME_PROMPT}
-                      onSendMessage={(text) => void sendUserTextMessage(text)}
-                      onSetInput={setInput}
-                    />
-                  )}
+                {isEmptyState && (
+                  <ChatEmptyState
+                    createDefaultPrompt={CREATE_DEFAULT_RESUME_PROMPT}
+                    onSendMessage={(text) => void sendUserTextMessage(text)}
+                    onSetInput={setInput}
+                    composerSlot={composerNode}
+                  />
+                )}
 
                 <MessageTimeline
                   messages={messages}
@@ -4225,31 +4252,12 @@ function SophiaChatContent() {
               </div>
             </CustomScrollbar>
 
-            {/* Input Area */}
-            <div className="bg-chat-canvas dark:bg-slate-950 px-4 py-4 pb-8">
-              <div className="max-w-3xl mx-auto w-full">
-                <Composer
-                  input={input}
-                  isProcessing={isProcessing || isPasteImporting}
-                  isUploadingFile={isUploadingFile}
-                  isVoiceRecording={isVoiceRecording}
-                  isVoiceProcessing={isVoiceProcessing}
-                  isVoiceSpeaking={isVoiceSpeaking}
-                  isResumePreviewActive={isResumePreviewActive}
-                  pendingAttachments={pendingAttachments}
-                  fileInputRef={fileInputRef}
-                  onSubmit={handleSubmit}
-                  onInputChange={setInput}
-                  onKeyDown={handleComposerKeyDown}
-                  onFileChange={handleUploadFile}
-                  onRemoveAttachment={handleRemoveAttachment}
-                  onClickUpload={handleClickUpload}
-                  onShowResumeSelector={() => setShowResumeSelector(true)}
-                  onStartVoiceRecording={startVoiceRecording}
-                  onStopVoiceRecording={stopVoiceRecording}
-                />
+            {/* Input Area（有消息时固定底部；空态下输入框移到中间，见 ChatEmptyState） */}
+            {!isEmptyState && (
+              <div className="bg-chat-canvas dark:bg-slate-950 px-4 py-4 pb-8">
+                <div className="max-w-3xl mx-auto w-full">{composerNode}</div>
               </div>
-            </div>
+            )}
           </section>
 
           {/* Right: Resume Preview - 只在有选中简历时显示 */}

@@ -35,6 +35,15 @@ export default {
           'Microsoft YaHei UI',
           'sans-serif',
         ],
+        // 优雅中文衬线（标题用，参考 Manus）：Mac 优先 Songti SC
+        serifcn: [
+          '"Songti SC"',
+          '"STSong"',
+          '"Source Han Serif SC"',
+          '"Noto Serif SC"',
+          'SimSun',
+          'serif',
+        ],
       },
       colors: {
         chat: {
