@@ -16,6 +16,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/hooks/useTheme'
 import type { Theme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
+import { getAuthHeaders } from '@/lib/authHeaders'
+import { getApiBaseUrl } from '@/lib/runtimeEnv'
 import {
   getPDFExportPreferences,
   setPDFExportPreferences,
@@ -96,12 +98,11 @@ export default function SettingsPage() {
   const [liveRole, setLiveRole] = useState<string>('')
   const { theme, setTheme } = useTheme()
 
-  // 从 /api/auth/me 实时读 role（不受旧 JWT 缓存影响）
+  // 从 /api/auth/me 实时读 role（用 getApiBaseUrl 确保经过 BetterAuth 代理层）
   useEffect(() => {
-    const token = localStorage.getItem('auth_token')
-    if (!token) return
-    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-      .then((r) => r.json())
+    const url = `${getApiBaseUrl()}/api/auth/me`
+    fetch(url, { headers: getAuthHeaders(), credentials: 'include' })
+      .then((r) => r.ok ? r.json() : null)
       .then((data) => { if (data?.role) setLiveRole(String(data.role).toLowerCase()) })
       .catch(() => {})
   }, [])
