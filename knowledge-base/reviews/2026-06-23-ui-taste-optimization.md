@@ -101,3 +101,23 @@
 - **新组件 `components/common/ActionMenu.tsx`**：轻量上下文「动作」菜单，**刻意与选择型 `PortalDropdown` 区分**——后者是「选中某个值」（ChevronDown + 选中态 Check、`value/onSelect`、全宽触发），本组件是「执行某个动作」（⋮ 触发、`items[].onSelect`、支持 `danger`/`disabled`/`icon`/`align`/`onOpenChange`）。两者都 `createPortal` 到 `body` + `getBoundingClientRect` 定位，**避免被侧栏 `overflow` 裁剪**；外点击 / Esc 关闭。
 - **复用要点**：后续任何「⋮ 操作菜单」一律用 `ActionMenu`，不要再在元素上 inline 堆 hover 图标按钮；「选值」用 `PortalDropdown`、「执行动作」用 `ActionMenu`，语义不要混。
 - **验证**：`npm run build` 通过；浏览器实测（用 JS 注入精确取 `getBoundingClientRect` + 原生 `click`，规避截图缩放导致的坐标偏移）——标题栏 ⋮ = {刷新, 删除全部会话(red)}，会话 ⋮ = {重命名, 删除(red)}；点「重命名」→ 进入内联编辑（input 预填「你好」），点「删除」→ 弹确认框「确定要删除此会话吗？删除后无法恢复。」+ 取消/确定删除。测试均以「取消」收尾，未真实删除数据。
+
+### 6. 问候 fast-path 大卡 → 意图胶囊，抽 `IntentChips` 共享组件（`73f1a15`）
+
+- **原状**：发「你好」等纯问候、且无简历上下文时，前端**零延迟 fast-path**（`SophiaChat.tsx` 命中 `isGreetingOnlyText`，不经 LLM）回固定话术「你好 👋 请选择下方方式开始处理简历。」并弹出 `ResumeSelector` **大卡**（对话创建 / 导入 / 新建 / 选已有）。大卡永久占位重、和「轻问候」的语气不匹配，第一屏就压上一块功能面板。
+- **改为**：**保留零延迟 fast-path 不变**（仍不经 LLM），只把大卡换成「一句更友好的回应 + 一排意图胶囊」。
+  - 话术改为：「你好 👋 我是简历助手，下面选一个快速开始，或者直接打字告诉我你想做什么。」
+  - 5 个胶囊（chip 集 B）：对话创建（推荐）→ 直发创建 prompt（`handleFillCreateResumePrompt`）；导入简历 → 开 AI 导入模态（`handleImportResume`）；选择已有 → 直达已有简历列表；岗位分析 / 快速问答 → 预填输入框（`setInput`，不直发）。
+  - **刻意不含「模拟面试」**：它依赖已有简历，在「无简历问候态」下点了会尴尬，故从空态的 4 项里替换掉、落定为这 5 项。
+- **新组件 `components/agent-chat/IntentChips.tsx`**：把空态那排胶囊抽成**纯展示组件**（胶囊样式的单一来源），动作由调用方经 `onClick` 注入。空态（`ChatEmptyState`）与问候引导共用同一套样式；`ChatEmptyState` 同步重构复用，button className 逐字保留、**视觉与行为不变**，并统一补了更稳健的 `type="button"`。
+- **`ResumeSelector` 加 `initialStep`**：默认 `'entry'`（入口卡片，其余调用方零改动）；「选择已有」传 `'existing'` 直达分页列表，不再先过入口大卡。组件每次 `showResumeSelector` 翻转都条件渲染重新挂载，`useState(initialStep)` 每次打开重读，无需 effect 同步。
+- **胶囊生命周期**：每个胶囊 `onClick` 先 `setShowGreetingChips(false)`；`sendUserTextMessage` 顶部也 `setShowGreetingChips(false)`（任何真实发送先收起），命中问候 fast-path 时再 `setShowGreetingChips(true)` 重开（同步、React 批处理、无闪烁）。三处打开 `ResumeSelector` 的旧入口各 prepend `setResumeSelectorInitialStep("entry")`，保证非「选择已有」路径仍从入口卡片进。
+- **复用要点**：胶囊样式自此单一来源（`IntentChips`）。配合既有约定——「选值」用 `PortalDropdown`、「执行动作」用 `ActionMenu`、「意图引导胶囊」用 `IntentChips`，三者语义不混。
+- **验证**：`npm run build` 通过（8.6s，仅既有 chunk size 警告）；浏览器实测（JS 注入原生 `.click()` + 原生 setter 写 React 受控 `textarea` 并派发 `input`/`keydown`，规避截图缩放导致的坐标偏移）——
+  - 空态 4 胶囊渲染不变（`IntentChips` 重构无回归）；
+  - 发「你好」→ 新话术 + 5 胶囊 + 大卡消失；
+  - 选择已有 → `ResumeSelector` 直达已有列表（「选择一份简历…共 1 份简历可选」）而非入口卡，胶囊收起；
+  - 岗位分析 → 输入框预填「分析这个 JD，看看我的简历还要补充什么」、胶囊收起；
+  - 导入简历 → AI 导入模态打开（「导入简历 / 上传或粘贴简历内容…」+ PDF/图片/文本三 tab）、胶囊收起；
+  - 深色模式：5 胶囊在深底下 slate 边框 + `amber-400` 金色图标、对比良好（Color Consistency Lock）。
+  - 对话创建为重型 LLM 创建流程，按「CDP 测试复用单标签、绝不 flood」教训只做接线核验（`handleFillCreateResumePrompt` 直发），不全跑。
