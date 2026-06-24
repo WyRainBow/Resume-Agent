@@ -93,7 +93,18 @@ function Card({
 export default function SettingsPage() {
   const { user, isAuthenticated } = useAuth()
   const roleFromToken = getRoleFromToken()
+  const [liveRole, setLiveRole] = useState<string>('')
   const { theme, setTheme } = useTheme()
+
+  // 从 /api/auth/me 实时读 role（不受旧 JWT 缓存影响）
+  useEffect(() => {
+    const token = localStorage.getItem('auth_token')
+    if (!token) return
+    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.json())
+      .then((data) => { if (data?.role) setLiveRole(String(data.role).toLowerCase()) })
+      .catch(() => {})
+  }, [])
   const [displayName, setDisplayName] = useState(user?.username ?? '')
   const [email, setEmail] = useState(user?.email ?? '')
   const [language, setLanguage] = useState(() => {
@@ -231,7 +242,7 @@ export default function SettingsPage() {
             </div>
             <div className="mt-4 flex items-center justify-between">
               <div className="text-sm text-slate-500 dark:text-slate-400">
-                当前角色：<span className="font-semibold text-slate-700 dark:text-slate-200">{roleFromToken || (user as any)?.role || 'user'}</span>
+                当前角色：<span className="font-semibold text-slate-700 dark:text-slate-200">{liveRole || roleFromToken || (user as any)?.role || 'user'}</span>
               </div>
               <button
                 type="button"

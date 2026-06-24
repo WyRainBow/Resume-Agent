@@ -34,6 +34,7 @@ class UserResponse(BaseModel):
     id: int
     username: str
     email: Optional[str] = None
+    role: Optional[str] = None
 
 
 class TokenResponse(BaseModel):
@@ -227,5 +228,5 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
 
 @router.get("/me", response_model=UserResponse)
 def me(current_user: User = Depends(get_current_user)):
-    """获取当前用户信息"""
-    return UserResponse(id=current_user.id, username=current_user.username, email=current_user.email)
+    """获取当前用户信息（role 实时从 DB 读，不依赖 JWT 缓存）"""
+    return UserResponse(id=current_user.id, username=current_user.username, email=current_user.email, role=current_user.role)
