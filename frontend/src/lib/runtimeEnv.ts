@@ -146,9 +146,10 @@ export function getStoredAuthRole(): string {
 }
 
 export function canUseAgentFeature(): boolean {
-  if (!isAgentEnabled()) return false
-  const token = localStorage.getItem('auth_token')
-  return Boolean(token)
+  // 仅判定 Agent 功能开关；登录态由唯一调用方 WorkspaceLayout 的 isAuthenticated 统一把关。
+  // 不在此重新从 localStorage 推导登录态——BetterAuth 用 cookie 鉴权、不写 legacy auth_token，
+  // 旧的 token 存在性判断会在 BetterAuth 登录态下把历史会话等 Agent 入口整体隐藏。
+  return isAgentEnabled()
 }
 
 export function canUseAdminFeature(): boolean {

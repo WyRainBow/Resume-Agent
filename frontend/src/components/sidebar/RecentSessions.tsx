@@ -118,18 +118,9 @@ export function RecentSessions({
 
   const fetchPage = useCallback(
     async (page: number, mode: 'replace' | 'append' = 'replace') => {
-      const token = localStorage.getItem("auth_token");
-      if (!token) {
-        setSessions([]);
-        setPagination({
-          total: 0,
-          page: 1,
-          page_size: PAGE_SIZE,
-          total_pages: 1,
-        });
-        setErrorMessage(null);
-        return;
-      }
+      // 鉴权门控统一由下方 useEffect 按 isAuthenticated 判定（兼容 BetterAuth cookie 登录，
+      // 该模式下 localStorage.auth_token 为空）。此处不再二次校验 legacy token，
+      // 否则会在 BetterAuth 登录态下把历史会话列表误清空。
       const retries = [0, 1000, 2000];
       for (let i = 0; i < retries.length; i++) {
         try {
@@ -140,6 +131,7 @@ export function RecentSessions({
             `${apiBaseUrl}/api/agent/history/sessions/list?page=${page}&page_size=${PAGE_SIZE}`,
             {
               cache: 'no-cache',
+              credentials: 'include',
               headers: getAuthHeaders({
                 'Cache-Control': 'no-cache',
               }),
@@ -291,6 +283,7 @@ export function RecentSessions({
       setIsLoading(true);
       const response = await fetch(`${apiBaseUrl}/api/agent/history/sessions/all`, {
         method: 'DELETE',
+        credentials: 'include',
         headers: getAuthHeaders({
           'Content-Type': 'application/json',
         }),
@@ -307,6 +300,7 @@ export function RecentSessions({
       if (currentSessionId) {
         fetch(`${apiBaseUrl}/api/agent/stream/session/${currentSessionId}`, {
           method: 'DELETE',
+          credentials: 'include',
           headers: getAuthHeaders(),
         }).catch(() => undefined);
       }
