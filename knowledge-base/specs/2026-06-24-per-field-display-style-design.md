@@ -122,6 +122,11 @@ interface BasicInfo {
 - **PDF（真实渲染链路）**：覆盖 `text`/`none` × 多字段，确认 LaTeX 前缀正确（中文字体、求职意向/年龄·生日标签）；确认 `icon` 模式 PDF = 仅值（符合现状约束）。
 - **构建**：`cd frontend && npm run build`。
 
-## 11. 后续（writing-plans 承接）
+## 11. 实现记录（2026-06-24，提交 `f7dde5b`）
 
-本设计交 `/superpowers:writing-plans` 出分步实施计划：数据模型与工具 → UI 控件 → 预览渲染 → 导出/后端渲染 → 迁移 → 验证。
+用户要求跳过 writing-plans 直接开发。已实现并实测通过，相对设计的合理偏离：
+
+- **迁移用读时回退，未做一次性固化写入**：`resolveFieldMode` 读时回退老简历 `contactLabelMode`→`'icon'`，存量简历视觉不突变；用户改某字段时只写该字段，更简单、零迁移副作用。
+- **`generateHTML.ts` 未触碰**：全仓无引用 = 死代码，且其本就硬编码图标不读模式；按「外科式修改、死代码不删不改」跳过。
+- **未给后端补传 `icons`**：PDF 无 emoji 字体、icon 模式仅值，后端用不到自定义 emoji（emoji 仅影响前端 `HTMLTemplateRenderer` 预览，直接读 `basic.icons`）。故 `convertToBackend` 不变。
+- **实测**：workspace 切换 电话/邮箱/职位 → 标签态，PDF 预览实时显示「电话：/邮箱：/求职意向：」前缀且逐字段独立；icon 态仅值（· 分隔、无 emoji，符合约束）。
