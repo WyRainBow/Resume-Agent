@@ -1,5 +1,6 @@
 import { Wand2, Search, Briefcase, Zap } from "lucide-react";
 import type { ReactNode } from "react";
+import IntentChips, { type IntentChipItem } from "./IntentChips";
 
 interface ChatEmptyStateProps {
   /** 「创建默认简历」提示语，点击「创建简历」时自动发送 */
@@ -20,11 +21,31 @@ export default function ChatEmptyState({
   onSetInput,
   composerSlot,
 }: ChatEmptyStateProps) {
-  const chips: { icon: typeof Wand2; title: string; desc: string; autoSend?: boolean }[] = [
-    { icon: Wand2, title: "创建简历", desc: createDefaultPrompt, autoSend: true },
-    { icon: Search, title: "岗位分析", desc: "分析这个 JD，看看我的简历还要补充什么" },
-    { icon: Briefcase, title: "模拟面试", desc: "针对我的简历，出几道后端技术面试题" },
-    { icon: Zap, title: "快速问答", desc: "怎么写出让 HR 眼前一亮的简历总结" },
+  const chips: IntentChipItem[] = [
+    {
+      icon: Wand2,
+      label: "创建简历",
+      title: createDefaultPrompt,
+      onClick: () => onSendMessage(createDefaultPrompt),
+    },
+    {
+      icon: Search,
+      label: "岗位分析",
+      title: "分析这个 JD，看看我的简历还要补充什么",
+      onClick: () => onSetInput("分析这个 JD，看看我的简历还要补充什么"),
+    },
+    {
+      icon: Briefcase,
+      label: "模拟面试",
+      title: "针对我的简历，出几道后端技术面试题",
+      onClick: () => onSetInput("针对我的简历，出几道后端技术面试题"),
+    },
+    {
+      icon: Zap,
+      label: "快速问答",
+      title: "怎么写出让 HR 眼前一亮的简历总结",
+      onClick: () => onSetInput("怎么写出让 HR 眼前一亮的简历总结"),
+    },
   ];
 
   return (
@@ -37,22 +58,7 @@ export default function ChatEmptyState({
 
       {composerSlot && <div className="mb-5">{composerSlot}</div>}
 
-      <div className="flex flex-wrap items-center justify-center gap-2.5">
-        {chips.map((item, i) => {
-          const Icon = item.icon;
-          return (
-            <button
-              key={i}
-              title={item.desc}
-              onClick={() => (item.autoSend ? onSendMessage(item.desc) : onSetInput(item.desc))}
-              className="inline-flex items-center gap-2 rounded-full border border-chat-border bg-chat-surface px-4 py-2 text-sm font-medium text-chat-ink transition-all hover:border-chat-accent/50 hover:bg-chat-accent/5 active:scale-95 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-amber-500/30 dark:hover:bg-amber-500/10"
-            >
-              <Icon className="w-4 h-4 text-chat-accent dark:text-amber-400" strokeWidth={2} />
-              {item.title}
-            </button>
-          );
-        })}
-      </div>
+      <IntentChips chips={chips} />
     </div>
   );
 }

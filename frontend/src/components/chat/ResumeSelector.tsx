@@ -10,6 +10,8 @@ interface ResumeSelectorProps {
   onFillCreatePrompt?: () => void
   onCancel?: () => void
   onLayoutChange?: () => void
+  /** 打开时的初始步骤，默认入口卡片；传 'existing' 直达已有简历列表 */
+  initialStep?: 'entry' | 'existing'
 }
 
 type SelectorStep = 'entry' | 'existing'
@@ -22,11 +24,12 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
   onFillCreatePrompt,
   onCancel,
   onLayoutChange,
+  initialStep = 'entry',
 }) => {
   const [resumes, setResumes] = useState<SavedResume[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [step, setStep] = useState<SelectorStep>('entry')
+  const [step, setStep] = useState<SelectorStep>(initialStep)
   const [showEmptyResumeDialog, setShowEmptyResumeDialog] = useState(false)
   const [currentPage, setCurrentPage] = useState(0)
 

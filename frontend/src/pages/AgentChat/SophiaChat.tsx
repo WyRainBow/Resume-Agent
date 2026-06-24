@@ -43,8 +43,14 @@ import {
   Sparkles,
   MessageSquare,
   Bot,
+  Wand2,
+  Upload,
+  FileText,
+  Search,
+  Zap,
 } from "lucide-react";
 import ChatEmptyState from "@/components/agent-chat/ChatEmptyState";
+import IntentChips from "@/components/agent-chat/IntentChips";
 import ModelSelector, { DEFAULT_AGENT_MODEL } from "@/components/agent-chat/ModelSelector";
 import React, {
   useCallback,
@@ -414,7 +420,7 @@ function resolveImportedResumeDisplayName(data: Record<string, unknown>): string
 const CREATE_DEFAULT_RESUME_PROMPT = "帮我创建一份模板默认简历";
 
 const GREETING_CREATE_RESUME_GUIDANCE =
-  "你好 👋 请选择下方方式开始处理简历。";
+  "你好 👋 我是简历助手，下面选一个快速开始，或者直接打字告诉我你想做什么。";
 
 interface SearchResultItem {
   position?: number;
@@ -712,6 +718,12 @@ function SophiaChatContent() {
 
   // 简历选择器状态
   const [showResumeSelector, setShowResumeSelector] = useState(false);
+  // 问候 fast-path 的意图引导胶囊（替代旧的 ResumeSelector 大卡）
+  const [showGreetingChips, setShowGreetingChips] = useState(false);
+  // ResumeSelector 打开时的初始步骤（「选择已有」直达列表，其余从入口卡片进）
+  const [resumeSelectorInitialStep, setResumeSelectorInitialStep] = useState<
+    "entry" | "existing"
+  >("entry");
   const [aiImportModalOpen, setAiImportModalOpen] = useState(false);
   const currentRunUserInputRef = useRef("");
   const [pendingResumeInput, setPendingResumeInput] = useState<string>(""); // 暂存用户输入，选择简历后继续处理
@@ -1342,6 +1354,7 @@ function SophiaChatContent() {
         setPendingResumeInput(text);
       }
       setResumeError(null);
+      setResumeSelectorInitialStep("entry");
       setShowResumeSelector(true);
     },
     onResumeUpdated: (resumeData) => {
@@ -3181,6 +3194,7 @@ function SophiaChatContent() {
       setAllowPdfAutoRender(true);
       setSelectedResumeId(selectedResume.id);
       setShowResumeSelector(false);
+      setShowGreetingChips(false);
 
       console.log(
         "[AgentChat] 简历已加载到对话区:",
@@ -3437,6 +3451,8 @@ function SophiaChatContent() {
         return;
 
       const trimmedMessage = userMessage.trim();
+      // 任何真实发送都先收起问候引导胶囊；命中问候 fast-path 时下方会重新打开
+      setShowGreetingChips(false);
       const pasteResumeText =
         !attachments || attachments.length === 0
           ? extractPasteImportResumeText(trimmedMessage)
@@ -3578,7 +3594,7 @@ function SophiaChatContent() {
         };
         const finalMessages = [...nextMessages, assistantMsg];
         setMessages(finalMessages);
-        setShowResumeSelector(true);
+        setShowGreetingChips(true);
         await persistSessionSnapshot(
           validConversationId,
           finalMessages,
@@ -4078,7 +4094,10 @@ function SophiaChatContent() {
       onFileChange={handleUploadFile}
       onRemoveAttachment={handleRemoveAttachment}
       onClickUpload={handleClickUpload}
-      onShowResumeSelector={() => setShowResumeSelector(true)}
+      onShowResumeSelector={() => {
+        setResumeSelectorInitialStep("entry");
+        setShowResumeSelector(true);
+      }}
       onStartVoiceRecording={startVoiceRecording}
       onStopVoiceRecording={stopVoiceRecording}
     />
@@ -4162,7 +4181,10 @@ function SophiaChatContent() {
                       setResumeData(resumeForMessage.resumeData);
                     }
                   }}
-                  onOpenResumeSelector={() => setShowResumeSelector(true)}
+                  onOpenResumeSelector={() => {
+                    setResumeSelectorInitialStep("entry");
+                    setShowResumeSelector(true);
+                  }}
                   onRegenerate={() => {
                     const userMessages = messages.filter((m) => m.role === "user");
                     const lastUserMsg = userMessages[userMessages.length - 1];
@@ -4223,9 +4245,61 @@ function SophiaChatContent() {
                   </div>
                 )}
 
+                {/* 问候引导胶囊：发「你好」且无简历时的零延迟意图引导（替代旧的大卡） */}
+                {showGreetingChips && (
+                  <div className="px-4 py-2">
+                    <IntentChips
+                      chips={[
+                        {
+                          icon: Wand2,
+                          label: "对话创建（推荐）",
+                          onClick: () => {
+                            setShowGreetingChips(false);
+                            handleFillCreateResumePrompt();
+                          },
+                        },
+                        {
+                          icon: Upload,
+                          label: "导入简历",
+                          onClick: () => {
+                            setShowGreetingChips(false);
+                            handleImportResume();
+                          },
+                        },
+                        {
+                          icon: FileText,
+                          label: "选择已有",
+                          onClick: () => {
+                            setShowGreetingChips(false);
+                            setResumeSelectorInitialStep("existing");
+                            setShowResumeSelector(true);
+                          },
+                        },
+                        {
+                          icon: Search,
+                          label: "岗位分析",
+                          onClick: () => {
+                            setShowGreetingChips(false);
+                            setInput("分析这个 JD，看看我的简历还要补充什么");
+                          },
+                        },
+                        {
+                          icon: Zap,
+                          label: "快速问答",
+                          onClick: () => {
+                            setShowGreetingChips(false);
+                            setInput("怎么写出让 HR 眼前一亮的简历总结");
+                          },
+                        },
+                      ]}
+                    />
+                  </div>
+                )}
+
                 {/* 简历选择器：放在对话流末尾，与最新消息同区域展示 */}
                 {showResumeSelector && (
                   <ResumeSelector
+                    initialStep={resumeSelectorInitialStep}
                     onSelect={handleResumeSelect}
                     onCreateResume={handleCreateResume}
                     onImportResume={handleImportResume}
