@@ -4,7 +4,7 @@ import { getCurrentUser, login as loginApi, register as registerApi, setAuthToke
 import { fetchUserEntitlement } from '@/services/api'
 import {
   fetchBetterAuthSession,
-  fetchLegacyUserId,
+  fetchLegacyUserInfo,
   redirectToAuthWebLogin,
   signOutBetterAuth,
   type BetterAuthSessionUser,
@@ -17,6 +17,7 @@ type User = {
   email?: string
   image?: string | null
   betterAuthUserId?: string
+  role?: string
   credits?: number
   plan?: string
 }
@@ -73,12 +74,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (sessionUser) {
             setUser(mapBetterAuthUser(sessionUser))
             setToken(BETTER_AUTH_TOKEN)
-            // 异步回填真实 legacy user.id（经 proxy + trusted headers），不阻塞首屏；
+            // 异步回填真实 legacy user.id 与角色（经 proxy + trusted headers），不阻塞首屏；
             // 失败时保留 betterAuthUserId，id 维持 0，不影响登录态判断。
-            void fetchLegacyUserId().then((legacyId) => {
-              if (legacyId) {
-                setUser((prev) => (prev ? { ...prev, id: legacyId } : prev))
-              }
+            void fetchLegacyUserInfo().then(({ id: legacyId, role }) => {
+              setUser((prev) => {
+                if (!prev) return prev
+                const next: User = { ...prev }
+                if (legacyId) next.id = legacyId
+                if (role) next.role = role
+                // BetterAuth 模式无 legacy JWT，将角色落到 auth_user，
+                // 供 getStoredAuthRole / canUseAdminFeature 同步读取，恢复管理员功能门控。
+                try {
+                  localStorage.setItem(USER_KEY, JSON.stringify(next))
+                } catch {
+                  // 持久化失败不影响登录态
+                }
+                return next
+              })
             })
             // 异步拉取额度，不阻塞首屏
             void fetchUserEntitlement().then((ent) => {

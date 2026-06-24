@@ -68,12 +68,12 @@ export function redirectToAuthWebLogin(returnTo = window.location.href) {
 
 /**
  * 经 Next 代理调用 legacy /api/auth/me，换取当前 BetterAuth 用户对应的真实
- * legacy User.id。代理会注入 trusted headers，后端 resolve_legacy_user 据此返回
- * 真实记录。仅在 API 走 Next 代理（VITE_API_VIA_AUTH_WEB）时可用。
+ * legacy User.id 与角色。代理会注入 trusted headers，后端 resolve_legacy_user 据此
+ * 返回真实记录（含 role）。仅在 API 走 Next 代理（VITE_API_VIA_AUTH_WEB）时可用。
  */
-export async function fetchLegacyUserId(): Promise<number | null> {
+export async function fetchLegacyUserInfo(): Promise<{ id: number | null; role: string | null }> {
   const proxyBase = getAuthWebApiProxyBaseUrl()
-  if (!proxyBase) return null
+  if (!proxyBase) return { id: null, role: null }
 
   try {
     const response = await fetchWithTimeout(
@@ -81,16 +81,19 @@ export async function fetchLegacyUserId(): Promise<number | null> {
       { credentials: 'include', cache: 'no-store' },
       AUTH_SESSION_TIMEOUT_MS,
     )
-    if (!response.ok) return null
+    if (!response.ok) return { id: null, role: null }
 
-    const data = (await response.json()) as { id?: number }
-    return typeof data.id === 'number' && data.id > 0 ? data.id : null
+    const data = (await response.json()) as { id?: number; role?: string }
+    return {
+      id: typeof data.id === 'number' && data.id > 0 ? data.id : null,
+      role: typeof data.role === 'string' && data.role ? data.role : null,
+    }
   } catch (error) {
     if (error instanceof FetchTimeoutError) {
       console.warn('[Auth] legacy user 回填请求超时，保留 BetterAuth 身份')
-      return null
+      return { id: null, role: null }
     }
     console.warn('[Auth] legacy user 回填请求失败，保留 BetterAuth 身份', error)
-    return null
+    return { id: null, role: null }
   }
 }

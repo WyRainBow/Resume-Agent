@@ -152,8 +152,8 @@ export function canUseAgentFeature(): boolean {
 }
 
 export function canUseAdminFeature(): boolean {
-  const token = localStorage.getItem('auth_token')
-  if (!token) return false
+  // 角色即权限来源：legacy 模式从 JWT、BetterAuth 模式从 auth_user 取角色。
+  // 不再要求 legacy token（BetterAuth 登录态下 auth_token 为空，会误杀管理员）。
   const role = getStoredAuthRole()
   return role === 'admin' || role === 'member'
 }
