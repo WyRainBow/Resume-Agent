@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Check, Loader2, MessageSquare, Pencil, Plus, RefreshCw, Trash2, X, Trash, AlertTriangle } from 'lucide-react';
 import { SidebarTooltip } from './SidebarTooltip';
 import CustomScrollbar from '../common/CustomScrollbar';
+import ActionMenu from '../common/ActionMenu';
 import { useEnvironment } from '@/contexts/EnvironmentContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAgentEnabled } from '@/lib/runtimeEnv';
@@ -74,6 +75,7 @@ export function RecentSessions({
   const [editingTitle, setEditingTitle] = useState('');
   const [deleteConfirmSessionId, setDeleteConfirmSessionId] = useState<string | null>(null);
   const [deleteAllConfirmOpen, setDeleteAllConfirmOpen] = useState(false);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [sessionLimits, setSessionLimits] = useState<SessionLimits>(
@@ -461,12 +463,12 @@ export function RecentSessions({
             ({sessionLimits.current_count}/{sessionLimits.max_sessions})
           </span>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0">
           <button
             type="button"
             onClick={handleCreateSessionClick}
             disabled={!sessionLimits.can_create}
-            className={`p-1 rounded transition-colors ${
+            className={`p-1 rounded-md transition-colors ${
               sessionLimits.can_create
                 ? 'hover:bg-gray-100/50 text-gray-500 hover:text-gray-700'
                 : 'text-gray-300 cursor-not-allowed'
@@ -476,26 +478,30 @@ export function RecentSessions({
           >
             <Plus className="w-4 h-4" />
           </button>
-          <button
-            type="button"
-            onClick={refreshSessions}
-            className="p-1 rounded hover:bg-gray-100/50 transition-colors text-gray-500 hover:text-gray-700"
-            title="刷新"
-            aria-label="刷新"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
-          {sessions.length > 0 && (
-            <button
-              type="button"
-              onClick={handleDeleteAllClick}
-              className="p-1 rounded hover:bg-red-50 transition-colors text-gray-500 hover:text-red-600"
-              title="删除所有会话"
-              aria-label="删除所有会话"
-            >
-              <Trash className="w-4 h-4" />
-            </button>
-          )}
+          <ActionMenu
+            triggerTitle="更多"
+            triggerClassName="text-gray-500 hover:text-gray-700"
+            align="end"
+            items={[
+              {
+                key: 'refresh',
+                label: '刷新',
+                icon: <RefreshCw />,
+                onSelect: refreshSessions,
+              },
+              ...(sessions.length > 0
+                ? [
+                    {
+                      key: 'delete-all',
+                      label: '删除全部会话',
+                      icon: <Trash />,
+                      danger: true,
+                      onSelect: handleDeleteAllClick,
+                    },
+                  ]
+                : []),
+            ]}
+          />
         </div>
       </div>
 
@@ -577,10 +583,13 @@ export function RecentSessions({
                         </div>
                       )}
                     </div>
-                    {/* 操作按钮 - 只在 hover 或 active 时显示 */}
+                    {/* 操作区：编辑态显示保存/取消，否则显示 ⋮ 菜单（重命名 / 删除）。
+                        active、编辑中或菜单展开时保持可见，其余仅 hover 显示。 */}
                     <div
                       className={`flex items-center gap-0.5 transition-opacity ${
-                        isActive || editingSessionId === session.session_id
+                        isActive ||
+                        editingSessionId === session.session_id ||
+                        menuOpenId === session.session_id
                           ? 'opacity-100'
                           : 'opacity-0 group-hover:opacity-100'
                       }`}
@@ -608,26 +617,28 @@ export function RecentSessions({
                           </button>
                         </>
                       ) : (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleStartRename(session)}
-                            className="p-1 rounded hover:bg-indigo-50 text-gray-400 hover:text-indigo-600 transition-colors"
-                            title="重命名"
-                            aria-label="重命名"
-                          >
-                            <Pencil className="w-3 h-3" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteClick(session.session_id)}
-                            className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
-                            title="删除"
-                            aria-label="删除"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </>
+                        <ActionMenu
+                          align="end"
+                          triggerTitle="更多操作"
+                          onOpenChange={(o) =>
+                            setMenuOpenId(o ? session.session_id : null)
+                          }
+                          items={[
+                            {
+                              key: 'rename',
+                              label: '重命名',
+                              icon: <Pencil />,
+                              onSelect: () => handleStartRename(session),
+                            },
+                            {
+                              key: 'delete',
+                              label: '删除',
+                              icon: <Trash2 />,
+                              danger: true,
+                              onSelect: () => handleDeleteClick(session.session_id),
+                            },
+                          ]}
+                        />
                       )}
                     </div>
                   </div>
