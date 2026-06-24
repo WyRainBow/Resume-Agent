@@ -7,6 +7,8 @@ import { useEffect, useState, useCallback } from 'react'
 import { Loader2, Target, X, Check, Wand2, AlertTriangle, Plus } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { jdOptimize, jdIntegrateKeyword, type JdOptimizeField, type JdOptimizeResult } from '../../../../services/api'
+import { looksLikeHtml } from '../../../../utils/resumePatch'
+import { linkifyHtmlContent } from '../../../../utils/linkifyText'
 import AiProgressBar from './AiProgressBar'
 
 /** 缺失关键词「一键融入」的单条状态 */
@@ -30,6 +32,37 @@ function scoreColor(score: number | null): string {
   if (score < 60) return 'text-red-500'
   if (score < 80) return 'text-amber-500'
   return 'text-emerald-500'
+}
+
+/**
+ * 渲染简历字段的「修改前 / 修改后」文本：富文本字段是 HTML（<ul class="custom-list">…），
+ * 直接当文本会露出标签，故按内容是否为 HTML 分流——HTML 用 .diff-rich-content 安全渲染
+ * （正确显示圆点列表、加粗），纯文本保留换行。修改前弱化、修改后强调，与对话区 diff 卡一致。
+ */
+function RichFieldText({ value, tone }: { value: string; tone: 'original' | 'suggested' }) {
+  const toneCls =
+    tone === 'original'
+      ? 'text-neutral-400 dark:text-neutral-500'
+      : 'text-neutral-800 dark:text-neutral-100 font-medium'
+
+  if (!value || !value.trim()) {
+    return (
+      <p className="text-sm italic text-neutral-400">
+        {tone === 'original' ? '（原先无内容）' : '（无内容）'}
+      </p>
+    )
+  }
+
+  if (looksLikeHtml(value)) {
+    return (
+      <div
+        className={cn('diff-rich-content text-sm', toneCls)}
+        dangerouslySetInnerHTML={{ __html: linkifyHtmlContent(value) }}
+      />
+    )
+  }
+
+  return <p className={cn('text-sm whitespace-pre-wrap', toneCls)}>{value}</p>
 }
 
 export default function JdOptimizeDialog({
@@ -263,8 +296,10 @@ export default function JdOptimizeDialog({
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm text-neutral-400 line-through decoration-red-300 mb-1">{it.original}</p>
-                            <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100">{it.suggested}</p>
+                            <div className="space-y-1.5">
+                              <RichFieldText value={it.original} tone="original" />
+                              <RichFieldText value={it.suggested} tone="suggested" />
+                            </div>
                             {it.reason && <p className="text-xs text-neutral-400 mt-1.5">理由：{it.reason}</p>}
                             {!isApplied && (
                               <div className="flex justify-end mt-2">
@@ -315,8 +350,10 @@ export default function JdOptimizeDialog({
                             </span>
                           )}
                         </div>
-                        <p className="text-sm text-neutral-400 line-through decoration-red-300 mb-1">{s.original}</p>
-                        <p className="text-sm font-medium text-neutral-800 dark:text-neutral-100">{s.suggested}</p>
+                        <div className="space-y-1.5">
+                          <RichFieldText value={s.original} tone="original" />
+                          <RichFieldText value={s.suggested} tone="suggested" />
+                        </div>
                         {s.reason && (
                           <p className="text-xs text-neutral-400 mt-1.5">理由：{s.reason}</p>
                         )}
