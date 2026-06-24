@@ -46,6 +46,9 @@ conversation_manager = ConversationManager(storage=storage)
 # Store active sessions (conversation_id -> agent instance)
 _active_sessions: dict[str, dict] = {}
 
+# 允许前端按请求切换的 agent 模型白名单（均经 DashScope，支持工具调用）
+_ALLOWED_AGENT_MODELS = {"deepseek-v4-flash", "deepseek-v3", "qwen-max"}
+
 # In-memory session TTL — evict idle agent sessions to cap memory growth
 _SESSION_TTL_SECONDS = int(os.getenv("AGENT_SESSION_TTL_SECONDS", "3600"))
 
@@ -233,6 +236,7 @@ async def _stream_event_generator(
     resume_data: Optional[dict] = None,
     cursor: Optional[str] = None,
     resume: bool = False,
+    model: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
     """Generate SSE events from agent execution.
 
@@ -260,6 +264,14 @@ async def _stream_event_generator(
         agent = session["agent"]
         chat_history = session["chat_history"]
         logger.info(f"[SSE Generator] Session created/retrieved successfully")
+
+        # 按请求覆盖 LLM 模型（白名单防注入）；运行时改 self.model 即生效（ask 方法每次按调用读取）
+        if model and model in _ALLOWED_AGENT_MODELS and getattr(agent, "llm", None) is not None:
+            if agent.llm.model != model:
+                logger.info(
+                    f"[SSE] 切换模型 {agent.llm.model} -> {model} (conv={conversation_id})"
+                )
+                agent.llm.model = model
 
         # Create state machine for this execution
         state_machine = AgentStateMachine(conversation_id)
@@ -526,6 +538,7 @@ async def stream_events(
             resume_data=request.resume_data,
             cursor=request.cursor,
             resume=bool(request.resume),
+            model=request.model,
         ),
         media_type="text/event-stream",
         headers={

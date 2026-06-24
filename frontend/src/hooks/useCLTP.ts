@@ -173,6 +173,8 @@ export interface UseCLTPOptions {
   heartbeatTimeout?: number;
   resumeData?: any;
   onSSEEvent?: (event: SSEEvent) => void;
+  /** 本次会话使用的 LLM 模型（前端模型选择器），随请求透传给后端覆盖 */
+  model?: string;
 }
 
 export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
@@ -183,6 +185,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
     resumeData,
     onSSEEvent,
     heartbeatTimeout = 0,
+    model,
   } = options;
 
   const [currentThought, setCurrentThought] = useState("");
@@ -195,10 +198,15 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
   const abortRef = useRef<AbortController | null>(null);
   const resumeDataRef = useRef<any>(resumeData);
   const onSSEEventRef = useRef<typeof onSSEEvent>(onSSEEvent);
+  const modelRef = useRef<string | undefined>(model);
 
   useEffect(() => {
     resumeDataRef.current = resumeData;
   }, [resumeData]);
+
+  useEffect(() => {
+    modelRef.current = model;
+  }, [model]);
 
   useEffect(() => {
     onSSEEventRef.current = onSSEEvent;
@@ -263,6 +271,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
               resumeDataOverride !== undefined
                 ? resumeDataOverride
                 : (resumeDataRef.current ?? null),
+            model: modelRef.current || undefined,
           },
           {
             baseUrl,

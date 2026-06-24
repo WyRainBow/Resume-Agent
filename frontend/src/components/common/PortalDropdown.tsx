@@ -26,6 +26,7 @@ type PortalDropdownProps = {
   badgeClassByValue?: Record<string, string>
   renderBadgeOption?: boolean
   triggerClassName?: string
+  triggerLabelClassName?: string
   portalId?: string
 }
 
@@ -46,6 +47,7 @@ export default function PortalDropdown({
   badgeClassByValue,
   renderBadgeOption,
   triggerClassName,
+  triggerLabelClassName,
   portalId = 'portal-dropdown-root',
 }: PortalDropdownProps) {
   const [open, setOpen] = useState(Boolean(autoOpen) && !disabled)
@@ -125,7 +127,7 @@ export default function PortalDropdown({
                 {selected.label}
               </span>
             ) : (
-              <span className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
+              <span className={cn('truncate text-sm font-semibold text-slate-800 dark:text-slate-100', triggerLabelClassName)}>
                 {selected.label}
               </span>
             )

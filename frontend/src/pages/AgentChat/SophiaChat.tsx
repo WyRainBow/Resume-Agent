@@ -45,6 +45,7 @@ import {
   Bot,
 } from "lucide-react";
 import ChatEmptyState from "@/components/agent-chat/ChatEmptyState";
+import ModelSelector, { DEFAULT_AGENT_MODEL } from "@/components/agent-chat/ModelSelector";
 import React, {
   useCallback,
   useEffect,
@@ -1385,6 +1386,18 @@ function SophiaChatContent() {
     },
   });
 
+  const [selectedModel, setSelectedModel] = useState<string>(
+    () => localStorage.getItem("agent_model") || DEFAULT_AGENT_MODEL,
+  );
+  const handleModelChange = useCallback((m: string) => {
+    setSelectedModel(m);
+    try {
+      localStorage.setItem("agent_model", m);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   const {
     currentThought,
     currentAnswer,
@@ -1399,6 +1412,7 @@ function SophiaChatContent() {
     baseUrl: apiBaseUrl,
     heartbeatTimeout: SSE_HEARTBEAT_TIMEOUT,
     resumeData: normalizedResume,
+    model: selectedModel,
     onSSEEvent: useCallback((event: SSEEvent) => {
       // Intercept resume_patch and resume_generated events before routing
       if ((event as any).type === 'resume_patch') {
@@ -4086,6 +4100,7 @@ function SophiaChatContent() {
           {/* Left: Chat */}
           <section className="flex-1 min-w-0 flex flex-col h-full">
             <div className="shrink-0 px-4 py-2 border-b border-chat-border/40 dark:border-slate-800 flex items-center justify-between gap-3 bg-chat-canvas/80 dark:bg-slate-950/80">
+              <ModelSelector value={selectedModel} onChange={handleModelChange} />
               <div className="min-w-0 flex items-center gap-2 text-xs text-gray-400">
                 <span className="shrink-0">会话 ID</span>
                 <code

@@ -11,6 +11,7 @@ export interface AgentStreamPayload {
   message: string;
   conversation_id?: string | null;
   resume_data?: any;
+  model?: string;
 }
 
 export interface AgentStreamHandlers {
