@@ -23,7 +23,9 @@
       "Bash(lsof -ti:9000)",
       "Bash(xargs kill:*)",
       "Bash(lsof:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(git checkout *)",
+      "Bash(git pull *)"
     ]
   }
 }

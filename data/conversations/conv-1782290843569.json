@@ -1,0 +1,50 @@
+{
+  "session_id": "conv-1782290843569",
+  "user_id": 56,
+  "created_at": "2026-06-24T16:48:00.631182",
+  "updated_at": "2026-06-24T16:58:26.583778",
+  "title": "你好",
+  "message_count": 10,
+  "messages": [
+    {
+      "role": "user",
+      "content": "你好"
+    },
+    {
+      "role": "assistant",
+      "content": "你好 👋 我是简历助手，下面选一个快速开始，或者直接打字告诉我你想做什么。"
+    },
+    {
+      "role": "user",
+      "content": "你好"
+    },
+    {
+      "role": "assistant",
+      "content": "你好 👋 我是简历助手，下面选一个快速开始，或者直接打字告诉我你想做什么。"
+    },
+    {
+      "role": "user",
+      "content": "你好"
+    },
+    {
+      "role": "assistant",
+      "content": "你好 👋 我是简历助手，下面选一个快速开始，或者直接打字告诉我你想做什么。"
+    },
+    {
+      "role": "user",
+      "content": "你好"
+    },
+    {
+      "role": "assistant",
+      "content": "你好 👋 我是简历助手，下面选一个快速开始，或者直接打字告诉我你想做什么。"
+    },
+    {
+      "role": "user",
+      "content": "帮我创建一份模板默认简历"
+    },
+    {
+      "role": "assistant",
+      "content": "已为你创建默认 LaTeX 简历「张三」，右侧可预览。你可以继续告诉我需要优化哪些内容，或说「选择已有简历」加载其他简历。"
+    }
+  ]
+}
