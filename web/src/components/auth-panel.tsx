@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { signIn, signUp, useSession } from "@/lib/auth-client";
+import { signIn, useSession } from "@/lib/auth-client";
 import { buildAccountCallbackUrl } from "@/lib/return-to";
+import { getFastApiBaseUrl } from "@/lib/fastapi";
 
 type Mode = "signin" | "signup";
 
@@ -10,7 +11,7 @@ type AuthPanelProps = {
   returnTo?: string;
 };
 
-/** 官方 Google 四色 “G” 标识，用于登录按钮。 */
+/** 官方 Google 四色 "G" 标识，用于登录按钮。 */
 function GoogleIcon() {
   return (
     <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
@@ -34,16 +35,21 @@ function GoogleIcon() {
   );
 }
 
+type LegacyTokenResponse = {
+  access_token: string;
+  token_type: string;
+  user: { id: number; username: string; email?: string | null; role?: string | null };
+};
+
 export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
   const { data: session, isPending } = useSession();
   const [mode, setMode] = useState<Mode>("signin");
-  const [email, setEmail] = useState("");
-  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, startTransition] = useTransition();
 
-  // 登录后立即跳回应用（OAuth 已由服务端重定向兜底，这里覆盖客户端邮箱登录场景）。
+  // 登录后立即跳回应用（OAuth 已由服务端重定向兜底，这里覆盖账号/密码登录场景）。
   useEffect(() => {
     if (!session?.user?.id || !returnTo) {
       return;
@@ -52,20 +58,45 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
     window.location.assign(returnTo);
   }, [session?.user?.id, returnTo]);
 
-  const submitEmail = () => {
+  /**
+   * 账号/密码登录注册 —— 调用 FastAPI Legacy JWT 接口。
+   * 登录成功后把 token 拼到回跳 URL 上，Vite 端 AuthContext.init() 从 URL 取出后写入 localStorage。
+   */
+  const submitLegacy = () => {
     setMessage("");
+    if (password.length < 4) {
+      setMessage("密码长度至少 4 位。");
+      return;
+    }
     startTransition(async () => {
-      const result =
-        mode === "signin"
-          ? await signIn.email({ email, password })
-          : await signUp.email({ email, password, name: name || email });
+      const endpoint = mode === "signin" ? "/api/auth/login" : "/api/auth/register";
+      try {
+        const response = await fetch(`${getFastApiBaseUrl()}${endpoint}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password }),
+        });
 
-      if (result.error) {
-        setMessage(result.error.message || "登录失败，请重试。");
-        return;
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          setMessage(
+            typeof errData.detail === "string"
+              ? errData.detail
+              : "操作失败，请重试。",
+          );
+          return;
+        }
+
+        const data = (await response.json()) as LegacyTokenResponse;
+
+        // 把 Legacy JWT token 拼到回跳 URL，Vite 端读取后写入 localStorage 并清理地址栏。
+        const target = new URL(returnTo || window.location.origin);
+        target.searchParams.set("legacy_token", data.access_token);
+        target.searchParams.set("legacy_user", JSON.stringify(data.user));
+        window.location.assign(target.toString());
+      } catch {
+        setMessage("网络错误，请重试。");
       }
-
-      setMessage(mode === "signin" ? "登录成功。" : "账户已创建。");
     });
   };
 
@@ -92,7 +123,7 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
     );
   }
 
-  // 已登录（通常是客户端邮箱登录刚成功）：显示跳转态，由上面的 effect 跳回应用。
+  // 已登录（通常是 Google OAuth 刚成功）：显示跳转态，由上面的 effect 跳回应用。
   if (session) {
     return (
       <section className="auth-card login-card login-pending">
@@ -123,18 +154,11 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
         使用 Google 继续
       </button>
 
-      <div className="divider">或使用邮箱</div>
-
-      {mode === "signup" ? (
-        <label>
-          昵称
-          <input value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：张三" />
-        </label>
-      ) : null}
+      <div className="divider">或使用账号</div>
 
       <label>
-        邮箱
-        <input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" />
+        账号
+        <input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="请输入账号" />
       </label>
 
       <label>
@@ -142,12 +166,12 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
         <input
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          placeholder="至少 8 位字符"
+          placeholder="至少 4 位字符"
           type="password"
         />
       </label>
 
-      <button className="primary-button" onClick={submitEmail} disabled={isSubmitting || !email || !password}>
+      <button className="primary-button" onClick={submitLegacy} disabled={isSubmitting || !username || !password}>
         {isSubmitting ? "处理中..." : mode === "signin" ? "登录" : "创建账户"}
       </button>
 

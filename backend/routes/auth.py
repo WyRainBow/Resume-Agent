@@ -55,8 +55,8 @@ def register(body: RegisterRequest, db: Session = Depends(get_db)):
             raise HTTPException(status_code=400, detail="账号不能为空")
         if len(username) < 2:
             raise HTTPException(status_code=400, detail="账号长度至少 2 位")
-        if len(password) < 6:
-            raise HTTPException(status_code=400, detail="密码长度至少 6 位")
+        if len(password) < 4:
+            raise HTTPException(status_code=400, detail="密码长度至少 4 位")
         
         # 检查账号是否已存在
         logger.debug(f"[注册] 检查账号是否已注册: {username}")

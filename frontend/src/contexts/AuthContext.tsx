@@ -1,11 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { isAuthWebEnabled } from '@/lib/runtimeEnv'
+import { buildAuthWebUrl, isAuthWebEnabled } from '@/lib/runtimeEnv'
 import { getCurrentUser, login as loginApi, register as registerApi, setAuthToken } from '@/services/authService'
 import { fetchUserEntitlement } from '@/services/api'
 import {
   fetchBetterAuthSession,
   fetchLegacyUserInfo,
-  redirectToAuthWebLogin,
   signOutBetterAuth,
   type BetterAuthSessionUser,
 } from '@/services/betterAuthSession'
@@ -69,6 +68,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const init = async () => {
       try {
+        // 检查 URL 中是否携带 Legacy JWT token（从 Next.js 认证页回跳）
+        const urlParams = new URLSearchParams(window.location.search)
+        const legacyToken = urlParams.get('legacy_token')
+        const legacyUser = urlParams.get('legacy_user')
+        if (legacyToken) {
+          localStorage.setItem(TOKEN_KEY, legacyToken)
+          setAuthToken(legacyToken)
+          if (legacyUser) {
+            try {
+              const parsed = JSON.parse(legacyUser) as User
+              localStorage.setItem(USER_KEY, JSON.stringify(parsed))
+              setUser(parsed)
+            } catch {
+              // JSON 解析失败，保留 token，后续走 /api/auth/me 补全
+            }
+          }
+          setToken(legacyToken)
+          // 清理地址栏参数
+          urlParams.delete('legacy_token')
+          urlParams.delete('legacy_user')
+          const cleanSearch = urlParams.toString()
+          const cleanUrl = cleanSearch
+            ? `${window.location.pathname}?${cleanSearch}`
+            : window.location.pathname
+          window.history.replaceState({}, '', cleanUrl)
+          setLoading(false)
+          return
+        }
+
         if (isAuthWebEnabled()) {
           const sessionUser = await fetchBetterAuthSession()
           if (sessionUser) {
@@ -101,13 +129,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return
           }
 
-          // BetterAuth 已启用时不再走 legacy JWT /api/auth/me，避免代理层查远程 DB 卡死首屏
-          localStorage.removeItem(TOKEN_KEY)
-          localStorage.removeItem(USER_KEY)
-          setAuthToken(null)
-          setUser(null)
-          setToken(null)
-          return
+          // BetterAuth session 不存在时，回退到 legacy JWT（用户名/密码登录），
+          // 不再强制清除 legacy token，确保两套登录方式可以共存。
         }
 
         const savedToken = localStorage.getItem(TOKEN_KEY)
@@ -205,9 +228,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user?.betterAuthUserId])
 
   const openModal = useCallback((mode: 'login' | 'register' = 'login') => {
+    // BetterAuth 启用时，直接重定向到 Next.js 认证页（统一登录入口）
     if (isAuthWebEnabled()) {
-      redirectToAuthWebLogin()
-      return
+      const url = buildAuthWebUrl('/account', `${window.location.origin}${window.location.pathname}${window.location.search}`)
+      if (url) {
+        window.location.assign(url)
+        return
+      }
     }
     setModalMode(mode)
     setIsModalOpen(true)
