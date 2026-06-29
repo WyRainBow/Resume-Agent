@@ -177,7 +177,7 @@ export default function EnhancedMarkdown({
         className={`prose prose-base max-w-none
           prose-headings:text-chat-ink prose-headings:font-bold prose-headings:mt-4 prose-headings:mb-2
           prose-h1:text-xl prose-h2:text-lg prose-h3:text-base
-          prose-p:text-chat-ink/90 prose-p:leading-relaxed prose-p:mb-2 prose-p:text-[16px]
+          prose-p:text-chat-ink prose-p:leading-[1.7] prose-p:mb-2 prose-p:text-[16px]
           prose-strong:text-chat-ink prose-strong:font-semibold
           prose-ul:list-disc prose-ul:ml-4 prose-ul:mb-2 prose-ul:text-[16px] prose-ul:space-y-0.5
           prose-ol:list-decimal prose-ol:ml-4 prose-ol:mb-2 prose-ol:text-[16px] prose-ol:space-y-0.5

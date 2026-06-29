@@ -49,7 +49,7 @@ export default function ThoughtProcess({
         onClick={() => setExpanded(!expanded)}
       >
         <div className="flex gap-1 items-center">
-          <span className="text-chat-ink-muted text-sm font-normal">Thought Process</span>
+          <span className="text-chat-ink-muted/80 text-[13px] font-medium tracking-wide">Thought Process</span>
           <ChevronUp
             size={12}
             className={`text-chat-ink-muted/70 transition-transform duration-200 ${expanded ? "" : "rotate-180"}`}

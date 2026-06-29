@@ -5,17 +5,19 @@ interface AssistantPaperCardProps {
   className?: string;
 }
 
-/** AI 回复的「纸张卡片」容器，统一墨香纸感视觉 */
+/**
+ * AI 回复容器：去卡片化的纯文本流（对齐 Claude 对话设计）。
+ * 不再使用边框/背景/阴影/左竖条，让回答像文档一样铺在画布上，
+ * 与右侧用户气泡形成「左文档 / 右气泡」对比。
+ * 内部子卡片（搜索/简历/诊断）各自带边框背景，去掉外层卡片不影响其辨识度。
+ */
 export function AssistantPaperCard({
   children,
   className = "",
 }: AssistantPaperCardProps) {
   return (
-    <div
-      className={`chat-message-enter mb-4 group border border-chat-border/80 dark:border-slate-800 bg-chat-surface dark:bg-slate-900 rounded-2xl px-3 py-2.5 shadow-sm relative overflow-hidden ${className}`}
-    >
-      <div className="absolute top-0 bottom-0 left-0 w-1 bg-chat-accent/35 dark:bg-amber-500/20" />
-      <div className="pl-2">{children}</div>
+    <div className={`chat-message-enter group mb-6 ${className}`}>
+      {children}
     </div>
   );
 }
