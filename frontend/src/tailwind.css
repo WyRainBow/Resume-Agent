@@ -39,6 +39,23 @@
     }
   }
 
+  @keyframes icon-pop {
+    0% { transform: scale(1); }
+    40% { transform: scale(1.3); }
+    70% { transform: scale(0.88); }
+    100% { transform: scale(1); }
+  }
+
+  .animate-icon-pop {
+    animation: icon-pop 0.35s ease-in-out;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-icon-pop {
+      animation: none;
+    }
+  }
+
   .diff-rich-content ul,
   .diff-rich-content ol {
     margin: 0.5rem 0 0.5rem 1.25rem;

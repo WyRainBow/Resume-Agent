@@ -10,7 +10,6 @@
  * - 心跳检测和自动重连
  */
 
-import ChatMessage from "@/components/chat/ChatMessage";
 import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import ResumeSelector from "@/components/chat/ResumeSelector";
 import SearchResultPanel from "@/components/chat/SearchResultPanel";
@@ -3415,7 +3414,15 @@ function SophiaChatContent() {
       const assistantMsg: Message = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         role: "assistant",
-        content: `已为你创建默认 LaTeX 简历「${saved.name}」，右侧可预览。你可以继续告诉我需要优化哪些内容。`,
+        content: `已经帮你生成了一份**示例简历**，右侧实时预览。
+
+里面的「${saved.name}」是占位信息，直接告诉我怎么改就行，比如：
+
+- 「姓名换成我的」
+- 「加一段实习经历」
+- 「技能补上 Python」
+
+想用自己的简历，点 **「选择已有简历」** 加载即可。`,
         timestamp: new Date().toISOString(),
       };
       setMessages((prev) => {
@@ -3539,7 +3546,15 @@ function SophiaChatContent() {
           const assistantMsg: Message = {
             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             role: "assistant",
-            content: `已为你创建默认 LaTeX 简历「${saved.name}」，右侧可预览。你可以继续告诉我需要优化哪些内容，或说「选择已有简历」加载其他简历。`,
+            content: `已经帮你生成了一份**示例简历**，右侧实时预览。
+
+里面的「${saved.name}」是占位信息，直接告诉我怎么改就行，比如：
+
+- 「姓名换成我的」
+- 「加一段实习经历」
+- 「技能补上 Python」
+
+想用自己的简历，点 **「选择已有简历」** 加载即可。`,
             timestamp: new Date().toISOString(),
           };
           const finalMessages = [...nextMessages, assistantMsg];

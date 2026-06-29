@@ -1,4 +1,4 @@
-import React, { Fragment } from "react";
+import React, { Fragment, useState } from "react";
 import { Check, Copy, FileText, RotateCcw, ThumbsUp, ThumbsDown } from "lucide-react";
 import ResumeMarkdown from "@/components/agent-chat/ResumeMarkdown";
 import ResumeCard from "@/components/chat/ResumeCard";
@@ -6,7 +6,6 @@ import ResumeEditDiffCard from "@/components/chat/ResumeEditDiffCard";
 import SearchCard from "@/components/chat/SearchCard";
 import SearchSummary from "@/components/chat/SearchSummary";
 import ThoughtProcess from "@/components/chat/ThoughtProcess";
-import TTSButton from "@/components/chat/TTSButton";
 import DiagnosisToolCards, {
   type DiagnosisToolStructuredData,
 } from "@/components/agent-chat/DiagnosisToolCards";
@@ -140,6 +139,9 @@ export default function MessageTimeline({
   onRegenerate,
 }: MessageTimelineProps) {
   const isPlaceholderThought = (text: string) => text === "正在思考...";
+  const [feedback, setFeedback] = useState<Record<string, "like" | "dislike" | undefined>>({});
+  const ACTION_BTN =
+    "rounded-md p-1.5 transition-all duration-200 hover:bg-chat-user-bubble hover:text-chat-ink hover:scale-110 active:scale-90 dark:hover:bg-slate-800";
   return (
     <>
       {messages.map((msg, idx) => {
@@ -220,6 +222,9 @@ export default function MessageTimeline({
           resumeForMessage ||
           msg.content;
 
+        const actionMsgId = msg.id || String(idx);
+        const fb = feedback[actionMsgId];
+
         return (
           <Fragment key={msg.id || idx}>
             {cleanedThought && (
@@ -299,41 +304,58 @@ export default function MessageTimeline({
                   )}
 
                   {msg.content && (
-                    <div className="mt-3 flex items-center gap-0.5 text-chat-ink-muted opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                    <div className="mt-2.5 flex items-center gap-0.5 text-chat-ink-muted/70">
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(msg.content);
-                          onSetCopiedId(msg.id || String(idx));
+                          onSetCopiedId(actionMsgId);
                           setTimeout(() => onSetCopiedId(null), 2000);
                         }}
-                        className="rounded-md p-1.5 transition-colors hover:bg-chat-user-bubble hover:text-chat-ink dark:hover:bg-slate-800"
+                        className={ACTION_BTN}
                         title="复制内容"
                       >
-                        {copiedId === (msg.id || String(idx)) ? (
-                          <Check className="h-4 w-4 text-emerald-600" />
+                        {copiedId === actionMsgId ? (
+                          <Check key="copied" className="h-4 w-4 text-emerald-600 animate-icon-pop" />
                         ) : (
                           <Copy className="h-4 w-4" />
                         )}
                       </button>
-                      <TTSButton text={msg.content} />
                       <button
-                        className="rounded-md p-1.5 transition-colors hover:bg-chat-user-bubble hover:text-chat-ink dark:hover:bg-slate-800"
+                        onClick={() =>
+                          setFeedback((p) => ({
+                            ...p,
+                            [actionMsgId]: p[actionMsgId] === "like" ? undefined : "like",
+                          }))
+                        }
+                        className={ACTION_BTN}
                         title="赞"
                       >
-                        <ThumbsUp className="h-4 w-4" />
+                        <ThumbsUp
+                          key={`like-${fb === "like"}`}
+                          className={`h-4 w-4 transition-colors ${fb === "like" ? "fill-emerald-500/25 text-emerald-600 animate-icon-pop" : ""}`}
+                        />
                       </button>
                       <button
-                        className="rounded-md p-1.5 transition-colors hover:bg-chat-user-bubble hover:text-chat-ink dark:hover:bg-slate-800"
+                        onClick={() =>
+                          setFeedback((p) => ({
+                            ...p,
+                            [actionMsgId]: p[actionMsgId] === "dislike" ? undefined : "dislike",
+                          }))
+                        }
+                        className={ACTION_BTN}
                         title="踩"
                       >
-                        <ThumbsDown className="h-4 w-4" />
+                        <ThumbsDown
+                          key={`dislike-${fb === "dislike"}`}
+                          className={`h-4 w-4 transition-colors ${fb === "dislike" ? "fill-rose-500/25 text-rose-600 animate-icon-pop" : ""}`}
+                        />
                       </button>
                       <button
                         onClick={onRegenerate}
-                        className="rounded-md p-1.5 transition-colors hover:bg-chat-user-bubble hover:text-chat-ink dark:hover:bg-slate-800"
+                        className={`${ACTION_BTN} group/act`}
                         title="重新生成"
                       >
-                        <RotateCcw className="h-4 w-4" />
+                        <RotateCcw className="h-4 w-4 transition-transform duration-500 group-hover/act:-rotate-180" />
                       </button>
                     </div>
                   )}
