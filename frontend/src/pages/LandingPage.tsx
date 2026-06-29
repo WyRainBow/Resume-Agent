@@ -421,6 +421,15 @@ export default function LandingPage() {
               </motion.button>
             )}
             <motion.button
+              whileHover={{ y: -1 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => navigate('/changelog')}
+              className="hidden md:flex items-center gap-2 h-9 px-3 rounded-xl bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all border border-slate-200 dark:border-slate-800 shadow-sm"
+            >
+              <Clock className="w-4 h-4 shrink-0" />
+              <span className="text-sm font-bold">更新日志</span>
+            </motion.button>
+            <motion.button
               whileHover={{ scale: 1.02, y: -1 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => navigate('/my-resumes')}
