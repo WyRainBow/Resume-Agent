@@ -1,0 +1,42 @@
+name: 部署到生产服务器
+
+# 合并 / 推送到 main 时自动部署；也可在 Actions 页面手动触发（workflow_dispatch）
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# 同一时间只允许一个部署在跑，避免两次部署互相打断（不取消正在进行的，排队执行）
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH 部署到服务器
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT }}        # SSH 端口非 22 才需配此 secret；为空时用默认 22
+          script_stop: true                     # 任一命令失败立即中止，避免「半部署」
+          script: |
+            set -euo pipefail
+            cd /www/wwwroot/Resume-Agent
+
+            # 1) 强制对齐远程 main（与你手动流程一致）
+            #    服务器上的本地改动会被丢弃；.env 等被 .gitignore 忽略的文件不受影响
+            git fetch origin main
+            git reset --hard origin/main
+
+            # 2) 构建前端
+            cd frontend
+            npm install
+            npm run build
+            cd ..
+
+            # 3) 重启 pm2（--update-env 让新的环境变量生效）
+            pm2 restart all --update-env
