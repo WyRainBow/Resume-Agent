@@ -25,18 +25,30 @@ jobs:
           script_stop: true                     # 任一命令失败立即中止，避免「半部署」
           script: |
             set -euo pipefail
+
+            # 非交互式 SSH 默认不加载 nvm，需显式把 node 20 加入 PATH（与 pm2/resume-web 用的版本一致）
+            export PATH="/www/server/nvm/versions/node/v20.20.2/bin:$PATH"
+
             cd /www/wwwroot/Resume-Agent
 
-            # 1) 强制对齐远程 main（与你手动流程一致）
-            #    服务器上的本地改动会被丢弃；.env 等被 .gitignore 忽略的文件不受影响
+            # 1) 对齐远程 main（服务器本地改动会被丢弃；.env 等被 .gitignore 忽略的文件不受影响）
             git fetch origin main
             git reset --hard origin/main
 
-            # 2) 构建前端
+            # 2) 后端依赖（venv 与 pm2 的 uvicorn 同一环境；已满足则快速跳过）
+            venv/bin/pip install -r requirements.txt
+
+            # 3) 构建前端（Vite 静态产物）
             cd frontend
             npm install
             npm run build
             cd ..
 
-            # 3) 重启 pm2（--update-env 让新的环境变量生效）
+            # 4) 构建 web（resume-web 跑的是 next start 生产模式，必须先 next build 才会用新代码）
+            cd web
+            npm install
+            npm run build
+            cd ..
+
+            # 5) 重启 pm2（resume-backend + resume-web），--update-env 让新环境变量生效
             pm2 restart all --update-env
