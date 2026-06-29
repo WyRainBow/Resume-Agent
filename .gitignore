@@ -124,3 +124,8 @@ image.png
 backend/agent/tool/feishu_remote_mcp.py
 backend/scripts/ocr_image_zhipu.py
 images/
+
+# 本地 / 调试产物，不入库（playwright 调试快照、运行时对话数据、Claude Code 本地设置）
+.playwright-mcp/
+data/conversations/
+.claude/settings.local.json
