@@ -129,3 +129,6 @@ images/
 .playwright-mcp/
 data/conversations/
 .claude/settings.local.json
+
+# 本地运维文档（含服务器连接信息），不入库
+*.local.md
