@@ -4156,8 +4156,8 @@ function SophiaChatContent() {
 
                 {isEmptyState && (
                   <ChatEmptyState
-                    createDefaultPrompt={CREATE_DEFAULT_RESUME_PROMPT}
-                    onSendMessage={(text) => void sendUserTextMessage(text)}
+                    onCreateResume={handleFillCreateResumePrompt}
+                    onImportResume={handleImportResume}
                     onSetInput={setInput}
                     composerSlot={composerNode}
                   />
