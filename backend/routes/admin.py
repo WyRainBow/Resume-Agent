@@ -38,6 +38,28 @@ def get_user_stats(
     }
 
 
+@router.get("/users")
+def list_users(
+    _current_user: User = Depends(require_admin_or_member),
+    db: Session = Depends(get_db),
+):
+    users = db.query(User).order_by(User.created_at.asc()).all()
+    return {
+        "total": len(users),
+        "users": [
+            {
+                "id": u.id,
+                "username": u.username,
+                "email": u.email,
+                "role": u.role,
+                "created_at": u.created_at.isoformat() if u.created_at else None,
+                "pdf_download_count": u.pdf_download_count,
+            }
+            for u in users
+        ],
+    }
+
+
 @router.post("/pdf/render-mode/log")
 async def log_pdf_render_mode_change(
     body: PDFRenderModeLogRequest,

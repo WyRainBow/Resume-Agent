@@ -7,6 +7,15 @@ type UserStats = {
   total_users: number
 }
 
+type UserRow = {
+  id: number
+  username: string
+  email: string
+  role: string
+  created_at: string | null
+  pdf_download_count: number
+}
+
 type PromptItem = {
   key: string
   title: string
@@ -64,6 +73,7 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [stats, setStats] = useState<UserStats | null>(null)
+  const [users, setUsers] = useState<UserRow[]>([])
 
   const [promptLoading, setPromptLoading] = useState(true)
   const [promptSaving, setPromptSaving] = useState(false)
@@ -91,6 +101,15 @@ export default function AdminDashboardPage() {
         }
         const data = (await resp.json()) as UserStats
         setStats(data)
+
+        const usersResp = await fetch(`${getApiBaseUrl()}/api/admin/users`, {
+          headers: getAuthHeaders(),
+        })
+        if (!usersResp.ok) {
+          throw new Error(`请求失败: ${usersResp.status}`)
+        }
+        const usersData = (await usersResp.json()) as { users: UserRow[] }
+        setUsers(usersData.users)
       } catch (e: any) {
         setError(e?.message || '获取用户统计失败')
       } finally {
@@ -182,6 +201,66 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             </div>
+          )}
+
+          {!loading && !error && (
+            <section className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+              <div className="border-b border-slate-200 dark:border-slate-800 px-6 py-4">
+                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">用户列表</h2>
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">共 {users.length} 个用户</p>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-xs text-slate-500 dark:text-slate-400">
+                      <th className="px-6 py-3 font-medium">ID</th>
+                      <th className="px-6 py-3 font-medium">用户名</th>
+                      <th className="px-6 py-3 font-medium">邮箱</th>
+                      <th className="px-6 py-3 font-medium">角色</th>
+                      <th className="px-6 py-3 font-medium">注册时间</th>
+                      <th className="px-6 py-3 font-medium">PDF 次数</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {users.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-8 text-center text-slate-400">
+                          暂无用户
+                        </td>
+                      </tr>
+                    ) : (
+                      users.map((u) => (
+                        <tr
+                          key={u.id}
+                          className="border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300"
+                        >
+                          <td className="px-6 py-3 text-slate-400">{u.id}</td>
+                          <td className="px-6 py-3 font-medium text-slate-900 dark:text-slate-100">{u.username}</td>
+                          <td className="px-6 py-3">{u.email}</td>
+                          <td className="px-6 py-3">
+                            <span
+                              className={
+                                u.role === 'admin'
+                                  ? 'inline-flex rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                  : u.role === 'member'
+                                    ? 'inline-flex rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                    : 'inline-flex rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                              }
+                            >
+                              {u.role}
+                            </span>
+                          </td>
+                          <td className="px-6 py-3 text-slate-500 dark:text-slate-400">
+                            {u.created_at ? u.created_at.slice(0, 10) : '-'}
+                          </td>
+                          <td className="px-6 py-3 text-slate-500 dark:text-slate-400">{u.pdf_download_count}</td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
           )}
 
           {false && <section className="overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
