@@ -1365,6 +1365,7 @@ def _build_stream_parse_prompt(text: str) -> str:
 1. 技能：多行以"-"开头的技能描述，每行作为独立技能项 {{"category":"","details":"该行内容(去掉破折号)"}}
 2. 项目：项目描述段落放入"description"；以"- **标题**：描述"格式的功能亮点放入该项目"highlights"数组(保留**加粗**、去掉开头"- ")，不要并入 description
 3. 实习/工作的每条职责放入对应条目的"highlights"数组
+4. 开源经历：「开源经历」段下每个开源项目作为 openSource 数组一条记录(不要放进 projects/internships)；项目/社区名→title，括号或一句话角色→subtitle，仓库链接→repoUrl，形如「1.简介：」「2.个人职责：」的逐条说明每条作为 items 一项(去掉开头序号)
 
 简历文本:
 {text}

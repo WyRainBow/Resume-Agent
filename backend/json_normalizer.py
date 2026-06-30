@@ -49,7 +49,7 @@ class ResumeNormalizer:
             'projects': [
                 r'项目经验', r'项目经历', r'项目', r'project'
             ],
-            'opensource': [
+            'openSource': [
                 r'开源经历', r'开源贡献', r'开源', r'opensource', r'open.*source'
             ],
             'skills': [
@@ -244,9 +244,9 @@ class ResumeNormalizer:
         """
         标准化开源经历
         """
-        if 'opensource' in standardized:
-            standardized['opensource'] = self._standardize_opensource(
-                standardized['opensource']
+        if 'openSource' in standardized:
+            standardized['openSource'] = self._standardize_opensource(
+                standardized['openSource']
             )
 
         """
