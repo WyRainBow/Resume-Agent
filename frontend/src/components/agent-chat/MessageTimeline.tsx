@@ -203,7 +203,7 @@ export default function MessageTimeline({
                     ))}
                   </div>
                 )}
-                <div className="rounded-2xl rounded-br-md bg-chat-user-bubble px-4 py-3 text-chat-ink shadow-sm dark:bg-slate-800 dark:text-slate-100">
+                <div className="whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-chat-user-bubble px-4 py-3 text-chat-ink shadow-sm dark:bg-slate-800 dark:text-slate-100">
                   {msg.content.length >= 200 &&
                   /("company"\s*:|"details"\s*:|custom-list|<\/?strong>|<\/?p>)/.test(msg.content) ? (
                     <span className="inline-flex items-center gap-2 text-chat-ink-muted">

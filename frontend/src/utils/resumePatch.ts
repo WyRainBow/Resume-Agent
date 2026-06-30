@@ -568,6 +568,15 @@ export function formatPatchDiffSide(
     }
   }
 
+  // 整体对象 patch（openSource[N]/projects[N] 等）：取 description 友好展示，避免 JSON dump
+  const itemByPath = path ? getByPath(payload, path) : undefined
+  if (itemByPath && typeof itemByPath === 'object' && !Array.isArray(itemByPath)) {
+    const desc = (itemByPath as Record<string, unknown>).description
+    if (typeof desc === 'string' && desc.trim()) {
+      return formatResumeDiffPreview(desc)
+    }
+  }
+
   return formatResumeDiffPreview(JSON.stringify(payload, null, 2))
 }
 
@@ -664,6 +673,12 @@ function extractRawFromPatchPayload(
   if (path) {
     const byPath = getByPath(payload, path)
     if (typeof byPath === 'string') return byPath.trim()
+    // 整体对象 patch（如 openSource[N]/projects[N]）：取其 description 富文本展示，
+    // 避免 diff 卡片把 id/role/date/visible 等整坨 JSON dump 出来。
+    if (byPath && typeof byPath === 'object' && !Array.isArray(byPath)) {
+      const desc = (byPath as Record<string, unknown>).description
+      if (typeof desc === 'string' && desc.trim()) return desc.trim()
+    }
   }
   const vals = Object.values(payload)
   if (vals.length === 1 && typeof vals[0] === 'string') {

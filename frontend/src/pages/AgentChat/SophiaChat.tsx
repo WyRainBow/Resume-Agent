@@ -144,6 +144,22 @@ function splitDateRange(rawDate: string): {
   return { startDate: date, endDate: "" };
 }
 
+/**
+ * 发送前对「一堆连续文字」做轻量结构化：把数字编号、仓库标签拆成换行，
+ * 既让对话气泡更易读，也让 Agent 更容易解析（例如把项目名/社区名识别出来）。
+ * 仅对含编号或「仓库：」标签的较长文本生效，避免误伤普通短消息和小数（2025.06）。
+ */
+function formatChatInput(text: string): string {
+  const looksStructured =
+    /\d+\s*[.、]\s*[一-龥A-Za-z]/.test(text) || /仓库\s*[:：]/.test(text);
+  if (!looksStructured || text.length < 40) return text;
+  return text
+    .replace(/\s+(?=\d+\s*[.、]\s*[^\d\s])/g, "\n")
+    .replace(/\s+(?=仓库\s*[:：])/g, "\n")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
 function normalizeImportedResumeToCanonical(
   source: Record<string, any>,
   opts: { resumeId: string; title: string },
@@ -4041,7 +4057,7 @@ function SophiaChatContent() {
     // 清除之前的错误
     setResumeError(null);
 
-    const userMessage = trimmedInput;
+    const userMessage = formatChatInput(trimmedInput);
     const attachmentsToProcess = pendingAttachments;
     setInput("");
     setPendingAttachments([]);
@@ -4173,7 +4189,6 @@ function SophiaChatContent() {
                   <ChatEmptyState
                     onCreateResume={handleFillCreateResumePrompt}
                     onImportResume={handleImportResume}
-                    onSetInput={setInput}
                     composerSlot={composerNode}
                   />
                 )}

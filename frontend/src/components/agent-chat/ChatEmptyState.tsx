@@ -1,14 +1,11 @@
-import { Wand2, Upload, Search, Briefcase, Zap, type LucideIcon } from "lucide-react";
+import { Wand2, Upload, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
-import IntentChips, { type IntentChipItem } from "./IntentChips";
 
 interface ChatEmptyStateProps {
   /** 对话创建简历（直接发送创建提示语） */
   onCreateResume: () => void;
   /** 导入已有简历（打开 AI 智能导入：PDF / Word / 文本） */
   onImportResume: () => void;
-  /** 次级胶囊：把示例文案填入输入框，由用户确认后发送 */
-  onSetInput: (text: string) => void;
   /** 居中展示的输入框（参考 Manus：开屏时输入框在正中，标题在上、引导在下） */
   composerSlot?: ReactNode;
 }
@@ -28,7 +25,6 @@ interface PrimaryAction {
 export default function ChatEmptyState({
   onCreateResume,
   onImportResume,
-  onSetInput,
   composerSlot,
 }: ChatEmptyStateProps) {
   const primaryActions: PrimaryAction[] = [
@@ -46,36 +42,12 @@ export default function ChatEmptyState({
     },
   ];
 
-  const secondaryChips: IntentChipItem[] = [
-    {
-      icon: Search,
-      label: "岗位分析",
-      title: "分析这个 JD，看看我的简历还要补充什么",
-      onClick: () => onSetInput("分析这个 JD，看看我的简历还要补充什么"),
-    },
-    {
-      icon: Briefcase,
-      label: "模拟面试",
-      title: "针对我的简历，出几道后端技术面试题",
-      onClick: () => onSetInput("针对我的简历，出几道后端技术面试题"),
-    },
-    {
-      icon: Zap,
-      label: "快速问答",
-      title: "怎么写出让 HR 眼前一亮的简历总结",
-      onClick: () => onSetInput("怎么写出让 HR 眼前一亮的简历总结"),
-    },
-  ];
-
   return (
     <div className="w-full max-w-3xl mx-auto px-4 transition-all duration-500 ease-in-out flex-1 flex flex-col justify-center">
       <div className="text-center mb-6">
         <h1 className="font-serifcn text-[2.6rem] leading-tight text-chat-ink dark:text-white tracking-tight">
           我能为你做什么？
         </h1>
-        <p className="mt-2 text-sm text-chat-ink-muted dark:text-slate-400">
-          从零创建或导入简历、AI 帮你优化内容、匹配岗位、模拟面试
-        </p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
@@ -105,8 +77,6 @@ export default function ChatEmptyState({
       </div>
 
       {composerSlot && <div className="mb-5">{composerSlot}</div>}
-
-      <IntentChips chips={secondaryChips} />
     </div>
   );
 }
