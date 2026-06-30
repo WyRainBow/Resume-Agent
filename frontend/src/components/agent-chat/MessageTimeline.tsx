@@ -204,9 +204,17 @@ export default function MessageTimeline({
                   </div>
                 )}
                 <div className="rounded-2xl rounded-br-md bg-chat-user-bubble px-4 py-3 text-chat-ink shadow-sm dark:bg-slate-800 dark:text-slate-100">
-                  {msg.content
-                    .split("\n\n已上传并解析 PDF 文件")[0]
-                    .split("\n\n文件《")[0]}
+                  {msg.content.length >= 200 &&
+                  /("company"\s*:|"details"\s*:|custom-list|<\/?strong>|<\/?p>)/.test(msg.content) ? (
+                    <span className="inline-flex items-center gap-2 text-chat-ink-muted">
+                      <FileText className="size-4 shrink-0 text-chat-accent" />
+                      已粘贴简历数据用于导入 · {msg.content.length.toLocaleString()} 字
+                    </span>
+                  ) : (
+                    msg.content
+                      .split("\n\n已上传并解析 PDF 文件")[0]
+                      .split("\n\n文件《")[0]
+                  )}
                 </div>
               </div>
             </div>
