@@ -46,8 +46,10 @@
 
 \RequirePackage{titlesec}
 \RequirePackage{enumitem}
-% hyperref for links
+% hyperref for links：链接不加任何颜色（保持黑色、不干扰排版），但可点击
 \RequirePackage[hidelinks]{hyperref}
+% ulem：给链接文字加下划线（normalem 避免把 \emph 误变下划线），\uline 支持长 URL 自动换行
+\RequirePackage[normalem]{ulem}
 \setlist{noitemsep} % removes spacing from items but leaves space around the whole list
 %\setlist{nosep} % removes all vertical spacing within and around the list
 \setlist[itemize]{topsep=0.25em, leftmargin=*, labelsep=0.5em, label=\footnotesize$\bullet$, itemindent=0em}

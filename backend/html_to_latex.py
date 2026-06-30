@@ -93,6 +93,7 @@ class HTMLToLatexConverter(HTMLParser):
         self.tag_stack: List[str] = []
         self.in_list = False
         self.list_type = None  # 'ul' or 'ol'
+        self._anchor_hrefs: List[str] = []  # <a> 的 href 栈，支持嵌套 / 无 href 情况
         
     def handle_starttag(self, tag: str, attrs: List[Tuple[str, str]]):
         tag = tag.lower()
@@ -126,7 +127,14 @@ class HTMLToLatexConverter(HTMLParser):
             self.result.append(r'\subsection*{')
         elif tag == 'h3':
             self.result.append(r'\subsubsection*{')
-            
+        elif tag == 'a':
+            # 富文本里的链接 → 可点击 \href（hyperref 已在 resume.cls 启用）
+            # 链接文字默认斜体 + 下划线，便于区分（不依赖颜色，配合 hidelinks）
+            href = dict(attrs).get('href', '').strip()
+            self._anchor_hrefs.append(href)
+            if href:
+                self.result.append(r'\href{' + escape_href(href) + r'}{\textit{\uline{')
+
     def handle_endtag(self, tag: str):
         tag = tag.lower()
         if self.tag_stack and self.tag_stack[-1] == tag:
@@ -149,7 +157,11 @@ class HTMLToLatexConverter(HTMLParser):
             self.result.append('\n\n')
         elif tag in ('h1', 'h2', 'h3'):
             self.result.append('}\n')
-            
+        elif tag == 'a':
+            href = self._anchor_hrefs.pop() if self._anchor_hrefs else ''
+            if href:
+                self.result.append('}}}')
+
     def handle_data(self, data: str):
         # 转义 LaTeX 特殊字符
         escaped = escape_latex(data)
@@ -157,6 +169,15 @@ class HTMLToLatexConverter(HTMLParser):
         
     def get_latex(self) -> str:
         return ''.join(self.result).strip()
+
+
+def escape_href(url: str) -> str:
+    r"""转义 URL 用于 \href 第一参数：只处理会破坏 LaTeX 的字符，保留 URL 结构（/ : . - 等不动）。"""
+    if not url:
+        return ''
+    for ch in ('#', '%', '&', '_', '{', '}'):
+        url = url.replace(ch, '\\' + ch)
+    return url
 
 
 def escape_latex(text: str) -> str:
