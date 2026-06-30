@@ -8,7 +8,7 @@ type UserStats = {
 }
 
 type UserRow = {
-  id: number
+  id: string
   username: string
   email: string
   role: string
@@ -234,7 +234,7 @@ export default function AdminDashboardPage() {
                           key={u.id}
                           className="border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300"
                         >
-                          <td className="px-6 py-3 text-slate-400">{u.id}</td>
+                          <td className="px-6 py-3 text-slate-400" title={u.id}>{String(u.id).slice(0, 8)}…</td>
                           <td className="px-6 py-3 font-medium text-slate-900 dark:text-slate-100">{u.username}</td>
                           <td className="px-6 py-3">{u.email}</td>
                           <td className="px-6 py-3">

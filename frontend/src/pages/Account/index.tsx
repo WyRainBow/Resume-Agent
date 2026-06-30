@@ -94,7 +94,14 @@ export default function AccountPage() {
               textClassName="text-xl"
             />
             <div>
-              <p className="font-semibold text-slate-800 dark:text-slate-100">{user?.username || '未设置昵称'}</p>
+              <p className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                {user?.username || '未设置昵称'}
+                {user?.role === 'admin' ? (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">管理员</span>
+                ) : (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-300">普通用户</span>
+                )}
+              </p>
               <p className="text-sm text-slate-500 flex items-center gap-1 mt-0.5">
                 <Mail className="w-3.5 h-3.5" />
                 {user?.email || '未绑定邮箱'}

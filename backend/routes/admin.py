@@ -43,19 +43,36 @@ def list_users(
     _current_user: User = Depends(require_admin_or_member),
     db: Session = Depends(get_db),
 ):
-    users = db.query(User).order_by(User.created_at.asc()).all()
+    # 以 BetterAuth "user" 表为准（所有登录用户），role/pdf 从 legacy users 按 email 桥接。
+    from sqlalchemy import text
+
+    rows = db.execute(
+        text(
+            '''
+            SELECT bu.id,
+                   bu.email,
+                   bu.name,
+                   COALESCE(u.role, 'user')            AS role,
+                   bu."createdAt"                       AS created_at,
+                   COALESCE(u.pdf_download_count, 0)    AS pdf_download_count
+            FROM "user" bu
+            LEFT JOIN users u ON LOWER(bu.email) = LOWER(u.email)
+            ORDER BY bu."createdAt" ASC
+            '''
+        )
+    ).fetchall()
     return {
-        "total": len(users),
+        "total": len(rows),
         "users": [
             {
-                "id": u.id,
-                "username": u.username,
-                "email": u.email,
-                "role": u.role,
-                "created_at": u.created_at.isoformat() if u.created_at else None,
-                "pdf_download_count": u.pdf_download_count,
+                "id": r[0],
+                "username": r[2] or (r[1].split("@")[0] if r[1] else ""),
+                "email": r[1],
+                "role": r[3],
+                "created_at": str(r[4]) if r[4] else None,
+                "pdf_download_count": r[5],
             }
-            for u in users
+            for r in rows
         ],
     }
 
