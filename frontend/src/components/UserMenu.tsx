@@ -19,15 +19,17 @@ export default function UserMenu() {
 
   return (
     <div className="flex items-center gap-3">
-      {/* 额度徽章 */}
-      <Link
-        to="/pricing"
-        className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-bold hover:bg-blue-100 transition-colors"
-        title="查看套餐 / 购买额度"
-      >
-        <Zap className="w-3 h-3" />
-        {user?.credits ?? 0} 额度
-      </Link>
+      {/* 额度徽章 —— 额度迁移期间暂不展示（恢复：删 false &&） */}
+      {false && (
+        <Link
+          to="/pricing"
+          className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 text-xs font-bold hover:bg-blue-100 transition-colors"
+          title="查看套餐 / 购买额度"
+        >
+          <Zap className="w-3 h-3" />
+          {user?.credits ?? 0} 额度
+        </Link>
+      )}
 
       {/* 用户名 → 账户页 */}
       <Link

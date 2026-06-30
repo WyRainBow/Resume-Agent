@@ -567,11 +567,9 @@ export default function WorkspaceLayout({
                       >
                         <span className="flex items-center gap-2.5">
                           <Zap className="w-4 h-4 shrink-0 text-blue-500" />
-                          账户与额度
+                          账户中心
                         </span>
-                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                          {user?.credits ?? 0}
-                        </span>
+                        {/* 额度数字 —— 额度迁移期间暂不展示 */}
                       </button>
                       <button
                         type="button"

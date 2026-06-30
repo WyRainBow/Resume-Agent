@@ -125,13 +125,16 @@ export default function AccountPage() {
                 {SUB_STATUS_LABEL[subStatus] || subStatus}
               </span>
             </div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Zap className="w-5 h-5 text-blue-400" />
-                <span className="text-sm text-slate-600 dark:text-slate-300">剩余额度</span>
+            {/* 剩余额度 —— 额度迁移期间暂不展示（恢复：删 false &&） */}
+            {false && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Zap className="w-5 h-5 text-blue-400" />
+                  <span className="text-sm text-slate-600 dark:text-slate-300">剩余额度</span>
+                </div>
+                <span className="text-xl font-black text-blue-600">{credits}</span>
               </div>
-              <span className="text-xl font-black text-blue-600">{credits}</span>
-            </div>
+            )}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Activity className="w-5 h-5 text-slate-400" />
@@ -140,12 +143,15 @@ export default function AccountPage() {
               <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">{dailyUsage}</span>
             </div>
           </div>
-          <Link
-            to="/pricing"
-            className="mt-5 block w-full text-center py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold transition-colors"
-          >
-            购买额度
-          </Link>
+          {/* 购买额度 —— 额度迁移期间暂不展示 */}
+          {false && (
+            <Link
+              to="/pricing"
+              className="mt-5 block w-full text-center py-2.5 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-sm font-bold transition-colors"
+            >
+              购买额度
+            </Link>
+          )}
         </div>
 
         {/* 账单卡 */}

@@ -65,7 +65,8 @@ export default function PricingPage() {
         <div className="text-center mb-12">
           <h1 className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-3">选择套餐</h1>
           <p className="text-slate-500">按需购买、无订阅、永不过期</p>
-          {isAuthenticated && user?.credits !== undefined && (
+          {/* 当前剩余额度 —— 额度迁移期间暂不展示 */}
+          {false && isAuthenticated && user?.credits !== undefined && (
             <p className="mt-2 text-sm text-blue-600 font-medium">
               当前剩余：<span className="font-black">{user.credits}</span> 额度
             </p>
