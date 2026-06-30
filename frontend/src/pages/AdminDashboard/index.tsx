@@ -128,6 +128,7 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState('')
   const [stats, setStats] = useState<UserStats | null>(null)
   const [users, setUsers] = useState<UserRow[]>([])
+  const [actionError, setActionError] = useState('')
 
   const [promptLoading, setPromptLoading] = useState(true)
   const [promptSaving, setPromptSaving] = useState(false)
@@ -198,6 +199,7 @@ export default function AdminDashboardPage() {
 
   const handleRoleChange = async (userId: string, nextRole: string) => {
     const prev = users
+    setActionError('')
     setUsers((list) => list.map((u) => (u.id === userId ? { ...u, role: nextRole } : u)))
     try {
       const resp = await fetch(`${getApiBaseUrl()}/api/admin/users/${userId}/role`, {
@@ -208,7 +210,8 @@ export default function AdminDashboardPage() {
       if (!resp.ok) throw new Error(`分配失败: ${resp.status}`)
     } catch (e) {
       setUsers(prev)
-      alert(e instanceof Error ? e.message : '分配角色失败')
+      setActionError(e instanceof Error ? e.message : '分配角色失败，请重试。')
+      setTimeout(() => setActionError(''), 4000)
     }
   }
 
@@ -250,26 +253,40 @@ export default function AdminDashboardPage() {
       <div className="h-full overflow-auto bg-slate-100 dark:bg-slate-950 p-6">
         <div className="max-w-5xl mx-auto space-y-6">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">后台管理系统</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">后台管理系统</h1>
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">平台基础数据看板</p>
           </div>
 
           {loading ? (
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6 text-slate-500">
-              加载中...
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="rounded-2xl border border-slate-200/80 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+                  <div className="h-3 w-16 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+                  <div className="mt-3 h-8 w-12 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+                </div>
+              ))}
             </div>
           ) : error ? (
             <div className="rounded-2xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 p-6 text-red-600 dark:text-red-400">
               {error}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-6">
-                <div className="text-sm text-slate-500 dark:text-slate-400">用户总数</div>
-                <div className="text-3xl font-bold text-slate-900 dark:text-slate-100 mt-2">
-                  {stats?.total_users ?? 0}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { label: '用户总数', value: stats?.total_users ?? users.length, bar: 'bg-slate-300 dark:bg-slate-600' },
+                { label: '管理员', value: users.filter((u) => u.role === 'admin').length, bar: 'bg-emerald-400/70' },
+                { label: '会员', value: users.filter((u) => u.role === 'member').length, bar: 'bg-blue-400/70' },
+                { label: '普通用户', value: users.filter((u) => u.role === 'user').length, bar: 'bg-slate-300 dark:bg-slate-600' },
+              ].map((s) => (
+                <div
+                  key={s.label}
+                  className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+                >
+                  <div className={`absolute inset-x-0 top-0 h-1 ${s.bar}`} />
+                  <div className="text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400">{s.label}</div>
+                  <div className="mt-2 text-3xl font-bold tabular-nums text-slate-900 dark:text-slate-100">{s.value}</div>
                 </div>
-              </div>
+              ))}
             </div>
           )}
 
@@ -283,6 +300,11 @@ export default function AdminDashboardPage() {
                   <span><span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">member</span> 会员 · 享高级 / 付费功能</span>
                   <span><span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">user</span> 普通用户 · 基础功能</span>
                 </div>
+                {actionError && (
+                  <div className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-600 dark:bg-rose-950/20 dark:text-rose-400">
+                    {actionError}
+                  </div>
+                )}
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -307,7 +329,7 @@ export default function AdminDashboardPage() {
                       users.map((u) => (
                         <tr
                           key={u.id}
-                          className="border-b border-slate-100 dark:border-slate-800/60 text-slate-700 dark:text-slate-300"
+                          className="border-b border-slate-100 text-slate-700 transition-colors hover:bg-slate-50/70 dark:border-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800/40"
                         >
                           <td className="px-6 py-3 text-slate-400" title={u.id}>{String(u.id).slice(0, 8)}…</td>
                           <td className="px-6 py-3 font-medium text-slate-900 dark:text-slate-100">{u.username}</td>
@@ -318,7 +340,7 @@ export default function AdminDashboardPage() {
                           <td className="px-6 py-3 text-slate-500 dark:text-slate-400">
                             {u.created_at ? u.created_at.slice(0, 10) : '-'}
                           </td>
-                          <td className="px-6 py-3 text-slate-500 dark:text-slate-400">{u.pdf_download_count}</td>
+                          <td className="px-6 py-3 tabular-nums text-slate-500 dark:text-slate-400">{u.pdf_download_count}</td>
                         </tr>
                       ))
                     )}
