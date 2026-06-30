@@ -17,10 +17,10 @@ type UserRow = {
   pdf_download_count: number
 }
 
-const ROLE_OPTIONS: { value: string; label: string; desc: string; cls: string }[] = [
-  { value: 'admin', label: 'admin', desc: '管理员', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
-  { value: 'member', label: 'member', desc: '会员', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  { value: 'user', label: 'user', desc: '普通用户', cls: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' },
+const ROLE_OPTIONS: { value: string; label: string; desc: string; dot: string }[] = [
+  { value: 'admin', label: 'admin', desc: '管理员', dot: 'bg-emerald-500' },
+  { value: 'member', label: 'member', desc: '会员', dot: 'bg-blue-500' },
+  { value: 'user', label: 'user', desc: '普通用户', dot: 'bg-slate-400' },
 ]
 
 function RoleDropdown({ value, onChange }: { value: string; onChange: (next: string) => void }) {
@@ -40,10 +40,11 @@ function RoleDropdown({ value, onChange }: { value: string; onChange: (next: str
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-all hover:brightness-95 active:scale-95 ${current.cls}`}
+        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 active:scale-[0.97] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-600"
       >
+        <span className={`h-1.5 w-1.5 rounded-full ${current.dot}`} />
         {current.label}
-        <ChevronDown className={`h-3 w-3 opacity-60 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
         <div className="absolute left-0 z-20 mt-1.5 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
@@ -58,7 +59,8 @@ function RoleDropdown({ value, onChange }: { value: string; onChange: (next: str
               className="flex w-full items-center justify-between gap-2 px-3 py-2 text-xs hover:bg-slate-50 dark:hover:bg-slate-700/50"
             >
               <span className="flex items-center gap-2">
-                <span className={`rounded-full px-2 py-0.5 font-medium ${o.cls}`}>{o.label}</span>
+                <span className={`h-1.5 w-1.5 rounded-full ${o.dot}`} />
+                <span className="font-medium text-slate-700 dark:text-slate-200">{o.label}</span>
                 <span className="text-slate-400">{o.desc}</span>
               </span>
               {o.value === value && <Check className="h-3.5 w-3.5 shrink-0 text-emerald-500" />}
