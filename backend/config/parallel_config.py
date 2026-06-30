@@ -44,7 +44,8 @@ PROVIDER_CONFIG = {
     },
     "deepseek": {
         "max_concurrent": 6,  # DeepSeek 支持较高并发
-        "request_timeout": 30,  # 适中超时时间
+        "request_timeout": 50,  # 放宽超时，避免单块/单次撞 30s 超时直接丢数据
+        "chunk_threshold": 1500,  # 中短简历走单次 LLM，规避分块超时丢段（多块=多次超时风险）
     },
 }
 

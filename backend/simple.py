@@ -442,7 +442,7 @@ def call_deepseek_api(prompt: str, model: str = None) -> str:
             api_url,
             json=payload,
             headers=headers,
-            timeout=30
+            timeout=50
         )
     except requests.exceptions.RequestException as e:
         raise Exception(f"DeepSeek API 网络请求失败: {str(e)}")

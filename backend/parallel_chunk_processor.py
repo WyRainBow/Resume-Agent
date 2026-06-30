@@ -409,11 +409,6 @@ async def parse_resume_text_parallel(text: str, provider: str,
         )
         cleaned = clean_llm_response(raw)
         result = parse_json_response(cleaned)
-
-        # 反思和修复：让 AI 检查并修复项目解析中的问题
-        print(f"[parse_resume_text_parallel] 短文本处理完成，开始 AI 反思修复...", file=sys.stderr, flush=True)
-        result = await reflect_and_fix_projects(provider, text, result)
-
         return result
 
     # 长文本使用并行分块处理
@@ -443,132 +438,9 @@ async def parse_resume_text_parallel(text: str, provider: str,
         print(f"[parse_resume_text_parallel] 合并完成", file=sys.stderr, flush=True)
         logger.info("分块合并完成")
 
-        # 反思和修复：让 AI 检查并修复项目解析中的问题
-        print(f"[parse_resume_text_parallel] 开始 AI 反思修复...", file=sys.stderr, flush=True)
-        final_result = await reflect_and_fix_projects(provider, text, final_result)
-
         return final_result
     finally:
         processor.close()
-
-
-async def reflect_and_fix_projects(provider: str, text: str, current_result: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    反思并修复项目解析结果
-
-    这是一个两阶段处理：
-    1. 让 AI 分析当前解析结果，找出可能的问题
-    2. 让 AI 重新解析项目部分，修复问题
-    """
-    import json as _json
-
-    # 提取项目经验部分
-    projects_section = ""
-    lines = text.split('\n')
-    in_project_section = False
-    for line in lines:
-        stripped = line.strip()
-        if '项目经验' in stripped or '项目经历' in stripped:
-            in_project_section = True
-        elif in_project_section and any(
-            kw in stripped for kw in ('实习经历', '工作经历', '专业技能', '教育经历', '开源经历')
-        ):
-            break
-        if in_project_section:
-            projects_section += line + '\n'
-
-    if not projects_section.strip():
-        return current_result
-
-    # 让 AI 分析当前的项目解析结果
-    current_projects = current_result.get("projects", [])
-    current_projects_json = _json.dumps(current_projects, ensure_ascii=False, indent=2)
-
-    reflect_prompt = f"""你是一个简历解析专家。请分析以下简历文本和当前的 AI 解析结果，找出解析中的问题。
-
-**原始简历文本（项目经验部分）：**
-{projects_section}
-
-**当前 AI 解析结果（projects 数组）：**
-{current_projects_json}
-
-**你的任务：**
-1. 仔细对比原始文本和解析结果
-2. 找出被错误解析为独立项目的"功能亮点"
-3. 找出应该合并到一个项目中的多个"项目"
-4. 列出所有需要修复的问题
-
-**输出格式：**
-请以 JSON 格式输出分析结果：
-{{
-  "issues": [
-    {{
-      "type": "功能亮点被误识别为项目" | "项目被拆分" | "项目名错误" | "其他",
-      "description": "问题描述",
-      "affected_items": ["项目中文名或索引"]
-    }}
-  ],
-  "correct_structure": [
-    {{
-      "project_name": "正确的项目名（从 ### 后提取）",
-      "highlights": ["功能亮点1", "功能亮点2", "..."]
-    }}
-  ]
-}}
-
-只输出 JSON，不要 markdown。
-"""
-
-    try:
-        loop = asyncio.get_event_loop()
-        reflect_response = await loop.run_in_executor(
-            None,
-            functools.partial(call_llm, provider, reflect_prompt)
-        )
-
-        cleaned_reflect = clean_llm_response(reflect_response)
-        reflect_data = parse_json_response(cleaned_reflect)
-
-        # 根据 AI 的反思结果修复项目列表
-        if "correct_structure" in reflect_data and reflect_data["correct_structure"]:
-            print(f"[反思] AI 发现了 {len(reflect_data.get('issues', []))} 个问题，正在修复...", file=sys.stderr, flush=True)
-
-            # 重建项目列表
-            fixed_projects = []
-            for correct_proj in reflect_data["correct_structure"]:
-                project_name = correct_proj.get("project_name", "")
-                highlights = correct_proj.get("highlights", [])
-
-                # 从原项目中查找匹配的项目，保留其其他信息（如 date, description）
-                matched_project = None
-                for orig_proj in current_projects:
-                    orig_title = orig_proj.get("title", "") or orig_proj.get("name", "")
-                    if project_name in orig_title or orig_title in project_name:
-                        matched_project = orig_proj
-                        break
-
-                if matched_project:
-                    # 更新 highlights
-                    matched_project["highlights"] = highlights
-                    fixed_projects.append(matched_project)
-                else:
-                    # 创建新项目
-                    fixed_projects.append({
-                        "title": project_name,
-                        "subtitle": "",
-                        "date": "",
-                        "description": "",
-                        "highlights": highlights
-                    })
-
-            current_result["projects"] = fixed_projects
-            print(f"[反思] 修复完成，项目数量从 {len(current_projects)} 变为 {len(fixed_projects)}", file=sys.stderr, flush=True)
-
-    except Exception as e:
-        print(f"[反思] 反思过程出错，使用原始结果: {e}", file=sys.stderr, flush=True)
-        logger.warning(f"反思过程失败: {e}")
-
-    return current_result
 
 
 # 示例：如何在FastAPI中使用

@@ -1203,8 +1203,8 @@ async def _parse_resume_serial(body: ResumeParseRequest):
    - 如果只看到功能亮点（"- **xxx**：描述"）而没有项目标题，将这些放入highlights数组，title留空，系统会自动合并
 """ + RESUME_PARSE_EXTRA_RULES
 
-    # 如果文本过长，使用分块处理
-    if len(text) > 800:
+    # 如果文本过长，使用分块处理（阈值与 parallel chunk_threshold 对齐，中短简历走单次 LLM）
+    if len(text) > 1500:
         print(f"[解析] 文本长度 {len(text)}，启用分块处理")
         chunks = split_resume_text(text, max_chunk_size=300)
         chunks_results = []
@@ -1363,8 +1363,8 @@ def _build_stream_parse_prompt(text: str) -> str:
 
 解析规则：
 1. 技能：多行以"-"开头的技能描述，每行作为独立技能项 {{"category":"","details":"该行内容(去掉破折号)"}}
-2. 项目：项目描述段落放入"description"；以"- **标题**：描述"格式的功能亮点放入该项目"highlights"数组(保留**加粗**、去掉开头"- ")，不要并入 description
-3. 实习/工作的每条职责放入对应条目的"highlights"数组
+2. 项目：项目描述段落放入"description"；以"- **标题**：描述"格式、或"1. 2. 3."数字编号的功能亮点放入该项目"highlights"数组(保留**加粗**、去掉开头"- "或序号)，不要并入 description
+3. 实习/工作的每条职责(含「1. 2.」数字编号要点)放入对应条目的"highlights"数组
 4. 开源经历：「开源经历」段下每个开源项目作为 openSource 数组一条记录(不要放进 projects/internships)；项目/社区名→title，括号或一句话角色→subtitle，仓库链接→repoUrl，形如「1.简介：」「2.个人职责：」的逐条说明每条作为 items 一项(去掉开头序号)
 
 简历文本:
