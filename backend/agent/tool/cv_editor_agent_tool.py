@@ -17,6 +17,7 @@ from backend.agent.utils.experience_entry import (
     coerce_tool_value,
     is_indexed_array_item_path,
     normalize_experience_add_entry,
+    normalize_opensource_add_entry,
     resolve_experience_add_path,
     to_internships_schema,
 )
@@ -169,15 +170,20 @@ Execute modifications immediately when user provides specific details.
                 normalized_path = resolve_experience_add_path(normalized_path, resume_data)
                 value = coerce_tool_value(value)
                 if isinstance(value, dict):
-                    workspace_entry = normalize_experience_add_entry(
-                        value,
-                        array_path=normalized_path,
-                        index_hint=len(resume_data.get(normalized_path) or []),
-                    )
-                    if normalized_path == "internships":
-                        value = to_internships_schema(workspace_entry)
+                    idx_hint = len(resume_data.get(normalized_path) or [])
+                    if normalized_path == "openSource":
+                        # openSource 用专用规范化，避免被 experience 格式吞掉 name/repo
+                        value = normalize_opensource_add_entry(value, index_hint=idx_hint)
                     else:
-                        value = workspace_entry
+                        workspace_entry = normalize_experience_add_entry(
+                            value,
+                            array_path=normalized_path,
+                            index_hint=idx_hint,
+                        )
+                        if normalized_path == "internships":
+                            value = to_internships_schema(workspace_entry)
+                        else:
+                            value = workspace_entry
 
             # 延迟导入避免循环依赖
             from backend.agent.agent.cv_editor import CVEditor
@@ -196,10 +202,12 @@ Execute modifications immediately when user provides specific details.
                 ):
                     value = normalize_editor_value(value, normalized_path)
 
-            # update 空对象到 experience[i] 等价于 delete，避免内存/DB 留下空占位条目
+            # update 数组项整体替换：openSource[i] 走专用规范化；experience[i] 空对象等价 delete
             if action == "update" and is_indexed_array_item_path(normalized_path):
                 coerced = coerce_tool_value(value)
-                if self._is_empty_experience_entry(coerced):
+                if normalized_path.startswith("openSource[") and isinstance(coerced, dict):
+                    value = normalize_opensource_add_entry(coerced)
+                elif self._is_empty_experience_entry(coerced):
                     action = "delete"
                     value = None
 

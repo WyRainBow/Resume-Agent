@@ -548,6 +548,49 @@ def normalize_experience_add_entry(
     return normalized
 
 
+def normalize_opensource_add_entry(value: Any, *, index_hint: int = 0) -> Dict[str, Any]:
+    """规范化为前端 ResumeData.openSource 条目：id, name, role, repo, date, description(HTML), visible。
+
+    不要套用 experience 的 company/position/details 字段——openSource 的 name/repo 会被丢掉。
+    """
+    entry = coerce_tool_value(value)
+    if isinstance(entry, str):
+        entry = {"description": entry}
+    if not isinstance(entry, dict):
+        raise ValueError("add 操作的 value 必须是 JSON 对象")
+
+    name = str(entry.get("name") or entry.get("title") or "").strip()
+    role = str(entry.get("role") or entry.get("subtitle") or "").strip()
+    repo = str(
+        entry.get("repo") or entry.get("repoUrl") or entry.get("url") or ""
+    ).strip()
+    date = str(
+        entry.get("date") or entry.get("period") or entry.get("duration") or ""
+    ).strip()
+
+    desc_raw = entry.get("description") or entry.get("details") or entry.get("items") or ""
+    if isinstance(desc_raw, list):
+        desc_raw = "\n".join(str(x) for x in desc_raw)
+    description = str(desc_raw).strip()
+    if description and not (
+        _looks_like_html(description) and "custom-list" in description
+    ):
+        description = normalize_editor_value(
+            description, f"openSource[{index_hint}].description"
+        )
+
+    entry_id = str(entry.get("id") or "").strip() or f"os_{uuid.uuid4().hex[:8]}"
+    return {
+        "id": entry_id,
+        "name": name,
+        "role": role,
+        "repo": repo,
+        "date": date,
+        "description": description,
+        "visible": entry.get("visible", True),
+    }
+
+
 def to_internships_schema(entry: Dict[str, Any]) -> Dict[str, Any]:
     """Agent 内存为后端 internships 数组时，转换为 title/subtitle/date/highlights。"""
     details = entry.get("details") or ""
@@ -633,7 +676,7 @@ def sanitize_resume_payload(resume_data: Dict[str, Any]) -> Dict[str, Any]:
     return data
 
 
-_INDEXED_ARRAY_ITEM_RE = re.compile(r"^(experience|internships)\[(\d+)\]$")
+_INDEXED_ARRAY_ITEM_RE = re.compile(r"^(experience|internships|projects|openSource)\[(\d+)\]$")
 
 
 def is_indexed_array_item_path(path: str) -> bool:
