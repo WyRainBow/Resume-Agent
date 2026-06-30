@@ -1,4 +1,4 @@
-export const MAX_SESSIONS_PER_USER = 3;
+export const MAX_SESSIONS_PER_USER = 10;
 
 export type SessionLimits = {
   max_sessions: number;

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-MAX_SESSIONS_PER_USER = 3
+MAX_SESSIONS_PER_USER = 10
 
 
 class SessionLimitExceeded(Exception):
