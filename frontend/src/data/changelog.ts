@@ -15,6 +15,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.4.0',
+    date: '2026-06-30',
+    added: [
+      'AI 对话界面焕新：回答采用更清爽的文档式排版，底部操作栏（复制 / 赞 / 踩 / 重新生成）支持悬停动效',
+      '对话首页引导升级：「对话创建」「导入简历」主入口更醒目，岗位分析 / 模拟面试等快捷入口一排直达',
+    ],
+  },
+  {
     version: '2.3.0',
     date: '2026-06-29',
     added: [

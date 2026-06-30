@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { signIn, useSession } from "@/lib/auth-client";
+import { signIn, signUp, useSession } from "@/lib/auth-client";
 import { buildAccountCallbackUrl } from "@/lib/return-to";
-import { getFastApiBaseUrl } from "@/lib/fastapi";
 
 type Mode = "signin" | "signup";
 
@@ -35,16 +34,10 @@ function GoogleIcon() {
   );
 }
 
-type LegacyTokenResponse = {
-  access_token: string;
-  token_type: string;
-  user: { id: number; username: string; email?: string | null; role?: string | null };
-};
-
 export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
   const { data: session, isPending } = useSession();
   const [mode, setMode] = useState<Mode>("signin");
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [isSubmitting, startTransition] = useTransition();
@@ -59,43 +52,33 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
   }, [session?.user?.id, returnTo]);
 
   /**
-   * 账号/密码登录注册 —— 调用 FastAPI Legacy JWT 接口。
-   * 登录成功后把 token 拼到回跳 URL 上，Vite 端 AuthContext.init() 从 URL 取出后写入 localStorage。
+   * 邮箱/密码登录注册 —— 走 BetterAuth signIn.email / signUp.email（写入 BetterAuth user 表）。
+   * 成功后会话 cookie 已种，上方 effect 监听 session 跳回应用。
    */
-  const submitLegacy = () => {
+  const submitEmail = () => {
     setMessage("");
-    if (password.length < 4) {
-      setMessage("密码长度至少 4 位。");
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setMessage("请输入有效的邮箱地址。");
+      return;
+    }
+    if (password.length < 6) {
+      setMessage("密码长度至少 6 位。");
       return;
     }
     startTransition(async () => {
-      const endpoint = mode === "signin" ? "/api/auth/login" : "/api/auth/register";
-      try {
-        const response = await fetch(`${getFastApiBaseUrl()}${endpoint}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password }),
-        });
+      const result =
+        mode === "signin"
+          ? await signIn.email({ email, password })
+          : await signUp.email({ email, password, name: email.split("@")[0] });
 
-        if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          setMessage(
-            typeof errData.detail === "string"
-              ? errData.detail
-              : "操作失败，请重试。",
-          );
-          return;
-        }
+      if (result.error) {
+        setMessage(result.error.message || "操作失败，请重试。");
+        return;
+      }
 
-        const data = (await response.json()) as LegacyTokenResponse;
-
-        // 把 Legacy JWT token 拼到回跳 URL，Vite 端读取后写入 localStorage 并清理地址栏。
-        const target = new URL(returnTo || window.location.origin);
-        target.searchParams.set("legacy_token", data.access_token);
-        target.searchParams.set("legacy_user", JSON.stringify(data.user));
-        window.location.assign(target.toString());
-      } catch {
-        setMessage("网络错误，请重试。");
+      if (returnTo) {
+        window.location.assign(returnTo);
       }
     });
   };
@@ -154,11 +137,17 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
         使用 Google 继续
       </button>
 
-      <div className="divider">或使用账号</div>
+      <div className="divider">或使用邮箱</div>
 
       <label>
-        账号
-        <input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="请输入账号" />
+        邮箱
+        <input
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          placeholder="请输入邮箱"
+          type="email"
+          autoComplete="email"
+        />
       </label>
 
       <label>
@@ -166,12 +155,12 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
         <input
           value={password}
           onChange={(event) => setPassword(event.target.value)}
-          placeholder="至少 4 位字符"
+          placeholder="至少 6 位字符"
           type="password"
         />
       </label>
 
-      <button className="primary-button" onClick={submitLegacy} disabled={isSubmitting || !username || !password}>
+      <button className="primary-button" onClick={submitEmail} disabled={isSubmitting || !email || !password}>
         {isSubmitting ? "处理中..." : mode === "signin" ? "登录" : "创建账户"}
       </button>
 

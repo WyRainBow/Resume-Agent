@@ -49,6 +49,7 @@ export const auth = betterAuth({
   trustedOrigins,
   emailAndPassword: {
     enabled: true,
+    minPasswordLength: 6,
   },
   // 鉴权层与前端在同一根域的不同子域（如 auth.example.com / example.com）时，
   // 需要把会话 cookie 种到根域，前端才能跨子域读到登录态。
