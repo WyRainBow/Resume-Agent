@@ -32,7 +32,10 @@ def get_user_stats(
     _current_user: User = Depends(require_admin_or_member),
     db: Session = Depends(get_db),
 ):
-    total_users = db.query(func.count(User.id)).scalar() or 0
+    # 以 BetterAuth "user" 表为准（所有登录用户），与用户列表口径一致。
+    from sqlalchemy import text
+
+    total_users = db.execute(text('SELECT count(*) FROM "user"')).scalar() or 0
     return {
         "total_users": int(total_users),
     }
@@ -57,7 +60,8 @@ def list_users(
                    COALESCE(u.pdf_download_count, 0)    AS pdf_download_count
             FROM "user" bu
             LEFT JOIN users u ON LOWER(bu.email) = LOWER(u.email)
-            ORDER BY bu."createdAt" ASC
+            ORDER BY CASE COALESCE(u.role, 'user') WHEN 'admin' THEN 0 WHEN 'member' THEN 1 ELSE 2 END,
+                     bu."createdAt" ASC
             '''
         )
     ).fetchall()
@@ -75,6 +79,57 @@ def list_users(
             for r in rows
         ],
     }
+
+
+class SetRoleRequest(BaseModel):
+    role: str
+
+
+@router.patch("/users/{better_auth_user_id}/role")
+def set_user_role(
+    better_auth_user_id: str,
+    body: SetRoleRequest,
+    _current_user: User = Depends(require_admin_only),
+    db: Session = Depends(get_db),
+):
+    """给指定 BetterAuth 用户分配角色。role 存 legacy users（按 email 桥接），无记录则建。"""
+    import secrets
+    from sqlalchemy import text
+
+    from backend.auth import hash_password
+
+    allowed = {"user", "admin", "member"}
+    if body.role not in allowed:
+        raise HTTPException(status_code=400, detail=f"role 必须是 {sorted(allowed)} 之一")
+
+    row = db.execute(
+        text('SELECT email, name FROM "user" WHERE id = :id'),
+        {"id": better_auth_user_id},
+    ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="用户不存在")
+    email, name = row[0], row[1]
+
+    user = db.query(User).filter(User.email == email).first()
+    if user:
+        user.role = body.role
+    else:
+        username = (name or (email.split("@")[0] if email else "user"))[:64]
+        base, suffix = username, 1
+        while db.query(User).filter(User.username == username).first():
+            username = f"{base}-{suffix}"
+            suffix += 1
+        user = User(
+            username=username,
+            email=email,
+            password_hash=hash_password(f"better-auth:{better_auth_user_id}:{secrets.token_hex(8)}"),
+            role=body.role,
+        )
+        db.add(user)
+
+    db.commit()
+    logger.info("[Admin] role assigned user=%s -> %s by=%s", email, body.role, _current_user.username)
+    return {"ok": True, "email": email, "role": body.role}
 
 
 @router.post("/pdf/render-mode/log")
