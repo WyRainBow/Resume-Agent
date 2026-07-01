@@ -5,10 +5,16 @@ from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
 
-GENERATE_RESUME_PROMPT = """你是专业简历写作专家。根据以下信息生成完整简历 JSON。
+GENERATE_RESUME_PROMPT = """你是专业简历写作专家。根据以下信息生成简历 JSON。
 
 目标岗位：{job_description}
 用户背景：{user_background}
+
+**核心原则：只用「用户背景」里真实提供的信息，严禁编造或脑补用户没说的内容。**
+- 用户没提供的字段一律留空：字符串留 ""，数组留 []。
+- 例如：用户没说技能，skillContent 就留 ""；没说项目，projects 就留 []；没说实习，experience 就留 []。
+- 不要根据目标岗位去"推测/补全"用户可能会的技能、可能做过的项目或课程。
+- education 的 description 只写用户真实提到的（如"全日制本科、英语六级"），不要脑补主修课程。
 
 严格按此 JSON schema 输出，不输出其他文字：
 {{
