@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.4.3',
+    date: '2026-07-01 14:49',
+    added: [
+      '从编辑页点「AI 助手」时可自主选择：继续编辑当前简历，或开启新会话',
+    ],
+  },
+  {
     version: '2.4.2',
     date: '2026-07-01 14:28',
     added: [
