@@ -4103,6 +4103,18 @@ function SophiaChatContent() {
       onRemoveAttachment={handleRemoveAttachment}
       onClickUpload={handleClickUpload}
       onShowResumeSelector={() => {
+        // 当前会话已有简历：直接展示它（渲染右侧预览），不弹"开始处理简历"选择面板
+        const current =
+          selectedLoadedResume ||
+          loadedResumes[loadedResumes.length - 1] ||
+          null;
+        if (current) {
+          setSelectedResumeId(current.id);
+          setAllowPdfAutoRender(true);
+          void renderResumePdfPreview(current, true);
+          return;
+        }
+        // 一份简历都没有时，才打开选择器让用户创建 / 导入 / 选择
         setResumeSelectorInitialStep("entry");
         setShowResumeSelector(true);
       }}
