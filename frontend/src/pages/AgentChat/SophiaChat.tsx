@@ -191,14 +191,19 @@ function normalizeImportedResumeToCanonical(
     const date = toText(item?.date);
     const details = toStringList(item?.details || item?.highlights);
     const range = splitDateRange(date);
+    const descriptionText = toText(item?.description);
     return {
       id: item?.id || `edu_${opts.resumeId}_${index}`,
       school: title,
       major: subtitle,
       degree,
-      startDate: range.startDate,
-      endDate: range.endDate,
-      description: listToHtml(details),
+      startDate: range.startDate || toText(item?.startDate),
+      endDate: range.endDate || toText(item?.endDate),
+      description: details.length
+        ? listToHtml(details)
+        : descriptionText
+          ? `<p>${descriptionText}</p>`
+          : "",
       visible: true,
     };
   });
@@ -305,11 +310,11 @@ function normalizeImportedResumeToCanonical(
     templateId: null,
     templateType: "latex",
     basic: {
-      name: toText(source.name),
-      title: toText(source.objective || source.summary),
-      email: toText(contact.email),
-      phone: toText(contact.phone),
-      location: toText(contact.location),
+      name: toText(source.basic?.name || source.name),
+      title: toText(source.basic?.title || source.objective || source.summary),
+      email: toText(source.basic?.email || contact.email),
+      phone: toText(source.basic?.phone || contact.phone),
+      location: toText(source.basic?.location || contact.location),
     },
     education,
     experience,
