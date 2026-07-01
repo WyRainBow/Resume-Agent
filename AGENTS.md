@@ -35,7 +35,7 @@
 - Deploy = `git push origin main`; a server cron auto-pulls, rebuilds (frontend + web), and restarts pm2.
 - **Before pushing to main, always add a new entry at the TOP of the `CHANGELOG` array in `frontend/src/data/changelog.ts`:**
   - Bump `version` (patch +0.0.1, e.g. `2.4.1` → `2.4.2`; larger features +0.1.0)
-  - Set `date` to today; write `added` / `fixed` as short user-facing Chinese (no tech/ops details)
+  - Set `date` to today **with time to the minute** (`YYYY-MM-DD HH:MM`); write `added` / `fixed` as short user-facing Chinese (no tech/ops details)
   - Commit the changelog together with the release code, then push
 - Users see a「有什么新变化」modal (`ChangelogModal`) on first visit after each version bump.
 

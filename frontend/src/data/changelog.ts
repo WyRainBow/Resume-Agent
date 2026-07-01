@@ -16,7 +16,7 @@ export type ChangelogEntry = {
 export const CHANGELOG: ChangelogEntry[] = [
   {
     version: '2.4.2',
-    date: '2026-07-01',
+    date: '2026-07-01 14:28',
     added: [
       '从编辑页点「AI 助手」会自动带上当前简历，右侧直接预览、可继续用 AI 修改',
       '点「展示简历」直接显示当前简历，不再多弹一层选择',
