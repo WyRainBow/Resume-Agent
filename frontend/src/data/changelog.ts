@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.5.1',
+    date: '2026-07-02 01:44',
+    fixed: [
+      '更新日志页默认只展开最近版本，更早记录折叠到「查看全部历史」，避免页面过长',
+    ],
+  },
+  {
     version: '2.5.0',
     date: '2026-07-02 01:35',
     added: [

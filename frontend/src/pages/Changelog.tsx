@@ -1,13 +1,21 @@
 import { Sparkles, Wrench } from 'lucide-react'
+import { useState } from 'react'
 import { LegalLayout } from './Legal/LegalLayout'
 import { CHANGELOG, LATEST_CHANGELOG } from '@/data/changelog'
 
-/** 更新日志页：复用法务页外壳，倒序展示完整版本历史。 */
+/** 默认展开的最近版本条数，更早的折叠到「查看全部历史」后 */
+const RECENT_COUNT = 12
+
+/** 更新日志页：复用法务页外壳，倒序展示版本历史，默认只展开最近若干条。 */
 export default function Changelog() {
+  const [showAll, setShowAll] = useState(false)
+  const visible = showAll ? CHANGELOG : CHANGELOG.slice(0, RECENT_COUNT)
+  const hiddenCount = CHANGELOG.length - visible.length
+
   return (
     <LegalLayout title="更新日志" lastUpdated={LATEST_CHANGELOG.date}>
       <div className="space-y-10">
-        {CHANGELOG.map(({ version, date, added, fixed }) => (
+        {visible.map(({ version, date, added, fixed }) => (
           <section key={version}>
             <div className="mb-4 flex items-baseline gap-3">
               <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">v{version}</h2>
@@ -56,6 +64,17 @@ export default function Changelog() {
           </section>
         ))}
       </div>
+      {hiddenCount > 0 && (
+        <div className="mt-8 text-center">
+          <button
+            type="button"
+            onClick={() => setShowAll(true)}
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-700 dark:border-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          >
+            查看全部历史（还有 {hiddenCount} 条）
+          </button>
+        </div>
+      )}
     </LegalLayout>
   )
 }
