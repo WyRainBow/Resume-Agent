@@ -129,8 +129,9 @@ async def upload_logo(
 
         # 同步写入本地 images/logo（与 COS 保持同名）
         local_dir = Path(m.LOCAL_LOGO_DIR)
-        local_dir.mkdir(parents=True, exist_ok=True)
-        (local_dir / cos_key).write_bytes(content)
+        target_path = local_dir / cos_key
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_bytes(content)
 
         # 清除缓存，让下次 GET 能拿到新 Logo
         m.clear_cache()

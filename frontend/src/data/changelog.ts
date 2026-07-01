@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.4.9',
+    date: '2026-07-02 01:17',
+    fixed: [
+      '修复上传公司 Logo 时因本地目录缺失导致「上传失败」的问题',
+    ],
+  },
+  {
     version: '2.4.8',
     date: '2026-07-02 01:13',
     fixed: [
