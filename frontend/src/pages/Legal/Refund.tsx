@@ -7,7 +7,7 @@ export default function Refund() {
     <LegalLayout title="退款政策" lastUpdated={LAST_UPDATED}>
       <LegalSection heading="1. 适用范围">
         <p>
-          本退款政策适用于 Resume.AI（以下简称“本服务”）未来推出的付费功能或一次性数字额度包。本服务当前以免费功能为主；在付费功能正式上线前，本政策作为购买前的预先约定供您参考。
+          本退款政策适用于 Resume.AI（以下简称“本服务”）提供的付费功能及一次性数字额度包（积分包）。就前述付费项目的购买，本政策所载规则供您在购买前参阅，并对相关交易适用。
         </p>
       </LegalSection>
 

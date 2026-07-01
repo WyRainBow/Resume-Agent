@@ -134,7 +134,7 @@ const STEPS = [
 const FAQ_ITEMS: { q: string; a: ReactNode }[] = [
   {
     q: '这个产品收费吗？',
-    a: '当前完全免费、不限 Token、无需付费即可使用全部简历制作功能。'
+    a: '基础功能可直接体验、含一定 AI 生成额度；额度用尽后可按需购买一次性积分包，具体价格见定价页。'
   },
   {
     q: '支持导入哪些简历格式？',
@@ -168,7 +168,7 @@ const FAQ_ITEMS: { q: string; a: ReactNode }[] = [
     q: '未来会收费吗？能退款吗？',
     a: (
       <>
-        当前以免费功能为主。如未来推出付费额度，计费与退款规则将提前公示，可先参阅{' '}
+        付费积分包的计费与退款规则以定价页说明与《退款政策》为准，可先参阅{' '}
         <Link to="/refund" className="text-blue-600 dark:text-blue-400 hover:underline">
           退款政策
         </Link>
@@ -454,7 +454,7 @@ export default function LandingPage() {
             className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[13px] font-semibold mb-7 tracking-wide bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-100 dark:border-blue-900/50"
           >
             <span className="inline-block h-2 w-2 rounded-full bg-blue-500" />
-            公益项目 · 完全免费
+            开源项目 · AI 驱动
           </motion.div>
 
           <motion.h1
@@ -470,7 +470,7 @@ export default function LandingPage() {
             transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.24 }}
             className="mt-6 text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl mx-auto"
           >
-            AI 生成、润色、岗位匹配到 PDF 导出、一站做完。所有功能完全免费、Token 不限量。
+            AI 生成、润色、岗位匹配到 PDF 导出、一站做完、专业排版直接投递。
           </motion.p>
 
           <motion.div
@@ -568,7 +568,7 @@ export default function LandingPage() {
               一份简历、从写到投、都帮你想到了
             </h2>
             <p className="mt-4 text-base text-slate-600 dark:text-slate-400 leading-relaxed">
-              围绕简历制作的全流程能力、每一步都由 AI 协助、不收费、不限量。
+              围绕简历制作的全流程能力、每一步都由 AI 协助、专业高效。
             </p>
           </motion.div>
 
@@ -720,10 +720,10 @@ export default function LandingPage() {
           />
           <div className="relative">
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
-              免费开始制作你的简历
+              开始制作你的简历
             </h2>
             <p className="mt-4 text-base text-slate-300 max-w-md mx-auto leading-relaxed">
-              不用注册付费、不限 Token、打开就能写。
+              打开就能写、专业排版一键导出。
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
               <button
