@@ -227,6 +227,7 @@ knowledge-base/
 2. **更新 `knowledge-base/`**：任务完成后，如涉及架构、接口、Agent 流程、PDF 链路或用户流程变化，追加设计 / 计划 / Review / 操作记录
 3. **保持规则文档一致**：若修改了项目事实，必要时同步 `AGENTS.md`、`CLAUDE.md`、`CODEX.md`
 4. **不 push**：除非用户明确要求
+5. **部署前必更新版本与更新日志**：每次要 `git push origin main`（会触发服务器 cron 自动部署）前，先在 `frontend/src/data/changelog.ts` 的 `CHANGELOG` 数组**顶部**新增一个版本条目——`version` 递增（补丁级 +0.0.1，如 `2.4.1` → `2.4.2`；较大功能可 +0.1.0）、`date` 用当天、`added` / `fixed` 写**面向用户的简短中文**（不写技术 / 运维细节）。changelog 改动与本次发布代码一起提交再 push；上线后用户首次进入会自动弹「有什么新变化」（`ChangelogModal`，以 version 作已读标识）。
 
 ---
 
