@@ -15,7 +15,13 @@ export function setByPath(obj: any, path: string, value: any): any {
   const result = structuredClone(obj)
   let curr = result
   for (let i = 0; i < parts.length - 1; i++) {
-    curr = curr[parts[i]]
+    const key = parts[i]
+    // 中间路径不存在时自动创建：下一段是数字索引则建数组，否则建对象。
+    // （例如先删了 awards 变 undefined，再新增 awards[0] 时不会崩）
+    if (curr[key] === undefined || curr[key] === null) {
+      curr[key] = /^\d+$/.test(parts[i + 1]) ? [] : {}
+    }
+    curr = curr[key]
   }
   curr[parts[parts.length - 1]] = value
   return result
@@ -577,7 +583,54 @@ export function formatPatchDiffSide(
     }
   }
 
+  // 其余整体对象/数组（awards、整段删除等）：友好渲染，避免把带 id/visible 的原始 JSON dump 给用户
+  const readable = renderResumeValueForDiff(
+    itemByPath !== undefined ? itemByPath : payload,
+  )
+  if (readable.trim()) return formatResumeDiffPreview(readable)
+
   return formatResumeDiffPreview(JSON.stringify(payload, null, 2))
+}
+
+/** 把简历 entry 对象渲染成"标题 · 副标题 · 日期 + 内容"的可读文本，忽略 id/visible 等技术字段。 */
+function renderResumeEntryForDiff(entry: Record<string, unknown>): string {
+  const heading = String(
+    entry.title || entry.name || entry.company || entry.school || '',
+  )
+    .replace(/\*+/g, '')
+    .trim()
+  const sub = String(
+    entry.issuer || entry.role || entry.position || entry.major || entry.degree || '',
+  )
+    .replace(/\*+/g, '')
+    .trim()
+  const date = String(entry.date || '').trim()
+  let bodyRaw: unknown =
+    entry.details ?? entry.description ?? entry.highlights ?? ''
+  if (Array.isArray(bodyRaw)) bodyRaw = bodyRaw.map((x) => String(x)).join('\n')
+  const body = htmlToReadableText(String(bodyRaw))
+  const headLine = [heading, sub, date].filter(Boolean).join(' · ')
+  return [headLine, body].filter(Boolean).join('\n')
+}
+
+/** 把简历字段值（字符串 / entry 对象 / entry 数组）渲染成可读文本。 */
+function renderResumeValueForDiff(value: unknown): string {
+  if (value == null) return ''
+  if (typeof value === 'string') return htmlToReadableText(value) || value
+  if (Array.isArray(value)) {
+    return value
+      .map((v) =>
+        v && typeof v === 'object'
+          ? renderResumeEntryForDiff(v as Record<string, unknown>)
+          : String(v),
+      )
+      .filter((s) => s.trim())
+      .join('\n\n')
+  }
+  if (typeof value === 'object') {
+    return renderResumeEntryForDiff(value as Record<string, unknown>)
+  }
+  return String(value)
 }
 
 function htmlToReadableText(value: string): string {
