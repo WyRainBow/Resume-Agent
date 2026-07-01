@@ -355,7 +355,7 @@ export function normalizeResumePatchValue(
 }
 
 // ---------------------------------------------------------------------------
-// 旧版 markdown diff 解析工具（供 SophiaChat / useToolEventRouter 兼容层使用）
+// 旧版 markdown diff 解析工具（供 CocoChat / useToolEventRouter 兼容层使用）
 // ---------------------------------------------------------------------------
 
 const BEFORE_LABEL = /(?:^|\n)\s*修改前\s*[:：]?/im

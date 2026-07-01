@@ -10,7 +10,7 @@ import { useAuth } from './contexts/AuthContext'
 import ResumeDashboard from './pages/ResumeDashboard'
 import { ResumeProvider } from './contexts/ResumeContext'
 
-const AgentChat = lazyWithRetry(() => import('./pages/AgentChat/SophiaChat'))
+const AgentChat = lazyWithRetry(() => import('./pages/AgentChat/CocoChat'))
 const AdminDashboard = lazyWithRetry(() => import('./pages/AdminDashboard'))
 const CreateNew = lazyWithRetry(() => import('./pages/CreateNew'))
 const LandingPage = lazyWithRetry(() => import('./pages/LandingPage'))
