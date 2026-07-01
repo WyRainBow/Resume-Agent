@@ -592,6 +592,8 @@ function SophiaChatContent() {
   >([]);
   const [selectedResumeId, setSelectedResumeId] = useState<string | null>(null);
   const [allowPdfAutoRender, setAllowPdfAutoRender] = useState(false);
+  // 从编辑页带 resumeId 跳来时，暂存待选择的简历，弹「继续编辑 / 开启新会话」选择
+  const [carryResumePrompt, setCarryResumePrompt] = useState<SavedResume | null>(null);
   const [resumePdfPreview, setResumePdfPreview] = useState<
     Record<string, ResumePdfPreviewState>
   >({});
@@ -1552,9 +1554,9 @@ function SophiaChatContent() {
           setResumeError("未找到对应的简历");
           setResumeData(null);
         } else {
-          // 从编辑页跳转过来（URL 带 resumeId）：走 applyResumeToChat 完整落地，
-          // 让这份简历直接进 loadedResumes + 选中 + 点亮右侧预览，无需重新加载/编辑
-          await applyResumeToChat(resume);
+          // 从编辑页带 resumeId 过来：先不自动落地，弹选择让用户决定
+          // 「继续编辑这份」还是「开启新会话」（见空态区选择卡片）。
+          setCarryResumePrompt(resume);
         }
       } catch (error) {
         if (!mounted) return;
@@ -3269,6 +3271,29 @@ function SophiaChatContent() {
   }, [generatedResume]);
 
   // 处理简历选择
+  // 从编辑页带 resumeId 跳来时的选择：继续编辑这份 / 开启新会话
+  const handleContinueEditCarry = useCallback(() => {
+    if (carryResumePrompt) {
+      void applyResumeToChat(carryResumePrompt);
+      // 加一条引导消息进入对话态，避免继续停在空态卡片
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          role: "assistant",
+          content: `已加载「${carryResumePrompt.name || "你的简历"}」，右侧可以看到。想优化哪部分？直接告诉我，比如「优化实习经历」。`,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    }
+    setCarryResumePrompt(null);
+  }, [carryResumePrompt, applyResumeToChat]);
+
+  const handleStartNewFromCarry = useCallback(() => {
+    setCarryResumePrompt(null);
+    navigate("/agent/new");
+  }, [navigate]);
+
   const handleResumeSelect = useCallback(
     async (selectedResume: SavedResume) => {
       await applyResumeToChat(selectedResume);
@@ -4183,17 +4208,45 @@ function SophiaChatContent() {
                   </div>
                 )}
 
-                {isEmptyState && (
-                  <ChatEmptyState
-                    onCreateResume={handleFillCreateResumePrompt}
-                    onImportResume={handleImportResume}
-                    onSelectExisting={() => {
-                      setResumeSelectorInitialStep("existing");
-                      setShowResumeSelector(true);
-                    }}
-                    composerSlot={composerNode}
-                  />
-                )}
+                {isEmptyState &&
+                  (carryResumePrompt ? (
+                    <div className="w-full max-w-lg mx-auto px-4 flex-1 flex flex-col justify-center">
+                      <div className="rounded-2xl border border-chat-border bg-chat-surface p-6 text-center shadow-sm dark:border-slate-700 dark:bg-slate-800/60">
+                        <div className="mb-1 text-sm text-chat-ink-muted dark:text-slate-400">
+                          从编辑页带来了
+                        </div>
+                        <div className="mb-5 truncate text-lg font-bold text-chat-ink dark:text-slate-100">
+                          「{carryResumePrompt.name || "未命名简历"}」
+                        </div>
+                        <div className="flex gap-3">
+                          <button
+                            type="button"
+                            onClick={handleContinueEditCarry}
+                            className="flex-1 rounded-xl bg-chat-accent px-4 py-2.5 text-sm font-semibold text-white transition-all hover:opacity-90 active:scale-[0.98] dark:bg-amber-500"
+                          >
+                            继续编辑这份
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleStartNewFromCarry}
+                            className="flex-1 rounded-xl border border-chat-border bg-white px-4 py-2.5 text-sm font-semibold text-chat-ink-muted transition-all hover:border-chat-accent/50 hover:text-chat-ink active:scale-[0.98] dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300"
+                          >
+                            开启新会话
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <ChatEmptyState
+                      onCreateResume={handleFillCreateResumePrompt}
+                      onImportResume={handleImportResume}
+                      onSelectExisting={() => {
+                        setResumeSelectorInitialStep("existing");
+                        setShowResumeSelector(true);
+                      }}
+                      composerSlot={composerNode}
+                    />
+                  ))}
 
                 <MessageTimeline
                   messages={messages}
