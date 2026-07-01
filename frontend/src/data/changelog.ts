@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.4.4',
+    date: '2026-07-01 16:13',
+    added: [
+      '简历助手正式取名「coco」，打招呼时会跟你介绍自己',
+    ],
+  },
+  {
     version: '2.4.3',
     date: '2026-07-01 14:49',
     added: [
