@@ -416,10 +416,12 @@ function extractPasteImportResumeText(text: string): string | null {
   ) {
     return null;
   }
+  // resume-like 的长文本明显是「粘贴的简历正文」，哪怕正文里含「创建简历/生成简历」
+  // 这类词（例如把本项目介绍整段粘进来），也应优先走粘贴导入，避免被意图词误判成创建意图。
+  if (isResumeLikePasteText(trimmed)) return trimmed;
   if (isSelectExistingResumeIntentText(trimmed)) return null;
   if (isCreateResumeIntentText(trimmed)) return null;
-
-  return isResumeLikePasteText(trimmed) ? trimmed : null;
+  return null;
 }
 
 function resolveImportedResumeDisplayName(data: Record<string, unknown>): string {
@@ -3211,13 +3213,21 @@ function SophiaChatContent() {
       setShowResumeSelector(false);
       setShowGreetingChips(false);
 
+      // 应用新简历数据后强制重渲 PDF 预览：
+      // 粘贴导入 / AI 编辑常是「更新现有简历（同 id）」，selectedResumeId 不变、旧 blob 有缓存，
+      // 不 force 的话 renderResumePdfPreview 会命中「already has blob」跳过，导致解析完右侧不刷新（要手动点刷新）。
+      void renderResumePdfPreview(
+        { id: selectedResume.id, resumeData: resumeDataWithMeta },
+        true,
+      );
+
       console.log(
         "[AgentChat] 简历已加载到对话区:",
         selectedResume.id,
         selectedResume.name,
       );
     },
-    [user?.id],
+    [user?.id, renderResumePdfPreview],
   );
 
   const createDefaultResumeInChat = useCallback(
