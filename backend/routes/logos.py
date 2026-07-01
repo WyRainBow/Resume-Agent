@@ -117,6 +117,7 @@ async def upload_logo(
         config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key)
         client = CosS3Client(config)
 
+        m = _import_logos()
         # 上传到 COS company_logo/ 目录
         cos_key = f"{m.COMPANY_LOGO_PREFIX}{safe_filename}"
         client.put_object(
@@ -126,7 +127,6 @@ async def upload_logo(
             ContentType=file.content_type or 'image/png',
         )
 
-        m = _import_logos()
         # 同步写入本地 images/logo（与 COS 保持同名）
         local_dir = Path(m.LOCAL_LOGO_DIR)
         local_dir.mkdir(parents=True, exist_ok=True)
