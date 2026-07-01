@@ -3,6 +3,8 @@
  * Logo 数据从后端 /api/logos 接口动态获取
  * 后端统一维护 Logo 列表，前端不再硬编码
  */
+import { getApiBaseUrl } from '@/lib/runtimeEnv'
+import { getAuthHeaders } from '@/lib/authHeaders'
 
 export interface CompanyLogo {
   key: string
@@ -165,12 +167,11 @@ export async function refreshLogos(): Promise<CompanyLogo[]> {
 export async function uploadLogo(file: File): Promise<CompanyLogo> {
   const formData = new FormData()
   formData.append('file', file)
-  const token = localStorage.getItem('auth_token')
 
-  const resp = await fetch('/api/logos/upload', {
+  const resp = await fetch(`${getApiBaseUrl()}/api/logos/upload`, {
     method: 'POST',
     body: formData,
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: getAuthHeaders(),
   })
 
   if (!resp.ok) {

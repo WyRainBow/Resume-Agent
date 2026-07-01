@@ -2,6 +2,8 @@
  * 学校 Logo 管理
  * 数据从后端 /api/school-logos 接口动态获取
  */
+import { getApiBaseUrl } from '@/lib/runtimeEnv'
+import { getAuthHeaders } from '@/lib/authHeaders'
 
 export interface SchoolLogo {
   key: string
@@ -127,12 +129,11 @@ export async function uploadSchoolLogo(file: File, group: string): Promise<Schoo
   const formData = new FormData()
   formData.append('file', file)
   formData.append('group', group)
-  const token = localStorage.getItem('auth_token')
 
-  const resp = await fetch('/api/school-logos/upload', {
+  const resp = await fetch(`${getApiBaseUrl()}/api/school-logos/upload`, {
     method: 'POST',
     body: formData,
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    headers: getAuthHeaders(),
   })
 
   if (!resp.ok) {

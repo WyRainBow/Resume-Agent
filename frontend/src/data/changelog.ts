@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.4.7',
+    date: '2026-07-02 00:58',
+    fixed: [
+      '彻底修复 Google / 邮箱登录后上传学校校徽、公司 Logo 时提示「请先登录 / 无权限」的问题',
+    ],
+  },
+  {
     version: '2.4.6',
     date: '2026-07-02 00:41',
     fixed: [
