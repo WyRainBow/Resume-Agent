@@ -1501,21 +1501,30 @@ function SophiaChatContent() {
 
   // 🔧 持久化 UI 预览状态（简历、报告等）
   useEffect(() => {
-    // 仅针对已保存的真实会话进行持久化
-    if (!conversationId || conversationId.startsWith("conv-")) return;
+    // 所有会话（含前端生成的 conv-xxx）都持久化右侧简历展示状态，
+    // 这样切走再切回同一会话时能恢复"正在展示的简历"，而不是变空白。
+    if (!conversationId) return;
+    // 空状态不持久化：切换会话时 loadSession 会先清空右侧（selectedResumeId=null、loadedResumes=[]），
+    // 而此刻 conversationId 仍是上一个会话，若覆盖写入就会把上个会话已存的简历展示态抹成空，
+    // 导致切回来简历消失。所以没有简历可存时直接跳过。
+    if (!selectedResumeId && loadedResumes.length === 0) return;
 
     const uiState = {
       selectedResumeId,
-      // 仅存元数据，避免 localStorage 过大
       loadedResumes: loadedResumes.map((r) => ({
         id: r.id,
         name: r.name,
         messageId: r.messageId,
-        resumeData: r.resumeData, // 这里的简历数据是必需的，用于右侧 PDF 预览渲染
+        resumeData: r.resumeData, // 右侧 PDF 预览渲染需要
       })),
       diagnosisToolEvents,
     };
-    localStorage.setItem(`ui_state:${conversationId}`, JSON.stringify(uiState));
+    try {
+      localStorage.setItem(`ui_state:${conversationId}`, JSON.stringify(uiState));
+    } catch (e) {
+      // localStorage 超限等：忽略，不影响主流程
+      console.warn("[AgentChat] 持久化 UI 状态失败:", e);
+    }
   }, [conversationId, selectedResumeId, loadedResumes, diagnosisToolEvents]);
 
   // 说明：
