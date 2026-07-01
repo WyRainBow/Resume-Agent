@@ -29,7 +29,6 @@ import {
   DEFAULT_MENU_SECTIONS,
   type ResumeData,
 } from "@/pages/Workspace/v2/types";
-import { DEFAULT_RESUME_TEMPLATE } from "@/data/defaultTemplate";
 import { getResume, getAllResumes, saveResume, setCurrentResumeId } from "@/services/resumeStorage";
 import { parseResumeText } from "@/services/resumeParse";
 import type { SavedResume } from "@/services/storage/StorageAdapter";
@@ -432,7 +431,15 @@ function resolveImportedResumeDisplayName(data: Record<string, unknown>): string
   );
 }
 
-const CREATE_DEFAULT_RESUME_PROMPT = "帮我创建一份模板默认简历";
+const CREATE_RESUME_GUIDE_TEXT = `好，把你的情况说给我就行 👇 这几个方面想说哪个说哪个（不用全说）：
+
+- **教育经历**：学校、专业、学历、时间
+- **实习经历**：公司、岗位、做了什么
+- **项目经历**：项目名、你的角色、成果
+- **个人经历**：竞赛、开源、社团等
+- **自我评价**：技能亮点、求职意向
+
+可以**一次性全发**给我，也可以**一段段拆开**给，或者先说一项（比如「我的教育经历是……」）。有现成的简历文字，直接粘进来也行。`;
 
 const GREETING_CREATE_RESUME_GUIDANCE =
   "你好 👋 我是简历助手，下面选一个快速开始，或者直接打字告诉我你想做什么。";
@@ -3220,25 +3227,29 @@ function SophiaChatContent() {
     [user?.id],
   );
 
-  const createDefaultResumeInChat = useCallback(
-    async (messageId?: string) => {
-      const template = structuredClone(DEFAULT_RESUME_TEMPLATE);
-      const resumeId = `resume_latex_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
-      const now = new Date().toISOString();
-      template.id = resumeId;
-      template.createdAt = now;
-      template.updatedAt = now;
-      template.title = template.basic?.name
-        ? `${template.basic.name}的简历`
-        : "我的简历";
-
-      const saved = await saveResume(template, resumeId);
-      setCurrentResumeId(saved.id);
-      await applyResumeToChat(saved, messageId);
-      return saved;
-    },
-    [applyResumeToChat],
-  );
+  // generate_resume 生成的简历：自动落地到右侧预览（生成即所见，复用导入链路）
+  useEffect(() => {
+    const generated = generatedResume?.resume;
+    if (!generated) return;
+    void (async () => {
+      try {
+        const resumeId = `resume_latex_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+        const displayName = resolveImportedResumeDisplayName(
+          generated as unknown as Record<string, unknown>,
+        );
+        const normalized = normalizeImportedResumeToCanonical(
+          generated as unknown as Record<string, any>,
+          { resumeId, title: `${displayName}的简历` },
+        );
+        const saved = await saveResume(normalized, resumeId);
+        setCurrentResumeId(saved.id);
+        await applyResumeToChat(saved);
+      } catch (e) {
+        console.error("[AgentChat] 生成简历落地预览失败:", e);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generatedResume]);
 
   // 处理简历选择
   const handleResumeSelect = useCallback(
@@ -3422,43 +3433,25 @@ function SophiaChatContent() {
     ],
   );
 
-  const handleCreateResume = useCallback(async () => {
+  const handleCreateResume = useCallback(() => {
     setShowResumeSelector(false);
     setPendingResumeInput("");
-    try {
-      const saved = await createDefaultResumeInChat();
-      const assistantMsg: Message = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        role: "assistant",
-        content: `已经帮你生成了一份**示例简历**，右侧实时预览。
-
-里面的「${saved.name}」是占位信息，直接告诉我怎么改就行，比如：
-
-- 「姓名换成我的」
-- 「加一段实习经历」
-- 「技能补上 Python」
-
-想用自己的简历，点 **「选择已有简历」** 加载即可。`,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages((prev) => {
-        const updated = [...prev, assistantMsg];
-        const validConversationId =
-          conversationId?.trim() || currentSessionId || `conv-${Date.now()}`;
-        void persistSessionSnapshot(validConversationId, updated, false);
-        return updated;
-      });
-      setResumeError(null);
-    } catch (error) {
-      console.error("[AgentChat] 创建默认简历失败:", error);
-      setResumeError("创建简历失败，请稍后重试。");
-    }
-  }, [
-    createDefaultResumeInChat,
-    conversationId,
-    currentSessionId,
-    persistSessionSnapshot,
-  ]);
+    const assistantMsg: Message = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      role: "assistant",
+      content: CREATE_RESUME_GUIDE_TEXT,
+      timestamp: new Date().toISOString(),
+    };
+    setMessages((prev) => {
+      const updated = [...prev, assistantMsg];
+      const validConversationId =
+        conversationId?.trim() || currentSessionId || `conv-${Date.now()}`;
+      void persistSessionSnapshot(validConversationId, updated, prev.length === 0);
+      return updated;
+    });
+    setShowGreetingChips(false);
+    setResumeError(null);
+  }, [conversationId, currentSessionId, persistSessionSnapshot]);
 
   const sendUserTextMessage = useCallback(
     async (
@@ -3549,42 +3542,21 @@ function SophiaChatContent() {
         if (!currentSessionId) {
           setCurrentSessionId(validConversationId);
         }
-        if (isFirstMessage) {
-          await persistSessionSnapshot(
-            validConversationId,
-            nextMessages,
-            true,
-          );
-        }
-
-        try {
-          const saved = await createDefaultResumeInChat(uniqueId);
-          const assistantMsg: Message = {
-            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            role: "assistant",
-            content: `已经帮你生成了一份**示例简历**，右侧实时预览。
-
-里面的「${saved.name}」是占位信息，直接告诉我怎么改就行，比如：
-
-- 「姓名换成我的」
-- 「加一段实习经历」
-- 「技能补上 Python」
-
-想用自己的简历，点 **「选择已有简历」** 加载即可。`,
-            timestamp: new Date().toISOString(),
-          };
-          const finalMessages = [...nextMessages, assistantMsg];
-          setMessages(finalMessages);
-          await persistSessionSnapshot(
-            validConversationId,
-            finalMessages,
-            isFirstMessage,
-          );
-          setResumeError(null);
-        } catch (error) {
-          console.error("[AgentChat] 创建默认简历失败:", error);
-          setResumeError("创建简历失败，请稍后重试。");
-        }
+        const assistantMsg: Message = {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          role: "assistant",
+          content: CREATE_RESUME_GUIDE_TEXT,
+          timestamp: new Date().toISOString(),
+        };
+        const finalMessages = [...nextMessages, assistantMsg];
+        setMessages(finalMessages);
+        setShowGreetingChips(false);
+        await persistSessionSnapshot(
+          validConversationId,
+          finalMessages,
+          isFirstMessage,
+        );
+        setResumeError(null);
         return;
       }
 
@@ -3725,7 +3697,6 @@ function SophiaChatContent() {
       currentSessionId,
       persistSessionSnapshot,
       sendMessage,
-      createDefaultResumeInChat,
       loadedResumes,
       importPastedResumeInChat,
       isPasteImporting,
@@ -3907,10 +3878,8 @@ function SophiaChatContent() {
   );
 
   const handleFillCreateResumePrompt = useCallback(() => {
-    setShowResumeSelector(false);
-    setPendingResumeInput("");
-    void sendUserTextMessage(CREATE_DEFAULT_RESUME_PROMPT);
-  }, [sendUserTextMessage]);
+    handleCreateResume();
+  }, [handleCreateResume]);
 
   const handleUploadFile = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -4189,6 +4158,10 @@ function SophiaChatContent() {
                   <ChatEmptyState
                     onCreateResume={handleFillCreateResumePrompt}
                     onImportResume={handleImportResume}
+                    onSelectExisting={() => {
+                      setResumeSelectorInitialStep("entry");
+                      setShowResumeSelector(true);
+                    }}
                     composerSlot={composerNode}
                   />
                 )}

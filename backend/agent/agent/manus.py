@@ -1831,8 +1831,8 @@ class Manus(ToolCallAgent):
             base_system_prompt, _ = await self._generate_dynamic_prompts(user_input, intent)
             system_content = f"{base_system_prompt}\n\n{GREETING_FAST_PATH_PROMPT}"
             greeting_fallback = (
-                "Thought: 用户打招呼，热情回应并引导创建简历。\n"
-                "Response: 你好 👋 直接说「帮我创建一份模板默认简历」，我会在对话区为你创建并展示。"
+                "Thought: 用户打招呼，热情回应并介绍三种上手方式。\n"
+                "Response: 你好 👋 想做简历？说说你的经历我帮你生成，或导入现成简历，也能选一份已有的接着改。"
             )
             try:
                 raw = await self.llm.ask(
@@ -1994,8 +1994,8 @@ class Manus(ToolCallAgent):
             )
         elif tool == "show_resume":
             fallback = (
-                "Thought: 我识别到你想开始处理简历，先确认创建还是加载已有。\n"
-                "Response: 你可以直接说「帮我创建一份模板默认简历」，我会在对话区创建并展示；或说「选择已有简历」从列表加载。"
+                "Thought: 我识别到你想开始处理简历，介绍几种上手方式。\n"
+                "Response: 三种方式随你：说说你的经历我帮你生成、导入现成简历，或说「选择已有简历」从列表加载。"
             )
 
         if not LOAD_RESUME_LLM_HINT_ENABLED or not getattr(self, "llm", None):

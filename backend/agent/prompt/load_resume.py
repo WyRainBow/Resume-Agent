@@ -32,8 +32,7 @@ def build_load_resume_fast_path_prompt(tool_name: str, file_path: str = "") -> s
         )
     else:
         hint = (
-            "Response 需引导用户直接说「帮我创建一份模板默认简历」（会在对话区自动创建并展示）；"
-            "若要加载已保存简历，可说「选择已有简历」。"
+            "Response 需简明介绍三种上手方式：说说经历我帮你生成、导入现成简历、或说「选择已有简历」加载已保存简历。"
         )
     return LOAD_RESUME_FAST_PATH_PROMPT_TEMPLATE.format(
         tool_name=tool_name,

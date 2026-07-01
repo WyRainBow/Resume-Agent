@@ -1,11 +1,13 @@
-import { Wand2, Upload, type LucideIcon } from "lucide-react";
+import { Wand2, Upload, FolderOpen, type LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 interface ChatEmptyStateProps {
-  /** 对话创建简历（直接发送创建提示语） */
+  /** 对话创建简历（引导用户说经历，AI 从零生成） */
   onCreateResume: () => void;
   /** 导入已有简历（打开 AI 智能导入：PDF / Word / 文本） */
   onImportResume: () => void;
+  /** 选择已有简历（打开简历选择面板） */
+  onSelectExisting: () => void;
   /** 居中展示的输入框（参考 Manus：开屏时输入框在正中，标题在上、引导在下） */
   composerSlot?: ReactNode;
 }
@@ -18,13 +20,14 @@ interface PrimaryAction {
 }
 
 /**
- * Agent 对话页空态：欢迎语 + 两个主入口（创建 / 导入）+ 居中输入框 + 一排次级引导胶囊。
- * 主入口承载新用户的第一动作（先有简历），次级承载依赖简历的进阶能力。
+ * Agent 对话页空态：欢迎语 + 三个主入口（创建 / 导入 / 选择已有）+ 居中输入框。
+ * 三条上手路径平等呈现，让用户自己选，而非默认塞一份占位简历。
  * 图标统一暖墨强调色（Color Consistency Lock）。
  */
 export default function ChatEmptyState({
   onCreateResume,
   onImportResume,
+  onSelectExisting,
   composerSlot,
 }: ChatEmptyStateProps) {
   const primaryActions: PrimaryAction[] = [
@@ -40,6 +43,12 @@ export default function ChatEmptyState({
       desc: "上传 PDF / Word、自动结构化并优化",
       onClick: onImportResume,
     },
+    {
+      icon: FolderOpen,
+      title: "选择已有简历",
+      desc: "从你存过的简历里挑一份继续",
+      onClick: onSelectExisting,
+    },
   ];
 
   return (
@@ -50,7 +59,7 @@ export default function ChatEmptyState({
         </h1>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
         {primaryActions.map((action) => {
           const Icon = action.icon;
           return (
