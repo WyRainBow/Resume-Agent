@@ -365,29 +365,31 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
               key={resume.id}
               type="button"
               onClick={() => onSelect(resume)}
-              className="group/card flex-shrink-0 bg-white rounded-xl p-3.5 shadow-sm border border-slate-200/60 text-center cursor-pointer hover:shadow-md hover:border-indigo-300 hover:-translate-y-1 transition-all duration-300 flex flex-col items-center relative overflow-hidden"
+              className="group/card relative flex flex-col items-center overflow-hidden rounded-xl border border-slate-200/70 bg-white p-4 text-center cursor-pointer shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-100/50"
             >
               {/* 背景装饰 */}
-              <div className="absolute -right-2 -top-2 size-12 bg-indigo-50/30 rounded-full blur-2xl group-hover/card:bg-indigo-100/50 transition-colors" />
-              
-              <div className="size-8 rounded-lg bg-slate-50 group-hover/card:bg-indigo-50 flex items-center justify-center mb-2 transition-colors shadow-sm border border-slate-100 group-hover/card:border-indigo-100">
-                <FileText className="size-4.5 text-slate-400 group-hover/card:text-indigo-500 transition-colors" />
+              <div className="pointer-events-none absolute -right-3 -top-3 size-16 rounded-full bg-indigo-100/30 blur-2xl transition-colors group-hover/card:bg-indigo-200/50" />
+
+              <div className="mb-2.5 flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-200/60 transition-transform duration-300 group-hover/card:scale-105">
+                <FileText className="size-5" />
               </div>
 
-              <h4 className="w-full text-[13px] font-semibold text-slate-800 truncate mb-1 text-center group-hover/card:text-indigo-600 transition-colors">
+              <h4 className="w-full truncate text-sm font-bold text-slate-800 transition-colors group-hover/card:text-indigo-600">
                 {resume.name || '未命名简历'}
               </h4>
 
-              <div className="flex flex-col items-center gap-1 min-h-[20px] justify-center">
-                {resume.alias && resume.alias.trim() !== '' && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-medium bg-indigo-50 text-indigo-600 border border-indigo-100/50">
+              <div className="mt-1 flex min-h-[18px] items-center justify-center">
+                {resume.alias && resume.alias.trim() !== '' ? (
+                  <span className="inline-flex items-center rounded-md border border-indigo-100/50 bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600">
                     {resume.alias.trim()}
                   </span>
+                ) : (
+                  <span className="text-[11px] text-slate-400">简历</span>
                 )}
               </div>
 
-              <div className="mt-2 pt-2 border-t border-slate-50 w-full">
-                <p className="text-[10px] text-slate-400 tabular-nums text-center">
+              <div className="mt-2.5 w-full border-t border-slate-100 pt-2">
+                <p className="text-[10px] tabular-nums text-slate-400">
                   更新于 {formatDate(resume.updatedAt)}
                 </p>
               </div>

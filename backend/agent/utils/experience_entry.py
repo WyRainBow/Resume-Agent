@@ -156,12 +156,14 @@ def is_generic_optimize_section_query(user_input: str) -> bool:
         "工作经历",
         "开源",
         "开源经历",
+        "项目",
+        "项目经历",
     }:
         return True
     return False
 
 
-SectionKind = Literal["experience", "opensource"]
+SectionKind = Literal["experience", "opensource", "projects"]
 
 
 @dataclass(frozen=True)
@@ -180,14 +182,25 @@ def _opensource_list(resume_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     return []
 
 
+def _projects_list(resume_data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    raw = resume_data.get("projects")
+    if isinstance(raw, list):
+        return [item for item in raw if isinstance(item, dict)]
+    return []
+
+
 def _entry_display_label(raw: Dict[str, Any], kind: SectionKind) -> str:
-    if kind == "opensource":
+    if kind in ("opensource", "projects"):
         return re.sub(r"\*+", "", str(raw.get("name") or raw.get("title") or "")).strip()
     return re.sub(r"\*+", "", _experience_company_label(raw)).strip()
 
 
 def _section_cn_name(kind: SectionKind) -> str:
-    return "开源经历" if kind == "opensource" else "实习经历"
+    if kind == "opensource":
+        return "开源经历"
+    if kind == "projects":
+        return "项目经历"
+    return "实习经历"
 
 
 def _iter_optimize_sections(
@@ -197,6 +210,9 @@ def _iter_optimize_sections(
     exp_path, experiences = resolve_experience_list(resume_data)
     if experiences:
         sections.append((exp_path, "experience", experiences, "details"))
+    projects = _projects_list(resume_data)
+    if projects:
+        sections.append(("projects", "projects", projects, "description"))
     opensource = _opensource_list(resume_data)
     if opensource:
         sections.append(("openSource", "opensource", opensource, "description"))
@@ -237,7 +253,7 @@ def build_optimize_clarification_suggestions(
                 continue
             label = _entry_display_label(raw, kind) or f"第{idx + 1}段"
             section_name = _section_cn_name(kind)
-            if kind == "experience":
+            if kind in ("experience", "projects"):
                 position = re.sub(
                     r"\*+",
                     "",
@@ -277,7 +293,7 @@ def _score_entry_against_text(
         if len(token) >= 2 and token in normalized_text:
             score = max(score, len(token) + 3)
 
-    if kind == "experience":
+    if kind in ("experience", "projects"):
         position = _normalize_match_text(
             str(raw.get("position") or raw.get("role") or "").strip()
         )

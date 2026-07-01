@@ -671,7 +671,7 @@ class Manus(ToolCallAgent):
             target_entry.get("position") or target_entry.get("role") or ""
         ).strip()
         apply_path = f"{target.array_path}[{target.index}].{target.value_field}"
-        section_cn = "开源经历" if target.section_kind == "opensource" else "实习/工作经历"
+        section_cn = "开源经历" if target.section_kind == "opensource" else ("项目经历" if target.section_kind == "projects" else "实习/工作经历")
 
         raw_details = (
             target_entry.get(target.value_field)
@@ -752,7 +752,7 @@ class Manus(ToolCallAgent):
             f"[Manus] LLM optimize section ok: label={company}, "
             f"path={apply_path}, chars={len(optimized_html)}"
         )
-        section_label = "开源经历" if target.section_kind == "opensource" else "实习经历"
+        section_label = "开源经历" if target.section_kind == "opensource" else ("项目经历" if target.section_kind == "projects" else "实习经历")
         return {
             "optimization_suggestions": [
                 {
@@ -1685,7 +1685,7 @@ class Manus(ToolCallAgent):
 
                     if not all_targets:
                         content = (
-                            "当前简历里还没有可优化的实习/工作或开源经历。"
+                            "当前简历里还没有可优化的实习/工作、项目或开源经历。"
                             "您可以先导入一段，再让我帮您优化表述。"
                         )
                         self.memory.add_message(Message.assistant_message(content))
@@ -1831,8 +1831,8 @@ class Manus(ToolCallAgent):
             base_system_prompt, _ = await self._generate_dynamic_prompts(user_input, intent)
             system_content = f"{base_system_prompt}\n\n{GREETING_FAST_PATH_PROMPT}"
             greeting_fallback = (
-                "Thought: 用户打招呼，热情回应并引导创建简历。\n"
-                "Response: 你好 👋 直接说「帮我创建一份模板默认简历」，我会在对话区为你创建并展示。"
+                "Thought: 用户打招呼，热情回应并介绍三种上手方式。\n"
+                "Response: 你好 👋 想做简历？说说你的经历我帮你生成，或导入现成简历，也能选一份已有的接着改。"
             )
             try:
                 raw = await self.llm.ask(
@@ -1994,8 +1994,8 @@ class Manus(ToolCallAgent):
             )
         elif tool == "show_resume":
             fallback = (
-                "Thought: 我识别到你想开始处理简历，先确认创建还是加载已有。\n"
-                "Response: 你可以直接说「帮我创建一份模板默认简历」，我会在对话区创建并展示；或说「选择已有简历」从列表加载。"
+                "Thought: 我识别到你想开始处理简历，介绍几种上手方式。\n"
+                "Response: 三种方式随你：说说你的经历我帮你生成、导入现成简历，或说「选择已有简历」从列表加载。"
             )
 
         if not LOAD_RESUME_LLM_HINT_ENABLED or not getattr(self, "llm", None):

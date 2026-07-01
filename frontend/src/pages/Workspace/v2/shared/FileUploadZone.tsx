@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { FileText, Trash2, UploadCloud } from 'lucide-react'
+import { ClipboardPaste, FileText, Trash2, UploadCloud } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 
 interface FileUploadZoneProps {
@@ -31,6 +31,7 @@ export function FileUploadZone({
   const [dragging, setDragging] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const maxBytes = maxSizeMb * 1024 * 1024
+  const isImageZone = acceptTypes.some((t) => t.startsWith('image/'))
 
   const validateFile = (nextFile: File) => {
     if (!acceptTypes.includes(nextFile.type)) {
@@ -55,11 +56,31 @@ export function FileUploadZone({
     }
   }
 
+  // 支持从剪贴板粘贴（聚焦上传区后 Ctrl / ⌘ + V，如截图）
+  const handlePaste = (event: React.ClipboardEvent) => {
+    const items = event.clipboardData?.items
+    if (!items) return
+    for (const item of Array.from(items)) {
+      if (item.kind === 'file') {
+        const pastedFile = item.getAsFile()
+        if (pastedFile) {
+          event.preventDefault()
+          if (validateFile(pastedFile)) {
+            onFileSelect(pastedFile)
+          }
+          return
+        }
+      }
+    }
+  }
+
   return (
     <div className="h-full flex flex-col space-y-3">
       <div
+        tabIndex={0}
+        aria-label={`上传区，可点击、拖拽或粘贴 ${hintLabel}`}
         className={cn(
-          'flex-1 flex flex-col justify-center rounded-lg border-2 border-dashed p-6 transition-colors',
+          'flex-1 flex flex-col justify-center rounded-lg border-2 border-dashed p-6 transition-colors outline-none focus-visible:border-slate-900 dark:focus-visible:border-slate-400',
           dragging
             ? 'border-slate-900 bg-slate-50 dark:border-slate-400 dark:bg-indigo-500/10'
             : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40'
@@ -74,6 +95,7 @@ export function FileUploadZone({
           setDragging(false)
           handleFiles(event.dataTransfer.files)
         }}
+        onPaste={handlePaste}
       >
         <input
           ref={inputRef}
@@ -126,7 +148,7 @@ export function FileUploadZone({
                 <UploadCloud className="h-6 w-6" />
               </div>
               <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">
-                点击或拖拽 {hintLabel} 文件到此处上传
+                点击或拖拽 {hintLabel} 到此处上传
               </p>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                 单个文件最大支持 {maxSizeMb}MB
@@ -138,6 +160,16 @@ export function FileUploadZone({
               >
                 选择文件
               </button>
+              <div className="mt-4 flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
+                <ClipboardPaste className="h-3.5 w-3.5 shrink-0" />
+                <span className="inline-flex items-center gap-1">
+                  {isImageZone ? '截图 / 图片' : '文件'}可直接
+                  <kbd className="rounded border border-indigo-200 bg-white px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-700 shadow-sm dark:border-indigo-400/30 dark:bg-slate-800 dark:text-indigo-200">
+                    ⌘ / Ctrl + V
+                  </kbd>
+                  粘贴
+                </span>
+              </div>
             </>
           )}
         </div>
