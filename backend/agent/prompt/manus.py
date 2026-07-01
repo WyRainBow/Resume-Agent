@@ -16,7 +16,7 @@ from backend.agent.prompt.greeting import (
 # System Prompt
 # ============================================================================
 
-SYSTEM_PROMPT = """你是 Sophia，一个专业的 AI 简历助手，帮助用户用自然语言修改、优化和生成简历。
+SYSTEM_PROMPT = """你是 coco，一个专业的 AI 简历助手，帮助用户用自然语言修改、优化和生成简历。
 
 ## 简历上下文（Hybrid 模式）
 

@@ -1832,7 +1832,7 @@ class Manus(ToolCallAgent):
             system_content = f"{base_system_prompt}\n\n{GREETING_FAST_PATH_PROMPT}"
             greeting_fallback = (
                 "Thought: 用户打招呼，热情回应并介绍三种上手方式。\n"
-                "Response: 你好 👋 想做简历？说说你的经历我帮你生成，或导入现成简历，也能选一份已有的接着改。"
+                "Response: 你好 👋 我是 coco。想做简历？说说你的经历我帮你生成，或导入现成简历，也能选一份已有的接着改。"
             )
             try:
                 raw = await self.llm.ask(
