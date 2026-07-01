@@ -1543,17 +1543,9 @@ function SophiaChatContent() {
           setResumeError("未找到对应的简历");
           setResumeData(null);
         } else {
-          const resolvedUserId = user?.id ?? (resume as any).user_id ?? null;
-          const resumeDataWithMeta = {
-            ...(resume.data || {}),
-            resume_id: resume.id,
-            user_id: resolvedUserId,
-            _meta: {
-              resume_id: resume.id,
-              user_id: resolvedUserId,
-            },
-          };
-          setResumeData(resumeDataWithMeta as ResumeData);
+          // 从编辑页跳转过来（URL 带 resumeId）：走 applyResumeToChat 完整落地，
+          // 让这份简历直接进 loadedResumes + 选中 + 点亮右侧预览，无需重新加载/编辑
+          await applyResumeToChat(resume);
         }
       } catch (error) {
         if (!mounted) return;
@@ -1566,6 +1558,7 @@ function SophiaChatContent() {
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resumeId, user?.id]);
 
   useEffect(() => {
