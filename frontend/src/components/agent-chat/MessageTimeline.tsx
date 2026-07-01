@@ -187,20 +187,33 @@ export default function MessageTimeline({
                 </div>
                 {msg.attachments && msg.attachments.length > 0 && (
                   <div className="mb-2 flex flex-wrap justify-end gap-2">
-                    {msg.attachments.map((file, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center gap-2 rounded-lg border border-chat-border bg-chat-surface px-3 py-2 text-xs text-chat-ink-muted shadow-sm"
-                      >
-                        <FileText className="size-4 text-chat-accent" />
-                        <div className="flex flex-col">
-                          <span className="max-w-[150px] truncate font-medium text-chat-ink">{file.name}</span>
-                          <span className="text-[10px] text-chat-ink-muted/80">
-                            {`${((file.size ?? 0) / 1024).toFixed(1)} KB`}
-                          </span>
+                    {msg.attachments.map((file, i) =>
+                      file.url && file.type?.startsWith("image/") ? (
+                        <img
+                          key={i}
+                          src={file.url}
+                          alt={file.name}
+                          onError={(e) => {
+                            // 页面刷新后从持久化恢复时 objectURL 已失效，兜底隐藏避免裂图
+                            e.currentTarget.style.display = "none";
+                          }}
+                          className="max-h-44 max-w-[220px] rounded-lg border border-chat-border object-contain shadow-sm"
+                        />
+                      ) : (
+                        <div
+                          key={i}
+                          className="flex items-center gap-2 rounded-lg border border-chat-border bg-chat-surface px-3 py-2 text-xs text-chat-ink-muted shadow-sm"
+                        >
+                          <FileText className="size-4 text-chat-accent" />
+                          <div className="flex flex-col">
+                            <span className="max-w-[150px] truncate font-medium text-chat-ink">{file.name}</span>
+                            <span className="text-[10px] text-chat-ink-muted/80">
+                              {`${((file.size ?? 0) / 1024).toFixed(1)} KB`}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ),
+                    )}
                   </div>
                 )}
                 <div className="whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-chat-user-bubble px-4 py-3 text-chat-ink shadow-sm dark:bg-slate-800 dark:text-slate-100">

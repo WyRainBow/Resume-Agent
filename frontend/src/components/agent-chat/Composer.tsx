@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   ArrowUp,
   FileText,
@@ -23,6 +23,7 @@ interface ComposerProps {
   onInputChange: (value: string) => void;
   onKeyDown: (event: React.KeyboardEvent<HTMLTextAreaElement>) => void;
   onFileChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onPasteFiles: (files: File[]) => void;
   onRemoveAttachment: (file: File) => void;
   onClickUpload: () => void;
   onShowResumeSelector: () => void;
@@ -44,18 +45,53 @@ export default function Composer({
   onInputChange,
   onKeyDown,
   onFileChange,
+  onPasteFiles,
   onRemoveAttachment,
   onClickUpload,
   onShowResumeSelector,
   onStartVoiceRecording,
   onStopVoiceRecording,
 }: ComposerProps) {
+  // 图片附件缩略图：为图片型附件生成 objectURL，随附件变化重建并回收，避免内存泄漏
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<Map<File, string>>(
+    () => new Map(),
+  );
+  useEffect(() => {
+    const map = new Map<File, string>();
+    pendingAttachments.forEach((file) => {
+      if (file.type.startsWith("image/")) {
+        map.set(file, URL.createObjectURL(file));
+      }
+    });
+    setImagePreviewUrls(map);
+    return () => {
+      map.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [pendingAttachments]);
+
+  // 截图 / 剪贴板图片粘贴进输入框：拦截图片、交给上层作为简历附件解析；纯文本粘贴不拦截
+  const handlePaste = (event: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = event.clipboardData?.items;
+    if (!items) return;
+    const imageFiles: File[] = [];
+    Array.from(items).forEach((item) => {
+      if (item.kind === "file" && item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) imageFiles.push(file);
+      }
+    });
+    if (imageFiles.length > 0) {
+      event.preventDefault();
+      onPasteFiles(imageFiles);
+    }
+  };
+
   return (
     <form onSubmit={onSubmit}>
       <input
         ref={fileInputRef}
         type="file"
-        accept=".pdf,.txt,.md,.json,.csv,text/plain,text/markdown,application/json,text/csv,application/pdf"
+        accept=".pdf,.txt,.md,.json,.csv,.png,.jpg,.jpeg,text/plain,text/markdown,application/json,text/csv,application/pdf,image/png,image/jpeg"
         multiple
         className="hidden"
         onChange={onFileChange}
@@ -63,24 +99,35 @@ export default function Composer({
       <div className="rounded-2xl border border-chat-border bg-chat-surface shadow-sm transition-all focus-within:border-chat-accent/60 focus-within:ring-2 focus-within:ring-chat-accent/15 dark:border-slate-700 dark:bg-slate-800">
         {pendingAttachments.length > 0 && (
           <div className="flex flex-wrap gap-2 px-3 pt-3">
-            {pendingAttachments.map((file) => (
-              <div
-                key={`${file.name}-${file.size}-${file.lastModified}`}
-                className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-chat-border bg-chat-canvas px-2 py-1 text-xs text-chat-ink-muted dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
-              >
-                <FileText className="size-3.5 shrink-0 text-chat-accent" />
-                <span className="max-w-[220px] truncate">{file.name}</span>
-                <button
-                  type="button"
-                  onClick={() => onRemoveAttachment(file)}
-                  className="rounded p-0.5 text-chat-ink-muted hover:text-chat-ink dark:hover:text-slate-200"
-                  aria-label="移除已上传文件"
-                  title="移除文件"
+            {pendingAttachments.map((file) => {
+              const previewUrl = imagePreviewUrls.get(file);
+              return (
+                <div
+                  key={`${file.name}-${file.size}-${file.lastModified}`}
+                  className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-chat-border bg-chat-canvas py-1 pl-1 pr-2 text-xs text-chat-ink-muted dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
                 >
-                  <X className="size-3" />
-                </button>
-              </div>
-            ))}
+                  {previewUrl ? (
+                    <img
+                      src={previewUrl}
+                      alt={file.name}
+                      className="size-8 shrink-0 rounded object-cover"
+                    />
+                  ) : (
+                    <FileText className="ml-1 size-3.5 shrink-0 text-chat-accent" />
+                  )}
+                  <span className="max-w-[220px] truncate">{file.name}</span>
+                  <button
+                    type="button"
+                    onClick={() => onRemoveAttachment(file)}
+                    className="rounded p-0.5 text-chat-ink-muted hover:text-chat-ink dark:hover:text-slate-200"
+                    aria-label="移除已上传文件"
+                    title="移除文件"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -88,6 +135,7 @@ export default function Composer({
           value={input}
           onChange={(e) => onInputChange(e.target.value)}
           onKeyDown={onKeyDown}
+          onPaste={handlePaste}
           placeholder={
             isProcessing
               ? "正在处理中、可以继续输入..."

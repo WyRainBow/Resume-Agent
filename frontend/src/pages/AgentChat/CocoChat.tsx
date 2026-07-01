@@ -3475,6 +3475,177 @@ function CocoChatContent() {
     ],
   );
 
+  // 图片简历导入：镜像粘贴文本导入链路——先进入对话并显示解析动画，
+  // 走视觉识别接口解析后落地渲染右侧预览，全程不发给 Agent、不做诊断分析。
+  const importResumeImagesInChat = useCallback(
+    async (userMessage: string, imageFiles: File[]) => {
+      const picked = imageFiles.slice(0, 2);
+      const skipped = imageFiles.length - picked.length;
+
+      // 用户消息（带图片缩略图），立即进入对话视图
+      const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const attachmentMeta = picked.map((file) => ({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        url: URL.createObjectURL(file),
+      }));
+      const userMessageEntry: Message = {
+        id: uniqueId,
+        role: "user",
+        content: userMessage.trim() || "解析这份简历图片",
+        timestamp: new Date().toISOString(),
+        attachments: attachmentMeta,
+      };
+      const nextMessages = [...messages, userMessageEntry];
+      const isFirstMessage = messages.length === 0;
+      setMessages(nextMessages);
+      setShowGreetingChips(false);
+
+      let validConversationId = conversationId;
+      if (!validConversationId || validConversationId.trim() === "") {
+        validConversationId = `conv-${Date.now()}`;
+        setConversationId(validConversationId);
+      }
+      if (!currentSessionId) {
+        setCurrentSessionId(validConversationId);
+      }
+      if (isFirstMessage) {
+        await persistSessionSnapshot(validConversationId, nextMessages, true);
+      }
+
+      // 解析动画消息
+      const parsingMsgId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const parseStartedAt = Date.now();
+      const parsingAssistantMsg: Message = {
+        id: parsingMsgId,
+        role: "assistant",
+        content: "正在识别图片中的简历内容、请稍候（约十几秒）…",
+        timestamp: new Date().toISOString(),
+        meta: { pasteImportParsing: true, parseStartedAt },
+      };
+      const messagesWithParsing = [...nextMessages, parsingAssistantMsg];
+      setMessages(messagesWithParsing);
+      await persistSessionSnapshot(
+        validConversationId,
+        messagesWithParsing,
+        isFirstMessage,
+      );
+
+      setIsPasteImporting(true);
+      setResumeError(null);
+
+      // 右侧预览进入识别态
+      const resumeEntryId = `resume_latex_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
+      updateResumePdfState(resumeEntryId, {
+        loading: true,
+        progress: "正在识别图片中的简历内容...",
+        error: null,
+      });
+      setAllowPdfAutoRender(true);
+      setSelectedResumeId(resumeEntryId);
+
+      try {
+        const formData = new FormData();
+        picked.forEach((file) => formData.append("files", file));
+        formData.append("model", "qwen-vl-max");
+
+        const response = await fetch(`${apiBaseUrl}/api/resume/upload-image`, {
+          method: "POST",
+          body: formData,
+        });
+        if (!response.ok) {
+          const errBody = await response.json().catch(() => null);
+          const detail =
+            errBody && typeof errBody.detail === "string"
+              ? errBody.detail
+              : `图片识别失败（${response.status}）`;
+          throw new Error(detail);
+        }
+
+        const data = await response.json();
+        const parsedResume = data?.resume;
+        if (!parsedResume || typeof parsedResume !== "object") {
+          throw new Error("未识别出结构化简历内容，请换更清晰的图片重试。");
+        }
+
+        const displayName = resolveImportedResumeDisplayName(parsedResume);
+        const canonical = normalizeImportedResumeToCanonical(parsedResume, {
+          resumeId: resumeEntryId,
+          title: `${displayName}的简历`,
+        });
+        const saved = await saveResume(canonical, resumeEntryId);
+        setCurrentResumeId(saved.id);
+        await applyResumeToChat(saved, uniqueId);
+
+        const successContent =
+          `已识别并导入简历「${saved.name}」，右侧可预览。你可以继续告诉我要优化哪些内容。` +
+          (skipped > 0
+            ? `（一次最多解析 2 张，已忽略多余 ${skipped} 张）`
+            : "");
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
+            msg.id === parsingMsgId
+              ? {
+                  ...msg,
+                  content: successContent,
+                  timestamp: new Date().toISOString(),
+                  meta: {
+                    pasteImportParsing: false,
+                    parseStartedAt,
+                    parseElapsedMs: Date.now() - parseStartedAt,
+                  },
+                }
+              : msg,
+          );
+          void persistSessionSnapshot(validConversationId, updated, false);
+          return updated;
+        });
+      } catch (error) {
+        console.error("[AgentChat] 图片简历识别失败:", error);
+        const errText =
+          error instanceof Error ? error.message : "图片识别失败，请稍后重试。";
+        setResumeError(errText);
+        updateResumePdfState(resumeEntryId, {
+          loading: false,
+          progress: "",
+          error: errText,
+        });
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
+            msg.id === parsingMsgId
+              ? {
+                  ...msg,
+                  content: `图片识别失败：${errText}`,
+                  timestamp: new Date().toISOString(),
+                  meta: {
+                    pasteImportParsing: false,
+                    parseStartedAt,
+                    parseElapsedMs: Date.now() - parseStartedAt,
+                  },
+                }
+              : msg,
+          );
+          void persistSessionSnapshot(validConversationId, updated, false);
+          return updated;
+        });
+      } finally {
+        setIsPasteImporting(false);
+      }
+    },
+    [
+      apiBaseUrl,
+      messages,
+      conversationId,
+      currentSessionId,
+      persistSessionSnapshot,
+      applyResumeToChat,
+      updateResumePdfState,
+      setAllowPdfAutoRender,
+      setSelectedResumeId,
+    ],
+  );
+
   const handleCreateResume = useCallback(() => {
     setShowResumeSelector(false);
     setPendingResumeInput("");
@@ -3923,6 +4094,22 @@ function CocoChatContent() {
     handleCreateResume();
   }, [handleCreateResume]);
 
+  const addAttachmentFiles = useCallback((files: File[]) => {
+    if (files.length === 0) return;
+    setPendingAttachments((prev) => {
+      const existingKeys = new Set(
+        prev.map((file) => `${file.name}-${file.size}-${file.lastModified}`),
+      );
+      const unique = files.filter(
+        (file) =>
+          !existingKeys.has(
+            `${file.name}-${file.size}-${file.lastModified}`,
+          ),
+      );
+      return [...prev, ...unique];
+    });
+  }, []);
+
   const handleUploadFile = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const selectedFiles = Array.from(event.target.files ?? []);
@@ -3932,20 +4119,19 @@ function CocoChatContent() {
         event.target.value = "";
         return;
       }
-
-      setPendingAttachments((prev) => {
-        const existingKeys = new Set(
-          prev.map((file) => `${file.name}-${file.size}-${file.lastModified}`),
-        );
-        const unique = selectedFiles.filter((file) => {
-          const key = `${file.name}-${file.size}-${file.lastModified}`;
-          return !existingKeys.has(key);
-        });
-        return [...prev, ...unique];
-      });
+      addAttachmentFiles(selectedFiles);
       event.target.value = "";
     },
-    [isProcessing],
+    [isProcessing, addAttachmentFiles],
+  );
+
+  // 截图 / 剪贴板图片粘贴进输入框：作为简历图片附件收下，发送时统一走图片识别链路
+  const handlePasteFiles = useCallback(
+    (files: File[]) => {
+      if (isProcessing) return;
+      addAttachmentFiles(files);
+    },
+    [isProcessing, addAttachmentFiles],
   );
 
   const handleRemoveAttachment = useCallback((target: File) => {
@@ -4078,6 +4264,16 @@ function CocoChatContent() {
         return;
       }
 
+      // 图片附件走「解析导入」链路（进对话 + 解析动画 + 展示，不发 Agent）；
+      // 其余（PDF / 文本）仍交给 Agent 处理。
+      const imageAttachments = attachmentsToProcess.filter((file) =>
+        file.type.startsWith("image/"),
+      );
+      if (imageAttachments.length > 0) {
+        await importResumeImagesInChat(userMessage, imageAttachments);
+        return;
+      }
+
       await submitMessageWithAttachments(userMessage, attachmentsToProcess);
     } catch (error) {
       console.error("[AgentChat] Failed to send message:", error);
@@ -4134,6 +4330,7 @@ function CocoChatContent() {
       onInputChange={setInput}
       onKeyDown={handleComposerKeyDown}
       onFileChange={handleUploadFile}
+      onPasteFiles={handlePasteFiles}
       onRemoveAttachment={handleRemoveAttachment}
       onClickUpload={handleClickUpload}
       onShowResumeSelector={() => {

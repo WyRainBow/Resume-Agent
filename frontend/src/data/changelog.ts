@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.4.5',
+    date: '2026-07-01 20:50',
+    added: [
+      '对话页支持粘贴简历截图：Ctrl / ⌘ + V 贴入图片，发一句「解析这个简历」即可自动识别并生成简历、右侧实时预览',
+    ],
+  },
+  {
     version: '2.4.4',
     date: '2026-07-01 16:13',
     added: [
