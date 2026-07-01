@@ -6,6 +6,7 @@ import { PlusCircle, ChevronDown, Eye, Trash2, Check, GripVertical, X, Image, Pl
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion'
 import { cn } from '../../../../lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import { canUseAdminFeature } from '@/lib/runtimeEnv'
 import type { Education } from '../types'
 import Field from './Field'
 import { MonthYearRangePicker } from '../shared/MonthYearRangePicker'
@@ -54,19 +55,6 @@ function normalizeMonthValue(raw: unknown): string {
   const m = s.match(/^(\d{4})[.\-/](\d{1,2})$/)
   if (m) return `${m[1]}-${m[2].padStart(2, '0')}`
   return /^\d{4}-\d{2}$/.test(s) ? s : ''
-}
-
-function getAuthRoleFromToken(): string {
-  try {
-    const token = localStorage.getItem('auth_token')
-    if (!token) return ''
-    const payload = token.split('.')[1]
-    if (!payload) return ''
-    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
-    return String(decoded?.role || '').toLowerCase()
-  } catch {
-    return ''
-  }
 }
 
 function SchoolLogoSelector({
@@ -343,8 +331,7 @@ const EducationItem = ({
   onDelete: (id: string) => void
 }) => {
   const { user } = useAuth()
-  const roleFromToken = getAuthRoleFromToken()
-  const canUploadLogo = !!user && (roleFromToken === 'admin' || roleFromToken === 'member')
+  const canUploadLogo = !!user && canUseAdminFeature()
   const [expanded, setExpanded] = useState(false)
   const [degreeOpen, setDegreeOpen] = useState(false)
   const [schoolLogosLoaded, setSchoolLogosLoaded] = useState(getCachedSchoolLogos().length > 0)

@@ -6,6 +6,7 @@ import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion
 import { ChevronDown, Eye, GripVertical, Trash2, X, Image, Plus, Loader2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
+import { canUseAdminFeature } from '@/lib/runtimeEnv'
 import type { Experience, ResumeData, GlobalSettings } from '../types'
 import Field from './Field'
 import { MonthYearRangePicker } from '../shared/MonthYearRangePicker'
@@ -22,19 +23,6 @@ import {
   refreshLogos,
 } from '../constants/companyLogos'
 import { useCompactLayout } from './useCompactLayout'
-
-function getAuthRoleFromToken(): string {
-  try {
-    const token = localStorage.getItem('auth_token')
-    if (!token) return ''
-    const payload = token.split('.')[1]
-    if (!payload) return ''
-    const decoded = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')))
-    return String(decoded?.role || '').toLowerCase()
-  } catch {
-    return ''
-  }
-}
 
 // 将 Markdown 格式转换为 HTML（用于预览）
 const markdownToHtml = (text: string): string => {
@@ -324,8 +312,7 @@ const ExperienceEditor = ({
   updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }) => {
   const { user } = useAuth()
-  const roleFromToken = getAuthRoleFromToken()
-  const canUploadLogo = !!user && (roleFromToken === 'admin' || roleFromToken === 'member')
+  const canUploadLogo = !!user && canUseAdminFeature()
   const headerRef = useRef<HTMLDivElement>(null)
   const isCompactLayout = useCompactLayout(headerRef, 720)
   // 始终指向最新 experience，防止 handleChange 读取旧闭包

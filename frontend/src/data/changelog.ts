@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.4.6',
+    date: '2026-07-02 00:41',
+    fixed: [
+      '修复 Google / 邮箱登录后，教育经历、工作经历无法上传自定义校徽 / 公司 Logo 的问题',
+    ],
+  },
+  {
     version: '2.4.5',
     date: '2026-07-01 20:50',
     added: [
