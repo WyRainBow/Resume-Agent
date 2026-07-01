@@ -671,7 +671,7 @@ class Manus(ToolCallAgent):
             target_entry.get("position") or target_entry.get("role") or ""
         ).strip()
         apply_path = f"{target.array_path}[{target.index}].{target.value_field}"
-        section_cn = "开源经历" if target.section_kind == "opensource" else "实习/工作经历"
+        section_cn = "开源经历" if target.section_kind == "opensource" else ("项目经历" if target.section_kind == "projects" else "实习/工作经历")
 
         raw_details = (
             target_entry.get(target.value_field)
@@ -752,7 +752,7 @@ class Manus(ToolCallAgent):
             f"[Manus] LLM optimize section ok: label={company}, "
             f"path={apply_path}, chars={len(optimized_html)}"
         )
-        section_label = "开源经历" if target.section_kind == "opensource" else "实习经历"
+        section_label = "开源经历" if target.section_kind == "opensource" else ("项目经历" if target.section_kind == "projects" else "实习经历")
         return {
             "optimization_suggestions": [
                 {
@@ -1685,7 +1685,7 @@ class Manus(ToolCallAgent):
 
                     if not all_targets:
                         content = (
-                            "当前简历里还没有可优化的实习/工作或开源经历。"
+                            "当前简历里还没有可优化的实习/工作、项目或开源经历。"
                             "您可以先导入一段，再让我帮您优化表述。"
                         )
                         self.memory.add_message(Message.assistant_message(content))
