@@ -12,7 +12,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Form
 from fastapi.responses import FileResponse, JSONResponse
-from middleware.auth import require_admin_or_member
+from middleware.auth import require_admin_or_member, require_admin_only
 from models import User
 
 router = APIRouter(prefix="/api", tags=["SchoolLogos"])
@@ -130,3 +130,45 @@ async def upload_school_logo(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
+
+
+@router.delete("/school-logos")
+async def delete_school_logo(
+    filename: str,
+    group: str,
+    current_user: User = Depends(require_admin_only),
+):
+    """删除学校 Logo：从 COS 删除对象 + 本地缓存，并清列表缓存。仅管理员。"""
+    safe = Path(filename).name
+    if not safe:
+        raise HTTPException(status_code=400, detail="文件名无效")
+    allowed_groups = {"985", "211", "香港", "双非"}
+    if group not in allowed_groups:
+        raise HTTPException(status_code=400, detail="分组无效")
+
+    m = _import_school_logos()
+    cos_key = f"school_logo/{group}/{safe}"
+    try:
+        from qcloud_cos import CosConfig, CosS3Client
+
+        secret_id = os.getenv("COS_SECRET_ID", "")
+        secret_key = os.getenv("COS_SECRET_KEY", "")
+        region = os.getenv("COS_REGION", "ap-guangzhou")
+        bucket = os.getenv("COS_BUCKET", "resumecos-1327706280")
+        if not secret_id or not secret_key:
+            raise HTTPException(status_code=500, detail="COS 凭证未配置")
+
+        config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key)
+        client = CosS3Client(config)
+        client.delete_object(Bucket=bucket, Key=cos_key)
+
+        local_path = Path(m.LOCAL_SCHOOL_LOGO_DIR) / group / safe
+        if local_path.exists():
+            local_path.unlink()
+
+        m.clear_cache()
+        return {"success": True}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除失败: {str(e)}")

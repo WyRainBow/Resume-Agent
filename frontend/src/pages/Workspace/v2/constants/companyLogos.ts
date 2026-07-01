@@ -191,5 +191,24 @@ export async function uploadLogo(file: File): Promise<CompanyLogo> {
   return data.logo as CompanyLogo
 }
 
+/**
+ * 删除公司 Logo（仅管理员）：删除 COS 对象 + 本地缓存，并刷新列表。
+ * @param filename 完整文件名（含后缀，如 "影石.png"）
+ */
+export async function deleteLogo(filename: string): Promise<void> {
+  const resp = await fetch(
+    `${getApiBaseUrl()}/api/logos?filename=${encodeURIComponent(filename)}`,
+    { method: 'DELETE', headers: getAuthHeaders() },
+  )
+  if (!resp.ok) {
+    if (resp.status === 401 || resp.status === 403) {
+      throw new Error('仅管理员可删除 Logo')
+    }
+    const err = await resp.json().catch(() => ({ detail: '删除失败' }))
+    throw new Error(err.detail || '删除失败')
+  }
+  await refreshLogos()
+}
+
 // 模块被导入时自动预加载 Logo 列表
 fetchLogos()

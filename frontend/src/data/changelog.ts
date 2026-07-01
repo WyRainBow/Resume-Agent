@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.5.0',
+    date: '2026-07-02 01:35',
+    added: [
+      '管理员可在教育经历 / 工作经历的 Logo 选择器中删除校徽 / 公司 Logo：悬停显示删除按钮，二次确认后从全局库移除',
+    ],
+  },
+  {
     version: '2.4.9',
     date: '2026-07-02 01:17',
     fixed: [

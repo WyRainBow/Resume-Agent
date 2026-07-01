@@ -152,6 +152,26 @@ export async function uploadSchoolLogo(file: File, group: string): Promise<Schoo
 }
 
 /**
+ * 删除学校 Logo（仅管理员）：删除 COS 对象 + 本地缓存，并刷新列表。
+ * @param filename 完整文件名（含后缀）
+ * @param group 分组（985 / 211 / 香港 / 双非）
+ */
+export async function deleteSchoolLogo(filename: string, group: string): Promise<void> {
+  const resp = await fetch(
+    `${getApiBaseUrl()}/api/school-logos?filename=${encodeURIComponent(filename)}&group=${encodeURIComponent(group)}`,
+    { method: 'DELETE', headers: getAuthHeaders() },
+  )
+  if (!resp.ok) {
+    if (resp.status === 401 || resp.status === 403) {
+      throw new Error('仅管理员可删除 Logo')
+    }
+    const err = await resp.json().catch(() => ({ detail: '删除失败' }))
+    throw new Error(err.detail || '删除失败')
+  }
+  await refreshSchoolLogos()
+}
+
+/**
  * 根据学校名称模糊匹配学校 Logo
  */
 export function matchSchoolLogo(schoolName: string): string | null {

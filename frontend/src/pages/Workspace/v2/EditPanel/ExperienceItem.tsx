@@ -6,7 +6,7 @@ import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion
 import { ChevronDown, Eye, GripVertical, Trash2, X, Image, Plus, Loader2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
-import { canUseAdminFeature } from '@/lib/runtimeEnv'
+import { canUseAdminFeature, getStoredAuthRole } from '@/lib/runtimeEnv'
 import type { Experience, ResumeData, GlobalSettings } from '../types'
 import Field from './Field'
 import { MonthYearRangePicker } from '../shared/MonthYearRangePicker'
@@ -21,6 +21,7 @@ import {
   matchCompanyLogo,
   uploadLogo,
   refreshLogos,
+  deleteLogo,
 } from '../constants/companyLogos'
 import { useCompactLayout } from './useCompactLayout'
 
@@ -116,6 +117,25 @@ function LogoSelector({
     }
   }, [onSelect])
 
+  const canDeleteLogo = getStoredAuthRole() === 'admin'
+  const [deleting, setDeleting] = useState(false)
+
+  // 删除 Logo（仅管理员，全局不可逆）
+  const handleDelete = useCallback(async (logo: CompanyLogo) => {
+    const filename = decodeURIComponent(logo.url.substring(logo.url.lastIndexOf('/') + 1))
+    if (!window.confirm(`确定删除 Logo「${logo.name}」吗？\n将从全局库永久删除，所有用户都不可再选用，且不可恢复。`)) return
+    setDeleting(true)
+    try {
+      await deleteLogo(filename)
+      setLogos(getCachedLogos())
+      if (selectedKey === logo.key) onClear()
+    } catch (err: any) {
+      alert(err.message || '删除失败')
+    } finally {
+      setDeleting(false)
+    }
+  }, [selectedKey, onClear])
+
   // 点击外部关闭
   useEffect(() => {
     if (!open) return
@@ -208,32 +228,47 @@ function LogoSelector({
                   {filteredLogos.map((logo) => {
                     const isSelected = selectedKey === logo.key
                     return (
-                      <button
-                        key={logo.key}
-                        type="button"
-                        onClick={() => {
-                          onSelect(logo.key)
-                          setOpen(false)
-                          setSearch('')
-                        }}
-                        className={cn(
-                          'flex flex-col items-center gap-1.5 rounded-lg p-2.5 text-center transition-all duration-150',
-                          isSelected
-                            ? 'bg-indigo-50 ring-1 ring-indigo-300 dark:bg-indigo-900/30 dark:ring-indigo-700'
-                            : 'hover:bg-slate-50 dark:hover:bg-neutral-800'
+                      <div key={logo.key} className="relative group/logoitem">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onSelect(logo.key)
+                            setOpen(false)
+                            setSearch('')
+                          }}
+                          className={cn(
+                            'flex w-full flex-col items-center gap-1.5 rounded-lg p-2.5 text-center transition-all duration-150',
+                            isSelected
+                              ? 'bg-indigo-50 ring-1 ring-indigo-300 dark:bg-indigo-900/30 dark:ring-indigo-700'
+                              : 'hover:bg-slate-50 dark:hover:bg-neutral-800'
+                          )}
+                          title={logo.name}
+                        >
+                          <img
+                            src={logo.url}
+                            alt={logo.name}
+                            className="w-8 h-8 object-contain"
+                            loading="lazy"
+                          />
+                          <span className="text-[10px] text-gray-600 dark:text-neutral-400 truncate w-full leading-tight">
+                            {logo.name}
+                          </span>
+                        </button>
+                        {canDeleteLogo && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(logo)
+                            }}
+                            disabled={deleting}
+                            className="absolute right-0.5 top-0.5 hidden h-4 w-4 items-center justify-center rounded-full bg-red-500/90 text-white shadow-sm transition-colors hover:bg-red-600 group-hover/logoitem:flex disabled:opacity-50"
+                            title="删除该 Logo（全局，仅管理员）"
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
                         )}
-                        title={logo.name}
-                      >
-                        <img
-                          src={logo.url}
-                          alt={logo.name}
-                          className="w-8 h-8 object-contain"
-                          loading="lazy"
-                        />
-                        <span className="text-[10px] text-gray-600 dark:text-neutral-400 truncate w-full leading-tight">
-                          {logo.name}
-                        </span>
-                      </button>
+                      </div>
                     )
                   })}
                   {/* 上传自定义 Logo：仅允许指定用户 */}

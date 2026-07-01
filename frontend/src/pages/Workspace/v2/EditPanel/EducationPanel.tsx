@@ -6,7 +6,7 @@ import { PlusCircle, ChevronDown, Eye, Trash2, Check, GripVertical, X, Image, Pl
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion'
 import { cn } from '../../../../lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
-import { canUseAdminFeature } from '@/lib/runtimeEnv'
+import { canUseAdminFeature, getStoredAuthRole } from '@/lib/runtimeEnv'
 import type { Education } from '../types'
 import Field from './Field'
 import { MonthYearRangePicker } from '../shared/MonthYearRangePicker'
@@ -23,6 +23,7 @@ import {
   matchSchoolLogo,
   refreshSchoolLogos,
   uploadSchoolLogo,
+  deleteSchoolLogo,
 } from '../constants/schoolLogos'
 
 import { AIImportButton } from '@/components/common/AIImportButton';
@@ -128,6 +129,27 @@ function SchoolLogoSelector({
       setUploading(false)
     }
   }, [activeGroupKey, onSelect])
+
+  const canDeleteLogo = getStoredAuthRole() === 'admin'
+  const [deleting, setDeleting] = useState(false)
+
+  // 删除校徽（仅管理员，全局不可逆）
+  const handleDelete = useCallback(async (logo: SchoolLogo) => {
+    if (!activeGroupKey) return
+    const filename = decodeURIComponent(logo.url.substring(logo.url.lastIndexOf('/') + 1))
+    if (!window.confirm(`确定删除校徽「${logo.name}」吗？\n将从全局库永久删除，所有用户都不可再选用，且不可恢复。`)) return
+    setDeleting(true)
+    try {
+      await deleteSchoolLogo(filename, activeGroupKey)
+      setLogos(getCachedSchoolLogos())
+      setGroups(getCachedSchoolLogoGroups())
+      if (selectedKey === logo.key) onSelect('')
+    } catch (err: any) {
+      alert(err.message || '删除失败')
+    } finally {
+      setDeleting(false)
+    }
+  }, [activeGroupKey, selectedKey, onSelect])
 
   const filteredLogos = search
     ? logos.filter(
@@ -248,27 +270,42 @@ function SchoolLogoSelector({
                   {visibleLogos.map((logo) => {
                     const isSelected = selectedKey === logo.key
                     return (
-                      <button
-                        key={logo.key}
-                        type="button"
-                        onClick={() => {
-                          onSelect(logo.key)
-                          setOpen(false)
-                          setSearch('')
-                        }}
-                        className={cn(
-                          'flex flex-col items-center gap-1.5 rounded-lg p-2.5 text-center transition-all duration-150',
-                          isSelected
-                            ? 'bg-indigo-50 ring-1 ring-indigo-300 dark:bg-indigo-900/30 dark:ring-indigo-700'
-                            : 'hover:bg-slate-50 dark:hover:bg-neutral-800'
+                      <div key={logo.key} className="relative group/logoitem">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onSelect(logo.key)
+                            setOpen(false)
+                            setSearch('')
+                          }}
+                          className={cn(
+                            'flex w-full flex-col items-center gap-1.5 rounded-lg p-2.5 text-center transition-all duration-150',
+                            isSelected
+                              ? 'bg-indigo-50 ring-1 ring-indigo-300 dark:bg-indigo-900/30 dark:ring-indigo-700'
+                              : 'hover:bg-slate-50 dark:hover:bg-neutral-800'
+                          )}
+                          title={logo.name}
+                        >
+                          <img src={logo.url} alt={logo.name} className="h-8 w-8 object-contain" loading="lazy" />
+                          <span className="w-full truncate text-[10px] leading-tight text-gray-600 dark:text-neutral-400">
+                            {logo.name}
+                          </span>
+                        </button>
+                        {canDeleteLogo && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(logo)
+                            }}
+                            disabled={deleting}
+                            className="absolute right-0.5 top-0.5 hidden h-4 w-4 items-center justify-center rounded-full bg-red-500/90 text-white shadow-sm transition-colors hover:bg-red-600 group-hover/logoitem:flex disabled:opacity-50"
+                            title="删除该校徽（全局，仅管理员）"
+                          >
+                            <X className="h-2.5 w-2.5" />
+                          </button>
                         )}
-                        title={logo.name}
-                      >
-                        <img src={logo.url} alt={logo.name} className="h-8 w-8 object-contain" loading="lazy" />
-                        <span className="w-full truncate text-[10px] leading-tight text-gray-600 dark:text-neutral-400">
-                          {logo.name}
-                        </span>
-                      </button>
+                      </div>
                     )
                   })}
                   {canUploadLogo && (
