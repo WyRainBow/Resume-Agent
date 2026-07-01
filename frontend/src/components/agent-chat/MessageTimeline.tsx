@@ -216,6 +216,26 @@ export default function MessageTimeline({
                       .split("\n\n文件《")[0]
                   )}
                 </div>
+                {/* 复制按钮：默认淡色、hover 显示并高亮（与助手消息操作栏一致） */}
+                <div className="mt-1 flex justify-end opacity-0 transition-opacity group-hover/user:opacity-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(msg.content);
+                      onSetCopiedId(msg.id || String(idx));
+                      setTimeout(() => onSetCopiedId(null), 2000);
+                    }}
+                    className="rounded-md p-1.5 text-chat-ink-muted transition-all hover:bg-chat-user-bubble hover:text-chat-ink active:scale-90 dark:hover:bg-slate-800"
+                    title="复制"
+                    aria-label="复制这条消息"
+                  >
+                    {copiedId === (msg.id || String(idx)) ? (
+                      <Check className="h-4 w-4 text-emerald-600 animate-icon-pop" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           );
