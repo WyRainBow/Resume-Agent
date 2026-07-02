@@ -58,10 +58,12 @@ export function resolveFieldMode(
   key: string,
   globalSettings?: GlobalSettings,
 ): FieldLabelMode {
+  // 「图标」样式已废弃：显式设过的 icon、老全局 contactLabelMode=icon、以及未设置的字段，一律回退「仅值」
   const explicit = globalSettings?.fieldLabelModes?.[key]
-  if (explicit) return explicit
-  if (globalSettings?.contactLabelMode) return globalSettings.contactLabelMode
-  return 'icon'
+  if (explicit && explicit !== 'icon') return explicit
+  const legacy = globalSettings?.contactLabelMode
+  if (legacy && legacy !== 'icon') return legacy
+  return 'none'
 }
 
 /** 解析某字段「图标」模式使用的 emoji：自定义（basic.icons[key]）优先，否则默认图标 */

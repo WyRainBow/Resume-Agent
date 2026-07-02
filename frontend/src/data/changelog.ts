@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.5.5',
+    date: '2026-07-03 01:02',
+    fixed: [
+      '联系信息显示样式去掉「图标」选项，只保留「标签 + 值」和「仅值」，默认「仅值」，更简洁清爽',
+    ],
+  },
+  {
     version: '2.5.4',
     date: '2026-07-02 20:48',
     fixed: [

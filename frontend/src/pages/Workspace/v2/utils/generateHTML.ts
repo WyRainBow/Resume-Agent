@@ -428,15 +428,15 @@ export function generateHTMLFile(resumeData: ResumeData): string {
             <p class="candidate-title">${escapeHtml(stripHtmlTags(basic.title || '求职者'))}</p>
           </div>
           <div class="header-right">
-            ${basic.phone ? `<div class="info-item">📞 ${escapeHtml(basic.phone)}</div>` : ''}
-            ${basic.email ? `<div class="info-item">📧 ${escapeHtml(basic.email)}</div>` : ''}
-            ${basic.location ? `<div class="info-item">📍 ${escapeHtml(basic.location)}</div>` : ''}
+            ${basic.phone ? `<div class="info-item">${escapeHtml(basic.phone)}</div>` : ''}
+            ${basic.email ? `<div class="info-item">${escapeHtml(basic.email)}</div>` : ''}
+            ${basic.location ? `<div class="info-item">${escapeHtml(basic.location)}</div>` : ''}
             ${basic.birthDate ? (() => {
               const mode = resumeData.globalSettings?.birthDateDisplayMode || 'birthDate'
               const text = formatBirthDateForHeader(basic.birthDate, mode)
-              return text ? `<div class="info-item">🎂 ${escapeHtml(text)}</div>` : ''
+              return text ? `<div class="info-item">${escapeHtml(text)}</div>` : ''
             })() : ''}
-            ${basic.blog ? `<div class="info-item">🔗 <a href="${escapeHtml(basic.blog)}" target="_blank" rel="noopener noreferrer">${escapeHtml(basic.blog)}</a></div>` : ''}
+            ${basic.blog ? `<div class="info-item"><a href="${escapeHtml(basic.blog)}" target="_blank" rel="noopener noreferrer">${escapeHtml(basic.blog)}</a></div>` : ''}
           </div>
         </div>
         ${(() => {

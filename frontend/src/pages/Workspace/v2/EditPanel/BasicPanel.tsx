@@ -12,7 +12,7 @@ import type { BasicInfo, GlobalSettings, FieldLabelMode } from '../types'
 import Field from './Field'
 import FieldStyleToggle from './FieldStyleToggle'
 import { getAgeFromBirthDate } from '../utils/birthDateDisplay'
-import { resolveFieldMode, resolveFieldIcon } from '../utils/fieldDisplayStyle'
+import { resolveFieldMode } from '../utils/fieldDisplayStyle'
 
 interface BasicPanelProps {
   basic: BasicInfo
@@ -86,19 +86,15 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
     return age !== null ? `${age} 岁` : '23 岁'
   })()
 
-  // 每字段「显示样式」切换：mode 落 globalSettings.fieldLabelModes，自定义 emoji 落 basic.icons
+  // 每字段「显示样式」切换：mode 落 globalSettings.fieldLabelModes（标签 + 值 / 仅值）
   const setFieldMode = (key: string, mode: FieldLabelMode) =>
     updateGlobalSettings?.({
       fieldLabelModes: { ...globalSettings?.fieldLabelModes, [key]: mode },
     })
-  const setFieldIcon = (key: string, icon: string) =>
-    onUpdate({ icons: { ...basic?.icons, [key]: icon } })
   const styleToggle = (key: string) => (
     <FieldStyleToggle
       mode={resolveFieldMode(key, globalSettings)}
-      icon={resolveFieldIcon(key, basic)}
       onModeChange={(mode) => setFieldMode(key, mode)}
-      onIconChange={(icon) => setFieldIcon(key, icon)}
     />
   )
 
