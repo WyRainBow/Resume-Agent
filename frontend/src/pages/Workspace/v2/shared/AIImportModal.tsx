@@ -114,7 +114,7 @@ export function AIImportModal({
   const [elapsedTime, setElapsedTime] = useState(0);
   const [finalTime, setFinalTime] = useState<number | null>(null);
   const [selectedModel, setSelectedModel] = useState("deepseek-v4-flash");
-  const [selectedVisionModel, setSelectedVisionModel] = useState("qwen-vl-max");
+  const [selectedVisionModel, setSelectedVisionModel] = useState("glm-ocr");
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedImage2, setSelectedImage2] = useState<File | null>(null);

@@ -1131,13 +1131,13 @@ MAX_IMAGE_COUNT = 2
 @router.post("/resume/upload-image")
 async def upload_resume_image(
     files: List[UploadFile] = File(...),
-    model: str = Form(default="qwen-vl-max"),
+    model: str = Form(default="glm-ocr"),
 ):
     """上传简历图片(JPG/PNG，最多 2 张)，经视觉模型识别 + 结构化为简历 JSON。
 
     多张图片按顺序识别后合并文本再结构化（适用于两页简历分两张图）。
     与 /resume/upload-pdf 同构返回 {"resume": ...}。
-    视觉模型由前端传入：qwen-vl-max（默认）/ glm-ocr。
+    视觉模型由前端传入：glm-ocr（默认，实测比 qwen-vl-max 快约 5 倍）/ qwen-vl-max。
     """
     if not files:
         raise HTTPException(status_code=400, detail="请上传图片")

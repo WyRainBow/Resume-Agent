@@ -3548,7 +3548,7 @@ function CocoChatContent() {
       try {
         const formData = new FormData();
         picked.forEach((file) => formData.append("files", file));
-        formData.append("model", "qwen-vl-max");
+        formData.append("model", "glm-ocr");
 
         const response = await fetch(`${apiBaseUrl}/api/resume/upload-image`, {
           method: "POST",
