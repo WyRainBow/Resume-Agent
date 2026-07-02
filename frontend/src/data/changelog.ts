@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.5.3',
+    date: '2026-07-02 20:22',
+    fixed: [
+      '简历 PDF 联系信息显示优化：去掉不够美观的图标，保持简洁（仍可在设置里选「标签 + 值」或「仅值」）',
+    ],
+  },
+  {
     version: '2.5.2',
     date: '2026-07-02 11:01',
     fixed: [

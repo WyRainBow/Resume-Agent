@@ -382,7 +382,7 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     blog = resume_data.get('blog') or ''  # 不 escape，保留原始 URL 给 \href
 
     # 每字段显示样式 fieldLabelModes（icon/text/none）；缺失回退老简历全局 contactLabelMode，再回退 'icon'。
-    # 注：PDF 无彩色 emoji 字体，icon 模式改用 resume.cls 已加载的 fontawesome 单色矢量图标；text 模式加中文前缀。
+    # 注：PDF 无 emoji 字体，icon 模式等价「仅值」（与 none 一致），仅 text 模式加中文前缀。
     field_label_modes = global_settings.get('fieldLabelModes') if isinstance(global_settings, dict) else None
     field_label_modes = field_label_modes if isinstance(field_label_modes, dict) else {}
     legacy_label_mode = (global_settings.get('contactLabelMode') if isinstance(global_settings, dict) else None) or 'icon'
@@ -391,24 +391,12 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
         mode = field_label_modes.get(key)
         return mode if mode in ('icon', 'text', 'none') else legacy_label_mode
 
-    FIELD_ICON_LATEX = {
-        'title': r'\faBullseye\ ',
-        'birthDate': r'\faBirthdayCake\ ',
-        'email': r'\faEnvelope\ ',
-        'phone': r'\faPhone\ ',
-        'location': r'\faMapMarker\ ',
-        'blog': r'\faLink\ ',
-    }
-
     def _label(key, prefix, value):
-        """text 模式加中文前缀；icon 模式加 fontawesome 图标；none 仅值"""
+        """text 模式加中文前缀；icon/none 仅值（PDF 不渲染 emoji）"""
         if not value:
             return ''
-        mode = _field_mode(key)
-        if mode == 'text':
+        if _field_mode(key) == 'text':
             return f'{prefix}{value}'
-        if mode == 'icon':
-            return f'{FIELD_ICON_LATEX[key]}{value}'
         return value
 
     # 根据每字段模式追加 label 前缀
@@ -423,8 +411,6 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
                 employement_status = f'年龄：{employement_status}'
             else:
                 employement_status = f'生日：{employement_status}'
-        elif _field_mode('birthDate') == 'icon':
-            employement_status = f"{FIELD_ICON_LATEX['birthDate']}{employement_status}"
 
     # 有照片时，右侧叠加照片，不改变姓名/联系信息的居中布局
     if resume_data.get("photo"):
@@ -450,14 +436,8 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     """contactInfo 格式: {phone}{email}{role}{location}{status}"""
     latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{role}}}{{{location}}}{{{employement_status}}}")
     if blog:
-        blog_mode = _field_mode('blog')
-        if blog_mode == 'icon':
-            # \blogLine 把参数同时当作 href 目标和显示文本，图标只能加在显示层，不能进 href
-            latex_content.append(r"\vspace{-0.5ex}")
-            latex_content.append(f"\\centerline{{\\sffamily\\footnotesize {FIELD_ICON_LATEX['blog']}\\href{{{blog}}}{{{blog}}}}}")
-        else:
-            blog_text = f'博客：{blog}' if blog_mode == 'text' else blog
-            latex_content.append(f"\\blogLine{{{blog_text}}}")
+        blog_text = f'博客：{blog}' if _field_mode('blog') == 'text' else blog
+        latex_content.append(f"\\blogLine{{{blog_text}}}")
     if abs(header_bottom_gap_px) > 0.01:
         latex_content.append(f"\\vspace{{{_px_to_pt(header_bottom_gap_px):.2f}pt}}")
     latex_content.append("")
