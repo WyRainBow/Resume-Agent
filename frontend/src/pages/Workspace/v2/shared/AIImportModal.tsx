@@ -22,7 +22,7 @@ import { getApiBaseUrl } from "@/lib/runtimeEnv";
 import { FetchTimeoutError, fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
 // 简历解析走大模型，耗时较长，给一个宽松上限避免后端挂死时前端一直卡在"解析中"
-const PARSE_TIMEOUT_MS = 60_000;
+const PARSE_TIMEOUT_MS = 150_000;
 
 // DeepSeek 官方 logo（Wikimedia Commons，MIT/Expat）
 const DEEPSEEK_LOGO_URL =

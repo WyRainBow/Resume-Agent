@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.5.4',
+    date: '2026-07-02 20:48',
+    fixed: [
+      '修复大 PDF / 复杂简历导入时，明明已解析成功却提示「上传失败」的问题（解析等待时间放宽到 150 秒）',
+    ],
+  },
+  {
     version: '2.5.3',
     date: '2026-07-02 20:22',
     fixed: [
