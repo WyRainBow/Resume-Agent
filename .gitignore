@@ -90,6 +90,7 @@ test_api.sh
 
 # 测试目录
 测试测试/
+测试样本/
 .Awytests/
 .logs/
 

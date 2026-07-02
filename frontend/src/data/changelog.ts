@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.5.2',
+    date: '2026-07-02 11:01',
+    fixed: [
+      '图片简历解析大幅提速：识别引擎升级，单张图片解析更快更准（原来最长要 1 分多钟）',
+    ],
+  },
+  {
     version: '2.5.1',
     date: '2026-07-02 01:44',
     fixed: [
