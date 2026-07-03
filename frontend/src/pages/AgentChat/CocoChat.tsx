@@ -4518,7 +4518,7 @@ function CocoChatContent() {
       if (!jdText.trim()) return;
       setShowJdCard(false);
       void sendUserTextMessage(
-        `我的目标岗位 JD 如下，请对照它逐条优化我的简历：重写各段经历、突出与 JD 匹配的技能与成果、补齐缺失的关键词。\n\n【目标岗位 JD】\n${jdText.trim()}`,
+        `我的目标岗位 JD 如下，请对照它逐条优化我的整份简历：重写各段经历、突出与 JD 匹配的技能与成果、补齐缺失的关键词。\n\n【目标岗位 JD】\n${jdText.trim()}`,
       );
     },
     [sendUserTextMessage],

@@ -21,6 +21,8 @@ class ResumeDataStore:
     _data_by_session: Dict[str, dict] = {}
     _shared_state_by_session: Dict[str, AgentSharedState] = {}
     _meta_by_session: Dict[str, Dict[str, Any]] = {}
+    # 会话级目标岗位 JD：一次提供、本会话后续所有优化自动对齐
+    _jd_by_session: Dict[str, str] = {}
 
     @staticmethod
     def _extract_meta(resume_data: dict) -> Dict[str, Any]:
@@ -165,3 +167,14 @@ class ResumeDataStore:
                 f"session_id={session_id}, resume_id={resume_id}, error={exc}"
             )
             return False
+
+
+    @classmethod
+    def set_session_jd(cls, session_id: str, jd_text: str) -> None:
+        """记录本会话的目标岗位 JD（后续优化自动对齐）。"""
+        if session_id and jd_text and jd_text.strip():
+            cls._jd_by_session[session_id] = jd_text.strip()
+
+    @classmethod
+    def get_session_jd(cls, session_id: str) -> str:
+        return cls._jd_by_session.get(session_id or "", "")

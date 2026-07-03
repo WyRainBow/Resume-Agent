@@ -638,6 +638,16 @@ class ConversationStateManager:
         if "优化" in normalized and not is_add_experience_query(text):
             return Intent.OPTIMIZE_SECTION, section
 
+        # 「润色/完善/提升 + 简历」等整篇打磨说法与「优化简历」同义，统一走优化链路
+        # （带 section/经历指向的已被上面 EDIT_CV 分支接住，这里只兜「…简历」）
+        _optimize_synonyms = ("润色", "完善", "提升", "改好", "改得更好", "写得更好")
+        if (
+            any(kw in normalized for kw in _optimize_synonyms)
+            and "简历" in normalized
+            and not is_add_experience_query(text)
+        ):
+            return Intent.OPTIMIZE_SECTION, section
+
         if (
             ("分析" in normalized or "评估" in normalized or "诊断" in normalized)
             and not is_add_experience_query(text)
