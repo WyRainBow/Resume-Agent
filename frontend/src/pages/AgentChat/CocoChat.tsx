@@ -18,6 +18,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEnvironment } from "@/contexts/EnvironmentContext";
 import { useCLTP } from "@/hooks/useCLTP";
 import { isAgentEnabled } from "@/lib/runtimeEnv";
+import { hasHeroHandoffImages, takeHeroHandoffImages } from "@/lib/heroHandoff";
+import { JdOptimizeChatCard } from "@/components/agent-chat/JdOptimizeChatCard";
 import {
   getSessionLimitMessage,
   isSessionLimitExceededResponse,
@@ -77,7 +79,7 @@ import {
 import WorkspaceLayout from "@/pages/WorkspaceLayout";
 import CustomScrollbar from "@/components/common/CustomScrollbar";
 import { useResumeContext, type PendingPatch } from '../../contexts/ResumeContext';
-import { ResumeDiffCard } from '../../components/agent-chat/ResumeDiffCard';
+import { ResumeDiffCard, ApplyAllPatchesBar } from '../../components/agent-chat/ResumeDiffCard';
 import { ResumeGeneratedCard } from '../../components/agent-chat/ResumeGeneratedCard';
 import AIImportModal from "@/pages/Workspace/v2/shared/AIImportModal";
 
@@ -520,6 +522,14 @@ interface DiagnosisToolStructuredData {
   };
 }
 
+// 简历导入/解析成功卡片下方的「下一步」建议 chip（点击即发送）。
+// 首位放整份优化：导入 → 一键整份优化 → 全部应用，是最短的价值闭环。
+const IMPORT_NEXT_STEP_SUGGESTIONS = [
+  "优化我的整份简历",
+  "按目标岗位 JD 帮我改简历",
+  "帮我把经历写得更专业",
+];
+
 // ============================================================================
 // 主页面组件
 // ============================================================================
@@ -751,6 +761,8 @@ function CocoChatContent() {
 
   // 简历选择器状态
   const [showResumeSelector, setShowResumeSelector] = useState(false);
+  // 「按 JD 优化简历」交互卡（从首页 chip 进入时打开）
+  const [showJdCard, setShowJdCard] = useState(false);
   // 问候 fast-path 的意图引导胶囊（替代旧的 ResumeSelector 大卡）
   const [showGreetingChips, setShowGreetingChips] = useState(false);
   // ResumeSelector 打开时的初始步骤（「选择已有」直达列表，其余从入口卡片进）
@@ -3340,6 +3352,12 @@ function CocoChatContent() {
           role: "assistant",
           content: `已通过 AI 智能导入简历「${saved.name}」，右侧可预览。你可以继续告诉我需要优化哪些内容。`,
           timestamp: new Date().toISOString(),
+          meta: {
+            importSuccess: {
+              name: saved.name,
+              suggestions: IMPORT_NEXT_STEP_SUGGESTIONS,
+            },
+          },
         };
         setMessages((prev) => {
           const updated = [...prev, assistantMsg];
@@ -3434,6 +3452,10 @@ function CocoChatContent() {
                     pasteImportParsing: false,
                     parseStartedAt,
                     parseElapsedMs: Date.now() - parseStartedAt,
+                    importSuccess: {
+                      name: saved.name,
+                      suggestions: IMPORT_NEXT_STEP_SUGGESTIONS,
+                    },
                   },
                 }
               : msg,
@@ -3596,6 +3618,10 @@ function CocoChatContent() {
                     pasteImportParsing: false,
                     parseStartedAt,
                     parseElapsedMs: Date.now() - parseStartedAt,
+                    importSuccess: {
+                      name: saved.name,
+                      suggestions: IMPORT_NEXT_STEP_SUGGESTIONS,
+                    },
                   },
                 }
               : msg,
@@ -3645,6 +3671,149 @@ function CocoChatContent() {
       updateResumePdfState,
       setAllowPdfAutoRender,
       setSelectedResumeId,
+    ],
+  );
+
+  // 纯解析导入简历文件（PDF 走 /api/resume/upload-pdf，图片委托图片链路）——只解析入库并加载到会话，
+  // 全程不发给 Agent、不做优化分析。给「按 JD 优化简历」卡的第一步用。
+  const importResumeFileInChat = useCallback(
+    async (file: File) => {
+      if (file.type.startsWith("image/")) {
+        await importResumeImagesInChat("解析这份简历", [file]);
+        return;
+      }
+      const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const userMessageEntry: Message = {
+        id: uniqueId,
+        role: "user",
+        content: "解析这份简历",
+        timestamp: new Date().toISOString(),
+        attachments: [{ name: file.name, type: file.type, size: file.size }],
+      };
+      const nextMessages = [...messages, userMessageEntry];
+      const isFirstMessage = messages.length === 0;
+      setMessages(nextMessages);
+
+      let validConversationId = conversationId;
+      if (!validConversationId || validConversationId.trim() === "") {
+        validConversationId = `conv-${Date.now()}`;
+        setConversationId(validConversationId);
+      }
+      if (!currentSessionId) setCurrentSessionId(validConversationId);
+
+      const parsingMsgId = `${Date.now()}-p`;
+      const parseStartedAt = Date.now();
+      const parsingMsg: Message = {
+        id: parsingMsgId,
+        role: "assistant",
+        content: "正在解析简历文件、请稍候…",
+        timestamp: new Date().toISOString(),
+        meta: { pasteImportParsing: true, parseStartedAt },
+      };
+      const withParsing = [...nextMessages, parsingMsg];
+      setMessages(withParsing);
+      await persistSessionSnapshot(validConversationId, withParsing, isFirstMessage);
+
+      setIsPasteImporting(true);
+      setResumeError(null);
+      const resumeEntryId = `resume_file_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      updateResumePdfState(resumeEntryId, {
+        loading: true,
+        progress: "正在解析简历内容...",
+        error: null,
+      });
+      setAllowPdfAutoRender(true);
+      setSelectedResumeId(resumeEntryId);
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await fetch(`${apiBaseUrl}/api/resume/upload-pdf`, {
+          method: "POST",
+          body: formData,
+        });
+        if (!response.ok) {
+          const errBody = await response.json().catch(() => null);
+          const detail =
+            errBody && typeof errBody.detail === "string"
+              ? errBody.detail
+              : `简历解析失败（${response.status}）`;
+          throw new Error(detail);
+        }
+        const data = await response.json();
+        const parsedResume = data?.resume;
+        if (!parsedResume || typeof parsedResume !== "object") {
+          throw new Error("未解析出结构化简历内容，请换 PDF 或改用「粘贴简历文本」。");
+        }
+        const displayName = resolveImportedResumeDisplayName(parsedResume);
+        const canonical = normalizeImportedResumeToCanonical(parsedResume, {
+          resumeId: resumeEntryId,
+          title: `${displayName}的简历`,
+        });
+        const saved = await saveResume(canonical, resumeEntryId);
+        setCurrentResumeId(saved.id);
+        await applyResumeToChat(saved, uniqueId);
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
+            msg.id === parsingMsgId
+              ? {
+                  ...msg,
+                  content: `已解析导入简历「${saved.name}」，右侧可预览。`,
+                  timestamp: new Date().toISOString(),
+                  meta: {
+                    pasteImportParsing: false,
+                    parseStartedAt,
+                    parseElapsedMs: Date.now() - parseStartedAt,
+                    importSuccess: {
+                      name: saved.name,
+                      suggestions: IMPORT_NEXT_STEP_SUGGESTIONS,
+                    },
+                  },
+                }
+              : msg,
+          );
+          void persistSessionSnapshot(validConversationId, updated, false);
+          return updated;
+        });
+      } catch (error) {
+        console.error("[AgentChat] 简历文件解析失败:", error);
+        const errText =
+          error instanceof Error ? error.message : "简历解析失败，请稍后重试。";
+        setResumeError(errText);
+        updateResumePdfState(resumeEntryId, { loading: false, progress: "", error: errText });
+        setMessages((prev) => {
+          const updated = prev.map((msg) =>
+            msg.id === parsingMsgId
+              ? {
+                  ...msg,
+                  content: `简历解析失败：${errText}`,
+                  timestamp: new Date().toISOString(),
+                  meta: {
+                    pasteImportParsing: false,
+                    parseStartedAt,
+                    parseElapsedMs: Date.now() - parseStartedAt,
+                  },
+                }
+              : msg,
+          );
+          void persistSessionSnapshot(validConversationId, updated, false);
+          return updated;
+        });
+      } finally {
+        setIsPasteImporting(false);
+      }
+    },
+    [
+      apiBaseUrl,
+      messages,
+      conversationId,
+      currentSessionId,
+      persistSessionSnapshot,
+      applyResumeToChat,
+      updateResumePdfState,
+      setAllowPdfAutoRender,
+      setSelectedResumeId,
+      importResumeImagesInChat,
     ],
   );
 
@@ -3926,8 +4095,10 @@ function CocoChatContent() {
     if (heroInitialConsumedRef.current || !initialSessionResolved) return;
     const fromHome = (location.state as { fromHome?: number } | null)?.fromHome;
     if (!fromHome) return;
-    const pending = sessionStorage.getItem("agent_initial_text");
-    if (!pending) return;
+    const openJd = sessionStorage.getItem("agent_open_jd_card") === "1";
+    const pending = sessionStorage.getItem("agent_initial_text") || "";
+    const hasImages = hasHeroHandoffImages();
+    if (!openJd && !pending && !hasImages) return;
     if (
       isProcessing ||
       isPasteImporting ||
@@ -3937,7 +4108,41 @@ function CocoChatContent() {
       return;
     heroInitialConsumedRef.current = true;
     sessionStorage.removeItem("agent_initial_text");
-    void sendUserTextMessage(pending);
+    if (openJd) {
+      // 首页「按 JD 改简历」chip：先落成一轮对话（用户消息 + AI 引导回复），
+      // 再在下方弹出 JD 优化交互卡——避免停在空态首页、卡片突兀浮底。
+      sessionStorage.removeItem("agent_open_jd_card");
+      const ts = Date.now();
+      const jdMessages: Message[] = [
+        {
+          id: `${ts}-jd-q`,
+          role: "user",
+          content: "按目标岗位 JD 帮我改简历",
+          timestamp: new Date().toISOString(),
+        },
+        {
+          id: `${ts}-jd-a`,
+          role: "assistant",
+          content:
+            "好的！请把你的简历和目标岗位的 JD（职位描述）发我，我来帮你逐条对齐、重写亮点、补齐匹配关键词 👇",
+          timestamp: new Date().toISOString(),
+        },
+      ];
+      setMessages(jdMessages);
+      const jdConvId =
+        conversationId?.trim() || currentSessionId || `conv-${ts}`;
+      if (!conversationId) setConversationId(jdConvId);
+      if (!currentSessionId) setCurrentSessionId(jdConvId);
+      void persistSessionSnapshot(jdConvId, jdMessages, true);
+      setShowJdCard(true);
+      return;
+    }
+    if (hasImages) {
+      // 首页粘贴的简历截图：复用图片解析链路（进对话 + 解析动画 + 渲染，不发 Agent、不诊断）
+      void importResumeImagesInChat(pending || "解析这份简历", takeHeroHandoffImages());
+    } else {
+      void sendUserTextMessage(pending);
+    }
   }, [
     initialSessionResolved,
     location.state,
@@ -3945,6 +4150,7 @@ function CocoChatContent() {
     isPasteImporting,
     messages.length,
     sendUserTextMessage,
+    importResumeImagesInChat,
   ]);
 
   const submitMessageWithAttachments = useCallback(
@@ -4273,6 +4479,37 @@ function CocoChatContent() {
   /**
    * Send message to backend via SSE
    */
+  // ——「按 JD 优化简历」交互卡回调 ——
+  // 卡内上传简历文件：只解析入库、加载到会话，全程不发 Agent（点「开始优化」才优化）
+  const handleJdCardUploadResume = useCallback(
+    (file: File) => {
+      if (isProcessing || isPasteImporting || isUploadingFile) return;
+      void importResumeFileInChat(file);
+    },
+    [isProcessing, isPasteImporting, isUploadingFile, importResumeFileInChat],
+  );
+
+  // 卡内粘贴简历文本：sendUserTextMessage 内部会自动识别为粘贴简历并走 /api/resume/parse 解析导入
+  const handleJdCardPasteResume = useCallback(
+    (text: string) => {
+      if (!text.trim() || isProcessing || isPasteImporting) return;
+      void sendUserTextMessage(text);
+    },
+    [isProcessing, isPasteImporting, sendUserTextMessage],
+  );
+
+  // 简历已在 context + JD 已给：让 Agent 按 JD 逐条优化（走已补的「按 JD 改简历（已有简历）」prompt 脚本）
+  const handleJdCardStartOptimize = useCallback(
+    (jdText: string) => {
+      if (!jdText.trim()) return;
+      setShowJdCard(false);
+      void sendUserTextMessage(
+        `我的目标岗位 JD 如下，请对照它逐条优化我的简历：重写各段经历、突出与 JD 匹配的技能与成果、补齐缺失的关键词。\n\n【目标岗位 JD】\n${jdText.trim()}`,
+      );
+    },
+    [sendUserTextMessage],
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedInput = input.trim();
@@ -4505,6 +4742,10 @@ function CocoChatContent() {
                       void sendUserTextMessage(lastUserMsg.content);
                     }
                   }}
+                  onSuggestionClick={(msg) => {
+                    setInput("");
+                    void sendUserTextMessage(msg);
+                  }}
                 />
 
                 <StreamingLane
@@ -4512,7 +4753,10 @@ function CocoChatContent() {
                   currentAnswer={currentAnswer}
                   isProcessing={isProcessing}
                   suggestions={currentSuggestions}
-                  onSuggestionClick={(msg) => setInput(msg)}
+                  onSuggestionClick={(msg) => {
+                    setInput("");
+                    void sendUserTextMessage(msg);
+                  }}
                   shouldHideResponseInChat={pendingPatches.some(
                     (p) => p.message_id === "current",
                   )}
@@ -4538,6 +4782,9 @@ function CocoChatContent() {
                     历史消息的 patch 卡片由 MessageTimeline 按 message_id 关联渲染。 */}
                 {pendingPatches.some(p => p.message_id === 'current') && (
                   <div className="px-4 py-1 space-y-2">
+                    <ApplyAllPatchesBar
+                      patches={pendingPatches.filter(p => p.message_id === 'current')}
+                    />
                     {pendingPatches
                       .filter(p => p.message_id === 'current')
                       .map(patch => (
@@ -4554,6 +4801,21 @@ function CocoChatContent() {
                       resume={generatedResume.resume}
                       summary={generatedResume.summary}
                       onDismiss={() => setGeneratedResume(null)}
+                    />
+                  </div>
+                )}
+
+                {/* 按 JD 优化简历交互卡（首页「按 JD 改简历」chip 进入） */}
+                {showJdCard && (
+                  <div className="px-4 py-2">
+                    <JdOptimizeChatCard
+                      resumeLoaded={Boolean(resumeData)}
+                      resumeName={resumeData?.basic?.name}
+                      busy={isPasteImporting || isProcessing || isUploadingFile}
+                      onUploadResumeFile={handleJdCardUploadResume}
+                      onPasteResumeText={handleJdCardPasteResume}
+                      onStartOptimize={handleJdCardStartOptimize}
+                      onDismiss={() => setShowJdCard(false)}
                     />
                   </div>
                 )}
@@ -4621,34 +4883,7 @@ function CocoChatContent() {
                   />
                 )}
 
-                {/* Loading */}
-                {isProcessing &&
-                  (!currentThought.trim() ||
-                    currentThought.trim() === "正在思考...") &&
-                  !currentAnswer.trim() && (
-                  <div className="flex items-center gap-2 text-gray-400 text-sm mb-6">
-                    <div className="flex gap-1">
-                      <span
-                        className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
-                        style={{ animationDelay: "0ms" }}
-                      ></span>
-                      <span
-                        className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
-                        style={{ animationDelay: "100ms" }}
-                      ></span>
-                      <span
-                        className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"
-                        style={{ animationDelay: "200ms" }}
-                      ></span>
-                    </div>
-                    <span
-                      className="animate-bounce"
-                      style={{ animationDelay: "300ms" }}
-                    >
-                      Thinking...
-                    </span>
-                  </div>
-                )}
+                {/* 处理中占位由 StreamingLane 内的星芒 ThinkingIndicator 统一负责，此处不再重复 */}
 
                 <div ref={messagesEndRef} />
               </div>

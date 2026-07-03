@@ -163,6 +163,23 @@ function PatchDiffGrid({
   )
 }
 
+/** 「全部应用」条：同一批 ≥2 个待确认 patch 时显示，一键全部合并写回简历。 */
+export function ApplyAllPatchesBar({ patches }: { patches: PendingPatch[] }) {
+  const { applyPatches } = useResumeContext()
+  const pending = patches.filter(p => p.status === 'pending')
+  if (pending.length < 2) return null
+  return (
+    <button
+      type="button"
+      onClick={() => applyPatches(pending.map(p => p.patch_id))}
+      className="mb-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-blue-600 bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-all active:scale-[0.98] hover:bg-blue-700 hover:border-blue-700"
+    >
+      <Check className="h-4 w-4" />
+      全部应用（{pending.length} 处）
+    </button>
+  )
+}
+
 export function ResumeDiffCard({ patch }: { patch: PendingPatch }) {
   const { applyPatch, rejectPatch } = useResumeContext()
   const [expanded, setExpanded] = useState(false)

@@ -9,9 +9,10 @@ import ThoughtProcess from "@/components/chat/ThoughtProcess";
 import DiagnosisToolCards, {
   type DiagnosisToolStructuredData,
 } from "@/components/agent-chat/DiagnosisToolCards";
-import { ResumeDiffCard } from "@/components/agent-chat/ResumeDiffCard";
+import { ResumeDiffCard, ApplyAllPatchesBar } from "@/components/agent-chat/ResumeDiffCard";
 import { AssistantPaperCard } from "@/components/agent-chat/AssistantPaperCard";
 import { ParseImportTimerBadge } from "@/components/agent-chat/ParseImportTimerBadge";
+import { ImportSuccessCard } from "@/components/agent-chat/ImportSuccessCard";
 import type { PendingPatch } from "@/contexts/ResumeContext";
 import type { Message } from "@/types/chat";
 import type { ResumeData } from "@/pages/Workspace/v2/types";
@@ -70,6 +71,8 @@ interface MessageTimelineProps {
   onOpenResume: (resume: LoadedResumeItem) => void;
   onOpenResumeSelector: () => void;
   onRegenerate: () => void;
+  /** 成功卡片等的下一步建议 chip 点击（填入输入框） */
+  onSuggestionClick?: (msg: string) => void;
 }
 
 function splitEmbeddedResponseFromThought(thought: string): {
@@ -137,6 +140,7 @@ export default function MessageTimeline({
   onOpenResume,
   onOpenResumeSelector,
   onRegenerate,
+  onSuggestionClick,
 }: MessageTimelineProps) {
   const isPlaceholderThought = (text: string) => text === "正在思考...";
   const [feedback, setFeedback] = useState<Record<string, "like" | "dislike" | undefined>>({});
@@ -254,6 +258,19 @@ export default function MessageTimeline({
           );
         }
 
+        // 简历导入/解析成功：渲染成功卡片，替代原纯文本完成语
+        if (msg.meta?.importSuccess) {
+          return (
+            <div key={msg.id || idx} className="chat-message-enter mb-6">
+              <ImportSuccessCard
+                name={msg.meta.importSuccess.name}
+                suggestions={msg.meta.importSuccess.suggestions}
+                onSuggestionClick={onSuggestionClick}
+              />
+            </div>
+          );
+        }
+
         const hasAssistantContent =
           diagnosisForMessage.length > 0 ||
           searchForMessage ||
@@ -326,6 +343,7 @@ export default function MessageTimeline({
 
                   {patchesForMessage.length > 0 && (
                     <div className="mb-4 space-y-2">
+                      <ApplyAllPatchesBar patches={patchesForMessage} />
                       {patchesForMessage.map((patch) => (
                         <ResumeDiffCard key={patch.patch_id} patch={patch} />
                       ))}

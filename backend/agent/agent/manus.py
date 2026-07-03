@@ -44,6 +44,9 @@ from backend.agent.utils.experience_entry import (
     OptimizeTarget,
     build_optimization_resume_patch,
     build_optimize_clarification_suggestions,
+    build_optimize_plan_overview,
+    detect_optimize_section_kind,
+    detect_whole_optimize_mode,
     is_generic_optimize_section_query,
     list_optimize_targets,
     resolve_optimize_target,
@@ -765,6 +768,137 @@ class Manus(ToolCallAgent):
             ]
         }
 
+    async def _llm_optimize_field_patch(
+        self,
+        user_input: str,
+        resume_data: Dict[str, Any],
+        field: str,
+        label: str,
+    ) -> Optional[Dict[str, Any]]:
+        """优化单个字符串字段（专业技能 skillContent / 自我评价 selfEvaluation）——非数组段落。"""
+        raw = resume_data.get(field)
+        if not isinstance(raw, str) or not raw.strip():
+            return None
+        current_plain = _RULE_BASED_NOISE_RE.sub(
+            "", html_to_context_text(str(raw))
+        ).strip()
+        if not current_plain:
+            return None
+
+        base_system, _ = await self._generate_dynamic_prompts(
+            user_input, Intent.OPTIMIZE_SECTION
+        )
+        system_prompt = f"{base_system}\n\n{OPTIMIZE_SECTION_LLM_ADDENDUM}"
+        user_prompt = (
+            f"请优化 path={field} 对应的{label}。\n"
+            f"用户原话：{user_input.strip() or '优化表述，使其更专业、有条理'}\n\n"
+            f"当前内容（纯文本，请在此基础上改写）：\n{current_plain[:2800]}"
+        )
+        retry_suffix = (
+            "\n\n【重要】不要输出思考过程。"
+            "只输出一行 JSON，第一字符必须是 {，包含 optimized_html 与 explanation。"
+        )
+
+        parsed: Optional[Dict[str, Any]] = None
+        for attempt in range(2):
+            prompt = user_prompt if attempt == 0 else f"{user_prompt}{retry_suffix}"
+            try:
+                raw_out = await self.llm.ask(
+                    messages=[{"role": "user", "content": prompt}],
+                    system_msgs=[{"role": "system", "content": system_prompt}],
+                    stream=False,
+                    temperature=0.55,
+                )
+            except Exception as exc:
+                logger.warning(f"[Manus] LLM optimize field failed: {exc}")
+                return None
+            parsed = self._parse_optimize_llm_json(raw_out or "")
+            if parsed:
+                break
+
+        if not parsed:
+            return None
+        optimized_html = str(
+            parsed.get("optimized_html") or parsed.get("optimized") or ""
+        ).strip()
+        if not optimized_html:
+            return None
+        optimized_html = str(normalize_editor_value(optimized_html, field)).strip()
+        explanation = str(parsed.get("explanation") or "").strip() or (
+            f"按更专业、有条理的表达重写{label}。"
+        )
+        return {
+            "optimization_suggestions": [
+                {
+                    "title": f"优化{label}",
+                    "current": current_plain[:900],
+                    "optimized": optimized_html,
+                    "explanation": explanation,
+                    "apply_path": field,
+                }
+            ]
+        }
+
+    async def _optimize_whole_resume(
+        self, user_input: str, resume_data: Dict[str, Any]
+    ) -> tuple[str, int]:
+        """一键优化整份简历：对所有实习/工作、项目、开源 + 专业技能 + 自我评价并行生成优化对比。
+        每段完成即入队（前端对比卡渐进出现），最终回复列出优化了哪几段。返回 (回复文案, 补丁数)。"""
+        import asyncio
+
+        async def _run(
+            label: str, coro
+        ) -> tuple[str, Optional[Dict[str, Any]]]:
+            try:
+                return label, await coro
+            except Exception as exc:
+                logger.warning(f"[Manus] 整份优化子任务失败 label={label}: {exc}")
+                return label, None
+
+        tasks = [
+            _run(
+                t.label or "该段经历",
+                self._llm_optimize_section_patch(user_input, resume_data, t),
+            )
+            for t in list_optimize_targets(resume_data)
+        ]
+        for field, label in (("skillContent", "专业技能"), ("selfEvaluation", "自我评价")):
+            val = resume_data.get(field)
+            if isinstance(val, str) and val.strip():
+                tasks.append(
+                    _run(
+                        label,
+                        self._llm_optimize_field_patch(user_input, resume_data, field, label),
+                    )
+                )
+        if not tasks:
+            return (
+                "当前简历里还没有可优化的内容，先导入简历或补一段经历，我再帮你整体优化。",
+                0,
+            )
+
+        total = 0
+        done_labels: List[str] = []
+        # as_completed：每段一完成就入队 patch，前端对比卡随之渐进出现，过程可见
+        for fut in asyncio.as_completed(tasks):
+            label, res = await fut
+            if not res:
+                continue
+            items = res.get("optimization_suggestions") or []
+            queued = self._queue_optimization_patches(items)
+            if queued > 0:
+                total += queued
+                done_labels.append(re.sub(r"\*+", "", label).strip())
+
+        if total <= 0:
+            return ("这次没能生成可用的优化对比，请稍后再试。", 0)
+        listed = "、".join(done_labels[:6]) + ("等" if len(done_labels) > 6 else "")
+        return (
+            f"已优化：{listed}，共 {total} 处对比。"
+            "可以逐条确认，也可以点下方「全部应用」一键写入。",
+            total,
+        )
+
     def _queue_optimization_patches(self, suggestions: List[Dict[str, Any]]) -> int:
         """将优化建议转为 resume_patch，返回成功入队数量。"""
         count = 0
@@ -777,12 +911,22 @@ class Manus(ToolCallAgent):
             count += 1
         return count
 
+    @staticmethod
+    def _optimize_next_step_suggestions_block() -> str:
+        """优化完一段后的「下一步」建议（前端点击即自动发送）。"""
+        next_items = [
+            {"text": "✨ 优化整份简历", "msg": "优化我的整份简历"},
+            {"text": "换一段优化", "msg": "优化经历"},
+        ]
+        return f"\n\n%%SUGGESTIONS%%{json.dumps(next_items, ensure_ascii=False)}%%END%%"
+
     def _optimization_assistant_reply(
         self,
         suggestions: Dict[str, Any],
         *,
         patch_count: int,
         default_label: str = "实习经历",
+        with_next: bool = False,
     ) -> str:
         """优化结果有 diff 卡片时用短回复，否则回退 markdown 长文。"""
         if patch_count <= 0:
@@ -807,19 +951,28 @@ class Manus(ToolCallAgent):
         label = re.sub(r"\*+", "", label).strip() or default_label
 
         if patch_count == 1:
-            return f"已为「{label}」生成优化对比，请在下方卡片确认是否应用。"
-        return f"已生成 {patch_count} 处优化对比，请在下方卡片逐条确认是否应用。"
+            reply = f"已为「{label}」生成优化对比，请在下方卡片确认是否应用。"
+        else:
+            reply = f"已生成 {patch_count} 处优化对比，请在下方卡片逐条确认是否应用。"
+        if with_next:
+            reply += self._optimize_next_step_suggestions_block()
+        return reply
 
     @staticmethod
     def _build_optimize_target_clarification_message(
         resume_data: Dict[str, Any],
         *,
         intro: Optional[str] = None,
+        section_kind: Optional[str] = None,
+        include_all: bool = True,
     ) -> str:
-        """未指定优化目标且有多段经历时，列出可选项并附带快捷按钮。"""
-        items = build_optimize_clarification_suggestions(resume_data)
+        """未指定优化目标且有多段时，列出可选项并附带快捷按钮。
+        section_kind 传入时只列该类；include_all 时顶部加「全部一起优化」。"""
+        items = build_optimize_clarification_suggestions(
+            resume_data, section_kind, include_all=include_all
+        )
         suggestions_json = json.dumps(items, ensure_ascii=False)
-        lead = intro or "好的！在优化之前，请问您想优化哪一段经历？"
+        lead = intro or "好的！在优化之前，请问您想优化哪一段？"
         return f"{lead}\n\n%%SUGGESTIONS%%{suggestions_json}%%END%%"
 
     @staticmethod
@@ -1669,6 +1822,39 @@ class Manus(ToolCallAgent):
 
                 if intent == Intent.OPTIMIZE_SECTION:
                     resume_snapshot = resume_data_snapshot or {}
+                    from backend.agent.schema import AgentState
+
+                    def _finish_optimize(msg: str) -> bool:
+                        self.memory.add_message(Message.assistant_message(msg))
+                        self.state = AgentState.FINISHED
+                        return False
+
+                    # 1. 整份优化按明确程度分两档（过程透明）：
+                    #    explicit（整份/全部/一起优化）→ 直接执行；
+                    #    soft（优化简历/我的简历）→ 先回「优化计划」清单让用户选。
+                    whole_mode = detect_whole_optimize_mode(user_input)
+                    if whole_mode == "explicit":
+                        whole_reply, _ = await self._optimize_whole_resume(
+                            user_input, resume_snapshot
+                        )
+                        logger.info("🎯 OPTIMIZE_SECTION: whole-resume optimize (explicit)")
+                        return _finish_optimize(whole_reply)
+                    if whole_mode == "soft":
+                        plan_summary, plan_items, plan_total = build_optimize_plan_overview(
+                            resume_snapshot
+                        )
+                        if plan_total <= 0:
+                            return _finish_optimize(
+                                "当前简历里还没有可优化的内容，先导入简历或补一段经历，"
+                                "我再帮你优化。"
+                            )
+                        logger.info("🎯 OPTIMIZE_SECTION: whole-optimize plan (soft)")
+                        return _finish_optimize(
+                            f"我看了你的简历，可优化的部分有：{plan_summary}（共 {plan_total} 处）。"
+                            "想全部一起优化、还是先从某一部分开始？\n\n"
+                            f"%%SUGGESTIONS%%{json.dumps(plan_items, ensure_ascii=False)}%%END%%"
+                        )
+
                     recent_assistant = [
                         (m.content or "")
                         for m in self.memory.messages
@@ -1676,116 +1862,137 @@ class Manus(ToolCallAgent):
                             m.role if isinstance(m.role, str) else m.role.value
                         ) == "assistant"
                     ][-5:]
+
+                    # 2. 精确命中某段（公司/项目名）
                     optimize_target = resolve_optimize_target(
-                        user_input,
-                        recent_assistant,
-                        resume_snapshot,
+                        user_input, recent_assistant, resume_snapshot
                     )
-                    all_targets = list_optimize_targets(resume_snapshot)
+                    section_kind = (
+                        detect_optimize_section_kind(user_input)
+                        if optimize_target is None
+                        else None
+                    )
 
-                    if not all_targets:
-                        content = (
-                            "当前简历里还没有可优化的实习/工作、项目或开源经历。"
-                            "您可以先导入一段，再让我帮您优化表述。"
+                    # 3. 技能 / 自我评价：单字段优化（Bug 2）
+                    if optimize_target is None and section_kind in ("skills", "selfEvaluation"):
+                        field, field_label = (
+                            ("skillContent", "专业技能")
+                            if section_kind == "skills"
+                            else ("selfEvaluation", "自我评价")
                         )
-                        self.memory.add_message(Message.assistant_message(content))
-                        from backend.agent.schema import AgentState
-                        self.state = AgentState.FINISHED
-                        return False
+                        field_val = resume_snapshot.get(field)
+                        if not (isinstance(field_val, str) and field_val.strip()):
+                            return _finish_optimize(
+                                f"当前简历里还没有{field_label}内容，先补一段，我再帮你优化～"
+                            )
+                        field_sugg = await self._llm_optimize_field_patch(
+                            user_input, resume_snapshot, field, field_label
+                        )
+                        items = (field_sugg or {}).get("optimization_suggestions") or []
+                        patch_count = self._queue_optimization_patches(items)
+                        logger.info("🎯 OPTIMIZE_SECTION: field optimize field=%s", field)
+                        return _finish_optimize(
+                            self._optimization_assistant_reply(
+                                field_sugg or {"optimization_suggestions": []},
+                                patch_count=patch_count,
+                                default_label=field_label,
+                                with_next=True,
+                            )
+                        )
 
-                    if optimize_target is None and len(all_targets) > 1:
-                        if is_generic_optimize_section_query(user_input):
-                            content = self._build_optimize_target_clarification_message(
-                                resume_snapshot
+                    # 4. section 类型收窄（实习/项目/开源）——Bug 1：优化实习就只列实习
+                    if optimize_target is None and section_kind in (
+                        "experience",
+                        "projects",
+                        "opensource",
+                    ):
+                        kind_targets = list_optimize_targets(resume_snapshot, section_kind)
+                        section_cn = {
+                            "experience": "实习/工作经历",
+                            "projects": "项目经历",
+                            "opensource": "开源经历",
+                        }[section_kind]
+                        if not kind_targets:
+                            return _finish_optimize(
+                                f"当前简历里还没有可优化的{section_cn}。先导入或补一段，我再帮你优化～"
                             )
-                            log_msg = (
-                                "✅ OPTIMIZE_SECTION: asked user to pick optimize target"
-                            )
+                        if len(kind_targets) == 1:
+                            optimize_target = kind_targets[0]
                         else:
-                            from backend.agent.utils.experience_entry import (
-                                _clean_experience_query_fragment,
-                                _normalize_optimize_query_text,
+                            logger.info(
+                                "🎯 OPTIMIZE_SECTION: scoped clarification kind=%s", section_kind
+                            )
+                            return _finish_optimize(
+                                self._build_optimize_target_clarification_message(
+                                    resume_snapshot,
+                                    intro=f"你有 {len(kind_targets)} 段{section_cn}，想先优化哪一段？",
+                                    section_kind=section_kind,
+                                )
                             )
 
-                            core = _clean_experience_query_fragment(
-                                _normalize_optimize_query_text(user_input or "")
-                            )
-                            label = re.sub(r"\*+", "", core).strip() or "该段经历"
-                            content = self._build_optimize_target_clarification_message(
-                                resume_snapshot,
-                                intro=(
-                                    f"抱歉，未能准确匹配「{label}」。"
-                                    "请从下方选择要优化的经历："
-                                ),
-                            )
-                            log_msg = (
-                                "⚠️ OPTIMIZE_SECTION: target mismatch, "
-                                f"label={label}"
-                            )
-                        self.memory.add_message(Message.assistant_message(content))
-                        from backend.agent.schema import AgentState
-                        self.state = AgentState.FINISHED
-                        logger.info(log_msg)
-                        return False
-
+                    # 5. 泛化（优化经历/优化）或未匹配 → 全部 targets 判断
+                    all_targets = list_optimize_targets(resume_snapshot)
                     if optimize_target is None:
+                        if not all_targets:
+                            return _finish_optimize(
+                                "当前简历里还没有可优化的实习/工作、项目或开源经历。"
+                                "您可以先导入一段，再让我帮您优化表述。"
+                            )
+                        if len(all_targets) > 1:
+                            if is_generic_optimize_section_query(user_input):
+                                intro = "好的！想先优化哪一段？也可以直接优化整份："
+                            else:
+                                from backend.agent.utils.experience_entry import (
+                                    _clean_experience_query_fragment,
+                                    _normalize_optimize_query_text,
+                                )
+
+                                core = _clean_experience_query_fragment(
+                                    _normalize_optimize_query_text(user_input or "")
+                                )
+                                label = re.sub(r"\*+", "", core).strip() or "该段"
+                                intro = f"没精准找到「{label}」，你可以从下面选，或直接优化整份："
+                            logger.info("✅ OPTIMIZE_SECTION: clarification (all)")
+                            return _finish_optimize(
+                                self._build_optimize_target_clarification_message(
+                                    resume_snapshot, intro=intro
+                                )
+                            )
                         optimize_target = all_targets[0]
 
-                    if optimize_target.section_kind == "experience":
-                        logger.info(
-                            "🎯 OPTIMIZE_SECTION: target=%s[%s].%s",
-                            optimize_target.array_path,
-                            optimize_target.index,
-                            optimize_target.value_field,
-                        )
-                    else:
-                        logger.info(
-                            "🎯 OPTIMIZE_SECTION: opensource target=%s[%s].%s label=%s",
-                            optimize_target.array_path,
-                            optimize_target.index,
-                            optimize_target.value_field,
-                            optimize_target.label,
-                        )
-
-                    suggestions: Optional[Dict[str, Any]] = None
-                    suggestions = await self._llm_optimize_section_patch(
-                        user_input,
-                        resume_snapshot,
-                        optimize_target,
+                    # 6. 优化选定的单段 + 引导下一步
+                    logger.info(
+                        "🎯 OPTIMIZE_SECTION: target=%s[%s].%s kind=%s",
+                        optimize_target.array_path,
+                        optimize_target.index,
+                        optimize_target.value_field,
+                        optimize_target.section_kind,
                     )
-
+                    suggestions = await self._llm_optimize_section_patch(
+                        user_input, resume_snapshot, optimize_target
+                    )
                     suggestions_list = (suggestions or {}).get("optimization_suggestions") or []
                     patch_count = self._queue_optimization_patches(suggestions_list)
-                    default_label = optimize_target.label or "该段经历"
-                    content = self._optimization_assistant_reply(
-                        suggestions or {"optimization_suggestions": []},
-                        patch_count=patch_count,
-                        default_label=default_label,
+                    return _finish_optimize(
+                        self._optimization_assistant_reply(
+                            suggestions or {"optimization_suggestions": []},
+                            patch_count=patch_count,
+                            default_label=optimize_target.label or "该段经历",
+                            with_next=True,
+                        )
                     )
-                    self.memory.add_message(Message.assistant_message(content))
-                    from backend.agent.schema import AgentState
-                    self.state = AgentState.FINISHED
-                    return False
 
                 if intent == Intent.FULL_OPTIMIZE:
-                    analysis_results = await self._parallel_delegate_analyzers(analyzers or [])
-                    suggestions = await self.delegate_to_agent(
-                        strategy.get("optimizer", "resume_optimizer") if strategy else "resume_optimizer",
-                        analysis_results=analysis_results,
+                    # 「全面/整体/全局优化」走整份优化：覆盖所有实习/工作、项目、开源 + 技能 + 自我评价，
+                    # 逐段生成优化对比卡（比只做工作经历的旧 resume_optimizer 更全）。
+                    resume_snapshot = resume_data_snapshot or {}
+                    whole_reply, _ = await self._optimize_whole_resume(
+                        user_input, resume_snapshot
                     )
-                    suggestions_list = suggestions.get("optimization_suggestions") or []
-                    patch_count = self._queue_optimization_patches(suggestions_list)
-                    if patch_count > 0:
-                        content = self._optimization_assistant_reply(
-                            suggestions,
-                            patch_count=patch_count,
-                            default_label="简历",
-                        )
-                    else:
-                        content = self._format_optimization_suggestions(suggestions, full=True)
-                    self.memory.add_message(Message.assistant_message(content))
+                    self.memory.add_message(Message.assistant_message(whole_reply))
                     from backend.agent.schema import AgentState
                     self.state = AgentState.FINISHED
+                    logger.info("🎯 FULL_OPTIMIZE: whole-resume optimize")
                     return False
             except Exception as exc:
                 logger.warning(f"委托子 Agent 失败，回退到 LLM 路径: {exc}")

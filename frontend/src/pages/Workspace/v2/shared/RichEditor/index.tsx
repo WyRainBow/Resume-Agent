@@ -35,6 +35,7 @@ import {
 import { cn } from '../../../../../lib/utils'
 import { BetterSpace } from './BetterSpace'
 import PolishChatDialog from '../PolishChatDialog'
+import { ensureSkillBulletList } from '../../utils/ensureBulletList'
 import GrammarCheckDialog from '../GrammarCheckDialog'
 
 import AIWriteDialog from '../AIWriteDialog'
@@ -183,8 +184,13 @@ const RichEditor = ({
     }
   }
 
+  // 专业技能：应用润色时兜底强制无序列表（对话框完成时已格式化，此处幂等保护）
   const handleApplyPolish = (polishedContent: string) => {
-    onChange(polishedContent)
+    onChange(
+      polishPath === 'skillContent'
+        ? ensureSkillBulletList(polishedContent)
+        : polishedContent,
+    )
   }
 
   const editor = useEditor({
