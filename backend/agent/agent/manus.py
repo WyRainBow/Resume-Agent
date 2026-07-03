@@ -894,7 +894,8 @@ class Manus(ToolCallAgent):
             return ("这次没能生成可用的优化对比，请稍后再试。", 0)
         listed = "、".join(done_labels[:6]) + ("等" if len(done_labels) > 6 else "")
         return (
-            f"已优化：{listed}，共 {total} 处对比。请在下方逐条确认是否应用。",
+            f"已优化：{listed}，共 {total} 处对比。"
+            "可以逐条确认，也可以点下方「全部应用」一键写入。",
             total,
         )
 
@@ -915,7 +916,7 @@ class Manus(ToolCallAgent):
         """优化完一段后的「下一步」建议（前端点击即自动发送）。"""
         next_items = [
             {"text": "✨ 优化整份简历", "msg": "优化我的整份简历"},
-            {"text": "换一段优化", "msg": "还有哪些可以优化"},
+            {"text": "换一段优化", "msg": "优化经历"},
         ]
         return f"\n\n%%SUGGESTIONS%%{json.dumps(next_items, ensure_ascii=False)}%%END%%"
 

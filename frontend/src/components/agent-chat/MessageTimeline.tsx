@@ -9,7 +9,7 @@ import ThoughtProcess from "@/components/chat/ThoughtProcess";
 import DiagnosisToolCards, {
   type DiagnosisToolStructuredData,
 } from "@/components/agent-chat/DiagnosisToolCards";
-import { ResumeDiffCard } from "@/components/agent-chat/ResumeDiffCard";
+import { ResumeDiffCard, ApplyAllPatchesBar } from "@/components/agent-chat/ResumeDiffCard";
 import { AssistantPaperCard } from "@/components/agent-chat/AssistantPaperCard";
 import { ParseImportTimerBadge } from "@/components/agent-chat/ParseImportTimerBadge";
 import { ImportSuccessCard } from "@/components/agent-chat/ImportSuccessCard";
@@ -343,6 +343,7 @@ export default function MessageTimeline({
 
                   {patchesForMessage.length > 0 && (
                     <div className="mb-4 space-y-2">
+                      <ApplyAllPatchesBar patches={patchesForMessage} />
                       {patchesForMessage.map((patch) => (
                         <ResumeDiffCard key={patch.patch_id} patch={patch} />
                       ))}

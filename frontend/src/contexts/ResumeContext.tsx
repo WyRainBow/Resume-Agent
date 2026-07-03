@@ -23,6 +23,8 @@ interface ResumeContextValue {
   setResume:      (r: ResumeData | null) => void
   pushPatch:      (patch: Omit<PendingPatch, 'status'>) => void
   applyPatch:     (patch_id: string) => void
+  /** 批量应用（「全部应用」）：把多个 pending patch 一次合并进简历、只持久化一次。 */
+  applyPatches:   (patch_ids: string[]) => void
   rejectPatch:    (patch_id: string) => void
   /** 把所有当前 pending 的 patch 标记为 superseded（新一轮消息开始时调用）。 */
   supersedePendingPatches: () => void
@@ -76,6 +78,29 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
     setPatchAppliedAt(Date.now())
   }, [persistResume])
 
+  const applyPatches = useCallback((patch_ids: string[]) => {
+    if (patch_ids.length === 0) return
+    const idSet = new Set(patch_ids)
+    setPendingPatches(prev => {
+      const toApply = prev.filter(p => idSet.has(p.patch_id) && p.status === 'pending')
+      if (toApply.length === 0) return prev
+      setResumeState(current => {
+        if (!current) return current
+        let updated: ResumeData = current
+        for (const patch of toApply) {
+          const op = inferPatchOperation(patch) as ResumePatchOperation
+          updated = applyPatchPaths(updated, patch.paths, patch.after, op) as ResumeData
+        }
+        persistResume(updated)
+        return updated
+      })
+      return prev.map(p =>
+        idSet.has(p.patch_id) && p.status === 'pending' ? { ...p, status: 'applied' } : p
+      )
+    })
+    setPatchAppliedAt(Date.now())
+  }, [persistResume])
+
   const rejectPatch = useCallback((patch_id: string) => {
     setPendingPatches(prev =>
       prev.map(p => p.patch_id === patch_id ? { ...p, status: 'rejected' } : p)
@@ -101,7 +126,7 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
   return (
     <ResumeContext.Provider value={{
       resume, pendingPatches, patchAppliedAt,
-      setResume, pushPatch, applyPatch, rejectPatch,
+      setResume, pushPatch, applyPatch, applyPatches, rejectPatch,
       supersedePendingPatches, clearAllPatches, rebindCurrentPatches,
     }}>
       {children}

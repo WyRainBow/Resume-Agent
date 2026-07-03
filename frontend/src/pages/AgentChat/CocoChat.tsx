@@ -79,7 +79,7 @@ import {
 import WorkspaceLayout from "@/pages/WorkspaceLayout";
 import CustomScrollbar from "@/components/common/CustomScrollbar";
 import { useResumeContext, type PendingPatch } from '../../contexts/ResumeContext';
-import { ResumeDiffCard } from '../../components/agent-chat/ResumeDiffCard';
+import { ResumeDiffCard, ApplyAllPatchesBar } from '../../components/agent-chat/ResumeDiffCard';
 import { ResumeGeneratedCard } from '../../components/agent-chat/ResumeGeneratedCard';
 import AIImportModal from "@/pages/Workspace/v2/shared/AIImportModal";
 
@@ -522,11 +522,12 @@ interface DiagnosisToolStructuredData {
   };
 }
 
-// 简历导入/解析成功卡片下方的「下一步」建议 chip（点击填入输入框）
+// 简历导入/解析成功卡片下方的「下一步」建议 chip（点击即发送）。
+// 首位放整份优化：导入 → 一键整份优化 → 全部应用，是最短的价值闭环。
 const IMPORT_NEXT_STEP_SUGGESTIONS = [
-  "帮我优化实习经历",
-  "把经历写得更专业",
-  "简历还有哪里可以改进",
+  "优化我的整份简历",
+  "按目标岗位 JD 帮我改简历",
+  "帮我把经历写得更专业",
 ];
 
 // ============================================================================
@@ -4781,6 +4782,9 @@ function CocoChatContent() {
                     历史消息的 patch 卡片由 MessageTimeline 按 message_id 关联渲染。 */}
                 {pendingPatches.some(p => p.message_id === 'current') && (
                   <div className="px-4 py-1 space-y-2">
+                    <ApplyAllPatchesBar
+                      patches={pendingPatches.filter(p => p.message_id === 'current')}
+                    />
                     {pendingPatches
                       .filter(p => p.message_id === 'current')
                       .map(patch => (
