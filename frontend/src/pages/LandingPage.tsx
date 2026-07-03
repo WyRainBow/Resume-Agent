@@ -27,6 +27,7 @@ import { Avatar } from '@/components/Avatar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/hooks/useTheme'
 import { isAgentEnabled } from '@/lib/runtimeEnv'
+import { setHeroHandoffImages } from '@/lib/heroHandoff'
 
 /** 微信 logo（Simple Icons 路径），用于「联系我」——点开是微信二维码。 */
 function WechatIcon({ className }: { className?: string }) {
@@ -47,9 +48,11 @@ const popIn = {
 const REPO_URL = 'https://github.com/WyRainBow/Resume-Agent'
 
 // 首屏输入框下方的示例快捷入口：一点即进对话（降低冷启动，并埋「按岗位改一版」的高频钩子）
+// 「按 JD 改简历」chip 特殊处理：进对话后打开结构化 JD 优化交互卡（而非发文字给 Agent）
+const JD_OPTIMIZE_CHIP = '按目标岗位 JD 帮我改简历'
 const HERO_CHIPS = [
   '我是应届生、帮我做一份简历',
-  '按目标岗位 JD 帮我改简历',
+  JD_OPTIMIZE_CHIP,
   '帮我把经历写得更专业',
 ]
 
@@ -282,6 +285,7 @@ export default function LandingPage() {
   const [githubStars, setGithubStars] = useState<number | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(0)
   const [heroInput, setHeroInput] = useState('')
+  const [heroImages, setHeroImages] = useState<File[]>([])
   const logoutMenuRef = useRef<HTMLDivElement>(null)
   const wechatMenuRef = useRef<HTMLDivElement>(null)
 
@@ -290,12 +294,15 @@ export default function LandingPage() {
     navigate('/agent/new')
   }
 
-  // 首屏输入即体验：把用户输入交给对话页作为第一条消息（对话页会自动识别粘贴的简历文本并走解析）。
-  // 用 sessionStorage 传递、fromHome 让对话页跳过「加载最近会话」，直接开一个新对话。
+  // 首屏输入即体验：把用户输入（文字 / 粘贴的截图）交给对话页作为第一条。
+  // 文字走 sessionStorage、图片走 heroHandoff 内存交接；fromHome 让对话页跳过「加载最近会话」，直接开新对话。
   const startWithText = (text: string) => {
     const trimmed = text.trim()
-    if (!trimmed) return
+    if (!trimmed && heroImages.length === 0) return
     if (agentEnabled) {
+      if (heroImages.length > 0) {
+        setHeroHandoffImages(heroImages.slice(0, 2))
+      }
       sessionStorage.setItem('agent_initial_text', trimmed)
       navigate('/agent/new', { state: { fromHome: Date.now() } })
     } else {
@@ -307,6 +314,30 @@ export default function LandingPage() {
     e.preventDefault()
     startWithText(heroInput)
   }
+
+  // 打开对话内「按 JD 优化简历」交互卡
+  const startJdOptimize = () => {
+    if (agentEnabled) {
+      sessionStorage.setItem('agent_open_jd_card', '1')
+      navigate('/agent/new', { state: { fromHome: Date.now() } })
+    } else {
+      navigate('/create-new')
+    }
+  }
+
+  // 粘贴截图：从剪贴板取图片文件，挂到 hero（最多 2 张），阻止默认的图片/文件名文本粘贴
+  const handleHeroPaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = Array.from(e.clipboardData?.items || [])
+      .filter((it) => it.kind === 'file' && it.type.startsWith('image/'))
+      .map((it) => it.getAsFile())
+      .filter((f): f is File => !!f)
+    if (files.length === 0) return
+    e.preventDefault()
+    setHeroImages((prev) => [...prev, ...files].slice(0, 2))
+  }
+
+  const removeHeroImage = (idx: number) =>
+    setHeroImages((prev) => prev.filter((_, i) => i !== idx))
 
   // 拉取 GitHub star 数（公开 API，无需 token）
   useEffect(() => {
@@ -505,10 +536,28 @@ export default function LandingPage() {
               transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.36 }}
               className="mt-9 max-w-2xl mx-auto"
             >
-              <form onSubmit={handleHeroSubmit} className="relative">
+              <form onSubmit={handleHeroSubmit} className="relative rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm focus-within:ring-2 focus-within:ring-blue-500/40 focus-within:border-blue-400 dark:focus-within:border-blue-700 transition-all">
+                {heroImages.length > 0 && (
+                  <div className="flex flex-wrap gap-2 px-4 pt-4">
+                    {heroImages.map((file, i) => (
+                      <div key={i} className="relative h-16 w-16 overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700">
+                        <img src={URL.createObjectURL(file)} alt="粘贴的简历截图" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          aria-label="移除图片"
+                          onClick={() => removeHeroImage(i)}
+                          className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-slate-900/70 text-white hover:bg-slate-900"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <textarea
                   value={heroInput}
                   onChange={(e) => setHeroInput(e.target.value)}
+                  onPaste={handleHeroPaste}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                       e.preventDefault()
@@ -516,13 +565,13 @@ export default function LandingPage() {
                     }
                   }}
                   rows={3}
-                  placeholder="说说你做过什么、我来帮你写成简历（例如：计算机应届、做过一个校园二手交易小程序、实习 3 个月）"
-                  className="w-full resize-none rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-4 pr-16 text-base text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 dark:focus:border-blue-700 transition-all"
+                  placeholder="说说你做过什么、我来帮你写成简历（也可以直接粘贴简历截图，例如：计算机应届、做过一个校园二手交易小程序）"
+                  className="w-full resize-none rounded-2xl bg-transparent px-5 py-4 pr-16 text-base text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none"
                 />
                 <button
                   type="submit"
                   aria-label="开始"
-                  disabled={!heroInput.trim()}
+                  disabled={!heroInput.trim() && heroImages.length === 0}
                   className="absolute right-3 bottom-3 h-11 w-11 flex items-center justify-center rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
                 >
                   <ArrowUpRight className="w-5 h-5" />
@@ -534,7 +583,7 @@ export default function LandingPage() {
                   <button
                     key={chip}
                     type="button"
-                    onClick={() => startWithText(chip)}
+                    onClick={() => (chip === JD_OPTIMIZE_CHIP ? startJdOptimize() : startWithText(chip))}
                     className="px-3.5 py-1.5 rounded-full text-[13px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/70 hover:bg-blue-50 dark:hover:bg-slate-800 hover:text-blue-700 dark:hover:text-blue-300 border border-transparent hover:border-blue-200 dark:hover:border-blue-900/60 transition-all active:scale-[0.98]"
                   >
                     {chip}

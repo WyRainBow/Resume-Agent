@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import ThoughtProcess from './ThoughtProcess';
 import StreamingResponse from './StreamingResponse';
 import { AssistantPaperCard } from '@/components/agent-chat/AssistantPaperCard';
+import { ThinkingIndicator } from '@/components/agent-chat/ThinkingIndicator';
 
 export interface StreamRenderModel {
   thought: string;
@@ -97,8 +98,17 @@ export default function StreamingOutputPanel({
     firstVisibleLoggedRef.current = false;
   }, [processing, thought.length, answer.length]);
   
-  if (!processing || (!thoughtContent && (!answer || shouldHideResponseInChat))) {
+  if (!processing) {
     return null;
+  }
+
+  // 处理中但还没有任何可见内容（思考首字未到 / 该轮回答不在对话区显示）：用星芒占位，避免空白
+  if (!thoughtContent && (!answer || shouldHideResponseInChat)) {
+    return (
+      <AssistantPaperCard>
+        <ThinkingIndicator label={shouldHideResponseInChat ? "正在整理…" : "思考中…"} />
+      </AssistantPaperCard>
+    );
   }
 
   const canShowSubsequentContent = true;

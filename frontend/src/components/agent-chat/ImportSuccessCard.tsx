@@ -1,0 +1,48 @@
+import { CheckCircle2 } from "lucide-react";
+
+/**
+ * 简历导入/解析成功卡片：替代原来干巴巴的「已通过 AI 解析导入简历「X」…」纯文本。
+ * ✓ + 简历名 + 一句引导 + 可点的下一步建议 chip（点击填入输入框）。
+ */
+export function ImportSuccessCard({
+  name,
+  suggestions,
+  onSuggestionClick,
+}: {
+  name: string;
+  suggestions?: string[];
+  onSuggestionClick?: (msg: string) => void;
+}) {
+  return (
+    <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+      <div className="flex items-start gap-3">
+        <CheckCircle2
+          className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500"
+          strokeWidth={2.25}
+        />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-chat-ink dark:text-slate-100">
+            简历「{name}」已导入
+          </p>
+          <p className="mt-0.5 text-xs text-chat-ink-muted">
+            右侧可实时预览，接下来想优化哪部分？
+          </p>
+        </div>
+      </div>
+      {suggestions && suggestions.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2 sm:pl-8">
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => onSuggestionClick?.(s)}
+              className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-medium text-emerald-700 transition-all hover:bg-emerald-100 active:scale-95 dark:border-emerald-900/50 dark:bg-slate-900 dark:text-emerald-300 dark:hover:bg-slate-800"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
