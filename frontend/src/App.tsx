@@ -5,6 +5,7 @@ import { ChangelogModal } from './components/ChangelogModal'
 import { ThemeInit } from './components/ThemeInit'
 import ErrorBoundary from './ErrorBoundary'
 import { Toaster } from './lib/toast'
+import { ConfirmHost } from './lib/confirm'
 import { lazyWithRetry } from './lib/lazyWithRetry'
 import { canUseAdminFeature, isAgentEnabled } from './lib/runtimeEnv'
 import { useAuth } from './contexts/AuthContext'
@@ -98,7 +99,9 @@ function App() {
               <Route path="/pricing" element={<PricingPage />} />
             </Routes>
           </Suspense>
-          <Toaster />          <AuthModal />
+          <Toaster />
+          <ConfirmHost />
+          <AuthModal />
           <ChangelogModal />
         </BrowserRouter>
         </ResumeProvider>
