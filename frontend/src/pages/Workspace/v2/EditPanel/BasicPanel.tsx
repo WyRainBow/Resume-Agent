@@ -95,6 +95,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
     <FieldStyleToggle
       mode={resolveFieldMode(key, globalSettings)}
       onModeChange={(mode) => setFieldMode(key, mode)}
+      allowIcon={key === 'blog'}
     />
   )
 
@@ -199,10 +200,10 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
 
             <Field
               index={7}
-              label="博客"
+              label="博客/GitHub"
               value={basic?.blog || ''}
               onChange={(value) => onUpdate({ blog: value })}
-              placeholder="如：https://blog.example.com"
+              placeholder="如：https://github.com/you 或 https://blog.example.com"
               labelExtra={styleToggle('blog')}
             />
           </div>

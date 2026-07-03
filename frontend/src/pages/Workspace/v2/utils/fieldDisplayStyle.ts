@@ -58,10 +58,16 @@ export function resolveFieldMode(
   key: string,
   globalSettings?: GlobalSettings,
 ): FieldLabelMode {
-  // 「图标」样式已废弃：显式设过的 icon、老全局 contactLabelMode=icon、以及未设置的字段，一律回退「仅值」
   const explicit = globalSettings?.fieldLabelModes?.[key]
-  if (explicit && explicit !== 'icon') return explicit
   const legacy = globalSettings?.contactLabelMode
+  // 博客/GitHub 有真实 fontawesome 图标（\faGithub，PDF 可渲染），保留其「图标」档，且未设置时默认「图标」
+  if (key === 'blog') {
+    if (explicit) return explicit
+    if (legacy) return legacy
+    return 'icon'
+  }
+  // 其它字段：「图标」为 emoji（PDF 无法渲染）已废弃，显式 icon / 老全局 icon / 未设置一律回退「仅值」
+  if (explicit && explicit !== 'icon') return explicit
   if (legacy && legacy !== 'icon') return legacy
   return 'none'
 }

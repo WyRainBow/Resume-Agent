@@ -436,8 +436,15 @@ def json_to_latex(resume_data: Dict[str, Any], section_order: List[str] = None) 
     """contactInfo 格式: {phone}{email}{role}{location}{status}"""
     latex_content.append(f"\\contactInfo{{{phone}}}{{{email}}}{{{role}}}{{{location}}}{{{employement_status}}}")
     if blog:
-        blog_text = f'博客：{blog}' if _field_mode('blog') == 'text' else blog
-        latex_content.append(f"\\blogLine{{{blog_text}}}")
+        # 博客/GitHub 三档：icon（默认，复用开源经历的 \faGithub）/ text（博客：前缀）/ none（仅 URL）
+        blog_mode = _field_mode('blog')
+        if blog_mode == 'text':
+            blog_prefix = '博客：'
+        elif blog_mode == 'none':
+            blog_prefix = ''
+        else:
+            blog_prefix = r'\faGithub\hspace{0.3em}'
+        latex_content.append(f"\\blogLine{{{blog_prefix}}}{{{blog}}}")
     if abs(header_bottom_gap_px) > 0.01:
         latex_content.append(f"\\vspace{{{_px_to_pt(header_bottom_gap_px):.2f}pt}}")
     latex_content.append("")

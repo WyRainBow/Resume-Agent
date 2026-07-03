@@ -113,10 +113,11 @@
   \vspace{-0.8ex}
 }
 
-\newcommand{\blogLine}[1]{
-  \ifthenelse{\isempty{#1}}{}{
+% #1 = 前缀（图标 \faGithub / 文本「博客：」/ 空），#2 = 原始 URL（href 目标与显示）
+\newcommand{\blogLine}[2]{
+  \ifthenelse{\isempty{#2}}{}{
     \vspace{-0.5ex}
-    \centerline{\sffamily\footnotesize \href{#1}{#1}}
+    \centerline{\sffamily\footnotesize #1\href{#2}{#2}}
   }
 }
 

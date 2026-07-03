@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.6.1',
+    date: '2026-07-03 14:53',
+    added: [
+      '基本信息「博客」升级为「博客/GitHub」，可填 GitHub 主页；显示样式新增「GitHub 图标」，PDF 里会渲染出真实图标（图标 + 地址 / 博客：地址 / 仅地址 三种可选）',
+    ],
+  },
+  {
     version: '2.6.0',
     date: '2026-07-03 13:08',
     added: [

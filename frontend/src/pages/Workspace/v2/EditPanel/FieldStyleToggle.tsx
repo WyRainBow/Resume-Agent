@@ -1,22 +1,32 @@
 /**
  * 基本信息字段「显示样式」紧凑分段切换：标签 + 值 / 仅值。
- * 原「图标（emoji）」样式已废弃，只保留这两种。
+ * 原「图标（emoji）」样式已废弃（PDF 无 emoji 字体，渲染不出来）。
+ * 例外：博客/GitHub 字段有真实 fontawesome 图标（\faGithub，PDF 可渲染），
+ * 通过 allowIcon 单独提供「图标」档：图标 + 地址 / 标签 + 值 / 仅值。
  * 设计：knowledge-base/specs/2026-06-24-per-field-display-style-design.md
  */
 import { type ReactNode } from 'react'
-import { Tag, Minus } from 'lucide-react'
+import { Tag, Minus, Github } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { FieldLabelMode } from '../types'
 
 interface FieldStyleToggleProps {
   mode: FieldLabelMode
   onModeChange: (mode: FieldLabelMode) => void
+  /** 是否提供「图标」档（仅博客/GitHub 这类有真实 fontawesome 图标的字段） */
+  allowIcon?: boolean
 }
 
-const OPTIONS: { mode: FieldLabelMode; Icon: typeof Tag; title: string }[] = [
-  { mode: 'text', Icon: Tag, title: '标签 + 值（如 邮箱：xxx）' },
+const BASE_OPTIONS: { mode: FieldLabelMode; Icon: typeof Tag; title: string }[] = [
+  { mode: 'text', Icon: Tag, title: '标签 + 值（如 博客：xxx）' },
   { mode: 'none', Icon: Minus, title: '仅值（xxx）' },
 ]
+
+const ICON_OPTION: { mode: FieldLabelMode; Icon: typeof Tag; title: string } = {
+  mode: 'icon',
+  Icon: Github,
+  title: '图标 + 地址（GitHub 图标）',
+}
 
 /** 即时悬浮提示（150ms 淡入，无原生 title 的 1~2s 延迟），支持深色模式 */
 function Tip({ label, children }: { label: string; children: ReactNode }) {
@@ -33,11 +43,12 @@ function Tip({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
-export default function FieldStyleToggle({ mode, onModeChange }: FieldStyleToggleProps) {
+export default function FieldStyleToggle({ mode, onModeChange, allowIcon = false }: FieldStyleToggleProps) {
+  const options = allowIcon ? [ICON_OPTION, ...BASE_OPTIONS] : BASE_OPTIONS
   return (
     <div className="flex items-center gap-1">
       <div className="inline-flex items-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-0.5">
-        {OPTIONS.map(({ mode: m, Icon, title }) => (
+        {options.map(({ mode: m, Icon, title }) => (
           <Tip key={m} label={title}>
             <button
               type="button"
