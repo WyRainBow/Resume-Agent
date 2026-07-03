@@ -1,4 +1,5 @@
 import { AIImportModal } from '@/pages/Workspace/v2/shared/AIImportModal'
+import { toast } from '@/lib/toast'
 import AIWriteDialog from '@/pages/Workspace/v2/shared/AIWriteDialog'
 import type { Education as WorkspaceEducation } from '@/pages/Workspace/v2/types'
 import { motion } from 'framer-motion'
@@ -89,7 +90,7 @@ export const EducationForm: React.FC<EducationFormProps> = ({
     
     if (!isFormValid()) {
       console.warn('表单验证失败，请填写所有必填字段', formData)
-      alert('请填写所有必填字段（学校名称、专业、学历、在校时间）\n注：在校经历为可选字段，可以不填写')
+      toast.error('请填写所有必填字段（学校名称、专业、学历、在校时间）\n注：在校经历为可选字段，可以不填写')
       return
     }
     

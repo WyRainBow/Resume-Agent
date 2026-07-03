@@ -1,3 +1,4 @@
+import { toast } from '@/lib/toast'
 /**
  * AgentChat - 对话页面
  *
@@ -10,7 +11,6 @@
  * - 心跳检测和自动重连
  */
 
-import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import ResumeSelector from "@/components/chat/ResumeSelector";
 import SearchResultPanel from "@/components/chat/SearchResultPanel";
 import { RecentSessions } from "@/components/sidebar/RecentSessions";
@@ -658,20 +658,17 @@ function CocoChatContent() {
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // 语音输入
-  const {
-    isRecording: isVoiceRecording,
-    isSpeaking: isVoiceSpeaking,
-    isProcessing: isVoiceProcessing,
-    startRecording: startVoiceRecording,
-    stopRecording: stopVoiceRecording,
-  } = useSpeechRecognition({
-    onTextChange: (text, isFinal) => {
-      if (isFinal) {
-        setInput((prev) => (prev ? `${prev} ${text}` : text));
-      }
-    },
-  });
+  // 停止生成：通知后端中止当前流，并立即结束本地流式状态
+  const handleStopGeneration = useCallback(() => {
+    const sid = currentSessionId || conversationId;
+    if (sid) {
+      void fetch(`${apiBaseUrl}/api/agent/stream/stop/${sid}`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      }).catch(() => {});
+    }
+    finalizeStream();
+  }, [apiBaseUrl, getAuthHeaders, currentSessionId, conversationId, finalizeStream]);
 
   // 初始化会话：仅首次进入页面时执行；有 sessionId 用指定会话，否则默认加载最新会话
   useEffect(() => {
@@ -2250,7 +2247,7 @@ function CocoChatContent() {
       const data = await resp.json();
       const limits = parseSessionLimits(data);
       if (!limits.can_create) {
-        alert(getSessionLimitMessage(limits));
+        toast.error(getSessionLimitMessage(limits));
         return false;
       }
       return true;
@@ -2533,7 +2530,7 @@ function CocoChatContent() {
               // ignore parse errors
             }
             if (isSessionLimitExceededResponse(resp.status, parsedError)) {
-              alert(getSessionLimitMessage());
+              toast.error(getSessionLimitMessage());
               queuedSaveRef.current = null;
               scheduledSaveRef.current = null;
               return;
@@ -2814,7 +2811,7 @@ function CocoChatContent() {
       }
     } catch (error) {
       console.error("[AgentChat] Failed to delete session:", error);
-      alert("删除会话失败，请稍后重试");
+      toast.error("删除会话失败，请稍后重试");
     }
   };
 
@@ -4352,7 +4349,7 @@ function CocoChatContent() {
       const selectedFiles = Array.from(event.target.files ?? []);
       if (selectedFiles.length === 0) return;
       if (isProcessing) {
-        alert("当前正在处理消息，请稍后再上传。");
+        toast.error("当前正在处理消息，请稍后再上传。");
         event.target.value = "";
         return;
       }
@@ -4588,9 +4585,6 @@ function CocoChatContent() {
       input={input}
       isProcessing={isProcessing || isPasteImporting}
       isUploadingFile={isUploadingFile}
-      isVoiceRecording={isVoiceRecording}
-      isVoiceProcessing={isVoiceProcessing}
-      isVoiceSpeaking={isVoiceSpeaking}
       isResumePreviewActive={isResumePreviewActive}
       pendingAttachments={pendingAttachments}
       fileInputRef={fileInputRef}
@@ -4617,8 +4611,7 @@ function CocoChatContent() {
         setResumeSelectorInitialStep("entry");
         setShowResumeSelector(true);
       }}
-      onStartVoiceRecording={startVoiceRecording}
-      onStopVoiceRecording={stopVoiceRecording}
+      onStop={handleStopGeneration}
     />
   );
 

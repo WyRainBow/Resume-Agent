@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { toast } from '@/lib/toast'
 import { ClipboardPaste, FileText, Trash2, UploadCloud } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 
@@ -35,11 +36,11 @@ export function FileUploadZone({
 
   const validateFile = (nextFile: File) => {
     if (!acceptTypes.includes(nextFile.type)) {
-      alert(`仅支持 ${hintLabel} 文件`)
+      toast.error(`仅支持 ${hintLabel} 文件`)
       return false
     }
     if (nextFile.size > maxBytes) {
-      alert(`文件过大，最大支持 ${maxSizeMb}MB`)
+      toast.error(`文件过大，最大支持 ${maxSizeMb}MB`)
       return false
     }
     return true

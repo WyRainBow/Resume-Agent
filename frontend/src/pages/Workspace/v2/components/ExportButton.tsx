@@ -1,3 +1,4 @@
+import { toast } from '@/lib/toast'
 /**
  * 导出按钮组件
  * 支持 PDF、JSON 导出
@@ -103,10 +104,10 @@ export function ExportButton({
         return;
       }
       if (!pdfBlob) {
-        alert('请先点击"渲染 PDF"按钮生成 PDF，然后再下载');
+        toast.error('请先点击"渲染 PDF"按钮生成 PDF，然后再下载');
       }
     } catch (error) {
-      alert(error instanceof Error ? error.message : "PDF 下载失败，请重试");
+      toast.error(error instanceof Error ? error.message : "PDF 下载失败，请重试");
     }
   };
 
@@ -114,7 +115,7 @@ export function ExportButton({
   const handleSavePDFAs = async () => {
     setIsOpen(false);
     if (!pdfBlob) {
-      alert('请先点击"渲染 PDF"按钮生成 PDF，然后再下载');
+      toast.error('请先点击"渲染 PDF"按钮生成 PDF，然后再下载');
       return;
     }
     const filename = getPdfFileName();
@@ -131,7 +132,7 @@ export function ExportButton({
             const dirLabel =
               getDefaultPDFDirectoryLabel() ||
               (typeof dirHandle?.name === "string" ? dirHandle.name : "默认目录");
-            alert(`已保存到：${dirLabel}/${filename}`);
+            toast.success(`已保存到：${dirLabel}/${filename}`);
             return;
           }
         }
@@ -162,7 +163,7 @@ export function ExportButton({
         downloadBlob(pdfBlob, filename);
       }
       void refreshQuota();
-      alert("当前浏览器不支持自定义路径，已使用默认下载方式");
+      toast.error("当前浏览器不支持自定义路径，已使用默认下载方式");
       return;
     }
     try {
@@ -180,7 +181,7 @@ export function ExportButton({
     } catch (error: any) {
       if (error?.name === "AbortError") return;
       console.error("另存为 PDF 失败:", error);
-      alert(error instanceof Error ? error.message : "另存为失败，请重试");
+      toast.error(error instanceof Error ? error.message : "另存为失败，请重试");
     }
   };
 
@@ -206,7 +207,7 @@ export function ExportButton({
         URL.revokeObjectURL(url);
       } catch (error) {
         console.error("导出 JSON 失败:", error);
-        alert("导出失败，请重试");
+        toast.error("导出失败，请重试");
       }
     }
     setIsOpen(false);

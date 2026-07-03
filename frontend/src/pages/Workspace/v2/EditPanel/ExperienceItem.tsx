@@ -1,3 +1,4 @@
+import { toast } from '@/lib/toast'
 /**
  * 工作经历条目组件
  */
@@ -96,7 +97,7 @@ function LogoSelector({
 
     // 前端预校验：与后端 2MB 限制一致，避免上传后才失败
     if (file.size > 2 * 1024 * 1024) {
-      alert('图片过大，最大支持 2MB')
+      toast.error('图片过大，最大支持 2MB')
       return
     }
 
@@ -111,7 +112,7 @@ function LogoSelector({
       setOpen(false)
       setSearch('')
     } catch (err: any) {
-      alert(err.message || '上传失败')
+      toast.error(err.message || '上传失败')
     } finally {
       setUploading(false)
     }
@@ -130,7 +131,7 @@ function LogoSelector({
       setLogos(getCachedLogos())
       if (selectedKey === logo.key) onClear()
     } catch (err: any) {
-      alert(err.message || '删除失败')
+      toast.error(err.message || '删除失败')
     } finally {
       setDeleting(false)
     }

@@ -1,3 +1,4 @@
+import { toast } from '@/lib/toast'
 /**
  * 教育经历面板
  */
@@ -124,7 +125,7 @@ function SchoolLogoSelector({
       setOpen(false)
       setSearch('')
     } catch (err: any) {
-      alert(err.message || '上传失败')
+      toast.error(err.message || '上传失败')
     } finally {
       setUploading(false)
     }
@@ -145,7 +146,7 @@ function SchoolLogoSelector({
       setGroups(getCachedSchoolLogoGroups())
       if (selectedKey === logo.key) onSelect('')
     } catch (err: any) {
-      alert(err.message || '删除失败')
+      toast.error(err.message || '删除失败')
     } finally {
       setDeleting(false)
     }

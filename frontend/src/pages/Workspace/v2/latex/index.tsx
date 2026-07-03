@@ -1,3 +1,4 @@
+import { toast } from '@/lib/toast'
 /**
  * LaTeX 模板工作区
  * 专门用于 LaTeX 模板的编辑和 PDF 渲染
@@ -221,7 +222,7 @@ export default function LaTeXWorkspace() {
       URL.revokeObjectURL(url)
     } catch (error) {
       console.error('导出 JSON 失败:', error)
-      alert('导出失败，请重试')
+      toast.error('导出失败，请重试')
     }
   }
 
@@ -242,17 +243,17 @@ export default function LaTeXWorkspace() {
 
         if (typeof importedData === 'object' && importedData !== null) {
           setResumeData(importedData)
-          alert('导入成功！')
+          toast.success('导入成功！')
         } else {
           throw new Error('无效的 JSON 格式')
         }
       } catch (error) {
         console.error('导入 JSON 失败:', error)
-        alert('导入失败：文件格式不正确，请确保是有效的 JSON 文件')
+        toast.error('导入失败：文件格式不正确，请确保是有效的 JSON 文件')
       }
     }
     reader.onerror = () => {
-      alert('读取文件失败，请重试')
+      toast.error('读取文件失败，请重试')
     }
     reader.readAsText(file)
 

@@ -4,6 +4,7 @@ import { AuthModal } from './components/AuthModal'
 import { ChangelogModal } from './components/ChangelogModal'
 import { ThemeInit } from './components/ThemeInit'
 import ErrorBoundary from './ErrorBoundary'
+import { Toaster } from './lib/toast'
 import { lazyWithRetry } from './lib/lazyWithRetry'
 import { canUseAdminFeature, isAgentEnabled } from './lib/runtimeEnv'
 import { useAuth } from './contexts/AuthContext'
@@ -97,7 +98,7 @@ function App() {
               <Route path="/pricing" element={<PricingPage />} />
             </Routes>
           </Suspense>
-          <AuthModal />
+          <Toaster />          <AuthModal />
           <ChangelogModal />
         </BrowserRouter>
         </ResumeProvider>

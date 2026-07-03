@@ -2,10 +2,8 @@ import React, { useEffect, useState } from "react";
 import {
   ArrowUp,
   FileText,
-  Loader2,
-  Mic,
   Plus,
-  StopCircle,
+  Square,
   X,
 } from "lucide-react";
 
@@ -13,9 +11,6 @@ interface ComposerProps {
   input: string;
   isProcessing: boolean;
   isUploadingFile: boolean;
-  isVoiceRecording: boolean;
-  isVoiceProcessing: boolean;
-  isVoiceSpeaking: boolean;
   isResumePreviewActive: boolean;
   pendingAttachments: File[];
   fileInputRef: React.RefObject<HTMLInputElement | null>;
@@ -27,17 +22,14 @@ interface ComposerProps {
   onRemoveAttachment: (file: File) => void;
   onClickUpload: () => void;
   onShowResumeSelector: () => void;
-  onStartVoiceRecording: () => void;
-  onStopVoiceRecording: () => void;
+  /** 生成中点击停止（中止当前流式回复） */
+  onStop?: () => void;
 }
 
 export default function Composer({
   input,
   isProcessing,
   isUploadingFile,
-  isVoiceRecording,
-  isVoiceProcessing,
-  isVoiceSpeaking,
   isResumePreviewActive,
   pendingAttachments,
   fileInputRef,
@@ -49,8 +41,7 @@ export default function Composer({
   onRemoveAttachment,
   onClickUpload,
   onShowResumeSelector,
-  onStartVoiceRecording,
-  onStopVoiceRecording,
+  onStop,
 }: ComposerProps) {
   // 图片附件缩略图：为图片型附件生成 objectURL，随附件变化重建并回收，避免内存泄漏
   const [imagePreviewUrls, setImagePreviewUrls] = useState<Map<File, string>>(
@@ -138,7 +129,7 @@ export default function Composer({
           onPaste={handlePaste}
           placeholder={
             isProcessing
-              ? "正在处理中、可以继续输入..."
+              ? "正在生成回复…（可点右侧停止）"
               : "输入消息…（例如：应聘后端开发、帮我优化简历）"
           }
           className="min-h-[92px] w-full resize-none bg-transparent px-4 pt-3 text-base text-chat-ink outline-none placeholder:text-chat-ink-muted/70 dark:text-slate-200"
@@ -180,48 +171,35 @@ export default function Composer({
             </button>
           </div>
 
-          {input.trim() || pendingAttachments.length > 0 ? (
+          {isProcessing && onStop ? (
             <button
-              type="submit"
-              disabled={isProcessing || isUploadingFile}
-              className={`size-8 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-sm ${
-                isProcessing || isUploadingFile
-                  ? "cursor-not-allowed border border-chat-border bg-chat-canvas text-chat-ink-muted dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
-                  : "border border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700"
-              }`}
-              title={isProcessing ? "等待当前消息处理完成" : "发送消息"}
-              aria-label="发送消息"
+              type="button"
+              onClick={onStop}
+              className="size-8 rounded-full flex items-center justify-center border border-red-500 bg-red-500 text-white shadow-sm transition-all hover:bg-red-600 hover:border-red-600 active:scale-95"
+              title="停止生成"
+              aria-label="停止生成"
             >
-              <ArrowUp className="size-4" strokeWidth={2.5} />
+              <Square className="size-3.5 fill-current" />
             </button>
           ) : (
             <button
-              type="button"
-              onClick={isVoiceRecording ? onStopVoiceRecording : onStartVoiceRecording}
-              disabled={isProcessing || isVoiceProcessing}
-              className={`size-8 rounded-full flex items-center justify-center transition-all active:scale-95 ${
-                isVoiceRecording
-                  ? "animate-pulse bg-red-500 text-white"
-                  : isVoiceSpeaking
-                  ? "bg-emerald-600 text-white"
-                  : "bg-chat-canvas text-chat-ink-muted hover:bg-chat-user-bubble hover:text-chat-accent-deep dark:bg-slate-800"
-              } ${isVoiceProcessing ? "cursor-not-allowed opacity-50" : ""}`}
-              title={
-                isVoiceProcessing
-                  ? "识别中..."
-                  : isVoiceRecording
-                  ? "正在录音，点击停止"
-                  : "语音输入"
+              type="submit"
+              disabled={
+                isProcessing ||
+                isUploadingFile ||
+                (!input.trim() && pendingAttachments.length === 0)
               }
-              aria-label="语音输入"
+              className={`size-8 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-sm ${
+                isProcessing ||
+                isUploadingFile ||
+                (!input.trim() && pendingAttachments.length === 0)
+                  ? "cursor-not-allowed border border-chat-border bg-chat-canvas text-chat-ink-muted dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                  : "border border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700"
+              }`}
+              title="发送消息"
+              aria-label="发送消息"
             >
-              {isVoiceProcessing ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : isVoiceRecording ? (
-                <StopCircle className="size-4" />
-              ) : (
-                <Mic className="size-4" />
-              )}
+              <ArrowUp className="size-4" strokeWidth={2.5} />
             </button>
           )}
         </div>

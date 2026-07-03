@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from '@/lib/toast'
 import { Check, Loader2, Pencil, Plus, RefreshCw, Trash2, X, Trash, AlertTriangle } from 'lucide-react';
 import { SidebarTooltip } from './SidebarTooltip';
 import CustomScrollbar from '../common/CustomScrollbar';
@@ -315,7 +316,7 @@ export function RecentSessions({
       }
     } catch (error) {
       console.error('[RecentSessions] Failed to delete all sessions:', error);
-      alert('删除失败，请稍后重试');
+      toast.error('删除失败，请稍后重试');
     } finally {
       setIsLoading(false);
     }
@@ -327,7 +328,7 @@ export function RecentSessions({
 
   const handleCreateSessionClick = () => {
     if (!sessionLimits.can_create) {
-      alert(getSessionLimitMessage(sessionLimits));
+      toast.error(getSessionLimitMessage(sessionLimits));
       return;
     }
     onCreateSession();

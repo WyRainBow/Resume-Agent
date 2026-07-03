@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { toast } from '@/lib/toast'
 import { 
   getAllResumes, 
   deleteResume as deleteResumeService, 
@@ -157,7 +158,7 @@ export const useDashboardLogic = () => {
         
         // 简单的格式校验
         if (!data.basic || !data.education) {
-          alert('无效的简历 JSON 格式')
+          toast.error('无效的简历 JSON 格式')
           return
         }
 
@@ -167,7 +168,7 @@ export const useDashboardLogic = () => {
         await loadResumes()
       } catch (e) {
         console.error('Import failed', e)
-        alert('导入失败')
+        toast.error('导入失败')
       }
     }
     input.click()
@@ -199,7 +200,7 @@ export const useDashboardLogic = () => {
   const batchDelete = useCallback(async () => {
     // 检查是否有选中的简历
     if (selectedIds.size === 0) {
-      alert('请先选择要删除的简历')
+      toast.error('请先选择要删除的简历')
       return
     }
 
