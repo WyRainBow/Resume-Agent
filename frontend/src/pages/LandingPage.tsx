@@ -517,7 +517,7 @@ export default function LandingPage() {
           <motion.h1
             {...popIn}
             transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.12 }}
-            className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] text-slate-900 dark:text-white whitespace-nowrap"
+            className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.15] text-slate-900 dark:text-white sm:whitespace-nowrap"
           >
             帮你把经历<span className="text-blue-600 dark:text-blue-400">聊成一份好简历</span>
           </motion.h1>
