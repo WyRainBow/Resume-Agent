@@ -7,19 +7,27 @@ import { useEffect, useState } from 'react'
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react'
 
 type ToastKind = 'info' | 'success' | 'error'
-interface ToastItem { id: number; kind: ToastKind; text: string }
+interface ToastAction { label: string; onClick: () => void }
+interface ToastOptions { action?: ToastAction; duration?: number }
+interface ToastItem { id: number; kind: ToastKind; text: string; action?: ToastAction; duration: number }
 
 let seq = 0
 let listener: ((t: ToastItem) => void) | null = null
 
-function push(kind: ToastKind, text: string) {
-  listener?.({ id: ++seq, kind, text: String(text) })
+function push(kind: ToastKind, text: string, opts?: ToastOptions) {
+  listener?.({
+    id: ++seq,
+    kind,
+    text: String(text),
+    action: opts?.action,
+    duration: opts?.duration ?? (opts?.action ? 6000 : 4000),
+  })
 }
 
-export function toast(text: string) { push('info', text) }
-toast.info = (text: string) => push('info', text)
-toast.success = (text: string) => push('success', text)
-toast.error = (text: string) => push('error', text)
+export function toast(text: string, opts?: ToastOptions) { push('info', text, opts) }
+toast.info = (text: string, opts?: ToastOptions) => push('info', text, opts)
+toast.success = (text: string, opts?: ToastOptions) => push('success', text, opts)
+toast.error = (text: string, opts?: ToastOptions) => push('error', text, opts)
 
 const KIND_STYLE: Record<ToastKind, string> = {
   info: 'border-slate-200 bg-white text-slate-800 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100',
@@ -32,7 +40,7 @@ export function Toaster() {
   useEffect(() => {
     listener = (t) => {
       setItems((prev) => [...prev.slice(-3), t])
-      window.setTimeout(() => setItems((prev) => prev.filter((i) => i.id !== t.id)), 4000)
+      window.setTimeout(() => setItems((prev) => prev.filter((i) => i.id !== t.id)), t.duration)
     }
     return () => { listener = null }
   }, [])
@@ -52,6 +60,18 @@ export function Toaster() {
             <Info className="mt-0.5 h-4 w-4 shrink-0" />
           )}
           <span className="min-w-0 flex-1 break-words">{t.text}</span>
+          {t.action && (
+            <button
+              type="button"
+              onClick={() => {
+                t.action!.onClick()
+                setItems((prev) => prev.filter((i) => i.id !== t.id))
+              }}
+              className="shrink-0 rounded-md border border-current/30 px-2 py-0.5 text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/10"
+            >
+              {t.action.label}
+            </button>
+          )}
           <button
             type="button"
             aria-label="关闭提示"

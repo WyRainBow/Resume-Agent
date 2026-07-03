@@ -4081,6 +4081,29 @@ function CocoChatContent() {
   // 首页 hero 输入框带来的第一条消息：会话就绪后自动发出一次。
   // 复用 sendUserTextMessage（其内部会自动识别粘贴的简历文本并走解析），不新建平行链路。
   // 必须放在 sendUserTextMessage 定义之后，否则依赖数组会在 TDZ 中访问它而报错。
+  // 优化对比卡收尾：本批全部处理完（无 pending）且至少应用了一处 → 插入收尾卡（下载 PDF / 去编辑器）
+  const prevPendingCountRef = useRef(0);
+  useEffect(() => {
+    const pendingCount = pendingPatches.filter((p) => p.status === "pending").length;
+    const appliedCount = pendingPatches.filter((p) => p.status === "applied").length;
+    if (prevPendingCountRef.current > 0 && pendingCount === 0 && appliedCount > 0) {
+      const doneMsg: Message = {
+        id: `${Date.now()}-apply-done`,
+        role: "assistant",
+        content: `已应用 ${appliedCount} 处优化，右侧预览已更新。可以下载 PDF，或去编辑器精修排版。`,
+        timestamp: new Date().toISOString(),
+        meta: { applyDone: { count: appliedCount } },
+      };
+      setMessages((prev) => {
+        const updated = [...prev, doneMsg];
+        const sid = conversationId?.trim() || currentSessionId;
+        if (sid) void persistSessionSnapshot(sid, updated, false);
+        return updated;
+      });
+    }
+    prevPendingCountRef.current = pendingCount;
+  }, [pendingPatches, conversationId, currentSessionId, persistSessionSnapshot]);
+
   const heroInitialConsumedRef = useRef(false);
   useEffect(() => {
     if (heroInitialConsumedRef.current || !initialSessionResolved) return;
@@ -4501,6 +4524,27 @@ function CocoChatContent() {
     [sendUserTextMessage],
   );
 
+  // 收尾卡：下载当前右侧预览的 PDF；预览还没生成时给提示
+  const handleDownloadPdf = useCallback(() => {
+    const preview = selectedResumeId ? resumePdfPreview[selectedResumeId] : null;
+    const blob = preview?.blob;
+    if (!blob) {
+      toast("右侧 PDF 预览生成后即可下载，稍等片刻再点");
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${resumeData?.basic?.name || "简历"}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [selectedResumeId, resumePdfPreview, resumeData]);
+
+  // 收尾卡：去编辑器精修（当前简历已通过 setCurrentResumeId 记录，编辑器会加载它）
+  const handleGoEditor = useCallback(() => {
+    navigate("/workspace/latex");
+  }, [navigate]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedInput = input.trim();
@@ -4746,6 +4790,8 @@ function CocoChatContent() {
                     setInput("");
                     void sendUserTextMessage(msg);
                   }}
+                  onDownloadPdf={handleDownloadPdf}
+                  onGoEditor={handleGoEditor}
                 />
 
                 <StreamingLane

@@ -12,7 +12,7 @@ import DiagnosisToolCards, {
 import { ResumeDiffCard, ApplyAllPatchesBar } from "@/components/agent-chat/ResumeDiffCard";
 import { AssistantPaperCard } from "@/components/agent-chat/AssistantPaperCard";
 import { ParseImportTimerBadge } from "@/components/agent-chat/ParseImportTimerBadge";
-import { ImportSuccessCard } from "@/components/agent-chat/ImportSuccessCard";
+import { ImportSuccessCard, ApplyDoneCard } from "@/components/agent-chat/ImportSuccessCard";
 import type { PendingPatch } from "@/contexts/ResumeContext";
 import type { Message } from "@/types/chat";
 import type { ResumeData } from "@/pages/Workspace/v2/types";
@@ -73,6 +73,10 @@ interface MessageTimelineProps {
   onRegenerate: () => void;
   /** 成功卡片等的下一步建议 chip 点击（填入输入框） */
   onSuggestionClick?: (msg: string) => void;
+  /** 收尾卡片：下载 PDF */
+  onDownloadPdf?: () => void;
+  /** 收尾卡片：去编辑器精修 */
+  onGoEditor?: () => void;
 }
 
 function splitEmbeddedResponseFromThought(thought: string): {
@@ -141,6 +145,8 @@ export default function MessageTimeline({
   onOpenResumeSelector,
   onRegenerate,
   onSuggestionClick,
+  onDownloadPdf,
+  onGoEditor,
 }: MessageTimelineProps) {
   const isPlaceholderThought = (text: string) => text === "正在思考...";
   const [feedback, setFeedback] = useState<Record<string, "like" | "dislike" | undefined>>({});
@@ -254,6 +260,19 @@ export default function MessageTimeline({
                   </button>
                 </div>
               </div>
+            </div>
+          );
+        }
+
+        // 优化应用完成：渲染收尾卡片（闭环终点）
+        if (msg.meta?.applyDone) {
+          return (
+            <div key={msg.id || idx} className="chat-message-enter mb-6">
+              <ApplyDoneCard
+                count={msg.meta.applyDone.count}
+                onDownloadPdf={onDownloadPdf}
+                onGoEditor={onGoEditor}
+              />
             </div>
           );
         }
