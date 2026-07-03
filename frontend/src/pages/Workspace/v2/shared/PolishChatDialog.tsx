@@ -7,6 +7,7 @@ import { Loader2, Sparkles, Send, X, Eye, Check, Zap } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { rewriteResumeStream } from '../../../../services/api'
 import { useTypewriter } from '../../../../hooks/useTypewriter'
+import { ensureSkillBulletList } from '../utils/ensureBulletList'
 import type { ResumeData } from '../../types'
 
 interface PolishChatDialogProps {
@@ -145,10 +146,12 @@ export default function PolishChatDialog({
           appendContent(chunk)
         },
         () => {
-          // 完成
+          // 完成。专业技能：结果强制格式化成无序列表（预览气泡即显示列表样式，应用的也是它）
+          const finalContent =
+            path === 'skillContent' ? ensureSkillBulletList(fullContent) : fullContent
           setIsStreaming(false)
           setMessages(prev =>
-            prev.map(m => m.id === aiMsgId ? { ...m, content: fullContent, isStreaming: false } : m)
+            prev.map(m => m.id === aiMsgId ? { ...m, content: finalContent, isStreaming: false } : m)
           )
           inputRef.current?.focus()
         },
