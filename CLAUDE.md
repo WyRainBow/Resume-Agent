@@ -9,7 +9,7 @@
 - 用中文和我交互
 - 用户提产品 / 研发需求，Claude Code 负责理解、实现、验证和记录
 - 当前项目是 Resume-Agent 单仓库，包含 `frontend/` 与 `backend/`
-- 后端主服务端口固定为 `9000`，前端 Vite 默认端口为 `5173`
+- 后端主服务端口默认 `9000`，前端 Vite 默认端口为 `5173`；`9000` 被占用时可换端口启动（见 §3.2 端口冲突回退规则）
 - 核心约束：Agent 已合并进 `backend/agent/`，运行在主后端进程内；**没有独立 9100 端口 Agent 服务**
 - `knowledge-base/` 是设计、计划、评审和操作记录的唯一主知识库
 - `knowledge/` 是本地旧目录，已被 Git 忽略，不作为项目长期记录位置
@@ -268,6 +268,17 @@ cd frontend && npm run dev
 | 前端 | `http://127.0.0.1:5173` |
 | 后端 | `http://127.0.0.1:9000` |
 | OpenAPI | `http://127.0.0.1:9000/docs` |
+
+**端口冲突时的回退规则**：后端默认 `9000`。如果 `9000` 被其它进程占用（例如别的项目的服务），**不要去杀不属于本项目的进程**，改用其它端口启动后端（如 `8000`），并让前端 `/api` 代理指向该端口——`vite.config.ts` 的代理目标是环境变量驱动的，无需改配置文件：
+
+```bash
+# 后端换端口启动（示例 8000）
+.venv/bin/python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+# 前端 dev 时把 /api 代理指到该端口（VITE_DEV_PROXY_TARGET 覆盖默认 9000，不落盘、不提交）
+cd frontend && VITE_DEV_PROXY_TARGET=http://127.0.0.1:8000 npm run dev
+```
+
+验证代理已通：`curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:5173/api/agent/history/sessions/list` 返回 `401`（到达后端、需鉴权）即正常，`502` 说明没连上后端。
 
 ### 3.3 验证命令
 

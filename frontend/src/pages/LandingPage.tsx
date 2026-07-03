@@ -46,6 +46,13 @@ const popIn = {
 
 const REPO_URL = 'https://github.com/WyRainBow/Resume-Agent'
 
+// 首屏输入框下方的示例快捷入口：一点即进对话（降低冷启动，并埋「按岗位改一版」的高频钩子）
+const HERO_CHIPS = [
+  '我是应届生、帮我做一份简历',
+  '按目标岗位 JD 帮我改简历',
+  '帮我把经历写得更专业',
+]
+
 // 简历制作核心能力（均为现有产品功能，不含面试类）
 const CAPABILITIES = [
   {
@@ -274,12 +281,31 @@ export default function LandingPage() {
   const [showWechatCard, setShowWechatCard] = useState(false)
   const [githubStars, setGithubStars] = useState<number | null>(null)
   const [openFaq, setOpenFaq] = useState<number | null>(0)
+  const [heroInput, setHeroInput] = useState('')
   const logoutMenuRef = useRef<HTMLDivElement>(null)
   const wechatMenuRef = useRef<HTMLDivElement>(null)
 
   const handleOpenAgent = () => {
     if (!agentEnabled) return
     navigate('/agent/new')
+  }
+
+  // 首屏输入即体验：把用户输入交给对话页作为第一条消息（对话页会自动识别粘贴的简历文本并走解析）。
+  // 用 sessionStorage 传递、fromHome 让对话页跳过「加载最近会话」，直接开一个新对话。
+  const startWithText = (text: string) => {
+    const trimmed = text.trim()
+    if (!trimmed) return
+    if (agentEnabled) {
+      sessionStorage.setItem('agent_initial_text', trimmed)
+      navigate('/agent/new', { state: { fromHome: Date.now() } })
+    } else {
+      navigate('/create-new')
+    }
+  }
+
+  const handleHeroSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    startWithText(heroInput)
   }
 
   // 拉取 GitHub star 数（公开 API，无需 token）
@@ -460,9 +486,9 @@ export default function LandingPage() {
           <motion.h1
             {...popIn}
             transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.12 }}
-            className="text-5xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-[1.1] text-slate-900 dark:text-white"
+            className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.1] text-slate-900 dark:text-white whitespace-nowrap"
           >
-            一站式<span className="text-blue-600 dark:text-blue-400">简历工程</span>
+            帮你把经历<span className="text-blue-600 dark:text-blue-400">聊成一份好简历</span>
           </motion.h1>
 
           <motion.p
@@ -470,31 +496,86 @@ export default function LandingPage() {
             transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.24 }}
             className="mt-6 text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed max-w-xl mx-auto"
           >
-            AI 生成、润色、岗位匹配到 PDF 导出、一站做完、专业排版直接投递。
+            说一句你的经历、AI 陪你把它理成条理清晰、对得上岗位的简历。
           </motion.p>
 
-          <motion.div
-            {...popIn}
-            transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.36 }}
-            className="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4"
-          >
-            <button
-              onClick={() => navigate('/create-new')}
-              className="w-full sm:w-auto px-7 py-3.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold text-base hover:bg-slate-800 dark:hover:bg-slate-100 transition-all flex items-center justify-center gap-2 group active:scale-[0.98]"
+          {agentEnabled ? (
+            <motion.div
+              {...popIn}
+              transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.36 }}
+              className="mt-9 max-w-2xl mx-auto"
             >
-              开始创建
-              <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
-            </button>
-            {agentEnabled && (
+              <form onSubmit={handleHeroSubmit} className="relative">
+                <textarea
+                  value={heroInput}
+                  onChange={(e) => setHeroInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+                      e.preventDefault()
+                      startWithText(heroInput)
+                    }
+                  }}
+                  rows={3}
+                  placeholder="说说你做过什么、我来帮你写成简历（例如：计算机应届、做过一个校园二手交易小程序、实习 3 个月）"
+                  className="w-full resize-none rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-5 py-4 pr-16 text-base text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 dark:focus:border-blue-700 transition-all"
+                />
+                <button
+                  type="submit"
+                  aria-label="开始"
+                  disabled={!heroInput.trim()}
+                  className="absolute right-3 bottom-3 h-11 w-11 flex items-center justify-center rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95"
+                >
+                  <ArrowUpRight className="w-5 h-5" />
+                </button>
+              </form>
+
+              <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+                {HERO_CHIPS.map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => startWithText(chip)}
+                    className="px-3.5 py-1.5 rounded-full text-[13px] font-medium text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800/70 hover:bg-blue-50 dark:hover:bg-slate-800 hover:text-blue-700 dark:hover:text-blue-300 border border-transparent hover:border-blue-200 dark:hover:border-blue-900/60 transition-all active:scale-[0.98]"
+                  >
+                    {chip}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+                已有简历？
+                <button
+                  type="button"
+                  onClick={() => navigate('/create-new')}
+                  className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  直接导入
+                </button>
+                <span className="mx-1.5 text-slate-300 dark:text-slate-600">·</span>
+                <button
+                  type="button"
+                  onClick={() => navigate('/my-resumes')}
+                  className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  选择已有简历
+                </button>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              {...popIn}
+              transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.36 }}
+              className="mt-9 flex items-center justify-center"
+            >
               <button
-                onClick={handleOpenAgent}
-                className="w-full sm:w-auto px-7 py-3.5 bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-300 rounded-xl font-bold text-base hover:bg-blue-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 border border-blue-200 dark:border-blue-900/60 hover:border-blue-300 dark:hover:border-blue-800 group active:scale-[0.98]"
+                onClick={() => navigate('/create-new')}
+                className="w-full sm:w-auto px-7 py-3.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl font-bold text-base hover:bg-slate-800 dark:hover:bg-slate-100 transition-all flex items-center justify-center gap-2 group active:scale-[0.98]"
               >
-                <Sparkles className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                体验 AI 助手
+                开始创建
+                <ChevronRight className="w-5 h-5 group-hover:translate-x-0.5 transition-transform" />
               </button>
-            )}
-          </motion.div>
+            </motion.div>
+          )}
 
           <motion.a
             {...popIn}

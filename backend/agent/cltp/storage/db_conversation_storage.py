@@ -479,6 +479,8 @@ class DBConversationStorage:
         base_seq: int,
         messages_delta: List[Message],
         user_id: Optional[int] = None,
+        *,
+        is_admin: bool = False,
     ) -> Dict[str, Any]:
         if not self._schema_supports_message_hash():
             logger.warning(
@@ -486,7 +488,7 @@ class DBConversationStorage:
                 "Please run: alembic upgrade head"
             )
             return self._append_session_messages_legacy(
-                session_id, base_seq, messages_delta, user_id=user_id
+                session_id, base_seq, messages_delta, user_id=user_id, is_admin=is_admin
             )
 
         now = datetime.now()
@@ -495,7 +497,7 @@ class DBConversationStorage:
             conversation = self._fetch_conversation_any(db, session_id)
             if conversation is None:
                 ensure_can_create_session(
-                    self, session_id, user_id, is_admin=False
+                    self, session_id, user_id, is_admin=is_admin
                 )
                 conversation = AgentConversation(
                     session_id=session_id,
@@ -512,7 +514,9 @@ class DBConversationStorage:
             else:
                 if conversation.user_id is None and user_id is not None:
                     conversation.user_id = user_id
-                self._validate_conversation_owner(conversation, user_id)
+                self._validate_conversation_owner(
+                    conversation, user_id, is_admin=is_admin
+                )
 
             existing_count = (
                 db.query(AgentMessage)
@@ -598,7 +602,7 @@ class DBConversationStorage:
                 )
                 self._supports_message_hash = False
                 return self._append_session_messages_legacy(
-                    session_id, base_seq, messages_delta, user_id=user_id
+                    session_id, base_seq, messages_delta, user_id=user_id, is_admin=is_admin
                 )
             raise
         finally:
@@ -610,6 +614,8 @@ class DBConversationStorage:
         base_seq: int,
         messages_delta: List[Message],
         user_id: Optional[int] = None,
+        *,
+        is_admin: bool = False,
     ) -> Dict[str, Any]:
         now = datetime.now()
         db = SessionLocal()
@@ -619,7 +625,7 @@ class DBConversationStorage:
             )
             if conversation is None:
                 ensure_can_create_session(
-                    self, session_id, user_id, is_admin=False
+                    self, session_id, user_id, is_admin=is_admin
                 )
                 conversation = AgentConversation(
                     session_id=session_id,
@@ -634,7 +640,9 @@ class DBConversationStorage:
                 db.flush()
 
             else:
-                self._validate_conversation_owner(conversation, user_id=user_id)
+                self._validate_conversation_owner(
+                    conversation, user_id=user_id, is_admin=is_admin
+                )
 
             existing_count = (
                 db.execute(

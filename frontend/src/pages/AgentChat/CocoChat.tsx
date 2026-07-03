@@ -675,8 +675,10 @@ function CocoChatContent() {
     const hasExplicitId = !!explicitSessionId?.trim();
     const token = localStorage.getItem("auth_token");
     const forceNew = (location.state as { forceNew?: number } | null)?.forceNew;
+    // 从首页 hero 输入框进入（fromHome）时，也跳过「加载最近会话」，直接开一个新对话。
+    const fromHome = (location.state as { fromHome?: number } | null)?.fromHome;
 
-    if (forceNew || isCreatingNewSessionRef.current) {
+    if (forceNew || fromHome || isCreatingNewSessionRef.current) {
       hasBootstrappedSessionRef.current = true;
       setInitialSessionResolved(true);
       return () => {
@@ -3915,6 +3917,35 @@ function CocoChatContent() {
       isPasteImporting,
     ],
   );
+
+  // 首页 hero 输入框带来的第一条消息：会话就绪后自动发出一次。
+  // 复用 sendUserTextMessage（其内部会自动识别粘贴的简历文本并走解析），不新建平行链路。
+  // 必须放在 sendUserTextMessage 定义之后，否则依赖数组会在 TDZ 中访问它而报错。
+  const heroInitialConsumedRef = useRef(false);
+  useEffect(() => {
+    if (heroInitialConsumedRef.current || !initialSessionResolved) return;
+    const fromHome = (location.state as { fromHome?: number } | null)?.fromHome;
+    if (!fromHome) return;
+    const pending = sessionStorage.getItem("agent_initial_text");
+    if (!pending) return;
+    if (
+      isProcessing ||
+      isPasteImporting ||
+      isCreatingNewSessionRef.current ||
+      messages.length > 0
+    )
+      return;
+    heroInitialConsumedRef.current = true;
+    sessionStorage.removeItem("agent_initial_text");
+    void sendUserTextMessage(pending);
+  }, [
+    initialSessionResolved,
+    location.state,
+    isProcessing,
+    isPasteImporting,
+    messages.length,
+    sendUserTextMessage,
+  ]);
 
   const submitMessageWithAttachments = useCallback(
     async (userMessage: string, attachmentsToProcess: File[]) => {

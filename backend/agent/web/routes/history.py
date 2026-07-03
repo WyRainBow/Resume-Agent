@@ -401,7 +401,10 @@ async def save_session_messages(
         )
         history_manager.load_messages(messages)
         meta = conversation_manager.save_history(
-            session_id, history_manager, user_id=current_user.id
+            session_id,
+            history_manager,
+            user_id=current_user.id,
+            is_admin=getattr(current_user, "role", None) == "admin",
         )
         if last_message_hash:
             _save_fingerprint_cache[cache_key] = (
@@ -461,6 +464,7 @@ async def append_session_messages(
                 "reason": "idempotent-noop",
             }
 
+        is_admin = getattr(current_user, "role", None) == "admin"
         append_method = getattr(storage, "append_session_messages", None)
         if not callable(append_method):
             # Fallback for storage adapters without append support:
@@ -483,14 +487,21 @@ async def append_session_messages(
             )
             history_manager.load_messages(merged)
             meta = conversation_manager.save_history(
-                session_id, history_manager, user_id=current_user.id
+                session_id,
+                history_manager,
+                user_id=current_user.id,
+                is_admin=is_admin,
             )
             new_seq = len(merged)
             accepted_count = len(messages_delta)
             skipped = accepted_count == 0
         else:
             result = append_method(
-                session_id, base_seq, messages_delta, user_id=current_user.id
+                session_id,
+                base_seq,
+                messages_delta,
+                user_id=current_user.id,
+                is_admin=is_admin,
             )
             if result.get("conflict"):
                 raise HTTPException(
