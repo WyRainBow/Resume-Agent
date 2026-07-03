@@ -44,9 +44,10 @@ from backend.agent.utils.experience_entry import (
     OptimizeTarget,
     build_optimization_resume_patch,
     build_optimize_clarification_suggestions,
+    build_optimize_plan_overview,
     detect_optimize_section_kind,
+    detect_whole_optimize_mode,
     is_generic_optimize_section_query,
-    is_whole_resume_optimize_query,
     list_optimize_targets,
     resolve_optimize_target,
 )
@@ -841,19 +842,34 @@ class Manus(ToolCallAgent):
     async def _optimize_whole_resume(
         self, user_input: str, resume_data: Dict[str, Any]
     ) -> tuple[str, int]:
-        """一键优化整份简历：对所有实习/工作、项目、开源 + 专业技能 + 自我评价并行生成优化对比，
-        全部入队。返回 (回复文案, 入队补丁数)。"""
+        """一键优化整份简历：对所有实习/工作、项目、开源 + 专业技能 + 自我评价并行生成优化对比。
+        每段完成即入队（前端对比卡渐进出现），最终回复列出优化了哪几段。返回 (回复文案, 补丁数)。"""
         import asyncio
 
-        targets = list_optimize_targets(resume_data)
+        async def _run(
+            label: str, coro
+        ) -> tuple[str, Optional[Dict[str, Any]]]:
+            try:
+                return label, await coro
+            except Exception as exc:
+                logger.warning(f"[Manus] 整份优化子任务失败 label={label}: {exc}")
+                return label, None
+
         tasks = [
-            self._llm_optimize_section_patch(user_input, resume_data, t) for t in targets
+            _run(
+                t.label or "该段经历",
+                self._llm_optimize_section_patch(user_input, resume_data, t),
+            )
+            for t in list_optimize_targets(resume_data)
         ]
         for field, label in (("skillContent", "专业技能"), ("selfEvaluation", "自我评价")):
             val = resume_data.get(field)
             if isinstance(val, str) and val.strip():
                 tasks.append(
-                    self._llm_optimize_field_patch(user_input, resume_data, field, label)
+                    _run(
+                        label,
+                        self._llm_optimize_field_patch(user_input, resume_data, field, label),
+                    )
                 )
         if not tasks:
             return (
@@ -861,18 +877,24 @@ class Manus(ToolCallAgent):
                 0,
             )
 
-        results = await asyncio.gather(*tasks, return_exceptions=True)
         total = 0
-        for res in results:
-            if isinstance(res, Exception) or not res:
+        done_labels: List[str] = []
+        # as_completed：每段一完成就入队 patch，前端对比卡随之渐进出现，过程可见
+        for fut in asyncio.as_completed(tasks):
+            label, res = await fut
+            if not res:
                 continue
             items = res.get("optimization_suggestions") or []
-            total += self._queue_optimization_patches(items)
+            queued = self._queue_optimization_patches(items)
+            if queued > 0:
+                total += queued
+                done_labels.append(re.sub(r"\*+", "", label).strip())
 
         if total <= 0:
             return ("这次没能生成可用的优化对比，请稍后再试。", 0)
+        listed = "、".join(done_labels[:6]) + ("等" if len(done_labels) > 6 else "")
         return (
-            f"已为整份简历生成 {total} 处优化对比，请在下方逐条确认是否应用（也可以点「全部应用」）。",
+            f"已优化：{listed}，共 {total} 处对比。请在下方逐条确认是否应用。",
             total,
         )
 
@@ -1806,13 +1828,31 @@ class Manus(ToolCallAgent):
                         self.state = AgentState.FINISHED
                         return False
 
-                    # 1. 一键优化整份简历（优化我的简历 / 整份 / 全部）——核心动作
-                    if is_whole_resume_optimize_query(user_input):
+                    # 1. 整份优化按明确程度分两档（过程透明）：
+                    #    explicit（整份/全部/一起优化）→ 直接执行；
+                    #    soft（优化简历/我的简历）→ 先回「优化计划」清单让用户选。
+                    whole_mode = detect_whole_optimize_mode(user_input)
+                    if whole_mode == "explicit":
                         whole_reply, _ = await self._optimize_whole_resume(
                             user_input, resume_snapshot
                         )
-                        logger.info("🎯 OPTIMIZE_SECTION: whole-resume optimize")
+                        logger.info("🎯 OPTIMIZE_SECTION: whole-resume optimize (explicit)")
                         return _finish_optimize(whole_reply)
+                    if whole_mode == "soft":
+                        plan_summary, plan_items, plan_total = build_optimize_plan_overview(
+                            resume_snapshot
+                        )
+                        if plan_total <= 0:
+                            return _finish_optimize(
+                                "当前简历里还没有可优化的内容，先导入简历或补一段经历，"
+                                "我再帮你优化。"
+                            )
+                        logger.info("🎯 OPTIMIZE_SECTION: whole-optimize plan (soft)")
+                        return _finish_optimize(
+                            f"我看了你的简历，可优化的部分有：{plan_summary}（共 {plan_total} 处）。"
+                            "想全部一起优化、还是先从某一部分开始？\n\n"
+                            f"%%SUGGESTIONS%%{json.dumps(plan_items, ensure_ascii=False)}%%END%%"
+                        )
 
                     recent_assistant = [
                         (m.content or "")
