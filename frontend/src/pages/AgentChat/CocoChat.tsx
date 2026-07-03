@@ -567,7 +567,6 @@ function CocoChatContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(true);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -1457,7 +1456,6 @@ function CocoChatContent() {
     currentThought,
     currentAnswer,
     isProcessing,
-    isConnected,
     lastError,
     answerCompleteCount,
     sendMessage,
@@ -1608,7 +1606,6 @@ function CocoChatContent() {
 
   useEffect(() => {
     if (isDesktop) {
-      setIsSidebarOpen(false);
     }
   }, [isDesktop]);
 
@@ -3136,18 +3133,15 @@ function CocoChatContent() {
     (sessionId: string) => {
       if (!sessionId) {
         void createNewSession();
-        setIsSidebarOpen(false);
         return;
       }
       navigate(`/agent/new?sessionId=${sessionId}`, { replace: true });
-      setIsSidebarOpen(false);
     },
     [createNewSession, navigate],
   );
 
   const handleCreateSession = useCallback(() => {
     void createNewSession();
-    setIsSidebarOpen(false);
   }, [createNewSession]);
 
   // 监听 forceNew state（侧边栏"+"在已处于 /agent/new 时触发）

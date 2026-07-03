@@ -33,8 +33,6 @@ export default function WorkspaceV2() {
   // 跟踪编辑状态和保存状态
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [initialResumeData, setInitialResumeData] = useState<any>(null)
-  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false)
-  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null)
   const [isAutoRenderPending, setIsAutoRenderPending] = useState(false)
   // 评分状态
   const [jdText, setJdText] = useState('')
@@ -413,39 +411,6 @@ export default function WorkspaceV2() {
         onSave={handleAISave}
       />
 
-      {/* 未保存提醒对话框 */}
-      {showUnsavedDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-2xl p-6 max-w-sm">
-            <h3 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">
-              未保存的更改
-            </h3>
-            <p className="text-slate-600 dark:text-slate-300 mb-6">
-              记得保存简历！您的更改可能会丢失。
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowUnsavedDialog(false)
-                  if (pendingNavigation) {
-                    pendingNavigation()
-                    setPendingNavigation(null)
-                  }
-                }}
-                className="flex-1 px-4 py-2 rounded-lg bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-slate-100 hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors font-medium"
-              >
-                继续离开
-              </button>
-              <button
-                onClick={() => setShowUnsavedDialog(false)}
-                className="flex-1 px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors font-medium"
-              >
-                留下保存
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </WorkspaceLayout>
   )
 }
