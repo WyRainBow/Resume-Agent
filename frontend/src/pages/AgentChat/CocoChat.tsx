@@ -4653,7 +4653,20 @@ function CocoChatContent() {
                   <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-lg mb-4">
                     <span className="text-sm text-red-600 dark:text-red-400 flex-1">{resumeError}</span>
                     <button
-                      onClick={() => navigator.clipboard.writeText(resumeError)}
+                      onClick={() => {
+                        setResumeError(null);
+                        const lastUser = [...messages].reverse().find((m) => m.role === "user");
+                        if (lastUser) void sendUserTextMessage(lastUser.content);
+                      }}
+                      className="text-xs font-medium text-red-600 dark:text-red-300 border border-red-300 dark:border-red-800 rounded-md px-2 py-1 hover:bg-red-100 dark:hover:bg-red-900/40 shrink-0"
+                    >
+                      重新发送
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(resumeError);
+                        toast.success("已复制错误信息");
+                      }}
                       className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 underline shrink-0"
                     >
                       复制
