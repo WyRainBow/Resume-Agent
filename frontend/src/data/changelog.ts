@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.5.6',
+    date: '2026-07-03 10:44',
+    added: [
+      '管理员账号历史会话数量放开为无限制（普通账号仍为 10 条）',
+    ],
+  },
+  {
     version: '2.5.5',
     date: '2026-07-03 01:02',
     fixed: [

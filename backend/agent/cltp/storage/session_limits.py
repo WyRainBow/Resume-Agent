@@ -47,8 +47,11 @@ def ensure_can_create_session(
     *,
     is_admin: bool = False,
 ) -> None:
-    """新建会话前校验配额；更新已有会话不受限。"""
+    """新建会话前校验配额；更新已有会话不受限；管理员不限会话数。"""
     if user_id is None:
+        return
+    if is_admin:
+        # 管理员无会话数上限
         return
     if user_owns_session(storage, session_id, user_id, is_admin=is_admin):
         return
@@ -58,8 +61,17 @@ def ensure_can_create_session(
         raise SessionLimitExceeded(current=current)
 
 
-def session_limit_status(storage: Any, user_id: int) -> dict[str, int | bool]:
+def session_limit_status(
+    storage: Any, user_id: int, *, is_admin: bool = False
+) -> dict[str, int | bool | None]:
     current = count_user_sessions(storage, user_id)
+    if is_admin:
+        # 管理员无上限：max_sessions=None 表示不限制
+        return {
+            "max_sessions": None,
+            "current_count": current,
+            "can_create": True,
+        }
     limit = MAX_SESSIONS_PER_USER
     return {
         "max_sessions": limit,

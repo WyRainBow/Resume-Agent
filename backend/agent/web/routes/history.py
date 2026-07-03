@@ -268,7 +268,11 @@ async def list_sessions(
                 "page_size": page_size,
                 "total_pages": total_pages,
             },
-            "limits": session_limit_status(storage, current_user.id),
+            "limits": session_limit_status(
+                storage,
+                current_user.id,
+                is_admin=getattr(current_user, "role", None) == "admin",
+            ),
         }
     except HTTPException:
         raise

@@ -460,7 +460,11 @@ export function RecentSessions({
         <div className="text-xs font-normal text-gray-500 truncate whitespace-nowrap">
           历史会话
           <span className="ml-1 text-[10px] text-gray-400">
-            ({sessionLimits.current_count}/{sessionLimits.max_sessions})
+            ({sessionLimits.current_count}
+            {sessionLimits.max_sessions === null
+              ? ' · 无限制'
+              : `/${sessionLimits.max_sessions}`}
+            )
           </span>
         </div>
         <div className="flex items-center gap-0.5 shrink-0">

@@ -1,7 +1,7 @@
 export const MAX_SESSIONS_PER_USER = 10;
 
 export type SessionLimits = {
-  max_sessions: number;
+  max_sessions: number | null; // null = 无限制（管理员）
   current_count: number;
   can_create: boolean;
 };
@@ -19,15 +19,17 @@ export function parseSessionLimits(data: unknown): SessionLimits {
   }
 
   const maxSessions =
-    typeof limits.max_sessions === 'number'
-      ? limits.max_sessions
-      : MAX_SESSIONS_PER_USER;
+    limits.max_sessions === null
+      ? null
+      : typeof limits.max_sessions === 'number'
+        ? limits.max_sessions
+        : MAX_SESSIONS_PER_USER;
   const currentCount =
     typeof limits.current_count === 'number' ? limits.current_count : 0;
   const canCreate =
     typeof limits.can_create === 'boolean'
       ? limits.can_create
-      : currentCount < maxSessions;
+      : maxSessions === null || currentCount < maxSessions;
 
   return {
     max_sessions: maxSessions,
