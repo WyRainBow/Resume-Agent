@@ -163,6 +163,73 @@ def is_generic_optimize_section_query(user_input: str) -> bool:
     return False
 
 
+# 「优化整份简历」类关键词（整体/全部优化，非某一段）
+_WHOLE_RESUME_MARKERS = (
+    "整份",
+    "整个简历",
+    "整篇",
+    "通篇",
+    "全部经历",
+    "所有经历",
+    "全部内容",
+    "所有内容",
+    "整体简历",
+    "全简历",
+    "我的简历",
+    "这份简历",
+    "全部优化",
+    "所有都优化",
+    "都优化",
+    "一起优化",
+    "全都优化",
+)
+
+
+def is_whole_resume_optimize_query(user_input: str) -> bool:
+    """是否为「优化整份简历」（对所有可优化 section 一起优化）。"""
+    text = _normalize_match_text(user_input or "")
+    if not text:
+        return False
+    if any(marker in text for marker in _WHOLE_RESUME_MARKERS):
+        return True
+    # 「优化简历 / 帮我优化简历」这类不指明段落的整体请求也算整份
+    core = _clean_experience_query_fragment(_normalize_optimize_query_text(user_input or ""))
+    return core in {"简历", "我的简历"}
+
+
+# section 类型关键词 → 规范化 section kind。区分「优化实习/项目/开源/技能/自我评价」，
+# 让优化收窄到用户点名的那一类（而不是把所有经历混在一起让用户挑）。
+_SECTION_KIND_KEYWORDS: List[tuple[str, str]] = [
+    ("opensource", "开源"),
+    ("projects", "项目"),
+    ("projects", "比赛"),
+    ("projects", "竞赛"),
+    ("experience", "实习"),
+    ("experience", "工作"),
+    ("skills", "技能"),
+    ("skills", "技术栈"),
+    ("selfEvaluation", "自我评价"),
+    ("selfEvaluation", "个人评价"),
+    ("selfEvaluation", "个人总结"),
+    ("selfEvaluation", "自我介绍"),
+]
+
+
+def detect_optimize_section_kind(user_input: str) -> Optional[str]:
+    """从「优化X」里识别用户点名的 section 类型；识别不到返回 None。
+
+    返回值：experience / projects / openSource / skills / selfEvaluation。
+    仅用于「优化某类 section」的泛化请求收窄，不覆盖「优化某公司」的精确匹配。
+    """
+    text = _normalize_match_text(user_input or "")
+    if not text:
+        return None
+    for kind, keyword in _SECTION_KIND_KEYWORDS:
+        if keyword in text:
+            return kind
+    return None
+
+
 SectionKind = Literal["experience", "opensource", "projects"]
 
 
@@ -235,9 +302,15 @@ def _make_optimize_target(
     )
 
 
-def list_optimize_targets(resume_data: Dict[str, Any]) -> List[OptimizeTarget]:
+def list_optimize_targets(
+    resume_data: Dict[str, Any],
+    section_kind: Optional[str] = None,
+) -> List[OptimizeTarget]:
+    """列出可优化目标；section_kind 传入时只列该类（experience/projects/opensource）。"""
     targets: List[OptimizeTarget] = []
     for array_path, kind, entries, value_field in _iter_optimize_sections(resume_data):
+        if section_kind is not None and kind != section_kind:
+            continue
         for idx, raw in enumerate(entries):
             targets.append(_make_optimize_target(array_path, idx, raw, kind, value_field))
     return targets
@@ -245,9 +318,17 @@ def list_optimize_targets(resume_data: Dict[str, Any]) -> List[OptimizeTarget]:
 
 def build_optimize_clarification_suggestions(
     resume_data: Dict[str, Any],
+    section_kind: Optional[str] = None,
+    *,
+    include_all: bool = True,
 ) -> List[Dict[str, str]]:
+    """澄清选择项；section_kind 传入时只列该类，include_all 时顶部加「全部一起优化」。"""
     items: List[Dict[str, str]] = []
+    if include_all:
+        items.append({"text": "✨ 全部一起优化（整份简历）", "msg": "优化我的整份简历"})
     for array_path, kind, entries, _ in _iter_optimize_sections(resume_data):
+        if section_kind is not None and kind != section_kind:
+            continue
         for idx, raw in enumerate(entries):
             if not isinstance(raw, dict):
                 continue

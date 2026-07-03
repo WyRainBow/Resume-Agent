@@ -4741,7 +4741,10 @@ function CocoChatContent() {
                       void sendUserTextMessage(lastUserMsg.content);
                     }
                   }}
-                  onSuggestionClick={(msg) => setInput(msg)}
+                  onSuggestionClick={(msg) => {
+                    setInput("");
+                    void sendUserTextMessage(msg);
+                  }}
                 />
 
                 <StreamingLane
@@ -4749,7 +4752,10 @@ function CocoChatContent() {
                   currentAnswer={currentAnswer}
                   isProcessing={isProcessing}
                   suggestions={currentSuggestions}
-                  onSuggestionClick={(msg) => setInput(msg)}
+                  onSuggestionClick={(msg) => {
+                    setInput("");
+                    void sendUserTextMessage(msg);
+                  }}
                   shouldHideResponseInChat={pendingPatches.some(
                     (p) => p.message_id === "current",
                   )}
