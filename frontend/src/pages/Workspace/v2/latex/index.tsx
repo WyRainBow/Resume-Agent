@@ -105,7 +105,7 @@ export default function LaTeXWorkspace() {
   resumeDataRef.current = resumeData
   loadingRef.current = loading
 
-  useAutoSaveResume({
+  const { saveStatus, saveError } = useAutoSaveResume({
     resumeData,
     currentResumeId,
     routeResumeId: resumeId,
@@ -265,6 +265,8 @@ export default function LaTeXWorkspace() {
       {/* 顶部导航栏 */}
       <Header
         saveSuccess={saveSuccess}
+        saveStatus={saveStatus}
+        saveError={saveError}
         onGlobalAIImport={handleGlobalAIImport}
         onSaveToDashboard={handleSaveToDashboard}
         onExportJSON={handleExportJSON}

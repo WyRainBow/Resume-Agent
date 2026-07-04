@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { saveResume, setCurrentResumeId } from '../../../../services/resumeStorage'
 import type { ResumeData } from '../types'
 
-type AutoSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error'
+export type AutoSaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error'
 
 interface UseAutoSaveResumeProps {
   resumeData: ResumeData

@@ -6,12 +6,16 @@ import { motion } from 'framer-motion'
 import { Check, BookmarkPlus, Upload, LayoutGrid, List, ChevronRight, Sparkles, Code2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { ExportButton } from './ExportButton'
+import { SaveStatusIndicator } from './SaveStatusIndicator'
+import type { AutoSaveStatus } from '../hooks/useAutoSaveResume'
 import { getStoredAuthRole } from '@/lib/runtimeEnv'
 
 type EditMode = 'click' | 'scroll' | 'json'
 
 interface HeaderProps {
   saveSuccess: boolean
+  saveStatus?: AutoSaveStatus
+  saveError?: string | null
   onGlobalAIImport: () => void
   onSaveToDashboard: () => void
   onExportJSON?: () => void
@@ -24,7 +28,7 @@ interface HeaderProps {
   onEditModeChange?: (mode: EditMode) => void
 }
 
-export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF, editMode, onEditModeChange }: HeaderProps) {
+export function Header({ saveSuccess, saveStatus, saveError, onGlobalAIImport, onSaveToDashboard, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF, editMode, onEditModeChange }: HeaderProps) {
   const [importMenuOpen, setImportMenuOpen] = useState(false)
   const importMenuRef = useRef<HTMLDivElement>(null)
   const isAdmin = getStoredAuthRole() === 'admin'
@@ -114,6 +118,9 @@ export function Header({ saveSuccess, onGlobalAIImport, onSaveToDashboard, onExp
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4, delay: 0.3 }}
       >
+        {/* 自动保存常驻状态 */}
+        {saveStatus !== undefined && <SaveStatusIndicator status={saveStatus} error={saveError} />}
+
         {/* 统一导入下拉：AI 导入 / JSON 导入 */}
         {(onGlobalAIImport || onImportJSON) && (
           <div className="relative" ref={importMenuRef}>

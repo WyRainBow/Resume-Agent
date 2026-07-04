@@ -6,7 +6,7 @@ import { toast } from '@/lib/toast'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 // Hooks
-import { useAIImport, usePDFOperations, useResumeData } from './hooks'
+import { useAIImport, useAutoSaveResume, usePDFOperations, useResumeData } from './hooks'
 
 // 组件
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
@@ -129,6 +129,14 @@ export default function WorkspaceV2() {
   // 文件输入引用（用于导入 JSON）
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // 自动保存（与 latex/html 工作台同一保存模型）
+  const { saveStatus, saveError } = useAutoSaveResume({
+    resumeData,
+    currentResumeId,
+    isDataLoaded,
+    setCurrentId,
+  })
+
   // 监听编辑状态：页面加载时保存初始状态
   useEffect(() => {
     if (!initialResumeData) {
@@ -144,13 +152,15 @@ export default function WorkspaceV2() {
     }
   }, [resumeData, initialResumeData, saveSuccess])
 
-  // 保存成功时，更新初始状态
+  // 保存成功时（手动保存或自动保存），更新初始状态
+  // 依赖只跟保存状态：仅在“变为已保存”那一刻快照，避免把保存后的新编辑误标为已保存
   useEffect(() => {
-    if (saveSuccess) {
+    if (saveSuccess || saveStatus === 'saved') {
       setInitialResumeData(JSON.stringify(resumeData))
       setHasUnsavedChanges(false)
     }
-  }, [saveSuccess, resumeData])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveSuccess, saveStatus])
 
   // 页面卸载时提醒用户保存
   useEffect(() => {
@@ -288,6 +298,8 @@ export default function WorkspaceV2() {
       {/* 顶部导航栏 */}
       <Header
         saveSuccess={saveSuccess}
+        saveStatus={saveStatus}
+        saveError={saveError}
         onGlobalAIImport={handleGlobalAIImport}
         onSaveToDashboard={handleSaveToDashboard}
         onExportJSON={handleExportJSON}
