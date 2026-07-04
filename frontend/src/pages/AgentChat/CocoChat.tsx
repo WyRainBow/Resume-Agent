@@ -657,18 +657,6 @@ function CocoChatContent() {
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // 停止生成：通知后端中止当前流，并立即结束本地流式状态
-  const handleStopGeneration = useCallback(() => {
-    const sid = currentSessionId || conversationId;
-    if (sid) {
-      void fetch(`${apiBaseUrl}/api/agent/stream/stop/${sid}`, {
-        method: "POST",
-        headers: getAuthHeaders(),
-      }).catch(() => {});
-    }
-    finalizeStream();
-  }, [apiBaseUrl, getAuthHeaders, currentSessionId, conversationId, finalizeStream]);
-
   // 初始化会话：仅首次进入页面时执行；有 sessionId 用指定会话，否则默认加载最新会话
   useEffect(() => {
     if (hasBootstrappedSessionRef.current) {
@@ -1501,6 +1489,19 @@ function CocoChatContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [handleSSEEvent, pushPatch]),
   });
+
+  // 停止生成：通知后端中止当前流，并立即结束本地流式状态。
+  // 必须定义在 useCLTP 之后——deps 里的 finalizeStream 在其上方会触发 TDZ（生产构建崩溃）。
+  const handleStopGeneration = useCallback(() => {
+    const sid = currentSessionId || conversationId;
+    if (sid) {
+      void fetch(`${apiBaseUrl}/api/agent/stream/stop/${sid}`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      }).catch(() => {});
+    }
+    finalizeStream();
+  }, [apiBaseUrl, getAuthHeaders, currentSessionId, conversationId, finalizeStream]);
 
   // 保存会话ID到 localStorage
   useEffect(() => {
