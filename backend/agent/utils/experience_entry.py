@@ -158,6 +158,18 @@ def is_generic_optimize_section_query(user_input: str) -> bool:
         "开源经历",
         "项目",
         "项目经历",
+        "教育",
+        "教育经历",
+        "学历",
+        "荣誉",
+        "奖项",
+        "荣誉奖项",
+        "获奖",
+        "获奖经历",
+        "技能",
+        "专业技能",
+        "技术栈",
+        "自我评价",
     }:
         return True
     return False
@@ -217,9 +229,19 @@ def build_optimize_plan_overview(
 
     按钮点击即发送：全部 → 明确整份直接执行；某类 → 走 section 收窄路径。
     """
-    kind_counts = {"experience": 0, "projects": 0, "opensource": 0}
-    for _, kind, entries, _ in _iter_optimize_sections(resume_data):
-        kind_counts[kind] = len(entries)
+    kind_counts = {
+        "experience": 0,
+        "projects": 0,
+        "opensource": 0,
+        "education": 0,
+        "awards": 0,
+    }
+    for _, kind, entries, value_field in _iter_optimize_sections(resume_data):
+        kind_counts[kind] = sum(
+            1
+            for e in entries
+            if isinstance(e, dict) and _entry_has_optimizable_content(e, kind, value_field)
+        )
 
     parts: List[str] = []
     items: List[Dict[str, str]] = []
@@ -235,6 +257,14 @@ def build_optimize_plan_overview(
         n = kind_counts["opensource"]
         parts.append(f"开源经历 {n} 段")
         items.append({"text": f"开源经历（{n} 段）", "msg": "优化开源经历"})
+    if kind_counts["education"]:
+        n = kind_counts["education"]
+        parts.append(f"教育经历 {n} 段")
+        items.append({"text": f"教育经历（{n} 段）", "msg": "优化教育经历"})
+    if kind_counts["awards"]:
+        n = kind_counts["awards"]
+        parts.append(f"荣誉奖项 {n} 项")
+        items.append({"text": f"荣誉奖项（{n} 项）", "msg": "优化荣誉奖项"})
 
     total = sum(kind_counts.values())
     skill_val = resume_data.get("skillContent")
@@ -265,6 +295,11 @@ _SECTION_KIND_KEYWORDS: List[tuple[str, str]] = [
     ("projects", "竞赛"),
     ("experience", "实习"),
     ("experience", "工作"),
+    ("education", "教育"),
+    ("education", "学历"),
+    ("awards", "荣誉"),
+    ("awards", "奖项"),
+    ("awards", "获奖"),
     ("skills", "技能"),
     ("skills", "技术栈"),
     ("selfEvaluation", "自我评价"),
@@ -289,7 +324,7 @@ def detect_optimize_section_kind(user_input: str) -> Optional[str]:
     return None
 
 
-SectionKind = Literal["experience", "opensource", "projects"]
+SectionKind = Literal["experience", "opensource", "projects", "education", "awards"]
 
 
 @dataclass(frozen=True)
@@ -315,18 +350,46 @@ def _projects_list(resume_data: Dict[str, Any]) -> List[Dict[str, Any]]:
     return []
 
 
+def _dict_list(resume_data: Dict[str, Any], key: str) -> List[Dict[str, Any]]:
+    raw = resume_data.get(key)
+    if isinstance(raw, list):
+        return [item for item in raw if isinstance(item, dict)]
+    return []
+
+
 def _entry_display_label(raw: Dict[str, Any], kind: SectionKind) -> str:
     if kind in ("opensource", "projects"):
         return re.sub(r"\*+", "", str(raw.get("name") or raw.get("title") or "")).strip()
+    if kind == "education":
+        return re.sub(r"\*+", "", str(raw.get("school") or "")).strip()
+    if kind == "awards":
+        return re.sub(r"\*+", "", str(raw.get("title") or raw.get("name") or "")).strip()
     return re.sub(r"\*+", "", _experience_company_label(raw)).strip()
 
 
+_SECTION_CN_NAMES: Dict[str, str] = {
+    "opensource": "开源经历",
+    "projects": "项目经历",
+    "education": "教育经历",
+    "awards": "荣誉奖项",
+}
+
+
 def _section_cn_name(kind: SectionKind) -> str:
-    if kind == "opensource":
-        return "开源经历"
-    if kind == "projects":
-        return "项目经历"
-    return "实习经历"
+    return _SECTION_CN_NAMES.get(kind, "实习经历")
+
+
+def _entry_has_optimizable_content(
+    raw: Dict[str, Any], kind: SectionKind, value_field: str
+) -> bool:
+    """教育/奖项条目只有填写了描述正文才可优化（没有正文就没有可改写的内容）；
+    实习/项目/开源保持原行为（正文为空也允许优化，由 LLM 基于标题补写）。"""
+    if kind not in ("education", "awards"):
+        return True
+    val = raw.get(value_field)
+    if not isinstance(val, str):
+        return False
+    return bool(re.sub(r"<[^>]+>", "", val).strip())
 
 
 def _iter_optimize_sections(
@@ -342,6 +405,12 @@ def _iter_optimize_sections(
     opensource = _opensource_list(resume_data)
     if opensource:
         sections.append(("openSource", "opensource", opensource, "description"))
+    education = _dict_list(resume_data, "education")
+    if education:
+        sections.append(("education", "education", education, "description"))
+    awards = _dict_list(resume_data, "awards")
+    if awards:
+        sections.append(("awards", "awards", awards, "description"))
     return sections
 
 
@@ -371,6 +440,8 @@ def list_optimize_targets(
         if section_kind is not None and kind != section_kind:
             continue
         for idx, raw in enumerate(entries):
+            if not _entry_has_optimizable_content(raw, kind, value_field):
+                continue
             targets.append(_make_optimize_target(array_path, idx, raw, kind, value_field))
     return targets
 
@@ -385,11 +456,13 @@ def build_optimize_clarification_suggestions(
     items: List[Dict[str, str]] = []
     if include_all:
         items.append({"text": "✨ 全部一起优化（整份简历）", "msg": "优化我的整份简历"})
-    for array_path, kind, entries, _ in _iter_optimize_sections(resume_data):
+    for array_path, kind, entries, value_field in _iter_optimize_sections(resume_data):
         if section_kind is not None and kind != section_kind:
             continue
         for idx, raw in enumerate(entries):
             if not isinstance(raw, dict):
+                continue
+            if not _entry_has_optimizable_content(raw, kind, value_field):
                 continue
             label = _entry_display_label(raw, kind) or f"第{idx + 1}段"
             section_name = _section_cn_name(kind)
@@ -467,6 +540,8 @@ def _resolve_best_target_in_text(
     for array_path, kind, entries, value_field in _iter_optimize_sections(resume_data):
         for idx, raw in enumerate(entries):
             if not isinstance(raw, dict):
+                continue
+            if not _entry_has_optimizable_content(raw, kind, value_field):
                 continue
             score = _score_entry_against_text(normalized, raw, kind)
             if score > 0:

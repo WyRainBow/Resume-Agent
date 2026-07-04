@@ -50,6 +50,7 @@ from backend.agent.utils.experience_entry import (
     is_generic_optimize_section_query,
     list_optimize_targets,
     resolve_optimize_target,
+    resolve_optimize_target_from_input,
 )
 from backend.agent.schema import Message, Role, ToolCall
 from backend.agent.agent.shared_state import AgentSharedState
@@ -674,7 +675,12 @@ class Manus(ToolCallAgent):
             target_entry.get("position") or target_entry.get("role") or ""
         ).strip()
         apply_path = f"{target.array_path}[{target.index}].{target.value_field}"
-        section_cn = "开源经历" if target.section_kind == "opensource" else ("项目经历" if target.section_kind == "projects" else "实习/工作经历")
+        section_cn = {
+            "opensource": "开源经历",
+            "projects": "项目经历",
+            "education": "教育经历",
+            "awards": "荣誉奖项",
+        }.get(target.section_kind, "实习/工作经历")
 
         raw_details = (
             target_entry.get(target.value_field)
@@ -699,6 +705,13 @@ class Manus(ToolCallAgent):
             f"用户原话：{user_input.strip() or '优化表述，突出贡献与量化成果'}\n\n"
             f"当前内容（纯文本，请在此基础上深度改写）：\n{current_plain[:2800]}"
         )
+        if target.section_kind in ("education", "awards"):
+            user_prompt += (
+                f"\n\n【注意】这是{section_cn}的描述，不是工作经历："
+                "不要套「做了什么/技术手段/量化指标」四要素，"
+                "改写为简洁有条理的亮点描述（如主修方向、核心成果、排名、奖项级别与含金量），"
+                "保留原文全部真实信息，不编造。"
+            )
         session_jd = ResumeDataStore.get_session_jd(self.session_id)
         if session_jd:
             user_prompt += (
@@ -760,7 +773,12 @@ class Manus(ToolCallAgent):
             f"[Manus] LLM optimize section ok: label={company}, "
             f"path={apply_path}, chars={len(optimized_html)}"
         )
-        section_label = "开源经历" if target.section_kind == "opensource" else ("项目经历" if target.section_kind == "projects" else "实习经历")
+        section_label = {
+            "opensource": "开源经历",
+            "projects": "项目经历",
+            "education": "教育经历",
+            "awards": "获奖描述",
+        }.get(target.section_kind, "实习经历")
         return {
             "optimization_suggestions": [
                 {
@@ -1880,15 +1898,20 @@ class Manus(ToolCallAgent):
                         ) == "assistant"
                     ][-5:]
 
-                    # 2. 精确命中某段（公司/项目名）
-                    optimize_target = resolve_optimize_target(
-                        user_input, recent_assistant, resume_snapshot
-                    )
-                    section_kind = (
-                        detect_optimize_section_kind(user_input)
-                        if optimize_target is None
-                        else None
-                    )
+                    # 2. 精确命中某段（公司/项目名）。
+                    # 用户点名了 section 类型（如「优化荣誉奖项」）时只做输入内精确匹配，
+                    # 不做上下文推断——避免被上一轮讨论的其它段落劫持。
+                    section_kind = detect_optimize_section_kind(user_input)
+                    if section_kind is None:
+                        optimize_target = resolve_optimize_target(
+                            user_input, recent_assistant, resume_snapshot
+                        )
+                    else:
+                        optimize_target = resolve_optimize_target_from_input(
+                            user_input, resume_snapshot
+                        )
+                    if optimize_target is not None:
+                        section_kind = None
 
                     # 3. 技能 / 自我评价：单字段优化（Bug 2）
                     if optimize_target is None and section_kind in ("skills", "selfEvaluation"):
@@ -1917,19 +1940,28 @@ class Manus(ToolCallAgent):
                             )
                         )
 
-                    # 4. section 类型收窄（实习/项目/开源）——Bug 1：优化实习就只列实习
+                    # 4. section 类型收窄（实习/项目/开源/教育/奖项）——Bug 1：优化实习就只列实习
                     if optimize_target is None and section_kind in (
                         "experience",
                         "projects",
                         "opensource",
+                        "education",
+                        "awards",
                     ):
                         kind_targets = list_optimize_targets(resume_snapshot, section_kind)
                         section_cn = {
                             "experience": "实习/工作经历",
                             "projects": "项目经历",
                             "opensource": "开源经历",
+                            "education": "教育经历",
+                            "awards": "荣誉奖项",
                         }[section_kind]
                         if not kind_targets:
+                            if section_kind in ("education", "awards"):
+                                return _finish_optimize(
+                                    f"当前简历的{section_cn}还没有填写描述内容，"
+                                    "先在编辑器里补一段描述，我再帮你润色～"
+                                )
                             return _finish_optimize(
                                 f"当前简历里还没有可优化的{section_cn}。先导入或补一段，我再帮你优化～"
                             )
