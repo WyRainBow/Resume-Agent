@@ -4835,7 +4835,11 @@ function CocoChatContent() {
                     {pendingPatches
                       .filter(p => p.message_id === 'current')
                       .map(patch => (
-                        <ResumeDiffCard key={patch.patch_id} patch={patch} />
+                        <ResumeDiffCard
+                          key={patch.patch_id}
+                          patch={patch}
+                          defaultCollapsed={pendingPatches.filter(p => p.message_id === 'current' && p.status === 'pending').length >= 2}
+                        />
                       ))
                     }
                   </div>

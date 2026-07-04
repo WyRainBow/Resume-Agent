@@ -163,7 +163,7 @@ function PatchDiffGrid({
   )
 }
 
-/** 「全部应用」条：同一批 ≥2 个待确认 patch 时显示，一键全部合并写回简历。 */
+/** 「全部应用」条：同一批 ≥2 个待确认 patch 时显示，一键全部合并写回简历。置顶常驻（sticky），滚动浏览卡片时不消失。 */
 export function ApplyAllPatchesBar({ patches }: { patches: PendingPatch[] }) {
   const { applyPatches } = useResumeContext()
   const pending = patches.filter(p => p.status === 'pending')
@@ -172,7 +172,7 @@ export function ApplyAllPatchesBar({ patches }: { patches: PendingPatch[] }) {
     <button
       type="button"
       onClick={() => applyPatches(pending.map(p => p.patch_id))}
-      className="mb-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-blue-600 bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm transition-all active:scale-[0.98] hover:bg-blue-700 hover:border-blue-700"
+      className="sticky top-2 z-10 mb-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-blue-600 bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-md transition-all active:scale-[0.98] hover:bg-blue-700 hover:border-blue-700"
     >
       <Check className="h-4 w-4" />
       全部应用（{pending.length} 处）
@@ -180,9 +180,10 @@ export function ApplyAllPatchesBar({ patches }: { patches: PendingPatch[] }) {
   )
 }
 
-export function ResumeDiffCard({ patch }: { patch: PendingPatch }) {
+export function ResumeDiffCard({ patch, defaultCollapsed = false }: { patch: PendingPatch; defaultCollapsed?: boolean }) {
   const { applyPatch, rejectPatch } = useResumeContext()
   const [expanded, setExpanded] = useState(false)
+  const [collapsed, setCollapsed] = useState(defaultCollapsed)
 
   if (patch.status === 'applied') {
     return (
@@ -215,6 +216,44 @@ export function ResumeDiffCard({ patch }: { patch: PendingPatch }) {
     )
   }
 
+  // 折叠态：一行摘要 + 小号应用/拒绝按钮，点摘要展开看 diff（整份优化多卡时降低 review 负担）
+  if (collapsed) {
+    return (
+      <div className="overflow-hidden rounded-xl border border-blue-200/80 bg-chat-surface shadow-sm">
+        <div className="flex items-center gap-2 px-3 py-2">
+          <button
+            type="button"
+            onClick={() => setCollapsed(false)}
+            className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+          >
+            <span className="min-w-0 flex-1 truncate text-sm text-chat-ink">
+              {renderPatchSummary(patch.summary)}
+            </span>
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-xs text-chat-accent-deep">
+              看修改 <ChevronDown className="h-3.5 w-3.5" />
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => applyPatch(patch.patch_id)}
+            className="inline-flex shrink-0 items-center gap-1 rounded-md border border-blue-600 bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white transition-all active:scale-[0.98] hover:bg-blue-700"
+          >
+            <Check className="h-3.5 w-3.5" />
+            应用
+          </button>
+          <button
+            type="button"
+            onClick={() => rejectPatch(patch.patch_id)}
+            className="inline-flex shrink-0 items-center rounded-md border border-chat-border bg-white px-2 py-1 text-xs text-chat-ink transition-all active:scale-[0.98] hover:bg-chat-canvas dark:bg-slate-800 dark:hover:bg-slate-700"
+            title="拒绝"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   const beforeText = formatPatchDiffSide(patch.paths, patch.before)
   const afterText = formatPatchDiffSide(patch.paths, patch.after)
   const isLong = beforeText.length > COLLAPSE_THRESHOLD || afterText.length > COLLAPSE_THRESHOLD
@@ -224,18 +263,31 @@ export function ResumeDiffCard({ patch }: { patch: PendingPatch }) {
       variant="accent"
       title={renderPatchSummary(patch.summary)}
       badge={
-        isLong ? (
-          <button
-            type="button"
-            onClick={() => setExpanded(!expanded)}
-            className="flex items-center gap-1 text-xs text-chat-accent-deep transition-colors hover:text-chat-accent"
-          >
-            {expanded ? (
-              <>收起 <ChevronUp className="h-3.5 w-3.5" /></>
-            ) : (
-              <>展开全部 <ChevronDown className="h-3.5 w-3.5" /></>
+        isLong || defaultCollapsed ? (
+          <div className="flex items-center gap-2">
+            {isLong && (
+              <button
+                type="button"
+                onClick={() => setExpanded(!expanded)}
+                className="flex items-center gap-1 text-xs text-chat-accent-deep transition-colors hover:text-chat-accent"
+              >
+                {expanded ? (
+                  <>收起 <ChevronUp className="h-3.5 w-3.5" /></>
+                ) : (
+                  <>展开全部 <ChevronDown className="h-3.5 w-3.5" /></>
+                )}
+              </button>
             )}
-          </button>
+            {defaultCollapsed && (
+              <button
+                type="button"
+                onClick={() => setCollapsed(true)}
+                className="flex items-center gap-1 text-xs text-chat-ink-muted transition-colors hover:text-chat-ink"
+              >
+                收起卡片 <ChevronUp className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
         ) : undefined
       }
       footer={

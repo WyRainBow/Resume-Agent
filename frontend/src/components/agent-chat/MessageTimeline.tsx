@@ -364,7 +364,11 @@ export default function MessageTimeline({
                     <div className="mb-4 space-y-2">
                       <ApplyAllPatchesBar patches={patchesForMessage} />
                       {patchesForMessage.map((patch) => (
-                        <ResumeDiffCard key={patch.patch_id} patch={patch} />
+                        <ResumeDiffCard
+                          key={patch.patch_id}
+                          patch={patch}
+                          defaultCollapsed={patchesForMessage.filter((p) => p.status === 'pending').length >= 2}
+                        />
                       ))}
                     </div>
                   )}
