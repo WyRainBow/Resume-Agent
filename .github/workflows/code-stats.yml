@@ -7,6 +7,11 @@ on:
     - cron: '0 0 * * *'  # 每天 UTC 0:00 运行
   workflow_dispatch:  # 允许手动触发
 
+# 连续 push 触发多个 run 同时推 gh-pages 会撞锁（cannot lock ref），只保留最新一个
+concurrency:
+  group: code-stats-gh-pages
+  cancel-in-progress: true
+
 jobs:
   stats:
     runs-on: ubuntu-latest
@@ -397,4 +402,9 @@ jobs:
           cp -r ../Resume-Agent/.github/stats/* stats/
           git add stats
           git diff --staged --quiet || git commit -m "chore: update code statistics [skip ci]"
-          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${REPO}.git" gh-pages
+          # 推送带重试：并发 run 撞锁（cannot lock ref）时等待后重推
+          for i in 1 2 3; do
+            git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${REPO}.git" gh-pages && exit 0
+            echo "push 被拒（第 $i 次），5s 后重试" && sleep 5
+          done
+          exit 1
