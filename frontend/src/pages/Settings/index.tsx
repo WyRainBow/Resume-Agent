@@ -1,3 +1,4 @@
+import { toast } from '@/lib/toast'
 /**
  * 设置页面：独立界面
  * 包含：主题、语言、快捷键、导入导出、账号与权限
@@ -155,7 +156,7 @@ export default function SettingsPage() {
 
   const handlePickPDFDirectory = async () => {
     if (!supportsDirectoryPicker()) {
-      alert('当前浏览器不支持默认路径设置，请使用最新版 Chromium 浏览器。')
+      toast.error('当前浏览器不支持默认路径设置，请使用最新版 Chromium 浏览器。')
       return
     }
     setSavingPdfDir(true)
@@ -171,11 +172,11 @@ export default function SettingsPage() {
         setPdfPrefs(next)
         setPDFExportPreferences(next)
       }
-      alert('默认 PDF 保存路径设置成功')
+      toast.success('默认 PDF 保存路径设置成功')
     } catch (error: any) {
       if (error?.name !== 'AbortError') {
         console.error('设置默认 PDF 路径失败:', error)
-        alert('设置失败，请重试')
+        toast.error('设置失败，请重试')
       }
     } finally {
       setSavingPdfDir(false)
@@ -187,10 +188,10 @@ export default function SettingsPage() {
       await clearDefaultPDFDirectoryHandle()
       setHasDefaultPdfDir(false)
       setDefaultPdfDirLabel(null)
-      alert('已清除默认 PDF 保存路径')
+      toast.error('已清除默认 PDF 保存路径')
     } catch (error) {
       console.error('清除默认 PDF 路径失败:', error)
-      alert('清除失败，请重试')
+      toast.error('清除失败，请重试')
     }
   }
 

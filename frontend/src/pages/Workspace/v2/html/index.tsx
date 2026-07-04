@@ -1,3 +1,4 @@
+import { toast } from '@/lib/toast'
 /**
  * HTML 模板工作区
  * 专门用于 HTML 模板的实时编辑和预览
@@ -177,7 +178,7 @@ export default function HTMLWorkspace() {
       URL.revokeObjectURL(url)
     } catch (error) {
       console.error('导出 JSON 失败:', error)
-      alert('导出失败，请重试')
+      toast.error('导出失败，请重试')
     }
   }
 
@@ -209,7 +210,7 @@ export default function HTMLWorkspace() {
           bodyInnerHTMLSnippet: document.body.innerHTML.substring(0, 500)
         }, 'H1');
         // #endregion agent log H1
-        alert('找不到简历预览内容，请确保预览区域可见')
+        toast.error('找不到简历预览内容，请确保预览区域可见')
         return
       }
 
@@ -343,7 +344,7 @@ export default function HTMLWorkspace() {
       logDebug('handleDownloadPDF exception', { error: String(error) }, 'H5');
       // #endregion agent log H5
       console.error('PDF 下载失败:', error)
-      alert('下载失败，请重试')
+      toast.error('下载失败，请重试')
     }
   }, [resumeData.basic.name])
 
@@ -359,17 +360,17 @@ export default function HTMLWorkspace() {
 
         if (typeof importedData === 'object' && importedData !== null) {
           setResumeData(importedData)
-          alert('导入成功！')
+          toast.success('导入成功！')
         } else {
           throw new Error('无效的 JSON 格式')
         }
       } catch (error) {
         console.error('导入 JSON 失败:', error)
-        alert('导入失败：文件格式不正确，请确保是有效的 JSON 文件')
+        toast.error('导入失败：文件格式不正确，请确保是有效的 JSON 文件')
       }
     }
     reader.onerror = () => {
-      alert('读取文件失败，请重试')
+      toast.error('读取文件失败，请重试')
     }
     reader.readAsText(file)
 

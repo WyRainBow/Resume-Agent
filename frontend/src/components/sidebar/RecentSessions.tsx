@@ -1,4 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { toast } from '@/lib/toast'
+import { confirmDialog } from '@/lib/confirm'
 import { Check, Loader2, Pencil, Plus, RefreshCw, Trash2, X, Trash, AlertTriangle } from 'lucide-react';
 import { SidebarTooltip } from './SidebarTooltip';
 import CustomScrollbar from '../common/CustomScrollbar';
@@ -315,7 +317,7 @@ export function RecentSessions({
       }
     } catch (error) {
       console.error('[RecentSessions] Failed to delete all sessions:', error);
-      alert('删除失败，请稍后重试');
+      toast.error('删除失败，请稍后重试');
     } finally {
       setIsLoading(false);
     }
@@ -325,10 +327,28 @@ export function RecentSessions({
     onSelectSession(sessionId);
   };
 
-  const handleCreateSessionClick = () => {
+  const handleCreateSessionClick = async () => {
     if (!sessionLimits.can_create) {
-      alert(getSessionLimitMessage(sessionLimits));
-      return;
+      // 上限已满：引导自动删除最早一条再继续，免得用户自己去列表里翻找删除
+      const oldest = sessions.length > 0 ? sessions[sessions.length - 1] : null;
+      if (!oldest) {
+        toast.error(getSessionLimitMessage(sessionLimits));
+        return;
+      }
+      const ok = await confirmDialog({
+        title: `历史会话已满（${sessionLimits.max_sessions ?? 10} 条）`,
+        description: `可以自动删除最早的「${oldest.title || '未命名会话'}」，然后继续新建。`,
+        confirmText: '删除最早的并新建',
+        danger: true,
+      });
+      if (!ok) return;
+      try {
+        await onDeleteSession(oldest.session_id);
+        refreshSessions();
+      } catch {
+        toast.error('自动清理失败，请在列表中手动删除后重试');
+        return;
+      }
     }
     onCreateSession();
   };

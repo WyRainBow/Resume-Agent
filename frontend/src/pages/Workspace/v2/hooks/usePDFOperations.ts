@@ -1,3 +1,4 @@
+import { toast } from '@/lib/toast'
 /**
  * PDF 操作 Hook
  */
@@ -178,18 +179,20 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
     saveAs(file, filename)
   }, [pdfBlob, resumeData.basic.name, isAuthenticated, openModal])
 
-  // 保存到 Dashboard
+  // 保存到 Dashboard（失败必须让用户知道，不能静默）
   const handleSaveToDashboard = useCallback(async () => {
-    // 直接保存完整的 resumeData，确保 templateType 等字段不丢失
-    const saved = await saveResume(resumeData as any, currentResumeId || undefined)
-    
-    if (!currentResumeId) {
-      setCurrentId(saved.id)
-      setCurrentResumeId(saved.id)
+    try {
+      const saved = await saveResume(resumeData as any, currentResumeId || undefined)
+      if (!currentResumeId) {
+        setCurrentId(saved.id)
+        setCurrentResumeId(saved.id)
+      }
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 2000)
+    } catch (error) {
+      console.error('保存简历失败:', error)
+      toast.error(error instanceof Error ? `保存失败：${error.message}` : '保存失败，请稍后重试')
     }
-    
-    setSaveSuccess(true)
-    setTimeout(() => setSaveSuccess(false), 2000)
   }, [resumeData, currentResumeId, setCurrentId])
 
   return {

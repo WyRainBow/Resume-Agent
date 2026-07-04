@@ -699,6 +699,11 @@ class Manus(ToolCallAgent):
             f"用户原话：{user_input.strip() or '优化表述，突出贡献与量化成果'}\n\n"
             f"当前内容（纯文本，请在此基础上深度改写）：\n{current_plain[:2800]}"
         )
+        session_jd = ResumeDataStore.get_session_jd(self.session_id)
+        if session_jd:
+            user_prompt += (
+                f"\n\n【目标岗位 JD（改写时对齐其要求、融入匹配的关键词）】\n{session_jd[:1500]}"
+            )
         retry_suffix = (
             "\n\n【重要】不要输出思考过程。"
             "只输出一行 JSON，第一字符必须是 {，包含 optimized_html 与 explanation。"
@@ -794,6 +799,11 @@ class Manus(ToolCallAgent):
             f"用户原话：{user_input.strip() or '优化表述，使其更专业、有条理'}\n\n"
             f"当前内容（纯文本，请在此基础上改写）：\n{current_plain[:2800]}"
         )
+        session_jd = ResumeDataStore.get_session_jd(self.session_id)
+        if session_jd:
+            user_prompt += (
+                f"\n\n【目标岗位 JD（改写时对齐其要求、融入匹配的关键词）】\n{session_jd[:1500]}"
+            )
         retry_suffix = (
             "\n\n【重要】不要输出思考过程。"
             "只输出一行 JSON，第一字符必须是 {，包含 optimized_html 与 explanation。"
@@ -1823,6 +1833,13 @@ class Manus(ToolCallAgent):
                 if intent == Intent.OPTIMIZE_SECTION:
                     resume_snapshot = resume_data_snapshot or {}
                     from backend.agent.schema import AgentState
+
+                    # 会话级 JD 记忆：消息里带目标岗位 JD 就记下来，本会话后续优化都自动对齐
+                    if "【目标岗位 JD】" in (user_input or ""):
+                        jd_text = user_input.split("【目标岗位 JD】", 1)[1].strip()
+                        if jd_text:
+                            ResumeDataStore.set_session_jd(self.session_id, jd_text)
+                            logger.info("📌 已记录会话 JD（%d 字）", len(jd_text))
 
                     def _finish_optimize(msg: str) -> bool:
                         self.memory.add_message(Message.assistant_message(msg))

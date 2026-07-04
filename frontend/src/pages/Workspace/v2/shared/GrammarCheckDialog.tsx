@@ -6,6 +6,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Loader2, SpellCheck, X, Check, Wand2, AlertTriangle } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
+import AiProgressBar from './AiProgressBar'
 import { grammarCheckField, type GrammarCheckResult, type GrammarIssue } from '../../../../services/api'
 
 interface GrammarCheckDialogProps {
@@ -157,7 +158,10 @@ export default function GrammarCheckDialog({
           {loading && (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Loader2 className="h-8 w-8 animate-spin text-emerald-500 mb-3" />
-              <p className="text-sm text-neutral-500 dark:text-neutral-400">AI 正在体检该字段...</p>
+              <p className="text-sm text-neutral-500 dark:text-neutral-400 mb-4">AI 正在体检该字段...</p>
+              <div className="w-full max-w-xs">
+                <AiProgressBar active={loading} barClassName="bg-gradient-to-r from-emerald-500 to-teal-500" estimateMs={10000} />
+              </div>
             </div>
           )}
 

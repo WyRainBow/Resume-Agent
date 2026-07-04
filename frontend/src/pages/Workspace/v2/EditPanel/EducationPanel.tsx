@@ -1,3 +1,5 @@
+import { toast } from '@/lib/toast'
+import { confirmDialog } from '@/lib/confirm'
 /**
  * 教育经历面板
  */
@@ -124,7 +126,7 @@ function SchoolLogoSelector({
       setOpen(false)
       setSearch('')
     } catch (err: any) {
-      alert(err.message || '上传失败')
+      toast.error(err.message || '上传失败')
     } finally {
       setUploading(false)
     }
@@ -137,7 +139,12 @@ function SchoolLogoSelector({
   const handleDelete = useCallback(async (logo: SchoolLogo) => {
     if (!activeGroupKey) return
     const filename = decodeURIComponent(logo.url.substring(logo.url.lastIndexOf('/') + 1))
-    if (!window.confirm(`确定删除校徽「${logo.name}」吗？\n将从全局库永久删除，所有用户都不可再选用，且不可恢复。`)) return
+    if (!(await confirmDialog({
+      title: `确定删除校徽「${logo.name}」吗？`,
+      description: '将从全局库永久删除，所有用户都不可再选用，且不可恢复。',
+      confirmText: '永久删除',
+      danger: true,
+    }))) return
     setDeleting(true)
     try {
       await deleteSchoolLogo(filename, activeGroupKey)
@@ -145,7 +152,7 @@ function SchoolLogoSelector({
       setGroups(getCachedSchoolLogoGroups())
       if (selectedKey === logo.key) onSelect('')
     } catch (err: any) {
-      alert(err.message || '删除失败')
+      toast.error(err.message || '删除失败')
     } finally {
       setDeleting(false)
     }

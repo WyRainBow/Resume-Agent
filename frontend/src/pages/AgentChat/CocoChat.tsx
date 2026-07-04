@@ -1,3 +1,4 @@
+import { toast } from '@/lib/toast'
 /**
  * AgentChat - 对话页面
  *
@@ -10,7 +11,6 @@
  * - 心跳检测和自动重连
  */
 
-import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import ResumeSelector from "@/components/chat/ResumeSelector";
 import SearchResultPanel from "@/components/chat/SearchResultPanel";
 import { RecentSessions } from "@/components/sidebar/RecentSessions";
@@ -567,7 +567,6 @@ function CocoChatContent() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isDesktop, setIsDesktop] = useState(true);
   const [isLoadingSession, setIsLoadingSession] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -658,20 +657,17 @@ function CocoChatContent() {
 
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
-  // 语音输入
-  const {
-    isRecording: isVoiceRecording,
-    isSpeaking: isVoiceSpeaking,
-    isProcessing: isVoiceProcessing,
-    startRecording: startVoiceRecording,
-    stopRecording: stopVoiceRecording,
-  } = useSpeechRecognition({
-    onTextChange: (text, isFinal) => {
-      if (isFinal) {
-        setInput((prev) => (prev ? `${prev} ${text}` : text));
-      }
-    },
-  });
+  // 停止生成：通知后端中止当前流，并立即结束本地流式状态
+  const handleStopGeneration = useCallback(() => {
+    const sid = currentSessionId || conversationId;
+    if (sid) {
+      void fetch(`${apiBaseUrl}/api/agent/stream/stop/${sid}`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+      }).catch(() => {});
+    }
+    finalizeStream();
+  }, [apiBaseUrl, getAuthHeaders, currentSessionId, conversationId, finalizeStream]);
 
   // 初始化会话：仅首次进入页面时执行；有 sessionId 用指定会话，否则默认加载最新会话
   useEffect(() => {
@@ -1460,7 +1456,6 @@ function CocoChatContent() {
     currentThought,
     currentAnswer,
     isProcessing,
-    isConnected,
     lastError,
     answerCompleteCount,
     sendMessage,
@@ -1611,7 +1606,6 @@ function CocoChatContent() {
 
   useEffect(() => {
     if (isDesktop) {
-      setIsSidebarOpen(false);
     }
   }, [isDesktop]);
 
@@ -2250,7 +2244,7 @@ function CocoChatContent() {
       const data = await resp.json();
       const limits = parseSessionLimits(data);
       if (!limits.can_create) {
-        alert(getSessionLimitMessage(limits));
+        toast.error(getSessionLimitMessage(limits));
         return false;
       }
       return true;
@@ -2533,7 +2527,7 @@ function CocoChatContent() {
               // ignore parse errors
             }
             if (isSessionLimitExceededResponse(resp.status, parsedError)) {
-              alert(getSessionLimitMessage());
+              toast.error(getSessionLimitMessage());
               queuedSaveRef.current = null;
               scheduledSaveRef.current = null;
               return;
@@ -2814,7 +2808,7 @@ function CocoChatContent() {
       }
     } catch (error) {
       console.error("[AgentChat] Failed to delete session:", error);
-      alert("删除会话失败，请稍后重试");
+      toast.error("删除会话失败，请稍后重试");
     }
   };
 
@@ -3139,18 +3133,15 @@ function CocoChatContent() {
     (sessionId: string) => {
       if (!sessionId) {
         void createNewSession();
-        setIsSidebarOpen(false);
         return;
       }
       navigate(`/agent/new?sessionId=${sessionId}`, { replace: true });
-      setIsSidebarOpen(false);
     },
     [createNewSession, navigate],
   );
 
   const handleCreateSession = useCallback(() => {
     void createNewSession();
-    setIsSidebarOpen(false);
   }, [createNewSession]);
 
   // 监听 forceNew state（侧边栏"+"在已处于 /agent/new 时触发）
@@ -4090,6 +4081,29 @@ function CocoChatContent() {
   // 首页 hero 输入框带来的第一条消息：会话就绪后自动发出一次。
   // 复用 sendUserTextMessage（其内部会自动识别粘贴的简历文本并走解析），不新建平行链路。
   // 必须放在 sendUserTextMessage 定义之后，否则依赖数组会在 TDZ 中访问它而报错。
+  // 优化对比卡收尾：本批全部处理完（无 pending）且至少应用了一处 → 插入收尾卡（下载 PDF / 去编辑器）
+  const prevPendingCountRef = useRef(0);
+  useEffect(() => {
+    const pendingCount = pendingPatches.filter((p) => p.status === "pending").length;
+    const appliedCount = pendingPatches.filter((p) => p.status === "applied").length;
+    if (prevPendingCountRef.current > 0 && pendingCount === 0 && appliedCount > 0) {
+      const doneMsg: Message = {
+        id: `${Date.now()}-apply-done`,
+        role: "assistant",
+        content: `已应用 ${appliedCount} 处优化，右侧预览已更新。可以下载 PDF，或去编辑器精修排版。`,
+        timestamp: new Date().toISOString(),
+        meta: { applyDone: { count: appliedCount } },
+      };
+      setMessages((prev) => {
+        const updated = [...prev, doneMsg];
+        const sid = conversationId?.trim() || currentSessionId;
+        if (sid) void persistSessionSnapshot(sid, updated, false);
+        return updated;
+      });
+    }
+    prevPendingCountRef.current = pendingCount;
+  }, [pendingPatches, conversationId, currentSessionId, persistSessionSnapshot]);
+
   const heroInitialConsumedRef = useRef(false);
   useEffect(() => {
     if (heroInitialConsumedRef.current || !initialSessionResolved) return;
@@ -4352,7 +4366,7 @@ function CocoChatContent() {
       const selectedFiles = Array.from(event.target.files ?? []);
       if (selectedFiles.length === 0) return;
       if (isProcessing) {
-        alert("当前正在处理消息，请稍后再上传。");
+        toast.error("当前正在处理消息，请稍后再上传。");
         event.target.value = "";
         return;
       }
@@ -4504,11 +4518,32 @@ function CocoChatContent() {
       if (!jdText.trim()) return;
       setShowJdCard(false);
       void sendUserTextMessage(
-        `我的目标岗位 JD 如下，请对照它逐条优化我的简历：重写各段经历、突出与 JD 匹配的技能与成果、补齐缺失的关键词。\n\n【目标岗位 JD】\n${jdText.trim()}`,
+        `我的目标岗位 JD 如下，请对照它逐条优化我的整份简历：重写各段经历、突出与 JD 匹配的技能与成果、补齐缺失的关键词。\n\n【目标岗位 JD】\n${jdText.trim()}`,
       );
     },
     [sendUserTextMessage],
   );
+
+  // 收尾卡：下载当前右侧预览的 PDF；预览还没生成时给提示
+  const handleDownloadPdf = useCallback(() => {
+    const preview = selectedResumeId ? resumePdfPreview[selectedResumeId] : null;
+    const blob = preview?.blob;
+    if (!blob) {
+      toast("右侧 PDF 预览生成后即可下载，稍等片刻再点");
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${resumeData?.basic?.name || "简历"}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [selectedResumeId, resumePdfPreview, resumeData]);
+
+  // 收尾卡：去编辑器精修（当前简历已通过 setCurrentResumeId 记录，编辑器会加载它）
+  const handleGoEditor = useCallback(() => {
+    navigate("/workspace/latex");
+  }, [navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -4588,9 +4623,6 @@ function CocoChatContent() {
       input={input}
       isProcessing={isProcessing || isPasteImporting}
       isUploadingFile={isUploadingFile}
-      isVoiceRecording={isVoiceRecording}
-      isVoiceProcessing={isVoiceProcessing}
-      isVoiceSpeaking={isVoiceSpeaking}
       isResumePreviewActive={isResumePreviewActive}
       pendingAttachments={pendingAttachments}
       fileInputRef={fileInputRef}
@@ -4617,8 +4649,7 @@ function CocoChatContent() {
         setResumeSelectorInitialStep("entry");
         setShowResumeSelector(true);
       }}
-      onStartVoiceRecording={startVoiceRecording}
-      onStopVoiceRecording={stopVoiceRecording}
+      onStop={handleStopGeneration}
     />
   );
 
@@ -4660,7 +4691,20 @@ function CocoChatContent() {
                   <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-lg mb-4">
                     <span className="text-sm text-red-600 dark:text-red-400 flex-1">{resumeError}</span>
                     <button
-                      onClick={() => navigator.clipboard.writeText(resumeError)}
+                      onClick={() => {
+                        setResumeError(null);
+                        const lastUser = [...messages].reverse().find((m) => m.role === "user");
+                        if (lastUser) void sendUserTextMessage(lastUser.content);
+                      }}
+                      className="text-xs font-medium text-red-600 dark:text-red-300 border border-red-300 dark:border-red-800 rounded-md px-2 py-1 hover:bg-red-100 dark:hover:bg-red-900/40 shrink-0"
+                    >
+                      重新发送
+                    </button>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(resumeError);
+                        toast.success("已复制错误信息");
+                      }}
                       className="text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 underline shrink-0"
                     >
                       复制
@@ -4746,6 +4790,8 @@ function CocoChatContent() {
                     setInput("");
                     void sendUserTextMessage(msg);
                   }}
+                  onDownloadPdf={handleDownloadPdf}
+                  onGoEditor={handleGoEditor}
                 />
 
                 <StreamingLane

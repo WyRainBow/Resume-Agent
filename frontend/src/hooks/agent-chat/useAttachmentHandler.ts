@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { toast } from '@/lib/toast'
 
 export function useAttachmentHandler(isProcessing: boolean) {
   const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
@@ -9,7 +10,7 @@ export function useAttachmentHandler(isProcessing: boolean) {
       const selectedFiles = Array.from(event.target.files ?? []);
       if (selectedFiles.length === 0) return;
       if (isProcessing) {
-        alert("当前正在处理消息，请稍后再上传。");
+        toast.error("当前正在处理消息，请稍后再上传。");
         event.target.value = "";
         return;
       }

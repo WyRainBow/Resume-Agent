@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback } from 'react'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
 import { applyPatchPaths, inferPatchOperation, type ResumePatchOperation } from '@/utils/resumePatch'
 import { saveResume } from '@/services/resumeStorage'
+import { toast } from '@/lib/toast'
 
 export type PendingPatchStatus = 'pending' | 'applied' | 'rejected' | 'superseded'
 
@@ -62,36 +63,39 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
     setPendingPatches(prev => [...prev, { ...patch, status: 'pending' }])
   }, [])
 
-  const applyPatch = useCallback((patch_id: string) => {
-    setPendingPatches(prev => {
-      const patch = prev.find(p => p.patch_id === patch_id)
-      if (!patch) return prev
-      setResumeState(current => {
-        if (!current) return current
-        const op = inferPatchOperation(patch) as ResumePatchOperation
-        const updated = applyPatchPaths(current, patch.paths, patch.after, op) as ResumeData
-        persistResume(updated)
-        return updated
-      })
-      return prev.map(p => p.patch_id === patch_id ? { ...p, status: 'applied' } : p)
-    })
-    setPatchAppliedAt(Date.now())
-  }, [persistResume])
-
   const applyPatches = useCallback((patch_ids: string[]) => {
     if (patch_ids.length === 0) return
     const idSet = new Set(patch_ids)
     setPendingPatches(prev => {
       const toApply = prev.filter(p => idSet.has(p.patch_id) && p.status === 'pending')
       if (toApply.length === 0) return prev
+      const appliedIds = new Set(toApply.map(p => p.patch_id))
       setResumeState(current => {
         if (!current) return current
+        const snapshot = current
         let updated: ResumeData = current
         for (const patch of toApply) {
           const op = inferPatchOperation(patch) as ResumePatchOperation
           updated = applyPatchPaths(updated, patch.paths, patch.after, op) as ResumeData
         }
         persistResume(updated)
+        // 应用可撤销：保留应用前快照，toast 提供一步回退（简历数据 + 卡片状态一起还原）
+        toast.success(
+          toApply.length === 1 ? '已应用修改' : `已应用 ${toApply.length} 处修改`,
+          {
+            action: {
+              label: '撤销',
+              onClick: () => {
+                setResumeState(snapshot)
+                persistResume(snapshot)
+                setPendingPatches(pp =>
+                  pp.map(p => (appliedIds.has(p.patch_id) ? { ...p, status: 'pending' } : p))
+                )
+                setPatchAppliedAt(Date.now())
+              },
+            },
+          },
+        )
         return updated
       })
       return prev.map(p =>
@@ -100,6 +104,10 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
     })
     setPatchAppliedAt(Date.now())
   }, [persistResume])
+
+  const applyPatch = useCallback((patch_id: string) => {
+    applyPatches([patch_id])
+  }, [applyPatches])
 
   const rejectPatch = useCallback((patch_id: string) => {
     setPendingPatches(prev =>

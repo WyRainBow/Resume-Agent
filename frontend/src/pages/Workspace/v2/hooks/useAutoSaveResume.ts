@@ -1,3 +1,4 @@
+import { toast } from '@/lib/toast'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { saveResume, setCurrentResumeId } from '../../../../services/resumeStorage'
 import type { ResumeData } from '../types'
@@ -74,6 +75,7 @@ export function useAutoSaveResume({
       console.error('自动保存失败:', error)
       setSaveError(message)
       setSaveStatus('error')
+      toast.error(`自动保存失败：${message}`)
     }
   }, [clearSaveTimer, isDataLoaded, serializeResume, setCurrentId])
 

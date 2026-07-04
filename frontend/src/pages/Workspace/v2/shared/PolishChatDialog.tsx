@@ -159,7 +159,7 @@ export default function PolishChatDialog({
           console.error('润色失败:', error)
           setIsStreaming(false)
           setMessages(prev =>
-            prev.map(m => m.id === aiMsgId ? { ...m, content: `润色失败: ${error}`, isStreaming: false } : m)
+            prev.map(m => m.id === aiMsgId ? { ...m, content: '这次润色没成功，可能是网络波动。点下方快捷标签、或再发一次指令即可重试。', isStreaming: false } : m)
           )
         },
         abortRef.current.signal,

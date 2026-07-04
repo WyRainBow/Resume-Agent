@@ -1,3 +1,5 @@
+import { toast } from '@/lib/toast'
+import { confirmDialog } from '@/lib/confirm'
 /**
  * 工作经历条目组件
  */
@@ -96,7 +98,7 @@ function LogoSelector({
 
     // 前端预校验：与后端 2MB 限制一致，避免上传后才失败
     if (file.size > 2 * 1024 * 1024) {
-      alert('图片过大，最大支持 2MB')
+      toast.error('图片过大，最大支持 2MB')
       return
     }
 
@@ -111,7 +113,7 @@ function LogoSelector({
       setOpen(false)
       setSearch('')
     } catch (err: any) {
-      alert(err.message || '上传失败')
+      toast.error(err.message || '上传失败')
     } finally {
       setUploading(false)
     }
@@ -123,14 +125,19 @@ function LogoSelector({
   // 删除 Logo（仅管理员，全局不可逆）
   const handleDelete = useCallback(async (logo: CompanyLogo) => {
     const filename = decodeURIComponent(logo.url.substring(logo.url.lastIndexOf('/') + 1))
-    if (!window.confirm(`确定删除 Logo「${logo.name}」吗？\n将从全局库永久删除，所有用户都不可再选用，且不可恢复。`)) return
+    if (!(await confirmDialog({
+      title: `确定删除 Logo「${logo.name}」吗？`,
+      description: '将从全局库永久删除，所有用户都不可再选用，且不可恢复。',
+      confirmText: '永久删除',
+      danger: true,
+    }))) return
     setDeleting(true)
     try {
       await deleteLogo(filename)
       setLogos(getCachedLogos())
       if (selectedKey === logo.key) onClear()
     } catch (err: any) {
-      alert(err.message || '删除失败')
+      toast.error(err.message || '删除失败')
     } finally {
       setDeleting(false)
     }

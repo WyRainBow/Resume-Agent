@@ -32,6 +32,7 @@ import {
   IndentIncrease,
   IndentDecrease,
 } from 'lucide-react'
+import { toast } from '@/lib/toast'
 import { cn } from '../../../../../lib/utils'
 import { BetterSpace } from './BetterSpace'
 import PolishChatDialog from '../PolishChatDialog'
@@ -175,7 +176,15 @@ const RichEditor = ({
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
 
+  // 空内容拦截：避免空字段白跑一次 AI
+  const isContentEmpty = () =>
+    !(content || '').replace(/<[^>]+>/g, '').trim()
+
   const handlePolish = () => {
+    if (isContentEmpty()) {
+      toast('先填写一些内容，再让 AI 帮你润色～')
+      return
+    }
     if (resumeData) {
       setShowPolishDialog(true)
     } else if (onPolish) {
@@ -512,7 +521,7 @@ const RichEditor = ({
           {/* 语法 / 表达体检按钮 */}
           {resumeData && (
             <button
-              onClick={() => setShowGrammarDialog(true)}
+              onClick={() => (isContentEmpty() ? toast('先填写一些内容，再做语法体检～') : setShowGrammarDialog(true))}
               className="ml-2 px-3 py-1.5 text-sm rounded-md bg-white text-black border border-slate-300 hover:bg-slate-50 shadow-sm transition-all duration-200 flex items-center gap-1 dark:bg-neutral-800 dark:text-neutral-100 dark:border-neutral-700 dark:hover:bg-neutral-700"
             >
               <SpellCheck className="h-4 w-4" />

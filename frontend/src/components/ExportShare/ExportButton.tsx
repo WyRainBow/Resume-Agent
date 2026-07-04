@@ -1,3 +1,4 @@
+import { toast } from '@/lib/toast'
 /**
  * 导出按钮组件
  * 支持 PDF、JSON 导出和分享链接生成
@@ -44,7 +45,7 @@ export function ExportButton({
       
       // 如果没有 pdfBlob，提示用户先渲染 PDF
       if (!pdfBlob) {
-        alert('请先点击"渲染 PDF"按钮生成 PDF，然后再下载')
+        toast.error('请先点击"渲染 PDF"按钮生成 PDF，然后再下载')
         setIsOpen(false)
         return
       }
@@ -52,7 +53,7 @@ export function ExportButton({
       setIsOpen(false)
     } catch (error) {
       console.error('PDF 导出失败:', error)
-      alert('PDF 导出失败，请重试')
+      toast.error('PDF 导出失败，请重试')
     } finally {
       setIsExporting(false)
     }
@@ -77,7 +78,7 @@ export function ExportButton({
         URL.revokeObjectURL(url)
       } catch (error) {
         console.error('导出 JSON 失败:', error)
-        alert('导出失败，请重试')
+        toast.error('导出失败，请重试')
       }
     }
     setIsOpen(false)
@@ -113,7 +114,7 @@ export function ExportButton({
         setShareEnabled(true)
       } catch (error) {
         console.error('生成分享链接失败:', error)
-        alert('生成分享链接失败，请重试')
+        toast.error('生成分享链接失败，请重试')
       } finally {
         setIsExporting(false)
       }

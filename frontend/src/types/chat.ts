@@ -14,6 +14,10 @@ export interface MessageMeta {
     /** 卡片下方的下一步建议 chip（点击填入输入框） */
     suggestions?: string[];
   };
+  /** 优化对比全部处理完成：渲染收尾卡片（下载 PDF / 去编辑器） */
+  applyDone?: {
+    count: number;
+  };
 }
 
 export interface Message {

@@ -6,6 +6,7 @@ import { useState } from 'react'
 import { PlusCircle, Wand2, Trash2, CheckSquare, Square, GripVertical } from 'lucide-react'
 import { Reorder } from 'framer-motion'
 import { cn } from '../../../../lib/utils'
+import { confirmDialog } from '@/lib/confirm'
 import type { Project, GlobalSettings } from '../types'
 import ProjectItem from './ProjectItem'
 
@@ -77,9 +78,13 @@ const ProjectPanel = ({
   }
 
   // 批量删除
-  const handleBatchDelete = () => {
+  const handleBatchDelete = async () => {
     if (selectedIds.size === 0) return
-    if (!confirm(`确定删除选中的 ${selectedIds.size} 个项目吗？`)) return
+    if (!(await confirmDialog({
+      title: `确定删除选中的 ${selectedIds.size} 个项目吗？`,
+      confirmText: '删除',
+      danger: true,
+    }))) return
     
     selectedIds.forEach(id => onDelete(id))
     setSelectedIds(new Set())

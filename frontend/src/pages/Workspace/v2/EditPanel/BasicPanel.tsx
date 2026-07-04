@@ -1,3 +1,4 @@
+import { toast } from '@/lib/toast'
 /**
  * 基本信息编辑面板
  */
@@ -40,17 +41,17 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
     e.target.value = ''
 
     if (!token) {
-      alert('请先登录后再上传照片')
+      toast.error('请先登录后再上传照片')
       return
     }
 
     // 前端预校验：与后端 2MB / 图片类型限制一致，避免上传后才失败
     if (!file.type.startsWith('image/')) {
-      alert('仅支持图片文件')
+      toast.error('仅支持图片文件')
       return
     }
     if (file.size > 2 * 1024 * 1024) {
-      alert('图片过大，最大支持 2MB')
+      toast.error('图片过大，最大支持 2MB')
       return
     }
 
@@ -65,7 +66,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
         photoHeightCm: basic?.photoHeightCm ?? 3,
       })
     } catch (err: any) {
-      alert(err?.message || '上传失败')
+      toast.error(err?.message || '上传失败')
     } finally {
       setUploading(false)
     }

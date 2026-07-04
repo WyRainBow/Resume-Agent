@@ -190,7 +190,16 @@ export function PreviewPanel({
           ) : (
             <FileText className="w-4 h-4" />
           )}
-          {statusText}
+          <span className="min-w-0 flex-1">{statusText}</span>
+          {hasRenderError && (
+            <button
+              type="button"
+              onClick={onRender}
+              className="shrink-0 rounded-md border border-red-300 dark:border-red-700 px-2 py-0.5 text-xs font-medium hover:bg-red-100 dark:hover:bg-red-900/40"
+            >
+              重试
+            </button>
+          )}
         </div>
       )}
 

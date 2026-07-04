@@ -1,3 +1,4 @@
+import { toast } from '@/lib/toast'
 
 /**
  * AI 导入弹窗组件（从 v1 移植）
@@ -273,7 +274,7 @@ export function AIImportModal({
       }
     } catch (err: any) {
       console.error("AI 解析失败:", err);
-      alert("解析失败: " + err.message);
+      toast.error("解析失败: " + err.message);
     } finally {
       setParsing(false);
     }
@@ -312,9 +313,9 @@ export function AIImportModal({
     } catch (err: any) {
       console.error("PDF 解析失败:", err);
       if (err instanceof FetchTimeoutError) {
-        alert("解析超时，请检查网络后重试，或换一份更小的 PDF");
+        toast.error("解析超时，请检查网络后重试，或换一份更小的 PDF");
       } else {
-        alert("解析失败: " + err.message);
+        toast.error("解析失败: " + err.message);
       }
     } finally {
       setParsing(false);
@@ -356,9 +357,9 @@ export function AIImportModal({
     } catch (err: any) {
       console.error("图片解析失败:", err);
       if (err instanceof FetchTimeoutError) {
-        alert("解析超时，请检查网络后重试，或换一张更清晰的图片");
+        toast.error("解析超时，请检查网络后重试，或换一张更清晰的图片");
       } else {
-        alert("解析失败: " + err.message);
+        toast.error("解析失败: " + err.message);
       }
     } finally {
       setParsing(false);
