@@ -10,6 +10,29 @@ type AuthPanelProps = {
   returnTo?: string;
 };
 
+/** 常见邮箱域名的高频拼写错误 → 正确域名（防止 gamil.com 这类错邮箱注册成孤儿账号）。 */
+const DOMAIN_TYPO_MAP: Record<string, string> = {
+  "gamil.com": "gmail.com",
+  "gmial.com": "gmail.com",
+  "gmali.com": "gmail.com",
+  "gmaill.com": "gmail.com",
+  "gmail.con": "gmail.com",
+  "gmail.co": "gmail.com",
+  "gmail.cm": "gmail.com",
+  "qq.con": "qq.com",
+  "qq.cm": "qq.com",
+  "163.con": "163.com",
+  "126.con": "126.com",
+  "foxmail.con": "foxmail.com",
+  "outlok.com": "outlook.com",
+  "outloook.com": "outlook.com",
+  "outlook.con": "outlook.com",
+  "hotmial.com": "hotmail.com",
+  "hotmail.con": "hotmail.com",
+  "iclould.com": "icloud.com",
+  "icloud.con": "icloud.com",
+};
+
 /** 官方 Google 四色 "G" 标识，用于登录按钮。 */
 function GoogleIcon() {
   return (
@@ -40,7 +63,18 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [typoConfirmed, setTypoConfirmed] = useState(false);
   const [isSubmitting, startTransition] = useTransition();
+
+  const emailDomain = email.split("@")[1]?.toLowerCase() ?? "";
+  const suggestedDomain = DOMAIN_TYPO_MAP[emailDomain];
+
+  const applySuggestedDomain = () => {
+    if (!suggestedDomain) return;
+    setEmail(`${email.split("@")[0]}@${suggestedDomain}`);
+    setTypoConfirmed(false);
+    setMessage("");
+  };
 
   // 登录后立即跳回应用（OAuth 已由服务端重定向兜底，这里覆盖账号/密码登录场景）。
   useEffect(() => {
@@ -64,6 +98,14 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
     }
     if (password.length < 6) {
       setMessage("密码长度至少 6 位。");
+      return;
+    }
+    // 疑似拼错的邮箱域名先拦一次：点「改为正确域名」修正，或再点一次提交坚持使用
+    if (suggestedDomain && !typoConfirmed) {
+      setTypoConfirmed(true);
+      setMessage(
+        `邮箱域名 @${emailDomain} 疑似拼写错误。可点邮箱下方按钮改为 @${suggestedDomain}；确认无误请再点一次${mode === "signin" ? "「登录」" : "「创建账户」"}。`,
+      );
       return;
     }
     startTransition(async () => {
@@ -143,12 +185,21 @@ export function AuthPanel({ returnTo = "" }: AuthPanelProps) {
         邮箱
         <input
           value={email}
-          onChange={(event) => setEmail(event.target.value)}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            setTypoConfirmed(false);
+          }}
           placeholder="请输入邮箱"
           type="email"
           autoComplete="email"
         />
       </label>
+
+      {suggestedDomain ? (
+        <button type="button" className="link-button" onClick={applySuggestedDomain}>
+          邮箱可能拼写有误，改为 @{suggestedDomain}
+        </button>
+      ) : null}
 
       <label>
         密码
