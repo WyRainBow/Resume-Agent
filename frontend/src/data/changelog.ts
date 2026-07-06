@@ -15,6 +15,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.10.1',
+    date: '2026-07-06 10:38',
+    added: [
+      '后台新增 Logo 统一管理：公司 Logo 与学校校徽可直接查看、上传、删除（仅管理员）',
+    ],
+    fixed: [
+      '「下载全部」调整到多选流程里：多选 → 全选后按钮即变为「下载全部」，顶栏更简洁',
+      '后台管理仅对管理员开放，权限边界更清晰',
+    ],
+  },
+  {
     version: '2.10.0',
     date: '2026-07-06 10:24',
     added: [
