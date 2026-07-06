@@ -971,12 +971,27 @@ class Manus(ToolCallAgent):
         return count
 
     @staticmethod
-    def _optimize_next_step_suggestions_block() -> str:
-        """优化完一段后的「下一步」建议（前端点击即自动发送）。"""
-        next_items = [
-            {"text": "✨ 优化整份简历", "msg": "优化我的整份简历"},
-            {"text": "换一段优化", "msg": "优化经历"},
-        ]
+    def _optimize_next_step_suggestions_block(
+        refine_label: str = "", refine_section_cn: str = ""
+    ) -> str:
+        """优化完一段后的「下一步」建议（前端点击即自动发送）。
+        传入具体优化目标（条目名 + 段类型）时，附「针对这一段」的一键微调维度
+        （更简洁 / 更突出成果 / 换更有力的动词）——点了发一句以「优化」开头、带条目名的
+        自然语言，稳定命中 OPTIMIZE_SECTION 并走 input-only 精确匹配路由回同一段再改一版
+        （防上下文劫持），维度作为「用户原话」进 LLM prompt。"""
+        next_items: List[Dict[str, str]] = []
+        if refine_section_cn:
+            tgt = (
+                f"{refine_label}的{refine_section_cn}"
+                if refine_label
+                else refine_section_cn
+            )
+            next_items += [
+                {"text": "更简洁", "msg": f"优化{tgt}，改得更简洁精炼一些"},
+                {"text": "更突出成果", "msg": f"优化{tgt}，更突出量化数据和成果"},
+                {"text": "换更有力的动词", "msg": f"优化{tgt}，多用有力的动作动词"},
+            ]
+        next_items.append({"text": "✨ 优化整份简历", "msg": "优化我的整份简历"})
         return f"\n\n%%SUGGESTIONS%%{json.dumps(next_items, ensure_ascii=False)}%%END%%"
 
     def _optimization_assistant_reply(
@@ -986,8 +1001,11 @@ class Manus(ToolCallAgent):
         patch_count: int,
         default_label: str = "实习经历",
         with_next: bool = False,
+        refine_label: str = "",
+        refine_section_cn: str = "",
     ) -> str:
-        """优化结果有 diff 卡片时用短回复，否则回退 markdown 长文。"""
+        """优化结果有 diff 卡片时用短回复，否则回退 markdown 长文。
+        refine_label / refine_section_cn 传入具体优化目标时，收尾追问「满意吗」并附一键微调。"""
         if patch_count <= 0:
             label = re.sub(r"\*+", "", default_label).strip() or "该段经历"
             if label not in ("实习经历", "简历"):
@@ -995,26 +1013,34 @@ class Manus(ToolCallAgent):
             return "未生成可用的优化建议，请稍后重试或指定要优化的经历。"
 
         items = suggestions.get("optimization_suggestions") or []
-        label = default_label
-        if items:
-            title = str(items[0].get("title") or "").strip()
-            title_match = re.match(
-                r"优化\s*(.+?)(?:的)?(?:实习经历|开源经历)\s*$",
-                title,
-            )
-            if title_match:
-                label = re.sub(r"\*+", "", title_match.group(1)).strip() or default_label
-            elif title.startswith("优化 "):
-                label = re.sub(r"\*+", "", title[3:]).strip() or default_label
-
-        label = re.sub(r"\*+", "", label).strip() or default_label
+        if refine_label:
+            label = re.sub(r"\*+", "", refine_label).strip() or default_label
+        else:
+            label = default_label
+            if items:
+                title = str(items[0].get("title") or "").strip()
+                title_match = re.match(
+                    r"优化\s*(.+?)(?:的)?(?:实习经历|开源经历)\s*$",
+                    title,
+                )
+                if title_match:
+                    label = re.sub(r"\*+", "", title_match.group(1)).strip() or default_label
+                elif title.startswith("优化 "):
+                    label = re.sub(r"\*+", "", title[3:]).strip() or default_label
+            label = re.sub(r"\*+", "", label).strip() or default_label
 
         if patch_count == 1:
-            reply = f"已为「{label}」生成优化对比，请在下方卡片确认是否应用。"
+            reply = f"已为「{label}」生成优化对比，看看满意吗——可以直接点卡片应用"
+            if with_next and refine_section_cn:
+                reply += "，或让我换个方向再改一版："
+            else:
+                reply += "。"
         else:
             reply = f"已生成 {patch_count} 处优化对比，请在下方卡片逐条确认是否应用。"
         if with_next:
-            reply += self._optimize_next_step_suggestions_block()
+            reply += self._optimize_next_step_suggestions_block(
+                refine_label, refine_section_cn
+            )
         return reply
 
     @staticmethod
@@ -2053,12 +2079,21 @@ class Manus(ToolCallAgent):
                     )
                     suggestions_list = (suggestions or {}).get("optimization_suggestions") or []
                     patch_count = self._queue_optimization_patches(suggestions_list)
+                    refine_section_cn = {
+                        "experience": "实习经历",
+                        "projects": "项目经历",
+                        "opensource": "开源经历",
+                        "education": "教育经历",
+                        "awards": "荣誉奖项",
+                    }.get(optimize_target.section_kind, "实习经历")
                     return _finish_optimize(
                         self._optimization_assistant_reply(
                             suggestions or {"optimization_suggestions": []},
                             patch_count=patch_count,
                             default_label=optimize_target.label or "该段经历",
                             with_next=True,
+                            refine_label=optimize_target.label or "",
+                            refine_section_cn=refine_section_cn,
                         )
                     )
 
