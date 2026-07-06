@@ -190,6 +190,7 @@ const ProjectEditor = ({
           onChange={(value) => handleChange('description', value)}
           type="editor"
           placeholder="请描述你在项目中的工作内容..."
+          resumeData={resumeData}
           polishPath={polishPath}
         />
       </div>

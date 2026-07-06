@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.11.1',
+    date: '2026-07-06 13:03',
+    added: [
+      '项目经历「项目描述」支持 AI 润色：展开项目即可一键优化描述内容',
+    ],
+  },
+  {
     version: '2.11.0',
     date: '2026-07-06 12:30',
     added: [
