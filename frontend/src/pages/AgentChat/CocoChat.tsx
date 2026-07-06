@@ -69,9 +69,7 @@ import { useToolEventRouter } from "@/hooks/agent-chat/useToolEventRouter";
 import { useStreamRunController } from "@/hooks/agent-chat/useStreamRunController";
 import { useMessageTimeline } from "@/hooks/agent-chat/useMessageTimeline";
 import {
-  applyPatchPaths,
   extractResumeEditDiff as extractResumeEditDiffFromMarkdown,
-  inferPatchOperation,
   normalizeResumePatchValue,
   stripResumeEditMarkdown,
 } from "@/utils/resumePatch";
@@ -656,6 +654,7 @@ function CocoChatContent() {
 
   // ResumeContext integration
   const {
+    resume: contextResume,
     pendingPatches,
     pushPatch,
     patchAppliedAt,
@@ -1841,36 +1840,22 @@ function CocoChatContent() {
   useEffect(() => {
     if (!patchAppliedAt) return;
 
-    // Apply all accepted patches to local resumeData (idempotent re-apply is safe)
-    setResumeData(prev => {
-      if (!prev) return prev;
-      let updated: ResumeData = prev;
-      for (const patch of pendingPatches) {
-        if (patch.status === 'applied') {
-          const op = inferPatchOperation(patch);
-          updated = applyPatchPaths(updated, patch.paths, patch.after, op) as ResumeData;
-        }
-      }
-      return updated;
-    });
-
-    // Also update loadedResumes so selectedLoadedResume reflects the new data,
-    // which triggers the PDF auto-render effect.
-    setLoadedResumes(prev => {
-      const targetId = selectedResumeId || prev[0]?.id;
-      if (!targetId) return prev;
-      return prev.map(item => {
-        if (item.id !== targetId || !item.resumeData) return item;
-        let updated: ResumeData = item.resumeData;
-        for (const patch of pendingPatches) {
-          if (patch.status === 'applied') {
-            const op = inferPatchOperation(patch);
-            updated = applyPatchPaths(updated, patch.paths, patch.after, op) as ResumeData;
-          }
-        }
-        return { ...item, resumeData: updated };
+    // context.resume 是补丁「应用/撤销」后的权威当前态：应用后=已并入全部 applied 补丁，
+    // 撤销后=应用前快照。直接同步到本地预览态（resumeData + loadedResumes），既覆盖应用、
+    // 也天然覆盖撤销回退——修复此前 toast 撤销只回退 Context/DB、右侧预览却不回灌的 bug。
+    // （patchAppliedAt 与 contextResume 在同一次提交里一起变，effect 闭包取到的是新值）
+    if (contextResume) {
+      setResumeData(contextResume);
+      setLoadedResumes(prev => {
+        const targetId = selectedResumeId || prev[0]?.id;
+        if (!targetId) return prev;
+        return prev.map(item =>
+          item.id === targetId && item.resumeData
+            ? { ...item, resumeData: contextResume }
+            : item,
+        );
       });
-    });
+    }
 
     setResumePdfPreview(prev => {
       const targetId = selectedResumeId || Object.keys(prev)[0];
