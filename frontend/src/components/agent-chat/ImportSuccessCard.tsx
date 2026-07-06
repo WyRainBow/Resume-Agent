@@ -65,10 +65,10 @@ export function ApplyDoneCard({
         <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-emerald-500" strokeWidth={2.25} />
         <div className="min-w-0">
           <p className="text-sm font-semibold text-chat-ink dark:text-slate-100">
-            已应用 {count} 处优化，右侧预览已更新
+            已应用 {count} 处优化、右侧预览已更新
           </p>
           <p className="mt-0.5 text-xs text-chat-ink-muted">
-            简历改好了，接下来可以：
+            简历改好了、接下来可以：
           </p>
         </div>
       </div>
