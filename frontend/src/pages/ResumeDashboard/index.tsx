@@ -33,6 +33,8 @@ const ResumeDashboard = () => {
     selectedIds,
     toggleSelect,
     batchDelete,
+    batchDownload,
+    downloadProgress,
     clearSelection,
     selectAll,
     // 备注/别名
@@ -254,6 +256,9 @@ const ResumeDashboard = () => {
             onAIImport={handleOpenAIImport}
             selectedCount={selectedIds.size}
             onBatchDelete={batchDelete}
+            onBatchDownload={() => batchDownload(Array.from(selectedIds))}
+            onDownloadAll={() => batchDownload()}
+            downloadProgress={downloadProgress}
             totalCount={resumes.length}
             isMultiSelectMode={isMultiSelectMode}
             onToggleMultiSelectMode={toggleMultiSelectMode}

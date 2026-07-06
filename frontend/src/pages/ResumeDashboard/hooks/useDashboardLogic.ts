@@ -1,17 +1,22 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from '@/lib/toast'
 import { confirmDialog } from '@/lib/confirm'
-import { 
-  getAllResumes, 
-  deleteResume as deleteResumeService, 
+import JSZip from 'jszip'
+import { saveAs } from 'file-saver'
+import {
+  getAllResumes,
+  deleteResume as deleteResumeService,
   duplicateResume as duplicateResumeService,
   saveResume,
   setCurrentResumeId,
   getResume,
   updateResumeAlias as updateResumeAliasService,
   updateResumePinned as updateResumePinnedService,
-  type SavedResume 
+  type SavedResume
 } from '@/services/resumeStorage'
+import { fetchPdfDownloadQuota, recordPdfDownload, renderPDF } from '@/services/api'
+import { convertToBackendFormat } from '@/pages/Workspace/v2/utils/convertToBackend'
+import { initialResumeData } from '@/pages/Workspace/v2/constants'
 import { useNavigate } from 'react-router-dom'
 
 // 简单的 UUID 生成
@@ -227,6 +232,128 @@ export const useDashboardLogic = () => {
     await loadResumes()
   }, [selectedIds])
 
+  /** 批量下载进度文案（null 表示空闲） */
+  const [downloadProgress, setDownloadProgress] = useState<string | null>(null)
+
+  const isHtmlResume = (r: SavedResume) =>
+    r.templateType === 'html' || (r.data as any)?.templateType === 'html' || r.id.includes('_html_')
+
+  const sanitizeFilename = (name: string) =>
+    name.replace(/[\\/:*?"<>|\s]+/g, ' ').trim().slice(0, 60)
+
+  /**
+   * 批量下载简历：逐份渲染 PDF 后打包 zip。
+   * @param ids 指定简历 ID；不传则下载全部
+   */
+  const batchDownload = useCallback(async (ids?: string[]) => {
+    if (downloadProgress) return
+
+    const targetIds = ids && ids.length > 0 ? new Set(ids) : new Set(resumes.map(r => r.id))
+    if (ids && ids.length === 0) {
+      toast.error('请先选择要下载的简历')
+      return
+    }
+    const targets = resumes.filter(r => targetIds.has(r.id))
+    if (targets.length === 0) {
+      toast.error('还没有可下载的简历')
+      return
+    }
+
+    const htmlSkipped = targets.filter(isHtmlResume)
+    const latexTargets = targets.filter(r => !isHtmlResume(r))
+    if (latexTargets.length === 0) {
+      toast.error('选中的都是 HTML 模板简历，暂不支持批量导出 PDF，请进编辑器单独下载')
+      return
+    }
+
+    // 下载额度预检（与单份下载同一记账口径：渲染预览不计次、真实下载才计）
+    let quota
+    try {
+      quota = await fetchPdfDownloadQuota()
+    } catch {
+      toast.error('请先登录后再批量下载')
+      return
+    }
+    if (!quota.unlimited && (quota.remaining ?? 0) < latexTargets.length) {
+      toast.error(`下载额度不足：本次需 ${latexTargets.length} 次，剩余 ${quota.remaining ?? 0} 次`)
+      return
+    }
+
+    const quotaNote = quota.unlimited ? '' : `，将消耗 ${latexTargets.length} 次下载额度（剩余 ${quota.remaining}）`
+    const htmlNote = htmlSkipped.length ? `；${htmlSkipped.length} 份 HTML 模板简历暂不支持、将跳过` : ''
+    if (!(await confirmDialog({
+      title: `下载 ${latexTargets.length} 份简历？`,
+      description: `将逐份渲染 PDF 并打包为 zip${quotaNote}${htmlNote}。`,
+      confirmText: '开始下载',
+    }))) {
+      return
+    }
+
+    const zip = new JSZip()
+    const failed: string[] = []
+    const usedNames = new Set<string>()
+    let done = 0
+    for (const r of latexTargets) {
+      done++
+      setDownloadProgress(`渲染中 ${done}/${latexTargets.length}`)
+      try {
+        // 存储里的简历可能缺 menuSections/globalSettings（非工作台落库的来源），按工作台默认值补齐
+        const raw = r.data as any
+        const merged = {
+          ...initialResumeData,
+          ...raw,
+          menuSections: raw?.menuSections?.length ? raw.menuSections : initialResumeData.menuSections,
+          globalSettings: { ...initialResumeData.globalSettings, ...(raw?.globalSettings || {}) },
+        }
+        const backendData = convertToBackendFormat(merged)
+        const blob = await renderPDF(backendData as any, false, (backendData as any).sectionOrder)
+        const display = (r.data as any)?.basic?.name || r.name || '简历'
+        const base = sanitizeFilename(r.alias ? `${display}-${r.alias}` : display) || '简历'
+        let filename = `${base}.pdf`
+        let n = 2
+        while (usedNames.has(filename)) filename = `${base}-${n++}.pdf`
+        usedNames.add(filename)
+        zip.file(filename, blob)
+      } catch (e) {
+        console.error('批量下载：渲染失败', r.id, e)
+        failed.push((r.data as any)?.basic?.name || r.name || r.id)
+      }
+    }
+
+    const okCount = latexTargets.length - failed.length
+    if (okCount === 0) {
+      setDownloadProgress(null)
+      toast.error('全部渲染失败，请稍后重试')
+      return
+    }
+
+    setDownloadProgress('打包中…')
+    const zipBlob = await zip.generateAsync({ type: 'blob' })
+    saveAs(zipBlob, `我的简历-${new Date().toISOString().slice(0, 10)}.zip`)
+
+    // 记账：每份成功下载的 PDF 记一次（不限次角色由后端直接跳过计数）
+    if (!quota.unlimited) {
+      for (let i = 0; i < okCount; i++) {
+        try {
+          await recordPdfDownload()
+        } catch (e) {
+          console.error('批量下载：额度记账失败', e)
+          break
+        }
+      }
+    }
+
+    setDownloadProgress(null)
+    const parts = [`已下载 ${okCount} 份`]
+    if (htmlSkipped.length) parts.push(`跳过 HTML 模板 ${htmlSkipped.length} 份`)
+    if (failed.length) parts.push(`失败 ${failed.length} 份（${failed.slice(0, 3).join('、')}${failed.length > 3 ? ' 等' : ''}）`)
+    if (failed.length) {
+      toast.error(parts.join('，'))
+    } else {
+      toast.success(parts.join('，'))
+    }
+  }, [resumes, downloadProgress])
+
   /**
    * 清空所有选中状态
    */
@@ -315,6 +442,8 @@ export const useDashboardLogic = () => {
     selectedIds,
     toggleSelect,
     batchDelete,
+    batchDownload,
+    downloadProgress,
     clearSelection,
     selectAll,
     // 备注/别名
