@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.10.2',
+    date: '2026-07-06 11:46',
+    fixed: [
+      '后台管理改为 Tab 切换：用户管理与 Logo 管理分页签，不用再上下拉',
+    ],
+  },
+  {
     version: '2.10.1',
     date: '2026-07-06 10:38',
     added: [

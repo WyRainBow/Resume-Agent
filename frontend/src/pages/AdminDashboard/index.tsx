@@ -134,6 +134,7 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<UserStats | null>(null)
   const [users, setUsers] = useState<UserRow[]>([])
   const [actionError, setActionError] = useState('')
+  const [activeTab, setActiveTab] = useState<'users' | 'logos'>('users')
 
   const [promptLoading, setPromptLoading] = useState(true)
   const [promptSaving, setPromptSaving] = useState(false)
@@ -262,6 +263,7 @@ export default function AdminDashboardPage() {
             <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">平台基础数据看板</p>
           </div>
 
+          {/* 加载中 / 无权限 / 请求错误：不显示 Tab，只显示占位 */}
           {loading ? (
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -275,90 +277,119 @@ export default function AdminDashboardPage() {
             <div className="rounded-2xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 p-6 text-red-600 dark:text-red-400">
               {error}
             </div>
-          ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-              {[
-                { label: '用户总数', value: stats?.total_users ?? users.length, bar: 'bg-slate-300 dark:bg-slate-600' },
-                { label: '管理员', value: users.filter((u) => u.role === 'admin').length, bar: 'bg-emerald-400/70' },
-                { label: '员工', value: users.filter((u) => u.role === 'staff').length, bar: 'bg-violet-400/70' },
-                { label: '会员', value: users.filter((u) => u.role === 'member').length, bar: 'bg-blue-400/70' },
-                { label: '普通用户', value: users.filter((u) => u.role === 'user').length, bar: 'bg-slate-300 dark:bg-slate-600' },
-              ].map((s) => (
-                <div
-                  key={s.label}
-                  className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+          ) : null}
+
+          {/* Tab 栏 */}
+          {!loading && !error && (
+            <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800">
+              {([
+                { key: 'users', label: '用户管理' },
+                { key: 'logos', label: 'Logo 管理' },
+              ] as const).map((t) => (
+                <button
+                  key={t.key}
+                  type="button"
+                  onClick={() => setActiveTab(t.key)}
+                  className={`relative -mb-px px-4 py-2.5 text-sm font-medium transition-colors ${
+                    activeTab === t.key
+                      ? 'text-slate-900 dark:text-slate-100'
+                      : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                  }`}
                 >
-                  <div className={`absolute inset-x-0 top-0 h-1 ${s.bar}`} />
-                  <div className="text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400">{s.label}</div>
-                  <div className="mt-2 text-3xl font-bold tabular-nums text-slate-900 dark:text-slate-100">{s.value}</div>
-                </div>
+                  {t.label}
+                  {activeTab === t.key && (
+                    <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-emerald-500" />
+                  )}
+                </button>
               ))}
             </div>
           )}
 
-          {!loading && !error && (
-            <section className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-              <div className="border-b border-slate-200 dark:border-slate-800 px-6 py-4">
-                <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">用户列表</h2>
-                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">共 {users.length} 个用户</p>
-                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400">
-                  <span><span className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">admin</span> 管理员 · 全部权限，后台仅管理员可用</span>
-                  <span><span className="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">staff</span> 员工 · PDF 下载不限次，无后台权限</span>
-                  <span><span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">member</span> 会员 · 付费权益（PDF 下载不限次），无后台权限</span>
-                  <span><span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">user</span> 普通用户 · 基础功能（PDF 下载 10 次）</span>
-                </div>
-                {actionError && (
-                  <div className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-600 dark:bg-rose-950/20 dark:text-rose-400">
-                    {actionError}
+          {/* 用户管理 Tab */}
+          {activeTab === 'users' && !loading && !error && (
+            <>
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                {[
+                  { label: '用户总数', value: stats?.total_users ?? users.length, bar: 'bg-slate-300 dark:bg-slate-600' },
+                  { label: '管理员', value: users.filter((u) => u.role === 'admin').length, bar: 'bg-emerald-400/70' },
+                  { label: '员工', value: users.filter((u) => u.role === 'staff').length, bar: 'bg-violet-400/70' },
+                  { label: '会员', value: users.filter((u) => u.role === 'member').length, bar: 'bg-blue-400/70' },
+                  { label: '普通用户', value: users.filter((u) => u.role === 'user').length, bar: 'bg-slate-300 dark:bg-slate-600' },
+                ].map((s) => (
+                  <div
+                    key={s.label}
+                    className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+                  >
+                    <div className={`absolute inset-x-0 top-0 h-1 ${s.bar}`} />
+                    <div className="text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400">{s.label}</div>
+                    <div className="mt-2 text-3xl font-bold tabular-nums text-slate-900 dark:text-slate-100">{s.value}</div>
                   </div>
-                )}
+                ))}
               </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-xs text-slate-500 dark:text-slate-400">
-                      <th className="px-6 py-3 font-medium">ID</th>
-                      <th className="px-6 py-3 font-medium">用户名</th>
-                      <th className="px-6 py-3 font-medium">邮箱</th>
-                      <th className="px-6 py-3 font-medium">角色</th>
-                      <th className="px-6 py-3 font-medium">注册时间</th>
-                      <th className="px-6 py-3 font-medium">PDF 次数</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {users.length === 0 ? (
-                      <tr>
-                        <td colSpan={6} className="px-6 py-8 text-center text-slate-400">
-                          暂无用户
-                        </td>
-                      </tr>
-                    ) : (
-                      users.map((u) => (
-                        <tr
-                          key={u.id}
-                          className="border-b border-slate-100 text-slate-700 transition-colors hover:bg-slate-50/70 dark:border-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800/40"
-                        >
-                          <td className="px-6 py-3 text-slate-400" title={u.id}>{String(u.id).slice(0, 8)}…</td>
-                          <td className="px-6 py-3 font-medium text-slate-900 dark:text-slate-100">{u.username}</td>
-                          <td className="px-6 py-3">{u.email}</td>
-                          <td className="px-6 py-3">
-                            <RoleDropdown value={u.role} onChange={(v) => handleRoleChange(u.id, v)} />
-                          </td>
-                          <td className="px-6 py-3 text-slate-500 dark:text-slate-400">
-                            {u.created_at ? u.created_at.slice(0, 10) : '-'}
-                          </td>
-                          <td className="px-6 py-3 tabular-nums text-slate-500 dark:text-slate-400">{u.pdf_download_count}</td>
-                        </tr>
-                      ))
+
+              <section className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+                  <div className="border-b border-slate-200 dark:border-slate-800 px-6 py-4">
+                    <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">用户列表</h2>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">共 {users.length} 个用户</p>
+                    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+                      <span><span className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">admin</span> 管理员 · 全部权限、后台仅管理员可用</span>
+                      <span><span className="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">staff</span> 员工 · PDF 下载不限次、无后台权限</span>
+                      <span><span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">member</span> 会员 · 付费权益（PDF 下载不限次）、无后台权限</span>
+                      <span><span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">user</span> 普通用户 · 基础功能（PDF 下载 10 次）</span>
+                    </div>
+                    {actionError && (
+                      <div className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-600 dark:bg-rose-950/20 dark:text-rose-400">
+                        {actionError}
+                      </div>
                     )}
-                  </tbody>
-                </table>
-              </div>
-            </section>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-xs text-slate-500 dark:text-slate-400">
+                          <th className="px-6 py-3 font-medium">ID</th>
+                          <th className="px-6 py-3 font-medium">用户名</th>
+                          <th className="px-6 py-3 font-medium">邮箱</th>
+                          <th className="px-6 py-3 font-medium">角色</th>
+                          <th className="px-6 py-3 font-medium">注册时间</th>
+                          <th className="px-6 py-3 font-medium">PDF 次数</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.length === 0 ? (
+                          <tr>
+                            <td colSpan={6} className="px-6 py-8 text-center text-slate-400">
+                              暂无用户
+                            </td>
+                          </tr>
+                        ) : (
+                          users.map((u) => (
+                            <tr
+                              key={u.id}
+                              className="border-b border-slate-100 text-slate-700 transition-colors hover:bg-slate-50/70 dark:border-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800/40"
+                            >
+                              <td className="px-6 py-3 text-slate-400" title={u.id}>{String(u.id).slice(0, 8)}…</td>
+                              <td className="px-6 py-3 font-medium text-slate-900 dark:text-slate-100">{u.username}</td>
+                              <td className="px-6 py-3">{u.email}</td>
+                              <td className="px-6 py-3">
+                                <RoleDropdown value={u.role} onChange={(v) => handleRoleChange(u.id, v)} />
+                              </td>
+                              <td className="px-6 py-3 text-slate-500 dark:text-slate-400">
+                                {u.created_at ? u.created_at.slice(0, 10) : '-'}
+                              </td>
+                              <td className="px-6 py-3 tabular-nums text-slate-500 dark:text-slate-400">{u.pdf_download_count}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+            </>
           )}
 
-          {/* Logo 统一管理（仅管理员——页面本身已按 admin 门控） */}
-          {!loading && !error && <LogoManager />}
+          {/* Logo 管理 Tab（按需渲染：切到该 Tab 才拉数据） */}
+          {activeTab === 'logos' && !loading && !error && <LogoManager />}
 
           {false && <section className="overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="border-b border-slate-200 bg-gradient-to-r from-slate-900 to-slate-700 px-6 py-5 dark:border-slate-800">
