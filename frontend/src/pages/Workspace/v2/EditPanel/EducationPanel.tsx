@@ -9,7 +9,7 @@ import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion
 import { cn } from '../../../../lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
 import { canUseAdminFeature, getStoredAuthRole } from '@/lib/runtimeEnv'
-import type { Education } from '../types'
+import type { Education, ResumeData } from '../types'
 import Field from './Field'
 import { MonthYearRangePicker } from '../shared/MonthYearRangePicker'
 import { FontSizePicker } from '../shared/FontSizePicker'
@@ -36,6 +36,7 @@ interface EducationPanelProps {
   onDelete: (id: string) => void
   onReorder: (educations: Education[]) => void
   onAIImport?: () => void
+  resumeData?: ResumeData  // 简历数据，用于教育经历补充说明的 AI 润色
 }
 
 const generateId = () => {
@@ -369,10 +370,12 @@ const EducationItem = ({
   education,
   onUpdate,
   onDelete,
+  resumeData,
 }: {
   education: Education
   onUpdate: (education: Education) => void
   onDelete: (id: string) => void
+  resumeData?: ResumeData
 }) => {
   const { user } = useAuth()
   const canUploadLogo = !!user && canUseAdminFeature()
@@ -383,6 +386,10 @@ const EducationItem = ({
   const headerRef = useRef<HTMLDivElement>(null)
   const dragControls = useDragControls()
   const isCompactLayout = true
+  // 构建 polishPath，使用方括号格式：education[0].description
+  const polishPath = resumeData?.education
+    ? `education[${resumeData.education.findIndex((e) => e.id === education.id)}].description`
+    : undefined
   const autoMatchedKey = !education.schoolLogo ? matchSchoolLogo(education.school || '') : null
   const effectiveLogoKey = education.schoolLogo || autoMatchedKey
   const schoolLogoUrl = effectiveLogoKey ? getSchoolLogoUrl(effectiveLogoKey) : null
@@ -806,6 +813,8 @@ const EducationItem = ({
                   onChange={(v) => onUpdate({ ...education, description: v })}
                   type="editor"
                   placeholder="如：荣誉奖项、相关课程等"
+                  resumeData={resumeData}
+                  polishPath={polishPath}
                 />
               </div>
             </motion.div>
@@ -822,6 +831,7 @@ const EducationPanel = ({
   onDelete,
   onReorder,
   onAIImport,
+  resumeData,
 }: EducationPanelProps) => {
   const handleCreate = () => {
     const newEdu: Education = {
@@ -857,6 +867,7 @@ const EducationPanel = ({
             education={edu}
             onUpdate={onUpdate}
             onDelete={onDelete}
+            resumeData={resumeData}
           />
         ))}
       </Reorder.Group>

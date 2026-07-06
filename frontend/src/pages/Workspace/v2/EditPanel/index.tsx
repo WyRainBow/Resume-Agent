@@ -186,6 +186,7 @@ export function EditPanel({
             onDelete={deleteEducation}
             onReorder={reorderEducations}
             onAIImport={onAIImport ? () => onAIImport('education') : undefined}
+            resumeData={resumeData}
           />
         )
 

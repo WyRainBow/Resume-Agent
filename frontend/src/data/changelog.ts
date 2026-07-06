@@ -15,6 +15,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.11.0',
+    date: '2026-07-06 12:30',
+    added: [
+      '教育经历「补充说明」支持 AI 润色：展开教育经历即可一键优化校园经历、课程、荣誉等描述',
+    ],
+    fixed: [
+      '后台管理改为 Tab 切换：用户管理与 Logo 管理分页签，不用再上下拉',
+      '优化应用成功提示、角色权限说明等文案的标点排版',
+    ],
+  },
+  {
     version: '2.10.2',
     date: '2026-07-06 11:46',
     fixed: [
