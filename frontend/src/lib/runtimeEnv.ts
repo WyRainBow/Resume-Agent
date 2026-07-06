@@ -155,7 +155,6 @@ export function canUseAgentFeature(): boolean {
 export function canUseAdminFeature(): boolean {
   // 角色即权限来源：legacy 模式从 JWT、BetterAuth 模式从 auth_user 取角色。
   // 不再要求 legacy token（BetterAuth 登录态下 auth_token 为空，会误杀管理员）。
-  // 后台/运营入口只对内部角色开放：admin（管理员）/ staff（员工）；member 是付费权益、无后台。
-  const role = getStoredAuthRole()
-  return role === 'admin' || role === 'staff'
+  // 后台/运营入口仅 admin；staff/member 都没有后台权限。
+  return getStoredAuthRole() === 'admin'
 }

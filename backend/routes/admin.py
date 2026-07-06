@@ -16,7 +16,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from database import get_db
 from models import RenderPDFRequest, User
-from middleware.auth import require_admin_only, require_staff
+from middleware.auth import require_admin_only
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 logger = logging.getLogger("backend")
@@ -29,7 +29,7 @@ class PDFRenderModeLogRequest(BaseModel):
 
 @router.get("/stats/users")
 def get_user_stats(
-    _current_user: User = Depends(require_staff),
+    _current_user: User = Depends(require_admin_only),
     db: Session = Depends(get_db),
 ):
     # 以 BetterAuth "user" 表为准（所有登录用户），与用户列表口径一致。
@@ -43,7 +43,7 @@ def get_user_stats(
 
 @router.get("/users")
 def list_users(
-    _current_user: User = Depends(require_staff),
+    _current_user: User = Depends(require_admin_only),
     db: Session = Depends(get_db),
 ):
     # 以 BetterAuth "user" 表为准（所有登录用户），role/pdf 从 legacy users 按 email 桥接。

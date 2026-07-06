@@ -15,7 +15,7 @@ except ImportError:
 try:
     from models import SaveKeysRequest, AITestRequest, ChatRequest
     from llm import call_llm, get_ai_config
-    from middleware.auth import require_staff
+    from middleware.auth import require_admin_only
     from prompt_templates import (
         get_prompt_templates,
         save_prompt_templates,
@@ -24,7 +24,7 @@ try:
 except ImportError:  # fallback
     from backend.models import SaveKeysRequest, AITestRequest, ChatRequest
     from backend.llm import call_llm, get_ai_config
-    from backend.middleware.auth import require_staff
+    from backend.middleware.auth import require_admin_only
     from backend.prompt_templates import (
         get_prompt_templates,
         save_prompt_templates,
@@ -175,7 +175,7 @@ async def save_keys(body: SaveKeysRequest):
 
 
 @router.get("/config/prompts")
-async def get_prompts(_current_user=Depends(require_staff)):
+async def get_prompts(_current_user=Depends(require_admin_only)):
     """获取提示词模板配置（后台管理）"""
     return {
         "items": get_prompt_registry(),
@@ -184,7 +184,7 @@ async def get_prompts(_current_user=Depends(require_staff)):
 
 
 @router.put("/config/prompts")
-async def save_prompts(body: SavePromptsRequest, _current_user=Depends(require_staff)):
+async def save_prompts(body: SavePromptsRequest, _current_user=Depends(require_admin_only)):
     """保存提示词模板配置（后台管理）"""
     updates: dict[str, str] = {}
     if body.prompts:

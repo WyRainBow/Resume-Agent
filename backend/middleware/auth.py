@@ -176,16 +176,7 @@ async def get_current_user_optional(
 def require_admin_only(
     current_user: User = Depends(get_current_user),
 ) -> User:
-    """仅允许 admin 角色访问。"""
+    """仅允许 admin 角色访问（后台/运营接口统一用这一档；staff/member 均无后台权限）。"""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="仅管理员可访问")
-    return current_user
-
-
-def require_staff(
-    current_user: User = Depends(get_current_user),
-) -> User:
-    """允许 admin/staff（管理员/员工）访问——内部运营权限，与会员付费权益无关。"""
-    if current_user.role not in {"admin", "staff"}:
-        raise HTTPException(status_code=403, detail="仅管理员或员工可访问")
     return current_user

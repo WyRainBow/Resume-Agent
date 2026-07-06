@@ -3,6 +3,7 @@ import { Check, ChevronDown } from 'lucide-react'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import { getAuthHeaders } from '@/lib/authHeaders'
 import { getApiBaseUrl, canUseAdminFeature } from '@/lib/runtimeEnv'
+import { LogoManager } from './LogoManager'
 
 type UserStats = {
   total_users: number
@@ -301,9 +302,9 @@ export default function AdminDashboardPage() {
                 <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">用户列表</h2>
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">共 {users.length} 个用户</p>
                 <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400">
-                  <span><span className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">admin</span> 管理员 · 全部权限、管理用户与角色</span>
-                  <span><span className="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">staff</span> 员工 · 可进后台运营（用户列表、提示词、Logo 库）</span>
-                  <span><span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">member</span> 会员 · 付费权益（PDF 下载不限次），不含后台</span>
+                  <span><span className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">admin</span> 管理员 · 全部权限，后台仅管理员可用</span>
+                  <span><span className="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">staff</span> 员工 · PDF 下载不限次，无后台权限</span>
+                  <span><span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">member</span> 会员 · 付费权益（PDF 下载不限次），无后台权限</span>
                   <span><span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">user</span> 普通用户 · 基础功能（PDF 下载 10 次）</span>
                 </div>
                 {actionError && (
@@ -355,6 +356,9 @@ export default function AdminDashboardPage() {
               </div>
             </section>
           )}
+
+          {/* Logo 统一管理（仅管理员——页面本身已按 admin 门控） */}
+          {!loading && !error && <LogoManager />}
 
           {false && <section className="overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
             <div className="border-b border-slate-200 bg-gradient-to-r from-slate-900 to-slate-700 px-6 py-5 dark:border-slate-800">
