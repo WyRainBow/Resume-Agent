@@ -38,7 +38,13 @@ try:
 except Exception:
     pass
 
-PDF_PATH = sys.argv[1] if len(sys.argv) > 1 and not sys.argv[1].startswith("qwen") and sys.argv[1] != "deepseek-v4-flash" else "测试样本/尹昕雨 3.pdf"
+# 样本 PDF 与期望值均从环境变量读取，避免把真实姓名/简历内容写进仓库。
+# 用法：BENCH_PDF=/path/to/sample.pdf BENCH_EXPECT_NAME=xx BENCH_EXPECT_EMAIL=xx .venv/bin/python -m ...
+PDF_PATH = (
+    sys.argv[1]
+    if len(sys.argv) > 1 and not sys.argv[1].startswith(("qwen", "deepseek"))
+    else os.getenv("BENCH_PDF", "")
+)
 # 命令行后续参数都是模型名
 CLI_MODELS = [a for a in sys.argv[1:] if a.startswith("qwen") or a.startswith("deepseek")]
 DEFAULT_MODELS = ["qwen-turbo", "qwen-plus", "qwen-max", "qwen3.7-plus", "qwen3.7-max", "deepseek-v4-flash"]
@@ -47,12 +53,12 @@ SKIP_OCR = os.getenv("BENCH_SKIP_OCR", "1") == "1"
 MD_CACHE = "/tmp/bench_glm_ocr_output.md"
 RESULT_DIR = "/tmp"
 
-# 已知正确答案（用于质量评估，基于该样本人工核对）
+# 期望值用于质量评分，均从环境变量注入（不写死真实 PII）；未设时对应评分项跳过。
 EXPECTED = {
-    "name": "尹昕雨",
-    "internships_count_min": 4,   # 至少 4 段实习
-    "education_count_min": 1,
-    "has_email": "2943793993@qq.com",
+    "name": os.getenv("BENCH_EXPECT_NAME", ""),
+    "internships_count_min": int(os.getenv("BENCH_EXPECT_INTERN_MIN", "1")),
+    "education_count_min": int(os.getenv("BENCH_EXPECT_EDU_MIN", "1")),
+    "has_email": os.getenv("BENCH_EXPECT_EMAIL", ""),
 }
 
 
@@ -80,7 +86,8 @@ def eval_quality(data: dict) -> dict:
     metrics = {"valid_json": True}
     metrics["top_keys"] = len(data.keys())
     metrics["name"] = data.get("name") or (data.get("basic") or {}).get("name") or ""
-    metrics["name_correct"] = metrics["name"] == EXPECTED["name"]
+    # 期望值为空（未注入 PII）时跳过该项校验，不计分
+    metrics["name_correct"] = bool(EXPECTED["name"]) and metrics["name"] == EXPECTED["name"]
     for field in ["internships", "education", "projects", "awards", "skills", "experience", "openSource"]:
         val = data.get(field)
         if isinstance(val, list) and val:
@@ -89,7 +96,7 @@ def eval_quality(data: dict) -> dict:
     contact = data.get("contact") or {}
     email = contact.get("email") or (data.get("basic") or {}).get("email") or ""
     metrics["email"] = email
-    metrics["email_correct"] = EXPECTED["has_email"] in str(email) if email else False
+    metrics["email_correct"] = bool(EXPECTED["has_email"]) and EXPECTED["has_email"] in str(email)
     # 综合评分：姓名对+email对+各section条目数达标
     score = 0
     if metrics["name_correct"]: score += 3

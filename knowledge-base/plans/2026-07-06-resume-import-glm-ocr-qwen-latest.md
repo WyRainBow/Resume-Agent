@@ -58,7 +58,7 @@ if model_name in ("deepseek-chat", "deepseek-reasoner") or not model_name.starts
 
 ### 2.1 测试方法
 
-- **样本**：`测试样本/尹昕雨 3.pdf`（393.5 KB，单页带照片简历）
+- **样本**：单页样本 A（393.5 KB，单页带照片简历）
 - **OCR**：glm-ocr 固定 2.64s 得到 2878 字符 Markdown（与结构化模型无关）
 - **结构化**：用同一段 Markdown，分别测各模型转 JSON
 - **脚本**：`backend/scripts/bench_import_pipeline.py`（耗时+质量）、`backend/scripts/compare_bench_json.py`（内容完整度对比）、`backend/scripts/bench_breakdown.py`（耗时拆解）
@@ -291,7 +291,7 @@ upload-image → image_to_text(glm-ocr) → Markdown
 | `pdf_parser.py` | 加注释，文件保留不删 |
 | `scripts/bench_parallel_vs_single.py` | 单次 vs 并行 质量+耗时对比脚本 |
 
-### 真实样本实测（测试样本/尹昕雨 3.pdf，OCR 后 2878 字）
+### 真实样本实测（单页样本 A，OCR 后 2878 字）
 
 | 路径 | 耗时 | 质量(实习/教育/项目) | 稳定性 | 结论 |
 |---|---:|---|---|---|
@@ -320,10 +320,10 @@ upload-image → image_to_text(glm-ocr) → Markdown
 
 | 样本 | 方案 | 耗时 | 分类稳定性 |
 |---|---|---:|---|
-| 尹昕雨（单页，5实习2项目） | 两路并发 | 22–25s（均 23.2s） | **6/6 命中 实习5/教育1/项目2** |
-| 尹昕雨 | 单次 | 30–44s | 稳 |
-| 长文1（AI后端，0实习1项目） | 两路并发 | 8–12s | **3/3 与单次一致** |
-| 长文1 | 单次 | 17s | 基准 |
+| 样本 A（单页，5实习2项目） | 两路并发 | 22–25s（均 23.2s） | **6/6 命中 实习5/教育1/项目2** |
+| 样本 A | 单次 | 30–44s | 稳 |
+| 样本 B（AI后端，0实习1项目） | 两路并发 | 8–12s | **3/3 与单次一致** |
+| 样本 B | 单次 | 17s | 基准 |
 
 - **可靠 ~2x**：两样本、9 次运行分类全部与单次一致，方差小（JSON mode 消除了解析失败重试的尖峰）。
 - **实现**：`_extract_sections`（system=SYSTEM_PROMPT + 分类规则 + JSON mode + 一次重试）；EASY 组带 `SKILLS_RULES`；EXP 组带模块归属/highlights/嵌套规则；EXP 失败或全空 → 回退单次。
@@ -334,4 +334,4 @@ upload-image → image_to_text(glm-ocr) → Markdown
 - **采用「两路并发（移植分类规则）」**：去 MinerU + glm-ocr 单路 + qwen-plus-latest 两路并发结构化。总链路预计 OCR 2.6s + 结构化 ~23s ≈ **~26s**（vs 现生产 ~53s，约 2x）。
 - glm-ocr 单点失败直接 502（实测稳定 2.6s）；EXP 组失败回退单次保完整。
 - 回滚：`git revert` 分支实现 commit 即恢复 MinerU+deepseek。前端零改动、接口契约不变。
-- ⚠️ 实测两样本（尹昕雨单页 + 长文1）；合并前建议再补**多页/英文/表格密集**样本，以及走真实 HTTP 端点（非仅 assembler 层）冒烟一次。
+- ⚠️ 实测两样本（样本 A（单页）+ 样本 B（长文））；合并前建议再补**多页/英文/表格密集**样本，以及走真实 HTTP 端点（非仅 assembler 层）冒烟一次。

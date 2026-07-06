@@ -33,7 +33,7 @@ except Exception:
 
 from backend.scripts.bench_import_pipeline import eval_quality, MD_CACHE
 
-PDF_PATH = "测试样本/尹昕雨 3.pdf"
+PDF_PATH = os.getenv("BENCH_PDF", "")  # 从环境变量注入，不写死真实简历文件名
 SKIP_OCR = os.getenv("BENCH_SKIP_OCR", "1") == "1"
 
 
