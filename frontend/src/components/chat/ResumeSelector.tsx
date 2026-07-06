@@ -146,11 +146,11 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
   if (step === 'entry') {
     return (
       <>
-        <div className="bg-white rounded-2xl p-5 my-4 shadow-sm border border-slate-200">
-          <div className="flex items-start justify-between mb-4 gap-3">
+        <div className="my-4 rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+          <div className="mb-4 flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-sm font-semibold text-slate-700 text-balance">开始处理简历</h3>
-              <p className="text-xs text-slate-400 mt-1 text-pretty">
+              <h3 className="text-sm font-semibold text-slate-800 text-balance">开始处理简历</h3>
+              <p className="mt-1 text-xs text-slate-400 text-pretty">
                 选择一种方式开始：对话创建、导入、新建，或加载已有简历。
               </p>
             </div>
@@ -158,7 +158,7 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
               <button
                 type="button"
                 onClick={onCancel}
-                className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1 rounded hover:bg-slate-100 transition-colors shrink-0"
+                className="shrink-0 rounded-lg px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
               >
                 取消
               </button>
@@ -169,42 +169,55 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
             <button
               type="button"
               onClick={onFillCreatePrompt}
-              className="w-full flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-7 mb-3 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors text-center"
+              className="group/primary relative mb-2.5 flex w-full items-center gap-3.5 overflow-hidden rounded-2xl border border-indigo-200/70 bg-gradient-to-br from-indigo-50 via-white to-violet-50/50 px-4 py-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-100/60"
             >
-              <MessageSquare className="size-6 text-indigo-500 mb-2" />
-              <span className="text-base font-semibold text-slate-800">
-                对话创建简历
-                <span className="ml-1.5 text-sm font-normal text-indigo-500">（推荐）</span>
-              </span>
+              <div className="pointer-events-none absolute -right-5 -top-5 size-24 rounded-full bg-indigo-200/25 blur-2xl transition-colors group-hover/primary:bg-indigo-300/40" />
+              <div className="relative flex size-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-200/60 transition-transform duration-300 group-hover/primary:scale-105">
+                <MessageSquare className="size-5" />
+              </div>
+              <div className="relative min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[15px] font-bold text-slate-800">对话创建简历</span>
+                  <span className="inline-flex items-center rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600">推荐</span>
+                </div>
+                <p className="mt-0.5 truncate text-xs text-slate-500">像聊天一样说说经历，我来帮你生成一份</p>
+              </div>
+              <ChevronRight className="relative size-5 shrink-0 text-indigo-400 transition-transform duration-300 group-hover/primary:translate-x-0.5" />
             </button>
           )}
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-2.5">
             <button
               type="button"
               onClick={() => onImportResume?.()}
-              className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors text-center"
+              className="group/opt flex flex-col items-center gap-2 rounded-xl border border-slate-200/70 bg-white px-2 py-3.5 text-center shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md hover:shadow-indigo-100/50"
             >
-              <Upload className="size-4 text-indigo-500 mb-1.5" />
-              <span className="text-xs font-medium text-slate-800 leading-snug">导入简历</span>
+              <span className="flex size-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500 transition-colors group-hover/opt:bg-indigo-100">
+                <Upload className="size-4" />
+              </span>
+              <span className="text-xs font-medium text-slate-700">导入简历</span>
             </button>
 
             <button
               type="button"
               onClick={() => onCreateResume?.()}
-              className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors text-center"
+              className="group/opt flex flex-col items-center gap-2 rounded-xl border border-slate-200/70 bg-white px-2 py-3.5 text-center shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md hover:shadow-indigo-100/50"
             >
-              <FilePlus2 className="size-4 text-indigo-500 mb-1.5" />
-              <span className="text-xs font-medium text-slate-800 leading-snug">创建一份简历</span>
+              <span className="flex size-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500 transition-colors group-hover/opt:bg-indigo-100">
+                <FilePlus2 className="size-4" />
+              </span>
+              <span className="text-xs font-medium text-slate-700">新建简历</span>
             </button>
 
             <button
               type="button"
               onClick={handleSelectExistingClick}
-              className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-2 py-3 hover:border-indigo-300 hover:bg-indigo-50/40 transition-colors text-center"
+              className="group/opt flex flex-col items-center gap-2 rounded-xl border border-slate-200/70 bg-white px-2 py-3.5 text-center shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md hover:shadow-indigo-100/50"
             >
-              <FileText className="size-4 text-indigo-500 mb-1.5" />
-              <span className="text-xs font-medium text-slate-800 leading-snug">选择已有简历</span>
+              <span className="flex size-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-500 transition-colors group-hover/opt:bg-indigo-100">
+                <FileText className="size-4" />
+              </span>
+              <span className="text-xs font-medium text-slate-700">选择已有</span>
             </button>
           </div>
         </div>
