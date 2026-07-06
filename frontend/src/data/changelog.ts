@@ -15,6 +15,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.12.0',
+    date: '2026-07-06 16:24',
+    added: [
+      '简历导入提速：上传 PDF / 图片解析速度提升约一倍，等待更短',
+    ],
+    fixed: [
+      '修复简历预览时画面偶尔不断闪烁的问题',
+    ],
+  },
+  {
     version: '2.11.1',
     date: '2026-07-06 13:03',
     added: [
