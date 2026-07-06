@@ -30,15 +30,17 @@ export const usePDFDocument = (pdfBlob: Blob | null): UsePDFDocumentResult => {
   // 追踪当前加载任务，用于取消
   const loadingTaskRef = useRef<pdfjsLib.PDFDocumentLoadingTask | null>(null)
   const retryCountRef = useRef(0)
+  // 当前已渲染的文档；重渲染时保留它直到新文档就绪，避免中途置空导致预览闪烁空白
+  const currentDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null)
 
   useEffect(() => {
-    // 清理之前的文档
-    if (pdfDoc) {
-      pdfDoc.destroy()
-      setPdfDoc(null)
-    }
-
     if (!pdfBlob) {
+      // 无 PDF：清空并释放当前文档
+      if (currentDocRef.current) {
+        currentDocRef.current.destroy()
+        currentDocRef.current = null
+      }
+      setPdfDoc(null)
       setNumPages(0)
       setError(null)
       retryCountRef.current = 0
@@ -79,10 +81,19 @@ export const usePDFDocument = (pdfBlob: Blob | null): UsePDFDocumentResult => {
 
         const doc = await loadingTask.promise
 
+        // 原子换新：先挂上新文档，再延后销毁旧文档，
+        // 让旧页面继续显示到新页面渲染完成，消除重渲染时的空白闪烁
+        const prevDoc = currentDocRef.current
+        currentDocRef.current = doc
         setPdfDoc(doc)
         setNumPages(doc.numPages)
         setError(null)
         retryCountRef.current = 0
+        if (prevDoc) {
+          window.setTimeout(() => {
+            try { prevDoc.destroy() } catch { /* 已销毁忽略 */ }
+          }, 600)
+        }
       } catch (err) {
         // 忽略取消错误
         if (err instanceof Error && err.message.includes('destroy')) {

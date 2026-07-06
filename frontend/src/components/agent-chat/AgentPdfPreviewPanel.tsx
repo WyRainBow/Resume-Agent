@@ -44,7 +44,12 @@ export default function AgentPdfPreviewPanel({
       const padding = 48;
       const containerWidth = Math.max(container.clientWidth - padding, 280);
       const nextScale = containerWidth / BASE_PDF_WIDTH;
-      setAutoScale(Math.max(MIN_SCALE, Math.min(nextScale, MAX_SCALE)));
+      setAutoScale((prev) => {
+        const clamped = Math.max(MIN_SCALE, Math.min(nextScale, MAX_SCALE));
+        // 忽略微小变化：滚动条出现/消失会让容器宽度小幅抖动，
+        // 若据此反复改 scale 会触发 PDF 反复重绘（闪烁），加阈值挡掉
+        return Math.abs(clamped - prev) < 0.01 ? prev : clamped;
+      });
     };
 
     updateScale();
@@ -140,7 +145,7 @@ export default function AgentPdfPreviewPanel({
         </div>
       </div>
 
-      <div ref={containerRef} className="relative min-h-0 flex-1 overflow-auto bg-chat-canvas dark:bg-slate-950">
+      <div ref={containerRef} className="relative min-h-0 flex-1 overflow-auto bg-chat-canvas dark:bg-slate-950" style={{ scrollbarGutter: 'stable' }}>
         {!pdfBlob && loading && (
           <div className="flex h-full min-h-[320px] items-center justify-center">
             <div className="text-center">
