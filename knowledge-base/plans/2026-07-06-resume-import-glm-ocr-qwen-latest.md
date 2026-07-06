@@ -282,35 +282,41 @@ upload-image → image_to_text(glm-ocr) → Markdown
 
 ## 十、实施结果（2026-07-06，分支 feature/import-perf-parallel）
 
-### 落地内容（比原计划多做了「分段并行」）
+### 最终落地（去 MinerU + qwen 单次；并行探索后暂缓）
 
 | 文件 | 改动 |
 |---|---|
-| `resume_assembler.py` | `resolve_assembler_model`（默认 qwen-plus-latest，解除强转）；**新增 `assemble_resume_data_fast`：按 section 分段并行 + 失败回退单次** |
-| `routes/resume.py` | upload-pdf 去 MinerU/ThreadPool 单路 glm-ocr（失败 502）；upload-pdf/image 结构化改走 `assemble_resume_data_fast` |
+| `resume_assembler.py` | `resolve_assembler_model`（默认 qwen-plus-latest，解除强转）；`assemble_resume_data_fast`（异步单次包装，把同步 LLM 调用移出事件循环）；`_parse_json` 加去尾逗号修复 |
+| `routes/resume.py` | upload-pdf 去 MinerU/ThreadPool → 单路 glm-ocr（失败 502）；upload-pdf/image 结构化走 `assemble_resume_data_fast` |
 | `pdf_parser.py` | 加注释，文件保留不删 |
-| `scripts/bench_parallel_vs_single.py` | 单次 vs 并行 质量+耗时对比 |
+| `scripts/bench_parallel_vs_single.py` | 单次 vs 并行 质量+耗时对比脚本 |
 
-### 真实样本实测（测试样本/尹昕雨 3.pdf，OCR 后 2878 字，切 5 块：基本/教育/实习×3）
+### 真实样本实测（测试样本/尹昕雨 3.pdf，OCR 后 2878 字）
 
-| 路径 | 耗时 | 质量 | 姓名 | email | 实习 | 教育 | 项目 | 高亮 |
-|---|---:|---|---|---|---:|---:|---:|---:|
-| baseline deepseek 单次 | 43.6s | 10/10 | ✓ | ✓ | 5 | 1 | 2 | 20 |
-| qwen-plus-latest 单次（计划①） | 44.8s | 10/10 | ✓ | ✓ | 5 | 1 | 2 | 19 |
-| **qwen-plus-latest 分段并行（②，采用）** | **30.2s** | 10/10 | ✓ | ✓ | 5 | 1 | 2 | 19 |
-| qwen-turbo 分段并行（弃用） | 14-17s | 假10/10 | ✓ | ✓ | **9→22❌** | 1 | **0❌** | - |
+| 路径 | 耗时 | 质量(实习/教育/项目) | 稳定性 | 结论 |
+|---|---:|---|---|---|
+| baseline deepseek 单次（现生产） | 43.6s | 5/1/2 ✓ | 稳 | — |
+| **qwen-plus-latest 单次（采用）** | **30–44s** | 5/1/2 ✓ | **稳（多次 10/10）** | ✅ 落地 |
+| 按文本切块并发 | 17s | 5/1/**1❌** | 不稳（丢项目） | ✗ |
+| 按 section 类型 5 路并发 | 16–22s | **0 或 7❌** | 很不稳 | ✗ |
+| 2 路并发（EASY‖实习+项目） | 15–50s | 5/1/2（+JSON mode 后 EXP 仍 2/4 出 7/0） | 不稳 | ✗ |
+| qwen-turbo 并发 | 14s | 实习 22 / 项目 0 ❌ | 崩 | ✗ |
 
-### 关键结论（修正计划的预期）
+### 关键结论（修正计划与我最初的口头预期）
 
-1. **换模型单次≠更快**：qwen 单次实测 44s，并不稳定快过 deepseek（DashScope 波动大）。计划原以为「换 qwen 就快 40%」偏乐观——**真正压耗时的是分段并行**。
-2. **分段并行安全**：核心段（姓名/邮箱/实习/教育/项目）与单次完全一致，最担心的跨段归属/丢段没出现（`split_resume_text` 保持 section/项目块完整）。
-3. **per-call 延迟地板仅 ~1.2s**（探针实测），30s 是实习段真实生成量大、最慢块主导；**多页/长简历并行收益更大**，单页约 1.4x。
-4. **qwen-turbo 独立证伪**：分段后仍丢项目（项目0）、实习数爆炸（22，在瞎拆/重复）。turbo 不可用与「整份 vs 分段」无关，是模型能力问题。
-5. **未达最初口头预期的 12-15s**：qwen-plus 在 DashScope 上 ~30s 是 experience-heavy 简历的现实地板。要更快只能换更快推理厂（数据出境，非选项）或做**分段流式回填**（墙钟不变但体感秒开）——列为后续可选。
+1. **换模型单次 ≠ 更快**：qwen 单次实测 30–44s，与 deepseek 43s 在噪声内，**不稳定更快**。计划「换 qwen 快 40%」偏乐观。stage① 的真实价值是**去 MinerU**（消除服务器 CPU 冷启动 30–60s 尾延迟），不是换模型。
+2. **并行能到 ~15–20s（~2x），但都不可靠**：三种拆法各有致命伤——
+   - 按文本切块：项目无独立标题时被错配进实习 → 丢项目（2→1）。
+   - 按 section 类型拆实习/项目：边界模糊，两个调用互相抢，出「实习0」或「项目暴涨」。
+   - 2 路（实习+项目合一）：分类稳一些，但 EXP 大 JSON 偶发非法（1/4，少逗号/未转义）→ 触发重试或回退，速度方差巨大。加 JSON mode 消除了解析失败，却暴露 EXP 本身分类仍 2/4 飘（实习7/项目0）。
+3. **根因**：单次 assembler 的 prompt 精雕过（`SECTION_MAPPING_RULES` + 正反例），这套**整体分类纪律**才是稳定关键；任何拆分都丢了它。**要可靠并行，须把这套规则移植进每个拆分 prompt + 多样本验证**——独立后续工作，非本次范围。
+4. **per-call 延迟地板仅 ~1.2s**（探针），慢在实习段输出量大；raw gather 证明并发吞吐能到 7.8s，但**吞吐不是瓶颈，分类可靠性才是**。
+5. **qwen-turbo 独立证伪**：分段后仍丢项目、实习爆炸，模型能力问题。
+6. **要更快的两条真路**（后续）：① 把 assembler 分类规则移植进 2 路并发的 EXP prompt + 多样本验证（可靠 ~2x）；② 分段流式回填（墙钟不变、体感秒开）。换更快推理厂＝数据出境，非选项。
 
-### 风险与回滚
+### 当前状态与回滚
 
-- glm-ocr 单点：失败直接 502（已接受，实测稳定 2.6s）。
-- 并行丢关键段：`assemble_resume_data_fast` 内置「无 education/internships/projects/skills 则回退单次」保护。
-- 回滚：改动集中 3 文件，`git revert 8b8d8c37` 即恢复。
-- 前端零改动，接口契约不变。
+- **采用 qwen-plus-latest 单次**（与生产同等质量，去 MinerU 得可靠性 + 边际提速）。并行代码未进生产，探索结论留档本节。
+- glm-ocr 单点失败直接 502（实测稳定 2.6s）。
+- 回滚：`git revert` 分支上的实现 commit 即恢复 MinerU+deepseek。前端零改动、接口契约不变。
+- ⚠️ 全部实测仅**单样本**（尹昕雨），合并前建议多样本（多页/英文/表格密集）复验。

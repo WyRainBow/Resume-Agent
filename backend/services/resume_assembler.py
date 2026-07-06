@@ -103,7 +103,13 @@ def _parse_json(text: str) -> Dict[str, Any]:
         start = cleaned.find("{")
         end = cleaned.rfind("}")
         if start != -1 and end != -1 and end > start:
-            return json.loads(cleaned[start : end + 1])
+            snippet = cleaned[start : end + 1]
+            try:
+                return json.loads(snippet)
+            except Exception:
+                # 便宜修复：去掉 } / ] 前的尾逗号（LLM 常见错误）
+                repaired = re.sub(r",(\s*[}\]])", r"\1", snippet)
+                return json.loads(repaired)
         raise
 
 
@@ -403,21 +409,19 @@ def assemble_resume_data(
     return parsed
 
 
-# 分段并行的分块粒度：让典型简历（~2-4k 字符）切成 3-5 块，
-# 单波并发跑完（config max_concurrent=6），既拿到并行提速又不过度碎片化
-# （过小的块会重发样板 prompt、放大超时与跨段归属风险，见 2026-07-02 排查）。
-_FAST_MAX_CHUNK_SIZE = 900
-_FAST_PARALLEL_MIN_CHARS = 1000
-
-
 async def assemble_resume_data_fast(
     ocr_text: str, model: Optional[str] = None
 ) -> Dict[str, Any]:
-    """OCR Markdown → 简历 JSON（异步）。
+    """OCR Markdown → 简历 JSON（异步、单次结构化）。
 
-    默认走「按 section 分段并行结构化」（复用 /parse 的并行管线，qwen-plus-latest），
-    墙钟 ≈ 最慢一段而非整份串行；失败回退到单次 assemble_resume_data。
-    输出与 assemble_resume_data 同经 normalize_resume_json，返回 schema 一致。
+    异步包装 assemble_resume_data（默认 qwen-plus-latest），把同步 LLM 调用移出事件循环。
+
+    说明：曾尝试「按 section 分段/分类并发」把 ~44s 压到 ~20s（分支实测 2-way 并发），
+    但**丢了单次 assembler 精雕 prompt 的分类纪律**：内部实习/项目边界模糊时，
+    并发拆分会不稳定地把项目并入实习（实习7/项目0）或丢段。要可靠并行需把
+    SECTION_MAPPING_RULES 等规则移植进每个拆分 prompt + 多样本验证，属独立后续工作。
+    当前默认单次，保证与生产同等的分类质量（实测 10/10、实习5 项目2 稳定）。
+    并发探索与结论见 knowledge-base/plans/2026-07-06-resume-import-glm-ocr-qwen-latest.md。
     """
     import asyncio
 
@@ -425,35 +429,6 @@ async def assemble_resume_data_fast(
         raise ValueError("OCR 文本为空")
 
     resolved = resolve_assembler_model(model)
-
-    async def _serial() -> Dict[str, Any]:
-        return await asyncio.to_thread(
-            assemble_resume_data, ocr_text, {}, ocr_text, resolved
-        )
-
-    # 短简历分段无收益（单波并发也就一块），直接单次
-    if len(ocr_text) < _FAST_PARALLEL_MIN_CHARS:
-        return await _serial()
-
-    try:
-        try:
-            from backend.parallel_chunk_processor import parse_resume_text_parallel
-        except ImportError:
-            from parallel_chunk_processor import parse_resume_text_parallel
-
-        result = await parse_resume_text_parallel(
-            text=ocr_text,
-            provider="deepseek",  # DashScope 兼容通道；实际模型由 model 决定
-            chunk_threshold=_FAST_PARALLEL_MIN_CHARS,
-            max_chunk_size=_FAST_MAX_CHUNK_SIZE,
-            model=resolved,
-        )
-        # 并行偶发丢关键段（如项目全空）时回退单次，保证完整性
-        if not isinstance(result, dict) or not any(
-            result.get(k)
-            for k in ("education", "internships", "projects", "skills")
-        ):
-            return await _serial()
-        return result
-    except Exception:
-        return await _serial()
+    return await asyncio.to_thread(
+        assemble_resume_data, ocr_text, {}, ocr_text, resolved
+    )
