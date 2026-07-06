@@ -12,6 +12,7 @@ import DiagnosisToolCards, {
 import { ResumeDiffCard, ApplyAllPatchesBar } from "@/components/agent-chat/ResumeDiffCard";
 import { AssistantPaperCard } from "@/components/agent-chat/AssistantPaperCard";
 import { ParseImportTimerBadge } from "@/components/agent-chat/ParseImportTimerBadge";
+import { ThinkingIndicator } from "@/components/agent-chat/ThinkingIndicator";
 import { ImportSuccessCard, ApplyDoneCard } from "@/components/agent-chat/ImportSuccessCard";
 import type { PendingPatch } from "@/contexts/ResumeContext";
 import type { Message } from "@/types/chat";
@@ -339,7 +340,12 @@ export default function MessageTimeline({
                     <div className="mb-2 text-chat-ink dark:text-slate-100 font-chat tracking-wide leading-relaxed">
                       <div className="flex flex-wrap items-start gap-2">
                         <div className="min-w-0 flex-1">
-                          <ResumeMarkdown>{effectiveContent}</ResumeMarkdown>
+                          {/* 导入解析中：用思考动画（星芒旋转+文案脉动）替代静态文案 */}
+                          {msg.meta?.pasteImportParsing ? (
+                            <ThinkingIndicator label={effectiveContent} />
+                          ) : (
+                            <ResumeMarkdown>{effectiveContent}</ResumeMarkdown>
+                          )}
                         </div>
                         {(msg.meta?.pasteImportParsing ||
                           msg.meta?.parseElapsedMs != null) && (
@@ -385,7 +391,7 @@ export default function MessageTimeline({
                     </div>
                   )}
 
-                  {msg.content && (
+                  {msg.content && !msg.meta?.pasteImportParsing && (
                     <div className="mt-2.5 flex items-center gap-0.5 text-chat-ink-muted/70">
                       <button
                         onClick={() => {

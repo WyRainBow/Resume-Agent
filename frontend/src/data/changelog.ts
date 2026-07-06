@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.12.1',
+    date: '2026-07-06 16:40',
+    fixed: [
+      '导入解析简历时改为「思考中」动画，等待过程更清晰',
+    ],
+  },
+  {
     version: '2.12.0',
     date: '2026-07-06 16:24',
     added: [
