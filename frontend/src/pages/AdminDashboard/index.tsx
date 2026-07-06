@@ -19,6 +19,7 @@ type UserRow = {
 
 const ROLE_OPTIONS: { value: string; label: string; desc: string; dot: string }[] = [
   { value: 'admin', label: 'admin', desc: '管理员', dot: 'bg-emerald-500' },
+  { value: 'staff', label: 'staff', desc: '员工', dot: 'bg-violet-500' },
   { value: 'member', label: 'member', desc: '会员', dot: 'bg-blue-500' },
   { value: 'user', label: 'user', desc: '普通用户', dot: 'bg-slate-400' },
 ]
@@ -34,7 +35,8 @@ function RoleDropdown({ value, onChange }: { value: string; onChange: (next: str
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
-  const current = ROLE_OPTIONS.find((o) => o.value === value) ?? ROLE_OPTIONS[2]
+  const current = ROLE_OPTIONS.find((o) => o.value === value)
+    ?? ROLE_OPTIONS.find((o) => o.value === 'user')!
   return (
     <div className="relative inline-block" ref={ref}>
       <button
@@ -273,10 +275,11 @@ export default function AdminDashboardPage() {
               {error}
             </div>
           ) : (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               {[
                 { label: '用户总数', value: stats?.total_users ?? users.length, bar: 'bg-slate-300 dark:bg-slate-600' },
                 { label: '管理员', value: users.filter((u) => u.role === 'admin').length, bar: 'bg-emerald-400/70' },
+                { label: '员工', value: users.filter((u) => u.role === 'staff').length, bar: 'bg-violet-400/70' },
                 { label: '会员', value: users.filter((u) => u.role === 'member').length, bar: 'bg-blue-400/70' },
                 { label: '普通用户', value: users.filter((u) => u.role === 'user').length, bar: 'bg-slate-300 dark:bg-slate-600' },
               ].map((s) => (
@@ -298,9 +301,10 @@ export default function AdminDashboardPage() {
                 <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">用户列表</h2>
                 <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">共 {users.length} 个用户</p>
                 <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400">
-                  <span><span className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">admin</span> 管理员 · 可进后台、管理所有用户与角色</span>
-                  <span><span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">member</span> 会员 · 享高级 / 付费功能</span>
-                  <span><span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">user</span> 普通用户 · 基础功能</span>
+                  <span><span className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">admin</span> 管理员 · 全部权限、管理用户与角色</span>
+                  <span><span className="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">staff</span> 员工 · 可进后台运营（用户列表、提示词、Logo 库）</span>
+                  <span><span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">member</span> 会员 · 付费权益（PDF 下载不限次），不含后台</span>
+                  <span><span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">user</span> 普通用户 · 基础功能（PDF 下载 10 次）</span>
                 </div>
                 {actionError && (
                   <div className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-600 dark:bg-rose-950/20 dark:text-rose-400">

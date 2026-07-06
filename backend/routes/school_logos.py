@@ -12,7 +12,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Form
 from fastapi.responses import FileResponse, JSONResponse
-from middleware.auth import require_admin_or_member, require_admin_only
+from middleware.auth import require_staff, require_admin_only
 from models import User
 
 router = APIRouter(prefix="/api", tags=["SchoolLogos"])
@@ -62,7 +62,7 @@ async def get_school_logos():
 async def upload_school_logo(
     file: UploadFile = File(...),
     group: str = Form(...),
-    current_user: User = Depends(require_admin_or_member),
+    current_user: User = Depends(require_staff),
 ):
     if not file.filename:
         raise HTTPException(status_code=400, detail="缺少文件名")

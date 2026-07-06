@@ -16,7 +16,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from database import get_db
 from models import RenderPDFRequest, User
-from middleware.auth import require_admin_only, require_admin_or_member
+from middleware.auth import require_admin_only, require_staff
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 logger = logging.getLogger("backend")
@@ -29,7 +29,7 @@ class PDFRenderModeLogRequest(BaseModel):
 
 @router.get("/stats/users")
 def get_user_stats(
-    _current_user: User = Depends(require_admin_or_member),
+    _current_user: User = Depends(require_staff),
     db: Session = Depends(get_db),
 ):
     # 以 BetterAuth "user" 表为准（所有登录用户），与用户列表口径一致。
@@ -43,7 +43,7 @@ def get_user_stats(
 
 @router.get("/users")
 def list_users(
-    _current_user: User = Depends(require_admin_or_member),
+    _current_user: User = Depends(require_staff),
     db: Session = Depends(get_db),
 ):
     # 以 BetterAuth "user" 表为准（所有登录用户），role/pdf 从 legacy users 按 email 桥接。
@@ -60,7 +60,7 @@ def list_users(
                    COALESCE(u.pdf_download_count, 0)    AS pdf_download_count
             FROM "user" bu
             LEFT JOIN users u ON LOWER(bu.email) = LOWER(u.email)
-            ORDER BY CASE COALESCE(u.role, 'user') WHEN 'admin' THEN 0 WHEN 'member' THEN 1 ELSE 2 END,
+            ORDER BY CASE COALESCE(u.role, 'user') WHEN 'admin' THEN 0 WHEN 'staff' THEN 1 WHEN 'member' THEN 2 ELSE 3 END,
                      bu."createdAt" ASC
             '''
         )
@@ -98,7 +98,7 @@ def set_user_role(
 
     from backend.auth import hash_password
 
-    allowed = {"user", "admin", "member"}
+    allowed = {"user", "member", "staff", "admin"}
     if body.role not in allowed:
         raise HTTPException(status_code=400, detail=f"role 必须是 {sorted(allowed)} 之一")
 

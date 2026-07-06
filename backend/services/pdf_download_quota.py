@@ -1,4 +1,4 @@
-"""PDF 下载次数配额：非 admin 用户默认 10 次。"""
+"""PDF 下载次数配额：普通用户默认 10 次；admin/staff/member 不限次。"""
 
 from __future__ import annotations
 
@@ -15,12 +15,13 @@ except ImportError:
     from models import User
 
 PDF_DOWNLOAD_LIMIT = 10
-ADMIN_ROLE = "admin"
+# admin/staff 内部不限；member（会员）付费权益：下载不限次
+UNLIMITED_ROLES = {"admin", "staff", "member"}
 logger = logging.getLogger("backend")
 
 
 def is_pdf_download_unlimited(user: User) -> bool:
-    return getattr(user, "role", None) == ADMIN_ROLE
+    return getattr(user, "role", None) in UNLIMITED_ROLES
 
 
 def get_pdf_download_count(user: User) -> int:

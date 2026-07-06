@@ -182,10 +182,10 @@ def require_admin_only(
     return current_user
 
 
-def require_admin_or_member(
+def require_staff(
     current_user: User = Depends(get_current_user),
 ) -> User:
-    """允许 admin/member 访问。"""
-    if current_user.role not in {"admin", "member"}:
-        raise HTTPException(status_code=403, detail="仅管理员或成员可访问")
+    """允许 admin/staff（管理员/员工）访问——内部运营权限，与会员付费权益无关。"""
+    if current_user.role not in {"admin", "staff"}:
+        raise HTTPException(status_code=403, detail="仅管理员或员工可访问")
     return current_user
