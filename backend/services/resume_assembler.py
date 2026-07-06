@@ -409,19 +409,89 @@ def assemble_resume_data(
     return parsed
 
 
+# ============ 两路并发结构化 ============
+# 把 ~44s 单次压到 ~20s：EASY 组 与 EXP 组各看完整简历、只输出各自 section，并发执行。
+# 关键：EXP 组（实习+项目）复用单次 assembler 那套「分类纪律」（SECTION_MAPPING_RULES 等），
+# 否则拆开后 qwen 会把项目并入实习（实习7/项目0）——这是并行不稳的根因。
+_FAST_PARALLEL_MIN_CHARS = 1000
+
+# 实习+项目：边界模糊，必须整体判断，移植 assembler 的模块归属/highlights/嵌套规则
+_EXP_INSTRUCT = (
+    "只提取两类模块：【实习/工作经历 internships】和【项目经历 projects】，其它模块一律忽略（不要输出）。\n\n"
+    "**实习 vs 项目的区分（关键，先判断再归类）：**\n"
+    "- internships：在公司/组织/单位「任职」的经历，通常是 公司名 + 职位（如「腾讯｜后端开发实习生」）\n"
+    "- projects：自己「做出来」的东西/作品/课题，通常是 项目名 + 角色（如「电商秒杀系统｜核心开发」）\n\n"
+    + SECTION_MAPPING_RULES.format(has_layout_hint="没有布局骨架，按内容语义判断模块归属。")
+    + "\n\n" + HIGHLIGHTS_RULES
+    + "\n\n" + NESTED_RULES
+)
+_EXP_SCHEMA = (
+    '{"internships":[{"title":"公司","subtitle":"职位","date":"时间","highlights":["工作内容,每条一项,保留原文**加粗**"]}],'
+    '"projects":[{"title":"项目名","subtitle":"角色","date":"时间","description":"项目描述(可选)","highlights":["描述,每条一项,保留**加粗**"]}]}'
+)
+
+# 基本/教育/开源/技能/奖项：边界清晰，带上技能规则与「开源≠项目」提醒
+_EASY_INSTRUCT = (
+    "只提取这些模块：【基本信息、教育经历 education、开源经历 openSource、专业技能 skills、荣誉奖项 awards】，"
+    "**不要提取实习和项目**（那两类由另一路处理）。\n"
+    "- 标题含「开源」的模块 → openSource 数组，不要放到 projects。\n\n"
+    + SKILLS_RULES.format()
+)
+_EASY_SCHEMA = (
+    '{"name":"姓名","contact":{"phone":"电话","email":"邮箱","location":"地区"},"objective":"求职意向(无则空串)",'
+    '"education":[{"title":"学校","subtitle":"专业","degree":"学位(本科/硕士/博士)","date":"时间","details":["荣誉/GPA/描述,每条一项"]}],'
+    '"openSource":[{"title":"开源项目","subtitle":"角色/描述","date":"时间","items":["贡献"],"repoUrl":"仓库链接"}],'
+    '"skills":[{"category":"类别(无则空串)","details":"技能描述,每行一项"}],'
+    '"awards":["奖项,每项一条"]}'
+)
+
+_SECTION_KEYS = ("name", "contact", "objective", "education", "internships",
+                 "projects", "openSource", "skills", "awards")
+
+
+def _extract_sections(
+    ocr_text: str, instruct: str, schema: str, model_name: str
+) -> Dict[str, Any]:
+    """从完整简历原文抽取指定分组的 section（带分类规则 + JSON mode + 一次重试）。"""
+    base_user = (
+        f"{instruct}\n\n"
+        "只输出一个 JSON 对象（第一字符是 {），无数据的字段用空数组/空串，不要 markdown、不要解释。\n"
+        f"输出格式：\n{schema}\n\n"
+        f"简历原文：\n{ocr_text}"
+    )
+    client = _get_client()
+    for attempt in range(2):
+        user = base_user if attempt == 0 else (
+            base_user + "\n\n【重要】请严格输出**合法** JSON：字符串内双引号转义、无多余逗号、不要截断。"
+        )
+        resp = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user},
+            ],
+            temperature=0.1,
+            max_tokens=4000,
+            response_format={"type": "json_object"},  # 约束解码，杜绝非法 JSON
+        )
+        try:
+            parsed = _parse_json(resp.choices[0].message.content or "")
+            return parsed if isinstance(parsed, dict) else {}
+        except Exception:
+            if attempt == 1:
+                raise
+    return {}
+
+
 async def assemble_resume_data_fast(
     ocr_text: str, model: Optional[str] = None
 ) -> Dict[str, Any]:
-    """OCR Markdown → 简历 JSON（异步、单次结构化）。
+    """OCR Markdown → 简历 JSON（异步）。
 
-    异步包装 assemble_resume_data（默认 qwen-plus-latest），把同步 LLM 调用移出事件循环。
-
-    说明：曾尝试「按 section 分段/分类并发」把 ~44s 压到 ~20s（分支实测 2-way 并发），
-    但**丢了单次 assembler 精雕 prompt 的分类纪律**：内部实习/项目边界模糊时，
-    并发拆分会不稳定地把项目并入实习（实习7/项目0）或丢段。要可靠并行需把
-    SECTION_MAPPING_RULES 等规则移植进每个拆分 prompt + 多样本验证，属独立后续工作。
-    当前默认单次，保证与生产同等的分类质量（实测 10/10、实习5 项目2 稳定）。
-    并发探索与结论见 knowledge-base/plans/2026-07-06-resume-import-glm-ocr-qwen-latest.md。
+    默认走「两路并发结构化」：EASY 组（基本/教育/开源/技能/奖项）与 EXP 组（实习+项目）
+    各看完整简历、只输出各自 section，并发执行，墙钟 ≈ 较慢的 EXP 组而非整份串行。
+    EXP 组复用单次 assembler 的分类规则（SECTION_MAPPING/HIGHLIGHTS/NESTED），保证实习/项目
+    分类稳定；EXP 组失败或全空时回退单次 assemble_resume_data，输出经 normalize_resume_json 与原一致。
     """
     import asyncio
 
@@ -429,6 +499,34 @@ async def assemble_resume_data_fast(
         raise ValueError("OCR 文本为空")
 
     resolved = resolve_assembler_model(model)
-    return await asyncio.to_thread(
-        assemble_resume_data, ocr_text, {}, ocr_text, resolved
+
+    async def _serial() -> Dict[str, Any]:
+        return await asyncio.to_thread(
+            assemble_resume_data, ocr_text, {}, ocr_text, resolved
+        )
+
+    # 短简历分段无收益，直接单次
+    if len(ocr_text) < _FAST_PARALLEL_MIN_CHARS:
+        return await _serial()
+
+    easy_r, exp_r = await asyncio.gather(
+        asyncio.to_thread(_extract_sections, ocr_text, _EASY_INSTRUCT, _EASY_SCHEMA, resolved),
+        asyncio.to_thread(_extract_sections, ocr_text, _EXP_INSTRUCT, _EXP_SCHEMA, resolved),
+        return_exceptions=True,
     )
+
+    # EXP（实习+项目）是核心且不可从 EASY 补，失败/全空 → 整体回退单次
+    exp_ok = isinstance(exp_r, dict) and (exp_r.get("internships") or exp_r.get("projects"))
+    if not exp_ok:
+        return await _serial()
+
+    merged: Dict[str, Any] = {}
+    for r in (easy_r, exp_r):
+        if isinstance(r, dict):
+            for k in _SECTION_KEYS:
+                if k in r and r[k]:
+                    merged[k] = r[k]
+
+    merged = _normalize_highlights(merged)
+    merged.setdefault("format", {})
+    return merged

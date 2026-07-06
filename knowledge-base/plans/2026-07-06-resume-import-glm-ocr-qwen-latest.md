@@ -314,9 +314,24 @@ upload-image → image_to_text(glm-ocr) → Markdown
 5. **qwen-turbo 独立证伪**：分段后仍丢项目、实习爆炸，模型能力问题。
 6. **要更快的两条真路**（后续）：① 把 assembler 分类规则移植进 2 路并发的 EXP prompt + 多样本验证（可靠 ~2x）；② 分段流式回填（墙钟不变、体感秒开）。换更快推理厂＝数据出境，非选项。
 
+### 突破：移植分类规则后，两路并发可靠了（最终采用）
+
+前述并行不稳的**根因是丢了单次 assembler 的分类纪律**。把 `SECTION_MAPPING_RULES`（模块归属：项目不得进实习/实习不得进项目）+ `HIGHLIGHTS_RULES` + `NESTED_RULES` + `SYSTEM_PROMPT` 移植进 EXP 组（实习+项目合一）的 prompt，并对两路都开 JSON mode，问题解决：
+
+| 样本 | 方案 | 耗时 | 分类稳定性 |
+|---|---|---:|---|
+| 尹昕雨（单页，5实习2项目） | 两路并发 | 22–25s（均 23.2s） | **6/6 命中 实习5/教育1/项目2** |
+| 尹昕雨 | 单次 | 30–44s | 稳 |
+| 长文1（AI后端，0实习1项目） | 两路并发 | 8–12s | **3/3 与单次一致** |
+| 长文1 | 单次 | 17s | 基准 |
+
+- **可靠 ~2x**：两样本、9 次运行分类全部与单次一致，方差小（JSON mode 消除了解析失败重试的尖峰）。
+- **实现**：`_extract_sections`（system=SYSTEM_PROMPT + 分类规则 + JSON mode + 一次重试）；EASY 组带 `SKILLS_RULES`；EXP 组带模块归属/highlights/嵌套规则；EXP 失败或全空 → 回退单次。
+- 关键代码：`resume_assembler.py` 的 `_EXP_INSTRUCT` / `_EASY_INSTRUCT` / `_extract_sections` / `assemble_resume_data_fast`。
+
 ### 当前状态与回滚
 
-- **采用 qwen-plus-latest 单次**（与生产同等质量，去 MinerU 得可靠性 + 边际提速）。并行代码未进生产，探索结论留档本节。
-- glm-ocr 单点失败直接 502（实测稳定 2.6s）。
-- 回滚：`git revert` 分支上的实现 commit 即恢复 MinerU+deepseek。前端零改动、接口契约不变。
-- ⚠️ 全部实测仅**单样本**（尹昕雨），合并前建议多样本（多页/英文/表格密集）复验。
+- **采用「两路并发（移植分类规则）」**：去 MinerU + glm-ocr 单路 + qwen-plus-latest 两路并发结构化。总链路预计 OCR 2.6s + 结构化 ~23s ≈ **~26s**（vs 现生产 ~53s，约 2x）。
+- glm-ocr 单点失败直接 502（实测稳定 2.6s）；EXP 组失败回退单次保完整。
+- 回滚：`git revert` 分支实现 commit 即恢复 MinerU+deepseek。前端零改动、接口契约不变。
+- ⚠️ 实测两样本（尹昕雨单页 + 长文1）；合并前建议再补**多页/英文/表格密集**样本，以及走真实 HTTP 端点（非仅 assembler 层）冒烟一次。
