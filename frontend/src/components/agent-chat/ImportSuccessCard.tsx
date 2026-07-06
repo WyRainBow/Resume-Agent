@@ -52,15 +52,20 @@ export function ImportSuccessCard({
  */
 export function ApplyDoneCard({
   count,
+  refine,
+  onSuggestionClick,
   onDownloadPdf,
   onGoEditor,
   onOptimizeForJd,
 }: {
   count: number;
+  refine?: { text: string; msg: string }[];
+  onSuggestionClick?: (msg: string) => void;
   onDownloadPdf?: () => void;
   onGoEditor?: () => void;
   onOptimizeForJd?: () => void;
 }) {
+  const hasRefine = !!(refine && refine.length && onSuggestionClick);
   return (
     <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
       <div className="flex items-start gap-3">
@@ -70,10 +75,26 @@ export function ApplyDoneCard({
             已应用 {count} 处优化、右侧预览已更新
           </p>
           <p className="mt-0.5 text-xs text-chat-ink-muted">
-            简历改好了、接下来可以：
+            {hasRefine
+              ? "满意吗？可以直接下载，或让我把这段再打磨一版："
+              : "简历改好了、接下来可以："}
           </p>
         </div>
       </div>
+      {hasRefine && (
+        <div className="mt-3 flex flex-wrap gap-2 sm:pl-8">
+          {refine!.map((chip) => (
+            <button
+              key={chip.text}
+              type="button"
+              onClick={() => onSuggestionClick!(chip.msg)}
+              className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-medium text-emerald-700 transition-all hover:bg-emerald-100 active:scale-95 dark:border-emerald-900/50 dark:bg-slate-900 dark:text-emerald-300 dark:hover:bg-slate-800"
+            >
+              {chip.text}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap gap-2 sm:pl-8">
         <button
           type="button"

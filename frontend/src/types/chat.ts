@@ -17,6 +17,8 @@ export interface MessageMeta {
   /** 优化对比全部处理完成：渲染收尾卡片（下载 PDF / 去编辑器） */
   applyDone?: {
     count: number;
+    /** 单段应用后的一键微调 chip（点击即发送，继续打磨刚应用的那段） */
+    refine?: { text: string; msg: string }[];
   };
   /** 导入解析失败：渲染「重试」按钮（重发同一份文件），失败不静默 */
   importRetry?: boolean;
