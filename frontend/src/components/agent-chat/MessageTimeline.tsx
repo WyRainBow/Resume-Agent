@@ -72,6 +72,8 @@ interface MessageTimelineProps {
   onOpenResume: (resume: LoadedResumeItem) => void;
   onOpenResumeSelector: () => void;
   onRegenerate: () => void;
+  /** 导入解析失败消息的「重试」（重发同一份文件） */
+  onImportRetry?: (msgId: string) => void;
   /** 成功卡片等的下一步建议 chip 点击（填入输入框） */
   onSuggestionClick?: (msg: string) => void;
   /** 收尾卡片：下载 PDF */
@@ -141,6 +143,7 @@ export default function MessageTimeline({
   copiedId,
   stripResumeEditMarkdown,
   onSetCopiedId,
+  onImportRetry,
   onOpenSearchPanel,
   onOpenResume,
   onOpenResumeSelector,
@@ -356,6 +359,16 @@ export default function MessageTimeline({
                           />
                         )}
                       </div>
+                      {/* 导入失败：一键重试（重发同一份文件），失败不静默 */}
+                      {msg.meta?.importRetry && onImportRetry && (
+                        <button
+                          type="button"
+                          onClick={() => onImportRetry(msg.id || String(idx))}
+                          className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-100 active:scale-[0.98] dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-400 dark:hover:bg-blue-900/40"
+                        >
+                          <RotateCcw className="size-3.5" /> 重试
+                        </button>
+                      )}
                     </div>
                   )}
 

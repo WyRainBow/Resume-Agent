@@ -3372,6 +3372,16 @@ function CocoChatContent() {
     ],
   );
 
+  // 导入失败重试：按失败消息 id 存重发闭包（图片/文件路径），点「重试」重发同一份文件
+  const importRetryMapRef = useRef<Map<string, () => void>>(new Map());
+  const handleImportRetry = useCallback((msgId: string) => {
+    const retry = importRetryMapRef.current.get(msgId);
+    if (retry) {
+      importRetryMapRef.current.delete(msgId);
+      retry();
+    }
+  }, []);
+
   const importPastedResumeInChat = useCallback(
     async (
       userMessage: string,
@@ -3631,6 +3641,10 @@ function CocoChatContent() {
           progress: "",
           error: errText,
         });
+        // 存重试闭包：重发同一批图片，失败不静默、一键可重试
+        importRetryMapRef.current.set(parsingMsgId, () => {
+          void importResumeImagesInChat(userMessage, picked);
+        });
         setMessages((prev) => {
           const updated = prev.map((msg) =>
             msg.id === parsingMsgId
@@ -3642,6 +3656,7 @@ function CocoChatContent() {
                     pasteImportParsing: false,
                     parseStartedAt,
                     parseElapsedMs: Date.now() - parseStartedAt,
+                    importRetry: true,
                   },
                 }
               : msg,
@@ -3773,6 +3788,10 @@ function CocoChatContent() {
           error instanceof Error ? error.message : "简历解析失败，请稍后重试。";
         setResumeError(errText);
         updateResumePdfState(resumeEntryId, { loading: false, progress: "", error: errText });
+        // 存重试闭包：重发同一份文件，失败不静默、一键可重试
+        importRetryMapRef.current.set(parsingMsgId, () => {
+          void importResumeFileInChat(file);
+        });
         setMessages((prev) => {
           const updated = prev.map((msg) =>
             msg.id === parsingMsgId
@@ -3784,6 +3803,7 @@ function CocoChatContent() {
                     pasteImportParsing: false,
                     parseStartedAt,
                     parseElapsedMs: Date.now() - parseStartedAt,
+                    importRetry: true,
                   },
                 }
               : msg,
@@ -4768,6 +4788,7 @@ function CocoChatContent() {
                   copiedId={copiedId}
                   stripResumeEditMarkdown={stripResumeEditMarkdown}
                   onSetCopiedId={setCopiedId}
+                  onImportRetry={handleImportRetry}
                   onOpenSearchPanel={setActiveSearchPanel}
                   onOpenResume={(resumeForMessage) => {
                     setAllowPdfAutoRender(true);

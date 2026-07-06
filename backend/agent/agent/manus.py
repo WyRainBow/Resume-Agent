@@ -867,11 +867,23 @@ class Manus(ToolCallAgent):
             ]
         }
 
+    async def _emit_stream_thought(self, text: str) -> None:
+        """通过实时流式回调把一段文本作为「思考」推给前端（进思考区、不污染最终回复）。
+        用于长任务的进度反馈（如整份优化的「已完成 N/M」）；无回调时静默跳过。"""
+        cb = getattr(self, "_stream_content_callback", None)
+        if not cb:
+            return
+        try:
+            await cb(text)
+        except Exception as exc:  # 进度反馈失败不影响主流程
+            logger.debug(f"[Manus] 进度流式回调失败（忽略）: {exc}")
+
     async def _optimize_whole_resume(
         self, user_input: str, resume_data: Dict[str, Any]
     ) -> tuple[str, int]:
         """一键优化整份简历：对所有实习/工作、项目、开源 + 专业技能 + 自我评价并行生成优化对比。
-        每段完成即入队（前端对比卡渐进出现），最终回复列出优化了哪几段。返回 (回复文案, 补丁数)。"""
+        开跑先报总段数，每段完成实时推「✓ 已优化 X（N/M）」进度（思考区），最终回复列出优化了哪几段。
+        返回 (回复文案, 补丁数)。"""
         import asyncio
 
         async def _run(
@@ -905,18 +917,37 @@ class Manus(ToolCallAgent):
                 0,
             )
 
+        total_sections = len(tasks)
+        # 开跑先给总段数，把「30s 黑箱」变成有边界的进度（前端思考区显示，替换「思考中…」）
+        await self._emit_stream_thought(
+            f"思考：正在逐段优化你的简历（共 {total_sections} 段）、完成一段更新一条…\n"
+        )
+
         total = 0
+        processed = 0
         done_labels: List[str] = []
-        # as_completed：每段一完成就入队 patch，前端对比卡随之渐进出现，过程可见
+        # as_completed：每段一完成就入队 patch + 实时推进度（增量追加，天然渐进可见）
         for fut in asyncio.as_completed(tasks):
             label, res = await fut
+            processed += 1
+            clean_label = re.sub(r"\*+", "", label).strip() or "该段"
             if not res:
+                await self._emit_stream_thought(
+                    f"·「{clean_label}」本段无可优化内容（{processed}/{total_sections}）\n"
+                )
                 continue
             items = res.get("optimization_suggestions") or []
             queued = self._queue_optimization_patches(items)
             if queued > 0:
                 total += queued
-                done_labels.append(re.sub(r"\*+", "", label).strip())
+                done_labels.append(clean_label)
+                await self._emit_stream_thought(
+                    f"✓ 已优化「{clean_label}」（{processed}/{total_sections}）\n"
+                )
+            else:
+                await self._emit_stream_thought(
+                    f"·「{clean_label}」本段无可优化内容（{processed}/{total_sections}）\n"
+                )
 
         if total <= 0:
             return ("这次没能生成可用的优化对比，请稍后再试。", 0)

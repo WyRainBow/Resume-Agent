@@ -18,6 +18,8 @@ export interface MessageMeta {
   applyDone?: {
     count: number;
   };
+  /** 导入解析失败：渲染「重试」按钮（重发同一份文件），失败不静默 */
+  importRetry?: boolean;
 }
 
 export interface Message {
