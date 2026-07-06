@@ -242,17 +242,16 @@ export const useDashboardLogic = () => {
     name.replace(/[\\/:*?"<>|\s]+/g, ' ').trim().slice(0, 60)
 
   /**
-   * 批量下载简历：逐份渲染 PDF 后打包 zip。
-   * @param ids 指定简历 ID；不传则下载全部
+   * 批量下载选中的简历：逐份渲染 PDF 后打包 zip（多选 + 全选即「下载全部」）。
    */
-  const batchDownload = useCallback(async (ids?: string[]) => {
+  const batchDownload = useCallback(async (ids: string[]) => {
     if (downloadProgress) return
 
-    const targetIds = ids && ids.length > 0 ? new Set(ids) : new Set(resumes.map(r => r.id))
-    if (ids && ids.length === 0) {
+    if (ids.length === 0) {
       toast.error('请先选择要下载的简历')
       return
     }
+    const targetIds = new Set(ids)
     const targets = resumes.filter(r => targetIds.has(r.id))
     if (targets.length === 0) {
       toast.error('还没有可下载的简历')

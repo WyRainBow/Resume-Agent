@@ -257,7 +257,6 @@ const ResumeDashboard = () => {
             selectedCount={selectedIds.size}
             onBatchDelete={batchDelete}
             onBatchDownload={() => batchDownload(Array.from(selectedIds))}
-            onDownloadAll={() => batchDownload()}
             downloadProgress={downloadProgress}
             totalCount={resumes.length}
             isMultiSelectMode={isMultiSelectMode}

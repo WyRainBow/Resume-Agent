@@ -15,10 +15,8 @@ interface HeaderProps {
   selectedCount?: number;
   /** 批量删除回调 */
   onBatchDelete?: () => void;
-  /** 批量下载选中简历回调 */
+  /** 批量下载选中简历回调（全选时即下载全部） */
   onBatchDownload?: () => void;
-  /** 一键下载全部简历回调 */
-  onDownloadAll?: () => void;
   /** 批量下载进度文案（非空表示下载中） */
   downloadProgress?: string | null;
   /** 简历总数 */
@@ -42,7 +40,6 @@ export const Header: React.FC<HeaderProps> = ({
   selectedCount = 0,
   onBatchDelete,
   onBatchDownload,
-  onDownloadAll,
   downloadProgress = null,
   totalCount = 0,
   isMultiSelectMode = false,
@@ -123,7 +120,7 @@ export const Header: React.FC<HeaderProps> = ({
             </Button>
           )}
 
-        {/* 批量下载（多选模式，选中后出现） */}
+        {/* 批量下载（多选模式，选中后出现；全选时即「下载全部」） */}
         {selectedCount > 0 && onBatchDownload && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
@@ -135,7 +132,7 @@ export const Header: React.FC<HeaderProps> = ({
               className="rounded-xl h-11 px-5 font-bold bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-100 transition-all duration-300 disabled:opacity-60"
             >
               <Download className="mr-2 h-4 w-4" />
-              {downloadProgress || "下载"}
+              {downloadProgress || (allSelected ? "下载全部" : "下载")}
             </Button>
           </motion.div>
         )}
@@ -156,18 +153,6 @@ export const Header: React.FC<HeaderProps> = ({
           </motion.div>
         )}
 
-        {/* 一键下载全部（非多选模式） */}
-        {!isMultiSelectMode && totalCount > 0 && onDownloadAll && (
-          <Button
-            onClick={onDownloadAll}
-            disabled={Boolean(downloadProgress)}
-            variant="outline"
-            className="rounded-xl h-11 px-5 font-bold border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all disabled:opacity-60"
-          >
-            <Download className="mr-2 h-4 w-4" />
-            {downloadProgress || "下载全部"}
-          </Button>
-        )}
 
         <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block" />
 
