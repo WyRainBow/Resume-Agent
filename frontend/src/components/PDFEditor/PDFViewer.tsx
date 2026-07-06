@@ -67,8 +67,9 @@ export const PDFViewer: React.FC<PDFEditorProps> = ({
     loadPages()
   }, [pdfDoc, numPages])
 
-  // 渲染加载状态
-  if (loading) {
+  // 渲染加载状态：仅在「尚无任何文档」（首次加载）时用整屏 spinner 顶替；
+  // 重渲染时已有旧文档在显示，保持旧 PDF 可见直到新页面就绪，避免闪烁空白
+  if (loading && !pdfDoc) {
     return (
       <div style={editorStyles.container}>
         <div style={editorStyles.loadingOverlay}>

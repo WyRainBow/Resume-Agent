@@ -25,7 +25,7 @@ export function ImportSuccessCard({
             简历「{name}」已导入
           </p>
           <p className="mt-0.5 text-xs text-chat-ink-muted">
-            右侧可实时预览，接下来想优化哪部分？
+            右侧可实时预览、接下来想优化哪部分？
           </p>
         </div>
       </div>

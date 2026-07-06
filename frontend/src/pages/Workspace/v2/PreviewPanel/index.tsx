@@ -57,7 +57,12 @@ export function PreviewPanel({
       const containerWidth = container.clientWidth - 16
       const baseWidth = 595
       const newScale = containerWidth / baseWidth
-      setAutoScale(Math.max(MIN_SCALE, Math.min(newScale, MAX_SCALE)))
+      setAutoScale((prev) => {
+        const clamped = Math.max(MIN_SCALE, Math.min(newScale, MAX_SCALE))
+        // 忽略微小变化：滚动条出现/消失会让容器宽度小幅抖动，
+        // 若据此反复改 scale 会触发 PDF 反复重绘（闪烁），加阈值把它挡掉
+        return Math.abs(clamped - prev) < 0.01 ? prev : clamped
+      })
     }
     updateScale()
     const ro = new ResizeObserver(updateScale)
@@ -224,6 +229,7 @@ export function PreviewPanel({
                 <div
                   ref={containerRef}
                   className="flex-1 min-h-0 overflow-auto p-2"
+                  style={{ scrollbarGutter: 'stable' }}
                 >
                   <div className="flex justify-center w-full">
                     <PDFViewerSelector pdfBlob={pdfBlob} scale={effectiveScale} />

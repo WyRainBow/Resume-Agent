@@ -40,9 +40,8 @@ try:
     from config.parallel_config import get_parallel_config
     from prompt_templates import render_rewrite_text_prompt
     from backend.core.logger import get_logger, write_llm_debug
-    from services.pdf_parser import extract_markdown_from_pdf
     from services.zhipu_layout import recognize_with_ocr
-    from services.resume_assembler import assemble_resume_data
+    from services.resume_assembler import assemble_resume_data, assemble_resume_data_fast
     from services.vision_ocr import image_to_text, SUPPORTED_IMAGE_TYPES
     from json_normalizer import normalize_resume_json
     from database import get_db
@@ -79,9 +78,8 @@ except ImportError:
     from backend.config.parallel_config import get_parallel_config
     from backend.prompt_templates import render_rewrite_text_prompt
     from core.logger import get_logger, write_llm_debug
-    from backend.services.pdf_parser import extract_markdown_from_pdf
     from backend.services.zhipu_layout import recognize_with_ocr
-    from backend.services.resume_assembler import assemble_resume_data
+    from backend.services.resume_assembler import assemble_resume_data, assemble_resume_data_fast
     from backend.services.vision_ocr import image_to_text, SUPPORTED_IMAGE_TYPES
     from backend.json_normalizer import normalize_resume_json
     from backend.database import get_db
@@ -1023,20 +1021,16 @@ async def upload_resume_pdf(
     provider: Optional[str] = Form(default=None),
 ):
     """
-    上传 PDF 简历并解析为结构化简历 JSON
-    混合增强策略：MinerU + glm-ocr + DeepSeek
+    上传 PDF 简历并解析为结构化简历 JSON。
 
-    数据流：
-    1. MinerU：PDF → Markdown（基础文本结构）
-    2. glm-ocr：PDF → Markdown（高质量 OCR + 结构识别）
-    3. DeepSeek：融合两路数据 → 结构化 JSON
+    数据流（单路 OCR + 分段并行结构化）：
+    1. glm-ocr：PDF → Markdown（高质量 OCR + 结构识别，唯一数据源，失败直接 502）
+    2. 结构化：OCR Markdown → 简历 JSON（默认按 section 分段并行，qwen-plus-latest）
 
-    说明：glm-ocr 的 Markdown 输出已包含完整的结构信息（标题层级、列表格式、嵌套结构），
-    无需 glm-4.6v 额外提供布局骨架。
+    说明：glm-ocr 的 Markdown 已含完整结构信息（标题层级、列表、嵌套），
+    移除了原 MinerU 本地解析（服务器无 GPU、CPU 冷启动 30-60s，收益为负）。
     """
-    import asyncio
     import time
-    from concurrent.futures import ThreadPoolExecutor
 
     if file.content_type != "application/pdf":
         raise HTTPException(status_code=400, detail="仅支持 PDF 文件")
@@ -1052,64 +1046,30 @@ async def upload_resume_pdf(
 
     total_start = time.time()
 
-    # ========== 步骤1: 并行执行两路数据提取 ==========
-    # 1) MinerU 文本提取（快速，~2秒）
-    # 2) glm-ocr 直接解析 PDF（高质量，~4秒）
-    logger.info("[PDF解析] 开始混合增强处理...")
+    # ========== 步骤1: glm-ocr 单路提取（失败直接 502，不再兜底 MinerU） ==========
     step1_start = time.time()
-
-    loop = asyncio.get_event_loop()
-    markdown_text = ""
-    ocr_text = ""
-
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        # 并行任务: MinerU + OCR
-        text_future = loop.run_in_executor(
-            executor, extract_markdown_from_pdf, pdf_bytes, True
-        )
-        ocr_future = loop.run_in_executor(executor, recognize_with_ocr, pdf_bytes)
-
-        # MinerU（必须成功）
-        try:
-            markdown_text = await text_future
-            logger.info(f"[PDF解析] MinerU 成功，文本长度: {len(markdown_text)}")
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"PDF 预处理失败: {e}")
-
-        # OCR（可选，失败不阻塞流程，因为 MinerU 已提供基础文本）
-        try:
-            ocr_text = await ocr_future
-            logger.info(f"[PDF解析] glm-ocr 成功，文本长度: {len(ocr_text)}")
-        except Exception as e:
-            logger.warning(
-                f"[PDF解析] glm-ocr 失败（不影响流程，使用 MinerU 文本）: {e}"
-            )
-            ocr_text = ""
-
+    try:
+        ocr_text = await asyncio.to_thread(recognize_with_ocr, pdf_bytes)
+    except Exception as e:
+        logger.warning(f"[PDF解析] glm-ocr 失败: {e}")
+        raise HTTPException(status_code=502, detail=f"PDF 识别失败，请稍后重试: {e}")
+    if not ocr_text or not ocr_text.strip():
+        raise HTTPException(status_code=422, detail="未识别到文字，请换清晰的 PDF")
     step1_time = time.time() - step1_start
-    logger.info(f"[PDF解析] 步骤1 完成 (MinerU+OCR 并行): {step1_time:.2f}s")
+    logger.info(f"[PDF解析] 步骤1 glm-ocr 完成: {step1_time:.2f}s, {len(ocr_text)}字符")
 
-    # ========== 步骤2: DeepSeek 融合组装 ==========
-    # DeepSeek 根据文本内容自行判断模块划分和格式特征
+    # ========== 步骤2: 结构化（分段并行，回退单次） ==========
     step2_start = time.time()
     try:
-        resume_data = assemble_resume_data(
-            raw_text=markdown_text,
-            layout={},  # 不再使用布局骨架，DeepSeek 从文本推断结构
-            ocr_text=ocr_text,
-            model=model,
-        )
+        resume_data = await assemble_resume_data_fast(ocr_text, model=model)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"简历结构化失败: {e}")
     step2_time = time.time() - step2_start
-    logger.info(f"[PDF解析] 步骤2 完成 (DeepSeek 融合组装): {step2_time:.2f}s")
+    logger.info(f"[PDF解析] 步骤2 结构化完成: {step2_time:.2f}s")
 
     total_time = time.time() - total_start
     logger.info(
-        f"[PDF解析] 总耗时: {total_time:.2f}s (数据提取: {step1_time:.2f}s, 组装: {step2_time:.2f}s)"
-    )
-    logger.info(
-        f"[PDF解析] 数据源: MinerU={len(markdown_text)}字符, OCR={len(ocr_text)}字符"
+        f"[PDF解析] 总耗时: {total_time:.2f}s (OCR: {step1_time:.2f}s, 结构化: {step2_time:.2f}s)"
     )
 
     try:
@@ -1119,10 +1079,10 @@ async def upload_resume_pdf(
 
     try:
         normalized = normalize_resume_json(resume_data)
-        return {"resume": normalized, "provider": "hybrid"}
+        return {"resume": normalized, "provider": "glm-ocr"}
     except Exception as e:
         logger.warning(f"JSON 标准化失败: {e}")
-        return {"resume": resume_data, "provider": "hybrid"}
+        return {"resume": resume_data, "provider": "glm-ocr"}
 
 
 MAX_IMAGE_COUNT = 2
@@ -1167,11 +1127,9 @@ async def upload_resume_image(
     if not ocr_text.strip():
         raise HTTPException(status_code=422, detail="未识别到文字，请换清晰的图片")
 
-    # 步骤2：文本 → 结构化简历（复用 PDF 同款组装）
+    # 步骤2：文本 → 结构化简历（复用 PDF 同款：分段并行 + qwen-plus-latest，失败回退单次）
     try:
-        resume_data = assemble_resume_data(
-            raw_text=ocr_text, layout={}, ocr_text=ocr_text, model=None
-        )
+        resume_data = await assemble_resume_data_fast(ocr_text, model=None)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"简历结构化失败: {e}")
 
