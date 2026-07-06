@@ -178,7 +178,11 @@ export default function MessageTimeline({
           .filter((item) => item.messageId === msg.id)
           .map((item) => item.data);
         const rawThought = (msg.thought || "").trim();
-        const thoughtContent = isPlaceholderThought(rawThought) ? "" : rawThought;
+        // 整份优化的进度（正在逐段优化…）是临时加载信息，优化完成后不该以「思考过程」折叠框残留在历史里
+        const thoughtContent =
+          isPlaceholderThought(rawThought) || rawThought.startsWith("正在逐段优化")
+            ? ""
+            : rawThought;
         const { cleanedThought, embeddedResponse } =
           splitEmbeddedResponseFromThought(stripReasoningTags(thoughtContent));
         const sanitizedContent = sanitizeAssistantMessageContent(

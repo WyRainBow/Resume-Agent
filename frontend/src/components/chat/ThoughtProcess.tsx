@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ChevronUp } from "lucide-react";
+import { ChevronDown, Brain } from "lucide-react";
 
 function sanitizeThoughtDisplay(raw: string): string {
   if (!raw) return "";
@@ -43,29 +43,30 @@ export default function ThoughtProcess({
   if (!textToShow) return null;
 
   return (
-    <div className={`thinking-message rounded-lg px-0 py-1 mb-2 ${className}`}>
-      <div
-        className="cursor-pointer flex items-center gap-2 py-1"
+    <div className={`mb-2 ${className}`}>
+      <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
+        className="group inline-flex items-center gap-1.5 rounded-full border border-chat-border/60 bg-chat-canvas/60 px-2.5 py-1 text-chat-ink-muted transition-colors hover:bg-chat-canvas dark:border-slate-700/60 dark:bg-slate-800/50 dark:hover:bg-slate-800"
       >
-        <div className="flex gap-1 items-center">
-          <span className="text-chat-ink-muted/80 text-[13px] font-medium tracking-wide">Thought Process</span>
-          <ChevronUp
-            size={12}
-            className={`text-chat-ink-muted/70 transition-transform duration-200 ${expanded ? "" : "rotate-180"}`}
+        <Brain className="h-3.5 w-3.5 shrink-0 text-chat-accent/80" strokeWidth={2} />
+        <span className="text-[13px] font-medium tracking-wide">思考过程</span>
+        {isStreaming ? (
+          <span className="ml-0.5 flex gap-0.5">
+            <span className="h-1 w-1 animate-bounce rounded-full bg-chat-accent/60 [animation-delay:0ms]" />
+            <span className="h-1 w-1 animate-bounce rounded-full bg-chat-accent/60 [animation-delay:120ms]" />
+            <span className="h-1 w-1 animate-bounce rounded-full bg-chat-accent/60 [animation-delay:240ms]" />
+          </span>
+        ) : (
+          <ChevronDown
+            size={13}
+            className={`text-chat-ink-muted/60 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
           />
-        </div>
-        {isStreaming && (
-          <div className="flex gap-1 ml-1">
-            <span className="w-1 h-1 bg-chat-accent/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-            <span className="w-1 h-1 bg-chat-accent/60 rounded-full animate-bounce" style={{ animationDelay: "100ms" }} />
-            <span className="w-1 h-1 bg-chat-accent/60 rounded-full animate-bounce" style={{ animationDelay: "200ms" }} />
-          </div>
         )}
-      </div>
+      </button>
 
       {expanded && (
-        <div className="text-chat-ink-muted text-sm leading-relaxed pl-0 font-normal whitespace-pre-wrap break-words">
+        <div className="mt-2 border-l-2 border-chat-border/50 pl-3 text-sm font-normal leading-relaxed text-chat-ink-muted whitespace-pre-wrap break-words dark:border-slate-700/50">
           {textToShow}
         </div>
       )}
