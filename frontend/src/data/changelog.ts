@@ -15,6 +15,18 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.10.0',
+    date: '2026-07-06 10:24',
+    added: [
+      '「我的简历」支持一键下载全部：逐份生成 PDF 打包成 zip，多选模式也可只下载选中的几份',
+      '会员权益上线：会员 PDF 下载不限次数',
+      '注册/登录输入邮箱时自动提示常见拼写错误（如 gamil.com），一键改正，避免注册到错误邮箱',
+    ],
+    fixed: [
+      '权限分级更清晰：运营后台仅对管理员/员工开放，会员专注于会员权益',
+    ],
+  },
+  {
     version: '2.9.0',
     date: '2026-07-06 09:42',
     added: [
