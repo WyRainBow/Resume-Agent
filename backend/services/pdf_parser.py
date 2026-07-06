@@ -1,5 +1,8 @@
 """
 PDF 解析服务 - 优先使用 MinerU，失败时降级到 pdfminer
+
+注意（2026-07-06）：导入主链路 /resume/upload-pdf 已移除 MinerU，改为单路 glm-ocr
+（服务器无 GPU，MinerU CPU 冷启动 30-60s，收益为负）。本模块暂保留，未在导入链路调用。
 """
 from __future__ import annotations
 

@@ -51,6 +51,25 @@ except ImportError:
 DEEPSEEK_MODEL = "deepseek-v4-flash"
 DEEPSEEK_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
+# 结构化默认模型：qwen-plus-latest（实测比 deepseek-v4-flash 输出 token 少约一半、更快更稳，
+# 与 deepseek 同走 DashScope 兼容通道，仅换 model 名、不改 base_url / key）。
+# 可用环境变量 ASSEMBLER_MODEL 覆盖。
+DEFAULT_ASSEMBLER_MODEL = os.getenv("ASSEMBLER_MODEL", "").strip() or "qwen-plus-latest"
+
+
+def resolve_assembler_model(model: Optional[str]) -> str:
+    """决定结构化用哪个模型。
+    - 显式传 deepseek-*（含 deepseek-chat/reasoner 归一到 v4-flash）：保留，向后兼容
+    - 显式传 qwen-* 等其它模型：放行
+    - 未传 / 空：用 DEFAULT_ASSEMBLER_MODEL（qwen-plus-latest）
+    """
+    name = (model or "").strip()
+    if not name:
+        return DEFAULT_ASSEMBLER_MODEL
+    if name in ("deepseek-chat", "deepseek-reasoner"):
+        return DEEPSEEK_MODEL
+    return name
+
 _deepseek_client: Optional[OpenAI] = None
 _last_key: Optional[str] = None
 
@@ -358,12 +377,9 @@ def assemble_resume_data(
         schema=OUTPUT_SCHEMA,
     )
 
-    # ---- 调用 DeepSeek（DashScope 兼容接口仅支持 deepseek-v3 / deepseek-v3.2 等，不支持 deepseek-chat）----
+    # ---- 调用结构化模型（DashScope 兼容接口：deepseek-v* / qwen-* 同通道）----
     system_msg = SYSTEM_PROMPT.format()
-    # 前端或旧版可能传 deepseek-chat，DashScope 需用 deepseek-v3.2
-    model_name = (model or "").strip() or DEEPSEEK_MODEL
-    if model_name in ("deepseek-chat", "deepseek-reasoner") or not model_name.startswith("deepseek-v"):
-        model_name = DEEPSEEK_MODEL
+    model_name = resolve_assembler_model(model)
 
     client = _get_client()
     response = client.chat.completions.create(
@@ -385,3 +401,59 @@ def assemble_resume_data(
         if "format" not in parsed:
             parsed["format"] = format_info
     return parsed
+
+
+# 分段并行的分块粒度：让典型简历（~2-4k 字符）切成 3-5 块，
+# 单波并发跑完（config max_concurrent=6），既拿到并行提速又不过度碎片化
+# （过小的块会重发样板 prompt、放大超时与跨段归属风险，见 2026-07-02 排查）。
+_FAST_MAX_CHUNK_SIZE = 900
+_FAST_PARALLEL_MIN_CHARS = 1000
+
+
+async def assemble_resume_data_fast(
+    ocr_text: str, model: Optional[str] = None
+) -> Dict[str, Any]:
+    """OCR Markdown → 简历 JSON（异步）。
+
+    默认走「按 section 分段并行结构化」（复用 /parse 的并行管线，qwen-plus-latest），
+    墙钟 ≈ 最慢一段而非整份串行；失败回退到单次 assemble_resume_data。
+    输出与 assemble_resume_data 同经 normalize_resume_json，返回 schema 一致。
+    """
+    import asyncio
+
+    if not ocr_text or not ocr_text.strip():
+        raise ValueError("OCR 文本为空")
+
+    resolved = resolve_assembler_model(model)
+
+    async def _serial() -> Dict[str, Any]:
+        return await asyncio.to_thread(
+            assemble_resume_data, ocr_text, {}, ocr_text, resolved
+        )
+
+    # 短简历分段无收益（单波并发也就一块），直接单次
+    if len(ocr_text) < _FAST_PARALLEL_MIN_CHARS:
+        return await _serial()
+
+    try:
+        try:
+            from backend.parallel_chunk_processor import parse_resume_text_parallel
+        except ImportError:
+            from parallel_chunk_processor import parse_resume_text_parallel
+
+        result = await parse_resume_text_parallel(
+            text=ocr_text,
+            provider="deepseek",  # DashScope 兼容通道；实际模型由 model 决定
+            chunk_threshold=_FAST_PARALLEL_MIN_CHARS,
+            max_chunk_size=_FAST_MAX_CHUNK_SIZE,
+            model=resolved,
+        )
+        # 并行偶发丢关键段（如项目全空）时回退单次，保证完整性
+        if not isinstance(result, dict) or not any(
+            result.get(k)
+            for k in ("education", "internships", "projects", "skills")
+        ):
+            return await _serial()
+        return result
+    except Exception:
+        return await _serial()
