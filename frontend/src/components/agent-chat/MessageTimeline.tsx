@@ -80,6 +80,8 @@ interface MessageTimelineProps {
   onDownloadPdf?: () => void;
   /** 收尾卡片：去编辑器精修 */
   onGoEditor?: () => void;
+  /** 收尾卡片：针对某个岗位再优化一版（回访钩子） */
+  onOptimizeForJd?: () => void;
 }
 
 function splitEmbeddedResponseFromThought(thought: string): {
@@ -151,6 +153,7 @@ export default function MessageTimeline({
   onSuggestionClick,
   onDownloadPdf,
   onGoEditor,
+  onOptimizeForJd,
 }: MessageTimelineProps) {
   const isPlaceholderThought = (text: string) => text === "正在思考...";
   const [feedback, setFeedback] = useState<Record<string, "like" | "dislike" | undefined>>({});
@@ -276,6 +279,7 @@ export default function MessageTimeline({
                 count={msg.meta.applyDone.count}
                 onDownloadPdf={onDownloadPdf}
                 onGoEditor={onGoEditor}
+                onOptimizeForJd={onOptimizeForJd}
               />
             </div>
           );
@@ -368,6 +372,25 @@ export default function MessageTimeline({
                         >
                           <RotateCcw className="size-3.5" /> 重试
                         </button>
+                      )}
+                      {/* 通用「下一步」建议 chip（点击即发送）：开场等主动引导单一动作，首个为主 CTA */}
+                      {msg.meta?.suggestions && msg.meta.suggestions.length > 0 && onSuggestionClick && (
+                        <div className="mt-2.5 flex flex-wrap gap-2">
+                          {msg.meta.suggestions.map((s, i) => (
+                            <button
+                              key={`${s}-${i}`}
+                              type="button"
+                              onClick={() => onSuggestionClick(s)}
+                              className={
+                                i === 0
+                                  ? "inline-flex items-center gap-1.5 rounded-full border border-blue-600 bg-blue-600 px-3.5 py-1.5 text-xs font-semibold text-white transition-all hover:bg-blue-700 active:scale-95"
+                                  : "inline-flex items-center gap-1.5 rounded-full border border-chat-border bg-white px-3.5 py-1.5 text-xs font-medium text-chat-ink transition-all hover:bg-chat-canvas active:scale-95 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                              }
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
                       )}
                     </div>
                   )}

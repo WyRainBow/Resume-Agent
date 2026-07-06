@@ -11,6 +11,8 @@ interface AgentPdfPreviewPanelProps {
   error?: string | null;
   onRerender: () => void;
   onClose: () => void;
+  /** 刚应用优化：短暂高亮预览面板，引导视线看「结果在这更新」 */
+  justUpdated?: boolean;
 }
 
 const MIN_SCALE = 0.5;
@@ -26,6 +28,7 @@ export default function AgentPdfPreviewPanel({
   error,
   onRerender,
   onClose,
+  justUpdated = false,
 }: AgentPdfPreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [autoScale, setAutoScale] = useState(1);
@@ -87,7 +90,9 @@ export default function AgentPdfPreviewPanel({
   return (
     <CustomScrollbar
       as="aside"
-      className="relative flex w-[45%] min-w-[420px] flex-col border-l border-chat-border bg-chat-canvas dark:border-slate-800 dark:bg-slate-950"
+      className={`relative flex w-[45%] min-w-[420px] flex-col border-l border-chat-border bg-chat-canvas transition-all duration-500 dark:border-slate-800 dark:bg-slate-950 ${
+        justUpdated ? "ring-2 ring-inset ring-blue-400/70 animate-pulse" : ""
+      }`}
     >
       <div className="sticky top-0 z-20 shrink-0 border-b border-chat-border/80 bg-chat-canvas/95 px-5 py-3.5 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/95">
         <div className="flex items-center justify-between gap-3">

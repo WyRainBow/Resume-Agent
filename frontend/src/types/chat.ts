@@ -20,6 +20,8 @@ export interface MessageMeta {
   };
   /** 导入解析失败：渲染「重试」按钮（重发同一份文件），失败不静默 */
   importRetry?: boolean;
+  /** 通用「下一步」建议 chip（点击即发送），用于开场等主动引导单一动作 */
+  suggestions?: string[];
 }
 
 export interface Message {

@@ -589,6 +589,9 @@ function CocoChatContent() {
   const [resumeData, setResumeData] = useState<ResumeData | null>(null);
   const [resumeError, setResumeError] = useState<string | null>(null);
   const [loadingResume, setLoadingResume] = useState(true);
+  // 应用优化后短暂高亮预览面板（结果直接可见：引导视线看右侧更新）
+  const [previewJustUpdated, setPreviewJustUpdated] = useState(false);
+  const previewPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 简历卡片相关状态
   const [loadedResumes, setLoadedResumes] = useState<
@@ -1844,6 +1847,10 @@ function CocoChatContent() {
       return { ...prev, [targetId]: { ...EMPTY_RESUME_PDF_STATE } };
     });
     setAllowPdfAutoRender(true);
+    // 结果直接可见：短暂高亮预览面板，引导视线看右侧刚更新
+    setPreviewJustUpdated(true);
+    if (previewPulseTimerRef.current) clearTimeout(previewPulseTimerRef.current);
+    previewPulseTimerRef.current = setTimeout(() => setPreviewJustUpdated(false), 1600);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patchAppliedAt]);
 
@@ -3287,8 +3294,10 @@ function CocoChatContent() {
         {
           id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           role: "assistant",
-          content: `已加载「${carryResumePrompt.name || "你的简历"}」，右侧可以看到。想优化哪部分？直接告诉我，比如「优化实习经历」。`,
+          content: `已加载「${carryResumePrompt.name || "你的简历"}」，右侧可以看到。建议先一键优化整份，或点下方直接开始 👇`,
           timestamp: new Date().toISOString(),
+          // 主动给一个主动作（首个为主 CTA），而不是让用户做「想优化哪部分」的选择题
+          meta: { suggestions: ["优化整份简历", "帮我体检一下简历", "只优化某一段"] },
         },
       ]);
     }
@@ -4814,6 +4823,7 @@ function CocoChatContent() {
                   }}
                   onDownloadPdf={handleDownloadPdf}
                   onGoEditor={handleGoEditor}
+                  onOptimizeForJd={() => setShowJdCard(true)}
                 />
 
                 <StreamingLane
@@ -4977,6 +4987,7 @@ function CocoChatContent() {
               loading={selectedResumePdfState.loading}
               progress={selectedResumePdfState.progress}
               error={selectedResumePdfState.error}
+              justUpdated={previewJustUpdated}
               onRerender={() => {
                 if (selectedLoadedResume) {
                   void renderResumePdfPreview(selectedLoadedResume, true);

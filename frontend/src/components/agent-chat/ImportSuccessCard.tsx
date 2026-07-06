@@ -1,4 +1,4 @@
-import { CheckCircle2, Download, PenLine } from "lucide-react";
+import { CheckCircle2, Download, PenLine, Target } from "lucide-react";
 
 /**
  * 简历导入/解析成功卡片：替代原来干巴巴的「已通过 AI 解析导入简历「X」…」纯文本。
@@ -54,10 +54,12 @@ export function ApplyDoneCard({
   count,
   onDownloadPdf,
   onGoEditor,
+  onOptimizeForJd,
 }: {
   count: number;
   onDownloadPdf?: () => void;
   onGoEditor?: () => void;
+  onOptimizeForJd?: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-emerald-200/70 bg-emerald-50/50 p-4 dark:border-emerald-900/40 dark:bg-emerald-950/20">
@@ -81,6 +83,17 @@ export function ApplyDoneCard({
           <Download className="h-3.5 w-3.5" />
           下载 PDF
         </button>
+        {/* 回访钩子：刚优化完是价值峰值，引导「投下一个岗位再来一版」——把低频做成高频 */}
+        {onOptimizeForJd && (
+          <button
+            type="button"
+            onClick={onOptimizeForJd}
+            className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 bg-white px-3.5 py-1.5 text-xs font-medium text-blue-700 transition-all hover:bg-blue-50 active:scale-95 dark:border-blue-900/50 dark:bg-slate-900 dark:text-blue-300 dark:hover:bg-slate-800"
+          >
+            <Target className="h-3.5 w-3.5" />
+            针对某个岗位再优化一版
+          </button>
+        )}
         <button
           type="button"
           onClick={onGoEditor}
