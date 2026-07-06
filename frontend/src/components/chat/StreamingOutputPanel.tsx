@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { Asterisk } from 'lucide-react';
 import ThoughtProcess from './ThoughtProcess';
 import StreamingResponse from './StreamingResponse';
 import { AssistantPaperCard } from '@/components/agent-chat/AssistantPaperCard';
@@ -75,6 +76,8 @@ export default function StreamingOutputPanel({
   const answer = streamModel?.answer ?? currentAnswer;
   const processing = streamModel?.isProcessing ?? isProcessing;
   const thoughtContent = thought.trim() === "正在思考..." ? "" : thought.trim();
+  // 整份优化的进度是「加载态」而非「思考过程」，用 loading 样式（星芒旋转+脉动）而非 Thought Process 折叠框
+  const isOptimizeProgress = thoughtContent.startsWith("正在逐段优化");
 
   useEffect(() => {
     if (!import.meta.env.DEV) return;
@@ -121,14 +124,29 @@ export default function StreamingOutputPanel({
 
   return (
     <>
-      {/* 1. Thought Process 优先显示 */}
+      {/* 1. Thought Process 优先显示；整份优化进度用 loading 样式（星芒旋转+脉动清单），不套折叠框 */}
       {thoughtContent && (
-        <ThoughtProcess
-          content={thoughtContent}
-          isStreaming={true}
-          isLatest={true}
-          defaultExpanded={true}
-        />
+        isOptimizeProgress ? (
+          <AssistantPaperCard>
+            <div className="flex items-start gap-2.5 py-1 text-chat-ink-muted">
+              <Asterisk
+                className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-chat-accent [animation-duration:1.6s]"
+                strokeWidth={2.5}
+                aria-hidden
+              />
+              <div className="whitespace-pre-line text-sm font-medium leading-relaxed tracking-wide animate-pulse">
+                {thoughtContent}
+              </div>
+            </div>
+          </AssistantPaperCard>
+        ) : (
+          <ThoughtProcess
+            content={thoughtContent}
+            isStreaming={true}
+            isLatest={true}
+            defaultExpanded={true}
+          />
+        )
       )}
 
       {/* 统一的纸张卡片容器，包裹所有 Assistant 输出内容 */}
