@@ -5011,6 +5011,13 @@ function CocoChatContent() {
                 setAllowPdfAutoRender(false);
                 setSelectedResumeId(null);
               }}
+              onSave={async () => {
+                if (!selectedLoadedResume) return;
+                await saveResume(
+                  (selectedLoadedResume as any).resumeData,
+                  selectedLoadedResume.id,
+                );
+              }}
             />
           )}
         </div>

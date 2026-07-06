@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Minus, Plus, RefreshCw, X, Download } from "lucide-react";
+import { Minus, Plus, RefreshCw, X, Download, Save, Check, Loader2 } from "lucide-react";
 import { PDFViewerSelector } from "@/components/PDFEditor";
 import CustomScrollbar from "@/components/common/CustomScrollbar";
 
@@ -11,6 +11,8 @@ interface AgentPdfPreviewPanelProps {
   error?: string | null;
   onRerender: () => void;
   onClose: () => void;
+  /** 保存当前预览的简历；返回 Promise 以便按钮呈现「保存中 / 已保存 / 保存失败」状态 */
+  onSave?: () => Promise<void> | void;
   /** 刚应用优化：短暂高亮预览面板，引导视线看「结果在这更新」 */
   justUpdated?: boolean;
 }
@@ -28,12 +30,15 @@ export default function AgentPdfPreviewPanel({
   error,
   onRerender,
   onClose,
+  onSave,
   justUpdated = false,
 }: AgentPdfPreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [autoScale, setAutoScale] = useState(1);
   const [userScale, setUserScale] = useState<number | null>(null);
   const [scalePercentInput, setScalePercentInput] = useState("");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const saveResetRef = useRef<number | null>(null);
 
   const effectiveScale = userScale ?? autoScale;
   const displayPercent = Math.round(effectiveScale * 100);
@@ -87,6 +92,38 @@ export default function AgentPdfPreviewPanel({
     setScalePercentInput("");
   };
 
+  useEffect(
+    () => () => {
+      if (saveResetRef.current) window.clearTimeout(saveResetRef.current);
+    },
+    [],
+  );
+
+  const handleSave = async () => {
+    if (!onSave || saveState === "saving") return;
+    if (saveResetRef.current) window.clearTimeout(saveResetRef.current);
+    setSaveState("saving");
+    try {
+      await onSave();
+      setSaveState("saved");
+    } catch {
+      setSaveState("error");
+    }
+    saveResetRef.current = window.setTimeout(() => setSaveState("idle"), 2000);
+  };
+
+  const handleDownload = () => {
+    if (!pdfBlob) return;
+    const url = URL.createObjectURL(pdfBlob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${resumeName || "resume"}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <CustomScrollbar
       as="aside"
@@ -105,22 +142,42 @@ export default function AgentPdfPreviewPanel({
             )}
           </div>
           <div className="inline-flex shrink-0 items-center gap-0.5 rounded-xl border border-chat-border/70 bg-chat-surface/90 p-1 shadow-sm backdrop-blur-sm dark:border-slate-700/80 dark:bg-slate-900/90">
+            {onSave && (
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={saveState === "saving"}
+                title="保存简历"
+                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors active:scale-[0.98] disabled:cursor-not-allowed ${
+                  saveState === "saved"
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : saveState === "error"
+                      ? "text-red-500 dark:text-red-400"
+                      : "text-chat-ink-muted hover:bg-chat-canvas hover:text-chat-ink dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                {saveState === "saving" ? (
+                  <Loader2 className="size-3.5 animate-spin" strokeWidth={2.25} />
+                ) : saveState === "saved" ? (
+                  <Check className="size-3.5" strokeWidth={2.25} />
+                ) : (
+                  <Save className="size-3.5" strokeWidth={2.25} />
+                )}
+                {saveState === "saving"
+                  ? "保存中"
+                  : saveState === "saved"
+                    ? "已保存"
+                    : saveState === "error"
+                      ? "保存失败"
+                      : "保存"}
+              </button>
+            )}
             <button
               type="button"
-              onClick={() => {
-                if (!pdfBlob) return;
-                const url = URL.createObjectURL(pdfBlob);
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = `${resumeName || "resume"}.pdf`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(url);
-              }}
+              onClick={handleDownload}
               disabled={!pdfBlob}
               title="下载 PDF"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-red-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-red-600 dark:hover:bg-red-500"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Download className="size-3.5" strokeWidth={2.25} />
               下载
@@ -130,21 +187,18 @@ export default function AgentPdfPreviewPanel({
               type="button"
               onClick={onRerender}
               disabled={loading}
-              title={loading ? "正在渲染" : "重新渲染 PDF"}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-500 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-blue-600 dark:hover:bg-blue-500"
+              title={loading ? "正在渲染" : "刷新预览"}
+              className="inline-flex size-8 items-center justify-center rounded-lg text-chat-ink-muted transition-colors hover:bg-chat-canvas hover:text-chat-ink active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
               <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} strokeWidth={2.25} />
-              {loading ? "渲染中" : "刷新"}
             </button>
-            <span className="mx-0.5 h-4 w-px bg-chat-border/80 dark:bg-slate-700" aria-hidden />
             <button
               type="button"
               onClick={onClose}
               title="关闭预览"
-              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-chat-ink-muted transition-colors hover:bg-chat-canvas hover:text-chat-ink active:scale-[0.98] dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              className="inline-flex size-8 items-center justify-center rounded-lg text-chat-ink-muted transition-colors hover:bg-chat-canvas hover:text-chat-ink active:scale-[0.98] dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
-              <X className="size-3.5" strokeWidth={2.25} />
-              关闭
+              <X className="size-4" strokeWidth={2.25} />
             </button>
           </div>
         </div>
