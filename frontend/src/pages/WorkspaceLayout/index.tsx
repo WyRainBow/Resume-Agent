@@ -207,7 +207,12 @@ export default function WorkspaceLayout({
   const resolveWorkspacePath = (workspace: WorkspaceType): string => {
     if (workspace === "agent") {
       const currentResumeId = getCurrentResumeId();
-      return currentResumeId ? `/agent/${currentResumeId}` : "/agent/new";
+      // 只有正在「编辑简历」页时进 AI 助手才带上当前简历（承接编辑上下文）；
+      // 从我的简历 / 设置等其它页进则开新会话，不硬塞上一次编辑过的简历。
+      const fromEditor = location.pathname.startsWith("/workspace");
+      return currentResumeId && fromEditor
+        ? `/agent/${currentResumeId}`
+        : "/agent/new";
     }
     if (workspace === "myResumes") return "/my-resumes";
     if (workspace === "settings") return "/settings";
