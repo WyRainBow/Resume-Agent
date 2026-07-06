@@ -1,9 +1,11 @@
 # 简历导入链路改造计划：MinerU+DeepSeek → glm-ocr + qwen-plus-latest
 
 - **日期**：2026-07-06
-- **状态**：已完成调研 + 基准测试 + 开源方案评估，方案最终确定，待实施
-- **最终方案**：移除 MinerU，OCR 单走 glm-ocr，结构化用 `qwen-plus-latest`（复用 DashScope 通道）
+- **状态**：✅ 已实施（分支 `feature/import-perf-parallel`，commit `8b8d8c37`），并在计划基础上追加了「分段并行」
+- **最终方案**：移除 MinerU，OCR 单走 glm-ocr，结构化用 `qwen-plus-latest`；**并额外做了按 section 分段并行**（复用 `/parse` 的 `parse_resume_text_parallel`）
 - **预期提速**：当前 ~55s → 改造后 ~33s（快约 40%）
+
+> **实施结果（见文末「十、实施结果」）**：真实样本 baseline deepseek 43.6s → 并行 qwen-plus-latest 30.2s（~1.4x），核心段无丢失。计划原定「换模型单次」实测 qwen 单次约 44s（DashScope 波动大、并不稳定比 deepseek 快），**真正把耗时压下来的是分段并行**，不是换模型本身。
 
 ---
 
@@ -275,3 +277,40 @@ upload-image → image_to_text(glm-ocr) → Markdown
 中间产物（临时）：
 - `/tmp/bench_glm_ocr_output.md`（glm-ocr 输出的 Markdown）
 - `/tmp/bench_<model>.json`（各模型输出的简历 JSON）
+
+---
+
+## 十、实施结果（2026-07-06，分支 feature/import-perf-parallel）
+
+### 落地内容（比原计划多做了「分段并行」）
+
+| 文件 | 改动 |
+|---|---|
+| `resume_assembler.py` | `resolve_assembler_model`（默认 qwen-plus-latest，解除强转）；**新增 `assemble_resume_data_fast`：按 section 分段并行 + 失败回退单次** |
+| `routes/resume.py` | upload-pdf 去 MinerU/ThreadPool 单路 glm-ocr（失败 502）；upload-pdf/image 结构化改走 `assemble_resume_data_fast` |
+| `pdf_parser.py` | 加注释，文件保留不删 |
+| `scripts/bench_parallel_vs_single.py` | 单次 vs 并行 质量+耗时对比 |
+
+### 真实样本实测（测试样本/尹昕雨 3.pdf，OCR 后 2878 字，切 5 块：基本/教育/实习×3）
+
+| 路径 | 耗时 | 质量 | 姓名 | email | 实习 | 教育 | 项目 | 高亮 |
+|---|---:|---|---|---|---:|---:|---:|---:|
+| baseline deepseek 单次 | 43.6s | 10/10 | ✓ | ✓ | 5 | 1 | 2 | 20 |
+| qwen-plus-latest 单次（计划①） | 44.8s | 10/10 | ✓ | ✓ | 5 | 1 | 2 | 19 |
+| **qwen-plus-latest 分段并行（②，采用）** | **30.2s** | 10/10 | ✓ | ✓ | 5 | 1 | 2 | 19 |
+| qwen-turbo 分段并行（弃用） | 14-17s | 假10/10 | ✓ | ✓ | **9→22❌** | 1 | **0❌** | - |
+
+### 关键结论（修正计划的预期）
+
+1. **换模型单次≠更快**：qwen 单次实测 44s，并不稳定快过 deepseek（DashScope 波动大）。计划原以为「换 qwen 就快 40%」偏乐观——**真正压耗时的是分段并行**。
+2. **分段并行安全**：核心段（姓名/邮箱/实习/教育/项目）与单次完全一致，最担心的跨段归属/丢段没出现（`split_resume_text` 保持 section/项目块完整）。
+3. **per-call 延迟地板仅 ~1.2s**（探针实测），30s 是实习段真实生成量大、最慢块主导；**多页/长简历并行收益更大**，单页约 1.4x。
+4. **qwen-turbo 独立证伪**：分段后仍丢项目（项目0）、实习数爆炸（22，在瞎拆/重复）。turbo 不可用与「整份 vs 分段」无关，是模型能力问题。
+5. **未达最初口头预期的 12-15s**：qwen-plus 在 DashScope 上 ~30s 是 experience-heavy 简历的现实地板。要更快只能换更快推理厂（数据出境，非选项）或做**分段流式回填**（墙钟不变但体感秒开）——列为后续可选。
+
+### 风险与回滚
+
+- glm-ocr 单点：失败直接 502（已接受，实测稳定 2.6s）。
+- 并行丢关键段：`assemble_resume_data_fast` 内置「无 education/internships/projects/skills 则回退单次」保护。
+- 回滚：改动集中 3 文件，`git revert 8b8d8c37` 即恢复。
+- 前端零改动，接口契约不变。
