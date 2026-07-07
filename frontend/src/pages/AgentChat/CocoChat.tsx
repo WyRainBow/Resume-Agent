@@ -1601,8 +1601,20 @@ function CocoChatContent() {
     try {
       localStorage.setItem(`ui_state:${conversationId}`, JSON.stringify(uiState));
     } catch (e) {
-      // localStorage 超限等：忽略，不影响主流程
-      console.warn("[AgentChat] 持久化 UI 状态失败:", e);
+      // localStorage 超限：清掉其它会话的 ui_state（旧会话回看退化为纯文本，主流程无损）后重试一次
+      try {
+        const staleKeys: string[] = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key?.startsWith("ui_state:") && key !== `ui_state:${conversationId}`) {
+            staleKeys.push(key);
+          }
+        }
+        staleKeys.forEach((key) => localStorage.removeItem(key));
+        localStorage.setItem(`ui_state:${conversationId}`, JSON.stringify(uiState));
+      } catch (retryError) {
+        console.warn("[AgentChat] 持久化 UI 状态失败:", retryError);
+      }
     }
   }, [conversationId, selectedResumeId, loadedResumes, diagnosisToolEvents, messages, pendingPatches]);
 
