@@ -101,6 +101,76 @@ async def get_keys_status(_current_user=Depends(require_admin_only)):
     }
 
 
+_ENV_KEY_BY_PROVIDER = {
+    "zhipu": "ZHIPU_API_KEY",
+    "doubao": "DOUBAO_API_KEY",
+    "deepseek": "DASHSCOPE_API_KEY",
+}
+
+
+def _blank_env_keys(env_keys: list[str]) -> None:
+    """把指定 env key 的值清空(保留行),并同步进程环境"""
+    env_path = ROOT_DIR / ".env"
+    lines = []
+    if env_path.exists():
+        with open(env_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    with open(env_path, "w", encoding="utf-8") as f:
+        for line in lines:
+            key = line.split("=", 1)[0].strip() if "=" in line else ""
+            f.writelines([f"{key}=\n"] if key in env_keys else [line])
+    for key in env_keys:
+        os.environ[key] = ""
+
+
+@router.delete("/config/keys/{provider}")
+async def delete_key(provider: str, _current_user=Depends(require_admin_only)):
+    """删除单个 Provider 的 API Key(清空 .env 中的值);仅管理员"""
+    env_key = _ENV_KEY_BY_PROVIDER.get(provider)
+    if not env_key:
+        raise HTTPException(status_code=404, detail=f"未知 provider: {provider}")
+    _blank_env_keys([env_key])
+    return {"success": True, "message": f"{provider} 的 API Key 已删除"}
+
+
+@router.delete("/config/keys")
+async def clear_keys(_current_user=Depends(require_admin_only)):
+    """清除全部已存储的 API Key(危险区域);仅管理员"""
+    _blank_env_keys(list(_ENV_KEY_BY_PROVIDER.values()))
+    return {"success": True, "message": "全部 API Key 已清除"}
+
+
+@router.get("/config/stats")
+async def get_config_stats(_current_user=Depends(require_admin_only)):
+    """系统状态统计(设置页状态卡):数据库连通、简历数、用户数、DeepSeek base_url;仅管理员"""
+    try:
+        from database import SessionLocal
+    except ImportError:
+        from backend.database import SessionLocal
+    from sqlalchemy import text as sql_text
+
+    db_ok = True
+    resumes = 0
+    users = 0
+    try:
+        db = SessionLocal()
+        try:
+            resumes = db.execute(sql_text("SELECT count(*) FROM resumes")).scalar() or 0
+            users = db.execute(sql_text('SELECT count(*) FROM "user"')).scalar() or 0
+        finally:
+            db.close()
+    except Exception:
+        db_ok = False
+
+    try:
+        from backend import simple
+    except ImportError:
+        import simple
+    base_url = getattr(simple, "DEEPSEEK_BASE_URL", "")
+
+    return {"db_ok": db_ok, "resumes": resumes, "users": users, "deepseek_base_url": base_url}
+
+
 @router.post("/config/keys")
 async def save_keys(body: SaveKeysRequest, _current_user=Depends(require_admin_only)):
     """保存 API Key 到 .env 文件；仅管理员（Key 写入服务器全局配置）"""

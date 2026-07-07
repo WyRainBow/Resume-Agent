@@ -73,6 +73,25 @@ export function getAiConfig(): Promise<AiConfig> {
   return request<AiConfig>('/api/ai/config')
 }
 
+export interface ConfigStats {
+  db_ok: boolean
+  resumes: number
+  users: number
+  deepseek_base_url: string
+}
+
+export function getConfigStats(): Promise<ConfigStats> {
+  return request<ConfigStats>('/api/config/stats')
+}
+
+export function deleteKey(provider: ProviderId): Promise<{ success: boolean; message: string }> {
+  return request(`/api/config/keys/${provider}`, { method: 'DELETE' })
+}
+
+export function clearAllKeys(): Promise<{ success: boolean; message: string }> {
+  return request('/api/config/keys', { method: 'DELETE' })
+}
+
 export async function pingBackend(): Promise<boolean> {
   try {
     const res = await fetch(`${getApiBaseUrl()}/api/health`)

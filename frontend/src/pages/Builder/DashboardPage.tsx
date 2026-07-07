@@ -166,7 +166,10 @@ export default function BuilderDashboardPage() {
                             {resume.alias}
                           </span>
                         )}
-                        <span className="text-xs font-mono text-[#878E99] mt-auto pt-4 uppercase">
+                        <span className="text-xs font-mono text-green-700 uppercase mt-auto pt-4">
+                          状态: 就绪
+                        </span>
+                        <span className="text-xs font-mono text-[#878E99] uppercase mt-1">
                           更新于 {formatDate(resume.updatedAt)}
                         </span>
                       </div>
@@ -185,7 +188,7 @@ export default function BuilderDashboardPage() {
                       <Plus className="w-8 h-8" />
                     </button>
                     <p className="text-xs font-mono mt-4 uppercase text-green-700">
-                      新建简历 · 去工作台
+                      创建简历
                     </p>
                   </div>
                 </div>
