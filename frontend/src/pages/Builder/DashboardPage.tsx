@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom'
 import { Plus, Settings } from 'lucide-react'
 import { getAllResumes, type SavedResume } from '@/services/resumeStorage'
 import { canUseAdminFeature } from '@/lib/runtimeEnv'
+import { useAuth } from '@/contexts/AuthContext'
 import { SwissButton } from './components/SwissButton'
 
 // Muted palette that complements the #F0F0E8 canvas(RM 原表)
@@ -68,6 +69,7 @@ const INTERACTIVE_CARD =
 
 export default function BuilderDashboardPage() {
   const navigate = useNavigate()
+  const { isAuthenticated, loading: authLoading, openModal } = useAuth()
   const [resumes, setResumes] = useState<SavedResume[]>([])
   const [loading, setLoading] = useState(true)
   const isAdmin = canUseAdminFeature()
@@ -114,7 +116,14 @@ export default function BuilderDashboardPage() {
             <SwissButton
               variant="outline"
               size="sm"
-              onClick={() => navigate('/builder/settings')}
+              onClick={() => {
+                if (authLoading) return
+                if (!isAuthenticated) {
+                  openModal('login')
+                  return
+                }
+                navigate('/builder/settings')
+              }}
             >
               <Settings className="w-4 h-4" />
               设置
