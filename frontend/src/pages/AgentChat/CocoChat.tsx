@@ -1811,7 +1811,12 @@ function CocoChatContent() {
           console.warn("[AgentChat] Failed to restore UI state:", e);
         }
 
-        const loadedMessages: Message[] = (data.messages || []).map(
+        // 过滤 tool 角色消息（与 loadSession 一致）：index 语义两侧对齐，meta/patch 按稳定 id 挂回才不错位
+        const userVisibleMessages = (data.messages || []).filter(
+          (m: any) => m.role === "user" || m.role === "assistant",
+        );
+
+        const loadedMessages: Message[] = userVisibleMessages.map(
           (m: any, index: number) => {
             const rawContent = m.content;
             const content =
