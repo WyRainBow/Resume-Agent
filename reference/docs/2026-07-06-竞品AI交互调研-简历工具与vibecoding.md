@@ -29,7 +29,7 @@
 ## 三、四个真缺口（按性价比排）
 
 ### 缺口 1 🟡 编辑后不追问，留了空场 —— 最贴合「让 Coco 主动」
-追问 chip 机制我们有，但只挂在开场/导入/诊断；**每次优化应用完之后是沉默的**。Perplexity（follow-up chips）、ChatGPT Canvas、JadeAI 都在「做完一步」立刻把下一步递到用户面前。
+追问 chip 机制我们有，但只挂在开场/导入/诊断；**每次优化应用完之后是沉默的**。Perplexity（follow-up chips）、ChatGPT Canvas 都在「做完一步」立刻把下一步递到用户面前。
 - 落地：每次应用后固定追问「满意吗 + 下一处建议」（≤3 chip，首个主 CTA），并点名当前最该修的 1–2 个弱点（弱动词/无量化/表述模糊），每处配「一键让我改」。
 
 ### 缺口 2 🟡 缺「针对这一段」的一键微调（少打字）
@@ -58,6 +58,6 @@
 
 ## 五、逐产品要点索引（备查）
 
-**开源简历工具：** Reactive Resume（字段旁行内 AI 微操作）· OpenResume（解析器当体检、反向确认读到了什么）· Resume Matcher（JD 逐条对照重写、AI 是协作编辑用户先审后用）· ResumeLM（主简历 vs 岗位定制版 + ATS 仪表盘）· JadeAI（上下文对话直接改 + 主动递下一步 + 弱点检测一键修）· Resume Alchemy（毒舌 HR 人格 + 流式润色 + 六维雷达 + 单句三模式）· PrismaAI（空洞经历 human-in-the-loop 深挖追问 + 用户记忆）。
+**开源简历工具：** Reactive Resume（字段旁行内 AI 微操作）· Resume Matcher（JD 逐条对照重写、AI 是协作编辑用户先审后用）· ResumeLM（主简历 vs 岗位定制版 + ATS 仪表盘）· Resume Alchemy（毒舌 HR 人格 + 流式润色 + 六维雷达 + 单句三模式）· PrismaAI（空洞经历 human-in-the-loop 深挖追问 + 用户记忆）。（OpenResume、JadeAI 已于 2026-07-07 按用户决定移出参考。）
 
 **vibe coding / AI 原生：** Cursor（Cmd+K 选中就地改 + 红绿 diff Accept/Reject）· Copilot Chat（Ask/Edit/Agent 分档 + 行内召唤 + 低风险自动应用）· v0（Design Mode 选元素微调 + 版本回退）· bolt.new（报错自愈闭环 + Plan→Implement 按钮）· Lovable（四模式工具条：选元素/就地改字/涂画/便签）· Replit Agent（checkpoint + App History 时间旅行 + 旧版可预览）· Claude Artifacts（产物原地刷新 + 版本回溯）· ChatGPT Canvas（选中定向编辑气泡 + 快捷菜单档位化 + 定向改 vs 整篇重写）· Perplexity（follow-up chips 一键入 composer，≤3 个克制）。

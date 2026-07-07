@@ -95,7 +95,7 @@ test_api.sh
 .logs/
 
 # 参考目录
-reference/
+reference/projects/
 knowledge/
 
 # 飞书剪藏等本地工具目录

@@ -12,6 +12,7 @@
 - 后端主服务端口默认 `9000`，前端 Vite 默认端口为 `5173`；`9000` 被占用时可换端口启动（见 §3.2 端口冲突回退规则）
 - 核心约束：Agent 已合并进 `backend/agent/`，运行在主后端进程内；**没有独立 9100 端口 Agent 服务**
 - `knowledge-base/` 是设计、计划、评审和操作记录的唯一主知识库
+- `reference/` 是竞品调研与参考资料目录：`reference/docs/` 放调研文档（进 Git），`reference/projects/` 放 clone 的参考项目源码（被 Git 忽略）；**所有竞品调研文档都归档到 `reference/docs/`**，索引见 `reference/README.md`
 - `knowledge/` 是本地旧目录，已被 Git 忽略，不作为项目长期记录位置
 - `README.md` 在本仓库可能被忽略，不要只靠 Git 状态判断文档变化
 - 不修改无关文件，不顺手重构，不移动或重命名文件，除非用户明确要求
@@ -67,6 +68,11 @@ knowledge-base/
 ├── specs/               # 设计规格：YYYY-MM-DD-<topic>-design.md
 ├── plans/               # 实施计划：YYYY-MM-DD-<feature>.md
 └── reviews/             # Review / 操作记录
+
+reference/
+├── README.md            # 参考资料索引
+├── docs/                # 竞品调研文档（进 Git）
+└── projects/            # clone 的参考项目源码（Git 忽略）
 ```
 
 ### 1.3 项目文档
