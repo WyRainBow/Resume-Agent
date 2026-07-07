@@ -1,10 +1,28 @@
 /**
  * 内容编辑编排 —— 视觉参照 RM builder resume-form(可折叠 section 卡 + 显隐/排序 + 新增自定义模块),
  * 数据直接绑定 v2 ResumeData:模块显隐/顺序写 menuSections,各 section 表单编辑对应字段。
- * 与 RM 差异:排序用 ↑↓(首版不引 dnd-kit,交接文档允许);模块重命名暂不支持(P1-1 备注)。
+ * 排序:拖拽手柄(dnd-kit,鼠标)+ ↑↓ 按钮(键盘/触屏兜底)双通道,均写 menuSections.order。
+ * 模块重命名:仅自定义模块(id 以 custom_ 开头)可改名,内置模块标题只读(产品固定语义)。
  */
 import React, { useState } from 'react'
-import { ChevronDown, ChevronUp, Eye, EyeOff, Plus } from 'lucide-react'
+import { ChevronDown, ChevronUp, Eye, EyeOff, GripVertical, Pencil, Plus } from 'lucide-react'
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import type { MenuSection, ResumeData } from '../../Workspace/v2/types'
 import { PersonalInfoForm } from './PersonalInfoForm'
 import { ExperienceForm } from './ExperienceForm'
@@ -25,12 +43,175 @@ interface ResumeFormProps {
   onChange: UpdateResume
 }
 
+interface SortableSectionProps {
+  section: MenuSection
+  isFirst: boolean
+  isLast: boolean
+  isOpen: boolean
+  isCustom: boolean
+  isRenaming: boolean
+  renameValue: string
+  iconBtn: string
+  onToggleOpen: () => void
+  onToggleVisible: () => void
+  onMoveUp: () => void
+  onMoveDown: () => void
+  onStartRename: () => void
+  onCommitRename: () => void
+  onCancelRename: () => void
+  onRenameChange: (v: string) => void
+  body: React.ReactNode
+}
+
+/**
+ * 单个可拖拽模块卡:setNodeRef/transform 作用于整卡,但 dnd listeners 只绑在左侧 GripVertical 手柄上,
+ * 不吞标题按钮 / 铅笔 / 显隐 / ↑↓ 的点击(dnd-kit 常见坑,手柄化规避)。
+ */
+const SortableSection: React.FC<SortableSectionProps> = ({
+  section,
+  isFirst,
+  isLast,
+  isOpen,
+  isCustom,
+  isRenaming,
+  renameValue,
+  iconBtn,
+  onToggleOpen,
+  onToggleVisible,
+  onMoveUp,
+  onMoveDown,
+  onStartRename,
+  onCommitRename,
+  onCancelRename,
+  onRenameChange,
+  body,
+}) => {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: section.id,
+  })
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`border border-black bg-white ${
+        isDragging ? 'relative z-10 shadow-[4px_4px_0px_0px_#000000]' : 'shadow-[2px_2px_0px_0px_#000000]'
+      } ${section.enabled ? '' : 'opacity-60'}`}
+    >
+      {/* Section header(RM section-header 形态:拖拽手柄 + 方块 + mono 大写标题 + 操作组) */}
+      <div className="flex items-center justify-between px-3 py-2">
+        <button
+          type="button"
+          className={`${iconBtn} cursor-grab active:cursor-grabbing touch-none`}
+          title="拖拽排序"
+          aria-label="拖拽排序"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="w-3.5 h-3.5" />
+        </button>
+        {isRenaming ? (
+          <div className="flex items-center gap-2 flex-1">
+            <span className="w-2 h-2 bg-blue-700 inline-block ml-6"></span>
+            <input
+              type="text"
+              autoFocus
+              className="flex-1 h-7 px-2 font-mono text-xs font-bold uppercase tracking-wider border border-black rounded-none bg-white focus:outline-none focus:ring-2 focus:ring-blue-700"
+              value={renameValue}
+              onChange={(e) => onRenameChange(e.target.value)}
+              onBlur={onCommitRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  onCommitRename()
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault()
+                  onCancelRename()
+                }
+              }}
+            />
+          </div>
+        ) : (
+          <button
+            type="button"
+            className="flex items-center gap-2 flex-1 text-left"
+            onClick={onToggleOpen}
+          >
+            {isOpen ? (
+              <ChevronUp className="w-4 h-4 text-[#878E99]" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-[#878E99]" />
+            )}
+            <span className="w-2 h-2 bg-blue-700 inline-block"></span>
+            <span className="font-mono text-xs font-bold uppercase tracking-wider">
+              {section.title}
+            </span>
+            {!section.enabled && (
+              <span className="font-mono text-[10px] text-[#878E99] uppercase">已隐藏</span>
+            )}
+          </button>
+        )}
+        <div className="flex items-center gap-0.5 shrink-0">
+          {isCustom && !isRenaming && (
+            <button type="button" className={iconBtn} onClick={onStartRename} title="重命名模块">
+              <Pencil className="w-3.5 h-3.5" />
+            </button>
+          )}
+          <button
+            type="button"
+            className={iconBtn}
+            onClick={onToggleVisible}
+            title={section.enabled ? '隐藏模块' : '显示模块'}
+          >
+            {section.enabled ? (
+              <Eye className="w-3.5 h-3.5" />
+            ) : (
+              <EyeOff className="w-3.5 h-3.5" />
+            )}
+          </button>
+          <button
+            type="button"
+            className={iconBtn}
+            onClick={onMoveUp}
+            disabled={isFirst}
+            title="上移模块"
+          >
+            <ChevronUp className="w-3.5 h-3.5" />
+          </button>
+          <button
+            type="button"
+            className={iconBtn}
+            onClick={onMoveDown}
+            disabled={isLast}
+            title="下移模块"
+          >
+            <ChevronDown className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+      {body && <div className="border-t border-black p-3 bg-[#FAFAF8]">{body}</div>}
+    </div>
+  )
+}
+
 export const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange }) => {
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
   const [adding, setAdding] = useState(false)
   const [newSectionName, setNewSectionName] = useState('')
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameValue, setRenameValue] = useState('')
 
   const sections = [...data.menuSections].sort((a, b) => a.order - b.order)
+
+  // 拖拽手柄需一段位移才激活,避免误吞手柄图标的点击;键盘拖拽走 sortable 坐标
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  )
 
   const toggleOpen = (id: string) => {
     setOpenIds((prev) => {
@@ -66,6 +247,46 @@ export const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange }) => {
         ),
       }
     })
+  }
+
+  /** 拖拽结束:按新顺序把所有模块 order 重排为 0,1,2...(整表重赋,不是两两交换) */
+  const onDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    onChange((prev) => {
+      const sorted = [...prev.menuSections].sort((a, b) => a.order - b.order)
+      const oldIndex = sorted.findIndex((s) => s.id === active.id)
+      const newIndex = sorted.findIndex((s) => s.id === over.id)
+      if (oldIndex === -1 || newIndex === -1) return prev
+      const orderById = new Map(arrayMove(sorted, oldIndex, newIndex).map((s, i) => [s.id, i]))
+      return {
+        ...prev,
+        menuSections: prev.menuSections.map((s) => ({ ...s, order: orderById.get(s.id)! })),
+      }
+    })
+  }
+
+  const startRename = (section: MenuSection) => {
+    setRenamingId(section.id)
+    setRenameValue(section.title)
+  }
+
+  /** 提交重命名:trim 后为空则不写回(恢复原值);只改自定义模块 title */
+  const commitRename = () => {
+    const id = renamingId
+    const name = renameValue.trim()
+    setRenamingId(null)
+    setRenameValue('')
+    if (!id || !name) return
+    onChange((prev) => ({
+      ...prev,
+      menuSections: prev.menuSections.map((s) => (s.id === id ? { ...s, title: name } : s)),
+    }))
+  }
+
+  const cancelRename = () => {
+    setRenamingId(null)
+    setRenameValue('')
   }
 
   const addCustomSection = () => {
@@ -172,72 +393,32 @@ export const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange }) => {
 
   return (
     <div className="space-y-3">
-      {sections.map((section, index) => {
-        const isOpen = openIds.has(section.id)
-        return (
-          <div
-            key={section.id}
-            className={`border border-black bg-white shadow-[2px_2px_0px_0px_#000000] ${
-              section.enabled ? '' : 'opacity-60'
-            }`}
-          >
-            {/* Section header(RM section-header 形态:方块 + mono 大写标题 + 操作组) */}
-            <div className="flex items-center justify-between px-3 py-2">
-              <button
-                type="button"
-                className="flex items-center gap-2 flex-1 text-left"
-                onClick={() => toggleOpen(section.id)}
-              >
-                {isOpen ? (
-                  <ChevronUp className="w-4 h-4 text-[#878E99]" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-[#878E99]" />
-                )}
-                <span className="w-2 h-2 bg-blue-700 inline-block"></span>
-                <span className="font-mono text-xs font-bold uppercase tracking-wider">
-                  {section.title}
-                </span>
-                {!section.enabled && (
-                  <span className="font-mono text-[10px] text-[#878E99] uppercase">已隐藏</span>
-                )}
-              </button>
-              <div className="flex items-center gap-0.5 shrink-0">
-                <button
-                  type="button"
-                  className={iconBtn}
-                  onClick={() => toggleVisible(section.id)}
-                  title={section.enabled ? '隐藏模块' : '显示模块'}
-                >
-                  {section.enabled ? (
-                    <Eye className="w-3.5 h-3.5" />
-                  ) : (
-                    <EyeOff className="w-3.5 h-3.5" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className={iconBtn}
-                  onClick={() => moveSection(section.id, -1)}
-                  disabled={index === 0}
-                  title="上移模块"
-                >
-                  <ChevronUp className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  type="button"
-                  className={iconBtn}
-                  onClick={() => moveSection(section.id, 1)}
-                  disabled={index === sections.length - 1}
-                  title="下移模块"
-                >
-                  <ChevronDown className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-            {isOpen && <div className="border-t border-black p-3 bg-[#FAFAF8]">{renderSectionBody(section)}</div>}
-          </div>
-        )
-      })}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <SortableContext items={sections.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+          {sections.map((section, index) => (
+            <SortableSection
+              key={section.id}
+              section={section}
+              isFirst={index === 0}
+              isLast={index === sections.length - 1}
+              isOpen={openIds.has(section.id)}
+              isCustom={section.id.startsWith('custom_')}
+              isRenaming={renamingId === section.id}
+              renameValue={renameValue}
+              iconBtn={iconBtn}
+              onToggleOpen={() => toggleOpen(section.id)}
+              onToggleVisible={() => toggleVisible(section.id)}
+              onMoveUp={() => moveSection(section.id, -1)}
+              onMoveDown={() => moveSection(section.id, 1)}
+              onStartRename={() => startRename(section)}
+              onCommitRename={commitRename}
+              onCancelRename={cancelRename}
+              onRenameChange={setRenameValue}
+              body={openIds.has(section.id) ? renderSectionBody(section) : null}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
 
       {/* 新增自定义模块 */}
       {adding ? (
