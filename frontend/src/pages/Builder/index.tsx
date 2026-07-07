@@ -2,77 +2,40 @@
  * Resume Builder 页面 —— 页面壳移植自 Resume-Matcher components/builder/resume-builder.tsx。
  *
  * Swiss International Style:canvas #F0F0E8、黑边框、硬阴影、mono 大写标签、serif 大标题。
- * 本增量范围(见 knowledge-base/plans/2026-07-07-模板市场builder实施计划.md):
- * - TEMPLATE & FORMATTING 全量 + 5 套 RM 模板 + 分页实时预览
- * - 数据只读(内容编辑仍在原工作台);SAVE 持久化模板设置;DOWNLOAD 走浏览器打印
- * - COVER LETTER 等 4 个 tab 保留禁用态外观(RM 原版即如此),功能后续增量再定
+ * P1-1 后架构(见 knowledge-base/plans/2026-07-07-模板市场builder-交接文档.md):
+ * - 状态真相源 = v2 ResumeData(source);渲染经 toBuilderResumeData 派生,表单直接编辑 v2 字段,
+ *   不需要整体反向适配器(避免隐藏项/合并字段的身份丢失)
+ * - SAVE = saveResume(含 globalSettings.builderSettings 随简历入库);RESET 回滚到上次保存
+ * - AI 按钮跳我方 Coco(/agent/:id);未保存徽标 + beforeunload 拦截
+ * - DOWNLOAD 走浏览器打印;COVER LETTER 等 4 tab 保留禁用态外观(RM 原版即如此)
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Check, Download, PenLine, Save } from 'lucide-react'
-import { getCurrentResumeId, getResume } from '@/services/resumeStorage'
+import { ArrowLeft, Check, Download, RotateCcw, Save, Sparkles, TriangleAlert } from 'lucide-react'
+import { getCurrentResumeId, getResume, saveResume } from '@/services/resumeStorage'
+import { toast } from '@/lib/toast'
 import type { ResumeData } from '../Workspace/v2/types'
-import type { BuilderResumeData } from './types'
-import { toBuilderResumeData, buildSampleData } from './adapter'
+import { buildSampleResumeData, normalizeResumeData, toBuilderResumeData } from './adapter'
 import {
   type TemplateSettings,
   DEFAULT_TEMPLATE_SETTINGS,
   PAGE_SIZE_INFO,
+  withSettingsDefaults,
 } from './settings'
 import { SwissButton } from './components/SwissButton'
 import { RetroTabs } from './components/RetroTabs'
 import { FormattingControls } from './components/FormattingControls'
 import { PaginatedPreview } from './components/PaginatedPreview'
 import { ResumeRenderer } from './templates/ResumeRenderer'
+import { ResumeForm } from './forms/ResumeForm'
 import './builder.css'
 
 const SETTINGS_STORAGE_PREFIX = 'builder_settings:'
 
-/** 存储边界:字段级默认合并,保证适配层拿到完整形状(与 useResumeData 同模式) */
-function normalizeResumeData(raw: unknown): ResumeData {
-  const data = (raw && typeof raw === 'object' ? raw : {}) as Partial<ResumeData>
-  return {
-    id: data.id || '',
-    title: data.title || '',
-    createdAt: data.createdAt || '',
-    updatedAt: data.updatedAt || '',
-    templateId: data.templateId ?? null,
-    basic: {
-      name: '',
-      title: '',
-      email: '',
-      phone: '',
-      location: '',
-      ...(data.basic || {}),
-    },
-    education: Array.isArray(data.education) ? data.education : [],
-    experience: Array.isArray(data.experience) ? data.experience : [],
-    projects: Array.isArray(data.projects) ? data.projects : [],
-    openSource: Array.isArray(data.openSource) ? data.openSource : [],
-    awards: Array.isArray(data.awards) ? data.awards : [],
-    customData: data.customData && typeof data.customData === 'object' ? data.customData : {},
-    selfEvaluation: typeof data.selfEvaluation === 'string' ? data.selfEvaluation : '',
-    skillContent: typeof data.skillContent === 'string' ? data.skillContent : '',
-    activeSection: data.activeSection || 'basic',
-    draggingProjectId: null,
-    menuSections: Array.isArray(data.menuSections) ? data.menuSections : [],
-    globalSettings: data.globalSettings || {},
-  }
-}
-
-function loadSettings(storageKey: string): TemplateSettings {
+function loadLocalSettings(storageKey: string): TemplateSettings {
   try {
     const saved = localStorage.getItem(storageKey)
-    if (saved) {
-      const parsed = JSON.parse(saved)
-      return {
-        ...DEFAULT_TEMPLATE_SETTINGS,
-        ...parsed,
-        margins: { ...DEFAULT_TEMPLATE_SETTINGS.margins, ...parsed.margins },
-        spacing: { ...DEFAULT_TEMPLATE_SETTINGS.spacing, ...parsed.spacing },
-        fontSize: { ...DEFAULT_TEMPLATE_SETTINGS.fontSize, ...parsed.fontSize },
-      }
-    }
+    if (saved) return withSettingsDefaults(JSON.parse(saved))
   } catch {
     // 损坏的设置直接回落默认
   }
@@ -85,17 +48,22 @@ export default function BuilderPage() {
   const navigate = useNavigate()
   const { resumeId: routeResumeId } = useParams<{ resumeId: string }>()
 
-  const [resumeData, setResumeData] = useState<BuilderResumeData | null>(null)
+  // 真相源:v2 ResumeData;渲染数据经 adapter 派生
+  const [source, setSource] = useState<ResumeData | null>(null)
+  const [lastSaved, setLastSaved] = useState<ResumeData | null>(null)
+  const [dirty, setDirty] = useState(false)
   const [resumeName, setResumeName] = useState<string>('')
   const [isSample, setIsSample] = useState(false)
   const [loaded, setLoaded] = useState(false)
-  const [saveState, setSaveState] = useState<'idle' | 'saved'>('idle')
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [activeTab] = useState<TabId>('resume')
 
   const effectiveResumeId = routeResumeId || getCurrentResumeId() || ''
   const settingsKey = `${SETTINGS_STORAGE_PREFIX}${effectiveResumeId || 'default'}`
 
-  const [settings, setSettings] = useState<TemplateSettings>(() => loadSettings(settingsKey))
+  const [settings, setSettings] = useState<TemplateSettings>(() => loadLocalSettings(settingsKey))
+
+  const builderData = useMemo(() => (source ? toBuilderResumeData(source) : null), [source])
 
   // 载入简历(路由 ID 优先,退回当前简历;都没有 → 示例数据)
   useEffect(() => {
@@ -107,17 +75,27 @@ export default function BuilderPage() {
         if (cancelled) return
         if (saved && saved.data) {
           const normalized = normalizeResumeData(saved.data)
-          setResumeData(toBuilderResumeData(normalized))
+          setSource(normalized)
+          setLastSaved(structuredClone(normalized))
           setResumeName(saved.name || normalized.basic.name || '')
           setIsSample(false)
+          setDirty(false)
+          // 简历内嵌的 Builder 排版设置优先于 localStorage
+          const embedded = normalized.globalSettings?.builderSettings
+          if (embedded && typeof embedded === 'object') {
+            setSettings(withSettingsDefaults(embedded))
+          }
           setLoaded(true)
           return
         }
       }
       if (!cancelled) {
-        setResumeData(buildSampleData())
+        const sample = buildSampleResumeData()
+        setSource(sample)
+        setLastSaved(structuredClone(sample))
         setResumeName('示例简历')
         setIsSample(true)
+        setDirty(false)
         setLoaded(true)
       }
     }
@@ -127,19 +105,62 @@ export default function BuilderPage() {
     }
   }, [routeResumeId])
 
-  // 设置持久化(改动即存,SAVE 按钮做显式确认)
+  // 设置持久化(改动即存 localStorage;SAVE 时随简历入库)
   useEffect(() => {
     localStorage.setItem(settingsKey, JSON.stringify(settings))
   }, [settings, settingsKey])
+
+  // 未保存拦截
+  useEffect(() => {
+    if (!dirty) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [dirty])
 
   const handleSettingsChange = useCallback((next: TemplateSettings) => {
     setSettings(next)
   }, [])
 
-  const handleSave = () => {
-    localStorage.setItem(settingsKey, JSON.stringify(settings))
-    setSaveState('saved')
-    setTimeout(() => setSaveState('idle'), 2000)
+  const updateSource = useCallback((updater: (prev: ResumeData) => ResumeData) => {
+    setSource((prev) => (prev ? updater(prev) : prev))
+    setDirty(true)
+  }, [])
+
+  const handleSave = async () => {
+    if (!source) return
+    if (isSample) {
+      toast.error('示例数据不可保存,请先在工作台创建简历')
+      return
+    }
+    setSaveState('saving')
+    try {
+      const withSettings: ResumeData = {
+        ...source,
+        globalSettings: {
+          ...source.globalSettings,
+          builderSettings: settings as unknown as Record<string, unknown>,
+        },
+      }
+      await saveResume(withSettings, effectiveResumeId || undefined)
+      setSource(withSettings)
+      setLastSaved(structuredClone(withSettings))
+      setDirty(false)
+      setSaveState('saved')
+      setTimeout(() => setSaveState('idle'), 2000)
+    } catch (err) {
+      setSaveState('idle')
+      toast.error(`保存失败:${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
+  const handleReset = () => {
+    if (!lastSaved) return
+    setSource(structuredClone(lastSaved))
+    setDirty(false)
   }
 
   // DOWNLOAD:浏览器打印(@page 尺寸/边距按设置注入,打印根全尺寸渲染)
@@ -151,7 +172,6 @@ export default function BuilderPage() {
 
   const handleDownload = () => {
     document.body.classList.add('builder-printing')
-    // 等打印根完成一帧渲染再唤起打印
     requestAnimationFrame(() => {
       requestAnimationFrame(() => window.print())
     })
@@ -166,7 +186,7 @@ export default function BuilderPage() {
 
   const isTwoColumnTemplate = settings.template === 'vivid'
 
-  if (!loaded || !resumeData) {
+  if (!loaded || !source || !builderData) {
     return (
       <div className="h-screen w-full bg-[#F0F0E8] flex items-center justify-center">
         <span className="font-mono text-xs uppercase tracking-wider text-[#444850]">
@@ -210,17 +230,44 @@ export default function BuilderPage() {
                       示例数据 · 未找到简历
                     </span>
                   )}
+                  {dirty && (
+                    <span className="flex items-center gap-1 font-mono text-xs text-amber-700 bg-amber-50 px-2 py-1 border border-amber-200 uppercase">
+                      <TriangleAlert className="w-3 h-3" />
+                      Unsaved
+                    </span>
+                  )}
                 </div>
               </div>
 
               <div className="flex gap-3 mt-4 md:mt-0">
-                <SwissButton size="sm" onClick={handleSave}>
+                {!isSample && effectiveResumeId && (
+                  <SwissButton
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/agent/${effectiveResumeId}`)}
+                    title="用 AI 助手优化这份简历"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    AI Optimize
+                  </SwissButton>
+                )}
+                <SwissButton
+                  variant="warning"
+                  size="sm"
+                  onClick={handleReset}
+                  disabled={!dirty}
+                  title="放弃未保存修改,回到上次保存"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reset
+                </SwissButton>
+                <SwissButton size="sm" onClick={handleSave} disabled={saveState === 'saving'}>
                   {saveState === 'saved' ? (
                     <Check className="w-4 h-4" />
                   ) : (
                     <Save className="w-4 h-4" />
                   )}
-                  {saveState === 'saved' ? 'Saved' : 'Save'}
+                  {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : 'Save'}
                 </SwissButton>
                 <SwissButton variant="success" size="sm" onClick={handleDownload}>
                   <Download className="w-4 h-4" />
@@ -244,29 +291,8 @@ export default function BuilderPage() {
 
                 <FormattingControls settings={settings} onChange={handleSettingsChange} />
 
-                {/* 内容编辑指引(本增量数据只读) */}
-                <div className="border border-black bg-white p-4 shadow-[4px_4px_0px_0px_#000000]">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2 h-2 bg-blue-700"></div>
-                    <span className="font-mono text-xs font-bold uppercase tracking-wider">
-                      Content
-                    </span>
-                  </div>
-                  <p className="text-sm text-[#444850] leading-relaxed">
-                    简历内容(经历、教育、技能等)暂在原工作台编辑,此页专注模板与排版。
-                  </p>
-                  {!isSample && effectiveResumeId && (
-                    <SwissButton
-                      variant="outline"
-                      size="sm"
-                      className="mt-3"
-                      onClick={() => navigate(`/workspace/latex/${effectiveResumeId}`)}
-                    >
-                      <PenLine className="w-3 h-3" />
-                      去工作台编辑内容
-                    </SwissButton>
-                  )}
-                </div>
+                {/* 内容编辑(P1-1):直接编辑 v2 数据,预览实时更新 */}
+                <ResumeForm data={source} onChange={updateSource} />
               </div>
             </div>
 
@@ -290,7 +316,7 @@ export default function BuilderPage() {
               {/* Preview Content */}
               <div className="flex-1 overflow-y-auto">
                 {activeTab === 'resume' && (
-                  <PaginatedPreview resumeData={resumeData} settings={settings} />
+                  <PaginatedPreview resumeData={builderData} settings={settings} />
                 )}
               </div>
             </div>
@@ -319,7 +345,7 @@ export default function BuilderPage() {
       {/* 打印根:仅打印时可见,全尺寸渲染当前模板 */}
       <div className="builder-print-root">
         <style>{printPageCss}</style>
-        <ResumeRenderer resumeData={resumeData} settings={printSettings} />
+        <ResumeRenderer resumeData={builderData} settings={printSettings} />
       </div>
     </>
   )

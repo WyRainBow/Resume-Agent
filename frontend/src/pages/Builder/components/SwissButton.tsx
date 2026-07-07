@@ -7,7 +7,7 @@ import * as React from 'react'
 import { cn } from '@/lib/utils'
 
 export interface SwissButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'default' | 'success' | 'outline' | 'secondary' | 'ghost' | 'link'
+  variant?: 'default' | 'success' | 'warning' | 'outline' | 'secondary' | 'ghost' | 'link'
   size?: 'default' | 'sm' | 'icon'
 }
 
@@ -39,6 +39,15 @@ export const SwissButton = React.forwardRef<HTMLButtonElement, SwissButtonProps>
         'border border-black',
         'shadow-[2px_2px_0px_0px_#000000]',
         'hover:bg-green-800',
+        'hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none',
+        'active:translate-y-[2px] active:translate-x-[2px]'
+      ),
+      // WARNING - Alert Orange(RM 语义:Reset/Clear/Undo 类操作)
+      warning: cn(
+        'bg-orange-500 text-white',
+        'border border-black',
+        'shadow-[2px_2px_0px_0px_#000000]',
+        'hover:bg-orange-600',
         'hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none',
         'active:translate-y-[2px] active:translate-x-[2px]'
       ),

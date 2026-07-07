@@ -172,6 +172,20 @@ export function settingsToCssVars(settings?: TemplateSettings): React.CSSPropert
   } as React.CSSProperties
 }
 
+/**
+ * 对不可信的部分设置(localStorage / 简历内嵌 builderSettings)做字段级默认合并。
+ */
+export function withSettingsDefaults(partial: unknown): TemplateSettings {
+  const parsed = (partial && typeof partial === 'object' ? partial : {}) as Partial<TemplateSettings>
+  return {
+    ...DEFAULT_TEMPLATE_SETTINGS,
+    ...parsed,
+    margins: { ...DEFAULT_TEMPLATE_SETTINGS.margins, ...parsed.margins },
+    spacing: { ...DEFAULT_TEMPLATE_SETTINGS.spacing, ...parsed.spacing },
+    fontSize: { ...DEFAULT_TEMPLATE_SETTINGS.fontSize, ...parsed.fontSize },
+  }
+}
+
 export interface TemplateInfo {
   id: TemplateType
   name: string

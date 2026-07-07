@@ -5,6 +5,7 @@
  * 这里用 DOMParser 把块级结构拍平成 bullet 数组,行内 strong/em/u/a 原样保留(渲染时由 SafeHtml 白名单清洗)。
  */
 import type { ResumeData } from '../Workspace/v2/types'
+import { DEFAULT_MENU_SECTIONS } from '../Workspace/v2/types'
 import type {
   BuilderResumeData,
   CustomSection,
@@ -197,48 +198,91 @@ export function toBuilderResumeData(data: ResumeData): BuilderResumeData {
   }
 }
 
-/** 无简历可载入时的示例数据(仅前端展示,不落任何存储) */
-export function buildSampleData(): BuilderResumeData {
+/**
+ * 存储边界的字段级默认合并:未知字段原样保留(templateType/alias/照片等,写回不丢),
+ * 缺失字段补默认,menuSections 缺失时种默认模块(编辑区依赖)。
+ */
+export function normalizeResumeData(raw: unknown): ResumeData {
+  const data = (raw && typeof raw === 'object' ? raw : {}) as Partial<ResumeData> &
+    Record<string, unknown>
   return {
-    personalInfo: {
+    ...data,
+    id: data.id || '',
+    title: data.title || '',
+    createdAt: data.createdAt || '',
+    updatedAt: data.updatedAt || '',
+    templateId: data.templateId ?? null,
+    basic: {
+      name: '',
+      title: '',
+      email: '',
+      phone: '',
+      location: '',
+      ...(data.basic || {}),
+    },
+    education: Array.isArray(data.education) ? data.education : [],
+    experience: Array.isArray(data.experience) ? data.experience : [],
+    projects: Array.isArray(data.projects) ? data.projects : [],
+    openSource: Array.isArray(data.openSource) ? data.openSource : [],
+    awards: Array.isArray(data.awards) ? data.awards : [],
+    customData: data.customData && typeof data.customData === 'object' ? data.customData : {},
+    selfEvaluation: typeof data.selfEvaluation === 'string' ? data.selfEvaluation : '',
+    skillContent: typeof data.skillContent === 'string' ? data.skillContent : '',
+    activeSection: data.activeSection || 'basic',
+    draggingProjectId: null,
+    menuSections:
+      Array.isArray(data.menuSections) && data.menuSections.length > 0
+        ? data.menuSections
+        : DEFAULT_MENU_SECTIONS.map((section) => ({ ...section })),
+    globalSettings: data.globalSettings || {},
+  }
+}
+
+/** 无简历可载入时的示例数据(v2 形状,可在编辑区体验编辑;不落任何存储) */
+export function buildSampleResumeData(): ResumeData {
+  return normalizeResumeData({
+    basic: {
       name: '王小明',
       title: '后端开发工程师',
       email: 'xiaoming@example.com',
       phone: '138 0000 0000',
-      github: 'github.com/xiaoming',
+      location: '',
+      blog: 'github.com/xiaoming',
     },
     education: [
       {
-        id: 0,
-        institution: '示例大学',
-        degree: '本科 · 计算机科学与技术',
-        years: '2021.09 - 2025.06',
-        description: ['主修课程:数据结构、操作系统、计算机网络、数据库系统'],
+        id: 'sample-edu-1',
+        school: '示例大学',
+        degree: '本科',
+        major: '计算机科学与技术',
+        startDate: '2021.09',
+        endDate: '2025.06',
+        description: '<ul><li><p>主修课程:数据结构、操作系统、计算机网络、数据库系统</p></li></ul>',
       },
     ],
-    workExperience: [
+    experience: [
       {
-        id: 0,
+        id: 'sample-exp-1',
         company: '示例科技',
-        title: '后端开发实习生',
-        years: '2024.06 - 2024.09',
-        description: [
-          '参与订单服务拆分,接口 P99 延迟从 <strong>320ms 降至 90ms</strong>',
-          '搭建灰度发布流程,线上事故率下降 60%',
-        ],
+        position: '后端开发实习生',
+        date: '2024.06 - 2024.09',
+        details:
+          '<ul><li><p>参与订单服务拆分,接口 P99 延迟从 <strong>320ms 降至 90ms</strong></p></li><li><p>搭建灰度发布流程,线上事故率下降 60%</p></li></ul>',
       },
     ],
-    personalProjects: [
+    projects: [
       {
-        id: 0,
+        id: 'sample-proj-1',
         name: '短链服务',
         role: '独立开发',
-        years: '2024.03 - 2024.05',
-        github: 'github.com/xiaoming/shortlink',
-        description: ['基于一致性哈希的分布式短链生成,支持 1w QPS'],
+        date: '2024.03 - 2024.05',
+        link: 'github.com/xiaoming/shortlink',
+        visible: true,
+        description: '<ul><li><p>基于一致性哈希的分布式短链生成,支持 1w QPS</p></li></ul>',
       },
     ],
-    skills: ['熟悉 Java 并发编程与 JVM 调优', '熟悉 MySQL 索引与事务,了解分库分表'],
-    awards: ['<strong>国家奖学金</strong> · 2023'],
-  }
+    skillContent:
+      '<ul><li><p>熟悉 Java 并发编程与 JVM 调优</p></li><li><p>熟悉 MySQL 索引与事务,了解分库分表</p></li></ul>',
+    awards: [{ id: 'sample-award-1', title: '国家奖学金', date: '2023' }],
+  })
 }
