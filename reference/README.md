@@ -9,12 +9,16 @@
 | 文档 | 说明 |
 |---|---|
 | [2026-07-06-竞品AI交互调研-简历工具与vibecoding.md](docs/2026-07-06-竞品AI交互调研-简历工具与vibecoding.md) | 两路调研：开源简历项目 + AI 原生产品的交互模式 → Coco 四缺口与落地优先级（缺口 1/2 已在 v2.14.x 落地） |
+| [2026-07-07-重点参考项目探索.md](docs/2026-07-07-重点参考项目探索.md) | 用户点名的 3 个重点项目源码探索：Resume-Matcher 模板体系、vibe-resume、shushu-internship-tool |
 
 ## projects/ 本地参考项目
 
 | 项目 | 来源 | 参考点 |
 |---|---|---|
 | `liuxiaopai-notes` | https://github.com/WyRainBow/liuxiaopai-notes | 刘小排产品思维笔记，本项目产品方法论来源（详见 knowledge-base 路线图「方法论」节） |
+| `Resume-Matcher` | https://github.com/srbhr/Resume-Matcher | ⭐模板体系：7 个自研 React+CSS 模板（其 `latex` 模板与我们默认模板同为 billryan 系视觉基因）；多模板要学它的数据/样式分离 + registry，渲染留在我们的 LaTeX 层 |
+| `vibe-resume` | https://github.com/LiuMengxuan04/vibe-resume | ⭐两件可抄：130 行 Chromium 动态测高单页 PDF 导出；「AI 编辑纪律 + 改后产物断言」SKILL 契约 |
+| `shushu-internship-tool` | https://github.com/LiuMengxuan04/shushu-internship-tool | ⭐低频→高频产品结构参照：JD 一等实体→一 JD 一版本→投递 readiness 检查表；评分 breakdown+分项理由模式适用简历评分 |
 
 ## 调研过但未 clone 的竞品速查
 
