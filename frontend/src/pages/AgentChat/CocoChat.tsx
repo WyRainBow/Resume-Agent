@@ -37,7 +37,7 @@ import type { SavedResume } from "@/services/storage/StorageAdapter";
 import {
   renderPDFStream,
 } from "@/services/api";
-import { Message } from "@/types/chat";
+import { Message, MessageMeta } from "@/types/chat";
 import type { SSEEvent } from "@/transports/SSETransport";
 import {
   Sparkles,
@@ -528,6 +528,20 @@ const IMPORT_NEXT_STEP_SUGGESTIONS = [
   "帮我把经历写得更专业",
 ];
 
+// 历史消息的稳定 ID：基于 (role, content, index) 的确定性哈希（FNV-1a 变体）。
+// 保存 ui_state 和恢复会话两侧必须用同一实现，meta / patch 卡才能按 id 挂回历史消息。
+function stableMessageId(content: string, role: string, index: number): string {
+  const contentForHash = content || `empty-${index}`;
+  let hash = 2166136261;
+  const str = `${role}:${contentForHash}:${index}`;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash +=
+      (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  return `msg-${(hash >>> 0).toString(16).slice(0, 12)}`;
+}
+
 // 应用后一键微调：把已应用补丁的 path 推成「条目名+段类型」，生成继续打磨该段的 chip。
 // 点击即发一句以「优化」开头、带条目名的自然语言，命中 OPTIMIZE_SECTION 精确路由回同一段。
 const REFINE_SECTION_CN: Record<string, string> = {
@@ -659,6 +673,7 @@ function CocoChatContent() {
     pushPatch,
     patchAppliedAt,
     supersedePendingPatches,
+    restorePatches,
     rebindCurrentPatches,
     setResume,
   } = useResumeContext();
@@ -1554,6 +1569,23 @@ function CocoChatContent() {
     // 导致切回来简历消失。所以没有简历可存时直接跳过。
     if (!selectedResumeId && loadedResumes.length === 0) return;
 
+    // 消息 meta（收尾卡/导入卡/chip）与 diff 卡按「稳定 id」持久化：
+    // 活跃期消息 id 是临时随机值，恢复时会按 (role, content, index) 重新生成稳定 id，
+    // 所以这里保存时就换算成稳定 id，恢复后才能挂回对应消息。
+    const activeIdToStableId = new Map<string, string>();
+    const messageMetas: Record<string, MessageMeta> = {};
+    messages.forEach((msg, index) => {
+      const stableId = stableMessageId(msg.content || "", msg.role, index);
+      if (msg.id) activeIdToStableId.set(msg.id, stableId);
+      if (msg.meta) messageMetas[stableId] = msg.meta;
+    });
+    const persistedPatches = pendingPatches
+      .filter((p) => p.message_id !== "current") // 进行中的这轮由流式收尾 rebind 后再存
+      .map((p) => ({
+        ...p,
+        message_id: activeIdToStableId.get(p.message_id) || p.message_id,
+      }));
+
     const uiState = {
       selectedResumeId,
       loadedResumes: loadedResumes.map((r) => ({
@@ -1563,6 +1595,8 @@ function CocoChatContent() {
         resumeData: r.resumeData, // 右侧 PDF 预览渲染需要
       })),
       diagnosisToolEvents,
+      messageMetas,
+      pendingPatches: persistedPatches,
     };
     try {
       localStorage.setItem(`ui_state:${conversationId}`, JSON.stringify(uiState));
@@ -1570,7 +1604,7 @@ function CocoChatContent() {
       // localStorage 超限等：忽略，不影响主流程
       console.warn("[AgentChat] 持久化 UI 状态失败:", e);
     }
-  }, [conversationId, selectedResumeId, loadedResumes, diagnosisToolEvents]);
+  }, [conversationId, selectedResumeId, loadedResumes, diagnosisToolEvents, messages, pendingPatches]);
 
   // 说明：
   // 进入 AI 页面时，conversationId 只允许由两处决定：
@@ -1728,6 +1762,7 @@ function CocoChatContent() {
         setResumeError(null);
 
         // 🔧 恢复 UI 数据（包含右侧选中态），避免“展示简历后又自动消失”。
+        let savedMessageMetas: Record<string, MessageMeta> | null = null;
         try {
           const savedUiState = localStorage.getItem(
             `ui_state:${conversationId}`,
@@ -1737,6 +1772,8 @@ function CocoChatContent() {
               loadedResumes: sLrs,
               selectedResumeId: savedSelectedResumeId,
               diagnosisToolEvents: savedDiagnosisToolEvents,
+              messageMetas: sMetas,
+              pendingPatches: sPatches,
             } = JSON.parse(savedUiState);
             // 恢复已加载列表的元数据，数据会在后续逻辑中通过消息或重新加载补齐
             if (Array.isArray(sLrs) && sLrs.length > 0) {
@@ -1744,6 +1781,20 @@ function CocoChatContent() {
             }
             if (Array.isArray(savedDiagnosisToolEvents)) {
               setDiagnosisToolEvents(savedDiagnosisToolEvents);
+            }
+            if (sMetas && typeof sMetas === "object") {
+              savedMessageMetas = sMetas;
+            }
+            // 恢复 diff 对比卡（含已应用/已拒绝终态），让历史会话能看到「改过什么」；
+            // 同时把恢复的简历同步进 ResumeContext，pending 卡恢复后仍可正常「应用」
+            if (Array.isArray(sPatches) && sPatches.length > 0) {
+              restorePatches(sPatches);
+              const sel =
+                (Array.isArray(sLrs) &&
+                  (sLrs.find((r: any) => r.id === savedSelectedResumeId) ||
+                    sLrs[sLrs.length - 1])) ||
+                null;
+              if (sel?.resumeData) setResume(sel.resumeData);
             }
             if (
               typeof savedSelectedResumeId === "string" &&
@@ -1760,29 +1811,6 @@ function CocoChatContent() {
           console.warn("[AgentChat] Failed to restore UI state:", e);
         }
 
-        // 🔧 改进：使用内容哈希生成稳定的消息 ID
-        const generateMessageId = (
-          content: string,
-          role: string,
-          index: number,
-        ): string => {
-          // 简单的字符串哈希函数（FNV-1a 变体）
-          let hash = 2166136261;
-          const str = `${role}:${content}:${index}`;
-          for (let i = 0; i < str.length; i++) {
-            hash ^= str.charCodeAt(i);
-            hash +=
-              (hash << 1) +
-              (hash << 4) +
-              (hash << 7) +
-              (hash << 8) +
-              (hash << 24);
-          }
-          // 转换为正数并取前12位十六进制
-          const hashStr = (hash >>> 0).toString(16).slice(0, 12);
-          return `msg-${hashStr}`;
-        };
-
         const loadedMessages: Message[] = (data.messages || []).map(
           (m: any, index: number) => {
             const rawContent = m.content;
@@ -1792,12 +1820,14 @@ function CocoChatContent() {
                 : rawContent != null
                 ? JSON.stringify(rawContent)
                 : "";
+            const id = stableMessageId(content, m.role || "unknown", index);
             return {
-              id: generateMessageId(content, m.role || "unknown", index),
+              id,
               role: m.role === "user" ? "user" : "assistant",
               content,
               thought: m.thought || undefined,
               timestamp: new Date().toISOString(),
+              meta: savedMessageMetas?.[id],
             };
           },
         );
@@ -2955,6 +2985,7 @@ function CocoChatContent() {
     setDiagnosisToolEvents([]);
     setActiveSearchPanel(null);
     setResumePdfPreview({});
+    restorePatches([]); // 清掉上一会话的 diff 卡，避免残留错挂
 
     try {
       const resp = await fetch(
@@ -3001,35 +3032,13 @@ function CocoChatContent() {
         return;
       }
 
-      // 🔧 改进：使用内容哈希生成稳定的消息 ID（与 autoLoadSession 保持一致）
-      const generateMessageId = (
-        content: string,
-        role: string,
-        index: number,
-      ): string => {
-        // 如果内容为空，使用索引作为 ID 的一部分，确保唯一性
-        const contentForHash = content || `empty-${index}`;
-        let hash = 2166136261;
-        const str = `${role}:${contentForHash}:${index}`;
-        for (let i = 0; i < str.length; i++) {
-          hash ^= str.charCodeAt(i);
-          hash +=
-            (hash << 1) +
-            (hash << 4) +
-            (hash << 7) +
-            (hash << 8) +
-            (hash << 24);
-        }
-        const hashStr = (hash >>> 0).toString(16).slice(0, 12);
-        return `msg-${hashStr}`;
-      };
-
       // 过滤掉 tool 角色的消息（这些是内部消息，不应该显示给用户）
       const userVisibleMessages = (data.messages || []).filter(
         (m: any) => m.role === "user" || m.role === "assistant",
       );
 
       // 恢复会话级 UI 状态（包含右侧选中态）
+      let savedMessageMetas: Record<string, MessageMeta> | null = null;
       try {
         const savedUiState = localStorage.getItem(`ui_state:${sessionId}`);
         if (savedUiState) {
@@ -3037,12 +3046,28 @@ function CocoChatContent() {
             loadedResumes: sLrs,
             selectedResumeId: savedSelectedResumeId,
             diagnosisToolEvents: savedDiagnosisToolEvents,
+            messageMetas: sMetas,
+            pendingPatches: sPatches,
           } = JSON.parse(savedUiState);
           if (Array.isArray(sLrs) && sLrs.length > 0) {
             setLoadedResumes(sLrs);
           }
           if (Array.isArray(savedDiagnosisToolEvents)) {
             setDiagnosisToolEvents(savedDiagnosisToolEvents);
+          }
+          if (sMetas && typeof sMetas === "object") {
+            savedMessageMetas = sMetas;
+          }
+          // 恢复 diff 对比卡（含已应用/已拒绝终态），让历史会话能看到「改过什么」；
+          // 同时把恢复的简历同步进 ResumeContext，pending 卡恢复后仍可正常「应用」
+          if (Array.isArray(sPatches) && sPatches.length > 0) {
+            restorePatches(sPatches);
+            const sel =
+              (Array.isArray(sLrs) &&
+                (sLrs.find((r: any) => r.id === savedSelectedResumeId) ||
+                  sLrs[sLrs.length - 1])) ||
+              null;
+            if (sel?.resumeData) setResume(sel.resumeData);
           }
           if (
             typeof savedSelectedResumeId === "string" &&
@@ -3065,12 +3090,14 @@ function CocoChatContent() {
               : rawContent != null
               ? JSON.stringify(rawContent)
               : "";
+          const id = stableMessageId(content, m.role || "unknown", index);
           return {
-            id: generateMessageId(content, m.role || "unknown", index),
+            id,
             role: m.role === "user" ? "user" : "assistant",
             content,
             thought: m.thought || undefined,
             timestamp: new Date().toISOString(),
+            meta: savedMessageMetas?.[id],
           };
         },
       );

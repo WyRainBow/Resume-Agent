@@ -31,6 +31,8 @@ interface ResumeContextValue {
   supersedePendingPatches: () => void
   /** 完整清理所有 patch（切换会话或退出时调用）。 */
   clearAllPatches: () => void
+  /** 恢复历史会话时整体替换 patch 列表（含 applied/rejected 等终态卡，用于时间线回显 diff）。 */
+  restorePatches: (patches: PendingPatch[]) => void
   /** 把 message_id === 'current' 的 patch 绑定到最终的 message id。 */
   rebindCurrentPatches: (newMessageId: string) => void
 }
@@ -125,6 +127,10 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
     setPendingPatches([])
   }, [])
 
+  const restorePatches = useCallback((patches: PendingPatch[]) => {
+    setPendingPatches(patches)
+  }, [])
+
   const rebindCurrentPatches = useCallback((newMessageId: string) => {
     setPendingPatches(prev =>
       prev.map(p => p.message_id === 'current' ? { ...p, message_id: newMessageId } : p)
@@ -135,7 +141,7 @@ export function ResumeProvider({ children }: { children: React.ReactNode }) {
     <ResumeContext.Provider value={{
       resume, pendingPatches, patchAppliedAt,
       setResume, pushPatch, applyPatch, applyPatches, rejectPatch,
-      supersedePendingPatches, clearAllPatches, rebindCurrentPatches,
+      supersedePendingPatches, clearAllPatches, restorePatches, rebindCurrentPatches,
     }}>
       {children}
     </ResumeContext.Provider>
