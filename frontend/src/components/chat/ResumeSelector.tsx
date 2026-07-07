@@ -134,7 +134,7 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
               setShowEmptyResumeDialog(false)
               onCreateResume?.()
             }}
-            className="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700"
+            className="flex-1 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700"
           >
             去新建简历
           </button>
@@ -167,19 +167,19 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
             <button
               type="button"
               onClick={onFillCreatePrompt}
-              className="group flex w-full items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50/50 p-3 text-left transition-colors hover:bg-indigo-50 active:scale-[0.995]"
+              className="group flex w-full items-center gap-3 rounded-xl border border-blue-200 bg-blue-50/50 p-3 text-left transition-colors hover:bg-blue-50 active:scale-[0.995]"
             >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white">
                 <MessageSquare className="size-[18px]" strokeWidth={2} />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5">
                   <span className="text-sm font-semibold text-slate-900">对话创建简历</span>
-                  <span className="rounded bg-indigo-100 px-1.5 py-px text-[10px] font-semibold text-indigo-700">推荐</span>
+                  <span className="rounded bg-blue-100 px-1.5 py-px text-[10px] font-semibold text-blue-700">推荐</span>
                 </span>
                 <span className="mt-0.5 block text-xs text-slate-500">像聊天一样说说经历，我来帮你生成</span>
               </span>
-              <ChevronRight className="size-4 shrink-0 text-slate-300 transition-all group-hover:translate-x-0.5 group-hover:text-indigo-400" />
+              <ChevronRight className="size-4 shrink-0 text-slate-300 transition-all group-hover:translate-x-0.5 group-hover:text-blue-400" />
             </button>
           )}
 
@@ -187,27 +187,27 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
             <button
               type="button"
               onClick={() => onImportResume?.()}
-              className="group flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50/40 hover:text-indigo-700 active:scale-[0.98]"
+              className="group flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50/40 hover:text-blue-700 active:scale-[0.98]"
             >
-              <Upload className="size-4 text-slate-400 transition-colors group-hover:text-indigo-500" strokeWidth={2} />
+              <Upload className="size-4 text-slate-400 transition-colors group-hover:text-blue-500" strokeWidth={2} />
               <span className="text-xs font-medium">导入简历</span>
             </button>
 
             <button
               type="button"
               onClick={() => onCreateResume?.()}
-              className="group flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50/40 hover:text-indigo-700 active:scale-[0.98]"
+              className="group flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50/40 hover:text-blue-700 active:scale-[0.98]"
             >
-              <FilePlus2 className="size-4 text-slate-400 transition-colors group-hover:text-indigo-500" strokeWidth={2} />
+              <FilePlus2 className="size-4 text-slate-400 transition-colors group-hover:text-blue-500" strokeWidth={2} />
               <span className="text-xs font-medium">新建简历</span>
             </button>
 
             <button
               type="button"
               onClick={handleSelectExistingClick}
-              className="group flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50/40 hover:text-indigo-700 active:scale-[0.98]"
+              className="group flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50/40 hover:text-blue-700 active:scale-[0.98]"
             >
-              <FileText className="size-4 text-slate-400 transition-colors group-hover:text-indigo-500" strokeWidth={2} />
+              <FileText className="size-4 text-slate-400 transition-colors group-hover:text-blue-500" strokeWidth={2} />
               <span className="text-xs font-medium">选择已有</span>
             </button>
           </div>
@@ -220,8 +220,8 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
   if (loading) {
     return (
       <div className="bg-white rounded-2xl p-6 my-4 shadow-sm border border-slate-200">
-        <div className="flex items-center gap-3 text-indigo-600">
-          <div className="size-5 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+        <div className="flex items-center gap-3 text-blue-600">
+          <div className="size-5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
           <span className="text-sm">正在加载简历列表...</span>
         </div>
       </div>
@@ -240,7 +240,7 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
               <button
                 type="button"
                 onClick={onCreateResume}
-                className="flex-1 text-sm text-white bg-indigo-600 hover:bg-indigo-700 py-2 rounded-lg transition-colors"
+                className="flex-1 text-sm text-white bg-blue-600 hover:bg-blue-700 py-2 rounded-lg transition-colors"
               >
                 去新建简历
               </button>
@@ -277,7 +277,7 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
             <button
               type="button"
               onClick={onCreateResume}
-              className="flex-1 text-sm text-white bg-indigo-600 hover:bg-indigo-700 py-2 rounded-lg transition-colors"
+              className="flex-1 text-sm text-white bg-blue-600 hover:bg-blue-700 py-2 rounded-lg transition-colors"
             >
               去创建
             </button>
@@ -301,7 +301,7 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
       <div className="bg-white rounded-2xl p-5 my-4 shadow-sm border border-slate-200">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="size-8 rounded-full bg-indigo-500 flex items-center justify-center shadow-sm">
+          <div className="size-8 rounded-full bg-blue-500 flex items-center justify-center shadow-sm">
             <FileText className="size-4 text-white" />
           </div>
           <div>
@@ -369,22 +369,22 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
               key={resume.id}
               type="button"
               onClick={() => onSelect(resume)}
-              className="group/card relative flex flex-col items-center overflow-hidden rounded-xl border border-slate-200/70 bg-white p-4 text-center cursor-pointer shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-100/50"
+              className="group/card relative flex flex-col items-center overflow-hidden rounded-xl border border-slate-200/70 bg-white p-4 text-center cursor-pointer shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-100/50"
             >
               {/* 背景装饰 */}
-              <div className="pointer-events-none absolute -right-3 -top-3 size-16 rounded-full bg-indigo-100/30 blur-2xl transition-colors group-hover/card:bg-indigo-200/50" />
+              <div className="pointer-events-none absolute -right-3 -top-3 size-16 rounded-full bg-blue-100/30 blur-2xl transition-colors group-hover/card:bg-blue-200/50" />
 
-              <div className="mb-2.5 flex size-11 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-200/60 transition-transform duration-300 group-hover/card:scale-105">
+              <div className="mb-2.5 flex size-11 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-200/60 transition-transform duration-300 group-hover/card:scale-105">
                 <FileText className="size-5" />
               </div>
 
-              <h4 className="w-full truncate text-sm font-bold text-slate-800 transition-colors group-hover/card:text-indigo-600">
+              <h4 className="w-full truncate text-sm font-bold text-slate-800 transition-colors group-hover/card:text-blue-600">
                 {resume.name || '未命名简历'}
               </h4>
 
               <div className="mt-1 flex min-h-[18px] items-center justify-center">
                 {resume.alias && resume.alias.trim() !== '' ? (
-                  <span className="inline-flex items-center rounded-md border border-indigo-100/50 bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600">
+                  <span className="inline-flex items-center rounded-md border border-blue-100/50 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-600">
                     {resume.alias.trim()}
                   </span>
                 ) : (
@@ -412,7 +412,7 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
                 type="button"
                 onClick={() => setCurrentPage(idx)}
                 className={`h-1.5 rounded-full transition-all ${
-                  idx === currentPage ? 'w-4 bg-indigo-500' : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                  idx === currentPage ? 'w-4 bg-blue-500' : 'w-1.5 bg-slate-300 hover:bg-slate-400'
                 }`}
                 aria-label={`第 ${idx + 1} 页`}
                 title={`第 ${idx + 1} 页`}
