@@ -15,6 +15,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.15.0',
+    date: '2026-07-07 10:41',
+    added: [
+      '全新导出体验：点「导出」弹出格式选择，支持 PDF（可打印文档）和 JSON（结构化数据，可备份），JSON 导出向所有用户开放',
+    ],
+    fixed: [
+      'PDF 渲染失败的错误提示不再一闪而过：会一直显示到渲染成功为止，随时可点重试',
+      '下载失败、未登录等提示改为弹出通知，不再淹没在进度条里',
+    ],
+  },
+  {
     version: '2.14.2',
     date: '2026-07-07 10:22',
     fixed: [
