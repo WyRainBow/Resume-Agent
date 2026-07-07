@@ -21,6 +21,8 @@ const SettingsPage = lazyWithRetry(() => import('./pages/Settings'))
 const SharePage = lazyWithRetry(() => import('./pages/SharePage'))
 const Workspace = lazyWithRetry(() => import('./pages/Workspace/v2'))
 const BuilderPage = lazyWithRetry(() => import('./pages/Builder'))
+const BuilderDashboardPage = lazyWithRetry(() => import('./pages/Builder/DashboardPage'))
+const BuilderSettingsPage = lazyWithRetry(() => import('./pages/Builder/SettingsPage'))
 const HTMLWorkspace = lazyWithRetry(() => import('./pages/Workspace/v2/html'))
 const LaTeXWorkspace = lazyWithRetry(() => import('./pages/Workspace/v2/latex'))
 const LeetCodePage = lazyWithRetry(() => import('./pages/LeetCode'))
@@ -67,6 +69,12 @@ function App() {
               <Route path="/workspace/html/:resumeId" element={<HTMLWorkspace />} />
               {/* 模板市场 Builder(RM 风格,独立新页,后续再并入导航) */}
               <Route path="/builder" element={<BuilderPage />} />
+              <Route path="/builder/dashboard" element={<BuilderDashboardPage />} />
+              {canUseAdmin ? (
+                <Route path="/builder/settings" element={<BuilderSettingsPage />} />
+              ) : (
+                <Route path="/builder/settings" element={<Navigate to="/builder/dashboard" replace />} />
+              )}
               <Route path="/builder/:resumeId" element={<BuilderPage />} />
               {agentPageEnabled ? (
                 <>

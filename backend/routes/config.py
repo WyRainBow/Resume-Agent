@@ -49,8 +49,8 @@ async def get_ai_config_endpoint():
 
 
 @router.get("/config/keys")
-async def get_keys_status():
-    """获取 API Key 配置状态（不返回完整 Key，只返回是否已配置）"""
+async def get_keys_status(_current_user=Depends(require_admin_only)):
+    """获取 API Key 配置状态（不返回完整 Key，只返回是否已配置）；仅管理员"""
     # 直接从 .env 文件读取，不依赖环境变量
     env_path = ROOT_DIR / ".env"
     zhipu_key = ""
@@ -102,8 +102,8 @@ async def get_keys_status():
 
 
 @router.post("/config/keys")
-async def save_keys(body: SaveKeysRequest):
-    """保存 API Key 到 .env 文件"""
+async def save_keys(body: SaveKeysRequest, _current_user=Depends(require_admin_only)):
+    """保存 API Key 到 .env 文件；仅管理员（Key 写入服务器全局配置）"""
     try:
         env_path = ROOT_DIR / ".env"
 

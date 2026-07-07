@@ -187,7 +187,7 @@ export default function BuilderPage() {
               <div>
                 <SwissButton
                   variant="link"
-                  onClick={() => navigate('/my-resumes')}
+                  onClick={() => navigate('/builder/dashboard')}
                   className="mb-2 -ml-1 text-xs"
                 >
                   <ArrowLeft className="w-4 h-4" />
