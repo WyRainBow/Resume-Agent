@@ -59,7 +59,7 @@ const Field = ({
     return (
       <motion.div {...fieldAnimation} className="space-y-2">
         {label && (
-          <label className="text-sm text-gray-600 dark:text-neutral-300">
+          <label className="font-mono text-xs font-bold text-[#444850] dark:text-neutral-300">
             {label}
           </label>
         )}
@@ -80,7 +80,7 @@ const Field = ({
     return (
       <motion.div {...fieldAnimation} className="space-y-2">
         {label && (
-          <label className="text-sm text-gray-600 dark:text-neutral-300">
+          <label className="font-mono text-xs font-bold text-[#444850] dark:text-neutral-300">
             {label}
           </label>
         )}
@@ -90,10 +90,10 @@ const Field = ({
           placeholder={placeholder}
           rows={4}
           className={cn(
-            'w-full px-3 py-2 rounded-md border resize-none',
-            'bg-white border-gray-200 text-gray-700',
-            'dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-200',
-            'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+            'w-full px-3 py-2 rounded-none border-2 resize-none',
+            'bg-white border-black text-gray-700',
+            'dark:bg-[#1C1C1C] dark:border-white dark:text-neutral-200',
+            'focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black',
             className
           )}
         />
@@ -106,7 +106,7 @@ const Field = ({
     return (
       <motion.div {...fieldAnimation} className="space-y-2">
         {label && (
-          <label className="text-sm text-gray-600 dark:text-neutral-300">
+          <label className="font-mono text-xs font-bold text-[#444850] dark:text-neutral-300">
             {label}
           </label>
         )}
@@ -115,10 +115,10 @@ const Field = ({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className={cn(
-            'w-full px-3 py-2 rounded-md border',
-            'bg-white border-gray-200 text-gray-700',
-            'dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-200',
-            'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+            'w-full px-3 py-2 rounded-none border-2',
+            'bg-white border-black text-gray-700',
+            'dark:bg-[#1C1C1C] dark:border-white dark:text-neutral-200',
+            'focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black',
             className
           )}
         />
@@ -149,7 +149,7 @@ const Field = ({
       {labelExtra ? (
         <div className="flex items-center justify-between gap-2">
           {label && (
-            <label className="text-sm text-gray-600 dark:text-neutral-300">
+            <label className="font-mono text-xs font-bold text-[#444850] dark:text-neutral-300">
               {label}
             </label>
           )}
@@ -157,7 +157,7 @@ const Field = ({
         </div>
       ) : (
         label && (
-          <label className="text-sm text-gray-600 dark:text-neutral-300">
+          <label className="font-mono text-xs font-bold text-[#444850] dark:text-neutral-300">
             {label}
           </label>
         )
@@ -169,7 +169,7 @@ const Field = ({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         className={cn(
-          'w-full px-3 py-2 rounded-md border',
+          'w-full px-3 py-2 rounded-none border-2',
           'bg-white border-gray-200 text-gray-700',
           'dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-200',
           'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
