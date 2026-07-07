@@ -1,25 +1,18 @@
 import { toast } from '@/lib/toast'
 /**
- * 导出按钮组件
- * 支持 PDF、JSON 导出
- * 优化后的现代化样式
+ * 导出按钮 + 导出格式弹窗
+ * 点「导出」弹出格式选择（PDF / JSON），选中后统一从底部「导出」执行。
  */
-import { useState, useRef, useEffect } from "react";
-import { Download, FileJson, ChevronDown, FileText } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Download, FileJson, FileText, X } from "lucide-react";
 import { cn } from "../../../../lib/utils";
-import {
-  getPDFExportPreferences,
-  getDefaultPDFDirectoryHandle,
-  getDefaultPDFDirectoryLabel,
-  ensureDirectoryPermission,
-  writePdfToDirectory,
-} from "@/services/pdfExportPreferences";
 import {
   fetchPdfDownloadQuota,
   recordPdfDownload,
   type PdfDownloadQuota,
 } from "@/services/api";
-import { getStoredAuthRole } from "@/lib/runtimeEnv";
+
+type ExportFormat = "pdf" | "json";
 
 interface ExportButtonProps {
   resumeData: Record<string, any>;
@@ -40,8 +33,10 @@ export function ExportButton({
   const [quota, setQuota] = useState<PdfDownloadQuota | null>(null);
   const [quotaLoading, setQuotaLoading] = useState(false);
   const [quotaError, setQuotaError] = useState<string | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
-  const isAdmin = getStoredAuthRole() === "admin";
+  const isHtmlTemplate = resumeData?.templateType === "html";
+  const [format, setFormat] = useState<ExportFormat>(
+    isHtmlTemplate ? "json" : "pdf",
+  );
 
   const getPdfFileName = () => {
     const safeName = (resumeName || "简历")
@@ -81,7 +76,7 @@ export function ExportButton({
     if (quotaLoading) return "正在读取下载额度";
     if (quotaError) return "下载额度读取失败";
     if (!quota) return "下载次数额度";
-    if (quota.unlimited) return "PDF 下载不限次数";
+    if (quota.unlimited) return "下载不限次数";
     return `剩余 ${quota.remaining ?? 0}/${quota.limit ?? 10} 次下载`;
   };
 
@@ -90,159 +85,73 @@ export function ExportButton({
   );
 
   // 导出 PDF - 仅用于 LaTeX 模板
-  const handleExportPDF = async () => {
+  const exportPdf = async () => {
+    if (!pdfBlob) {
+      toast.error('请先点击"渲染 PDF"按钮生成 PDF，然后再下载');
+      return;
+    }
     setIsOpen(false);
     try {
-      if (pdfBlob) {
-        if (onDownloadPDF) {
-          await onDownloadPDF();
-        } else {
-          await recordPdfDownload();
-          downloadBlob(pdfBlob, getPdfFileName());
-        }
-        void refreshQuota();
-        return;
+      if (onDownloadPDF) {
+        await onDownloadPDF();
+      } else {
+        await recordPdfDownload();
+        downloadBlob(pdfBlob, getPdfFileName());
       }
-      if (!pdfBlob) {
-        toast.error('请先点击"渲染 PDF"按钮生成 PDF，然后再下载');
-      }
+      void refreshQuota();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "PDF 下载失败，请重试");
     }
   };
 
-  // 另存为：允许用户自定义保存路径（不支持时降级为普通下载）
-  const handleSavePDFAs = async () => {
+  // 导出 JSON（结构化简历数据，本地生成不耗下载额度）
+  const exportJson = () => {
     setIsOpen(false);
-    if (!pdfBlob) {
-      toast.error('请先点击"渲染 PDF"按钮生成 PDF，然后再下载');
-      return;
-    }
-    const filename = getPdfFileName();
-    try {
-      const prefs = getPDFExportPreferences();
-      if (prefs.behavior === "preferDefault") {
-        const dirHandle = await getDefaultPDFDirectoryHandle();
-        if (dirHandle) {
-          const granted = await ensureDirectoryPermission(dirHandle);
-          if (granted) {
-            await recordPdfDownload();
-            await writePdfToDirectory(dirHandle, filename, pdfBlob);
-            void refreshQuota();
-            const dirLabel =
-              getDefaultPDFDirectoryLabel() ||
-              (typeof dirHandle?.name === "string" ? dirHandle.name : "默认目录");
-            toast.success(`已保存到：${dirLabel}/${filename}`);
-            return;
-          }
-        }
-      }
-    } catch (error) {
-      console.warn("默认路径保存失败，将回退到手动另存为:", error);
-    }
-
-    const showSaveFilePickerFn = (window as any).showSaveFilePicker as
-      | ((options?: {
-          suggestedName?: string;
-          types?: Array<{
-            description?: string;
-            accept: Record<string, string[]>;
-          }>;
-        }) => Promise<{
-          createWritable: () => Promise<{
-            write: (data: Blob) => Promise<void>;
-            close: () => Promise<void>;
-          }>;
-        }>)
-      | undefined;
-    if (typeof showSaveFilePickerFn !== "function") {
-      if (onDownloadPDF) {
-        await onDownloadPDF();
-      } else {
-        await recordPdfDownload();
-        downloadBlob(pdfBlob, filename);
-      }
-      void refreshQuota();
-      toast.error("当前浏览器不支持自定义路径，已使用默认下载方式");
-      return;
-    }
-    try {
-      const fileHandle = await showSaveFilePickerFn({
-        suggestedName: filename,
-        types: [
-          { description: "PDF 文件", accept: { "application/pdf": [".pdf"] } },
-        ],
-      });
-      await recordPdfDownload();
-      const writable = await fileHandle.createWritable();
-      await writable.write(pdfBlob);
-      await writable.close();
-      void refreshQuota();
-    } catch (error: any) {
-      if (error?.name === "AbortError") return;
-      console.error("另存为 PDF 失败:", error);
-      toast.error(error instanceof Error ? error.message : "另存为失败，请重试");
-    }
-  };
-
-  // 导出 JSON
-  const handleExportJSONClick = () => {
-    if (!isAdmin) {
-      return;
-    }
     if (onExportJSON) {
       onExportJSON();
-    } else {
-      // 默认的 JSON 导出逻辑
-      try {
-        const jsonString = JSON.stringify(resumeData, null, 2);
-        const blob = new Blob([jsonString], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `${resumeName}-${new Date().toISOString().split("T")[0]}.json`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-      } catch (error) {
-        console.error("导出 JSON 失败:", error);
-        toast.error("导出失败，请重试");
-      }
+      return;
     }
-    setIsOpen(false);
+    try {
+      const jsonString = JSON.stringify(resumeData, null, 2);
+      const blob = new Blob([jsonString], { type: "application/json" });
+      downloadBlob(
+        blob,
+        `${resumeName}-${new Date().toISOString().split("T")[0]}.json`,
+      );
+    } catch (error) {
+      console.error("导出 JSON 失败:", error);
+      toast.error("导出失败，请重试");
+    }
   };
 
-  // 点击外部关闭菜单
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
-    }
-  }, [isOpen]);
+  const handleExport = () => {
+    if (format === "pdf") void exportPdf();
+    else exportJson();
+  };
 
   useEffect(() => {
     if (isOpen) {
+      setFormat(isHtmlTemplate ? "json" : "pdf");
       void refreshQuota();
     }
-  }, [isOpen]);
+  }, [isOpen, isHtmlTemplate]);
+
+  const formatCardClass = (active: boolean) =>
+    cn(
+      "flex flex-col items-center gap-2 rounded-xl border p-5 text-center transition-colors",
+      active
+        ? "border-blue-500 bg-blue-50/50 dark:border-blue-500 dark:bg-blue-950/30"
+        : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600",
+    );
 
   return (
-    <div className="relative" ref={menuRef}>
-      {/* 导出按钮 - 优化后的样式 */}
+    <>
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => setIsOpen(true)}
         className={cn(
           "px-6 py-2.5 rounded-lg",
           "bg-blue-500 hover:bg-blue-600 active:bg-blue-700",
-          "text-white text-sm font-bold transition-all duration-300",
+          "text-white text-sm font-bold",
           "transition-all duration-300 ease-out",
           "flex items-center gap-2",
           "shadow-lg shadow-blue-100 dark:shadow-blue-900/20",
@@ -252,136 +161,120 @@ export function ExportButton({
       >
         <Download className="w-4 h-4" strokeWidth={3} />
         <span>导出</span>
-        <ChevronDown
-          className={cn(
-            "w-4 h-4 transition-transform duration-300",
-            isOpen && "rotate-180",
-          )}
-        />
       </button>
 
-      {/* 下拉菜单 - 优化后的卡片式设计 */}
       {isOpen && (
-        <div className="absolute top-full right-0 mt-2 w-72 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden z-50 backdrop-blur-sm">
-          {/* PDF 导出卡片 - 仅对 LaTeX 模板显示 */}
-          {resumeData?.templateType !== "html" && (
-            <button
-              onClick={handleExportPDF}
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+          onClick={(e) => e.target === e.currentTarget && setIsOpen(false)}
+        >
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                  导出简历
+                </h3>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  选择导出格式下载简历
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="-mr-1 -mt-1 rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                aria-label="关闭"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div
               className={cn(
-                "w-full px-5 py-4 text-left",
-                "hover:bg-slate-50 dark:hover:bg-slate-700/50",
-                "transition-all duration-150",
-                "flex items-center gap-4",
-                "border-b border-slate-100 dark:border-slate-700/50",
-                "group",
-                !pdfBlob && "opacity-60",
+                "mt-4 grid gap-3",
+                isHtmlTemplate ? "grid-cols-1" : "grid-cols-2",
               )}
             >
-              {/* PDF 图标 */}
-              <div className="w-12 h-12 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-                <FileText
-                  className="w-6 h-6 text-red-600 dark:text-red-400"
-                  strokeWidth={2}
-                />
-              </div>
-              {/* 内容 */}
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-slate-900 dark:text-slate-100 text-base">
-                  下载 PDF
-                </div>
-                {!pdfBlob && (
-                  <div className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                    需要先渲染 PDF
-                  </div>
-                )}
-                <div
-                  className={cn(
-                    "text-xs mt-1",
-                    quotaIsExhausted
-                      ? "text-red-500 dark:text-red-400"
-                      : "text-slate-400 dark:text-slate-500",
-                  )}
+              {!isHtmlTemplate && (
+                <button
+                  type="button"
+                  onClick={() => setFormat("pdf")}
+                  className={formatCardClass(format === "pdf")}
                 >
-                  {getQuotaText()}
-                </div>
-              </div>
-            </button>
-          )}
-
-          {/* PDF 另存为卡片（可自定义路径） - 仅对 LaTeX 模板显示 */}
-          {resumeData?.templateType !== "html" && (
-            <button
-              onClick={handleSavePDFAs}
-              className={cn(
-                "w-full px-5 py-4 text-left",
-                "hover:bg-slate-50 dark:hover:bg-slate-700/50",
-                "transition-all duration-150",
-                "flex items-center gap-4",
-                "border-b border-slate-100 dark:border-slate-700/50",
-                "group",
-                !pdfBlob && "opacity-60",
+                  <span
+                    className={cn(
+                      "flex h-11 w-11 items-center justify-center rounded-lg",
+                      format === "pdf"
+                        ? "bg-blue-600 text-white"
+                        : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
+                    )}
+                  >
+                    <FileText className="h-5 w-5" strokeWidth={2} />
+                  </span>
+                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    PDF
+                  </span>
+                  <span className="text-xs text-slate-500 dark:text-slate-400">
+                    可打印文档
+                  </span>
+                  <span
+                    className={cn(
+                      "text-[11px]",
+                      quotaIsExhausted
+                        ? "text-red-500 dark:text-red-400"
+                        : "text-slate-400 dark:text-slate-500",
+                    )}
+                  >
+                    {!pdfBlob ? "需要先渲染 PDF" : getQuotaText()}
+                  </span>
+                </button>
               )}
-            >
-              <div className="w-12 h-12 rounded-lg bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-                <FileText
-                  className="w-6 h-6 text-amber-600 dark:text-amber-400"
-                  strokeWidth={2}
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="font-semibold text-slate-900 dark:text-slate-100 text-base mb-1">
-                  另存为 PDF
-                </div>
-                <div className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                  选择保存路径与文件名
-                </div>
-                <div
+
+              <button
+                type="button"
+                onClick={() => setFormat("json")}
+                className={formatCardClass(format === "json")}
+              >
+                <span
                   className={cn(
-                    "text-xs mt-1",
-                    quotaIsExhausted
-                      ? "text-red-500 dark:text-red-400"
-                      : "text-slate-400 dark:text-slate-500",
+                    "flex h-11 w-11 items-center justify-center rounded-lg",
+                    format === "json"
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
                   )}
                 >
-                  {getQuotaText()}
-                </div>
-              </div>
-            </button>
-          )}
+                  <FileJson className="h-5 w-5" strokeWidth={2} />
+                </span>
+                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  JSON
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  结构化数据
+                </span>
+                <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                  可再次导入编辑
+                </span>
+              </button>
+            </div>
 
-          {/* JSON 导出卡片（仅管理员可见） */}
-          {isAdmin && (
-          <button
-            onClick={handleExportJSONClick}
-            className={cn(
-              "w-full px-5 py-4 text-left",
-              "hover:bg-slate-50 dark:hover:bg-slate-700/50",
-              "transition-all duration-150",
-              "flex items-center gap-4",
-              "border-b border-slate-100 dark:border-slate-700/50",
-              "group",
-            )}
-          >
-            {/* JSON 图标 */}
-            <div className="w-12 h-12 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0 group-hover:scale-105 transition-transform">
-              <FileJson
-                className="w-6 h-6 text-blue-600 dark:text-blue-400"
-                strokeWidth={2}
-              />
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleExport}
+                className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 active:scale-[0.98]"
+              >
+                导出
+              </button>
             </div>
-            {/* 内容 */}
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-slate-900 dark:text-slate-100 text-base mb-1">
-                导出 JSON（仅管理员）
-              </div>
-              <div className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
-                下载 JSON 格式的简历原始数据，用于备份和导出。
-              </div>
-            </div>
-          </button>
-          )}
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
