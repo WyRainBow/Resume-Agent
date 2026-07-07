@@ -16,6 +16,8 @@
  * - education description 为 string[] → 箭头 bullets(RM 为单段 meta 文本)
  * - 自定义模块从主列移入侧栏(需求指定),标题相应改用 sectionTitleSm(RM 在主列用 sectionTitle)
  * - name 缺失不渲染姓名(去掉 'Your Name' 兜底);section 标题取 sectionMeta.displayName,链接栏缺省「相关链接」
+ * - 双色调姓名中文适配:纯中文无空格名按「姓/名」切分(含常见复姓,段间不加空格);
+ *   有空格仍按 RM 原版首空格切分(2026-07-07 用户拍板)
  */
 import React from 'react'
 import { Mail, Phone, MapPin, Globe, Linkedin, Github, ExternalLink } from 'lucide-react'
@@ -33,16 +35,49 @@ interface ResumeVividProps {
 /** 主列固定收纳的 section;其余默认 section 与自定义模块进侧栏,列内顺序仍按 sectionMeta */
 const MAIN_COLUMN_KEYS = ['summary', 'workExperience', 'personalProjects', 'openSource']
 
+// 常见复姓(用于中文姓名的姓/名两色调切分)
+const COMPOUND_SURNAMES = [
+  '欧阳', '司马', '上官', '诸葛', '夏侯', '皇甫', '尉迟', '长孙',
+  '慕容', '令狐', '东方', '独孤', '南宫', '西门', '申屠', '公孙',
+]
+
+/**
+ * 双色调姓名切分:有空格按 RM 原版取首个空格;纯 CJK 无空格名按「姓/名」切(复姓优先)。
+ * nameSpaced 标记两段之间是否渲染空格(西文是,中文否)。
+ */
+function splitNameTwoTone(fullName: string): {
+  nameFirst: string
+  nameRest: string
+  nameSpaced: boolean
+} {
+  const firstSpace = fullName.indexOf(' ')
+  if (firstSpace !== -1) {
+    return {
+      nameFirst: fullName.slice(0, firstSpace),
+      nameRest: fullName.slice(firstSpace + 1),
+      nameSpaced: true,
+    }
+  }
+  if (fullName.length >= 2 && /^[一-鿿]+$/.test(fullName)) {
+    const compound = COMPOUND_SURNAMES.find(
+      (surname) => fullName.startsWith(surname) && fullName.length > surname.length
+    )
+    const surname = compound ?? fullName.slice(0, 1)
+    return { nameFirst: surname, nameRest: fullName.slice(surname.length), nameSpaced: false }
+  }
+  return { nameFirst: fullName, nameRest: '', nameSpaced: false }
+}
+
 export const ResumeVivid: React.FC<ResumeVividProps> = ({ data, showContactIcons = false }) => {
   const { personalInfo, summary, workExperience, education, personalProjects, openSource } = data
 
   const sortedSections = getSortedSections(data)
 
   // Two-tone name: bold accent first token, lighter accent for the rest(name 缺失整块不渲染).
+  // RM 原版只按首个空格切分;纯中文无空格名补「姓/名」切分(含常见复姓,2026-07-07 用户拍板),
+  // 让 vivid 的招牌双色姓名对中文用户同样生效。中文切分时两段之间不加空格。
   const fullName = personalInfo?.name ?? ''
-  const firstSpace = fullName.indexOf(' ')
-  const nameFirst = firstSpace === -1 ? fullName : fullName.slice(0, firstSpace)
-  const nameRest = firstSpace === -1 ? '' : fullName.slice(firstSpace + 1)
+  const { nameFirst, nameRest, nameSpaced } = splitNameTwoTone(fullName)
 
   const contactIcons: Record<string, React.ReactNode> = {
     Email: <Mail size={11} />,
@@ -329,7 +364,12 @@ export const ResumeVivid: React.FC<ResumeVividProps> = ({ data, showContactIcons
           {fullName && (
             <h1 className={baseStyles['resume-name']}>
               <span className={styles.nameFirst}>{nameFirst}</span>
-              {nameRest && <span className={styles.nameRest}> {nameRest}</span>}
+              {nameRest && (
+                <span className={styles.nameRest}>
+                  {nameSpaced ? ' ' : ''}
+                  {nameRest}
+                </span>
+              )}
             </h1>
           )}
           {personalInfo.title && <div className={styles.titleLine}>{personalInfo.title}</div>}
