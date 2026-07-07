@@ -1,0 +1,21 @@
+/* Builder 页打印隔离:DOWNLOAD 走浏览器打印,只输出 .builder-print-root(简历本体) */
+.builder-print-root {
+  display: none;
+}
+
+@media print {
+  /* 打印时隐藏应用内所有兄弟节点(页面壳、Toaster、弹窗),只留打印根 */
+  body.builder-printing #root > *:not(.builder-print-root) {
+    display: none !important;
+  }
+  /* portal 类节点(直接挂在 body 下)也一并隐藏 */
+  body.builder-printing > *:not(#root):not(script):not(style) {
+    display: none !important;
+  }
+  body.builder-printing .builder-print-root {
+    display: block !important;
+  }
+  body.builder-printing {
+    background: white !important;
+  }
+}

@@ -20,6 +20,7 @@ const LoginPage = lazyWithRetry(() => import('./pages/Login'))
 const SettingsPage = lazyWithRetry(() => import('./pages/Settings'))
 const SharePage = lazyWithRetry(() => import('./pages/SharePage'))
 const Workspace = lazyWithRetry(() => import('./pages/Workspace/v2'))
+const BuilderPage = lazyWithRetry(() => import('./pages/Builder'))
 const HTMLWorkspace = lazyWithRetry(() => import('./pages/Workspace/v2/html'))
 const LaTeXWorkspace = lazyWithRetry(() => import('./pages/Workspace/v2/latex'))
 const LeetCodePage = lazyWithRetry(() => import('./pages/LeetCode'))
@@ -64,6 +65,9 @@ function App() {
               <Route path="/workspace/latex/:resumeId" element={<LaTeXWorkspace />} />
               <Route path="/workspace/html" element={<HTMLWorkspace />} />
               <Route path="/workspace/html/:resumeId" element={<HTMLWorkspace />} />
+              {/* 模板市场 Builder(RM 风格,独立新页,后续再并入导航) */}
+              <Route path="/builder" element={<BuilderPage />} />
+              <Route path="/builder/:resumeId" element={<BuilderPage />} />
               {agentPageEnabled ? (
                 <>
                   <Route path="/agent/new" element={<AgentChat />} />
