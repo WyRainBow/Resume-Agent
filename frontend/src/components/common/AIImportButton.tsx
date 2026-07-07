@@ -15,12 +15,12 @@ export const AIImportButton: React.FC<AIImportButtonProps> = ({
   variant = 'outline',
   showIcon = true,
 }) => {
-  const baseStyles = "inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-all active:scale-95 shadow-sm";
-  
+  const baseStyles = "inline-flex items-center justify-center gap-2 rounded-none px-5 py-2.5 text-sm font-mono font-bold uppercase tracking-wide transition-[transform,box-shadow,background-color] duration-100 ease-out disabled:pointer-events-none disabled:opacity-50";
+
   const variants = {
-    outline: "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300",
-    ghost: "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700",
-    default: "bg-slate-900 text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white",
+    outline: "bg-[#F0F0E8] text-black border border-black shadow-[2px_2px_0px_0px_#000000] hover:bg-[#E5E5E0] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none active:translate-y-[2px] active:translate-x-[2px]",
+    ghost: "bg-transparent text-black border-none shadow-none hover:bg-[#E5E5E0] active:bg-[#E5E5E0]",
+    default: "bg-blue-700 text-white border border-black shadow-[2px_2px_0px_0px_#000000] hover:bg-blue-800 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none active:translate-y-[2px] active:translate-x-[2px]",
   };
 
   return (
@@ -29,7 +29,7 @@ export const AIImportButton: React.FC<AIImportButtonProps> = ({
       onClick={onClick}
       className={cn(baseStyles, variants[variant], className)}
     >
-      {showIcon && <Sparkles className="h-4 w-4 text-slate-900 dark:text-slate-100 animate-pulse" />}
+      {showIcon && <Sparkles className="h-4 w-4" />}
       AI 智能导入
     </button>
   );
