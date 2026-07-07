@@ -13,42 +13,37 @@ export const CreateCard: React.FC<CreateCardProps> = ({ onClick }) => {
     <motion.div
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
-      whileHover={{ y: -8, transition: { duration: 0.2 } }}
+      whileHover={{ y: 2, x: 2, transition: { duration: 0.1 } }}
       onClick={onClick}
       className="relative group"
     >
-      {/* 悬停时的环境光效果 */}
-      <div className="absolute -inset-1 bg-slate-900/5 rounded-2xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      
       <Card
         className={cn(
-          "relative overflow-hidden cursor-pointer h-[380px] flex flex-col rounded-2xl border-2 border-dashed transition-all duration-300",
-          "bg-white/40 dark:bg-slate-900/20 backdrop-blur-md",
-          "border-slate-200 dark:border-slate-800",
-          "hover:border-slate-900 dark:hover:border-slate-500/50 hover:bg-white/60 dark:hover:bg-slate-900/40",
-          "shadow-[0_8px_30px_rgb(0,0,0,0.02)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.1)]"
+          "relative overflow-hidden cursor-pointer h-[380px] flex flex-col rounded-none border-2 border-dashed border-black transition-[box-shadow,transform] duration-100",
+          "bg-[#F0F0E8]",
+          "hover:bg-[#E5E5E0] group-hover:shadow-none"
         )}
       >
         <CardContent className="flex-1 pt-6 text-center flex flex-col items-center justify-center h-full z-10">
           <motion.div
-            className="mb-6 p-6 rounded-[24px] bg-white dark:bg-slate-800 shadow-xl shadow-blue-50 dark:shadow-none border border-slate-100 dark:border-slate-700"
-            whileHover={{ scale: 1.15, rotate: 90 }}
+            className="mb-6 p-6 rounded-none bg-blue-700 text-white shadow-[2px_2px_0px_0px_#000000] border-2 border-black"
+            whileHover={{ x: 1, y: 1 }}
             transition={{ type: "spring", stiffness: 300, damping: 15 }}
           >
-            <Plus className="h-10 w-10 text-blue-500 dark:text-blue-400" />
+            <Plus className="h-10 w-10 text-white" />
           </motion.div>
-          
-          <CardTitle className="text-2xl font-black tracking-tight text-slate-800 dark:text-slate-100">
+
+          <CardTitle className="text-2xl font-serif font-black tracking-tight text-black">
             新建简历
           </CardTitle>
-          
-          <CardDescription className="mt-3 text-sm font-medium text-slate-500 dark:text-slate-400 max-w-[160px]">
+
+          <CardDescription className="mt-3 text-sm font-mono text-[#6B7280] max-w-[160px]">
             开启你的职业新篇章：从这里开始。
           </CardDescription>
         </CardContent>
 
         {/* 装饰线 */}
-        <div className="absolute bottom-0 left-0 w-full h-1 bg-slate-100 transform translate-y-full group-hover:translate-y-0 transition-transform duration-500" />
+        <div className="absolute bottom-0 left-0 w-full h-1 bg-black transform translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
       </Card>
     </motion.div>
   )

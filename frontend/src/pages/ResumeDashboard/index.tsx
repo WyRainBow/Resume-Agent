@@ -211,7 +211,14 @@ const ResumeDashboard = () => {
 
   return (
     <WorkspaceLayout>
-      <div className="h-full overflow-y-auto bg-slate-50 dark:bg-slate-950 relative transition-colors duration-500">
+      <div
+        className="h-full overflow-y-auto bg-[#F0F0E8] relative"
+        style={{
+          backgroundImage:
+            'linear-gradient(rgba(29, 78, 216, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(29, 78, 216, 0.1) 1px, transparent 1px)',
+          backgroundSize: '40px 40px',
+        }}
+      >
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -226,19 +233,19 @@ const ResumeDashboard = () => {
             transition={{ duration: 0.3, delay: 0.1 }}
           >
             {hasConfiguredFolder && (
-              <Alert className="mb-2 bg-white/80 dark:bg-slate-900/50 border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-md max-w-2xl rounded-[1.5rem] py-3">
+              <Alert className="mb-2 max-w-2xl py-3">
                 <AlertDescription className="flex items-center justify-center gap-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                      {isAuthenticated 
-                        ? '数据已同步至云端' 
+                    <div className="w-2 h-2 rounded-full bg-green-700 animate-pulse" />
+                    <span className="text-sm font-mono font-bold uppercase tracking-wide text-black">
+                      {isAuthenticated
+                        ? '数据已同步至云端'
                         : '数据保存在本地'}
                     </span>
                   </div>
                   {!isAuthenticated && (
                     <button
-                      className="text-sm font-black text-slate-900 dark:text-blue-400 hover:underline"
+                      className="text-sm font-mono font-bold uppercase tracking-wide text-blue-700 hover:underline underline-offset-4"
                       onClick={() => openModal('login')}
                     >
                       立即登录同步

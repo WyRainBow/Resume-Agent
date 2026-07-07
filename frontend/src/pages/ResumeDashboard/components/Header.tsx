@@ -82,10 +82,10 @@ export const Header: React.FC<HeaderProps> = ({
           <motion.div
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-500 text-white shadow-lg shadow-blue-100"
+            className="flex items-center gap-2 px-4 py-2 rounded-none border border-black bg-blue-700 text-white shadow-[2px_2px_0px_0px_#000000]"
           >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-sm font-bold">已选 {selectedCount}</span>
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            <span className="text-sm font-mono font-bold uppercase tracking-wide">已选 {selectedCount}</span>
           </motion.div>
         )}
       </div>
@@ -96,10 +96,10 @@ export const Header: React.FC<HeaderProps> = ({
           <Button
             onClick={onToggleMultiSelectMode}
             variant={isMultiSelectMode ? "default" : "outline"}
-            className={`rounded-xl h-11 px-5 font-bold transition-all duration-300 border ${
+            className={`h-11 px-5 ${
               isMultiSelectMode
-                ? "bg-slate-900 text-white border-slate-900"
-                : "bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 border-slate-200"
+                ? "bg-black text-white hover:bg-black"
+                : ""
             }`}
           >
             {isMultiSelectMode ? "退出多选" : "多选"}
@@ -114,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({
             <Button
               onClick={allSelected ? onClearSelection : onSelectAll}
               variant="outline"
-              className="rounded-xl h-11 px-5 font-bold border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900 transition-all"
+              className="h-11 px-5"
             >
               {allSelected ? "取消全选" : "全选"}
             </Button>
@@ -129,7 +129,8 @@ export const Header: React.FC<HeaderProps> = ({
             <Button
               onClick={onBatchDownload}
               disabled={Boolean(downloadProgress)}
-              className="rounded-xl h-11 px-5 font-bold bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-100 transition-all duration-300 disabled:opacity-60"
+              variant="outline"
+              className="h-11 px-5"
             >
               <Download className="mr-2 h-4 w-4" />
               {downloadProgress || (allSelected ? "下载全部" : "下载")}
@@ -145,7 +146,8 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <Button
               onClick={onBatchDelete}
-              className="rounded-xl h-11 px-5 font-bold bg-red-50 text-red-600 hover:bg-red-600 hover:text-white border border-red-100 transition-all duration-300"
+              variant="destructive"
+              className="h-11 px-5"
             >
               <Trash2 className="mr-2 h-4 w-4" />
               删除
@@ -154,7 +156,7 @@ export const Header: React.FC<HeaderProps> = ({
         )}
 
 
-        <div className="h-8 w-px bg-slate-200 dark:bg-slate-800 mx-1 hidden sm:block" />
+        <div className="h-8 w-px bg-black mx-1 hidden sm:block" />
 
         {/* 统一导入下拉：AI 智能上传 / JSON 导入 */}
         {(onAIImport || onImport) && (
@@ -162,27 +164,27 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={() => setImportMenuOpen((v) => !v)}
               className={cn(
-                "px-5 py-2.5 rounded-xl text-sm font-bold transition-all duration-300 flex items-center gap-2 h-11",
-                "bg-white border border-slate-200 dark:border-slate-800",
-                "text-slate-700 dark:text-slate-300 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-slate-700",
-                "active:scale-95 shadow-sm"
+                "px-5 py-2.5 rounded-none text-sm font-mono uppercase tracking-wide transition-[transform,box-shadow,background-color] duration-100 ease-out flex items-center gap-2 h-11",
+                "bg-[#F0F0E8] border border-black text-black shadow-[2px_2px_0px_0px_#000000]",
+                "hover:bg-[#E5E5E0] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none",
+                "active:translate-y-[2px] active:translate-x-[2px]"
               )}
             >
-              <Upload className="w-4 h-4 text-blue-500" />
+              <Upload className="w-4 h-4 text-blue-700" />
               导入
             </button>
 
             {importMenuOpen && (
-              <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden z-50">
+              <div className="absolute top-full right-0 mt-2 w-48 bg-[#F0F0E8] rounded-none shadow-[4px_4px_0px_0px_#000000] border border-black overflow-hidden z-50">
                 {onAIImport && (
                   <button
                     onClick={() => {
                       setImportMenuOpen(false);
                       onAIImport();
                     }}
-                    className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center gap-2"
+                    className="w-full px-4 py-3 text-left text-sm font-mono uppercase tracking-wide text-black hover:bg-[#E5E5E0] flex items-center gap-2"
                   >
-                    <Sparkles className="w-4 h-4 text-slate-900 dark:text-slate-100" />
+                    <Sparkles className="w-4 h-4 text-black" />
                     AI 智能上传
                   </button>
                 )}
@@ -192,9 +194,9 @@ export const Header: React.FC<HeaderProps> = ({
                       setImportMenuOpen(false);
                       onImport();
                     }}
-                    className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center gap-2 border-t border-slate-100 dark:border-slate-700/50"
+                    className="w-full px-4 py-3 text-left text-sm font-mono uppercase tracking-wide text-black hover:bg-[#E5E5E0] flex items-center gap-2 border-t border-black"
                   >
-                    <Upload className="w-4 h-4 text-blue-500" />
+                    <Upload className="w-4 h-4 text-blue-700" />
                     JSON 导入
                   </button>
                 )}
@@ -206,13 +208,13 @@ export const Header: React.FC<HeaderProps> = ({
         {/* 创建按钮 */}
         <Button
           onClick={onCreate}
-          className="rounded-xl h-11 px-6 font-black bg-blue-500 hover:bg-blue-600 text-white shadow-xl shadow-blue-100 transition-all duration-300 transform hover:scale-105 active:scale-95"
+          className="h-11 px-6"
         >
           <Plus className="mr-2 h-5 w-5 stroke-[3px]" />
           新建简历
         </Button>
 
-        <div className="ml-2 pl-2 border-l border-slate-200 dark:border-slate-800">
+        <div className="ml-2 pl-2 border-l border-black">
           <UserMenu />
         </div>
       </div>
