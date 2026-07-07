@@ -70,7 +70,7 @@ export const ProjectsForm: React.FC<ProjectsFormProps> = ({ items, onChange }) =
           />
         </ItemCard>
       ))}
-      <AddItemButton label="Add Project" onClick={add} />
+      <AddItemButton label="添加项目" onClick={add} />
     </div>
   )
 }

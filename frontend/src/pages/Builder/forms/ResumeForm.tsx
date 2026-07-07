@@ -198,7 +198,7 @@ export const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange }) => {
                   {section.title}
                 </span>
                 {!section.enabled && (
-                  <span className="font-mono text-[10px] text-[#878E99] uppercase">Hidden</span>
+                  <span className="font-mono text-[10px] text-[#878E99] uppercase">已隐藏</span>
                 )}
               </button>
               <div className="flex items-center gap-0.5 shrink-0">
@@ -255,10 +255,10 @@ export const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange }) => {
             }}
           />
           <SwissButton size="sm" onClick={addCustomSection} disabled={!newSectionName.trim()}>
-            Add
+            确定
           </SwissButton>
           <SwissButton variant="outline" size="sm" onClick={() => setAdding(false)}>
-            Cancel
+            取消
           </SwissButton>
         </div>
       ) : (
@@ -268,7 +268,7 @@ export const ResumeForm: React.FC<ResumeFormProps> = ({ data, onChange }) => {
           className="w-full py-2.5 border border-dashed border-[#878E99] rounded-none font-mono text-xs uppercase tracking-wider text-[#444850] hover:border-black hover:bg-[#F1F2F5] inline-flex items-center justify-center gap-1.5"
         >
           <Plus className="w-3.5 h-3.5" />
-          Add Section
+          新增模块
         </button>
       )}
     </div>

@@ -126,10 +126,10 @@ export const ACCENT_COLOR_MAP: Record<
   AccentColor,
   { primary: string; light: string; name: string }
 > = {
-  blue: { primary: '#1D4ED8', light: '#DBEAFE', name: 'Blue' },
-  green: { primary: '#15803D', light: '#DCFCE7', name: 'Green' },
-  orange: { primary: '#EA580C', light: '#FED7AA', name: 'Orange' },
-  red: { primary: '#DC2626', light: '#FEE2E2', name: 'Red' },
+  blue: { primary: '#1D4ED8', light: '#DBEAFE', name: '蓝' },
+  green: { primary: '#15803D', light: '#DCFCE7', name: '绿' },
+  orange: { primary: '#EA580C', light: '#FED7AA', name: '橙' },
+  red: { primary: '#DC2626', light: '#FEE2E2', name: '红' },
 }
 
 // Compact mode multiplier (applied to spacing values only, NOT line-height)

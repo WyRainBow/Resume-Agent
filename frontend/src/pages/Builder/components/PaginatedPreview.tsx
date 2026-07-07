@@ -84,7 +84,7 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
             size="icon"
             onClick={handleZoomOut}
             disabled={zoom <= MIN_ZOOM}
-            title="Zoom out"
+            title="缩小"
           >
             <ZoomOut className="w-4 h-4" />
           </SwissButton>
@@ -96,7 +96,7 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
             size="icon"
             onClick={handleZoomIn}
             disabled={zoom >= MAX_ZOOM}
-            title="Zoom in"
+            title="放大"
           >
             <ZoomIn className="w-4 h-4" />
           </SwissButton>
@@ -111,7 +111,7 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
             className="h-8 gap-1.5"
           >
             {showMargins ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-            <span className="font-mono text-xs uppercase">Margins</span>
+            <span className="font-mono text-xs uppercase">边距</span>
           </SwissButton>
         </div>
 
@@ -120,10 +120,10 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
           <FileText className="w-4 h-4" />
           <span className="font-mono text-xs uppercase">
             {isCalculating
-              ? 'Calculating…'
+              ? '计算中…'
               : pages.length === 1
-                ? '1 page'
-                : `${pages.length} pages`}
+                ? '1 页'
+                : `${pages.length} 页`}
           </span>
         </div>
       </div>
@@ -152,7 +152,7 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
                 <div className="flex items-center gap-2 py-2">
                   <div className="h-px w-8 bg-[#878E99]" />
                   <span className="font-mono text-[10px] text-[#878E99] uppercase tracking-wider">
-                    Page break
+                    分页
                   </span>
                   <div className="h-px w-8 bg-[#878E99]" />
                 </div>

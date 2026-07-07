@@ -62,7 +62,7 @@ export const AwardsForm: React.FC<AwardsFormProps> = ({ items, onChange }) => {
           />
         </ItemCard>
       ))}
-      <AddItemButton label="Add Award" onClick={add} />
+      <AddItemButton label="添加奖项" onClick={add} />
     </div>
   )
 }

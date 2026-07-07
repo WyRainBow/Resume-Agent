@@ -67,7 +67,7 @@ export const OpenSourceForm: React.FC<OpenSourceFormProps> = ({ items, onChange 
           />
         </ItemCard>
       ))}
-      <AddItemButton label="Add Open Source" onClick={add} />
+      <AddItemButton label="添加开源" onClick={add} />
     </div>
   )
 }

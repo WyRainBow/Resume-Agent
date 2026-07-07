@@ -62,7 +62,7 @@ export const CustomSectionForm: React.FC<CustomSectionFormProps> = ({ items, onC
           />
         </ItemCard>
       ))}
-      <AddItemButton label="Add Item" onClick={add} />
+      <AddItemButton label="添加条目" onClick={add} />
     </div>
   )
 }

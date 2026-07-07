@@ -105,7 +105,7 @@ export function PageContainer({
           className="absolute bottom-2 right-3 font-mono text-[10px] text-[#878E99] uppercase tracking-wider"
           style={{ transform: `scale(${1 / scale})`, transformOrigin: 'bottom right' }}
         >
-          Page {pageNumber} of {totalPages}
+          第 {pageNumber} 页 · 共 {totalPages} 页
         </div>
       </div>
     </div>

@@ -91,7 +91,7 @@ export const EducationForm: React.FC<EducationFormProps> = ({ items, onChange })
           />
         </ItemCard>
       ))}
-      <AddItemButton label="Add Education" onClick={add} />
+      <AddItemButton label="添加教育" onClick={add} />
     </div>
   )
 }

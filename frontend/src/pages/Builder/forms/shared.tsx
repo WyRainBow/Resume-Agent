@@ -96,7 +96,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
       <div className="flex items-center justify-between border-b border-[#E5E5E0] px-3 py-1.5">
         <span className="font-mono text-xs font-bold uppercase tracking-wider truncate">
           {title || '未命名条目'}
-          {!visible && <span className="text-[#878E99] font-normal"> · Hidden</span>}
+          {!visible && <span className="text-[#878E99] font-normal"> · 已隐藏</span>}
         </span>
         <div className="flex items-center gap-0.5 shrink-0">
           <button type="button" className={iconBtn} onClick={onToggleVisible} title={visible ? '隐藏' : '显示'}>
@@ -116,7 +116,7 @@ export const ItemCard: React.FC<ItemCardProps> = ({
               onBlur={() => setConfirming(false)}
               title="再点一次确认删除"
             >
-              Confirm
+              确认删除
             </button>
           ) : (
             <button

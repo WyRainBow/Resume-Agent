@@ -63,7 +63,7 @@ export const ExperienceForm: React.FC<ExperienceFormProps> = ({ items, onChange 
           />
         </ItemCard>
       ))}
-      <AddItemButton label="Add Experience" onClick={add} />
+      <AddItemButton label="添加经历" onClick={add} />
     </div>
   )
 }

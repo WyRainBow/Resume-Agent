@@ -143,12 +143,12 @@ export default function BuilderSettingsPage() {
               System Settings
             </h1>
             <p className="font-mono text-xs text-[#878E99] mt-2 uppercase tracking-wider">
-              {'// '}LLM Configuration · 国产模型
+              {'// '}模型配置 · 国产模型
             </p>
           </div>
           <SwissButton variant="outline" size="sm" onClick={() => navigate('/builder/dashboard')}>
             <ArrowLeft className="w-4 h-4" />
-            Back
+            返回
           </SwissButton>
         </div>
 
@@ -160,10 +160,10 @@ export default function BuilderSettingsPage() {
                 <div className="w-3 h-3 bg-amber-500 mt-1 shrink-0"></div>
                 <div className="flex-1">
                   <p className="font-mono text-sm font-bold uppercase tracking-wider text-amber-800">
-                    Setup Required
+                    需要配置
                   </p>
                   <p className="font-mono text-xs text-amber-700 mt-1">
-                    存在未配置的模型 Key,相关 AI 能力不可用。在下方 LLM Configuration 填入后保存。
+                    存在未配置的模型 Key,相关 AI 能力不可用。在下方「模型配置」填入后保存。
                   </p>
                 </div>
               </div>
@@ -176,7 +176,7 @@ export default function BuilderSettingsPage() {
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4" />
                 <h2 className="font-mono text-sm font-bold uppercase tracking-wider">
-                  System Status
+                  系统状态
                 </h2>
               </div>
               <div className="flex items-center gap-2">
@@ -192,7 +192,7 @@ export default function BuilderSettingsPage() {
                   ) : (
                     <FlaskConical className="w-3 h-3" />
                   )}
-                  Test Keys
+                  测试 Key
                 </SwissButton>
                 <SwissButton
                   variant="ghost"
@@ -202,7 +202,7 @@ export default function BuilderSettingsPage() {
                   className="gap-1 text-xs"
                 >
                   <RefreshCw className={`w-3 h-3 ${statusLoading ? 'animate-spin' : ''}`} />
-                  Refresh
+                  刷新
                 </SwissButton>
               </div>
             </div>
@@ -213,11 +213,11 @@ export default function BuilderSettingsPage() {
               </div>
             ) : !backendUp ? (
               <div className="flex flex-col items-center justify-center p-8 gap-3 border border-dashed border-red-300 bg-red-50">
-                <p className="font-mono text-xs text-red-600 uppercase">Unable to connect</p>
+                <p className="font-mono text-xs text-red-600 uppercase">无法连接</p>
                 <p className="font-mono text-xs text-[#444850]">后端未启动或不可达(/api/health)</p>
                 <SwissButton variant="outline" size="sm" onClick={refreshStatus} className="gap-1 text-xs">
                   <RefreshCw className="w-3 h-3" />
-                  Retry
+                  重试
                 </SwissButton>
               </div>
             ) : statusError ? (
@@ -233,11 +233,11 @@ export default function BuilderSettingsPage() {
                 <div className="border border-black bg-white p-4 shadow-[2px_2px_0px_0px_#000000]">
                   <div className="flex items-center gap-2 mb-2">
                     <Server className="w-4 h-4 text-[#878E99]" />
-                    <span className="font-mono text-xs uppercase text-[#878E99]">Backend</span>
+                    <span className="font-mono text-xs uppercase text-[#878E99]">后端</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-5 h-5 text-green-600" />
-                    <span className="font-mono text-sm font-bold">Healthy</span>
+                    <span className="font-mono text-sm font-bold">正常</span>
                   </div>
                 </div>
 
@@ -262,7 +262,7 @@ export default function BuilderSettingsPage() {
                           <XCircle className="w-5 h-5 text-red-500" />
                         )}
                         <span className="font-mono text-sm font-bold">
-                          {status?.configured ? 'Configured' : 'Missing'}
+                          {status?.configured ? '已配置' : '未配置'}
                         </span>
                       </div>
                       {status?.configured && status.preview && (
@@ -275,7 +275,7 @@ export default function BuilderSettingsPage() {
                           className={`font-mono text-[10px] mt-1 ${test.ok ? 'text-green-700' : 'text-red-600'}`}
                           title={test.error || ''}
                         >
-                          {test.ok ? 'TEST OK' : `TEST FAIL${test.error ? ` · ${test.error.slice(0, 40)}` : ''}`}
+                          {test.ok ? '测试通过' : `测试失败${test.error ? ` · ${test.error.slice(0, 40)}` : ''}`}
                         </div>
                       )}
                     </div>
@@ -290,7 +290,7 @@ export default function BuilderSettingsPage() {
             <div className="flex items-center gap-2 border-b border-black/10 pb-2">
               <Server className="w-4 h-4" />
               <h2 className="font-mono text-sm font-bold uppercase tracking-wider">
-                LLM Configuration
+                模型配置
               </h2>
             </div>
 
@@ -298,7 +298,7 @@ export default function BuilderSettingsPage() {
             {aiConfig && (
               <div className="border border-black bg-white p-4 shadow-[2px_2px_0px_0px_#000000]">
                 <div className="font-mono text-xs uppercase text-[#878E99] mb-2">
-                  Current Default
+                  当前默认模型
                 </div>
                 <div className="font-mono text-sm">
                   <span className="font-bold uppercase">{aiConfig.defaultProvider}</span>
@@ -365,7 +365,7 @@ export default function BuilderSettingsPage() {
                     ) : (
                       <Save className="w-4 h-4" />
                     )}
-                    {saving ? 'Saving…' : 'Save Keys'}
+                    {saving ? '保存中…' : '保存 Key'}
                   </SwissButton>
                 </div>
               </div>

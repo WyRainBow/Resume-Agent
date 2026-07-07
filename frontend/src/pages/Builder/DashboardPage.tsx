@@ -107,7 +107,7 @@ export default function BuilderDashboardPage() {
               Dashboard
             </h1>
             <p className="mt-6 text-sm font-mono text-blue-700 uppercase tracking-wide max-w-md font-bold">
-              {'// '}Select a resume · Open in builder
+              {'// '}选择一份简历 · 进入 Builder
             </p>
           </div>
           {isAdmin && (
@@ -117,7 +117,7 @@ export default function BuilderDashboardPage() {
               onClick={() => navigate('/builder/settings')}
             >
               <Settings className="w-4 h-4" />
-              Settings
+              设置
             </SwissButton>
           )}
         </div>
@@ -127,7 +127,7 @@ export default function BuilderDashboardPage() {
           {loading ? (
             <div className="flex items-center justify-center p-16">
               <span className="font-mono text-xs uppercase tracking-wider text-[#444850]">
-                Loading…
+                加载中…
               </span>
             </div>
           ) : (
@@ -154,7 +154,7 @@ export default function BuilderDashboardPage() {
                           </div>
                           {resume.pinned && (
                             <span className="font-mono text-xs text-blue-700 uppercase font-bold">
-                              Pinned
+                              置顶
                             </span>
                           )}
                         </div>
@@ -167,7 +167,7 @@ export default function BuilderDashboardPage() {
                           </span>
                         )}
                         <span className="text-xs font-mono text-[#878E99] mt-auto pt-4 uppercase">
-                          Edited {formatDate(resume.updatedAt)}
+                          更新于 {formatDate(resume.updatedAt)}
                         </span>
                       </div>
                     </button>
@@ -185,7 +185,7 @@ export default function BuilderDashboardPage() {
                       <Plus className="w-8 h-8" />
                     </button>
                     <p className="text-xs font-mono mt-4 uppercase text-green-700">
-                      New resume · Workspace
+                      新建简历 · 去工作台
                     </p>
                   </div>
                 </div>
@@ -211,18 +211,18 @@ export default function BuilderDashboardPage() {
         {/* Footer */}
         <div className="p-4 bg-[#F0F0E8] flex justify-between items-center font-mono text-xs text-blue-700 border-t border-black shrink-0 relative z-30">
           <span className="uppercase font-bold flex items-center gap-2">
-            <span className="w-3 h-3 bg-blue-700 inline-block"></span>
-            Resume Builder Module
+            <img src="/favicon.svg" alt="" className="w-4 h-4" />
+            简历构建模块
           </span>
           <div className="flex items-center gap-4">
-            <span className="uppercase">{resumes.length} Resumes</span>
+            <span className="uppercase">{resumes.length} 份简历</span>
             <span className="text-[#878E99]">|</span>
             <button
               type="button"
               className="uppercase underline-offset-4 hover:underline"
               onClick={() => navigate('/my-resumes')}
             >
-              My Resumes
+              我的简历
             </button>
           </div>
         </div>

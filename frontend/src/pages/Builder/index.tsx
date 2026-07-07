@@ -190,7 +190,7 @@ export default function BuilderPage() {
     return (
       <div className="h-screen w-full bg-[#F0F0E8] flex items-center justify-center">
         <span className="font-mono text-xs uppercase tracking-wider text-[#444850]">
-          Loading…
+          加载中…
         </span>
       </div>
     )
@@ -211,14 +211,14 @@ export default function BuilderPage() {
                   className="mb-2 -ml-1 text-xs"
                 >
                   <ArrowLeft className="w-4 h-4" />
-                  Back to Dashboard
+                  返回 Dashboard
                 </SwissButton>
                 <h1 className="font-serif text-3xl md:text-5xl text-black tracking-tight leading-[0.95] uppercase">
                   Resume Builder
                 </h1>
                 <div className="mt-3 flex items-center gap-3">
                   <p className="text-sm font-mono text-blue-700 uppercase tracking-wide font-bold">
-                    {'// '}Edit Mode
+                    {'// '}编辑模式
                   </p>
                   {resumeName && (
                     <span className="font-mono text-xs text-[#444850] border border-black bg-white px-2 py-1">
@@ -233,7 +233,7 @@ export default function BuilderPage() {
                   {dirty && (
                     <span className="flex items-center gap-1 font-mono text-xs text-amber-700 bg-amber-50 px-2 py-1 border border-amber-200 uppercase">
                       <TriangleAlert className="w-3 h-3" />
-                      Unsaved
+                      未保存
                     </span>
                   )}
                 </div>
@@ -248,7 +248,7 @@ export default function BuilderPage() {
                     title="用 AI 助手优化这份简历"
                   >
                     <Sparkles className="w-4 h-4" />
-                    AI Optimize
+                    AI 优化
                   </SwissButton>
                 )}
                 <SwissButton
@@ -259,7 +259,7 @@ export default function BuilderPage() {
                   title="放弃未保存修改,回到上次保存"
                 >
                   <RotateCcw className="w-4 h-4" />
-                  Reset
+                  重置
                 </SwissButton>
                 <SwissButton size="sm" onClick={handleSave} disabled={saveState === 'saving'}>
                   {saveState === 'saved' ? (
@@ -267,11 +267,11 @@ export default function BuilderPage() {
                   ) : (
                     <Save className="w-4 h-4" />
                   )}
-                  {saveState === 'saving' ? 'Saving…' : saveState === 'saved' ? 'Saved' : 'Save'}
+                  {saveState === 'saving' ? '保存中…' : saveState === 'saved' ? '已保存' : '保存'}
                 </SwissButton>
                 <SwissButton variant="success" size="sm" onClick={handleDownload}>
                   <Download className="w-4 h-4" />
-                  Download
+                  下载
                 </SwissButton>
               </div>
             </div>
@@ -285,7 +285,7 @@ export default function BuilderPage() {
                 <div className="flex items-center gap-2 border-b-2 border-black pb-2">
                   <div className="w-3 h-3 bg-blue-700"></div>
                   <h2 className="font-mono text-lg font-bold uppercase tracking-wider">
-                    Editor Panel
+                    编辑面板
                   </h2>
                 </div>
 
@@ -302,11 +302,11 @@ export default function BuilderPage() {
               <div className="px-6 pt-3 shrink-0 bg-[#E5E5E0]">
                 <RetroTabs
                   tabs={[
-                    { id: 'resume', label: 'Resume' },
-                    { id: 'cover-letter', label: 'Cover Letter', disabled: true },
-                    { id: 'outreach', label: 'Outreach Mail', disabled: true },
-                    { id: 'interview-prep', label: 'Interview Prep', disabled: true },
-                    { id: 'jd-match', label: 'JD Match', disabled: true },
+                    { id: 'resume', label: '简历' },
+                    { id: 'cover-letter', label: '求职信', disabled: true },
+                    { id: 'outreach', label: '联络邮件', disabled: true },
+                    { id: 'interview-prep', label: '面试准备', disabled: true },
+                    { id: 'jd-match', label: 'JD 匹配', disabled: true },
                   ]}
                   activeTab={activeTab}
                   onTabChange={() => {}}
@@ -325,14 +325,14 @@ export default function BuilderPage() {
           {/* Footer */}
           <div className="p-4 bg-[#F0F0E8] flex justify-between items-center font-mono text-xs text-blue-700 border-t border-black">
             <span className="uppercase font-bold flex items-center gap-2">
-              <span className="w-3 h-3 bg-blue-700 inline-block"></span>
-              Resume Builder Module
+              <img src="/favicon.svg" alt="" className="w-4 h-4" />
+              简历构建模块
             </span>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-700"></div>
                 <span className="uppercase">
-                  {isTwoColumnTemplate ? 'Two Column' : 'Single Column'}
+                  {isTwoColumnTemplate ? '双栏' : '单栏'}
                 </span>
               </div>
               <span className="text-[#878E99]">|</span>
