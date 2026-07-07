@@ -108,6 +108,7 @@ export default function WorkspaceV2() {
     pdfBlob,
     loading,
     progress,
+    renderError,
     saveSuccess,
     handleRender,
     handleDownload,
@@ -348,6 +349,7 @@ export default function WorkspaceV2() {
         pdfBlob={pdfBlob}
         loading={loading}
         progress={progress}
+        renderError={renderError}
         autoRenderPending={isAutoRenderPending}
         handleRender={handleRender}
         handleDownload={handleDownload}

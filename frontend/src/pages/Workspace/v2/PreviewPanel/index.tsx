@@ -16,6 +16,7 @@ interface PreviewPanelProps {
   pdfBlob: Blob | null
   loading: boolean
   progress: string
+  renderError?: string | null
   autoRenderPending?: boolean
   renderMode?: PDFRenderMode
   canUseRemoteRender?: boolean
@@ -29,6 +30,7 @@ export function PreviewPanel({
   pdfBlob,
   loading,
   progress,
+  renderError = null,
   autoRenderPending = false,
   renderMode = 'local',
   canUseRemoteRender = false,
@@ -90,14 +92,14 @@ export function PreviewPanel({
   }
 
   const displayPercent = Math.round(effectiveScale * 100)
-  // 渲染失败时 usePDFOperations 会把错误留在 progress 且 loading 置 false（成功则清空 progress）。
-  // 据此把终态错误与进度区分开，避免错误信息被当成进度条静默吞掉。
-  const hasRenderError = !isHTMLTemplate && !loading && progress.trim() !== ''
+  // 错误态来自 usePDFOperations 的独立 renderError：失败设置、渲染成功才清除（常驻），
+  // 渲染中让位给进度显示，结束后若仍未成功则错误横幅回来——不会被下一次渲染永久顶掉。
+  const hasRenderError = !isHTMLTemplate && !loading && !!renderError
   const showStatus = !isHTMLTemplate && (loading || autoRenderPending || hasRenderError)
   const statusText = loading
     ? (progress || '正在更新 PDF 预览...')
     : hasRenderError
-      ? progress
+      ? renderError!
       : '已记录修改:停止输入 2 秒后更新预览'
 
   const applyPercentInput = (raw: string) => {

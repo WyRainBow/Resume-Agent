@@ -23,6 +23,9 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
   const [pdfBlob, setPdfBlob] = useState<Blob | null>(null)
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState('')
+  // 渲染错误独立于 progress：失败时设置、渲染成功才清除（常驻错误态），
+  // 新一次渲染开始不清——避免错误横幅被下一次渲染的进度顶掉后再也看不到
+  const [renderError, setRenderError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState(false)
   const [renderMode, setRenderMode] = useState<PDFRenderMode>(getStoredPDFRenderMode())
   const resumeDataRef = useRef(resumeData)
@@ -133,11 +136,13 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
       if (!isCurrentRender()) return
       setPdfBlob(blob)
       setProgress('')
+      setRenderError(null)
     } catch (error) {
       if (!isCurrentRender()) return
       const message = getErrorMessage(error)
       console.error('PDF 渲染失败:', error)
-      setProgress(`渲染失败：${message}`)
+      setProgress('')
+      setRenderError(`渲染失败：${message}`)
     } finally {
       if (activeAbortControllerRef.current === abortController) {
         activeAbortControllerRef.current = null
@@ -159,7 +164,7 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
     // 导出/下载需要登录（预览渲染对所有人开放）
     if (!isAuthenticated) {
       openModal('login')
-      setProgress('请先登录后再导出 PDF')
+      toast.error('请先登录后再导出 PDF')
       return
     }
 
@@ -171,7 +176,7 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
       await recordPdfDownload()
     } catch (error) {
       const message = getErrorMessage(error)
-      setProgress(`下载失败：${message}`)
+      toast.error(`下载失败：${message}`)
       return
     }
 
@@ -199,6 +204,7 @@ export function usePDFOperations({ resumeData, currentResumeId, setCurrentId }: 
     pdfBlob,
     loading,
     progress,
+    renderError,
     saveSuccess,
     renderMode,
     canUseRemoteRender: isAdmin,

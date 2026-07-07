@@ -64,6 +64,7 @@ interface EditPreviewLayoutProps {
   pdfBlob: Blob | null;
   loading: boolean;
   progress: string;
+  renderError?: string | null;
   autoRenderPending?: boolean;
   renderMode?: PDFRenderMode;
   canUseRemoteRender?: boolean;
@@ -146,6 +147,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
     pdfBlob,
     loading,
     progress,
+    renderError,
     autoRenderPending,
     renderMode = "local",
     canUseRemoteRender = false,
@@ -387,6 +389,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
             pdfBlob={pdfBlob}
             loading={loading}
             progress={progress}
+            renderError={renderError}
             autoRenderPending={autoRenderPending}
             renderMode={renderMode}
             canUseRemoteRender={canUseRemoteRender}
