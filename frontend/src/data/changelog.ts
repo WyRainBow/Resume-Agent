@@ -15,6 +15,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.14.2',
+    date: '2026-07-07 10:22',
+    fixed: [
+      '历史会话回看不再「只剩文字」：重新进入会话能看到之前的优化对比卡、已应用状态和操作按钮，清楚 AI 改过什么',
+      'AI 助手界面配色统一为蓝色，优化完成、导入成功等卡片重新设计，更清爽',
+    ],
+  },
+  {
     version: '2.14.1',
     date: '2026-07-07 09:46',
     fixed: [
