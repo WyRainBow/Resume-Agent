@@ -34,6 +34,10 @@
   padding-left: 0.75rem;
   min-width: 0;
   overflow: hidden;
+  /* 中文适配(偏离 RM 源):窄侧栏 + 大字号时让长中文/URL 换行,
+     避免贴边被 overflow:hidden 裁切;见交接文档 P2-5-B */
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 /* Two-tone name */
