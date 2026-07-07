@@ -15,6 +15,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.14.1',
+    date: '2026-07-07 09:46',
+    fixed: [
+      'AI 助手里点「撤销」后，右侧简历预览现在会正确回到修改前的样子',
+      '从「我的简历」进入 AI 助手不再自动带上之前编辑的简历，干净开启新会话（从编辑器进入仍会带当前简历）',
+      '重新设计「开始处理简历」选择面板，更清爽耐看',
+    ],
+  },
+  {
     version: '2.14.0',
     date: '2026-07-06 20:12',
     added: [
