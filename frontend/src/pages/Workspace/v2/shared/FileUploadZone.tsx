@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { toast } from '@/lib/toast'
-import { ClipboardPaste, FileText, Trash2, UploadCloud } from 'lucide-react'
+import { ClipboardPaste, FileText, Trash2, Upload } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 
 interface FileUploadZoneProps {
@@ -81,10 +81,12 @@ export function FileUploadZone({
         tabIndex={0}
         aria-label={`上传区，可点击、拖拽或粘贴 ${hintLabel}`}
         className={cn(
-          'flex-1 flex flex-col justify-center rounded-lg border-2 border-dashed p-6 transition-colors outline-none focus-visible:border-slate-900 dark:focus-visible:border-slate-400',
+          'flex-1 flex flex-col justify-center rounded-none border-2 border-dashed p-6 transition-colors outline-none focus-visible:border-black dark:focus-visible:border-white',
           dragging
-            ? 'border-slate-900 bg-slate-50 dark:border-slate-400 dark:bg-indigo-500/10'
-            : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/40'
+            ? 'border-blue-700 bg-blue-50 dark:border-blue-400 dark:bg-blue-500/10'
+            : file
+              ? 'border-solid border-black bg-white dark:bg-[#1C1C1C]'
+              : 'border-[#878E99] bg-[#F1F2F5] hover:border-black hover:bg-white dark:border-white/40 dark:bg-[#2A2A2A] dark:hover:border-white'
         )}
         onDragOver={(event) => {
           event.preventDefault()
@@ -108,13 +110,13 @@ export function FileUploadZone({
         <div className="flex flex-col items-center text-center">
           {file ? (
             <>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-green-100 text-green-600 dark:bg-green-500/20 dark:text-green-300">
-                <FileText className="h-6 w-6" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-none border border-black bg-[#F1F2F5] dark:bg-[#2A2A2A] dark:border-white">
+                <FileText className="h-6 w-6 text-black dark:text-white" />
               </div>
-              <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">
+              <p className="mt-3 text-sm font-bold text-black dark:text-white">
                 {file.name}
               </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-xs font-mono text-[#878E99] dark:text-neutral-400">
                 {formatFileSize(file.size)}
               </p>
               <div className="mt-4 flex items-center gap-2">
@@ -124,7 +126,7 @@ export function FileUploadZone({
                     e.stopPropagation();
                     inputRef.current?.click();
                   }}
-                  className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                  className="rounded-none border border-black bg-white px-4 py-2 text-xs font-mono uppercase tracking-wide text-black transition-colors hover:bg-[#F1F2F5] dark:bg-[#1C1C1C] dark:border-white dark:text-white dark:hover:bg-[#2A2A2A]"
                 >
                   更换文件
                 </button>
@@ -137,7 +139,7 @@ export function FileUploadZone({
                       inputRef.current.value = '';
                     }
                   }}
-                  className="rounded-lg border border-red-100 bg-red-50 px-4 py-2 text-xs font-medium text-red-600 shadow-sm transition-colors hover:border-red-200 hover:bg-red-100 dark:border-red-900/30 dark:bg-red-900/20 dark:text-red-400 dark:hover:border-red-800"
+                  className="rounded-none border border-black bg-white px-4 py-2 text-xs font-mono uppercase tracking-wide text-red-600 transition-colors hover:bg-red-50 dark:bg-[#1C1C1C] dark:border-white dark:text-red-400 dark:hover:bg-red-900/20"
                 >
                   清除
                 </button>
@@ -145,27 +147,27 @@ export function FileUploadZone({
             </>
           ) : (
             <>
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-slate-100 text-slate-900 dark:bg-indigo-500/20 dark:text-indigo-300">
-                <UploadCloud className="h-6 w-6" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-none border border-black bg-white shadow-[2px_2px_0px_0px_#000000] dark:bg-[#1C1C1C] dark:border-white dark:shadow-[2px_2px_0px_0px_#ffffff]">
+                <Upload className="h-6 w-6 text-black dark:text-white" />
               </div>
-              <p className="mt-3 text-sm font-medium text-slate-700 dark:text-slate-200">
+              <p className="mt-3 text-base font-bold text-black dark:text-white">
                 点击或拖拽 {hintLabel} 到此处上传
               </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              <p className="mt-1 text-xs font-mono uppercase tracking-wide text-[#878E99] dark:text-neutral-400">
                 单个文件最大支持 {maxSizeMb}MB
               </p>
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                className="mt-4 rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-600 shadow-sm transition-colors hover:border-slate-300 hover:text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-500"
+                className="mt-4 rounded-none border border-black bg-white px-4 py-2 text-xs font-mono uppercase tracking-wide text-black transition-colors hover:bg-[#F1F2F5] dark:bg-[#1C1C1C] dark:border-white dark:text-white dark:hover:bg-[#2A2A2A]"
               >
                 选择文件
               </button>
-              <div className="mt-4 flex items-center gap-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300">
+              <div className="mt-4 flex items-center gap-1.5 rounded-none border border-black bg-white px-3 py-1.5 text-xs font-mono text-black dark:bg-[#1C1C1C] dark:border-white dark:text-white">
                 <ClipboardPaste className="h-3.5 w-3.5 shrink-0" />
                 <span className="inline-flex items-center gap-1">
                   {isImageZone ? '截图 / 图片' : '文件'}可直接
-                  <kbd className="rounded border border-indigo-200 bg-white px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-700 shadow-sm dark:border-indigo-400/30 dark:bg-slate-800 dark:text-indigo-200">
+                  <kbd className="rounded-none border border-black bg-[#F1F2F5] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-black dark:border-white dark:bg-[#2A2A2A] dark:text-white">
                     ⌘ / Ctrl + V
                   </kbd>
                   粘贴

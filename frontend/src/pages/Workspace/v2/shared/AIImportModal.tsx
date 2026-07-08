@@ -14,7 +14,6 @@ import {
   Upload,
   FileText,
   File,
-  Sparkles,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../../../../lib/utils";
@@ -429,44 +428,33 @@ export function AIImportModal({
           "animate-in fade-in-0 zoom-in-95 duration-200",
         )}
       >
-        {/* 头部 */}
-        <div className="flex items-center justify-between p-6 border-b-2 border-black bg-[#F0F0E8]">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-none border border-black bg-blue-700 shadow-[2px_2px_0px_0px_#000000] flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="text-2xl font-serif font-semibold tracking-tight text-black">
-                {parsing
-                  ? "正在解析内容"
-                  : currentStep === "results"
-                    ? "解析结果预览"
-                    : sectionType === "all"
-                      ? "导入简历"
-                      : `AI 导入 - ${sectionTitle}`}
-              </h3>
-              <p className="text-sm font-mono text-[#878E99] mt-0.5">
-                {parsing
-                  ? "AI 正在处理您的请求，请稍候..."
-                  : currentStep === "results"
-                    ? "请检查解析出的数据是否准确，点击下方按钮填充到表单"
-                    : sectionType === "all"
-                      ? "上传或粘贴简历内容，系统将自动解析并导入"
-                      : "粘贴或输入该模块的文本内容：AI 将自动解析并填充"}
-              </p>
-            </div>
+        {/* 头部(照搬 Resume-Matcher upload-dialog:纯文字大写标题,无图标方块,关闭按钮极简) */}
+        <div className="flex items-center justify-between p-6 border-b-2 border-black bg-white dark:bg-[#1C1C1C]">
+          <div>
+            <h3 className="text-2xl font-serif font-bold uppercase tracking-tight text-black dark:text-white">
+              {parsing
+                ? "正在解析内容"
+                : currentStep === "results"
+                  ? "解析结果预览"
+                  : sectionType === "all"
+                    ? "导入简历"
+                    : `AI 导入 - ${sectionTitle}`}
+            </h3>
+            <p className="text-sm font-mono text-[#878E99] dark:text-neutral-400 mt-0.5">
+              {parsing
+                ? "AI 正在处理您的请求，请稍候..."
+                : currentStep === "results"
+                  ? "请检查解析出的数据是否准确，点击下方按钮填充到表单"
+                  : sectionType === "all"
+                    ? "上传或粘贴简历内容，系统将自动解析并导入"
+                    : "粘贴或输入该模块的文本内容：AI 将自动解析并填充"}
+            </p>
           </div>
           <button
             onClick={onClose}
-            className={cn(
-              "w-8 h-8 rounded-none flex items-center justify-center",
-              "bg-[#F0F0E8] text-black border border-black shadow-[2px_2px_0px_0px_#000000]",
-              "hover:bg-[#E5E5E0] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none",
-              "active:translate-y-[2px] active:translate-x-[2px]",
-              "transition-[transform,box-shadow,background-color] duration-100 ease-out",
-            )}
+            className="text-black dark:text-white opacity-70 hover:opacity-100 transition-opacity"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
