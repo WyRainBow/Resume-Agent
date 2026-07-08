@@ -71,26 +71,19 @@ export const Header: React.FC<HeaderProps> = ({
   }, [importMenuOpen]);
 
   return (
-    <motion.div
-      className="px-2 sm:px-4 flex flex-col lg:flex-row lg:items-center justify-between gap-6"
-      initial={{ y: -20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-    >
-      <div className="flex items-center space-x-6">
-        {selectedCount > 0 && (
-          <motion.div
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="flex items-center gap-2 px-4 py-2 rounded-none border border-black bg-blue-700 text-white shadow-[2px_2px_0px_0px_#000000]"
-          >
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-sm font-mono font-bold uppercase tracking-wide">已选 {selectedCount}</span>
-          </motion.div>
-        )}
+    <div className="border-b border-black p-8 md:p-12 shrink-0 bg-[#F6F3EC] dark:bg-[#1C1C1C] relative z-30 flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+      {/* 左侧标题区：复刻自 /builder/dashboard */}
+      <div>
+        <h1 className="font-serif text-5xl md:text-7xl text-black dark:text-white tracking-tight leading-[0.95] uppercase">
+          Dashboard
+        </h1>
+        <p className="mt-6 text-sm font-mono text-sky-600 uppercase tracking-wide max-w-md font-bold">
+          {'// '}选择一份简历 · 进入 Builder
+        </p>
       </div>
 
-      <div className="flex items-center flex-wrap gap-3">
+      {/* 右侧操作区：原 Header 的全部交互按钮（多选/导入/新建/账户）保留 */}
+      <div className="flex items-center flex-wrap gap-3 lg:justify-end">
         {/* 多选模式按钮 */}
         {totalCount > 0 && onToggleMultiSelectMode && (
           <Button
@@ -170,7 +163,7 @@ export const Header: React.FC<HeaderProps> = ({
                 "active:translate-y-[2px] active:translate-x-[2px]"
               )}
             >
-              <Upload className="w-4 h-4 text-blue-700" />
+              <Upload className="w-4 h-4 text-sky-500" />
               导入
             </button>
 
@@ -196,7 +189,7 @@ export const Header: React.FC<HeaderProps> = ({
                     }}
                     className="w-full px-4 py-3 text-left text-sm font-mono uppercase tracking-wide text-black hover:bg-[#E5E5E0] flex items-center gap-2 border-t border-black"
                   >
-                    <Upload className="w-4 h-4 text-blue-700" />
+                    <Upload className="w-4 h-4 text-sky-500" />
                     JSON 导入
                   </button>
                 )}
@@ -218,6 +211,6 @@ export const Header: React.FC<HeaderProps> = ({
           <UserMenu />
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 };
