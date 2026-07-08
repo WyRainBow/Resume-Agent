@@ -23,15 +23,12 @@ import AiAssistantChat from './shared/AiAssistantChat'
 import { scoreResume, type JdOptimizeField } from '@/services/api'
 import { stripHtmlTags } from './utils/textUtils'
 
-type EditMode = 'click' | 'scroll' | 'json'
 const PDF_RENDER_DEBOUNCE_MS = 2000
 // 首次加载的自动渲染延迟：短一点，打开工作台即出预览
 const PDF_RENDER_INITIAL_DELAY_MS = 300
 
 export default function WorkspaceV2() {
   const navigate = useNavigate()
-  // 编辑模式状态
-  const [editMode, setEditMode] = useState<EditMode>('click')
   
   // 跟踪编辑状态和保存状态
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -337,8 +334,6 @@ export default function WorkspaceV2() {
         resumeName={resumeData?.basic?.name || '我的简历'}
         pdfBlob={pdfBlob}
         onDownloadPDF={handleDownload}
-        editMode={editMode}
-        onEditModeChange={setEditMode}
       />
 
       {/* 编辑 + 预览三列布局 */}
@@ -381,7 +376,6 @@ export default function WorkspaceV2() {
         autoRenderPending={isAutoRenderPending}
         handleRender={handleRender}
         handleDownload={handleDownload}
-        editMode={editMode}
       />
 
       {/* JD 匹配优化 —— 聚焦弹窗（粘 JD → 多维评分 → 一键深度优化），取代页面底部常驻大框 */}

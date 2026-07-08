@@ -3,14 +3,11 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, BookmarkPlus, Upload, LayoutGrid, List, ChevronRight, Sparkles, Code2 } from 'lucide-react'
+import { Check, BookmarkPlus, Upload, ChevronRight, Sparkles } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { ExportButton } from './ExportButton'
 import { SaveStatusIndicator } from './SaveStatusIndicator'
 import type { AutoSaveStatus } from '../hooks/useAutoSaveResume'
-import { getStoredAuthRole } from '@/lib/runtimeEnv'
-
-type EditMode = 'click' | 'scroll' | 'json'
 
 interface HeaderProps {
   saveSuccess: boolean
@@ -24,14 +21,11 @@ interface HeaderProps {
   resumeName?: string
   pdfBlob?: Blob | null
   onDownloadPDF?: () => void | Promise<void>
-  editMode?: EditMode
-  onEditModeChange?: (mode: EditMode) => void
 }
 
-export function Header({ saveSuccess, saveStatus, saveError, onGlobalAIImport, onSaveToDashboard, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF, editMode, onEditModeChange }: HeaderProps) {
+export function Header({ saveSuccess, saveStatus, saveError, onGlobalAIImport, onSaveToDashboard, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF }: HeaderProps) {
   const [importMenuOpen, setImportMenuOpen] = useState(false)
   const importMenuRef = useRef<HTMLDivElement>(null)
-  const isAdmin = getStoredAuthRole() === 'admin'
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -56,60 +50,8 @@ export function Header({ saveSuccess, saveStatus, saveError, onGlobalAIImport, o
         'border-b border-black dark:border-white'
       )}
     >
-      {/* 左侧：编辑模式切换 */}
-      {editMode !== undefined && onEditModeChange && (
-      <motion.div 
-          className="flex items-center gap-2"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.4, delay: 0.2 }}
-      >
-          <span className="text-sm text-slate-600 dark:text-slate-400 font-medium font-mono">编辑模式：</span>
-          <div className="flex items-center gap-1 bg-blue-50/50 dark:bg-[#2A2A2A] rounded-none p-1 border border-blue-100/50">
-            <button
-              onClick={() => onEditModeChange('click')}
-              className={cn(
-                "px-4 py-2 rounded-none text-sm font-bold transition-all duration-300",
-                "flex items-center gap-2",
-                editMode === 'click'
-                  ? "bg-white text-slate-900 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] dark:bg-slate-700 dark:text-slate-100"
-                  : "text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
-              )}
-            >
-              <List className="w-4 h-4" />
-              点击编辑
-            </button>
-            <button
-              onClick={() => onEditModeChange('scroll')}
-              className={cn(
-                "px-4 py-2 rounded-none text-sm font-bold transition-all duration-300",
-                "flex items-center gap-2",
-                editMode === 'scroll'
-                  ? "bg-white text-slate-900 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] dark:bg-slate-700 dark:text-slate-100"
-                  : "text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
-              )}
-            >
-              <LayoutGrid className="w-4 h-4" />
-              滚动编辑
-            </button>
-            {isAdmin && (
-            <button
-              onClick={() => onEditModeChange('json')}
-              className={cn(
-                "px-4 py-2 rounded-none text-sm font-bold transition-all duration-300",
-                "flex items-center gap-2",
-                editMode === 'json'
-                  ? "bg-white text-slate-900 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] dark:bg-slate-700 dark:text-slate-100"
-                  : "text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
-              )}
-            >
-              <Code2 className="w-4 h-4" />
-              JSON 编辑（仅管理员）
-            </button>
-            )}
-        </div>
-      </motion.div>
-      )}
+      {/* 左侧留白（原编辑模式切换已移除，点击编辑为唯一模式） */}
+      <div />
 
       {/* 右侧：Action Buttons */}
       <motion.div 

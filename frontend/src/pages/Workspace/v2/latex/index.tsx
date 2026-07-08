@@ -15,13 +15,10 @@ import EditPreviewLayout from '../EditPreviewLayout'
 import AIImportModal from '../shared/AIImportModal'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 
-type EditMode = 'click' | 'scroll' | 'json'
 const PDF_RENDER_DEBOUNCE_MS = 2000
 
 export default function LaTeXWorkspace() {
   const { resumeId } = useParams<{ resumeId?: string }>()
-  // 编辑模式状态
-  const [editMode, setEditMode] = useState<EditMode>('click')
   
   // 跟踪编辑状态和保存状态
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -275,8 +272,6 @@ export default function LaTeXWorkspace() {
         resumeName={resumeData?.basic?.name || '我的简历'}
         pdfBlob={pdfBlob}
         onDownloadPDF={handleDownload}
-        editMode={editMode}
-        onEditModeChange={setEditMode}
       />
 
       {/* 编辑 + 预览三列布局 */}
@@ -321,7 +316,6 @@ export default function LaTeXWorkspace() {
         setRenderMode={setRenderMode}
         handleRender={handleRender}
         handleDownload={handleDownload}
-        editMode={editMode}
       />
 
       {/* 隐藏的文件输入（用于导入 JSON） */}

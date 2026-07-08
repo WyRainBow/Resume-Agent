@@ -17,12 +17,9 @@ import EditPreviewLayout from '../EditPreviewLayout'
 import AIImportModal from '../shared/AIImportModal'
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 
-type EditMode = 'click' | 'scroll' | 'json'
 
 export default function HTMLWorkspace() {
   const { resumeId } = useParams<{ resumeId?: string }>()
-  // 编辑模式状态 - HTML 模板默认用点击编辑（三列布局，含 SidePanel 里的模板/排版面板）
-  const [editMode, setEditMode] = useState<EditMode>('click')
   
   // 跟踪编辑状态和保存状态
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -429,7 +426,6 @@ export default function HTMLWorkspace() {
         progress={progress}
         handleRender={handleRender}
         handleDownload={handleDownload}
-        editMode={editMode}
       />
 
       {/* 隐藏的文件输入（用于导入 JSON） */}
