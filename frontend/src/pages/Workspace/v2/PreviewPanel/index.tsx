@@ -59,7 +59,7 @@ export function PreviewPanel({
   const [userScale, setUserScale] = useState<number | null>(null)
   const [scalePercentInput, setScalePercentInput] = useState('')
   const [numPages, setNumPages] = useState(0)
-  const [showMargin, setShowMargin] = useState(false)
+  const [showMargin, setShowMargin] = useState(true)
 
   const isHTMLTemplate = resumeData?.templateType === 'html'
   const marginIn = LATEX_MARGIN_INCHES[resumeData?.globalSettings?.latexMargin || 'standard']
