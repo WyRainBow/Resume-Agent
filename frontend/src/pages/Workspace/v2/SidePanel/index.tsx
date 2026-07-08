@@ -37,7 +37,7 @@ function TemplateOptionButton({
       className={cn(
         'group flex flex-col items-center p-2 border transition-all bg-white',
         active
-          ? 'border-blue-700 shadow-[2px_2px_0px_0px_#1D4ED8]'
+          ? 'border-[#1a73e8] shadow-[2px_2px_0px_0px_#1a73e8]'
           : 'border-black hover:bg-[#F1F2F5] hover:shadow-[1px_1px_0px_0px_#000000]'
       )}
     >
@@ -47,7 +47,7 @@ function TemplateOptionButton({
       <span
         className={cn(
           'font-mono text-[9px] uppercase tracking-wider font-bold',
-          active ? 'text-blue-700' : 'text-[#444850]'
+          active ? 'text-[#1a73e8]' : 'text-[#444850]'
         )}
       >
         {name}
@@ -92,8 +92,8 @@ function DropdownSelect<T extends string | number>({
         className={cn(
           'w-full px-3 py-2.5 text-sm rounded-none border text-left flex items-center justify-between gap-2 transition-all duration-300',
           'border-black bg-white text-slate-800',
-          'hover:border-black hover:shadow-[4px_4px_0px_0px_#000000] dark:hover:shadow-[4px_4px_0px_0px_#ffffff] focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black',
-          open && 'ring-2 ring-blue-700 border-black shadow-[4px_4px_0px_0px_#000000] dark:shadow-[4px_4px_0px_0px_#ffffff]'
+          'hover:border-black hover:shadow-[4px_4px_0px_0px_#000000] dark:hover:shadow-[4px_4px_0px_0px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#1a73e8] focus:border-black',
+          open && 'ring-2 ring-[#1a73e8] border-black shadow-[4px_4px_0px_0px_#000000] dark:shadow-[4px_4px_0px_0px_#ffffff]'
         )}
       >
         <span className="truncate">{currentLabel}</span>
@@ -119,8 +119,8 @@ function DropdownSelect<T extends string | number>({
                 className={cn(
                   'w-full px-3 py-2 text-sm text-left flex items-center justify-between gap-2',
                   isSelected
-                    ? 'bg-blue-600 text-white'
-                    : 'text-slate-700 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700/80'
+                    ? 'bg-[#1a73e8] text-white'
+                    : 'text-slate-700 dark:text-slate-300 hover:bg-[#D7E7FF] dark:hover:bg-slate-700/80'
                 )}
               >
                 <span className="truncate">{opt.label}</span>
@@ -188,7 +188,7 @@ const HEADER_BOTTOM_GAP_BASELINE = -1
 const normalizeDecimal = (value: number, digits = 2) => Number(value.toFixed(digits))
 
 const inputBaseClass =
-  'w-full px-3 py-2.5 text-sm rounded-none border border-black bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black transition-colors'
+  'w-full px-3 py-2.5 text-sm rounded-none border border-black bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1a73e8] focus:border-black transition-colors'
 
 const labelClass = 'block font-mono text-xs font-bold text-[#444850] dark:text-slate-300 mb-1.5'
 
@@ -311,7 +311,7 @@ function SettingCard({
         <div className="px-4 pt-4 pb-3 border-b border-slate-100 dark:border-slate-700/80">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-none bg-blue-50/50 dark:bg-slate-700/80 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-none bg-[#D7E7FF]/50 dark:bg-slate-700/80 flex items-center justify-center">
                 <Icon className="w-4 h-4 text-slate-600 dark:text-slate-300" />
               </div>
               <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 tracking-tight">
