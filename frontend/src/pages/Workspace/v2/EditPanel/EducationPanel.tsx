@@ -184,10 +184,10 @@ function SchoolLogoSelector({
           type="button"
           onClick={() => setOpen(!open)}
           className={cn(
-            'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-all duration-200',
+            'inline-flex h-9 items-center gap-2 rounded-none border px-3 text-xs font-semibold transition-all duration-200',
             selectedKey
               ? 'border-indigo-300/90 bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100 dark:border-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300'
-              : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700 hover:shadow-sm dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-300 dark:hover:border-indigo-700 dark:hover:text-indigo-300'
+              : 'border-black bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700 hover:shadow-[2px_2px_0px_0px_#000000] dark:hover:shadow-[2px_2px_0px_0px_#ffffff] dark:border-white dark:bg-[#2A2A2A] dark:text-neutral-300 dark:hover:border-indigo-700 dark:hover:text-indigo-300'
           )}
         >
           {selectedLogoUrl ? (
@@ -204,7 +204,7 @@ function SchoolLogoSelector({
               e.stopPropagation()
               onClear()
             }}
-            className="rounded-md p-1 transition-colors hover:bg-rose-50 dark:hover:bg-rose-900/30"
+            className="rounded-none p-1 transition-colors hover:bg-rose-50 dark:hover:bg-rose-900/30"
             title="移除学校 Logo"
           >
             <X className="h-3.5 w-3.5 text-rose-400" />
@@ -220,12 +220,12 @@ function SchoolLogoSelector({
             exit={{ opacity: 0, y: -4, scale: 0.95 }}
             transition={{ duration: 0.15 }}
             className={cn(
-              'absolute left-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-lg border shadow-xl',
-              'bg-white/95 backdrop-blur border-slate-200 dark:bg-neutral-900 dark:border-neutral-700'
+              'absolute left-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-none border shadow-[4px_4px_0px_0px_#000000] dark:shadow-[4px_4px_0px_0px_#ffffff]',
+              'bg-white/95 backdrop-blur border-black dark:bg-[#1C1C1C] dark:border-white'
             )}
           >
             {activeGroup && (
-              <div className="border-b border-slate-100 p-3 dark:border-neutral-800">
+              <div className="border-b border-black p-3 dark:border-white">
                 <div className="mb-2 flex items-center justify-between">
                   <button
                     type="button"
@@ -245,7 +245,7 @@ function SchoolLogoSelector({
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder={`搜索 ${activeGroup.name} 学校...`}
                   autoFocus
-                  className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/35 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+                  className="h-10 w-full rounded-none border border-black bg-[#F1F2F5] px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black dark:border-white dark:bg-[#2A2A2A] dark:text-neutral-200"
                 />
               </div>
             )}
@@ -265,7 +265,7 @@ function SchoolLogoSelector({
                         setActiveGroupKey(group.key)
                         setSearch('')
                       }}
-                      className="flex min-h-20 flex-col items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-4 text-center transition-all hover:border-indigo-300 hover:bg-indigo-50 dark:border-neutral-700 dark:bg-neutral-800 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/20"
+                      className="flex min-h-20 flex-col items-center justify-center gap-2 rounded-none border border-black bg-[#F1F2F5] px-3 py-4 text-center transition-all hover:border-indigo-300 hover:bg-indigo-50 dark:border-white dark:bg-[#2A2A2A] dark:hover:border-indigo-700 dark:hover:bg-indigo-900/20"
                     >
                       <div className="text-2xl">📁</div>
                       <div className="text-xs font-semibold text-slate-700 dark:text-neutral-200">{group.name}</div>
@@ -287,10 +287,10 @@ function SchoolLogoSelector({
                             setSearch('')
                           }}
                           className={cn(
-                            'flex w-full flex-col items-center gap-1.5 rounded-lg p-2.5 text-center transition-all duration-150',
+                            'flex w-full flex-col items-center gap-1.5 rounded-none p-2.5 text-center transition-all duration-150',
                             isSelected
                               ? 'bg-indigo-50 ring-1 ring-indigo-300 dark:bg-indigo-900/30 dark:ring-indigo-700'
-                              : 'hover:bg-slate-50 dark:hover:bg-neutral-800'
+                              : 'hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]'
                           )}
                           title={logo.name}
                         >
@@ -323,10 +323,10 @@ function SchoolLogoSelector({
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploading}
                         className={cn(
-                          'flex flex-col items-center justify-center gap-1.5 rounded-lg border-2 border-dashed p-2.5 text-center transition-all',
+                          'flex flex-col items-center justify-center gap-1.5 rounded-none border-2 border-dashed p-2.5 text-center transition-all',
                           uploading
-                            ? 'cursor-wait border-slate-200 opacity-50 dark:border-neutral-700'
-                            : 'cursor-pointer border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/60 dark:border-neutral-700 dark:hover:bg-indigo-900/10'
+                            ? 'cursor-wait border-black opacity-50 dark:border-white'
+                            : 'cursor-pointer border-black hover:border-indigo-300 hover:bg-indigo-50/60 dark:border-white dark:hover:bg-indigo-900/10'
                         )}
                         title={`上传到 ${activeGroup.name}`}
                       >
@@ -418,10 +418,10 @@ const EducationItem = ({
       dragListener={false}
       dragControls={dragControls}
       className={cn(
-        'rounded-lg border overflow-hidden transition-opacity',
+        'rounded-none border overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
-        'dark:bg-neutral-900/30 dark:border-neutral-800',
-        'border-gray-100',
+        'dark:bg-[#1C1C1C]/30 dark:border-white',
+        'border-black',
         education.visible === false && 'opacity-40'
       )}
       whileDrag={{ scale: 1.02 }}
@@ -430,7 +430,7 @@ const EducationItem = ({
         <div
           className={cn(
             'px-4 py-4 flex items-center justify-between cursor-pointer',
-            expanded && 'bg-gray-50 dark:bg-neutral-800/50'
+            expanded && 'bg-[#F1F2F5] dark:bg-[#2A2A2A]/50'
           )}
           onClick={() => setExpanded(!expanded)}
         >
@@ -440,13 +440,13 @@ const EducationItem = ({
               onClick={(event) => event.stopPropagation()}
               className={cn(
                 'w-6 -ml-1 mr-0 flex items-center justify-center touch-none shrink-0',
-                'cursor-grab hover:bg-gray-100 dark:hover:bg-neutral-800/50 rounded'
+                'cursor-grab hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]/50 rounded-none'
               )}
             >
               <GripVertical className={cn('w-4 h-4', 'text-gray-300 dark:text-neutral-600')} />
             </div>
             {schoolLogoUrl && (
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white p-1 dark:border-neutral-700 dark:bg-neutral-800">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-none border border-black bg-white p-1 dark:border-white dark:bg-[#2A2A2A]">
                 <img src={schoolLogoUrl} alt="" className="max-h-full max-w-full object-contain" />
               </div>
             )}
@@ -469,7 +469,7 @@ const EducationItem = ({
                 e.stopPropagation()
                 onUpdate({ ...education, visible: !education.visible })
               }}
-              className="p-1.5 rounded-md hover:bg-gray-100"
+              className="p-1.5 rounded-none hover:bg-[#F1F2F5]"
             >
               <Eye className={cn('w-4 h-4', education.visible !== false ? 'text-primary' : 'text-gray-300')} />
             </button>
@@ -478,7 +478,7 @@ const EducationItem = ({
                 e.stopPropagation()
                 onDelete(education.id)
               }}
-              className="p-1.5 rounded-md hover:bg-red-50"
+              className="p-1.5 rounded-none hover:bg-red-50"
             >
               <Trash2 className="w-4 h-4 text-red-400" />
             </button>
@@ -497,7 +497,7 @@ const EducationItem = ({
               className="overflow-hidden"
             >
               <div className="px-4 pb-4 space-y-4" onClick={(e) => e.stopPropagation()}>
-                <div className="h-px w-full bg-gray-100 dark:bg-neutral-800" />
+                <div className="h-px w-full bg-[#F1F2F5] dark:bg-[#2A2A2A]" />
                 <motion.div
                   ref={headerRef}
                   initial={{ opacity: 0, y: 10 }}
@@ -508,7 +508,7 @@ const EducationItem = ({
                   {isCompactLayout ? (
                     <>
                       <div className="space-y-2">
-                        <div className="rounded-lg border border-slate-200/80 bg-slate-50/60 p-2 dark:border-neutral-700 dark:bg-neutral-900/40">
+                        <div className="rounded-none border border-black bg-[#F1F2F5]/60 p-2 dark:border-white dark:bg-[#1C1C1C]/40">
                           <div className="flex flex-wrap items-center gap-2">
                             <label className="text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">
                               学校 LOGO：
@@ -520,7 +520,7 @@ const EducationItem = ({
                               canUploadLogo={canUploadLogo}
                             />
                             {effectiveLogoKey && (
-                              <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800">
+                              <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-none border border-black bg-white px-2 py-1 dark:border-white dark:bg-[#2A2A2A]">
                                 <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">大小</span>
                                 <input
                                   type="range"
@@ -541,14 +541,14 @@ const EducationItem = ({
                                   }}
                                   title={`学校 Logo 大小: ${schoolLogoSize}px`}
                                 />
-                                <span className="inline-flex min-w-[38px] items-center justify-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                <span className="inline-flex min-w-[38px] items-center justify-center rounded-none bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
                                   {schoolLogoSize}px
                                 </span>
                                 {education.schoolLogoSize && (
                                   <button
                                     type="button"
                                     onClick={() => onUpdate({ ...education, schoolLogoSize: undefined })}
-                                    className="rounded-md p-0.5 transition-colors hover:bg-slate-100 dark:hover:bg-neutral-700"
+                                    className="rounded-none p-0.5 transition-colors hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]"
                                     title="恢复默认大小"
                                   >
                                     <X className="h-3 w-3 text-slate-400" />
@@ -559,8 +559,8 @@ const EducationItem = ({
                           </div>
                         </div>
                         {autoMatchedKey && (
-                          <div className="flex items-center gap-2 rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50/80 to-cyan-50/80 px-2.5 py-1.5 shadow-sm shadow-sky-100/60 dark:border-sky-800/60 dark:from-sky-900/20 dark:to-cyan-900/10 dark:shadow-none">
-                            <div className="flex h-6 w-6 items-center justify-center rounded-md border border-white/80 bg-white/90 dark:border-sky-800/60 dark:bg-neutral-900">
+                          <div className="flex items-center gap-2 rounded-none border border-sky-200/80 bg-gradient-to-r from-sky-50/80 to-cyan-50/80 px-2.5 py-1.5 shadow-sm shadow-sky-100/60 dark:border-sky-800/60 dark:from-sky-900/20 dark:to-cyan-900/10 dark:shadow-none">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-none border border-white/80 bg-white/90 dark:border-sky-800/60 dark:bg-[#1C1C1C]">
                               <img src={getSchoolLogoUrl(autoMatchedKey)!} alt="" className="h-4 w-4 object-contain" />
                             </div>
                             <div className="min-w-0 flex-1">
@@ -574,7 +574,7 @@ const EducationItem = ({
                             <button
                               type="button"
                               onClick={() => onUpdate({ ...education, schoolLogo: autoMatchedKey })}
-                              className="inline-flex h-7 items-center rounded-lg border border-indigo-200 bg-white px-2.5 text-[11px] font-semibold text-indigo-600 transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-sm dark:border-indigo-700/70 dark:bg-neutral-900 dark:text-indigo-300 dark:hover:border-indigo-600"
+                              className="inline-flex h-7 items-center rounded-none border border-indigo-200 bg-white px-2.5 text-[11px] font-semibold text-indigo-600 transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-[2px_2px_0px_0px_#000000] dark:hover:shadow-[2px_2px_0px_0px_#ffffff] dark:border-indigo-700/70 dark:bg-[#1C1C1C] dark:text-indigo-300 dark:hover:border-indigo-600"
                             >
                               使用
                             </button>
@@ -589,7 +589,7 @@ const EducationItem = ({
                           formatButtons={['bold']}
                           controlsLayout="overlay"
                           rightActions={
-                            <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-800 w-fit">
+                            <div className="flex items-center gap-1.5 rounded-none border border-black bg-[#F1F2F5] px-1.5 py-1 dark:border-white dark:bg-[#2A2A2A] w-fit">
                               <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">字号</span>
                               <FontSizePicker
                                 value={education.schoolNameFontSize ?? 15}
@@ -611,7 +611,7 @@ const EducationItem = ({
                   ) : (
                     <>
                       <div>
-                        <div className="mb-2 rounded-lg border border-slate-200/80 bg-slate-50/80 p-2.5 dark:border-neutral-700 dark:bg-neutral-900/50">
+                        <div className="mb-2 rounded-none border border-black bg-[#F1F2F5]/80 p-2.5 dark:border-white dark:bg-[#1C1C1C]/50">
                           <div className="flex flex-wrap items-center gap-2 min-w-0">
                             <div className="flex min-w-0 items-center gap-2">
                               <label className="shrink-0 text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">
@@ -625,7 +625,7 @@ const EducationItem = ({
                               />
                             </div>
                             {effectiveLogoKey && (
-                              <div className="w-full min-w-0 rounded-lg border border-slate-200 bg-white px-2 py-1 dark:border-neutral-700 dark:bg-neutral-800 sm:w-auto flex flex-wrap items-center gap-2">
+                              <div className="w-full min-w-0 rounded-none border border-black bg-white px-2 py-1 dark:border-white dark:bg-[#2A2A2A] sm:w-auto flex flex-wrap items-center gap-2">
                                 <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">大小</span>
                                 <input
                                   type="range"
@@ -646,14 +646,14 @@ const EducationItem = ({
                                   }}
                                   title={`学校 Logo 大小: ${schoolLogoSize}px`}
                                 />
-                                <span className="inline-flex min-w-[38px] items-center justify-center rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                <span className="inline-flex min-w-[38px] items-center justify-center rounded-none bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
                                   {schoolLogoSize}px
                                 </span>
                                 {education.schoolLogoSize && (
                                   <button
                                     type="button"
                                     onClick={() => onUpdate({ ...education, schoolLogoSize: undefined })}
-                                    className="rounded-md p-0.5 transition-colors hover:bg-slate-100 dark:hover:bg-neutral-700"
+                                    className="rounded-none p-0.5 transition-colors hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]"
                                     title="恢复默认大小"
                                   >
                                     <X className="h-3 w-3 text-slate-400" />
@@ -664,8 +664,8 @@ const EducationItem = ({
                           </div>
                         </div>
                         {autoMatchedKey && (
-                          <div className="mb-1.5 flex items-center gap-2 rounded-lg border border-sky-200/80 bg-gradient-to-r from-sky-50/80 to-cyan-50/80 px-2.5 py-1.5 shadow-sm shadow-sky-100/60 dark:border-sky-800/60 dark:from-sky-900/20 dark:to-cyan-900/10 dark:shadow-none">
-                            <div className="flex h-6 w-6 items-center justify-center rounded-md border border-white/80 bg-white/90 dark:border-sky-800/60 dark:bg-neutral-900">
+                          <div className="mb-1.5 flex items-center gap-2 rounded-none border border-sky-200/80 bg-gradient-to-r from-sky-50/80 to-cyan-50/80 px-2.5 py-1.5 shadow-sm shadow-sky-100/60 dark:border-sky-800/60 dark:from-sky-900/20 dark:to-cyan-900/10 dark:shadow-none">
+                            <div className="flex h-6 w-6 items-center justify-center rounded-none border border-white/80 bg-white/90 dark:border-sky-800/60 dark:bg-[#1C1C1C]">
                               <img src={getSchoolLogoUrl(autoMatchedKey)!} alt="" className="h-4 w-4 object-contain" />
                             </div>
                             <div className="min-w-0 flex-1">
@@ -679,7 +679,7 @@ const EducationItem = ({
                             <button
                               type="button"
                               onClick={() => onUpdate({ ...education, schoolLogo: autoMatchedKey })}
-                              className="inline-flex h-7 items-center rounded-lg border border-indigo-200 bg-white px-2.5 text-[11px] font-semibold text-indigo-600 transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-sm dark:border-indigo-700/70 dark:bg-neutral-900 dark:text-indigo-300 dark:hover:border-indigo-600"
+                              className="inline-flex h-7 items-center rounded-none border border-indigo-200 bg-white px-2.5 text-[11px] font-semibold text-indigo-600 transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-[2px_2px_0px_0px_#000000] dark:hover:shadow-[2px_2px_0px_0px_#ffffff] dark:border-indigo-700/70 dark:bg-[#1C1C1C] dark:text-indigo-300 dark:hover:border-indigo-600"
                             >
                               使用
                             </button>
@@ -694,7 +694,7 @@ const EducationItem = ({
                           formatButtons={['bold']}
                           controlsLayout="overlay"
                           rightActions={
-                            <div className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-1.5 py-1 dark:border-neutral-700 dark:bg-neutral-800">
+                            <div className="flex items-center gap-1.5 rounded-none border border-black bg-[#F1F2F5] px-1.5 py-1 dark:border-white dark:bg-[#2A2A2A]">
                               <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">字号</span>
                               <FontSizePicker
                                 value={education.schoolNameFontSize ?? 15}
@@ -738,10 +738,10 @@ const EducationItem = ({
                           setDegreeOpen((v) => !v)
                         }}
                         className={cn(
-                          'w-full px-3 py-2 rounded-md border text-left flex items-center justify-between',
-                          'bg-white border-gray-200 text-gray-700',
-                          'dark:bg-neutral-900 dark:border-neutral-800 dark:text-neutral-200',
-                          'focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary',
+                          'w-full px-3 py-2 rounded-none border-2 text-left flex items-center justify-between',
+                          'bg-white border-black text-gray-700',
+                          'dark:bg-[#1C1C1C] dark:border-white dark:text-neutral-200',
+                          'focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black',
                           degreeOpen && 'border-primary ring-2 ring-primary/20'
                         )}
                       >
@@ -756,7 +756,7 @@ const EducationItem = ({
                             initial={{ opacity: 0, y: -4 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -4 }}
-                            className="absolute z-50 mt-1 w-full rounded-md border border-gray-200 dark:border-neutral-700 bg-white dark:bg-neutral-900 shadow-lg py-1 max-h-48 overflow-auto"
+                            className="absolute z-50 mt-1 w-full rounded-none border border-black dark:border-white bg-white dark:bg-[#1C1C1C] shadow-[4px_4px_0px_0px_#000000] dark:shadow-[4px_4px_0px_0px_#ffffff] py-1 max-h-48 overflow-auto"
                           >
                             {DEGREE_OPTIONS.map((opt) => (
                               <li key={opt}>
@@ -770,8 +770,8 @@ const EducationItem = ({
                                   className={cn(
                                     'w-full px-3 py-2 text-left flex items-center justify-between text-sm',
                                     education.degree === opt
-                                      ? 'bg-gray-100 dark:bg-neutral-800 text-primary'
-                                      : 'hover:bg-gray-50 dark:hover:bg-neutral-800/50 text-gray-700 dark:text-neutral-200'
+                                      ? 'bg-[#F1F2F5] dark:bg-[#2A2A2A] text-primary'
+                                      : 'hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]/50 text-gray-700 dark:text-neutral-200'
                                   )}
                                 >
                                   {opt}
@@ -847,7 +847,7 @@ const EducationPanel = ({
   }
 
   return (
-    <div className={cn('space-y-4 px-4 py-4 rounded-lg', 'bg-white dark:bg-neutral-900/30')}>
+    <div className={cn('space-y-4 px-4 py-4 rounded-none', 'bg-white dark:bg-[#1C1C1C]/30')}>
       {onAIImport && (
         <AIImportButton 
           onClick={onAIImport}
@@ -875,8 +875,8 @@ const EducationPanel = ({
       <button
         onClick={handleCreate}
         className={cn(
-          'w-full px-4 py-3 rounded-lg border-2 border-dashed',
-          'border-gray-200 dark:border-neutral-700',
+          'w-full px-4 py-3 rounded-none border-2 border-dashed',
+          'border-black dark:border-white',
           'hover:border-primary hover:bg-primary/5',
           'flex items-center justify-center gap-2',
           'text-gray-500 dark:text-neutral-400'

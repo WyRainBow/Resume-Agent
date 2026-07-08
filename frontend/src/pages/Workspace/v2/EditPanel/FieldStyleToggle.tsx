@@ -35,7 +35,7 @@ function Tip({ label, children }: { label: string; children: ReactNode }) {
       {children}
       <span
         role="tooltip"
-        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 opacity-0 shadow-sm transition-opacity duration-150 group-hover/tip:opacity-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+        className="pointer-events-none absolute bottom-full left-1/2 z-30 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-none border border-black bg-white px-2 py-1 text-xs text-slate-700 opacity-0 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] transition-opacity duration-150 group-hover/tip:opacity-100 dark:border-white dark:bg-slate-800 dark:text-slate-200"
       >
         {label}
       </span>
@@ -47,16 +47,16 @@ export default function FieldStyleToggle({ mode, onModeChange, allowIcon = false
   const options = allowIcon ? [ICON_OPTION, ...BASE_OPTIONS] : BASE_OPTIONS
   return (
     <div className="flex items-center gap-1">
-      <div className="inline-flex items-center rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 p-0.5">
+      <div className="inline-flex items-center rounded-none border border-black dark:border-white bg-[#F1F2F5] dark:bg-[#2A2A2A] p-0.5">
         {options.map(({ mode: m, Icon, title }) => (
           <Tip key={m} label={title}>
             <button
               type="button"
               onClick={() => onModeChange(m)}
               className={cn(
-                'inline-flex h-6 w-6 items-center justify-center rounded-md transition-all active:scale-90',
+                'inline-flex h-6 w-6 items-center justify-center rounded-none transition-all active:scale-90',
                 mode === m
-                  ? 'bg-white dark:bg-slate-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  ? 'bg-white dark:bg-[#2A2A2A] text-blue-600 dark:text-blue-400 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]'
                   : 'text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300',
               )}
             >

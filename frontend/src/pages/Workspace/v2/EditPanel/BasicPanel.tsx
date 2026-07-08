@@ -156,11 +156,11 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                     value={birthDateDisplayMode}
                     onChange={(e) => updateGlobalSettings?.({ birthDateDisplayMode: e.target.value as 'birthDate' | 'age' })}
                     className={cn(
-                      'h-11 rounded-xl border px-3 text-sm font-semibold',
-                      'bg-white dark:bg-slate-900',
-                      'border-slate-300 dark:border-slate-600',
+                      'h-11 rounded-none border-2 px-3 text-sm font-semibold',
+                      'bg-white dark:bg-[#1C1C1C]',
+                      'border-black dark:border-white',
                       'text-slate-700 dark:text-slate-200',
-                      'focus:outline-none focus:ring-2 focus:ring-blue-500/30'
+                      'focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black'
                     )}
                     title="选择渲染方式"
                   >
@@ -215,7 +215,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
             transition={{ duration: 0.25, delay: 7 * 0.04, ease: 'easeOut' }}
             className="w-full xl:w-[180px] shrink-0"
           >
-            <div className="rounded-lg border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
+            <div className="rounded-none border-2 border-black bg-gradient-to-br from-white to-slate-50 p-4 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm font-semibold text-slate-800">
                   照片设置
@@ -244,10 +244,10 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                 onClick={handleSelectPhoto}
                 disabled={uploading}
                 className={cn(
-                  'w-full h-48 rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all',
+                  'w-full h-48 rounded-none border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all',
                   isAuthenticated
-                    ? 'border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50/60'
-                    : 'border-slate-200 text-slate-300',
+                    ? 'border-black text-slate-400 hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50/60'
+                    : 'border-black text-slate-300',
                   uploading && 'opacity-60'
                 )}
                 title={isAuthenticated ? '上传照片' : '登录后可上传'}
@@ -256,7 +256,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                   <img
                     src={basic.photo}
                     alt="照片"
-                    className="w-full h-full object-contain rounded-lg bg-white"
+                    className="w-full h-full object-contain rounded-none bg-white"
                   />
                 ) : (
                   <>
@@ -280,7 +280,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                         step="0.1"
                         value={photoOffsetX}
                         onChange={(e) => onUpdate({ photoOffsetX: Number(e.target.value) })}
-                        className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                        className="w-full px-2 py-1.5 text-xs rounded-none border-2 border-black bg-white focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black"
                       />
                       <div className="text-[10px] text-slate-400">
                         负值向左、正值向右
@@ -297,7 +297,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                           if (Number.isNaN(uiValue)) return
                           onUpdate({ photoOffsetY: normalizeDecimal(uiValue - 2, 2) })
                         }}
-                        className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                        className="w-full px-2 py-1.5 text-xs rounded-none border-2 border-black bg-white focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-2">
@@ -310,7 +310,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                           max="5"
                           value={photoWidthCm}
                           onChange={(e) => onUpdate({ photoWidthCm: Number(e.target.value) })}
-                          className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                          className="w-full px-2 py-1.5 text-xs rounded-none border-2 border-black bg-white focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black"
                         />
                       </div>
                       <div className="space-y-1.5">
@@ -322,7 +322,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                           max="6"
                           value={photoHeightCm}
                           onChange={(e) => onUpdate({ photoHeightCm: Number(e.target.value) })}
-                          className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                          className="w-full px-2 py-1.5 text-xs rounded-none border-2 border-black bg-white focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black"
                         />
                       </div>
                     </div>

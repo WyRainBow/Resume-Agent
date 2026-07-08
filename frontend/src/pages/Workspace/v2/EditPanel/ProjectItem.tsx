@@ -87,7 +87,7 @@ const ProjectEditor = ({
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-medium text-gray-500 dark:text-neutral-400">项目链接</label>
               {updateGlobalSettings && (
-                <div className="flex items-center gap-1 bg-gray-100 dark:bg-neutral-800 rounded-md p-0.5">
+                <div className="flex items-center gap-1 bg-[#F1F2F5] dark:bg-[#2A2A2A] rounded-none p-0.5">
                   {([
                     { value: 'below', label: '下方' },
                     { value: 'inline', label: '右侧' },
@@ -137,7 +137,7 @@ const ProjectEditor = ({
                           'px-2 py-0.5 text-[10px] font-medium rounded transition-all border',
                           isActive
                             ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400'
-                            : 'border-gray-200 dark:border-neutral-700 text-gray-400 dark:text-neutral-500 hover:border-gray-300'
+                            : 'border-black dark:border-white text-gray-400 dark:text-neutral-500 hover:border-black'
                         )}
                       >
                         {opt.label}
@@ -161,7 +161,7 @@ const ProjectEditor = ({
                       value={globalSettings?.projectLinkLabel ?? '链接'}
                       onChange={(e) => updateGlobalSettings({ projectLinkLabel: e.target.value })}
                       placeholder="输入前缀"
-                      className="px-2 py-0.5 text-[10px] w-20 rounded border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-neutral-800 text-gray-700 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      className="px-2 py-0.5 text-[10px] w-20 rounded border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-[#2A2A2A] text-gray-700 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                     />
                   )}
                 </div>
@@ -234,10 +234,10 @@ const ProjectItem = ({
       dragListener={false}
       dragControls={dragControls}
       className={cn(
-        'rounded-lg border overflow-hidden transition-opacity',
+        'rounded-none border-2 overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
-        'dark:bg-neutral-900/30 dark:border-neutral-800 dark:hover:border-primary',
-        'border-gray-100',
+        'dark:bg-neutral-900/30 dark:border-white dark:hover:border-primary',
+        'border-black',
         !project.visible && 'opacity-40'
       )}
       whileDrag={{ scale: 1.02 }}
@@ -247,7 +247,7 @@ const ProjectItem = ({
         <div
           className={cn(
             'px-4 py-4 flex items-center justify-between cursor-pointer select-none',
-            expanded && 'bg-gray-50 dark:bg-neutral-800/50'
+            expanded && 'bg-[#F1F2F5] dark:bg-neutral-800/50'
           )}
           onClick={() => setExpanded(!expanded)}
         >
@@ -257,7 +257,7 @@ const ProjectItem = ({
               onPointerDown={(event) => dragControls.start(event)}
               className={cn(
                 'w-6 -ml-1 mr-0 flex items-center justify-center touch-none shrink-0',
-                'cursor-grab hover:bg-gray-100 dark:hover:bg-neutral-800/50 rounded'
+                'cursor-grab hover:bg-[#F1F2F5] dark:hover:bg-neutral-800/50 rounded'
               )}
             >
               <GripVertical className={cn('w-4 h-4', 'text-gray-300 dark:text-neutral-600')} />
@@ -278,8 +278,8 @@ const ProjectItem = ({
               disabled={isUpdating}
               onClick={handleVisibilityToggle}
               className={cn(
-                'p-1.5 rounded-md',
-                'hover:bg-gray-100 dark:hover:bg-neutral-800'
+                'p-1.5 rounded-none',
+                'hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]'
               )}
             >
               <Eye className={cn('w-4 h-4', project.visible ? 'text-primary' : 'text-gray-300')} />
@@ -292,7 +292,7 @@ const ProjectItem = ({
                 onDelete(project.id)
               }}
               className={cn(
-                'p-1.5 rounded-md',
+                'p-1.5 rounded-none',
                 'hover:bg-red-50 dark:hover:bg-red-900/50',
                 'text-red-600 dark:text-red-400'
               )}
@@ -328,11 +328,11 @@ const ProjectItem = ({
               <div
                 className={cn(
                   'px-4 pb-4 space-y-4',
-                  'border-gray-100 dark:border-neutral-800'
+                  'border-black dark:border-white'
                 )}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className={cn('h-px w-full', 'bg-gray-100 dark:bg-neutral-800')} />
+                <div className={cn('h-px w-full', 'bg-[#F1F2F5] dark:bg-[#2A2A2A]')} />
                 <ProjectEditor
                   project={project}
                   onSave={onUpdate}

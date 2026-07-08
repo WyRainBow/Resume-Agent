@@ -37,10 +37,10 @@ function CustomItemCard({
   return (
     <div
       className={cn(
-        'rounded-lg border overflow-hidden transition-opacity',
+        'rounded-none border overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
-        'dark:bg-neutral-900/30 dark:border-neutral-800 dark:hover:border-primary',
-        'border-gray-100',
+        'dark:bg-neutral-900/30 dark:border-white dark:hover:border-primary',
+        'border-black',
         item.visible === false && 'opacity-40'
       )}
     >
@@ -57,14 +57,14 @@ function CustomItemCard({
           <div className="flex items-center gap-2 ml-4 shrink-0">
             <button
               onClick={() => handleChange('visible', !item.visible)}
-              className="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-neutral-800"
+              className="p-1.5 rounded-none hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]"
               title={item.visible !== false ? '隐藏条目' : '显示条目'}
             >
               <Eye className={cn('w-4 h-4', item.visible !== false ? 'text-primary' : 'text-gray-300')} />
             </button>
             <button
               onClick={() => onDelete(sectionId, item.id)}
-              className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/50"
+              className="p-1.5 rounded-none hover:bg-red-50 dark:hover:bg-red-900/50"
               title="删除条目"
             >
               <Trash2 className="w-4 h-4 text-red-400" />
@@ -135,7 +135,7 @@ export default function CustomPanel({
   onDelete,
 }: CustomPanelProps) {
   return (
-    <div className={cn('space-y-4 px-4 py-4 rounded-lg', 'bg-white dark:bg-neutral-900/30')}>
+    <div className={cn('space-y-4 px-4 py-4 rounded-none', 'bg-white dark:bg-neutral-900/30')}>
       <div className="space-y-3">
         {items.map((item) => (
           <CustomItemCard
@@ -151,8 +151,8 @@ export default function CustomPanel({
       <button
         onClick={() => onCreate(sectionId)}
         className={cn(
-          'w-full px-4 py-3 rounded-lg border-2 border-dashed',
-          'border-gray-200 dark:border-neutral-700',
+          'w-full px-4 py-3 rounded-none border-2 border-dashed',
+          'border-black dark:border-white',
           'hover:border-primary hover:bg-primary/5',
           'transition-colors duration-200',
           'flex items-center justify-center gap-2',
