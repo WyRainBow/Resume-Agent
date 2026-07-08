@@ -129,7 +129,7 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
       </div>
 
       {/* Scrollable preview area */}
-      <div ref={containerRef} className="flex-1 overflow-auto bg-[#D5D5D0] p-6">
+      <div ref={containerRef} className="flex-1 overflow-auto bg-[#F6F3EC] p-6">
         {/* Hidden measurement container - renders content at actual size */}
         <div
           ref={measurementRef}

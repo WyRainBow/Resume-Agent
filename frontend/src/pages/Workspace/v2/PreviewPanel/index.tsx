@@ -334,7 +334,7 @@ export function PreviewPanel({
       <div
         ref={isHTMLTemplate || !pdfBlob ? containerRef : undefined}
         className={cn(
-          'flex-1 p-2 bg-slate-100/80 dark:bg-slate-900/50',
+          'flex-1 p-2 bg-[#F6F3EC]',
           isHTMLTemplate || pdfBlob ? 'flex flex-col min-h-0 overflow-hidden' : 'overflow-auto'
         )}
       >
@@ -367,7 +367,7 @@ export function PreviewPanel({
           // LaTeX 模板：PDF 预览（缩放/边距/页数已挪到顶部工具栏）
           <>
             {pdfBlob ? (
-              <div className="flex-1 flex flex-col min-h-0 bg-slate-100/80 dark:bg-slate-900/50 overflow-hidden">
+              <div className="flex-1 flex flex-col min-h-0 bg-[#F6F3EC] overflow-hidden">
                 <div
                   ref={containerRef}
                   className="flex-1 min-h-0 overflow-auto p-2"
