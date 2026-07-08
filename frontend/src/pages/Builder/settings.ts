@@ -201,6 +201,11 @@ export interface TemplateInfo {
 
 export const TEMPLATE_OPTIONS: TemplateInfo[] = [
   {
+    id: 'latex',
+    name: 'LaTeX',
+    description: 'Classic serif academic layout with ruled section headers',
+  },
+  {
     id: 'swiss-single',
     name: 'Single Column',
     description: 'Traditional full-width layout with maximum content density',
@@ -219,11 +224,6 @@ export const TEMPLATE_OPTIONS: TemplateInfo[] = [
     id: 'modern-two-column',
     name: 'Modern 2-Col',
     description: 'Modern accent design in a two-column sidebar layout',
-  },
-  {
-    id: 'latex',
-    name: 'LaTeX',
-    description: 'Classic serif academic layout with ruled section headers',
   },
   {
     id: 'clean',
