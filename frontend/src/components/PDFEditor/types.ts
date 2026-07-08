@@ -69,4 +69,8 @@ export interface PDFEditorProps {
   onScaleChange?: (scale: number) => void
   onContentChange?: (originalText: string, newText: string) => void
   onNumPagesChange?: (numPages: number) => void
+  /** 是否叠加边距参考线（虚线框），照搬 Resume-Matcher PageContainer 的做法 */
+  showMarginGuides?: boolean
+  /** 边距参考线相对页面宽/高的比例（0~1），由外层按当前边距档位换算后传入 */
+  marginRatio?: { x: number; y: number }
 }

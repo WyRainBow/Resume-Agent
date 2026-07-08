@@ -16,6 +16,8 @@ export const PDFViewer: React.FC<PDFEditorProps> = ({
   scale = 1.2,
   onContentChange,
   onNumPagesChange,
+  showMarginGuides = false,
+  marginRatio,
 }) => {
   const { pdfDoc, numPages, loading, error } = usePDFDocument(pdfBlob)
   const [pages, setPages] = useState<pdfjsLib.PDFPageProxy[]>([])
@@ -177,6 +179,8 @@ export const PDFViewer: React.FC<PDFEditorProps> = ({
             onFinishEdit={handleFinishEdit}
             onCancelEdit={cancelEdit}
             onReEdit={reEdit}
+            showMarginGuides={showMarginGuides}
+            marginRatio={marginRatio}
           />
         ))}
       </div>

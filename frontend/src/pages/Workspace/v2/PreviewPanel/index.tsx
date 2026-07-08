@@ -11,14 +11,17 @@ import type { ResumeData } from '../types'
 import type { PDFRenderMode } from '@/services/pdfRenderMode'
 import { logPDFRenderModeChange } from '@/services/api'
 
-// 与 backend/latex_generator.py 的 margin_map 保持一致，仅用于工具栏只读展示
-const LATEX_MARGIN_LABELS: Record<string, string> = {
-  tight: '窄 · 0.25in',
-  compact: '紧凑 · 0.3in',
-  standard: '标准 · 0.4in',
-  relaxed: '宽松 · 0.5in',
-  wide: '宽 · 0.6in',
+// 与 backend/latex_generator.py 的 margin_map 保持一致（单位：英寸），用于换算边距参考线的比例
+const LATEX_MARGIN_INCHES: Record<string, number> = {
+  tight: 0.25,
+  compact: 0.3,
+  standard: 0.4,
+  relaxed: 0.5,
+  wide: 0.6,
 }
+// A4 页面尺寸（英寸），LaTeX 生成器固定用 a4paper
+const A4_WIDTH_IN = 8.27
+const A4_HEIGHT_IN = 11.69
 
 interface PreviewPanelProps {
   resumeData?: ResumeData
@@ -55,7 +58,8 @@ export function PreviewPanel({
   const [showMargin, setShowMargin] = useState(false)
 
   const isHTMLTemplate = resumeData?.templateType === 'html'
-  const marginLabel = LATEX_MARGIN_LABELS[resumeData?.globalSettings?.latexMargin || 'standard']
+  const marginIn = LATEX_MARGIN_INCHES[resumeData?.globalSettings?.latexMargin || 'standard']
+  const marginRatio = { x: marginIn / A4_WIDTH_IN, y: marginIn / A4_HEIGHT_IN }
 
   const MIN_SCALE = 0.5
   const MAX_SCALE = 2.5
@@ -260,8 +264,8 @@ export function PreviewPanel({
 
               <div className="w-px h-5 bg-slate-300 dark:bg-slate-600" />
 
-              {/* 边距：LaTeX 出的是服务端编译好的成品 PDF，无法叠加可视化参考线，
-                  这里降级为只读展示当前生效的边距档位，随 SidePanel 的边距设置联动 */}
+              {/* 边距：照搬 Resume-Matcher 的做法——虚线框 + 四角标记叠加在 PDF 页面上，
+                  按当前边距档位（SidePanel 配置）换算比例，随缩放联动 */}
               <button
                 type="button"
                 onClick={() => setShowMargin((s) => !s)}
@@ -271,16 +275,11 @@ export function PreviewPanel({
                     ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400'
                     : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
                 )}
-                title="显示/隐藏当前边距设置"
+                title="显示/隐藏边距参考线"
               >
                 {showMargin ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
                 边距
               </button>
-              {showMargin && (
-                <span className="text-xs font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                  {marginLabel}
-                </span>
-              )}
 
               <div className="w-px h-5 bg-slate-300 dark:bg-slate-600" />
 
@@ -349,7 +348,13 @@ export function PreviewPanel({
                   style={{ scrollbarGutter: 'stable' }}
                 >
                   <div className="flex justify-center w-full">
-                    <PDFViewerSelector pdfBlob={pdfBlob} scale={effectiveScale} onNumPagesChange={setNumPages} />
+                    <PDFViewerSelector
+                      pdfBlob={pdfBlob}
+                      scale={effectiveScale}
+                      onNumPagesChange={setNumPages}
+                      showMarginGuides={showMargin}
+                      marginRatio={marginRatio}
+                    />
                   </div>
                 </div>
               </div>
