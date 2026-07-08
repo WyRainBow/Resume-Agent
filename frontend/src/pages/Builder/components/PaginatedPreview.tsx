@@ -4,7 +4,7 @@
  * 差异:label 硬编码 EN;去 i18n label props;token 换算。
  */
 import React, { useRef, useState, useCallback, useEffect } from 'react'
-import { ZoomIn, ZoomOut, Eye, EyeOff, FileText } from 'lucide-react'
+import { ZoomIn, ZoomOut, Eye, FileText } from 'lucide-react'
 import type { BuilderResumeData } from '../types'
 import type { TemplateSettings } from '../settings'
 import { ResumeRenderer } from '../templates/ResumeRenderer'
@@ -110,7 +110,7 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
             onClick={toggleMargins}
             className="h-8 gap-1.5"
           >
-            {showMargins ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+            <Eye className={showMargins ? 'w-4 h-4 text-[#444850]' : 'w-4 h-4 text-[#878E99]'} />
             <span className="font-mono text-xs uppercase">边距</span>
           </SwissButton>
         </div>
