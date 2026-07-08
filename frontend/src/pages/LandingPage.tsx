@@ -629,7 +629,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-0 bg-black">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
             {PAIN_POINTS.map((pain, i) => {
               const Icon = pain.icon
               return (
@@ -668,7 +668,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-6 gap-0 bg-black">
+          <div className="grid grid-cols-1 lg:grid-cols-6 gap-0">
             {CAPABILITIES.map((cap, i) => {
               const Icon = cap.icon
               const isHero = cap.variant === 'command' || cap.variant === 'pdf'
@@ -714,7 +714,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-0 bg-black">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-0">
             {STEPS.map((step, i) => {
               const Icon = step.icon
               return (
