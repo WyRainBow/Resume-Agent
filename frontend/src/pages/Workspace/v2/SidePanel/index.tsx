@@ -379,31 +379,68 @@ export function SidePanel({
           </div>
         </SettingCard>
 
-        {/* 统一模板选择：经典 XeLaTeX + Builder 全部 5 套 HTML 模板
-            （命名区分双 LaTeX：Classic LaTeX=服务端 XeLaTeX；LaTeX Style=RM 的 HTML 版 LaTeX 风格） */}
+        {/* 统一模板选择：按渲染引擎分两组（原生 LaTeX / 在线 HTML）。
+            两组走完全不同的引擎与排版设置——组头一行说明差异，让下方设置面板的整体切换可被理解。
+            命名区分双 LaTeX：Classic LaTeX=服务端 XeLaTeX；LaTeX Style=RM 的 HTML 版 LaTeX 风格。 */}
         {onSelectTemplate && (
           <SettingCard icon={Layout} title="模板">
-            <div className="flex flex-wrap gap-3 pb-3">
-              <TemplateOptionButton
-                active={templateType !== 'html'}
-                name="Classic LaTeX"
-                description="经典模板：服务端 XeLaTeX 精确排版，导出矢量 PDF"
-                thumbnailType="latex"
-                onClick={() => onSelectTemplate({ type: 'latex' })}
-              />
-              {TEMPLATE_OPTIONS.map((t) => (
-                <TemplateOptionButton
-                  key={t.id}
-                  active={
-                    templateType === 'html' &&
-                    withSettingsDefaults(globalSettings.builderSettings).template === t.id
-                  }
-                  name={t.id === 'latex' ? 'LaTeX Style' : t.name}
-                  description={t.description}
-                  thumbnailType={t.id}
-                  onClick={() => onSelectTemplate({ type: 'html', template: t.id })}
-                />
-              ))}
+            <div className="pb-3 space-y-4">
+              {/* 组一：原生 LaTeX（服务端 XeLaTeX 引擎） */}
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
+                    原生精排 · LaTeX
+                  </span>
+                  {templateType !== 'html' && (
+                    <span className="w-1.5 h-1.5 bg-blue-700 shrink-0" />
+                  )}
+                </div>
+                <p className="mt-0.5 mb-2 font-mono text-[10px] text-[#878E99] dark:text-neutral-400">
+                  服务端 XeLaTeX 精确排版 · 导出矢量文字 PDF
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <TemplateOptionButton
+                    active={templateType !== 'html'}
+                    name="Classic LaTeX"
+                    description="经典模板：服务端 XeLaTeX 精确排版，导出矢量 PDF"
+                    thumbnailType="latex"
+                    onClick={() => onSelectTemplate({ type: 'latex' })}
+                  />
+                </div>
+              </div>
+
+              {/* 分组分隔线 */}
+              <div className="h-px bg-slate-200 dark:bg-white/15" />
+
+              {/* 组二：在线 HTML 模板（浏览器实时渲染） */}
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-black dark:text-white">
+                    在线模板 · HTML
+                  </span>
+                  {templateType === 'html' && (
+                    <span className="w-1.5 h-1.5 bg-blue-700 shrink-0" />
+                  )}
+                </div>
+                <p className="mt-0.5 mb-2 font-mono text-[10px] text-[#878E99] dark:text-neutral-400">
+                  实时预览 · 模板与排版即改即见 · 前端导出
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {TEMPLATE_OPTIONS.map((t) => (
+                    <TemplateOptionButton
+                      key={t.id}
+                      active={
+                        templateType === 'html' &&
+                        withSettingsDefaults(globalSettings.builderSettings).template === t.id
+                      }
+                      name={t.id === 'latex' ? 'LaTeX Style' : t.name}
+                      description={t.description}
+                      thumbnailType={t.id}
+                      onClick={() => onSelectTemplate({ type: 'html', template: t.id })}
+                    />
+                  ))}
+                </div>
+              </div>
             </div>
           </SettingCard>
         )}
