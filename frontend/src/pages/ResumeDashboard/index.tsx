@@ -212,11 +212,12 @@ const ResumeDashboard = () => {
   return (
     <WorkspaceLayout>
       <div
-        className="h-full overflow-y-auto bg-[#F0F0E8] relative"
+        className="h-full overflow-y-auto bg-[#F6F3EC] relative"
         style={{
+          // 首页同款暖米底；格线按 builder/dashboard 的轻盈感调校（更大格 + 更淡线，避免格子感过重）
           backgroundImage:
-            'linear-gradient(rgba(29, 78, 216, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(29, 78, 216, 0.1) 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
+            'linear-gradient(rgba(10, 10, 10, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(10, 10, 10, 0.04) 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
         }}
       >
         <motion.div
@@ -229,7 +230,7 @@ const ResumeDashboard = () => {
           {/* 方框(照搬 Builder Dashboard 外层容器):黑边 + 硬阴影,包裹全部内容;
               min-h 用 vh 直接算(不依赖父级 flex/百分比继承链,避免嵌套 flex-col 导致高度塌陷),
               内容少时方框仍撑满可视区域,不再露出画布背景 */}
-          <div className="border border-black dark:border-white bg-[#F0F0E8] dark:bg-[#1C1C1C] shadow-[8px_8px_0px_0px_#000000] dark:shadow-[8px_8px_0px_0px_#ffffff] min-h-[calc(100vh-2rem)] sm:min-h-[calc(100vh-4rem)] space-y-10 p-6 sm:p-10">
+          <div className="border border-black dark:border-white bg-[#F6F3EC] dark:bg-[#1C1C1C] shadow-[8px_8px_0px_0px_#000000] dark:shadow-[8px_8px_0px_0px_#ffffff] min-h-[calc(100vh-2rem)] sm:min-h-[calc(100vh-4rem)] space-y-10 p-6 sm:p-10">
           <motion.div
             className="flex w-full items-center justify-center"
             initial={{ y: 20, opacity: 0 }}
