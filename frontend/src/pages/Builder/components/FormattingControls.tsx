@@ -31,6 +31,8 @@ import { SwissButton } from './SwissButton'
 interface FormattingControlsProps {
   settings: TemplateSettings
   onChange: (settings: TemplateSettings) => void
+  /** 隐藏内部模板选择区（Workspace 用外部统一模板选择器时置 true） */
+  hideTemplateSection?: boolean
 }
 
 const FONT_LABELS: Record<HeaderFontFamily, string> = {
@@ -39,7 +41,7 @@ const FONT_LABELS: Record<HeaderFontFamily, string> = {
   mono: '等宽',
 }
 
-export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings, onChange }) => {
+export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings, onChange, hideTemplateSection = false }) => {
   const [isExpanded, setIsExpanded] = useState(true)
   const compactMultiplier = settings.compactMode ? COMPACT_MULTIPLIER : 1
   const sectionGapRem =
@@ -136,6 +138,7 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
       {isExpanded && (
         <div className="border-t border-black p-4 space-y-6">
           {/* Template Selection */}
+          {!hideTemplateSection && (
           <div>
             <h4 className="font-mono text-xs font-bold uppercase tracking-wider mb-3 text-[#444850]">
               模板
@@ -169,6 +172,7 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
               ))}
             </div>
           </div>
+          )}
 
           {/* Accent Color Selection - Visible for accent-driven templates */}
           {(settings.template === 'modern' || settings.template === 'vivid') && (

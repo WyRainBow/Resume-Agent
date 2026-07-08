@@ -9,7 +9,52 @@ import { cn } from '../../../../lib/utils'
 import type { MenuSection, GlobalSettings } from '../types'
 import LayoutSetting from './LayoutSetting'
 import { FormattingControls } from '../../../Builder/components/FormattingControls'
-import { withSettingsDefaults } from '../../../Builder/settings'
+import { withSettingsDefaults, TEMPLATE_OPTIONS, type TemplateType } from '../../../Builder/settings'
+import { TemplateThumbnail } from '../../../Builder/components/TemplateSelector'
+
+/** 统一模板选择：经典 XeLaTeX 或 Builder HTML 模板 */
+export type TemplateSelection = { type: 'latex' } | { type: 'html'; template: TemplateType }
+
+/** 模板选项按钮（缩略图 + 名称），样式对齐 Builder FormattingControls 的模板区 */
+function TemplateOptionButton({
+  active,
+  name,
+  description,
+  thumbnailType,
+  onClick,
+}: {
+  active: boolean
+  name: string
+  description: string
+  thumbnailType: TemplateType
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={description}
+      className={cn(
+        'group flex flex-col items-center p-2 border transition-all bg-white',
+        active
+          ? 'border-blue-700 shadow-[2px_2px_0px_0px_#1D4ED8]'
+          : 'border-black hover:bg-[#F1F2F5] hover:shadow-[1px_1px_0px_0px_#000000]'
+      )}
+    >
+      <div className="w-12 h-16 mb-1.5 flex items-center justify-center">
+        <TemplateThumbnail type={thumbnailType} isActive={active} />
+      </div>
+      <span
+        className={cn(
+          'font-mono text-[9px] uppercase tracking-wider font-bold',
+          active ? 'text-blue-700' : 'text-[#444850]'
+        )}
+      >
+        {name}
+      </span>
+    </button>
+  )
+}
 
 // 自定义下拉：选项在触发按钮下方展开，不占居中弹层（类似图三）
 function DropdownSelect<T extends string | number>({
@@ -232,6 +277,8 @@ interface SidePanelProps {
   updateGlobalSettings: (settings: Partial<GlobalSettings>) => void
   addCustomSection: () => void
   templateType?: 'latex' | 'html'
+  /** 统一模板选择回调（经典 XeLaTeX / Builder HTML 模板），由 EditPreviewLayout 落到 resumeData */
+  onSelectTemplate?: (selection: TemplateSelection) => void
 }
 
 /**
@@ -302,6 +349,7 @@ export function SidePanel({
   updateGlobalSettings,
   addCustomSection,
   templateType,
+  onSelectTemplate,
 }: SidePanelProps) {
   const [headerGapExpanded, setHeaderGapExpanded] = useState(true)
   return (
@@ -331,13 +379,42 @@ export function SidePanel({
           </div>
         </SettingCard>
 
-        {/* HTML 模板：Builder 模板选择 + 排版面板（组件自带折叠头，直接渲染） */}
+        {/* 统一模板选择：经典 XeLaTeX + 4 套 Builder HTML 模板（去掉 Builder 内的 css-latex，避免双 LaTeX） */}
+        {onSelectTemplate && (
+          <SettingCard icon={Layout} title="模板">
+            <div className="flex flex-wrap gap-3 pb-3">
+              <TemplateOptionButton
+                active={templateType !== 'html'}
+                name="Classic LaTeX"
+                description="经典模板：服务端 XeLaTeX 精确排版，导出矢量 PDF"
+                thumbnailType="latex"
+                onClick={() => onSelectTemplate({ type: 'latex' })}
+              />
+              {TEMPLATE_OPTIONS.filter((t) => t.id !== 'latex').map((t) => (
+                <TemplateOptionButton
+                  key={t.id}
+                  active={
+                    templateType === 'html' &&
+                    withSettingsDefaults(globalSettings.builderSettings).template === t.id
+                  }
+                  name={t.name}
+                  description={t.description}
+                  thumbnailType={t.id}
+                  onClick={() => onSelectTemplate({ type: 'html', template: t.id })}
+                />
+              ))}
+            </div>
+          </SettingCard>
+        )}
+
+        {/* HTML 模板：Builder 排版面板（模板区由上方统一选择器接管） */}
         {templateType === 'html' && (
           <FormattingControls
             settings={withSettingsDefaults(globalSettings.builderSettings)}
             onChange={(next) =>
               updateGlobalSettings({ builderSettings: next as unknown as Record<string, unknown> })
             }
+            hideTemplateSection
           />
         )}
 

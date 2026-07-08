@@ -22,6 +22,8 @@ import type {
   CustomItem,
 } from "./types";
 import type { PDFRenderMode } from "@/services/pdfRenderMode";
+import { applyTemplatePreset, withSettingsDefaults } from "../../Builder/settings";
+import type { TemplateSelection } from "./SidePanel";
 
 interface EditPreviewLayoutProps {
   resumeData: ResumeData;
@@ -149,6 +151,30 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
     handleDownload,
   } = props;
 
+  // 统一模板选择：经典 → templateType='latex'；HTML 模板 → templateType='html' + builderSettings 应用预设
+  const handleSelectTemplate = useCallback(
+    (selection: TemplateSelection) => {
+      setResumeData((prev) => {
+        if (selection.type === "latex") {
+          return prev.templateType === "html" ? { ...prev, templateType: "latex" as const } : prev;
+        }
+        const current = withSettingsDefaults(prev.globalSettings?.builderSettings);
+        return {
+          ...prev,
+          templateType: "html" as const,
+          globalSettings: {
+            ...prev.globalSettings,
+            builderSettings: applyTemplatePreset(current, selection.template) as unknown as Record<
+              string,
+              unknown
+            >,
+          },
+        };
+      });
+    },
+    [setResumeData],
+  );
+
   // 列宽状态
   const [sidePanelWidth] = useState(300); // 模块选择列宽度（固定）
   const [editPanelWidth, setEditPanelWidth] = useState(700); // 编辑面板宽度（可拖动调整，范围 400-1400px）
@@ -217,6 +243,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                   activeSection={activeSection}
                   globalSettings={resumeData.globalSettings}
                   templateType={resumeData.templateType}
+                  onSelectTemplate={handleSelectTemplate}
                   setActiveSection={setActiveSection}
                   toggleSectionVisibility={toggleSectionVisibility}
                   updateMenuSections={updateMenuSections}
