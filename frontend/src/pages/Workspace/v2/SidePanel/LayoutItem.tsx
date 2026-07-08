@@ -62,7 +62,7 @@ const LayoutItem = ({
           >
             {item.icon}
           </span>
-          <span className="text-sm flex-1">{item.title}</span>
+          <span className="font-mono text-xs font-bold uppercase tracking-wider flex-1">{item.title}</span>
         </div>
       </div>
     )
@@ -121,7 +121,7 @@ const LayoutItem = ({
           >
             {item.icon}
           </span>
-          <span className="text-sm flex-1">{item.title}</span>
+          <span className="font-mono text-xs font-bold uppercase tracking-wider flex-1">{item.title}</span>
 
           {/* 显示/隐藏按钮 */}
           <motion.button

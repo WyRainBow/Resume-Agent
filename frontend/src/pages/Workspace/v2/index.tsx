@@ -296,6 +296,23 @@ export default function WorkspaceV2() {
 
   return (
     <WorkspaceLayout>
+      {/* 装饰头(照搬 Builder 风格):大标题 + 编辑模式标识 + 简历名 chip,纯展示,不含操作按钮(操作按钮在下方 Header 里,避免重复) */}
+      <div className="border-b border-black dark:border-white bg-[#F0F0E8] dark:bg-[#1C1C1C] px-6 py-5 md:px-8 md:py-6 shrink-0">
+        <h1 className="font-serif text-3xl md:text-5xl text-black dark:text-white tracking-tight leading-[0.95] uppercase">
+          简历工作台
+        </h1>
+        <div className="mt-3 flex items-center gap-3 flex-wrap">
+          <p className="text-sm font-mono text-blue-700 uppercase tracking-wide font-bold">
+            {'// '}编辑模式
+          </p>
+          {resumeData?.basic?.name && (
+            <span className="font-mono text-xs text-[#444850] dark:text-neutral-300 border border-black dark:border-white bg-white dark:bg-[#2A2A2A] px-2 py-1">
+              {resumeData.basic.name}
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* 顶部导航栏 */}
       <Header
         saveSuccess={saveSuccess}
