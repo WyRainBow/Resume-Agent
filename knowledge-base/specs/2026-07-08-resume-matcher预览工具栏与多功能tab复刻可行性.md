@@ -81,11 +81,11 @@
 
 ## 五、结论与建议顺序(2026-07-08 更新:已定当前范围)
 
-**已完成(2026-07-08,commit `7c94b3dc`)**:
+**已完成(2026-07-08,commit `7c94b3dc` → `967985a9`)**:
 1. 预览工具栏"缩放"从底部悬浮条挪到顶部工具栏(纯样式搬家)。
-2. "边距"——采纳 §3.1 的降级方案:LaTeX 分支拿到的是服务端编译好的成品 PDF,做不出可视化边距参考线,改为只读开关按钮,点击后在工具栏显示当前生效的边距档位(如"标准 · 0.4in"),档位文案与 `backend/latex_generator.py` 的 `margin_map` 保持一致,随 `SidePanel` 的边距设置联动。
+2. "边距"——第一版(`7c94b3dc`)先落地了 §3.1 的降级方案(只读展示档位文字)。用户随后指出 RM 实际是"虚线参考线叠加"效果并要求照读 RM 源码复刻,于是在 `967985a9` 改成了**真实的可视化实现**:纠正了此前"LaTeX 出的是成品 PDF、做不出可视化边距参考线"的判断——实际上每一页 PDF.js 渲染出的 canvas 都是已知的固定 CSS 像素尺寸(`PDFPage.tsx` 的 `dimensions.width/height`),而 LaTeX 边距在四边对称、页面固定 A4,因此可以用**百分比换算**(边距英寸 / A4 宽或高英寸)算出统一比例,叠加一个虚线框 + 四角标记(样式与交互逻辑照搬 RM `components/preview/page-container.tsx`),随缩放和翻页自动跟随,不需要绝对像素定位。
 3. "页数"——`PDFViewer` 新增 `onNumPagesChange` 回调上报页数给顶部工具栏展示"共 N 页",不重复解析 PDF(未再调用一次 `usePDFDocument`)。
-4. 已过浏览器实测(临时禁用本地 `VITE_API_VIA_AUTH_WEB` 走通渲染链路验证后已还原),`npm run build` 通过。
+4. 已过浏览器实测(渲染链路依赖本地 `web/` 的 Next.js auth-web 反代在 3000 端口,用 `scripts/dev-auth-web.sh` 启动后验证通过),`npm run build` 通过。
 
 **暂缓、留档待后续**:
 5. 顶部 5 个 Tab 中的求职信 / 联络邮件 / 面试准备 / JD 匹配——用户已确认暂不做,写入本文档留档,后续有需要再单独走 `/superpowers:brainstorming` 立项。
