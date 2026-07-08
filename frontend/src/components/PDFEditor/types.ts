@@ -68,4 +68,5 @@ export interface PDFEditorProps {
   scale?: number
   onScaleChange?: (scale: number) => void
   onContentChange?: (originalText: string, newText: string) => void
+  onNumPagesChange?: (numPages: number) => void
 }

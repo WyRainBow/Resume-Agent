@@ -3,13 +3,22 @@
  * 支持 LaTeX PDF 渲染和 HTML 模板实时预览
  */
 import { useState, useRef, useEffect } from 'react'
-import { Download, RefreshCw, FileText, Sparkles, Minus, Plus, AlertTriangle } from 'lucide-react'
+import { Download, RefreshCw, FileText, Sparkles, Minus, Plus, AlertTriangle, Eye, EyeOff } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { PDFViewerSelector } from '../../../../components/PDFEditor'
 import { HTMLTemplateRenderer } from '../HTMLTemplateRenderer'
 import type { ResumeData } from '../types'
 import type { PDFRenderMode } from '@/services/pdfRenderMode'
 import { logPDFRenderModeChange } from '@/services/api'
+
+// 与 backend/latex_generator.py 的 margin_map 保持一致，仅用于工具栏只读展示
+const LATEX_MARGIN_LABELS: Record<string, string> = {
+  tight: '窄 · 0.25in',
+  compact: '紧凑 · 0.3in',
+  standard: '标准 · 0.4in',
+  relaxed: '宽松 · 0.5in',
+  wide: '宽 · 0.6in',
+}
 
 interface PreviewPanelProps {
   resumeData?: ResumeData
@@ -42,8 +51,11 @@ export function PreviewPanel({
   const [autoScale, setAutoScale] = useState(1.0)
   const [userScale, setUserScale] = useState<number | null>(null)
   const [scalePercentInput, setScalePercentInput] = useState('')
+  const [numPages, setNumPages] = useState(0)
+  const [showMargin, setShowMargin] = useState(false)
 
   const isHTMLTemplate = resumeData?.templateType === 'html'
+  const marginLabel = LATEX_MARGIN_LABELS[resumeData?.globalSettings?.latexMargin || 'standard']
 
   const MIN_SCALE = 0.5
   const MAX_SCALE = 2.5
@@ -75,6 +87,11 @@ export function PreviewPanel({
       window.removeEventListener('resize', updateScale)
     }
   }, [pdfBlob, isHTMLTemplate])
+
+  // 换简历/重新渲染时旧页数已不准确，清空等待新 PDF 上报
+  useEffect(() => {
+    if (!pdfBlob) setNumPages(0)
+  }, [pdfBlob])
 
   const handleZoomOut = () => {
     const next = Math.max(MIN_SCALE, effectiveScale - ZOOM_STEP)
@@ -115,7 +132,7 @@ export function PreviewPanel({
       {/* 工具栏 */}
       <div
         className={cn(
-          'flex items-center justify-between px-4 py-3',
+          'flex items-center justify-between gap-3 px-4 py-3 flex-wrap',
           'bg-white/70 dark:bg-slate-800/70',
           'backdrop-blur-sm',
           'border-b border-slate-200/50 dark:border-slate-700/50'
@@ -178,6 +195,104 @@ export function PreviewPanel({
               )}
             </div>
           )}
+
+          {/* 缩放 + 边距 + 页数：从预览区底部搬到顶部工具栏，仅 LaTeX 分支且已有 PDF 时展示 */}
+          {!isHTMLTemplate && pdfBlob && (
+            <div className="flex items-center gap-3 flex-wrap justify-end">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleZoomOut}
+                  disabled={effectiveScale <= MIN_SCALE}
+                  className={cn(
+                    'p-1.5 rounded-lg border transition-colors',
+                    'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600',
+                    'hover:bg-slate-100 dark:hover:bg-slate-700',
+                    'disabled:opacity-50 disabled:cursor-not-allowed'
+                  )}
+                  title="缩小"
+                >
+                  <Minus className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                </button>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={scalePercentInput !== '' ? scalePercentInput : String(displayPercent)}
+                  onChange={(e) => setScalePercentInput(e.target.value)}
+                  onBlur={() => scalePercentInput !== '' && applyPercentInput(scalePercentInput)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.currentTarget.blur()
+                    }
+                  }}
+                  className={cn(
+                    'w-12 text-sm font-medium text-center rounded border bg-transparent',
+                    'border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500',
+                    'text-slate-600 dark:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500'
+                  )}
+                  title="点击输入缩放比例（50–250）"
+                />
+                <span className="text-sm font-medium text-slate-600 dark:text-slate-400">%</span>
+                <button
+                  type="button"
+                  onClick={handleZoomIn}
+                  disabled={effectiveScale >= MAX_SCALE}
+                  className={cn(
+                    'p-1.5 rounded-lg border transition-colors',
+                    'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600',
+                    'hover:bg-slate-100 dark:hover:bg-slate-700',
+                    'disabled:opacity-50 disabled:cursor-not-allowed'
+                  )}
+                  title="放大"
+                >
+                  <Plus className="w-4 h-4 text-slate-600 dark:text-slate-300" />
+                </button>
+                {userScale !== null && (
+                  <button
+                    type="button"
+                    onClick={handleFitWidth}
+                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                  >
+                    适应宽度
+                  </button>
+                )}
+              </div>
+
+              <div className="w-px h-5 bg-slate-300 dark:bg-slate-600" />
+
+              {/* 边距：LaTeX 出的是服务端编译好的成品 PDF，无法叠加可视化参考线，
+                  这里降级为只读展示当前生效的边距档位，随 SidePanel 的边距设置联动 */}
+              <button
+                type="button"
+                onClick={() => setShowMargin((s) => !s)}
+                className={cn(
+                  'flex items-center gap-1.5 h-8 px-2.5 rounded-lg border text-xs font-medium transition-colors',
+                  showMargin
+                    ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400'
+                    : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700'
+                )}
+                title="显示/隐藏当前边距设置"
+              >
+                {showMargin ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                边距
+              </button>
+              {showMargin && (
+                <span className="text-xs font-mono text-slate-500 dark:text-slate-400 whitespace-nowrap">
+                  {marginLabel}
+                </span>
+              )}
+
+              <div className="w-px h-5 bg-slate-300 dark:bg-slate-600" />
+
+              {/* 页数：由 PDFViewer 加载完成后通过 onNumPagesChange 上报 */}
+              <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                <FileText className="w-3.5 h-3.5" />
+                <span className="text-xs font-medium whitespace-nowrap">
+                  {numPages > 0 ? `共 ${numPages} 页` : '—'}
+                </span>
+              </div>
+            </div>
+          )}
       </div>
 
       {/* 进度提示 */}
@@ -224,7 +339,7 @@ export function PreviewPanel({
             <HTMLTemplateRenderer resumeData={resumeData!} />
           </div>
         ) : (
-          // LaTeX 模板：PDF 预览 + 底部缩放栏（− / 百分比可编辑 / + / 适应宽度）
+          // LaTeX 模板：PDF 预览（缩放/边距/页数已挪到顶部工具栏）
           <>
             {pdfBlob ? (
               <div className="flex-1 flex flex-col min-h-0 bg-slate-100/80 dark:bg-slate-900/50 overflow-hidden">
@@ -234,72 +349,8 @@ export function PreviewPanel({
                   style={{ scrollbarGutter: 'stable' }}
                 >
                   <div className="flex justify-center w-full">
-                    <PDFViewerSelector pdfBlob={pdfBlob} scale={effectiveScale} />
+                    <PDFViewerSelector pdfBlob={pdfBlob} scale={effectiveScale} onNumPagesChange={setNumPages} />
                   </div>
-                </div>
-                <div
-                  className={cn(
-                    'flex items-center justify-center gap-3 py-2 px-3 shrink-0 flex-wrap',
-                    'bg-slate-200/80 dark:bg-slate-700/80',
-                    'border-t border-slate-300/50 dark:border-slate-600/50'
-                  )}
-                >
-                  <button
-                    type="button"
-                    onClick={handleZoomOut}
-                    disabled={effectiveScale <= MIN_SCALE}
-                    className={cn(
-                      'p-2 rounded-lg border transition-colors',
-                      'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600',
-                      'hover:bg-slate-100 dark:hover:bg-slate-700',
-                      'disabled:opacity-50 disabled:cursor-not-allowed'
-                    )}
-                    title="缩小"
-                  >
-                    <Minus className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                  </button>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={scalePercentInput !== '' ? scalePercentInput : String(displayPercent)}
-                    onChange={(e) => setScalePercentInput(e.target.value)}
-                    onBlur={() => scalePercentInput !== '' && applyPercentInput(scalePercentInput)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.currentTarget.blur()
-                      }
-                    }}
-                    className={cn(
-                      'w-12 text-sm font-medium text-center rounded border bg-transparent',
-                      'border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500',
-                      'text-slate-600 dark:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500'
-                    )}
-                    title="点击输入缩放比例（50–250）"
-                  />
-                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">%</span>
-                  <button
-                    type="button"
-                    onClick={handleZoomIn}
-                    disabled={effectiveScale >= MAX_SCALE}
-                    className={cn(
-                      'p-2 rounded-lg border transition-colors',
-                      'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600',
-                      'hover:bg-slate-100 dark:hover:bg-slate-700',
-                      'disabled:opacity-50 disabled:cursor-not-allowed'
-                    )}
-                    title="放大"
-                  >
-                    <Plus className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                  </button>
-                  {userScale !== null && (
-                    <button
-                      type="button"
-                      onClick={handleFitWidth}
-                      className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
-                    >
-                      适应宽度
-                    </button>
-                  )}
                 </div>
               </div>
             ) : (
