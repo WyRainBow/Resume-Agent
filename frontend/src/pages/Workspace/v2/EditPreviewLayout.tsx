@@ -224,7 +224,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
   }, []);
 
   return (
-    <div className="h-[calc(100vh-64px)] flex relative z-10 overflow-hidden">
+    <div className="h-full flex relative z-10 overflow-hidden">
       {/* 内容区域 */}
       <div className="flex-1 flex overflow-hidden">
         <div className="flex">

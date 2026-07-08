@@ -458,7 +458,7 @@ export function SidePanel({
 
         {/* LaTeX 模板：原排版设置（html 模式隐藏，两套引擎设置字段不同） */}
         {templateType !== 'html' && (
-        <SettingCard icon={Settings2} title="排版设置" collapsible defaultExpanded={false}>
+        <SettingCard icon={Settings2} title="排版设置" collapsible defaultExpanded={true}>
           <div className="space-y-5">
             {/* 字体大小 */}
             <div>

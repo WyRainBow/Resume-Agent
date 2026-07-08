@@ -622,7 +622,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
               // PAIN POINTS
             </div>
             <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-black dark:text-white">
-              写简历的累，你应该最懂
+              写简历的累・你应该最懂
             </h2>
             <p className="mt-3 text-base text-slate-600 dark:text-slate-400 leading-relaxed">
               不是你不会写，是没人陪你把零散经历理清楚、对着岗位改到位。
@@ -661,7 +661,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
               // CAPABILITIES
             </div>
             <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-black dark:text-white">
-              一份简历，从写到投，都帮你想到了
+              一份简历・从写到投・都帮你想到了
             </h2>
             <p className="mt-3 text-base text-slate-600 dark:text-slate-400 leading-relaxed">
               围绕简历制作的全流程能力，每一步都由 AI 协助。
@@ -707,7 +707,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
               // WORKFLOW
             </div>
             <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-black dark:text-white">
-              三步，把零散经历变成能投的简历
+              三步：把零散经历变成能投的简历
             </h2>
             <p className="mt-3 text-base text-slate-600 dark:text-slate-400 leading-relaxed">
               从输入到导出，全程 AI 协助，不需要排版，不需要纠结措辞。

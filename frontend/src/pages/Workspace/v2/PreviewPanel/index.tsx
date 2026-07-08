@@ -3,7 +3,7 @@
  * 支持 LaTeX PDF 渲染和 HTML 模板实时预览
  */
 import { useState, useRef, useEffect } from 'react'
-import { Download, RefreshCw, FileText, Sparkles, Minus, Plus, AlertTriangle, Eye, EyeOff } from 'lucide-react'
+import { Download, RefreshCw, FileText, Sparkles, Minus, Plus, AlertTriangle, Eye } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { PDFViewerSelector } from '../../../../components/PDFEditor'
 import ResumeRenderer from '../../../Builder/templates/ResumeRenderer'
@@ -283,7 +283,7 @@ export function PreviewPanel({
                 )}
                 title="显示/隐藏边距参考线"
               >
-                {showMargin ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                {showMargin ? <Eye className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                 边距
               </button>
 
