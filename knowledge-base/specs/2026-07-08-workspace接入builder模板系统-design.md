@@ -85,14 +85,21 @@ Workspace 直接 `import` `pages/Builder/templates/ResumeRenderer`、`pages/Buil
 
 ---
 
-## 五、待实施清单
+## 五、实施状态(2026-07-08 已落地,超出原方案范围)
 
-- [ ] `PreviewPanel/index.tsx`:HTML 分支渲染源替换(步骤 1)
-- [ ] 排版面板按 `templateType` 分流,HTML 分支接入 `FormattingControls`(步骤 2)
-- [ ] `html/index.tsx` 导出引擎切换 `window.print`(步骤 3)
-- [ ] 验证:5 套模板在 Workspace 里预览正常、排版设置实时生效、打印导出真文字可选可复制、LaTeX 分支(`/workspace/latex`)完全未受影响
-- [ ] `npm run build` + 相关目录 `tsc --noEmit` 零错误
-- [ ] 提交推送
+实际实施走得比本方案更远:不止接入模板,还做了**三入口合并 + 死代码清理**(用户拍板"合并成一个 /workspace + 还代码债务")。提交链:`7ff59bd8` → `ae4ac0a0` → `8a45cb73` → `5db9d99f` → `66c572b4`。
+
+- [x] `PreviewPanel` HTML 分支替换为 Builder `ResumeRenderer`(步骤 1,`7ff59bd8`)
+- [x] `SidePanel` 按 `templateType` 分流接入 `FormattingControls`(步骤 2,`7ff59bd8`)
+- [x] 删除死组件 `HTMLTemplateRenderer` + `ResumePreviewPanel`(`ae4ac0a0`)
+- [x] 删除滚动编辑/JSON 编辑模式(`ScrollEditMode`/`JsonEditMode`),点击编辑为唯一布局(`8a45cb73`)
+- [x] 统一模板选择器:Classic LaTeX(XeLaTeX)+ 5 套 Builder HTML(含 RM 的 LaTeX Style,命名区分双 LaTeX)(`5db9d99f` + `66c572b4`)
+- [x] **三入口合并为统一 `/workspace`**:`/workspace`(当前简历)/`/workspace/:id`/`/workspace/new`(强制新建),老路由 `latex|html` 带 ID 兼容重定向;删 `v2/latex/` `v2/html/` 两入口(`66c572b4`)
+- [x] 浏览器实测:6 模板双向实时切换、PDF/实时预览正确分流、老链接重定向、`npm run build` 通过
+
+**遗留 TODO(用户确认暂缓)**:
+- [ ] 步骤 3:HTML 导出从 `html2pdf`(截图式)换 `window.print` 真文字方案(当前合并入口里是 html2pdf 简化版)
+- [ ] dev-only 控制台警告 "Cannot update ResumeProvider while rendering HTMLWorkspace" 根因排查(功能无影响、生产不出现;html 入口已删,需复测是否仍存在)
 
 ## 六、决策留痕
 
