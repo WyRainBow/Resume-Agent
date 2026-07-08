@@ -4651,10 +4651,10 @@ function CocoChatContent() {
         console.error("[AgentChat] 去编辑器前保存优化后简历失败:", e);
       }
       setCurrentResumeId(target.id);
-      navigate(`/workspace/latex/${target.id}`);
+      navigate(`/workspace/${target.id}`);
       return;
     }
-    navigate("/workspace/latex");
+    navigate("/workspace/new");
   }, [loadedResumes, selectedResumeId, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {

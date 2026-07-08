@@ -115,8 +115,8 @@ export function useResumeData() {
   // 从 Dashboard 进入时加载对应简历
   useEffect(() => {
     const loadResume = async () => {
-      // /workspace/latex（不带 ID）始终按“新建默认模板”处理，避免旧缓存覆盖模板更新
-      if (location.pathname === '/workspace/latex' && !routeResumeId) {
+      // /workspace/new 始终按“新建默认模板”处理，避免旧缓存覆盖模板更新（原 /workspace/latex 语义）
+      if (location.pathname === '/workspace/new' && !routeResumeId) {
         setCurrentResumeId(null)
         setCurrentId(null)
         localStorage.removeItem(STORAGE_KEY)

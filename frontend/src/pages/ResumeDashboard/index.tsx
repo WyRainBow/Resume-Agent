@@ -189,8 +189,8 @@ const ResumeDashboard = () => {
     // 刷新列表
     await loadResumes()
 
-    // 跳转到工作区编辑（LaTeX 模板）
-    navigate(`/workspace/latex/${saved.id}`)
+    // 跳转到统一工作区编辑
+    navigate(`/workspace/${saved.id}`)
   }, [navigate, loadResumes])
 
   // 格式化 highlights 为 HTML

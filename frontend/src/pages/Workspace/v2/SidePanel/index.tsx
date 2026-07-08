@@ -379,7 +379,8 @@ export function SidePanel({
           </div>
         </SettingCard>
 
-        {/* 统一模板选择：经典 XeLaTeX + 4 套 Builder HTML 模板（去掉 Builder 内的 css-latex，避免双 LaTeX） */}
+        {/* 统一模板选择：经典 XeLaTeX + Builder 全部 5 套 HTML 模板
+            （命名区分双 LaTeX：Classic LaTeX=服务端 XeLaTeX；LaTeX Style=RM 的 HTML 版 LaTeX 风格） */}
         {onSelectTemplate && (
           <SettingCard icon={Layout} title="模板">
             <div className="flex flex-wrap gap-3 pb-3">
@@ -390,14 +391,14 @@ export function SidePanel({
                 thumbnailType="latex"
                 onClick={() => onSelectTemplate({ type: 'latex' })}
               />
-              {TEMPLATE_OPTIONS.filter((t) => t.id !== 'latex').map((t) => (
+              {TEMPLATE_OPTIONS.map((t) => (
                 <TemplateOptionButton
                   key={t.id}
                   active={
                     templateType === 'html' &&
                     withSettingsDefaults(globalSettings.builderSettings).template === t.id
                   }
-                  name={t.name}
+                  name={t.id === 'latex' ? 'LaTeX Style' : t.name}
                   description={t.description}
                   thumbnailType={t.id}
                   onClick={() => onSelectTemplate({ type: 'html', template: t.id })}

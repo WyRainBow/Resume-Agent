@@ -4,8 +4,9 @@ import { toast } from '@/lib/toast'
  * 使用 WorkspaceLayout 包裹，提供统一的侧边栏布局
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
+import html2pdf from 'html2pdf.js'
 
 // Hooks
 import { useAIImport, useAutoSaveResume, usePDFOperations, useResumeData } from './hooks'
@@ -29,7 +30,8 @@ const PDF_RENDER_INITIAL_DELAY_MS = 300
 
 export default function WorkspaceV2() {
   const navigate = useNavigate()
-  
+  const { resumeId } = useParams<{ resumeId?: string }>()
+
   // 跟踪编辑状态和保存状态
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [initialResumeData, setInitialResumeData] = useState<any>(null)
@@ -130,10 +132,11 @@ export default function WorkspaceV2() {
   // 文件输入引用（用于导入 JSON）
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 自动保存（与 latex/html 工作台同一保存模型）
+  // 自动保存（带路由 ID 时按 ID 保存）
   const { saveStatus, saveError } = useAutoSaveResume({
     resumeData,
     currentResumeId,
+    routeResumeId: resumeId,
     isDataLoaded,
     setCurrentId,
   })
@@ -239,6 +242,31 @@ export default function WorkspaceV2() {
     }
   }, [currentResumeId, jdText])
 
+  // HTML 模板：前端 html2pdf 导出预览容器（TODO: 换 window.print 真文字方案，见设计文档）
+  const handleDownloadHtmlPDF = useCallback(() => {
+    const sourceElement = document.querySelector('.html-template-container') as HTMLElement | null
+    if (!sourceElement) {
+      toast.error('找不到简历预览内容，请确保预览区域可见')
+      return
+    }
+    const filename = `${resumeData?.basic?.name || '简历'}-${new Date().toISOString().split('T')[0]}.pdf`
+    html2pdf()
+      .set({
+        margin: 0,
+        filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      })
+      .from(sourceElement)
+      .save()
+      .catch(() => toast.error('导出 PDF 失败，请重试'))
+  }, [resumeData?.basic?.name])
+
+  // 下载入口按模板类型分流：经典 LaTeX 走后端 PDF，HTML 模板走前端导出
+  const handleDownloadByTemplate =
+    resumeData.templateType === 'html' ? handleDownloadHtmlPDF : handleDownload
+
   // 导出 JSON
   const handleExportJSON = () => {
     try {
@@ -333,7 +361,7 @@ export default function WorkspaceV2() {
         resumeData={resumeData}
         resumeName={resumeData?.basic?.name || '我的简历'}
         pdfBlob={pdfBlob}
-        onDownloadPDF={handleDownload}
+        onDownloadPDF={handleDownloadByTemplate}
       />
 
       {/* 编辑 + 预览三列布局 */}
@@ -375,7 +403,7 @@ export default function WorkspaceV2() {
         renderError={renderError}
         autoRenderPending={isAutoRenderPending}
         handleRender={handleRender}
-        handleDownload={handleDownload}
+        handleDownload={handleDownloadByTemplate}
       />
 
       {/* JD 匹配优化 —— 聚焦弹窗（粘 JD → 多维评分 → 一键深度优化），取代页面底部常驻大框 */}

@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { AuthModal } from './components/AuthModal'
 import { ChangelogModal } from './components/ChangelogModal'
 import { ThemeInit } from './components/ThemeInit'
@@ -23,8 +23,11 @@ const Workspace = lazyWithRetry(() => import('./pages/Workspace/v2'))
 const BuilderPage = lazyWithRetry(() => import('./pages/Builder'))
 const BuilderDashboardPage = lazyWithRetry(() => import('./pages/Builder/DashboardPage'))
 const BuilderSettingsPage = lazyWithRetry(() => import('./pages/Builder/SettingsPage'))
-const HTMLWorkspace = lazyWithRetry(() => import('./pages/Workspace/v2/html'))
-const LaTeXWorkspace = lazyWithRetry(() => import('./pages/Workspace/v2/latex'))
+/** 旧编辑器路由兼容：/workspace/latex|html/:resumeId → 统一 /workspace/:resumeId */
+function WorkspaceLegacyRedirect() {
+  const { resumeId } = useParams<{ resumeId?: string }>()
+  return <Navigate to={resumeId ? `/workspace/${resumeId}` : '/workspace'} replace />
+}
 const LeetCodePage = lazyWithRetry(() => import('./pages/LeetCode'))
 const TermsPage = lazyWithRetry(() => import('./pages/Legal/Terms'))
 const PrivacyPage = lazyWithRetry(() => import('./pages/Legal/Privacy'))
@@ -63,10 +66,14 @@ function App() {
               <Route path="/" element={<LandingPage />} />
               {/* 工作区路由 */}
               <Route path="/workspace" element={<Workspace />} />
-              <Route path="/workspace/latex" element={<LaTeXWorkspace />} />
-              <Route path="/workspace/latex/:resumeId" element={<LaTeXWorkspace />} />
-              <Route path="/workspace/html" element={<HTMLWorkspace />} />
-              <Route path="/workspace/html/:resumeId" element={<HTMLWorkspace />} />
+              {/* /workspace/new：强制从默认模板新建（区别于裸 /workspace 载入当前简历） */}
+              <Route path="/workspace/new" element={<Workspace />} />
+              <Route path="/workspace/:resumeId" element={<Workspace />} />
+              {/* 旧路由兼容：latex/html 编辑器已合并进统一 /workspace */}
+              <Route path="/workspace/latex" element={<Navigate to="/workspace/new" replace />} />
+              <Route path="/workspace/latex/:resumeId" element={<WorkspaceLegacyRedirect />} />
+              <Route path="/workspace/html" element={<Navigate to="/workspace" replace />} />
+              <Route path="/workspace/html/:resumeId" element={<WorkspaceLegacyRedirect />} />
               {/* 模板市场 Builder(RM 风格,独立新页,后续再并入导航) */}
               <Route path="/builder" element={<BuilderPage />} />
               <Route path="/builder/dashboard" element={<BuilderDashboardPage />} />
