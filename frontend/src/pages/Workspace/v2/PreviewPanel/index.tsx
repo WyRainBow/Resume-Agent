@@ -9,6 +9,7 @@ import { PDFViewerSelector } from '../../../../components/PDFEditor'
 import ResumeRenderer from '../../../Builder/templates/ResumeRenderer'
 import { toBuilderResumeData } from '../../../Builder/adapter'
 import { withSettingsDefaults } from '../../../Builder/settings'
+import { PAGE_DIMENSIONS } from '../../../Builder/pageDimensions'
 import type { ResumeData } from '../types'
 import type { PDFRenderMode } from '@/services/pdfRenderMode'
 import { logPDFRenderModeChange } from '@/services/api'
@@ -337,18 +338,25 @@ export function PreviewPanel({
         )}
       >
         {isHTMLTemplate ? (
-          // HTML 模板：Builder 5 套模板实时预览（消费 globalSettings.builderSettings）
-          <div className="flex justify-center w-full p-4">
-            <div
-              className="html-template-container bg-white shadow-lg"
-              style={{ width: '210mm', minHeight: '297mm' }}
-            >
-              <ResumeRenderer
-                resumeData={toBuilderResumeData(resumeData!)}
-                settings={withSettingsDefaults(resumeData!.globalSettings?.builderSettings)}
-              />
-            </div>
-          </div>
+          // HTML 模板：Builder 模板实时预览（消费 globalSettings.builderSettings，
+          // 页面尺寸随设置的 A4/US Letter 切换，边距由模板内 --margin-* cssVars 消费）
+          (() => {
+            const builderSettings = withSettingsDefaults(resumeData!.globalSettings?.builderSettings)
+            const pageDims = PAGE_DIMENSIONS[builderSettings.pageSize]
+            return (
+              <div className="flex justify-center w-full p-4">
+                <div
+                  className="html-template-container bg-white shadow-lg"
+                  style={{ width: `${pageDims.width}mm`, minHeight: `${pageDims.height}mm` }}
+                >
+                  <ResumeRenderer
+                    resumeData={toBuilderResumeData(resumeData!)}
+                    settings={builderSettings}
+                  />
+                </div>
+              </div>
+            )
+          })()
         ) : (
           // LaTeX 模板：PDF 预览（缩放/边距/页数已挪到顶部工具栏）
           <>

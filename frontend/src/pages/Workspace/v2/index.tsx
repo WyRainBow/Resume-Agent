@@ -23,6 +23,7 @@ import HealthCheckDialog from './shared/HealthCheckDialog'
 import AiAssistantChat from './shared/AiAssistantChat'
 import { scoreResume, type JdOptimizeField } from '@/services/api'
 import { stripHtmlTags } from './utils/textUtils'
+import { withSettingsDefaults } from '../../Builder/settings'
 
 const PDF_RENDER_DEBOUNCE_MS = 2000
 // 首次加载的自动渲染延迟：短一点，打开工作台即出预览
@@ -250,18 +251,20 @@ export default function WorkspaceV2() {
       return
     }
     const filename = `${resumeData?.basic?.name || '简历'}-${new Date().toISOString().split('T')[0]}.pdf`
+    // 页面尺寸跟随排版设置（A4 / US Letter）
+    const pageSize = withSettingsDefaults(resumeData?.globalSettings?.builderSettings).pageSize
     html2pdf()
       .set({
         margin: 0,
         filename,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        jsPDF: { unit: 'mm', format: pageSize === 'LETTER' ? 'letter' : 'a4', orientation: 'portrait' },
       })
       .from(sourceElement)
       .save()
       .catch(() => toast.error('导出 PDF 失败，请重试'))
-  }, [resumeData?.basic?.name])
+  }, [resumeData?.basic?.name, resumeData?.globalSettings?.builderSettings])
 
   // 下载入口按模板类型分流：经典 LaTeX 走后端 PDF，HTML 模板走前端导出
   const handleDownloadByTemplate =
