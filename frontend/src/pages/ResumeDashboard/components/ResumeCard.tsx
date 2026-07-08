@@ -126,8 +126,8 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
             className={cn(
               "w-5 h-5 rounded-none border-2 border-black cursor-pointer transition-all duration-200",
               "bg-white",
-              "checked:bg-blue-700",
-              "focus:ring-2 focus:ring-blue-700/50 outline-none"
+              "checked:bg-sky-500",
+              "focus:ring-2 focus:ring-sky-500/50 outline-none"
             )}
             title="选择此简历"
           />
@@ -139,7 +139,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
           "relative overflow-visible min-h-[380px] flex flex-col transition-[box-shadow,transform] duration-100",
           "group-hover:shadow-none",
           resume.pinned && "shadow-[4px_4px_0px_0px_#92400E]",
-          isMultiSelectMode && isSelected && "shadow-[4px_4px_0px_0px_#1D4ED8] border-blue-700"
+          isMultiSelectMode && isSelected && "shadow-[4px_4px_0px_0px_#0ea5e9] border-sky-500"
         )}
       >
         <CardContent className="relative flex-1 min-h-0 pt-12 text-center flex flex-col items-center z-10">

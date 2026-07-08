@@ -300,7 +300,7 @@ export default function WorkspaceLayout({
     agentSession?.sessionsRefreshKey ?? sessionsRefreshKey;
 
   return (
-    <div className="h-screen flex overflow-hidden bg-[#F0F0E8] dark:bg-[#1C1C1C] font-sans selection:bg-blue-700 selection:text-white">
+    <div className="h-screen flex overflow-hidden bg-[#F0F0E8] dark:bg-[#1C1C1C] font-sans selection:bg-sky-500 selection:text-white">
       {/* 左侧固定边栏 */}
       <aside
         className={cn(
@@ -316,7 +316,7 @@ export default function WorkspaceLayout({
                 className="cursor-pointer group shrink-0 flex items-center gap-2.5 min-w-0"
                 onClick={() => navigate("/")}
               >
-                <div className="w-9 h-9 bg-blue-700 rounded-none flex items-center justify-center border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] group-hover:translate-x-[1px] group-hover:translate-y-[1px] group-hover:shadow-none transition-all shrink-0">
+                <div className="w-9 h-9 bg-sky-500 rounded-none flex items-center justify-center border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] group-hover:translate-x-[1px] group-hover:translate-y-[1px] group-hover:shadow-none transition-all shrink-0">
                   <span className="text-white font-mono font-black text-sm not-italic">
                     RA
                   </span>
@@ -341,7 +341,7 @@ export default function WorkspaceLayout({
             <div className="relative group h-10 w-full flex items-center justify-center">
               {/* 收起态默认状态：仅 Logo */}
               <div className="flex items-center justify-center transition-opacity duration-200 group-hover:opacity-0 w-full">
-                <div className="w-9 h-9 bg-blue-700 rounded-none flex items-center justify-center border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] shrink-0">
+                <div className="w-9 h-9 bg-sky-500 rounded-none flex items-center justify-center border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] shrink-0">
                   <span className="text-white font-mono font-black text-sm not-italic">
                     RA
                   </span>
@@ -378,7 +378,7 @@ export default function WorkspaceLayout({
                   ? "flex flex-col items-center justify-center gap-1 py-2.5"
                   : "flex items-center gap-2.5 py-2.5 px-2.5",
                 currentWorkspace === "edit"
-                  ? "bg-blue-700 text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                  ? "bg-sky-500 text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
                   : "border-transparent text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
               )}
               title="编辑区"
@@ -399,7 +399,7 @@ export default function WorkspaceLayout({
                     ? "flex flex-col items-center justify-center gap-1 py-2.5"
                     : "flex items-center gap-2.5 py-2.5 px-2.5",
                   currentWorkspace === "agent"
-                    ? "bg-blue-700 text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                    ? "bg-sky-500 text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
                     : "border-transparent text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
                 )}
                 title="AI 对话"
@@ -429,7 +429,7 @@ export default function WorkspaceLayout({
                   ? "flex flex-col items-center justify-center gap-1 py-2.5"
                   : "flex items-center gap-2.5 py-2.5 px-2.5",
                 currentWorkspace === "myResumes"
-                  ? "bg-blue-700 text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                  ? "bg-sky-500 text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
                   : "border-transparent text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
               )}
               title="我的简历"
@@ -449,7 +449,7 @@ export default function WorkspaceLayout({
                     ? "flex flex-col items-center justify-center gap-1 py-2.5"
                     : "flex items-center gap-2.5 py-2.5 px-2.5",
                   currentWorkspace === "admin"
-                    ? "bg-blue-700 text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                    ? "bg-sky-500 text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
                     : "border-transparent text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
                 )}
                 title="后台管理系统"
@@ -569,7 +569,7 @@ export default function WorkspaceLayout({
                         )}
                       >
                         <span className="flex items-center gap-2.5">
-                          <Zap className="w-4 h-4 shrink-0 text-blue-700" />
+                          <Zap className="w-4 h-4 shrink-0 text-sky-500" />
                           账户中心
                         </span>
                         {/* 额度数字 —— 额度迁移期间暂不展示 */}
@@ -623,8 +623,8 @@ export default function WorkspaceLayout({
                         onClick={() => openModal("login")}
                         className={cn(
                           "w-full rounded-none transition-all duration-100 font-mono uppercase tracking-wide group",
-                          "bg-blue-700 text-white border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]",
-                          "hover:bg-blue-800 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none active:translate-x-[2px] active:translate-y-[2px]",
+                          "bg-sky-500 text-white border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]",
+                          "hover:bg-sky-600 hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none active:translate-x-[2px] active:translate-y-[2px]",
                           sidebarCollapsed
                             ? "flex flex-col items-center justify-center gap-1 py-3"
                             : "flex items-center gap-3 py-2.5 px-4",

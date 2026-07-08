@@ -44,7 +44,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
         )}
       >
         {/* 顶部装饰 */}
-        <div className="h-1 bg-blue-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+        <div className="h-1 bg-sky-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
 
         <CardContent className="relative flex-1 pt-4 pb-2 text-center flex flex-col items-center min-w-0 overflow-hidden">
           {/* 模板预览图 */}
@@ -66,7 +66,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
             </div>
           ) : (
             <motion.div
-              className="mb-4 p-6 rounded-none bg-blue-700 text-white border-2 border-black shadow-[2px_2px_0px_0px_#000000] flex-shrink-0 transition-all duration-300"
+              className="mb-4 p-6 rounded-none bg-sky-500 text-white border-2 border-black shadow-[2px_2px_0px_0px_#000000] flex-shrink-0 transition-all duration-300"
               whileHover={{ x: 1, y: 1 }}
               transition={{ duration: 0.2 }}
             >
@@ -88,7 +88,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
                 {template.tags.slice(0, 2).map((tag, index) => (
                   <span
                     key={index}
-                    className="px-3 py-1 text-xs font-mono uppercase tracking-wide rounded-none bg-[#E5E5E0] text-blue-700 whitespace-nowrap flex-shrink-0 border border-black"
+                    className="px-3 py-1 text-xs font-mono uppercase tracking-wide rounded-none bg-[#E5E5E0] text-sky-600 whitespace-nowrap flex-shrink-0 border border-black"
                   >
                     {tag}
                   </span>
