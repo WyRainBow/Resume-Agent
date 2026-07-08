@@ -372,7 +372,7 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F3EC] bg-[linear-gradient(rgba(10,10,10,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(10,10,10,0.05)_1px,transparent_1px)] bg-[size:32px_32px] text-slate-900 font-hero antialiased selection:bg-[#C1F04C] selection:text-[#0a0a0a]">
+    <div className="min-h-screen bg-[#F6F3EC] bg-[linear-gradient(rgba(10,10,10,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(10,10,10,0.05)_1px,transparent_1px)] bg-[size:32px_32px] text-slate-900 font-hero antialiased selection:bg-[#D7E7FF] selection:text-[#0a0a0a]">
       {/* 顶部导航 - neo-brutalist 风格 */}
       <nav className={`fixed top-0 left-0 right-0 z-50 bg-[#F6F3EC] border-b-[1.5px] border-black transition-all duration-300`}>
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-14">
@@ -455,7 +455,7 @@ export default function LandingPage() {
               <button
                 type="button"
                 onClick={handleOpenAgent}
-className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[#C1F04C] text-black hover:bg-[#b6e23f] active:translate-y-[1px] active:translate-x-[1px] active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000]"
+className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[#D7E7FF] text-black hover:bg-[#bcdaff] active:translate-y-[1px] active:translate-x-[1px] active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000]"
             >
               <Sparkles className="w-4 h-4 shrink-0" />
               <span className="text-sm font-mono font-bold uppercase">AI 助手</span>
@@ -546,7 +546,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
                   type="submit"
                   aria-label="开始"
                   disabled={!heroInput.trim() && heroImages.length === 0}
-                  className="absolute right-3 bottom-3 h-11 w-11 flex items-center justify-center border-2 border-black bg-[#C1F04C] text-black hover:bg-[#b6e23f] disabled:opacity-40 disabled:cursor-not-allowed transition-all active:translate-x-[1px] active:translate-y-[1px] active:shadow-none dark:border-white"
+                  className="absolute right-3 bottom-3 h-11 w-11 flex items-center justify-center border-2 border-black bg-[#D7E7FF] text-black hover:bg-[#bcdaff] disabled:opacity-40 disabled:cursor-not-allowed transition-all active:translate-x-[1px] active:translate-y-[1px] active:shadow-none dark:border-white"
                 >
                   <ArrowUpRight className="w-5 h-5" strokeWidth={2.5} />
                 </button>
@@ -592,7 +592,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
             >
               <button
                 onClick={() => navigate('/create-new')}
-                className="px-7 py-3.5 border-2 border-black bg-[#C1F04C] text-black font-bold text-base hover:bg-[#b6e23f] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[4px_4px_0px_0px_#000000]"
+                className="px-7 py-3.5 border-2 border-black bg-[#D7E7FF] text-black font-bold text-base hover:bg-[#bcdaff] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[4px_4px_0px_0px_#000000]"
               >
                 开始创建
                 <ChevronRight className="inline w-5 h-5 ml-2" strokeWidth={2.5} />
@@ -618,7 +618,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
       <section className="px-6 pt-12 pb-16 bg-[#EFE9F8] border-y-[1.5px] border-black">
         <div className="max-w-5xl mx-auto">
           <motion.div {...reveal} className="max-w-2xl mb-10">
-            <div className="mb-3 inline-flex bg-[#C1F04C] px-2 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-black">
+            <div className="mb-3 inline-flex bg-[#D7E7FF] px-2 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-[#1a73e8]">
               // PAIN POINTS
             </div>
             <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-black dark:text-white">
@@ -680,16 +680,16 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
                   viewport={{ once: true, amount: 0.3 }}
                   transition={{ duration: 0.55, delay: i * 0.05, ease: [0.16, 1, 0.3, 1] }}
                   className={`${cap.span} border border-black p-6 bg-white dark:border-white dark:bg-slate-900 ${
-                    isHero ? 'bg-[#C1F04C] dark:bg-[#C1F04C]/80' : ''
+                    isHero ? 'bg-[#D7E7FF] dark:bg-[#D7E7FF]/80' : ''
                   }`}
                 >
                   <div className={`flex items-center justify-center w-10 h-10 border-2 border-black mb-4 ${
-                    isHero ? 'bg-black text-[#C1F04C] border-black' : 'bg-[#4285F4] text-white border-black'
+                    isHero ? 'bg-black text-[#1a73e8] border-black' : 'bg-[#4285F4] text-white border-black'
                   }`}>
                     <Icon className="w-5 h-5" strokeWidth={2.5} />
                   </div>
                   <h3 className={`text-base font-bold ${isHero ? 'text-black' : 'text-black dark:text-white'}`}>{cap.title}</h3>
-                  <p className={`mt-2 text-sm leading-relaxed ${isHero ? 'text-[#274006]' : 'text-slate-600 dark:text-slate-400'}`}>{cap.desc}</p>
+                  <p className={`mt-2 text-sm leading-relaxed ${isHero ? 'text-[#1b3a66]' : 'text-slate-600 dark:text-slate-400'}`}>{cap.desc}</p>
                   {cap.variant === 'command' && <CommandBar />}
                   {cap.variant === 'pdf' && <PdfPreview />}
                 </motion.div>
@@ -727,10 +727,10 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
                   className="border border-black bg-white p-6 dark:border-white dark:bg-slate-900"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center justify-center w-11 h-11 border-2 border-black bg-[#C1F04C] text-black dark:border-white">
+                    <div className="flex items-center justify-center w-11 h-11 border-2 border-black bg-[#D7E7FF] text-black dark:border-white">
                       <Icon className="w-5 h-5" strokeWidth={2.5} />
                     </div>
-                    <span className="text-4xl font-serif font-black text-[#C1F04C] leading-none select-none" style={{ WebkitTextStroke: '1.5px #0a0a0a' }}>
+                    <span className="text-4xl font-serif font-black text-[#1a73e8] leading-none select-none" style={{ WebkitTextStroke: '1.5px #0a0a0a' }}>
                       {i + 1}
                     </span>
                   </div>
@@ -799,16 +799,16 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
       <section className="px-6 pb-16">
         <motion.div
           {...reveal}
-          className="max-w-5xl mx-auto border-2 border-black bg-[#C1F04C] shadow-[6px_6px_0px_0px_#000000]"
+          className="max-w-5xl mx-auto border-2 border-black bg-[#D7E7FF] shadow-[6px_6px_0px_0px_#000000]"
         >
           <div className="p-10 sm:p-14 text-center">
-            <div className="mb-3 inline-flex bg-black px-2 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-[#C1F04C]">
+            <div className="mb-3 inline-flex bg-black px-2 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-[#1a73e8]">
               // READY?
             </div>
             <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-black">
               开始制作你的简历
             </h2>
-            <p className="mt-4 text-base text-[#274006] max-w-md mx-auto leading-relaxed font-semibold">
+            <p className="mt-4 text-base text-[#1b3a66] max-w-md mx-auto leading-relaxed font-semibold">
               打开就能写，专业排版一键导出。
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
