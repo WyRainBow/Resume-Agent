@@ -34,9 +34,7 @@ export function ExportButton({
   const [quotaLoading, setQuotaLoading] = useState(false);
   const [quotaError, setQuotaError] = useState<string | null>(null);
   const isHtmlTemplate = resumeData?.templateType === "html";
-  const [format, setFormat] = useState<ExportFormat>(
-    isHtmlTemplate ? "json" : "pdf",
-  );
+  const [format, setFormat] = useState<ExportFormat>("pdf");
 
   const getPdfFileName = () => {
     const safeName = (resumeName || "简历")
@@ -84,9 +82,9 @@ export function ExportButton({
     quota && !quota.unlimited && (quota.remaining ?? 0) <= 0,
   );
 
-  // 导出 PDF - 仅用于 LaTeX 模板
+  // 导出 PDF：LaTeX 模板走后端渲染好的 pdfBlob（占下载额度）；HTML 模板走前端导出（onDownloadPDF，不占额度）
   const exportPdf = async () => {
-    if (!pdfBlob) {
+    if (!isHtmlTemplate && !pdfBlob) {
       toast.error('请先点击"渲染 PDF"按钮生成 PDF，然后再下载');
       return;
     }
@@ -94,11 +92,11 @@ export function ExportButton({
     try {
       if (onDownloadPDF) {
         await onDownloadPDF();
-      } else {
+      } else if (pdfBlob) {
         await recordPdfDownload();
         downloadBlob(pdfBlob, getPdfFileName());
       }
-      void refreshQuota();
+      if (!isHtmlTemplate) void refreshQuota();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "PDF 下载失败，请重试");
     }
@@ -131,8 +129,8 @@ export function ExportButton({
 
   useEffect(() => {
     if (isOpen) {
-      setFormat(isHtmlTemplate ? "json" : "pdf");
-      void refreshQuota();
+      setFormat("pdf");
+      if (!isHtmlTemplate) void refreshQuota();
     }
   }, [isOpen, isHtmlTemplate]);
 
@@ -188,46 +186,43 @@ export function ExportButton({
               </button>
             </div>
 
-            <div
-              className={cn(
-                "mt-4 grid gap-3",
-                isHtmlTemplate ? "grid-cols-1" : "grid-cols-2",
-              )}
-            >
-              {!isHtmlTemplate && (
-                <button
-                  type="button"
-                  onClick={() => setFormat("pdf")}
-                  className={formatCardClass(format === "pdf")}
+            <div className="mt-4 grid gap-3 grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setFormat("pdf")}
+                className={formatCardClass(format === "pdf")}
+              >
+                <span
+                  className={cn(
+                    "flex h-11 w-11 items-center justify-center rounded-lg",
+                    format === "pdf"
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
+                  )}
                 >
-                  <span
-                    className={cn(
-                      "flex h-11 w-11 items-center justify-center rounded-lg",
-                      format === "pdf"
-                        ? "bg-blue-600 text-white"
-                        : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
-                    )}
-                  >
-                    <FileText className="h-5 w-5" strokeWidth={2} />
-                  </span>
-                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    PDF
-                  </span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    可打印文档
-                  </span>
-                  <span
-                    className={cn(
-                      "text-[11px]",
-                      quotaIsExhausted
-                        ? "text-red-500 dark:text-red-400"
-                        : "text-slate-400 dark:text-slate-500",
-                    )}
-                  >
-                    {!pdfBlob ? "需要先渲染 PDF" : getQuotaText()}
-                  </span>
-                </button>
-              )}
+                  <FileText className="h-5 w-5" strokeWidth={2} />
+                </span>
+                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                  PDF
+                </span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  可打印文档
+                </span>
+                <span
+                  className={cn(
+                    "text-[11px]",
+                    !isHtmlTemplate && quotaIsExhausted
+                      ? "text-red-500 dark:text-red-400"
+                      : "text-slate-400 dark:text-slate-500",
+                  )}
+                >
+                  {isHtmlTemplate
+                    ? "前端实时导出，不占下载额度"
+                    : !pdfBlob
+                      ? "需要先渲染 PDF"
+                      : getQuotaText()}
+                </span>
+              </button>
 
               <button
                 type="button"

@@ -4639,8 +4639,8 @@ function CocoChatContent() {
   }, [selectedResumeId, resumePdfPreview, resumeData]);
 
   // 收尾卡：去编辑器精修。
-  // 修复：原来跳无 ID 的 /workspace/latex，会被编辑器当「新建默认模板」加载成默认简历（丢当前优化后的简历）。
-  // 改为先把优化后的数据回存到该简历记录，再带 ID 跳 /workspace/latex/{id}，编辑器按 ID 加载正确简历。
+  // 修复：原来跳无 ID 的新建路由，会被编辑器当「新建默认模板」加载成默认简历（丢当前优化后的简历）。
+  // 改为先把优化后的数据回存到该简历记录，再带 ID 跳 /workspace/{id}，编辑器按 ID 加载正确简历。
   const handleGoEditor = useCallback(async () => {
     const target =
       loadedResumes.find((r) => r.id === selectedResumeId) || loadedResumes[0];

@@ -117,13 +117,11 @@ export type AgentSessionHandlers = {
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode;
-  onDownload?: () => void;
   agentSession?: AgentSessionHandlers;
 }
 
 export default function WorkspaceLayout({
   children,
-  onDownload,
   agentSession,
 }: WorkspaceLayoutProps) {
   const navigate = useNavigate();
@@ -171,7 +169,7 @@ export default function WorkspaceLayout({
     if (location.pathname === "/templates") {
       return "templates";
     }
-    // workspace/html 或 workspace/latex 都算编辑区
+    // /workspace 及其子路径（/new、/:id、旧路由重定向）都算编辑区
     if (location.pathname.startsWith("/workspace")) {
       return "edit";
     }
