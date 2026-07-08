@@ -38,11 +38,11 @@ function WechatIcon({ className }: { className?: string }) {
   )
 }
 
-// 刷新时标题/副标题轻微弹出（偏慢）
+// 刷新时标题/副标题轻微淡入上浮（防 spring 黑框闪烁：走 tween，不用 scale）
 const popIn = {
-  initial: { opacity: 0, scale: 0.96 },
-  animate: { opacity: 1, scale: 1 },
-  transition: { type: 'spring', stiffness: 120, damping: 20 }
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] as const }
 }
 
 const REPO_URL = 'https://github.com/WyRainBow/Resume-Agent'
@@ -490,14 +490,14 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
             </div>
             <motion.h1
               {...popIn}
-              transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.12 }}
+              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: 0.08 }}
               className="text-4xl sm:text-5xl lg:text-6xl font-serif font-bold tracking-tight leading-[1.1] text-black dark:text-white"
             >
               帮你把经历<span className="text-[#4285F4]">聊成</span>一份好简历
             </motion.h1>
             <motion.p
               {...popIn}
-              transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.24 }}
+              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: 0.16 }}
               className="mt-5 text-base sm:text-lg text-slate-600 dark:text-slate-400 leading-relaxed"
             >
               说一句你的经历、AI 陪你把它理成条理清晰、对得上岗位的简历。
@@ -507,7 +507,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
           {agentEnabled ? (
             <motion.div
               {...popIn}
-              transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.36 }}
+              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: 0.24 }}
               className="mt-6 max-w-2xl mx-auto"
             >
               <form onSubmit={handleHeroSubmit} className="relative border-2 border-black bg-white shadow-[4px_4px_0px_0px_#000000] focus-within:shadow-[2px_2px_0px_0px_#000000] focus-within:translate-x-[2px] focus-within:translate-y-[2px] transition-all dark:border-white dark:bg-slate-900 dark:shadow-[4px_4px_0px_0px_#ffffff] dark:focus-within:shadow-[2px_2px_0px_0px_#ffffff] dark:focus-within:translate-x-[2px] dark:focus-within:translate-y-[2px]">
@@ -587,7 +587,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
           ) : (
             <motion.div
               {...popIn}
-              transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.36 }}
+              transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: 0.24 }}
               className="mt-9 flex items-center justify-center"
             >
               <button
@@ -602,7 +602,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
 
           <motion.a
             {...popIn}
-            transition={{ type: 'spring', stiffness: 120, damping: 20, delay: 0.46 }}
+            transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: 0.32 }}
             href={REPO_URL}
             target="_blank"
             rel="noopener noreferrer"
