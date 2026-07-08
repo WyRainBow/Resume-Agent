@@ -224,8 +224,10 @@ const ResumeDashboard = () => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.5 }}
-          className="flex-1 space-y-10 max-w-[1600px] mx-auto relative z-10 p-6 sm:p-10"
+          className="max-w-[1600px] mx-auto relative z-10 p-4 sm:p-8"
         >
+          {/* 方框(照搬 Builder Dashboard 外层容器):黑边 + 硬阴影,包裹全部内容 */}
+          <div className="border border-black dark:border-white bg-[#F0F0E8] dark:bg-[#1C1C1C] shadow-[8px_8px_0px_0px_#000000] dark:shadow-[8px_8px_0px_0px_#ffffff] flex-1 space-y-10 p-6 sm:p-10">
           <motion.div
             className="flex w-full items-center justify-center"
             initial={{ y: 20, opacity: 0 }}
@@ -304,6 +306,7 @@ const ResumeDashboard = () => {
               </AnimatePresence>
             </div>
           </motion.div>
+          </div>
         </motion.div>
       </div>
       {/* AI 智能导入弹窗 */}
