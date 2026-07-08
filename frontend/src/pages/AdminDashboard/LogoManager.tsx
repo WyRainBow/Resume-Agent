@@ -43,14 +43,14 @@ function LogoGrid({
   onDelete: (logo: LogoItem) => void
 }) {
   if (logos.length === 0) {
-    return <p className="px-1 py-3 text-xs text-slate-400 dark:text-slate-500">暂无 Logo</p>
+    return <p className="px-1 py-3 text-xs text-slate-400">暂无 Logo</p>
   }
   return (
     <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
       {logos.map((logo) => (
         <div
           key={`${logo.group || 'company'}-${logo.key}`}
-          className="group relative flex flex-col items-center gap-1.5 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900"
+          className="group relative flex flex-col items-center gap-1.5 rounded-lg border border-slate-200 bg-white p-3 transition-colors hover:border-slate-300 hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800"
         >
           <img
             src={logo.url}
@@ -66,7 +66,7 @@ function LogoGrid({
             title="删除"
             disabled={busyKey === logo.key}
             onClick={() => onDelete(logo)}
-            className="absolute right-1.5 top-1.5 hidden rounded-md bg-red-50 p-1 text-red-500 transition-colors hover:bg-red-500 hover:text-white group-hover:block disabled:opacity-50 dark:bg-red-950/40"
+            className="absolute right-1.5 top-1.5 hidden rounded bg-red-50 p-1 text-red-500 transition-colors hover:bg-red-500 hover:text-white group-hover:block disabled:opacity-50 dark:bg-red-950/40"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
@@ -179,19 +179,19 @@ export function LogoManager() {
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+    <section className="border-2 border-black bg-white shadow-[6px_6px_0px_0px_#000000] dark:border-white dark:bg-slate-900 dark:shadow-[6px_6px_0px_0px_#ffffff]">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-6 py-4 dark:border-slate-800">
         <div>
-          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Logo 管理</h2>
+          <h2 className="text-base font-serif font-bold text-black dark:text-white">Logo 管理</h2>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-            公司 Logo 与学校校徽素材库，全站共享。仅管理员可上传 / 删除（png/jpg/webp/svg，最大 2MB）。
+            公司 Logo 与学校校徽素材库，全站共享
           </p>
         </div>
         <button
           type="button"
           onClick={load}
           disabled={loading}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+          className="inline-flex items-center gap-2 rounded border border-slate-200 bg-white px-4 py-2 text-xs text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-700 dark:hover:bg-slate-800"
         >
           <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
           刷新
@@ -199,14 +199,14 @@ export function LogoManager() {
       </div>
 
       {error ? (
-        <div className="px-6 py-4 text-sm text-red-600 dark:text-red-400">{error}</div>
+        <div className="border-t border-slate-200 px-6 py-4 text-sm text-red-600 dark:border-slate-800 dark:text-red-400">{error}</div>
       ) : (
         <div className="space-y-6 px-6 py-5">
           {/* 公司 Logo */}
           <div>
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                公司 Logo <span className="ml-1 font-normal text-slate-400">{companyLogos.length} 个</span>
+                公司 Logo <span className="ml-1 font-normal text-slate-400">({companyLogos.length})</span>
               </h3>
               <input
                 ref={companyFileRef}
@@ -223,7 +223,7 @@ export function LogoManager() {
                 type="button"
                 disabled={uploading}
                 onClick={() => companyFileRef.current?.click()}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                className="inline-flex items-center gap-2 rounded border border-blue-600 bg-blue-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
               >
                 <Upload className="h-3.5 w-3.5" />
                 {uploading ? '上传中…' : '上传 Logo'}
@@ -240,13 +240,13 @@ export function LogoManager() {
           <div>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                学校校徽 <span className="ml-1 font-normal text-slate-400">{schoolGroups.reduce((n, g) => n + g.logos.length, 0)} 个</span>
+                学校校徽 <span className="ml-1 font-normal text-slate-400">({schoolGroups.reduce((n, g) => n + g.logos.length, 0)})</span>
               </h3>
               <div className="flex items-center gap-2">
                 <select
                   value={schoolGroup}
                   onChange={(e) => setSchoolGroup(e.target.value as (typeof SCHOOL_GROUPS)[number])}
-                  className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+                  className="rounded border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
                 >
                   {SCHOOL_GROUPS.map((g) => (
                     <option key={g} value={g}>上传到：{g}</option>
@@ -267,7 +267,7 @@ export function LogoManager() {
                   type="button"
                   disabled={uploading}
                   onClick={() => schoolFileRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 rounded border border-blue-600 bg-blue-600 px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
                 >
                   <Upload className="h-3.5 w-3.5" />
                   {uploading ? '上传中…' : '上传校徽'}
