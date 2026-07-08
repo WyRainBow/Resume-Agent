@@ -1,10 +1,17 @@
 /**
  * 模板设置系统 —— 移植自 Resume-Matcher lib/types/template-settings.ts。
- * 差异:只保留 5 套模板(双栏两套按用户决策去除)。
+ * RM 全部 7 套模板已齐(双栏两套于 2026-07-08 补齐)。
  */
 import type React from 'react'
 
-export type TemplateType = 'swiss-single' | 'modern' | 'latex' | 'clean' | 'vivid'
+export type TemplateType =
+  | 'swiss-single'
+  | 'swiss-two-column'
+  | 'modern'
+  | 'modern-two-column'
+  | 'latex'
+  | 'clean'
+  | 'vivid'
 
 export type PageSize = 'A4' | 'LETTER'
 
@@ -199,9 +206,19 @@ export const TEMPLATE_OPTIONS: TemplateInfo[] = [
     description: 'Traditional full-width layout with maximum content density',
   },
   {
+    id: 'swiss-two-column',
+    name: 'Two Column',
+    description: 'Swiss two-column layout with sidebar for education and skills',
+  },
+  {
     id: 'modern',
     name: 'Modern',
     description: 'Colorful accents with customizable theme colors',
+  },
+  {
+    id: 'modern-two-column',
+    name: 'Modern 2-Col',
+    description: 'Modern accent design in a two-column sidebar layout',
   },
   {
     id: 'latex',

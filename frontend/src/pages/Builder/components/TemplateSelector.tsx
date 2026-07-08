@@ -121,6 +121,70 @@ export const TemplateThumbnail: React.FC<TemplateThumbnailProps> = ({ type, isAc
     )
   }
 
+  if (type === 'swiss-two-column') {
+    // Swiss two-column thumbnail - full-width header + main/sidebar split with divider
+    return (
+      <div className={`w-14 h-[4.5rem] border ${borderColor} bg-white p-1.5 flex flex-col gap-1`}>
+        {/* Header */}
+        <div className={`h-2 ${lineColor} w-full`}></div>
+        <div className={`h-0.5 ${lineColor} w-3/4`}></div>
+        {/* Two columns with divider */}
+        <div className="flex-1 flex gap-1 mt-1">
+          {/* Main column */}
+          <div className="w-2/3 space-y-1">
+            <div className={`h-0.5 ${lineColor} w-full`}></div>
+            <div className={`h-0.5 ${lineColor} w-5/6 opacity-50`}></div>
+            <div className={`h-0.5 ${lineColor} w-4/6 opacity-50`}></div>
+            <div className="h-0.5"></div>
+            <div className={`h-0.5 ${lineColor} w-full`}></div>
+            <div className={`h-0.5 ${lineColor} w-3/6 opacity-50`}></div>
+          </div>
+          {/* Divider */}
+          <div className={`w-px ${lineColor} opacity-40`}></div>
+          {/* Sidebar */}
+          <div className="flex-1 space-y-1">
+            <div className={`h-0.5 ${lineColor} w-full`}></div>
+            <div className={`h-0.5 ${lineColor} w-4/5 opacity-50`}></div>
+            <div className="h-0.5"></div>
+            <div className={`h-0.5 ${lineColor} w-full`}></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (type === 'modern-two-column') {
+    // Modern two-column thumbnail - accent underlined header + main/sidebar with accent section heads
+    return (
+      <div className={`w-14 h-[4.5rem] border ${borderColor} bg-white p-1.5 flex flex-col gap-1`}>
+        {/* Header with accent underline */}
+        <div className="flex flex-col items-center gap-0.5">
+          <div className={`h-1.5 ${lineColor} w-3/4`}></div>
+          <div className={`h-0.5 ${accentColor} w-1/3`}></div>
+        </div>
+        {/* Two columns */}
+        <div className="flex-1 flex gap-1 mt-1">
+          {/* Main column with accent headers */}
+          <div className="w-2/3 space-y-1">
+            <div className={`h-0.5 ${accentColor} w-full`}></div>
+            <div className={`h-0.5 ${lineColor} w-5/6 opacity-50`}></div>
+            <div className={`h-0.5 ${lineColor} w-4/6 opacity-50`}></div>
+            <div className="h-0.5"></div>
+            <div className={`h-0.5 ${accentColor} w-full`}></div>
+            <div className={`h-0.5 ${lineColor} w-3/6 opacity-50`}></div>
+          </div>
+          {/* Sidebar with accent headers */}
+          <div className="flex-1 space-y-1">
+            <div className={`h-0.5 ${accentColor} w-full`}></div>
+            <div className={`h-0.5 ${lineColor} w-4/5 opacity-50`}></div>
+            <div className="h-0.5"></div>
+            <div className={`h-0.5 ${accentColor} w-full`}></div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (type === 'vivid') {
     // Vivid thumbnail - two-tone accent name + accent headers + accent arrow bullets
     return (

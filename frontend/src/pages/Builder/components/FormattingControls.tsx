@@ -175,7 +175,9 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
           )}
 
           {/* Accent Color Selection - Visible for accent-driven templates */}
-          {(settings.template === 'modern' || settings.template === 'vivid') && (
+          {(settings.template === 'modern' ||
+            settings.template === 'modern-two-column' ||
+            settings.template === 'vivid') && (
             <div>
               <h4 className="font-mono text-xs font-bold uppercase tracking-wider mb-3 text-[#444850]">
                 强调色
