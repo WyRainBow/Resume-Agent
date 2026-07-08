@@ -43,10 +43,10 @@ function DropdownSelect<T extends string | number>({
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          'w-full px-3 py-2.5 text-sm rounded-lg border text-left flex items-center justify-between gap-2 transition-all duration-300',
-          'border-slate-200 bg-white text-slate-800',
-          'hover:border-slate-900 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-900/10',
-          open && 'ring-2 ring-slate-900/10 border-slate-900 shadow-md'
+          'w-full px-3 py-2.5 text-sm rounded-none border text-left flex items-center justify-between gap-2 transition-all duration-300',
+          'border-black bg-white text-slate-800',
+          'hover:border-black hover:shadow-[4px_4px_0px_0px_#000000] dark:hover:shadow-[4px_4px_0px_0px_#ffffff] focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black',
+          open && 'ring-2 ring-blue-700 border-black shadow-[4px_4px_0px_0px_#000000] dark:shadow-[4px_4px_0px_0px_#ffffff]'
         )}
       >
         <span className="truncate">{currentLabel}</span>
@@ -54,7 +54,7 @@ function DropdownSelect<T extends string | number>({
       </button>
       {open && (
         <div
-          className="absolute top-full left-0 right-0 z-50 mt-1 py-1 rounded-lg border border-slate-200 bg-white shadow-lg max-h-56 overflow-y-auto"
+          className="absolute top-full left-0 right-0 z-50 mt-1 py-1 rounded-none border border-black bg-white shadow-[4px_4px_0px_0px_#000000] dark:shadow-[4px_4px_0px_0px_#ffffff] max-h-56 overflow-y-auto"
           role="listbox"
         >
                 {options.map((opt) => {
@@ -141,9 +141,9 @@ const HEADER_BOTTOM_GAP_BASELINE = -1
 const normalizeDecimal = (value: number, digits = 2) => Number(value.toFixed(digits))
 
 const inputBaseClass =
-  'w-full px-3 py-2.5 text-sm rounded-lg border border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-900 transition-colors'
+  'w-full px-3 py-2.5 text-sm rounded-none border border-black bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black transition-colors'
 
-const labelClass = 'block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5'
+const labelClass = 'block font-mono text-xs font-bold text-[#444850] dark:text-slate-300 mb-1.5'
 
 const LINE_SPACING_CUSTOM_VALUE = -1
 const LINE_SPACING_WITH_CUSTOM = [
@@ -205,7 +205,7 @@ function HeaderGapControl({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-slate-600 dark:text-slate-400">{label}</label>
+      <label className="font-mono text-xs font-bold text-[#444850] dark:text-slate-400">{label}</label>
       <input
         type="number"
         step="0.5"
@@ -251,17 +251,17 @@ function SettingCard({
   return (
     <div
       className={cn(
-        'rounded-lg overflow-hidden',
+        'rounded-none overflow-hidden',
         'bg-white dark:bg-slate-800/80',
         'border border-slate-200/60 dark:border-slate-700/80',
-        'shadow-sm'
+        'shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]'
       )}
     >
       {title && (
         <div className="px-4 pt-4 pb-3 border-b border-slate-100 dark:border-slate-700/80">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-blue-50/50 dark:bg-slate-700/80 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-none bg-blue-50/50 dark:bg-slate-700/80 flex items-center justify-center">
                 <Icon className="w-4 h-4 text-slate-600 dark:text-slate-300" />
               </div>
               <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 tracking-tight">
@@ -320,7 +320,7 @@ export function SidePanel({
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.9 }}
               onClick={addCustomSection}
-              className="flex justify-center w-full rounded-lg items-center gap-2 py-2 px-3 text-sm font-medium text-slate-900 bg-blue-50/50 hover:bg-blue-100/50 border border-blue-100/50 transition-colors"
+              className="flex justify-center w-full rounded-none items-center gap-2 py-2 px-3 text-sm font-medium text-slate-900 bg-blue-50/50 hover:bg-blue-100/50 border border-blue-100/50 transition-colors"
             >
               添加自定义模块
             </motion.button>
@@ -342,10 +342,10 @@ export function SidePanel({
                       type="button"
                       onClick={() => updateGlobalSettings({ latexFontSize: opt.value })}
                       className={cn(
-                        'flex-1 min-w-0 px-1.5 py-1 text-[11px] font-bold rounded-md border transition-all',
+                        'flex-1 min-w-0 px-1.5 py-1 text-[11px] font-bold rounded-none border transition-all',
                         isActive
-                          ? 'bg-blue-50 text-slate-900 border-blue-200 shadow-sm dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600'
-                          : 'bg-white border-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:border-blue-400 hover:text-slate-900'
+                          ? 'bg-blue-50 text-slate-900 border-blue-200 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600'
+                          : 'bg-white border-black text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:border-blue-400 hover:text-slate-900'
                       )}
                     >
                       {opt.label}
@@ -401,7 +401,7 @@ export function SidePanel({
             </div>
 
             {/* 头部空白（LaTeX） */}
-            <div className="rounded-lg bg-blue-50/50 dark:bg-slate-800/50 border border-blue-100/50 p-3 space-y-3">
+            <div className="rounded-none bg-blue-50/50 dark:bg-slate-800/50 border border-blue-100/50 p-3 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">头部空白（PX）</label>
                 <button

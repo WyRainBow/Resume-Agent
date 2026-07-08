@@ -30,7 +30,7 @@ const LayoutSetting = ({
   const draggableSections = sortedSections.filter((item) => item.id !== 'basic')
 
   return (
-    <div className="space-y-4 rounded-lg bg-white dark:bg-neutral-900/30">
+    <div className="space-y-4 rounded-none bg-white dark:bg-neutral-900/30">
       {/* 基本信息（固定） */}
       {basicSection && (
         <LayoutItem

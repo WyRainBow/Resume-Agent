@@ -45,9 +45,9 @@ const LayoutItem = ({
     return (
       <div
         className={cn(
-          'rounded-lg group border mb-2 hover:border-primary cursor-pointer',
-          'hover:bg-gray-50 bg-white border-gray-100',
-          'dark:hover:bg-neutral-800 dark:bg-neutral-900/50 dark:border-neutral-800',
+          'rounded-none group border mb-2 hover:border-primary cursor-pointer',
+          'hover:bg-[#F1F2F5] bg-white border-black',
+          'dark:hover:bg-[#2A2A2A] dark:bg-neutral-900/50 dark:border-white',
           activeSection === item.id &&
             'border-primary dark:border-primary text-primary'
         )}
@@ -76,9 +76,9 @@ const LayoutItem = ({
       dragListener={false}
       dragControls={dragControls}
       className={cn(
-        'rounded-lg group border hover:border-primary flex overflow-hidden transition-opacity',
-        'hover:bg-gray-50 bg-white border-gray-100',
-        'dark:hover:bg-neutral-800 dark:bg-neutral-900/50 dark:border-neutral-800 dark:hover:border-primary',
+        'rounded-none group border hover:border-primary flex overflow-hidden transition-opacity',
+        'hover:bg-[#F1F2F5] bg-white border-black',
+        'dark:hover:bg-[#2A2A2A] dark:bg-neutral-900/50 dark:border-white dark:hover:border-primary',
         activeSection === item.id &&
           'border-primary dark:border-primary text-primary',
         // 隐藏时显示淡透明
@@ -94,8 +94,8 @@ const LayoutItem = ({
         }}
         className={cn(
           'w-8 flex items-center justify-center touch-none shrink-0',
-          'border-gray-100 dark:border-neutral-800',
-          'cursor-grab hover:bg-gray-50 dark:hover:bg-neutral-800/50'
+          'border-black dark:border-white',
+          'cursor-grab hover:bg-[#F1F2F5] dark:hover:bg-neutral-800/50'
         )}
       >
         <GripVertical
@@ -132,9 +132,9 @@ const LayoutItem = ({
               toggleSectionVisibility(item.id)
             }}
             className={cn(
-              'p-1.5 rounded-md',
+              'p-1.5 rounded-none',
               DEFAULT_SECTION_IDS.has(item.id) ? 'mr-0' : 'mr-2',
-              'hover:bg-gray-100 text-gray-600',
+              'hover:bg-[#F1F2F5] text-gray-600',
               'dark:hover:bg-neutral-700 dark:text-neutral-300'
             )}
           >
@@ -157,8 +157,8 @@ const LayoutItem = ({
                 }
               }}
               className={cn(
-                'p-1.5 rounded-md',
-                'hover:bg-gray-100 text-gray-600',
+                'p-1.5 rounded-none',
+                'hover:bg-[#F1F2F5] text-gray-600',
                 'dark:hover:bg-neutral-700 dark:text-neutral-300'
               )}
             >

@@ -52,8 +52,8 @@ export function Header({ saveSuccess, saveStatus, saveError, onGlobalAIImport, o
       transition={{ duration: 0.4, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
       className={cn(
         'relative z-20 h-16 flex items-center justify-between px-4 shrink-0',
-        'bg-white dark:bg-slate-900',
-        'border-b border-slate-200 dark:border-slate-800'
+        'bg-white dark:bg-[#1C1C1C]',
+        'border-b border-black dark:border-white'
       )}
     >
       {/* 左侧：编辑模式切换 */}
@@ -64,15 +64,15 @@ export function Header({ saveSuccess, saveStatus, saveError, onGlobalAIImport, o
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.4, delay: 0.2 }}
       >
-          <span className="text-sm text-slate-600 dark:text-slate-400 font-medium">编辑模式：</span>
-          <div className="flex items-center gap-1 bg-blue-50/50 dark:bg-slate-800 rounded-lg p-1 border border-blue-100/50">
+          <span className="text-sm text-slate-600 dark:text-slate-400 font-medium font-mono">编辑模式：</span>
+          <div className="flex items-center gap-1 bg-blue-50/50 dark:bg-[#2A2A2A] rounded-none p-1 border border-blue-100/50">
             <button
               onClick={() => onEditModeChange('click')}
               className={cn(
-                "px-4 py-2 rounded-lg text-sm font-bold transition-all duration-300",
+                "px-4 py-2 rounded-none text-sm font-bold transition-all duration-300",
                 "flex items-center gap-2",
                 editMode === 'click'
-                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100"
+                  ? "bg-white text-slate-900 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] dark:bg-slate-700 dark:text-slate-100"
                   : "text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
               )}
             >
@@ -82,10 +82,10 @@ export function Header({ saveSuccess, saveStatus, saveError, onGlobalAIImport, o
             <button
               onClick={() => onEditModeChange('scroll')}
               className={cn(
-                "px-4 py-2 rounded-lg text-sm font-bold transition-all duration-300",
+                "px-4 py-2 rounded-none text-sm font-bold transition-all duration-300",
                 "flex items-center gap-2",
                 editMode === 'scroll'
-                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100"
+                  ? "bg-white text-slate-900 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] dark:bg-slate-700 dark:text-slate-100"
                   : "text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
               )}
             >
@@ -96,10 +96,10 @@ export function Header({ saveSuccess, saveStatus, saveError, onGlobalAIImport, o
             <button
               onClick={() => onEditModeChange('json')}
               className={cn(
-                "px-4 py-2 rounded-lg text-sm font-bold transition-all duration-300",
+                "px-4 py-2 rounded-none text-sm font-bold transition-all duration-300",
                 "flex items-center gap-2",
                 editMode === 'json'
-                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-700 dark:text-slate-100"
+                  ? "bg-white text-slate-900 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] dark:bg-slate-700 dark:text-slate-100"
                   : "text-slate-500 dark:text-slate-400 hover:bg-white/50 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
               )}
             >
@@ -127,10 +127,10 @@ export function Header({ saveSuccess, saveStatus, saveError, onGlobalAIImport, o
             <button
               onClick={() => setImportMenuOpen((v) => !v)}
               className={cn(
-                "px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-300 flex items-center gap-2",
-                "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800",
-                "text-slate-700 dark:text-slate-300 hover:bg-slate-50 hover:border-slate-300 dark:hover:bg-slate-700",
-                "active:scale-95 shadow-sm"
+                "px-5 py-2.5 rounded-none text-sm font-bold transition-all duration-300 flex items-center gap-2",
+                "bg-white dark:bg-[#1C1C1C] border border-black dark:border-white",
+                "text-slate-700 dark:text-slate-300 hover:bg-[#F1F2F5] hover:border-black dark:hover:bg-slate-700",
+                "active:scale-95 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
               )}
             >
               <Upload className="w-4 h-4 text-blue-500" />
@@ -138,13 +138,13 @@ export function Header({ saveSuccess, saveStatus, saveError, onGlobalAIImport, o
             </button>
 
             {importMenuOpen && (
-              <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-xl border border-slate-200/80 dark:border-slate-700/80 overflow-hidden z-50">
+              <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-[#2A2A2A] rounded-none shadow-[4px_4px_0px_0px_#000000] dark:shadow-[4px_4px_0px_0px_#ffffff] border border-slate-200/80 dark:border-slate-700/80 overflow-hidden z-50">
                 <button
                   onClick={() => {
                     setImportMenuOpen(false)
                     onGlobalAIImport()
                   }}
-                  className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center gap-2"
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-[#F1F2F5] dark:hover:bg-slate-700/50 flex items-center gap-2"
                 >
                   <Sparkles className="w-4 h-4 text-slate-900 dark:text-slate-100" />
                   AI 智能上传
@@ -155,7 +155,7 @@ export function Header({ saveSuccess, saveStatus, saveError, onGlobalAIImport, o
                       setImportMenuOpen(false)
                       onImportJSON()
                     }}
-                    className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 flex items-center gap-2 border-t border-slate-100 dark:border-slate-700/50"
+                    className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-[#F1F2F5] dark:hover:bg-slate-700/50 flex items-center gap-2 border-t border-black dark:border-slate-700/50"
                   >
                     <Upload className="w-4 h-4 text-blue-500" />
                     JSON 导入
@@ -171,11 +171,11 @@ export function Header({ saveSuccess, saveStatus, saveError, onGlobalAIImport, o
                 onClick={onSaveToDashboard}
                 disabled={saveSuccess}
                 className={cn(
-                  "px-6 py-2.5 rounded-lg text-sm font-bold transition-all duration-300 flex items-center gap-2",
+                  "px-6 py-2.5 rounded-none text-sm font-bold transition-all duration-300 flex items-center gap-2",
                   "hover:scale-[1.02] active:scale-[0.98]",
-                  saveSuccess 
-                    ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200 dark:shadow-emerald-900/20" 
-                    : "bg-slate-100 text-slate-900 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
+                  saveSuccess
+                    ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200 dark:shadow-emerald-900/20"
+                    : "bg-[#F1F2F5] text-slate-900 hover:bg-slate-200 dark:bg-[#2A2A2A] dark:text-slate-100 dark:hover:bg-slate-700"
                 )}
               >
           {saveSuccess ? (
