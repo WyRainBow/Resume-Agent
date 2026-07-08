@@ -4,6 +4,8 @@ import { toast } from '@/lib/toast'
  * 使用 WorkspaceLayout 包裹，提供统一的侧边栏布局
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
 
 // Hooks
 import { useAIImport, useAutoSaveResume, usePDFOperations, useResumeData } from './hooks'
@@ -27,6 +29,7 @@ const PDF_RENDER_DEBOUNCE_MS = 2000
 const PDF_RENDER_INITIAL_DELAY_MS = 300
 
 export default function WorkspaceV2() {
+  const navigate = useNavigate()
   // 编辑模式状态
   const [editMode, setEditMode] = useState<EditMode>('click')
   
@@ -296,10 +299,18 @@ export default function WorkspaceV2() {
 
   return (
     <WorkspaceLayout>
-      {/* 装饰头(照搬 Builder 风格):大标题 + 编辑模式标识 + 简历名 chip,纯展示,不含操作按钮(操作按钮在下方 Header 里,避免重复) */}
+      {/* 装饰头(照搬 Builder 风格):返回链接 + 大标题 + 编辑模式标识 + 简历名 chip,纯展示,不含操作按钮(操作按钮在下方 Header 里,避免重复) */}
       <div className="border-b border-black dark:border-white bg-[#F0F0E8] dark:bg-[#1C1C1C] px-6 py-5 md:px-8 md:py-6 shrink-0">
+        <button
+          type="button"
+          onClick={() => navigate('/my-resumes')}
+          className="inline-flex items-center gap-1.5 mb-2 -ml-1 px-1 font-mono text-xs font-bold uppercase tracking-wide text-blue-700 hover:underline"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          返回 Dashboard
+        </button>
         <h1 className="font-serif text-3xl md:text-5xl text-black dark:text-white tracking-tight leading-[0.95] uppercase">
-          简历工作台
+          Resume Builder
         </h1>
         <div className="mt-3 flex items-center gap-3 flex-wrap">
           <p className="text-sm font-mono text-blue-700 uppercase tracking-wide font-bold">
