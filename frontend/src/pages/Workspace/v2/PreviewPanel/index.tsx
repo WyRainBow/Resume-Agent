@@ -7,6 +7,7 @@ import { Download, RefreshCw, FileText, Sparkles, Minus, Plus, AlertTriangle, Ey
 import { cn } from '../../../../lib/utils'
 import { PDFViewerSelector } from '../../../../components/PDFEditor'
 import ResumeRenderer from '../../../Builder/templates/ResumeRenderer'
+import { PaginatedPreview } from '../../../Builder/components/PaginatedPreview'
 import { toBuilderResumeData } from '../../../Builder/adapter'
 import { withSettingsDefaults } from '../../../Builder/settings'
 import { PAGE_DIMENSIONS } from '../../../Builder/pageDimensions'
@@ -334,27 +335,32 @@ export function PreviewPanel({
         ref={isHTMLTemplate || !pdfBlob ? containerRef : undefined}
         className={cn(
           'flex-1 p-2 bg-slate-100/80 dark:bg-slate-900/50',
-          pdfBlob && !isHTMLTemplate ? 'flex flex-col min-h-0 overflow-hidden' : 'overflow-auto'
+          isHTMLTemplate || pdfBlob ? 'flex flex-col min-h-0 overflow-hidden' : 'overflow-auto'
         )}
       >
         {isHTMLTemplate ? (
-          // HTML 模板：Builder 模板实时预览（消费 globalSettings.builderSettings，
-          // 页面尺寸随设置的 A4/US Letter 切换，边距由模板内 --margin-* cssVars 消费）
+          // HTML 模板：Builder 真分页预览（消费 globalSettings.builderSettings，
+          // 页面按 A4/US Letter 真实尺寸分页，切换纸张有明确的视觉差异）
           (() => {
             const builderSettings = withSettingsDefaults(resumeData!.globalSettings?.builderSettings)
+            const builderResumeData = toBuilderResumeData(resumeData!)
             const pageDims = PAGE_DIMENSIONS[builderSettings.pageSize]
             return (
-              <div className="flex justify-center w-full p-4">
-                <div
-                  className="html-template-container bg-white shadow-lg"
-                  style={{ width: `${pageDims.width}mm`, minHeight: `${pageDims.height}mm` }}
-                >
-                  <ResumeRenderer
-                    resumeData={toBuilderResumeData(resumeData!)}
-                    settings={builderSettings}
-                  />
+              <>
+                <PaginatedPreview resumeData={builderResumeData} settings={builderSettings} />
+                {/* 导出源：屏幕外的连续渲染，供 Workspace 的 handleDownloadHtmlPDF 用
+                    document.querySelector('.html-template-container') + html2pdf 抓取。
+                    分页预览带缩放栏/页码/分页线等编辑态 UI，不适合直接当导出源；
+                    这里保留与旧版一致的干净连续容器，导出结果不变。 */}
+                <div aria-hidden="true" className="pointer-events-none" style={{ position: 'fixed', left: -9999, top: 0 }}>
+                  <div
+                    className="html-template-container bg-white shadow-lg"
+                    style={{ width: `${pageDims.width}mm`, minHeight: `${pageDims.height}mm` }}
+                  >
+                    <ResumeRenderer resumeData={builderResumeData} settings={builderSettings} />
+                  </div>
                 </div>
-              </div>
+              </>
             )
           })()
         ) : (
