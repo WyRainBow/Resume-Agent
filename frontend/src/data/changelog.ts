@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.15.3',
+    date: '2026-07-09 00:30',
+    fixed: [
+      '预览区「边距」按钮关闭时图标颜色更深一点，看得更清楚',
+    ],
+  },
+  {
     version: '2.15.2',
     date: '2026-07-08 21:05',
     added: [
