@@ -47,7 +47,7 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
     const containerWidth = containerRef.current.clientWidth - 48 // Padding
     const pageWidthPx = mmToPx(PAGE_DIMENSIONS[settings.pageSize].width)
     const optimalZoom = Math.min(containerWidth / pageWidthPx, MAX_ZOOM)
-    setZoom(Math.max(MIN_ZOOM, Math.min(optimalZoom, 0.75))) // Cap at 75% for usability
+    setZoom(Math.max(MIN_ZOOM, Math.min(optimalZoom, MAX_ZOOM)))
   }, [settings.pageSize, autoZoom])
 
   // Auto-zoom on mount and when page size changes
