@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '2.15.1',
+    date: '2026-07-08',
+    added: [
+      '首页视觉焕新：整体配色与板块划分更清爽，主操作按钮更醒目',
+    ],
+  },
+  {
     version: '2.15.0',
     date: '2026-07-07',
     added: [

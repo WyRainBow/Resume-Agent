@@ -35,6 +35,7 @@ const RefundPage = lazyWithRetry(() => import('./pages/Legal/Refund'))
 const ChangelogPage = lazyWithRetry(() => import('./pages/Changelog'))
 const AccountPage = lazyWithRetry(() => import('./pages/Account'))
 const PricingPage = lazyWithRetry(() => import('./pages/Pricing'))
+const ClicoClonePage = lazyWithRetry(() => import('./pages/ClicoClonePage'))
 
 function RouteFallback() {
   return (
@@ -116,6 +117,7 @@ function App() {
               <Route path="/changelog" element={<ChangelogPage />} />
               <Route path="/account" element={<AccountPage />} />
               <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/clico-clone" element={<ClicoClonePage />} />
             </Routes>
           </Suspense>
           <Toaster />
