@@ -226,8 +226,10 @@ const ResumeDashboard = () => {
           transition={{ duration: 0.5 }}
           className="max-w-[1600px] mx-auto relative z-10 p-4 sm:p-8"
         >
-          {/* 方框(照搬 Builder Dashboard 外层容器):黑边 + 硬阴影,包裹全部内容 */}
-          <div className="border border-black dark:border-white bg-[#F0F0E8] dark:bg-[#1C1C1C] shadow-[8px_8px_0px_0px_#000000] dark:shadow-[8px_8px_0px_0px_#ffffff] flex-1 space-y-10 p-6 sm:p-10">
+          {/* 方框(照搬 Builder Dashboard 外层容器):黑边 + 硬阴影,包裹全部内容;
+              min-h 用 vh 直接算(不依赖父级 flex/百分比继承链,避免嵌套 flex-col 导致高度塌陷),
+              内容少时方框仍撑满可视区域,不再露出画布背景 */}
+          <div className="border border-black dark:border-white bg-[#F0F0E8] dark:bg-[#1C1C1C] shadow-[8px_8px_0px_0px_#000000] dark:shadow-[8px_8px_0px_0px_#ffffff] min-h-[calc(100vh-2rem)] sm:min-h-[calc(100vh-4rem)] space-y-10 p-6 sm:p-10">
           <motion.div
             className="flex w-full items-center justify-center"
             initial={{ y: 20, opacity: 0 }}
