@@ -231,6 +231,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                   menuSections={resumeData.menuSections}
                   activeSection={activeSection}
                   globalSettings={resumeData.globalSettings}
+                  templateType={resumeData.templateType}
                   setActiveSection={setActiveSection}
                   toggleSectionVisibility={toggleSectionVisibility}
                   updateMenuSections={updateMenuSections}

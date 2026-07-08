@@ -8,6 +8,8 @@ import { Layout, Settings2, ChevronDown, Check } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { MenuSection, GlobalSettings } from '../types'
 import LayoutSetting from './LayoutSetting'
+import { FormattingControls } from '../../../Builder/components/FormattingControls'
+import { withSettingsDefaults } from '../../../Builder/settings'
 
 // 自定义下拉：选项在触发按钮下方展开，不占居中弹层（类似图三）
 function DropdownSelect<T extends string | number>({
@@ -229,6 +231,7 @@ interface SidePanelProps {
   reorderSections: (sections: MenuSection[]) => void
   updateGlobalSettings: (settings: Partial<GlobalSettings>) => void
   addCustomSection: () => void
+  templateType?: 'latex' | 'html'
 }
 
 /**
@@ -298,6 +301,7 @@ export function SidePanel({
   reorderSections,
   updateGlobalSettings,
   addCustomSection,
+  templateType,
 }: SidePanelProps) {
   const [headerGapExpanded, setHeaderGapExpanded] = useState(true)
   return (
@@ -327,7 +331,18 @@ export function SidePanel({
           </div>
         </SettingCard>
 
-        {/* 排版设置 */}
+        {/* HTML 模板：Builder 模板选择 + 排版面板（组件自带折叠头，直接渲染） */}
+        {templateType === 'html' && (
+          <FormattingControls
+            settings={withSettingsDefaults(globalSettings.builderSettings)}
+            onChange={(next) =>
+              updateGlobalSettings({ builderSettings: next as unknown as Record<string, unknown> })
+            }
+          />
+        )}
+
+        {/* LaTeX 模板：原排版设置（html 模式隐藏，两套引擎设置字段不同） */}
+        {templateType !== 'html' && (
         <SettingCard icon={Settings2} title="排版设置" collapsible defaultExpanded={false}>
           <div className="space-y-5">
             {/* 字体大小 */}
@@ -442,6 +457,7 @@ export function SidePanel({
             </p>
           </div>
         </SettingCard>
+        )}
 
       </div>
     </div>

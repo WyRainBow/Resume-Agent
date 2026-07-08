@@ -6,7 +6,9 @@ import { useState, useRef, useEffect } from 'react'
 import { Download, RefreshCw, FileText, Sparkles, Minus, Plus, AlertTriangle, Eye, EyeOff } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { PDFViewerSelector } from '../../../../components/PDFEditor'
-import { HTMLTemplateRenderer } from '../HTMLTemplateRenderer'
+import ResumeRenderer from '../../../Builder/templates/ResumeRenderer'
+import { toBuilderResumeData } from '../../../Builder/adapter'
+import { withSettingsDefaults } from '../../../Builder/settings'
 import type { ResumeData } from '../types'
 import type { PDFRenderMode } from '@/services/pdfRenderMode'
 import { logPDFRenderModeChange } from '@/services/api'
@@ -335,9 +337,17 @@ export function PreviewPanel({
         )}
       >
         {isHTMLTemplate ? (
-          // HTML 模板：实时预览
+          // HTML 模板：Builder 5 套模板实时预览（消费 globalSettings.builderSettings）
           <div className="flex justify-center w-full p-4">
-            <HTMLTemplateRenderer resumeData={resumeData!} />
+            <div
+              className="html-template-container bg-white shadow-lg"
+              style={{ width: '210mm', minHeight: '297mm' }}
+            >
+              <ResumeRenderer
+                resumeData={toBuilderResumeData(resumeData!)}
+                settings={withSettingsDefaults(resumeData!.globalSettings?.builderSettings)}
+              />
+            </div>
           </div>
         ) : (
           // LaTeX 模板：PDF 预览（缩放/边距/页数已挪到顶部工具栏）

@@ -4,7 +4,7 @@ import { toast } from '@/lib/toast'
  * 专门用于 HTML 模板的实时编辑和预览
  * 无需渲染按钮，所有编辑即时生效
  */
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useParams } from 'react-router-dom'
 import { cn } from '../../../../lib/utils'
 import html2pdf from 'html2pdf.js'
@@ -21,8 +21,8 @@ type EditMode = 'click' | 'scroll' | 'json'
 
 export default function HTMLWorkspace() {
   const { resumeId } = useParams<{ resumeId?: string }>()
-  // 编辑模式状态 - HTML 模板默认使用滚动编辑模式
-  const [editMode, setEditMode] = useState<EditMode>('scroll')
+  // 编辑模式状态 - HTML 模板默认用点击编辑（三列布局，含 SidePanel 里的模板/排版面板）
+  const [editMode, setEditMode] = useState<EditMode>('click')
   
   // 跟踪编辑状态和保存状态
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
@@ -131,6 +131,16 @@ export default function HTMLWorkspace() {
       setInitialResumeData(JSON.stringify(resumeData))
     }
   }, [])
+
+  // HTML 工作台：派生一份 templateType='html' 的数据传给布局（预览/排版面板/导出按 html 分流），
+  // 不改状态、不写 context，避免 setResumeData 回写 context 触发的渲染期警告；编辑仍走原 resumeData。
+  const htmlResumeData = useMemo(
+    () =>
+      resumeData.templateType === 'html'
+        ? resumeData
+        : { ...resumeData, templateType: 'html' as const },
+    [resumeData],
+  )
 
   // 监听简历数据变化，判断是否有未保存的修改
   useEffect(() => {
@@ -381,9 +391,9 @@ export default function HTMLWorkspace() {
     <WorkspaceLayout
       onDownload={handleDownloadPDF}
     >
-      {/* 编辑 + 预览布局 */}
+      {/* 编辑 + 预览布局（传派生的 html 数据，仅覆盖 templateType，编辑/保存仍走原 resumeData） */}
       <EditPreviewLayout
-        resumeData={resumeData}
+        resumeData={htmlResumeData}
         setResumeData={setResumeData}
         activeSection={activeSection}
         setActiveSection={setActiveSection}
