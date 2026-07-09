@@ -29,8 +29,8 @@ import { Avatar } from '@/components/Avatar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/hooks/useTheme'
 import { canUseAdminFeature, isAgentEnabled } from '@/lib/runtimeEnv'
-import { getSkinOrDefault, setStoredSkin, SKIN_EVENT, type WorkspaceSkin } from '@/lib/skin'
 import { setHeroHandoffImages } from '@/lib/heroHandoff'
+import { SkinPickerModal } from '@/pages/Workspace/v2/components/SkinPickerModal'
 
 /** 微信 logo（Simple Icons 路径），用于「联系我」——点开是微信二维码。 */
 function WechatIcon({ className }: { className?: string }) {
@@ -279,13 +279,8 @@ export default function LandingPage() {
   const agentEnabled = isAgentEnabled()
   // 深色模式功能仅管理员可见/可用，其余用户不展示切换入口
   const canUseDarkMode = isAuthenticated && canUseAdminFeature()
-  // 全站皮肤状态(跟随 SKIN_EVENT 同步,按钮文案用)
-  const [skin, setSkin] = useState<WorkspaceSkin>(getSkinOrDefault)
-  useEffect(() => {
-    const onSkinChange = () => setSkin(getSkinOrDefault())
-    window.addEventListener(SKIN_EVENT, onSkinChange)
-    return () => window.removeEventListener(SKIN_EVENT, onSkinChange)
-  }, [])
+  // 皮肤选择框开关(「网站皮肤」按钮点击弹出,复用工作台 SkinPickerModal)
+  const [showSkinPicker, setShowSkinPicker] = useState(false)
   const reduceMotion = useReducedMotion()
   const [showLogoutMenu, setShowLogoutMenu] = useState(false)
   const [showWechatCard, setShowWechatCard] = useState(false)
@@ -396,17 +391,22 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-1">
-            {/* 全站皮肤切换:Landing 与 Workspace 一起切(同一 localStorage + <html> data-skin) */}
+            {/* 网站皮肤:点击弹出选择框(Landing 与 Workspace 共用同一 localStorage + <html> data-skin) */}
             <button
               type="button"
-              onClick={() => setStoredSkin(skin === 'neo' ? 'fresh' : 'neo')}
+              onClick={() => setShowSkinPicker(true)}
               className="flex items-center gap-1.5 h-9 px-3 border-2 fresh:border border-black fresh:border-slate-200 bg-white text-slate-700 hover:bg-slate-100 active:translate-y-[1px] fresh:active:translate-y-0 active:translate-x-[1px] fresh:active:translate-x-0 active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm"
-              title={skin === 'neo' ? '当前:Neo 风格,点击换清新风格' : '当前:清新风格,点击换 Neo 风格'}
-              aria-label="切换皮肤"
+              title="选择网站皮肤"
+              aria-label="网站皮肤"
             >
               <Palette className="w-4 h-4 shrink-0 text-[#4285F4]" />
-              <span className="text-sm font-mono fresh:font-sans font-bold uppercase fresh:normal-case">{skin === 'neo' ? 'NEO' : '清新'}</span>
+              <span className="text-sm font-mono fresh:font-sans font-bold uppercase fresh:normal-case">网站皮肤</span>
             </button>
+            <SkinPickerModal
+              open={showSkinPicker}
+              onPicked={() => setShowSkinPicker(false)}
+              onClose={() => setShowSkinPicker(false)}
+            />
             {canUseDarkMode && (
               <button
                 type="button"
