@@ -9,6 +9,7 @@ import { cn } from "../../../lib/utils";
 import EditPanel from "./EditPanel";
 import PreviewPanel from "./PreviewPanel";
 import SidePanel from "./SidePanel";
+import SettingsDrawer, { type SettingsDrawerTab } from "./SidePanel/SettingsDrawer";
 import type {
   ResumeData,
   MenuSection,
@@ -176,9 +177,16 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
   );
 
   // 列宽状态
-  const [sidePanelWidth] = useState(300); // 模块选择列宽度（固定）
+  const [sidePanelWidth] = useState(280); // 模块选择列宽度（固定；抽屉方案下轨道收窄 300→280）
   const [editPanelWidth, setEditPanelWidth] = useState(700); // 编辑面板宽度（可拖动调整，范围 400-1400px）
   const [isDragging, setIsDragging] = useState(false);
+
+  // 设置抽屉：null=收起；'template'/'format' 展开对应 tab。点同 tab 收起、异 tab 切换
+  const [settingsDrawer, setSettingsDrawer] = useState<SettingsDrawerTab | null>(null);
+  const toggleSettingsDrawer = useCallback((tab: SettingsDrawerTab) => {
+    setSettingsDrawer((prev) => (prev === tab ? null : tab));
+  }, []);
+  const closeSettingsDrawer = useCallback(() => setSettingsDrawer(null), []);
   const dragStateRef = useRef<{ startX: number; startWidth: number; currentWidth: number } | null>(null);
   const clickEditPanelRef = useRef<HTMLDivElement | null>(null);
 
@@ -242,14 +250,14 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                   menuSections={resumeData.menuSections}
                   activeSection={activeSection}
                   globalSettings={resumeData.globalSettings}
-                  templateType={resumeData.templateType}
-                  onSelectTemplate={handleSelectTemplate}
                   setActiveSection={setActiveSection}
                   toggleSectionVisibility={toggleSectionVisibility}
                   updateMenuSections={updateMenuSections}
                   reorderSections={reorderSections}
                   updateGlobalSettings={updateGlobalSettings}
                   addCustomSection={addCustomSection}
+                  settingsDrawer={settingsDrawer}
+                  onToggleSettingsDrawer={toggleSettingsDrawer}
                 />
               </div>
 
@@ -332,6 +340,19 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
           />
         </div>
       </div>
+
+      {/* 设置抽屉：覆盖层（z-20，低于列宽拖拽遮罩层 z-[9999]），盖住轨道 + EditPanel 左半，预览始终露出 */}
+      <SettingsDrawer
+        activeTab={settingsDrawer}
+        onToggleTab={toggleSettingsDrawer}
+        onClose={closeSettingsDrawer}
+        overlayWidth={sidePanelWidth + 1 + editPanelWidth}
+        trackWidth={sidePanelWidth}
+        templateType={resumeData.templateType}
+        globalSettings={resumeData.globalSettings}
+        onSelectTemplate={handleSelectTemplate}
+        updateGlobalSettings={updateGlobalSettings}
+      />
 
       {/* 拖拽遮罩层：拖动时拦截全屏鼠标事件，避免预览 iframe 抢事件导致宽度回弹 */}
       {isDragging && (
