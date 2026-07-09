@@ -14,6 +14,8 @@ import { useAIImport, useAutoSaveResume, usePDFOperations, useResumeData } from 
 // 组件
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
 import { Header } from './components'
+import SkinPickerModal from './components/SkinPickerModal'
+import { getStoredSkin } from '@/lib/skin'
 import EditPreviewLayout from './EditPreviewLayout'
 import AIImportModal from './shared/AIImportModal'
 import JdOptimizeDialog from './shared/JdOptimizeDialog'
@@ -45,6 +47,8 @@ export default function WorkspaceV2() {
   const [showJdOptimize, setShowJdOptimize] = useState(false)
   const [showTranslate, setShowTranslate] = useState(false)
   const [showHealthCheck, setShowHealthCheck] = useState(false)
+  // 首次进入编辑页且从未选过皮肤时,弹皮肤选择框
+  const [showSkinPicker, setShowSkinPicker] = useState(() => getStoredSkin() === null)
   // 简历数据管理
   const {
     resumeData,
@@ -326,6 +330,9 @@ export default function WorkspaceV2() {
 
   return (
     <WorkspaceLayout>
+      {/* 首次进入且从未选过皮肤:弹选择框 */}
+      <SkinPickerModal open={showSkinPicker} onPicked={() => setShowSkinPicker(false)} />
+
       {/* 装饰头(照搬 Builder 风格):返回链接 + 大标题 + 编辑模式标识 + 简历名 chip,纯展示,不含操作按钮(操作按钮在下方 Header 里,避免重复) */}
       <div className="border-b border-black dark:border-white bg-[#F0F0E8] dark:bg-[#1C1C1C] px-6 py-5 md:px-8 md:py-6 shrink-0">
         <button
