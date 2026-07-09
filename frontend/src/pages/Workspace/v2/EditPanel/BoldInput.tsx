@@ -139,7 +139,7 @@ const BoldInput: React.FC<BoldInputProps> = ({
   return (
     <div className="space-y-2">
       {label && (
-        <label className="font-mono text-xs font-bold text-[#444850] dark:text-neutral-300">
+        <label className="font-mono fresh:font-sans text-xs fresh:text-sm font-bold fresh:font-normal text-[#444850] fresh:text-gray-600 dark:text-neutral-300">
           {label}
         </label>
       )}
@@ -156,10 +156,10 @@ const BoldInput: React.FC<BoldInputProps> = ({
           }}
           data-placeholder={placeholder}
           className={cn(
-            'w-full px-3 py-2 rounded-none border-2 min-h-[38px]',
-            'bg-white border-black text-gray-700',
+            'w-full px-3 py-2 rounded-none fresh:rounded-md border-2 fresh:border min-h-[38px]',
+            'bg-white border-black fresh:border-slate-200 text-gray-700',
             'dark:bg-[#1C1C1C] dark:border-white dark:text-neutral-200',
-            'focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black',
+            'focus:outline-none focus:ring-2 focus:ring-blue-700 fresh:focus:ring-blue-200 focus:border-black fresh:focus:border-blue-400',
             '[&_strong]:font-bold [&_b]:font-bold',
             effectiveControlsLayout === 'overlay' ? (rightActions ? 'pr-40' : 'pr-10') : 'pr-3',
             className
@@ -187,7 +187,7 @@ const BoldInput: React.FC<BoldInputProps> = ({
               onMouseDown={(e) => e.preventDefault()}
               onClick={handleBoldClick}
               className={cn(
-                'p-1.5 rounded-none border transition-colors',
+                'p-1.5 rounded-none fresh:rounded-md border transition-colors',
                 'hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]',
                 'text-gray-600 dark:text-neutral-400',
                 isBold
@@ -209,7 +209,7 @@ const BoldInput: React.FC<BoldInputProps> = ({
             onMouseDown={(e) => e.preventDefault()}
             onClick={handleBoldClick}
             className={cn(
-              'p-1.5 rounded-none border transition-colors',
+              'p-1.5 rounded-none fresh:rounded-md border transition-colors',
               'hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]',
               'text-gray-600 dark:text-neutral-400',
               isBold

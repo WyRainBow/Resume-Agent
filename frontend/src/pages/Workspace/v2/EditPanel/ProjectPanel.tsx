@@ -94,7 +94,7 @@ const ProjectPanel = ({
   return (
     <div
       className={cn(
-        'space-y-4 px-4 py-4 rounded-none',
+        'space-y-4 px-4 py-4 rounded-none fresh:rounded-md',
         'bg-white dark:bg-neutral-900/30'
       )}
     >
@@ -112,7 +112,7 @@ const ProjectPanel = ({
         <button
           onClick={toggleSelectMode}
           className={cn(
-            'px-3 py-2 rounded-none transition-all duration-200 flex items-center gap-1.5 text-sm',
+            'px-3 py-2 rounded-none fresh:rounded-md transition-all duration-200 flex items-center gap-1.5 text-sm',
             selectMode
               ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
               : 'bg-[#F1F2F5] text-gray-600 hover:bg-gray-200 dark:bg-[#2A2A2A] dark:text-neutral-300'
@@ -125,7 +125,7 @@ const ProjectPanel = ({
         {selectMode && selectedIds.size > 0 && (
           <button
             onClick={handleBatchDelete}
-            className="px-3 py-2 rounded-none bg-red-100 text-red-600 hover:bg-red-200 transition-all duration-200 flex items-center gap-1.5 text-sm"
+            className="px-3 py-2 rounded-none fresh:rounded-md bg-red-100 text-red-600 hover:bg-red-200 transition-all duration-200 flex items-center gap-1.5 text-sm"
           >
             <Trash2 className="w-4 h-4" />
             删除({selectedIds.size})
@@ -172,8 +172,8 @@ const ProjectPanel = ({
       <button
         onClick={handleCreate}
         className={cn(
-          'w-full px-4 py-3 rounded-none border-2 border-dashed',
-          'border-black dark:border-white',
+          'w-full px-4 py-3 rounded-none fresh:rounded-md border-2 fresh:border border-dashed',
+          'border-black fresh:border-slate-200 dark:border-white',
           'hover:border-primary hover:bg-primary/5',
           'transition-colors duration-200',
           'flex items-center justify-center gap-2',

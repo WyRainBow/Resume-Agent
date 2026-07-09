@@ -44,10 +44,10 @@ function AwardItem({
   return (
     <div
       className={cn(
-        'rounded-none border overflow-hidden transition-opacity',
+        'rounded-none fresh:rounded-md border overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
         'dark:bg-neutral-900/30 dark:border-white dark:hover:border-primary',
-        'border-black',
+        'border-black fresh:border-slate-200',
         award.visible === false && 'opacity-40'
       )}
     >
@@ -69,7 +69,7 @@ function AwardItem({
                 e.stopPropagation()
                 onUpdate({ ...award, visible: !award.visible })
               }}
-              className={cn('p-1.5 rounded-none', 'hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]')}
+              className={cn('p-1.5 rounded-none fresh:rounded-md', 'hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]')}
             >
               <Eye className={cn('w-4 h-4', award.visible !== false ? 'text-primary' : 'text-gray-300')} />
             </button>
@@ -78,7 +78,7 @@ function AwardItem({
                 e.stopPropagation()
                 onDelete(award.id)
               }}
-              className={cn('p-1.5 rounded-none', 'hover:bg-red-50 dark:hover:bg-red-900/50', 'text-red-600 dark:text-red-400')}
+              className={cn('p-1.5 rounded-none fresh:rounded-md', 'hover:bg-red-50 dark:hover:bg-red-900/50', 'text-red-600 dark:text-red-400')}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -119,10 +119,10 @@ function AwardItem({
                         value={award.issuer || ''}
                         onChange={(e) => handleChange('issuer', e.target.value)}
                         className={cn(
-                          'w-full px-3 py-2 rounded-none border',
-                          'bg-white border-black text-gray-700',
+                          'w-full px-3 py-2 rounded-none fresh:rounded-md border',
+                          'bg-white border-black fresh:border-slate-200 text-gray-700',
                           'dark:bg-[#1C1C1C] dark:border-white dark:text-neutral-200',
-                          'focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black'
+                          'focus:outline-none focus:ring-2 focus:ring-blue-700 fresh:focus:ring-blue-200 focus:border-black fresh:focus:border-blue-400'
                         )}
                       >
                         <option value="">请选择级别</option>
@@ -179,8 +179,8 @@ export default function AwardPanel({
   }
 
   return (
-    <div className={cn('space-y-4 px-4 py-4 rounded-none', 'bg-white dark:bg-neutral-900/30')}>
-      <div className="flex items-center justify-between gap-3 p-3 rounded-none border border-slate-200 dark:border-white bg-white dark:bg-neutral-900/30">
+    <div className={cn('space-y-4 px-4 py-4 rounded-none fresh:rounded-md', 'bg-white dark:bg-neutral-900/30')}>
+      <div className="flex items-center justify-between gap-3 p-3 rounded-none fresh:rounded-md border border-slate-200 dark:border-white bg-white dark:bg-neutral-900/30">
         <div className="text-sm font-medium text-gray-700 dark:text-neutral-200">
           列表样式
         </div>
@@ -189,7 +189,7 @@ export default function AwardPanel({
             type="button"
             onClick={() => onChangeAwardsListType?.('unordered')}
             className={cn(
-              'px-3 py-1.5 rounded-none text-xs font-semibold border transition-colors',
+              'px-3 py-1.5 rounded-none fresh:rounded-md text-xs font-semibold border transition-colors',
               awardsListType === 'unordered'
                 ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-black dark:border-white'
                 : 'bg-white dark:bg-neutral-900/30 text-gray-700 dark:text-neutral-200 border-slate-200 dark:border-white hover:bg-slate-50 dark:hover:bg-neutral-800/60',
@@ -201,7 +201,7 @@ export default function AwardPanel({
             type="button"
             onClick={() => onChangeAwardsListType?.('ordered')}
             className={cn(
-              'px-3 py-1.5 rounded-none text-xs font-semibold border transition-colors',
+              'px-3 py-1.5 rounded-none fresh:rounded-md text-xs font-semibold border transition-colors',
               awardsListType === 'ordered'
                 ? 'bg-slate-900 text-white border-slate-900 dark:bg-white dark:text-black dark:border-white'
                 : 'bg-white dark:bg-neutral-900/30 text-gray-700 dark:text-neutral-200 border-slate-200 dark:border-white hover:bg-slate-50 dark:hover:bg-neutral-800/60',
@@ -215,7 +215,7 @@ export default function AwardPanel({
       {onAIImport && (
         <button
           onClick={onAIImport}
-          className="w-full px-4 py-2 rounded-none bg-white text-black border border-slate-300 hover:bg-slate-50 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] transition-all duration-300 flex items-center justify-center gap-2"
+          className="w-full px-4 py-2 rounded-none fresh:rounded-md bg-white text-black border border-slate-300 hover:bg-slate-50 shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff] transition-all duration-300 flex items-center justify-center gap-2"
         >
           <Wand2 className="w-4 h-4" />
           AI 导入荣誉奖项
@@ -231,8 +231,8 @@ export default function AwardPanel({
       <button
         onClick={handleCreate}
         className={cn(
-          'w-full px-4 py-3 rounded-none border-2 border-dashed',
-          'border-black dark:border-white',
+          'w-full px-4 py-3 rounded-none fresh:rounded-md border-2 fresh:border border-dashed',
+          'border-black fresh:border-slate-200 dark:border-white',
           'hover:border-primary hover:bg-primary/5',
           'transition-colors duration-200',
           'flex items-center justify-center gap-2',

@@ -24,7 +24,7 @@ const SkillPanel = ({ skillContent, onUpdate, onAIImport, resumeData }: SkillPan
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: 'easeOut' }}
       className={cn(
-        'space-y-4 px-4 py-4 rounded-none',
+        'space-y-4 px-4 py-4 rounded-none fresh:rounded-md',
         'bg-white dark:bg-neutral-900/30'
       )}
     >

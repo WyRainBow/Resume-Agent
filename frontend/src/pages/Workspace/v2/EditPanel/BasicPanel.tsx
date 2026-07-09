@@ -43,8 +43,8 @@ function PhotoSlider({
   return (
     <div className="space-y-1">
       <div className="flex items-baseline justify-between gap-2">
-        <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{label}</label>
-        <span className="font-mono text-[11px] text-slate-500 tabular-nums shrink-0">{format(value)}</span>
+        <label className="text-[10px] font-medium text-slate-500 uppercase fresh:normal-case tracking-wide fresh:tracking-normalr fresh:tracking-normal">{label}</label>
+        <span className="font-mono fresh:font-sans text-[11px] text-slate-500 tabular-nums shrink-0">{format(value)}</span>
       </div>
       {hint && <p className="text-[10px] text-slate-400 leading-snug">{hint}</p>}
       <input
@@ -54,7 +54,7 @@ function PhotoSlider({
         step={0.1}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-1 bg-[#E5E5E0] dark:bg-slate-700 rounded-none appearance-none cursor-pointer
+        className="w-full h-1 bg-[#E5E5E0] fresh:bg-slate-100 dark:bg-slate-700 rounded-none fresh:rounded-md appearance-none cursor-pointer
                    [&::-webkit-slider-thumb]:appearance-none
                    [&::-webkit-slider-thumb]:w-3
                    [&::-webkit-slider-thumb]:h-3
@@ -238,11 +238,11 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                     value={birthDateDisplayMode}
                     onChange={(e) => updateGlobalSettings?.({ birthDateDisplayMode: e.target.value as 'birthDate' | 'age' })}
                     className={cn(
-                      'h-11 rounded-none border-2 px-3 text-sm font-semibold',
+                      'h-11 rounded-none fresh:rounded-md border-2 fresh:border px-3 text-sm font-semibold',
                       'bg-white dark:bg-[#1C1C1C]',
-                      'border-black dark:border-white',
+                      'border-black fresh:border-slate-200 dark:border-white',
                       'text-slate-700 dark:text-slate-200',
-                      'focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black'
+                      'focus:outline-none focus:ring-2 focus:ring-blue-700 fresh:focus:ring-blue-200 focus:border-black fresh:focus:border-blue-400'
                     )}
                     title="选择渲染方式"
                   >
@@ -297,7 +297,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
             transition={{ duration: 0.25, delay: 7 * 0.04, ease: 'easeOut' }}
             className="w-full xl:w-[180px] shrink-0"
           >
-            <div className="rounded-none border-2 border-black bg-gradient-to-br from-white to-slate-50 p-4 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]">
+            <div className="rounded-none fresh:rounded-md border-2 fresh:border border-black fresh:border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff]">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm font-semibold text-slate-800">
                   照片设置
@@ -326,10 +326,10 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                 onClick={handleSelectPhoto}
                 disabled={uploading}
                 className={cn(
-                  'w-full h-48 rounded-none border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all',
+                  'w-full h-48 rounded-none fresh:rounded-md border-2 fresh:border border-dashed flex flex-col items-center justify-center gap-2 transition-all',
                   isAuthenticated
-                    ? 'border-black text-slate-400 hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50/60'
-                    : 'border-black text-slate-300',
+                    ? 'border-black fresh:border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50/60'
+                    : 'border-black fresh:border-slate-200 text-slate-300',
                   uploading && 'opacity-60'
                 )}
                 title={isAuthenticated ? '上传照片' : '登录后可上传'}
@@ -338,7 +338,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                   <img
                     src={basic.photo}
                     alt="照片"
-                    className="w-full h-full object-contain rounded-none bg-white"
+                    className="w-full h-full object-contain rounded-none fresh:rounded-md bg-white"
                   />
                 ) : (
                   <>
@@ -357,14 +357,14 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                 <button
                   type="button"
                   onClick={handleToggleGallery}
-                  className="mt-2 w-full py-1.5 rounded-none border border-black bg-white text-xs font-mono font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                  className="mt-2 w-full py-1.5 rounded-none fresh:rounded-md border border-black fresh:border-slate-200 bg-white text-xs font-mono fresh:font-sans font-bold text-slate-700 hover:bg-slate-50 transition-colors"
                 >
                   {galleryOpen ? '收起已上传照片' : '从已上传照片中选择'}
                 </button>
               )}
 
               {galleryOpen && (
-                <div className="mt-2 rounded-none border-2 border-black p-2">
+                <div className="mt-2 rounded-none fresh:rounded-md border-2 fresh:border border-black fresh:border-slate-200 p-2">
                   {galleryLoading ? (
                     <div className="flex items-center justify-center gap-2 py-4 text-xs text-slate-500">
                       <Loader2 className="w-4 h-4 animate-spin" /> 加载中…
@@ -384,10 +384,10 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                               setGalleryOpen(false)
                             }}
                             className={cn(
-                              'aspect-square rounded-none border-2 overflow-hidden bg-white transition-all',
+                              'aspect-square rounded-none fresh:rounded-md border-2 fresh:border overflow-hidden bg-white transition-all',
                               active
-                                ? 'border-blue-700 shadow-[2px_2px_0px_0px_#1d4ed8]'
-                                : 'border-black hover:shadow-[2px_2px_0px_0px_#000000]'
+                                ? 'border-blue-700 shadow-[2px_2px_0px_0px_#1d4ed8] fresh:shadow-sm'
+                                : 'border-black fresh:border-slate-200 hover:shadow-[2px_2px_0px_0px_#000000]'
                             )}
                             title="使用这张照片"
                           >

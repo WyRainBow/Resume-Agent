@@ -87,7 +87,7 @@ const ProjectEditor = ({
             <div className="flex items-center justify-between mb-1">
               <label className="text-xs font-medium text-gray-500 dark:text-neutral-400">项目链接</label>
               {updateGlobalSettings && (
-                <div className="flex items-center gap-1 bg-[#F1F2F5] dark:bg-[#2A2A2A] rounded-none p-0.5">
+                <div className="flex items-center gap-1 bg-[#F1F2F5] dark:bg-[#2A2A2A] rounded-none fresh:rounded-md p-0.5">
                   {([
                     { value: 'below', label: '下方' },
                     { value: 'inline', label: '右侧' },
@@ -137,7 +137,7 @@ const ProjectEditor = ({
                           'px-2 py-0.5 text-[10px] font-medium rounded transition-all border',
                           isActive
                             ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400'
-                            : 'border-black dark:border-white text-gray-400 dark:text-neutral-500 hover:border-black'
+                            : 'border-black fresh:border-slate-200 dark:border-white text-gray-400 dark:text-neutral-500 hover:border-black fresh:hover:border-slate-300'
                         )}
                       >
                         {opt.label}
@@ -234,10 +234,10 @@ const ProjectItem = ({
       dragListener={false}
       dragControls={dragControls}
       className={cn(
-        'rounded-none border-2 overflow-hidden transition-opacity',
+        'rounded-none fresh:rounded-md border-2 fresh:border overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
         'dark:bg-neutral-900/30 dark:border-white dark:hover:border-primary',
-        'border-black',
+        'border-black fresh:border-slate-200',
         !project.visible && 'opacity-40'
       )}
       whileDrag={{ scale: 1.02 }}
@@ -278,7 +278,7 @@ const ProjectItem = ({
               disabled={isUpdating}
               onClick={handleVisibilityToggle}
               className={cn(
-                'p-1.5 rounded-none',
+                'p-1.5 rounded-none fresh:rounded-md',
                 'hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]'
               )}
             >
@@ -292,7 +292,7 @@ const ProjectItem = ({
                 onDelete(project.id)
               }}
               className={cn(
-                'p-1.5 rounded-none',
+                'p-1.5 rounded-none fresh:rounded-md',
                 'hover:bg-red-50 dark:hover:bg-red-900/50',
                 'text-red-600 dark:text-red-400'
               )}
@@ -328,7 +328,7 @@ const ProjectItem = ({
               <div
                 className={cn(
                   'px-4 pb-4 space-y-4',
-                  'border-black dark:border-white'
+                  'border-black fresh:border-slate-200 dark:border-white'
                 )}
                 onClick={(e) => e.stopPropagation()}
               >

@@ -172,7 +172,7 @@ function LogoSelector({
           type="button"
           onClick={() => setOpen(!open)}
           className={cn(
-            'inline-flex h-9 items-center gap-2 rounded-none border-2 px-3 text-xs font-semibold transition-all duration-200',
+            'inline-flex h-9 items-center gap-2 rounded-none fresh:rounded-md border-2 fresh:border px-3 text-xs font-semibold transition-all duration-200',
             selectedKey
               ? 'border-indigo-300/90 bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100 dark:border-indigo-700 dark:bg-indigo-900/20 dark:text-indigo-300'
               : 'border-slate-200 bg-white text-slate-600 hover:border-indigo-300 hover:text-indigo-700 hover:shadow-[2px_2px_0px_0px_#000000] dark:hover:shadow-[2px_2px_0px_0px_#ffffff] dark:border-white dark:bg-[#2A2A2A] dark:text-neutral-300 dark:hover:border-indigo-700 dark:hover:text-indigo-300'
@@ -192,7 +192,7 @@ function LogoSelector({
               e.stopPropagation()
               onClear()
             }}
-            className="rounded-none p-1 transition-colors hover:bg-rose-50 dark:hover:bg-rose-900/30"
+            className="rounded-none fresh:rounded-md p-1 transition-colors hover:bg-rose-50 dark:hover:bg-rose-900/30"
             title="移除 Logo"
           >
             <X className="h-3.5 w-3.5 text-rose-400" />
@@ -208,7 +208,7 @@ function LogoSelector({
             exit={{ opacity: 0, y: -4, scale: 0.95 }}
             transition={{ duration: 0.15 }}
             className={cn(
-              'absolute left-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-none border-2 shadow-[4px_4px_0px_0px_#000000] dark:shadow-[4px_4px_0px_0px_#ffffff]',
+              'absolute left-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-none fresh:rounded-md border-2 fresh:border shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md dark:shadow-[4px_4px_0px_0px_#ffffff]',
               'bg-white/95 backdrop-blur border-slate-200 dark:bg-[#1C1C1C] dark:border-white'
             )}
           >
@@ -220,7 +220,7 @@ function LogoSelector({
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="搜索公司..."
                 autoFocus
-                className="h-10 w-full rounded-none border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/35 dark:border-white dark:bg-[#2A2A2A] dark:text-neutral-200"
+                className="h-10 w-full rounded-none fresh:rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400/35 dark:border-white dark:bg-[#2A2A2A] dark:text-neutral-200"
               />
             </div>
 
@@ -244,7 +244,7 @@ function LogoSelector({
                             setSearch('')
                           }}
                           className={cn(
-                            'flex w-full flex-col items-center gap-1.5 rounded-none p-2.5 text-center transition-all duration-150',
+                            'flex w-full flex-col items-center gap-1.5 rounded-none fresh:rounded-md p-2.5 text-center transition-all duration-150',
                             isSelected
                               ? 'bg-indigo-50 ring-1 ring-indigo-300 dark:bg-indigo-900/30 dark:ring-indigo-700'
                               : 'hover:bg-slate-50 dark:hover:bg-[#2A2A2A]'
@@ -286,7 +286,7 @@ function LogoSelector({
                         onClick={() => fileInputRef.current?.click()}
                         disabled={uploading}
                         className={cn(
-                          'flex flex-col items-center justify-center gap-1.5 rounded-none border-2 border-dashed p-2.5 text-center transition-all',
+                          'flex flex-col items-center justify-center gap-1.5 rounded-none fresh:rounded-md border-2 fresh:border border-dashed p-2.5 text-center transition-all',
                           uploading
                             ? 'cursor-wait border-slate-200 opacity-50 dark:border-neutral-700'
                             : 'cursor-pointer border-slate-200 hover:border-indigo-300 hover:bg-indigo-50/60 dark:border-neutral-700 dark:hover:bg-indigo-900/10'
@@ -397,10 +397,10 @@ const ExperienceEditor = ({
           className={cn('grid gap-4', isCompactLayout ? 'grid-cols-1' : 'grid-cols-2')}
         >
           <div>
-            <div className="mb-2 rounded-none border border-slate-200/80 bg-slate-50/80 p-2.5 dark:border-white dark:bg-neutral-900/50">
+            <div className="mb-2 rounded-none fresh:rounded-md border border-slate-200/80 bg-slate-50/80 p-2.5 dark:border-white dark:bg-neutral-900/50">
               <div className={cn('min-w-0', isCompactLayout ? 'space-y-2' : 'flex items-center gap-2')}>
                 <div className={cn('min-w-0', isCompactLayout ? 'space-y-2' : 'contents')}>
-                  <label className="shrink-0 text-xs font-semibold tracking-wide text-slate-600 dark:text-neutral-300">公司 LOGO：</label>
+                  <label className="shrink-0 text-xs font-semibold tracking-wide fresh:tracking-normal text-slate-600 dark:text-neutral-300">公司 LOGO：</label>
                   <div className={cn(isCompactLayout ? 'flex items-center gap-2' : 'contents')}>
                     <LogoSelector
                       selectedKey={experience.companyLogo}
@@ -412,7 +412,7 @@ const ExperienceEditor = ({
                 </div>
                 {effectiveLogoKey && (
                   <div className={cn(
-                    'min-w-0 rounded-none border border-slate-200 bg-white px-2 py-1 dark:border-white dark:bg-[#2A2A2A]',
+                    'min-w-0 rounded-none fresh:rounded-md border border-slate-200 bg-white px-2 py-1 dark:border-white dark:bg-[#2A2A2A]',
                     isCompactLayout ? 'flex flex-wrap items-center gap-2' : 'flex items-center gap-2'
                   )}>
                     <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">大小</span>
@@ -435,14 +435,14 @@ const ExperienceEditor = ({
                       }}
                       title={`Logo 大小: ${logoSize}px`}
                     />
-                    <span className="inline-flex min-w-[38px] items-center justify-center rounded-none bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
+                    <span className="inline-flex min-w-[38px] items-center justify-center rounded-none fresh:rounded-md bg-indigo-50 px-1.5 py-0.5 text-[11px] font-semibold text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300">
                       {logoSize}px
                     </span>
                     {experience.companyLogoSize && (
                       <button
                         type="button"
                         onClick={() => handleChange('companyLogoSize', undefined)}
-                        className="rounded-none p-0.5 transition-colors hover:bg-slate-100 dark:hover:bg-neutral-700"
+                        className="rounded-none fresh:rounded-md p-0.5 transition-colors hover:bg-slate-100 dark:hover:bg-neutral-700"
                         title="恢复默认大小"
                       >
                         <X className="h-3 w-3 text-slate-400" />
@@ -454,12 +454,12 @@ const ExperienceEditor = ({
             </div>
             {/* 自动匹配提示 */}
             {autoMatchedKey && (
-              <div className="mb-1.5 flex items-center gap-2 rounded-none border border-sky-200/80 bg-gradient-to-r from-sky-50/80 to-cyan-50/80 px-2.5 py-1.5 shadow-sm shadow-sky-100/60 dark:border-sky-800/60 dark:from-sky-900/20 dark:to-cyan-900/10 dark:shadow-none">
-                <div className="flex h-6 w-6 items-center justify-center rounded-none border border-white/80 bg-white/90 dark:border-sky-800/60 dark:bg-[#1C1C1C]">
+              <div className="mb-1.5 flex items-center gap-2 rounded-none fresh:rounded-md border border-sky-200/80 bg-gradient-to-r from-sky-50/80 to-cyan-50/80 px-2.5 py-1.5 shadow-sm shadow-sky-100/60 dark:border-sky-800/60 dark:from-sky-900/20 dark:to-cyan-900/10 dark:shadow-none">
+                <div className="flex h-6 w-6 items-center justify-center rounded-none fresh:rounded-md border border-white/80 bg-white/90 dark:border-sky-800/60 dark:bg-[#1C1C1C]">
                   <img src={getLogoUrl(autoMatchedKey)!} alt="" className="h-4 w-4 object-contain" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-[10px] font-medium uppercase tracking-[0.08em] text-sky-500/90 dark:text-sky-400/80">
+                  <div className="text-[10px] font-medium uppercase fresh:normal-case tracking-[0.08em] text-sky-500/90 dark:text-sky-400/80">
                     Logo 匹配
                   </div>
                   <div className="truncate text-xs font-semibold text-slate-700 dark:text-slate-200">
@@ -469,7 +469,7 @@ const ExperienceEditor = ({
                 <button
                   type="button"
                   onClick={() => handleChange('companyLogo', autoMatchedKey)}
-                  className="inline-flex h-7 items-center rounded-none border border-indigo-200 bg-white px-2.5 text-[11px] font-semibold text-indigo-600 transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-[2px_2px_0px_0px_#000000] dark:hover:shadow-[2px_2px_0px_0px_#ffffff] dark:border-indigo-700/70 dark:bg-[#1C1C1C] dark:text-indigo-300 dark:hover:border-indigo-600"
+                  className="inline-flex h-7 items-center rounded-none fresh:rounded-md border border-indigo-200 bg-white px-2.5 text-[11px] font-semibold text-indigo-600 transition-all hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-[2px_2px_0px_0px_#000000] dark:hover:shadow-[2px_2px_0px_0px_#ffffff] dark:border-indigo-700/70 dark:bg-[#1C1C1C] dark:text-indigo-300 dark:hover:border-indigo-600"
                 >
                   使用
                 </button>
@@ -485,7 +485,7 @@ const ExperienceEditor = ({
               controlsLayout={isCompactLayout ? 'below' : 'overlay'}
               rightActions={updateGlobalSettings ? (
                 <div className={cn(
-                  'flex items-center gap-1.5 rounded-none border border-slate-200 bg-slate-50 px-1.5 py-1 dark:border-white dark:bg-[#2A2A2A]',
+                  'flex items-center gap-1.5 rounded-none fresh:rounded-md border border-slate-200 bg-slate-50 px-1.5 py-1 dark:border-white dark:bg-[#2A2A2A]',
                   isCompactLayout && 'w-fit'
                 )}>
                   <span className="text-[11px] font-medium text-slate-500 dark:text-neutral-400">字号</span>
@@ -570,10 +570,10 @@ const ExperienceItem = ({
       dragListener={false}
       dragControls={dragControls}
       className={cn(
-        'rounded-none border-2 overflow-hidden transition-opacity',
+        'rounded-none fresh:rounded-md border-2 fresh:border overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
         'dark:bg-neutral-900/30 dark:border-white dark:hover:border-primary',
-        'border-black',
+        'border-black fresh:border-slate-200',
         !experience.visible && 'opacity-40'
       )}
       whileDrag={{ scale: 1.02 }}
@@ -616,7 +616,7 @@ const ExperienceItem = ({
             <button
               disabled={isUpdating}
               onClick={handleVisibilityToggle}
-              className={cn('p-1.5 rounded-none', 'hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]')}
+              className={cn('p-1.5 rounded-none fresh:rounded-md', 'hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]')}
             >
               <Eye className={cn('w-4 h-4', experience.visible ? 'text-primary' : 'text-gray-300')} />
             </button>
@@ -626,7 +626,7 @@ const ExperienceItem = ({
                 e.stopPropagation()
                 onDelete(experience.id)
               }}
-              className={cn('p-1.5 rounded-none', 'hover:bg-red-50 dark:hover:bg-red-900/50')}
+              className={cn('p-1.5 rounded-none fresh:rounded-md', 'hover:bg-red-50 dark:hover:bg-red-900/50')}
             >
               <Trash2 className="w-4 h-4 text-red-400" />
             </button>
