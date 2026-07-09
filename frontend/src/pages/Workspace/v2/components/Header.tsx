@@ -113,11 +113,17 @@ export function Header({ saveSuccess, saveStatus, saveError, onGlobalAIImport, o
                 onClick={onSaveToDashboard}
                 disabled={saveSuccess}
                 className={cn(
-                  "px-6 py-2.5 rounded-none text-sm font-bold transition-all duration-300 flex items-center gap-2",
-                  "hover:scale-[1.02] active:scale-[0.98]",
+                  'inline-flex items-center justify-center gap-2',
+                  'whitespace-nowrap text-sm font-medium font-mono uppercase tracking-wide',
+                  'transition-[transform,box-shadow,background-color] duration-100 ease-out',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2',
+                  'disabled:opacity-50',
+                  'rounded-none h-9 px-5',
+                  'border border-black dark:border-white',
+                  'shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]',
                   saveSuccess
-                    ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200 dark:shadow-emerald-900/20"
-                    : "bg-[#F1F2F5] text-slate-900 hover:bg-slate-200 dark:bg-[#2A2A2A] dark:text-slate-100 dark:hover:bg-slate-700"
+                    ? 'bg-green-700 text-white hover:bg-green-800 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none dark:bg-green-700 dark:text-white dark:border-white dark:shadow-[2px_2px_0px_0px_#ffffff]'
+                    : 'bg-[#F0F0E8] text-black dark:bg-[#2A2A2A] dark:text-white dark:border-white dark:shadow-[2px_2px_0px_0px_#ffffff] hover:bg-[#E5E5E0] dark:hover:bg-[#3A3A3A] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none'
                 )}
               >
           {saveSuccess ? (
