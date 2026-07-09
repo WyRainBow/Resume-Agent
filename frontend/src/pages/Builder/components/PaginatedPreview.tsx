@@ -75,8 +75,54 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {/* Controls bar */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-[#878E99] bg-[#E5E5E0] shrink-0">
+      {/* Scrollable preview area */}
+      <div ref={containerRef} className="flex-1 overflow-auto bg-[#F6F3EC] p-6">
+        {/* Hidden measurement container - renders content at actual size */}
+        <div
+          ref={measurementRef}
+          className="absolute opacity-0 pointer-events-none"
+          style={{
+            width: contentArea.width,
+            left: -9999,
+            top: 0,
+          }}
+          aria-hidden="true"
+        >
+          <ResumeRenderer resumeData={resumeData} settings={resumeSettings} />
+        </div>
+
+        {/* Visible pages */}
+        <div className="flex flex-col items-center gap-4">
+          {pages.map((page, index) => (
+            <React.Fragment key={page.pageNumber}>
+              {index > 0 && (
+                <div className="flex items-center gap-2 py-2">
+                  <div className="h-px w-8 bg-[#878E99]" />
+                  <span className="font-mono text-[10px] text-[#878E99] uppercase tracking-wider">
+                    分页
+                  </span>
+                  <div className="h-px w-8 bg-[#878E99]" />
+                </div>
+              )}
+              <PageContainer
+                pageSize={settings.pageSize}
+                margins={settings.margins}
+                pageNumber={page.pageNumber}
+                totalPages={pages.length}
+                scale={zoom}
+                showMarginGuides={showMargins}
+                contentOffset={page.contentOffset}
+                contentEnd={page.contentEnd}
+              >
+                <ResumeRenderer resumeData={resumeData} settings={resumeSettings} themeAware />
+              </PageContainer>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+
+      {/* Controls bar：从预览区顶部挪到渲染区下方（第三列底部） */}
+      <div className="flex items-center justify-between px-4 py-2 border-t border-[#878E99] bg-[#E5E5E0] shrink-0">
         <div className="flex items-center gap-2">
           {/* Zoom controls */}
           <SwissButton
@@ -125,52 +171,6 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
                 ? '1 页'
                 : `${pages.length} 页`}
           </span>
-        </div>
-      </div>
-
-      {/* Scrollable preview area */}
-      <div ref={containerRef} className="flex-1 overflow-auto bg-[#F6F3EC] p-6">
-        {/* Hidden measurement container - renders content at actual size */}
-        <div
-          ref={measurementRef}
-          className="absolute opacity-0 pointer-events-none"
-          style={{
-            width: contentArea.width,
-            left: -9999,
-            top: 0,
-          }}
-          aria-hidden="true"
-        >
-          <ResumeRenderer resumeData={resumeData} settings={resumeSettings} />
-        </div>
-
-        {/* Visible pages */}
-        <div className="flex flex-col items-center gap-4">
-          {pages.map((page, index) => (
-            <React.Fragment key={page.pageNumber}>
-              {index > 0 && (
-                <div className="flex items-center gap-2 py-2">
-                  <div className="h-px w-8 bg-[#878E99]" />
-                  <span className="font-mono text-[10px] text-[#878E99] uppercase tracking-wider">
-                    分页
-                  </span>
-                  <div className="h-px w-8 bg-[#878E99]" />
-                </div>
-              )}
-              <PageContainer
-                pageSize={settings.pageSize}
-                margins={settings.margins}
-                pageNumber={page.pageNumber}
-                totalPages={pages.length}
-                scale={zoom}
-                showMarginGuides={showMargins}
-                contentOffset={page.contentOffset}
-                contentEnd={page.contentEnd}
-              >
-                <ResumeRenderer resumeData={resumeData} settings={resumeSettings} themeAware />
-              </PageContainer>
-            </React.Fragment>
-          ))}
         </div>
       </div>
     </div>

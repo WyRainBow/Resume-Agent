@@ -210,100 +210,6 @@ export function PreviewPanel({
             </div>
           )}
 
-          {/* 缩放 + 边距 + 页数：从预览区底部搬到顶部工具栏，仅 LaTeX 分支且已有 PDF 时展示。
-              样式照搬 Resume-Matcher components/ui/button.tsx 的 ghost/secondary 变体：
-              方角、无底色无边框的 ghost 图标按钮，mono 字体数值，激活态才显示灰底黑边 */}
-          {!isHTMLTemplate && pdfBlob && (
-            <div className="flex items-center gap-1 flex-wrap justify-end">
-              <div className="flex items-center gap-0.5">
-                <button
-                  type="button"
-                  onClick={handleZoomOut}
-                  disabled={effectiveScale <= MIN_SCALE}
-                  className={cn(
-                    'inline-flex items-center justify-center h-8 w-8 rounded-none fresh:rounded-md',
-                    'bg-transparent border-none text-slate-700 dark:text-slate-300',
-                    'hover:bg-slate-100 dark:hover:bg-white/10 transition-colors',
-                    'disabled:opacity-50 disabled:pointer-events-none'
-                  )}
-                  title="缩小"
-                >
-                  <Minus className="w-4 h-4" />
-                </button>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  value={scalePercentInput !== '' ? scalePercentInput : String(displayPercent)}
-                  onChange={(e) => setScalePercentInput(e.target.value)}
-                  onBlur={() => scalePercentInput !== '' && applyPercentInput(scalePercentInput)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.currentTarget.blur()
-                    }
-                  }}
-                  className={cn(
-                    'w-10 text-center font-mono fresh:font-sans text-xs rounded-none fresh:rounded-md bg-transparent border-none',
-                    'text-slate-500 dark:text-slate-400',
-                    'focus:outline-none focus:ring-1 focus:ring-blue-700 fresh:focus:ring-blue-200'
-                  )}
-                  title="点击输入缩放比例（50–250）"
-                />
-                <span className="font-mono fresh:font-sans text-xs text-slate-500 dark:text-slate-400">%</span>
-                <button
-                  type="button"
-                  onClick={handleZoomIn}
-                  disabled={effectiveScale >= MAX_SCALE}
-                  className={cn(
-                    'inline-flex items-center justify-center h-8 w-8 rounded-none fresh:rounded-md',
-                    'bg-transparent border-none text-slate-700 dark:text-slate-300',
-                    'hover:bg-slate-100 dark:hover:bg-white/10 transition-colors',
-                    'disabled:opacity-50 disabled:pointer-events-none'
-                  )}
-                  title="放大"
-                >
-                  <Plus className="w-4 h-4" />
-                </button>
-                {userScale !== null && (
-                  <button
-                    type="button"
-                    onClick={handleFitWidth}
-                    className="ml-1 font-mono fresh:font-sans text-xs text-blue-700 dark:text-blue-400 hover:underline"
-                  >
-                    适应宽度
-                  </button>
-                )}
-              </div>
-
-              <div className="w-px h-5 bg-slate-300 dark:bg-white/20 mx-2" />
-
-              {/* 边距：照搬 Resume-Matcher 的做法——虚线框 + 四角标记叠加在 PDF 页面上，
-                  按当前边距档位（SidePanel 配置）换算比例，随缩放联动 */}
-              <button
-                type="button"
-                onClick={() => setShowMargin((s) => !s)}
-                className={cn(
-                  'inline-flex items-center gap-1.5 h-8 px-2.5 rounded-none fresh:rounded-md font-mono fresh:font-sans text-xs transition-colors',
-                  showMargin
-                    ? 'bg-slate-200 dark:bg-white/10 border border-black fresh:border-slate-200 dark:border-white text-black dark:text-white'
-                    : 'bg-transparent border-none text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
-                )}
-                title="显示/隐藏边距参考线"
-              >
-                {showMargin ? <Eye className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                边距
-              </button>
-
-              <div className="w-px h-5 bg-slate-300 dark:bg-white/20 mx-2" />
-
-              {/* 页数：由 PDFViewer 加载完成后通过 onNumPagesChange 上报 */}
-              <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
-                <FileText className="w-3.5 h-3.5" />
-                <span className="font-mono fresh:font-sans text-xs whitespace-nowrap">
-                  {numPages > 0 ? `共 ${numPages} 页` : '—'}
-                </span>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* 右组:保存 / 皮肤 / 导入 / 导出(原独立整行,现内联到此) */}
@@ -374,7 +280,7 @@ export function PreviewPanel({
             )
           })()
         ) : (
-          // LaTeX 模板：PDF 预览（缩放/边距/页数已挪到顶部工具栏）
+          // LaTeX 模板：PDF 预览（缩放/边距/页数在 PDF 渲染区下方的底部栏）
           <>
             {pdfBlob ? (
               <div className="flex-1 flex flex-col min-h-0 bg-[#F6F3EC] fresh:bg-slate-100 overflow-hidden">
@@ -391,6 +297,96 @@ export function PreviewPanel({
                       showMarginGuides={showMargin}
                       marginRatio={marginRatio}
                     />
+                  </div>
+                </div>
+
+                {/* 缩放 + 边距 + 页数：从顶部工具栏挪到 PDF 渲染区下方（第三列底部） */}
+                <div className="shrink-0 flex items-center justify-center gap-1 flex-wrap px-4 py-2 border-t border-slate-200/50 dark:border-slate-700/50 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={handleZoomOut}
+                      disabled={effectiveScale <= MIN_SCALE}
+                      className={cn(
+                        'inline-flex items-center justify-center h-8 w-8 rounded-none fresh:rounded-md',
+                        'bg-transparent border-none text-slate-700 dark:text-slate-300',
+                        'hover:bg-slate-100 dark:hover:bg-white/10 transition-colors',
+                        'disabled:opacity-50 disabled:pointer-events-none'
+                      )}
+                      title="缩小"
+                    >
+                      <Minus className="w-4 h-4" />
+                    </button>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      value={scalePercentInput !== '' ? scalePercentInput : String(displayPercent)}
+                      onChange={(e) => setScalePercentInput(e.target.value)}
+                      onBlur={() => scalePercentInput !== '' && applyPercentInput(scalePercentInput)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur()
+                        }
+                      }}
+                      className={cn(
+                        'w-10 text-center font-mono fresh:font-sans text-xs rounded-none fresh:rounded-md bg-transparent border-none',
+                        'text-slate-500 dark:text-slate-400',
+                        'focus:outline-none focus:ring-1 focus:ring-blue-700 fresh:focus:ring-blue-200'
+                      )}
+                      title="点击输入缩放比例（50–250）"
+                    />
+                    <span className="font-mono fresh:font-sans text-xs text-slate-500 dark:text-slate-400">%</span>
+                    <button
+                      type="button"
+                      onClick={handleZoomIn}
+                      disabled={effectiveScale >= MAX_SCALE}
+                      className={cn(
+                        'inline-flex items-center justify-center h-8 w-8 rounded-none fresh:rounded-md',
+                        'bg-transparent border-none text-slate-700 dark:text-slate-300',
+                        'hover:bg-slate-100 dark:hover:bg-white/10 transition-colors',
+                        'disabled:opacity-50 disabled:pointer-events-none'
+                      )}
+                      title="放大"
+                    >
+                      <Plus className="w-4 h-4" />
+                    </button>
+                    {userScale !== null && (
+                      <button
+                        type="button"
+                        onClick={handleFitWidth}
+                        className="ml-1 font-mono fresh:font-sans text-xs text-blue-700 dark:text-blue-400 hover:underline"
+                      >
+                        适应宽度
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="w-px h-5 bg-slate-300 dark:bg-white/20 mx-2" />
+
+                  {/* 边距：虚线框 + 四角标记叠加在 PDF 页面上，随缩放联动 */}
+                  <button
+                    type="button"
+                    onClick={() => setShowMargin((s) => !s)}
+                    className={cn(
+                      'inline-flex items-center gap-1.5 h-8 px-2.5 rounded-none fresh:rounded-md font-mono fresh:font-sans text-xs transition-colors',
+                      showMargin
+                        ? 'bg-slate-200 dark:bg-white/10 border border-black fresh:border-slate-200 dark:border-white text-black dark:text-white'
+                        : 'bg-transparent border-none text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
+                    )}
+                    title="显示/隐藏边距参考线"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    边距
+                  </button>
+
+                  <div className="w-px h-5 bg-slate-300 dark:bg-white/20 mx-2" />
+
+                  {/* 页数：由 PDFViewer 加载完成后通过 onNumPagesChange 上报 */}
+                  <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                    <FileText className="w-3.5 h-3.5" />
+                    <span className="font-mono fresh:font-sans text-xs whitespace-nowrap">
+                      {numPages > 0 ? `共 ${numPages} 页` : '—'}
+                    </span>
                   </div>
                 </div>
               </div>
