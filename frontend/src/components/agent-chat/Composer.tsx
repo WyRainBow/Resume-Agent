@@ -87,7 +87,7 @@ export default function Composer({
         className="hidden"
         onChange={onFileChange}
       />
-      <div className="rounded-2xl border border-chat-border bg-chat-surface shadow-sm transition-all focus-within:border-chat-accent/60 focus-within:ring-2 focus-within:ring-chat-accent/15 dark:border-slate-700 dark:bg-slate-800">
+      <div className="rounded-none border-2 border-black bg-chat-surface shadow-[3px_3px_0px_0px_#000000] transition-all focus-within:shadow-[1px_1px_0px_0px_#000000] focus-within:translate-x-[1px] focus-within:translate-y-[1px] dark:border-white dark:shadow-[3px_3px_0px_0px_#ffffff] dark:bg-slate-800">
         {pendingAttachments.length > 0 && (
           <div className="flex flex-wrap gap-2 px-3 pt-3">
             {pendingAttachments.map((file) => {
@@ -95,13 +95,13 @@ export default function Composer({
               return (
                 <div
                   key={`${file.name}-${file.size}-${file.lastModified}`}
-                  className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-chat-border bg-chat-canvas py-1 pl-1 pr-2 text-xs text-chat-ink-muted dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
+                  className="inline-flex max-w-full items-center gap-1.5 rounded-none border border-black bg-chat-canvas py-1 pl-1 pr-2 text-xs text-chat-ink-muted dark:border-slate-600 dark:bg-slate-700 dark:text-slate-200"
                 >
                   {previewUrl ? (
                     <img
                       src={previewUrl}
                       alt={file.name}
-                      className="size-8 shrink-0 rounded object-cover"
+                      className="size-8 shrink-0 rounded-none object-cover"
                     />
                   ) : (
                     <FileText className="ml-1 size-3.5 shrink-0 text-chat-accent" />
@@ -110,7 +110,7 @@ export default function Composer({
                   <button
                     type="button"
                     onClick={() => onRemoveAttachment(file)}
-                    className="rounded p-0.5 text-chat-ink-muted hover:text-chat-ink dark:hover:text-slate-200"
+                    className="rounded-none p-0.5 text-chat-ink-muted hover:text-chat-ink dark:hover:text-slate-200"
                     aria-label="移除已上传文件"
                     title="移除文件"
                   >
@@ -141,10 +141,10 @@ export default function Composer({
               type="button"
               onClick={onClickUpload}
               disabled={isProcessing || isUploadingFile}
-              className={`size-8 rounded-full border flex items-center justify-center transition-all active:scale-95 ${
+              className={`size-8 rounded-none border-2 flex items-center justify-center transition-all active:translate-x-[1px] active:translate-y-[1px] ${
                 isProcessing || isUploadingFile
-                  ? "cursor-not-allowed border-chat-border/60 text-chat-ink-muted/40 dark:border-slate-600 dark:text-slate-500"
-                  : "border-chat-border text-chat-ink-muted hover:border-chat-accent/50 hover:text-chat-accent-deep dark:border-slate-600"
+                  ? "cursor-not-allowed border-black/30 text-chat-ink-muted/40 dark:border-slate-600 dark:text-slate-500"
+                  : "border-black text-chat-ink-muted shadow-[2px_2px_0px_0px_#000000] hover:text-chat-accent-deep hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:border-white dark:shadow-[2px_2px_0px_0px_#ffffff]"
               }`}
               title={isUploadingFile ? "上传中..." : "上传文件"}
               aria-label="上传文件"
@@ -156,12 +156,12 @@ export default function Composer({
               type="button"
               onClick={onShowResumeSelector}
               disabled={isProcessing}
-              className={`h-8 rounded-lg border px-2.5 flex items-center gap-1.5 transition-all active:scale-95 ${
+              className={`h-8 rounded-none border-2 px-2.5 flex items-center gap-1.5 transition-all active:translate-x-[1px] active:translate-y-[1px] ${
                 isProcessing
-                  ? "cursor-not-allowed border-chat-border/60 text-chat-ink-muted/40 dark:border-slate-600 dark:text-slate-500"
+                  ? "cursor-not-allowed border-black/30 text-chat-ink-muted/40 dark:border-slate-600 dark:text-slate-500"
                   : isResumePreviewActive
-                  ? "border-chat-accent/50 bg-chat-canvas text-chat-accent-deep shadow-sm dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-200"
-                  : "border-chat-border text-chat-ink-muted hover:border-chat-accent/50 hover:text-chat-accent-deep dark:border-slate-600"
+                  ? "border-black bg-chat-canvas text-chat-accent-deep shadow-[2px_2px_0px_0px_#000000] dark:border-white dark:bg-amber-500/10 dark:text-amber-200"
+                  : "border-black text-chat-ink-muted shadow-[2px_2px_0px_0px_#000000] hover:text-chat-accent-deep hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:border-white dark:shadow-[2px_2px_0px_0px_#ffffff]"
               }`}
               title="展示简历"
               aria-label="展示简历"
@@ -175,7 +175,7 @@ export default function Composer({
             <button
               type="button"
               onClick={onStop}
-              className="size-8 rounded-full flex items-center justify-center border border-red-500 bg-red-500 text-white shadow-sm transition-all hover:bg-red-600 hover:border-red-600 active:scale-95"
+              className="size-8 rounded-none flex items-center justify-center border-2 border-black bg-red-600 text-white shadow-[2px_2px_0px_0px_#000000] transition-all hover:bg-red-700 hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] active:translate-x-[1px] active:translate-y-[1px] dark:border-white dark:shadow-[2px_2px_0px_0px_#ffffff]"
               title="停止生成"
               aria-label="停止生成"
             >
@@ -189,12 +189,12 @@ export default function Composer({
                 isUploadingFile ||
                 (!input.trim() && pendingAttachments.length === 0)
               }
-              className={`size-8 rounded-full flex items-center justify-center transition-all active:scale-95 shadow-sm ${
+              className={`size-8 rounded-none flex items-center justify-center border-2 transition-all active:translate-x-[1px] active:translate-y-[1px] ${
                 isProcessing ||
                 isUploadingFile ||
                 (!input.trim() && pendingAttachments.length === 0)
-                  ? "cursor-not-allowed border border-chat-border bg-chat-canvas text-chat-ink-muted dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
-                  : "border border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700"
+                  ? "cursor-not-allowed border-black/30 bg-chat-canvas text-chat-ink-muted dark:border-slate-600 dark:bg-slate-700 dark:text-slate-400"
+                  : "border-black bg-chat-accent text-white shadow-[2px_2px_0px_0px_#000000] hover:bg-chat-accent-deep hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:border-white dark:shadow-[2px_2px_0px_0px_#ffffff]"
               }`}
               title="发送消息"
               aria-label="发送消息"

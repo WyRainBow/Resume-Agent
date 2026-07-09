@@ -106,11 +106,11 @@ export default function PortalDropdown({
           })
         }}
         className={cn(
-          'w-full h-8 rounded-lg border px-2 text-left flex items-center justify-between gap-1 transition-all duration-200',
+          'w-full h-8 rounded-none border px-2 text-left flex items-center justify-between gap-1 transition-all duration-200',
           'bg-transparent',
           disabled
             ? 'text-slate-300 cursor-not-allowed'
-            : 'border-transparent text-slate-800 dark:text-slate-200 hover:border-slate-300 dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50',
+            : 'border-transparent text-slate-800 dark:text-slate-200 hover:border-black dark:hover:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800/50',
           triggerClassName
         )}
       >
@@ -150,7 +150,7 @@ export default function PortalDropdown({
           <div id={portalId} className="fixed inset-0 z-[1200]" style={{ pointerEvents: 'none' }}>
             <div
               className={cn(
-                'absolute rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl overflow-hidden',
+                'absolute rounded-none border-2 border-black dark:border-slate-700 bg-white dark:bg-slate-900 shadow-[3px_3px_0px_0px_#000000] dark:shadow-[3px_3px_0px_0px_#ffffff] overflow-hidden',
                 dropdownClassName
               )}
               style={{ top: popupPos.top, left: popupPos.left, width: popupPos.width, maxWidth: 320, pointerEvents: 'auto' }}
@@ -215,11 +215,11 @@ export default function PortalDropdown({
                         onClose?.()
                       }}
                       placeholder={createPlaceholder || '新增...'}
-                      className="flex-1 h-7 border border-slate-300 dark:border-slate-600 rounded px-2 text-xs bg-white dark:bg-slate-900 outline-none focus:border-slate-900 dark:focus:border-slate-100"
+                      className="flex-1 h-7 border border-black dark:border-slate-600 rounded-none px-2 text-xs bg-white dark:bg-slate-900 outline-none focus:border-slate-900 dark:focus:border-slate-100"
                     />
                     <button
                       type="button"
-                      className="h-7 px-2 rounded bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 text-xs font-semibold hover:opacity-90"
+                      className="h-7 px-2 rounded-none border border-black bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 text-xs font-semibold hover:opacity-90"
                       onClick={() => {
                         const created = onCreateOption?.(createValue.trim())
                         if (!created) return

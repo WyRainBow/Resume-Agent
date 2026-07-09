@@ -214,7 +214,7 @@ function SuggestionButtons({
           return (
             <div
               key={idx}
-              className="flex items-center gap-2 rounded-xl border border-chat-accent/40 bg-chat-surface px-4 py-3.5 text-sm font-medium shadow-sm animate-in fade-in slide-in-from-bottom-1 duration-300 dark:border-slate-700 dark:bg-slate-900"
+              className="flex items-center gap-2 rounded-none border-2 border-black bg-chat-surface px-4 py-3.5 text-sm font-medium shadow-[2px_2px_0px_0px_#000000] animate-in fade-in slide-in-from-bottom-1 duration-300 dark:border-white dark:bg-slate-900 dark:shadow-[2px_2px_0px_0px_#ffffff]"
             >
               <span className="whitespace-nowrap text-chat-ink">{parts[0]}</span>
               <input
@@ -229,13 +229,13 @@ function SuggestionButtons({
                   }
                 }}
                 placeholder="输入岗位名称..."
-                className="min-w-[80px] flex-1 rounded-md border border-chat-border bg-chat-canvas px-2 py-1 text-sm focus:border-chat-accent focus:outline-none focus:ring-1 focus:ring-chat-accent/30"
+                className="min-w-[80px] flex-1 rounded-none border border-black bg-chat-canvas px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-chat-accent/30"
               />
               {parts[1] && <span className="whitespace-nowrap text-chat-ink">{parts[1]}</span>}
               <button
                 onClick={() => handleSubmitTemplate(item)}
                 disabled={!templateInput.trim()}
-                className="shrink-0 rounded-lg bg-chat-accent-deep px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-chat-accent-deep/90 disabled:cursor-not-allowed disabled:opacity-40"
+                className="shrink-0 rounded-none border border-black bg-chat-accent-deep px-3 py-1 text-xs font-medium text-white transition-colors hover:bg-chat-accent-deep/90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 发送
               </button>
@@ -254,7 +254,7 @@ function SuggestionButtons({
                 onSuggestionClick?.(item.msg);
               }
             }}
-            className="flex w-full items-center justify-between rounded-xl border border-chat-border bg-chat-surface px-4 py-3.5 text-sm font-medium text-chat-ink transition-all hover:border-chat-accent/50 hover:shadow-sm dark:border-slate-700 dark:bg-slate-900 dark:hover:border-amber-500/30"
+            className="flex w-full items-center justify-between rounded-none border-2 border-black bg-chat-surface px-4 py-3.5 text-sm font-medium text-chat-ink shadow-[2px_2px_0px_0px_#000000] transition-all hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:border-white dark:bg-slate-900 dark:shadow-[2px_2px_0px_0px_#ffffff]"
           >
             <span>{item.text}</span>
             <svg className="ml-3 h-4 w-4 shrink-0 text-chat-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>

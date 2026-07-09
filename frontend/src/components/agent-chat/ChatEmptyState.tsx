@@ -67,9 +67,9 @@ export default function ChatEmptyState({
               key={action.title}
               type="button"
               onClick={action.onClick}
-              className="group flex items-start gap-3 rounded-2xl border border-chat-border bg-chat-surface p-4 text-left transition-all hover:border-chat-accent/50 hover:bg-chat-accent/5 active:scale-[0.99] dark:border-slate-700 dark:bg-slate-800/60 dark:hover:border-amber-500/30 dark:hover:bg-amber-500/10"
+              className="group flex items-start gap-3 rounded-none border-2 border-black bg-chat-surface p-4 text-left shadow-[3px_3px_0px_0px_#000000] transition-all hover:shadow-[1px_1px_0px_0px_#000000] hover:translate-x-[2px] hover:translate-y-[2px] dark:border-white dark:bg-slate-800/60 dark:shadow-[3px_3px_0px_0px_#ffffff]"
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-chat-accent/10 text-chat-accent dark:bg-amber-500/15 dark:text-amber-400">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-none border border-black bg-chat-accent/10 text-chat-accent dark:border-white dark:bg-amber-500/15 dark:text-amber-400">
                 <Icon className="size-[18px]" strokeWidth={2} />
               </span>
               <span className="min-w-0">
