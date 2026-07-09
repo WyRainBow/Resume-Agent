@@ -34,4 +34,19 @@ export const SafeHtml: React.FC<SafeHtmlProps> = ({ html, className, as: Compone
   )
 }
 
+/**
+ * 渲染带内联 **加粗** markdown 的单行字段（公司名 / 职位 / 学校名）。
+ * 编辑区 BoldInput 以 `**文本**` 形式存储加粗，这里转成 <strong> 再走 SafeHtml，
+ * 与后端 LaTeX（latex_utils 的 **→\textbf）保持同一份加粗约定。无 ** 时等价于纯文本。
+ */
+export const InlineBold: React.FC<{
+  text?: string
+  className?: string
+  as?: 'span' | 'div' | 'p'
+}> = ({ text, className, as }) => {
+  if (!text) return null
+  const html = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  return <SafeHtml html={html} className={className} as={as} />
+}
+
 export default SafeHtml

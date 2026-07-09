@@ -23,7 +23,7 @@ import React from 'react'
 import { Mail, Phone, MapPin, Globe, Linkedin, Github, ExternalLink } from 'lucide-react'
 import type { BuilderResumeData, Project, SectionMeta } from '../types'
 import { getSortedSections, formatDateRange, DEFAULT_SECTION_META } from '../types'
-import { SafeHtml } from './SafeHtml'
+import { SafeHtml, InlineBold } from './SafeHtml'
 import baseStyles from './styles/_base.module.css'
 import styles from './styles/swiss-two-column.module.css'
 
@@ -297,7 +297,7 @@ export const ResumeTwoColumn: React.FC<ResumeTwoColumnProps> = ({
                     <div
                       className={`flex justify-between items-baseline ${baseStyles['resume-row-tight']}`}
                     >
-                      <h4 className={baseStyles['resume-item-title-sm']}>{exp.title}</h4>
+                      <h4 className={baseStyles['resume-item-title-sm']}><InlineBold text={exp.title} /></h4>
                       {exp.years && (
                         <span className={`${baseStyles['resume-date']} ml-2`}>
                           {formatDateRange(exp.years)}
@@ -309,7 +309,7 @@ export const ResumeTwoColumn: React.FC<ResumeTwoColumnProps> = ({
                       className={`flex justify-between items-center ${baseStyles['resume-row-tight']} ${baseStyles['resume-item-subtitle-sm']}`}
                     >
                       <span>
-                        {exp.company}
+                        <InlineBold text={exp.company} />
                         {exp.location && <> • {exp.location}</>}
                       </span>
                     </div>
@@ -367,7 +367,7 @@ export const ResumeTwoColumn: React.FC<ResumeTwoColumnProps> = ({
                     <h4
                       className={`${baseStyles['resume-item-title-sm']} ${baseStyles['sidebar-text-wrap']}`}
                     >
-                      {edu.institution}
+                      <InlineBold text={edu.institution} />
                       {edu.years && (
                         <span
                           className={`font-normal ${baseStyles['resume-date']} ${baseStyles['text-muted']}`}

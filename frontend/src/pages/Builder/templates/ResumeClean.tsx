@@ -16,7 +16,7 @@ import React from 'react'
 import { Mail, Phone, MapPin, Globe, Linkedin, Github, ExternalLink } from 'lucide-react'
 import type { BuilderResumeData, Project, SectionMeta } from '../types'
 import { getSortedSections, formatDateRange } from '../types'
-import { SafeHtml } from './SafeHtml'
+import { SafeHtml, InlineBold } from './SafeHtml'
 import baseStyles from './styles/_base.module.css'
 import styles from './styles/clean.module.css'
 
@@ -103,11 +103,11 @@ export const ResumeClean: React.FC<ResumeCleanProps> = ({ data, showContactIcons
         className={`flex justify-between items-baseline gap-3 ${baseStyles['resume-row-tight']}`}
       >
         <span className="min-w-0">
-          <span className={styles.entryCompany}>{primary}</span>
+          <InlineBold as="span" className={styles.entryCompany} text={primary} />
           {role && (
             <>
               <span className={styles.sep}>|</span>
-              <span className={styles.entryRole}>{role}</span>
+              <InlineBold as="span" className={styles.entryRole} text={role} />
             </>
           )}
         </span>

@@ -15,7 +15,7 @@ import React from 'react'
 import { Mail, Phone, Globe, Linkedin, Github, ExternalLink } from 'lucide-react'
 import type { BuilderResumeData, Project, SectionMeta } from '../types'
 import { getSortedSections, formatDateRange } from '../types'
-import { SafeHtml } from './SafeHtml'
+import { SafeHtml, InlineBold } from './SafeHtml'
 import baseStyles from './styles/_base.module.css'
 import styles from './styles/latex.module.css'
 
@@ -98,12 +98,12 @@ export const ResumeLatex: React.FC<ResumeLatexProps> = ({ data, showContactIcons
   ) => (
     <>
       <div className={`flex justify-between items-baseline ${baseStyles['resume-row-tight']}`}>
-        <span className={styles.entryPrimary}>{primary}</span>
+        <InlineBold as="span" className={styles.entryPrimary} text={primary} />
         {dates && <span className={`${styles.entryDates} ml-4`}>{formatDateRange(dates)}</span>}
       </div>
       {(secondary || location) && (
         <div className={`flex justify-between items-baseline ${baseStyles['resume-row']}`}>
-          {secondary && <span className={styles.entrySecondary}>{secondary}</span>}
+          {secondary && <InlineBold as="span" className={styles.entrySecondary} text={secondary} />}
           {location && <span className={`${styles.entrySecondary} ml-4`}>{location}</span>}
         </div>
       )}

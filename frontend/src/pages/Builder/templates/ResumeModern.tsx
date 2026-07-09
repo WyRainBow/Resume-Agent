@@ -17,7 +17,7 @@ import React from 'react'
 import { Mail, Phone, MapPin, Globe, Linkedin, Github, ExternalLink } from 'lucide-react'
 import type { BuilderResumeData, Project, SectionMeta } from '../types'
 import { getSortedSections, formatDateRange } from '../types'
-import { SafeHtml } from './SafeHtml'
+import { SafeHtml, InlineBold } from './SafeHtml'
 import baseStyles from './styles/_base.module.css'
 import styles from './styles/modern.module.css'
 
@@ -205,7 +205,7 @@ export const ResumeModern: React.FC<ResumeModernProps> = ({ data, showContactIco
                   <div
                     className={`flex justify-between items-baseline ${baseStyles['resume-row-tight']}`}
                   >
-                    <h4 className={baseStyles['resume-item-title']}>{exp.title}</h4>
+                    <h4 className={baseStyles['resume-item-title']}><InlineBold text={exp.title} /></h4>
                     <span className={`${baseStyles['resume-date']} ml-4`}>
                       {formatDateRange(exp.years)}
                     </span>
@@ -213,7 +213,7 @@ export const ResumeModern: React.FC<ResumeModernProps> = ({ data, showContactIco
                   <div
                     className={`flex justify-between items-center ${baseStyles['resume-row']} ${baseStyles['resume-item-subtitle']}`}
                   >
-                    <span>{exp.company}</span>
+                    <InlineBold as="span" text={exp.company} />
                     {exp.location && <span>{exp.location}</span>}
                   </div>
                   {renderBullets(exp.description)}
@@ -252,7 +252,7 @@ export const ResumeModern: React.FC<ResumeModernProps> = ({ data, showContactIco
                   <div
                     className={`flex justify-between items-baseline ${baseStyles['resume-row-tight']}`}
                   >
-                    <h4 className={baseStyles['resume-item-title']}>{edu.institution}</h4>
+                    <h4 className={baseStyles['resume-item-title']}><InlineBold text={edu.institution} /></h4>
                     <span className={`${baseStyles['resume-date']} ml-4`}>
                       {formatDateRange(edu.years)}
                     </span>
