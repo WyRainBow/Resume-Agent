@@ -95,7 +95,8 @@ export const ResumeClean: React.FC<ResumeCleanProps> = ({ data, showContactIcons
     primary?: string,
     role?: string,
     location?: string,
-    dates?: string
+    dates?: string,
+    primaryWeightControlled?: boolean
   ) => {
     const meta = [location, dates ? formatDateRange(dates) : undefined].filter(Boolean).join(' | ')
     return (
@@ -103,7 +104,7 @@ export const ResumeClean: React.FC<ResumeCleanProps> = ({ data, showContactIcons
         className={`flex justify-between items-baseline gap-3 ${baseStyles['resume-row-tight']}`}
       >
         <span className="min-w-0">
-          <InlineBold as="span" className={styles.entryCompany} text={primary} />
+          <InlineBold as="span" className={styles.entryCompany} text={primary} weightControlled={primaryWeightControlled} />
           {role && (
             <>
               <span className={styles.sep}>|</span>
@@ -230,7 +231,7 @@ export const ResumeClean: React.FC<ResumeCleanProps> = ({ data, showContactIcons
             <div className={baseStyles['resume-items']}>
               {workExperience.map((exp) => (
                 <div key={exp.id} className={baseStyles['resume-item']}>
-                  {renderEntryHeader(exp.company, exp.title, exp.location, exp.years)}
+                  {renderEntryHeader(exp.company, exp.title, exp.location, exp.years, true)}
                   {renderBullets(exp.description)}
                 </div>
               ))}
@@ -347,7 +348,8 @@ const DynamicResumeSectionClean: React.FC<{
     primary?: string,
     role?: string,
     location?: string,
-    dates?: string
+    dates?: string,
+    primaryWeightControlled?: boolean
   ) => React.ReactNode
 }> = ({ sectionMeta, resumeData, renderBullets, renderEntryHeader }) => {
   const customSection = resumeData.customSections?.[sectionMeta.key]

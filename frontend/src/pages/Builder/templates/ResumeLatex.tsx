@@ -94,11 +94,12 @@ export const ResumeLatex: React.FC<ResumeLatexProps> = ({ data, showContactIcons
     primary?: string,
     dates?: string,
     secondary?: string,
-    location?: string
+    location?: string,
+    primaryWeightControlled?: boolean
   ) => (
     <>
       <div className={`flex justify-between items-baseline ${baseStyles['resume-row-tight']}`}>
-        <InlineBold as="span" className={styles.entryPrimary} text={primary} />
+        <InlineBold as="span" className={styles.entryPrimary} text={primary} weightControlled={primaryWeightControlled} />
         {dates && <span className={`${styles.entryDates} ml-4`}>{formatDateRange(dates)}</span>}
       </div>
       {(secondary || location) && (
@@ -225,7 +226,7 @@ export const ResumeLatex: React.FC<ResumeLatexProps> = ({ data, showContactIcons
             <div className={baseStyles['resume-items']}>
               {workExperience.map((exp) => (
                 <div key={exp.id} className={baseStyles['resume-item']}>
-                  {renderEntryHeader(exp.company, exp.years, exp.title, exp.location)}
+                  {renderEntryHeader(exp.company, exp.years, exp.title, exp.location, true)}
                   {renderBullets(exp.description)}
                 </div>
               ))}

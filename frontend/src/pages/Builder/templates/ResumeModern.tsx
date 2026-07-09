@@ -213,7 +213,7 @@ export const ResumeModern: React.FC<ResumeModernProps> = ({ data, showContactIco
                   <div
                     className={`flex justify-between items-center ${baseStyles['resume-row']} ${baseStyles['resume-item-subtitle']}`}
                   >
-                    <InlineBold as="span" text={exp.company} />
+                    <InlineBold as="span" text={exp.company} weightControlled />
                     {exp.location && <span>{exp.location}</span>}
                   </div>
                   {renderBullets(exp.description)}

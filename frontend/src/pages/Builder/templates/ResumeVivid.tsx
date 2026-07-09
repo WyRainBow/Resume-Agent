@@ -250,7 +250,7 @@ export const ResumeVivid: React.FC<ResumeVividProps> = ({ data, showContactIcons
                     className={`flex justify-between items-baseline ${baseStyles['resume-row-tight']}`}
                   >
                     <span>
-                      <InlineBold as="span" className={styles.entryCompany} text={exp.company} />
+                      <InlineBold as="span" className={styles.entryCompany} text={exp.company} weightControlled />
                       {exp.title && (
                         <>
                           <span className={styles.entrySep}>|</span>

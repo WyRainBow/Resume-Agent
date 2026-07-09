@@ -309,7 +309,7 @@ export const ResumeTwoColumn: React.FC<ResumeTwoColumnProps> = ({
                       className={`flex justify-between items-center ${baseStyles['resume-row-tight']} ${baseStyles['resume-item-subtitle-sm']}`}
                     >
                       <span>
-                        <InlineBold text={exp.company} />
+                        <InlineBold text={exp.company} weightControlled />
                         {exp.location && <> • {exp.location}</>}
                       </span>
                     </div>

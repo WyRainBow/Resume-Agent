@@ -12,6 +12,8 @@ interface SafeHtmlProps {
   className?: string
   /** Render as a different element (default: span) */
   as?: 'span' | 'div' | 'p'
+  /** 内联样式（用于强制字重等，优先级高于 class） */
+  style?: React.CSSProperties
 }
 
 /**
@@ -19,7 +21,7 @@ interface SafeHtmlProps {
  * Only allows: <strong>, <em>, <u>, <a> tags.
  * Used in resume templates to render formatted bullet points.
  */
-export const SafeHtml: React.FC<SafeHtmlProps> = ({ html, className, as: Component = 'span' }) => {
+export const SafeHtml: React.FC<SafeHtmlProps> = ({ html, className, as: Component = 'span', style }) => {
   if (!html) {
     return null
   }
@@ -28,7 +30,8 @@ export const SafeHtml: React.FC<SafeHtmlProps> = ({ html, className, as: Compone
 
   return (
     <Component
-      className={['[&_a]:text-inherit [&_a]:underline', className].filter(Boolean).join(' ')}
+      className={['[&_a]:text-inherit [&_a]:underline [&_strong]:font-bold', className].filter(Boolean).join(' ')}
+      style={style}
       dangerouslySetInnerHTML={{ __html: cleanHtml }}
     />
   )
@@ -38,15 +41,27 @@ export const SafeHtml: React.FC<SafeHtmlProps> = ({ html, className, as: Compone
  * 渲染带内联 **加粗** markdown 的单行字段（公司名 / 职位 / 学校名）。
  * 编辑区 BoldInput 以 `**文本**` 形式存储加粗，这里转成 <strong> 再走 SafeHtml，
  * 与后端 LaTeX（latex_utils 的 **→\textbf）保持同一份加粗约定。无 ** 时等价于纯文本。
+ *
+ * weightControlled：字段本身由 class 写死了粗体（如公司名），此时非加粗态和加粗态视觉无
+ * 差别。打开后用内联 font-weight:normal 压过 class，让「未加粗=常规、加粗=<strong> 粗体」
+ * 真正可区分。仅用于带加粗开关的字段，不影响项目名等默认加粗的字段。
  */
 export const InlineBold: React.FC<{
   text?: string
   className?: string
   as?: 'span' | 'div' | 'p'
-}> = ({ text, className, as }) => {
+  weightControlled?: boolean
+}> = ({ text, className, as, weightControlled }) => {
   if (!text) return null
   const html = text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  return <SafeHtml html={html} className={className} as={as} />
+  return (
+    <SafeHtml
+      html={html}
+      className={className}
+      as={as}
+      style={weightControlled ? { fontWeight: 'normal' } : undefined}
+    />
+  )
 }
 
 export default SafeHtml
