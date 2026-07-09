@@ -17,6 +17,7 @@ from .semantic_search import router as semantic_search_router
 from .admin import router as admin_router
 from .leetcode import router as leetcode_router
 from .billing import router as billing_router
+from .email_credential import router as email_credential_router
 
 # TTS 路由（优先使用 edge-tts，如果不可用则尝试 Coqui TTS）
 try:
@@ -53,4 +54,5 @@ __all__ = [
     'admin_router',
     'leetcode_router',
     'billing_router',
+    'email_credential_router',
 ]
