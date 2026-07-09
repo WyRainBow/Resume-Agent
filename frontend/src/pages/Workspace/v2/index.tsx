@@ -333,28 +333,30 @@ export default function WorkspaceV2() {
       {/* 首次进入且从未选过皮肤:弹选择框 */}
       <SkinPickerModal open={showSkinPicker} onPicked={() => setShowSkinPicker(false)} />
 
-      {/* 装饰头(照搬 Builder 风格):返回链接 + 大标题 + 编辑模式标识 + 简历名 chip,纯展示,不含操作按钮(操作按钮在下方 Header 里,避免重复) */}
-      <div className="border-b border-black fresh:border-slate-200 dark:border-white bg-[#F0F0E8] fresh:bg-slate-50 dark:bg-[#1C1C1C] px-6 py-5 md:px-8 md:py-6 shrink-0">
+      {/* 装饰头(照搬 Builder 风格):返回链接 + 大标题,标题与「编辑模式+名字」同一行(横向紧凑,压高度不减气势),纯展示,操作按钮在下方 Header 里 */}
+      <div className="border-b border-black fresh:border-slate-200 dark:border-white bg-[#F0F0E8] fresh:bg-slate-50 dark:bg-[#1C1C1C] px-6 py-3 md:px-8 shrink-0">
         <button
           type="button"
           onClick={() => navigate('/my-resumes')}
-          className="inline-flex items-center gap-1.5 mb-2 -ml-1 px-1 font-mono fresh:font-sans text-xs font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal text-blue-700 hover:underline"
+          className="inline-flex items-center gap-1.5 mb-1 -ml-1 px-1 font-mono fresh:font-sans text-xs font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal text-blue-700 hover:underline"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           返回 Dashboard
         </button>
-        <h1 className="font-serif text-3xl md:text-5xl text-black dark:text-white tracking-tight leading-[0.95] uppercase fresh:normal-case">
-          Resume Builder
-        </h1>
-        <div className="mt-3 flex items-center gap-3 flex-wrap">
-          <p className="text-sm font-mono fresh:font-sans text-blue-700 uppercase fresh:normal-case tracking-wide fresh:tracking-normal font-bold">
-            {'// '}编辑模式
-          </p>
-          {resumeData?.basic?.name && (
-            <span className="font-mono fresh:font-sans text-xs text-[#444850] fresh:text-gray-600 dark:text-neutral-300 border border-black fresh:border-slate-200 dark:border-white bg-white dark:bg-[#2A2A2A] px-2 py-1">
-              {resumeData.basic.name}
-            </span>
-          )}
+        <div className="flex items-baseline gap-4 flex-wrap">
+          <h1 className="font-serif text-3xl md:text-4xl text-black dark:text-white tracking-tight leading-none uppercase fresh:normal-case">
+            Resume Builder
+          </h1>
+          <div className="flex items-center gap-3">
+            <p className="text-sm font-mono fresh:font-sans text-blue-700 uppercase fresh:normal-case tracking-wide fresh:tracking-normal font-bold">
+              {'// '}编辑模式
+            </p>
+            {resumeData?.basic?.name && (
+              <span className="font-mono fresh:font-sans text-xs text-[#444850] fresh:text-gray-600 dark:text-neutral-300 border border-black fresh:border-slate-200 dark:border-white bg-white dark:bg-[#2A2A2A] px-2 py-1">
+                {resumeData.basic.name}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
