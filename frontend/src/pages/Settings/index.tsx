@@ -18,7 +18,7 @@ import { useTheme } from '@/hooks/useTheme'
 import type { Theme } from '@/lib/theme'
 import { cn } from '@/lib/utils'
 import { getAuthHeaders } from '@/lib/authHeaders'
-import { getApiBaseUrl } from '@/lib/runtimeEnv'
+import { canUseAdminFeature, getApiBaseUrl } from '@/lib/runtimeEnv'
 import {
   getPDFExportPreferences,
   setPDFExportPreferences,
@@ -98,6 +98,8 @@ export default function SettingsPage() {
   const roleFromToken = getRoleFromToken()
   const [liveRole, setLiveRole] = useState<string>('')
   const { theme, setTheme } = useTheme()
+  // 深色模式功能仅管理员可见/可用
+  const canUseDarkMode = isAuthenticated && canUseAdminFeature()
 
   // 从 /api/auth/me 实时读 role（用 getApiBaseUrl 确保经过 BetterAuth 代理层）
   useEffect(() => {
@@ -256,6 +258,7 @@ export default function SettingsPage() {
             </div>
           </Card>
 
+          {canUseDarkMode && (
           <Card icon={<Palette className="w-4 h-4" />} title="主题" desc="切换工作区外观主题。">
             <div className="flex flex-wrap gap-2">
               {[
@@ -282,6 +285,7 @@ export default function SettingsPage() {
               })}
             </div>
           </Card>
+          )}
 
           <Card icon={<Languages className="w-4 h-4" />} title="语言" desc="设置系统展示语言。">
             <select

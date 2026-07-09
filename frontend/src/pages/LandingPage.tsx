@@ -27,7 +27,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Avatar } from '@/components/Avatar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/hooks/useTheme'
-import { isAgentEnabled } from '@/lib/runtimeEnv'
+import { canUseAdminFeature, isAgentEnabled } from '@/lib/runtimeEnv'
 import { setHeroHandoffImages } from '@/lib/heroHandoff'
 
 /** 微信 logo（Simple Icons 路径），用于「联系我」——点开是微信二维码。 */
@@ -275,6 +275,8 @@ export default function LandingPage() {
   const { isAuthenticated, user, logout, openModal } = useAuth()
   const { isDark, setTheme } = useTheme()
   const agentEnabled = isAgentEnabled()
+  // 深色模式功能仅管理员可见/可用，其余用户不展示切换入口
+  const canUseDarkMode = isAuthenticated && canUseAdminFeature()
   const reduceMotion = useReducedMotion()
   const [showLogoutMenu, setShowLogoutMenu] = useState(false)
   const [showWechatCard, setShowWechatCard] = useState(false)
@@ -385,14 +387,16 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setTheme(isDark ? 'light' : 'dark')}
-              className="flex items-center justify-center w-9 h-9 border-2 border-black bg-white text-slate-700 hover:bg-slate-100 active:translate-y-[1px] active:translate-x-[1px] active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000]"
-              title={isDark ? '切换到浅色模式' : '切换到深色模式'}
-            >
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
+            {canUseDarkMode && (
+              <button
+                type="button"
+                onClick={() => setTheme(isDark ? 'light' : 'dark')}
+                className="flex items-center justify-center w-9 h-9 border-2 border-black bg-white text-slate-700 hover:bg-slate-100 active:translate-y-[1px] active:translate-x-[1px] active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000]"
+                title={isDark ? '切换到浅色模式' : '切换到深色模式'}
+              >
+                {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+            )}
             <div className="relative hidden md:block" ref={wechatMenuRef}>
               <button
                 type="button"

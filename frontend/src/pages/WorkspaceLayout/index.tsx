@@ -482,8 +482,8 @@ export default function WorkspaceLayout({
 
         {/* 底部：主题切换 + 登录组件（与导航风格统一） */}
         <div className="py-4 px-3 border-t-2 border-black dark:border-white">
-          {/* 深色 / 浅色切换：登录态下移入用户下拉，未登录时保留此处 */}
-          {!isAuthenticated && (
+          {/* 深色 / 浅色切换：仅管理员可见（登录态下移入用户下拉，未登录时保留此处） */}
+          {!isAuthenticated && canUseAdminFeature() && (
             <button
               type="button"
               onClick={() => setTheme(isDark ? "light" : "dark")}
@@ -588,17 +588,19 @@ export default function WorkspaceLayout({
                         <Settings className="w-4 h-4 shrink-0" />
                         个人设置
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setTheme(isDark ? "light" : "dark")}
-                        className={cn(
-                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-none text-sm font-mono font-bold uppercase tracking-wide transition-all",
-                          "text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
-                        )}
-                      >
-                        {isDark ? <Sun className="w-4 h-4 shrink-0" /> : <Moon className="w-4 h-4 shrink-0" />}
-                        {isDark ? "浅色模式" : "深色模式"}
-                      </button>
+                      {canUseAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => setTheme(isDark ? "light" : "dark")}
+                          className={cn(
+                            "w-full flex items-center gap-2.5 px-3 py-2 rounded-none text-sm font-mono font-bold uppercase tracking-wide transition-all",
+                            "text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
+                          )}
+                        >
+                          {isDark ? <Sun className="w-4 h-4 shrink-0" /> : <Moon className="w-4 h-4 shrink-0" />}
+                          {isDark ? "浅色模式" : "深色模式"}
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => {
