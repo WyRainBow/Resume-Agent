@@ -21,9 +21,13 @@ import baseStyles from './styles/_base.module.css'
 interface ResumeRendererProps {
   resumeData: BuilderResumeData
   settings?: TemplateSettings
+  /** 屏幕可视预览用：深色模式下纸张跟随反色（黑底浅字）。
+   * 导出用的离屏容器（html2pdf 抓取源）绝不能传 true——导出必须始终是
+   * 印刷标准的白底黑字，与当前是否深色模式无关。 */
+  themeAware?: boolean
 }
 
-export const ResumeRenderer: React.FC<ResumeRendererProps> = ({ resumeData, settings }) => {
+export const ResumeRenderer: React.FC<ResumeRendererProps> = ({ resumeData, settings, themeAware = false }) => {
   const mergedSettings: TemplateSettings = {
     ...DEFAULT_TEMPLATE_SETTINGS,
     ...settings,
@@ -37,7 +41,9 @@ export const ResumeRenderer: React.FC<ResumeRendererProps> = ({ resumeData, sett
 
   return (
     <div
-      className={`${baseStyles['resume-body']} bg-white text-black w-full mx-auto resume-template-${mergedSettings.template}`}
+      className={`${baseStyles['resume-body']} bg-white text-black w-full mx-auto resume-template-${mergedSettings.template} ${
+        themeAware ? 'dark:bg-transparent dark:text-[#f5f5f5]' : ''
+      }`}
       style={cssVars}
     >
       {mergedSettings.template === 'swiss-single' && (
