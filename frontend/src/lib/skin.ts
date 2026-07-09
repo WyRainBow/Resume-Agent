@@ -22,9 +22,15 @@ export function getSkinOrDefault(): WorkspaceSkin {
   return getStoredSkin() ?? 'neo'
 }
 
+/** 皮肤属性挂 <html>(与深色模式的 .dark 同级),Landing/Workspace 全站统一生效 */
+export function applySkinAttr(skin: WorkspaceSkin): void {
+  document.documentElement.setAttribute('data-skin', skin)
+}
+
 export function setStoredSkin(skin: WorkspaceSkin): void {
   try {
     localStorage.setItem(SKIN_KEY, skin)
   } catch {}
+  applySkinAttr(skin)
   window.dispatchEvent(new CustomEvent(SKIN_EVENT, { detail: skin }))
 }

@@ -19,7 +19,8 @@ import {
   CornerDownLeft,
   Clock,
   Frown,
-  Upload
+  Upload,
+  Palette,
 } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 import type { ReactNode } from 'react'
@@ -28,6 +29,7 @@ import { Avatar } from '@/components/Avatar'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/hooks/useTheme'
 import { canUseAdminFeature, isAgentEnabled } from '@/lib/runtimeEnv'
+import { getSkinOrDefault, setStoredSkin, SKIN_EVENT, type WorkspaceSkin } from '@/lib/skin'
 import { setHeroHandoffImages } from '@/lib/heroHandoff'
 
 /** 微信 logo（Simple Icons 路径），用于「联系我」——点开是微信二维码。 */
@@ -202,7 +204,7 @@ function CommandBar() {
     return () => clearInterval(t)
   }, [])
   return (
-    <div className="relative mt-4 border-2 border-black bg-white px-3.5 py-2.5 flex items-center gap-2.5">
+    <div className="relative mt-4 border-2 fresh:border border-black fresh:border-slate-200 bg-white px-3.5 py-2.5 flex items-center gap-2.5">
       <span className="inline-block h-2 w-2 bg-[#1a73e8] shrink-0" />
       <div className="flex-1 min-w-0 relative h-5 overflow-hidden">
         <AnimatePresence mode="wait">
@@ -218,7 +220,7 @@ function CommandBar() {
           </motion.span>
         </AnimatePresence>
       </div>
-      <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono text-slate-500 border border-black px-1.5 py-0.5 shrink-0">
+      <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-mono fresh:font-sans text-slate-500 border border-black fresh:border-slate-200 px-1.5 py-0.5 shrink-0">
         <CornerDownLeft className="w-3 h-3" />
         回车
       </span>
@@ -229,14 +231,14 @@ function CommandBar() {
 // PDF 导出卡内的迷你简历预览条（结构化 hairline 简历骨架，非 div fake screenshot）
 function PdfPreview() {
   return (
-    <div className="mt-5 border-2 border-black bg-white p-4">
+    <div className="mt-5 border-2 fresh:border border-black fresh:border-slate-200 bg-white p-4">
       <div className="grid grid-cols-12 gap-x-4 gap-y-3 text-slate-700">
-        <div className="col-span-12 flex items-end justify-between border-b border-black pb-3">
+        <div className="col-span-12 flex items-end justify-between border-b border-black fresh:border-slate-200 pb-3">
           <div>
             <div className="h-3 w-28 bg-black" />
             <div className="mt-1.5 h-2 w-20 bg-slate-400" />
           </div>
-          <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-500">
+          <div className="flex items-center gap-1.5 text-[10px] font-mono fresh:font-sans text-slate-500">
             <span className="inline-block h-1.5 w-1.5 bg-[#1a73e8]" />
             A4 · 1 页
           </div>
@@ -277,6 +279,13 @@ export default function LandingPage() {
   const agentEnabled = isAgentEnabled()
   // 深色模式功能仅管理员可见/可用，其余用户不展示切换入口
   const canUseDarkMode = isAuthenticated && canUseAdminFeature()
+  // 全站皮肤状态(跟随 SKIN_EVENT 同步,按钮文案用)
+  const [skin, setSkin] = useState<WorkspaceSkin>(getSkinOrDefault)
+  useEffect(() => {
+    const onSkinChange = () => setSkin(getSkinOrDefault())
+    window.addEventListener(SKIN_EVENT, onSkinChange)
+    return () => window.removeEventListener(SKIN_EVENT, onSkinChange)
+  }, [])
   const reduceMotion = useReducedMotion()
   const [showLogoutMenu, setShowLogoutMenu] = useState(false)
   const [showWechatCard, setShowWechatCard] = useState(false)
@@ -375,23 +384,34 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F3EC] bg-[linear-gradient(rgba(10,10,10,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(10,10,10,0.05)_1px,transparent_1px)] bg-[size:32px_32px] text-slate-900 font-hero antialiased selection:bg-[#D7E7FF] selection:text-[#0a0a0a]">
+    <div className="min-h-screen bg-[#F6F3EC] fresh:bg-slate-50 bg-[linear-gradient(rgba(10,10,10,0.05)_1px,transparent_1px),linear-gradient(90deg,rgba(10,10,10,0.05)_1px,transparent_1px)] fresh:bg-none bg-[size:32px_32px] text-slate-900 font-hero antialiased selection:bg-[#D7E7FF] selection:text-[#0a0a0a]">
       {/* 顶部导航 - neo-brutalist 风格 */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 bg-[#F6F3EC] border-b-[1.5px] border-black transition-all duration-300`}>
+      <nav className={`fixed top-0 left-0 right-0 z-50 bg-[#F6F3EC] fresh:bg-slate-50 border-b-[1.5px] fresh:border-b border-black fresh:border-slate-200 transition-all duration-300`}>
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between h-14">
           <div className="flex items-center gap-2.5 cursor-pointer group shrink-0 min-w-0" onClick={() => navigate('/')}>
-            <div className="w-9 h-9 bg-[#4285F4] flex items-center justify-center border border-black shadow-[2px_2px_0px_0px_#000000] group-hover:translate-x-[1px] group-hover:translate-y-[1px] group-hover:shadow-none transition-all shrink-0">
-              <span className="text-white font-mono font-black text-sm italic">RA</span>
+            <div className="w-9 h-9 bg-[#4285F4] flex items-center justify-center border border-black fresh:border-slate-200 shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm group-hover:translate-x-[1px] group-hover:translate-y-[1px] group-hover:shadow-none transition-all shrink-0">
+              <span className="text-white font-mono fresh:font-sans font-black text-sm italic">RA</span>
             </div>
-            <span className="text-black font-mono font-bold text-base uppercase tracking-wide">Resume.AI</span>
+            <span className="text-black font-mono fresh:font-sans font-bold text-base uppercase fresh:normal-case tracking-wide fresh:tracking-normal">Resume.AI</span>
           </div>
 
           <div className="flex items-center gap-1">
+            {/* 全站皮肤切换:Landing 与 Workspace 一起切(同一 localStorage + <html> data-skin) */}
+            <button
+              type="button"
+              onClick={() => setStoredSkin(skin === 'neo' ? 'fresh' : 'neo')}
+              className="flex items-center gap-1.5 h-9 px-3 border-2 fresh:border border-black fresh:border-slate-200 bg-white text-slate-700 hover:bg-slate-100 active:translate-y-[1px] fresh:active:translate-y-0 active:translate-x-[1px] fresh:active:translate-x-0 active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm"
+              title={skin === 'neo' ? '当前:Neo 风格,点击换清新风格' : '当前:清新风格,点击换 Neo 风格'}
+              aria-label="切换皮肤"
+            >
+              <Palette className="w-4 h-4 shrink-0 text-[#4285F4]" />
+              <span className="text-sm font-mono fresh:font-sans font-bold uppercase fresh:normal-case">{skin === 'neo' ? 'NEO' : '清新'}</span>
+            </button>
             {canUseDarkMode && (
               <button
                 type="button"
                 onClick={() => setTheme(isDark ? 'light' : 'dark')}
-                className="flex items-center justify-center w-9 h-9 border-2 border-black bg-white text-slate-700 hover:bg-slate-100 active:translate-y-[1px] active:translate-x-[1px] active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000]"
+                className="flex items-center justify-center w-9 h-9 border-2 fresh:border border-black fresh:border-slate-200 bg-white text-slate-700 hover:bg-slate-100 active:translate-y-[1px] fresh:active:translate-y-0 active:translate-x-[1px] fresh:active:translate-x-0 active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm"
                 title={isDark ? '切换到浅色模式' : '切换到深色模式'}
               >
                 {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -401,10 +421,10 @@ export default function LandingPage() {
               <button
                 type="button"
                 onClick={() => setShowWechatCard((prev) => !prev)}
-                className="flex items-center gap-2 h-9 px-3 border-2 border-black bg-white text-slate-700 hover:bg-slate-100 active:translate-y-[1px] active:translate-x-[1px] active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000]"
+                className="flex items-center gap-2 h-9 px-3 border-2 fresh:border border-black fresh:border-slate-200 bg-white text-slate-700 hover:bg-slate-100 active:translate-y-[1px] fresh:active:translate-y-0 active:translate-x-[1px] fresh:active:translate-x-0 active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm"
               >
                 <WechatIcon className="w-4 h-4 shrink-0 text-[#07C160]" />
-                <span className="text-sm font-mono font-bold uppercase">联系我</span>
+                <span className="text-sm font-mono fresh:font-sans font-bold uppercase fresh:normal-case">联系我</span>
               </button>
               <AnimatePresence>
                 {showWechatCard && (
@@ -413,9 +433,9 @@ export default function LandingPage() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 8 }}
                     transition={{ duration: 0.15 }}
-                    className="absolute right-0 top-full z-50 mt-2 w-[220px] border-2 border-black bg-white shadow-[4px_4px_0px_0px_#000000]"
+                    className="absolute right-0 top-full z-50 mt-2 w-[220px] border-2 fresh:border border-black fresh:border-slate-200 bg-white shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md"
                   >
-                    <div className="p-4 border-b-2 border-black">
+                    <div className="p-4 border-b-2 border-black fresh:border-slate-200">
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <div className="text-sm font-bold">联系我</div>
@@ -449,35 +469,35 @@ export default function LandingPage() {
               href={REPO_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-black text-white hover:bg-slate-800 active:translate-y-[1px] active:translate-x-[1px] active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000]"
+              className="hidden md:flex items-center gap-2 h-9 px-3 border-2 fresh:border border-black fresh:border-slate-200 bg-black text-white hover:bg-slate-800 active:translate-y-[1px] fresh:active:translate-y-0 active:translate-x-[1px] fresh:active:translate-x-0 active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm"
             >
               <Github className="w-4 h-4 shrink-0" />
               {githubStars !== null && (
-                <span className="tabular-nums text-sm font-mono font-bold tracking-tight">{githubStars.toLocaleString()}</span>
+                <span className="tabular-nums text-sm font-mono fresh:font-sans font-bold tracking-tight">{githubStars.toLocaleString()}</span>
               )}
             </a>
             {agentEnabled && (
               <button
                 type="button"
                 onClick={handleOpenAgent}
-className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[#D7E7FF] text-black hover:bg-[#bcdaff] active:translate-y-[1px] active:translate-x-[1px] active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000]"
+className="hidden md:flex items-center gap-2 h-9 px-3 border-2 fresh:border border-black fresh:border-slate-200 bg-[#D7E7FF] text-black hover:bg-[#bcdaff] active:translate-y-[1px] fresh:active:translate-y-0 active:translate-x-[1px] fresh:active:translate-x-0 active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm"
             >
               <Sparkles className="w-4 h-4 shrink-0" />
-              <span className="text-sm font-mono font-bold uppercase">AI 助手</span>
+              <span className="text-sm font-mono fresh:font-sans font-bold uppercase fresh:normal-case">AI 助手</span>
             </button>
             )}
             <button
               type="button"
               onClick={() => navigate('/changelog')}
-              className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-white text-slate-700 hover:bg-slate-100 active:translate-y-[1px] active:translate-x-[1px] active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000]"
+              className="hidden md:flex items-center gap-2 h-9 px-3 border-2 fresh:border border-black fresh:border-slate-200 bg-white text-slate-700 hover:bg-slate-100 active:translate-y-[1px] fresh:active:translate-y-0 active:translate-x-[1px] fresh:active:translate-x-0 active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm"
             >
               <Clock className="w-4 h-4 shrink-0" />
-              <span className="text-sm font-mono font-bold uppercase">更新</span>
+              <span className="text-sm font-mono fresh:font-sans font-bold uppercase fresh:normal-case">更新</span>
             </button>
             <button
               type="button"
               onClick={() => navigate('/my-resumes')}
-              className="h-9 inline-flex items-center justify-center px-4 sm:px-5 border-2 border-black bg-white text-slate-900 font-mono font-bold hover:bg-slate-100 active:translate-y-[1px] active:translate-x-[1px] active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000]"
+              className="h-9 inline-flex items-center justify-center px-4 sm:px-5 border-2 fresh:border border-black fresh:border-slate-200 bg-white text-slate-900 font-mono fresh:font-sans font-bold hover:bg-slate-100 active:translate-y-[1px] fresh:active:translate-y-0 active:translate-x-[1px] fresh:active:translate-x-0 active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm"
             >
               我的简历
             </button>
@@ -489,8 +509,8 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
       <section className="relative pt-28 pb-16 px-6">
         <div className="max-w-4xl mx-auto text-center">
           {/* 超大 serif 标题 + mono 标签 */}
-          <motion.div {...popIn} className="border-2 border-black bg-[#fffdf8] p-8 shadow-[6px_6px_0px_0px_#000000] dark:border-white dark:bg-slate-900 dark:shadow-[6px_6px_0px_0px_#ffffff]">
-            <div className="mb-5 inline-flex bg-[#D7E7FF] px-2 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-[#1a73e8]">
+          <motion.div {...popIn} className="border-2 fresh:border border-black fresh:border-slate-200 bg-[#fffdf8] p-8 shadow-[6px_6px_0px_0px_#000000] fresh:shadow-lg dark:border-white dark:bg-slate-900 dark:shadow-[6px_6px_0px_0px_#ffffff]">
+            <div className="mb-5 inline-flex bg-[#D7E7FF] px-2 py-1 text-[10px] font-black uppercase fresh:normal-case tracking-[0.06em] text-[#1a73e8]">
               // AI RESUME PLATFORM
             </div>
             <motion.h1
@@ -515,17 +535,17 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
               transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1], delay: 0.24 }}
               className="mt-6 max-w-2xl mx-auto"
             >
-              <form onSubmit={handleHeroSubmit} className="relative border-2 border-black bg-white shadow-[4px_4px_0px_0px_#000000] focus-within:shadow-[2px_2px_0px_0px_#000000] focus-within:translate-x-[2px] focus-within:translate-y-[2px] transition-all dark:border-white dark:bg-slate-900 dark:shadow-[4px_4px_0px_0px_#ffffff] dark:focus-within:shadow-[2px_2px_0px_0px_#ffffff] dark:focus-within:translate-x-[2px] dark:focus-within:translate-y-[2px]">
+              <form onSubmit={handleHeroSubmit} className="relative border-2 fresh:border border-black fresh:border-slate-200 bg-white shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md focus-within:shadow-[2px_2px_0px_0px_#000000] focus-within:translate-x-[2px] focus-within:translate-y-[2px] transition-all dark:border-white dark:bg-slate-900 dark:shadow-[4px_4px_0px_0px_#ffffff] dark:focus-within:shadow-[2px_2px_0px_0px_#ffffff] dark:focus-within:translate-x-[2px] dark:focus-within:translate-y-[2px]">
                 {heroImages.length > 0 && (
                   <div className="flex flex-wrap gap-2 px-4 pt-4">
                     {heroImages.map((file, i) => (
-                      <div key={i} className="relative h-16 w-16 overflow-hidden border border-black dark:border-white">
+                      <div key={i} className="relative h-16 w-16 overflow-hidden border border-black fresh:border-slate-200 dark:border-white">
                         <img src={URL.createObjectURL(file)} alt="粘贴的简历截图" className="h-full w-full object-cover" />
                         <button
                           type="button"
                           aria-label="移除图片"
                           onClick={() => removeHeroImage(i)}
-                          className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center border border-black bg-white text-black hover:bg-red-500 hover:text-white dark:border-white dark:bg-slate-900 dark:text-white dark:hover:bg-red-500"
+                          className="absolute right-0.5 top-0.5 flex h-4 w-4 items-center justify-center border border-black fresh:border-slate-200 bg-white text-black hover:bg-red-500 hover:text-white dark:border-white dark:bg-slate-900 dark:text-white dark:hover:bg-red-500"
                         >
                           <X className="h-2.5 w-2.5" />
                         </button>
@@ -551,7 +571,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
                   type="submit"
                   aria-label="开始"
                   disabled={!heroInput.trim() && heroImages.length === 0}
-                  className="absolute right-3 bottom-3 h-11 w-11 flex items-center justify-center border-2 border-black bg-[#D7E7FF] text-black hover:bg-[#bcdaff] disabled:opacity-40 disabled:cursor-not-allowed transition-all active:translate-x-[1px] active:translate-y-[1px] active:shadow-none dark:border-white"
+                  className="absolute right-3 bottom-3 h-11 w-11 flex items-center justify-center border-2 fresh:border border-black fresh:border-slate-200 bg-[#D7E7FF] text-black hover:bg-[#bcdaff] disabled:opacity-40 disabled:cursor-not-allowed transition-all active:translate-x-[1px] fresh:active:translate-x-0 active:translate-y-[1px] fresh:active:translate-y-0 active:shadow-none dark:border-white"
                 >
                   <ArrowUpRight className="w-5 h-5" strokeWidth={2.5} />
                 </button>
@@ -563,7 +583,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
                     key={chip}
                     type="button"
                     onClick={() => (chip === JD_OPTIMIZE_CHIP ? startJdOptimize() : startWithText(chip))}
-                    className="px-3.5 py-1.5 border-2 border-black bg-white text-xs font-mono text-slate-700 hover:bg-slate-100 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000] dark:border-white dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                    className="px-3.5 py-1.5 border-2 fresh:border border-black fresh:border-slate-200 bg-white text-xs font-mono fresh:font-sans text-slate-700 hover:bg-slate-100 active:translate-x-[1px] fresh:active:translate-x-0 active:translate-y-[1px] fresh:active:translate-y-0 active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:border-white dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:shadow-[2px_2px_0px_0px_#ffffff]"
                   >
                     {chip}
                   </button>
@@ -573,7 +593,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
               <div className="mt-7">
                 <div className="mb-3 flex items-center justify-center gap-3">
                   <span className="h-px w-8 bg-slate-300 dark:bg-slate-600" />
-                  <span className="text-xs font-mono font-bold tracking-wide text-slate-400 dark:text-slate-500">
+                  <span className="text-xs font-mono fresh:font-sans font-bold tracking-wide fresh:tracking-normal text-slate-400 dark:text-slate-500">
                     已有简历？无需 AI，直接开始
                   </span>
                   <span className="h-px w-8 bg-slate-300 dark:bg-slate-600" />
@@ -582,7 +602,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
                   <button
                     type="button"
                     onClick={() => navigate('/create-new')}
-                    className="inline-flex items-center gap-2 px-6 py-3.5 border-2 border-black bg-white text-slate-900 font-bold text-base hover:bg-[#D7E7FF] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[4px_4px_0px_0px_#000000] dark:border-white dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800 dark:shadow-[4px_4px_0px_0px_#ffffff]"
+                    className="inline-flex items-center gap-2 px-6 py-3.5 border-2 fresh:border border-black fresh:border-slate-200 bg-white text-slate-900 font-bold text-base hover:bg-[#D7E7FF] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md dark:border-white dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800 dark:shadow-[4px_4px_0px_0px_#ffffff]"
                   >
                     <Upload className="w-5 h-5" strokeWidth={2.5} />
                     直接导入
@@ -590,7 +610,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
                   <button
                     type="button"
                     onClick={() => navigate('/my-resumes')}
-                    className="inline-flex items-center gap-2 px-6 py-3.5 border-2 border-black bg-white text-slate-900 font-bold text-base hover:bg-[#D7E7FF] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[4px_4px_0px_0px_#000000] dark:border-white dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800 dark:shadow-[4px_4px_0px_0px_#ffffff]"
+                    className="inline-flex items-center gap-2 px-6 py-3.5 border-2 fresh:border border-black fresh:border-slate-200 bg-white text-slate-900 font-bold text-base hover:bg-[#D7E7FF] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md dark:border-white dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800 dark:shadow-[4px_4px_0px_0px_#ffffff]"
                   >
                     <FileText className="w-5 h-5" strokeWidth={2.5} />
                     选择已有简历
@@ -606,7 +626,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
             >
               <button
                 onClick={() => navigate('/create-new')}
-                className="px-7 py-3.5 border-2 border-black bg-[#D7E7FF] text-black font-bold text-base hover:bg-[#bcdaff] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[4px_4px_0px_0px_#000000]"
+                className="px-7 py-3.5 border-2 fresh:border border-black fresh:border-slate-200 bg-[#D7E7FF] text-black font-bold text-base hover:bg-[#bcdaff] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md"
               >
                 开始创建
                 <ChevronRight className="inline w-5 h-5 ml-2" strokeWidth={2.5} />
@@ -629,10 +649,10 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
       </section>
 
       {/* 痛点区 */}
-      <section className="px-6 pt-12 pb-16 bg-[#EFE9F8] border-y-[1.5px] border-black">
+      <section className="px-6 pt-12 pb-16 bg-[#EFE9F8] border-y-[1.5px] border-black fresh:border-slate-200">
         <div className="max-w-5xl mx-auto">
           <motion.div {...reveal} className="max-w-2xl mb-10">
-            <div className="mb-3 inline-flex bg-[#D7E7FF] px-2 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-[#1a73e8]">
+            <div className="mb-3 inline-flex bg-[#D7E7FF] px-2 py-1 text-[10px] font-black uppercase fresh:normal-case tracking-[0.06em] text-[#1a73e8]">
               // PAIN POINTS
             </div>
             <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-black dark:text-white">
@@ -653,9 +673,9 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.3 }}
                   transition={{ duration: 0.55, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                  className="border border-black bg-white p-6 dark:border-white dark:bg-slate-900"
+                  className="border border-black fresh:border-slate-200 bg-white p-6 dark:border-white dark:bg-slate-900"
                 >
-                  <div className="flex items-center justify-center w-10 h-10 border-2 border-black bg-slate-100 mb-4 dark:border-white dark:bg-slate-800">
+                  <div className="flex items-center justify-center w-10 h-10 border-2 fresh:border border-black fresh:border-slate-200 bg-slate-100 mb-4 dark:border-white dark:bg-slate-800">
                     <Icon className="w-5 h-5 text-slate-600 dark:text-slate-300" />
                   </div>
                   <h3 className="text-base font-bold text-black dark:text-white">{pain.title}</h3>
@@ -668,10 +688,10 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
       </section>
 
       {/* 能力区域 - bento 网格 */}
-      <section className="px-6 pt-16 pb-16 bg-[#EAF8E0] border-y-[1.5px] border-black">
+      <section className="px-6 pt-16 pb-16 bg-[#EAF8E0] border-y-[1.5px] border-black fresh:border-slate-200">
         <div className="max-w-5xl mx-auto">
           <motion.div {...reveal} className="max-w-2xl mb-10">
-            <div className="mb-3 inline-flex bg-[#D7E7FF] px-2 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-[#1a73e8]">
+            <div className="mb-3 inline-flex bg-[#D7E7FF] px-2 py-1 text-[10px] font-black uppercase fresh:normal-case tracking-[0.06em] text-[#1a73e8]">
               // CAPABILITIES
             </div>
             <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-black dark:text-white">
@@ -693,12 +713,12 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.3 }}
                   transition={{ duration: 0.55, delay: i * 0.05, ease: [0.16, 1, 0.3, 1] }}
-                  className={`${cap.span} border border-black p-6 bg-white dark:border-white dark:bg-slate-900 ${
+                  className={`${cap.span} border border-black fresh:border-slate-200 p-6 bg-white dark:border-white dark:bg-slate-900 ${
                     isHero ? 'bg-[#D7E7FF] dark:bg-[#D7E7FF]/80' : ''
                   }`}
                 >
-                  <div className={`flex items-center justify-center w-10 h-10 border-2 border-black mb-4 ${
-                    isHero ? 'bg-black text-[#1a73e8] border-black' : 'bg-[#4285F4] text-white border-black'
+                  <div className={`flex items-center justify-center w-10 h-10 border-2 fresh:border border-black fresh:border-slate-200 mb-4 ${
+                    isHero ? 'bg-black text-[#1a73e8] border-black fresh:border-slate-200' : 'bg-[#4285F4] text-white border-black fresh:border-slate-200'
                   }`}>
                     <Icon className="w-5 h-5" strokeWidth={2.5} />
                   </div>
@@ -714,10 +734,10 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
       </section>
 
       {/* 使用流程区：三步 */}
-      <section className="px-6 py-16 bg-[#fffdf8] border-y-[1.5px] border-black dark:border-white">
+      <section className="px-6 py-16 bg-[#fffdf8] border-y-[1.5px] border-black fresh:border-slate-200 dark:border-white">
         <div className="max-w-5xl mx-auto">
           <motion.div {...reveal} className="max-w-2xl mb-10">
-            <div className="mb-3 inline-flex bg-[#D7E7FF] px-2 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-[#1a73e8]">
+            <div className="mb-3 inline-flex bg-[#D7E7FF] px-2 py-1 text-[10px] font-black uppercase fresh:normal-case tracking-[0.06em] text-[#1a73e8]">
               // WORKFLOW
             </div>
             <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-black dark:text-white">
@@ -738,10 +758,10 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.3 }}
                   transition={{ duration: 0.55, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                  className="border border-black bg-white p-6 dark:border-white dark:bg-slate-900"
+                  className="border border-black fresh:border-slate-200 bg-white p-6 dark:border-white dark:bg-slate-900"
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center justify-center w-11 h-11 border-2 border-black bg-[#D7E7FF] text-black dark:border-white">
+                    <div className="flex items-center justify-center w-11 h-11 border-2 fresh:border border-black fresh:border-slate-200 bg-[#D7E7FF] text-black dark:border-white">
                       <Icon className="w-5 h-5" strokeWidth={2.5} />
                     </div>
                     <span className="text-4xl font-serif font-black text-[#1a73e8] leading-none select-none" style={{ WebkitTextStroke: '1.5px #0a0a0a' }}>
@@ -761,7 +781,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
       <section className="px-6 py-16">
         <div className="max-w-3xl mx-auto">
           <motion.div {...reveal} className="mb-10">
-            <div className="mb-3 inline-flex bg-[#D7E7FF] px-2 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-[#1a73e8]">
+            <div className="mb-3 inline-flex bg-[#D7E7FF] px-2 py-1 text-[10px] font-black uppercase fresh:normal-case tracking-[0.06em] text-[#1a73e8]">
               // FAQ
             </div>
             <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-black dark:text-white">
@@ -769,7 +789,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
             </h2>
           </motion.div>
 
-          <div className="border-2 border-black dark:border-white">
+          <div className="border-2 fresh:border border-black fresh:border-slate-200 dark:border-white">
             {FAQ_ITEMS.map((item, i) => {
               const open = openFaq === i
               return (
@@ -778,7 +798,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
                     type="button"
                     onClick={() => setOpenFaq(open ? null : i)}
                     aria-expanded={open}
-                    className="w-full flex items-center justify-between gap-4 py-5 px-6 text-left border-b border-black dark:border-white last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
+                    className="w-full flex items-center justify-between gap-4 py-5 px-6 text-left border-b border-black fresh:border-slate-200 dark:border-white last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-900 transition-colors"
                   >
                     <span className="text-[15px] sm:text-base font-bold text-black dark:text-white">
                       {item.q}
@@ -813,10 +833,10 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
       <section className="px-6 pb-16">
         <motion.div
           {...reveal}
-          className="max-w-5xl mx-auto border-2 border-black bg-[#D7E7FF] shadow-[6px_6px_0px_0px_#000000]"
+          className="max-w-5xl mx-auto border-2 fresh:border border-black fresh:border-slate-200 bg-[#D7E7FF] shadow-[6px_6px_0px_0px_#000000] fresh:shadow-lg"
         >
           <div className="p-10 sm:p-14 text-center">
-            <div className="mb-3 inline-flex bg-black px-2 py-1 text-[10px] font-black uppercase tracking-[0.06em] text-[#1a73e8]">
+            <div className="mb-3 inline-flex bg-black px-2 py-1 text-[10px] font-black uppercase fresh:normal-case tracking-[0.06em] text-[#1a73e8]">
               // READY?
             </div>
             <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-black">
@@ -828,7 +848,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
               <button
                 onClick={() => navigate('/create-new')}
-                className="w-full sm:w-auto px-7 py-3.5 border-2 border-black bg-black text-white font-bold text-base hover:bg-slate-800 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[4px_4px_0px_0px_#0a0a0a]"
+                className="w-full sm:w-auto px-7 py-3.5 border-2 fresh:border border-black fresh:border-slate-200 bg-black text-white font-bold text-base hover:bg-slate-800 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[4px_4px_0px_0px_#0a0a0a] fresh:shadow-md"
               >
                 开始创建
                 <ChevronRight className="inline w-5 h-5 ml-2" strokeWidth={2.5} />
@@ -837,7 +857,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
                 href={REPO_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto px-7 py-3.5 border-2 border-black bg-white text-black font-bold text-base hover:bg-slate-100 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[4px_4px_0px_0px_#0a0a0a]"
+                className="w-full sm:w-auto px-7 py-3.5 border-2 fresh:border border-black fresh:border-slate-200 bg-white text-black font-bold text-base hover:bg-slate-100 active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[4px_4px_0px_0px_#0a0a0a] fresh:shadow-md"
               >
                 <Github className="inline w-5 h-5 mr-2" />
                 GitHub 点个 Star
@@ -848,31 +868,31 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
       </section>
 
       {/* 底部信息 */}
-      <footer className="border-t-[1.5px] border-black dark:border-white px-6 py-8 bg-[#F6F3EC]">
+      <footer className="border-t-[1.5px] border-black fresh:border-slate-200 dark:border-white px-6 py-8 bg-[#F6F3EC] fresh:bg-slate-50">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-[#4285F4] flex items-center justify-center border border-black shrink-0">
-              <span className="text-white font-mono font-black text-xs italic">RA</span>
+            <div className="w-8 h-8 bg-[#4285F4] flex items-center justify-center border border-black fresh:border-slate-200 shrink-0">
+              <span className="text-white font-mono fresh:font-sans font-black text-xs italic">RA</span>
             </div>
-            <span className="text-sm font-mono font-bold text-black dark:text-white">Resume.AI</span>
+            <span className="text-sm font-mono fresh:font-sans font-bold text-black dark:text-white">Resume.AI</span>
             <span className="text-sm text-slate-500 dark:text-slate-400">公益 AI 简历制作</span>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
             <Link
               to="/terms"
-              className="text-sm font-mono text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition-colors"
+              className="text-sm font-mono fresh:font-sans text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition-colors"
             >
               服务条款
             </Link>
             <Link
               to="/privacy"
-              className="text-sm font-mono text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition-colors"
+              className="text-sm font-mono fresh:font-sans text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition-colors"
             >
               隐私政策
             </Link>
             <Link
               to="/refund"
-              className="text-sm font-mono text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition-colors"
+              className="text-sm font-mono fresh:font-sans text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition-colors"
             >
               退款政策
             </Link>
@@ -880,7 +900,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
               href={REPO_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-sm font-mono text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition-colors"
+              className="inline-flex items-center gap-2 text-sm font-mono fresh:font-sans text-slate-500 dark:text-slate-400 hover:text-black dark:hover:text-white transition-colors"
             >
               <Github className="w-4 h-4" />
               开源于 GitHub
@@ -893,7 +913,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
             href="https://beian.miit.gov.cn"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs font-mono text-slate-400 dark:text-slate-500 hover:text-black dark:hover:text-white transition-colors"
+            className="text-xs font-mono fresh:font-sans text-slate-400 dark:text-slate-500 hover:text-black dark:hover:text-white transition-colors"
           >
             粤ICP备2026011127号
           </a>
@@ -911,7 +931,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
         {isAuthenticated ? (
           <div className="relative">
             <div
-              className="flex items-center gap-2.5 pl-2 pr-4 py-2 border-2 border-black bg-white cursor-pointer hover:bg-slate-100 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000]"
+              className="flex items-center gap-2.5 pl-2 pr-4 py-2 border-2 fresh:border border-black fresh:border-slate-200 bg-white cursor-pointer hover:bg-slate-100 active:translate-x-[1px] fresh:active:translate-x-0 active:translate-y-[1px] fresh:active:translate-y-0 active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm"
               onClick={() => setShowLogoutMenu(!showLogoutMenu)}
             >
               <Avatar
@@ -921,7 +941,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
                 className="w-8 h-8"
                 textClassName="text-sm"
               />
-              <span className="text-sm font-mono font-bold text-black max-w-[150px] truncate">
+              <span className="text-sm font-mono fresh:font-sans font-bold text-black max-w-[150px] truncate">
                 {user?.username || user?.email}
               </span>
             </div>
@@ -934,7 +954,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -10, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute bottom-full left-0 mb-2 min-w-[140px] border-2 border-black bg-white shadow-[4px_4px_0px_0px_#000000]"
+                  className="absolute bottom-full left-0 mb-2 min-w-[140px] border-2 fresh:border border-black fresh:border-slate-200 bg-white shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md"
                 >
                   <button
                     type="button"
@@ -955,12 +975,12 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
           <button
             type="button"
             onClick={() => openModal('login')}
-            className="flex items-center gap-2.5 pl-2 pr-5 py-2 border-2 border-black bg-white hover:bg-slate-100 active:translate-x-[1px] active:translate-y-[1px] active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000]"
+            className="flex items-center gap-2.5 pl-2 pr-5 py-2 border-2 fresh:border border-black fresh:border-slate-200 bg-white hover:bg-slate-100 active:translate-x-[1px] fresh:active:translate-x-0 active:translate-y-[1px] fresh:active:translate-y-0 active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm"
           >
-            <span className="w-8 h-8 border-2 border-black bg-[#4285F4] flex items-center justify-center shrink-0">
+            <span className="w-8 h-8 border-2 fresh:border border-black fresh:border-slate-200 bg-[#4285F4] flex items-center justify-center shrink-0">
               <LogIn className="w-4 h-4 text-white" strokeWidth={2.5} />
             </span>
-            <span className="text-sm font-mono font-bold text-black">登录 / 注册</span>
+            <span className="text-sm font-mono fresh:font-sans font-bold text-black">登录 / 注册</span>
           </button>
         )}
       </motion.div>

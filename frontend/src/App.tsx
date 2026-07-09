@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-
 import { AuthModal } from './components/AuthModal'
 import { ChangelogModal } from './components/ChangelogModal'
 import { ThemeInit } from './components/ThemeInit'
+import { SkinInit } from './components/SkinInit'
 import ErrorBoundary from './ErrorBoundary'
 import { Toaster } from './lib/toast'
 import { ConfirmHost } from './lib/confirm'
@@ -57,6 +58,7 @@ function App() {
       <ErrorBoundary>
         <ResumeProvider>
           <ThemeInit />
+          <SkinInit />
           <BrowserRouter>
           <Suspense fallback={<RouteFallback />}>
             <Routes>
