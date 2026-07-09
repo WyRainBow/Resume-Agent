@@ -4,7 +4,7 @@
 """
 import os
 import re
-import uuid
+import hashlib
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 
 from middleware.auth import get_current_user
@@ -28,6 +28,13 @@ def _sanitize_account_name(account: str) -> str:
     lowered = account.strip().lower()
     # 保留常见用户名字符，其他字符替换为下划线，避免路径问题
     return re.sub(r"[^a-z0-9._-]+", "_", lowered).strip("._-") or "unknown"
+
+
+def _build_photo_key(safe_account: str, content: bytes, ext: str) -> str:
+    """内容寻址存储 key：同一张照片（字节完全相同）恒映射到同一个 COS 对象，
+    天然去重——重复上传不再累积新对象，减轻 COS 负担。"""
+    digest = hashlib.sha256(content).hexdigest()[:32]
+    return f"users/{safe_account}/photos/{digest}{ext}"
 
 
 @router.post("/photos/upload")
@@ -70,18 +77,25 @@ async def upload_photo(
         config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key)
         client = CosS3Client(config)
 
-        # 以数据库 username 创建目录
+        # 以数据库 username 创建目录；文件名用内容哈希实现去重复用
         account = getattr(current_user, 'username', '') or getattr(current_user, 'email', '') or str(getattr(current_user, 'id', ''))
         safe_account = _sanitize_account_name(account)
-        filename = f"{uuid.uuid4().hex}{ext}"
-        cos_key = f"users/{safe_account}/photos/{filename}"
+        cos_key = _build_photo_key(safe_account, content, ext)
 
-        client.put_object(
-            Bucket=bucket,
-            Body=content,
-            Key=cos_key,
-            ContentType=file.content_type or 'image/png',
-        )
+        # 内容去重：COS 里已存在同一张照片就复用，跳过重复上传（存在性探测失败不阻断，退回正常 PUT）
+        reused = False
+        try:
+            reused = bool(client.object_exists(Bucket=bucket, Key=cos_key))
+        except Exception:
+            reused = False
+
+        if not reused:
+            client.put_object(
+                Bucket=bucket,
+                Body=content,
+                Key=cos_key,
+                ContentType=file.content_type or 'image/png',
+            )
 
         import urllib.parse
         cos_base = _import_cos_base_url()
@@ -89,6 +103,7 @@ async def upload_photo(
 
         return {
             "success": True,
+            "reused": reused,
             "photo": {
                 "url": url,
                 "key": cos_key,
@@ -99,3 +114,49 @@ async def upload_photo(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
+
+
+@router.get("/photos/list")
+async def list_photos(current_user=Depends(get_current_user)):
+    """列出当前用户已上传的照片（COS users/<account>/photos/ 前缀），供前端复用选择。"""
+    try:
+        from qcloud_cos import CosConfig, CosS3Client
+
+        secret_id = os.getenv('COS_SECRET_ID', '')
+        secret_key = os.getenv('COS_SECRET_KEY', '')
+        region = os.getenv('COS_REGION', 'ap-guangzhou')
+        bucket = os.getenv('COS_BUCKET', 'resumecos-1327706280')
+
+        if not secret_id or not secret_key:
+            raise HTTPException(status_code=500, detail="COS 凭证未配置")
+
+        config = CosConfig(Region=region, SecretId=secret_id, SecretKey=secret_key)
+        client = CosS3Client(config)
+
+        account = getattr(current_user, 'username', '') or getattr(current_user, 'email', '') or str(getattr(current_user, 'id', ''))
+        safe_account = _sanitize_account_name(account)
+        prefix = f"users/{safe_account}/photos/"
+
+        resp = client.list_objects(Bucket=bucket, Prefix=prefix, MaxKeys=100)
+
+        import urllib.parse
+        cos_base = _import_cos_base_url()
+        photos = []
+        for obj in resp.get('Contents', []) or []:
+            key = obj.get('Key')
+            if not key or key.endswith('/'):
+                continue
+            photos.append({
+                "url": f"{cos_base}/{urllib.parse.quote(key, safe='/')}",
+                "key": key,
+                "lastModified": obj.get('LastModified') or '',
+            })
+
+        # 新上传的排前面
+        photos.sort(key=lambda p: p.get('lastModified') or '', reverse=True)
+        return {"success": True, "photos": photos}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"读取照片列表失败: {str(e)}")
