@@ -99,7 +99,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
           <div
             className={cn(
               'h-7 min-w-7 px-2 rounded-none flex items-center justify-center',
-              'border border-black bg-black text-white',
+              'border border-black bg-slate-100 text-slate-600',
               'text-xs font-mono font-bold tracking-tight',
               'shadow-[2px_2px_0px_0px_#000000]'
             )}
@@ -138,7 +138,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
         className={cn(
           "relative overflow-visible min-h-[380px] flex flex-col transition-[box-shadow,transform] duration-100",
           "group-hover:shadow-none",
-          resume.pinned && "shadow-[4px_4px_0px_0px_#92400E]",
+          resume.pinned && "shadow-[4px_4px_0px_0px_rgba(66,133,244,0.35)] border-[#4285F4]/50",
           isMultiSelectMode && isSelected && "shadow-[4px_4px_0px_0px_#0ea5e9] border-sky-500"
         )}
       >
@@ -150,7 +150,7 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
             <FileText className="h-12 w-12" />
           </motion.div>
 
-          <CardTitle className="text-2xl font-serif font-black tracking-tight line-clamp-1 text-black px-6 mb-2">
+          <CardTitle className="text-2xl font-sans font-black tracking-tight line-clamp-1 text-slate-700 px-6 mb-2">
             {resume.name || "未命名简历"}
           </CardTitle>
           
@@ -213,8 +213,8 @@ export const ResumeCard: React.FC<ResumeCardProps> = ({
               className={cn(
                 "h-10 w-10 shrink-0 p-0 rounded-none border border-black shadow-[2px_2px_0px_0px_#000000] transition-[transform,box-shadow,background-color] duration-100 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none active:translate-y-[2px] active:translate-x-[2px]",
                 resume.pinned
-                  ? "bg-black text-white hover:bg-black"
-                  : "bg-[#F0F0E8] text-black hover:bg-[#E5E5E0]"
+                  ? "bg-[#4285F4] text-white border-[#4285F4] shadow-[2px_2px_0px_0px_rgba(66,133,244,0.5)] hover:bg-[#4285F4]"
+                  : "bg-white text-black hover:bg-slate-50"
               )}
               onClick={(e) => {
                 e.stopPropagation();

@@ -33,7 +33,7 @@ export const CreateCard: React.FC<CreateCardProps> = ({ onClick }) => {
             <Plus className="h-10 w-10 text-white" />
           </motion.div>
 
-          <CardTitle className="text-2xl font-serif font-black tracking-tight text-black">
+          <CardTitle className="text-2xl font-sans font-black tracking-tight text-slate-700">
             新建简历
           </CardTitle>
 

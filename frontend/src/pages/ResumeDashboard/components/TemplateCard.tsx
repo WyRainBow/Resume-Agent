@@ -76,7 +76,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
           
           <div className="flex-shrink-0 flex flex-col justify-start w-full min-w-0 px-4">
             <div className="flex items-center gap-2 mb-2">
-              <CardTitle className="text-lg font-serif font-bold line-clamp-1 text-black w-full min-w-0">
+              <CardTitle className="text-lg font-sans font-bold line-clamp-1 text-slate-700 w-full min-w-0">
                 {template.name}
               </CardTitle>
             </div>

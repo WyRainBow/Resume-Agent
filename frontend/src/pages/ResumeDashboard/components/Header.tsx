@@ -74,7 +74,7 @@ export const Header: React.FC<HeaderProps> = ({
     <div className="border-b border-black p-8 md:p-12 shrink-0 bg-[#F6F3EC] dark:bg-[#1C1C1C] relative z-30 flex flex-col lg:flex-row lg:items-start justify-between gap-6">
       {/* 左侧标题区：复刻自 /builder/dashboard */}
       <div>
-        <h1 className="font-serif text-5xl md:text-7xl text-black dark:text-white tracking-tight leading-[0.95] uppercase">
+        <h1 className="font-sans text-5xl md:text-7xl text-slate-800 dark:text-white tracking-tight leading-[0.95] uppercase">
           Dashboard
         </h1>
         <p className="mt-6 text-sm font-mono text-[#3367D6] uppercase tracking-wide max-w-md font-bold">

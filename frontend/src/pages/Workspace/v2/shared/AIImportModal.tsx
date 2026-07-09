@@ -248,8 +248,7 @@ export function AIImportModal({
 
         if (streamErr) throw new Error(streamErr);
         if (!resume) throw new Error("解析结果为空，请重试");
-        setParsedData(resume.resume || resume);
-        setCurrentStep("results");
+        applyParsedData(resume.resume || resume);
       } else {
         // 分模块解析（非流式）
         const response = await fetch(`${apiBase}/api/resume/parse-section`, {
@@ -268,8 +267,7 @@ export function AIImportModal({
           throw new Error(errMsg);
         }
         const result = await response.json();
-        setParsedData(result.data || result);
-        setCurrentStep("results");
+        applyParsedData(result.data || result);
       }
     } catch (err: any) {
       console.error("AI 解析失败:", err);
@@ -307,8 +305,7 @@ export function AIImportModal({
       }
 
       const result = await response.json();
-      setParsedData(result.resume || result.data || result);
-      setCurrentStep("results");
+      applyParsedData(result.resume || result.data || result);
     } catch (err: any) {
       console.error("PDF 解析失败:", err);
       if (err instanceof FetchTimeoutError) {
@@ -351,8 +348,7 @@ export function AIImportModal({
       }
 
       const result = await response.json();
-      setParsedData(result.resume || result.data || result);
-      setCurrentStep("results");
+      applyParsedData(result.resume || result.data || result);
     } catch (err: any) {
       console.error("图片解析失败:", err);
       if (err instanceof FetchTimeoutError) {
@@ -362,6 +358,17 @@ export function AIImportModal({
       }
     } finally {
       setParsing(false);
+    }
+  };
+
+  // 解析完成后的统一处理：全局导入直接填充并关闭，分模块进 results 预览
+  const applyParsedData = (data: any) => {
+    setParsedData(data);
+    if (sectionType === 'all') {
+      onSave(data);
+      onClose();
+    } else {
+      setCurrentStep("results");
     }
   };
 
