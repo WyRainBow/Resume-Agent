@@ -37,17 +37,16 @@ export const SimpleTemplateCard: React.FC<SimpleTemplateCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3 }}
-      whileHover={{ y: -4, scale: 1.02 }}
+      whileHover={{ y: 2, x: 2 }}
       whileTap={{ scale: 0.98 }}
-      className="relative cursor-pointer"
+      className="relative cursor-pointer group"
       onClick={() => onSelect(template.id)}
     >
       <div
         className={cn(
-          "group bg-white dark:bg-gray-800 rounded-lg overflow-hidden",
-          "border-2 border-gray-200 dark:border-gray-700",
-          "hover:border-blue-400 hover:shadow-lg transition-all duration-300",
-          "dark:hover:border-blue-500"
+          "bg-[#F0F0E8] rounded-none overflow-hidden",
+          "border border-black shadow-[4px_4px_0px_0px_#000000]",
+          "group-hover:shadow-none transition-[box-shadow,transform] duration-100"
         )}
       >
         {/* 模板预览图 */}
@@ -65,14 +64,14 @@ export const SimpleTemplateCard: React.FC<SimpleTemplateCardProps> = ({
             />
           </div>
         ) : (
-          <div className="w-full aspect-[3/4] bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center">
+          <div className="w-full aspect-[3/4] bg-[#E5E5E0] flex items-center justify-center">
             <div className="text-4xl">📄</div>
           </div>
         )}
         
         {/* 底部标签 */}
-        <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700">
-          <p className="text-center text-sm font-medium text-gray-700 dark:text-gray-300">
+        <div className="px-4 py-2 bg-[#E5E5E0] border-t border-black">
+          <p className="text-center text-sm font-mono uppercase tracking-wide text-black">
             {mainTag}
           </p>
         </div>

@@ -238,17 +238,17 @@ export function EditPanel({
     <div
       className={cn(
         'h-full border-r overflow-y-auto',
-        'bg-gray-50 border-gray-100',
-        'dark:bg-neutral-950 dark:border-neutral-800'
+        'bg-[#F1F2F5] border-black',
+        'dark:bg-[#1C1C1C] dark:border-white'
       )}
     >
       <div className="p-4">
         {/* 模块标题 */}
         <div
           className={cn(
-            'mb-4 p-4 rounded-lg border',
-            'bg-white border-gray-100',
-            'dark:bg-neutral-900/50 dark:border-neutral-800'
+            'mb-4 p-4 rounded-none border',
+            'bg-white border-black',
+            'dark:bg-[#1C1C1C] dark:border-white'
           )}
         >
           <div className="flex items-center gap-2">
@@ -312,9 +312,9 @@ export function EditPanel({
         {/* 编辑面板内容 */}
         <div
           className={cn(
-            'rounded-lg',
-            'bg-white border-gray-100',
-            'dark:bg-neutral-900/50 dark:border-neutral-800'
+            'rounded-none',
+            'bg-white border-black',
+            'dark:bg-[#1C1C1C] dark:border-white'
           )}
         >
           {renderFields()}

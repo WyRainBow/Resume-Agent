@@ -14,26 +14,26 @@ interface AgentSpecialCardProps {
 
 const variantStyles = {
   default: {
-    shell: "border-chat-border/80 bg-chat-surface",
-    header: "border-chat-border/60 bg-chat-canvas/60",
+    shell: "border-black bg-chat-surface",
+    header: "border-black/70 bg-chat-canvas/60",
     title: "text-chat-ink",
     subtitle: "text-chat-ink-muted",
   },
   accent: {
-    shell: "border-chat-accent/30 bg-chat-surface",
-    header: "border-chat-accent/20 bg-chat-canvas/80",
+    shell: "border-black bg-chat-surface",
+    header: "border-black/70 bg-chat-canvas/80",
     title: "text-chat-accent-deep",
     subtitle: "text-chat-ink-muted",
   },
   success: {
-    shell: "border-blue-200/80 bg-chat-surface",
-    header: "border-blue-100 bg-blue-50/50",
+    shell: "border-black bg-chat-surface",
+    header: "border-black/70 bg-blue-50/50",
     title: "text-blue-800",
     subtitle: "text-blue-700/80",
   },
   muted: {
-    shell: "border-chat-border/60 bg-chat-canvas/40",
-    header: "border-chat-border/40 bg-chat-canvas/30",
+    shell: "border-black/50 bg-chat-canvas/40",
+    header: "border-black/30 bg-chat-canvas/30",
     title: "text-chat-ink-muted",
     subtitle: "text-chat-ink-muted/80",
   },
@@ -55,8 +55,8 @@ export function AgentSpecialCard({
 
   return (
     <div
-      className={`overflow-hidden rounded-xl border shadow-sm ${styles.shell} ${
-        interactive ? "cursor-pointer transition-all hover:shadow-md hover:border-chat-accent/40" : ""
+      className={`overflow-hidden rounded-none border-2 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] ${styles.shell} ${
+        interactive ? "cursor-pointer transition-all hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]" : ""
       } ${className}`}
       onClick={onClick}
       role={interactive ? "button" : undefined}

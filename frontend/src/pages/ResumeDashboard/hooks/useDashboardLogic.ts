@@ -107,42 +107,8 @@ export const useDashboardLogic = () => {
 
   const editResume = async (id: string) => {
     setCurrentResumeId(id)
-
-    // 🎯 优先从 ID 中推断模板类型（最可靠的方式）
-    // ID 格式：resume_{templateType}_{timestamp}_{random}
-    // 例如：resume_html_1766858166530_j234y46ds
-    const idParts = id.split('_')
-    let templateTypeFromId: string | null = null
-    if (idParts.length >= 2 && (idParts[1] === 'html' || idParts[1] === 'latex')) {
-      templateTypeFromId = idParts[1]
-    }
-
-    // 如果 ID 中有模板类型信息，直接使用
-    if (templateTypeFromId) {
-      if (templateTypeFromId === 'html') {
-        navigate(`/workspace/html/${id}`)
-      } else {
-        navigate(`/workspace/latex/${id}`)
-      }
-      return
-    }
-
-    // 回退：从简历数据中获取模板类型
-    const saved = await getResume(id)
-    if (saved && saved.data) {
-      const data = saved.data as any
-      const templateType = data.templateType || 'latex' // 默认为 latex
-
-      // 根据模板类型跳转到对应的工作区
-      if (templateType === 'html') {
-        navigate(`/workspace/html/${id}`)
-      } else {
-        navigate(`/workspace/latex/${id}`)
-      }
-    } else {
-      // 如果没有找到简历数据，默认跳转到 latex 工作区
-      navigate(`/workspace/latex/${id}`)
-    }
+    // 编辑器已合并为统一 /workspace，模板类型由简历数据 templateType 驱动，无需按类型分流路由
+    navigate(`/workspace/${id}`)
   }
 
   const optimizeResume = (id: string) => {

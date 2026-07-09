@@ -141,14 +141,14 @@ export default function AgentPdfPreviewPanel({
               <p className="mt-0.5 truncate text-xs text-chat-ink-muted">{resumeName}</p>
             )}
           </div>
-          <div className="inline-flex shrink-0 items-center gap-0.5 rounded-xl border border-chat-border/70 bg-chat-surface/90 p-1 shadow-sm backdrop-blur-sm dark:border-slate-700/80 dark:bg-slate-900/90">
+          <div className="inline-flex shrink-0 items-center gap-0.5 rounded-none border-2 border-black bg-chat-surface p-1 shadow-[2px_2px_0px_0px_#000000] dark:border-white dark:bg-slate-900/90 dark:shadow-[2px_2px_0px_0px_#ffffff]">
             {onSave && (
               <button
                 type="button"
                 onClick={handleSave}
                 disabled={saveState === "saving"}
                 title="保存简历"
-                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors active:scale-[0.98] disabled:cursor-not-allowed ${
+                className={`inline-flex items-center gap-1.5 rounded-none px-2.5 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed ${
                   saveState === "saved"
                     ? "text-emerald-600 dark:text-emerald-400"
                     : saveState === "error"
@@ -177,18 +177,18 @@ export default function AgentPdfPreviewPanel({
               onClick={handleDownload}
               disabled={!pdfBlob}
               title="下载 PDF"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 rounded-none border border-black bg-emerald-600 px-2.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Download className="size-3.5" strokeWidth={2.25} />
               下载
             </button>
-            <span className="mx-0.5 h-4 w-px bg-chat-border/80 dark:bg-slate-700" aria-hidden />
+            <span className="mx-0.5 h-4 w-px bg-black/80 dark:bg-slate-700" aria-hidden />
             <button
               type="button"
               onClick={onRerender}
               disabled={loading}
               title={loading ? "正在渲染" : "刷新预览"}
-              className="inline-flex size-8 items-center justify-center rounded-lg text-chat-ink-muted transition-colors hover:bg-chat-canvas hover:text-chat-ink active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              className="inline-flex size-8 items-center justify-center rounded-none text-chat-ink-muted transition-colors hover:bg-chat-canvas hover:text-chat-ink disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
               <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} strokeWidth={2.25} />
             </button>
@@ -196,7 +196,7 @@ export default function AgentPdfPreviewPanel({
               type="button"
               onClick={onClose}
               title="关闭预览"
-              className="inline-flex size-8 items-center justify-center rounded-lg text-chat-ink-muted transition-colors hover:bg-chat-canvas hover:text-chat-ink active:scale-[0.98] dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+              className="inline-flex size-8 items-center justify-center rounded-none text-chat-ink-muted transition-colors hover:bg-chat-canvas hover:text-chat-ink dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
             >
               <X className="size-4" strokeWidth={2.25} />
             </button>
@@ -221,7 +221,7 @@ export default function AgentPdfPreviewPanel({
               <button
                 type="button"
                 onClick={onRerender}
-                className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-100 active:scale-[0.98] dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-400 dark:hover:bg-blue-900/40"
+                className="mt-4 inline-flex items-center gap-1.5 rounded-none border border-black bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-100 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-400 dark:hover:bg-blue-900/40"
               >
                 <RefreshCw className="size-3.5" /> 点击重试
               </button>
@@ -240,12 +240,12 @@ export default function AgentPdfPreviewPanel({
 
       {pdfBlob && (
         <div className="pointer-events-none absolute inset-x-0 bottom-5 z-20 flex justify-center">
-          <div className="pointer-events-auto flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/95 px-3 py-1.5 shadow-lg backdrop-blur-sm dark:border-slate-700 dark:bg-slate-900/95">
+          <div className="pointer-events-auto flex items-center gap-2 rounded-none border-2 border-black bg-white px-3 py-1.5 shadow-[3px_3px_0px_0px_#000000] dark:border-white dark:bg-slate-900/95 dark:shadow-[3px_3px_0px_0px_#ffffff]">
             <button
               type="button"
               onClick={handleZoomOut}
               disabled={effectiveScale <= MIN_SCALE}
-              className="inline-flex size-8 items-center justify-center rounded-full text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="inline-flex size-8 items-center justify-center rounded-none text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
               title="缩小"
             >
               <Minus className="size-4" />
@@ -271,7 +271,7 @@ export default function AgentPdfPreviewPanel({
               type="button"
               onClick={handleZoomIn}
               disabled={effectiveScale >= MAX_SCALE}
-              className="inline-flex size-8 items-center justify-center rounded-full text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
+              className="inline-flex size-8 items-center justify-center rounded-none text-slate-600 transition-colors hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:text-slate-300 dark:hover:bg-slate-800"
               title="放大"
             >
               <Plus className="size-4" />
@@ -283,7 +283,7 @@ export default function AgentPdfPreviewPanel({
                 <button
                   type="button"
                   onClick={handleFitWidth}
-                  className="rounded-full px-2 py-1 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800"
+                  className="rounded-none px-2 py-1 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-slate-800"
                 >
                   适应宽度
                 </button>

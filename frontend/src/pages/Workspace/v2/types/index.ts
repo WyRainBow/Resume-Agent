@@ -172,6 +172,8 @@ export interface GlobalSettings {
   birthDateDisplayMode?: 'birthDate' | 'age'  // 年龄渲染模式：显示出生年月 | 仅显示年龄
   /** @deprecated 改用 fieldLabelModes（每字段）；仅保留用于老简历迁移读取的兜底种子 */
   contactLabelMode?: 'icon' | 'text' | 'none'
+  /** Builder 模板市场页的排版设置随简历持久化;结构由 pages/Builder/settings.ts 定义并在读取时校验合并 */
+  builderSettings?: Record<string, unknown>
   // 每字段显示样式，key: title/birthDate/email/phone/location/blog；缺失时回退 contactLabelMode→'icon'
   fieldLabelModes?: Record<string, FieldLabelMode>
 }

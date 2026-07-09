@@ -14,7 +14,6 @@ import {
   Upload,
   FileText,
   File,
-  Sparkles,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { cn } from "../../../../lib/utils";
@@ -249,8 +248,7 @@ export function AIImportModal({
 
         if (streamErr) throw new Error(streamErr);
         if (!resume) throw new Error("解析结果为空，请重试");
-        setParsedData(resume.resume || resume);
-        setCurrentStep("results");
+        applyParsedData(resume.resume || resume);
       } else {
         // 分模块解析（非流式）
         const response = await fetch(`${apiBase}/api/resume/parse-section`, {
@@ -269,8 +267,7 @@ export function AIImportModal({
           throw new Error(errMsg);
         }
         const result = await response.json();
-        setParsedData(result.data || result);
-        setCurrentStep("results");
+        applyParsedData(result.data || result);
       }
     } catch (err: any) {
       console.error("AI 解析失败:", err);
@@ -308,8 +305,7 @@ export function AIImportModal({
       }
 
       const result = await response.json();
-      setParsedData(result.resume || result.data || result);
-      setCurrentStep("results");
+      applyParsedData(result.resume || result.data || result);
     } catch (err: any) {
       console.error("PDF 解析失败:", err);
       if (err instanceof FetchTimeoutError) {
@@ -352,8 +348,7 @@ export function AIImportModal({
       }
 
       const result = await response.json();
-      setParsedData(result.resume || result.data || result);
-      setCurrentStep("results");
+      applyParsedData(result.resume || result.data || result);
     } catch (err: any) {
       console.error("图片解析失败:", err);
       if (err instanceof FetchTimeoutError) {
@@ -363,6 +358,17 @@ export function AIImportModal({
       }
     } finally {
       setParsing(false);
+    }
+  };
+
+  // 解析完成后的统一处理：全局导入直接填充并关闭，分模块进 results 预览
+  const applyParsedData = (data: any) => {
+    setParsedData(data);
+    if (sectionType === 'all') {
+      onSave(data);
+      onClose();
+    } else {
+      setCurrentStep("results");
     }
   };
 
@@ -422,50 +428,40 @@ export function AIImportModal({
           "relative w-full transition-all duration-300",
           currentStep === "results" ? "max-w-4xl" : "max-w-2xl",
           "max-h-[90vh] flex flex-col",
-          "bg-white dark:bg-slate-900",
-          "rounded-lg shadow-2xl",
-          "border border-slate-200 dark:border-slate-700",
+          "bg-[#F0F0E8]",
+          "rounded-none shadow-[8px_8px_0px_0px_#000000]",
+          "border-2 border-black",
           "overflow-hidden",
           "animate-in fade-in-0 zoom-in-95 duration-200",
         )}
       >
-        {/* 头部 */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-slate-900 dark:text-indigo-300" />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                {parsing
-                  ? "正在解析内容"
-                  : currentStep === "results"
-                    ? "解析结果预览"
-                    : sectionType === "all"
-                      ? "导入简历"
-                      : `AI 导入 - ${sectionTitle}`}
-              </h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
-                {parsing
-                  ? "AI 正在处理您的请求，请稍候..."
-                  : currentStep === "results"
-                    ? "请检查解析出的数据是否准确，点击下方按钮填充到表单"
-                    : sectionType === "all"
-                      ? "上传或粘贴简历内容，系统将自动解析并导入"
-                      : "粘贴或输入该模块的文本内容：AI 将自动解析并填充"}
-              </p>
-            </div>
+        {/* 头部(照搬 Resume-Matcher upload-dialog:纯文字大写标题,无图标方块,关闭按钮极简) */}
+        <div className="flex items-center justify-between p-6 border-b-2 border-black bg-white dark:bg-[#1C1C1C]">
+          <div>
+            <h3 className="text-2xl font-serif font-bold uppercase tracking-tight text-black dark:text-white">
+              {parsing
+                ? "正在解析内容"
+                : currentStep === "results"
+                  ? "解析结果预览"
+                  : sectionType === "all"
+                    ? "导入简历"
+                    : `AI 导入 - ${sectionTitle}`}
+            </h3>
+            <p className="text-sm font-mono text-[#878E99] dark:text-neutral-400 mt-0.5">
+              {parsing
+                ? "AI 正在处理您的请求，请稍候..."
+                : currentStep === "results"
+                  ? "请检查解析出的数据是否准确，点击下方按钮填充到表单"
+                  : sectionType === "all"
+                    ? "上传或粘贴简历内容，系统将自动解析并导入"
+                    : "粘贴或输入该模块的文本内容：AI 将自动解析并填充"}
+            </p>
           </div>
           <button
             onClick={onClose}
-            className={cn(
-              "w-8 h-8 rounded-lg flex items-center justify-center",
-              "text-slate-400 hover:text-slate-600 dark:hover:text-slate-300",
-              "hover:bg-slate-100 dark:hover:bg-slate-800",
-              "transition-colors",
-            )}
+            className="text-black dark:text-white opacity-70 hover:opacity-100 transition-opacity"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
@@ -476,16 +472,16 @@ export function AIImportModal({
             <div className="space-y-4 animate-in fade-in duration-300 flex-1 flex flex-col overflow-y-auto custom-scrollbar pr-2">
               {/* 如果已经有解析结果，显示一个提示条 */}
               {parsedData && (
-                <div className="mb-4 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 flex items-center justify-between animate-in slide-in-from-top-2">
+                <div className="mb-4 p-3 rounded-none bg-white border-2 border-black shadow-[4px_4px_0px_0px_#000000] flex items-center justify-between animate-in slide-in-from-top-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
-                    <span className="text-sm text-indigo-700 dark:text-indigo-300 font-medium">
+                    <div className="w-2 h-2 rounded-full bg-blue-700 animate-pulse" />
+                    <span className="text-sm text-black font-mono uppercase tracking-wide font-bold">
                       已有解析好的数据
                     </span>
                   </div>
                   <button
                     onClick={() => setCurrentStep("results")}
-                    className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+                    className="text-xs font-mono uppercase tracking-wide font-bold text-blue-700 hover:underline flex items-center gap-1"
                   >
                     查看结果
                     <ChevronDown className="w-3 h-3 -rotate-90" />
@@ -496,7 +492,7 @@ export function AIImportModal({
               {/* 模型选择器 */}
               <div className="relative" ref={dropdownRef}>
                 <div className="flex items-center justify-between gap-2 mb-2">
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <label className="text-sm font-mono uppercase tracking-wide font-bold text-black">
                     选择 AI 模型
                   </label>
                   <button
@@ -519,10 +515,11 @@ export function AIImportModal({
                       }
                     }}
                     className={cn(
-                      "text-xs px-3 py-1.5 rounded-lg border transition-colors",
-                      "border-slate-200 dark:border-slate-600",
-                      "text-slate-600 dark:text-slate-400",
-                      "hover:bg-slate-100 dark:hover:bg-slate-700",
+                      "text-xs px-3 py-1.5 rounded-none border border-black font-mono uppercase tracking-wide font-bold",
+                      "bg-[#F0F0E8] text-black shadow-[2px_2px_0px_0px_#000000]",
+                      "hover:bg-[#E5E5E0] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none",
+                      "active:translate-y-[2px] active:translate-x-[2px]",
+                      "transition-[transform,box-shadow,background-color] duration-100 ease-out",
                       testKeysLoading && "opacity-60 pointer-events-none",
                     )}
                   >
@@ -530,7 +527,7 @@ export function AIImportModal({
                   </button>
                 </div>
                 {testKeysResult && !("_" in testKeysResult) && (
-                  <div className="mb-2 text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                  <div className="mb-2 text-xs font-mono text-black space-y-1">
                     {(["zhipu", "doubao", "deepseek"] as const).map((key) => {
                       const r = testKeysResult[key];
                       if (!r) return null;
@@ -544,9 +541,9 @@ export function AIImportModal({
                         <div
                           key={key}
                           className={cn(
-                            !r.configured && "text-slate-400 dark:text-slate-500",
-                            r.configured && r.ok && "text-green-600 dark:text-green-400",
-                            r.configured && !r.ok && "text-amber-600 dark:text-amber-400",
+                            !r.configured && "text-[#878E99]",
+                            r.configured && r.ok && "text-green-700",
+                            r.configured && !r.ok && "text-amber-700",
                           )}
                         >
                           {text}
@@ -556,7 +553,7 @@ export function AIImportModal({
                   </div>
                 )}
                 {testKeysResult && "_" in testKeysResult && (
-                  <div className="mb-2 text-xs text-amber-600 dark:text-amber-400">
+                  <div className="mb-2 text-xs font-mono text-amber-700">
                     检测失败: {(testKeysResult as Record<string, { error?: string }>)._?.error ?? "未知错误"}
                   </div>
                 )}
@@ -565,18 +562,18 @@ export function AIImportModal({
                     type="button"
                     onClick={() => setShowModelDropdown(!showModelDropdown)}
                     className={cn(
-                      "w-full px-4 py-3 rounded-lg",
-                      "bg-slate-50 dark:bg-slate-800",
-                      "border border-slate-200 dark:border-slate-700",
-                      "text-slate-900 dark:text-slate-100",
+                      "w-full px-4 py-3 rounded-none",
+                      "bg-white",
+                      "border-2 border-black shadow-[4px_4px_0px_0px_#000000]",
+                      "text-black",
                       "text-left",
-                      "focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-transparent",
+                      "focus:outline-none",
                       "transition-all",
                       "flex items-center justify-between",
                     )}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-20 h-20 rounded-lg bg-slate-100 dark:bg-slate-700 flex items-center justify-center overflow-hidden p-2">
+                      <div className="w-20 h-20 rounded-none border border-black bg-[#F0F0E8] flex items-center justify-center overflow-hidden p-2">
                         {AI_MODELS.find((m) => m.id === selectedModel)?.logoUrl ? (
                           <img
                             src={AI_MODELS.find((m) => m.id === selectedModel)!.logoUrl}
@@ -584,14 +581,14 @@ export function AIImportModal({
                             className="w-full h-full object-contain"
                           />
                         ) : (
-                          <Wand2 className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                          <Wand2 className="w-4 h-4 text-black" />
                         )}
                       </div>
                       <div>
-                        <div className="font-semibold">
+                        <div className="font-mono font-bold uppercase tracking-wide">
                           {AI_MODELS.find((m) => m.id === selectedModel)?.name}
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">
+                        <div className="text-xs font-mono text-[#878E99]">
                           {
                             AI_MODELS.find((m) => m.id === selectedModel)
                               ?.description
@@ -601,7 +598,7 @@ export function AIImportModal({
                     </div>
                     <ChevronDown
                       className={cn(
-                        "w-5 h-5 text-slate-400 transition-transform",
+                        "w-5 h-5 text-black transition-transform",
                         showModelDropdown && "rotate-180",
                       )}
                     />
@@ -609,7 +606,7 @@ export function AIImportModal({
 
                   {/* 下拉菜单 */}
                   {showModelDropdown && (
-                    <div className="absolute z-10 w-full mt-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden">
+                    <div className="absolute z-10 w-full mt-2 rounded-none bg-white border-2 border-black shadow-[4px_4px_0px_0px_#000000] overflow-hidden">
                       {AI_MODELS.map((model) => (
                         <button
                           key={model.id}
@@ -620,18 +617,18 @@ export function AIImportModal({
                           }}
                           className={cn(
                             "w-full px-4 py-3 text-left transition-colors",
-                            "hover:bg-slate-50 dark:hover:bg-slate-700",
+                            "hover:bg-[#E5E5E0]",
                             selectedModel === model.id &&
-                              "bg-purple-50 dark:bg-purple-900/20",
+                              "bg-[#E5E5E0]",
                           )}
                         >
                           <div className="flex items-center gap-3">
                           <div
                             className={cn(
-                              "w-20 h-20 rounded-lg flex items-center justify-center overflow-hidden p-2",
+                              "w-20 h-20 rounded-none border border-black flex items-center justify-center overflow-hidden p-2",
                               selectedModel === model.id
-                                ? "bg-slate-100 dark:bg-slate-700 ring-2 ring-slate-900"
-                                : "bg-slate-100 dark:bg-slate-700",
+                                ? "bg-[#F0F0E8] ring-2 ring-black"
+                                : "bg-[#F0F0E8]",
                             )}
                           >
                             {"logoUrl" in model && model.logoUrl ? (
@@ -645,8 +642,8 @@ export function AIImportModal({
                                 className={cn(
                                   "w-4 h-4",
                                   selectedModel === model.id
-                                    ? "text-slate-900 dark:text-purple-400"
-                                    : "text-slate-500 dark:text-slate-400",
+                                    ? "text-blue-700"
+                                    : "text-black",
                                 )}
                               />
                             )}
@@ -654,15 +651,15 @@ export function AIImportModal({
                           <div>
                             <div
                               className={cn(
-                                "font-semibold",
+                                "font-mono font-bold uppercase tracking-wide",
                                 selectedModel === model.id
-                                  ? "text-slate-900 dark:text-purple-400"
-                                  : "text-slate-900 dark:text-slate-100",
+                                  ? "text-blue-700"
+                                  : "text-black",
                               )}
                             >
                               {model.name}
                             </div>
-                              <div className="text-xs text-slate-500 dark:text-slate-400">
+                              <div className="text-xs font-mono text-[#878E99]">
                                 {model.description}
                               </div>
                             </div>
@@ -677,14 +674,14 @@ export function AIImportModal({
               {sectionType === "all" ? (
                 <div className="space-y-4 flex-1 flex flex-col">
                   {/* Tab 切换 */}
-                  <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-lg flex-shrink-0">
+                  <div className="flex gap-2 p-1 flex-shrink-0">
                     <button
                       onClick={() => setImportMode("pdf")}
                       className={cn(
-                        "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all",
+                        "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-mono uppercase tracking-wide font-bold rounded-none border border-black transition-all",
                         importMode === "pdf"
-                          ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-indigo-400 shadow-sm"
-                          : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
+                          ? "bg-blue-700 text-white shadow-[2px_2px_0px_0px_#000000]"
+                          : "bg-[#F0F0E8] text-black hover:bg-[#E5E5E0]",
                       )}
                     >
                       <File className="w-4 h-4" />
@@ -693,10 +690,10 @@ export function AIImportModal({
                     <button
                       onClick={() => setImportMode("image")}
                       className={cn(
-                        "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all",
+                        "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-mono uppercase tracking-wide font-bold rounded-none border border-black transition-all",
                         importMode === "image"
-                          ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-indigo-400 shadow-sm"
-                          : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
+                          ? "bg-blue-700 text-white shadow-[2px_2px_0px_0px_#000000]"
+                          : "bg-[#F0F0E8] text-black hover:bg-[#E5E5E0]",
                       )}
                     >
                       <Upload className="w-4 h-4" />
@@ -705,10 +702,10 @@ export function AIImportModal({
                     <button
                       onClick={() => setImportMode("text")}
                       className={cn(
-                        "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium rounded-lg transition-all",
+                        "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-mono uppercase tracking-wide font-bold rounded-none border border-black transition-all",
                         importMode === "text"
-                          ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-indigo-400 shadow-sm"
-                          : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200",
+                          ? "bg-blue-700 text-white shadow-[2px_2px_0px_0px_#000000]"
+                          : "bg-[#F0F0E8] text-black hover:bg-[#E5E5E0]",
                       )}
                     >
                       <FileText className="w-4 h-4" />
@@ -719,8 +716,8 @@ export function AIImportModal({
                   {/* 内容区域 */}
                   <div className="flex-1 flex flex-col min-h-[350px]">
                     {importMode === "pdf" && (
-                      <div className="flex-1 flex flex-col space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex-shrink-0">
+                      <div className="flex-1 flex flex-col space-y-3 rounded-none border-2 border-black bg-white p-4 shadow-[4px_4px_0px_0px_#000000] animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="text-sm font-mono uppercase tracking-wide font-bold text-black flex-shrink-0">
                           PDF 文件上传
                         </div>
                         <div className="flex-1 min-h-0 overflow-hidden">
@@ -737,11 +734,12 @@ export function AIImportModal({
                           onClick={handlePdfUpload}
                           disabled={!selectedFile || parsing}
                           className={cn(
-                            "w-full rounded-lg px-4 py-2.5 text-sm font-semibold flex-shrink-0",
-                            "bg-slate-900 text-white shadow-lg shadow-slate-200",
-                            "hover:bg-slate-800",
-                            "disabled:opacity-50 disabled:cursor-not-allowed",
-                            "transition-all",
+                            "w-full rounded-none px-4 py-2.5 text-sm font-mono uppercase tracking-wide font-bold flex-shrink-0",
+                            "bg-blue-700 text-white border border-black shadow-[2px_2px_0px_0px_#000000]",
+                            "hover:bg-blue-800 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none",
+                            "active:translate-y-[2px] active:translate-x-[2px]",
+                            "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
+                            "transition-[transform,box-shadow,background-color] duration-100 ease-out",
                           )}
                         >
                           {parsing ? "解析中..." : "上传解析 PDF"}
@@ -750,8 +748,8 @@ export function AIImportModal({
                     )}
 
                     {importMode === "image" && (
-                      <div className="flex-1 flex flex-col space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex-shrink-0">
+                      <div className="flex-1 flex flex-col space-y-3 rounded-none border-2 border-black bg-white p-4 shadow-[4px_4px_0px_0px_#000000] animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="text-sm font-mono uppercase tracking-wide font-bold text-black flex-shrink-0">
                           图片上传
                         </div>
                         <div className="flex-1 min-h-0 overflow-hidden">
@@ -765,7 +763,7 @@ export function AIImportModal({
                         </div>
                         {selectedFile && (
                           <div className="flex-shrink-0 space-y-1">
-                            <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                            <div className="text-xs font-mono uppercase tracking-wide font-bold text-black">
                               第二张图片（可选，最多 2 张）
                             </div>
                             <FileUploadZone
@@ -778,7 +776,7 @@ export function AIImportModal({
                           </div>
                         )}
                         <div className="flex-shrink-0 space-y-2">
-                          <div className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                          <div className="text-xs font-mono uppercase tracking-wide font-bold text-black">
                             选择识别模型
                           </div>
                           <div className="flex gap-2">
@@ -788,16 +786,16 @@ export function AIImportModal({
                                 type="button"
                                 onClick={() => setSelectedVisionModel(m.id)}
                                 className={cn(
-                                  "flex-1 rounded-lg border px-3 py-2 text-left text-xs transition-all",
+                                  "flex-1 rounded-none border border-black px-3 py-2 text-left text-xs transition-all",
                                   selectedVisionModel === m.id
-                                    ? "border-slate-900 bg-purple-50 dark:bg-purple-900/20"
-                                    : "border-slate-200 dark:border-slate-700",
+                                    ? "bg-blue-700 text-white shadow-[2px_2px_0px_0px_#000000]"
+                                    : "bg-[#F0F0E8] text-black hover:bg-[#E5E5E0]",
                                 )}
                               >
-                                <div className="font-semibold text-slate-800 dark:text-slate-100">
+                                <div className="font-mono font-bold uppercase tracking-wide">
                                   {m.name}
                                 </div>
-                                <div className="mt-0.5 text-slate-500 dark:text-slate-400">
+                                <div className="mt-0.5 font-mono opacity-80">
                                     {m.description}
                                   </div>
                               </button>
@@ -809,11 +807,12 @@ export function AIImportModal({
                           onClick={handleImageUpload}
                           disabled={!selectedFile || parsing}
                           className={cn(
-                            "w-full rounded-lg px-4 py-2.5 text-sm font-semibold flex-shrink-0",
-                            "bg-slate-900 text-white shadow-lg shadow-slate-200",
-                            "hover:bg-slate-800",
-                            "disabled:opacity-50 disabled:cursor-not-allowed",
-                            "transition-all",
+                            "w-full rounded-none px-4 py-2.5 text-sm font-mono uppercase tracking-wide font-bold flex-shrink-0",
+                            "bg-blue-700 text-white border border-black shadow-[2px_2px_0px_0px_#000000]",
+                            "hover:bg-blue-800 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none",
+                            "active:translate-y-[2px] active:translate-x-[2px]",
+                            "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
+                            "transition-[transform,box-shadow,background-color] duration-100 ease-out",
                           )}
                         >
                           {parsing ? "解析中..." : "识别图片并解析"}
@@ -822,12 +821,12 @@ export function AIImportModal({
                     )}
 
                     {importMode === "text" && (
-                      <div className="flex-1 flex flex-col space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className="text-sm font-semibold text-slate-800 dark:text-slate-200 flex-shrink-0">
+                      <div className="flex-1 flex flex-col space-y-3 rounded-none border-2 border-black bg-white p-4 shadow-[4px_4px_0px_0px_#000000] animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="text-sm font-mono uppercase tracking-wide font-bold text-black flex-shrink-0">
                           文本粘贴
                         </div>
                         <div className="flex-1 min-h-0 flex flex-col space-y-2 overflow-hidden">
-                          <label className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">
+                          <label className="text-xs font-mono uppercase tracking-wide text-[#878E99] flex-shrink-0">
                             粘贴简历内容（按 Tab 键快速填充示例内容）
                           </label>
                           <textarea
@@ -848,18 +847,18 @@ export function AIImportModal({
                             }}
                             placeholder={aiImportPlaceholders["all"] || "请输入文本内容..."}
                             className={cn(
-                              "w-full flex-1 p-4 rounded-lg resize-none",
-                              "bg-slate-50 dark:bg-slate-800/50",
-                              "border border-slate-200 dark:border-slate-700",
-                              "text-slate-900 dark:text-slate-100 text-sm",
-                              "placeholder:text-slate-400 dark:placeholder:text-slate-500",
-                            "outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-transparent",
+                              "w-full flex-1 p-4 rounded-none resize-none",
+                              "bg-[#F0F0E8]",
+                              "border-2 border-black",
+                              "text-black text-sm",
+                              "placeholder:text-[#878E99]",
+                            "outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-0",
                             "transition-all",
                             "font-mono",
                           )}
                         />
                           {text && (
-                            <div className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">
+                            <div className="text-xs font-mono text-[#878E99] flex-shrink-0">
                               字符数: {text.length}
                             </div>
                           )}
@@ -869,11 +868,12 @@ export function AIImportModal({
                           onClick={handleParse}
                           disabled={!text.trim() || parsing}
                           className={cn(
-                            "w-full rounded-lg px-4 py-2.5 text-sm font-semibold flex-shrink-0",
-                            "bg-slate-900 text-white shadow-lg shadow-slate-200",
-                            "hover:bg-slate-800",
-                            "disabled:opacity-50 disabled:cursor-not-allowed",
-                            "transition-all",
+                            "w-full rounded-none px-4 py-2.5 text-sm font-mono uppercase tracking-wide font-bold flex-shrink-0",
+                            "bg-blue-700 text-white border border-black shadow-[2px_2px_0px_0px_#000000]",
+                            "hover:bg-blue-800 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none",
+                            "active:translate-y-[2px] active:translate-x-[2px]",
+                            "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
+                            "transition-[transform,box-shadow,background-color] duration-100 ease-out",
                           )}
                         >
                           {parsing ? "解析中..." : "AI 解析文本"}
@@ -885,8 +885,8 @@ export function AIImportModal({
               ) : (
                 <div className="space-y-2 flex-1 flex flex-col">
                   {sectionType === 'awards' && (
-                    <div className="flex items-center justify-between gap-3 p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-                      <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    <div className="flex items-center justify-between gap-3 p-3 rounded-none border-2 border-black shadow-[4px_4px_0px_0px_#000000] bg-white">
+                      <div className="text-sm font-mono uppercase tracking-wide font-bold text-black">
                         列表样式
                       </div>
                       <div className="flex items-center gap-2">
@@ -894,10 +894,10 @@ export function AIImportModal({
                           type="button"
                           onClick={() => setAwardsListType('unordered')}
                           className={cn(
-                            'px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors',
+                            'px-3 py-1.5 rounded-none text-xs font-mono uppercase tracking-wide font-bold border border-black transition-colors',
                             awardsListType === 'unordered'
-                              ? 'bg-slate-900 text-white border-slate-900'
-                              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800',
+                              ? 'bg-blue-700 text-white shadow-[2px_2px_0px_0px_#000000]'
+                              : 'bg-[#F0F0E8] text-black hover:bg-[#E5E5E0]',
                           )}
                         >
                           无序列表
@@ -906,10 +906,10 @@ export function AIImportModal({
                           type="button"
                           onClick={() => setAwardsListType('ordered')}
                           className={cn(
-                            'px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors',
+                            'px-3 py-1.5 rounded-none text-xs font-mono uppercase tracking-wide font-bold border border-black transition-colors',
                             awardsListType === 'ordered'
-                              ? 'bg-slate-900 text-white border-slate-900'
-                              : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800',
+                              ? 'bg-blue-700 text-white shadow-[2px_2px_0px_0px_#000000]'
+                              : 'bg-[#F0F0E8] text-black hover:bg-[#E5E5E0]',
                           )}
                         >
                           有序列表
@@ -917,9 +917,9 @@ export function AIImportModal({
                       </div>
                     </div>
                   )}
-                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300 flex-shrink-0">
+                  <label className="text-sm font-mono uppercase tracking-wide font-bold text-black flex-shrink-0">
                     文本内容
-                    <span className="text-xs text-slate-400 dark:text-slate-500 ml-2">
+                    <span className="text-xs font-mono text-[#878E99] ml-2">
                       （按 Tab 键快速填充示例内容）
                     </span>
                   </label>
@@ -957,18 +957,18 @@ export function AIImportModal({
                       );
                     })()}
                     className={cn(
-                      "w-full flex-1 p-4 rounded-lg resize-none",
-                      "bg-slate-50 dark:bg-slate-800/50",
-                      "border border-slate-200 dark:border-slate-700",
-                      "text-slate-900 dark:text-slate-100 text-sm",
-                      "placeholder:text-slate-400 dark:placeholder:text-slate-500",
-                            "outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-transparent",
+                      "w-full flex-1 p-4 rounded-none resize-none",
+                      "bg-[#F0F0E8]",
+                      "border-2 border-black",
+                      "text-black text-sm",
+                      "placeholder:text-[#878E99]",
+                            "outline-none focus:ring-2 focus:ring-blue-700 focus:ring-offset-0",
                             "transition-all",
                             "font-mono",
                           )}
                         />
                   {text && (
-                    <div className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0">
+                    <div className="text-xs font-mono text-[#878E99] flex-shrink-0">
                       字符数: {text.length}
                     </div>
                   )}
@@ -981,22 +981,22 @@ export function AIImportModal({
           {currentStep === "results" && !parsing && parsedData && (
             <div
               className={cn(
-                "flex-1 flex flex-col p-6 rounded-lg overflow-hidden",
-                "bg-green-50/50 dark:bg-green-900/10",
-                "border border-green-200 dark:border-green-800/50",
+                "flex-1 flex flex-col p-6 rounded-none overflow-hidden",
+                "bg-white",
+                "border-2 border-black shadow-[4px_4px_0px_0px_#000000]",
                 "animate-in zoom-in-95 duration-300",
               )}
             >
               <div className="flex items-center justify-between gap-2 mb-4 flex-shrink-0">
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-green-500 flex items-center justify-center shadow-lg shadow-green-500/20">
+                  <div className="w-8 h-8 rounded-none border border-black bg-green-700 flex items-center justify-center shadow-[2px_2px_0px_0px_#000000]">
                     <span className="text-white text-lg font-bold">✓</span>
                   </div>
                   <div>
-                    <span className="text-green-800 dark:text-green-300 text-base font-bold block">
+                    <span className="text-black text-base font-serif font-bold block">
                       解析成功！
                     </span>
-                    <span className="text-green-600/80 dark:text-green-400/80 text-xs">
+                    <span className="text-[#878E99] text-xs font-mono">
                       共解析出 {Object.keys(parsedData).length} 个核心数据项
                     </span>
                   </div>
@@ -1005,12 +1005,12 @@ export function AIImportModal({
                   type="button"
                   onClick={handleCopyJson}
                   className={cn(
-                    "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold",
-                    "bg-white dark:bg-slate-800",
-                    "border border-green-200 dark:border-green-800",
-                    "text-green-700 dark:text-green-400",
-                    "hover:bg-green-50 dark:hover:bg-green-900/30",
-                    "transition-all shadow-sm",
+                    "inline-flex items-center gap-1.5 rounded-none px-3 py-1.5 text-xs font-mono uppercase tracking-wide font-bold",
+                    "bg-green-700 text-white",
+                    "border border-black shadow-[2px_2px_0px_0px_#000000]",
+                    "hover:bg-green-800 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none",
+                    "active:translate-y-[2px] active:translate-x-[2px]",
+                    "transition-[transform,box-shadow,background-color] duration-100 ease-out",
                   )}
                 >
                   <Copy className="w-3.5 h-3.5" />
@@ -1018,15 +1018,15 @@ export function AIImportModal({
                 </button>
               </div>
               
-              <div className="flex-1 min-h-0 overflow-hidden rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-inner">
+              <div className="flex-1 min-h-0 overflow-hidden rounded-none bg-[#F0F0E8] border-2 border-black">
                 <div className="h-full overflow-auto p-4 custom-scrollbar">
-                  <pre className="m-0 text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap break-words font-mono leading-relaxed">
+                  <pre className="m-0 text-black text-sm whitespace-pre-wrap break-words font-mono leading-relaxed">
                     {JSON.stringify(parsedData, null, 2)}
                   </pre>
                 </div>
               </div>
 
-              <div className="mt-4 p-3 rounded-lg bg-white/50 dark:bg-slate-800/50 border border-green-100 dark:border-green-900/20 text-xs text-green-700/70 dark:text-green-400/70 flex items-center gap-2 flex-shrink-0">
+              <div className="mt-4 p-3 rounded-none bg-[#F0F0E8] border border-black text-xs font-mono text-black flex items-center gap-2 flex-shrink-0">
                 <FileText className="w-3.5 h-3.5" />
                 提示：您可以点击右下角的“填充到表单”按钮，将这些数据自动填写到简历编辑器中。
               </div>
@@ -1037,36 +1037,36 @@ export function AIImportModal({
           {parsing && (
             <div className="flex-1 flex flex-col items-center justify-center py-12 px-6 animate-in fade-in duration-300">
               <div className="relative mb-8">
-                <div className="w-20 h-20 border-4 border-slate-100 dark:border-purple-900/30 rounded-full" />
-                <div className="absolute inset-0 w-20 h-20 border-4 border-slate-900 border-t-transparent rounded-full animate-spin" />
+                <div className="w-20 h-20 border-4 border-[#E5E5E0] rounded-full" />
+                <div className="absolute inset-0 w-20 h-20 border-4 border-blue-700 border-t-transparent rounded-full animate-spin" />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <Wand2 className="w-8 h-8 text-slate-900 animate-pulse" />
+                  <Wand2 className="w-8 h-8 text-blue-700 animate-pulse" />
                 </div>
               </div>
-              
+
               <div className="text-center space-y-3 max-w-xs">
-                <div className="text-xl font-bold text-slate-900 dark:text-slate-100">
+                <div className="text-2xl font-serif font-bold text-black">
                   AI 正在深度解析...
                 </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
+                <p className="text-sm font-mono text-[#878E99] leading-relaxed">
                   我们的 AI 正在提取关键信息并进行结构化处理 这通常需要 1-2 分钟。
                 </p>
               </div>
 
-              <div className="mt-8 w-full max-w-[240px] bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-slate-900 h-full w-full animate-pulse" />
+              <div className="mt-8 w-full max-w-[240px] bg-[#F0F0E8] border border-black rounded-none h-2 overflow-hidden">
+                <div className="bg-blue-700 h-full w-full animate-pulse" />
               </div>
 
               <div className={cn(
-                "mt-6 px-4 py-1.5 rounded-full text-sm font-bold shadow-sm",
-                "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700",
+                "mt-6 px-4 py-1.5 rounded-none text-sm font-mono font-bold",
+                "bg-white border border-black shadow-[2px_2px_0px_0px_#000000]",
                 getTimeColor(elapsedTime)
               )}>
                 {formatTime(elapsedTime)}
               </div>
 
               {streamChars > 0 && (
-                <div className="mt-2 text-xs font-medium text-slate-400 dark:text-slate-500 tabular-nums">
+                <div className="mt-2 text-xs font-mono text-[#878E99] tabular-nums">
                   已生成 {streamChars} 字…
                 </div>
               )}
@@ -1075,16 +1075,17 @@ export function AIImportModal({
         </div>
 
         {/* 底部按钮 */}
-        <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+        <div className="flex items-center justify-end gap-3 p-6 border-t-2 border-black bg-[#F0F0E8]">
           {currentStep === "input" ? (
             <>
               <button
                 onClick={onClose}
                 className={cn(
-                  "px-4 py-2 rounded-lg text-sm font-medium",
-                  "text-slate-700 dark:text-slate-300",
-                  "hover:bg-slate-100 dark:hover:bg-slate-700",
-                  "transition-colors",
+                  "px-4 py-2 rounded-none text-sm font-mono uppercase tracking-wide font-bold",
+                  "bg-[#F0F0E8] text-black border border-black shadow-[2px_2px_0px_0px_#000000]",
+                  "hover:bg-[#E5E5E0] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none",
+                  "active:translate-y-[2px] active:translate-x-[2px]",
+                  "transition-[transform,box-shadow,background-color] duration-100 ease-out",
                 )}
               >
                 取消
@@ -1096,7 +1097,7 @@ export function AIImportModal({
                   {parsedData && (
                     <button
                       onClick={() => setCurrentStep("results")}
-                      className="px-4 py-2.5 rounded-lg text-sm font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                      className="px-4 py-2.5 rounded-none text-sm font-mono uppercase tracking-wide font-bold bg-[#E5E5E0] text-black border border-black shadow-[2px_2px_0px_0px_#000000] hover:bg-[#D8D8D2] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none active:translate-y-[2px] active:translate-x-[2px] transition-[transform,box-shadow,background-color] duration-100 ease-out"
                     >
                       查看已有结果
                     </button>
@@ -1105,11 +1106,12 @@ export function AIImportModal({
                     onClick={handleParse}
                     disabled={!text.trim() || parsing}
                     className={cn(
-                      "px-6 py-2.5 rounded-lg text-sm font-semibold",
-                      "bg-slate-900 text-white shadow-lg shadow-slate-200",
-                      "hover:bg-slate-800",
-                      "disabled:opacity-50 disabled:cursor-not-allowed",
-                      "flex items-center gap-2 transition-all",
+                      "px-6 py-2.5 rounded-none text-sm font-mono uppercase tracking-wide font-bold",
+                      "bg-blue-700 text-white border border-black shadow-[2px_2px_0px_0px_#000000]",
+                      "hover:bg-blue-800 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none",
+                      "active:translate-y-[2px] active:translate-x-[2px]",
+                      "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none",
+                      "flex items-center gap-2 transition-[transform,box-shadow,background-color] duration-100 ease-out",
                     )}
                   >
                     {parsing ? (
@@ -1134,10 +1136,11 @@ export function AIImportModal({
                   setCurrentStep("input");
                 }}
                 className={cn(
-                  "px-4 py-2.5 rounded-lg text-sm font-medium",
-                  "text-slate-700 dark:text-slate-300",
-                  "hover:bg-slate-100 dark:hover:bg-slate-700",
-                  "transition-colors",
+                  "px-4 py-2.5 rounded-none text-sm font-mono uppercase tracking-wide font-bold",
+                  "bg-[#F0F0E8] text-black border border-black shadow-[2px_2px_0px_0px_#000000]",
+                  "hover:bg-[#E5E5E0] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none",
+                  "active:translate-y-[2px] active:translate-x-[2px]",
+                  "transition-[transform,box-shadow,background-color] duration-100 ease-out",
                   "flex items-center gap-2",
                 )}
               >
@@ -1147,10 +1150,11 @@ export function AIImportModal({
               <button
                 onClick={handleSave}
                 className={cn(
-                  "px-6 py-2.5 rounded-lg text-sm font-semibold",
-                  "bg-emerald-500 text-white shadow-lg shadow-emerald-200",
-                  "hover:bg-emerald-600",
-                  "flex items-center gap-2 transition-all",
+                  "px-6 py-2.5 rounded-none text-sm font-mono uppercase tracking-wide font-bold",
+                  "bg-green-700 text-white border border-black shadow-[2px_2px_0px_0px_#000000]",
+                  "hover:bg-green-800 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none",
+                  "active:translate-y-[2px] active:translate-x-[2px]",
+                  "flex items-center gap-2 transition-[transform,box-shadow,background-color] duration-100 ease-out",
                 )}
               >
                 <Save className="w-4 h-4" />

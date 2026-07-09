@@ -6,6 +6,11 @@ import json
 from pathlib import Path
 from typing import Any
 
+try:
+    from backend.ai_phrase_blacklist import build_ai_phrase_rule_block
+except ImportError:
+    from ai_phrase_blacklist import build_ai_phrase_rule_block
+
 ROOT_DIR = Path(__file__).resolve().parents[1]
 PROMPT_CONFIG_PATH = ROOT_DIR / "backend" / "data" / "prompt_templates.json"
 
@@ -141,8 +146,13 @@ def render_rewrite_text_prompt(
         instruction=instruction,
         source_text=source_text,
     )
-    return template.format_map(payload)
+    rendered = template.format_map(payload)
+    # 追加 AI 味词规避规则（按输出语言选块；强制带上，不受用户自定义模板影响）
+    blacklist_locale = "en" if locale == "en" else "zh"
+    return rendered + build_ai_phrase_rule_block(blacklist_locale)
 
 
 def get_rewrite_default_instruction() -> str:
-    return get_prompt_templates()["rewrite_default_instruction"]
+    base = get_prompt_templates()["rewrite_default_instruction"]
+    # 默认指令可能用于中英任意场景，追加双语规则块
+    return base + build_ai_phrase_rule_block("both")

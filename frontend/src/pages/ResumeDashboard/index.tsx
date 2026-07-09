@@ -189,8 +189,8 @@ const ResumeDashboard = () => {
     // 刷新列表
     await loadResumes()
 
-    // 跳转到工作区编辑（LaTeX 模板）
-    navigate(`/workspace/latex/${saved.id}`)
+    // 跳转到统一工作区编辑
+    navigate(`/workspace/${saved.id}`)
   }, [navigate, loadResumes])
 
   // 格式化 highlights 为 HTML
@@ -211,14 +211,26 @@ const ResumeDashboard = () => {
 
   return (
     <WorkspaceLayout>
-      <div className="h-full overflow-y-auto bg-slate-50 dark:bg-slate-950 relative transition-colors duration-500">
+      <div
+        className="h-full overflow-y-auto bg-[#F6F3EC] relative"
+        style={{
+          // 首页同款暖米底；格线按 builder/dashboard 的轻盈感调校（更大格 + 更淡线，避免格子感过重）
+          backgroundImage:
+            'linear-gradient(rgba(10, 10, 10, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(10, 10, 10, 0.04) 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
+        }}
+      >
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.5 }}
-          className="flex-1 space-y-10 max-w-[1600px] mx-auto relative z-10 p-6 sm:p-10"
+          className="max-w-[1600px] mx-auto relative z-10 p-4 sm:p-8"
         >
+          {/* 方框(照搬 Builder Dashboard 外层容器):黑边 + 硬阴影,包裹全部内容;
+              min-h 用 vh 直接算(不依赖父级 flex/百分比继承链,避免嵌套 flex-col 导致高度塌陷),
+              内容少时方框仍撑满可视区域,不再露出画布背景 */}
+          <div className="border border-black dark:border-white bg-[#F6F3EC] dark:bg-[#1C1C1C] shadow-[8px_8px_0px_0px_#000000] dark:shadow-[8px_8px_0px_0px_#ffffff] min-h-[calc(100vh-2rem)] sm:min-h-[calc(100vh-4rem)] space-y-10 p-6 sm:p-10">
           <motion.div
             className="flex w-full items-center justify-center"
             initial={{ y: 20, opacity: 0 }}
@@ -226,19 +238,19 @@ const ResumeDashboard = () => {
             transition={{ duration: 0.3, delay: 0.1 }}
           >
             {hasConfiguredFolder && (
-              <Alert className="mb-2 bg-white/80 dark:bg-slate-900/50 border-slate-200/60 dark:border-slate-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] backdrop-blur-md max-w-2xl rounded-[1.5rem] py-3">
+              <Alert className="mb-2 max-w-2xl py-3">
                 <AlertDescription className="flex items-center justify-center gap-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-sm font-bold text-slate-600 dark:text-slate-300">
-                      {isAuthenticated 
-                        ? '数据已同步至云端' 
+                    <div className="w-2 h-2 rounded-full bg-green-700 animate-pulse" />
+                    <span className="text-sm font-mono font-bold uppercase tracking-wide text-black">
+                      {isAuthenticated
+                        ? '数据已同步至云端'
                         : '数据保存在本地'}
                     </span>
                   </div>
                   {!isAuthenticated && (
                     <button
-                      className="text-sm font-black text-slate-900 dark:text-blue-400 hover:underline"
+                      className="text-sm font-mono font-bold uppercase tracking-wide text-[#3367D6] hover:underline underline-offset-4"
                       onClick={() => openModal('login')}
                     >
                       立即登录同步
@@ -272,7 +284,7 @@ const ResumeDashboard = () => {
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.3, delay: 0.2 }}
           >
-            <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-6">
               <CreateCard onClick={createResume} />
 
               <AnimatePresence>
@@ -297,6 +309,7 @@ const ResumeDashboard = () => {
               </AnimatePresence>
             </div>
           </motion.div>
+          </div>
         </motion.div>
       </div>
       {/* AI 智能导入弹窗 */}

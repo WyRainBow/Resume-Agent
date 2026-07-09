@@ -8,9 +8,8 @@ import { useState, useCallback, useRef } from "react";
 import { cn } from "../../../lib/utils";
 import EditPanel from "./EditPanel";
 import PreviewPanel from "./PreviewPanel";
-import ScrollEditMode from "./ScrollEditMode";
-import JsonEditMode from "./JsonEditMode";
 import SidePanel from "./SidePanel";
+import SettingsDrawer, { type SettingsDrawerTab } from "./SidePanel/SettingsDrawer";
 import type {
   ResumeData,
   MenuSection,
@@ -24,12 +23,10 @@ import type {
   CustomItem,
 } from "./types";
 import type { PDFRenderMode } from "@/services/pdfRenderMode";
-import { getStoredAuthRole } from "@/lib/runtimeEnv";
-
-type EditMode = "click" | "scroll" | "json";
+import { applyTemplatePreset, withSettingsDefaults } from "../../Builder/settings";
+import type { TemplateSelection } from "./SidePanel";
 
 interface EditPreviewLayoutProps {
-  editMode: EditMode;
   resumeData: ResumeData;
   setResumeData: (updater: ResumeData | ((prev: ResumeData) => ResumeData)) => void;
   activeSection: string;
@@ -112,7 +109,6 @@ function DragHandle({
 
 export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
   const {
-    editMode,
     resumeData,
     setResumeData,
     activeSection,
@@ -156,16 +152,43 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
     handleDownload,
   } = props;
 
-  const effectiveEditMode =
-    editMode === "json" && getStoredAuthRole() !== "admin" ? "click" : editMode;
+  // 统一模板选择：经典 → templateType='latex'；HTML 模板 → templateType='html' + builderSettings 应用预设
+  const handleSelectTemplate = useCallback(
+    (selection: TemplateSelection) => {
+      setResumeData((prev) => {
+        if (selection.type === "latex") {
+          return prev.templateType === "html" ? { ...prev, templateType: "latex" as const } : prev;
+        }
+        const current = withSettingsDefaults(prev.globalSettings?.builderSettings);
+        return {
+          ...prev,
+          templateType: "html" as const,
+          globalSettings: {
+            ...prev.globalSettings,
+            builderSettings: applyTemplatePreset(current, selection.template) as unknown as Record<
+              string,
+              unknown
+            >,
+          },
+        };
+      });
+    },
+    [setResumeData],
+  );
 
   // 列宽状态
-  const [sidePanelWidth] = useState(300); // 模块选择列宽度（固定）
+  const [sidePanelWidth] = useState(280); // 模块选择列宽度（固定；抽屉方案下轨道收窄 300→280）
   const [editPanelWidth, setEditPanelWidth] = useState(700); // 编辑面板宽度（可拖动调整，范围 400-1400px）
   const [isDragging, setIsDragging] = useState(false);
+
+  // 设置抽屉：null=收起；'template'/'format' 展开对应 tab。点同 tab 收起、异 tab 切换
+  const [settingsDrawer, setSettingsDrawer] = useState<SettingsDrawerTab | null>(null);
+  const toggleSettingsDrawer = useCallback((tab: SettingsDrawerTab) => {
+    setSettingsDrawer((prev) => (prev === tab ? null : tab));
+  }, []);
+  const closeSettingsDrawer = useCallback(() => setSettingsDrawer(null), []);
   const dragStateRef = useRef<{ startX: number; startWidth: number; currentWidth: number } | null>(null);
   const clickEditPanelRef = useRef<HTMLDivElement | null>(null);
-  const scrollEditPanelRef = useRef<HTMLDivElement | null>(null);
 
   // 拖拽处理 - 调整编辑面板宽度
   const clampEditPanelWidth = useCallback((width: number) => {
@@ -175,9 +198,6 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
   const applyEditPanelWidth = useCallback((width: number) => {
     if (clickEditPanelRef.current) {
       clickEditPanelRef.current.style.width = `${width}px`;
-    }
-    if (scrollEditPanelRef.current) {
-      scrollEditPanelRef.current.style.width = `${width}px`;
     }
   }, []);
 
@@ -212,12 +232,11 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
   }, []);
 
   return (
-    <div className="h-[calc(100vh-64px)] flex relative z-10 overflow-hidden">
+    <div className="flex-1 min-h-0 flex relative z-10 overflow-hidden min-w-0">
       {/* 内容区域 */}
       <div className="flex-1 flex overflow-hidden">
-        {effectiveEditMode === "click" ? (
-          <div className="flex">
-              {/* 点击编辑模式：三列布局 */}
+        <div className="flex">
+              {/* 编辑区：三列布局 */}
               {/* 第一列：模块选择（窄） */}
               <div
                 className={cn(
@@ -237,6 +256,8 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                   reorderSections={reorderSections}
                   updateGlobalSettings={updateGlobalSettings}
                   addCustomSection={addCustomSection}
+                  settingsDrawer={settingsDrawer}
+                  onToggleSettingsDrawer={toggleSettingsDrawer}
                 />
               </div>
 
@@ -295,92 +316,12 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
                 onDragEnd={handleDragEnd}
               />
           </div>
-        ) : effectiveEditMode === "scroll" ? (
-          <div className="flex">
-              {/* 滚动编辑模式：两列布局 */}
-              {/* 第一列：滚动编辑区域 */}
-              <div
-                ref={scrollEditPanelRef}
-                className={cn(
-                  "h-full overflow-hidden shrink-0",
-                  "bg-white/80 dark:bg-slate-900/80",
-                  "backdrop-blur-sm border-r border-slate-200 dark:border-slate-800",
-                )}
-                style={{
-                  width: editPanelWidth,
-                  transition: "none",
-                }}
-              >
-                <ScrollEditMode
-                  menuSections={resumeData.menuSections}
-                  resumeData={resumeData}
-                  updateBasicInfo={updateBasicInfo}
-                  updateProject={updateProject}
-                  deleteProject={deleteProject}
-                  reorderProjects={reorderProjects}
-                  updateExperience={updateExperience}
-                  deleteExperience={deleteExperience}
-                  reorderExperiences={reorderExperiences}
-                  updateEducation={updateEducation}
-                  deleteEducation={deleteEducation}
-                  reorderEducations={reorderEducations}
-                  updateOpenSource={updateOpenSource}
-                  deleteOpenSource={deleteOpenSource}
-                  reorderOpenSources={reorderOpenSources}
-                  updateAward={updateAward}
-                  deleteAward={deleteAward}
-                  reorderAwards={reorderAwards}
-                  addCustomItem={addCustomItem}
-                  updateCustomItem={updateCustomItem}
-                  deleteCustomItem={deleteCustomItem}
-                  updateSelfEvaluation={updateSelfEvaluation}
-                  updateSkillContent={updateSkillContent}
-                  updateGlobalSettings={updateGlobalSettings}
-                  updateMenuSections={updateMenuSections}
-                  handleAIImport={handleAIImport}
-                />
-              </div>
-
-              {/* 分隔线（可拖拽调整编辑面板宽度） */}
-              <DragHandle
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-              />
-          </div>
-        ) : (
-          <div className="flex">
-              {/* JSON 编辑模式：直接编辑完整 ResumeData，合法后同步到统一状态源 */}
-              <div
-                ref={scrollEditPanelRef}
-                className={cn(
-                  "h-full overflow-hidden shrink-0",
-                  "bg-white/80 dark:bg-slate-900/80",
-                  "backdrop-blur-sm border-r border-slate-200 dark:border-slate-800",
-                )}
-                style={{
-                  width: editPanelWidth,
-                  transition: "none",
-                }}
-              >
-                <JsonEditMode
-                  resumeData={resumeData}
-                  onUpdate={setResumeData}
-                />
-              </div>
-
-              <DragHandle
-                onDragStart={handleDragStart}
-                onDragEnd={handleDragEnd}
-              />
-          </div>
-        )}
 
         {/* 预览面板（始终显示；拖拽时禁用指针避免 iframe 抢占事件） */}
         <div
           className={cn(
             "h-full overflow-hidden flex-1",
-            "bg-slate-100/80 dark:bg-slate-800/80",
-            "backdrop-blur-sm",
+            "bg-[#F6F3EC]",
           )}
           style={{ pointerEvents: isDragging ? "none" : "auto" }}
         >
@@ -399,6 +340,19 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
           />
         </div>
       </div>
+
+      {/* 设置抽屉：覆盖层（z-20，低于列宽拖拽遮罩层 z-[9999]），盖住轨道 + EditPanel 左半，预览始终露出 */}
+      <SettingsDrawer
+        activeTab={settingsDrawer}
+        onToggleTab={toggleSettingsDrawer}
+        onClose={closeSettingsDrawer}
+        overlayWidth={sidePanelWidth + 1 + editPanelWidth}
+        trackWidth={sidePanelWidth}
+        templateType={resumeData.templateType}
+        globalSettings={resumeData.globalSettings}
+        onSelectTemplate={handleSelectTemplate}
+        updateGlobalSettings={updateGlobalSettings}
+      />
 
       {/* 拖拽遮罩层：拖动时拦截全屏鼠标事件，避免预览 iframe 抢事件导致宽度回弹 */}
       {isDragging && (

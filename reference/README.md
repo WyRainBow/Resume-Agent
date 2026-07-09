@@ -10,6 +10,8 @@
 |---|---|
 | [2026-07-06-竞品AI交互调研-简历工具与vibecoding.md](docs/2026-07-06-竞品AI交互调研-简历工具与vibecoding.md) | 两路调研：开源简历项目 + AI 原生产品的交互模式 → Coco 四缺口与落地优先级（缺口 1/2 已在 v2.14.x 落地） |
 | [2026-07-07-重点参考项目探索.md](docs/2026-07-07-重点参考项目探索.md) | 用户点名的 3 个重点项目源码探索：Resume-Matcher 模板体系、vibe-resume、shushu-internship-tool |
+| [2026-07-08-neo-brutalism-design-research.md](docs/2026-07-08-neo-brutalism-design-research.md) | neo-brutalism / Swiss brutalist 视觉语言调研：定义与历史、构成要素、18+ 参考站点/开源库/资源、Tailwind 硬阴影实现要点与无障碍坑、与本项目 `SwissButton`/DashboardPage token 的对照（服务 `/builder`·`/my-resumes`·`/workspace` 视觉换新） |
+| [2026-07-08-resume-matcher-outreach-mail-调研.md](docs/2026-07-08-resume-matcher-outreach-mail-调研.md) | RM「OUTREACH MAIL / 发邮件」tab 到底是什么：调研结论=AI 生成外联文案（非真实发信系统），完整链路（简历+JD→prompt→LLM→textarea+复制）、强依赖 JD、对我方接 Coco 的决策点 |
 
 ## projects/ 本地参考项目
 

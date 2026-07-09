@@ -15,9 +15,19 @@ export const PDFViewer: React.FC<PDFEditorProps> = ({
   pdfBlob,
   scale = 1.2,
   onContentChange,
+  onNumPagesChange,
+  showMarginGuides = false,
+  marginRatio,
 }) => {
   const { pdfDoc, numPages, loading, error } = usePDFDocument(pdfBlob)
   const [pages, setPages] = useState<pdfjsLib.PDFPageProxy[]>([])
+
+  // 页数就绪后上报给外层工具栏展示，不在此组件内渲染页数 UI
+  useEffect(() => {
+    if (pdfDoc) {
+      onNumPagesChange?.(numPages)
+    }
+  }, [pdfDoc, numPages, onNumPagesChange])
   const {
     edits,
     startEdit,
@@ -169,6 +179,8 @@ export const PDFViewer: React.FC<PDFEditorProps> = ({
             onFinishEdit={handleFinishEdit}
             onCancelEdit={cancelEdit}
             onReEdit={reEdit}
+            showMarginGuides={showMarginGuides}
+            marginRatio={marginRatio}
           />
         ))}
       </div>

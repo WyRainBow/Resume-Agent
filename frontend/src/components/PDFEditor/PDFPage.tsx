@@ -26,6 +26,8 @@ interface PDFPageProps {
   onFinishEdit: (id: string) => void
   onCancelEdit: (id: string) => void
   onReEdit: (id: string) => void
+  showMarginGuides?: boolean
+  marginRatio?: { x: number; y: number }
 }
 
 export const PDFPage: React.FC<PDFPageProps> = ({
@@ -38,6 +40,8 @@ export const PDFPage: React.FC<PDFPageProps> = ({
   onFinishEdit,
   onCancelEdit,
   onReEdit,
+  showMarginGuides = false,
+  marginRatio,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null)
@@ -155,6 +159,26 @@ export const PDFPage: React.FC<PDFPageProps> = ({
         ref={canvasRef}
         style={editorStyles.pdfCanvas}
       />
+
+      {/* 边距参考线：照搬 Resume-Matcher PageContainer 的虚线框 + 四角标记做法，
+          用百分比换算（而非绝对像素）叠加在当前页画布上，与缩放联动 */}
+      {showMarginGuides && marginRatio && (
+        <div
+          className="absolute pointer-events-none z-10"
+          style={{
+            top: `${marginRatio.y * 100}%`,
+            left: `${marginRatio.x * 100}%`,
+            right: `${marginRatio.x * 100}%`,
+            bottom: `${marginRatio.y * 100}%`,
+            border: '1px dashed rgba(29, 78, 216, 0.5)',
+          }}
+        >
+          <div className="absolute -top-1 -left-1 w-2 h-2 border-t border-l border-blue-500" />
+          <div className="absolute -top-1 -right-1 w-2 h-2 border-t border-r border-blue-500" />
+          <div className="absolute -bottom-1 -left-1 w-2 h-2 border-b border-l border-blue-500" />
+          <div className="absolute -bottom-1 -right-1 w-2 h-2 border-b border-r border-blue-500" />
+        </div>
+      )}
 
       {/* 中层：可点击的文本区域 */}
       {textItems.length > 0 && pageHeight > 0 && (

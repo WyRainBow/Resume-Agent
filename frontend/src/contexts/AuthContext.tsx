@@ -40,7 +40,10 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
 const TOKEN_KEY = 'auth_token'
 const USER_KEY = 'auth_user'
-const BETTER_AUTH_TOKEN = 'better-auth-session'
+/** BetterAuth 登录态的占位 token（非真实凭证）。
+ * 把它当 Bearer 发出去会触发 auth-web 的 bearer 插件校验失败、连带 cookie session 一起判空，
+ * 所以手动附 Authorization 头前必须用它判断“跳过 Bearer、纯走 cookie”。 */
+export const BETTER_AUTH_TOKEN = 'better-auth-session'
 const LOGIN_SYNC_DELAY_MS = 2500
 
 function mapBetterAuthUser(sessionUser: BetterAuthSessionUser): User {

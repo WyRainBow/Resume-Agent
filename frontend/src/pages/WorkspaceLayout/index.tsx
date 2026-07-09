@@ -117,13 +117,11 @@ export type AgentSessionHandlers = {
 
 interface WorkspaceLayoutProps {
   children: React.ReactNode;
-  onDownload?: () => void;
   agentSession?: AgentSessionHandlers;
 }
 
 export default function WorkspaceLayout({
   children,
-  onDownload,
   agentSession,
 }: WorkspaceLayoutProps) {
   const navigate = useNavigate();
@@ -171,7 +169,7 @@ export default function WorkspaceLayout({
     if (location.pathname === "/templates") {
       return "templates";
     }
-    // workspace/html 或 workspace/latex 都算编辑区
+    // /workspace 及其子路径（/new、/:id、旧路由重定向）都算编辑区
     if (location.pathname.startsWith("/workspace")) {
       return "edit";
     }
@@ -302,28 +300,28 @@ export default function WorkspaceLayout({
     agentSession?.sessionsRefreshKey ?? sessionsRefreshKey;
 
   return (
-    <div className="h-screen flex overflow-hidden bg-slate-50 dark:bg-slate-950 font-sans selection:bg-slate-200 selection:text-slate-900">
+    <div className="h-screen flex overflow-hidden bg-[#F0F0E8] dark:bg-[#1C1C1C] font-sans selection:bg-[#4285F4] selection:text-white">
       {/* 左侧固定边栏 */}
       <aside
         className={cn(
-          "shrink-0 bg-white dark:bg-slate-900 border-r border-slate-200/60 dark:border-slate-800 flex flex-col transition-[width] duration-200",
+          "shrink-0 bg-[#F0F0E8] dark:bg-[#1C1C1C] border-r-2 border-black dark:border-white flex flex-col transition-[width] duration-200",
           sidebarCollapsed ? "w-24" : "w-[200px]",
         )}
       >
         {/* Logo + 收缩按钮：收起时合并，展开时并列 */}
-        <div className="border-b border-slate-100 dark:border-slate-800 shrink-0 p-2">
+        <div className="border-b-2 border-black dark:border-white shrink-0 p-2">
           {!sidebarCollapsed ? (
             <div className="flex items-center justify-between gap-1 w-full px-1">
               <div
                 className="cursor-pointer group shrink-0 flex items-center gap-2.5 min-w-0"
                 onClick={() => navigate("/")}
               >
-                <div className="w-9 h-9 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 shadow-sm group-hover:scale-105 transition-transform shrink-0">
-                  <span className="text-slate-900 dark:text-white font-black text-sm italic">
+                <div className="w-9 h-9 bg-[#4285F4] rounded-none flex items-center justify-center border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] group-hover:translate-x-[1px] group-hover:translate-y-[1px] group-hover:shadow-none transition-all shrink-0">
+                  <span className="text-white font-mono font-black text-sm not-italic">
                     RA
                   </span>
                 </div>
-                <span className="text-slate-900 dark:text-slate-100 font-bold text-base truncate">
+                <span className="text-black dark:text-white font-mono font-bold text-base uppercase tracking-wide truncate">
                   Resume.AI
                 </span>
               </div>
@@ -331,8 +329,8 @@ export default function WorkspaceLayout({
                 type="button"
                 onClick={toggleSidebar}
                 className={cn(
-                  "rounded-lg transition-colors shrink-0 p-1.5",
-                  "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-700 dark:hover:text-slate-300",
+                  "rounded-none transition-colors shrink-0 p-1.5",
+                  "text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
                 )}
                 title="收起侧边栏"
               >
@@ -343,8 +341,8 @@ export default function WorkspaceLayout({
             <div className="relative group h-10 w-full flex items-center justify-center">
               {/* 收起态默认状态：仅 Logo */}
               <div className="flex items-center justify-center transition-opacity duration-200 group-hover:opacity-0 w-full">
-                <div className="w-9 h-9 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center border border-slate-200 dark:border-slate-800 shadow-sm shrink-0">
-                  <span className="text-slate-900 dark:text-white font-black text-sm italic">
+                <div className="w-9 h-9 bg-[#4285F4] rounded-none flex items-center justify-center border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] shrink-0">
+                  <span className="text-white font-mono font-black text-sm not-italic">
                     RA
                   </span>
                 </div>
@@ -354,7 +352,7 @@ export default function WorkspaceLayout({
               <button
                 type="button"
                 onClick={toggleSidebar}
-                className="absolute inset-0 flex items-center justify-center rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 bg-slate-100/80 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                className="absolute inset-0 flex items-center justify-center rounded-none opacity-0 group-hover:opacity-100 transition-all duration-200 bg-[#E5E5E0]/90 dark:bg-[#2A2A2A]/90 text-black dark:text-white"
                 title="展开侧边栏"
               >
                 <SidebarToggleIcon expand className="w-6 h-6" />
@@ -375,13 +373,13 @@ export default function WorkspaceLayout({
             <button
               onClick={(e) => handleWorkspaceChange("edit", e)}
               className={cn(
-                "w-full rounded-lg transition-all duration-200",
+                "w-full rounded-none font-mono uppercase tracking-wide transition-all duration-100 border",
                 sidebarCollapsed
                   ? "flex flex-col items-center justify-center gap-1 py-2.5"
                   : "flex items-center gap-2.5 py-2.5 px-2.5",
                 currentWorkspace === "edit"
-                  ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
+                  ? "bg-[#4285F4] text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                  : "border-transparent text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
               )}
               title="编辑区"
             >
@@ -396,24 +394,24 @@ export default function WorkspaceLayout({
               <button
                 onClick={(e) => handleWorkspaceChange("agent", e)}
                 className={cn(
-                  "w-full rounded-lg transition-all duration-300 group",
+                  "w-full rounded-none font-mono uppercase tracking-wide transition-all duration-100 border group",
                   sidebarCollapsed
                     ? "flex flex-col items-center justify-center gap-1 py-2.5"
                     : "flex items-center gap-2.5 py-2.5 px-2.5",
                   currentWorkspace === "agent"
-                    ? "bg-slate-100 text-slate-900"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
+                    ? "bg-[#4285F4] text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                    : "border-transparent text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
                 )}
                 title="AI 对话"
               >
-                <Sparkles className={cn("w-6 h-6 shrink-0", currentWorkspace === "agent" ? "text-slate-900 dark:text-slate-100" : "text-slate-600 dark:text-slate-400")} />
+                <Sparkles className={cn("w-6 h-6 shrink-0", currentWorkspace === "agent" ? "text-white" : "text-black dark:text-white")} />
                 {!sidebarCollapsed && (
                   <span
                     className={cn(
-                      "text-base font-medium transition-colors duration-300",
+                      "text-base font-medium transition-colors duration-100",
                       currentWorkspace === "agent"
-                        ? "text-slate-900 dark:text-slate-100"
-                        : "text-slate-600 dark:text-slate-400",
+                        ? "text-white"
+                        : "text-black dark:text-white",
                     )}
                   >
                     AI 助手
@@ -426,13 +424,13 @@ export default function WorkspaceLayout({
             <button
               onClick={(e) => handleWorkspaceChange("myResumes", e)}
               className={cn(
-                "w-full rounded-lg transition-all duration-200",
+                "w-full rounded-none font-mono uppercase tracking-wide transition-all duration-100 border",
                 sidebarCollapsed
                   ? "flex flex-col items-center justify-center gap-1 py-2.5"
                   : "flex items-center gap-2.5 py-2.5 px-2.5",
                 currentWorkspace === "myResumes"
-                  ? "bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100"
-                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
+                  ? "bg-[#4285F4] text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                  : "border-transparent text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
               )}
               title="我的简历"
             >
@@ -446,13 +444,13 @@ export default function WorkspaceLayout({
               <button
                 onClick={(e) => handleWorkspaceChange("admin", e)}
                 className={cn(
-                  "w-full rounded-lg transition-all duration-200",
+                  "w-full rounded-none font-mono uppercase tracking-wide transition-all duration-100 border",
                   sidebarCollapsed
                     ? "flex flex-col items-center justify-center gap-1 py-2.5"
                     : "flex items-center gap-2.5 py-2.5 px-2.5",
                   currentWorkspace === "admin"
-                    ? "bg-slate-100 text-slate-900"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800",
+                    ? "bg-[#4285F4] text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                    : "border-transparent text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
                 )}
                 title="后台管理系统"
               >
@@ -465,7 +463,7 @@ export default function WorkspaceLayout({
           </nav>
 
           {/* 分隔线 */}
-          <div className="border-t border-slate-100 dark:border-slate-800 my-1 shrink-0" />
+          <div className="border-t-2 border-black dark:border-white my-2 shrink-0" />
 
           {/* 历史会话 - 常驻显示 */}
           {!sidebarCollapsed && canUseAgent && (
@@ -483,15 +481,15 @@ export default function WorkspaceLayout({
         </div>
 
         {/* 底部：主题切换 + 登录组件（与导航风格统一） */}
-        <div className="py-4 px-3 border-t border-slate-100 dark:border-slate-800 bg-slate-50/30 dark:bg-slate-900/30">
+        <div className="py-4 px-3 border-t-2 border-black dark:border-white">
           {/* 深色 / 浅色切换：登录态下移入用户下拉，未登录时保留此处 */}
           {!isAuthenticated && (
             <button
               type="button"
               onClick={() => setTheme(isDark ? "light" : "dark")}
               className={cn(
-                "w-full rounded-xl transition-all duration-300 mb-2",
-                "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200",
+                "w-full rounded-none font-mono uppercase tracking-wide transition-all duration-100 mb-2",
+                "border border-black dark:border-white bg-[#F0F0E8] dark:bg-[#2A2A2A] text-black dark:text-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] hover:bg-[#E5E5E0] dark:hover:bg-[#333333] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none active:translate-x-[2px] active:translate-y-[2px]",
                 sidebarCollapsed
                   ? "flex flex-col items-center justify-center gap-1 py-2.5"
                   : "flex items-center gap-2.5 py-2.5 px-2.5",
@@ -518,8 +516,8 @@ export default function WorkspaceLayout({
                   type="button"
                   onClick={() => setShowLogoutMenu(!showLogoutMenu)}
                   className={cn(
-                    "w-full rounded-xl transition-all duration-300 group",
-                    "bg-slate-50/50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 hover:bg-white dark:hover:bg-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-sm",
+                    "w-full rounded-none transition-all duration-100 group",
+                    "bg-[#F0F0E8] dark:bg-[#2A2A2A] border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] hover:bg-[#E5E5E0] dark:hover:bg-[#333333] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none",
                     sidebarCollapsed
                       ? "flex flex-col items-center justify-center gap-1 py-3"
                       : "flex items-center gap-3 py-2 px-3",
@@ -535,13 +533,13 @@ export default function WorkspaceLayout({
                   />
                   {!sidebarCollapsed && (
                     <div className="flex flex-col items-start min-w-0 flex-1">
-                      <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate w-full text-left">
+                      <span className="text-sm font-mono font-bold uppercase tracking-wide text-black dark:text-white truncate w-full text-left">
                         {user?.username || user?.email}
                       </span>
                     </div>
                   )}
                   {!sidebarCollapsed && (
-                    <ChevronDown className={cn("w-3.5 h-3.5 text-slate-400 transition-transform duration-300", showLogoutMenu && "rotate-180")} />
+                    <ChevronDown className={cn("w-3.5 h-3.5 text-black dark:text-white transition-transform duration-300", showLogoutMenu && "rotate-180")} />
                   )}
                 </button>
                 <AnimatePresence>
@@ -552,12 +550,12 @@ export default function WorkspaceLayout({
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.2, ease: "easeOut" }}
                       className={cn(
-                        "absolute bottom-full mb-3 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl z-[110] p-1.5 min-w-[180px]",
+                        "absolute bottom-full mb-3 bg-[#F0F0E8] dark:bg-[#1C1C1C] border border-black dark:border-white rounded-none shadow-[4px_4px_0px_0px_#000000] dark:shadow-[4px_4px_0px_0px_#ffffff] z-[110] p-1.5 min-w-[180px]",
                         sidebarCollapsed ? "left-0" : "left-0 right-0"
                       )}
                     >
-                      <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 mb-1">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">账号管理</p>
+                      <div className="px-3 py-2 border-b border-black dark:border-white mb-1">
+                        <p className="text-[10px] font-mono font-bold text-black dark:text-white uppercase tracking-widest">账号管理</p>
                       </div>
                       <button
                         type="button"
@@ -566,12 +564,12 @@ export default function WorkspaceLayout({
                           navigate("/account");
                         }}
                         className={cn(
-                          "w-full flex items-center justify-between gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all",
-                          "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white",
+                          "w-full flex items-center justify-between gap-2.5 px-3 py-2 rounded-none text-sm font-mono font-bold uppercase tracking-wide transition-all",
+                          "text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
                         )}
                       >
                         <span className="flex items-center gap-2.5">
-                          <Zap className="w-4 h-4 shrink-0 text-blue-500" />
+                          <Zap className="w-4 h-4 shrink-0 text-[#4285F4]" />
                           账户中心
                         </span>
                         {/* 额度数字 —— 额度迁移期间暂不展示 */}
@@ -583,8 +581,8 @@ export default function WorkspaceLayout({
                           handleWorkspaceChange("settings");
                         }}
                         className={cn(
-                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all",
-                          "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white",
+                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-none text-sm font-mono font-bold uppercase tracking-wide transition-all",
+                          "text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
                         )}
                       >
                         <Settings className="w-4 h-4 shrink-0" />
@@ -594,8 +592,8 @@ export default function WorkspaceLayout({
                         type="button"
                         onClick={() => setTheme(isDark ? "light" : "dark")}
                         className={cn(
-                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all",
-                          "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white",
+                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-none text-sm font-mono font-bold uppercase tracking-wide transition-all",
+                          "text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
                         )}
                       >
                         {isDark ? <Sun className="w-4 h-4 shrink-0" /> : <Moon className="w-4 h-4 shrink-0" />}
@@ -608,8 +606,8 @@ export default function WorkspaceLayout({
                           logout();
                         }}
                         className={cn(
-                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-semibold transition-all",
-                          "text-slate-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/20 dark:hover:text-red-400",
+                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-none text-sm font-mono font-bold uppercase tracking-wide transition-all",
+                          "text-black dark:text-white hover:bg-red-700 hover:text-white",
                         )}
                       >
                         <LogOut className="w-4 h-4 shrink-0" />
@@ -624,16 +622,16 @@ export default function WorkspaceLayout({
                         type="button"
                         onClick={() => openModal("login")}
                         className={cn(
-                          "w-full rounded-xl transition-all duration-300 font-medium",
-                          "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700",
-                          "text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 hover:text-slate-900 dark:hover:text-white hover:shadow-sm",
+                          "w-full rounded-none transition-all duration-100 font-mono uppercase tracking-wide group",
+                          "bg-[#4285F4] text-white border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]",
+                          "hover:bg-[#3367D6] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none active:translate-x-[2px] active:translate-y-[2px]",
                           sidebarCollapsed
                             ? "flex flex-col items-center justify-center gap-1 py-3"
                             : "flex items-center gap-3 py-2.5 px-4",
                         )}
                         title="登录 / 注册"
                       >
-                        <LogIn className="w-4 h-4 shrink-0 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-200 transition-colors" />
+                        <LogIn className="w-4 h-4 shrink-0 text-white transition-colors" />
                         {!sidebarCollapsed && (
                           <span className="text-sm">立即登录</span>
                         )}
@@ -642,7 +640,7 @@ export default function WorkspaceLayout({
           </div>
           {!sidebarCollapsed && (
             <div className="flex items-center justify-center gap-2 mt-3 px-2">
-              <span className="text-[10px] font-medium text-slate-400 dark:text-slate-600 tracking-wider">VERSION {LATEST_CHANGELOG.version}</span>
+              <span className="text-[10px] font-mono font-bold text-black/60 dark:text-white/60 uppercase tracking-widest">VERSION {LATEST_CHANGELOG.version}</span>
             </div>
           )}
         </div>
@@ -664,7 +662,7 @@ export default function WorkspaceLayout({
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
               transition={{ duration: 0.2 }}
-              className="h-full"
+              className="h-full w-full flex flex-col"
             >
               {children}
             </motion.div>

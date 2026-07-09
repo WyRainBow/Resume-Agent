@@ -33,7 +33,7 @@ export default function IntentChips({
             type="button"
             title={item.title ?? item.label}
             onClick={item.onClick}
-            className="inline-flex items-center gap-2 rounded-full border border-chat-border bg-chat-surface px-4 py-2 text-sm font-medium text-chat-ink transition-all hover:border-chat-accent/50 hover:bg-chat-accent/5 active:scale-95 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-amber-500/30 dark:hover:bg-amber-500/10"
+            className="inline-flex items-center gap-2 rounded-none border border-black bg-chat-surface px-4 py-2 text-sm font-medium text-chat-ink shadow-[2px_2px_0px_0px_#000000] transition-all hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:border-white dark:bg-slate-900 dark:text-slate-200 dark:shadow-[2px_2px_0px_0px_#ffffff]"
           >
             <Icon className="w-4 h-4 text-chat-accent dark:text-amber-400" strokeWidth={2} />
             {item.label}

@@ -34,9 +34,7 @@ export function ExportButton({
   const [quotaLoading, setQuotaLoading] = useState(false);
   const [quotaError, setQuotaError] = useState<string | null>(null);
   const isHtmlTemplate = resumeData?.templateType === "html";
-  const [format, setFormat] = useState<ExportFormat>(
-    isHtmlTemplate ? "json" : "pdf",
-  );
+  const [format, setFormat] = useState<ExportFormat>("pdf");
 
   const getPdfFileName = () => {
     const safeName = (resumeName || "简历")
@@ -84,9 +82,9 @@ export function ExportButton({
     quota && !quota.unlimited && (quota.remaining ?? 0) <= 0,
   );
 
-  // 导出 PDF - 仅用于 LaTeX 模板
+  // 导出 PDF：LaTeX 模板走后端渲染好的 pdfBlob（占下载额度）；HTML 模板走前端导出（onDownloadPDF，不占额度）
   const exportPdf = async () => {
-    if (!pdfBlob) {
+    if (!isHtmlTemplate && !pdfBlob) {
       toast.error('请先点击"渲染 PDF"按钮生成 PDF，然后再下载');
       return;
     }
@@ -94,11 +92,11 @@ export function ExportButton({
     try {
       if (onDownloadPDF) {
         await onDownloadPDF();
-      } else {
+      } else if (pdfBlob) {
         await recordPdfDownload();
         downloadBlob(pdfBlob, getPdfFileName());
       }
-      void refreshQuota();
+      if (!isHtmlTemplate) void refreshQuota();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "PDF 下载失败，请重试");
     }
@@ -131,17 +129,18 @@ export function ExportButton({
 
   useEffect(() => {
     if (isOpen) {
-      setFormat(isHtmlTemplate ? "json" : "pdf");
-      void refreshQuota();
+      setFormat("pdf");
+      if (!isHtmlTemplate) void refreshQuota();
     }
   }, [isOpen, isHtmlTemplate]);
 
   const formatCardClass = (active: boolean) =>
     cn(
-      "flex flex-col items-center gap-2 rounded-xl border p-5 text-center transition-colors",
+      'flex flex-col items-center gap-2 p-4 text-center transition-[transform,box-shadow,background-color] duration-100',
+      'border-2 border-black dark:border-white',
       active
-        ? "border-blue-500 bg-blue-50/50 dark:border-blue-500 dark:bg-blue-950/30"
-        : "border-slate-200 bg-white hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600",
+        ? 'bg-[#D4E4FF] shadow-[2px_2px_0px_0px_#000000] dark:bg-[#1a2a4a] dark:shadow-[2px_2px_0px_0px_#ffffff]'
+        : 'bg-[#F0F0E8] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none dark:bg-[#2A2A2A] dark:hover:bg-[#3A3A3A]',
     );
 
   return (
@@ -149,14 +148,16 @@ export function ExportButton({
       <button
         onClick={() => setIsOpen(true)}
         className={cn(
-          "px-6 py-2.5 rounded-lg",
-          "bg-blue-500 hover:bg-blue-600 active:bg-blue-700",
-          "text-white text-sm font-bold",
-          "transition-all duration-300 ease-out",
-          "flex items-center gap-2",
-          "shadow-lg shadow-blue-100 dark:shadow-blue-900/20",
-          "border-2 border-blue-500",
-          "hover:scale-[1.05] active:scale-[0.95]",
+          'inline-flex items-center justify-center gap-2',
+          'whitespace-nowrap text-sm font-medium font-mono uppercase tracking-wide',
+          'transition-[transform,box-shadow,background-color] duration-100 ease-out',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2',
+          'disabled:opacity-50',
+          'rounded-none h-9 px-5',
+          'border border-black dark:border-white',
+          'shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]',
+          'bg-blue-700 text-white',
+          'hover:bg-blue-800 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none',
         )}
       >
         <Download className="w-4 h-4" strokeWidth={3} />
@@ -168,66 +169,63 @@ export function ExportButton({
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
           onClick={(e) => e.target === e.currentTarget && setIsOpen(false)}
         >
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+          <div className="w-full max-w-md border-2 border-black bg-[#F0F0E8] p-5 shadow-[4px_4px_0px_0px_#000000] dark:border-white dark:bg-[#2A2A2A] dark:shadow-[4px_4px_0px_0px_#ffffff]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                <h3 className="font-mono text-sm font-bold uppercase tracking-wide text-black dark:text-white">
                   导出简历
                 </h3>
-                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                <p className="mt-0.5 font-mono text-[10px] text-[#878E99] dark:text-neutral-400">
                   选择导出格式下载简历
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="-mr-1 -mt-1 rounded-md p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                className="rounded-none border border-black bg-[#F0F0E8] p-1.5 text-black shadow-[1px_1px_0px_0px_#000000] transition-colors hover:bg-[#E5E5E0] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none dark:border-white dark:bg-[#2A2A2A] dark:text-white dark:shadow-[1px_1px_0px_0px_#ffffff] dark:hover:bg-[#3A3A3A]"
                 aria-label="关闭"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            <div
-              className={cn(
-                "mt-4 grid gap-3",
-                isHtmlTemplate ? "grid-cols-1" : "grid-cols-2",
-              )}
-            >
-              {!isHtmlTemplate && (
-                <button
-                  type="button"
-                  onClick={() => setFormat("pdf")}
-                  className={formatCardClass(format === "pdf")}
+            <div className="mt-4 grid gap-3 grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setFormat("pdf")}
+                className={formatCardClass(format === "pdf")}
+              >
+                <span
+                  className={cn(
+                    "flex h-11 w-11 items-center justify-center",
+                    format === "pdf"
+                      ? "bg-blue-700 text-white border border-black shadow-[2px_2px_0px_0px_#000000]"
+                      : "bg-[#F0F0E8] text-black border border-black shadow-[1px_1px_0px_0px_#000000] dark:bg-[#2A2A2A] dark:text-white dark:border-white dark:shadow-[1px_1px_0px_0px_#ffffff]",
+                  )}
                 >
-                  <span
-                    className={cn(
-                      "flex h-11 w-11 items-center justify-center rounded-lg",
-                      format === "pdf"
-                        ? "bg-blue-600 text-white"
-                        : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
-                    )}
-                  >
-                    <FileText className="h-5 w-5" strokeWidth={2} />
-                  </span>
-                  <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                    PDF
-                  </span>
-                  <span className="text-xs text-slate-500 dark:text-slate-400">
-                    可打印文档
-                  </span>
-                  <span
-                    className={cn(
-                      "text-[11px]",
-                      quotaIsExhausted
-                        ? "text-red-500 dark:text-red-400"
-                        : "text-slate-400 dark:text-slate-500",
-                    )}
-                  >
-                    {!pdfBlob ? "需要先渲染 PDF" : getQuotaText()}
-                  </span>
-                </button>
-              )}
+                  <FileText className="h-5 w-5" strokeWidth={2} />
+                </span>
+                <span className="font-mono text-xs font-bold uppercase tracking-wide text-black dark:text-white">
+                  PDF
+                </span>
+                <span className="font-mono text-[10px] text-[#878E99] dark:text-neutral-400">
+                  可打印文档
+                </span>
+                <span
+                  className={cn(
+                    "font-mono text-[10px]",
+                    !isHtmlTemplate && quotaIsExhausted
+                      ? "text-red-600"
+                      : "text-[#878E99] dark:text-neutral-400",
+                  )}
+                >
+                  {isHtmlTemplate
+                    ? "前端实时导出，不占下载额度"
+                    : !pdfBlob
+                      ? "需要先渲染 PDF"
+                      : getQuotaText()}
+                </span>
+              </button>
 
               <button
                 type="button"
@@ -236,21 +234,21 @@ export function ExportButton({
               >
                 <span
                   className={cn(
-                    "flex h-11 w-11 items-center justify-center rounded-lg",
+                    "flex h-11 w-11 items-center justify-center",
                     format === "json"
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400",
+                      ? "bg-blue-700 text-white border border-black shadow-[2px_2px_0px_0px_#000000]"
+                      : "bg-[#F0F0E8] text-black border border-black shadow-[1px_1px_0px_0px_#000000] dark:bg-[#2A2A2A] dark:text-white dark:border-white dark:shadow-[1px_1px_0px_0px_#ffffff]",
                   )}
                 >
                   <FileJson className="h-5 w-5" strokeWidth={2} />
                 </span>
-                <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                <span className="font-mono text-xs font-bold uppercase tracking-wide text-black dark:text-white">
                   JSON
                 </span>
-                <span className="text-xs text-slate-500 dark:text-slate-400">
+                <span className="font-mono text-[10px] text-[#878E99] dark:text-neutral-400">
                   结构化数据
                 </span>
-                <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                <span className="font-mono text-[10px] text-[#878E99] dark:text-neutral-400">
                   可再次导入编辑
                 </span>
               </button>
@@ -260,14 +258,14 @@ export function ExportButton({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                className="rounded-none border border-black bg-[#F0F0E8] px-4 py-2 font-mono text-xs font-bold uppercase tracking-wide text-black shadow-[2px_2px_0px_0px_#000000] transition-colors hover:bg-[#E5E5E0] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none dark:border-white dark:bg-[#2A2A2A] dark:text-white dark:shadow-[2px_2px_0px_0px_#ffffff] dark:hover:bg-[#3A3A3A]"
               >
                 取消
               </button>
               <button
                 type="button"
                 onClick={handleExport}
-                className="rounded-lg bg-blue-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700 active:scale-[0.98]"
+                className="rounded-none border border-black bg-blue-700 px-5 py-2 font-mono text-xs font-bold uppercase tracking-wide text-white shadow-[2px_2px_0px_0px_#000000] transition-colors hover:bg-blue-800 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none dark:border-white dark:shadow-[2px_2px_0px_0px_#ffffff]"
               >
                 导出
               </button>

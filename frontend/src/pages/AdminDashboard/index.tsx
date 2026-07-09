@@ -43,14 +43,14 @@ function RoleDropdown({ value, onChange }: { value: string; onChange: (next: str
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50 active:scale-[0.97] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-600"
+        className="inline-flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 active:scale-[0.98] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:border-slate-600"
       >
         <span className={`h-1.5 w-1.5 rounded-full ${current.dot}`} />
         {current.label}
         <ChevronDown className={`h-3 w-3 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
-        <div className="absolute left-0 z-20 mt-1.5 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
+        <div className="absolute left-0 z-20 mt-1.5 w-44 overflow-hidden rounded-lg border border-slate-200 bg-white py-1 shadow-lg dark:border-slate-700 dark:bg-slate-800">
           {ROLE_OPTIONS.map((o) => (
             <button
               key={o.value}
@@ -256,32 +256,34 @@ export default function AdminDashboardPage() {
 
   return (
     <WorkspaceLayout>
-      <div className="h-full overflow-auto bg-slate-100 dark:bg-slate-950 p-6">
-        <div className="max-w-5xl mx-auto space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">后台管理系统</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">平台基础数据看板</p>
+      {/* 米白背景 + 小格纸（参考 Builder） */}
+      <div className="h-full overflow-y-auto bg-[#F0F0E8] bg-[linear-gradient(#D0D0C8_1px,transparent_1px),linear-gradient(90deg,#D0D0C8_1px,transparent_1px)] bg-[size:16px_16px] dark:bg-slate-950 dark:bg-[linear-gradient(#334155_1px,transparent_1px),linear-gradient(90deg,#334155_1px,transparent_1px)]">
+        <div className="max-w-6xl mx-auto p-6 space-y-6">
+          {/* 页面标题 - Builder 风格超大 serif 标题 */}
+          <div className="border-2 border-black bg-white p-6 shadow-[6px_6px_0px_0px_#000000] dark:border-white dark:bg-slate-900 dark:shadow-[6px_6px_0px_0px_#ffffff]">
+            <h1 className="text-4xl font-serif font-bold tracking-tight text-black dark:text-white">后台管理系统</h1>
+            <p className="mt-2 text-sm font-mono uppercase tracking-widest text-slate-500 dark:text-slate-400">Platform Dashboard</p>
           </div>
 
-          {/* 加载中 / 无权限 / 请求错误：不显示 Tab，只显示占位 */}
+          {/* 加载中 / 无权限 / 请求错误 */}
           {loading ? (
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="rounded-2xl border border-slate-200/80 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-                  <div className="h-3 w-16 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
-                  <div className="mt-3 h-8 w-12 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-0 bg-black">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <div key={i} className="border border-black bg-white p-5 dark:border-white dark:bg-slate-900">
+                  <div className="h-3 w-16 bg-slate-200 dark:bg-slate-700 animate-pulse" />
+                  <div className="mt-3 h-8 w-12 bg-slate-200 dark:bg-slate-700 animate-pulse" />
                 </div>
               ))}
             </div>
           ) : error ? (
-            <div className="rounded-2xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-950/20 p-6 text-red-600 dark:text-red-400">
+            <div className="border-2 border-red-600 bg-white p-6 text-red-600 dark:border-red-400 dark:bg-slate-900 dark:text-red-400">
               {error}
             </div>
           ) : null}
 
-          {/* Tab 栏 */}
+          {/* Tab 栏 - 简洁底部边框 */}
           {!loading && !error && (
-            <div className="flex items-center gap-1 border-b border-slate-200 dark:border-slate-800">
+            <div className="flex items-center gap-1 border-b-2 border-black dark:border-white">
               {([
                 { key: 'users', label: '用户管理' },
                 { key: 'logos', label: 'Logo 管理' },
@@ -290,16 +292,13 @@ export default function AdminDashboardPage() {
                   key={t.key}
                   type="button"
                   onClick={() => setActiveTab(t.key)}
-                  className={`relative -mb-px px-4 py-2.5 text-sm font-medium transition-colors ${
+                  className={`relative px-4 py-3 text-sm font-mono uppercase tracking-wide transition-all ${
                     activeTab === t.key
-                      ? 'text-slate-900 dark:text-slate-100'
-                      : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                      ? 'text-black dark:text-white border-b-2 border-black dark:border-white -mb-[2px]'
+                      : 'text-slate-500 hover:text-black dark:text-slate-400 dark:hover:text-white'
                   }`}
                 >
                   {t.label}
-                  {activeTab === t.key && (
-                    <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-emerald-500" />
-                  )}
                 </button>
               ))}
             </div>
@@ -308,37 +307,44 @@ export default function AdminDashboardPage() {
           {/* 用户管理 Tab */}
           {activeTab === 'users' && !loading && !error && (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+              {/* 统计卡片 - 简洁硬边框 */}
+              <div className="grid grid-cols-2 lg:grid-cols-5 gap-0 bg-black">
                 {[
-                  { label: '用户总数', value: stats?.total_users ?? users.length, bar: 'bg-slate-300 dark:bg-slate-600' },
-                  { label: '管理员', value: users.filter((u) => u.role === 'admin').length, bar: 'bg-emerald-400/70' },
-                  { label: '员工', value: users.filter((u) => u.role === 'staff').length, bar: 'bg-violet-400/70' },
-                  { label: '会员', value: users.filter((u) => u.role === 'member').length, bar: 'bg-blue-400/70' },
-                  { label: '普通用户', value: users.filter((u) => u.role === 'user').length, bar: 'bg-slate-300 dark:bg-slate-600' },
+                  { label: '用户总数', value: stats?.total_users ?? users.length, bar: 'bg-slate-400' },
+                  { label: '管理员', value: users.filter((u) => u.role === 'admin').length, bar: 'bg-emerald-500' },
+                  { label: '员工', value: users.filter((u) => u.role === 'staff').length, bar: 'bg-violet-500' },
+                  { label: '会员', value: users.filter((u) => u.role === 'member').length, bar: 'bg-blue-500' },
+                  { label: '普通用户', value: users.filter((u) => u.role === 'user').length, bar: 'bg-slate-400' },
                 ].map((s) => (
                   <div
                     key={s.label}
-                    className="relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+                    className="border border-black bg-white p-4 dark:border-white dark:bg-slate-900"
                   >
-                    <div className={`absolute inset-x-0 top-0 h-1 ${s.bar}`} />
-                    <div className="text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400">{s.label}</div>
-                    <div className="mt-2 text-3xl font-bold tabular-nums text-slate-900 dark:text-slate-100">{s.value}</div>
+                    <div className={`h-1 w-full mb-3 ${s.bar}`} />
+                    <div className="text-xs font-mono uppercase tracking-wide text-slate-500 dark:text-slate-400">{s.label}</div>
+                    <div className="mt-1 text-3xl font-bold tabular-nums text-black dark:text-white">{s.value}</div>
                   </div>
                 ))}
               </div>
 
-              <section className="overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
-                  <div className="border-b border-slate-200 dark:border-slate-800 px-6 py-4">
-                    <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">用户列表</h2>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">共 {users.length} 个用户</p>
-                    <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400">
-                      <span><span className="rounded-full bg-emerald-100 px-2 py-0.5 font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">admin</span> 管理员 · 全部权限、后台仅管理员可用</span>
-                      <span><span className="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400">staff</span> 员工 · PDF 下载不限次、无后台权限</span>
-                      <span><span className="rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">member</span> 会员 · 付费权益（PDF 下载不限次）、无后台权限</span>
-                      <span><span className="rounded-full bg-slate-100 px-2 py-0.5 font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">user</span> 普通用户 · 基础功能（PDF 下载 10 次）</span>
+              {/* 用户列表表格 */}
+              <section className="border-2 border-black bg-white shadow-[6px_6px_0px_0px_#000000] dark:border-white dark:bg-slate-900 dark:shadow-[6px_6px_0px_0px_#ffffff]">
+                  <div className="border-b-2 border-black px-6 py-4 dark:border-white">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <h2 className="text-lg font-serif font-bold text-black dark:text-white">用户列表</h2>
+                        <p className="mt-1 text-xs font-mono uppercase tracking-wide text-slate-500 dark:text-slate-400">共 {users.length} 个用户</p>
+                      </div>
+                      {/* 角色图例 */}
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs font-mono text-slate-500 dark:text-slate-400">
+                        <span><span className="inline-block w-2 h-2 bg-emerald-500 mr-1" />admin</span>
+                        <span><span className="inline-block w-2 h-2 bg-violet-500 mr-1" />staff</span>
+                        <span><span className="inline-block w-2 h-2 bg-blue-500 mr-1" />member</span>
+                        <span><span className="inline-block w-2 h-2 bg-slate-400 mr-1" />user</span>
+                      </div>
                     </div>
                     {actionError && (
-                      <div className="mt-3 rounded-lg bg-rose-50 px-3 py-2 text-xs text-rose-600 dark:bg-rose-950/20 dark:text-rose-400">
+                      <div className="mt-3 border border-red-600 bg-white px-3 py-2 text-xs text-red-600 dark:border-red-400 dark:bg-slate-900 dark:text-red-400">
                         {actionError}
                       </div>
                     )}
@@ -346,7 +352,7 @@ export default function AdminDashboardPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-xs text-slate-500 dark:text-slate-400">
+                        <tr className="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
                           <th className="px-6 py-3 font-medium">ID</th>
                           <th className="px-6 py-3 font-medium">用户名</th>
                           <th className="px-6 py-3 font-medium">邮箱</th>
@@ -358,7 +364,7 @@ export default function AdminDashboardPage() {
                       <tbody>
                         {users.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="px-6 py-8 text-center text-slate-400">
+                            <td colSpan={6} className="px-6 py-8 text-center font-mono text-slate-400">
                               暂无用户
                             </td>
                           </tr>
@@ -366,7 +372,7 @@ export default function AdminDashboardPage() {
                           users.map((u) => (
                             <tr
                               key={u.id}
-                              className="border-b border-slate-100 text-slate-700 transition-colors hover:bg-slate-50/70 dark:border-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-800/40"
+                              className="border-b border-slate-100 text-slate-700 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800/50"
                             >
                               <td className="px-6 py-3 text-slate-400" title={u.id}>{String(u.id).slice(0, 8)}…</td>
                               <td className="px-6 py-3 font-medium text-slate-900 dark:text-slate-100">{u.username}</td>

@@ -4,6 +4,9 @@ import { toast } from '@/lib/toast'
  * 使用 WorkspaceLayout 包裹，提供统一的侧边栏布局
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
+import html2pdf from 'html2pdf.js'
 
 // Hooks
 import { useAIImport, useAutoSaveResume, usePDFOperations, useResumeData } from './hooks'
@@ -20,16 +23,16 @@ import HealthCheckDialog from './shared/HealthCheckDialog'
 import AiAssistantChat from './shared/AiAssistantChat'
 import { scoreResume, type JdOptimizeField } from '@/services/api'
 import { stripHtmlTags } from './utils/textUtils'
+import { withSettingsDefaults } from '../../Builder/settings'
 
-type EditMode = 'click' | 'scroll' | 'json'
 const PDF_RENDER_DEBOUNCE_MS = 2000
 // 首次加载的自动渲染延迟：短一点，打开工作台即出预览
 const PDF_RENDER_INITIAL_DELAY_MS = 300
 
 export default function WorkspaceV2() {
-  // 编辑模式状态
-  const [editMode, setEditMode] = useState<EditMode>('click')
-  
+  const navigate = useNavigate()
+  const { resumeId } = useParams<{ resumeId?: string }>()
+
   // 跟踪编辑状态和保存状态
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [initialResumeData, setInitialResumeData] = useState<any>(null)
@@ -112,7 +115,6 @@ export default function WorkspaceV2() {
     saveSuccess,
     handleRender,
     handleDownload,
-    handleSaveToDashboard,
   } = usePDFOperations({ resumeData, currentResumeId, setCurrentId })
 
   // AI 导入
@@ -130,10 +132,11 @@ export default function WorkspaceV2() {
   // 文件输入引用（用于导入 JSON）
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 自动保存（与 latex/html 工作台同一保存模型）
+  // 自动保存（带路由 ID 时按 ID 保存）
   const { saveStatus, saveError } = useAutoSaveResume({
     resumeData,
     currentResumeId,
+    routeResumeId: resumeId,
     isDataLoaded,
     setCurrentId,
   })
@@ -239,6 +242,33 @@ export default function WorkspaceV2() {
     }
   }, [currentResumeId, jdText])
 
+  // HTML 模板：前端 html2pdf 导出预览容器（TODO: 换 window.print 真文字方案，见设计文档）
+  const handleDownloadHtmlPDF = useCallback(() => {
+    const sourceElement = document.querySelector('.html-template-container') as HTMLElement | null
+    if (!sourceElement) {
+      toast.error('找不到简历预览内容，请确保预览区域可见')
+      return
+    }
+    const filename = `${resumeData?.basic?.name || '简历'}-${new Date().toISOString().split('T')[0]}.pdf`
+    // 页面尺寸跟随排版设置（A4 / US Letter）
+    const pageSize = withSettingsDefaults(resumeData?.globalSettings?.builderSettings).pageSize
+    html2pdf()
+      .set({
+        margin: 0,
+        filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: pageSize === 'LETTER' ? 'letter' : 'a4', orientation: 'portrait' },
+      })
+      .from(sourceElement)
+      .save()
+      .catch(() => toast.error('导出 PDF 失败，请重试'))
+  }, [resumeData?.basic?.name, resumeData?.globalSettings?.builderSettings])
+
+  // 下载入口按模板类型分流：经典 LaTeX 走后端 PDF，HTML 模板走前端导出
+  const handleDownloadByTemplate =
+    resumeData.templateType === 'html' ? handleDownloadHtmlPDF : handleDownload
+
   // 导出 JSON
   const handleExportJSON = () => {
     try {
@@ -296,21 +326,42 @@ export default function WorkspaceV2() {
 
   return (
     <WorkspaceLayout>
+      {/* 装饰头(照搬 Builder 风格):返回链接 + 大标题 + 编辑模式标识 + 简历名 chip,纯展示,不含操作按钮(操作按钮在下方 Header 里,避免重复) */}
+      <div className="border-b border-black dark:border-white bg-[#F0F0E8] dark:bg-[#1C1C1C] px-6 py-5 md:px-8 md:py-6 shrink-0">
+        <button
+          type="button"
+          onClick={() => navigate('/my-resumes')}
+          className="inline-flex items-center gap-1.5 mb-2 -ml-1 px-1 font-mono text-xs font-bold uppercase tracking-wide text-blue-700 hover:underline"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          返回 Dashboard
+        </button>
+        <h1 className="font-serif text-3xl md:text-5xl text-black dark:text-white tracking-tight leading-[0.95] uppercase">
+          Resume Builder
+        </h1>
+        <div className="mt-3 flex items-center gap-3 flex-wrap">
+          <p className="text-sm font-mono text-blue-700 uppercase tracking-wide font-bold">
+            {'// '}编辑模式
+          </p>
+          {resumeData?.basic?.name && (
+            <span className="font-mono text-xs text-[#444850] dark:text-neutral-300 border border-black dark:border-white bg-white dark:bg-[#2A2A2A] px-2 py-1">
+              {resumeData.basic.name}
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* 顶部导航栏 */}
       <Header
-        saveSuccess={saveSuccess}
         saveStatus={saveStatus}
         saveError={saveError}
         onGlobalAIImport={handleGlobalAIImport}
-        onSaveToDashboard={handleSaveToDashboard}
         onExportJSON={handleExportJSON}
         onImportJSON={handleImportJSON}
         resumeData={resumeData}
         resumeName={resumeData?.basic?.name || '我的简历'}
         pdfBlob={pdfBlob}
-        onDownloadPDF={handleDownload}
-        editMode={editMode}
-        onEditModeChange={setEditMode}
+        onDownloadPDF={handleDownloadByTemplate}
       />
 
       {/* 编辑 + 预览三列布局 */}
@@ -352,8 +403,7 @@ export default function WorkspaceV2() {
         renderError={renderError}
         autoRenderPending={isAutoRenderPending}
         handleRender={handleRender}
-        handleDownload={handleDownload}
-        editMode={editMode}
+        handleDownload={handleDownloadByTemplate}
       />
 
       {/* JD 匹配优化 —— 聚焦弹窗（粘 JD → 多维评分 → 一键深度优化），取代页面底部常驻大框 */}

@@ -3,13 +3,29 @@
  * 支持 LaTeX PDF 渲染和 HTML 模板实时预览
  */
 import { useState, useRef, useEffect } from 'react'
-import { Download, RefreshCw, FileText, Sparkles, Minus, Plus, AlertTriangle } from 'lucide-react'
+import { Download, RefreshCw, FileText, Sparkles, Minus, Plus, AlertTriangle, Eye } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { PDFViewerSelector } from '../../../../components/PDFEditor'
-import { HTMLTemplateRenderer } from '../HTMLTemplateRenderer'
+import ResumeRenderer from '../../../Builder/templates/ResumeRenderer'
+import { PaginatedPreview } from '../../../Builder/components/PaginatedPreview'
+import { toBuilderResumeData } from '../../../Builder/adapter'
+import { withSettingsDefaults } from '../../../Builder/settings'
+import { PAGE_DIMENSIONS } from '../../../Builder/pageDimensions'
 import type { ResumeData } from '../types'
 import type { PDFRenderMode } from '@/services/pdfRenderMode'
 import { logPDFRenderModeChange } from '@/services/api'
+
+// 与 backend/latex_generator.py 的 margin_map 保持一致（单位：英寸），用于换算边距参考线的比例
+const LATEX_MARGIN_INCHES: Record<string, number> = {
+  tight: 0.25,
+  compact: 0.3,
+  standard: 0.4,
+  relaxed: 0.5,
+  wide: 0.6,
+}
+// A4 页面尺寸（英寸），LaTeX 生成器固定用 a4paper
+const A4_WIDTH_IN = 8.27
+const A4_HEIGHT_IN = 11.69
 
 interface PreviewPanelProps {
   resumeData?: ResumeData
@@ -42,8 +58,12 @@ export function PreviewPanel({
   const [autoScale, setAutoScale] = useState(1.0)
   const [userScale, setUserScale] = useState<number | null>(null)
   const [scalePercentInput, setScalePercentInput] = useState('')
+  const [numPages, setNumPages] = useState(0)
+  const [showMargin, setShowMargin] = useState(true)
 
   const isHTMLTemplate = resumeData?.templateType === 'html'
+  const marginIn = LATEX_MARGIN_INCHES[resumeData?.globalSettings?.latexMargin || 'standard']
+  const marginRatio = { x: marginIn / A4_WIDTH_IN, y: marginIn / A4_HEIGHT_IN }
 
   const MIN_SCALE = 0.5
   const MAX_SCALE = 2.5
@@ -75,6 +95,11 @@ export function PreviewPanel({
       window.removeEventListener('resize', updateScale)
     }
   }, [pdfBlob, isHTMLTemplate])
+
+  // 换简历/重新渲染时旧页数已不准确，清空等待新 PDF 上报
+  useEffect(() => {
+    if (!pdfBlob) setNumPages(0)
+  }, [pdfBlob])
 
   const handleZoomOut = () => {
     const next = Math.max(MIN_SCALE, effectiveScale - ZOOM_STEP)
@@ -115,7 +140,7 @@ export function PreviewPanel({
       {/* 工具栏 */}
       <div
         className={cn(
-          'flex items-center justify-between px-4 py-3',
+          'flex items-center justify-between gap-3 px-4 py-3 flex-wrap',
           'bg-white/70 dark:bg-slate-800/70',
           'backdrop-blur-sm',
           'border-b border-slate-200/50 dark:border-slate-700/50'
@@ -123,7 +148,7 @@ export function PreviewPanel({
       >
           {/* HTML 模板：仅显示实时预览标签 */}
           {isHTMLTemplate && (
-            <span className="px-3 py-1 text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
+            <span className="px-3 py-1 text-xs font-mono font-bold uppercase tracking-wide bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-none border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]">
               实时预览
             </span>
           )}
@@ -136,12 +161,13 @@ export function PreviewPanel({
                 onClick={onRender}
                 disabled={loading}
                 className={cn(
-                  'group relative px-6 py-2.5 rounded-lg overflow-hidden',
-                  'bg-blue-500 text-white text-sm font-bold tracking-tight',
+                  'group relative px-6 py-2.5 rounded-none border-2 border-black overflow-hidden',
+                  'bg-[#4285F4] text-white text-sm font-bold tracking-tight',
                   'disabled:opacity-60 disabled:cursor-not-allowed',
-                  'transition-all duration-300',
-                  'hover:scale-[1.02] hover:bg-blue-600 shadow-lg shadow-blue-100 dark:shadow-none active:scale-[0.98]',
-                  'disabled:hover:scale-100'
+                  'transition-all',
+                  'shadow-[3px_3px_0px_0px_#000000] hover:bg-[#3367D6] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px]',
+                  'disabled:hover:shadow-[3px_3px_0px_0px_#000000] disabled:hover:translate-x-0 disabled:hover:translate-y-0',
+                  'dark:border-white dark:shadow-[3px_3px_0px_0px_#ffffff]'
                 )}
               >
                 <span className="relative flex items-center gap-2">
@@ -176,6 +202,101 @@ export function PreviewPanel({
                   </select>
                 </label>
               )}
+            </div>
+          )}
+
+          {/* 缩放 + 边距 + 页数：从预览区底部搬到顶部工具栏，仅 LaTeX 分支且已有 PDF 时展示。
+              样式照搬 Resume-Matcher components/ui/button.tsx 的 ghost/secondary 变体：
+              方角、无底色无边框的 ghost 图标按钮，mono 字体数值，激活态才显示灰底黑边 */}
+          {!isHTMLTemplate && pdfBlob && (
+            <div className="flex items-center gap-1 flex-wrap justify-end">
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  onClick={handleZoomOut}
+                  disabled={effectiveScale <= MIN_SCALE}
+                  className={cn(
+                    'inline-flex items-center justify-center h-8 w-8 rounded-none',
+                    'bg-transparent border-none text-slate-700 dark:text-slate-300',
+                    'hover:bg-slate-100 dark:hover:bg-white/10 transition-colors',
+                    'disabled:opacity-50 disabled:pointer-events-none'
+                  )}
+                  title="缩小"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={scalePercentInput !== '' ? scalePercentInput : String(displayPercent)}
+                  onChange={(e) => setScalePercentInput(e.target.value)}
+                  onBlur={() => scalePercentInput !== '' && applyPercentInput(scalePercentInput)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.currentTarget.blur()
+                    }
+                  }}
+                  className={cn(
+                    'w-10 text-center font-mono text-xs rounded-none bg-transparent border-none',
+                    'text-slate-500 dark:text-slate-400',
+                    'focus:outline-none focus:ring-1 focus:ring-blue-700'
+                  )}
+                  title="点击输入缩放比例（50–250）"
+                />
+                <span className="font-mono text-xs text-slate-500 dark:text-slate-400">%</span>
+                <button
+                  type="button"
+                  onClick={handleZoomIn}
+                  disabled={effectiveScale >= MAX_SCALE}
+                  className={cn(
+                    'inline-flex items-center justify-center h-8 w-8 rounded-none',
+                    'bg-transparent border-none text-slate-700 dark:text-slate-300',
+                    'hover:bg-slate-100 dark:hover:bg-white/10 transition-colors',
+                    'disabled:opacity-50 disabled:pointer-events-none'
+                  )}
+                  title="放大"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                {userScale !== null && (
+                  <button
+                    type="button"
+                    onClick={handleFitWidth}
+                    className="ml-1 font-mono text-xs text-blue-700 dark:text-blue-400 hover:underline"
+                  >
+                    适应宽度
+                  </button>
+                )}
+              </div>
+
+              <div className="w-px h-5 bg-slate-300 dark:bg-white/20 mx-2" />
+
+              {/* 边距：照搬 Resume-Matcher 的做法——虚线框 + 四角标记叠加在 PDF 页面上，
+                  按当前边距档位（SidePanel 配置）换算比例，随缩放联动 */}
+              <button
+                type="button"
+                onClick={() => setShowMargin((s) => !s)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 h-8 px-2.5 rounded-none font-mono text-xs transition-colors',
+                  showMargin
+                    ? 'bg-slate-200 dark:bg-white/10 border border-black dark:border-white text-black dark:text-white'
+                    : 'bg-transparent border-none text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
+                )}
+                title="显示/隐藏边距参考线"
+              >
+                {showMargin ? <Eye className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                边距
+              </button>
+
+              <div className="w-px h-5 bg-slate-300 dark:bg-white/20 mx-2" />
+
+              {/* 页数：由 PDFViewer 加载完成后通过 onNumPagesChange 上报 */}
+              <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                <FileText className="w-3.5 h-3.5" />
+                <span className="font-mono text-xs whitespace-nowrap">
+                  {numPages > 0 ? `共 ${numPages} 页` : '—'}
+                </span>
+              </div>
             </div>
           )}
       </div>
@@ -214,92 +335,54 @@ export function PreviewPanel({
       <div
         ref={isHTMLTemplate || !pdfBlob ? containerRef : undefined}
         className={cn(
-          'flex-1 p-2 bg-slate-100/80 dark:bg-slate-900/50',
-          pdfBlob && !isHTMLTemplate ? 'flex flex-col min-h-0 overflow-hidden' : 'overflow-auto'
+          'flex-1 p-2 bg-[#F6F3EC]',
+          isHTMLTemplate || pdfBlob ? 'flex flex-col min-h-0 overflow-hidden' : 'overflow-auto'
         )}
       >
         {isHTMLTemplate ? (
-          // HTML 模板：实时预览
-          <div className="flex justify-center w-full p-4">
-            <HTMLTemplateRenderer resumeData={resumeData!} />
-          </div>
+          // HTML 模板：Builder 真分页预览（消费 globalSettings.builderSettings，
+          // 页面按 A4/US Letter 真实尺寸分页，切换纸张有明确的视觉差异）
+          (() => {
+            const builderSettings = withSettingsDefaults(resumeData!.globalSettings?.builderSettings)
+            const builderResumeData = toBuilderResumeData(resumeData!)
+            const pageDims = PAGE_DIMENSIONS[builderSettings.pageSize]
+            return (
+              <>
+                <PaginatedPreview resumeData={builderResumeData} settings={builderSettings} />
+                {/* 导出源：屏幕外的连续渲染，供 Workspace 的 handleDownloadHtmlPDF 用
+                    document.querySelector('.html-template-container') + html2pdf 抓取。
+                    分页预览带缩放栏/页码/分页线等编辑态 UI，不适合直接当导出源；
+                    这里保留与旧版一致的干净连续容器，导出结果不变。 */}
+                <div aria-hidden="true" className="pointer-events-none" style={{ position: 'fixed', left: -9999, top: 0 }}>
+                  <div
+                    className="html-template-container bg-white shadow-lg"
+                    style={{ width: `${pageDims.width}mm`, minHeight: `${pageDims.height}mm` }}
+                  >
+                    <ResumeRenderer resumeData={builderResumeData} settings={builderSettings} />
+                  </div>
+                </div>
+              </>
+            )
+          })()
         ) : (
-          // LaTeX 模板：PDF 预览 + 底部缩放栏（− / 百分比可编辑 / + / 适应宽度）
+          // LaTeX 模板：PDF 预览（缩放/边距/页数已挪到顶部工具栏）
           <>
             {pdfBlob ? (
-              <div className="flex-1 flex flex-col min-h-0 bg-slate-100/80 dark:bg-slate-900/50 overflow-hidden">
+              <div className="flex-1 flex flex-col min-h-0 bg-[#F6F3EC] overflow-hidden">
                 <div
                   ref={containerRef}
                   className="flex-1 min-h-0 overflow-auto p-2"
                   style={{ scrollbarGutter: 'stable' }}
                 >
                   <div className="flex justify-center w-full">
-                    <PDFViewerSelector pdfBlob={pdfBlob} scale={effectiveScale} />
+                    <PDFViewerSelector
+                      pdfBlob={pdfBlob}
+                      scale={effectiveScale}
+                      onNumPagesChange={setNumPages}
+                      showMarginGuides={showMargin}
+                      marginRatio={marginRatio}
+                    />
                   </div>
-                </div>
-                <div
-                  className={cn(
-                    'flex items-center justify-center gap-3 py-2 px-3 shrink-0 flex-wrap',
-                    'bg-slate-200/80 dark:bg-slate-700/80',
-                    'border-t border-slate-300/50 dark:border-slate-600/50'
-                  )}
-                >
-                  <button
-                    type="button"
-                    onClick={handleZoomOut}
-                    disabled={effectiveScale <= MIN_SCALE}
-                    className={cn(
-                      'p-2 rounded-lg border transition-colors',
-                      'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600',
-                      'hover:bg-slate-100 dark:hover:bg-slate-700',
-                      'disabled:opacity-50 disabled:cursor-not-allowed'
-                    )}
-                    title="缩小"
-                  >
-                    <Minus className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                  </button>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={scalePercentInput !== '' ? scalePercentInput : String(displayPercent)}
-                    onChange={(e) => setScalePercentInput(e.target.value)}
-                    onBlur={() => scalePercentInput !== '' && applyPercentInput(scalePercentInput)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.currentTarget.blur()
-                      }
-                    }}
-                    className={cn(
-                      'w-12 text-sm font-medium text-center rounded border bg-transparent',
-                      'border-transparent hover:border-slate-300 dark:hover:border-slate-600 focus:border-indigo-500',
-                      'text-slate-600 dark:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500'
-                    )}
-                    title="点击输入缩放比例（50–250）"
-                  />
-                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">%</span>
-                  <button
-                    type="button"
-                    onClick={handleZoomIn}
-                    disabled={effectiveScale >= MAX_SCALE}
-                    className={cn(
-                      'p-2 rounded-lg border transition-colors',
-                      'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600',
-                      'hover:bg-slate-100 dark:hover:bg-slate-700',
-                      'disabled:opacity-50 disabled:cursor-not-allowed'
-                    )}
-                    title="放大"
-                  >
-                    <Plus className="w-4 h-4 text-slate-600 dark:text-slate-300" />
-                  </button>
-                  {userScale !== null && (
-                    <button
-                      type="button"
-                      onClick={handleFitWidth}
-                      className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
-                    >
-                      适应宽度
-                    </button>
-                  )}
                 </div>
               </div>
             ) : (

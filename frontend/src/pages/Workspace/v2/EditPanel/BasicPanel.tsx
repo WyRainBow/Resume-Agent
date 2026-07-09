@@ -7,7 +7,7 @@ import { motion } from 'framer-motion'
 import { Upload, Loader2, X } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { useAuth } from '@/contexts/AuthContext'
-import { uploadUserPhoto } from '@/services/photoService'
+import { uploadUserPhoto, listUserPhotos, type UserPhoto } from '@/services/photoService'
 import { InlineDatePicker } from '@/components/InlineDatePicker'
 import type { BasicInfo, GlobalSettings, FieldLabelMode } from '../types'
 import Field from './Field'
@@ -22,10 +22,94 @@ interface BasicPanelProps {
   updateGlobalSettings?: (settings: Partial<GlobalSettings>) => void
 }
 
+/** 照片位置/大小滑块：人话标签 + 实时数值 + 方向提示（与排版抽屉的滑块同款视觉） */
+function PhotoSlider({
+  label,
+  hint,
+  min,
+  max,
+  value,
+  format,
+  onChange,
+}: {
+  label: string
+  hint?: string
+  min: number
+  max: number
+  value: number
+  format: (v: number) => string
+  onChange: (v: number) => void
+}) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between gap-2">
+        <label className="text-[10px] font-medium text-slate-500 uppercase tracking-wider">{label}</label>
+        <span className="font-mono text-[11px] text-slate-500 tabular-nums shrink-0">{format(value)}</span>
+      </div>
+      {hint && <p className="text-[10px] text-slate-400 leading-snug">{hint}</p>}
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={0.1}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full h-1 bg-[#E5E5E0] dark:bg-slate-700 rounded-none appearance-none cursor-pointer
+                   [&::-webkit-slider-thumb]:appearance-none
+                   [&::-webkit-slider-thumb]:w-3
+                   [&::-webkit-slider-thumb]:h-3
+                   [&::-webkit-slider-thumb]:bg-[#4285F4]
+                   [&::-webkit-slider-thumb]:border-none
+                   [&::-webkit-slider-thumb]:cursor-pointer
+                   [&::-moz-range-thumb]:w-3
+                   [&::-moz-range-thumb]:h-3
+                   [&::-moz-range-thumb]:bg-[#4285F4]
+                   [&::-moz-range-thumb]:border-none
+                   [&::-moz-range-thumb]:cursor-pointer"
+      />
+    </div>
+  )
+}
+
 const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: BasicPanelProps) => {
   const { isAuthenticated, token, openModal } = useAuth()
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // 历史照片复用：从 COS 已上传照片里挑一张，避免重复上传
+  const [galleryOpen, setGalleryOpen] = useState(false)
+  const [galleryLoading, setGalleryLoading] = useState(false)
+  const [galleryPhotos, setGalleryPhotos] = useState<UserPhoto[]>([])
+
+  const applyPhoto = (url: string) => {
+    onUpdate({
+      photo: url,
+      photoOffsetX: basic?.photoOffsetX ?? 0,
+      photoOffsetY: basic?.photoOffsetY ?? -2,
+      photoWidthCm: basic?.photoWidthCm ?? 3,
+      photoHeightCm: basic?.photoHeightCm ?? 3,
+    })
+  }
+
+  const handleToggleGallery = async () => {
+    if (!isAuthenticated || !token) {
+      openModal('login')
+      return
+    }
+    const next = !galleryOpen
+    setGalleryOpen(next)
+    if (next) {
+      setGalleryLoading(true)
+      try {
+        setGalleryPhotos(await listUserPhotos(token))
+      } catch (err: any) {
+        toast.error(err?.message || '读取照片列表失败')
+        setGalleryOpen(false)
+      } finally {
+        setGalleryLoading(false)
+      }
+    }
+  }
 
   const handleSelectPhoto = () => {
     if (!isAuthenticated) {
@@ -58,13 +142,11 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
     setUploading(true)
     try {
       const result = await uploadUserPhoto(file, token)
-      onUpdate({
-        photo: result.url,
-        photoOffsetX: basic?.photoOffsetX ?? 0,
-        photoOffsetY: basic?.photoOffsetY ?? -2,
-        photoWidthCm: basic?.photoWidthCm ?? 3,
-        photoHeightCm: basic?.photoHeightCm ?? 3,
-      })
+      applyPhoto(result.url)
+      // 若"已上传照片"面板开着，把新照片插到最前，避免列表停留在上传前的旧状态
+      setGalleryPhotos((prev) =>
+        prev.some((p) => p.url === result.url) ? prev : [{ url: result.url, key: result.key }, ...prev]
+      )
     } catch (err: any) {
       toast.error(err?.message || '上传失败')
     } finally {
@@ -156,11 +238,11 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                     value={birthDateDisplayMode}
                     onChange={(e) => updateGlobalSettings?.({ birthDateDisplayMode: e.target.value as 'birthDate' | 'age' })}
                     className={cn(
-                      'h-11 rounded-xl border px-3 text-sm font-semibold',
-                      'bg-white dark:bg-slate-900',
-                      'border-slate-300 dark:border-slate-600',
+                      'h-11 rounded-none border-2 px-3 text-sm font-semibold',
+                      'bg-white dark:bg-[#1C1C1C]',
+                      'border-black dark:border-white',
                       'text-slate-700 dark:text-slate-200',
-                      'focus:outline-none focus:ring-2 focus:ring-blue-500/30'
+                      'focus:outline-none focus:ring-2 focus:ring-blue-700 focus:border-black'
                     )}
                     title="选择渲染方式"
                   >
@@ -215,7 +297,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
             transition={{ duration: 0.25, delay: 7 * 0.04, ease: 'easeOut' }}
             className="w-full xl:w-[180px] shrink-0"
           >
-            <div className="rounded-lg border border-slate-200/80 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
+            <div className="rounded-none border-2 border-black bg-gradient-to-br from-white to-slate-50 p-4 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm font-semibold text-slate-800">
                   照片设置
@@ -244,10 +326,10 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                 onClick={handleSelectPhoto}
                 disabled={uploading}
                 className={cn(
-                  'w-full h-48 rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all',
+                  'w-full h-48 rounded-none border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all',
                   isAuthenticated
-                    ? 'border-slate-200 text-slate-400 hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50/60'
-                    : 'border-slate-200 text-slate-300',
+                    ? 'border-black text-slate-400 hover:border-slate-400 hover:text-slate-600 hover:bg-slate-50/60'
+                    : 'border-black text-slate-300',
                   uploading && 'opacity-60'
                 )}
                 title={isAuthenticated ? '上传照片' : '登录后可上传'}
@@ -256,7 +338,7 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                   <img
                     src={basic.photo}
                     alt="照片"
-                    className="w-full h-full object-contain rounded-lg bg-white"
+                    className="w-full h-full object-contain rounded-none bg-white"
                   />
                 ) : (
                   <>
@@ -270,63 +352,93 @@ const BasicPanel = ({ basic, onUpdate, globalSettings, updateGlobalSettings }: B
                 )}
               </button>
 
+              {/* 从已上传照片里复用（避免重复上传） */}
+              {isAuthenticated && (
+                <button
+                  type="button"
+                  onClick={handleToggleGallery}
+                  className="mt-2 w-full py-1.5 rounded-none border border-black bg-white text-xs font-mono font-bold text-slate-700 hover:bg-slate-50 transition-colors"
+                >
+                  {galleryOpen ? '收起已上传照片' : '从已上传照片中选择'}
+                </button>
+              )}
+
+              {galleryOpen && (
+                <div className="mt-2 rounded-none border-2 border-black p-2">
+                  {galleryLoading ? (
+                    <div className="flex items-center justify-center gap-2 py-4 text-xs text-slate-500">
+                      <Loader2 className="w-4 h-4 animate-spin" /> 加载中…
+                    </div>
+                  ) : galleryPhotos.length === 0 ? (
+                    <div className="py-4 text-center text-xs text-slate-400">还没有上传过照片</div>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2">
+                      {galleryPhotos.map((p) => {
+                        const active = basic?.photo === p.url
+                        return (
+                          <button
+                            key={p.key}
+                            type="button"
+                            onClick={() => {
+                              applyPhoto(p.url)
+                              setGalleryOpen(false)
+                            }}
+                            className={cn(
+                              'aspect-square rounded-none border-2 overflow-hidden bg-white transition-all',
+                              active
+                                ? 'border-blue-700 shadow-[2px_2px_0px_0px_#1d4ed8]'
+                                : 'border-black hover:shadow-[2px_2px_0px_0px_#000000]'
+                            )}
+                            title="使用这张照片"
+                          >
+                            <img src={p.url} alt="已上传照片" className="w-full h-full object-cover" />
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
               {hasPhoto && (
-                <div className="mt-4 space-y-3">
-                  <div className="grid grid-cols-1 gap-3">
-                    <div className="space-y-1.5">
-                      <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider">X 偏移</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={photoOffsetX}
-                        onChange={(e) => onUpdate({ photoOffsetX: Number(e.target.value) })}
-                        className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                      />
-                      <div className="text-[10px] text-slate-400">
-                        负值向左、正值向右
-                      </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider">Y 偏移</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        value={photoOffsetYDisplay}
-                        onChange={(e) => {
-                          const uiValue = e.target.valueAsNumber
-                          if (Number.isNaN(uiValue)) return
-                          onUpdate({ photoOffsetY: normalizeDecimal(uiValue - 2, 2) })
-                        }}
-                        className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                      />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="space-y-1.5">
-                        <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider">宽</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="1.2"
-                          max="5"
-                          value={photoWidthCm}
-                          onChange={(e) => onUpdate({ photoWidthCm: Number(e.target.value) })}
-                          className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="block text-[10px] font-medium text-slate-500 uppercase tracking-wider">高</label>
-                        <input
-                          type="number"
-                          step="0.1"
-                          min="1.2"
-                          max="6"
-                          value={photoHeightCm}
-                          onChange={(e) => onUpdate({ photoHeightCm: Number(e.target.value) })}
-                          className="w-full px-2 py-1.5 text-xs rounded-lg border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                <div className="mt-4 space-y-4">
+                  <PhotoSlider
+                    label="左右位置"
+                    hint="往右拖、照片向右移"
+                    min={-6}
+                    max={6}
+                    value={photoOffsetX}
+                    format={(v) => `${v > 0 ? '+' : ''}${v} cm`}
+                    onChange={(v) => onUpdate({ photoOffsetX: v })}
+                  />
+                  <PhotoSlider
+                    label="上下位置"
+                    hint="往右拖、照片向上移"
+                    min={-4}
+                    max={8}
+                    value={photoOffsetYDisplay}
+                    format={(v) => `${v > 0 ? '+' : ''}${v} cm`}
+                    onChange={(v) => onUpdate({ photoOffsetY: normalizeDecimal(v - 2, 2) })}
+                  />
+                  <PhotoSlider
+                    label="照片宽度"
+                    min={1.2}
+                    max={5}
+                    value={photoWidthCm}
+                    format={(v) => `${v} cm`}
+                    onChange={(v) => onUpdate({ photoWidthCm: v })}
+                  />
+                  <PhotoSlider
+                    label="照片高度"
+                    min={1.2}
+                    max={6}
+                    value={photoHeightCm}
+                    format={(v) => `${v} cm`}
+                    onChange={(v) => onUpdate({ photoHeightCm: v })}
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    位置和大小调整仅对 Classic LaTeX 模板生效、调整后预览会自动刷新
+                  </p>
                 </div>
               )}
 

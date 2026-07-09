@@ -54,10 +54,10 @@ function OpenSourceItem({
       dragListener={false}
       dragControls={dragControls}
       className={cn(
-        'rounded-lg border overflow-hidden transition-opacity',
+        'rounded-none border overflow-hidden transition-opacity',
         'bg-white hover:border-primary',
-        'dark:bg-neutral-900/30 dark:border-neutral-800 dark:hover:border-primary',
-        'border-gray-100',
+        'dark:bg-neutral-900/30 dark:border-white dark:hover:border-primary',
+        'border-black',
         openSource.visible === false && 'opacity-40'
       )}
       whileDrag={{ scale: 1.02 }}
@@ -65,7 +65,7 @@ function OpenSourceItem({
       <div className="min-w-0">
         {/* 标题行 */}
         <div
-          className={cn('px-4 py-4 flex items-center justify-between cursor-pointer select-none', expanded && 'bg-gray-50 dark:bg-neutral-800/50')}
+          className={cn('px-4 py-4 flex items-center justify-between cursor-pointer select-none', expanded && 'bg-[#F1F2F5] dark:bg-neutral-800/50')}
           onClick={() => setExpanded(!expanded)}
         >
           <div className="flex-1 min-w-0 flex items-center gap-2">
@@ -74,7 +74,7 @@ function OpenSourceItem({
               onPointerDown={(event) => dragControls.start(event)}
               className={cn(
                 'w-6 -ml-1 mr-0 flex items-center justify-center touch-none shrink-0',
-                'cursor-grab hover:bg-gray-100 dark:hover:bg-neutral-800/50 rounded'
+                'cursor-grab hover:bg-[#F1F2F5] dark:hover:bg-neutral-800/50 rounded'
               )}
             >
               <GripVertical className={cn('w-4 h-4', 'text-gray-300 dark:text-neutral-600')} />
@@ -90,7 +90,7 @@ function OpenSourceItem({
                 e.stopPropagation()
                 onUpdate({ ...openSource, visible: !openSource.visible })
               }}
-              className={cn('p-1.5 rounded-md', 'hover:bg-gray-100 dark:hover:bg-neutral-800')}
+              className={cn('p-1.5 rounded-none', 'hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]')}
             >
               <Eye className={cn('w-4 h-4', openSource.visible !== false ? 'text-primary' : 'text-gray-300')} />
             </button>
@@ -99,7 +99,7 @@ function OpenSourceItem({
                 e.stopPropagation()
                 onDelete(openSource.id)
               }}
-              className={cn('p-1.5 rounded-md', 'hover:bg-red-50 dark:hover:bg-red-900/50', 'text-red-600 dark:text-red-400')}
+              className={cn('p-1.5 rounded-none', 'hover:bg-red-50 dark:hover:bg-red-900/50', 'text-red-600 dark:text-red-400')}
             >
               <Trash2 className="w-4 h-4" />
             </button>
@@ -145,7 +145,7 @@ function OpenSourceItem({
                       <div className="flex items-center justify-between mb-1">
                         <label className="text-xs font-medium text-gray-500 dark:text-neutral-400">仓库地址</label>
                         {updateGlobalSettings && (
-                          <div className="flex items-center gap-1 bg-gray-100 dark:bg-neutral-800 rounded-md p-0.5">
+                          <div className="flex items-center gap-1 bg-[#F1F2F5] dark:bg-[#2A2A2A] rounded-none p-0.5">
                             {([
                               { value: 'below', label: '下方' },
                               { value: 'inline', label: '右侧' },
@@ -157,7 +157,7 @@ function OpenSourceItem({
                                 className={cn(
                                   'px-2 py-0.5 text-[10px] font-medium rounded transition-all',
                                   (globalSettings?.openSourceRepoDisplay || 'below') === opt.value
-                                    ? 'bg-white dark:bg-neutral-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                                    ? 'bg-white dark:bg-neutral-700 text-indigo-600 dark:text-indigo-400 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]'
                                     : 'text-gray-400 dark:text-neutral-500 hover:text-gray-600'
                                 )}
                               >
@@ -191,7 +191,7 @@ function OpenSourceItem({
                                     'px-2 py-0.5 text-[10px] font-medium rounded transition-all border',
                                     isActive
                                       ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400'
-                                      : 'border-gray-200 dark:border-neutral-700 text-gray-400 dark:text-neutral-500 hover:border-gray-300'
+                                      : 'border-black dark:border-white text-gray-400 dark:text-neutral-500 hover:border-black'
                                   )}
                                 >
                                   {opt.label}
@@ -204,7 +204,7 @@ function OpenSourceItem({
                                 'px-2 py-0.5 text-[10px] font-medium rounded transition-all border',
                                 showCustomLabel
                                   ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-400'
-                                  : 'border-gray-200 dark:border-neutral-700 text-gray-400 dark:text-neutral-500 hover:border-gray-300'
+                                  : 'border-black dark:border-white text-gray-400 dark:text-neutral-500 hover:border-black'
                               )}
                             >
                               自定义
@@ -215,7 +215,7 @@ function OpenSourceItem({
                                 value={globalSettings?.openSourceRepoLabel ?? '仓库'}
                                 onChange={(e) => updateGlobalSettings({ openSourceRepoLabel: e.target.value })}
                                 placeholder="输入前缀"
-                                className="px-2 py-0.5 text-[10px] w-20 rounded border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-neutral-800 text-gray-700 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                className="px-2 py-0.5 text-[10px] w-20 rounded border border-indigo-300 dark:border-indigo-700 bg-white dark:bg-[#2A2A2A] text-gray-700 dark:text-neutral-300 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                               />
                             )}
                           </div>
@@ -272,11 +272,11 @@ export default function OpenSourcePanel({ openSources, onUpdate, onDelete, onReo
   }
 
   return (
-    <div className={cn('space-y-4 px-4 py-4 rounded-lg', 'bg-white dark:bg-neutral-900/30')}>
+    <div className={cn('space-y-4 px-4 py-4 rounded-none', 'bg-white dark:bg-neutral-900/30')}>
       {onAIImport && (
         <button
           onClick={onAIImport}
-          className="w-full px-4 py-2 rounded-lg bg-white text-black border border-slate-300 hover:bg-slate-50 shadow-sm transition-all duration-300 flex items-center justify-center gap-2"
+          className="w-full px-4 py-2 rounded-none bg-white text-black border border-slate-300 hover:bg-slate-50 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] transition-all duration-300 flex items-center justify-center gap-2"
         >
           <Wand2 className="w-4 h-4" />
           AI 导入开源经历
@@ -297,8 +297,8 @@ export default function OpenSourcePanel({ openSources, onUpdate, onDelete, onReo
       <button
         onClick={handleCreate}
         className={cn(
-          'w-full px-4 py-3 rounded-lg border-2 border-dashed',
-          'border-gray-200 dark:border-neutral-700',
+          'w-full px-4 py-3 rounded-none border-2 border-dashed',
+          'border-black dark:border-white',
           'hover:border-primary hover:bg-primary/5',
           'transition-colors duration-200',
           'flex items-center justify-center gap-2',

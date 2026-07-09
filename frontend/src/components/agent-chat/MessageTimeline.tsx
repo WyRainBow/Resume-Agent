@@ -218,12 +218,12 @@ export default function MessageTimeline({
                             // 页面刷新后从持久化恢复时 objectURL 已失效，兜底隐藏避免裂图
                             e.currentTarget.style.display = "none";
                           }}
-                          className="max-h-44 max-w-[220px] rounded-lg border border-chat-border object-contain shadow-sm"
+                          className="max-h-44 max-w-[220px] rounded-none border border-black object-contain"
                         />
                       ) : (
                         <div
                           key={i}
-                          className="flex items-center gap-2 rounded-lg border border-chat-border bg-chat-surface px-3 py-2 text-xs text-chat-ink-muted shadow-sm"
+                          className="flex items-center gap-2 rounded-none border border-black bg-chat-surface px-3 py-2 text-xs text-chat-ink-muted"
                         >
                           <FileText className="size-4 text-chat-accent" />
                           <div className="flex flex-col">
@@ -237,7 +237,7 @@ export default function MessageTimeline({
                     )}
                   </div>
                 )}
-                <div className="whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-chat-user-bubble px-4 py-3 text-chat-ink shadow-sm dark:bg-slate-800 dark:text-slate-100">
+                <div className="whitespace-pre-wrap break-words rounded-none border border-black bg-chat-user-bubble px-4 py-3 text-chat-ink dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
                   {msg.content.length >= 200 &&
                   /("company"\s*:|"details"\s*:|custom-list|<\/?strong>|<\/?p>)/.test(msg.content) ? (
                     <span className="inline-flex items-center gap-2 text-chat-ink-muted">
@@ -259,7 +259,7 @@ export default function MessageTimeline({
                       onSetCopiedId(msg.id || String(idx));
                       setTimeout(() => onSetCopiedId(null), 2000);
                     }}
-                    className="rounded-md p-1.5 text-chat-ink-muted transition-all hover:bg-chat-user-bubble hover:text-chat-ink active:scale-90 dark:hover:bg-slate-800"
+                    className="rounded-none p-1.5 text-chat-ink-muted transition-all hover:bg-chat-user-bubble hover:text-chat-ink dark:hover:bg-slate-800"
                     title="复制"
                     aria-label="复制这条消息"
                   >

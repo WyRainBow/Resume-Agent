@@ -94,7 +94,7 @@ const ProjectPanel = ({
   return (
     <div
       className={cn(
-        'space-y-4 px-4 py-4 rounded-lg',
+        'space-y-4 px-4 py-4 rounded-none',
         'bg-white dark:bg-neutral-900/30'
       )}
     >
@@ -112,10 +112,10 @@ const ProjectPanel = ({
         <button
           onClick={toggleSelectMode}
           className={cn(
-            'px-3 py-2 rounded-lg transition-all duration-200 flex items-center gap-1.5 text-sm',
+            'px-3 py-2 rounded-none transition-all duration-200 flex items-center gap-1.5 text-sm',
             selectMode
               ? 'bg-blue-100 text-blue-600 hover:bg-blue-200'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-neutral-800 dark:text-neutral-300'
+              : 'bg-[#F1F2F5] text-gray-600 hover:bg-gray-200 dark:bg-[#2A2A2A] dark:text-neutral-300'
           )}
         >
           {selectMode ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
@@ -125,7 +125,7 @@ const ProjectPanel = ({
         {selectMode && selectedIds.size > 0 && (
           <button
             onClick={handleBatchDelete}
-            className="px-3 py-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-all duration-200 flex items-center gap-1.5 text-sm"
+            className="px-3 py-2 rounded-none bg-red-100 text-red-600 hover:bg-red-200 transition-all duration-200 flex items-center gap-1.5 text-sm"
           >
             <Trash2 className="w-4 h-4" />
             删除({selectedIds.size})
@@ -145,7 +145,7 @@ const ProjectPanel = ({
             {selectMode && (
               <button
                 onClick={() => toggleSelect(project.id)}
-                className="mt-3 p-1 rounded hover:bg-gray-100 dark:hover:bg-neutral-800"
+                className="mt-3 p-1 rounded hover:bg-[#F1F2F5] dark:hover:bg-[#2A2A2A]"
               >
                 {selectedIds.has(project.id) ? (
                   <CheckSquare className="w-5 h-5 text-blue-500" />
@@ -172,8 +172,8 @@ const ProjectPanel = ({
       <button
         onClick={handleCreate}
         className={cn(
-          'w-full px-4 py-3 rounded-lg border-2 border-dashed',
-          'border-gray-200 dark:border-neutral-700',
+          'w-full px-4 py-3 rounded-none border-2 border-dashed',
+          'border-black dark:border-white',
           'hover:border-primary hover:bg-primary/5',
           'transition-colors duration-200',
           'flex items-center justify-center gap-2',
