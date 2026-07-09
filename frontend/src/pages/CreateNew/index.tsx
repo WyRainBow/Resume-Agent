@@ -1,46 +1,41 @@
 /**
  * 创建简历入口页面
- * Swiss International Style：格子画布、硬阴影、serif 大标题、mono 标签
+ * 复刻 Resume-Matcher 弹窗布局 + Resume-Agent Swiss 风格微调：
+ *  - 全屏遮罩 + 居中白底模态框
+ *  - 两列卡片：左"从文件导入"、右"AI 智能生成"
+ *  - 文案去英文化，贴合项目风格
  */
 import { motion } from 'framer-motion'
 import {
   ArrowLeft,
-  CheckCircle,
-  Sparkles,
-  Upload,
   FileCode,
-  ArrowRight,
+  FileText,
+  Sparkles,
+  Wand2,
+  Upload,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { setCurrentResumeId } from '@/services/resumeStorage'
 import { cn } from '@/lib/utils'
 
-const fadeInUp = {
-  initial: { opacity: 0, y: 8 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.45, ease: [0.16, 1, 0.3, 1] as const },
-}
-
-const staggerContainer = {
-  animate: {
-    transition: {
-      staggerChildren: 0.12,
-    },
-  },
-}
-
 export default function CreateNew() {
   const navigate = useNavigate()
 
-  const handleAIImport = () => {
+  const handleUpload = () => {
     navigate('/my-resumes?openAIImport=1')
   }
 
-  const handleLatexTemplate = () => {
+  const handleWizard = () => {
+    navigate('/my-resumes?openAIImport=1')
+  }
+
+  const handleBlank = () => {
     setCurrentResumeId(null)
     localStorage.removeItem('resume_v2_data')
     navigate('/workspace/new')
   }
+
+  const handleClose = () => navigate('/')
 
   return (
     <div className="min-h-screen bg-[#F0F0E8] text-black font-sans overflow-hidden">
@@ -59,7 +54,7 @@ export default function CreateNew() {
         <motion.button
           whileHover={{ x: -2 }}
           whileTap={{ scale: 0.97 }}
-          onClick={() => navigate('/my-resumes')}
+          onClick={() => navigate('/')}
           className={cn(
             'inline-flex items-center gap-2',
             'font-mono text-xs font-bold uppercase tracking-wide',
@@ -75,182 +70,168 @@ export default function CreateNew() {
         </motion.button>
       </div>
 
-      <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-6">
-        {/* 标题区 */}
+      {/* 居中模态对话框 */}
+      <div className="relative z-10 min-h-screen flex items-center justify-center p-6">
         <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center mb-12"
+          initial={{ opacity: 0, scale: 0.96, y: 8 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+          className={cn(
+            'w-full max-w-3xl',
+            'bg-white',
+            'border-2 border-black',
+            'shadow-[8px_8px_0px_0px_#000000]',
+            'overflow-hidden',
+          )}
         >
-          {/* AI 标签 */}
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 border-2 border-black bg-[#F0F0E8] font-mono text-[10px] font-black uppercase tracking-widest shadow-[2px_2px_0px_0px_#000000] mb-6">
-            <Sparkles className="w-3 h-3" />
-            AI 智能体
+          {/* 标题区 */}
+          <div className="relative px-8 pt-7 pb-6">
+            <button
+              onClick={handleClose}
+              aria-label="关闭"
+              className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center border border-gray-300 text-gray-400 hover:text-black hover:border-black transition-colors"
+            >
+              ✕
+            </button>
+            <div className="font-mono text-xs font-bold text-blue-700 uppercase tracking-wider mb-2">
+              // NEW RESUME
+            </div>
+            <h2 className="text-3xl md:text-4xl font-serif font-bold text-black leading-tight mb-2">
+              从哪里开始？
+            </h2>
+            <p className="text-sm text-gray-500">
+              有现成简历？直接导入。没有？让 AI 帮你从零构建。
+            </p>
           </div>
 
-          {/* 大标题 */}
-          <h1 className="text-4xl md:text-5xl font-serif font-black tracking-tight text-black mb-4 leading-tight">
-            选择创建方式
-          </h1>
-
-          <p className="font-mono text-sm text-[#878E99] max-w-2xl mx-auto">
-            通过导入 PDF 解析、或使用默认 LaTeX 模板快速开始
-          </p>
-        </motion.div>
-
-        {/* 两列卡片 */}
-        <motion.div
-          variants={staggerContainer}
-          initial="initial"
-          animate="animate"
-          className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl w-full"
-        >
-          {/* 卡片一：默认模板 LaTeX（推荐） */}
-          <motion.div
-            variants={fadeInUp}
-            whileHover={{ y: -4, translateX: 0 }}
-            onClick={handleLatexTemplate}
-            className="group cursor-pointer"
-          >
-            {/* 推荐角标 */}
-            <div className="absolute -top-3 left-4 z-10">
+          {/* 两列卡片 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 px-8 pb-8">
+            {/* 左卡片：从文件导入 */}
+            <motion.div
+              whileHover={{ y: -3 }}
+              className="group cursor-pointer"
+              onClick={handleUpload}
+            >
               <div
                 className={cn(
-                  'flex items-center gap-1.5 px-3 py-1',
-                  'border-2 border-black bg-[#F0F0E8]',
-                  'font-mono text-[10px] font-black uppercase tracking-widest',
-                  'shadow-[2px_2px_0px_0px_#000000]',
+                  'h-full border-2 border-black bg-white',
+                  'shadow-[4px_4px_0px_0px_#000000]',
+                  'group-hover:translate-y-[2px] group-hover:translate-x-[2px] group-hover:shadow-none',
+                  'transition-[transform,box-shadow] duration-100',
+                  'flex flex-col',
                 )}
               >
-                <Sparkles className="w-3 h-3" />
-                推荐
-              </div>
-            </div>
+                <div className="p-6 pb-2">
+                  <div className="w-14 h-14 flex items-center justify-center border-2 border-black bg-gray-100 shadow-[2px_2px_0px_0px_#000000]">
+                    <Upload className="w-7 h-7 text-black" strokeWidth={1.5} />
+                  </div>
+                </div>
 
-            {/* 主卡片 */}
-            <div
+                <div className="px-6 pb-3">
+                  <div className="text-xs font-mono text-gray-500 mb-1">已有简历文件</div>
+                  <h3 className="text-2xl font-serif font-bold text-black leading-tight">
+                    从文件导入
+                  </h3>
+                </div>
+
+                <div className="px-6 pb-5 flex-1">
+                  <p className="text-sm text-gray-500 leading-relaxed">
+                    支持 PDF、图片等格式，AI 自动解析并结构化，一次导入永久使用。
+                  </p>
+                </div>
+
+                <div className="px-6 pb-6">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleUpload()
+                    }}
+                    className={cn(
+                      'w-full flex items-center justify-center gap-2 px-4 py-3',
+                      'border-2 border-black bg-white',
+                      'shadow-[2px_2px_0px_0px_#000000]',
+                      'font-mono text-sm font-bold uppercase tracking-wide text-black',
+                      'group-hover:translate-y-[1px] group-hover:translate-x-[1px] group-hover:shadow-none',
+                      'transition-[transform,box-shadow] duration-100',
+                    )}
+                  >
+                    导入文件
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* 右卡片：AI 智能生成 */}
+            <motion.div
+              whileHover={{ y: -3 }}
+              className="group cursor-pointer"
+              onClick={handleWizard}
+            >
+              <div
+                className={cn(
+                  'h-full border-2 border-black bg-white',
+                  'shadow-[4px_4px_0px_0px_#000000]',
+                  'group-hover:translate-y-[2px] group-hover:translate-x-[2px] group-hover:shadow-none',
+                  'transition-[transform,box-shadow] duration-100',
+                  'flex flex-col',
+                )}
+              >
+                <div className="p-6 pb-2">
+                    <div className="w-14 h-14 flex items-center justify-center border-2 border-black bg-blue-700 shadow-[2px_2px_0px_0px_#000000]">
+                    <Wand2 className="w-7 h-7 text-white" strokeWidth={1.5} />
+                  </div>
+                </div>
+
+                <div className="px-6 pb-3">
+                  <div className="text-xs font-mono text-blue-700 mb-1">AI 引导式创建</div>
+                  <h3 className="text-2xl font-serif font-bold text-black leading-tight">
+                    AI 智能生成
+                  </h3>
+                </div>
+
+                <div className="px-6 pb-5 flex-1">
+                  <p className="text-sm text-gray-500 leading-relaxed">
+                    没有现成简历？回答几个问题、AI 帮你从零构建专业简历。
+                  </p>
+                </div>
+
+                <div className="px-6 pb-6">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleWizard()
+                    }}
+                    className={cn(
+                      'w-full flex items-center justify-center gap-2 px-4 py-3',
+                      'border-2 border-black bg-blue-700',
+                      'shadow-[2px_2px_0px_0px_#000000]',
+                      'font-mono text-sm font-bold uppercase tracking-wide text-white',
+                      'group-hover:translate-y-[1px] group-hover:translate-x-[1px] group-hover:shadow-none',
+                      'transition-[transform,box-shadow,background-color] duration-100',
+                    'hover:bg-blue-700',
+                    )}
+                  >
+                    开始对话
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* 底部 Skip */}
+          <div className="px-8 pb-6 text-center border-t border-gray-200 pt-5">
+            <button
+              onClick={handleBlank}
               className={cn(
-                'relative h-full border-2 border-black bg-[#F0F0E8]',
-                'shadow-[4px_4px_0px_0px_#000000]',
-                'p-6',
-                'hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-none',
-                'transition-[transform,box-shadow] duration-100',
+                'font-mono text-xs text-[#878E99] hover:text-black transition-colors',
+                'underline-offset-2 hover:underline',
               )}
             >
-              {/* 图标区 */}
-              <div
-                className={cn(
-                  'w-14 h-14 flex items-center justify-center mb-4',
-                  'border-2 border-black bg-emerald-600',
-                  'shadow-[2px_2px_0px_0px_#000000]',
-                  'group-hover:translate-y-[1px] group-hover:translate-x-[1px] group-hover:shadow-none',
-                  'transition-[transform,box-shadow] duration-100',
-                )}
-              >
-                <FileCode className="w-7 h-7 text-white" />
-              </div>
-
-              <h3 className="text-xl font-serif font-black text-black mb-2">
-                默认模板 LaTeX
-              </h3>
-
-              <p className="font-mono text-xs text-[#878E99] mb-4 leading-relaxed">
-                使用 LaTeX 默认模板从零填写、渲染 PDF
-              </p>
-
-              {/* 特性列表 */}
-              <div className="space-y-2 mb-4">
-                {['LaTeX 模板编辑', '渲染 PDF 下载'].map((text, i) => (
-                  <div key={i} className="flex items-center gap-2 font-mono text-xs">
-                    <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-                    <span className="text-[#444850]">{text}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* 底部 CTA */}
-              <div
-                className={cn(
-                  'mt-auto flex items-center justify-center gap-2 w-full py-3',
-                  'border-2 border-black bg-emerald-600',
-                  'shadow-[2px_2px_0px_0px_#000000]',
-                  'font-mono text-xs font-black uppercase tracking-wide text-white',
-                  'group-hover:translate-y-[1px] group-hover:translate-x-[1px] group-hover:shadow-none',
-                  'transition-[transform,box-shadow,background-color] duration-100',
-                  'hover:bg-emerald-700',
-                )}
-              >
-                使用模板{' '}
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
-          </motion.div>
-
-          {/* 卡片二：AI 智能导入 */}
-          <motion.div
-            variants={fadeInUp}
-            whileHover={{ y: -4, translateX: 0 }}
-            onClick={handleAIImport}
-            className="group cursor-pointer"
-          >
-            <div
-              className={cn(
-                'relative h-full border-2 border-black bg-[#F0F0E8]',
-                'shadow-[4px_4px_0px_0px_#000000]',
-                'p-6',
-                'hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-none',
-                'transition-[transform,box-shadow] duration-100',
-              )}
-            >
-              {/* 图标区 */}
-              <div
-                className={cn(
-                  'w-14 h-14 flex items-center justify-center mb-4',
-                  'border-2 border-black bg-violet-600',
-                  'shadow-[2px_2px_0px_0px_#000000]',
-                  'group-hover:translate-y-[1px] group-hover:translate-x-[1px] group-hover:shadow-none',
-                  'transition-[transform,box-shadow] duration-100',
-                )}
-              >
-                <Upload className="w-7 h-7 text-white" />
-              </div>
-
-              <h3 className="text-xl font-serif font-black text-black mb-2">
-                AI 智能导入
-              </h3>
-
-              <p className="font-mono text-xs text-[#878E99] mb-4 leading-relaxed">
-                导入 PDF 等文件、AI 解析后进入编辑
-              </p>
-
-              {/* 特性列表 */}
-              <div className="space-y-2 mb-4">
-                {['支持 PDF 解析', '与编辑页同款导入'].map((text, i) => (
-                  <div key={i} className="flex items-center gap-2 font-mono text-xs">
-                    <CheckCircle className="w-4 h-4 text-violet-500 flex-shrink-0" />
-                    <span className="text-[#444850]">{text}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* 底部 CTA */}
-              <div
-                className={cn(
-                  'mt-auto flex items-center justify-center gap-2 w-full py-3',
-                  'border-2 border-black bg-violet-600',
-                  'shadow-[2px_2px_0px_0px_#000000]',
-                  'font-mono text-xs font-black uppercase tracking-wide text-white',
-                  'group-hover:translate-y-[1px] group-hover:translate-x-[1px] group-hover:shadow-none',
-                  'transition-[transform,box-shadow,background-color] duration-100',
-                  'hover:bg-violet-700',
-                )}
-              >
-                去导入{' '}
-                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </div>
-          </motion.div>
+              跳过 — 直接使用 LaTeX 模板从零创建
+            </button>
+          </div>
         </motion.div>
       </div>
     </div>

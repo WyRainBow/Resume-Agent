@@ -26,7 +26,7 @@ export const CreateCard: React.FC<CreateCardProps> = ({ onClick }) => {
       >
         <CardContent className="flex-1 pt-6 text-center flex flex-col items-center justify-center h-full z-10">
           <motion.div
-            className="mb-6 p-6 rounded-none bg-sky-500 text-white shadow-[2px_2px_0px_0px_#000000] border-2 border-black"
+            className="mb-6 p-6 rounded-none bg-[#4285F4] text-white shadow-[2px_2px_0px_0px_#000000] border-2 border-black"
             whileHover={{ x: 1, y: 1 }}
             transition={{ type: "spring", stiffness: 300, damping: 15 }}
           >

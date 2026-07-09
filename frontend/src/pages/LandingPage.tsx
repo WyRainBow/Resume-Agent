@@ -18,7 +18,8 @@ import {
   ArrowUpRight,
   CornerDownLeft,
   Clock,
-  Frown
+  Frown,
+  Upload
 } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 import type { ReactNode } from 'react'
@@ -565,23 +566,32 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
                 ))}
               </div>
 
-              <div className="mt-4 text-sm text-slate-500 dark:text-slate-400">
-                已有简历？
-                <button
-                  type="button"
-                  onClick={() => navigate('/create-new')}
-                  className="font-bold text-[#1a73e8] hover:underline"
-                >
-                  直接导入
-                </button>
-                <span className="mx-1.5 text-slate-300 dark:text-slate-600">·</span>
-                <button
-                  type="button"
-                  onClick={() => navigate('/my-resumes')}
-                  className="font-bold text-[#1a73e8] hover:underline"
-                >
-                  选择已有简历
-                </button>
+              <div className="mt-7">
+                <div className="mb-3 flex items-center justify-center gap-3">
+                  <span className="h-px w-8 bg-slate-300 dark:bg-slate-600" />
+                  <span className="text-xs font-mono font-bold tracking-wide text-slate-400 dark:text-slate-500">
+                    已有简历？无需 AI，直接开始
+                  </span>
+                  <span className="h-px w-8 bg-slate-300 dark:bg-slate-600" />
+                </div>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => navigate('/create-new')}
+                    className="inline-flex items-center gap-2 px-6 py-3.5 border-2 border-black bg-white text-slate-900 font-bold text-base hover:bg-[#D7E7FF] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[4px_4px_0px_0px_#000000] dark:border-white dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800 dark:shadow-[4px_4px_0px_0px_#ffffff]"
+                  >
+                    <Upload className="w-5 h-5" strokeWidth={2.5} />
+                    直接导入
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/my-resumes')}
+                    className="inline-flex items-center gap-2 px-6 py-3.5 border-2 border-black bg-white text-slate-900 font-bold text-base hover:bg-[#D7E7FF] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none transition-all shadow-[4px_4px_0px_0px_#000000] dark:border-white dark:bg-slate-900 dark:text-white dark:hover:bg-slate-800 dark:shadow-[4px_4px_0px_0px_#ffffff]"
+                  >
+                    <FileText className="w-5 h-5" strokeWidth={2.5} />
+                    选择已有简历
+                  </button>
+                </div>
               </div>
             </motion.div>
           ) : (

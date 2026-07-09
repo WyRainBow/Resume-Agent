@@ -250,7 +250,7 @@ const ResumeDashboard = () => {
                   </div>
                   {!isAuthenticated && (
                     <button
-                      className="text-sm font-mono font-bold uppercase tracking-wide text-sky-600 hover:underline underline-offset-4"
+                      className="text-sm font-mono font-bold uppercase tracking-wide text-[#3367D6] hover:underline underline-offset-4"
                       onClick={() => openModal('login')}
                     >
                       立即登录同步

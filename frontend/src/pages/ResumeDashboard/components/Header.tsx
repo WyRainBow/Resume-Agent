@@ -77,7 +77,7 @@ export const Header: React.FC<HeaderProps> = ({
         <h1 className="font-serif text-5xl md:text-7xl text-black dark:text-white tracking-tight leading-[0.95] uppercase">
           Dashboard
         </h1>
-        <p className="mt-6 text-sm font-mono text-sky-600 uppercase tracking-wide max-w-md font-bold">
+        <p className="mt-6 text-sm font-mono text-[#3367D6] uppercase tracking-wide max-w-md font-bold">
           {'// '}选择一份简历 · 进入 Builder
         </p>
       </div>
@@ -163,7 +163,7 @@ export const Header: React.FC<HeaderProps> = ({
                 "active:translate-y-[2px] active:translate-x-[2px]"
               )}
             >
-              <Upload className="w-4 h-4 text-sky-500" />
+              <Upload className="w-4 h-4 text-[#4285F4]" />
               导入
             </button>
 
@@ -189,7 +189,7 @@ export const Header: React.FC<HeaderProps> = ({
                     }}
                     className="w-full px-4 py-3 text-left text-sm font-mono uppercase tracking-wide text-black hover:bg-[#E5E5E0] flex items-center gap-2 border-t border-black"
                   >
-                    <Upload className="w-4 h-4 text-sky-500" />
+                    <Upload className="w-4 h-4 text-[#4285F4]" />
                     JSON 导入
                   </button>
                 )}
