@@ -4,8 +4,7 @@ import { toast } from '@/lib/toast'
  * 使用 WorkspaceLayout 包裹，提供统一的侧边栏布局
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { useParams } from 'react-router-dom'
 import html2pdf from 'html2pdf.js'
 
 // Hooks
@@ -32,7 +31,6 @@ const PDF_RENDER_DEBOUNCE_MS = 2000
 const PDF_RENDER_INITIAL_DELAY_MS = 300
 
 export default function WorkspaceV2() {
-  const navigate = useNavigate()
   const { resumeId } = useParams<{ resumeId?: string }>()
 
   // 跟踪编辑状态和保存状态
@@ -333,16 +331,8 @@ export default function WorkspaceV2() {
       {/* 首次进入且从未选过皮肤:弹选择框 */}
       <SkinPickerModal open={showSkinPicker} onPicked={() => setShowSkinPicker(false)} />
 
-      {/* 装饰头(照搬 Builder 风格):返回链接 + 大标题,标题与「编辑模式+名字」同一行(横向紧凑,压高度不减气势),纯展示,操作按钮在下方 Header 里 */}
+      {/* 装饰头(照搬 Builder 风格):大标题与「编辑模式+名字」同一行(返回 Dashboard 已去掉,左侧栏「我的简历」可回),纯展示,操作按钮在预览工具栏 */}
       <div className="border-b border-black fresh:border-slate-200 dark:border-white bg-[#F0F0E8] fresh:bg-slate-50 dark:bg-[#1C1C1C] px-6 py-3 md:px-8 shrink-0">
-        <button
-          type="button"
-          onClick={() => navigate('/my-resumes')}
-          className="inline-flex items-center gap-1.5 mb-1 -ml-1 px-1 font-mono fresh:font-sans text-xs font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal text-blue-700 hover:underline"
-        >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          返回 Dashboard
-        </button>
         <div className="flex items-baseline gap-4 flex-wrap">
           <h1 className="font-serif text-3xl md:text-4xl text-black dark:text-white tracking-tight leading-none uppercase fresh:normal-case">
             Resume Builder
