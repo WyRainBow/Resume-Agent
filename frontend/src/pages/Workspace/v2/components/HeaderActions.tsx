@@ -5,9 +5,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { Upload, Sparkles, Palette } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
-import { getSkinOrDefault, setStoredSkin, SKIN_EVENT, type WorkspaceSkin } from '@/lib/skin'
 import { ExportButton } from './ExportButton'
 import { SaveStatusIndicator } from './SaveStatusIndicator'
+import SkinPickerModal from './SkinPickerModal'
 import type { AutoSaveStatus } from '../hooks/useAutoSaveResume'
 
 interface HeaderActionsProps {
@@ -25,15 +25,7 @@ interface HeaderActionsProps {
 export function HeaderActions({ saveStatus, saveError, onGlobalAIImport, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF }: HeaderActionsProps) {
   const [importMenuOpen, setImportMenuOpen] = useState(false)
   const importMenuRef = useRef<HTMLDivElement>(null)
-  const [skin, setSkin] = useState<WorkspaceSkin>(getSkinOrDefault)
-
-  useEffect(() => {
-    const onSkinChange = () => setSkin(getSkinOrDefault())
-    window.addEventListener(SKIN_EVENT, onSkinChange)
-    return () => window.removeEventListener(SKIN_EVENT, onSkinChange)
-  }, [])
-
-  const toggleSkin = () => setStoredSkin(skin === 'neo' ? 'fresh' : 'neo')
+  const [skinPickerOpen, setSkinPickerOpen] = useState(false)
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -52,11 +44,11 @@ export function HeaderActions({ saveStatus, saveError, onGlobalAIImport, onExpor
       {/* 自动保存常驻状态 */}
       {saveStatus !== undefined && <SaveStatusIndicator status={saveStatus} error={saveError} />}
 
-      {/* 皮肤切换:Neo(新野兽派) ↔ 清新 */}
+      {/* 界面皮肤:点击弹出选择框,选 Neo / 清新 */}
       <button
-        onClick={toggleSkin}
-        title={skin === 'neo' ? '当前:Neo 风格,点击换清新风格' : '当前:清新风格,点击换 Neo 风格'}
-        aria-label="切换皮肤"
+        onClick={() => setSkinPickerOpen(true)}
+        title="切换界面皮肤(Neo / 清新)"
+        aria-label="界面皮肤"
         className={cn(
           'px-2.5 py-2 rounded-none fresh:rounded-lg text-sm font-bold transition-all duration-300 flex items-center gap-1.5',
           'bg-white dark:bg-[#1C1C1C] border border-black fresh:border-slate-200 dark:border-white',
@@ -65,8 +57,14 @@ export function HeaderActions({ saveStatus, saveError, onGlobalAIImport, onExpor
         )}
       >
         <Palette className="w-4 h-4 text-blue-500" />
-        {skin === 'neo' ? 'NEO' : '清新'}
+        界面皮肤
       </button>
+
+      <SkinPickerModal
+        open={skinPickerOpen}
+        onPicked={() => setSkinPickerOpen(false)}
+        onClose={() => setSkinPickerOpen(false)}
+      />
 
       {/* 统一导入下拉：AI 导入 / JSON 导入 */}
       {(onGlobalAIImport || onImportJSON) && (
