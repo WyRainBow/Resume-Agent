@@ -270,7 +270,7 @@ export const FormattingControls: React.FC<FormattingControlsProps> = ({ settings
                 onChange={(v) => handleSpacingChange('section', v)}
               />
               <SpacingSelector
-                label="条目"
+                label="条目间距"
                 value={settings.spacing.item}
                 onChange={(v) => handleSpacingChange('item', v)}
               />
