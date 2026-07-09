@@ -22,7 +22,7 @@ from backend.agent.prompt.manus import (
 )
 from backend.agent.utils.resume_richtext import html_to_context_text, normalize_editor_value
 from backend.agent.prompt.load_resume import build_load_resume_fast_path_prompt
-from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, GenerateResumeTool, ShowResumeTool, Terminate, ToolCollection, WebSearch
+from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, GenerateResumeTool, SendResumeEmailTool, ShowResumeTool, Terminate, ToolCollection, WebSearch
 try:
     from backend.agent.tool import BrowserUseTool
 except ImportError:
@@ -89,6 +89,10 @@ class Manus(ToolCallAgent):
     next_step_prompt: str = ""
     session_id: Optional[str] = None
     capability: Optional[str] = None
+    # 管理员会话标识:仅 admin 会话注册 send_resume_email 等管理员专属工具
+    is_admin: bool = False
+    # 当前会话所属用户 id,注入给需要按用户查库的工具(如邮箱凭证)
+    user_id: Optional[int] = None
 
     max_observe: int = 10000
     max_steps: int = 20
@@ -152,6 +156,8 @@ class Manus(ToolCallAgent):
             CVEditorAgentTool(),
             GenerateResumeTool(),
         ]
+        if self.is_admin:
+            domain_tools.append(SendResumeEmailTool())
 
         capability: ResumeCapability = CapabilityRegistry.get(self.capability)
         if not capability.tool_whitelist:
@@ -178,6 +184,8 @@ class Manus(ToolCallAgent):
                 tool.session_id = self.session_id
             if hasattr(tool, "shared_state"):
                 tool.shared_state = self._shared_state
+            if hasattr(tool, "user_id"):
+                tool.user_id = self.user_id
 
     def _ensure_conversation_state_llm(self):
         """确保 ConversationStateManager 有 LLM 实例"""
