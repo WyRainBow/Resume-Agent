@@ -1,7 +1,7 @@
 /**
  * 组件导出
  */
-export { Header } from './Header'
+export { HeaderActions } from './HeaderActions'
 export { BackgroundDecoration } from './BackgroundDecoration'
 export { SaveStatusIndicator } from './SaveStatusIndicator'
 

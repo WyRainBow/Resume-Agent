@@ -4,7 +4,7 @@
  * 第二列：详细编辑面板
  * 第三列：预览面板（可拖拽调整宽度）
  */
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, type ReactNode } from "react";
 import { cn } from "../../../lib/utils";
 import EditPanel from "./EditPanel";
 import PreviewPanel from "./PreviewPanel";
@@ -68,6 +68,8 @@ interface EditPreviewLayoutProps {
   setRenderMode?: (mode: PDFRenderMode) => void;
   handleRender: () => void;
   handleDownload: () => void;
+  /** 顶栏操作按钮群(保存/皮肤/导入/导出),转发进预览工具栏右侧 */
+  toolbarActions?: ReactNode;
 }
 
 // 拖拽分隔线组件（用 RAF 节流，避免高频 setState 导致抖动）
@@ -150,6 +152,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
     setRenderMode = () => {},
     handleRender,
     handleDownload,
+    toolbarActions,
   } = props;
 
   // 统一模板选择：经典 → templateType='latex'；HTML 模板 → templateType='html' + builderSettings 应用预设
@@ -337,6 +340,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
             onRenderModeChange={setRenderMode}
             onRender={handleRender}
             onDownload={handleDownload}
+            toolbarActions={toolbarActions}
           />
         </div>
       </div>

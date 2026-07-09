@@ -13,7 +13,7 @@ import { useAIImport, useAutoSaveResume, usePDFOperations, useResumeData } from 
 
 // 组件
 import WorkspaceLayout from '@/pages/WorkspaceLayout'
-import { Header } from './components'
+import { HeaderActions } from './components/HeaderActions'
 import SkinPickerModal from './components/SkinPickerModal'
 import { getStoredSkin } from '@/lib/skin'
 import EditPreviewLayout from './EditPreviewLayout'
@@ -360,21 +360,21 @@ export default function WorkspaceV2() {
         </div>
       </div>
 
-      {/* 顶部导航栏 */}
-      <Header
-        saveStatus={saveStatus}
-        saveError={saveError}
-        onGlobalAIImport={handleGlobalAIImport}
-        onExportJSON={handleExportJSON}
-        onImportJSON={handleImportJSON}
-        resumeData={resumeData}
-        resumeName={resumeData?.basic?.name || '我的简历'}
-        pdfBlob={pdfBlob}
-        onDownloadPDF={handleDownloadByTemplate}
-      />
-
-      {/* 编辑 + 预览三列布局 */}
+      {/* 编辑 + 预览三列布局(原顶部整行操作栏已并入预览工具栏右侧) */}
       <EditPreviewLayout
+        toolbarActions={
+          <HeaderActions
+            saveStatus={saveStatus}
+            saveError={saveError}
+            onGlobalAIImport={handleGlobalAIImport}
+            onExportJSON={handleExportJSON}
+            onImportJSON={handleImportJSON}
+            resumeData={resumeData}
+            resumeName={resumeData?.basic?.name || '我的简历'}
+            pdfBlob={pdfBlob}
+            onDownloadPDF={handleDownloadByTemplate}
+          />
+        }
         resumeData={resumeData}
         setResumeData={setResumeData}
         activeSection={activeSection}

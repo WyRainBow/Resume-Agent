@@ -2,7 +2,7 @@
  * 预览面板组件（第三列）
  * 支持 LaTeX PDF 渲染和 HTML 模板实时预览
  */
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, type ReactNode } from 'react'
 import { Download, RefreshCw, FileText, Sparkles, Minus, Plus, AlertTriangle, Eye } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { PDFViewerSelector } from '../../../../components/PDFEditor'
@@ -39,6 +39,8 @@ interface PreviewPanelProps {
   onRenderModeChange?: (mode: PDFRenderMode) => void
   onRender: () => void
   onDownload: () => void
+  /** 顶栏操作按钮群(保存/皮肤/导入/导出),内联到工具栏右侧;原来是独立整行 */
+  toolbarActions?: ReactNode
 }
 
 export function PreviewPanel({
@@ -53,6 +55,7 @@ export function PreviewPanel({
   onRenderModeChange = () => {},
   onRender,
   onDownload,
+  toolbarActions,
 }: PreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [autoScale, setAutoScale] = useState(1.0)
@@ -146,6 +149,8 @@ export function PreviewPanel({
           'border-b border-slate-200/50 dark:border-slate-700/50'
         )}
       >
+        {/* 左组:实时预览标签(HTML) / 渲染按钮 + 缩放·边距·页数(LaTeX) */}
+        <div className="flex items-center gap-3 flex-wrap min-w-0">
           {/* HTML 模板：仅显示实时预览标签 */}
           {isHTMLTemplate && (
             <span className="px-3 py-1 text-xs font-mono fresh:font-sans font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-none fresh:rounded-md border border-black fresh:border-slate-200 dark:border-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff]">
@@ -299,6 +304,10 @@ export function PreviewPanel({
               </div>
             </div>
           )}
+        </div>
+
+        {/* 右组:保存 / 皮肤 / 导入 / 导出(原独立整行,现内联到此) */}
+        {toolbarActions && <div className="shrink-0 flex items-center">{toolbarActions}</div>}
       </div>
 
       {/* 进度提示 */}
