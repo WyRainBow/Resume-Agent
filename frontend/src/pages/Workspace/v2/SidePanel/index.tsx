@@ -112,7 +112,7 @@ function SettingsSegmented({
             className={cn(
               'flex-1 px-3 py-2 text-sm font-bold font-mono transition-colors',
               isActive
-                ? 'bg-black text-white dark:bg-slate-100 dark:text-slate-900'
+                ? 'bg-[#4285F4] text-white'
                 : 'bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
             )}
           >

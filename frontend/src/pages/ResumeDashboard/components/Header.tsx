@@ -78,7 +78,7 @@ export const Header: React.FC<HeaderProps> = ({
           Dashboard
         </h1>
         <p className="mt-6 text-sm font-mono text-[#3367D6] uppercase tracking-wide max-w-md font-bold">
-          {'// '}选择一份简历 · 进入 Builder
+          {'// '}选择一份简历 · 进入 Workspace
         </p>
       </div>
 
@@ -197,6 +197,16 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
         )}
+
+        {/* 进入 Workspace：直接进编辑器（带当前简历），补足"不只靠侧边栏"的一级入口 */}
+        <Button
+          onClick={() => navigate("/workspace")}
+          variant="outline"
+          className="h-11 px-5"
+        >
+          <FileText className="mr-2 h-4 w-4" />
+          进入 Workspace
+        </Button>
 
         {/* 创建按钮 */}
         <Button

@@ -3,18 +3,16 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, BookmarkPlus, Upload, ChevronRight, Sparkles } from 'lucide-react'
+import { Upload, ChevronRight, Sparkles } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import { ExportButton } from './ExportButton'
 import { SaveStatusIndicator } from './SaveStatusIndicator'
 import type { AutoSaveStatus } from '../hooks/useAutoSaveResume'
 
 interface HeaderProps {
-  saveSuccess: boolean
   saveStatus?: AutoSaveStatus
   saveError?: string | null
   onGlobalAIImport: () => void
-  onSaveToDashboard: () => void
   onExportJSON?: () => void
   onImportJSON?: () => void
   resumeData?: Record<string, any>
@@ -23,7 +21,7 @@ interface HeaderProps {
   onDownloadPDF?: () => void | Promise<void>
 }
 
-export function Header({ saveSuccess, saveStatus, saveError, onGlobalAIImport, onSaveToDashboard, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF }: HeaderProps) {
+export function Header({ saveStatus, saveError, onGlobalAIImport, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF }: HeaderProps) {
   const [importMenuOpen, setImportMenuOpen] = useState(false)
   const importMenuRef = useRef<HTMLDivElement>(null)
 
@@ -108,32 +106,9 @@ export function Header({ saveSuccess, saveStatus, saveError, onGlobalAIImport, o
           </div>
         )}
         
-        {/* 保存按钮 */}
-              <button
-                onClick={onSaveToDashboard}
-                disabled={saveSuccess}
-                className={cn(
-                  'inline-flex items-center justify-center gap-2',
-                  'whitespace-nowrap text-sm font-medium font-mono uppercase tracking-wide',
-                  'transition-[transform,box-shadow,background-color] duration-100 ease-out',
-                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2',
-                  'disabled:opacity-50',
-                  'rounded-none h-9 px-5',
-                  'border border-black dark:border-white',
-                  'shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]',
-                  saveSuccess
-                    ? 'bg-green-700 text-white hover:bg-green-800 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none dark:bg-green-700 dark:text-white dark:border-white dark:shadow-[2px_2px_0px_0px_#ffffff]'
-                    : 'bg-[#F0F0E8] text-black dark:bg-[#2A2A2A] dark:text-white dark:border-white dark:shadow-[2px_2px_0px_0px_#ffffff] hover:bg-[#E5E5E0] dark:hover:bg-[#3A3A3A] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none'
-                )}
-              >
-          {saveSuccess ? (
-            <Check className="w-4 h-4" />
-          ) : (
-            <BookmarkPlus className="w-4 h-4" />
-          )}
-          {saveSuccess ? '已保存' : '保存'}
-        </button>
-        
+        {/* 手动保存按钮已移除：自动保存(useAutoSaveResume)与其调用同一 saveResume，
+            双指示造成"两个已保存"歧义；保存状态统一由左侧 SaveStatusIndicator 呈现 */}
+
         {/* 导出按钮（PDF/JSON） */}
         {resumeData && (
           <ExportButton

@@ -115,7 +115,6 @@ export default function WorkspaceV2() {
     saveSuccess,
     handleRender,
     handleDownload,
-    handleSaveToDashboard,
   } = usePDFOperations({ resumeData, currentResumeId, setCurrentId })
 
   // AI 导入
@@ -354,11 +353,9 @@ export default function WorkspaceV2() {
 
       {/* 顶部导航栏 */}
       <Header
-        saveSuccess={saveSuccess}
         saveStatus={saveStatus}
         saveError={saveError}
         onGlobalAIImport={handleGlobalAIImport}
-        onSaveToDashboard={handleSaveToDashboard}
         onExportJSON={handleExportJSON}
         onImportJSON={handleImportJSON}
         resumeData={resumeData}

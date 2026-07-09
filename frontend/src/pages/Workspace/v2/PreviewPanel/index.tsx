@@ -148,7 +148,7 @@ export function PreviewPanel({
       >
           {/* HTML 模板：仅显示实时预览标签 */}
           {isHTMLTemplate && (
-            <span className="px-3 py-1 text-xs font-semibold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-full">
+            <span className="px-3 py-1 text-xs font-mono font-bold uppercase tracking-wide bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-none border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]">
               实时预览
             </span>
           )}
@@ -161,12 +161,13 @@ export function PreviewPanel({
                 onClick={onRender}
                 disabled={loading}
                 className={cn(
-                  'group relative px-6 py-2.5 rounded-lg overflow-hidden',
-                  'bg-blue-500 text-white text-sm font-bold tracking-tight',
+                  'group relative px-6 py-2.5 rounded-none border-2 border-black overflow-hidden',
+                  'bg-[#4285F4] text-white text-sm font-bold tracking-tight',
                   'disabled:opacity-60 disabled:cursor-not-allowed',
-                  'transition-all duration-300',
-                  'hover:scale-[1.02] hover:bg-blue-600 shadow-lg shadow-blue-100 dark:shadow-none active:scale-[0.98]',
-                  'disabled:hover:scale-100'
+                  'transition-all',
+                  'shadow-[3px_3px_0px_0px_#000000] hover:bg-[#3367D6] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px]',
+                  'disabled:hover:shadow-[3px_3px_0px_0px_#000000] disabled:hover:translate-x-0 disabled:hover:translate-y-0',
+                  'dark:border-white dark:shadow-[3px_3px_0px_0px_#ffffff]'
                 )}
               >
                 <span className="relative flex items-center gap-2">

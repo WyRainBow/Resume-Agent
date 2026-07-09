@@ -203,24 +203,43 @@ function LineSpacingControl({ value, onChange }: { value: number; onChange: (v: 
 
 function HeaderGapControl({
   label,
+  hint,
   value,
   onChange,
 }: {
   label: string
+  hint: string
   value: number
   onChange: (v: number) => void
 }) {
   return (
     <div className="space-y-1">
-      <label className="font-mono text-xs font-bold text-[#444850] dark:text-slate-400">{label}</label>
+      <div className="flex items-baseline justify-between gap-2">
+        <label className="font-mono text-xs font-bold text-[#444850] dark:text-slate-400">{label}</label>
+        <span className="font-mono text-xs text-slate-500 dark:text-slate-400 tabular-nums shrink-0">
+          {value > 0 ? `+${value}` : value}px
+        </span>
+      </div>
+      <p className="text-[11px] text-slate-500 dark:text-slate-500 leading-snug">{hint}</p>
       <input
-        type="number"
-        step="0.5"
-        min="-80"
-        max="80"
+        type="range"
+        min={-80}
+        max={80}
+        step={0.5}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className={inputBaseClass}
+        className="w-full h-1 bg-[#E5E5E0] dark:bg-slate-700 rounded-none appearance-none cursor-pointer accent-[#4285F4]
+                   [&::-webkit-slider-thumb]:appearance-none
+                   [&::-webkit-slider-thumb]:w-3
+                   [&::-webkit-slider-thumb]:h-3
+                   [&::-webkit-slider-thumb]:bg-[#4285F4]
+                   [&::-webkit-slider-thumb]:border-none
+                   [&::-webkit-slider-thumb]:cursor-pointer
+                   [&::-moz-range-thumb]:w-3
+                   [&::-moz-range-thumb]:h-3
+                   [&::-moz-range-thumb]:bg-[#4285F4]
+                   [&::-moz-range-thumb]:border-none
+                   [&::-moz-range-thumb]:cursor-pointer"
       />
     </div>
   )
@@ -229,12 +248,14 @@ function HeaderGapControl({
 /** 大缩略图模板卡片：复用 TemplateThumbnail（56×72），CSS scale 放大 ~2.7 倍到 ~150×195 */
 function LargeTemplateCard({
   active,
+  recommended,
   name,
   description,
   thumbnailType,
   onClick,
 }: {
   active: boolean
+  recommended?: boolean
   name: string
   description: string
   thumbnailType: TemplateType
@@ -252,6 +273,11 @@ function LargeTemplateCard({
           : 'border-slate-300 dark:border-slate-600 hover:border-black dark:hover:border-white hover:shadow-[2px_2px_0px_0px_#000000] dark:hover:shadow-[2px_2px_0px_0px_#ffffff]'
       )}
     >
+      {recommended && (
+        <span className="absolute top-1.5 left-1.5 z-10 rounded-none border border-black bg-[#4285F4] px-1.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider text-white">
+          推荐
+        </span>
+      )}
       {active && (
         <span className="absolute top-1.5 right-1.5 z-10 w-5 h-5 bg-black dark:bg-white flex items-center justify-center">
           <Check className="w-3.5 h-3.5 text-white dark:text-black" strokeWidth={3} />
@@ -300,6 +326,7 @@ function TemplateTab({
         <div className="grid grid-cols-2 gap-3">
           <LargeTemplateCard
             active={templateType !== 'html'}
+            recommended
             name="Classic LaTeX"
             description="经典模板：服务端 XeLaTeX 精确排版，导出矢量 PDF"
             thumbnailType="latex"
@@ -327,6 +354,7 @@ function TemplateTab({
                 templateType === 'html' &&
                 withSettingsDefaults(globalSettings.builderSettings).template === t.id
               }
+              recommended={t.id === 'latex'}
               name={t.id === 'latex' ? 'LaTeX Style' : t.name}
               description={t.description}
               thumbnailType={t.id}
@@ -435,14 +463,19 @@ function FormatTab({
         />
       </div>
 
-      {/* 头部空白（LaTeX） */}
-      <div className="rounded-none bg-blue-50/50 dark:bg-slate-800/50 border border-blue-100/50 p-3 space-y-3">
+      {/* 头部间距（LaTeX）：姓名/联系方式区域的三段留白，拖动滑块调整、负值压缩留白 */}
+      <div className="rounded-none bg-blue-50/50 dark:bg-slate-800/50 border border-blue-100/50 p-3 space-y-4">
         <div className="flex items-center justify-between gap-2">
-          <label className="text-sm font-medium text-slate-700 dark:text-slate-300">头部空白（PX）</label>
+          <div>
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">头部间距</label>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+              调整姓名、联系方式区域上下的留白
+            </p>
+          </div>
           <button
             type="button"
             onClick={() => setHeaderGapExpanded((v) => !v)}
-            className="p-1 rounded hover:bg-blue-100/50 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors"
+            className="p-1 rounded hover:bg-blue-100/50 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 transition-colors shrink-0"
             title={headerGapExpanded ? '收起' : '展开'}
           >
             <ChevronDown className={cn('w-4 h-4 transition-transform', headerGapExpanded && 'rotate-180')} />
@@ -452,22 +485,22 @@ function FormatTab({
           <>
             <HeaderGapControl
               label="顶部空白"
+              hint="姓名区域到页面最顶端的空白、往左拖更贴顶"
               value={normalizeDecimal((globalSettings.latexHeaderTopGapPx ?? HEADER_TOP_GAP_BASELINE) - HEADER_TOP_GAP_BASELINE)}
               onChange={(v) => updateGlobalSettings({ latexHeaderTopGapPx: normalizeDecimal(HEADER_TOP_GAP_BASELINE + v) })}
             />
             <HeaderGapControl
               label="姓名与联系信息间距"
+              hint="姓名和下方邮箱/电话之间的距离"
               value={normalizeDecimal((globalSettings.latexHeaderNameContactGapPx ?? HEADER_NAME_CONTACT_GAP_BASELINE) - HEADER_NAME_CONTACT_GAP_BASELINE)}
               onChange={(v) => updateGlobalSettings({ latexHeaderNameContactGapPx: normalizeDecimal(HEADER_NAME_CONTACT_GAP_BASELINE + v) })}
             />
             <HeaderGapControl
               label="联系信息下方空白"
+              hint="邮箱/电话到下一模块（如教育经历）之间的距离"
               value={normalizeDecimal((globalSettings.latexHeaderBottomGapPx ?? HEADER_BOTTOM_GAP_BASELINE) - HEADER_BOTTOM_GAP_BASELINE)}
               onChange={(v) => updateGlobalSettings({ latexHeaderBottomGapPx: normalizeDecimal(HEADER_BOTTOM_GAP_BASELINE + v) })}
             />
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 pt-0.5">
-              支持负值用于压缩顶部留白
-            </p>
           </>
         )}
       </div>
@@ -552,7 +585,7 @@ export default function SettingsDrawer({
                       className={cn(
                         'px-4 py-1.5 text-sm font-bold font-mono transition-colors',
                         isActive
-                          ? 'bg-black text-white dark:bg-slate-100 dark:text-slate-900'
+                          ? 'bg-[#4285F4] text-white'
                           : 'bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
                       )}
                     >
