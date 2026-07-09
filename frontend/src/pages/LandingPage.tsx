@@ -883,6 +883,17 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 border-black bg-[
             </a>
           </div>
         </div>
+        {/* ICP 备案号（工信部合规要求：首页底部展示并链接至备案官网） */}
+        <div className="max-w-5xl mx-auto mt-4 text-center sm:text-right">
+          <a
+            href="https://beian.miit.gov.cn"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-mono text-slate-400 dark:text-slate-500 hover:text-black dark:hover:text-white transition-colors"
+          >
+            粤ICP备2026011127号
+          </a>
+        </div>
       </footer>
 
       {/* 左下角登录按钮 */}
