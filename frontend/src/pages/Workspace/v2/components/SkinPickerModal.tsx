@@ -106,14 +106,14 @@ export function SkinPickerModal({ open, onPicked, onClose }: SkinPickerModalProp
         <div className="mt-4 flex gap-4">
           <SkinCard
             title="NEO"
-            desc="黑边直角、硬朗醒目(默认)"
+            desc="黑边直角、硬朗醒目"
             preview={<NeoPreview />}
             active={current === 'neo'}
             onClick={() => pick('neo')}
           />
           <SkinCard
             title="清新"
-            desc="圆角浅边、柔和简洁"
+            desc="圆角浅边、柔和简洁(默认)"
             preview={<FreshPreview />}
             active={current === 'fresh'}
             onClick={() => pick('fresh')}

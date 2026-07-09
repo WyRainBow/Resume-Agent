@@ -19,7 +19,7 @@ export function getStoredSkin(): WorkspaceSkin | null {
 }
 
 export function getSkinOrDefault(): WorkspaceSkin {
-  return getStoredSkin() ?? 'neo'
+  return getStoredSkin() ?? 'fresh'
 }
 
 /** 皮肤属性挂 <html>(与深色模式的 .dark 同级),Landing/Workspace 全站统一生效 */
