@@ -133,7 +133,11 @@ def _get_or_create_session(
             try:
                 # Use network configuration manager's context manager
                 with network_config.without_proxy():
-                    agent = Manus(session_id=conversation_id)
+                    agent = Manus(
+                        session_id=conversation_id,
+                        is_admin=_is_admin(user),
+                        user_id=user.id,
+                    )
                 chat_history = conversation_manager.get_or_create_history(
                     conversation_id,
                     user_id=user.id,
