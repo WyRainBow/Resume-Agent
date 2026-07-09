@@ -15,7 +15,7 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '3.0.0',
+    version: '3.0.1',
     date: '2026-07-09',
     added: [
       '简历照片全面升级：上传即存云端并自动去重，可从已上传照片中一键复用',
@@ -30,6 +30,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       '修复登录状态下上传照片仍提示登录过期的问题',
       '顶部保存提示合并为一个：内容修改后自动保存，无需手动点击',
       '预览区「边距」按钮关闭时图标颜色更深一点，看得更清楚',
+      '排版设置「条目」改名「条目间距」，更容易找到',
+      '页面底部补充备案信息',
     ],
   },
   {
