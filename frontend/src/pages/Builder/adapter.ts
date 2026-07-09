@@ -59,6 +59,7 @@ function toPersonalInfo(data: ResumeData): PersonalInfo {
     location: basic.location || undefined,
     github: isGithub ? blog : undefined,
     website: !isGithub && blog ? blog : undefined,
+    photo: basic.photo || undefined,
   }
 }
 

@@ -13,6 +13,8 @@ export interface PersonalInfo {
   website?: string
   linkedin?: string
   github?: string
+  /** 用户上传的照片 URL（COS）。模板按需渲染，无则不显示 */
+  photo?: string
 }
 
 export interface Experience {

@@ -205,25 +205,35 @@ export const ResumeModernTwoColumn: React.FC<ResumeModernTwoColumnProps> = ({
 
   return (
     <>
-      {/* Header */}
-      <div className={baseStyles['resume-header']}>
-        {personalInfo?.name && (
-          <h1 className={`${baseStyles['resume-name']} ${styles.nameAccent}`}>
-            {personalInfo.name}
-          </h1>
-        )}
-        {personalInfo?.title && (
-          <div className={`${baseStyles['resume-title']} mt-1`}>{personalInfo.title}</div>
-        )}
-        {personalInfo && (
-          <div className={`${baseStyles['resume-meta']} flex flex-wrap gap-x-3 gap-y-1 mt-2`}>
-            {renderContactDetail('Email', personalInfo.email, 'mailto:')}
-            {renderContactDetail('Phone', personalInfo.phone, 'tel:')}
-            {renderContactDetail('Location', personalInfo.location)}
-            {renderContactDetail('Website', personalInfo.website)}
-            {renderContactDetail('LinkedIn', personalInfo.linkedin)}
-            {renderContactDetail('GitHub', personalInfo.github)}
-          </div>
+      {/* Header：有照片时左文右图，无照片时保持原样 */}
+      <div className={`${baseStyles['resume-header']} flex items-start justify-between gap-4`}>
+        <div className="min-w-0 flex-1">
+          {personalInfo?.name && (
+            <h1 className={`${baseStyles['resume-name']} ${styles.nameAccent}`}>
+              {personalInfo.name}
+            </h1>
+          )}
+          {personalInfo?.title && (
+            <div className={`${baseStyles['resume-title']} mt-1`}>{personalInfo.title}</div>
+          )}
+          {personalInfo && (
+            <div className={`${baseStyles['resume-meta']} flex flex-wrap gap-x-3 gap-y-1 mt-2`}>
+              {renderContactDetail('Email', personalInfo.email, 'mailto:')}
+              {renderContactDetail('Phone', personalInfo.phone, 'tel:')}
+              {renderContactDetail('Location', personalInfo.location)}
+              {renderContactDetail('Website', personalInfo.website)}
+              {renderContactDetail('LinkedIn', personalInfo.linkedin)}
+              {renderContactDetail('GitHub', personalInfo.github)}
+            </div>
+          )}
+        </div>
+        {personalInfo?.photo && (
+          <img
+            src={personalInfo.photo}
+            alt={personalInfo?.name || '照片'}
+            className="shrink-0 w-[76px] h-[95px] object-cover rounded-[3px] border-2"
+            style={{ borderColor: 'var(--resume-accent-primary)' }}
+          />
         )}
       </div>
 

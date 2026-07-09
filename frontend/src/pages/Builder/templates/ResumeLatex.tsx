@@ -303,7 +303,15 @@ export const ResumeLatex: React.FC<ResumeLatexProps> = ({ data, showContactIcons
   return (
     <div className={styles.container}>
       {personalInfo && (
-        <header className={`text-center ${baseStyles['resume-header']}`}>
+        <header className={`relative text-center ${baseStyles['resume-header']}`}>
+          {/* 照片右上角叠加，不改变居中版式（与 Classic LaTeX 渲染一致的位置语义） */}
+          {personalInfo.photo && (
+            <img
+              src={personalInfo.photo}
+              alt={personalInfo.name || '照片'}
+              className="absolute right-0 top-0 w-[72px] h-[90px] object-cover border border-neutral-400"
+            />
+          )}
           {personalInfo.name && <h1 className={`${styles.name} mb-1`}>{personalInfo.name}</h1>}
           {personalInfo.title && (
             <div className={`${styles.tagline} mb-1`}>{personalInfo.title}</div>
