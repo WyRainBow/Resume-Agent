@@ -55,7 +55,7 @@ export function Header({ saveStatus, saveError, onGlobalAIImport, onExportJSON, 
       className={cn(
         'relative z-20 h-16 flex items-center justify-between px-4 shrink-0',
         'bg-white dark:bg-[#1C1C1C]',
-        'border-b border-black dark:border-white'
+        'border-b border-black fresh:border-slate-200 dark:border-white'
       )}
     >
       {/* 左侧留白（原编辑模式切换已移除，点击编辑为唯一模式） */}
@@ -93,10 +93,10 @@ export function Header({ saveStatus, saveError, onGlobalAIImport, onExportJSON, 
             <button
               onClick={() => setImportMenuOpen((v) => !v)}
               className={cn(
-                "px-5 py-2.5 rounded-none text-sm font-bold transition-all duration-300 flex items-center gap-2",
-                "bg-white dark:bg-[#1C1C1C] border border-black dark:border-white",
-                "text-slate-700 dark:text-slate-300 hover:bg-[#F1F2F5] hover:border-black dark:hover:bg-slate-700",
-                "active:scale-95 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                "px-5 py-2.5 rounded-none fresh:rounded-md text-sm font-bold transition-all duration-300 flex items-center gap-2",
+                "bg-white dark:bg-[#1C1C1C] border border-black fresh:border-slate-200 dark:border-white",
+                "text-slate-700 dark:text-slate-300 hover:bg-[#F1F2F5] hover:border-black fresh:hover:border-slate-300 dark:hover:bg-slate-700",
+                "active:scale-95 shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff]"
               )}
             >
               <Upload className="w-4 h-4 text-blue-500" />
@@ -104,7 +104,7 @@ export function Header({ saveStatus, saveError, onGlobalAIImport, onExportJSON, 
             </button>
 
             {importMenuOpen && (
-              <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-[#2A2A2A] rounded-none shadow-[4px_4px_0px_0px_#000000] dark:shadow-[4px_4px_0px_0px_#ffffff] border border-slate-200/80 dark:border-slate-700/80 overflow-hidden z-50">
+              <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-[#2A2A2A] rounded-none fresh:rounded-md shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md dark:shadow-[4px_4px_0px_0px_#ffffff] border border-slate-200/80 dark:border-slate-700/80 overflow-hidden z-50">
                 <button
                   onClick={() => {
                     setImportMenuOpen(false)
@@ -121,7 +121,7 @@ export function Header({ saveStatus, saveError, onGlobalAIImport, onExportJSON, 
                       setImportMenuOpen(false)
                       onImportJSON()
                     }}
-                    className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-[#F1F2F5] dark:hover:bg-slate-700/50 flex items-center gap-2 border-t border-black dark:border-slate-700/50"
+                    className="w-full px-4 py-3 text-left text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-[#F1F2F5] dark:hover:bg-slate-700/50 flex items-center gap-2 border-t border-black fresh:border-slate-200 dark:border-slate-700/50"
                   >
                     <Upload className="w-4 h-4 text-blue-500" />
                     JSON 导入

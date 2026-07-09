@@ -321,7 +321,7 @@ export default function EditPreviewLayout(props: EditPreviewLayoutProps) {
         <div
           className={cn(
             "h-full overflow-hidden flex-1",
-            "bg-[#F6F3EC]",
+            "bg-[#F6F3EC] fresh:bg-slate-100",
           )}
           style={{ pointerEvents: isDragging ? "none" : "auto" }}
         >

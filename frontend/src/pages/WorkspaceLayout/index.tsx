@@ -315,24 +315,24 @@ export default function WorkspaceLayout({
       {/* 左侧固定边栏 */}
       <aside
         className={cn(
-          "shrink-0 bg-[#F0F0E8] dark:bg-[#1C1C1C] border-r-2 border-black dark:border-white flex flex-col transition-[width] duration-200",
+          "shrink-0 bg-[#F0F0E8] fresh:bg-slate-50 dark:bg-[#1C1C1C] border-r-2 fresh:border-r border-black fresh:border-slate-200 dark:border-white flex flex-col transition-[width] duration-200",
           sidebarCollapsed ? "w-24" : "w-[200px]",
         )}
       >
         {/* Logo + 收缩按钮：收起时合并，展开时并列 */}
-        <div className="border-b-2 border-black dark:border-white shrink-0 p-2">
+        <div className="border-b-2 fresh:border-b border-black fresh:border-slate-200 dark:border-white shrink-0 p-2">
           {!sidebarCollapsed ? (
             <div className="flex items-center justify-between gap-1 w-full px-1">
               <div
                 className="cursor-pointer group shrink-0 flex items-center gap-2.5 min-w-0"
                 onClick={() => navigate("/")}
               >
-                <div className="w-9 h-9 bg-[#4285F4] rounded-none flex items-center justify-center border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] group-hover:translate-x-[1px] group-hover:translate-y-[1px] group-hover:shadow-none transition-all shrink-0">
-                  <span className="text-white font-mono font-black text-sm not-italic">
+                <div className="w-9 h-9 bg-[#4285F4] rounded-none fresh:rounded-md flex items-center justify-center border border-black fresh:border-slate-200 dark:border-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff] group-hover:translate-x-[1px] group-hover:translate-y-[1px] group-hover:shadow-none transition-all shrink-0">
+                  <span className="text-white font-mono fresh:font-sans font-black text-sm not-italic">
                     RA
                   </span>
                 </div>
-                <span className="text-black dark:text-white font-mono font-bold text-base uppercase tracking-wide truncate">
+                <span className="text-black dark:text-white font-mono fresh:font-sans font-bold text-base uppercase fresh:normal-case tracking-wide fresh:tracking-normal truncate">
                   Resume.AI
                 </span>
               </div>
@@ -340,7 +340,7 @@ export default function WorkspaceLayout({
                 type="button"
                 onClick={toggleSidebar}
                 className={cn(
-                  "rounded-none transition-colors shrink-0 p-1.5",
+                  "rounded-none fresh:rounded-md transition-colors shrink-0 p-1.5",
                   "text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
                 )}
                 title="收起侧边栏"
@@ -352,8 +352,8 @@ export default function WorkspaceLayout({
             <div className="relative group h-10 w-full flex items-center justify-center">
               {/* 收起态默认状态：仅 Logo */}
               <div className="flex items-center justify-center transition-opacity duration-200 group-hover:opacity-0 w-full">
-                <div className="w-9 h-9 bg-[#4285F4] rounded-none flex items-center justify-center border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] shrink-0">
-                  <span className="text-white font-mono font-black text-sm not-italic">
+                <div className="w-9 h-9 bg-[#4285F4] rounded-none fresh:rounded-md flex items-center justify-center border border-black fresh:border-slate-200 dark:border-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff] shrink-0">
+                  <span className="text-white font-mono fresh:font-sans font-black text-sm not-italic">
                     RA
                   </span>
                 </div>
@@ -363,7 +363,7 @@ export default function WorkspaceLayout({
               <button
                 type="button"
                 onClick={toggleSidebar}
-                className="absolute inset-0 flex items-center justify-center rounded-none opacity-0 group-hover:opacity-100 transition-all duration-200 bg-[#E5E5E0]/90 dark:bg-[#2A2A2A]/90 text-black dark:text-white"
+                className="absolute inset-0 flex items-center justify-center rounded-none fresh:rounded-md opacity-0 group-hover:opacity-100 transition-all duration-200 bg-[#E5E5E0] fresh:bg-slate-100/90 dark:bg-[#2A2A2A]/90 text-black dark:text-white"
                 title="展开侧边栏"
               >
                 <SidebarToggleIcon expand className="w-6 h-6" />
@@ -384,12 +384,12 @@ export default function WorkspaceLayout({
             <button
               onClick={(e) => handleWorkspaceChange("edit", e)}
               className={cn(
-                "w-full rounded-none font-mono uppercase tracking-wide transition-all duration-100 border",
+                "w-full rounded-none fresh:rounded-md font-mono fresh:font-sans uppercase fresh:normal-case tracking-wide fresh:tracking-normal transition-all duration-100 border",
                 sidebarCollapsed
                   ? "flex flex-col items-center justify-center gap-1 py-2.5"
                   : "flex items-center gap-2.5 py-2.5 px-2.5",
                 currentWorkspace === "edit"
-                  ? "bg-[#4285F4] text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                  ? "bg-[#4285F4] text-white border-black fresh:border-slate-200 dark:border-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff]"
                   : "border-transparent text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
               )}
               title="编辑区"
@@ -405,12 +405,12 @@ export default function WorkspaceLayout({
               <button
                 onClick={(e) => handleWorkspaceChange("agent", e)}
                 className={cn(
-                  "w-full rounded-none font-mono uppercase tracking-wide transition-all duration-100 border group",
+                  "w-full rounded-none fresh:rounded-md font-mono fresh:font-sans uppercase fresh:normal-case tracking-wide fresh:tracking-normal transition-all duration-100 border group",
                   sidebarCollapsed
                     ? "flex flex-col items-center justify-center gap-1 py-2.5"
                     : "flex items-center gap-2.5 py-2.5 px-2.5",
                   currentWorkspace === "agent"
-                    ? "bg-[#4285F4] text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                    ? "bg-[#4285F4] text-white border-black fresh:border-slate-200 dark:border-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff]"
                     : "border-transparent text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
                 )}
                 title="AI 对话"
@@ -435,12 +435,12 @@ export default function WorkspaceLayout({
             <button
               onClick={(e) => handleWorkspaceChange("myResumes", e)}
               className={cn(
-                "w-full rounded-none font-mono uppercase tracking-wide transition-all duration-100 border",
+                "w-full rounded-none fresh:rounded-md font-mono fresh:font-sans uppercase fresh:normal-case tracking-wide fresh:tracking-normal transition-all duration-100 border",
                 sidebarCollapsed
                   ? "flex flex-col items-center justify-center gap-1 py-2.5"
                   : "flex items-center gap-2.5 py-2.5 px-2.5",
                 currentWorkspace === "myResumes"
-                  ? "bg-[#4285F4] text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                  ? "bg-[#4285F4] text-white border-black fresh:border-slate-200 dark:border-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff]"
                   : "border-transparent text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
               )}
               title="我的简历"
@@ -455,12 +455,12 @@ export default function WorkspaceLayout({
               <button
                 onClick={(e) => handleWorkspaceChange("admin", e)}
                 className={cn(
-                  "w-full rounded-none font-mono uppercase tracking-wide transition-all duration-100 border",
+                  "w-full rounded-none fresh:rounded-md font-mono fresh:font-sans uppercase fresh:normal-case tracking-wide fresh:tracking-normal transition-all duration-100 border",
                   sidebarCollapsed
                     ? "flex flex-col items-center justify-center gap-1 py-2.5"
                     : "flex items-center gap-2.5 py-2.5 px-2.5",
                   currentWorkspace === "admin"
-                    ? "bg-[#4285F4] text-white border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                    ? "bg-[#4285F4] text-white border-black fresh:border-slate-200 dark:border-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff]"
                     : "border-transparent text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
                 )}
                 title="后台管理系统"
@@ -474,7 +474,7 @@ export default function WorkspaceLayout({
           </nav>
 
           {/* 分隔线 */}
-          <div className="border-t-2 border-black dark:border-white my-2 shrink-0" />
+          <div className="border-t-2 border-black fresh:border-slate-200 dark:border-white my-2 shrink-0" />
 
           {/* 历史会话 - 常驻显示 */}
           {!sidebarCollapsed && canUseAgent && (
@@ -492,15 +492,15 @@ export default function WorkspaceLayout({
         </div>
 
         {/* 底部：主题切换 + 登录组件（与导航风格统一） */}
-        <div className="py-4 px-3 border-t-2 border-black dark:border-white">
+        <div className="py-4 px-3 border-t-2 border-black fresh:border-slate-200 dark:border-white">
           {/* 深色 / 浅色切换：仅管理员可见（登录态下移入用户下拉，未登录时保留此处） */}
           {!isAuthenticated && canUseAdminFeature() && (
             <button
               type="button"
               onClick={() => setTheme(isDark ? "light" : "dark")}
               className={cn(
-                "w-full rounded-none font-mono uppercase tracking-wide transition-all duration-100 mb-2",
-                "border border-black dark:border-white bg-[#F0F0E8] dark:bg-[#2A2A2A] text-black dark:text-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] hover:bg-[#E5E5E0] dark:hover:bg-[#333333] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none active:translate-x-[2px] active:translate-y-[2px]",
+                "w-full rounded-none fresh:rounded-md font-mono fresh:font-sans uppercase fresh:normal-case tracking-wide fresh:tracking-normal transition-all duration-100 mb-2",
+                "border border-black fresh:border-slate-200 dark:border-white bg-[#F0F0E8] fresh:bg-slate-50 dark:bg-[#2A2A2A] text-black dark:text-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff] hover:bg-[#E5E5E0] dark:hover:bg-[#333333] hover:translate-x-[1px] fresh:hover:translate-x-0 hover:translate-y-[1px] fresh:hover:translate-y-0 hover:shadow-none fresh:hover:shadow-sm active:translate-x-[2px] active:translate-y-[2px]",
                 sidebarCollapsed
                   ? "flex flex-col items-center justify-center gap-1 py-2.5"
                   : "flex items-center gap-2.5 py-2.5 px-2.5",
@@ -527,8 +527,8 @@ export default function WorkspaceLayout({
                   type="button"
                   onClick={() => setShowLogoutMenu(!showLogoutMenu)}
                   className={cn(
-                    "w-full rounded-none transition-all duration-100 group",
-                    "bg-[#F0F0E8] dark:bg-[#2A2A2A] border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] hover:bg-[#E5E5E0] dark:hover:bg-[#333333] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none",
+                    "w-full rounded-none fresh:rounded-md transition-all duration-100 group",
+                    "bg-[#F0F0E8] fresh:bg-slate-50 dark:bg-[#2A2A2A] border border-black fresh:border-slate-200 dark:border-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff] hover:bg-[#E5E5E0] dark:hover:bg-[#333333] hover:translate-x-[1px] fresh:hover:translate-x-0 hover:translate-y-[1px] fresh:hover:translate-y-0 hover:shadow-none fresh:hover:shadow-sm",
                     sidebarCollapsed
                       ? "flex flex-col items-center justify-center gap-1 py-3"
                       : "flex items-center gap-3 py-2 px-3",
@@ -544,7 +544,7 @@ export default function WorkspaceLayout({
                   />
                   {!sidebarCollapsed && (
                     <div className="flex flex-col items-start min-w-0 flex-1">
-                      <span className="text-sm font-mono font-bold uppercase tracking-wide text-black dark:text-white truncate w-full text-left">
+                      <span className="text-sm font-mono fresh:font-sans font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal text-black dark:text-white truncate w-full text-left">
                         {user?.username || user?.email}
                       </span>
                     </div>
@@ -561,12 +561,12 @@ export default function WorkspaceLayout({
                       exit={{ opacity: 0, y: 10, scale: 0.95 }}
                       transition={{ duration: 0.2, ease: "easeOut" }}
                       className={cn(
-                        "absolute bottom-full mb-3 bg-[#F0F0E8] dark:bg-[#1C1C1C] border border-black dark:border-white rounded-none shadow-[4px_4px_0px_0px_#000000] dark:shadow-[4px_4px_0px_0px_#ffffff] z-[110] p-1.5 min-w-[180px]",
+                        "absolute bottom-full mb-3 bg-[#F0F0E8] fresh:bg-slate-50 dark:bg-[#1C1C1C] border border-black fresh:border-slate-200 dark:border-white rounded-none fresh:rounded-md shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md dark:shadow-[4px_4px_0px_0px_#ffffff] z-[110] p-1.5 min-w-[180px]",
                         sidebarCollapsed ? "left-0" : "left-0 right-0"
                       )}
                     >
-                      <div className="px-3 py-2 border-b border-black dark:border-white mb-1">
-                        <p className="text-[10px] font-mono font-bold text-black dark:text-white uppercase tracking-widest">账号管理</p>
+                      <div className="px-3 py-2 border-b border-black fresh:border-slate-200 dark:border-white mb-1">
+                        <p className="text-[10px] font-mono fresh:font-sans font-bold text-black dark:text-white uppercase fresh:normal-case tracking-wide fresh:tracking-normalst">账号管理</p>
                       </div>
                       <button
                         type="button"
@@ -575,7 +575,7 @@ export default function WorkspaceLayout({
                           navigate("/account");
                         }}
                         className={cn(
-                          "w-full flex items-center justify-between gap-2.5 px-3 py-2 rounded-none text-sm font-mono font-bold uppercase tracking-wide transition-all",
+                          "w-full flex items-center justify-between gap-2.5 px-3 py-2 rounded-none fresh:rounded-md text-sm font-mono fresh:font-sans font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal transition-all",
                           "text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
                         )}
                       >
@@ -592,7 +592,7 @@ export default function WorkspaceLayout({
                           handleWorkspaceChange("settings");
                         }}
                         className={cn(
-                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-none text-sm font-mono font-bold uppercase tracking-wide transition-all",
+                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-none fresh:rounded-md text-sm font-mono fresh:font-sans font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal transition-all",
                           "text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
                         )}
                       >
@@ -604,7 +604,7 @@ export default function WorkspaceLayout({
                           type="button"
                           onClick={() => setTheme(isDark ? "light" : "dark")}
                           className={cn(
-                            "w-full flex items-center gap-2.5 px-3 py-2 rounded-none text-sm font-mono font-bold uppercase tracking-wide transition-all",
+                            "w-full flex items-center gap-2.5 px-3 py-2 rounded-none fresh:rounded-md text-sm font-mono fresh:font-sans font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal transition-all",
                             "text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
                           )}
                         >
@@ -619,7 +619,7 @@ export default function WorkspaceLayout({
                           logout();
                         }}
                         className={cn(
-                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-none text-sm font-mono font-bold uppercase tracking-wide transition-all",
+                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-none fresh:rounded-md text-sm font-mono fresh:font-sans font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal transition-all",
                           "text-black dark:text-white hover:bg-red-700 hover:text-white",
                         )}
                       >
@@ -635,9 +635,9 @@ export default function WorkspaceLayout({
                         type="button"
                         onClick={() => openModal("login")}
                         className={cn(
-                          "w-full rounded-none transition-all duration-100 font-mono uppercase tracking-wide group",
-                          "bg-[#4285F4] text-white border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]",
-                          "hover:bg-[#3367D6] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none active:translate-x-[2px] active:translate-y-[2px]",
+                          "w-full rounded-none fresh:rounded-md transition-all duration-100 font-mono fresh:font-sans uppercase fresh:normal-case tracking-wide fresh:tracking-normal group",
+                          "bg-[#4285F4] text-white border border-black fresh:border-slate-200 dark:border-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff]",
+                          "hover:bg-[#3367D6] hover:translate-x-[1px] fresh:hover:translate-x-0 hover:translate-y-[1px] fresh:hover:translate-y-0 hover:shadow-none fresh:hover:shadow-sm active:translate-x-[2px] active:translate-y-[2px]",
                           sidebarCollapsed
                             ? "flex flex-col items-center justify-center gap-1 py-3"
                             : "flex items-center gap-3 py-2.5 px-4",
@@ -653,7 +653,7 @@ export default function WorkspaceLayout({
           </div>
           {!sidebarCollapsed && (
             <div className="flex items-center justify-center gap-2 mt-3 px-2">
-              <span className="text-[10px] font-mono font-bold text-black/60 dark:text-white/60 uppercase tracking-widest">VERSION {LATEST_CHANGELOG.version}</span>
+              <span className="text-[10px] font-mono fresh:font-sans font-bold text-black/60 dark:text-white/60 uppercase fresh:normal-case tracking-wide fresh:tracking-normalst">VERSION {LATEST_CHANGELOG.version}</span>
             </div>
           )}
         </div>

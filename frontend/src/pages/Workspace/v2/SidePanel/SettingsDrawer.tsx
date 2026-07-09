@@ -50,10 +50,10 @@ function DropdownSelect<T extends string | number>({
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(
-          'w-full px-3 py-2.5 text-sm rounded-none border text-left flex items-center justify-between gap-2 transition-all duration-300',
-          'border-black bg-white text-slate-800',
-          'hover:border-black hover:shadow-[4px_4px_0px_0px_#000000] dark:hover:shadow-[4px_4px_0px_0px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#1a73e8] focus:border-black',
-          open && 'ring-2 ring-[#1a73e8] border-black shadow-[4px_4px_0px_0px_#000000] dark:shadow-[4px_4px_0px_0px_#ffffff]'
+          'w-full px-3 py-2.5 text-sm rounded-none fresh:rounded-md border text-left flex items-center justify-between gap-2 transition-all duration-300',
+          'border-black fresh:border-slate-200 bg-white text-slate-800',
+          'hover:border-black fresh:hover:border-slate-300 hover:shadow-[4px_4px_0px_0px_#000000] dark:hover:shadow-[4px_4px_0px_0px_#ffffff] focus:outline-none focus:ring-2 focus:ring-[#1a73e8] focus:border-black fresh:focus:border-blue-400',
+          open && 'ring-2 ring-[#1a73e8] border-black fresh:border-slate-200 shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md dark:shadow-[4px_4px_0px_0px_#ffffff]'
         )}
       >
         <span className="truncate">{currentLabel}</span>
@@ -61,7 +61,7 @@ function DropdownSelect<T extends string | number>({
       </button>
       {open && (
         <div
-          className="absolute top-full left-0 right-0 z-50 mt-1 py-1 rounded-none border border-black bg-white shadow-[4px_4px_0px_0px_#000000] dark:shadow-[4px_4px_0px_0px_#ffffff] max-h-56 overflow-y-auto"
+          className="absolute top-full left-0 right-0 z-50 mt-1 py-1 rounded-none fresh:rounded-md border border-black fresh:border-slate-200 bg-white shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md dark:shadow-[4px_4px_0px_0px_#ffffff] max-h-56 overflow-y-auto"
           role="listbox"
         >
           {options.map((opt) => {
@@ -148,9 +148,9 @@ const HEADER_BOTTOM_GAP_BASELINE = -1
 const normalizeDecimal = (value: number, digits = 2) => Number(value.toFixed(digits))
 
 const inputBaseClass =
-  'w-full px-3 py-2.5 text-sm rounded-none border border-black bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1a73e8] focus:border-black transition-colors'
+  'w-full px-3 py-2.5 text-sm rounded-none fresh:rounded-md border border-black fresh:border-slate-200 bg-white text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#1a73e8] focus:border-black fresh:focus:border-blue-400 transition-colors'
 
-const labelClass = 'block font-mono text-xs font-bold text-[#444850] dark:text-slate-300 mb-1.5'
+const labelClass = 'block font-mono fresh:font-sans text-xs font-bold text-[#444850] fresh:text-gray-600 dark:text-slate-300 mb-1.5'
 
 const LINE_SPACING_CUSTOM_VALUE = -1
 const LINE_SPACING_WITH_CUSTOM = [
@@ -215,8 +215,8 @@ function HeaderGapControl({
   return (
     <div className="space-y-1">
       <div className="flex items-baseline justify-between gap-2">
-        <label className="font-mono text-xs font-bold text-[#444850] dark:text-slate-400">{label}</label>
-        <span className="font-mono text-xs text-slate-500 dark:text-slate-400 tabular-nums shrink-0">
+        <label className="font-mono fresh:font-sans text-xs font-bold text-[#444850] fresh:text-gray-600 dark:text-slate-400">{label}</label>
+        <span className="font-mono fresh:font-sans text-xs text-slate-500 dark:text-slate-400 tabular-nums shrink-0">
           {value > 0 ? `+${value}` : value}px
         </span>
       </div>
@@ -228,7 +228,7 @@ function HeaderGapControl({
         step={0.5}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full h-1 bg-[#E5E5E0] dark:bg-slate-700 rounded-none appearance-none cursor-pointer accent-[#4285F4]
+        className="w-full h-1 bg-[#E5E5E0] fresh:bg-slate-100 dark:bg-slate-700 rounded-none fresh:rounded-md appearance-none cursor-pointer accent-[#4285F4]
                    [&::-webkit-slider-thumb]:appearance-none
                    [&::-webkit-slider-thumb]:w-3
                    [&::-webkit-slider-thumb]:h-3
@@ -267,14 +267,14 @@ function LargeTemplateCard({
       onClick={onClick}
       title={description}
       className={cn(
-        'group relative flex flex-col items-center p-3 border-2 bg-white transition-all',
+        'group relative flex flex-col items-center p-3 border-2 fresh:border bg-white transition-all',
         active
-          ? 'border-black shadow-[3px_3px_0px_0px_#000000] dark:border-white dark:shadow-[3px_3px_0px_0px_#ffffff]'
-          : 'border-slate-300 dark:border-slate-600 hover:border-black dark:hover:border-white hover:shadow-[2px_2px_0px_0px_#000000] dark:hover:shadow-[2px_2px_0px_0px_#ffffff]'
+          ? 'border-black fresh:border-slate-200 shadow-[3px_3px_0px_0px_#000000] fresh:shadow-md dark:border-white dark:shadow-[3px_3px_0px_0px_#ffffff]'
+          : 'border-slate-300 dark:border-slate-600 hover:border-black fresh:hover:border-slate-300 dark:hover:border-white hover:shadow-[2px_2px_0px_0px_#000000] dark:hover:shadow-[2px_2px_0px_0px_#ffffff]'
       )}
     >
       {recommended && (
-        <span className="absolute top-1.5 left-1.5 z-10 rounded-none border border-black bg-[#4285F4] px-1.5 py-0.5 text-[9px] font-mono font-bold uppercase tracking-wider text-white">
+        <span className="absolute top-1.5 left-1.5 z-10 rounded-none fresh:rounded-md border border-black fresh:border-slate-200 bg-[#4285F4] px-1.5 py-0.5 text-[9px] font-mono fresh:font-sans font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normalr fresh:tracking-normal text-white">
           推荐
         </span>
       )}
@@ -290,8 +290,8 @@ function LargeTemplateCard({
       </div>
       <span
         className={cn(
-          'mt-3 font-mono text-[11px] uppercase tracking-wider font-bold',
-          active ? 'text-black dark:text-white' : 'text-[#444850] dark:text-slate-400'
+          'mt-3 font-mono fresh:font-sans text-[11px] uppercase fresh:normal-case tracking-wide fresh:tracking-normalr fresh:tracking-normal font-bold',
+          active ? 'text-black dark:text-white' : 'text-[#444850] fresh:text-gray-600 dark:text-slate-400'
         )}
       >
         {name}
@@ -315,12 +315,12 @@ function TemplateTab({
       {/* 组一：原生 LaTeX（服务端 XeLaTeX 引擎） */}
       <div>
         <div className="flex items-center gap-1.5 mb-1">
-          <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-black dark:text-white">
+          <span className="font-mono fresh:font-sans text-[11px] font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normalr fresh:tracking-normal text-black dark:text-white">
             原生精排 · LaTeX
           </span>
           {templateType !== 'html' && <span className="w-1.5 h-1.5 bg-blue-700 shrink-0" />}
         </div>
-        <p className="mb-3 font-mono text-[10px] text-[#878E99] dark:text-neutral-400">
+        <p className="mb-3 font-mono fresh:font-sans text-[10px] text-[#878E99] dark:text-neutral-400">
           服务端 XeLaTeX 精确排版 · 导出矢量文字 PDF
         </p>
         <div className="grid grid-cols-2 gap-3">
@@ -338,12 +338,12 @@ function TemplateTab({
       {/* 组二：在线 HTML 模板（浏览器实时渲染） */}
       <div>
         <div className="flex items-center gap-1.5 mb-1">
-          <span className="font-mono text-[11px] font-bold uppercase tracking-wider text-black dark:text-white">
+          <span className="font-mono fresh:font-sans text-[11px] font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normalr fresh:tracking-normal text-black dark:text-white">
             在线模板 · HTML
           </span>
           {templateType === 'html' && <span className="w-1.5 h-1.5 bg-blue-700 shrink-0" />}
         </div>
-        <p className="mb-3 font-mono text-[10px] text-[#878E99] dark:text-neutral-400">
+        <p className="mb-3 font-mono fresh:font-sans text-[10px] text-[#878E99] dark:text-neutral-400">
           实时预览 · 模板与排版即改即见 · 前端导出
         </p>
         <div className="grid grid-cols-2 gap-3">
@@ -405,10 +405,10 @@ function FormatTab({
                 type="button"
                 onClick={() => updateGlobalSettings({ latexFontSize: opt.value })}
                 className={cn(
-                  'flex-1 min-w-0 px-2 py-1.5 text-xs font-bold rounded-none border transition-all',
+                  'flex-1 min-w-0 px-2 py-1.5 text-xs font-bold rounded-none fresh:rounded-md border transition-all',
                   isActive
-                    ? 'bg-blue-50 text-slate-900 border-blue-200 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600'
-                    : 'bg-white border-black text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:border-blue-400 hover:text-slate-900'
+                    ? 'bg-blue-50 text-slate-900 border-blue-200 shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff] dark:bg-slate-700 dark:text-slate-100 dark:border-slate-600'
+                    : 'bg-white border-black fresh:border-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400 hover:border-blue-400 hover:text-slate-900'
                 )}
               >
                 {opt.label}
@@ -464,7 +464,7 @@ function FormatTab({
       </div>
 
       {/* 头部间距（LaTeX）：姓名/联系方式区域的三段留白，拖动滑块调整、负值压缩留白 */}
-      <div className="rounded-none bg-blue-50/50 dark:bg-slate-800/50 border border-blue-100/50 p-3 space-y-4">
+      <div className="rounded-none fresh:rounded-md bg-blue-50/50 dark:bg-slate-800/50 border border-blue-100/50 p-3 space-y-4">
         <div className="flex items-center justify-between gap-2">
           <div>
             <label className="text-sm font-medium text-slate-700 dark:text-slate-300">头部间距</label>
@@ -567,14 +567,14 @@ export default function SettingsDrawer({
             className={cn(
               'relative h-full flex flex-col shrink-0',
               'bg-white dark:bg-slate-900',
-              'border-r-2 border-black dark:border-slate-100',
+              'border-r-2 fresh:border-r border-black fresh:border-slate-200 dark:border-slate-100',
               'shadow-[4px_0px_16px_-4px_rgba(0,0,0,0.25)]'
             )}
             style={{ width: DRAWER_WIDTH }}
           >
             {/* 抽屉头部：tab（原 segmented）+ 关闭 */}
             <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-slate-200 dark:border-slate-700 shrink-0">
-              <div className="flex items-center border border-black dark:border-slate-100 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]">
+              <div className="flex items-center border border-black fresh:border-slate-200 dark:border-slate-100 shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff]">
                 {TAB_META.map((t) => {
                   const isActive = activeTab === t.key
                   return (
@@ -583,7 +583,7 @@ export default function SettingsDrawer({
                       type="button"
                       onClick={() => onToggleTab(t.key)}
                       className={cn(
-                        'px-4 py-1.5 text-sm font-bold font-mono transition-colors',
+                        'px-4 py-1.5 text-sm font-bold font-mono fresh:font-sans transition-colors',
                         isActive
                           ? 'bg-[#4285F4] text-white'
                           : 'bg-white text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'

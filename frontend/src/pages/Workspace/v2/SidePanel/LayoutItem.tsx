@@ -45,8 +45,8 @@ const LayoutItem = ({
     return (
       <div
         className={cn(
-          'rounded-none group border mb-2 hover:border-primary cursor-pointer',
-          'hover:bg-[#F1F2F5] bg-white border-black',
+          'rounded-none fresh:rounded-md group border mb-2 hover:border-primary cursor-pointer',
+          'hover:bg-[#F1F2F5] bg-white border-black fresh:border-slate-200',
           'dark:hover:bg-[#2A2A2A] dark:bg-neutral-900/50 dark:border-white',
           activeSection === item.id &&
             'border-primary dark:border-primary text-primary'
@@ -62,7 +62,7 @@ const LayoutItem = ({
           >
             {item.icon}
           </span>
-          <span className="font-mono text-xs font-bold uppercase tracking-wider flex-1">{item.title}</span>
+          <span className="font-mono fresh:font-sans text-xs font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normalr fresh:tracking-normal flex-1">{item.title}</span>
         </div>
       </div>
     )
@@ -76,8 +76,8 @@ const LayoutItem = ({
       dragListener={false}
       dragControls={dragControls}
       className={cn(
-        'rounded-none group border hover:border-primary flex overflow-hidden transition-opacity',
-        'hover:bg-[#F1F2F5] bg-white border-black',
+        'rounded-none fresh:rounded-md group border hover:border-primary flex overflow-hidden transition-opacity',
+        'hover:bg-[#F1F2F5] bg-white border-black fresh:border-slate-200',
         'dark:hover:bg-[#2A2A2A] dark:bg-neutral-900/50 dark:border-white dark:hover:border-primary',
         activeSection === item.id &&
           'border-primary dark:border-primary text-primary',
@@ -94,7 +94,7 @@ const LayoutItem = ({
         }}
         className={cn(
           'w-8 flex items-center justify-center touch-none shrink-0',
-          'border-black dark:border-white',
+          'border-black fresh:border-slate-200 dark:border-white',
           'cursor-grab hover:bg-[#F1F2F5] dark:hover:bg-neutral-800/50'
         )}
       >
@@ -121,7 +121,7 @@ const LayoutItem = ({
           >
             {item.icon}
           </span>
-          <span className="font-mono text-xs font-bold uppercase tracking-wider flex-1">{item.title}</span>
+          <span className="font-mono fresh:font-sans text-xs font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normalr fresh:tracking-normal flex-1">{item.title}</span>
 
           {/* 显示/隐藏按钮 */}
           <motion.button
@@ -132,7 +132,7 @@ const LayoutItem = ({
               toggleSectionVisibility(item.id)
             }}
             className={cn(
-              'p-1.5 rounded-none',
+              'p-1.5 rounded-none fresh:rounded-md',
               DEFAULT_SECTION_IDS.has(item.id) ? 'mr-0' : 'mr-2',
               'hover:bg-[#F1F2F5] text-gray-600',
               'dark:hover:bg-neutral-700 dark:text-neutral-300'
@@ -157,7 +157,7 @@ const LayoutItem = ({
                 }
               }}
               className={cn(
-                'p-1.5 rounded-none',
+                'p-1.5 rounded-none fresh:rounded-md',
                 'hover:bg-[#F1F2F5] text-gray-600',
                 'dark:hover:bg-neutral-700 dark:text-neutral-300'
               )}

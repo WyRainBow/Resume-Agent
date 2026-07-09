@@ -137,10 +137,10 @@ export function ExportButton({
   const formatCardClass = (active: boolean) =>
     cn(
       'flex flex-col items-center gap-2 p-4 text-center transition-[transform,box-shadow,background-color] duration-100',
-      'border-2 border-black dark:border-white',
+      'border-2 fresh:border border-black fresh:border-slate-200 dark:border-white',
       active
-        ? 'bg-[#D4E4FF] shadow-[2px_2px_0px_0px_#000000] dark:bg-[#1a2a4a] dark:shadow-[2px_2px_0px_0px_#ffffff]'
-        : 'bg-[#F0F0E8] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none dark:bg-[#2A2A2A] dark:hover:bg-[#3A3A3A]',
+        ? 'bg-[#D4E4FF] shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:bg-[#1a2a4a] dark:shadow-[2px_2px_0px_0px_#ffffff]'
+        : 'bg-[#F0F0E8] fresh:bg-slate-50 hover:translate-y-[1px] fresh:hover:translate-y-0 hover:translate-x-[1px] fresh:hover:translate-x-0 hover:shadow-none fresh:hover:shadow-sm dark:bg-[#2A2A2A] dark:hover:bg-[#3A3A3A]',
     );
 
   return (
@@ -149,15 +149,15 @@ export function ExportButton({
         onClick={() => setIsOpen(true)}
         className={cn(
           'inline-flex items-center justify-center gap-2',
-          'whitespace-nowrap text-sm font-medium font-mono uppercase tracking-wide',
+          'whitespace-nowrap text-sm font-medium font-mono fresh:font-sans uppercase fresh:normal-case tracking-wide fresh:tracking-normal',
           'transition-[transform,box-shadow,background-color] duration-100 ease-out',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-700 focus-visible:ring-offset-2',
           'disabled:opacity-50',
-          'rounded-none h-9 px-5',
-          'border border-black dark:border-white',
-          'shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]',
+          'rounded-none fresh:rounded-md h-9 px-5',
+          'border border-black fresh:border-slate-200 dark:border-white',
+          'shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff]',
           'bg-blue-700 text-white',
-          'hover:bg-blue-800 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none',
+          'hover:bg-blue-800 hover:translate-y-[1px] fresh:hover:translate-y-0 hover:translate-x-[1px] fresh:hover:translate-x-0 hover:shadow-none fresh:hover:shadow-sm',
         )}
       >
         <Download className="w-4 h-4" strokeWidth={3} />
@@ -169,20 +169,20 @@ export function ExportButton({
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
           onClick={(e) => e.target === e.currentTarget && setIsOpen(false)}
         >
-          <div className="w-full max-w-md border-2 border-black bg-[#F0F0E8] p-5 shadow-[4px_4px_0px_0px_#000000] dark:border-white dark:bg-[#2A2A2A] dark:shadow-[4px_4px_0px_0px_#ffffff]">
+          <div className="w-full max-w-md border-2 fresh:border border-black fresh:border-slate-200 bg-[#F0F0E8] fresh:bg-slate-50 p-5 shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md dark:border-white dark:bg-[#2A2A2A] dark:shadow-[4px_4px_0px_0px_#ffffff]">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h3 className="font-mono text-sm font-bold uppercase tracking-wide text-black dark:text-white">
+                <h3 className="font-mono fresh:font-sans text-sm font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal text-black dark:text-white">
                   导出简历
                 </h3>
-                <p className="mt-0.5 font-mono text-[10px] text-[#878E99] dark:text-neutral-400">
+                <p className="mt-0.5 font-mono fresh:font-sans text-[10px] text-[#878E99] dark:text-neutral-400">
                   选择导出格式下载简历
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="rounded-none border border-black bg-[#F0F0E8] p-1.5 text-black shadow-[1px_1px_0px_0px_#000000] transition-colors hover:bg-[#E5E5E0] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none dark:border-white dark:bg-[#2A2A2A] dark:text-white dark:shadow-[1px_1px_0px_0px_#ffffff] dark:hover:bg-[#3A3A3A]"
+                className="rounded-none fresh:rounded-md border border-black fresh:border-slate-200 bg-[#F0F0E8] fresh:bg-slate-50 p-1.5 text-black shadow-[1px_1px_0px_0px_#000000] transition-colors hover:bg-[#E5E5E0] hover:translate-y-[1px] fresh:hover:translate-y-0 hover:translate-x-[1px] fresh:hover:translate-x-0 hover:shadow-none fresh:hover:shadow-sm dark:border-white dark:bg-[#2A2A2A] dark:text-white dark:shadow-[1px_1px_0px_0px_#ffffff] dark:hover:bg-[#3A3A3A]"
                 aria-label="关闭"
               >
                 <X className="h-4 w-4" />
@@ -199,21 +199,21 @@ export function ExportButton({
                   className={cn(
                     "flex h-11 w-11 items-center justify-center",
                     format === "pdf"
-                      ? "bg-blue-700 text-white border border-black shadow-[2px_2px_0px_0px_#000000]"
-                      : "bg-[#F0F0E8] text-black border border-black shadow-[1px_1px_0px_0px_#000000] dark:bg-[#2A2A2A] dark:text-white dark:border-white dark:shadow-[1px_1px_0px_0px_#ffffff]",
+                      ? "bg-blue-700 text-white border border-black fresh:border-slate-200 shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm"
+                      : "bg-[#F0F0E8] fresh:bg-slate-50 text-black border border-black fresh:border-slate-200 shadow-[1px_1px_0px_0px_#000000] dark:bg-[#2A2A2A] dark:text-white dark:border-white dark:shadow-[1px_1px_0px_0px_#ffffff]",
                   )}
                 >
                   <FileText className="h-5 w-5" strokeWidth={2} />
                 </span>
-                <span className="font-mono text-xs font-bold uppercase tracking-wide text-black dark:text-white">
+                <span className="font-mono fresh:font-sans text-xs font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal text-black dark:text-white">
                   PDF
                 </span>
-                <span className="font-mono text-[10px] text-[#878E99] dark:text-neutral-400">
+                <span className="font-mono fresh:font-sans text-[10px] text-[#878E99] dark:text-neutral-400">
                   可打印文档
                 </span>
                 <span
                   className={cn(
-                    "font-mono text-[10px]",
+                    "font-mono fresh:font-sans text-[10px]",
                     !isHtmlTemplate && quotaIsExhausted
                       ? "text-red-600"
                       : "text-[#878E99] dark:text-neutral-400",
@@ -236,19 +236,19 @@ export function ExportButton({
                   className={cn(
                     "flex h-11 w-11 items-center justify-center",
                     format === "json"
-                      ? "bg-blue-700 text-white border border-black shadow-[2px_2px_0px_0px_#000000]"
-                      : "bg-[#F0F0E8] text-black border border-black shadow-[1px_1px_0px_0px_#000000] dark:bg-[#2A2A2A] dark:text-white dark:border-white dark:shadow-[1px_1px_0px_0px_#ffffff]",
+                      ? "bg-blue-700 text-white border border-black fresh:border-slate-200 shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm"
+                      : "bg-[#F0F0E8] fresh:bg-slate-50 text-black border border-black fresh:border-slate-200 shadow-[1px_1px_0px_0px_#000000] dark:bg-[#2A2A2A] dark:text-white dark:border-white dark:shadow-[1px_1px_0px_0px_#ffffff]",
                   )}
                 >
                   <FileJson className="h-5 w-5" strokeWidth={2} />
                 </span>
-                <span className="font-mono text-xs font-bold uppercase tracking-wide text-black dark:text-white">
+                <span className="font-mono fresh:font-sans text-xs font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal text-black dark:text-white">
                   JSON
                 </span>
-                <span className="font-mono text-[10px] text-[#878E99] dark:text-neutral-400">
+                <span className="font-mono fresh:font-sans text-[10px] text-[#878E99] dark:text-neutral-400">
                   结构化数据
                 </span>
-                <span className="font-mono text-[10px] text-[#878E99] dark:text-neutral-400">
+                <span className="font-mono fresh:font-sans text-[10px] text-[#878E99] dark:text-neutral-400">
                   可再次导入编辑
                 </span>
               </button>
@@ -258,14 +258,14 @@ export function ExportButton({
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="rounded-none border border-black bg-[#F0F0E8] px-4 py-2 font-mono text-xs font-bold uppercase tracking-wide text-black shadow-[2px_2px_0px_0px_#000000] transition-colors hover:bg-[#E5E5E0] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none dark:border-white dark:bg-[#2A2A2A] dark:text-white dark:shadow-[2px_2px_0px_0px_#ffffff] dark:hover:bg-[#3A3A3A]"
+                className="rounded-none fresh:rounded-md border border-black fresh:border-slate-200 bg-[#F0F0E8] fresh:bg-slate-50 px-4 py-2 font-mono fresh:font-sans text-xs font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal text-black shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm transition-colors hover:bg-[#E5E5E0] hover:translate-y-[1px] fresh:hover:translate-y-0 hover:translate-x-[1px] fresh:hover:translate-x-0 hover:shadow-none fresh:hover:shadow-sm dark:border-white dark:bg-[#2A2A2A] dark:text-white dark:shadow-[2px_2px_0px_0px_#ffffff] dark:hover:bg-[#3A3A3A]"
               >
                 取消
               </button>
               <button
                 type="button"
                 onClick={handleExport}
-                className="rounded-none border border-black bg-blue-700 px-5 py-2 font-mono text-xs font-bold uppercase tracking-wide text-white shadow-[2px_2px_0px_0px_#000000] transition-colors hover:bg-blue-800 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none dark:border-white dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                className="rounded-none fresh:rounded-md border border-black fresh:border-slate-200 bg-blue-700 px-5 py-2 font-mono fresh:font-sans text-xs font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal text-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm transition-colors hover:bg-blue-800 hover:translate-y-[1px] fresh:hover:translate-y-0 hover:translate-x-[1px] fresh:hover:translate-x-0 hover:shadow-none fresh:hover:shadow-sm dark:border-white dark:shadow-[2px_2px_0px_0px_#ffffff]"
               >
                 导出
               </button>

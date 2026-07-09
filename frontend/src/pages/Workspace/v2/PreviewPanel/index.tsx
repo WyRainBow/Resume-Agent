@@ -148,7 +148,7 @@ export function PreviewPanel({
       >
           {/* HTML 模板：仅显示实时预览标签 */}
           {isHTMLTemplate && (
-            <span className="px-3 py-1 text-xs font-mono font-bold uppercase tracking-wide bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-none border border-black dark:border-white shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff]">
+            <span className="px-3 py-1 text-xs font-mono fresh:font-sans font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 rounded-none fresh:rounded-md border border-black fresh:border-slate-200 dark:border-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff]">
               实时预览
             </span>
           )}
@@ -161,11 +161,11 @@ export function PreviewPanel({
                 onClick={onRender}
                 disabled={loading}
                 className={cn(
-                  'group relative px-6 py-2.5 rounded-none border-2 border-black overflow-hidden',
+                  'group relative px-6 py-2.5 rounded-none fresh:rounded-md border-2 fresh:border border-black fresh:border-slate-200 overflow-hidden',
                   'bg-[#4285F4] text-white text-sm font-bold tracking-tight',
                   'disabled:opacity-60 disabled:cursor-not-allowed',
                   'transition-all',
-                  'shadow-[3px_3px_0px_0px_#000000] hover:bg-[#3367D6] hover:shadow-none hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px]',
+                  'shadow-[3px_3px_0px_0px_#000000] fresh:shadow-md hover:bg-[#3367D6] hover:shadow-none fresh:hover:shadow-sm hover:translate-x-[2px] hover:translate-y-[2px] active:translate-x-[3px] active:translate-y-[3px]',
                   'disabled:hover:shadow-[3px_3px_0px_0px_#000000] disabled:hover:translate-x-0 disabled:hover:translate-y-0',
                   'dark:border-white dark:shadow-[3px_3px_0px_0px_#ffffff]'
                 )}
@@ -216,7 +216,7 @@ export function PreviewPanel({
                   onClick={handleZoomOut}
                   disabled={effectiveScale <= MIN_SCALE}
                   className={cn(
-                    'inline-flex items-center justify-center h-8 w-8 rounded-none',
+                    'inline-flex items-center justify-center h-8 w-8 rounded-none fresh:rounded-md',
                     'bg-transparent border-none text-slate-700 dark:text-slate-300',
                     'hover:bg-slate-100 dark:hover:bg-white/10 transition-colors',
                     'disabled:opacity-50 disabled:pointer-events-none'
@@ -237,19 +237,19 @@ export function PreviewPanel({
                     }
                   }}
                   className={cn(
-                    'w-10 text-center font-mono text-xs rounded-none bg-transparent border-none',
+                    'w-10 text-center font-mono fresh:font-sans text-xs rounded-none fresh:rounded-md bg-transparent border-none',
                     'text-slate-500 dark:text-slate-400',
-                    'focus:outline-none focus:ring-1 focus:ring-blue-700'
+                    'focus:outline-none focus:ring-1 focus:ring-blue-700 fresh:focus:ring-blue-200'
                   )}
                   title="点击输入缩放比例（50–250）"
                 />
-                <span className="font-mono text-xs text-slate-500 dark:text-slate-400">%</span>
+                <span className="font-mono fresh:font-sans text-xs text-slate-500 dark:text-slate-400">%</span>
                 <button
                   type="button"
                   onClick={handleZoomIn}
                   disabled={effectiveScale >= MAX_SCALE}
                   className={cn(
-                    'inline-flex items-center justify-center h-8 w-8 rounded-none',
+                    'inline-flex items-center justify-center h-8 w-8 rounded-none fresh:rounded-md',
                     'bg-transparent border-none text-slate-700 dark:text-slate-300',
                     'hover:bg-slate-100 dark:hover:bg-white/10 transition-colors',
                     'disabled:opacity-50 disabled:pointer-events-none'
@@ -262,7 +262,7 @@ export function PreviewPanel({
                   <button
                     type="button"
                     onClick={handleFitWidth}
-                    className="ml-1 font-mono text-xs text-blue-700 dark:text-blue-400 hover:underline"
+                    className="ml-1 font-mono fresh:font-sans text-xs text-blue-700 dark:text-blue-400 hover:underline"
                   >
                     适应宽度
                   </button>
@@ -277,9 +277,9 @@ export function PreviewPanel({
                 type="button"
                 onClick={() => setShowMargin((s) => !s)}
                 className={cn(
-                  'inline-flex items-center gap-1.5 h-8 px-2.5 rounded-none font-mono text-xs transition-colors',
+                  'inline-flex items-center gap-1.5 h-8 px-2.5 rounded-none fresh:rounded-md font-mono fresh:font-sans text-xs transition-colors',
                   showMargin
-                    ? 'bg-slate-200 dark:bg-white/10 border border-black dark:border-white text-black dark:text-white'
+                    ? 'bg-slate-200 dark:bg-white/10 border border-black fresh:border-slate-200 dark:border-white text-black dark:text-white'
                     : 'bg-transparent border-none text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/10'
                 )}
                 title="显示/隐藏边距参考线"
@@ -293,7 +293,7 @@ export function PreviewPanel({
               {/* 页数：由 PDFViewer 加载完成后通过 onNumPagesChange 上报 */}
               <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
                 <FileText className="w-3.5 h-3.5" />
-                <span className="font-mono text-xs whitespace-nowrap">
+                <span className="font-mono fresh:font-sans text-xs whitespace-nowrap">
                   {numPages > 0 ? `共 ${numPages} 页` : '—'}
                 </span>
               </div>
@@ -335,7 +335,7 @@ export function PreviewPanel({
       <div
         ref={isHTMLTemplate || !pdfBlob ? containerRef : undefined}
         className={cn(
-          'flex-1 p-2 bg-[#F6F3EC]',
+          'flex-1 p-2 bg-[#F6F3EC] fresh:bg-slate-100',
           isHTMLTemplate || pdfBlob ? 'flex flex-col min-h-0 overflow-hidden' : 'overflow-auto'
         )}
       >
@@ -368,7 +368,7 @@ export function PreviewPanel({
           // LaTeX 模板：PDF 预览（缩放/边距/页数已挪到顶部工具栏）
           <>
             {pdfBlob ? (
-              <div className="flex-1 flex flex-col min-h-0 bg-[#F6F3EC] overflow-hidden">
+              <div className="flex-1 flex flex-col min-h-0 bg-[#F6F3EC] fresh:bg-slate-100 overflow-hidden">
                 <div
                   ref={containerRef}
                   className="flex-1 min-h-0 overflow-auto p-2"

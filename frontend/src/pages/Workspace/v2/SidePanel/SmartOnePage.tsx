@@ -174,11 +174,11 @@ export function SmartOnePage({
         onClick={handleSmartOptimize}
         disabled={isProcessing || loading}
         className={cn(
-          'w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-none',
+          'w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-none fresh:rounded-md',
           'text-sm font-medium transition-all duration-200',
           isProcessing || loading
             ? 'bg-[#F1F2F5] dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-            : 'bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-[4px_4px_0px_0px_#000000] dark:shadow-[4px_4px_0px_0px_#ffffff] hover:shadow-[4px_4px_0px_0px_#000000] dark:hover:shadow-[4px_4px_0px_0px_#ffffff] hover:from-violet-600 hover:to-purple-600'
+            : 'bg-gradient-to-r from-violet-500 to-purple-500 text-white shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md dark:shadow-[4px_4px_0px_0px_#ffffff] hover:shadow-[4px_4px_0px_0px_#000000] dark:hover:shadow-[4px_4px_0px_0px_#ffffff] hover:from-violet-600 hover:to-purple-600'
         )}
       >
         {isProcessing ? (
@@ -195,7 +195,7 @@ export function SmartOnePage({
           onClick={handleApplyCompact}
           disabled={isProcessing || loading}
           className={cn(
-            'flex-1 py-1.5 px-3 rounded-none text-xs font-medium transition-colors',
+            'flex-1 py-1.5 px-3 rounded-none fresh:rounded-md text-xs font-medium transition-colors',
             'bg-[#F1F2F5] dark:bg-slate-800 text-slate-600 dark:text-slate-400',
             'hover:bg-slate-200 dark:hover:bg-slate-700',
             'disabled:opacity-50 disabled:cursor-not-allowed'
@@ -207,7 +207,7 @@ export function SmartOnePage({
           onClick={handleReset}
           disabled={isProcessing || loading}
           className={cn(
-            'flex-1 py-1.5 px-3 rounded-none text-xs font-medium transition-colors',
+            'flex-1 py-1.5 px-3 rounded-none fresh:rounded-md text-xs font-medium transition-colors',
             'bg-[#F1F2F5] dark:bg-slate-800 text-slate-600 dark:text-slate-400',
             'hover:bg-slate-200 dark:hover:bg-slate-700',
             'disabled:opacity-50 disabled:cursor-not-allowed'
@@ -247,7 +247,7 @@ export function SmartOnePage({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-none text-xs',
+              'flex items-center gap-2 px-3 py-2 rounded-none fresh:rounded-md text-xs',
               status === 'success' && 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400',
               status === 'failed' && 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400',
               (status === 'analyzing' || status === 'optimizing') && 'bg-violet-50 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400'
