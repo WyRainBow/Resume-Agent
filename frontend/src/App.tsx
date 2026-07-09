@@ -20,9 +20,6 @@ const LoginPage = lazyWithRetry(() => import('./pages/Login'))
 const SettingsPage = lazyWithRetry(() => import('./pages/Settings'))
 const SharePage = lazyWithRetry(() => import('./pages/SharePage'))
 const Workspace = lazyWithRetry(() => import('./pages/Workspace/v2'))
-const BuilderPage = lazyWithRetry(() => import('./pages/Builder'))
-const BuilderDashboardPage = lazyWithRetry(() => import('./pages/Builder/DashboardPage'))
-const BuilderSettingsPage = lazyWithRetry(() => import('./pages/Builder/SettingsPage'))
 /** 旧编辑器路由兼容：/workspace/latex|html/:resumeId → 统一 /workspace/:resumeId */
 function WorkspaceLegacyRedirect() {
   const { resumeId } = useParams<{ resumeId?: string }>()
@@ -74,15 +71,9 @@ function App() {
               <Route path="/workspace/latex/:resumeId" element={<WorkspaceLegacyRedirect />} />
               <Route path="/workspace/html" element={<Navigate to="/workspace" replace />} />
               <Route path="/workspace/html/:resumeId" element={<WorkspaceLegacyRedirect />} />
-              {/* 模板市场 Builder(RM 风格,独立新页,后续再并入导航) */}
-              <Route path="/builder" element={<BuilderPage />} />
-              <Route path="/builder/dashboard" element={<BuilderDashboardPage />} />
-              {canUseAdmin ? (
-                <Route path="/builder/settings" element={<BuilderSettingsPage />} />
-              ) : (
-                <Route path="/builder/settings" element={<Navigate to="/builder/dashboard" replace />} />
-              )}
-              <Route path="/builder/:resumeId" element={<BuilderPage />} />
+              {/* Builder 独立页面已并入 Workspace,旧 /builder 路由统一重定向 */}
+              <Route path="/builder" element={<Navigate to="/workspace" replace />} />
+              <Route path="/builder/*" element={<Navigate to="/workspace" replace />} />
               {agentPageEnabled ? (
                 <>
                   <Route path="/agent/new" element={<AgentChat />} />
