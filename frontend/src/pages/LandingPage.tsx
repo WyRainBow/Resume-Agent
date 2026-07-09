@@ -20,7 +20,7 @@ import {
   Clock,
   Frown,
   Upload,
-  Palette,
+  SwatchBook,
 } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 import type { ReactNode } from 'react'
@@ -391,16 +391,16 @@ export default function LandingPage() {
           </div>
 
           <div className="flex items-center gap-1">
-            {/* 网站皮肤:点击弹出选择框(Landing 与 Workspace 共用同一 localStorage + <html> data-skin) */}
+            {/* 界面皮肤:点击弹出选择框(Landing 与 Workspace 共用同一 localStorage + <html> data-skin) */}
             <button
               type="button"
               onClick={() => setShowSkinPicker(true)}
               className="flex items-center gap-1.5 h-9 px-3 border-2 fresh:border border-black fresh:border-slate-200 bg-white text-slate-700 hover:bg-slate-100 active:translate-y-[1px] fresh:active:translate-y-0 active:translate-x-[1px] fresh:active:translate-x-0 active:shadow-none transition-all shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm"
-              title="选择网站皮肤"
-              aria-label="网站皮肤"
+              title="选择界面皮肤"
+              aria-label="界面皮肤"
             >
-              <Palette className="w-4 h-4 shrink-0 text-[#4285F4]" />
-              <span className="text-sm font-mono fresh:font-sans font-bold uppercase fresh:normal-case">网站皮肤</span>
+              <SwatchBook className="w-4 h-4 shrink-0 text-[#4285F4]" />
+              <span className="text-sm font-mono fresh:font-sans font-bold uppercase fresh:normal-case">界面皮肤</span>
             </button>
             <SkinPickerModal
               open={showSkinPicker}
