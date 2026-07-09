@@ -122,7 +122,7 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
       </div>
 
       {/* Controls bar：从预览区顶部挪到渲染区下方（第三列底部） */}
-      <div className="flex items-center justify-between px-4 py-2 border-t border-[#878E99] bg-[#E5E5E0] shrink-0">
+      <div className="flex items-center px-4 py-2 border-t border-[#878E99] bg-[#E5E5E0] shrink-0">
         <div className="flex items-center gap-2">
           {/* Zoom controls */}
           <SwissButton
@@ -159,18 +159,20 @@ export function PaginatedPreview({ resumeData, settings }: PaginatedPreviewProps
             <Eye className={showMargins ? 'w-4 h-4 text-[#444850]' : 'w-4 h-4 text-[#878E99]'} />
             <span className="font-mono text-xs uppercase">边距</span>
           </SwissButton>
-        </div>
 
-        {/* Page count */}
-        <div className="flex items-center gap-2 text-[#444850]">
-          <FileText className="w-4 h-4" />
-          <span className="font-mono text-xs uppercase">
-            {isCalculating
-              ? '计算中…'
-              : pages.length === 1
-                ? '1 页'
-                : `${pages.length} 页`}
-          </span>
+          <div className="w-px h-5 bg-[#878E99] mx-2" />
+
+          {/* Page count：放到「边距」右边，不再推到最右 */}
+          <div className="flex items-center gap-2 text-[#444850]">
+            <FileText className="w-4 h-4" />
+            <span className="font-mono text-xs uppercase">
+              {isCalculating
+                ? '计算中…'
+                : pages.length === 1
+                  ? '1 页'
+                  : `${pages.length} 页`}
+            </span>
+          </div>
         </div>
       </div>
     </div>
