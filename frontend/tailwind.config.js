@@ -1,5 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 import typography from "@tailwindcss/typography";
+import plugin from "tailwindcss/plugin";
+
+/** Workspace 换肤变体:data-skin="fresh" 子树内 fresh: 类生效(与 dark: 同构) */
+const skinVariant = plugin(({ addVariant }) => {
+  addVariant("fresh", '[data-skin="fresh"] &');
+});
 
 export default {
   darkMode: ["class"],
@@ -123,6 +129,6 @@ export default {
       },
     },
   },
-  plugins: [typography],
+  plugins: [typography, skinVariant],
 }
 

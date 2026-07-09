@@ -3,8 +3,9 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Upload, ChevronRight, Sparkles } from 'lucide-react'
+import { Upload, ChevronRight, Sparkles, Palette } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
+import { getSkinOrDefault, setStoredSkin, SKIN_EVENT, type WorkspaceSkin } from '@/lib/skin'
 import { ExportButton } from './ExportButton'
 import { SaveStatusIndicator } from './SaveStatusIndicator'
 import type { AutoSaveStatus } from '../hooks/useAutoSaveResume'
@@ -24,6 +25,15 @@ interface HeaderProps {
 export function Header({ saveStatus, saveError, onGlobalAIImport, onExportJSON, onImportJSON, resumeData, resumeName, pdfBlob, onDownloadPDF }: HeaderProps) {
   const [importMenuOpen, setImportMenuOpen] = useState(false)
   const importMenuRef = useRef<HTMLDivElement>(null)
+  const [skin, setSkin] = useState<WorkspaceSkin>(getSkinOrDefault)
+
+  useEffect(() => {
+    const onSkinChange = () => setSkin(getSkinOrDefault())
+    window.addEventListener(SKIN_EVENT, onSkinChange)
+    return () => window.removeEventListener(SKIN_EVENT, onSkinChange)
+  }, [])
+
+  const toggleSkin = () => setStoredSkin(skin === 'neo' ? 'fresh' : 'neo')
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -60,6 +70,22 @@ export function Header({ saveStatus, saveError, onGlobalAIImport, onExportJSON, 
       >
         {/* 自动保存常驻状态 */}
         {saveStatus !== undefined && <SaveStatusIndicator status={saveStatus} error={saveError} />}
+
+        {/* 皮肤切换:Neo(新野兽派) ↔ 清新 */}
+        <button
+          onClick={toggleSkin}
+          title={skin === 'neo' ? '当前:Neo 风格,点击换清新风格' : '当前:清新风格,点击换 Neo 风格'}
+          aria-label="切换皮肤"
+          className={cn(
+            'px-3 py-2.5 rounded-none fresh:rounded-lg text-sm font-bold transition-all duration-300 flex items-center gap-2',
+            'bg-white dark:bg-[#1C1C1C] border border-black fresh:border-slate-200 dark:border-white',
+            'text-slate-700 dark:text-slate-300 hover:bg-[#F1F2F5] fresh:hover:bg-slate-50 dark:hover:bg-slate-700',
+            'active:scale-95 shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff]'
+          )}
+        >
+          <Palette className="w-4 h-4 text-blue-500" />
+          {skin === 'neo' ? 'NEO' : '清新'}
+        </button>
 
         {/* 统一导入下拉：AI 导入 / JSON 导入 */}
         {(onGlobalAIImport || onImportJSON) && (

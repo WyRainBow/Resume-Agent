@@ -28,6 +28,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { getCurrentResumeId } from "@/services/resumeStorage";
 import { RecentSessions } from "@/components/sidebar/RecentSessions";
 import { canUseAdminFeature, canUseAgentFeature, getApiBaseUrl, isAgentEnabled } from "@/lib/runtimeEnv";
+import { getSkinOrDefault, SKIN_EVENT, type WorkspaceSkin } from "@/lib/skin";
 
 // 工作区类型
 type WorkspaceType =
@@ -138,6 +139,13 @@ export default function WorkspaceLayout({
       return false;
     }
   });
+  // Workspace 皮肤(neo/fresh):挂 data-skin 供 Tailwind fresh: 变体生效,监听事件跨组件同步
+  const [skin, setSkin] = useState<WorkspaceSkin>(getSkinOrDefault);
+  useEffect(() => {
+    const onSkinChange = () => setSkin(getSkinOrDefault());
+    window.addEventListener(SKIN_EVENT, onSkinChange);
+    return () => window.removeEventListener(SKIN_EVENT, onSkinChange);
+  }, []);
 
   const toggleSidebar = () => {
     setSidebarCollapsed((prev) => {
@@ -300,7 +308,10 @@ export default function WorkspaceLayout({
     agentSession?.sessionsRefreshKey ?? sessionsRefreshKey;
 
   return (
-    <div className="h-screen flex overflow-hidden bg-[#F0F0E8] dark:bg-[#1C1C1C] font-sans selection:bg-[#4285F4] selection:text-white">
+    <div
+      data-skin={skin}
+      className="h-screen flex overflow-hidden bg-[#F0F0E8] fresh:bg-slate-50 dark:bg-[#1C1C1C] font-sans selection:bg-[#4285F4] selection:text-white"
+    >
       {/* 左侧固定边栏 */}
       <aside
         className={cn(
