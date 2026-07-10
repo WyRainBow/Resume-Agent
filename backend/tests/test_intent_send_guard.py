@@ -146,20 +146,114 @@ def test_llm_first_yields_rule_route_and_blocks_query_rewrite(monkeypatch):
     assert not agent.tool_calls, "不得由规则手工构造工具调用"
 
 
-def test_llm_first_wired_into_think_source():
-    import inspect
+def test_llm_first_switch_changes_routing_behavior(monkeypatch):
+    """行为等价迁移(Wave 2a-S4pre,原 test_llm_first_wired_into_think_source):
+    LLM-first 开关必须真实接线进 think 路由——同一规则强意图,开关关闭时走
+    规则 direct tool call(不让权),开关开启时让权(true 侧由
+    test_llm_first_yields_rule_route_and_blocks_query_rewrite 覆盖)。
+    源码字符串断言改为开关值改变路由行为的可观察差异。"""
+    import asyncio
 
-    src = inspect.getsource(manus_module.Manus.think)
-    assert "LLM-first" in src
-    assert "_llm_first_routing_enabled" in src
+    from backend.agent.agent.manus import Manus
+    from backend.agent.agent.toolcall import ToolCallAgent
+    from backend.agent.application.conversation.conversation_state import Intent
+    from backend.agent.schema import Message
+    from backend.agent.tool.resume_data_store import ResumeDataStore
+
+    monkeypatch.setenv("AGENT_LLM_FIRST_ROUTING", "false")
+    session_id = "s-llmfirst-off-test"
+    ResumeDataStore.set_data(
+        {"basic": {"name": "张三"}, "experience": [], "projects": []},
+        session_id=session_id,
+    )
+    try:
+        agent = Manus(session_id=session_id, is_admin=False, user_id=1)
+        agent.memory.add_message(Message.user_message("帮我加载一下我的简历"))
+        agent._conversation_state.update_resume_loaded(True)
+
+        async def fake_process_input(**kwargs):
+            return {
+                "intent": Intent.LOAD_RESUME,
+                "tool": "show_resume",
+                "tool_args": {},
+                "intent_source": "fast_rule",
+                "enhanced_query": None,
+                "intent_result": None,
+            }
+
+        monkeypatch.setattr(agent._conversation_state, "process_input", fake_process_input)
+
+        called = {"super_think": False}
+
+        async def fake_super_think(self):
+            called["super_think"] = True
+            return False
+
+        monkeypatch.setattr(ToolCallAgent, "think", fake_super_think)
+
+        asyncio.run(agent.think())
+
+        assert called["super_think"] is False, "规则模式下强意图不得让权给 LLM"
+        assert agent.tool_calls and agent.tool_calls[0].function.name == "show_resume", \
+            "规则模式下 LOAD_RESUME 必须走 direct tool call"
+    finally:
+        ResumeDataStore.clear_data(session_id)
 
 
-def test_guard_wired_into_think_source():
-    """守卫必须接在意图消费入口(白盒:防止后续重构悄悄摘掉)"""
-    import inspect
+def test_staged_edit_fast_path_guarded_by_send_semantics(monkeypatch):
+    """行为等价迁移(Wave 2a-S4pre,原 test_guard_wired_into_think_source):
+    staged-edit 前置快路径必须被发送守卫覆盖——「把X改成Y」+「发送到邮箱」的
+    复合输入即使命中替换模式,也不得装配 staged 编辑,必须让权 LLM 工具循环。
+    源码位置断言改为守卫行为断言。"""
+    import asyncio
 
-    src = inspect.getsource(manus_module.Manus.think)
-    assert "_rule_intent_yield_reason" in src
-    assert "让权" in src
-    # staged-edit 前置快路径同样要被守卫覆盖
-    assert src.index("staged-edit 快路径让权") < src.index("_extract_replace_request(user_input)\n") + 2000
+    from backend.agent.agent.manus import Manus
+    from backend.agent.agent.toolcall import ToolCallAgent
+    from backend.agent.application.conversation.conversation_state import Intent
+    from backend.agent.schema import Message
+    from backend.agent.tool.resume_data_store import ResumeDataStore
+
+    monkeypatch.setenv("AGENT_LLM_FIRST_ROUTING", "false")  # 规则模式:快路径本会生效
+    session_id = "s-staged-guard-test"
+    ResumeDataStore.set_data(
+        {
+            "basic": {"name": "张三"},
+            "experience": [{"company": "美团", "position": "后端", "date": "2023", "details": "x"}],
+            "projects": [],
+        },
+        session_id=session_id,
+    )
+    try:
+        agent = Manus(session_id=session_id, is_admin=False, user_id=1)
+        guarded_input = "把美团改成字节跳动,然后把简历发送到 hr@qq.com"
+        agent.memory.add_message(Message.user_message(guarded_input))
+        agent._conversation_state.update_resume_loaded(True)
+
+        async def fake_process_input(**kwargs):
+            return {
+                "intent": Intent.EDIT_CV,
+                "tool": "cv_editor_agent",
+                "tool_args": {"path": "experience[0].company", "action": "update", "value": "字节跳动"},
+                "intent_source": "fast_rule",
+                "enhanced_query": None,
+                "intent_result": None,
+            }
+
+        monkeypatch.setattr(agent._conversation_state, "process_input", fake_process_input)
+
+        called = {"super_think": False}
+
+        async def fake_super_think(self):
+            called["super_think"] = True
+            return False
+
+        monkeypatch.setattr(ToolCallAgent, "think", fake_super_think)
+
+        asyncio.run(agent.think())
+
+        assert agent._turn.pending_edit_tool_call is None, \
+            "发送语义输入不得装配 staged 编辑"
+        assert called["super_think"] is True, "守卫命中后必须让权落 ReAct loop"
+        assert not agent.tool_calls, "不得由规则手工构造工具调用"
+    finally:
+        ResumeDataStore.clear_data(session_id)
