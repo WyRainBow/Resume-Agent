@@ -18,6 +18,7 @@ export interface MessageMeta {
   applyDone?: {
     count: number;
     /** 单段应用后的一键微调 chip（点击即发送，继续打磨刚应用的那段） */
+    /** @deprecated 2026-07-10 起收尾建议由 LLM 动态生成;仅为旧会话快照兼容保留 */
     refine?: { text: string; msg: string }[];
   };
   /** 导入解析失败：渲染「重试」按钮（重发同一份文件），失败不静默 */

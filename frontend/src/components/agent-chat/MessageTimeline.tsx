@@ -297,8 +297,6 @@ export default function MessageTimeline({
             <div key={msg.id || idx} className="chat-message-enter mb-6">
               <ApplyDoneCard
                 count={msg.meta.applyDone.count}
-                refine={msg.meta.applyDone.refine}
-                onSuggestionClick={onSuggestionClick}
                 onDownloadPdf={onDownloadPdf}
                 onGoEditor={onGoEditor}
                 onOptimizeForJd={onOptimizeForJd}

@@ -530,37 +530,6 @@ function stableMessageId(content: string, role: string, index: number): string {
   return `msg-${(hash >>> 0).toString(16).slice(0, 12)}`;
 }
 
-// 应用后一键微调：把已应用补丁的 path 推成「条目名+段类型」，生成继续打磨该段的 chip。
-// 点击即发一句以「优化」开头、带条目名的自然语言，命中 OPTIMIZE_SECTION 精确路由回同一段。
-const REFINE_SECTION_CN: Record<string, string> = {
-  experience: "实习经历",
-  projects: "项目经历",
-  opensource: "开源经历",
-  education: "教育经历",
-  awards: "荣誉奖项",
-};
-function buildApplyRefineChips(
-  path: string | undefined,
-  resume: Record<string, any> | null | undefined,
-): { text: string; msg: string }[] | undefined {
-  if (!path) return undefined;
-  const m = path.match(/^(\w+)(?:\[(\d+)\])?/);
-  if (!m) return undefined;
-  const cn = REFINE_SECTION_CN[m[1]];
-  if (!cn) return undefined; // 技能 / 自我评价等不给「维度」微调
-  const idx = m[2] ? parseInt(m[2], 10) : -1;
-  const entry = idx >= 0 ? resume?.[m[1]]?.[idx] : null;
-  const rawLabel =
-    entry?.company || entry?.name || entry?.school || entry?.title || "";
-  const label = String(rawLabel).replace(/\*+/g, "").trim();
-  const tgt = label ? `${label}的${cn}` : cn;
-  return [
-    { text: "更简洁", msg: `优化${tgt}，改得更简洁精炼一些` },
-    { text: "更突出成果", msg: `优化${tgt}，更突出量化数据和成果` },
-    { text: "换更有力的动词", msg: `优化${tgt}，多用有力的动作动词` },
-  ];
-}
-
 // ============================================================================
 // 主页面组件
 // ============================================================================
@@ -4146,20 +4115,13 @@ function CocoChatContent() {
     const pendingCount = pendingPatches.filter((p) => p.status === "pending").length;
     const appliedCount = pendingPatches.filter((p) => p.status === "applied").length;
     if (prevPendingCountRef.current > 0 && pendingCount === 0 && appliedCount > 0) {
-      // 单段应用 → 附「继续打磨这段」的一键微调 chip（研究里「编辑应用后主动追问」的时机）
-      const refine =
-        appliedCount === 1
-          ? buildApplyRefineChips(
-              pendingPatches.find((p) => p.status === "applied")?.paths?.[0],
-              resumeDataRef.current,
-            )
-          : undefined;
+      // 瘦身版收尾卡:只留功能入口(下载/再优化/精修),"说什么"交给下面的 LLM 收尾轮
       const doneMsg: Message = {
         id: `${Date.now()}-apply-done`,
         role: "assistant",
-        content: `已应用 ${appliedCount} 处优化，右侧预览已更新。可以下载 PDF，或去编辑器精修排版。`,
+        content: `已应用 ${appliedCount} 处优化，右侧预览已更新。`,
         timestamp: new Date().toISOString(),
-        meta: { applyDone: { count: appliedCount, refine } },
+        meta: { applyDone: { count: appliedCount } },
       };
       setMessages((prev) => {
         const updated = [...prev, doneMsg];
@@ -4167,9 +4129,20 @@ function CocoChatContent() {
         if (sid) void persistSessionSnapshot(sid, updated, false);
         return updated;
       });
+      // 静默触发一条 Agent 轮(不渲染用户气泡):让 Coco 基于本轮真实 diff
+      // 说收尾话 + 给贴合改动的动态建议,替代原先写死的三个打磨 chip
+      if (!isProcessing) {
+        void sendMessage(
+          `[系统内部提示,不要向用户复述本条] 用户刚刚应用了 ${appliedCount} 处简历修改(内容是你此前给出的修改)。` +
+            "请:1) 用一两句自然的话确认这次实际改了什么,必须基于会话里真实发生的修改,不要泛泛而谈;" +
+            '2) 基于刚才改动的具体内容,给 1-3 条贴合的下一步建议,用这个格式输出建议按钮:%%SUGGESTIONS%%[{"text":"按钮文字","msg":"点击后发送的话"}]%%END%%;' +
+            "3) 不要调用任何工具,保持简短。",
+          resumeDataRef.current,
+        );
+      }
     }
     prevPendingCountRef.current = pendingCount;
-  }, [pendingPatches, conversationId, currentSessionId, persistSessionSnapshot]);
+  }, [pendingPatches, conversationId, currentSessionId, persistSessionSnapshot, isProcessing, sendMessage]);
 
   const heroInitialConsumedRef = useRef(false);
   useEffect(() => {
