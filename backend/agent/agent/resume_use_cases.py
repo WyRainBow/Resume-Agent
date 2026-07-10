@@ -9,6 +9,7 @@ base_prompt_provider（复用 PromptBuilder 产物）/ stream_callback_provider
 
 import asyncio
 import json
+import os
 import re
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
@@ -352,6 +353,93 @@ class ResumeUseCases:
                 },
             },
             "resume_meta": resume_meta,
+        }
+
+    @staticmethod
+    def build_diagnosis_ask_message(resume_meta: Dict[str, Any]) -> str:
+        """诊断 Phase1 询问目标岗位的文案（Wave 2a-S4c-3，从 Manus.think() 纯搬运）。
+        逐字保留原 think() 内联字符串。"""
+        return (
+            f"已成功读取你的简历《{resume_meta.get('name', '当前简历')}》，在开始诊断前，我想了解一下你的目标：\n\n"
+            "%%SUGGESTIONS%%"
+            '[{"text":"告诉我目标岗位名称","msg":"","template":"我的目标岗位是{input}，请基于这个方向做诊断"},'
+            '{"text":"发送目标职位的 JD","msg":"我有一份目标职位的 JD，请根据 JD 做定向匹配诊断"},'
+            '{"text":"先做通用简历诊断","msg":"先做通用简历诊断吧，暂不指定岗位"}'
+            ']%%END%%'
+        )
+
+    def start_diagnosis_stream(
+        self, diagnosis_payload: Dict[str, Any], resume_meta: Dict[str, Any]
+    ) -> None:
+        """启动 qwq-plus 流式诊断报告生成（Wave 2a-S4c-3，从 Manus.think() 纯搬运）。
+
+        构造 thinking/content 两个队列 + qwq 后台任务，把 handoff dict 写入
+        turn_state.pending_immediate_stream，由 AgentStream 在 step 结束后消费两
+        队列、逐 token 推 thinking → thought / content → answer 事件（消费方
+        agent_stream.py 不改）。副作用仅写 self._turn.pending_immediate_stream；
+        state=FINISHED 仍由调用方（Manus）落地。prompt 构造、队列/哨兵/闭包、
+        任务创建、handoff dict 结构逐行不变。"""
+        thinking_q: asyncio.Queue = asyncio.Queue()
+        content_q: asyncio.Queue = asyncio.Queue()
+
+        diagnosis_prompt = diagnosis_payload["response"]  # 结构化报告文本（作为参考）
+        qwq_system = (
+            f"你是一位资深 HR，正在从招聘者视角对简历《{resume_meta['name']}》进行诊断分析。\n\n"
+            "## 思考阶段要求\n"
+            "请像 HR 逐行审阅简历一样，按以下检查清单逐项扫描，在思考过程中标注每项是否通过：\n"
+            "1. 基本信息：姓名、联系方式、简历标题是否完整规范\n"
+            "2. 教育经历：学校、专业、时间、GPA/排名是否完整\n"
+            "3. 工作/实习经历：段数是否合理（2-4段），描述是否有量化成果，是否用 STAR 法则\n"
+            "4. 技能标签：是否有技能分类，是否有熟练度标注\n"
+            "5. 项目经历：是否有背景、角色、成果的完整描述\n"
+            "6. 整体排版：是否有空模块、重复内容、格式不一致\n\n"
+            "## 输出阶段要求\n"
+            "输出一份结构化的简历诊断报告，包含：\n"
+            "- 初筛通过概率\n- 三维评分卡（内容质量/竞争力/岗位匹配度）\n"
+            "- 问题清单（必须修改/建议修改/可选优化）\n- Top 3 行动建议\n- 下一步引导\n"
+            "输出语言：中文。直接输出报告，不要说'好的'或重复用户的话。"
+        )
+        qwq_user = (
+            f"以下是已完成的结构化分析结果，请基于此以流畅的中文输出诊断报告：\n\n{diagnosis_prompt}"
+        )
+
+        async def _on_thinking(piece: str) -> None:
+            await thinking_q.put(piece)
+
+        async def _on_content(piece: str) -> None:
+            await content_q.put(piece)
+
+        _sentinel = object()
+
+        async def _run_qwq() -> None:
+            try:
+                await self._llm.ask_with_thinking_stream(
+                    messages=[{"role": "user", "content": qwq_user}],
+                    system_msgs=[{"role": "system", "content": qwq_system}],
+                    model="qwq-plus",
+                    base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+                    api_key=os.environ.get("DASHSCOPE_API_KEY", self._llm.api_key),
+                    max_tokens=8192,
+                    on_thinking_delta=_on_thinking,
+                    on_content_delta=_on_content,
+                )
+            except Exception as _qwq_err:
+                logger.warning(f"qwq-plus streaming failed: {_qwq_err}, using static report")
+            finally:
+                await thinking_q.put(_sentinel)
+                await content_q.put(_sentinel)
+
+        qwq_task = asyncio.create_task(_run_qwq())
+
+        # 把 queue 引用存到 pending，让 execute loop 消费
+        self._turn.pending_immediate_stream = {
+            "type": "thinking_stream",
+            "thinking_q": thinking_q,
+            "content_q": content_q,
+            "sentinel": _sentinel,
+            "fallback_thought": diagnosis_payload["thought"],
+            "fallback_response": diagnosis_payload["response"],
+            "qwq_task": qwq_task,
         }
 
     def _format_optimization_suggestions(self, result: Dict[str, Any], full: bool = False) -> str:
