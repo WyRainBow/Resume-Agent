@@ -64,6 +64,7 @@ import EnhancedMarkdown from "@/components/chat/EnhancedMarkdown";
 import Composer from "@/components/agent-chat/Composer";
 import MessageTimeline from "@/components/agent-chat/MessageTimeline";
 import StreamingLane from "@/components/agent-chat/StreamingLane";
+import type { SendEmailConfirmStructuredData } from "@/components/agent-chat/SendEmailConfirmCard";
 import { useTextStream } from "@/hooks/useTextStream";
 import { useToolEventRouter } from "@/hooks/agent-chat/useToolEventRouter";
 import { useStreamRunController } from "@/hooks/agent-chat/useStreamRunController";
@@ -663,6 +664,9 @@ function CocoChatContent() {
   const [diagnosisToolEvents, setDiagnosisToolEvents] = useState<
     Array<{ messageId: string; data: DiagnosisToolStructuredData }>
   >([]);
+  const [emailConfirmEvents, setEmailConfirmEvents] = useState<
+    Array<{ messageId: string; data: SendEmailConfirmStructuredData }>
+  >([]);
 
   const [resumeEditError, setLastError] = useState<{ message: string } | null>(null);
 
@@ -1109,6 +1113,23 @@ function CocoChatContent() {
     [],
   );
 
+  const upsertEmailConfirmEvent = useCallback(
+    (messageId: string, data: SendEmailConfirmStructuredData) => {
+      setEmailConfirmEvents((prev) => {
+        const existingIndex = prev.findIndex(
+          (item) => item.messageId === messageId && item.data.type === data.type,
+        );
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = { messageId, data };
+          return updated;
+        }
+        return [...prev, { messageId, data }];
+      });
+    },
+    [],
+  );
+
   const applyResumeEditDiff = useCallback(
     (diff: ResumeEditDiffStructuredData) => {
       const patchPath = diff.patch?.path || "";
@@ -1414,7 +1435,8 @@ function CocoChatContent() {
     SearchStructuredData,
     ResumeStructuredData,
     ResumeEditDiffStructuredData,
-    DiagnosisToolStructuredData
+    DiagnosisToolStructuredData,
+    SendEmailConfirmStructuredData
   >({
     runId: activeRunId,
     onDone: () => {
@@ -1467,6 +1489,7 @@ function CocoChatContent() {
       upsertResumeEditDiff(messageId, data);
     },
     upsertDiagnosisToolEvent,
+    upsertEmailConfirmEvent,
     applyResumeEditDiff: (data: ResumeEditDiffStructuredData) => {
       if (hasPatchInCurrentStreamRef.current) {
         console.log("[AgentChat] Skipping old applyEditDiff — resume_patch path is active");
@@ -2208,6 +2231,7 @@ function CocoChatContent() {
     setLoadedResumes((prev) => rebindCurrentMessageId(prev, uniqueId));
     setResumeEditDiffs((prev) => rebindCurrentMessageId(prev, uniqueId));
     setDiagnosisToolEvents((prev) => rebindCurrentMessageId(prev, uniqueId));
+    setEmailConfirmEvents((prev) => rebindCurrentMessageId(prev, uniqueId));
     // 把当前流式 patch 绑定到这条 finalize 后的 assistant 消息上
     rebindCurrentPatches(uniqueId);
 
@@ -2819,6 +2843,7 @@ function CocoChatContent() {
     setAllowPdfAutoRender(false);
     setLoadedResumes([]);
     setDiagnosisToolEvents([]);
+    setEmailConfirmEvents([]);
     setSearchResults([]);
     setResumeEditDiffs([]);
     setActiveSearchPanel(null);
@@ -3000,6 +3025,7 @@ function CocoChatContent() {
     setLoadedResumes([]);
     setSearchResults([]);
     setDiagnosisToolEvents([]);
+    setEmailConfirmEvents([]);
     setActiveSearchPanel(null);
     setResumePdfPreview({});
     restorePatches([]); // 清掉上一会话的 diff 卡，避免残留错挂
@@ -3175,6 +3201,7 @@ function CocoChatContent() {
     setAllowPdfAutoRender(false);
     setLoadedResumes([]);
     setDiagnosisToolEvents([]);
+    setEmailConfirmEvents([]);
     setSearchResults([]);
     setResumeEditDiffs([]);
     setActiveSearchPanel(null);
@@ -4090,6 +4117,9 @@ function CocoChatContent() {
       setDiagnosisToolEvents((prev) =>
         prev.filter((item) => item.messageId !== "current"),
       );
+      setEmailConfirmEvents((prev) =>
+        prev.filter((item) => item.messageId !== "current"),
+      );
 
       // 处理附件元数据
       const attachmentMeta = attachments?.map((file) => ({
@@ -4148,6 +4178,9 @@ function CocoChatContent() {
       setResumeEditDiffs((prev) =>
         prev.filter((item) => item.messageId !== "current"),
       );
+      setEmailConfirmEvents((prev) =>
+        prev.filter((item) => item.messageId !== "current"),
+      );
 
       const effectiveResumeData =
         resumeDataOverride !== undefined
@@ -4167,6 +4200,16 @@ function CocoChatContent() {
       isPasteImporting,
     ],
   );
+
+  // 邮件发送确认卡片的「确认发送」/「取消」按钮：复用 sendUserTextMessage，
+  // 走和手打「确认」一样的两段式确认链路，不新建平行发送逻辑。
+  const handleConfirmEmailSend = useCallback(() => {
+    void sendUserTextMessage("确认发送");
+  }, [sendUserTextMessage]);
+
+  const handleCancelEmailSend = useCallback(() => {
+    void sendUserTextMessage("取消发送");
+  }, [sendUserTextMessage]);
 
   // 首页 hero 输入框带来的第一条消息：会话就绪后自动发出一次。
   // 复用 sendUserTextMessage（其内部会自动识别粘贴的简历文本并走解析），不新建平行链路。
@@ -4720,6 +4763,7 @@ function CocoChatContent() {
   const handleClearConversation = () => {
     setMessages([]);
     setDiagnosisToolEvents([]);
+    setEmailConfirmEvents([]);
     finalizeStream();
   };
 
@@ -4875,6 +4919,9 @@ function CocoChatContent() {
                   searchResults={searchResults}
                   resumeEditDiffs={resumeEditDiffs}
                   diagnosisToolEvents={diagnosisToolEvents}
+                  emailConfirmEvents={emailConfirmEvents}
+                  onConfirmEmailSend={handleConfirmEmailSend}
+                  onCancelEmailSend={handleCancelEmailSend}
                   pendingPatches={pendingPatches}
                   copiedId={copiedId}
                   stripResumeEditMarkdown={stripResumeEditMarkdown}
@@ -4933,6 +4980,11 @@ function CocoChatContent() {
                   currentDiagnosisTools={diagnosisToolEvents
                     .filter((item) => item.messageId === "current")
                     .map((item) => item.data)}
+                  currentEmailConfirm={emailConfirmEvents
+                    .filter((item) => item.messageId === "current")
+                    .map((item) => item.data)}
+                  onConfirmEmailSend={handleConfirmEmailSend}
+                  onCancelEmailSend={handleCancelEmailSend}
                   stripResumeEditMarkdown={stripResumeEditMarkdown}
                   onOpenSearchPanel={setActiveSearchPanel}
                   onResponseTypewriterComplete={finalizeAfterTypewriter}

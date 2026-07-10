@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { SSEEvent } from "@/transports/SSETransport";
 import { extractResumeEditDiff } from "@/utils/resumePatch";
 
-interface UseToolEventRouterParams<TSearch, TResume, TEdit, TDiagnosis> {
+interface UseToolEventRouterParams<TSearch, TResume, TEdit, TDiagnosis, TEmailConfirm> {
   runId: number;
   onDone: () => void;
   onError: (message: string) => void;
@@ -12,6 +12,7 @@ interface UseToolEventRouterParams<TSearch, TResume, TEdit, TDiagnosis> {
   upsertLoadedResume: (messageId: string, data: TResume) => void;
   upsertResumeEditDiff: (messageId: string, data: TEdit) => void;
   upsertDiagnosisToolEvent: (messageId: string, data: TDiagnosis) => void;
+  upsertEmailConfirmEvent: (messageId: string, data: TEmailConfirm) => void;
   applyResumeEditDiff: (data: TEdit) => void;
 }
 
@@ -24,7 +25,8 @@ export function useToolEventRouter<
   TResume extends { type?: string },
   TEdit extends { type?: string },
   TDiagnosis extends { type?: string },
->(params: UseToolEventRouterParams<TSearch, TResume, TEdit, TDiagnosis>) {
+  TEmailConfirm extends { type?: string },
+>(params: UseToolEventRouterParams<TSearch, TResume, TEdit, TDiagnosis, TEmailConfirm>) {
   const {
     runId,
     onDone,
@@ -35,18 +37,21 @@ export function useToolEventRouter<
     upsertLoadedResume,
     upsertResumeEditDiff,
     upsertDiagnosisToolEvent,
+    upsertEmailConfirmEvent,
     applyResumeEditDiff,
   } = params;
 
   const handledResumeSelectorKeysRef = useRef<Set<string>>(new Set());
   const handledEditKeysRef = useRef<Set<string>>(new Set());
   const handledDiagnosisKeysRef = useRef<Set<string>>(new Set());
+  const handledEmailConfirmKeysRef = useRef<Set<string>>(new Set());
   const pendingEditDiffRef = useRef<TEdit | null>(null);
 
   useEffect(() => {
     handledResumeSelectorKeysRef.current.clear();
     handledEditKeysRef.current.clear();
     handledDiagnosisKeysRef.current.clear();
+    handledEmailConfirmKeysRef.current.clear();
     pendingEditDiffRef.current = null;
   }, [runId]);
 
@@ -126,6 +131,18 @@ export function useToolEventRouter<
         }
         handledDiagnosisKeysRef.current.add(dedupeKey);
         upsertDiagnosisToolEvent("current", structured as TDiagnosis);
+        return;
+      }
+
+      if (
+        toolName === "send_resume_email" &&
+        (structured as any).type === "send_resume_email_confirm"
+      ) {
+        if (handledEmailConfirmKeysRef.current.has(dedupeKey)) {
+          return;
+        }
+        handledEmailConfirmKeysRef.current.add(dedupeKey);
+        upsertEmailConfirmEvent("current", structured as TEmailConfirm);
         return;
       }
 
@@ -233,6 +250,7 @@ export function useToolEventRouter<
       upsertResumeEditDiff,
       applyResumeEditDiff,
       upsertDiagnosisToolEvent,
+      upsertEmailConfirmEvent,
     ],
   );
 

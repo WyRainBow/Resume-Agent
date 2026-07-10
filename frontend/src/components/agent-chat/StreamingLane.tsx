@@ -6,6 +6,9 @@ import StreamingOutputPanel from "@/components/chat/StreamingOutputPanel";
 import DiagnosisToolCards, {
   type DiagnosisToolStructuredData,
 } from "@/components/agent-chat/DiagnosisToolCards";
+import SendEmailConfirmCard, {
+  type SendEmailConfirmStructuredData,
+} from "@/components/agent-chat/SendEmailConfirmCard";
 import {
   formatResumeDiffPreview,
   sanitizeAssistantMessageContent,
@@ -37,8 +40,11 @@ interface StreamingLaneProps {
   };
   suggestions?: Array<{ text: string; msg: string; template?: string }>;
   currentDiagnosisTools?: DiagnosisToolStructuredData[];
+  currentEmailConfirm?: SendEmailConfirmStructuredData[];
   hasPendingPatchCards?: boolean;
   onSuggestionClick?: (msg: string) => void;
+  onConfirmEmailSend?: () => void;
+  onCancelEmailSend?: () => void;
   stripResumeEditMarkdown: (content: string) => string;
   onOpenSearchPanel: (data: SearchData) => void;
   onResponseTypewriterComplete: () => void;
@@ -104,12 +110,16 @@ export default function StreamingLane({
   currentEditDiff,
   suggestions,
   currentDiagnosisTools,
+  currentEmailConfirm,
   hasPendingPatchCards = false,
   onSuggestionClick,
+  onConfirmEmailSend,
+  onCancelEmailSend,
   stripResumeEditMarkdown,
   onOpenSearchPanel,
   onResponseTypewriterComplete,
 }: StreamingLaneProps) {
+  const hasEmailConfirmCard = Boolean(currentEmailConfirm && currentEmailConfirm.length > 0);
   const { cleanedThought, embeddedResponse } = splitEmbeddedResponseFromThought(
     stripReasoningTags(currentThought),
   );
@@ -121,7 +131,7 @@ export default function StreamingLane({
       : answerCandidate || "",
     { suppressWhenPatchCard: hasPendingPatchCards },
   );
-  const sanitizedCurrentAnswer = hasPendingPatchCards
+  const sanitizedCurrentAnswer = hasPendingPatchCards || hasEmailConfirmCard
     ? ""
     : getDiffFallbackResponse(
         Boolean(effectiveCurrentDiff),
@@ -129,7 +139,7 @@ export default function StreamingLane({
         effectiveCurrentDiff,
       );
 
-  const hasActiveContent = isProcessing || cleanedThought || sanitizedCurrentAnswer;
+  const hasActiveContent = isProcessing || cleanedThought || sanitizedCurrentAnswer || hasEmailConfirmCard;
 
   return (
     <>
@@ -163,6 +173,14 @@ export default function StreamingLane({
         >
           {currentDiagnosisTools && currentDiagnosisTools.length > 0 && (
             <DiagnosisToolCards items={currentDiagnosisTools} className="mb-3" />
+          )}
+          {hasEmailConfirmCard && onConfirmEmailSend && onCancelEmailSend && (
+            <SendEmailConfirmCard
+              items={currentEmailConfirm!}
+              onConfirm={onConfirmEmailSend}
+              onCancel={onCancelEmailSend}
+              className="mb-3"
+            />
           )}
         </StreamingOutputPanel>
       )}

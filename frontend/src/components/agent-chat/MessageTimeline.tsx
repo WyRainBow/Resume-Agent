@@ -9,6 +9,9 @@ import ThoughtProcess from "@/components/chat/ThoughtProcess";
 import DiagnosisToolCards, {
   type DiagnosisToolStructuredData,
 } from "@/components/agent-chat/DiagnosisToolCards";
+import SendEmailConfirmCard, {
+  type SendEmailConfirmStructuredData,
+} from "@/components/agent-chat/SendEmailConfirmCard";
 import { ResumeDiffCard, ApplyAllPatchesBar } from "@/components/agent-chat/ResumeDiffCard";
 import { AssistantPaperCard } from "@/components/agent-chat/AssistantPaperCard";
 import { ParseImportTimerBadge } from "@/components/agent-chat/ParseImportTimerBadge";
@@ -57,12 +60,20 @@ interface DiagnosisToolEntry {
   data: DiagnosisToolStructuredData;
 }
 
+interface EmailConfirmEntry {
+  messageId: string;
+  data: SendEmailConfirmStructuredData;
+}
+
 interface MessageTimelineProps {
   messages: Message[];
   loadedResumes: LoadedResumeItem[];
   searchResults: SearchResultEntry[];
   resumeEditDiffs: ResumeEditDiffEntry[];
   diagnosisToolEvents: DiagnosisToolEntry[];
+  emailConfirmEvents: EmailConfirmEntry[];
+  onConfirmEmailSend: () => void;
+  onCancelEmailSend: () => void;
   /** 所有 patch（pending / applied / rejected / superseded）按 message_id 渲染到对应历史消息下方。 */
   pendingPatches?: PendingPatch[];
   copiedId: string | null;
@@ -141,6 +152,9 @@ export default function MessageTimeline({
   searchResults,
   resumeEditDiffs,
   diagnosisToolEvents,
+  emailConfirmEvents,
+  onConfirmEmailSend,
+  onCancelEmailSend,
   pendingPatches,
   copiedId,
   stripResumeEditMarkdown,
@@ -177,6 +191,10 @@ export default function MessageTimeline({
         const diagnosisForMessage = diagnosisToolEvents
           .filter((item) => item.messageId === msg.id)
           .map((item) => item.data);
+        const emailConfirmForMessage = emailConfirmEvents
+          .filter((item) => item.messageId === msg.id)
+          .map((item) => item.data);
+        const hasEmailConfirmCard = emailConfirmForMessage.length > 0;
         const rawThought = (msg.thought || "").trim();
         // 整份优化的进度（正在逐段优化…）是临时加载信息，优化完成后不该以「思考过程」折叠框残留在历史里
         const thoughtContent =
@@ -191,7 +209,7 @@ export default function MessageTimeline({
             : msg.content || "",
           { suppressWhenPatchCard: hasPatchCards },
         );
-        const effectiveContent = hasPatchCards
+        const effectiveContent = hasPatchCards || hasEmailConfirmCard
           ? ""
           : getDiffFallbackResponse(
               Boolean(effectiveDiff),
@@ -306,6 +324,7 @@ export default function MessageTimeline({
 
         const hasAssistantContent =
           diagnosisForMessage.length > 0 ||
+          hasEmailConfirmCard ||
           searchForMessage ||
           effectiveContent ||
           effectiveDiff ||
@@ -331,6 +350,15 @@ export default function MessageTimeline({
               <AssistantPaperCard>
                   {diagnosisForMessage.length > 0 && (
                     <DiagnosisToolCards items={diagnosisForMessage} className="mb-4" />
+                  )}
+
+                  {hasEmailConfirmCard && (
+                    <SendEmailConfirmCard
+                      items={emailConfirmForMessage}
+                      onConfirm={onConfirmEmailSend}
+                      onCancel={onCancelEmailSend}
+                      className="mb-4"
+                    />
                   )}
 
                   {searchForMessage && (

@@ -1067,7 +1067,7 @@ class AgentStream:
                                 continue
                             self._sent_tool_results.add(result_key)
                             structured_data = None
-                            if tool_name in {"web_search", "show_resume", "cv_editor_agent", "cv_reader_agent", "generate_resume", "get_resume_detail", "resume-diagnosis"} and hasattr(
+                            if tool_name in {"web_search", "show_resume", "cv_editor_agent", "cv_reader_agent", "generate_resume", "get_resume_detail", "resume-diagnosis", "send_resume_email"} and hasattr(
                                 self.agent, "get_structured_tool_result"
                             ):
                                 structured_data = self.agent.get_structured_tool_result(

@@ -86,7 +86,7 @@ class ToolCallAgent(ReActAgent):
     def _store_structured_tool_result(
         self, tool_call_id: str, tool_name: str, result: Any
     ) -> None:
-        if tool_name not in {"web_search", "show_resume", "cv_editor_agent", "cv_reader_agent", "generate_resume"} or not tool_call_id:
+        if tool_name not in {"web_search", "show_resume", "cv_editor_agent", "cv_reader_agent", "generate_resume", "send_resume_email"} or not tool_call_id:
             return
         if tool_name == "web_search":
             if result is None:
@@ -217,6 +217,26 @@ class ToolCallAgent(ReActAgent):
                 if not isinstance(structured, dict):
                     return
                 if structured.get("type") != "resume_generated":
+                    return
+                self._tool_structured_results[tool_call_id] = structured
+            except Exception:
+                return
+
+        if tool_name == "send_resume_email":
+            try:
+                # 约定：SendResumeEmailTool 将 structured_data 编码在 ToolResult.system 中
+                raw_structured = getattr(result, "system", None)
+                if not raw_structured:
+                    return
+                if isinstance(raw_structured, str):
+                    structured = json.loads(raw_structured)
+                elif isinstance(raw_structured, dict):
+                    structured = raw_structured
+                else:
+                    return
+                if not isinstance(structured, dict):
+                    return
+                if structured.get("type") != "send_resume_email_confirm":
                     return
                 self._tool_structured_results[tool_call_id] = structured
             except Exception:

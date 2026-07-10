@@ -6,6 +6,7 @@ QQ 邮箱 SMTP 发送到指定收件人。仅管理员会话注册(见 Manus._bu
 发送采用两段式确认:第一次调用(confirm=false)只返回确认文案,
 必须等用户在下一轮对话明确同意后,才允许带 confirm=true 真正发送。
 """
+import json
 import re
 import smtplib
 import time
@@ -92,6 +93,13 @@ class SendResumeEmailTool(BaseTool):
         final_message = (message or "").strip() or "您好,附件是我的简历,烦请查收,期待您的回复。"
 
         if not confirm:
+            structured = {
+                "type": "send_resume_email_confirm",
+                "to_email": to_email,
+                "subject": final_subject,
+                "message": final_message,
+                "resume_name": resume_name,
+            }
             return ToolResult(
                 output=(
                     f"📧 即将发送简历,请确认:\n"
@@ -100,7 +108,8 @@ class SendResumeEmailTool(BaseTool):
                     f"- 附件:《{resume_name}的简历》PDF\n"
                     f"- 留言:{final_message}\n\n"
                     f"确认发送吗?回复「确认」我就立即发出。"
-                )
+                ),
+                system=json.dumps(structured, ensure_ascii=False),
             )
 
         return await self._do_send(to_email, final_subject, final_message, resume_data, resume_name)
