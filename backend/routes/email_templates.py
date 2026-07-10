@@ -150,6 +150,48 @@ async def create_template(
     return {"template": _serialize(row)}
 
 
+@router.get("/email/sent")
+async def list_sent_emails(
+    limit: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """读取 QQ 邮箱「已发送」最近邮件(只读),供挑选导入为模板。"""
+    _require_admin(current_user)
+    from models import EmailCredential
+
+    credential = (
+        db.query(EmailCredential)
+        .filter(EmailCredential.user_id == current_user.id)
+        .first()
+    )
+    if not credential:
+        raise HTTPException(status_code=400, detail="请先在对话输入框旁连接 QQ 邮箱")
+
+    try:
+        from backend.utils.crypto import decrypt_secret
+    except ImportError:
+        from utils.crypto import decrypt_secret
+    try:
+        from backend.services.email_reader import fetch_sent_emails
+    except ImportError:
+        from services.email_reader import fetch_sent_emails
+
+    import imaplib
+
+    try:
+        emails = fetch_sent_emails(
+            from_email=credential.email_address,
+            auth_code=decrypt_secret(credential.encrypted_auth_code),
+            limit=max(1, min(limit, 50)),
+        )
+    except imaplib.IMAP4.error:
+        raise HTTPException(status_code=502, detail="QQ 邮箱登录失败,授权码可能已失效,请重新连接邮箱")
+    except OSError:
+        raise HTTPException(status_code=502, detail="连接 QQ 邮箱超时,请稍后再试")
+    return {"emails": emails}
+
+
 @router.delete("/email/templates/{template_id}")
 async def delete_template(
     template_id: int,
