@@ -106,9 +106,9 @@ reference/
    - 看到更简单的方案就指出，必要时对复杂方案提异议
    - 不清楚就**停下**，命名清楚在困惑什么再问
 
-2. **新功能必调 `/superpowers:brainstorming`**，做需求分析与方案探索
+2. **新功能必调 `/brainstorming`**，做需求分析与方案探索
 
-3. **复杂功能必调 `/superpowers:writing-plans`**，写实施计划
+3. **复杂功能必调 `/writing-plans`**，写实施计划
 
 4. **六角度思考框架**（复杂功能用）：
    第一性原理 → 理性逻辑推理 → 概率风险评估 → 迭代优化 → 逆向思维 → 批判性思维
@@ -218,7 +218,7 @@ reference/
    - 至少覆盖前端调用、后端接口、LaTeX 生成和编译错误输出
    - 只看 JSON 或只看按钮点击不算完成
 
-5. **必调 `/superpowers:verification-before-completion`**——不是装饰，是强制
+5. **必调 `/verification-before-completion`**——不是装饰，是强制
 
 6. **不能声称“完成”的情况**
    - 测试没通过
@@ -320,14 +320,30 @@ pytest backend/tests/<target_test>.py
 
 ## 4. Skill 速查
 
+### 4.0 标准开发流程（主线 · 非平凡改动必走）
+
+任何非平凡的功能 / 改动，按下面三段走，不跳步。每段产出落到 `knowledge-base/` 与领域文档，供跨会话 / 跨终端接续。
+
+**① 设计对齐 · `/brainstorming`** —— 写任何代码前必走
+探清需求 → 给 2–3 个方案 → 逐段呈现设计并等用户批准 → 把 spec 写到 `knowledge-base/specs/YYYY-MM-DD-<主题>-design.md` 并 commit。
+（覆盖 brainstorming 默认的 `docs/superpowers/specs/`：本项目 spec 一律进 `knowledge-base/`。）
+
+**② 压测 + 沉淀 · `/grill-with-docs`** —— 设计成型后，或实施中概念开始打架时
+对方案往死里追问、逐个锁死决策；同时把领域术语落成 `CONTEXT.md`、把关键决策落成 `docs/adr/NNNN-*.md`（见 §4.4）。
+> 触发信号（命中任一立刻切，别硬着头皮往下写）：同一个词指代不清 / 某个决策反复动摇 / 跨模块概念对不齐。ResumeAgent 概念多（简历 · Agent · 工具 · 评分 · 对话），这一步专防用词漂移和返工。
+
+**③ 实施 + 验证**
+`/writing-plans` 拆实施计划（存 `knowledge-base/plans/`）→ 按计划实现（独立子任务可 `/subagent-driven-development` 并行）→ 实测 → `/verification-before-completion` → `/commit`。
+
 ### 4.1 强制节点
 
 | 时机 | 命令 |
 |---|---|
-| 新功能开发前 | `/superpowers:brainstorming` |
-| 复杂功能立项 | `/superpowers:writing-plans` |
-| 声称完成前 | `/superpowers:verification-before-completion` |
-| Bug 排查 | `/superpowers:systematic-debugging` |
+| 新功能开发前（设计对齐） | `/brainstorming` |
+| 设计压测 + 领域沉淀 | `/grill-with-docs` |
+| 复杂功能立项（拆计划） | `/writing-plans` |
+| 声称完成前 | `/verification-before-completion` |
+| Bug 排查 | `/systematic-debugging` |
 
 ### 4.2 场景流程链
 
@@ -357,7 +373,7 @@ pytest backend/tests/<target_test>.py
 | `/commit` | 规范 Git 提交 |
 | `/context7` | 查询第三方库最新文档 |
 | `/bug-fix` | 结构化 Bug 修复流程 |
-| `/superpowers:dispatching-parallel-agents` | 并行开发多个独立子任务 |
+| `/subagent-driven-development` | 并行开发多个独立子任务 |
 
 ### 4.4 工程 Skills 配置（mattpocock）
 
@@ -375,7 +391,7 @@ pytest backend/tests/<target_test>.py
 
 ### 5.1 自然语言简历重构
 
-> 开发前必须调用 `/superpowers:brainstorming`
+> 开发前必须调用 `/brainstorming`
 
 - 设计文档：`knowledge-base/specs/2026-03-23-nl-resume-refactor-design.md`
 - 实施计划：`knowledge-base/plans/2026-03-24-nl-resume-refactor.md`
@@ -384,7 +400,7 @@ pytest backend/tests/<target_test>.py
 
 ### 5.2 简历评分与分析
 
-> 开发前必须调用 `/superpowers:brainstorming`
+> 开发前必须调用 `/brainstorming`
 
 - 设计文档：`knowledge-base/specs/2026-05-20-resume-scoring-design.md`
 - 实施计划：`knowledge-base/plans/2026-05-20-resume-scoring-plan.md`
