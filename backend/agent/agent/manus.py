@@ -49,6 +49,7 @@ from backend.agent.schema import Message, Role, ToolCall
 from backend.agent.agent.shared_state import AgentSharedState
 from backend.agent.agent.turn_state import TurnExecutionState
 from backend.agent.agent.prompt_builder import PromptBuilder
+from backend.agent.agent.intent_router import IntentRouter, RoutingContext
 from backend.agent.agent.resume_use_cases import ResumeUseCases
 from backend.agent.agent.capability import CapabilityRegistry, ResumeCapability
 from backend.agent.agent.registry import AgentRegistry
@@ -159,6 +160,7 @@ class Manus(ToolCallAgent):
     _skills_cache: Dict[str, str] = PrivateAttr(default_factory=dict)
     _prompt_builder: PromptBuilder = PrivateAttr(default=None)
     _use_cases: ResumeUseCases = PrivateAttr(default=None)
+    _intent_router: IntentRouter = PrivateAttr(default=None)
     # Wave 2a-S1:原 5 个散落 flag(_finish_after_load_resume_tool/_pending_edit_tool_call/
     # _pending_immediate_stream/_pending_resume_patches/_current_turn_read_only)收拢进
     # TurnExecutionState;旧名以下方 property 委托保留(AgentStream 直读
@@ -239,6 +241,14 @@ class Manus(ToolCallAgent):
             stream_callback_provider=lambda: getattr(
                 self, "_stream_content_callback", None
             ),
+        )
+        # Wave 2a-S4a:意图识别+让权守卫收口 IntentRouter。让权规则函数注入
+        # (仍定义在本模块级,S4c 收口后平移)
+        self._intent_router = IntentRouter(
+            self._conversation_state,
+            llm_first_enabled_provider=_llm_first_routing_enabled,
+            yield_reason_fn=_rule_intent_yield_reason,
+            compound_request_fn=_looks_like_compound_request,
         )
         return self
 
@@ -731,67 +741,30 @@ class Manus(ToolCallAgent):
 
         # 确保 ConversationStateManager 有 LLM 实例
         self._ensure_conversation_state_llm()
-        # 🧠 统一由 ConversationStateManager 决定意图（含 fast-rule）
-        intent_result = await self._conversation_state.process_input(
-            user_input=user_input,
-            conversation_history=self.memory.messages[-5:],
-            last_ai_message=self._get_last_ai_message()
+        # 🧠 意图识别 + 让权守卫统一收口 IntentRouter(Wave 2a-S4a);
+        # decide() 契约:每轮恰好调用一次 process_input,判定逻辑与原实现逐行一致
+        route = await self._intent_router.decide(
+            user_input,
+            RoutingContext(
+                recent_messages=self.memory.messages[-5:],
+                last_ai_message=self._get_last_ai_message(),
+                resume_available=(
+                    self._conversation_state.context.resume_loaded
+                    or self._has_resume_data_in_store()
+                ),
+            ),
         )
-
-        intent = intent_result["intent"]
-        # 🚨 兜底拦截逻辑：如果用户明确说要“诊断”，即使 LLM 意图识别没识别出 ANALYZE_RESUME，也强行进入
-        if intent != Intent.ANALYZE_RESUME and "诊断" in (user_input or ""):
-            logger.info("🧭 触发诊断关键词兜底拦截: intent UNKNOWN -> ANALYZE_RESUME")
-            intent = Intent.ANALYZE_RESUME
-
-        # 让权守卫(在一切意图覆盖之后):发送语义/复合请求等规则接不稳的输入,
-        # 规则层弃权,交给 ReAct loop 由 LLM 自主选工具
-        yield_reason = _rule_intent_yield_reason(user_input) if intent != Intent.UNKNOWN else None
-        # LLM-first 路由:所有业务意图全量让权,规则识别结果仅作日志参考
-        if yield_reason is None and _llm_first_routing_enabled() and intent not in (
-            Intent.UNKNOWN, Intent.GREETING,
-        ):
-            yield_reason = "LLM-first"
-        # 无简历时,优化/编辑/分析的规则流程无米下锅(只会吐固定引导文案),
-        # 一律让权给 LLM——system prompt「产品语境」段已定义标准的无简历引导
-        if yield_reason is None and intent in {
-            Intent.OPTIMIZE_SECTION, Intent.FULL_OPTIMIZE, Intent.EDIT_CV, Intent.ANALYZE_RESUME,
-        } and not (
-            self._conversation_state.context.resume_loaded or self._has_resume_data_in_store()
-        ):
-            yield_reason = "无简历"
-        if yield_reason:
-            logger.info(f"🧭 {yield_reason}让权: {intent.value} -> UNKNOWN,交给 LLM 工具循环")
-            intent = Intent.UNKNOWN
-            intent_result = {**intent_result, "intent": intent, "tool": None, "tool_args": {}}
-            if _looks_like_compound_request(user_input):
-                # 保险提示:复合请求让权后,防止 LLM 做完第一个子任务就提前收工
-                self.memory.add_message(Message.system_message(
-                    "用户这条请求包含多个子任务(如「优化…然后…」)。请逐个完成全部子任务,"
-                    "每个子任务分别调用对应工具,全部完成后再结束,不要只做第一个就停止。"
-                ))
-
-        tool = intent_result.get("tool")
-        tool_args = intent_result.get("tool_args", {})
-        intent_source = intent_result.get("intent_source", "unknown")
-        enhanced_query = intent_result.get("enhanced_query", user_input)  # 获取增强后的查询
-        intent_result_obj = intent_result.get("intent_result")  # 获取意图识别结果对象
-
-        # LLM-first / 让权:enhanced_query 可能带 /[tool:xxx] 之类的规则路由标记,
-        # 写回 memory 等于规则在暗中给 LLM 指路(名义让权、实际遥控)。让权时一律
-        # 使用原始输入,规则产物仅落日志(Codex review 2026-07-10)。
-        # 注意 intent 本来就是 UNKNOWN 时(yielded=-)规则同样会做 /[tool:] 改写
-        # ——LLM-first 开启即全量禁止写回,不只在让权分支(实测日志抓到的第二个口子)。
-        if (yield_reason or _llm_first_routing_enabled()) and enhanced_query != user_input:
-            logger.info(f"[llm-first] 规则改写已忽略: {enhanced_query!r}")
-            enhanced_query = user_input
-        # 观测:规则候选 vs 最终路由,用于评估 LLM-first 翻车面
-        logger.info(
-            f"🧠 意图路由: intent={intent.value} rule_tool={tool} "
-            f"source={intent_source} yielded={yield_reason or '-'}"
-        )
-        if enhanced_query != user_input:
-            logger.info(f"📝 增强后的查询: {enhanced_query}")
+        intent = route.intent
+        tool = route.tool
+        tool_args = route.tool_args
+        intent_source = route.intent_source
+        enhanced_query = route.enhanced_query
+        if route.compound_hint:
+            # 保险提示:复合请求让权后,防止 LLM 做完第一个子任务就提前收工
+            self.memory.add_message(Message.system_message(
+                "用户这条请求包含多个子任务(如「优化…然后…」)。请逐个完成全部子任务,"
+                "每个子任务分别调用对应工具,全部完成后再结束,不要只做第一个就停止。"
+            ))
 
         # 如果查询被增强（包含工具标记），更新最后一条用户消息
         if enhanced_query != user_input and self.memory.messages:
