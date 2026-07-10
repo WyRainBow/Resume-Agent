@@ -249,14 +249,14 @@ def test_approve_sends_with_edited_params(db_session):
 
 def test_approval_result_written_back_to_agent_memory(db_session, monkeypatch):
     """审查 #24:批准/取消的结果必须回写 agent 记忆,否则用户问「刚才发了吗」
-    模型无依据。用真实 agent 注册进 _active_sessions 验证。"""
-    from backend.agent.web.routes import stream as stream_module
+    模型无依据。用真实 agent 注册进 session_manager 验证。"""
+    from backend.agent.web import session_manager
 
     user = seed_admin_with_credential(db_session)
     tool = make_tool(user.id)
     agent = make_agent_with_tool(tool)
     monkeypatch.setitem(
-        stream_module._active_sessions, SESSION_ID, {"agent": agent, "user_id": user.id}
+        session_manager._active_sessions, SESSION_ID, {"agent": agent, "user_id": user.id}
     )
 
     approval_id = create_pending_via_gate(db_session, user)
