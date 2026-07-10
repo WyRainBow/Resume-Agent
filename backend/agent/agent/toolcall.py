@@ -87,6 +87,21 @@ class ToolCallAgent(ReActAgent):
     ) -> None:
         if not tool_call_id:
             return
+        # 显式结构化通道优先:工具直接给 ToolResult.structured_data,不再 JSON 编码进
+        # system 旁路;下面的 system 解析分支保留作未迁移工具的 fallback(兼容迁移)
+        explicit = getattr(result, "structured_data", None)
+        if isinstance(explicit, dict) and explicit.get("type"):
+            structured = dict(explicit)
+            if tool_name in {"show_resume", "cv_editor_agent", "cv_reader_agent"}:
+                # 与 legacy 分支同款的意图元信息补齐
+                intent_meta = getattr(self, "_last_intent_info", {}) or {}
+                structured.setdefault("source", tool_name)
+                structured.setdefault("trigger", intent_meta.get("trigger", "unknown"))
+                structured.setdefault(
+                    "intent_source", intent_meta.get("intent_source", "unknown")
+                )
+            self._tool_structured_results[tool_call_id] = structured
+            return
         if tool_name not in self._LEGACY_STRUCTURED_TOOLS:
             # 通用透传:任意工具把 {type, ...} JSON 放进 ToolResult.system 即可直达前端,
             # 不再需要逐工具开白名单;解析失败记日志而非静默丢弃

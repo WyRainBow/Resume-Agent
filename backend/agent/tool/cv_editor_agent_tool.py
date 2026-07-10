@@ -371,7 +371,12 @@ add 新实习示例 value:
                     "after": after_payload,
                     "summary": summary,
                 }
-                return ToolResult(output=output, system=json.dumps(structured_data, ensure_ascii=False))
+                # structured_data 走显式通道;system JSON 双写保留兼容(Wave 1.1 迁移期)
+                return ToolResult(
+                    output=output,
+                    system=json.dumps(structured_data, ensure_ascii=False),
+                    structured_data=structured_data,
+                )
             else:
                 return ToolResult(
                     error=f"❌ Edit failed: {result.get('message', 'Unknown error')}"
