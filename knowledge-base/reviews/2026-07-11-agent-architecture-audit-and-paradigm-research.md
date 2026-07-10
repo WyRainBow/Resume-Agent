@@ -353,6 +353,64 @@ Harness engineering:
 
 ---
 
-## 四、下一步(待用户拍板,本文档不含实施)
+## 四、2026 年最新范式补充调研(子 Agent 原文,截至 2026-07-11)
 
-两份报告指向同一个结论:方向已经选对(LLM-first),但代码没有为这个选择买单。下一步是否要按内部审计 §6 的优先级 3 件事立项(先做减法、再谈灵魂),需要用户确认后走 `/writing-plans` 正式立项,本文档仅作调研记录,不代表已批准的实施计划。
+前两份报告引用的多是 2024-2025 年内容。本节是专门补充到 2026 年的第三轮调研,检索时刻意加时间限定词(2026/latest/H1 2026),优先抓厂商官方 engineering blog 一手来源,区分对待"真实增量"与"换年份重述的旧观点"。
+
+### 1. 诚实结论先行
+
+**2026 上半年没有出现颠覆 ReAct/循环式 Agent 的新范式。** 上一轮 2024-2025 的核心结论(ReAct 循环、简单优先、strip down harness、垂直窄任务、人在环)**在 2026 年仍然是当前最佳实践,方向没变**。变化是演进级的,集中在 Anthropic 2026-03-24《Harness design for long-running application development》和 2026-04-08《Scaling Managed Agents: Decoupling the brain from the hands》两篇官方新文,以及 Agent Skills 机制(2025-12 发布,2026 上半年成主流)。市面上大量"2026 agent trends"文章是换年份的旧酒,不构成新信息。
+
+### 2. 四条真实增量
+
+**① 术语上移**:"harness"没被取代,但重心从"harness engineering"上移到"context engineering"(2026 年被称为"取代 prompt engineering 的主学科")和"agent runtime"。理由:agent 的失败模式是"状态管理失败"而不是"提示词失败",工程重心从"写好一句 prompt"转向"管好每一步 context"。
+
+**② Anthropic 对"简单优先"的部分修正 + 架构思想更新(最重要,一手,已精读原文)**
+
+- 《Harness design for long-running application development》(2026-03-24):证明对于超出模型基线能力的长任务,策略性的多 agent 拆分(借鉴 GAN 思想的 generator/evaluator 对抗:Planner 扩详细 spec → Generator 迭代实现 → Evaluator 用 Playwright 硬阈值打分)能解决"纯 prompt 解决不了"的失败模式。关键新提法:
+  - **"Context resets over compaction"**——与其原地摘要压缩历史,不如彻底重置 + 结构化交接
+  - **"半确定性结构"**——agent 间先协商"什么算完成"的契约,但实现仍交给 LLM,是"欠约束 vs 过约束"权衡的最新答案:**用确定性结构锁定验收契约,把"怎么实现"留给模型**
+  - **最诚实的教训**:模型升级到 Opus 4.6 后,主动删掉之前 load-bearing 的 harness 组件,成本降约 38%、质量不变——很多 harness 复杂度是在给"当时模型的短板"打补丁,模型一强就成了负债
+
+- 《Scaling Managed Agents》(2026-04-08):核心论点——**"harness 编码的是'模型自己做不到什么'的假设,而这些假设会随模型变强迅速过期。"** 解法是把"大脑"(Claude+harness)和"手"(sandbox+执行工具)解耦,用 Session(append-only 事件日志)/Harness(agent loop)/Sandbox(执行环境)三层虚拟化抽象隔开,类比操作系统抽象硬件。给垂直 agent 的三条直接教训:①状态外置到推理循环之外;②面向未来更强的模型设计而非当前短板;③安全靠架构(凭证从跑 LLM 生成代码的 sandbox 隔离出去,用 proxy+vault,而非信任模型不乱来)。
+
+**③ Agent Skills + progressive disclosure 成为标准模式**:核心洞见是把"何时触发"和"如何执行"分离——skill 的 metadata 是第一层(让模型知道何时该用),完整内容是第二层(判断相关才读进 context),解决"工具太多把 context 撑爆"的问题。之前调研的 SOUL.md 单文件人设模式,2026 年的对应升级就是拆成按需加载的 skill。
+
+**④ Eval-Driven Development(EDD)从口号变门槛**:Anthropic 明确区分 agent harness(让系统能行动)vs evaluation harness(衡量它是否真的有效)是两套独立基建。可操作参考:从 ~100 条高质量 golden 起步、最多扩到 500;裁判模型能力关键(小模型会漏判)。多方口径称 2026 年仅约 23% 的 agent 能进生产,约 77% 卡在 demo-to-production gap,能上线的都做同一批事:选窄而高频的任务、风险步骤留人、权限收紧、scale 前先建 eval harness、从 shadow mode 逐步毕业到自主。(此比例为二手统计,精确值谨慎引用,方向可信)
+
+### 3. Coding Agent 领域的最新收敛答案(二手为主,方向一致可交叉验证)
+
+2026 年编程 agent 收敛到 Claude Code / Cursor / Codex Desktop / Replit Agent 3 / Devin 五个生产级选手。对"确定性代码路由 vs LLM 自主决策"这个权衡,最新主流思路:**投资在"确定性基础设施"(context 管理、工具路由、错误恢复、权限),而不是投资在"决策脚手架"(显式 planner、state graph)**。越强的模型,越受益于丰富的操作环境,越被约束它选择的框架拖累。这与 Anthropic 两篇官方文完全一致,是本轮最强的一致信号。
+
+### 4. 对简历优化 Agent 的具体启示
+
+1. think()/act() ReAct 循环核心不用推翻,2026 主流仍是"ReAct 式循环 + 强基建"
+2. **确定性预算的分配原则**:别用确定性代码框住模型"怎么做",而是用来锁定①验收契约(什么算"简历优化完成/合格")②状态管理③权限/凭证隔离④错误恢复。"改写措辞/匹配 JD"交给 LLM,"格式校验/字段完整性/隐私脱敏/最终打分阈值"用确定性代码兜底——这条和 §一/§二 内部审计报告的结论完全对得上,是三份报告唯一交叉验证一致的具体建议
+3. evaluator 角色**按需引入**——只在任务超出模型基线能力时才值得加,模型本身能做好就别硬加
+4. harness 组件要定期"减负"——记住 38% 降本教训,每次底模升级后回来问"这块还需要吗"
+5. 人设/领域知识改用 Agent Skills 式渐进披露,而非一次性塞进 system prompt
+6. **垂直合规是这轮新增的信息**:2026 招聘方明确在查"AI 生成简历的逻辑矛盾/日期重叠/不可能的晋升"(一份 3000 简历分析:9/10 有逻辑矛盾,3/4 top 雇主简历含 AI 生成内容)。简历优化 Agent 应内置一致性校验 + 反"AI 味"检测,避免优化出一份一眼假、过 ATS 但过不了人的简历
+7. 上线前先建 evaluation harness,按 EDD 攒 ~100 条 golden
+
+### 5. 来源列表(标注发布日期)
+
+一手/高可信(厂商官方):
+- Anthropic,《Harness design for long-running application development》— **2026-03-24**(已精读):https://www.anthropic.com/engineering/harness-design-long-running-apps
+- Anthropic,《Scaling Managed Agents: Decoupling the brain from the hands》— **2026-04-08**(已精读):https://www.anthropic.com/engineering/managed-agents
+- Anthropic,《Equipping agents for the real world with Agent Skills》— Agent Skills 于 **2025-12** 发布:https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills
+- Anthropic,《Code execution with MCP》— 2025 末:https://www.anthropic.com/engineering/code-execution-with-mcp
+- OpenAI,《A practical guide to building agents》— 2025-2026 持续更新
+- Google Cloud,《A dev's guide to production-ready AI agents》+ 白皮书《Introduction to Agents》— 白皮书 2025-11
+
+二手/中等可信(可交叉验证,精确数字谨慎引用):
+- InfoQ,《Anthropic Designs Three-Agent Harness》— 2026-04
+- Red Hat Developer,《Eval-driven development》— 2026-03-23
+- JetBrains Blog,《Top Agentic Frameworks 2026》— 2026-06
+- arXiv,《Dive into Claude Code: The Design Space of Today's and Future AI Agent Systems》— 2026
+- 招聘合规:Fisher Phillips、HireHub、HR Dive 相关 2026 文章
+
+---
+
+## 五、下一步(待用户拍板,本文档不含实施)
+
+三份报告指向同一个结论:方向已经选对(LLM-first),但代码没有为这个选择买单;2026 年最新业界实践进一步印证了内部审计报告的判断(确定性预算该花在契约/状态/权限/恢复上,而非"猜意图")。下一步是否要按内部审计 §6 的优先级 3 件事立项(先做减法、再谈灵魂),以及是否要吸收 2026 补充调研里的"一致性校验/反 AI 味检测"作为新需求,需要用户确认后走 `/writing-plans` 正式立项,本文档仅作调研记录,不代表已批准的实施计划。
