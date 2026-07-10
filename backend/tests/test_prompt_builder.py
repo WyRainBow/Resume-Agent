@@ -37,6 +37,10 @@ CASES = [
     {"key": "resume_add_exp", "resume": True, "input": "帮我加一段在字节跳动的实习经历", "intent": "UNKNOWN"},
     {"key": "resume_office_pdf", "resume": True, "input": "帮我把简历处理成 pdf 文档", "intent": "UNKNOWN"},
     {"key": "greeting_next_step", "resume": True, "input": "你好", "intent": "GREETING"},
+    # spec v2 要求的组合:有 current_resume_path(注意:此 case 在 S2 迁移后录制,
+    # 性质是"向前锁定"(保护 S4+ 不破坏),非迁移对拍
+    {"key": "resume_with_path", "resume": True, "input": "帮我优化简历",
+     "intent": "UNKNOWN", "resume_path": "/tmp/my_resume.pdf"},
 ]
 
 GOLDEN_PATH = os.path.join(os.path.dirname(__file__), "fixtures", "prompt_golden.json")
@@ -56,8 +60,12 @@ def test_prompt_output_matches_golden(case, golden):
         if case["resume"]:
             ResumeDataStore.set_data(dict(RESUME), session_id=SESSION)
             agent._conversation_state.update_resume_loaded(True)
+        if case.get("resume_path"):
+            agent._current_resume_path = case["resume_path"]
         intent = getattr(Intent, case["intent"])
-        system_prompt, next_step = asyncio.get_event_loop().run_until_complete(
+        # asyncio.run 而非 get_event_loop:全量测试顺序下前置测试会关闭/重置
+        # 当前 loop,get_event_loop 在 Python3.11 主线程无活动 loop 时直接抛错
+        system_prompt, next_step = asyncio.run(
             agent._generate_dynamic_prompts(case["input"], intent)
         )
         expected = golden[case["key"]]
