@@ -90,8 +90,6 @@ interface MessageTimelineProps {
   onDownloadPdf?: () => void;
   /** 收尾卡片：去编辑器精修 */
   onGoEditor?: () => void;
-  /** 收尾卡片：针对某个岗位再优化一版（回访钩子） */
-  onOptimizeForJd?: () => void;
 }
 
 function splitEmbeddedResponseFromThought(thought: string): {
@@ -164,7 +162,6 @@ export default function MessageTimeline({
   onSuggestionClick,
   onDownloadPdf,
   onGoEditor,
-  onOptimizeForJd,
 }: MessageTimelineProps) {
   const isPlaceholderThought = (text: string) => text === "正在思考...";
   const [feedback, setFeedback] = useState<Record<string, "like" | "dislike" | undefined>>({});
@@ -299,7 +296,6 @@ export default function MessageTimeline({
                 count={msg.meta.applyDone.count}
                 onDownloadPdf={onDownloadPdf}
                 onGoEditor={onGoEditor}
-                onOptimizeForJd={onOptimizeForJd}
               />
             </div>
           );

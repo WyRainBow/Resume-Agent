@@ -362,7 +362,11 @@ class AgentStream:
         state = self._current_step_stream_state
         if not state or not state.final_emitted:
             return False
-        return self._normalize_text(content) == self._normalize_text(state.last_stream_text)
+        # 只有与已流式发出的「回答正文」完全一致才跳过;此前比较的是含
+        # Thought:/%%SUGGESTIONS%% 标记的全文,无标记输出场景会误判,
+        # 导致收尾 answer 永远发不出、正文只在流式区闪现(2026-07-10 实测)
+        normalized = self._normalize_text(content)
+        return bool(normalized) and normalized == self._normalize_text(state.last_stream_response)
 
     def _extract_suggestions(self, content: str) -> tuple[str, list[dict]]:
         """Parse %%SUGGESTIONS%%[...]%%END%% marker from content.

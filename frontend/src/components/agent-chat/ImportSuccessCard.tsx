@@ -68,12 +68,10 @@ export function ApplyDoneCard({
   count,
   onDownloadPdf,
   onGoEditor,
-  onOptimizeForJd,
 }: {
   count: number;
   onDownloadPdf?: () => void;
   onGoEditor?: () => void;
-  onOptimizeForJd?: () => void;
 }) {
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -92,13 +90,6 @@ export function ApplyDoneCard({
               <Download className="h-3.5 w-3.5" strokeWidth={2.25} />
               下载 PDF
             </button>
-            {/* 回访钩子：刚优化完是价值峰值，引导「投下一个岗位再来一版」——把低频做成高频 */}
-            {onOptimizeForJd && (
-              <button type="button" onClick={onOptimizeForJd} className={GHOST_ACTION_CLASS}>
-                <Target className="h-3.5 w-3.5 text-slate-400" strokeWidth={2.25} />
-                针对岗位再优化一版
-              </button>
-            )}
             <button type="button" onClick={onGoEditor} className={GHOST_ACTION_CLASS}>
               <PenLine className="h-3.5 w-3.5 text-slate-400" strokeWidth={2.25} />
               去编辑器精修

@@ -4138,7 +4138,7 @@ function CocoChatContent() {
       if (!isProcessing) {
         void sendMessage(
           `[系统内部提示,不要向用户复述本条] 用户刚刚应用了 ${appliedCount} 处简历修改(内容是你此前给出的修改)。` +
-            "你的回复必须包含两部分,顺序固定:" +
+            "你的回复必须以「Response: 」开头,包含两部分,顺序固定:" +
             "第一部分(必须有,禁止为空,禁止只输出建议标记):用 1-2 句自然的话告诉用户这次实际改好了什么" +
             "(基于会话里真实发生的修改点名具体段落,例如「美团那段的量化数据补上了,项目描述也更突出成果了」,不要泛泛而谈);" +
             '第二部分:另起一行,基于刚才改动给 1-3 条贴合的下一步建议按钮,格式:%%SUGGESTIONS%%[{"text":"按钮文字","msg":"点击后发送的话"}]%%END%%。' +
@@ -4855,7 +4855,6 @@ function CocoChatContent() {
                   }}
                   onDownloadPdf={handleDownloadPdf}
                   onGoEditor={handleGoEditor}
-                  onOptimizeForJd={() => setShowJdCard(true)}
                 />
 
                 <StreamingLane

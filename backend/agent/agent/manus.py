@@ -1777,7 +1777,9 @@ class Manus(ToolCallAgent):
         # LLM-first / 让权:enhanced_query 可能带 /[tool:xxx] 之类的规则路由标记,
         # 写回 memory 等于规则在暗中给 LLM 指路(名义让权、实际遥控)。让权时一律
         # 使用原始输入,规则产物仅落日志(Codex review 2026-07-10)。
-        if yield_reason and enhanced_query != user_input:
+        # 注意 intent 本来就是 UNKNOWN 时(yielded=-)规则同样会做 /[tool:] 改写
+        # ——LLM-first 开启即全量禁止写回,不只在让权分支(实测日志抓到的第二个口子)。
+        if (yield_reason or _llm_first_routing_enabled()) and enhanced_query != user_input:
             logger.info(f"[llm-first] 规则改写已忽略: {enhanced_query!r}")
             enhanced_query = user_input
         # 观测:规则候选 vs 最终路由,用于评估 LLM-first 翻车面
