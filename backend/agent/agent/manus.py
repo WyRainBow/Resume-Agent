@@ -109,6 +109,16 @@ def _rule_intent_yield_reason(text: str) -> Optional[str]:
     return None
 
 
+def _llm_first_routing_enabled() -> bool:
+    """LLM-first 路由(2026-07-10 用户拍板「所有意图都走 LLM」):开启时所有
+    业务意图一律交给 ReAct loop,由 LLM 看工具列表自主编排;规则意图识别
+    只降级为日志参考,不再拥有分派权。GREETING 保留专用轻通道(它本身就是
+    LLM 生成,只是不挂工具、更快)。
+    回滚开关:AGENT_LLM_FIRST_ROUTING=false 恢复规则分派;运行时读取,
+    切换无需改代码。"""
+    return os.getenv("AGENT_LLM_FIRST_ROUTING", "true").strip().lower() != "false"
+
+
 class Manus(ToolCallAgent):
     """A versatile general-purpose agent with local tool orchestration.
 
@@ -1609,10 +1619,9 @@ class Manus(ToolCallAgent):
         # EDIT_CV（按值替换）使用规则解析 + 路径解析，直接调用工具。
         # 为避免“硬编码秒回”观感，先输出可见 Thought/Response，再下一步执行工具。
         replace_req = self._extract_replace_request(user_input)
-        # 让权守卫同样覆盖这条前置快路径:复合请求(如「把腾讯改成字节,然后翻译成英文」)
-        # 不走直调,交给 LLM 循环,避免后半句被静默丢弃
-        if replace_req and _rule_intent_yield_reason(user_input):
-            logger.info("🧭 staged-edit 快路径让权(复合/发送语义),交给 LLM 工具循环")
+        # LLM-first 路由下前置快路径整体退役;规则模式下让权守卫仍覆盖复合/发送语义
+        if replace_req and (_llm_first_routing_enabled() or _rule_intent_yield_reason(user_input)):
+            logger.info("🧭 staged-edit 快路径让权,交给 LLM 工具循环")
             replace_req = None
         if replace_req and (
             self._conversation_state.context.resume_loaded or self._has_resume_data_in_store()
@@ -1741,6 +1750,11 @@ class Manus(ToolCallAgent):
         # 让权守卫(在一切意图覆盖之后):发送语义/复合请求等规则接不稳的输入,
         # 规则层弃权,交给 ReAct loop 由 LLM 自主选工具
         yield_reason = _rule_intent_yield_reason(user_input) if intent != Intent.UNKNOWN else None
+        # LLM-first 路由:所有业务意图全量让权,规则识别结果仅作日志参考
+        if yield_reason is None and _llm_first_routing_enabled() and intent not in (
+            Intent.UNKNOWN, Intent.GREETING,
+        ):
+            yield_reason = "LLM-first"
         # 无简历时,优化/编辑/分析的规则流程无米下锅(只会吐固定引导文案),
         # 一律让权给 LLM——system prompt「产品语境」段已定义标准的无简历引导
         if yield_reason is None and intent in {
@@ -1753,7 +1767,7 @@ class Manus(ToolCallAgent):
             logger.info(f"🧭 {yield_reason}让权: {intent.value} -> UNKNOWN,交给 LLM 工具循环")
             intent = Intent.UNKNOWN
             intent_result = {**intent_result, "intent": intent, "tool": None, "tool_args": {}}
-            if yield_reason == "复合请求":
+            if _looks_like_compound_request(user_input):
                 # 保险提示:复合请求让权后,防止 LLM 做完第一个子任务就提前收工
                 self.memory.add_message(Message.system_message(
                     "用户这条请求包含多个子任务(如「优化…然后…」)。请逐个完成全部子任务,"

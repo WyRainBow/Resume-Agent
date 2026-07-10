@@ -81,6 +81,25 @@ def test_yield_reason_aggregation():
     assert _rule_intent_yield_reason("") is None
 
 
+def test_llm_first_routing_switch(monkeypatch):
+    from backend.agent.agent.manus import _llm_first_routing_enabled
+
+    monkeypatch.delenv("AGENT_LLM_FIRST_ROUTING", raising=False)
+    assert _llm_first_routing_enabled() is True  # 默认开启
+    monkeypatch.setenv("AGENT_LLM_FIRST_ROUTING", "false")
+    assert _llm_first_routing_enabled() is False
+    monkeypatch.setenv("AGENT_LLM_FIRST_ROUTING", "true")
+    assert _llm_first_routing_enabled() is True
+
+
+def test_llm_first_wired_into_think_source():
+    import inspect
+
+    src = inspect.getsource(manus_module.Manus.think)
+    assert "LLM-first" in src
+    assert "_llm_first_routing_enabled" in src
+
+
 def test_guard_wired_into_think_source():
     """守卫必须接在意图消费入口(白盒:防止后续重构悄悄摘掉)"""
     import inspect
