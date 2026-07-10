@@ -166,27 +166,10 @@ class Manus(ToolCallAgent):
     _use_cases: ResumeUseCases = PrivateAttr(default=None)
     _intent_router: IntentRouter = PrivateAttr(default=None)
     _tool_builder: ToolInvocationBuilder = PrivateAttr(default=None)
-    # Wave 2a-S1:原 5 个散落 flag(_finish_after_load_resume_tool/_pending_edit_tool_call/
-    # _pending_immediate_stream/_pending_resume_patches/_current_turn_read_only)收拢进
-    # TurnExecutionState;旧名以下方 property 委托保留(AgentStream 直读
-    # _pending_immediate_stream,保留到 2b-B1,见 spec D2)
+    # Wave 2a-S1:原 5 个散落 flag 收拢进 TurnExecutionState。S4c-1 起内部直接读写
+    # self._turn.*;仅保留 _pending_immediate_stream 委托(AgentStream 直读,
+    # 保留到 2b-B1,见 spec D2)
     _turn: TurnExecutionState = PrivateAttr(default_factory=TurnExecutionState)
-
-    @property
-    def _finish_after_load_resume_tool(self) -> bool:
-        return self._turn.finish_after_load_resume_tool
-
-    @_finish_after_load_resume_tool.setter
-    def _finish_after_load_resume_tool(self, value: bool) -> None:
-        self._turn.finish_after_load_resume_tool = value
-
-    @property
-    def _pending_edit_tool_call(self) -> Optional[Dict[str, Any]]:
-        return self._turn.pending_edit_tool_call
-
-    @_pending_edit_tool_call.setter
-    def _pending_edit_tool_call(self, value: Optional[Dict[str, Any]]) -> None:
-        self._turn.pending_edit_tool_call = value
 
     @property
     def _pending_immediate_stream(self) -> Optional[Dict[str, Any]]:
@@ -195,22 +178,6 @@ class Manus(ToolCallAgent):
     @_pending_immediate_stream.setter
     def _pending_immediate_stream(self, value: Optional[Dict[str, Any]]) -> None:
         self._turn.pending_immediate_stream = value
-
-    @property
-    def _pending_resume_patches(self) -> List[Dict[str, Any]]:
-        return self._turn.pending_resume_patches
-
-    @_pending_resume_patches.setter
-    def _pending_resume_patches(self, value: List[Dict[str, Any]]) -> None:
-        self._turn.pending_resume_patches = value
-
-    @property
-    def _current_turn_read_only(self) -> bool:
-        return self._turn.read_only
-
-    @_current_turn_read_only.setter
-    def _current_turn_read_only(self, value: bool) -> None:
-        self._turn.read_only = value
 
     @model_validator(mode="after")
     def initialize_helper(self) -> "Manus":
@@ -268,7 +235,7 @@ class Manus(ToolCallAgent):
         self._tool_structured_results.update(inv.structured_results)
         self.tool_calls = inv.tool_calls
         if inv.finish_after_load_resume:
-            self._finish_after_load_resume_tool = True
+            self._turn.finish_after_load_resume_tool = True
         if inv.just_applied_optimization:
             self._just_applied_optimization = True
         if inv.outcome == DispatchOutcome.FINISH:
@@ -341,7 +308,7 @@ class Manus(ToolCallAgent):
         name = ""
         if command and command.function:
             name = command.function.name or ""
-        if getattr(self, "_current_turn_read_only", False) and name in (
+        if self._turn.read_only and name in (
             "cv_editor_agent",
             "str_replace_editor",
         ):
@@ -406,11 +373,11 @@ class Manus(ToolCallAgent):
 
         self._read_only_locked_user_idx = last_user_idx
         if is_add_experience_query(user_input):
-            self._current_turn_read_only = False
+            self._turn.read_only = False
         else:
-            self._current_turn_read_only = is_read_only_query(user_input)
+            self._turn.read_only = is_read_only_query(user_input)
 
-        if self._current_turn_read_only:
+        if self._turn.read_only:
             logger.info("📖 只读查看轮次：禁止 cv_editor_agent")
         elif is_add_experience_query(user_input):
             logger.info("📎 新增经历轮次：允许 cv_editor_agent")
@@ -624,6 +591,128 @@ class Manus(ToolCallAgent):
         # 有实质性内容，自动终止
         return True
 
+    def _check_load_resume_finish(self) -> bool:
+        """LOAD_RESUME 快路径收敛：工具结果落库后本轮直接收尾。返回是否已终止。"""
+        if not self._turn.finish_after_load_resume_tool:
+            return False
+        for msg in reversed(self.memory.messages[-8:]):
+            role_val = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+            if role_val == "tool" and (msg.name or "") in {"show_resume", "cv_reader_agent"}:
+                from backend.agent.schema import AgentState
+
+                self._turn.finish_after_load_resume_tool = False
+                self.state = AgentState.FINISHED
+                logger.info("✅ LOAD_RESUME direct tool completed, finishing current run")
+                return True
+        return False
+
+    def _check_edit_completion_finish(self) -> bool:
+        """防止直接编辑工具在同一轮执行后被重复触发。返回是否已终止。"""
+        # 兼容 role 可能是 Role 枚举或字符串 "tool"
+        if not self.memory.messages:
+            return False
+        latest_assistant = self.memory.messages[-1]
+        latest_assistant_role = (
+            latest_assistant.role.value
+            if hasattr(latest_assistant.role, "value")
+            else str(latest_assistant.role)
+        )
+        if (
+            latest_assistant_role == "assistant"
+            and "已完成这次简历字段修改" in (latest_assistant.content or "")
+        ):
+            from backend.agent.schema import AgentState
+
+            self.state = AgentState.FINISHED
+            return True
+
+        # 仅在“本轮用户输入之后”确实出现了 cv_editor_agent 工具结果时才收敛，
+        # 避免下一轮新用户输入误复用上一轮旧编辑结果。
+        last_user_idx = -1
+        for idx in range(len(self.memory.messages) - 1, -1, -1):
+            role_val = (
+                self.memory.messages[idx].role.value
+                if hasattr(self.memory.messages[idx].role, "value")
+                else str(self.memory.messages[idx].role)
+            )
+            if role_val == "user":
+                last_user_idx = idx
+                break
+
+        recent_editor_tool_msg = None
+        for idx in range(len(self.memory.messages) - 1, -1, -1):
+            msg = self.memory.messages[idx]
+            role_val = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+            if (
+                role_val == "tool"
+                and (msg.name or "") == "cv_editor_agent"
+                and idx > last_user_idx
+            ):
+                recent_editor_tool_msg = msg
+                break
+
+        if recent_editor_tool_msg is not None and not self._turn.read_only:
+            logger.info("✅ cv_editor_agent 已执行，直接结束避免重复调用工具")
+            # After cv_editor_agent runs, emit a short confirmation via answer
+            # and stop — do NOT return True (which would let LLM pick tools again).
+            confirmation = "✅ 修改已完成，请查看右侧简历预览确认效果。如需继续优化，请告诉我。"
+            self.memory.add_message(Message.assistant_message(confirmation))
+            from backend.agent.schema import AgentState
+            self.state = AgentState.FINISHED
+            return True
+        return False
+
+    def _apply_enhanced_query(self, enhanced_query: str, user_input: str) -> None:
+        """查询被增强（含工具标记）时，更新最后一条用户消息为增强查询。"""
+        if enhanced_query != user_input and self.memory.messages:
+            # 找到最后一条用户消息并更新
+            for i in range(len(self.memory.messages) - 1, -1, -1):
+                msg = self.memory.messages[i]
+                if msg.role == Role.USER:
+                    # 更新消息内容为增强后的查询
+                    msg.content = enhanced_query
+                    logger.debug(f"已更新用户消息为增强查询: {enhanced_query}")
+                    break
+
+    def _store_intent_info(self, intent: Intent, intent_source: str) -> None:
+        """存储本轮意图上下文，供工具结构化结果标注来源。"""
+        self._last_intent_info = {
+            "intent": intent.value if hasattr(intent, "value") else str(intent),
+            "intent_source": intent_source,
+            "trigger": (
+                "load_resume_intent"
+                if intent == Intent.LOAD_RESUME
+                else "simple_edit_intent"
+                if intent == Intent.EDIT_CV
+                else "general_intent"
+            ),
+        }
+
+    def _check_just_applied_finish(self) -> bool:
+        """刚应用优化后，若最近出现 cv_editor_agent 成功结果则终止本轮。返回是否已终止。"""
+        if not getattr(self, '_just_applied_optimization', False):
+            return False
+        self._just_applied_optimization = False
+        recent_messages = self.memory.messages[-5:]
+        has_editor_success = any(
+            (
+                (msg.role if isinstance(msg.role, str) else msg.role.value) == "tool"
+                and msg.name == "cv_editor_agent"
+                and "Successfully updated" in (msg.content or "")
+            )
+            for msg in recent_messages
+        )
+
+        if has_editor_success:
+            logger.info("✅ 优化已应用完成，终止执行")
+            self.memory.add_message(Message.assistant_message(
+                "✅ 优化已应用！如果需要继续优化其他项目，请告诉我。"
+            ))
+            from backend.agent.schema import AgentState
+            self.state = AgentState.FINISHED
+            return True
+        return False
+
     async def think(self) -> bool:
         """Process current state and decide next actions using LLM intent recognition.
 
@@ -637,9 +726,9 @@ class Manus(ToolCallAgent):
         self._sync_resume_loaded_state()
 
         # 两阶段执行编辑：先给用户“正在修改”反馈，再在下一步实际调用编辑工具。
-        if self._pending_edit_tool_call:
-            pending = self._pending_edit_tool_call
-            self._pending_edit_tool_call = None
+        if self._turn.pending_edit_tool_call:
+            pending = self._turn.pending_edit_tool_call
+            self._turn.pending_edit_tool_call = None
             if EDIT_PRE_TOOL_DELAY_MS > 0:
                 await asyncio.sleep(EDIT_PRE_TOOL_DELAY_MS / 1000.0)
             return await self._handle_direct_tool_call(
@@ -687,7 +776,7 @@ class Manus(ToolCallAgent):
                         "Response: 收到，正在修改。完成后我会给你“修改前 / 修改后”的对比结果。"
                     )
                 )
-                self._pending_edit_tool_call = {
+                self._turn.pending_edit_tool_call = {
                     "tool": tool,
                     "tool_args": tool_args,
                     "intent": intent,
@@ -700,71 +789,12 @@ class Manus(ToolCallAgent):
 
         # LOAD_RESUME 快路径是一次性工具调用；
         # 工具结果落库后在下一步收敛，避免重复触发同一工具直到 max_steps。
-        if self._finish_after_load_resume_tool:
-            for msg in reversed(self.memory.messages[-8:]):
-                role_val = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
-                if role_val == "tool" and (msg.name or "") in {"show_resume", "cv_reader_agent"}:
-                    from backend.agent.schema import AgentState
-
-                    self._finish_after_load_resume_tool = False
-                    self.state = AgentState.FINISHED
-                    logger.info("✅ LOAD_RESUME direct tool completed, finishing current run")
-                    return False
+        if self._check_load_resume_finish():
+            return False
 
         # 防止直接编辑工具在同一轮执行后被重复触发，导致多次修改
-        # 兼容 role 可能是 Role 枚举或字符串 "tool"
-        if self.memory.messages:
-            latest_assistant = self.memory.messages[-1]
-            latest_assistant_role = (
-                latest_assistant.role.value
-                if hasattr(latest_assistant.role, "value")
-                else str(latest_assistant.role)
-            )
-            if (
-                latest_assistant_role == "assistant"
-                and "已完成这次简历字段修改" in (latest_assistant.content or "")
-            ):
-                from backend.agent.schema import AgentState
-
-                self.state = AgentState.FINISHED
-                return False
-
-            # 仅在“本轮用户输入之后”确实出现了 cv_editor_agent 工具结果时才收敛，
-            # 避免下一轮新用户输入误复用上一轮旧编辑结果。
-            last_user_idx = -1
-            for idx in range(len(self.memory.messages) - 1, -1, -1):
-                role_val = (
-                    self.memory.messages[idx].role.value
-                    if hasattr(self.memory.messages[idx].role, "value")
-                    else str(self.memory.messages[idx].role)
-                )
-                if role_val == "user":
-                    last_user_idx = idx
-                    break
-
-            recent_editor_tool_msg = None
-            for idx in range(len(self.memory.messages) - 1, -1, -1):
-                msg = self.memory.messages[idx]
-                role_val = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
-                if (
-                    role_val == "tool"
-                    and (msg.name or "") == "cv_editor_agent"
-                    and idx > last_user_idx
-                ):
-                    recent_editor_tool_msg = msg
-                    break
-
-            if recent_editor_tool_msg is not None and not getattr(
-                self, "_current_turn_read_only", False
-            ):
-                logger.info("✅ cv_editor_agent 已执行，直接结束避免重复调用工具")
-                # After cv_editor_agent runs, emit a short confirmation via answer
-                # and stop — do NOT return True (which would let LLM pick tools again).
-                confirmation = "✅ 修改已完成，请查看右侧简历预览确认效果。如需继续优化，请告诉我。"
-                self.memory.add_message(Message.assistant_message(confirmation))
-                from backend.agent.schema import AgentState
-                self.state = AgentState.FINISHED
-                return False
+        if self._check_edit_completion_finish():
+            return False
 
         # 确保 ConversationStateManager 有 LLM 实例
         self._ensure_conversation_state_llm()
@@ -794,15 +824,7 @@ class Manus(ToolCallAgent):
             ))
 
         # 如果查询被增强（包含工具标记），更新最后一条用户消息
-        if enhanced_query != user_input and self.memory.messages:
-            # 找到最后一条用户消息并更新
-            for i in range(len(self.memory.messages) - 1, -1, -1):
-                msg = self.memory.messages[i]
-                if msg.role == Role.USER:
-                    # 更新消息内容为增强后的查询
-                    msg.content = enhanced_query
-                    logger.debug(f"已更新用户消息为增强查询: {enhanced_query}")
-                    break
+        self._apply_enhanced_query(enhanced_query, user_input)
 
         # 优化确认快路径：仅当用户明确确认「应用/写回」上一轮优化建议时触发。
         # 新增经历、只读查看不得进入此分支。
@@ -1154,39 +1176,11 @@ class Manus(ToolCallAgent):
                 logger.warning(f"委托子 Agent 失败，回退到 LLM 路径: {exc}")
 
         # 存储本轮意图上下文，供工具结构化结果标注来源
-        self._last_intent_info = {
-            "intent": intent.value if hasattr(intent, "value") else str(intent),
-            "intent_source": intent_source,
-            "trigger": (
-                "load_resume_intent"
-                if intent == Intent.LOAD_RESUME
-                else "simple_edit_intent"
-                if intent == Intent.EDIT_CV
-                else "general_intent"
-            ),
-        }
+        self._store_intent_info(intent, intent_source)
 
         # 🔑 特殊处理：检查是否刚应用了优化
-        if getattr(self, '_just_applied_optimization', False):
-            self._just_applied_optimization = False
-            recent_messages = self.memory.messages[-5:]
-            has_editor_success = any(
-                (
-                    (msg.role if isinstance(msg.role, str) else msg.role.value) == "tool"
-                    and msg.name == "cv_editor_agent"
-                    and "Successfully updated" in (msg.content or "")
-                )
-                for msg in recent_messages
-            )
-
-            if has_editor_success:
-                logger.info("✅ 优化已应用完成，终止执行")
-                self.memory.add_message(Message.assistant_message(
-                    "✅ 优化已应用！如果需要继续优化其他项目，请告诉我。"
-                ))
-                from backend.agent.schema import AgentState
-                self.state = AgentState.FINISHED
-                return False
+        if self._check_just_applied_finish():
+            return False
 
         # 🎯 GREETING：直接调用 LLM，不传工具（减少 payload，速度更快）
         if intent == Intent.GREETING:
