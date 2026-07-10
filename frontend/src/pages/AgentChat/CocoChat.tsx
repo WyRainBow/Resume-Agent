@@ -43,11 +43,6 @@ import {
   Sparkles,
   MessageSquare,
   Bot,
-  Wand2,
-  Upload,
-  FileText,
-  Search,
-  Zap,
 } from "lucide-react";
 import ChatEmptyState from "@/components/agent-chat/ChatEmptyState";
 import ModelSelector, { DEFAULT_AGENT_MODEL } from "@/components/agent-chat/ModelSelector";
@@ -1572,6 +1567,7 @@ function CocoChatContent() {
         resumeData: r.resumeData, // 右侧 PDF 预览渲染需要
       })),
       diagnosisToolEvents,
+      structuredEvents,
       messageMetas,
       pendingPatches: persistedPatches,
     };
@@ -1593,7 +1589,7 @@ function CocoChatContent() {
         console.warn("[AgentChat] 持久化 UI 状态失败:", retryError);
       }
     }
-  }, [conversationId, selectedResumeId, loadedResumes, diagnosisToolEvents, messages, pendingPatches]);
+  }, [conversationId, selectedResumeId, loadedResumes, diagnosisToolEvents, structuredEvents, messages, pendingPatches]);
 
   // 说明：
   // 进入 AI 页面时，conversationId 只允许由两处决定：
@@ -1761,6 +1757,7 @@ function CocoChatContent() {
               loadedResumes: sLrs,
               selectedResumeId: savedSelectedResumeId,
               diagnosisToolEvents: savedDiagnosisToolEvents,
+              structuredEvents: savedStructuredEvents,
               messageMetas: sMetas,
               pendingPatches: sPatches,
             } = JSON.parse(savedUiState);
@@ -1770,6 +1767,9 @@ function CocoChatContent() {
             }
             if (Array.isArray(savedDiagnosisToolEvents)) {
               setDiagnosisToolEvents(savedDiagnosisToolEvents);
+            }
+            if (Array.isArray(savedStructuredEvents)) {
+              setStructuredEvents(savedStructuredEvents);
             }
             if (sMetas && typeof sMetas === "object") {
               savedMessageMetas = sMetas;
@@ -3043,6 +3043,7 @@ function CocoChatContent() {
             loadedResumes: sLrs,
             selectedResumeId: savedSelectedResumeId,
             diagnosisToolEvents: savedDiagnosisToolEvents,
+            structuredEvents: savedStructuredEvents,
             messageMetas: sMetas,
             pendingPatches: sPatches,
           } = JSON.parse(savedUiState);
@@ -3051,6 +3052,9 @@ function CocoChatContent() {
           }
           if (Array.isArray(savedDiagnosisToolEvents)) {
             setDiagnosisToolEvents(savedDiagnosisToolEvents);
+          }
+          if (Array.isArray(savedStructuredEvents)) {
+            setStructuredEvents(savedStructuredEvents);
           }
           if (sMetas && typeof sMetas === "object") {
             savedMessageMetas = sMetas;

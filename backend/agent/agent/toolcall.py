@@ -70,13 +70,6 @@ class ToolCallAgent(ReActAgent):
         """Escape loguru tag delimiters to avoid log formatting errors."""
         return text.replace("<", r"\<").replace(">", r"\>")
 
-    @staticmethod
-    def _is_browsing_request(text: str) -> bool:
-        if not text:
-            return False
-        pattern = r"(打开|访问|浏览|搜索|网页|网站|百度|谷歌|google|bing|天气|新闻|地图)"
-        return re.search(pattern, text, re.IGNORECASE) is not None
-
     def _get_last_user_message(self) -> str:
         for msg in reversed(self.messages):
             role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
@@ -436,7 +429,7 @@ class ToolCallAgent(ReActAgent):
             return self.messages[-1].content or "No content or commands to execute"
 
         results = []
-        for command in self.tool_calls:
+        for index, command in enumerate(self.tool_calls):
             # Reset base64_image for each tool call
             self._current_base64_image = None
 
@@ -461,6 +454,23 @@ class ToolCallAgent(ReActAgent):
             self.memory.add_message(tool_msg)
             results.append(result)
 
+            # 有工具挂起等确认:立刻跳过同轮剩余工具调用——挂起的安全语义是
+            # "未经确认不执行副作用",若等循环跑完再终止,同轮的 sibling 工具
+            # 仍会真实执行(审查发现的绕过口)。被跳过的 tool_call 仍须补一条
+            # 占位 tool 消息,否则下一轮请求会因 tool_calls 缺响应而报错。
+            if self._halt_for_pending_approval:
+                skipped = self.tool_calls[index + 1:]
+                for skipped_command in skipped:
+                    logger.info(
+                        f"[approval] 同轮后续工具已跳过(等待用户确认): {skipped_command.function.name}"
+                    )
+                    self.memory.add_message(Message.tool_message(
+                        content="已跳过:上一个操作正在等待用户确认,本轮不再执行其它工具。",
+                        tool_call_id=skipped_command.id,
+                        name=skipped_command.function.name,
+                    ))
+                break
+
         # 有工具挂起等确认:确定性终止本轮(不靠模型自觉),等待 approval 端点接力
         if self._halt_for_pending_approval:
             self._halt_for_pending_approval = False
@@ -480,21 +490,6 @@ class ToolCallAgent(ReActAgent):
         try:
             # Parse arguments
             args = json.loads(command.function.arguments or "{}")
-
-            # Guardrails: prevent file editing or python execution for browsing requests
-            user_input = self._get_last_user_message()
-            if self._is_browsing_request(user_input):
-                if name in {"str_replace_editor", "python_execute"}:
-                    return (
-                        "Error: 该请求属于网页浏览，请改用 browser_use 工具，"
-                        "禁止用 str_replace_editor 或 python_execute 模拟网页。"
-                    )
-                if name == "str_replace_editor" and isinstance(args, dict):
-                    file_text = args.get("file_text", "")
-                    if isinstance(file_text, str) and "<html" in file_text.lower():
-                        return (
-                            "Error: 禁止生成模拟 HTML 页面，请使用 browser_use 进行真实浏览。"
-                        )
 
             # 运行时确认协议:requires_approval 工具不在这里执行——登记挂起、
             # 推 approval_request 确认卡,由 approval 端点在用户批准后执行。

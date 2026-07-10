@@ -81,6 +81,15 @@ def test_yield_reason_aggregation():
     assert _rule_intent_yield_reason("") is None
 
 
+def test_greeting_prompt_interpolation_locked():
+    """审查 #19:GREETING prompt 必须是 f-string——历史上漏了前缀导致风格指引
+    以 {GREETING_STYLE_GUIDANCE} 字面量发给模型,从未生效"""
+    from backend.agent.prompt.greeting import GREETING_FAST_PATH_PROMPT, GREETING_STYLE_GUIDANCE
+
+    assert "{GREETING_STYLE_GUIDANCE}" not in GREETING_FAST_PATH_PROMPT
+    assert GREETING_STYLE_GUIDANCE in GREETING_FAST_PATH_PROMPT
+
+
 def test_llm_first_routing_switch(monkeypatch):
     from backend.agent.agent.manus import _llm_first_routing_enabled
 

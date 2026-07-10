@@ -8,7 +8,6 @@ from pathlib import Path
 
 from pydantic import Field, model_validator, PrivateAttr
 
-from backend.agent.agent.browser import BrowserContextHelper
 from backend.agent.agent.toolcall import ToolCallAgent
 from backend.agent.config import config
 from backend.core.logger import get_logger
@@ -147,7 +146,6 @@ class Manus(ToolCallAgent):
     available_tools: ToolCollection = Field(default_factory=ToolCollection)
 
     special_tool_names: list[str] = Field(default_factory=lambda: [Terminate().name])
-    browser_context_helper: Optional[BrowserContextHelper] = None
 
     # Memory components - 使用 PrivateAttr 避免 pydantic 验证
     _conversation_state: ConversationStateManager = PrivateAttr(default=None)
@@ -167,7 +165,6 @@ class Manus(ToolCallAgent):
     def initialize_helper(self) -> "Manus":
         """Initialize basic components synchronously."""
         self.available_tools = self._build_tool_collection()
-        self.browser_context_helper = BrowserContextHelper(self)
         self._init_shared_state()
         # 初始化对话状态管理器（LLM 会在 base.py 的 initialize_agent 中初始化）
         # 传递 tool_collection 以支持增强意图识别
@@ -186,12 +183,10 @@ class Manus(ToolCallAgent):
 
     def _build_tool_collection(self) -> ToolCollection:
         """Build tool collection based on capability settings."""
-        # 文件/代码执行类工具(PythonExecute/StrReplaceEditor)已移除:
-        # 网页简历产品的用户没有文件系统语境,这类工具只会诱导模型幻想成
-        # CLI Agent("我先看看当前目录下有没有简历文件"),且扩大安全面
         # 产品收敛:只做简历优化。文件/代码执行(PythonExecute/StrReplaceEditor)、
         # 浏览器(BrowserUseTool)、联网搜索(WebSearch)等通用工具全部移除——
-        # 它们对网页简历产品的用户无用,还诱导模型幻想成 CLI/浏览器 Agent
+        # 它们对网页简历产品的用户无用,还会诱导模型幻想成 CLI/浏览器 Agent
+        # ("我先看看当前目录下有没有简历文件"),同时扩大安全面
         base_tools = [
             AskHuman(),
             Terminate(),
@@ -240,9 +235,8 @@ class Manus(ToolCallAgent):
             self._conversation_state.llm = self.llm
 
     async def cleanup(self):
-        """Clean up Manus agent resources."""
-        if self.browser_context_helper:
-            await self.browser_context_helper.cleanup_browser()
+        """Clean up Manus agent resources.(浏览器工具下线后暂无需清理的资源)"""
+        return None
 
     async def delegate_to_agent(self, agent_name: str, **kwargs) -> Any:
         """Delegate tasks to a registered sub-agent."""

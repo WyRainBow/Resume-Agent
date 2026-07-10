@@ -75,6 +75,39 @@ def test_list_contains_four_presets_and_crud_roundtrip():
     assert client.delete(f"/api/email/templates/{tid}").status_code == 404
 
 
+def test_length_limits_and_cross_user_isolation():
+    """审查 #18:超长 name/content 拒绝;跨用户看不到也删不掉对方模板"""
+    client_a, db_a, _ = make_client("admin")
+    assert client_a.post("/api/email/templates", json={"name": "x" * 65, "content": "y"}).status_code == 400
+    assert client_a.post("/api/email/templates", json={"name": "n", "content": "y" * 8001}).status_code == 400
+
+    r = client_a.post("/api/email/templates", json={"name": "A的模板", "content": "内容A"})
+    tid = r.json()["template"]["id"]
+
+    client_b, _, _ = make_client("admin")  # 另一个独立用户(独立内存库,验证过滤语义)
+    assert client_b.get("/api/email/templates").json()["templates"] == []
+    assert client_b.delete(f"/api/email/templates/{tid}").status_code == 404
+
+    # 同库跨用户隔离:B 用户挂进 A 的库
+    from backend.models import User as UserModel
+    user_b = UserModel(username="other", email="o@example.com", password_hash="x", role="admin")
+    db_a.add(user_b); db_a.commit(); db_a.refresh(user_b)
+    module = load_route_module()
+    from fastapi import FastAPI
+    from backend.database import get_db
+    from middleware.auth import get_current_user
+    app = FastAPI(); app.include_router(module.router)
+    app.dependency_overrides[get_db] = lambda: db_a
+    app.dependency_overrides[get_current_user] = lambda: user_b
+    app.dependency_overrides[module.get_db] = lambda: db_a
+    app.dependency_overrides[module.get_current_user] = lambda: user_b
+    client_b_same_db = TestClient(app)
+    assert client_b_same_db.get("/api/email/templates").json()["templates"] == []
+    assert client_b_same_db.delete(f"/api/email/templates/{tid}").status_code == 404
+    # A 的模板仍在
+    assert [t["id"] for t in client_a.get("/api/email/templates").json()["templates"]] == [tid]
+
+
 def test_validation_and_admin_gate():
     client, _, _ = make_client("admin")
     assert client.post("/api/email/templates", json={"name": "", "content": "x"}).status_code == 400

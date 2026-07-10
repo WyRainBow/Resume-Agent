@@ -28,6 +28,19 @@ RATE_LIMIT_MAX_ATTEMPTS = 5
 RATE_LIMIT_WINDOW_SECONDS = 3600
 _send_attempts: Dict[int, List[float]] = {}
 
+# 正文/主题长度硬上限:与模板(8000)、润色(8000)口径一致,防异常冗长
+# 内容进入挂起 payload、SSE 事件与最终邮件(审查 #28)
+MAX_BODY_CHARS = 8000
+MAX_SUBJECT_CHARS = 200
+
+
+def _rate_limit_exhausted(user_id: int) -> bool:
+    """只读查询是否已达限频(不消耗计数),供确认前校验用:
+    已用尽额度的用户不应看到一张注定失败的确认卡(审查 #29)。"""
+    now = time.time()
+    attempts = [t for t in _send_attempts.get(user_id, []) if now - t < RATE_LIMIT_WINDOW_SECONDS]
+    return len(attempts) >= RATE_LIMIT_MAX_ATTEMPTS
+
 
 def _check_rate_limit(user_id: int) -> bool:
     """记录一次尝试并返回是否放行。"""
@@ -84,8 +97,14 @@ class SendResumeEmailTool(BaseTool):
             return f"收件邮箱地址「{to_email}」格式不正确,请确认后重试。"
         if not (body or "").strip():
             return "邮件正文不能为空:请先根据本次优化内容写好给对方的说明与建议。"
+        if len(body or "") > MAX_BODY_CHARS:
+            return f"邮件正文过长(超过 {MAX_BODY_CHARS} 字),请精简后重试。"
+        if subject and len(subject) > MAX_SUBJECT_CHARS:
+            return f"邮件主题过长(超过 {MAX_SUBJECT_CHARS} 字),请精简。"
         if not ResumeDataStore.get_data(self.session_id):
             return "当前会话还没有加载简历,请先展示或导入一份简历再发送。"
+        if self.user_id and _rate_limit_exhausted(self.user_id):
+            return "发送太频繁(每小时最多 5 次),请稍后再试。"
 
         from backend.database import SessionLocal
         from backend.models import EmailCredential, User
@@ -130,6 +149,10 @@ class SendResumeEmailTool(BaseTool):
         body = (body or "").strip()
         if not body:
             return ToolResult(error="邮件正文不能为空。")
+        if len(body) > MAX_BODY_CHARS:
+            return ToolResult(error=f"邮件正文过长(超过 {MAX_BODY_CHARS} 字)。")
+        if subject and len(subject) > MAX_SUBJECT_CHARS:
+            return ToolResult(error=f"邮件主题过长(超过 {MAX_SUBJECT_CHARS} 字)。")
 
         resume_data = ResumeDataStore.get_data(self.session_id)
         if not resume_data:

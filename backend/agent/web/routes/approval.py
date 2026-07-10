@@ -9,6 +9,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend.agent import approval as approval_store
+from backend.agent.schema import Message
+from backend.agent.web.routes.stream import get_active_agent
 from backend.core.logger import get_logger
 from backend.middleware.auth import get_current_user
 from backend.models import User
@@ -37,6 +39,18 @@ POLISH_SYSTEM_PROMPT = (
 )
 
 
+def _write_back_to_agent_memory(session_id: str, text: str) -> None:
+    """把审批结果增量追加进对应会话的 agent 记忆:否则用户之后问「刚才那封
+    发出去了吗/发的什么」,模型上下文里完全没有依据(审查 #24)。
+    agent 可能已被 TTL 回收——回收即跳过,不影响本次响应。"""
+    try:
+        agent = get_active_agent(session_id)
+        if agent is not None:
+            agent.memory.add_message(Message.system_message(text))
+    except Exception:
+        logger.warning(f"[approval] 结果回写 agent 记忆失败(忽略): session={session_id}")
+
+
 def _build_tool(tool_name: str, pending: Dict[str, Any]):
     """按挂起记录重建工具实例并注入上下文。目前唯一的 requires_approval 工具
     是 send_resume_email;新增工具时在此登记(工具本身零白名单,只有执行侧需要映射)。"""
@@ -63,6 +77,10 @@ async def handle_approval(
 
     if payload.action == "cancel":
         approval_store.pop(payload.approval_id)
+        _write_back_to_agent_memory(
+            pending["session_id"],
+            f"[邮件发送结果] 用户取消了这次发送(收件人 {pending['args'].get('to_email', '?')}),邮件未发出。",
+        )
         return {"ok": True, "message": "已取消发送。"}
 
     if payload.action != "approve":
@@ -88,9 +106,39 @@ async def handle_approval(
         return {"ok": False, "message": f"执行失败:{exc}"}
 
     error = getattr(result, "error", None)
+    body_brief = str(args.get("body", ""))[:120]
     if error:
+        _write_back_to_agent_memory(
+            pending["session_id"],
+            f"[邮件发送结果] 发送失败:{error}",
+        )
         return {"ok": False, "message": str(error)}
+    _write_back_to_agent_memory(
+        pending["session_id"],
+        f"[邮件发送结果] 已成功发送给 {args.get('to_email', '?')},"
+        f"主题「{args.get('subject') or '(默认)'}」,正文开头:{body_brief}…"
+        "(用户可能在确认卡中编辑过内容,以上为最终发出的版本)",
+    )
     return {"ok": True, "message": str(getattr(result, "output", None) or "已完成。")}
+
+
+# 润色限频:同一用户每小时最多 20 次(独立于发送限频;审查 #26)
+_POLISH_RATE_LIMIT = 20
+_POLISH_WINDOW_SECONDS = 3600
+_polish_attempts: Dict[int, list] = {}
+
+
+def _check_polish_rate_limit(user_id: int) -> bool:
+    import time
+
+    now = time.time()
+    attempts = [t for t in _polish_attempts.get(user_id, []) if now - t < _POLISH_WINDOW_SECONDS]
+    if len(attempts) >= _POLISH_RATE_LIMIT:
+        _polish_attempts[user_id] = attempts
+        return False
+    attempts.append(now)
+    _polish_attempts[user_id] = attempts
+    return True
 
 
 @router.post("/approval/polish")
@@ -98,7 +146,12 @@ async def polish_text(
     payload: PolishRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """确认卡内的 AI 润色:按指令改写邮件正文,一次轻量 LLM 调用,同步返回。"""
+    """确认卡内的 AI 润色:按指令改写邮件正文,一次轻量 LLM 调用,同步返回。
+    仅管理员可用(与邮件功能同门禁),防被当成免费通用改写服务。"""
+    if getattr(current_user, "role", None) != "admin":
+        raise HTTPException(status_code=403, detail="仅管理员可使用润色功能")
+    if not _check_polish_rate_limit(current_user.id):
+        raise HTTPException(status_code=429, detail="润色太频繁(每小时最多 20 次),请稍后再试")
     text = (payload.text or "").strip()
     instruction = (payload.instruction or "").strip()
     if not text:
