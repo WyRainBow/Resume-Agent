@@ -822,6 +822,74 @@ def normalize_opensource_add_entry(value: Any, *, index_hint: int = 0) -> Dict[s
     }
 
 
+def normalize_education_add_entry(value: Any, *, index_hint: int = 0) -> Dict[str, Any]:
+    """规范化为前端 ResumeData.education 条目：id, school, major, degree,
+    startDate, endDate, gpa, description(HTML), visible。
+
+    不要套用 experience 的 company/position/details 字段——education 的
+    school/major/degree 会被丢掉（2026-07-10 实测：「帮我添加教育经历，
+    我毕业于XX大学计算机专业」产出全空的 experience 形状条目）。
+    """
+    entry = coerce_tool_value(value)
+    # LLM 常见输出形态容错：{"education": [ {...} ]} / {"education": {...}} 双层包裹
+    if isinstance(entry, dict) and set(entry.keys()) == {"education"}:
+        inner = entry["education"]
+        if isinstance(inner, list) and inner:
+            entry = inner[0]
+        elif isinstance(inner, dict):
+            entry = inner
+    if isinstance(entry, str):
+        entry = {"school": entry}
+    if not isinstance(entry, dict):
+        raise ValueError("add 操作的 value 必须是 JSON 对象")
+
+    school = str(
+        entry.get("school") or entry.get("title") or entry.get("name") or ""
+    ).strip()
+    major = str(entry.get("major") or entry.get("subtitle") or "").strip()
+    degree = str(entry.get("degree") or "").strip()
+    gpa = str(entry.get("gpa") or "").strip()
+
+    start_date = str(entry.get("startDate") or "").strip()
+    end_date = str(entry.get("endDate") or "").strip()
+    if not (start_date or end_date):
+        # 兼容合写日期："2018.09 - 2022.06" / "2018.09~2022.06"
+        date_raw = str(
+            entry.get("date") or entry.get("period") or entry.get("duration") or ""
+        ).strip()
+        if date_raw:
+            parts = re.split(r"\s*[-—~至]+\s*", date_raw, maxsplit=1)
+            start_date = parts[0].strip()
+            end_date = parts[1].strip() if len(parts) > 1 else ""
+
+    desc_raw = entry.get("description") or entry.get("details") or entry.get("honors") or ""
+    if isinstance(desc_raw, list):
+        desc_raw = "\n".join(str(x) for x in desc_raw)
+    description = str(desc_raw).strip()
+    if description and not (
+        _looks_like_html(description) and "custom-list" in description
+    ):
+        description = normalize_editor_value(
+            description, f"education[{index_hint}].description"
+        )
+
+    entry_id = str(entry.get("id") or "").strip() or f"edu_{uuid.uuid4().hex[:8]}"
+    normalized: Dict[str, Any] = {
+        "id": entry_id,
+        "school": school,
+        "major": major,
+        "degree": degree,
+        "startDate": start_date,
+        "endDate": end_date,
+        "visible": entry.get("visible", True),
+    }
+    if gpa:
+        normalized["gpa"] = gpa
+    if description:
+        normalized["description"] = description
+    return normalized
+
+
 def to_internships_schema(entry: Dict[str, Any]) -> Dict[str, Any]:
     """Agent 内存为后端 internships 数组时，转换为 title/subtitle/date/highlights。"""
     details = entry.get("details") or ""
