@@ -4,7 +4,7 @@
  * 发出的就是改后版本;取消则丢弃挂起。结果同步返回,直接更新卡片状态。
  */
 import { useEffect, useState } from "react";
-import { BookMarked, ChevronDown, ChevronRight, Inbox, Loader2, Mail, Paperclip, Sparkles, Trash2, X } from "lucide-react";
+import { BookMarked, Loader2, Mail, Paperclip, Sparkles, Trash2, X } from "lucide-react";
 import { AgentSpecialCard } from "@/components/agent-chat/AgentSpecialCard";
 import type { StructuredCardProps } from "@/components/agent-chat/StructuredCardRegistry";
 import { getApiBaseUrl } from "@/lib/runtimeEnv";
@@ -37,170 +37,6 @@ interface EmailTemplateItem {
   content: string;
 }
 
-interface SentEmailItem {
-  uid: string;
-  subject: string;
-  to: string;
-  date: string;
-  body: string;
-}
-
-/** 从 QQ 邮箱「已发送」导入历史邮件为模板:列表(可关键词过滤)→ 展开看正文 →
- * 套用到当前正文 / 存为模板。只读,不改动邮箱。 */
-function SentEmailImport({
-  token,
-  onApply,
-  onSaved,
-  onBack,
-}: {
-  token: string | null;
-  onApply: (text: string) => void;
-  onSaved: () => void;
-  onBack: () => void;
-}) {
-  const [emails, setEmails] = useState<SentEmailItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [keyword, setKeyword] = useState("简历");
-  const [openUid, setOpenUid] = useState<string | null>(null);
-  const [savingUid, setSavingUid] = useState<string | null>(null);
-
-  const headers = { "Content-Type": "application/json", ...buildAuthHeaders(token ?? "") };
-
-  useEffect(() => {
-    (async () => {
-      try {
-        const resp = await fetch(`${getApiBaseUrl()}/api/email/sent?limit=30`, { headers });
-        const json = await resp.json().catch(() => ({}));
-        if (!resp.ok) {
-          setError(json.detail || "读取已发送邮件失败");
-          return;
-        }
-        setEmails(json.emails || []);
-      } catch {
-        setError("网络异常,请重试。");
-      } finally {
-        setLoading(false);
-      }
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const filtered = keyword.trim()
-    ? emails.filter(
-        (m) => m.subject.includes(keyword.trim()) || m.body.includes(keyword.trim()),
-      )
-    : emails;
-
-  const saveAsTemplate = async (mail: SentEmailItem) => {
-    setSavingUid(mail.uid);
-    setError("");
-    try {
-      const resp = await fetch(`${getApiBaseUrl()}/api/email/templates`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ name: mail.subject.slice(0, 64), content: mail.body }),
-      });
-      const json = await resp.json().catch(() => ({}));
-      if (!resp.ok) {
-        setError(json.detail || "保存失败");
-        return;
-      }
-      onSaved();
-    } catch {
-      setError("网络异常,请重试。");
-    } finally {
-      setSavingUid(null);
-    }
-  };
-
-  return (
-    <div>
-      <div className="mb-2 flex items-center gap-1.5">
-        <button
-          type="button"
-          onClick={onBack}
-          className="rounded-none border border-black px-1.5 py-0.5 text-[11px] text-chat-ink-muted hover:bg-chat-canvas dark:border-slate-500 dark:hover:bg-slate-800"
-        >
-          ← 返回
-        </button>
-        <input
-          type="text"
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-          placeholder="按关键词过滤,如:简历"
-          className="h-7 min-w-0 flex-1 rounded-none border border-black bg-white px-2 text-xs outline-none focus:border-chat-accent-deep dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
-        />
-      </div>
-
-      {loading ? (
-        <p className="flex items-center gap-1.5 py-3 text-xs text-chat-ink-muted">
-          <Loader2 className="size-3.5 animate-spin" />
-          正在读取 QQ 邮箱「已发送」,可能需要十几秒…
-        </p>
-      ) : filtered.length === 0 ? (
-        <p className="py-3 text-xs text-chat-ink-muted">{error || "没有匹配的已发送邮件"}</p>
-      ) : (
-        <div className="max-h-72 space-y-1.5 overflow-auto">
-          {filtered.map((mail) => {
-            const open = openUid === mail.uid;
-            return (
-              <div key={mail.uid} className="rounded-none border border-black/60 dark:border-slate-600">
-                <button
-                  type="button"
-                  onClick={() => setOpenUid(open ? null : mail.uid)}
-                  className="flex w-full items-start gap-1.5 px-2 py-1.5 text-left"
-                >
-                  {open ? (
-                    <ChevronDown className="mt-0.5 size-3 shrink-0 text-chat-ink-muted" />
-                  ) : (
-                    <ChevronRight className="mt-0.5 size-3 shrink-0 text-chat-ink-muted" />
-                  )}
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-xs font-semibold text-chat-ink dark:text-slate-100">
-                      {mail.subject}
-                    </span>
-                    <span className="block truncate text-[10px] text-chat-ink-muted">
-                      发给 {mail.to || "?"} · {mail.date}
-                    </span>
-                  </span>
-                </button>
-                {open && (
-                  <div className="border-t border-black/30 px-2 py-2 dark:border-slate-700">
-                    <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words text-[11px] leading-relaxed text-chat-ink dark:text-slate-200">
-                      {mail.body || "(正文为空)"}
-                    </pre>
-                    <div className="mt-1.5 flex items-center justify-end gap-1.5">
-                      <button
-                        type="button"
-                        disabled={savingUid === mail.uid}
-                        onClick={() => void saveAsTemplate(mail)}
-                        className="h-7 rounded-none border border-black px-2 text-[11px] font-semibold text-chat-ink hover:bg-chat-user-bubble disabled:opacity-50 dark:border-slate-500 dark:text-slate-200 dark:hover:bg-slate-800"
-                      >
-                        {savingUid === mail.uid ? "保存中…" : "存为模板"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onApply(mail.body)}
-                        className="h-7 rounded-none border border-black bg-chat-accent px-2 text-[11px] font-semibold text-white hover:bg-chat-accent-deep dark:border-white"
-                      >
-                        套用到正文
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-      {error && !loading && filtered.length > 0 && (
-        <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">{error}</p>
-      )}
-    </div>
-  );
-}
-
 /** 正文模板浮窗:预置岗位模板 + 我的模板一键套用({name} 自动替换为简历主人姓名),
  * 也可把当前正文存为模板。套用后可继续手改或 AI 润色微调。 */
 function TemplatePopover({
@@ -223,7 +59,6 @@ function TemplatePopover({
   const [saveOpen, setSaveOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [busy, setBusy] = useState(false);
-  const [importOpen, setImportOpen] = useState(false);
 
   const headers = { "Content-Type": "application/json", ...buildAuthHeaders(token ?? "") };
 
@@ -318,27 +153,14 @@ function TemplatePopover({
       <div className="mb-2 flex items-center justify-between">
         <span className="flex items-center gap-1 text-xs font-bold text-chat-ink dark:text-slate-100">
           <BookMarked className="size-3.5 text-chat-accent" />
-          {importOpen ? "从 QQ 邮箱导入" : "正文模板"}
+          正文模板
         </span>
         <button type="button" onClick={onClose} aria-label="关闭模板" className="p-0.5 text-chat-ink-muted hover:text-chat-ink">
           <X className="size-3.5" />
         </button>
       </div>
 
-      {importOpen ? (
-        <SentEmailImport
-          token={token}
-          onApply={(text) => {
-            onApply(text);
-            onClose();
-          }}
-          onSaved={() => {
-            setImportOpen(false);
-            void refresh();
-          }}
-          onBack={() => setImportOpen(false)}
-        />
-      ) : loading ? (
+      {loading ? (
         <p className="py-2 text-xs text-chat-ink-muted">加载中…</p>
       ) : (
         <div className="max-h-64 space-y-2 overflow-auto">
@@ -359,57 +181,44 @@ function TemplatePopover({
         </div>
       )}
 
-      {!importOpen && (
-        <div className="mt-2 border-t border-black/20 pt-2 dark:border-slate-700">
-          {saveOpen ? (
-            <div className="flex items-center gap-1.5">
-              <input
-                type="text"
-                value={saveName}
-                autoFocus
-                disabled={busy}
-                onChange={(e) => setSaveName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    void saveCurrent();
-                  }
-                }}
-                placeholder="模板名,如:我的默认"
-                className="h-8 min-w-0 flex-1 rounded-none border border-black bg-white px-2 text-xs outline-none focus:border-chat-accent-deep dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
-              />
-              <button
-                type="button"
-                disabled={busy || !saveName.trim()}
-                onClick={() => void saveCurrent()}
-                className="h-8 shrink-0 rounded-none border border-black bg-chat-accent px-2.5 text-xs font-semibold text-white hover:bg-chat-accent-deep disabled:opacity-50 dark:border-white"
-              >
-                {busy ? <Loader2 className="size-3 animate-spin" /> : "保存"}
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setSaveOpen(true)}
-                className="min-w-0 flex-1 rounded-none border border-dashed border-black/50 py-1.5 text-xs text-chat-ink-muted transition-colors hover:border-black hover:text-chat-ink dark:border-slate-600 dark:hover:border-slate-400 dark:hover:text-slate-200"
-              >
-                + 存当前正文
-              </button>
-              <button
-                type="button"
-                onClick={() => setImportOpen(true)}
-                title="读取 QQ 邮箱「已发送」,把你以前发过的优化邮件导入为模板"
-                className="flex min-w-0 flex-1 items-center justify-center gap-1 rounded-none border border-dashed border-black/50 py-1.5 text-xs text-chat-ink-muted transition-colors hover:border-black hover:text-chat-ink dark:border-slate-600 dark:hover:border-slate-400 dark:hover:text-slate-200"
-              >
-                <Inbox className="size-3" />
-                从 QQ 邮箱导入
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-      {error && !importOpen && <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">{error}</p>}
+      <div className="mt-2 border-t border-black/20 pt-2 dark:border-slate-700">
+        {saveOpen ? (
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              value={saveName}
+              autoFocus
+              disabled={busy}
+              onChange={(e) => setSaveName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void saveCurrent();
+                }
+              }}
+              placeholder="模板名,如:我的默认"
+              className="h-8 min-w-0 flex-1 rounded-none border border-black bg-white px-2 text-xs outline-none focus:border-chat-accent-deep dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+            />
+            <button
+              type="button"
+              disabled={busy || !saveName.trim()}
+              onClick={() => void saveCurrent()}
+              className="h-8 shrink-0 rounded-none border border-black bg-chat-accent px-2.5 text-xs font-semibold text-white hover:bg-chat-accent-deep disabled:opacity-50 dark:border-white"
+            >
+              {busy ? <Loader2 className="size-3 animate-spin" /> : "保存"}
+            </button>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setSaveOpen(true)}
+            className="w-full rounded-none border border-dashed border-black/50 py-1.5 text-xs text-chat-ink-muted transition-colors hover:border-black hover:text-chat-ink dark:border-slate-600 dark:hover:border-slate-400 dark:hover:text-slate-200"
+          >
+            + 把当前正文存为模板
+          </button>
+        )}
+      </div>
+      {error && <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );
 }
