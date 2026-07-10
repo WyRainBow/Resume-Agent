@@ -59,6 +59,14 @@ HEARTBEAT_V2_ENABLED = (
 )
 
 
+def get_active_agent(conversation_id: str):
+    """按会话取仍在内存中的 agent 实例(可能已被 TTL 回收,返回 None)。
+    供 approval 等旁路端点把执行结果回写进 agent.memory,让 LLM 后续轮次
+    知道邮件到底发没发、发了什么(审查 #24)。"""
+    session = _active_sessions.get(conversation_id)
+    return session.get("agent") if session else None
+
+
 def _is_admin(user: User) -> bool:
     return getattr(user, "role", None) == "admin"
 

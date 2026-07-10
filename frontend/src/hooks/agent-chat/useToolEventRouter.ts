@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { SSEEvent } from "@/transports/SSETransport";
 import { extractResumeEditDiff } from "@/utils/resumePatch";
 
-interface UseToolEventRouterParams<TSearch, TResume, TEdit, TDiagnosis> {
+interface UseToolEventRouterParams<TSearch, TResume, TEdit, TDiagnosis, TStructured> {
   runId: number;
   onDone: () => void;
   onError: (message: string) => void;
@@ -12,6 +12,7 @@ interface UseToolEventRouterParams<TSearch, TResume, TEdit, TDiagnosis> {
   upsertLoadedResume: (messageId: string, data: TResume) => void;
   upsertResumeEditDiff: (messageId: string, data: TEdit) => void;
   upsertDiagnosisToolEvent: (messageId: string, data: TDiagnosis) => void;
+  upsertStructuredEvent: (messageId: string, data: TStructured) => void;
   applyResumeEditDiff: (data: TEdit) => void;
 }
 
@@ -24,7 +25,8 @@ export function useToolEventRouter<
   TResume extends { type?: string },
   TEdit extends { type?: string },
   TDiagnosis extends { type?: string },
->(params: UseToolEventRouterParams<TSearch, TResume, TEdit, TDiagnosis>) {
+  TStructured extends { type?: string },
+>(params: UseToolEventRouterParams<TSearch, TResume, TEdit, TDiagnosis, TStructured>) {
   const {
     runId,
     onDone,
@@ -35,18 +37,21 @@ export function useToolEventRouter<
     upsertLoadedResume,
     upsertResumeEditDiff,
     upsertDiagnosisToolEvent,
+    upsertStructuredEvent,
     applyResumeEditDiff,
   } = params;
 
   const handledResumeSelectorKeysRef = useRef<Set<string>>(new Set());
   const handledEditKeysRef = useRef<Set<string>>(new Set());
   const handledDiagnosisKeysRef = useRef<Set<string>>(new Set());
+  const handledStructuredKeysRef = useRef<Set<string>>(new Set());
   const pendingEditDiffRef = useRef<TEdit | null>(null);
 
   useEffect(() => {
     handledResumeSelectorKeysRef.current.clear();
     handledEditKeysRef.current.clear();
     handledDiagnosisKeysRef.current.clear();
+    handledStructuredKeysRef.current.clear();
     pendingEditDiffRef.current = null;
   }, [runId]);
 
@@ -126,6 +131,28 @@ export function useToolEventRouter<
         }
         handledDiagnosisKeysRef.current.add(dedupeKey);
         upsertDiagnosisToolEvent("current", structured as TDiagnosis);
+        return;
+      }
+
+      // 通用结构化事件:有专属分支的老工具之外,任何带 type 的 structured 一律
+      // 进注册表管线(StructuredCardRegistry 按 type 渲染,未知 type 走兜底卡)。
+      // 新工具/新卡片零路由改动。
+      const LEGACY_ROUTED_TOOLS = new Set([
+        "web_search", "show_resume", "CVReader", "cv_reader",
+        "cv_editor_agent", "get_resume_detail", "resume-diagnosis",
+        // generate_resume 走独立的 resume_generated SSE 事件,tool_result 里的
+        // 同名 structured 不进通用管线,避免双渲染
+        "generate_resume",
+      ]);
+      if (
+        !LEGACY_ROUTED_TOOLS.has(String(toolName)) &&
+        typeof (structured as any).type === "string"
+      ) {
+        if (handledStructuredKeysRef.current.has(dedupeKey)) {
+          return;
+        }
+        handledStructuredKeysRef.current.add(dedupeKey);
+        upsertStructuredEvent("current", structured as TStructured);
         return;
       }
 
@@ -233,6 +260,7 @@ export function useToolEventRouter<
       upsertResumeEditDiff,
       applyResumeEditDiff,
       upsertDiagnosisToolEvent,
+      upsertStructuredEvent,
     ],
   );
 

@@ -43,14 +43,8 @@ import {
   Sparkles,
   MessageSquare,
   Bot,
-  Wand2,
-  Upload,
-  FileText,
-  Search,
-  Zap,
 } from "lucide-react";
 import ChatEmptyState from "@/components/agent-chat/ChatEmptyState";
-import IntentChips from "@/components/agent-chat/IntentChips";
 import ModelSelector, { DEFAULT_AGENT_MODEL } from "@/components/agent-chat/ModelSelector";
 import React, {
   useCallback,
@@ -64,6 +58,7 @@ import EnhancedMarkdown from "@/components/chat/EnhancedMarkdown";
 import Composer from "@/components/agent-chat/Composer";
 import MessageTimeline from "@/components/agent-chat/MessageTimeline";
 import StreamingLane from "@/components/agent-chat/StreamingLane";
+import type { StructuredEventData } from "@/components/agent-chat/StructuredCardRegistry";
 import { useTextStream } from "@/hooks/useTextStream";
 import { useToolEventRouter } from "@/hooks/agent-chat/useToolEventRouter";
 import { useStreamRunController } from "@/hooks/agent-chat/useStreamRunController";
@@ -378,15 +373,6 @@ function isLoadResumeIntentText(text: string): boolean {
   return isSelectExistingResumeIntentText(text);
 }
 
-function isGreetingOnlyText(text: string): boolean {
-  const normalized = (text || "").trim();
-  if (!normalized) return false;
-  return (
-    normalized.length <= 20 &&
-    /^(?:你好|您好|hello|hi|hey|在吗|哈喽)[!！?？\s，,。.~～]*$/i.test(normalized)
-  );
-}
-
 const PASTE_IMPORT_EXPLICIT_RES = [
   /^导入(?:我的)?(?:简历|cv)(?:内容)?\s*[：:]\s*([\s\S]+)/i,
   /^import\s+(?:my\s+)?(?:resume|cv)(?:\s+content)?\s*[：:]\s*([\s\S]+)/i,
@@ -447,9 +433,6 @@ const CREATE_RESUME_GUIDE_TEXT = `好，把你的情况说给我就行 👇 这�
 - **自我评价**：技能亮点、求职意向
 
 可以**一次性全发**给我、也可以**一段段拆开**给、或者先说一项（比如「我的教育经历是……」）。有现成的简历文字、直接粘进来也行。`;
-
-const GREETING_CREATE_RESUME_GUIDANCE =
-  "你好 👋 我是 coco、你的简历助手。下面选一个快速开始、或者直接打字告诉我你想做什么。";
 
 interface SearchResultItem {
   position?: number;
@@ -542,37 +525,6 @@ function stableMessageId(content: string, role: string, index: number): string {
   return `msg-${(hash >>> 0).toString(16).slice(0, 12)}`;
 }
 
-// 应用后一键微调：把已应用补丁的 path 推成「条目名+段类型」，生成继续打磨该段的 chip。
-// 点击即发一句以「优化」开头、带条目名的自然语言，命中 OPTIMIZE_SECTION 精确路由回同一段。
-const REFINE_SECTION_CN: Record<string, string> = {
-  experience: "实习经历",
-  projects: "项目经历",
-  opensource: "开源经历",
-  education: "教育经历",
-  awards: "荣誉奖项",
-};
-function buildApplyRefineChips(
-  path: string | undefined,
-  resume: Record<string, any> | null | undefined,
-): { text: string; msg: string }[] | undefined {
-  if (!path) return undefined;
-  const m = path.match(/^(\w+)(?:\[(\d+)\])?/);
-  if (!m) return undefined;
-  const cn = REFINE_SECTION_CN[m[1]];
-  if (!cn) return undefined; // 技能 / 自我评价等不给「维度」微调
-  const idx = m[2] ? parseInt(m[2], 10) : -1;
-  const entry = idx >= 0 ? resume?.[m[1]]?.[idx] : null;
-  const rawLabel =
-    entry?.company || entry?.name || entry?.school || entry?.title || "";
-  const label = String(rawLabel).replace(/\*+/g, "").trim();
-  const tgt = label ? `${label}的${cn}` : cn;
-  return [
-    { text: "更简洁", msg: `优化${tgt}，改得更简洁精炼一些` },
-    { text: "更突出成果", msg: `优化${tgt}，更突出量化数据和成果` },
-    { text: "换更有力的动词", msg: `优化${tgt}，多用有力的动作动词` },
-  ];
-}
-
 // ============================================================================
 // 主页面组件
 // ============================================================================
@@ -662,6 +614,9 @@ function CocoChatContent() {
   >([]);
   const [diagnosisToolEvents, setDiagnosisToolEvents] = useState<
     Array<{ messageId: string; data: DiagnosisToolStructuredData }>
+  >([]);
+  const [structuredEvents, setStructuredEvents] = useState<
+    Array<{ messageId: string; data: StructuredEventData }>
   >([]);
 
   const [resumeEditError, setLastError] = useState<{ message: string } | null>(null);
@@ -795,8 +750,6 @@ function CocoChatContent() {
   const [showResumeSelector, setShowResumeSelector] = useState(false);
   // 「按 JD 优化简历」交互卡（从首页 chip 进入时打开）
   const [showJdCard, setShowJdCard] = useState(false);
-  // 问候 fast-path 的意图引导胶囊（替代旧的 ResumeSelector 大卡）
-  const [showGreetingChips, setShowGreetingChips] = useState(false);
   // ResumeSelector 打开时的初始步骤（「选择已有」直达列表，其余从入口卡片进）
   const [resumeSelectorInitialStep, setResumeSelectorInitialStep] = useState<
     "entry" | "existing"
@@ -1095,6 +1048,23 @@ function CocoChatContent() {
   const upsertDiagnosisToolEvent = useCallback(
     (messageId: string, data: DiagnosisToolStructuredData) => {
       setDiagnosisToolEvents((prev) => {
+        const existingIndex = prev.findIndex(
+          (item) => item.messageId === messageId && item.data.type === data.type,
+        );
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = { messageId, data };
+          return updated;
+        }
+        return [...prev, { messageId, data }];
+      });
+    },
+    [],
+  );
+
+  const upsertStructuredEvent = useCallback(
+    (messageId: string, data: StructuredEventData) => {
+      setStructuredEvents((prev) => {
         const existingIndex = prev.findIndex(
           (item) => item.messageId === messageId && item.data.type === data.type,
         );
@@ -1414,7 +1384,8 @@ function CocoChatContent() {
     SearchStructuredData,
     ResumeStructuredData,
     ResumeEditDiffStructuredData,
-    DiagnosisToolStructuredData
+    DiagnosisToolStructuredData,
+    StructuredEventData
   >({
     runId: activeRunId,
     onDone: () => {
@@ -1467,6 +1438,7 @@ function CocoChatContent() {
       upsertResumeEditDiff(messageId, data);
     },
     upsertDiagnosisToolEvent,
+    upsertStructuredEvent,
     applyResumeEditDiff: (data: ResumeEditDiffStructuredData) => {
       if (hasPatchInCurrentStreamRef.current) {
         console.log("[AgentChat] Skipping old applyEditDiff — resume_patch path is active");
@@ -1595,6 +1567,7 @@ function CocoChatContent() {
         resumeData: r.resumeData, // 右侧 PDF 预览渲染需要
       })),
       diagnosisToolEvents,
+      structuredEvents,
       messageMetas,
       pendingPatches: persistedPatches,
     };
@@ -1616,7 +1589,7 @@ function CocoChatContent() {
         console.warn("[AgentChat] 持久化 UI 状态失败:", retryError);
       }
     }
-  }, [conversationId, selectedResumeId, loadedResumes, diagnosisToolEvents, messages, pendingPatches]);
+  }, [conversationId, selectedResumeId, loadedResumes, diagnosisToolEvents, structuredEvents, messages, pendingPatches]);
 
   // 说明：
   // 进入 AI 页面时，conversationId 只允许由两处决定：
@@ -1784,6 +1757,7 @@ function CocoChatContent() {
               loadedResumes: sLrs,
               selectedResumeId: savedSelectedResumeId,
               diagnosisToolEvents: savedDiagnosisToolEvents,
+              structuredEvents: savedStructuredEvents,
               messageMetas: sMetas,
               pendingPatches: sPatches,
             } = JSON.parse(savedUiState);
@@ -1793,6 +1767,9 @@ function CocoChatContent() {
             }
             if (Array.isArray(savedDiagnosisToolEvents)) {
               setDiagnosisToolEvents(savedDiagnosisToolEvents);
+            }
+            if (Array.isArray(savedStructuredEvents)) {
+              setStructuredEvents(savedStructuredEvents);
             }
             if (sMetas && typeof sMetas === "object") {
               savedMessageMetas = sMetas;
@@ -2208,6 +2185,7 @@ function CocoChatContent() {
     setLoadedResumes((prev) => rebindCurrentMessageId(prev, uniqueId));
     setResumeEditDiffs((prev) => rebindCurrentMessageId(prev, uniqueId));
     setDiagnosisToolEvents((prev) => rebindCurrentMessageId(prev, uniqueId));
+    setStructuredEvents((prev) => rebindCurrentMessageId(prev, uniqueId));
     // 把当前流式 patch 绑定到这条 finalize 后的 assistant 消息上
     rebindCurrentPatches(uniqueId);
 
@@ -2819,6 +2797,7 @@ function CocoChatContent() {
     setAllowPdfAutoRender(false);
     setLoadedResumes([]);
     setDiagnosisToolEvents([]);
+    setStructuredEvents([]);
     setSearchResults([]);
     setResumeEditDiffs([]);
     setActiveSearchPanel(null);
@@ -3000,6 +2979,7 @@ function CocoChatContent() {
     setLoadedResumes([]);
     setSearchResults([]);
     setDiagnosisToolEvents([]);
+    setStructuredEvents([]);
     setActiveSearchPanel(null);
     setResumePdfPreview({});
     restorePatches([]); // 清掉上一会话的 diff 卡，避免残留错挂
@@ -3063,6 +3043,7 @@ function CocoChatContent() {
             loadedResumes: sLrs,
             selectedResumeId: savedSelectedResumeId,
             diagnosisToolEvents: savedDiagnosisToolEvents,
+            structuredEvents: savedStructuredEvents,
             messageMetas: sMetas,
             pendingPatches: sPatches,
           } = JSON.parse(savedUiState);
@@ -3071,6 +3052,9 @@ function CocoChatContent() {
           }
           if (Array.isArray(savedDiagnosisToolEvents)) {
             setDiagnosisToolEvents(savedDiagnosisToolEvents);
+          }
+          if (Array.isArray(savedStructuredEvents)) {
+            setStructuredEvents(savedStructuredEvents);
           }
           if (sMetas && typeof sMetas === "object") {
             savedMessageMetas = sMetas;
@@ -3175,6 +3159,7 @@ function CocoChatContent() {
     setAllowPdfAutoRender(false);
     setLoadedResumes([]);
     setDiagnosisToolEvents([]);
+    setStructuredEvents([]);
     setSearchResults([]);
     setResumeEditDiffs([]);
     setActiveSearchPanel(null);
@@ -3300,7 +3285,6 @@ function CocoChatContent() {
       setAllowPdfAutoRender(true);
       setSelectedResumeId(selectedResume.id);
       setShowResumeSelector(false);
-      setShowGreetingChips(false);
 
       // 应用新简历数据后强制重渲 PDF 预览：
       // 粘贴导入 / AI 编辑常是「更新现有简历（同 id）」，selectedResumeId 不变、旧 blob 有缓存，
@@ -3595,7 +3579,6 @@ function CocoChatContent() {
       const nextMessages = [...messages, userMessageEntry];
       const isFirstMessage = messages.length === 0;
       setMessages(nextMessages);
-      setShowGreetingChips(false);
 
       let validConversationId = conversationId;
       if (!validConversationId || validConversationId.trim() === "") {
@@ -3914,7 +3897,6 @@ function CocoChatContent() {
       void persistSessionSnapshot(validConversationId, updated, prev.length === 0);
       return updated;
     });
-    setShowGreetingChips(false);
     setResumeError(null);
   }, [conversationId, currentSessionId, persistSessionSnapshot]);
 
@@ -3932,8 +3914,6 @@ function CocoChatContent() {
         return;
 
       const trimmedMessage = userMessage.trim();
-      // 任何真实发送都先收起问候引导胶囊；命中问候 fast-path 时下方会重新打开
-      setShowGreetingChips(false);
       const pasteResumeText =
         !attachments || attachments.length === 0
           ? extractPasteImportResumeText(trimmedMessage)
@@ -4015,7 +3995,6 @@ function CocoChatContent() {
         };
         const finalMessages = [...nextMessages, assistantMsg];
         setMessages(finalMessages);
-        setShowGreetingChips(false);
         await persistSessionSnapshot(
           validConversationId,
           finalMessages,
@@ -4028,49 +4007,6 @@ function CocoChatContent() {
       const hasResumeContext =
         !!resumeDataRef.current ||
         loadedResumes.some((item) => !!item.resumeData);
-
-      if (
-        isGreetingOnlyText(trimmedMessage) &&
-        (!attachments || attachments.length === 0) &&
-        !hasResumeContext
-      ) {
-        const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const userMessageEntry: Message = {
-          id: uniqueId,
-          role: "user",
-          content: userMessage,
-          timestamp: new Date().toISOString(),
-        };
-        const nextMessages = [...messages, userMessageEntry];
-        const isFirstMessage = messages.length === 0;
-        setMessages(nextMessages);
-
-        let validConversationId = conversationId;
-        if (!validConversationId || validConversationId.trim() === "") {
-          validConversationId = `conv-${Date.now()}`;
-          setConversationId(validConversationId);
-        }
-        if (!currentSessionId) {
-          setCurrentSessionId(validConversationId);
-        }
-
-        const assistantMsg: Message = {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          role: "assistant",
-          content: GREETING_CREATE_RESUME_GUIDANCE,
-          timestamp: new Date().toISOString(),
-        };
-        const finalMessages = [...nextMessages, assistantMsg];
-        setMessages(finalMessages);
-        setShowGreetingChips(true);
-        await persistSessionSnapshot(
-          validConversationId,
-          finalMessages,
-          isFirstMessage,
-        );
-        setResumeError(null);
-        return;
-      }
 
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       currentRunUserInputRef.current = userMessage.trim();
@@ -4088,6 +4024,9 @@ function CocoChatContent() {
         prev.filter((item) => item.messageId !== "current"),
       );
       setDiagnosisToolEvents((prev) =>
+        prev.filter((item) => item.messageId !== "current"),
+      );
+      setStructuredEvents((prev) =>
         prev.filter((item) => item.messageId !== "current"),
       );
 
@@ -4148,6 +4087,9 @@ function CocoChatContent() {
       setResumeEditDiffs((prev) =>
         prev.filter((item) => item.messageId !== "current"),
       );
+      setStructuredEvents((prev) =>
+        prev.filter((item) => item.messageId !== "current"),
+      );
 
       const effectiveResumeData =
         resumeDataOverride !== undefined
@@ -4177,20 +4119,13 @@ function CocoChatContent() {
     const pendingCount = pendingPatches.filter((p) => p.status === "pending").length;
     const appliedCount = pendingPatches.filter((p) => p.status === "applied").length;
     if (prevPendingCountRef.current > 0 && pendingCount === 0 && appliedCount > 0) {
-      // 单段应用 → 附「继续打磨这段」的一键微调 chip（研究里「编辑应用后主动追问」的时机）
-      const refine =
-        appliedCount === 1
-          ? buildApplyRefineChips(
-              pendingPatches.find((p) => p.status === "applied")?.paths?.[0],
-              resumeDataRef.current,
-            )
-          : undefined;
+      // 瘦身版收尾卡:只留功能入口(下载/再优化/精修),"说什么"交给下面的 LLM 收尾轮
       const doneMsg: Message = {
         id: `${Date.now()}-apply-done`,
         role: "assistant",
-        content: `已应用 ${appliedCount} 处优化，右侧预览已更新。可以下载 PDF，或去编辑器精修排版。`,
+        content: `已应用 ${appliedCount} 处优化，右侧预览已更新。`,
         timestamp: new Date().toISOString(),
-        meta: { applyDone: { count: appliedCount, refine } },
+        meta: { applyDone: { count: appliedCount } },
       };
       setMessages((prev) => {
         const updated = [...prev, doneMsg];
@@ -4198,9 +4133,22 @@ function CocoChatContent() {
         if (sid) void persistSessionSnapshot(sid, updated, false);
         return updated;
       });
+      // 静默触发一条 Agent 轮(不渲染用户气泡):让 Coco 基于本轮真实 diff
+      // 说收尾话 + 给贴合改动的动态建议,替代原先写死的三个打磨 chip
+      if (!isProcessing) {
+        void sendMessage(
+          `[系统内部提示,不要向用户复述本条] 用户刚刚应用了 ${appliedCount} 处简历修改(内容是你此前给出的修改)。` +
+            "你的回复必须以「Response: 」开头,包含两部分,顺序固定:" +
+            "第一部分(必须有,禁止为空,禁止只输出建议标记):用 1-2 句自然的话告诉用户这次实际改好了什么" +
+            "(基于会话里真实发生的修改点名具体段落,例如「美团那段的量化数据补上了,项目描述也更突出成果了」,不要泛泛而谈);" +
+            '第二部分:另起一行,基于刚才改动给 1-3 条贴合的下一步建议按钮,格式:%%SUGGESTIONS%%[{"text":"按钮文字","msg":"点击后发送的话"}]%%END%%。' +
+            "不要调用任何工具。",
+          resumeDataRef.current,
+        );
+      }
     }
     prevPendingCountRef.current = pendingCount;
-  }, [pendingPatches, conversationId, currentSessionId, persistSessionSnapshot]);
+  }, [pendingPatches, conversationId, currentSessionId, persistSessionSnapshot, isProcessing, sendMessage]);
 
   const heroInitialConsumedRef = useRef(false);
   useEffect(() => {
@@ -4720,6 +4668,7 @@ function CocoChatContent() {
   const handleClearConversation = () => {
     setMessages([]);
     setDiagnosisToolEvents([]);
+    setStructuredEvents([]);
     finalizeStream();
   };
 
@@ -4875,6 +4824,7 @@ function CocoChatContent() {
                   searchResults={searchResults}
                   resumeEditDiffs={resumeEditDiffs}
                   diagnosisToolEvents={diagnosisToolEvents}
+                  structuredEvents={structuredEvents}
                   pendingPatches={pendingPatches}
                   copiedId={copiedId}
                   stripResumeEditMarkdown={stripResumeEditMarkdown}
@@ -4905,7 +4855,6 @@ function CocoChatContent() {
                   }}
                   onDownloadPdf={handleDownloadPdf}
                   onGoEditor={handleGoEditor}
-                  onOptimizeForJd={() => setShowJdCard(true)}
                 />
 
                 <StreamingLane
@@ -4931,6 +4880,9 @@ function CocoChatContent() {
                   }
                   currentSearch={searchResults.find((r) => r.messageId === "current")}
                   currentDiagnosisTools={diagnosisToolEvents
+                    .filter((item) => item.messageId === "current")
+                    .map((item) => item.data)}
+                  currentStructured={structuredEvents
                     .filter((item) => item.messageId === "current")
                     .map((item) => item.data)}
                   stripResumeEditMarkdown={stripResumeEditMarkdown}
@@ -4980,57 +4932,6 @@ function CocoChatContent() {
                       onPasteResumeText={handleJdCardPasteResume}
                       onStartOptimize={handleJdCardStartOptimize}
                       onDismiss={() => setShowJdCard(false)}
-                    />
-                  </div>
-                )}
-
-                {/* 问候引导胶囊：发「你好」且无简历时的零延迟意图引导（替代旧的大卡） */}
-                {showGreetingChips && (
-                  <div className="px-4 py-2">
-                    <IntentChips
-                      chips={[
-                        {
-                          icon: Wand2,
-                          label: "对话创建（推荐）",
-                          onClick: () => {
-                            setShowGreetingChips(false);
-                            handleFillCreateResumePrompt();
-                          },
-                        },
-                        {
-                          icon: Upload,
-                          label: "导入简历",
-                          onClick: () => {
-                            setShowGreetingChips(false);
-                            handleImportResume();
-                          },
-                        },
-                        {
-                          icon: FileText,
-                          label: "选择已有",
-                          onClick: () => {
-                            setShowGreetingChips(false);
-                            setResumeSelectorInitialStep("existing");
-                            setShowResumeSelector(true);
-                          },
-                        },
-                        {
-                          icon: Search,
-                          label: "岗位分析",
-                          onClick: () => {
-                            setShowGreetingChips(false);
-                            setInput("分析这个 JD，看看我的简历还要补充什么");
-                          },
-                        },
-                        {
-                          icon: Zap,
-                          label: "快速问答",
-                          onClick: () => {
-                            setShowGreetingChips(false);
-                            setInput("怎么写出让 HR 眼前一亮的简历总结");
-                          },
-                        },
-                      ]}
                     />
                   </div>
                 )}

@@ -42,35 +42,45 @@ class CVEditorAgentTool(BaseTool):
     """
 
     name: str = "cv_editor_agent"
-    description: str = """Edit and modify CV/Resume data through the CVEditor Agent.
+    description: str = """修改当前简历的字段(改/加/删)。用户要求修改、优化、润色、添加、删除简历内容时使用;可多次调用完成多处修改。
 
-Use this tool when user requests to modify resume content.
+path 必须精确到叶子字段,常用路径:
+- 姓名 basic.name / 手机 basic.phone / 邮箱 basic.email / 求职意向 basic.title
+- 教育 education[0].school|major|degree|gpa
+- 实习/工作经历描述 experience[N].details;项目描述 projects[N].description
+- 开源经历 openSource[N].description;技能 skillContent
+- 整段追加:path=experience(或 projects/openSource),action=add,value 传完整对象
 
-**Keywords:** 修改, 更新, 改成, 改为, 设置, 添加, 增加, 删除, 去掉
+action 语义:update=改现有值;add=向数组追加(value 必须是对象,禁止二次 JSON 编码成字符串);delete=删除。
 
-**Parameters:**
-- path: JSON path to the field (e.g., 'basic.name', 'education[0].school', 'education')
-- action: 'update', 'add', or 'delete'
-- value: New value (for update/add operations)
+富文本约束(details/description/skillContent 的 value 必须遵守):
+- 只用 HTML,禁止 Markdown:加粗 <strong>文字</strong>,不要 **文字**
+- 多条要点用 <ul class="custom-list"><li><p><strong>小标题</strong>:描述…</p></li></ul>,不要 1. 2. 3.
+- 改写必须基于简历现有内容(在 system context 中),不得凭空编造经历或数据
 
-Execute modifications immediately when user provides specific details.
-"""
+add 新实习示例 value:
+{"company":"美的集团","position":"后端开发实习生","date":"2024.12 - 2025.03","details":"<p>…</p><ul class=\\"custom-list\\">…</ul>"}
+(用 date 字段,不要 period)"""
 
     parameters: dict = {
         "type": "object",
         "properties": {
             "path": {
                 "type": "string",
-                "description": "JSON path to the resume field. Examples: 'basic.name', 'education[0].school', 'experience'"
+                "description": "简历字段的 JSON 路径,精确到叶子字段。如 basic.name、experience[0].details、projects[1].description;整段追加时用数组名如 experience"
             },
             "action": {
                 "type": "string",
                 "enum": ["update", "add", "delete"],
-                "description": "Operation type: 'update' to modify, 'add' to append to array, 'delete' to remove"
+                "description": "update=修改现有值;add=向数组追加完整对象;delete=删除该路径"
             },
             "value": {
-                "type": "string",
-                "description": "New value for update/add operations (will be parsed as JSON if needed). For add, provide complete object. For update, provide the new value."
+                "anyOf": [
+                    {"type": "string"},
+                    {"type": "object"},
+                    {"type": "array"},
+                ],
+                "description": "新值。update 时通常是字符串(富文本字段必须是 HTML);add 时必须是完整对象(不要编码成 JSON 字符串);delete 时省略"
             }
         },
         "required": ["path", "action"]
@@ -78,6 +88,57 @@ Execute modifications immediately when user provides specific details.
 
     class Config:
         arbitrary_types_allowed = True
+
+    # patch 卡标题的人话化:用户看到的应是「实习经历「美团」的描述」,
+    # 而不是 experience[1].details 这种技术路径
+    _SECTION_CN = {
+        "experience": "实习经历",
+        "projects": "项目经历",
+        "openSource": "开源经历",
+        "opensource": "开源经历",
+        "education": "教育经历",
+        "awards": "荣誉奖项",
+    }
+    _FIELD_CN = {
+        "details": "描述", "description": "描述", "company": "公司", "position": "职位",
+        "name": "名称", "school": "学校", "major": "专业", "degree": "学历", "gpa": "GPA",
+        "date": "时间", "role": "角色", "link": "链接",
+    }
+    _TOP_FIELD_CN = {
+        "selfEvaluation": "自我评价", "skillContent": "专业技能",
+        "basic.name": "姓名", "basic.phone": "电话", "basic.email": "邮箱",
+        "basic.title": "求职意向", "basic.location": "所在地",
+    }
+
+    def _humanize_path(self, path_str: str) -> str:
+        p = (path_str or "").strip()
+        if p in self._TOP_FIELD_CN:
+            return self._TOP_FIELD_CN[p]
+        m = re.match(r"^(\w+)\[(\d+)\](?:\.(\w+))?$", p)
+        if m:
+            section, idx, field = m.group(1), int(m.group(2)), m.group(3)
+            section_cn = self._SECTION_CN.get(section)
+            if section_cn:
+                label = self._entry_label(section, idx)
+                head = f"{section_cn}「{label}」" if label else f"第 {idx + 1} 段{section_cn}"
+                return f"{head}的{self._FIELD_CN.get(field, field)}" if field else head
+        if p in self._SECTION_CN:
+            return self._SECTION_CN[p]
+        return p  # 未识别的路径保底原样,不弄巧成拙
+
+    def _entry_label(self, section: str, idx: int) -> str:
+        """尽量取条目名(公司/项目名/学校)当标题;取不到返回空串走序号兜底。"""
+        try:
+            from backend.agent.tool.resume_data_store import ResumeDataStore
+
+            data = ResumeDataStore.get_data(self.session_id) or {}
+            entry = (data.get(section) or [])[idx] or {}
+            label = str(
+                entry.get("company") or entry.get("name") or entry.get("school") or ""
+            ).strip()
+            return label[:20]
+        except Exception:
+            return ""
 
     @staticmethod
     def _values_equal(old_val: Any, new_val: Any) -> bool:
@@ -297,11 +358,10 @@ Execute modifications immediately when user provides specific details.
                         before_payload = build_indexed_patch_before(path_str, old_val)
                         after_payload = build_indexed_patch_after(path_str, new_val)
 
-                summary = (
-                    f"删除了 {path_str}"
-                    if patch_operation == "delete"
-                    else f"修改了 {path_str}"
+                verb = "删除了" if patch_operation == "delete" else (
+                    "新增了" if action == "add" else "修改了"
                 )
+                summary = f"{verb} {self._humanize_path(path_str)}"
                 structured_data = {
                     "type": "resume_patch",
                     "patch_id": patch_id,

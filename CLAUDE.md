@@ -11,7 +11,7 @@
 - 当前项目是 Resume-Agent 单仓库，包含 `frontend/` 与 `backend/`
 - 后端主服务端口默认 `9000`，前端 Vite 默认端口为 `5173`；`9000` 被占用时可换端口启动（见 §3.2 端口冲突回退规则）
 - 核心约束：Agent 已合并进 `backend/agent/`，运行在主后端进程内；**没有独立 9100 端口 Agent 服务**
-- `knowledge-base/` 是设计、计划、评审和操作记录的唯一主知识库
+- `knowledge-base/` 是设计、计划、评审和操作记录的唯一主知识库；**例外**：领域文档（根目录 `CONTEXT.md` 术语表 + `docs/adr/` 架构决策记录 + `docs/agents/` 工程 skill 配置）按 §4.0/§4.4 约定就地存放并进 Git
 - `reference/` 是竞品调研与参考资料目录：`reference/docs/` 放调研文档（进 Git），`reference/projects/` 放 clone 的参考项目源码（被 Git 忽略）；**所有竞品调研文档都归档到 `reference/docs/`**，索引见 `reference/README.md`
 - `knowledge/` 是本地旧目录，已被 Git 忽略，不作为项目长期记录位置
 - `README.md` 在本仓库可能被忽略，不要只靠 Git 状态判断文档变化
@@ -106,9 +106,9 @@ reference/
    - 看到更简单的方案就指出，必要时对复杂方案提异议
    - 不清楚就**停下**，命名清楚在困惑什么再问
 
-2. **新功能必调 `/superpowers:brainstorming`**，做需求分析与方案探索
+2. **新功能必调 `/brainstorming`**，做需求分析与方案探索
 
-3. **复杂功能必调 `/superpowers:writing-plans`**，写实施计划
+3. **复杂功能必调 `/writing-plans`**，写实施计划
 
 4. **六角度思考框架**（复杂功能用）：
    第一性原理 → 理性逻辑推理 → 概率风险评估 → 迭代优化 → 逆向思维 → 批判性思维
@@ -218,7 +218,7 @@ reference/
    - 至少覆盖前端调用、后端接口、LaTeX 生成和编译错误输出
    - 只看 JSON 或只看按钮点击不算完成
 
-5. **必调 `/superpowers:verification-before-completion`**——不是装饰，是强制
+5. **必调 `/verification-before-completion`**——不是装饰，是强制
 
 6. **不能声称“完成”的情况**
    - 测试没通过
@@ -320,44 +320,74 @@ pytest backend/tests/<target_test>.py
 
 ## 4. Skill 速查
 
+### 4.0 标准开发流程（主线 · 非平凡改动必走）
+
+任何非平凡的功能 / 改动，按下面三段走，不跳步。每段产出落到 `knowledge-base/` 与领域文档，供跨会话 / 跨终端接续。
+
+**① 设计对齐 · `/brainstorming`** —— 写任何代码前必走
+探清需求 → 给 2–3 个方案 → 逐段呈现设计并等用户批准 → 把 spec 写到 `knowledge-base/specs/YYYY-MM-DD-<主题>-design.md` 并 commit。
+（覆盖 brainstorming 默认的 `docs/superpowers/specs/`：本项目 spec 一律进 `knowledge-base/`。）
+
+**② 压测 + 沉淀 · `/grill-with-docs`** —— 设计成型后，或实施中概念开始打架时
+对方案往死里追问、逐个锁死决策；同时把领域术语落成 `CONTEXT.md`、把关键决策落成 `docs/adr/NNNN-*.md`（见 §4.4）。
+> 触发信号（命中任一立刻切，别硬着头皮往下写）：同一个词指代不清 / 某个决策反复动摇 / 跨模块概念对不齐。ResumeAgent 概念多（简历 · Agent · 工具 · 评分 · 对话），这一步专防用词漂移和返工。
+
+**③ 实施 + 验证**
+`/writing-plans` 拆实施计划（存 `knowledge-base/plans/`）→ 按计划实现（独立子任务可 `/subagent-driven-development` 并行）→ 实测 → `/verification-before-completion` → `/commit`。
+
 ### 4.1 强制节点
 
 | 时机 | 命令 |
 |---|---|
-| 新功能开发前 | `/superpowers:brainstorming` |
-| 复杂功能立项 | `/superpowers:writing-plans` |
-| 声称完成前 | `/superpowers:verification-before-completion` |
-| Bug 排查 | `/superpowers:systematic-debugging` |
+| 新功能开发前（设计对齐） | `/brainstorming` |
+| 设计压测 + 领域沉淀 | `/grill-with-docs` |
+| 复杂功能立项（拆计划） | `/writing-plans` |
+| 声称完成前 | `/verification-before-completion` |
+| Bug 排查 | `/systematic-debugging` |
 
 ### 4.2 场景流程链
 
+（`git 提交` 指按阶段四规则直接用 git 提交，不是 skill。）
+
 | 场景 | 流程 |
 |---|---|
-| 新功能 | `brainstorming` → `writing-plans` → `feature-dev` → 实测 → `commit` |
-| 新页面 / 新组件 | `brainstorming` → `frontend-design` + `react-best-practices` → `web-design-guidelines` 审查 → `webapp-testing` → `commit` |
-| 修 Bug | `systematic-debugging` → `bug-fix` → `verification-before-completion` → `commit` |
-| Agent 工具 | `brainstorming` → `writing-plans` → 后端工具实现 → SSE 实测 → `verification-before-completion` → `commit` |
-| PDF / LaTeX | `systematic-debugging` 或 `writing-plans` → 渲染链路验证 → `verification-before-completion` → `commit` |
-| 重构 | `writing-plans` → `simplify` / `clean-code` → `code-review` → `commit` |
-| 生成文档 | `/docx` / `/xlsx` / `/pptx` / `/pdf` |
+| 新功能 | §4.0 主线：`brainstorming` →（概念打架时 `grill-with-docs`）→ `writing-plans` → 实现 → 实测 → `verification-before-completion` → git 提交 |
+| 新页面 / 新组件 | `brainstorming` → 实现（视觉要求高时用项目级设计 skill，如 `taste-skill` / `redesign-skill`）→ dev server 浏览器实测（阶段三-1）→ `verification-before-completion` → git 提交 |
+| 修 Bug | `systematic-debugging` → 修复 → `verification-before-completion` → git 提交 |
+| Agent 工具 | `brainstorming` → `writing-plans` → 后端工具实现 → SSE 实测 → `verification-before-completion` → git 提交 |
+| PDF / LaTeX | `systematic-debugging` 或 `writing-plans` → 渲染链路验证 → `verification-before-completion` → git 提交 |
+| 重构 | `writing-plans` → `simplify` → `code-review` → git 提交 |
+| 生成 Office/PDF 文档 | docx / xlsx / pptx / pdf skill（以 `/` 菜单里的实际名称为准，可能带插件前缀） |
 
 ### 4.3 其它常用 Skill
 
+（以下均已核验存在于当前环境；`/` 菜单敲不出来时以菜单为准。）
+
 | 命令 | 场景 |
 |---|---|
-| `/feature-dev` | 引导式功能开发 |
-| `/frontend-design` | 新页面 / 组件快速原型 |
-| `/ui-ux-pro-max` | 专业配色 / 字体 / 风格决策 |
-| `react-best-practices` | 写 React 组件自动参考 |
-| `web-design-guidelines` | 前端审查自动参考 |
-| `/code-review` | 功能完成后、提交前审查 |
-| `/simplify` | 代码简化优化 |
-| `/webapp-testing` | Playwright 端到端测试 |
-| `/gstack` | 快速无头浏览器 QA、站点验证、截图取证 |
-| `/commit` | 规范 Git 提交 |
-| `/context7` | 查询第三方库最新文档 |
-| `/bug-fix` | 结构化 Bug 修复流程 |
-| `/superpowers:dispatching-parallel-agents` | 并行开发多个独立子任务 |
+| `/code-review` | 提交前审查：找 bug + 简化（支持 `--fix` / `--comment` / `ultra`） |
+| `/mattpocock-code-review` | 双轴审查：是否合仓库规范 + 是否符合原 issue/PRD |
+| `/ponytail-review` | 只查过度设计：该删的抽象 / 冗余 / 重造轮子 |
+| `/simplify` | 代码简化优化（只做质量清理，不找 bug） |
+| `/verify` | 端到端驱动真实链路验证一个改动（不是只跑测试） |
+| `/run` | 启动并驱动本项目应用看改动效果 |
+| `/prototype` | 一次性原型验证设计问题 |
+| `/understand` | 生成代码库知识图谱（接手/回顾时用） |
+| `/grill-me` | 纯压测一个方案（不产文档；要落术语表/ADR 用 `/grill-with-docs`） |
+| `/handoff` | 把当前对话压缩成交接文档给另一个会话 |
+| `/subagent-driven-development` | 并行开发多个独立子任务 |
+| `taste-skill` / `redesign-skill` / `minimalist-skill` 等 | 项目级设计 skills（`.claude/skills/`，改前端视觉时自动参考） |
+| `/to-spec` / `/to-tickets` / `/triage` | 对接 GitHub Issues 的规格/拆票/分诊（配置见 §4.4） |
+
+### 4.4 工程 Skills 配置（mattpocock）
+
+`triage` / `to-tickets` / `to-spec` / `domain-modeling` / `improve-codebase-architecture` 等 skill 依赖下列配置，细节见对应文件：
+
+| 配置项 | 取值 | 详情 |
+|---|---|---|
+| Issue tracker | GitHub Issues（`WyRainBow/Resume-Agent`），PR 暂不作为 triage 入口 | `docs/agents/issue-tracker.md` |
+| Triage 标签 | 默认五个：`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix` | `docs/agents/triage-labels.md` |
+| 领域文档 | single-context，`CONTEXT.md` + `docs/adr/`（尚未创建，`domain-modeling` 首次用到时再建） | `docs/agents/domain.md` |
 
 ---
 
@@ -365,7 +395,7 @@ pytest backend/tests/<target_test>.py
 
 ### 5.1 自然语言简历重构
 
-> 开发前必须调用 `/superpowers:brainstorming`
+> 开发前必须调用 `/brainstorming`
 
 - 设计文档：`knowledge-base/specs/2026-03-23-nl-resume-refactor-design.md`
 - 实施计划：`knowledge-base/plans/2026-03-24-nl-resume-refactor.md`
@@ -374,7 +404,7 @@ pytest backend/tests/<target_test>.py
 
 ### 5.2 简历评分与分析
 
-> 开发前必须调用 `/superpowers:brainstorming`
+> 开发前必须调用 `/brainstorming`
 
 - 设计文档：`knowledge-base/specs/2026-05-20-resume-scoring-design.md`
 - 实施计划：`knowledge-base/plans/2026-05-20-resume-scoring-plan.md`
@@ -393,5 +423,5 @@ pytest backend/tests/<target_test>.py
 - 新 Agent 工具第一次上线就有后端注册、SSE 事件和前端消费，不需要用户提醒补
 - PDF 功能声称完成前有真实渲染链路验证痕迹
 - UI 功能声称完成前都有浏览器实测痕迹
-- Skill 强制节点没有被跳过，尤其是 `brainstorming`、`writing-plans`、`verification-before-completion`
+- Skill 强制节点没有被跳过，尤其是 `brainstorming`、`writing-plans`、`verification-before-completion`；出现 §4.0 ② 的触发信号（用词漂移 / 决策反复）时切了 `grill-with-docs` 而不是硬写
 - 设计、计划、评审和操作记录进入 `knowledge-base/`，而不是散落到临时目录

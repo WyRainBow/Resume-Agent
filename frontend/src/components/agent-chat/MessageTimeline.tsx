@@ -9,6 +9,10 @@ import ThoughtProcess from "@/components/chat/ThoughtProcess";
 import DiagnosisToolCards, {
   type DiagnosisToolStructuredData,
 } from "@/components/agent-chat/DiagnosisToolCards";
+import {
+  StructuredCards,
+  type StructuredEventData,
+} from "@/components/agent-chat/StructuredCardRegistry";
 import { ResumeDiffCard, ApplyAllPatchesBar } from "@/components/agent-chat/ResumeDiffCard";
 import { AssistantPaperCard } from "@/components/agent-chat/AssistantPaperCard";
 import { ParseImportTimerBadge } from "@/components/agent-chat/ParseImportTimerBadge";
@@ -57,12 +61,18 @@ interface DiagnosisToolEntry {
   data: DiagnosisToolStructuredData;
 }
 
+interface StructuredEventEntry {
+  messageId: string;
+  data: StructuredEventData;
+}
+
 interface MessageTimelineProps {
   messages: Message[];
   loadedResumes: LoadedResumeItem[];
   searchResults: SearchResultEntry[];
   resumeEditDiffs: ResumeEditDiffEntry[];
   diagnosisToolEvents: DiagnosisToolEntry[];
+  structuredEvents: StructuredEventEntry[];
   /** 所有 patch（pending / applied / rejected / superseded）按 message_id 渲染到对应历史消息下方。 */
   pendingPatches?: PendingPatch[];
   copiedId: string | null;
@@ -80,8 +90,6 @@ interface MessageTimelineProps {
   onDownloadPdf?: () => void;
   /** 收尾卡片：去编辑器精修 */
   onGoEditor?: () => void;
-  /** 收尾卡片：针对某个岗位再优化一版（回访钩子） */
-  onOptimizeForJd?: () => void;
 }
 
 function splitEmbeddedResponseFromThought(thought: string): {
@@ -141,6 +149,7 @@ export default function MessageTimeline({
   searchResults,
   resumeEditDiffs,
   diagnosisToolEvents,
+  structuredEvents,
   pendingPatches,
   copiedId,
   stripResumeEditMarkdown,
@@ -153,7 +162,6 @@ export default function MessageTimeline({
   onSuggestionClick,
   onDownloadPdf,
   onGoEditor,
-  onOptimizeForJd,
 }: MessageTimelineProps) {
   const isPlaceholderThought = (text: string) => text === "正在思考...";
   const [feedback, setFeedback] = useState<Record<string, "like" | "dislike" | undefined>>({});
@@ -177,6 +185,11 @@ export default function MessageTimeline({
         const diagnosisForMessage = diagnosisToolEvents
           .filter((item) => item.messageId === msg.id)
           .map((item) => item.data);
+        const structuredForMessage = structuredEvents
+          .filter((item) => item.messageId === msg.id)
+          .map((item) => item.data);
+        // 确认卡是本条消息的交互主体:存在时压制 LLM 的复述文字,只留卡片
+        const hasApprovalCard = structuredForMessage.some((d) => d.type === "approval_request");
         const rawThought = (msg.thought || "").trim();
         // 整份优化的进度（正在逐段优化…）是临时加载信息，优化完成后不该以「思考过程」折叠框残留在历史里
         const thoughtContent =
@@ -191,7 +204,7 @@ export default function MessageTimeline({
             : msg.content || "",
           { suppressWhenPatchCard: hasPatchCards },
         );
-        const effectiveContent = hasPatchCards
+        const effectiveContent = hasPatchCards || hasApprovalCard
           ? ""
           : getDiffFallbackResponse(
               Boolean(effectiveDiff),
@@ -281,11 +294,8 @@ export default function MessageTimeline({
             <div key={msg.id || idx} className="chat-message-enter mb-6">
               <ApplyDoneCard
                 count={msg.meta.applyDone.count}
-                refine={msg.meta.applyDone.refine}
-                onSuggestionClick={onSuggestionClick}
                 onDownloadPdf={onDownloadPdf}
                 onGoEditor={onGoEditor}
-                onOptimizeForJd={onOptimizeForJd}
               />
             </div>
           );
@@ -306,6 +316,7 @@ export default function MessageTimeline({
 
         const hasAssistantContent =
           diagnosisForMessage.length > 0 ||
+          structuredForMessage.length > 0 ||
           searchForMessage ||
           effectiveContent ||
           effectiveDiff ||
@@ -331,6 +342,10 @@ export default function MessageTimeline({
               <AssistantPaperCard>
                   {diagnosisForMessage.length > 0 && (
                     <DiagnosisToolCards items={diagnosisForMessage} className="mb-4" />
+                  )}
+
+                  {structuredForMessage.length > 0 && (
+                    <StructuredCards items={structuredForMessage} className="mb-4" />
                   )}
 
                   {searchForMessage && (

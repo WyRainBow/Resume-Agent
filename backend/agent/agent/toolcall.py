@@ -49,6 +49,7 @@ class ToolCallAgent(ReActAgent):
     _last_processed_user_input: str = PrivateAttr(default="")
     _pending_next_step: bool = PrivateAttr(default=False)  # 是否有待处理的 next_step
     _tool_structured_results: dict[str, Any] = PrivateAttr(default_factory=dict)
+    _halt_for_pending_approval: bool = PrivateAttr(default=False)
     _stream_content_callback: Optional[Callable[[str], Awaitable[None]]] = PrivateAttr(default=None)
     _stream_cancel_event: Optional[asyncio.Event] = PrivateAttr(default=None)
 
@@ -69,13 +70,6 @@ class ToolCallAgent(ReActAgent):
         """Escape loguru tag delimiters to avoid log formatting errors."""
         return text.replace("<", r"\<").replace(">", r"\>")
 
-    @staticmethod
-    def _is_browsing_request(text: str) -> bool:
-        if not text:
-            return False
-        pattern = r"(打开|访问|浏览|搜索|网页|网站|百度|谷歌|google|bing|天气|新闻|地图)"
-        return re.search(pattern, text, re.IGNORECASE) is not None
-
     def _get_last_user_message(self) -> str:
         for msg in reversed(self.messages):
             role = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
@@ -83,10 +77,35 @@ class ToolCallAgent(ReActAgent):
                 return msg.content.strip()
         return ""
 
+    # 有专属解析分支的老工具(行为保持不变);名单外的一切工具走下面的通用透传
+    _LEGACY_STRUCTURED_TOOLS = {
+        "web_search", "show_resume", "cv_editor_agent", "cv_reader_agent", "generate_resume",
+    }
+
     def _store_structured_tool_result(
         self, tool_call_id: str, tool_name: str, result: Any
     ) -> None:
-        if tool_name not in {"web_search", "show_resume", "cv_editor_agent", "cv_reader_agent", "generate_resume"} or not tool_call_id:
+        if not tool_call_id:
+            return
+        if tool_name not in self._LEGACY_STRUCTURED_TOOLS:
+            # 通用透传:任意工具把 {type, ...} JSON 放进 ToolResult.system 即可直达前端,
+            # 不再需要逐工具开白名单;解析失败记日志而非静默丢弃
+            raw = getattr(result, "system", None)
+            if not raw:
+                return
+            try:
+                structured = json.loads(raw) if isinstance(raw, str) else raw
+            except (ValueError, TypeError) as exc:
+                logger.warning(
+                    f"[structured] 工具 {tool_name} 的 system 字段不是合法 JSON,已丢弃: {exc}"
+                )
+                return
+            if not isinstance(structured, dict) or not structured.get("type"):
+                logger.warning(
+                    f"[structured] 工具 {tool_name} 的 system 字段缺少 type,已丢弃"
+                )
+                return
+            self._tool_structured_results[tool_call_id] = structured
             return
         if tool_name == "web_search":
             if result is None:
@@ -410,7 +429,7 @@ class ToolCallAgent(ReActAgent):
             return self.messages[-1].content or "No content or commands to execute"
 
         results = []
-        for command in self.tool_calls:
+        for index, command in enumerate(self.tool_calls):
             # Reset base64_image for each tool call
             self._current_base64_image = None
 
@@ -435,6 +454,28 @@ class ToolCallAgent(ReActAgent):
             self.memory.add_message(tool_msg)
             results.append(result)
 
+            # 有工具挂起等确认:立刻跳过同轮剩余工具调用——挂起的安全语义是
+            # "未经确认不执行副作用",若等循环跑完再终止,同轮的 sibling 工具
+            # 仍会真实执行(审查发现的绕过口)。被跳过的 tool_call 仍须补一条
+            # 占位 tool 消息,否则下一轮请求会因 tool_calls 缺响应而报错。
+            if self._halt_for_pending_approval:
+                skipped = self.tool_calls[index + 1:]
+                for skipped_command in skipped:
+                    logger.info(
+                        f"[approval] 同轮后续工具已跳过(等待用户确认): {skipped_command.function.name}"
+                    )
+                    self.memory.add_message(Message.tool_message(
+                        content="已跳过:上一个操作正在等待用户确认,本轮不再执行其它工具。",
+                        tool_call_id=skipped_command.id,
+                        name=skipped_command.function.name,
+                    ))
+                break
+
+        # 有工具挂起等确认:确定性终止本轮(不靠模型自觉),等待 approval 端点接力
+        if self._halt_for_pending_approval:
+            self._halt_for_pending_approval = False
+            self.state = AgentState.FINISHED
+
         return "\n\n".join(results)
 
     async def execute_tool(self, command: ToolCall) -> str:
@@ -450,20 +491,14 @@ class ToolCallAgent(ReActAgent):
             # Parse arguments
             args = json.loads(command.function.arguments or "{}")
 
-            # Guardrails: prevent file editing or python execution for browsing requests
-            user_input = self._get_last_user_message()
-            if self._is_browsing_request(user_input):
-                if name in {"str_replace_editor", "python_execute"}:
-                    return (
-                        "Error: 该请求属于网页浏览，请改用 browser_use 工具，"
-                        "禁止用 str_replace_editor 或 python_execute 模拟网页。"
-                    )
-                if name == "str_replace_editor" and isinstance(args, dict):
-                    file_text = args.get("file_text", "")
-                    if isinstance(file_text, str) and "<html" in file_text.lower():
-                        return (
-                            "Error: 禁止生成模拟 HTML 页面，请使用 browser_use 进行真实浏览。"
-                        )
+            # 运行时确认协议:requires_approval 工具不在这里执行——登记挂起、
+            # 推 approval_request 确认卡,由 approval 端点在用户批准后执行。
+            # LLM 传入的 _approved 之类标记一律剥除,模型无法绕过这道门。
+            if isinstance(args, dict):
+                args.pop("_approved", None)
+            tool_obj = self.available_tools.tool_map.get(name)
+            if tool_obj is not None and getattr(tool_obj, "requires_approval", False):
+                return self._suspend_for_approval(command.id, name, tool_obj, args)
 
             # Execute the tool
             logger.info(f"🔧 Activating tool: '{name}'...")
@@ -497,6 +532,48 @@ class ToolCallAgent(ReActAgent):
             error_msg = f"⚠️ Tool '{name}' encountered a problem: {str(e)}"
             logger.exception(error_msg)
             return f"Error: {error_msg}"
+
+    def _suspend_for_approval(self, tool_call_id: str, name: str, tool_obj: Any, args: dict) -> str:
+        """把 requires_approval 工具调用挂起:先跑确认前校验,通过则登记 pending
+        并存 approval_request 结构化结果(经通用透传直达前端确认卡),本轮终止。"""
+        from backend.agent import approval as approval_store
+
+        try:
+            validation_error = tool_obj.validate_before_approval(**args)
+        except Exception as exc:
+            validation_error = f"发送前校验失败:{exc}"
+        if validation_error:
+            logger.info(f"[approval] {name} 确认前校验未通过: {validation_error}")
+            return f"Error: {validation_error}"
+
+        approval_id = approval_store.create(
+            session_id=self.session_id or "default",
+            user_id=getattr(tool_obj, "user_id", None),
+            tool_name=name,
+            args=args,
+        )
+        payload = {
+            "approval_id": approval_id,
+            "tool_name": name,
+            "args": args,
+            "editable_fields": list(getattr(tool_obj, "approval_editable_fields", [])),
+        }
+        try:
+            payload.update(tool_obj.approval_preview(**args) or {})
+        except Exception as exc:
+            logger.warning(f"[approval] {name} approval_preview 失败(忽略): {exc}")
+
+        self._tool_structured_results[tool_call_id] = {
+            "type": "approval_request",
+            "payload": payload,
+        }
+        # 挂起后本轮确定性终止(不靠模型自觉),等待用户在确认卡上操作
+        self._halt_for_pending_approval = True
+        logger.info(f"[approval] {name} 已挂起等待确认: {approval_id}")
+        return (
+            "已生成发送请求并展示确认卡,等待用户确认或修改。"
+            "本轮到此结束,不要再调用任何工具。"
+        )
 
     async def _handle_special_tool(self, name: str, result: Any, **kwargs):
         """Handle special tool execution and state changes"""

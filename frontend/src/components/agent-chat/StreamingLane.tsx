@@ -7,6 +7,10 @@ import DiagnosisToolCards, {
   type DiagnosisToolStructuredData,
 } from "@/components/agent-chat/DiagnosisToolCards";
 import {
+  StructuredCards,
+  type StructuredEventData,
+} from "@/components/agent-chat/StructuredCardRegistry";
+import {
   formatResumeDiffPreview,
   sanitizeAssistantMessageContent,
   stripReasoningTags,
@@ -37,6 +41,7 @@ interface StreamingLaneProps {
   };
   suggestions?: Array<{ text: string; msg: string; template?: string }>;
   currentDiagnosisTools?: DiagnosisToolStructuredData[];
+  currentStructured?: StructuredEventData[];
   hasPendingPatchCards?: boolean;
   onSuggestionClick?: (msg: string) => void;
   stripResumeEditMarkdown: (content: string) => string;
@@ -104,12 +109,15 @@ export default function StreamingLane({
   currentEditDiff,
   suggestions,
   currentDiagnosisTools,
+  currentStructured,
   hasPendingPatchCards = false,
   onSuggestionClick,
   stripResumeEditMarkdown,
   onOpenSearchPanel,
   onResponseTypewriterComplete,
 }: StreamingLaneProps) {
+  const hasApprovalCard = Boolean(currentStructured?.some((d) => d.type === "approval_request"));
+  const hasStructuredCards = Boolean(currentStructured && currentStructured.length > 0);
   const { cleanedThought, embeddedResponse } = splitEmbeddedResponseFromThought(
     stripReasoningTags(currentThought),
   );
@@ -121,7 +129,7 @@ export default function StreamingLane({
       : answerCandidate || "",
     { suppressWhenPatchCard: hasPendingPatchCards },
   );
-  const sanitizedCurrentAnswer = hasPendingPatchCards
+  const sanitizedCurrentAnswer = hasPendingPatchCards || hasApprovalCard
     ? ""
     : getDiffFallbackResponse(
         Boolean(effectiveCurrentDiff),
@@ -129,7 +137,7 @@ export default function StreamingLane({
         effectiveCurrentDiff,
       );
 
-  const hasActiveContent = isProcessing || cleanedThought || sanitizedCurrentAnswer;
+  const hasActiveContent = isProcessing || cleanedThought || sanitizedCurrentAnswer || hasStructuredCards;
 
   return (
     <>
@@ -163,6 +171,9 @@ export default function StreamingLane({
         >
           {currentDiagnosisTools && currentDiagnosisTools.length > 0 && (
             <DiagnosisToolCards items={currentDiagnosisTools} className="mb-3" />
+          )}
+          {hasStructuredCards && (
+            <StructuredCards items={currentStructured!} className="mb-3" />
           )}
         </StreamingOutputPanel>
       )}

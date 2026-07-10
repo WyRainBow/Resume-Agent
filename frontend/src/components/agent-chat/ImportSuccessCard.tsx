@@ -61,22 +61,18 @@ export function ImportSuccessCard({
 /**
  * 优化应用完成的收尾卡片：闭环终点——引导用户拿到结果（下载 PDF）或去编辑器精修。
  */
+/** 优化应用完成的功能坞:只承载稳定的功能入口(下载/再优化/精修)。
+ * "说什么、建议什么"不在这里写死——应用完成后由 Agent 基于本轮真实
+ * 改动生成收尾语与动态建议(CocoChat 静默触发),内容归 LLM、入口归卡片。 */
 export function ApplyDoneCard({
   count,
-  refine,
-  onSuggestionClick,
   onDownloadPdf,
   onGoEditor,
-  onOptimizeForJd,
 }: {
   count: number;
-  refine?: { text: string; msg: string }[];
-  onSuggestionClick?: (msg: string) => void;
   onDownloadPdf?: () => void;
   onGoEditor?: () => void;
-  onOptimizeForJd?: () => void;
 }) {
-  const hasRefine = !!(refine && refine.length && onSuggestionClick);
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
       <div className="flex items-start gap-3">
@@ -85,25 +81,6 @@ export function ApplyDoneCard({
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             已应用 {count} 处优化、右侧预览已更新
           </p>
-          <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-            {hasRefine
-              ? "满意吗？可以直接下载，或让我把这段再打磨一版："
-              : "简历改好了、接下来可以："}
-          </p>
-          {hasRefine && (
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
-              {refine!.map((chip) => (
-                <button
-                  key={chip.text}
-                  type="button"
-                  onClick={() => onSuggestionClick!(chip.msg)}
-                  className={CHIP_CLASS}
-                >
-                  {chip.text}
-                </button>
-              ))}
-            </div>
-          )}
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -113,13 +90,6 @@ export function ApplyDoneCard({
               <Download className="h-3.5 w-3.5" strokeWidth={2.25} />
               下载 PDF
             </button>
-            {/* 回访钩子：刚优化完是价值峰值，引导「投下一个岗位再来一版」——把低频做成高频 */}
-            {onOptimizeForJd && (
-              <button type="button" onClick={onOptimizeForJd} className={GHOST_ACTION_CLASS}>
-                <Target className="h-3.5 w-3.5 text-slate-400" strokeWidth={2.25} />
-                针对岗位再优化一版
-              </button>
-            )}
             <button type="button" onClick={onGoEditor} className={GHOST_ACTION_CLASS}>
               <PenLine className="h-3.5 w-3.5 text-slate-400" strokeWidth={2.25} />
               去编辑器精修

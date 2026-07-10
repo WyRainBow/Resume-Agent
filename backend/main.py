@@ -89,6 +89,7 @@ admin_router = routes_module.admin_router
 leetcode_router = routes_module.leetcode_router
 billing_router = routes_module.billing_router
 email_credential_router = routes_module.email_credential_router
+email_templates_router = routes_module.email_templates_router
 
 # 初始化 FastAPI 应用
 app = FastAPI(title="Resume API")
@@ -138,6 +139,7 @@ app.include_router(admin_router)
 app.include_router(leetcode_router)
 app.include_router(billing_router)
 app.include_router(email_credential_router)
+app.include_router(email_templates_router)
 
 # 注册 OpenManus 路由（合并后）
 AGENT_BACKEND_BASE_URL = os.getenv("AGENT_BACKEND_BASE_URL", "").strip().rstrip("/")

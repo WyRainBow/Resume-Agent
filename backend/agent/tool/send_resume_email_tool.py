@@ -1,10 +1,12 @@
 """
-send_resume_email 工具:把当前会话简历生成 PDF,通过用户自己配置的
-QQ 邮箱 SMTP 发送到指定收件人。仅管理员会话注册(见 Manus._build_tool_collection),
-工具内部再查库校验一次角色,双重防护。
+send_resume_email 工具:把当前会话简历渲染成 PDF,连同给简历主人的优化
+建议正文,通过用户配置的 QQ 邮箱 SMTP 发送。仅管理员会话注册(见
+Manus._build_tool_collection),工具内部再查库校验一次角色,双重防护。
 
-发送采用两段式确认:第一次调用(confirm=false)只返回确认文案,
-必须等用户在下一轮对话明确同意后,才允许带 confirm=true 真正发送。
+发送确认走运行时挂起协议(requires_approval,见 backend/agent/approval.py):
+LLM 调用本工具时 execute_tool 不执行,而是推可编辑确认卡;用户批准(可修改
+收件人/主题/正文)后由 /api/agent/approval 端点带改后参数执行 execute()。
+模型无法绕过这道门——execute 只会被批准链路调用。
 """
 import re
 import smtplib
@@ -26,6 +28,19 @@ RATE_LIMIT_MAX_ATTEMPTS = 5
 RATE_LIMIT_WINDOW_SECONDS = 3600
 _send_attempts: Dict[int, List[float]] = {}
 
+# 正文/主题长度硬上限:与模板(8000)、润色(8000)口径一致,防异常冗长
+# 内容进入挂起 payload、SSE 事件与最终邮件(审查 #28)
+MAX_BODY_CHARS = 8000
+MAX_SUBJECT_CHARS = 200
+
+
+def _rate_limit_exhausted(user_id: int) -> bool:
+    """只读查询是否已达限频(不消耗计数),供确认前校验用:
+    已用尽额度的用户不应看到一张注定失败的确认卡(审查 #29)。"""
+    now = time.time()
+    attempts = [t for t in _send_attempts.get(user_id, []) if now - t < RATE_LIMIT_WINDOW_SECONDS]
+    return len(attempts) >= RATE_LIMIT_MAX_ATTEMPTS
+
 
 def _check_rate_limit(user_id: int) -> bool:
     """记录一次尝试并返回是否放行。"""
@@ -42,84 +57,110 @@ def _check_rate_limit(user_id: int) -> bool:
 class SendResumeEmailTool(BaseTool):
     name: str = "send_resume_email"
     description: str = (
-        "把当前会话中的简历生成 PDF,通过用户已连接的 QQ 邮箱发送到指定收件邮箱。"
-        "重要:必须先以 confirm=false(或省略 confirm)调用一次,把返回的确认文案展示给用户;"
-        "只有用户在之后的对话中明确回复同意发送(如「确认」「发吧」),才允许再次调用并传 confirm=true。"
-        "严禁在用户未明确确认时直接传 confirm=true。"
+        "把当前会话中(通常是刚优化过)的简历渲染成 PDF,连同你写的邮件正文一起,"
+        "通过用户已连接的 QQ 邮箱发送给简历的主人。"
+        "body 必须由你根据本会话真实发生的优化/诊断内容撰写:先友好称呼对方,"
+        "说明这次帮他改了哪些地方、为什么这样改,再给出 1-3 条进一步完善的建议;"
+        "不要编造没有发生过的修改。缺少收件人邮箱或不知道怎么称呼对方时,先向用户提问,"
+        "不要猜测。调用本工具后会弹出可编辑的确认卡,由用户确认后才真正发送,"
+        "因此你只需调用一次,之后本轮结束,不要重复调用。"
     )
     parameters: dict = {
         "type": "object",
         "properties": {
             "to_email": {
                 "type": "string",
-                "description": "收件人邮箱地址",
+                "description": "收件人(简历主人)的邮箱地址",
             },
             "subject": {
                 "type": "string",
-                "description": "邮件主题,缺省为「XX的简历」",
+                "description": "邮件主题,缺省为「XX的简历(已优化)」",
             },
-            "message": {
+            "body": {
                 "type": "string",
-                "description": "邮件正文留言,缺省为一句简短的投递问候",
-            },
-            "confirm": {
-                "type": "boolean",
-                "description": "是否已获得用户明确确认。首次调用必须为 false;仅当用户明确回复同意后才能为 true",
+                "description": "邮件正文:本次优化了什么 + 进一步建议,对收件人友好称呼",
             },
         },
-        "required": ["to_email"],
+        "required": ["to_email", "body"],
     }
 
+    # 运行时确认:挂起等用户在确认卡批准,收件人/主题/正文均可编辑
+    requires_approval: bool = True
+    approval_editable_fields: list = ["to_email", "subject", "body"]
+
     user_id: Optional[int] = Field(default=None, exclude=True)
+
+    # ---- 确认前校验:注定失败的调用不产生确认卡 ----
+
+    def validate_before_approval(self, to_email: str = "", subject: Optional[str] = None, body: Optional[str] = None, **_: object) -> Optional[str]:
+        if not EMAIL_RE.match((to_email or "").strip()):
+            return f"收件邮箱地址「{to_email}」格式不正确,请确认后重试。"
+        if not (body or "").strip():
+            return "邮件正文不能为空:请先根据本次优化内容写好给对方的说明与建议。"
+        if len(body or "") > MAX_BODY_CHARS:
+            return f"邮件正文过长(超过 {MAX_BODY_CHARS} 字),请精简后重试。"
+        if subject and len(subject) > MAX_SUBJECT_CHARS:
+            return f"邮件主题过长(超过 {MAX_SUBJECT_CHARS} 字),请精简。"
+        if not ResumeDataStore.get_data(self.session_id):
+            return "当前会话还没有加载简历,请先展示或导入一份简历再发送。"
+        if self.user_id and _rate_limit_exhausted(self.user_id):
+            return "发送太频繁(每小时最多 5 次),请稍后再试。"
+
+        from backend.database import SessionLocal
+        from backend.models import EmailCredential, User
+
+        if not self.user_id:
+            return "无法确认当前用户身份,发送已取消。"
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.id == self.user_id).first()
+            if not user or getattr(user, "role", None) != "admin":
+                return "邮件发送功能仅管理员可用。"
+            credential = (
+                db.query(EmailCredential)
+                .filter(EmailCredential.user_id == self.user_id)
+                .first()
+            )
+            if not credential:
+                return "你还没有连接 QQ 邮箱。请点击对话输入框旁的邮箱图标,填入 QQ 邮箱地址和授权码后再试。"
+        finally:
+            db.close()
+        return None
+
+    def approval_preview(self, **kwargs) -> dict:
+        resume_data = ResumeDataStore.get_data(self.session_id) or {}
+        resume_name = self._resume_name(resume_data)
+        return {
+            "resume_name": resume_name,
+            "attachment_label": f"《{resume_name}的简历》PDF",
+        }
+
+    # ---- 真正执行(仅由 approval 端点在用户批准后调用) ----
 
     async def execute(
         self,
         to_email: str,
+        body: str,
         subject: Optional[str] = None,
-        message: Optional[str] = None,
-        confirm: bool = False,
     ) -> ToolResult:
         to_email = (to_email or "").strip()
         if not EMAIL_RE.match(to_email):
-            return ToolResult(error=f"收件邮箱地址「{to_email}」格式不正确,请确认后重试。")
+            return ToolResult(error=f"收件邮箱地址「{to_email}」格式不正确。")
+        body = (body or "").strip()
+        if not body:
+            return ToolResult(error="邮件正文不能为空。")
+        if len(body) > MAX_BODY_CHARS:
+            return ToolResult(error=f"邮件正文过长(超过 {MAX_BODY_CHARS} 字)。")
+        if subject and len(subject) > MAX_SUBJECT_CHARS:
+            return ToolResult(error=f"邮件主题过长(超过 {MAX_SUBJECT_CHARS} 字)。")
 
         resume_data = ResumeDataStore.get_data(self.session_id)
         if not resume_data:
-            return ToolResult(error="当前会话还没有加载简历,请先展示或导入一份简历再发送。")
+            return ToolResult(error="当前会话还没有加载简历,发送已取消。")
 
         resume_name = self._resume_name(resume_data)
-        final_subject = (subject or "").strip() or f"{resume_name}的简历"
-        final_message = (message or "").strip() or "您好,附件是我的简历,烦请查收,期待您的回复。"
+        final_subject = (subject or "").strip() or f"{resume_name}的简历(已优化)"
 
-        if not confirm:
-            return ToolResult(
-                output=(
-                    f"📧 即将发送简历,请确认:\n"
-                    f"- 收件人:{to_email}\n"
-                    f"- 主题:{final_subject}\n"
-                    f"- 附件:《{resume_name}的简历》PDF\n"
-                    f"- 留言:{final_message}\n\n"
-                    f"确认发送吗?回复「确认」我就立即发出。"
-                )
-            )
-
-        return await self._do_send(to_email, final_subject, final_message, resume_data, resume_name)
-
-    @staticmethod
-    def _resume_name(resume_data: dict) -> str:
-        basic = resume_data.get("basic") or resume_data.get("basics") or {}
-        if isinstance(basic, dict) and basic.get("name"):
-            return str(basic["name"]).strip()
-        return "我"
-
-    async def _do_send(
-        self,
-        to_email: str,
-        subject: str,
-        message: str,
-        resume_data: dict,
-        resume_name: str,
-    ) -> ToolResult:
         from backend.database import SessionLocal
         from backend.models import EmailCredential, User
         from backend.utils.crypto import decrypt_secret
@@ -163,8 +204,8 @@ class SendResumeEmailTool(BaseTool):
                 from_email=from_email,
                 auth_code=auth_code,
                 to_email=to_email,
-                subject=subject,
-                body=message,
+                subject=final_subject,
+                body=body,
                 pdf_bytes=pdf_bytes,
                 filename=f"{resume_name}的简历.pdf",
             )
@@ -176,6 +217,13 @@ class SendResumeEmailTool(BaseTool):
 
         logger.info(f"[send_resume_email] 已发送: user_id={self.user_id}, to={to_email}")
         return ToolResult(output=f"✅ 已通过 {from_email} 把《{resume_name}的简历》PDF 发送到 {to_email}。")
+
+    @staticmethod
+    def _resume_name(resume_data: dict) -> str:
+        basic = resume_data.get("basic") or resume_data.get("basics") or {}
+        if isinstance(basic, dict) and basic.get("name"):
+            return str(basic["name"]).strip()
+        return "我"
 
     @staticmethod
     def _render_pdf(resume_data: dict) -> bytes:

@@ -117,6 +117,12 @@ docs/**
 !docs/screenshots/
 !docs/screenshots/**
 !docs/*-setup.md
+
+# 领域文档进 Git：ADR + 工程 skill 配置（CLAUDE.md §4.0/§4.4）
+!docs/adr/
+!docs/adr/**
+!docs/agents/
+!docs/agents/**
 !docs/*-guide.md
 !docs/ENVIRONMENT_SETUP.md
 !docs/agent-repo-extraction.md

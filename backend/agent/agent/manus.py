@@ -8,7 +8,6 @@ from pathlib import Path
 
 from pydantic import Field, model_validator, PrivateAttr
 
-from backend.agent.agent.browser import BrowserContextHelper
 from backend.agent.agent.toolcall import ToolCallAgent
 from backend.agent.config import config
 from backend.core.logger import get_logger
@@ -22,14 +21,8 @@ from backend.agent.prompt.manus import (
 )
 from backend.agent.utils.resume_richtext import html_to_context_text, normalize_editor_value
 from backend.agent.prompt.load_resume import build_load_resume_fast_path_prompt
-from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, GenerateResumeTool, SendResumeEmailTool, ShowResumeTool, Terminate, ToolCollection, WebSearch
-try:
-    from backend.agent.tool import BrowserUseTool
-except ImportError:
-    BrowserUseTool = None
+from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, GenerateResumeTool, SendResumeEmailTool, ShowResumeTool, Terminate, ToolCollection
 from backend.agent.tool.ask_human import AskHuman
-from backend.agent.tool.python_execute import PythonExecute
-from backend.agent.tool.str_replace_editor import StrReplaceEditor
 from backend.agent.memory import (
     ChatHistoryManager,
     ConversationStateManager,
@@ -72,6 +65,58 @@ EDIT_PRE_TOOL_DELAY_MS = int(
 
 _RULE_BASED_NOISE_RE = re.compile(r"[（(]建议补充量化结果[^）)]*[）)]")
 
+# 让权守卫:消息同时含「发送动词 + 邮箱地址」时,规则意图一律弃权交还 LLM 工具循环。
+# 规则层没有"发送"概念,历史上会把「把优化好的简历发给 xx@qq.com」里的"优化"抢注进
+# OPTIMIZE/EDIT 分支(2026-07-10 审计 I8"组合请求被拆丢"的实锤案例)。
+# 注意动词表刻意不含"改成/改为"——「把邮箱改成 new@qq.com」是合法的字段编辑,不让权。
+_SEND_EMAIL_VERB_RE = re.compile(r"(发给|发送|发到|寄给|寄到|投递|投给|邮给|发邮件)")
+_EMAIL_ADDR_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+
+
+def _has_send_email_intent(text: str) -> bool:
+    t = text or ""
+    return bool(_SEND_EMAIL_VERB_RE.search(t) and _EMAIL_ADDR_RE.search(t))
+
+
+# 复合请求让权:规则意图只有单一出口,「优化第二段然后翻译成英文」这类组合请求
+# 命中规则后后半句会被静默丢弃(审计 I8)。判定:按连接词切句,若 ≥2 段各含
+# 动作动词则视为复合请求,规则弃权交 LLM 工具循环。
+# 判定偏保守:只有连接词前后都出现动作动词才让权——"再优化一下"(连接词前
+# 无动词的延续性单指令)不受影响。
+_COMPOUND_CONJ_RE = re.compile(r"(然后|接着|顺便|并且|同时|之后再|完了再|[,，]\s*再|[,，]\s*帮我)")
+_ACTION_VERB_RE = re.compile(
+    r"(优化|润色|修改|改成|改为|改一下|翻译|分析|诊断|评分|生成|创建|新建|导出|下载|发送|发给|发到|寄给|投递|删除|删掉)"
+)
+
+
+def _looks_like_compound_request(text: str) -> bool:
+    t = (text or "").strip()
+    if not t or not _COMPOUND_CONJ_RE.search(t):
+        return False
+    segments = [seg for seg in _COMPOUND_CONJ_RE.split(t) if seg and not _COMPOUND_CONJ_RE.fullmatch(seg)]
+    hits = sum(1 for seg in segments if _ACTION_VERB_RE.search(seg))
+    return hits >= 2
+
+
+def _rule_intent_yield_reason(text: str) -> Optional[str]:
+    """规则意图的统一让权判定:返回让权原因,None 表示规则可以保留决定权。
+    这是方案 §8.2「规则从拦截降级」的守卫集合,只做弃权、不做认领。"""
+    if _has_send_email_intent(text):
+        return "发送语义"
+    if _looks_like_compound_request(text):
+        return "复合请求"
+    return None
+
+
+def _llm_first_routing_enabled() -> bool:
+    """LLM-first 路由(2026-07-10 用户拍板「所有意图都走 LLM」):开启时所有
+    业务意图一律交给 ReAct loop,由 LLM 看工具列表自主编排;规则意图识别
+    只降级为日志参考,不再拥有分派权。GREETING 保留专用轻通道(它本身就是
+    LLM 生成,只是不挂工具、更快)。
+    回滚开关:AGENT_LLM_FIRST_ROUTING=false 恢复规则分派;运行时读取,
+    切换无需改代码。"""
+    return os.getenv("AGENT_LLM_FIRST_ROUTING", "true").strip().lower() != "false"
+
 
 class Manus(ToolCallAgent):
     """A versatile general-purpose agent with local tool orchestration.
@@ -101,7 +146,6 @@ class Manus(ToolCallAgent):
     available_tools: ToolCollection = Field(default_factory=ToolCollection)
 
     special_tool_names: list[str] = Field(default_factory=lambda: [Terminate().name])
-    browser_context_helper: Optional[BrowserContextHelper] = None
 
     # Memory components - 使用 PrivateAttr 避免 pydantic 验证
     _conversation_state: ConversationStateManager = PrivateAttr(default=None)
@@ -121,7 +165,6 @@ class Manus(ToolCallAgent):
     def initialize_helper(self) -> "Manus":
         """Initialize basic components synchronously."""
         self.available_tools = self._build_tool_collection()
-        self.browser_context_helper = BrowserContextHelper(self)
         self._init_shared_state()
         # 初始化对话状态管理器（LLM 会在 base.py 的 initialize_agent 中初始化）
         # 传递 tool_collection 以支持增强意图识别
@@ -140,15 +183,14 @@ class Manus(ToolCallAgent):
 
     def _build_tool_collection(self) -> ToolCollection:
         """Build tool collection based on capability settings."""
+        # 产品收敛:只做简历优化。文件/代码执行(PythonExecute/StrReplaceEditor)、
+        # 浏览器(BrowserUseTool)、联网搜索(WebSearch)等通用工具全部移除——
+        # 它们对网页简历产品的用户无用,还会诱导模型幻想成 CLI/浏览器 Agent
+        # ("我先看看当前目录下有没有简历文件"),同时扩大安全面
         base_tools = [
-            PythonExecute(),
-            StrReplaceEditor(),
-            WebSearch(),
             AskHuman(),
             Terminate(),
         ]
-        if BrowserUseTool is not None:
-            base_tools.insert(1, BrowserUseTool())
         domain_tools = [
             CVReaderAgentTool(),
             ShowResumeTool(),
@@ -193,9 +235,8 @@ class Manus(ToolCallAgent):
             self._conversation_state.llm = self.llm
 
     async def cleanup(self):
-        """Clean up Manus agent resources."""
-        if self.browser_context_helper:
-            await self.browser_context_helper.cleanup_browser()
+        """Clean up Manus agent resources.(浏览器工具下线后暂无需清理的资源)"""
+        return None
 
     async def delegate_to_agent(self, agent_name: str, **kwargs) -> Any:
         """Delegate tasks to a registered sub-agent."""
@@ -1572,6 +1613,10 @@ class Manus(ToolCallAgent):
         # EDIT_CV（按值替换）使用规则解析 + 路径解析，直接调用工具。
         # 为避免“硬编码秒回”观感，先输出可见 Thought/Response，再下一步执行工具。
         replace_req = self._extract_replace_request(user_input)
+        # LLM-first 路由下前置快路径整体退役;规则模式下让权守卫仍覆盖复合/发送语义
+        if replace_req and (_llm_first_routing_enabled() or _rule_intent_yield_reason(user_input)):
+            logger.info("🧭 staged-edit 快路径让权,交给 LLM 工具循环")
+            replace_req = None
         if replace_req and (
             self._conversation_state.context.resume_loaded or self._has_resume_data_in_store()
         ):
@@ -1696,13 +1741,52 @@ class Manus(ToolCallAgent):
             logger.info("🧭 触发诊断关键词兜底拦截: intent UNKNOWN -> ANALYZE_RESUME")
             intent = Intent.ANALYZE_RESUME
 
+        # 让权守卫(在一切意图覆盖之后):发送语义/复合请求等规则接不稳的输入,
+        # 规则层弃权,交给 ReAct loop 由 LLM 自主选工具
+        yield_reason = _rule_intent_yield_reason(user_input) if intent != Intent.UNKNOWN else None
+        # LLM-first 路由:所有业务意图全量让权,规则识别结果仅作日志参考
+        if yield_reason is None and _llm_first_routing_enabled() and intent not in (
+            Intent.UNKNOWN, Intent.GREETING,
+        ):
+            yield_reason = "LLM-first"
+        # 无简历时,优化/编辑/分析的规则流程无米下锅(只会吐固定引导文案),
+        # 一律让权给 LLM——system prompt「产品语境」段已定义标准的无简历引导
+        if yield_reason is None and intent in {
+            Intent.OPTIMIZE_SECTION, Intent.FULL_OPTIMIZE, Intent.EDIT_CV, Intent.ANALYZE_RESUME,
+        } and not (
+            self._conversation_state.context.resume_loaded or self._has_resume_data_in_store()
+        ):
+            yield_reason = "无简历"
+        if yield_reason:
+            logger.info(f"🧭 {yield_reason}让权: {intent.value} -> UNKNOWN,交给 LLM 工具循环")
+            intent = Intent.UNKNOWN
+            intent_result = {**intent_result, "intent": intent, "tool": None, "tool_args": {}}
+            if _looks_like_compound_request(user_input):
+                # 保险提示:复合请求让权后,防止 LLM 做完第一个子任务就提前收工
+                self.memory.add_message(Message.system_message(
+                    "用户这条请求包含多个子任务(如「优化…然后…」)。请逐个完成全部子任务,"
+                    "每个子任务分别调用对应工具,全部完成后再结束,不要只做第一个就停止。"
+                ))
+
         tool = intent_result.get("tool")
         tool_args = intent_result.get("tool_args", {})
         intent_source = intent_result.get("intent_source", "unknown")
         enhanced_query = intent_result.get("enhanced_query", user_input)  # 获取增强后的查询
         intent_result_obj = intent_result.get("intent_result")  # 获取意图识别结果对象
 
-        logger.info(f"🧠 意图识别: {intent.value}, 建议工具: {tool}")
+        # LLM-first / 让权:enhanced_query 可能带 /[tool:xxx] 之类的规则路由标记,
+        # 写回 memory 等于规则在暗中给 LLM 指路(名义让权、实际遥控)。让权时一律
+        # 使用原始输入,规则产物仅落日志(Codex review 2026-07-10)。
+        # 注意 intent 本来就是 UNKNOWN 时(yielded=-)规则同样会做 /[tool:] 改写
+        # ——LLM-first 开启即全量禁止写回,不只在让权分支(实测日志抓到的第二个口子)。
+        if (yield_reason or _llm_first_routing_enabled()) and enhanced_query != user_input:
+            logger.info(f"[llm-first] 规则改写已忽略: {enhanced_query!r}")
+            enhanced_query = user_input
+        # 观测:规则候选 vs 最终路由,用于评估 LLM-first 翻车面
+        logger.info(
+            f"🧠 意图路由: intent={intent.value} rule_tool={tool} "
+            f"source={intent_source} yielded={yield_reason or '-'}"
+        )
         if enhanced_query != user_input:
             logger.info(f"📝 增强后的查询: {enhanced_query}")
 
@@ -2169,7 +2253,7 @@ class Manus(ToolCallAgent):
                     messages=[{"role": "user", "content": user_input}],
                     system_msgs=[{"role": "system", "content": system_content}],
                     stream=False,
-                    temperature=0.4,
+                    temperature=0.8,  # 问候要有变化,拉高多样性
                 )
                 if raw and raw.strip():
                     self.memory.add_message(Message.assistant_message(raw.strip()))
@@ -2190,24 +2274,6 @@ class Manus(ToolCallAgent):
         # 🎯 其他意图：交给 LLM 自然处理
         # 动态生成提示词
         self.system_prompt, self.next_step_prompt = await self._generate_dynamic_prompts(user_input, intent)
-
-        # 检查是否需要浏览器上下文
-        recent_messages = self.memory.messages[-3:] if self.memory.messages else []
-        browser_in_use = False
-        if BrowserUseTool is not None:
-            browser_in_use = any(
-                tc.function.name == BrowserUseTool().name
-                for msg in recent_messages
-                if msg.tool_calls
-                for tc in msg.tool_calls
-            )
-
-        if browser_in_use:
-            browser_prompt = await self.browser_context_helper.format_next_step_prompt()
-            if self.next_step_prompt:
-                self.next_step_prompt = f"{self.next_step_prompt}\n\n{browser_prompt}"
-            else:
-                self.next_step_prompt = browser_prompt
 
         # 调用父类的 think 方法（会自动处理终止逻辑）
         return await super().think()

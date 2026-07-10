@@ -362,7 +362,11 @@ class AgentStream:
         state = self._current_step_stream_state
         if not state or not state.final_emitted:
             return False
-        return self._normalize_text(content) == self._normalize_text(state.last_stream_text)
+        # 只有与已流式发出的「回答正文」完全一致才跳过;此前比较的是含
+        # Thought:/%%SUGGESTIONS%% 标记的全文,无标记输出场景会误判,
+        # 导致收尾 answer 永远发不出、正文只在流式区闪现(2026-07-10 实测)
+        normalized = self._normalize_text(content)
+        return bool(normalized) and normalized == self._normalize_text(state.last_stream_response)
 
     def _extract_suggestions(self, content: str) -> tuple[str, list[dict]]:
         """Parse %%SUGGESTIONS%%[...]%%END%% marker from content.
@@ -1066,10 +1070,10 @@ class AgentStream:
                                 logger.info(f"[跳过重复工具结果] {tool_name} (ID: {str(tool_call_id)[:8]}...)")
                                 continue
                             self._sent_tool_results.add(result_key)
+                            # 结构化结果无条件透传:是否有 structured 由工具自己决定
+                            # (ToolResult.system 里放 {type,...} 即可),不再逐工具开白名单
                             structured_data = None
-                            if tool_name in {"web_search", "show_resume", "cv_editor_agent", "cv_reader_agent", "generate_resume", "get_resume_detail", "resume-diagnosis"} and hasattr(
-                                self.agent, "get_structured_tool_result"
-                            ):
+                            if hasattr(self.agent, "get_structured_tool_result"):
                                 structured_data = self.agent.get_structured_tool_result(
                                     tool_call_id
                                 )

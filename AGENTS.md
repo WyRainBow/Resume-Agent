@@ -10,7 +10,8 @@
   - Specs: `knowledge-base/specs/YYYY-MM-DD-<topic>-design.md`
   - Plans: `knowledge-base/plans/YYYY-MM-DD-<feature>.md`
 - `knowledge/` is local-only and ignored by Git (legacy)
-- All architectural decisions, design docs, and operation records go in `knowledge-base/`
+- Design docs, plans, reviews, and operation records go in `knowledge-base/`
+- Exception — domain docs live in place and are committed: root `CONTEXT.md` (glossary), `docs/adr/` (architecture decision records), `docs/agents/` (engineering-skill config). See CLAUDE.md §4.0/§4.4
 
 ## Architecture Notes
 - Backend agent (`backend/agent/`) was merged back from `resume-agent-core` on 2026-03-23
@@ -33,9 +34,10 @@
 
 ## Deployment
 - Deploy = `git push origin main`; a server cron auto-pulls, rebuilds (frontend + web), and restarts pm2.
-- **Before pushing to main, always add a new entry at the TOP of the `CHANGELOG` array in `frontend/src/data/changelog.ts`:**
+- **Before pushing to main, update the `CHANGELOG` array in `frontend/src/data/changelog.ts`:**
   - Bump `version` (patch +0.0.1, e.g. `2.4.1` → `2.4.2`; larger features +0.1.0)
-  - Set `date` to today **with time to the minute** (`YYYY-MM-DD HH:MM`); write `added` / `fixed` as short user-facing Chinese (no tech/ops details)
+  - Set `date` to today, **date only (`YYYY-MM-DD`), never include time**; write `added` / `fixed` as short user-facing Chinese (no tech/ops details)
+  - **Multiple deploys on the same day merge into ONE entry** (fold new items into today's entry and raise its version; do not append another entry)
   - Commit the changelog together with the release code, then push
 - Users see a「有什么新变化」modal (`ChangelogModal`) on first visit after each version bump.
 
