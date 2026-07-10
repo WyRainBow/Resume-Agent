@@ -146,17 +146,17 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
   if (step === 'entry') {
     return (
       <>
-        <div className="my-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-3.5 flex items-start justify-between gap-3">
+        <div className="my-4 rounded-none border-2 border-black bg-chat-surface p-5 shadow-[3px_3px_0px_0px_#000000] dark:border-white dark:bg-slate-900 dark:shadow-[3px_3px_0px_0px_#ffffff]">
+          <div className="mb-4 flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-[15px] font-semibold text-slate-900">开始处理简历</h3>
-              <p className="mt-0.5 text-xs text-slate-500">选择一种方式开始</p>
+              <h3 className="text-base font-bold text-chat-ink dark:text-slate-100">开始处理简历</h3>
+              <p className="mt-0.5 text-xs text-chat-ink-muted">选择一种方式开始</p>
             </div>
             {onCancel && (
               <button
                 type="button"
                 onClick={onCancel}
-                className="-mr-1 shrink-0 rounded-md px-2 py-1 text-xs text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+                className="-mr-1 shrink-0 rounded-none px-2 py-1 text-xs font-medium text-chat-ink-muted transition-colors hover:bg-chat-canvas hover:text-chat-ink dark:hover:bg-slate-800"
               >
                 取消
               </button>
@@ -167,48 +167,48 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
             <button
               type="button"
               onClick={onFillCreatePrompt}
-              className="group flex w-full items-center gap-3 rounded-xl border border-blue-200 bg-blue-50/50 p-3 text-left transition-colors hover:bg-blue-50 active:scale-[0.995]"
+              className="group flex w-full items-center gap-3 rounded-none border-2 border-black bg-chat-user-bubble/60 p-3.5 text-left shadow-[2px_2px_0px_0px_#000000] transition-all hover:bg-chat-user-bubble hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:border-white dark:bg-slate-800 dark:shadow-[2px_2px_0px_0px_#ffffff] dark:hover:bg-slate-700"
             >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-none border border-black bg-chat-accent text-white dark:border-white">
                 <MessageSquare className="size-[18px]" strokeWidth={2} />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5">
-                  <span className="text-sm font-semibold text-slate-900">对话创建简历</span>
-                  <span className="rounded bg-blue-100 px-1.5 py-px text-[10px] font-semibold text-blue-700">推荐</span>
+                  <span className="text-sm font-bold text-chat-ink dark:text-slate-100">对话创建简历</span>
+                  <span className="rounded-none border border-black bg-chat-accent px-1.5 py-px text-[10px] font-bold text-white dark:border-white">推荐</span>
                 </span>
-                <span className="mt-0.5 block text-xs text-slate-500">像聊天一样说说经历，我来帮你生成</span>
+                <span className="mt-0.5 block text-xs text-chat-ink-muted">像聊天一样说说经历，我来帮你生成</span>
               </span>
-              <ChevronRight className="size-4 shrink-0 text-slate-300 transition-all group-hover:translate-x-0.5 group-hover:text-blue-400" />
+              <ChevronRight className="size-4 shrink-0 text-chat-ink-muted transition-all group-hover:translate-x-0.5 group-hover:text-chat-accent-deep" />
             </button>
           )}
 
-          <div className="mt-2 grid grid-cols-3 gap-2">
+          <div className="mt-3 grid grid-cols-3 gap-2.5">
             <button
               type="button"
               onClick={() => onImportResume?.()}
-              className="group flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50/40 hover:text-blue-700 active:scale-[0.98]"
+              className="group flex items-center justify-center gap-2 rounded-none border-2 border-black bg-chat-surface py-3 text-chat-ink shadow-[2px_2px_0px_0px_#000000] transition-all hover:text-chat-accent-deep hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:border-white dark:bg-slate-900 dark:text-slate-200 dark:shadow-[2px_2px_0px_0px_#ffffff]"
             >
-              <Upload className="size-4 text-slate-400 transition-colors group-hover:text-blue-500" strokeWidth={2} />
-              <span className="text-xs font-medium">导入简历</span>
+              <Upload className="size-4 text-chat-ink-muted transition-colors group-hover:text-chat-accent-deep" strokeWidth={2} />
+              <span className="text-xs font-semibold">导入简历</span>
             </button>
 
             <button
               type="button"
               onClick={() => onCreateResume?.()}
-              className="group flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50/40 hover:text-blue-700 active:scale-[0.98]"
+              className="group flex items-center justify-center gap-2 rounded-none border-2 border-black bg-chat-surface py-3 text-chat-ink shadow-[2px_2px_0px_0px_#000000] transition-all hover:text-chat-accent-deep hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:border-white dark:bg-slate-900 dark:text-slate-200 dark:shadow-[2px_2px_0px_0px_#ffffff]"
             >
-              <FilePlus2 className="size-4 text-slate-400 transition-colors group-hover:text-blue-500" strokeWidth={2} />
-              <span className="text-xs font-medium">新建简历</span>
+              <FilePlus2 className="size-4 text-chat-ink-muted transition-colors group-hover:text-chat-accent-deep" strokeWidth={2} />
+              <span className="text-xs font-semibold">新建简历</span>
             </button>
 
             <button
               type="button"
               onClick={handleSelectExistingClick}
-              className="group flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white py-3 text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50/40 hover:text-blue-700 active:scale-[0.98]"
+              className="group flex items-center justify-center gap-2 rounded-none border-2 border-black bg-chat-surface py-3 text-chat-ink shadow-[2px_2px_0px_0px_#000000] transition-all hover:text-chat-accent-deep hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:border-white dark:bg-slate-900 dark:text-slate-200 dark:shadow-[2px_2px_0px_0px_#ffffff]"
             >
-              <FileText className="size-4 text-slate-400 transition-colors group-hover:text-blue-500" strokeWidth={2} />
-              <span className="text-xs font-medium">选择已有</span>
+              <FileText className="size-4 text-chat-ink-muted transition-colors group-hover:text-chat-accent-deep" strokeWidth={2} />
+              <span className="text-xs font-semibold">选择已有</span>
             </button>
           </div>
         </div>
@@ -298,15 +298,15 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
 
   return (
     <>
-      <div className="bg-white rounded-2xl p-5 my-4 shadow-sm border border-slate-200">
+      <div className="my-4 rounded-none border-2 border-black bg-chat-surface p-5 shadow-[3px_3px_0px_0px_#000000] dark:border-white dark:bg-slate-900 dark:shadow-[3px_3px_0px_0px_#ffffff]">
       <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <div className="size-8 rounded-full bg-blue-500 flex items-center justify-center shadow-sm">
-            <FileText className="size-4 text-white" />
+        <div className="flex items-center gap-2.5">
+          <div className="flex size-9 items-center justify-center rounded-none border border-black bg-chat-accent text-white dark:border-white">
+            <FileText className="size-4" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-slate-700 text-balance">选择一份简历</h3>
-            <p className="text-xs text-slate-400 text-pretty">
+            <h3 className="text-base font-bold text-chat-ink dark:text-slate-100 text-balance">选择一份简历</h3>
+            <p className="text-xs text-chat-ink-muted text-pretty">
               点击卡片后会在右侧展示 PDF 预览。
             </p>
           </div>
@@ -314,18 +314,18 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
 
         <div className="flex items-center gap-2">
           {totalPages > 1 && (
-            <div className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-1 py-1">
+            <div className="inline-flex items-center gap-1 rounded-none border border-black bg-chat-canvas px-1 py-1 dark:border-slate-600 dark:bg-slate-800">
               <button
                 type="button"
                 onClick={() => setCurrentPage((prev) => Math.max(0, prev - 1))}
                 disabled={currentPage === 0}
-                className="size-7 rounded-md text-slate-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="size-7 rounded-none text-chat-ink hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:text-slate-200 dark:hover:bg-slate-700"
                 aria-label="上一页"
                 title="上一页"
               >
                 <ChevronLeft className="size-4 mx-auto" />
               </button>
-              <span className="px-1 text-xs text-slate-500 tabular-nums">
+              <span className="px-1 text-xs text-chat-ink-muted tabular-nums">
                 {currentPage + 1}/{totalPages}
               </span>
               <button
@@ -334,7 +334,7 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
                   setCurrentPage((prev) => Math.min(totalPages - 1, prev + 1))
                 }
                 disabled={currentPage >= totalPages - 1}
-                className="size-7 rounded-md text-slate-600 hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="size-7 rounded-none text-chat-ink hover:bg-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:text-slate-200 dark:hover:bg-slate-700"
                 aria-label="下一页"
                 title="下一页"
               >
@@ -345,7 +345,7 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
           <button
             type="button"
             onClick={() => setStep('entry')}
-            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-slate-700 px-2 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+            className="inline-flex items-center gap-1 text-xs font-medium text-chat-ink-muted hover:text-chat-ink px-2 py-1.5 rounded-none hover:bg-chat-canvas transition-colors dark:hover:bg-slate-800"
           >
             <ArrowLeft className="size-3.5" />
             返回
@@ -354,7 +354,7 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
             <button
               type="button"
               onClick={onCancel}
-              className="text-xs text-slate-500 hover:text-slate-700 px-2 py-1.5 rounded-lg hover:bg-slate-100 transition-colors"
+              className="text-xs font-medium text-chat-ink-muted hover:text-chat-ink px-2 py-1.5 rounded-none hover:bg-chat-canvas transition-colors dark:hover:bg-slate-800"
             >
               取消
             </button>
@@ -363,37 +363,34 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
       </div>
 
       <div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5 pb-1">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pb-1">
           {pagedResumes.map((resume) => (
             <button
               key={resume.id}
               type="button"
               onClick={() => onSelect(resume)}
-              className="group/card relative flex flex-col items-center overflow-hidden rounded-xl border border-slate-200/70 bg-white p-4 text-center cursor-pointer shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-blue-300 hover:shadow-lg hover:shadow-blue-100/50"
+              className="group/card flex flex-col items-center rounded-none border-2 border-black bg-chat-surface p-4 text-center cursor-pointer shadow-[2px_2px_0px_0px_#000000] transition-all hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:border-white dark:bg-slate-900 dark:shadow-[2px_2px_0px_0px_#ffffff]"
             >
-              {/* 背景装饰 */}
-              <div className="pointer-events-none absolute -right-3 -top-3 size-16 rounded-full bg-blue-100/30 blur-2xl transition-colors group-hover/card:bg-blue-200/50" />
-
-              <div className="mb-2.5 flex size-11 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-200/60 transition-transform duration-300 group-hover/card:scale-105">
+              <div className="mb-2.5 flex size-11 items-center justify-center rounded-none border border-black bg-chat-accent text-white dark:border-white">
                 <FileText className="size-5" />
               </div>
 
-              <h4 className="w-full truncate text-sm font-bold text-slate-800 transition-colors group-hover/card:text-blue-600">
+              <h4 className="w-full truncate text-sm font-bold text-chat-ink transition-colors group-hover/card:text-chat-accent-deep dark:text-slate-100">
                 {resume.name || '未命名简历'}
               </h4>
 
               <div className="mt-1 flex min-h-[18px] items-center justify-center">
                 {resume.alias && resume.alias.trim() !== '' ? (
-                  <span className="inline-flex items-center rounded-md border border-blue-100/50 bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-600">
+                  <span className="inline-flex items-center rounded-none border border-black bg-chat-user-bubble px-2 py-0.5 text-[10px] font-semibold text-chat-accent-deep dark:border-white dark:bg-slate-800 dark:text-blue-300">
                     {resume.alias.trim()}
                   </span>
                 ) : (
-                  <span className="text-[11px] text-slate-400">简历</span>
+                  <span className="text-[11px] text-chat-ink-muted">简历</span>
                 )}
               </div>
 
-              <div className="mt-2.5 w-full border-t border-slate-100 pt-2">
-                <p className="text-[10px] tabular-nums text-slate-400">
+              <div className="mt-2.5 w-full border-t border-black/20 pt-2 dark:border-slate-700">
+                <p className="text-[10px] tabular-nums text-chat-ink-muted">
                   更新于 {formatDate(resume.updatedAt)}
                 </p>
               </div>
@@ -403,7 +400,7 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
       </div>
 
       <div className="mt-3 flex items-center justify-between">
-        <p className="text-xs text-slate-400 tabular-nums">共 {resumes.length} 份简历可选</p>
+        <p className="text-xs text-chat-ink-muted tabular-nums">共 {resumes.length} 份简历可选</p>
         {totalPages > 1 && (
           <div className="flex items-center gap-1.5">
             {Array.from({ length: totalPages }).map((_, idx) => (
@@ -411,8 +408,8 @@ export const ResumeSelector: React.FC<ResumeSelectorProps> = ({
                 key={`page-dot-${idx}`}
                 type="button"
                 onClick={() => setCurrentPage(idx)}
-                className={`h-1.5 rounded-full transition-all ${
-                  idx === currentPage ? 'w-4 bg-blue-500' : 'w-1.5 bg-slate-300 hover:bg-slate-400'
+                className={`h-1.5 rounded-none transition-all ${
+                  idx === currentPage ? 'w-4 bg-chat-accent' : 'w-1.5 bg-slate-300 hover:bg-slate-400 dark:bg-slate-600 dark:hover:bg-slate-500'
                 }`}
                 aria-label={`第 ${idx + 1} 页`}
                 title={`第 ${idx + 1} 页`}
