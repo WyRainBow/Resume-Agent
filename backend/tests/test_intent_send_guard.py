@@ -13,7 +13,11 @@ from backend.core.logger import setup_logging
 setup_logging(False, "INFO", "logs/test")
 
 import backend.agent.agent.manus as manus_module
-from backend.agent.agent.manus import _has_send_email_intent
+from backend.agent.agent.manus import (
+    _has_send_email_intent,
+    _looks_like_compound_request,
+    _rule_intent_yield_reason,
+)
 
 
 # --- 必须让权(发送语义) ---
@@ -50,10 +54,39 @@ def test_send_talk_without_address_untouched():
     assert not _has_send_email_intent("怎么把简历发给 HR 比较礼貌")
 
 
+# --- 复合请求让权(审计 I8 的通用解) ---
+
+def test_compound_requests_yield():
+    assert _looks_like_compound_request("优化第二段实习经历,然后翻译成英文")
+    assert _looks_like_compound_request("帮我改一下名字,顺便分析一下整份简历")
+    assert _looks_like_compound_request("先优化项目经历,接着生成一份新简历")
+    assert _looks_like_compound_request("把腾讯改成字节,然后帮我导出 PDF")
+    assert _looks_like_compound_request("润色第一段,再帮我诊断一下")
+
+
+def test_single_intent_requests_do_not_yield():
+    """单意图请求(哪怕很长/带修饰)必须保留给规则层,防误伤"""
+    assert not _looks_like_compound_request("帮我优化一下第二段实习经历,重点突出量化成果和技术栈")
+    assert not _looks_like_compound_request("把腾讯改成字节")
+    assert not _looks_like_compound_request("再优化一下")  # 延续性单指令:连接词前无动词
+    assert not _looks_like_compound_request("分析一下我的简历")
+    assert not _looks_like_compound_request("然后呢")
+    assert not _looks_like_compound_request("你好")
+
+
+def test_yield_reason_aggregation():
+    assert _rule_intent_yield_reason("把优化好的简历发给 a@qq.com") == "发送语义"
+    assert _rule_intent_yield_reason("优化第二段,然后翻译成英文") == "复合请求"
+    assert _rule_intent_yield_reason("优化第二段实习经历") is None
+    assert _rule_intent_yield_reason("") is None
+
+
 def test_guard_wired_into_think_source():
     """守卫必须接在意图消费入口(白盒:防止后续重构悄悄摘掉)"""
     import inspect
 
     src = inspect.getsource(manus_module.Manus.think)
-    assert "_has_send_email_intent" in src
-    assert "发送语义让权" in src
+    assert "_rule_intent_yield_reason" in src
+    assert "让权" in src
+    # staged-edit 前置快路径同样要被守卫覆盖
+    assert src.index("staged-edit 快路径让权") < src.index("_extract_replace_request(user_input)\n") + 2000

@@ -85,6 +85,36 @@ def _has_send_email_intent(text: str) -> bool:
     return bool(_SEND_EMAIL_VERB_RE.search(t) and _EMAIL_ADDR_RE.search(t))
 
 
+# 复合请求让权:规则意图只有单一出口,「优化第二段然后翻译成英文」这类组合请求
+# 命中规则后后半句会被静默丢弃(审计 I8)。判定:按连接词切句,若 ≥2 段各含
+# 动作动词则视为复合请求,规则弃权交 LLM 工具循环。
+# 判定偏保守:只有连接词前后都出现动作动词才让权——"再优化一下"(连接词前
+# 无动词的延续性单指令)不受影响。
+_COMPOUND_CONJ_RE = re.compile(r"(然后|接着|顺便|并且|同时|之后再|完了再|[,，]\s*再|[,，]\s*帮我)")
+_ACTION_VERB_RE = re.compile(
+    r"(优化|润色|修改|改成|改为|改一下|翻译|分析|诊断|评分|生成|创建|新建|导出|下载|发送|发给|发到|寄给|投递|删除|删掉)"
+)
+
+
+def _looks_like_compound_request(text: str) -> bool:
+    t = (text or "").strip()
+    if not t or not _COMPOUND_CONJ_RE.search(t):
+        return False
+    segments = [seg for seg in _COMPOUND_CONJ_RE.split(t) if seg and not _COMPOUND_CONJ_RE.fullmatch(seg)]
+    hits = sum(1 for seg in segments if _ACTION_VERB_RE.search(seg))
+    return hits >= 2
+
+
+def _rule_intent_yield_reason(text: str) -> Optional[str]:
+    """规则意图的统一让权判定:返回让权原因,None 表示规则可以保留决定权。
+    这是方案 §8.2「规则从拦截降级」的守卫集合,只做弃权、不做认领。"""
+    if _has_send_email_intent(text):
+        return "发送语义"
+    if _looks_like_compound_request(text):
+        return "复合请求"
+    return None
+
+
 class Manus(ToolCallAgent):
     """A versatile general-purpose agent with local tool orchestration.
 
@@ -1584,6 +1614,11 @@ class Manus(ToolCallAgent):
         # EDIT_CV（按值替换）使用规则解析 + 路径解析，直接调用工具。
         # 为避免“硬编码秒回”观感，先输出可见 Thought/Response，再下一步执行工具。
         replace_req = self._extract_replace_request(user_input)
+        # 让权守卫同样覆盖这条前置快路径:复合请求(如「把腾讯改成字节,然后翻译成英文」)
+        # 不走直调,交给 LLM 循环,避免后半句被静默丢弃
+        if replace_req and _rule_intent_yield_reason(user_input):
+            logger.info("🧭 staged-edit 快路径让权(复合/发送语义),交给 LLM 工具循环")
+            replace_req = None
         if replace_req and (
             self._conversation_state.context.resume_loaded or self._has_resume_data_in_store()
         ):
@@ -1708,10 +1743,11 @@ class Manus(ToolCallAgent):
             logger.info("🧭 触发诊断关键词兜底拦截: intent UNKNOWN -> ANALYZE_RESUME")
             intent = Intent.ANALYZE_RESUME
 
-        # 让权守卫(在一切意图覆盖之后):带发送语义的请求规则层弃权,
-        # 交给 ReAct loop 由 LLM 自主选工具(如 send_resume_email)
-        if intent != Intent.UNKNOWN and _has_send_email_intent(user_input):
-            logger.info(f"🧭 发送语义让权: {intent.value} -> UNKNOWN,交给 LLM 工具循环")
+        # 让权守卫(在一切意图覆盖之后):发送语义/复合请求等规则接不稳的输入,
+        # 规则层弃权,交给 ReAct loop 由 LLM 自主选工具
+        yield_reason = _rule_intent_yield_reason(user_input) if intent != Intent.UNKNOWN else None
+        if yield_reason:
+            logger.info(f"🧭 {yield_reason}让权: {intent.value} -> UNKNOWN,交给 LLM 工具循环")
             intent = Intent.UNKNOWN
             intent_result = {**intent_result, "intent": intent, "tool": None, "tool_args": {}}
 
