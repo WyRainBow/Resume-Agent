@@ -1780,7 +1780,17 @@ class Manus(ToolCallAgent):
         enhanced_query = intent_result.get("enhanced_query", user_input)  # 获取增强后的查询
         intent_result_obj = intent_result.get("intent_result")  # 获取意图识别结果对象
 
-        logger.info(f"🧠 意图识别: {intent.value}, 建议工具: {tool}")
+        # LLM-first / 让权:enhanced_query 可能带 /[tool:xxx] 之类的规则路由标记,
+        # 写回 memory 等于规则在暗中给 LLM 指路(名义让权、实际遥控)。让权时一律
+        # 使用原始输入,规则产物仅落日志(Codex review 2026-07-10)。
+        if yield_reason and enhanced_query != user_input:
+            logger.info(f"[llm-first] 规则改写已忽略: {enhanced_query!r}")
+            enhanced_query = user_input
+        # 观测:规则候选 vs 最终路由,用于评估 LLM-first 翻车面
+        logger.info(
+            f"🧠 意图路由: intent={intent.value} rule_tool={tool} "
+            f"source={intent_source} yielded={yield_reason or '-'}"
+        )
         if enhanced_query != user_input:
             logger.info(f"📝 增强后的查询: {enhanced_query}")
 

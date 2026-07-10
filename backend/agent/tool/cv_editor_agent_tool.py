@@ -42,35 +42,45 @@ class CVEditorAgentTool(BaseTool):
     """
 
     name: str = "cv_editor_agent"
-    description: str = """Edit and modify CV/Resume data through the CVEditor Agent.
+    description: str = """修改当前简历的字段(改/加/删)。用户要求修改、优化、润色、添加、删除简历内容时使用;可多次调用完成多处修改。
 
-Use this tool when user requests to modify resume content.
+path 必须精确到叶子字段,常用路径:
+- 姓名 basic.name / 手机 basic.phone / 邮箱 basic.email / 求职意向 basic.title
+- 教育 education[0].school|major|degree|gpa
+- 实习/工作经历描述 experience[N].details;项目描述 projects[N].description
+- 开源经历 openSource[N].description;技能 skillContent
+- 整段追加:path=experience(或 projects/openSource),action=add,value 传完整对象
 
-**Keywords:** 修改, 更新, 改成, 改为, 设置, 添加, 增加, 删除, 去掉
+action 语义:update=改现有值;add=向数组追加(value 必须是对象,禁止二次 JSON 编码成字符串);delete=删除。
 
-**Parameters:**
-- path: JSON path to the field (e.g., 'basic.name', 'education[0].school', 'education')
-- action: 'update', 'add', or 'delete'
-- value: New value (for update/add operations)
+富文本约束(details/description/skillContent 的 value 必须遵守):
+- 只用 HTML,禁止 Markdown:加粗 <strong>文字</strong>,不要 **文字**
+- 多条要点用 <ul class="custom-list"><li><p><strong>小标题</strong>:描述…</p></li></ul>,不要 1. 2. 3.
+- 改写必须基于简历现有内容(在 system context 中),不得凭空编造经历或数据
 
-Execute modifications immediately when user provides specific details.
-"""
+add 新实习示例 value:
+{"company":"美的集团","position":"后端开发实习生","date":"2024.12 - 2025.03","details":"<p>…</p><ul class=\\"custom-list\\">…</ul>"}
+(用 date 字段,不要 period)"""
 
     parameters: dict = {
         "type": "object",
         "properties": {
             "path": {
                 "type": "string",
-                "description": "JSON path to the resume field. Examples: 'basic.name', 'education[0].school', 'experience'"
+                "description": "简历字段的 JSON 路径,精确到叶子字段。如 basic.name、experience[0].details、projects[1].description;整段追加时用数组名如 experience"
             },
             "action": {
                 "type": "string",
                 "enum": ["update", "add", "delete"],
-                "description": "Operation type: 'update' to modify, 'add' to append to array, 'delete' to remove"
+                "description": "update=修改现有值;add=向数组追加完整对象;delete=删除该路径"
             },
             "value": {
-                "type": "string",
-                "description": "New value for update/add operations (will be parsed as JSON if needed). For add, provide complete object. For update, provide the new value."
+                "anyOf": [
+                    {"type": "string"},
+                    {"type": "object"},
+                    {"type": "array"},
+                ],
+                "description": "新值。update 时通常是字符串(富文本字段必须是 HTML);add 时必须是完整对象(不要编码成 JSON 字符串);delete 时省略"
             }
         },
         "required": ["path", "action"]
