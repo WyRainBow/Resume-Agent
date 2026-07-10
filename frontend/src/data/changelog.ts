@@ -15,6 +15,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '3.2.1',
+    date: '2026-07-11 00:47',
+    fixed: [
+      '修复点击「导出」时格式选择弹窗被压缩、看不见的问题',
+      '多段项目经历之间的间距默认改为 1ex，多段时不再挤在一起',
+    ],
+  },
+  {
     version: '3.2.0',
     date: '2026-07-10',
     added: [

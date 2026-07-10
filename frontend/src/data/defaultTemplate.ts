@@ -127,7 +127,7 @@ export const DEFAULT_RESUME_TEMPLATE: ResumeData = {
     paragraphSpacing: 10,
     experienceListType: "none",
     experienceGap: 1,
-    projectExperienceGap: 0,
+    projectExperienceGap: 1,
     latexHeaderTopGapPx: -4,
     latexHeaderNameContactGapPx: 0,
     latexHeaderBottomGapPx: -1,

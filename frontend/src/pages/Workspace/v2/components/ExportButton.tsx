@@ -4,6 +4,7 @@ import { toast } from '@/lib/toast'
  * 点「导出」弹出格式选择（PDF / JSON），选中后统一从底部「导出」执行。
  */
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { Download, FileJson, FileText, X } from "lucide-react";
 import { cn } from "../../../../lib/utils";
 import {
@@ -164,7 +165,7 @@ export function ExportButton({
         <span>导出</span>
       </button>
 
-      {isOpen && (
+      {isOpen && createPortal(
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
           onClick={(e) => e.target === e.currentTarget && setIsOpen(false)}
@@ -271,7 +272,8 @@ export function ExportButton({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );

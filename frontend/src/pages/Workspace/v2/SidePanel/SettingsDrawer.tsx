@@ -448,7 +448,7 @@ function FormatTab({
         <label className={labelClass}>多段项目经历之间的间距</label>
         <DropdownSelect
           options={EXPERIENCE_GAP_OPTIONS}
-          value={globalSettings.projectExperienceGap ?? 0}
+          value={globalSettings.projectExperienceGap ?? 1}
           onChange={(v) => updateGlobalSettings({ projectExperienceGap: v })}
         />
       </div>

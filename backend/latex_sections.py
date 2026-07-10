@@ -307,7 +307,7 @@ def generate_section_projects(resume_data: Dict[str, Any], section_titles: Dict[
     global_settings = resume_data.get('globalSettings') or {}
     link_display = global_settings.get('projectLinkDisplay', 'inline')
     link_label = global_settings.get('projectLinkLabel', '链接')
-    project_experience_gap = global_settings.get('projectExperienceGap', 0)
+    project_experience_gap = global_settings.get('projectExperienceGap', 1)  # 经历项间距，默认 1ex
     if isinstance(projects, list) and projects:
         content.append(f"\\section{{{escape_latex(section_title)}}}")
         content.append("")
