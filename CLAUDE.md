@@ -11,7 +11,7 @@
 - 当前项目是 Resume-Agent 单仓库，包含 `frontend/` 与 `backend/`
 - 后端主服务端口默认 `9000`，前端 Vite 默认端口为 `5173`；`9000` 被占用时可换端口启动（见 §3.2 端口冲突回退规则）
 - 核心约束：Agent 已合并进 `backend/agent/`，运行在主后端进程内；**没有独立 9100 端口 Agent 服务**
-- `knowledge-base/` 是设计、计划、评审和操作记录的唯一主知识库
+- `knowledge-base/` 是设计、计划、评审和操作记录的唯一主知识库；**例外**：领域文档（根目录 `CONTEXT.md` 术语表 + `docs/adr/` 架构决策记录 + `docs/agents/` 工程 skill 配置）按 §4.0/§4.4 约定就地存放并进 Git
 - `reference/` 是竞品调研与参考资料目录：`reference/docs/` 放调研文档（进 Git），`reference/projects/` 放 clone 的参考项目源码（被 Git 忽略）；**所有竞品调研文档都归档到 `reference/docs/`**，索引见 `reference/README.md`
 - `knowledge/` 是本地旧目录，已被 Git 忽略，不作为项目长期记录位置
 - `README.md` 在本仓库可能被忽略，不要只靠 Git 状态判断文档变化
@@ -347,33 +347,37 @@ pytest backend/tests/<target_test>.py
 
 ### 4.2 场景流程链
 
+（`git 提交` 指按阶段四规则直接用 git 提交，不是 skill。）
+
 | 场景 | 流程 |
 |---|---|
-| 新功能 | `brainstorming` → `writing-plans` → `feature-dev` → 实测 → `commit` |
-| 新页面 / 新组件 | `brainstorming` → `frontend-design` + `react-best-practices` → `web-design-guidelines` 审查 → `webapp-testing` → `commit` |
-| 修 Bug | `systematic-debugging` → `bug-fix` → `verification-before-completion` → `commit` |
-| Agent 工具 | `brainstorming` → `writing-plans` → 后端工具实现 → SSE 实测 → `verification-before-completion` → `commit` |
-| PDF / LaTeX | `systematic-debugging` 或 `writing-plans` → 渲染链路验证 → `verification-before-completion` → `commit` |
-| 重构 | `writing-plans` → `simplify` / `clean-code` → `code-review` → `commit` |
-| 生成文档 | `/docx` / `/xlsx` / `/pptx` / `/pdf` |
+| 新功能 | §4.0 主线：`brainstorming` →（概念打架时 `grill-with-docs`）→ `writing-plans` → 实现 → 实测 → `verification-before-completion` → git 提交 |
+| 新页面 / 新组件 | `brainstorming` → 实现（视觉要求高时用项目级设计 skill，如 `taste-skill` / `redesign-skill`）→ dev server 浏览器实测（阶段三-1）→ `verification-before-completion` → git 提交 |
+| 修 Bug | `systematic-debugging` → 修复 → `verification-before-completion` → git 提交 |
+| Agent 工具 | `brainstorming` → `writing-plans` → 后端工具实现 → SSE 实测 → `verification-before-completion` → git 提交 |
+| PDF / LaTeX | `systematic-debugging` 或 `writing-plans` → 渲染链路验证 → `verification-before-completion` → git 提交 |
+| 重构 | `writing-plans` → `simplify` → `code-review` → git 提交 |
+| 生成 Office/PDF 文档 | docx / xlsx / pptx / pdf skill（以 `/` 菜单里的实际名称为准，可能带插件前缀） |
 
 ### 4.3 其它常用 Skill
 
+（以下均已核验存在于当前环境；`/` 菜单敲不出来时以菜单为准。）
+
 | 命令 | 场景 |
 |---|---|
-| `/feature-dev` | 引导式功能开发 |
-| `/frontend-design` | 新页面 / 组件快速原型 |
-| `/ui-ux-pro-max` | 专业配色 / 字体 / 风格决策 |
-| `react-best-practices` | 写 React 组件自动参考 |
-| `web-design-guidelines` | 前端审查自动参考 |
-| `/code-review` | 功能完成后、提交前审查 |
-| `/simplify` | 代码简化优化 |
-| `/webapp-testing` | Playwright 端到端测试 |
-| `/gstack` | 快速无头浏览器 QA、站点验证、截图取证 |
-| `/commit` | 规范 Git 提交 |
-| `/context7` | 查询第三方库最新文档 |
-| `/bug-fix` | 结构化 Bug 修复流程 |
+| `/code-review` | 提交前审查：找 bug + 简化（支持 `--fix` / `--comment` / `ultra`） |
+| `/mattpocock-code-review` | 双轴审查：是否合仓库规范 + 是否符合原 issue/PRD |
+| `/ponytail-review` | 只查过度设计：该删的抽象 / 冗余 / 重造轮子 |
+| `/simplify` | 代码简化优化（只做质量清理，不找 bug） |
+| `/verify` | 端到端驱动真实链路验证一个改动（不是只跑测试） |
+| `/run` | 启动并驱动本项目应用看改动效果 |
+| `/prototype` | 一次性原型验证设计问题 |
+| `/understand` | 生成代码库知识图谱（接手/回顾时用） |
+| `/grill-me` | 纯压测一个方案（不产文档；要落术语表/ADR 用 `/grill-with-docs`） |
+| `/handoff` | 把当前对话压缩成交接文档给另一个会话 |
 | `/subagent-driven-development` | 并行开发多个独立子任务 |
+| `taste-skill` / `redesign-skill` / `minimalist-skill` 等 | 项目级设计 skills（`.claude/skills/`，改前端视觉时自动参考） |
+| `/to-spec` / `/to-tickets` / `/triage` | 对接 GitHub Issues 的规格/拆票/分诊（配置见 §4.4） |
 
 ### 4.4 工程 Skills 配置（mattpocock）
 
@@ -419,5 +423,5 @@ pytest backend/tests/<target_test>.py
 - 新 Agent 工具第一次上线就有后端注册、SSE 事件和前端消费，不需要用户提醒补
 - PDF 功能声称完成前有真实渲染链路验证痕迹
 - UI 功能声称完成前都有浏览器实测痕迹
-- Skill 强制节点没有被跳过，尤其是 `brainstorming`、`writing-plans`、`verification-before-completion`
+- Skill 强制节点没有被跳过，尤其是 `brainstorming`、`writing-plans`、`verification-before-completion`；出现 §4.0 ② 的触发信号（用词漂移 / 决策反复）时切了 `grill-with-docs` 而不是硬写
 - 设计、计划、评审和操作记录进入 `knowledge-base/`，而不是散落到临时目录
