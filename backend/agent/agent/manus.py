@@ -22,14 +22,8 @@ from backend.agent.prompt.manus import (
 )
 from backend.agent.utils.resume_richtext import html_to_context_text, normalize_editor_value
 from backend.agent.prompt.load_resume import build_load_resume_fast_path_prompt
-from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, GenerateResumeTool, SendResumeEmailTool, ShowResumeTool, Terminate, ToolCollection, WebSearch
-try:
-    from backend.agent.tool import BrowserUseTool
-except ImportError:
-    BrowserUseTool = None
+from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, GenerateResumeTool, SendResumeEmailTool, ShowResumeTool, Terminate, ToolCollection
 from backend.agent.tool.ask_human import AskHuman
-from backend.agent.tool.python_execute import PythonExecute
-from backend.agent.tool.str_replace_editor import StrReplaceEditor
 from backend.agent.memory import (
     ChatHistoryManager,
     ConversationStateManager,
@@ -182,15 +176,16 @@ class Manus(ToolCallAgent):
 
     def _build_tool_collection(self) -> ToolCollection:
         """Build tool collection based on capability settings."""
+        # 文件/代码执行类工具(PythonExecute/StrReplaceEditor)已移除:
+        # 网页简历产品的用户没有文件系统语境,这类工具只会诱导模型幻想成
+        # CLI Agent("我先看看当前目录下有没有简历文件"),且扩大安全面
+        # 产品收敛:只做简历优化。文件/代码执行(PythonExecute/StrReplaceEditor)、
+        # 浏览器(BrowserUseTool)、联网搜索(WebSearch)等通用工具全部移除——
+        # 它们对网页简历产品的用户无用,还诱导模型幻想成 CLI/浏览器 Agent
         base_tools = [
-            PythonExecute(),
-            StrReplaceEditor(),
-            WebSearch(),
             AskHuman(),
             Terminate(),
         ]
-        if BrowserUseTool is not None:
-            base_tools.insert(1, BrowserUseTool())
         domain_tools = [
             CVReaderAgentTool(),
             ShowResumeTool(),
@@ -1750,6 +1745,12 @@ class Manus(ToolCallAgent):
             logger.info(f"🧭 {yield_reason}让权: {intent.value} -> UNKNOWN,交给 LLM 工具循环")
             intent = Intent.UNKNOWN
             intent_result = {**intent_result, "intent": intent, "tool": None, "tool_args": {}}
+            if yield_reason == "复合请求":
+                # 保险提示:复合请求让权后,防止 LLM 做完第一个子任务就提前收工
+                self.memory.add_message(Message.system_message(
+                    "用户这条请求包含多个子任务(如「优化…然后…」)。请逐个完成全部子任务,"
+                    "每个子任务分别调用对应工具,全部完成后再结束,不要只做第一个就停止。"
+                ))
 
         tool = intent_result.get("tool")
         tool_args = intent_result.get("tool_args", {})
@@ -2245,24 +2246,6 @@ class Manus(ToolCallAgent):
         # 🎯 其他意图：交给 LLM 自然处理
         # 动态生成提示词
         self.system_prompt, self.next_step_prompt = await self._generate_dynamic_prompts(user_input, intent)
-
-        # 检查是否需要浏览器上下文
-        recent_messages = self.memory.messages[-3:] if self.memory.messages else []
-        browser_in_use = False
-        if BrowserUseTool is not None:
-            browser_in_use = any(
-                tc.function.name == BrowserUseTool().name
-                for msg in recent_messages
-                if msg.tool_calls
-                for tc in msg.tool_calls
-            )
-
-        if browser_in_use:
-            browser_prompt = await self.browser_context_helper.format_next_step_prompt()
-            if self.next_step_prompt:
-                self.next_step_prompt = f"{self.next_step_prompt}\n\n{browser_prompt}"
-            else:
-                self.next_step_prompt = browser_prompt
 
         # 调用父类的 think 方法（会自动处理终止逻辑）
         return await super().think()
