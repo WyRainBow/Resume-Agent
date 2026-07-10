@@ -9,12 +9,14 @@ from fastapi import APIRouter
 from backend.core.logger import get_logger
 from backend.agent.web.routes.health import router as health_router
 from backend.agent.web.routes.stream import router as stream_router
+from backend.agent.web.routes.approval import router as approval_router
 
 logger = get_logger(__name__)
 
 api_router = APIRouter()
 api_router.include_router(health_router)
 api_router.include_router(stream_router)
+api_router.include_router(approval_router)
 
 try:
     from backend.agent.web.routes.resume import router as resume_router

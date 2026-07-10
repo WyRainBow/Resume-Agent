@@ -98,6 +98,11 @@ class BaseTool(ABC, BaseModel):
     parameters: Optional[dict] = None
     session_id: Optional[str] = Field(default=None, exclude=True)
     shared_state: Optional[Any] = Field(default=None, exclude=True)
+    # 运行时确认协议:True 时 execute_tool 不直接执行,先挂起并推 approval_request
+    # 确认卡,由 /api/agent/approval 端点在用户批准后带(可能被编辑过的)参数执行。
+    # 这是运行时语义,模型无法绕过;approval_editable_fields 声明确认卡中可编辑的参数。
+    requires_approval: bool = Field(default=False, exclude=True)
+    approval_editable_fields: list = Field(default_factory=list, exclude=True)
     # _schemas: Dict[str, List[ToolSchema]] = {}
 
     class Config:
@@ -124,6 +129,15 @@ class BaseTool(ABC, BaseModel):
     @abstractmethod
     async def execute(self, **kwargs) -> Any:
         """Execute the tool with given parameters."""
+
+    def validate_before_approval(self, **kwargs) -> Optional[str]:
+        """requires_approval 工具的确认前校验:返回错误文案则不产生挂起(让注定
+        失败的调用在确认卡出现之前就报错),返回 None 表示可以挂起等待确认。"""
+        return None
+
+    def approval_preview(self, **kwargs) -> Dict[str, Any]:
+        """requires_approval 工具的确认卡附加展示信息(如附件名),并入 payload。"""
+        return {}
 
     def to_param(self) -> Dict:
         """Convert tool to function call format.
