@@ -1,6 +1,4 @@
-import asyncio
 import json
-import os
 import re
 from typing import Any, Dict, List, Optional
 from pathlib import Path
@@ -18,7 +16,6 @@ from backend.agent.prompt.manus import (
     SYSTEM_PROMPT,
 )
 from backend.agent.utils.resume_richtext import html_to_context_text, normalize_editor_value
-from backend.agent.prompt.load_resume import build_load_resume_fast_path_prompt
 from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, GenerateResumeTool, SendResumeEmailTool, ShowResumeTool, Terminate, ToolCollection
 from backend.agent.tool.ask_human import AskHuman
 from backend.agent.memory import (
@@ -37,26 +34,11 @@ from backend.agent.agent.turn_state import TurnExecutionState
 from backend.agent.agent.prompt_builder import PromptBuilder
 from backend.agent.agent.intent_router import IntentRouter, RoutingContext
 from backend.agent.agent.tool_invocation_builder import (
-    DispatchOutcome,
     ToolInvocation,
     ToolInvocationBuilder,
 )
-from backend.agent.agent.resume_use_cases import ResumeUseCases
 from backend.agent.agent.capability import CapabilityRegistry, ResumeCapability
-from backend.agent.agent.registry import AgentRegistry
-from backend.agent.agent.delegation_strategy import AgentDelegationStrategy
 from backend.agent.tool.resume_data_store import ResumeDataStore
-from backend.agent.agent.analyzers.work_experience_analyzer import WorkExperienceAnalyzerAgent  # noqa: F401
-from backend.agent.agent.analyzers.skills_analyzer import SkillsAnalyzerAgent  # noqa: F401
-from backend.agent.agent.resume_optimizer import ResumeOptimizerAgent  # noqa: F401
-
-LOAD_RESUME_LLM_HINT_ENABLED = (
-    os.getenv("AGENT_FAST_LOAD_RESUME_LLM_HINT_ENABLED", "true").strip().lower()
-    != "false"
-)
-EDIT_PRE_TOOL_DELAY_MS = int(
-    os.getenv("AGENT_EDIT_PRE_TOOL_DELAY_MS", "450").strip() or "450"
-)
 
 # 让权守卫:消息同时含「发送动词 + 邮箱地址」时,规则意图一律弃权交还 LLM 工具循环。
 # 规则层没有"发送"概念,历史上会把「把优化好的简历发给 xx@qq.com」里的"优化"抢注进
@@ -101,16 +83,6 @@ def _rule_intent_yield_reason(text: str) -> Optional[str]:
     return None
 
 
-def _llm_first_routing_enabled() -> bool:
-    """LLM-first 路由(2026-07-10 用户拍板「所有意图都走 LLM」):开启时所有
-    业务意图一律交给 ReAct loop,由 LLM 看工具列表自主编排;规则意图识别
-    只降级为日志参考,不再拥有分派权。GREETING 保留专用轻通道(它本身就是
-    LLM 生成,只是不挂工具、更快)。
-    回滚开关:AGENT_LLM_FIRST_ROUTING=false 恢复规则分派;运行时读取,
-    切换无需改代码。"""
-    return os.getenv("AGENT_LLM_FIRST_ROUTING", "true").strip().lower() != "false"
-
-
 class Manus(ToolCallAgent):
     """A versatile general-purpose agent with local tool orchestration.
 
@@ -150,7 +122,6 @@ class Manus(ToolCallAgent):
     _shared_state: AgentSharedState = PrivateAttr(default=None)
     _skills_cache: Dict[str, str] = PrivateAttr(default_factory=dict)
     _prompt_builder: PromptBuilder = PrivateAttr(default=None)
-    _use_cases: ResumeUseCases = PrivateAttr(default=None)
     _intent_router: IntentRouter = PrivateAttr(default=None)
     _tool_builder: ToolInvocationBuilder = PrivateAttr(default=None)
     # Wave 2a-S1:原 5 个散落 flag 收拢进 TurnExecutionState。S4c-1 起内部直接读写
@@ -190,47 +161,25 @@ class Manus(ToolCallAgent):
             capability=self.capability,
             skills_cache=self._skills_cache,
         )
-        # Wave 2a-S3:诊断/优化/委托分析迁 ResumeUseCases。llm 与流回调用
-        # provider 延迟取值(llm 在此之后才初始化;流回调随流建立/清除)
-        self._use_cases = ResumeUseCases(
-            llm_provider=lambda: self.llm,
-            session_id=self.session_id,
-            turn_state=self._turn,
-            base_prompt_provider=self._generate_dynamic_prompts,
-            stream_callback_provider=lambda: getattr(
-                self, "_stream_content_callback", None
-            ),
-        )
         # Wave 2a-S4a:意图识别+让权守卫收口 IntentRouter。让权规则函数注入
         # (仍定义在本模块级,S4c 收口后平移)
         self._intent_router = IntentRouter(
             self._conversation_state,
-            llm_first_enabled_provider=_llm_first_routing_enabled,
             yield_reason_fn=_rule_intent_yield_reason,
             compound_request_fn=_looks_like_compound_request,
         )
-        # Wave 2a-S4b:5 处手工构造 ToolCall 的纯构造收口 ToolInvocationBuilder
+        # Wave 2a-S4b:手工构造 ToolCall 的纯构造收口 ToolInvocationBuilder
+        # (LLM-first 了断后仅剩 optimize-confirm 的 build_apply_optimization)
         self._tool_builder = ToolInvocationBuilder()
         return self
 
-    def _apply_invocation(self, inv: ToolInvocation) -> Optional[bool]:
-        """统一落地 ToolInvocation 的副作用：写 memory、结构化结果、tool_calls、
-        flag，并按 outcome 决定返回值(CONTINUE→True / FINISH→False+FINISHED /
-        EMIT_ONLY→None，后续段留在 think())。"""
+    def _apply_invocation(self, inv: ToolInvocation) -> bool:
+        """统一落地 ToolInvocation 的副作用：写 memory、tool_calls 与优化确认 flag。"""
         for msg in inv.memory_messages:
             self.memory.add_message(msg)
-        self._tool_structured_results.update(inv.structured_results)
         self.tool_calls = inv.tool_calls
-        if inv.finish_after_load_resume:
-            self._turn.finish_after_load_resume_tool = True
         if inv.just_applied_optimization:
             self._just_applied_optimization = True
-        if inv.outcome == DispatchOutcome.FINISH:
-            from backend.agent.schema import AgentState
-            self.state = AgentState.FINISHED
-            return False
-        if inv.outcome == DispatchOutcome.EMIT_ONLY:
-            return None
         return True
 
     def _build_tool_collection(self) -> ToolCollection:
@@ -369,61 +318,6 @@ class Manus(ToolCallAgent):
         elif is_add_experience_query(user_input):
             logger.info("📎 新增经历轮次：允许 cv_editor_agent")
 
-    def _resolve_company_path_by_value(self, source_value: str) -> Optional[str]:
-        resume_data = ResumeDataStore.get_data(self.session_id) or {}
-        needle = (source_value or "").strip().lower()
-        if not needle or not isinstance(resume_data, dict):
-            return None
-
-        def _find_path(entries: Any, prefix: str) -> Optional[str]:
-            if not isinstance(entries, list):
-                return None
-            for idx, item in enumerate(entries):
-                if not isinstance(item, dict):
-                    continue
-                company = str(item.get("company") or "").strip()
-                if not company:
-                    continue
-                company_l = company.lower()
-                if company_l == needle or needle in company_l:
-                    return f"{prefix}[{idx}].company"
-            return None
-
-        path = _find_path(resume_data.get("experience"), "experience")
-        if path:
-            return path
-        return _find_path(resume_data.get("internships"), "internships")
-
-    def _resolve_primary_experience_text_path(self) -> Optional[str]:
-        """为优化写回选择一个稳定的目标字段路径。"""
-        resume_data = ResumeDataStore.get_data(self.session_id) or {}
-        if not isinstance(resume_data, dict):
-            return None
-        experience = resume_data.get("experience")
-        if not isinstance(experience, list) or not experience:
-            return None
-        first = experience[0]
-        if not isinstance(first, dict):
-            return None
-        for field in ("details", "description", "summary", "content"):
-            if isinstance(first.get(field), str):
-                return f"experience[0].{field}"
-        return None
-
-    @staticmethod
-    def _to_plain_text(text: str) -> str:
-        """Convert rich text/markdown/html to compact plain text."""
-        content = str(text or "")
-        # Strip html tags
-        content = re.sub(r"<[^>]+>", " ", content)
-        # Strip markdown fences / emphasis
-        content = content.replace("```", " ")
-        content = content.replace("**", "")
-        content = content.replace("__", "")
-        content = content.replace("`", "")
-        content = re.sub(r"\s+", " ", content).strip()
-        return content
-
     @staticmethod
     def _dedupe_lines(text: str) -> str:
         """Drop duplicate lines while preserving order."""
@@ -557,21 +451,6 @@ class Manus(ToolCallAgent):
         # 有实质性内容，自动终止
         return True
 
-    def _check_load_resume_finish(self) -> bool:
-        """LOAD_RESUME 快路径收敛：工具结果落库后本轮直接收尾。返回是否已终止。"""
-        if not self._turn.finish_after_load_resume_tool:
-            return False
-        for msg in reversed(self.memory.messages[-8:]):
-            role_val = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
-            if role_val == "tool" and (msg.name or "") in {"show_resume", "cv_reader_agent"}:
-                from backend.agent.schema import AgentState
-
-                self._turn.finish_after_load_resume_tool = False
-                self.state = AgentState.FINISHED
-                logger.info("✅ LOAD_RESUME direct tool completed, finishing current run")
-                return True
-        return False
-
     def _check_edit_completion_finish(self) -> bool:
         """防止直接编辑工具在同一轮执行后被重复触发。返回是否已终止。"""
         # 兼容 role 可能是 Role 枚举或字符串 "tool"
@@ -680,59 +559,17 @@ class Manus(ToolCallAgent):
         return False
 
     async def think(self) -> bool:
-        """Process current state and decide next actions using LLM intent recognition.
+        """Process current state and decide next actions.
 
-        简化流程：
-        1. 特殊意图（GREETING、LOAD_RESUME）直接处理
-        2. 其他意图交给 LLM 自然处理，依赖自动终止机制
+        LLM-first 唯一路径（2026-07-11 一次性了断）：
+        1. GREETING 走专用轻通道（LLM 生成、不挂工具）
+        2. optimize-confirm 确认写回走 cv_editor_agent 快路径
+        3. 其余一律交给 LLM ReAct loop 自主选工具，依赖自动终止机制
         """
         # 获取最后的用户输入；同一轮内锁定只读/可写模式
         user_input = self._get_last_user_input()
         self._sync_turn_read_only_flag(user_input)
         self._sync_resume_loaded_state()
-
-        # 两阶段执行编辑：先给用户“正在修改”反馈，再在下一步实际调用编辑工具。
-        if self._turn.pending_edit_tool_call:
-            pending = self._turn.pending_edit_tool_call
-            self._turn.pending_edit_tool_call = None
-            if EDIT_PRE_TOOL_DELAY_MS > 0:
-                await asyncio.sleep(EDIT_PRE_TOOL_DELAY_MS / 1000.0)
-            return await self._handle_direct_tool_call(
-                tool=pending["tool"],
-                tool_args=pending["tool_args"],
-                intent=pending["intent"],
-                user_input=user_input,
-                skip_pre_edit_notice=True,
-            )
-
-        # EDIT_CV（按值替换）使用规则解析 + 路径解析，直接调用工具。
-        # 判定收口 IntentRouter.decide_staged_edit、构造收口 ToolInvocationBuilder;
-        # 为避免“硬编码秒回”观感，先输出可见 Thought/Response，再下一步执行工具。
-        staged = self._intent_router.decide_staged_edit(
-            user_input,
-            resume_available=(
-                self._conversation_state.context.resume_loaded
-                or self._has_resume_data_in_store()
-            ),
-            path_resolver=self._resolve_company_path_by_value,
-        )
-        if staged is not None:
-            plan = self._tool_builder.build_staged_edit(
-                staged.intent, staged.tool, staged.tool_args
-            )
-            self._last_intent_info = plan.last_intent_info
-            self.memory.add_message(plan.memory_message)
-            self._turn.pending_edit_tool_call = plan.pending_edit_tool_call
-            logger.info(
-                "🧭 staged edit prepared, tool call moved to next step: %s",
-                staged.tool_args,
-            )
-            return True
-
-        # LOAD_RESUME 快路径是一次性工具调用；
-        # 工具结果落库后在下一步收敛，避免重复触发同一工具直到 max_steps。
-        if self._check_load_resume_finish():
-            return False
 
         # 防止直接编辑工具在同一轮执行后被重复触发，导致多次修改
         if self._check_edit_completion_finish():
@@ -741,21 +578,16 @@ class Manus(ToolCallAgent):
         # 确保 ConversationStateManager 有 LLM 实例
         self._ensure_conversation_state_llm()
         # 🧠 意图识别 + 让权守卫统一收口 IntentRouter(Wave 2a-S4a);
-        # decide() 契约:每轮恰好调用一次 process_input,判定逻辑与原实现逐行一致
+        # decide() 契约:每轮恰好调用一次 process_input;LLM-first 唯一路径下
+        # 业务意图一律让权,识别结果仅剩 GREETING 判定 + 日志参考
         route = await self._intent_router.decide(
             user_input,
             RoutingContext(
                 recent_messages=self.memory.messages[-5:],
                 last_ai_message=self._get_last_ai_message(),
-                resume_available=(
-                    self._conversation_state.context.resume_loaded
-                    or self._has_resume_data_in_store()
-                ),
             ),
         )
         intent = route.intent
-        tool = route.tool
-        tool_args = route.tool_args
         intent_source = route.intent_source
         enhanced_query = route.enhanced_query
         if route.compound_hint:
@@ -778,104 +610,6 @@ class Manus(ToolCallAgent):
             if await self._handle_optimize_confirm():
                 logger.info("🧭 optimize confirmation mapped to cv_editor_agent")
                 return True
-
-        if (
-            intent in [Intent.ANALYZE_RESUME, Intent.OPTIMIZE_SECTION, Intent.FULL_OPTIMIZE]
-            and not is_add_experience_query(user_input)
-        ):
-            section = tool_args.get("section") if isinstance(tool_args, dict) else None
-            try:
-                resume_data_snapshot = ResumeDataStore.get_data(self.session_id)
-                if intent == Intent.ANALYZE_RESUME and not resume_data_snapshot:
-                    hint_message = await self._build_load_resume_hint_message(
-                        tool="show_resume",
-                        tool_args={},
-                        user_input=user_input or "",
-                    )
-                    return self._apply_invocation(
-                        self._tool_builder.build_show_resume_hint(hint_message)
-                    )
-
-                strategy = AgentDelegationStrategy.resolve(intent, section)
-                analyzers = strategy.get("analyzers") if strategy else None
-
-                if intent == Intent.ANALYZE_RESUME:
-                    resume_data_snapshot = ResumeDataStore.get_data(self.session_id) or {}
-                    resume_meta = self._use_cases._extract_resume_meta(resume_data_snapshot)
-
-                    # ── 两阶段确认：首次触发时先询问目标岗位 ──
-                    user_text = (user_input or "").strip()
-                    _diagnosis_keywords = ["先做通用", "通用诊断", "目标岗位", "JD", "jd", "职位描述", "定向"]
-                    _has_diagnosis_context = any(kw in user_text for kw in _diagnosis_keywords)
-
-                    if not _has_diagnosis_context:
-                        # Phase 1: 展示简历已读取，询问诊断方向
-                        ask_message = self._use_cases.build_diagnosis_ask_message(resume_meta)
-                        result = self._apply_invocation(
-                            self._tool_builder.build_diagnosis_phase1(resume_meta, ask_message)
-                        )
-                        logger.info("✅ ANALYZE_RESUME Phase 1: asked for target position")
-                        return result
-
-                    # Phase 2: 用户已选择诊断方向，执行完整诊断
-                    logger.info(f"✅ ANALYZE_RESUME Phase 2: proceeding with diagnosis (context: {user_text[:50]})")
-
-                    # 1. 并行委托分析器（获取结构化评分/问题）
-                    analysis_results = await self._use_cases._parallel_delegate_analyzers(analyzers or [])
-                    diagnosis_payload = self._use_cases._build_resume_diagnosis_payload(
-                        analysis_results,
-                        resume_data_snapshot,
-                    )
-
-                    # 2. 显式发出两步工具调用序列（用于前端 tool cards）
-                    #    EMIT_ONLY:只落工具事件,下面 qwq 流式段(启动)留在此处按序执行
-                    self._apply_invocation(
-                        self._tool_builder.build_diagnosis_phase2(diagnosis_payload)
-                    )
-
-                    # 3. 用 qwq-plus 流式生成诊断报告（thinking token → thought，content → answer）
-                    #    队列/任务构造 + handoff dict 写入收口 ResumeUseCases.start_diagnosis_stream
-                    #    (Wave 2a-S4c-3 纯搬运)；实际 SSE 事件推送仍由 AgentStream 消费 pending 完成。
-                    self._use_cases.start_diagnosis_stream(diagnosis_payload, resume_meta)
-
-                    from backend.agent.schema import AgentState
-                    self.state = AgentState.FINISHED
-                    logger.info("✅ ANALYZE_RESUME: qwq-plus streaming started")
-                    return False
-
-                if intent == Intent.OPTIMIZE_SECTION:
-                    # OPTIMIZE_SECTION 6 步路由整体收口 ResumeUseCases.route_optimize_section
-                    # (Wave 2a-S4c-2 纯搬运)。返回文案,原 _finish_optimize 的 memory + FINISHED
-                    # 副作用回交此处落地;recent_assistant 的 memory 反扫留在 Manus。
-                    recent_assistant = [
-                        (m.content or "")
-                        for m in self.memory.messages
-                        if hasattr(m, "role") and (
-                            m.role if isinstance(m.role, str) else m.role.value
-                        ) == "assistant"
-                    ][-5:]
-                    reply = await self._use_cases.route_optimize_section(
-                        user_input, resume_data_snapshot or {}, recent_assistant
-                    )
-                    self.memory.add_message(Message.assistant_message(reply))
-                    from backend.agent.schema import AgentState
-                    self.state = AgentState.FINISHED
-                    return False
-
-                if intent == Intent.FULL_OPTIMIZE:
-                    # 「全面/整体/全局优化」走整份优化：覆盖所有实习/工作、项目、开源 + 技能 + 自我评价，
-                    # 逐段生成优化对比卡（比只做工作经历的旧 resume_optimizer 更全）。
-                    resume_snapshot = resume_data_snapshot or {}
-                    whole_reply, _ = await self._use_cases._optimize_whole_resume(
-                        user_input, resume_snapshot
-                    )
-                    self.memory.add_message(Message.assistant_message(whole_reply))
-                    from backend.agent.schema import AgentState
-                    self.state = AgentState.FINISHED
-                    logger.info("🎯 FULL_OPTIMIZE: whole-resume optimize")
-                    return False
-            except Exception as exc:
-                logger.warning(f"委托子 Agent 失败，回退到 LLM 路径: {exc}")
 
         # 存储本轮意图上下文，供工具结构化结果标注来源
         self._store_intent_info(intent, intent_source)
@@ -912,138 +646,12 @@ class Manus(ToolCallAgent):
             self.state = AgentState.FINISHED
             return False
 
-        # 🎯 LOAD_RESUME 意图：直接调用工具
-        if tool and self._conversation_state.should_use_tool_directly(intent):
-            return await self._handle_direct_tool_call(tool, tool_args, intent, user_input)
-
-        # 🎯 其他意图：交给 LLM 自然处理
+        # 🎯 其他意图一律交给 LLM ReAct loop（看工具列表自主编排）
         # 动态生成提示词
         self.system_prompt, self.next_step_prompt = await self._generate_dynamic_prompts(user_input, intent)
 
         # 调用父类的 think 方法（会自动处理终止逻辑）
         return await super().think()
-
-    async def _handle_direct_tool_call(
-        self,
-        tool: str,
-        tool_args: dict,
-        intent: "Intent",
-        user_input: Optional[str] = None,
-        skip_pre_edit_notice: bool = False,
-    ) -> bool:
-        """直接调用工具，跳过 LLM 决策"""
-        # EDIT_CV 需要先有已加载简历；否则先切到加载入口避免空改失败。
-        if intent == Intent.EDIT_CV and not (
-            self._conversation_state.context.resume_loaded or self._has_resume_data_in_store()
-        ):
-            logger.info("🧭 EDIT_CV requested without loaded resume, fallback to show_resume")
-            tool = "show_resume"
-            tool_args = {}
-            intent = Intent.LOAD_RESUME
-
-        # 🚨 特殊处理：cv_reader_agent 需要文件路径
-        # 如果 tool_args 为空但有 _current_resume_path，使用它
-        # (补全须先于下面的 LOAD_RESUME hint LLM 调用——hint 读取 tool_args["file_path"]，
-        #  故留在 Manus 而非 builder)
-        if tool == "cv_reader_agent" and not tool_args.get("file_path"):
-            if self._current_resume_path:
-                tool_args["file_path"] = self._current_resume_path
-                logger.info(f"📄 使用 _current_resume_path: {self._current_resume_path}")
-
-        # LOAD_RESUME hint 的 LLM 调用是决策，留在 Manus；hint 算好后传入 builder
-        load_resume_hint = None
-        if intent == Intent.LOAD_RESUME:
-            load_resume_hint = await self._build_load_resume_hint_message(
-                tool=tool,
-                tool_args=tool_args,
-                user_input=user_input or "",
-            )
-
-        result = self._apply_invocation(
-            self._tool_builder.build_direct_tool_call(
-                tool,
-                tool_args,
-                intent,
-                load_resume_hint=load_resume_hint,
-                skip_pre_edit_notice=skip_pre_edit_notice,
-            )
-        )
-        logger.info(f"🔧 直接调用工具: {tool}, 参数: {tool_args}")
-        return result
-
-    async def _build_load_resume_hint_message(
-        self,
-        tool: str,
-        tool_args: Dict[str, Any],
-        user_input: str,
-    ) -> str:
-        """Build short Thought/Response for LOAD_RESUME with optional LLM style guidance."""
-        fallback = (
-            "Thought: 我识别到你要加载简历，先执行对应工具流程。\n"
-            "Response: 正在处理，请稍等。"
-        )
-        if tool == "cv_reader_agent":
-            fallback = (
-                "Thought: 我识别到你要加载指定简历文件，将尝试按路径读取。\n"
-                "Response: 我正在为你加载该简历文件，稍后会把结果展示到当前会话。"
-            )
-        elif tool == "show_resume":
-            fallback = (
-                "Thought: 我识别到你想开始处理简历，介绍几种上手方式。\n"
-                "Response: 三种方式随你：说说你的经历我帮你生成、导入现成简历，或说「选择已有简历」从列表加载。"
-            )
-
-        if not LOAD_RESUME_LLM_HINT_ENABLED or not getattr(self, "llm", None):
-            return fallback
-
-        file_path = ""
-        if isinstance(tool_args, dict):
-            file_path = str(tool_args.get("file_path") or "").strip()
-
-        prompt = build_load_resume_fast_path_prompt(tool_name=tool, file_path=file_path)
-        llm_input = user_input.strip() or "加载我的简历"
-
-        try:
-            raw = await self.llm.ask(
-                messages=[{"role": "user", "content": llm_input}],
-                system_msgs=[{"role": "system", "content": prompt}],
-                stream=False,
-                temperature=0.2,
-            )
-            parsed = self._normalize_thought_response(raw)
-            return parsed or fallback
-        except Exception as exc:
-            logger.warning(f"LOAD_RESUME LLM hint generation failed, fallback to template: {exc}")
-            return fallback
-
-    @staticmethod
-    def _normalize_thought_response(text: str) -> str:
-        """Normalize model output into strict two-line Thought/Response format."""
-        if not text:
-            return ""
-
-        thought = ""
-        response = ""
-        for line in text.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            if line.lower().startswith("thought:"):
-                thought = line.split(":", 1)[1].strip()
-            elif line.lower().startswith("response:"):
-                response = line.split(":", 1)[1].strip()
-
-        if not thought or not response:
-            # Fallback parser for loosely formatted output.
-            cleaned = text.replace("\r", "").strip()
-            m = re.search(r"Thought[:：]\s*(.+?)\n+Response[:：]\s*(.+)$", cleaned, re.IGNORECASE | re.DOTALL)
-            if m:
-                thought = (m.group(1) or "").strip()
-                response = (m.group(2) or "").strip()
-
-        if not thought or not response:
-            return ""
-        return f"Thought: {thought}\nResponse: {response}"
 
     @staticmethod
     def _looks_like_optimize_confirm(text: str) -> bool:

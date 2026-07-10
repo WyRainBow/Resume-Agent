@@ -1,7 +1,12 @@
-"""Wave 2a-S4a IntentRouter 决策表回归:
-路由判定从 think() 迁出,决策表按原 think() 行为逐条锁定——
-诊断兜底 / 发送守卫 / LLM-first 全量让权 / 无简历让权 / GREETING 不让权 /
-enhanced_query 清洗 / 复合请求提示 / process_input 恰好一次。
+"""IntentRouter 决策表回归（2026-07-11 LLM-first 一次性了断后重写）：
+
+路由判定从 think() 迁出,决策表按现状行为锁定——
+诊断兜底(内部覆盖但仍被 LLM-first 让权收回) / 发送守卫 / LLM-first 无条件全量
+让权(唯一路径,无回退开关) / GREETING 不让权 / enhanced_query 清洗(无条件丢弃
+规则改写) / 复合请求提示 / process_input 恰好一次。
+
+原"规则模式"(llm_first=False)/"无简历让权"两组用例测的是已随
+AGENT_LLM_FIRST_ROUTING 回退开关一并删除的规则分派路径,不再保留。
 """
 import asyncio
 import sys
@@ -33,19 +38,18 @@ class FakeConversationState:
         return dict(self._result)
 
 
-def make_router(rule_result, llm_first=True):
+def make_router(rule_result):
     state = FakeConversationState(rule_result)
     router = IntentRouter(
         state,
-        llm_first_enabled_provider=lambda: llm_first,
         yield_reason_fn=_rule_intent_yield_reason,
         compound_request_fn=_looks_like_compound_request,
     )
     return router, state
 
 
-def ctx(resume=True):
-    return RoutingContext(recent_messages=[], last_ai_message=None, resume_available=resume)
+def ctx():
+    return RoutingContext(recent_messages=[], last_ai_message=None)
 
 
 def run(coro):
@@ -61,16 +65,17 @@ BASE = {
 # ---------- 决策表 ----------
 
 def test_greeting_never_yields():
-    router, state = make_router({**BASE, "intent": Intent.GREETING}, llm_first=True)
+    router, state = make_router({**BASE, "intent": Intent.GREETING})
     out = run(router.decide("你好", ctx()))
     assert out.intent == Intent.GREETING
     assert out.yield_reason is None
     assert state.calls == 1
 
 
-def test_llm_first_yields_business_intent():
+def test_business_intent_always_yields_llm_first():
+    """LLM-first 是唯一路径(无回退开关):任何业务意图一律让权给 ReAct loop"""
     router, _ = make_router(
-        {**BASE, "intent": Intent.LOAD_RESUME, "tool": "show_resume"}, llm_first=True
+        {**BASE, "intent": Intent.LOAD_RESUME, "tool": "show_resume"}
     )
     out = run(router.decide("帮我加载简历", ctx()))
     assert out.intent == Intent.UNKNOWN
@@ -78,20 +83,9 @@ def test_llm_first_yields_business_intent():
     assert out.tool is None
 
 
-def test_rule_mode_keeps_business_intent():
-    router, _ = make_router(
-        {**BASE, "intent": Intent.LOAD_RESUME, "tool": "show_resume"}, llm_first=False
-    )
-    out = run(router.decide("帮我加载简历", ctx()))
-    assert out.intent == Intent.LOAD_RESUME
-    assert out.yield_reason is None
-    assert out.tool == "show_resume"
-
-
 def test_send_semantics_guard_wins_over_rule_intent():
     router, _ = make_router(
         {**BASE, "intent": Intent.OPTIMIZE_SECTION, "tool": "cv_editor_agent"},
-        llm_first=False,
     )
     out = run(router.decide("把优化好的简历发给 a@qq.com", ctx()))
     assert out.intent == Intent.UNKNOWN
@@ -99,56 +93,37 @@ def test_send_semantics_guard_wins_over_rule_intent():
 
 
 def test_compound_request_sets_hint():
-    router, _ = make_router(
-        {**BASE, "intent": Intent.OPTIMIZE_SECTION}, llm_first=False
-    )
+    router, _ = make_router({**BASE, "intent": Intent.OPTIMIZE_SECTION})
     out = run(router.decide("优化第二段实习经历,然后翻译成英文", ctx()))
+    # 复合请求先被判定让权原因为"复合请求",而不是被后续 LLM-first 覆盖
     assert out.yield_reason == "复合请求"
     assert out.compound_hint is True
 
 
-def test_no_resume_yields_optimize():
-    router, _ = make_router(
-        {**BASE, "intent": Intent.OPTIMIZE_SECTION}, llm_first=False
-    )
-    out = run(router.decide("优化第一段经历", ctx(resume=False)))
-    assert out.intent == Intent.UNKNOWN
-    assert out.yield_reason == "无简历"
-
-
-def test_diagnosis_keyword_override():
-    """「诊断」关键词兜底:UNKNOWN 强转 ANALYZE_RESUME(规则模式+有简历不让权)"""
-    router, _ = make_router({**BASE, "intent": Intent.UNKNOWN}, llm_first=False)
+def test_diagnosis_keyword_override_still_yields_llm_first():
+    """「诊断」关键词兜底仍会把内部 intent 强转 ANALYZE_RESUME(触发日志/复合判定),
+    但 LLM-first 唯一路径下最终仍会把它让权收回 UNKNOWN——覆盖只影响过程,不影响
+    最终路由结果。"""
+    router, _ = make_router({**BASE, "intent": Intent.UNKNOWN})
     out = run(router.decide("帮我诊断一下简历", ctx()))
-    assert out.intent == Intent.ANALYZE_RESUME
+    assert out.intent == Intent.UNKNOWN
+    assert out.yield_reason == "LLM-first"
 
 
 def test_enhanced_query_stripped_on_yield():
     router, _ = make_router(
         {**BASE, "intent": Intent.LOAD_RESUME, "tool": "show_resume",
          "enhanced_query": "帮我加载简历 /[tool:show_resume]"},
-        llm_first=True,
     )
     out = run(router.decide("帮我加载简历", ctx()))
     assert out.enhanced_query == "帮我加载简历"  # 工具标记被清洗
 
 
-def test_enhanced_query_stripped_even_without_yield_when_llm_first():
-    """LLM-first 开启即全量禁止 /[tool:] 写回,intent 本来是 UNKNOWN 也一样"""
+def test_enhanced_query_stripped_even_without_business_intent():
+    """intent 本来是 UNKNOWN(无让权)时,/[tool:] 改写也一律被无条件丢弃"""
     router, _ = make_router(
         {**BASE, "intent": Intent.UNKNOWN,
          "enhanced_query": "随便聊聊 /[tool:show_resume]"},
-        llm_first=True,
     )
     out = run(router.decide("随便聊聊", ctx()))
     assert out.enhanced_query == "随便聊聊"
-
-
-def test_enhanced_query_kept_in_rule_mode():
-    router, _ = make_router(
-        {**BASE, "intent": Intent.LOAD_RESUME, "tool": "show_resume",
-         "enhanced_query": "帮我加载简历 /[tool:show_resume]"},
-        llm_first=False,
-    )
-    out = run(router.decide("帮我加载简历", ctx()))
-    assert "/[tool:show_resume]" in out.enhanced_query  # 规则模式保留增强
