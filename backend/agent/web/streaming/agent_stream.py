@@ -1066,10 +1066,10 @@ class AgentStream:
                                 logger.info(f"[跳过重复工具结果] {tool_name} (ID: {str(tool_call_id)[:8]}...)")
                                 continue
                             self._sent_tool_results.add(result_key)
+                            # 结构化结果无条件透传:是否有 structured 由工具自己决定
+                            # (ToolResult.system 里放 {type,...} 即可),不再逐工具开白名单
                             structured_data = None
-                            if tool_name in {"web_search", "show_resume", "cv_editor_agent", "cv_reader_agent", "generate_resume", "get_resume_detail", "resume-diagnosis", "send_resume_email"} and hasattr(
-                                self.agent, "get_structured_tool_result"
-                            ):
+                            if hasattr(self.agent, "get_structured_tool_result"):
                                 structured_data = self.agent.get_structured_tool_result(
                                     tool_call_id
                                 )
