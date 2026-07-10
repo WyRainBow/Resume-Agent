@@ -1741,6 +1741,14 @@ class Manus(ToolCallAgent):
         # 让权守卫(在一切意图覆盖之后):发送语义/复合请求等规则接不稳的输入,
         # 规则层弃权,交给 ReAct loop 由 LLM 自主选工具
         yield_reason = _rule_intent_yield_reason(user_input) if intent != Intent.UNKNOWN else None
+        # 无简历时,优化/编辑/分析的规则流程无米下锅(只会吐固定引导文案),
+        # 一律让权给 LLM——system prompt「产品语境」段已定义标准的无简历引导
+        if yield_reason is None and intent in {
+            Intent.OPTIMIZE_SECTION, Intent.FULL_OPTIMIZE, Intent.EDIT_CV, Intent.ANALYZE_RESUME,
+        } and not (
+            self._conversation_state.context.resume_loaded or self._has_resume_data_in_store()
+        ):
+            yield_reason = "无简历"
         if yield_reason:
             logger.info(f"🧭 {yield_reason}让权: {intent.value} -> UNKNOWN,交给 LLM 工具循环")
             intent = Intent.UNKNOWN
@@ -2225,7 +2233,7 @@ class Manus(ToolCallAgent):
                     messages=[{"role": "user", "content": user_input}],
                     system_msgs=[{"role": "system", "content": system_content}],
                     stream=False,
-                    temperature=0.4,
+                    temperature=0.8,  # 问候要有变化,拉高多样性
                 )
                 if raw and raw.strip():
                     self.memory.add_message(Message.assistant_message(raw.strip()))

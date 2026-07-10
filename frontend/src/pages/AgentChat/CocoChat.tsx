@@ -50,7 +50,6 @@ import {
   Zap,
 } from "lucide-react";
 import ChatEmptyState from "@/components/agent-chat/ChatEmptyState";
-import IntentChips from "@/components/agent-chat/IntentChips";
 import ModelSelector, { DEFAULT_AGENT_MODEL } from "@/components/agent-chat/ModelSelector";
 import React, {
   useCallback,
@@ -379,15 +378,6 @@ function isLoadResumeIntentText(text: string): boolean {
   return isSelectExistingResumeIntentText(text);
 }
 
-function isGreetingOnlyText(text: string): boolean {
-  const normalized = (text || "").trim();
-  if (!normalized) return false;
-  return (
-    normalized.length <= 20 &&
-    /^(?:你好|您好|hello|hi|hey|在吗|哈喽)[!！?？\s，,。.~～]*$/i.test(normalized)
-  );
-}
-
 const PASTE_IMPORT_EXPLICIT_RES = [
   /^导入(?:我的)?(?:简历|cv)(?:内容)?\s*[：:]\s*([\s\S]+)/i,
   /^import\s+(?:my\s+)?(?:resume|cv)(?:\s+content)?\s*[：:]\s*([\s\S]+)/i,
@@ -448,9 +438,6 @@ const CREATE_RESUME_GUIDE_TEXT = `好，把你的情况说给我就行 👇 这�
 - **自我评价**：技能亮点、求职意向
 
 可以**一次性全发**给我、也可以**一段段拆开**给、或者先说一项（比如「我的教育经历是……」）。有现成的简历文字、直接粘进来也行。`;
-
-const GREETING_CREATE_RESUME_GUIDANCE =
-  "你好 👋 我是 coco、你的简历助手。下面选一个快速开始、或者直接打字告诉我你想做什么。";
 
 interface SearchResultItem {
   position?: number;
@@ -799,8 +786,6 @@ function CocoChatContent() {
   const [showResumeSelector, setShowResumeSelector] = useState(false);
   // 「按 JD 优化简历」交互卡（从首页 chip 进入时打开）
   const [showJdCard, setShowJdCard] = useState(false);
-  // 问候 fast-path 的意图引导胶囊（替代旧的 ResumeSelector 大卡）
-  const [showGreetingChips, setShowGreetingChips] = useState(false);
   // ResumeSelector 打开时的初始步骤（「选择已有」直达列表，其余从入口卡片进）
   const [resumeSelectorInitialStep, setResumeSelectorInitialStep] = useState<
     "entry" | "existing"
@@ -3327,7 +3312,6 @@ function CocoChatContent() {
       setAllowPdfAutoRender(true);
       setSelectedResumeId(selectedResume.id);
       setShowResumeSelector(false);
-      setShowGreetingChips(false);
 
       // 应用新简历数据后强制重渲 PDF 预览：
       // 粘贴导入 / AI 编辑常是「更新现有简历（同 id）」，selectedResumeId 不变、旧 blob 有缓存，
@@ -3622,7 +3606,6 @@ function CocoChatContent() {
       const nextMessages = [...messages, userMessageEntry];
       const isFirstMessage = messages.length === 0;
       setMessages(nextMessages);
-      setShowGreetingChips(false);
 
       let validConversationId = conversationId;
       if (!validConversationId || validConversationId.trim() === "") {
@@ -3941,7 +3924,6 @@ function CocoChatContent() {
       void persistSessionSnapshot(validConversationId, updated, prev.length === 0);
       return updated;
     });
-    setShowGreetingChips(false);
     setResumeError(null);
   }, [conversationId, currentSessionId, persistSessionSnapshot]);
 
@@ -3959,8 +3941,6 @@ function CocoChatContent() {
         return;
 
       const trimmedMessage = userMessage.trim();
-      // 任何真实发送都先收起问候引导胶囊；命中问候 fast-path 时下方会重新打开
-      setShowGreetingChips(false);
       const pasteResumeText =
         !attachments || attachments.length === 0
           ? extractPasteImportResumeText(trimmedMessage)
@@ -4042,7 +4022,6 @@ function CocoChatContent() {
         };
         const finalMessages = [...nextMessages, assistantMsg];
         setMessages(finalMessages);
-        setShowGreetingChips(false);
         await persistSessionSnapshot(
           validConversationId,
           finalMessages,
@@ -4055,49 +4034,6 @@ function CocoChatContent() {
       const hasResumeContext =
         !!resumeDataRef.current ||
         loadedResumes.some((item) => !!item.resumeData);
-
-      if (
-        isGreetingOnlyText(trimmedMessage) &&
-        (!attachments || attachments.length === 0) &&
-        !hasResumeContext
-      ) {
-        const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const userMessageEntry: Message = {
-          id: uniqueId,
-          role: "user",
-          content: userMessage,
-          timestamp: new Date().toISOString(),
-        };
-        const nextMessages = [...messages, userMessageEntry];
-        const isFirstMessage = messages.length === 0;
-        setMessages(nextMessages);
-
-        let validConversationId = conversationId;
-        if (!validConversationId || validConversationId.trim() === "") {
-          validConversationId = `conv-${Date.now()}`;
-          setConversationId(validConversationId);
-        }
-        if (!currentSessionId) {
-          setCurrentSessionId(validConversationId);
-        }
-
-        const assistantMsg: Message = {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          role: "assistant",
-          content: GREETING_CREATE_RESUME_GUIDANCE,
-          timestamp: new Date().toISOString(),
-        };
-        const finalMessages = [...nextMessages, assistantMsg];
-        setMessages(finalMessages);
-        setShowGreetingChips(true);
-        await persistSessionSnapshot(
-          validConversationId,
-          finalMessages,
-          isFirstMessage,
-        );
-        setResumeError(null);
-        return;
-      }
 
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       currentRunUserInputRef.current = userMessage.trim();
@@ -5018,57 +4954,6 @@ function CocoChatContent() {
                       onPasteResumeText={handleJdCardPasteResume}
                       onStartOptimize={handleJdCardStartOptimize}
                       onDismiss={() => setShowJdCard(false)}
-                    />
-                  </div>
-                )}
-
-                {/* 问候引导胶囊：发「你好」且无简历时的零延迟意图引导（替代旧的大卡） */}
-                {showGreetingChips && (
-                  <div className="px-4 py-2">
-                    <IntentChips
-                      chips={[
-                        {
-                          icon: Wand2,
-                          label: "对话创建（推荐）",
-                          onClick: () => {
-                            setShowGreetingChips(false);
-                            handleFillCreateResumePrompt();
-                          },
-                        },
-                        {
-                          icon: Upload,
-                          label: "导入简历",
-                          onClick: () => {
-                            setShowGreetingChips(false);
-                            handleImportResume();
-                          },
-                        },
-                        {
-                          icon: FileText,
-                          label: "选择已有",
-                          onClick: () => {
-                            setShowGreetingChips(false);
-                            setResumeSelectorInitialStep("existing");
-                            setShowResumeSelector(true);
-                          },
-                        },
-                        {
-                          icon: Search,
-                          label: "岗位分析",
-                          onClick: () => {
-                            setShowGreetingChips(false);
-                            setInput("分析这个 JD，看看我的简历还要补充什么");
-                          },
-                        },
-                        {
-                          icon: Zap,
-                          label: "快速问答",
-                          onClick: () => {
-                            setShowGreetingChips(false);
-                            setInput("怎么写出让 HR 眼前一亮的简历总结");
-                          },
-                        },
-                      ]}
                     />
                   </div>
                 )}
