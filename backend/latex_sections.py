@@ -38,7 +38,7 @@ def generate_section_internships(resume_data: Dict[str, Any], section_titles: Di
     global_settings = resume_data.get('globalSettings') or {}
     list_type = global_settings.get('experienceListType', 'none')
     company_font_size = global_settings.get('companyNameFontSize')
-    experience_gap = global_settings.get('experienceGap', 0)  # 经历项间距，默认 0（无间距，标准样式）
+    experience_gap = global_settings.get('experienceGap', 1)  # 经历项间距，默认 1ex
     logo_size_px = global_settings.get('companyLogoSize', 20)  # Logo 大小（px），默认 20
     logo_size_pt = round(logo_size_px * 0.75, 1)  # 转换为 pt
     
