@@ -47,6 +47,7 @@ from backend.agent.utils.experience_entry import (
 )
 from backend.agent.schema import Message, Role, ToolCall
 from backend.agent.agent.shared_state import AgentSharedState
+from backend.agent.agent.turn_state import TurnExecutionState
 from backend.agent.agent.capability import CapabilityRegistry, ResumeCapability
 from backend.agent.agent.registry import AgentRegistry
 from backend.agent.agent.delegation_strategy import AgentDelegationStrategy
@@ -154,12 +155,53 @@ class Manus(ToolCallAgent):
     _last_intent_info: Dict[str, Any] = PrivateAttr(default_factory=dict)
     _current_resume_path: Optional[str] = PrivateAttr(default=None)
     _just_applied_optimization: bool = PrivateAttr(default=False)  # 标记是否刚应用了优化
-    _finish_after_load_resume_tool: bool = PrivateAttr(default=False)
-    _pending_edit_tool_call: Optional[Dict[str, Any]] = PrivateAttr(default=None)
     _shared_state: AgentSharedState = PrivateAttr(default=None)
     _skills_cache: Dict[str, str] = PrivateAttr(default_factory=dict)
-    _pending_immediate_stream: Optional[Dict[str, Any]] = PrivateAttr(default=None)  # 立即流式推送的消息
-    _pending_resume_patches: List[Dict[str, Any]] = PrivateAttr(default_factory=list)
+    # Wave 2a-S1:原 5 个散落 flag(_finish_after_load_resume_tool/_pending_edit_tool_call/
+    # _pending_immediate_stream/_pending_resume_patches/_current_turn_read_only)收拢进
+    # TurnExecutionState;旧名以下方 property 委托保留(AgentStream 直读
+    # _pending_immediate_stream,保留到 2b-B1,见 spec D2)
+    _turn: TurnExecutionState = PrivateAttr(default_factory=TurnExecutionState)
+
+    @property
+    def _finish_after_load_resume_tool(self) -> bool:
+        return self._turn.finish_after_load_resume_tool
+
+    @_finish_after_load_resume_tool.setter
+    def _finish_after_load_resume_tool(self, value: bool) -> None:
+        self._turn.finish_after_load_resume_tool = value
+
+    @property
+    def _pending_edit_tool_call(self) -> Optional[Dict[str, Any]]:
+        return self._turn.pending_edit_tool_call
+
+    @_pending_edit_tool_call.setter
+    def _pending_edit_tool_call(self, value: Optional[Dict[str, Any]]) -> None:
+        self._turn.pending_edit_tool_call = value
+
+    @property
+    def _pending_immediate_stream(self) -> Optional[Dict[str, Any]]:
+        return self._turn.pending_immediate_stream
+
+    @_pending_immediate_stream.setter
+    def _pending_immediate_stream(self, value: Optional[Dict[str, Any]]) -> None:
+        self._turn.pending_immediate_stream = value
+
+    @property
+    def _pending_resume_patches(self) -> List[Dict[str, Any]]:
+        return self._turn.pending_resume_patches
+
+    @_pending_resume_patches.setter
+    def _pending_resume_patches(self, value: List[Dict[str, Any]]) -> None:
+        self._turn.pending_resume_patches = value
+
+    @property
+    def _current_turn_read_only(self) -> bool:
+        return self._turn.read_only
+
+    @_current_turn_read_only.setter
+    def _current_turn_read_only(self, value: bool) -> None:
+        self._turn.read_only = value
 
     @model_validator(mode="after")
     def initialize_helper(self) -> "Manus":
@@ -578,13 +620,11 @@ class Manus(ToolCallAgent):
 
     def queue_resume_patch(self, patch: Dict[str, Any]) -> None:
         """暂存 resume_patch，由 AgentStream 在 step 结束后 emit。"""
-        self._pending_resume_patches.append(patch)
+        self._turn.queue_patch(patch)
 
     def drain_resume_patches(self) -> List[Dict[str, Any]]:
         """取出并清空待发送的 resume_patch 列表。"""
-        patches = list(self._pending_resume_patches)
-        self._pending_resume_patches = []
-        return patches
+        return self._turn.drain_patches()
 
     @staticmethod
     def _strip_llm_thinking_prefix(raw: str) -> str:
