@@ -2,7 +2,6 @@ import asyncio
 import json
 import os
 import re
-import time
 from typing import Any, Dict, List, Optional
 from pathlib import Path
 
@@ -50,6 +49,11 @@ from backend.agent.agent.shared_state import AgentSharedState
 from backend.agent.agent.turn_state import TurnExecutionState
 from backend.agent.agent.prompt_builder import PromptBuilder
 from backend.agent.agent.intent_router import IntentRouter, RoutingContext
+from backend.agent.agent.tool_invocation_builder import (
+    DispatchOutcome,
+    ToolInvocation,
+    ToolInvocationBuilder,
+)
 from backend.agent.agent.resume_use_cases import ResumeUseCases
 from backend.agent.agent.capability import CapabilityRegistry, ResumeCapability
 from backend.agent.agent.registry import AgentRegistry
@@ -161,6 +165,7 @@ class Manus(ToolCallAgent):
     _prompt_builder: PromptBuilder = PrivateAttr(default=None)
     _use_cases: ResumeUseCases = PrivateAttr(default=None)
     _intent_router: IntentRouter = PrivateAttr(default=None)
+    _tool_builder: ToolInvocationBuilder = PrivateAttr(default=None)
     # Wave 2a-S1:原 5 个散落 flag(_finish_after_load_resume_tool/_pending_edit_tool_call/
     # _pending_immediate_stream/_pending_resume_patches/_current_turn_read_only)收拢进
     # TurnExecutionState;旧名以下方 property 委托保留(AgentStream 直读
@@ -250,7 +255,29 @@ class Manus(ToolCallAgent):
             yield_reason_fn=_rule_intent_yield_reason,
             compound_request_fn=_looks_like_compound_request,
         )
+        # Wave 2a-S4b:5 处手工构造 ToolCall 的纯构造收口 ToolInvocationBuilder
+        self._tool_builder = ToolInvocationBuilder()
         return self
+
+    def _apply_invocation(self, inv: ToolInvocation) -> Optional[bool]:
+        """统一落地 ToolInvocation 的副作用：写 memory、结构化结果、tool_calls、
+        flag，并按 outcome 决定返回值(CONTINUE→True / FINISH→False+FINISHED /
+        EMIT_ONLY→None，后续段留在 think())。"""
+        for msg in inv.memory_messages:
+            self.memory.add_message(msg)
+        self._tool_structured_results.update(inv.structured_results)
+        self.tool_calls = inv.tool_calls
+        if inv.finish_after_load_resume:
+            self._finish_after_load_resume_tool = True
+        if inv.just_applied_optimization:
+            self._just_applied_optimization = True
+        if inv.outcome == DispatchOutcome.FINISH:
+            from backend.agent.schema import AgentState
+            self.state = AgentState.FINISHED
+            return False
+        if inv.outcome == DispatchOutcome.EMIT_ONLY:
+            return None
+        return True
 
     def _build_tool_collection(self) -> ToolCollection:
         """Build tool collection based on capability settings."""
@@ -801,19 +828,9 @@ class Manus(ToolCallAgent):
                         tool_args={},
                         user_input=user_input or "",
                     )
-                    self.memory.add_message(Message.assistant_message(hint_message))
-                    manual_tool_call = ToolCall(
-                        id=f"call_show_resume_{int(time.time() * 1000)}",
-                        function={"name": "show_resume", "arguments": "{}"},
+                    return self._apply_invocation(
+                        self._tool_builder.build_show_resume_hint(hint_message)
                     )
-                    self.memory.add_message(
-                        Message.from_tool_calls(
-                            content="我将先打开简历选择面板。",
-                            tool_calls=[manual_tool_call],
-                        )
-                    )
-                    self.tool_calls = [manual_tool_call]
-                    return True
 
                 strategy = AgentDelegationStrategy.resolve(intent, section)
                 analyzers = strategy.get("analyzers") if strategy else None
@@ -829,30 +846,6 @@ class Manus(ToolCallAgent):
 
                     if not _has_diagnosis_context:
                         # Phase 1: 展示简历已读取，询问诊断方向
-                        detail_tool_call = ToolCall(
-                            id=f"call_get_resume_detail_{int(time.time() * 1000)}",
-                            function={"name": "get_resume_detail", "arguments": "{}"},
-                        )
-                        self._tool_structured_results[detail_tool_call.id] = {
-                            "type": "resume_detail",
-                            "status": "success",
-                            "tool": "get_resume_detail",
-                            "resume": resume_meta,
-                        }
-                        self.memory.add_message(
-                            Message.from_tool_calls(
-                                content=f"已读取简历《{resume_meta.get('name', '当前简历')}》，准备进行诊断...",
-                                tool_calls=[detail_tool_call],
-                            )
-                        )
-                        self.memory.add_message(
-                            Message.tool_message(
-                                content="获取简历详情执行成功",
-                                name="get_resume_detail",
-                                tool_call_id=detail_tool_call.id,
-                            )
-                        )
-
                         ask_message = (
                             f"已成功读取你的简历《{resume_meta.get('name', '当前简历')}》，在开始诊断前，我想了解一下你的目标：\n\n"
                             "%%SUGGESTIONS%%"
@@ -861,12 +854,11 @@ class Manus(ToolCallAgent):
                             '{"text":"先做通用简历诊断","msg":"先做通用简历诊断吧，暂不指定岗位"}'
                             ']%%END%%'
                         )
-                        self.memory.add_message(Message.assistant_message(ask_message))
-                        self.tool_calls = [detail_tool_call]
-                        from backend.agent.schema import AgentState
-                        self.state = AgentState.FINISHED
+                        result = self._apply_invocation(
+                            self._tool_builder.build_diagnosis_phase1(resume_meta, ask_message)
+                        )
                         logger.info("✅ ANALYZE_RESUME Phase 1: asked for target position")
-                        return False
+                        return result
 
                     # Phase 2: 用户已选择诊断方向，执行完整诊断
                     logger.info(f"✅ ANALYZE_RESUME Phase 2: proceeding with diagnosis (context: {user_text[:50]})")
@@ -879,29 +871,10 @@ class Manus(ToolCallAgent):
                     )
 
                     # 2. 显式发出两步工具调用序列（用于前端 tool cards）
-                    detail_tool_call = ToolCall(
-                        id=f"call_get_resume_detail_{int(time.time() * 1000)}",
-                        function={"name": "get_resume_detail", "arguments": "{}"},
+                    #    EMIT_ONLY:只落工具事件,下面 qwq 流式段留在 think() 继续执行
+                    self._apply_invocation(
+                        self._tool_builder.build_diagnosis_phase2(diagnosis_payload)
                     )
-                    diagnosis_tool_call = ToolCall(
-                        id=f"call_resume_diagnosis_{int(time.time() * 1000) + 1}",
-                        function={"name": "resume-diagnosis", "arguments": "{}"},
-                    )
-                    self._tool_structured_results[detail_tool_call.id] = {
-                        "type": "resume_detail",
-                        "status": "success",
-                        "tool": "get_resume_detail",
-                        "resume": diagnosis_payload["resume_meta"],
-                    }
-                    self._tool_structured_results[diagnosis_tool_call.id] = diagnosis_payload["structured"]
-                    self.memory.add_message(
-                        Message.from_tool_calls(
-                            content="正在执行简历深度诊断...",
-                            tool_calls=[detail_tool_call, diagnosis_tool_call],
-                        )
-                    )
-                    self.memory.add_message(Message.tool_message(content="获取简历详情执行成功", name="get_resume_detail", tool_call_id=detail_tool_call.id))
-                    self.memory.add_message(Message.tool_message(content="resume-diagnosis执行成功", name="resume-diagnosis", tool_call_id=diagnosis_tool_call.id))
 
                     # 3. 用 qwq-plus 流式生成诊断报告（thinking token → thought，content → answer）
                     import asyncio as _asyncio
@@ -1263,8 +1236,6 @@ class Manus(ToolCallAgent):
         skip_pre_edit_notice: bool = False,
     ) -> bool:
         """直接调用工具，跳过 LLM 决策"""
-        from backend.agent.schema import ToolCall
-
         # EDIT_CV 需要先有已加载简历；否则先切到加载入口避免空改失败。
         if intent == Intent.EDIT_CV and not (
             self._conversation_state.context.resume_loaded or self._has_resume_data_in_store()
@@ -1276,77 +1247,33 @@ class Manus(ToolCallAgent):
 
         # 🚨 特殊处理：cv_reader_agent 需要文件路径
         # 如果 tool_args 为空但有 _current_resume_path，使用它
+        # (补全须先于下面的 LOAD_RESUME hint LLM 调用——hint 读取 tool_args["file_path"]，
+        #  故留在 Manus 而非 builder)
         if tool == "cv_reader_agent" and not tool_args.get("file_path"):
             if self._current_resume_path:
                 tool_args["file_path"] = self._current_resume_path
                 logger.info(f"📄 使用 _current_resume_path: {self._current_resume_path}")
 
-        # 构建 ToolCall
-        arguments = json.dumps(tool_args) if tool_args else "{}"
-        manual_tool_call = ToolCall(
-            id=f"call_{tool}",
-            function={
-                "name": tool,
-                "arguments": arguments
-            }
-        )
-
-        # 生成说明文本
-        descriptions = {
-            "cv_reader_agent": "我将先加载您的简历数据",
-            "show_resume": "我将先打开简历选择面板",
-            "cv_analyzer_agent": "我将分析您的简历",
-            "cv_editor_agent": "我将编辑您的简历",
-        }
-
-        content = descriptions.get(tool, f"我将调用 {tool} 工具")
-        if tool_args.get("section"):
-            content += f"，重点优化：{tool_args['section']}"
+        # LOAD_RESUME hint 的 LLM 调用是决策，留在 Manus；hint 算好后传入 builder
+        load_resume_hint = None
         if intent == Intent.LOAD_RESUME:
-            content = await self._build_load_resume_hint_message(
+            load_resume_hint = await self._build_load_resume_hint_message(
                 tool=tool,
                 tool_args=tool_args,
                 user_input=user_input or "",
             )
-            self._finish_after_load_resume_tool = True
 
-        # 添加 assistant 消息
-        if intent == Intent.EDIT_CV and not skip_pre_edit_notice:
-            self.memory.add_message(
-                Message.assistant_message(
-                    "Thought: 我识别到你要做简历字段修改，将直接执行编辑并返回前后对比。"
-                )
+        result = self._apply_invocation(
+            self._tool_builder.build_direct_tool_call(
+                tool,
+                tool_args,
+                intent,
+                load_resume_hint=load_resume_hint,
+                skip_pre_edit_notice=skip_pre_edit_notice,
             )
-            self.memory.add_message(
-                Message.assistant_message(
-                    "Response: 收到，正在修改。完成后我会给你“修改前 / 修改后”的对比结果。"
-                    "我现在开始执行简历修改。"
-                )
-            )
-            self.memory.add_message(
-                Message.from_tool_calls(
-                    content="我现在开始执行简历修改。",
-                    tool_calls=[manual_tool_call],
-                )
-            )
-        elif intent == Intent.EDIT_CV and skip_pre_edit_notice:
-            self.memory.add_message(
-                Message.from_tool_calls(
-                    content="我现在开始执行简历修改。",
-                    tool_calls=[manual_tool_call],
-                )
-            )
-        else:
-            self.memory.add_message(
-                Message.from_tool_calls(
-                    content=content,
-                    tool_calls=[manual_tool_call]
-                )
-            )
-
-        self.tool_calls = [manual_tool_call]
+        )
         logger.info(f"🔧 直接调用工具: {tool}, 参数: {tool_args}")
-        return True
+        return result
 
     async def _build_load_resume_hint_message(
         self,
@@ -1447,7 +1374,6 @@ class Manus(ToolCallAgent):
 
     async def _handle_optimize_confirm(self) -> bool:
         """处理用户确认优化意图"""
-        from backend.agent.schema import ToolCall
         import re
 
         # 从之前的分析结果中提取最推荐的优化
@@ -1480,27 +1406,13 @@ class Manus(ToolCallAgent):
                             and self._is_actionable_optimization_text(str(edit_value))
                             and self._is_reasonable_optimization_text(str(edit_value))
                         ):
-                            manual_tool_call = ToolCall(
-                                id="call_apply_optimization",
-                                function={
-                                    "name": "cv_editor_agent",
-                                    "arguments": json.dumps({
-                                        "path": edit_path,
-                                        "action": "update",
-                                        "value": edit_value
-                                    })
-                                }
-                            )
-                            self.tool_calls = [manual_tool_call]
-                            self.memory.add_message(
-                                Message.from_tool_calls(
-                                    content=f"✅ 正在应用优化：{suggestion_title}\n路径：{edit_path}",
-                                    tool_calls=[manual_tool_call]
+                            result = self._apply_invocation(
+                                self._tool_builder.build_apply_optimization(
+                                    edit_path, edit_value, suggestion_title
                                 )
                             )
                             logger.info(f"🔧 应用优化: {edit_path} = {edit_value}")
-                            self._just_applied_optimization = True
-                            return True
+                            return result
                 except (json.JSONDecodeError, KeyError) as e:
                     logger.debug(f"解析优化建议失败: {e}")
                     continue
