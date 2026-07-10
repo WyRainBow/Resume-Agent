@@ -72,6 +72,18 @@ EDIT_PRE_TOOL_DELAY_MS = int(
 
 _RULE_BASED_NOISE_RE = re.compile(r"[（(]建议补充量化结果[^）)]*[）)]")
 
+# 让权守卫:消息同时含「发送动词 + 邮箱地址」时,规则意图一律弃权交还 LLM 工具循环。
+# 规则层没有"发送"概念,历史上会把「把优化好的简历发给 xx@qq.com」里的"优化"抢注进
+# OPTIMIZE/EDIT 分支(2026-07-10 审计 I8"组合请求被拆丢"的实锤案例)。
+# 注意动词表刻意不含"改成/改为"——「把邮箱改成 new@qq.com」是合法的字段编辑,不让权。
+_SEND_EMAIL_VERB_RE = re.compile(r"(发给|发送|发到|寄给|寄到|投递|投给|邮给|发邮件)")
+_EMAIL_ADDR_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+
+
+def _has_send_email_intent(text: str) -> bool:
+    t = text or ""
+    return bool(_SEND_EMAIL_VERB_RE.search(t) and _EMAIL_ADDR_RE.search(t))
+
 
 class Manus(ToolCallAgent):
     """A versatile general-purpose agent with local tool orchestration.
@@ -1695,6 +1707,13 @@ class Manus(ToolCallAgent):
         if intent != Intent.ANALYZE_RESUME and "诊断" in (user_input or ""):
             logger.info("🧭 触发诊断关键词兜底拦截: intent UNKNOWN -> ANALYZE_RESUME")
             intent = Intent.ANALYZE_RESUME
+
+        # 让权守卫(在一切意图覆盖之后):带发送语义的请求规则层弃权,
+        # 交给 ReAct loop 由 LLM 自主选工具(如 send_resume_email)
+        if intent != Intent.UNKNOWN and _has_send_email_intent(user_input):
+            logger.info(f"🧭 发送语义让权: {intent.value} -> UNKNOWN,交给 LLM 工具循环")
+            intent = Intent.UNKNOWN
+            intent_result = {**intent_result, "intent": intent, "tool": None, "tool_args": {}}
 
         tool = intent_result.get("tool")
         tool_args = intent_result.get("tool_args", {})

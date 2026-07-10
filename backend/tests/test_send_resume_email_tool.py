@@ -26,6 +26,11 @@ from backend.database import Base
 from backend.models import EmailCredential, User
 # 先导入 manus 完成 agent 包初始化,避开 backend.agent.tool.__init__ 的循环导入
 import backend.agent.agent.manus  # noqa: F401
+# 路由链(经 middleware.auth → backend/auth.py)在首次 import 时会 load_dotenv(override=True)
+# 覆盖进程 env;必须在任何 monkeypatch.setenv 之前完成这次 import,否则测试内设置的
+# EMAIL_CREDENTIAL_ENC_KEY 会被真实 .env 覆盖,导致解密签名不匹配
+from backend.agent.web.routes.approval import router as approval_router  # noqa: E402
+from backend.middleware.auth import get_current_user  # noqa: E402
 from backend.agent import approval as approval_store
 from backend.agent.tool import send_resume_email_tool as tool_module
 from backend.agent.tool.send_resume_email_tool import SendResumeEmailTool
@@ -167,11 +172,8 @@ def test_supersede_old_pending(db_session):
 # ---------- approval 端点 ----------
 
 def make_client(current_user):
-    from backend.agent.web.routes.approval import router
-    from backend.middleware.auth import get_current_user
-
     app = FastAPI()
-    app.include_router(router, prefix="/api/agent")
+    app.include_router(approval_router, prefix="/api/agent")
     app.dependency_overrides[get_current_user] = lambda: current_user
     return TestClient(app)
 
