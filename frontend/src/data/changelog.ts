@@ -15,7 +15,7 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '3.1.0',
+    version: '3.1.1',
     date: '2026-07-10',
     added: [
       '全新「界面皮肤」换肤：首页与工作台可一键切换 NEO / 清新两种风格，点「界面皮肤」即可预览选择',
@@ -25,6 +25,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     ],
     fixed: [
       '修复在线预览中公司 / 职位 / 学校加粗时多出 ** 符号的问题，加粗与常规现在能正常区分',
+      '首页「界面皮肤」按钮图标与工作台统一',
     ],
   },
   {
