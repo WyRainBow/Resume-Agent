@@ -36,3 +36,12 @@
 - history.py `delete_all_sessions` 里 `session_ids` 是既有死变量（收集后未使用）。
 - Wave 1.2 前置事实：`SuggestionsEvent` 后端模型与前端 `suggestions` 类型已存在，迁移是"从文本标记切换"而非"从零引入"；`manus.py` / `prompt/manus.py` / `CocoChat.tsx` 多处仍依赖 `%%SUGGESTIONS%%`。
 - Wave 2 拆 Manus 第一刀先把 `_pending_*` 等散落 flag 收进 `TurnExecutionState` 单轮状态对象，不要试图一次消灭所有 flag（Codex review 结论）。
+
+## 追记：Wave 2a 进展（2026-07-10 晚）
+
+分支 `feature/agent-arch-wave2a`（不合 main）：
+- S1 `TurnExecutionState`（317956f7）/ S2 `PromptBuilder` golden 对拍（5cf4388c）/ S3 `ResumeUseCases` 900 行迁出（f44e9f6e）/ S4-pre 白盒断言行为化（45b701c4）——Codex 代码 review + 浏览器实测验收通过（P1 event-loop 与 P2 golden 覆盖缺口已修 06040b9a）
+- 产品修复（用户实测反馈）：education add 空壳 bug（fdf65a08，专用 normalizer + edu_ id + 双层包裹容错）；无简历引导直接弹 show_resume 选择面板 + 生成请求立即落地（43c73b5f，prompt 二修，golden 重录）——三场景浏览器实测通过
+- S4a `IntentRouter`（bf7b7b4d）：意图识别+让权守卫收口，决策表 10 条，S4-pre 行为测试零改动通过；四步浏览器实测（GREETING/弹面板/生成/patch 应用）通过。manus.py 2602→1568
+- 剩余：S4b ToolInvocationBuilder、S4c 执行体收口 ResumeUseCases 公共接口（Codex P2-2）+ think() ≤150 行 + 删 property 委托；2b/2c 子波
+- 环境备注：Codex 服务两度不可用（连接反复中断），S4a 与产品修复的浏览器验收由 Claude 亲自执行
