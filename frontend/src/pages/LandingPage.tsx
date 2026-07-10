@@ -20,7 +20,7 @@ import {
   Clock,
   Frown,
   Upload,
-  SwatchBook,
+  Palette,
 } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 import type { ReactNode } from 'react'
@@ -399,7 +399,7 @@ export default function LandingPage() {
               title="选择界面皮肤"
               aria-label="界面皮肤"
             >
-              <SwatchBook className="w-4 h-4 shrink-0 text-[#4285F4]" />
+              <Palette className="w-4 h-4 shrink-0 text-[#4285F4]" />
               <span className="text-sm font-mono fresh:font-sans font-bold uppercase fresh:normal-case">界面皮肤</span>
             </button>
             <SkinPickerModal
