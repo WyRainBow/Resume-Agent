@@ -1,8 +1,8 @@
 # Wave 2 · Agent 架构重构设计（拆 Manus / AgentStream 适配器化 / 会话态收拢）
 
-> 日期：2026-07-10
+> 日期：2026-07-10（v2，吸收 Codex 设计 review）
 > 前置：Wave 0/0.5/1.1（main：`a3003809`/`a3082cc7`/`a0ea6c1f`）、Wave 1.2（`feature/agent-arch-wave12`：`a0e1c10c`）
-> 方案链路：Codex 架构分析（session `8c147ab2`）→ Claude 核验 → Codex 二轮 review → 用户批准
+> 方案链路：Codex 架构分析（session `8c147ab2`）→ Claude 核验 → Codex 二轮 review → 用户批准 → **Codex 设计 review（v2 修订依据，2 致命 + 7 建议全部吸收）**
 > 用户拍板：**分三个子波按序做（2a→2b→2c）**；**纯结构重构，外部行为零变化**
 
 ## 0. 目标与非目标
@@ -16,9 +16,10 @@
 - 不动 CLTP 过渡资产（`cltp/session_state.py` 等）
 - 不修重构中发现的行为怪癖（只记录，例：AI 生成 latex 型简历预览不支持）
 
-**验收铁律**：现有全部相关测试零修改通过（协议快照测试尤其不许动断言）；E2E 用户路径（登录→对话→生成→patch→应用→建议按钮）行为一致。
+**验收铁律**：现有**行为测试**零修改通过（协议快照测试尤其不许动断言）；E2E 用户路径（登录→对话→生成→patch→应用→建议按钮）行为一致。
+**白盒测试例外**（Codex review 致命问题 1）：`test_intent_send_guard.py` 中直接 inspect `Manus.think` 源码字符串的断言（如检查 `_llm_first_routing_enabled` / `让权` 字符串位置）属于源码位置耦合测试——S4 前先把这类断言**迁移为行为/决策表等价测试**（迁移需 red-green 证明等价），迁移本身作为独立提交，不与搬运混在一个 diff。
 
-## 1. 现状实锤（2026-07-10，manus.py=2602 行，agent_stream.py=1402 行）
+## 1. 现状实锤（2026-07-10，`feature/agent-arch-wave12` 分支：manus.py=2602 行，agent_stream.py=1426 行）
 
 ### 1.1 Manus 九个职责块（行号）
 
@@ -74,29 +75,59 @@ backend/agent/web/
 class TurnExecutionState:
     pending_immediate_stream: Optional[dict] = None
     pending_edit_tool_call: Optional[dict] = None
-    pending_resume_patches: list = field(default_factory=list)
+    pending_resume_patches: list = field(default_factory=list)   # 注意：非严格单轮，跨轮残留语义保持现状（D3）
     finish_after_load_resume_tool: bool = False
     read_only: bool = False
-    def reset_for_new_turn(self) -> None: ...   # 明确哪些字段跨轮保留（patches 队列语义除外，见锁定决策 D3）
+    def reset_for_new_turn(self) -> None: ...   # 明确哪些字段跨轮保留（patches 队列除外，见 D3）
 
-# intent_router.py
+# intent_router.py —— async + typed variants（Codex review 致命问题 2 + 建议 1）
+# 路由依赖 ConversationStateManager.process_input()（async，且会推进 turn_count 等上下文状态）。
+# 接口契约：decide() 每轮恰好调用 process_input 一次；其状态副作用（turn_count 推进、
+# 意图历史记录）归属 decide()，调用方不得重复调用。
 @dataclass
-class RouteDecision:
-    kind: Literal["fast_path", "direct_tool", "llm_first", "clarify"]
-    payload: dict  # fast_path 回复文本 / tool_call 参数 / clarify 文案
+class FastPathDecision:      # 直接产生回复文本（Greeting/优化确认/澄清文案等）
+    reply: str
+    finish: bool
+@dataclass
+class DirectToolDecision:    # 后端替 LLM 构造 tool_call
+    tool: str
+    tool_args: dict
+    finish_after_tool: bool
+    intent_source: str
+@dataclass
+class LlmFirstDecision:      # 让权给 LLM（可携带增强查询/让权原因）
+    enhanced_query: Optional[str]
+    yield_reason: str
+RouteDecision = Union[FastPathDecision, DirectToolDecision, LlmFirstDecision]
 
 class IntentRouter:
-    def decide(self, user_input: str, ctx: RoutingContext) -> RouteDecision: ...
+    async def decide(self, user_input: str, ctx: RoutingContext) -> RouteDecision: ...
+# RoutingContext 显式字段：last_user_input / resume_loaded / read_only /
+# last_ai_message / conversation_state(引用，因 process_input 需要) / is_admin
+
+# prompt_builder.py —— 非纯无状态：依赖以 provider 注入（Codex review 建议 2）
+class PromptBuilder:
+    def __init__(self, skills_provider, resume_provider, workspace_root): ...
+    # golden 对拍覆盖组合：有/无简历 × 有/无 current_resume_path × read_only ×
+    # add-experience 意图 × office/skill 关键词命中
 
 # resume_use_cases.py
 class ResumeUseCases:
     def __init__(self, llm, session_id, shared_state, turn_state): ...
     async def diagnose(...) -> DiagnosisPayload
     async def optimize_section(...) / optimize_field(...) / optimize_whole(...)
-    async def analyze(section) -> str   # 委托 analyzer 并格式化报告
+    async def analyze(section) -> str   # 委托 analyzer 并格式化报告（在 delegation/analysis 分支，
+                                        # 非 execute_tool；execute_tool override 只保留 read-only 拦截，原地不动）
 
-# stream_runtime.py (2b)
-async def run_stream(agent, user_message, chat_history) -> AsyncIterator[StreamEvent]: ...
+# stream_runtime.py (2b) —— context 对象而非散参（Codex review 建议 4）
+@dataclass
+class StreamRunContext:
+    agent: Manus
+    session_id: str
+    state_machine: AgentStateMachine
+    chat_history_manager: Any
+    cancel_event: Optional[asyncio.Event]
+async def run_stream(ctx: StreamRunContext) -> AsyncIterator[StreamEvent]: ...
 ```
 
 依赖方向：`manus.py` → (`intent_router` / `prompt_builder` / `resume_use_cases` / `turn_state`)；反向禁止。`stream_runtime` → `manus`；`agent_stream` → `stream_runtime`。
@@ -109,19 +140,21 @@ async def run_stream(agent, user_message, chat_history) -> AsyncIterator[StreamE
 |---|---|---|
 | S1 | 5 个 flag → `TurnExecutionState`，Manus 持 `self._turn`；旧属性以 property 委托保留一个提交周期（AgentStream 有 `drain_resume_patches` 调用点） | 新增 turn_state 单测：reset 语义、patch 队列 FIFO |
 | S2 | prompt 块整体搬 `PromptBuilder`（无状态，输入显式传参） | prompt 产出逐字符一致（golden 对拍测试：同输入新旧函数输出相等，迁移完删旧函数） |
-| S3 | 诊断+优化+分析 → `ResumeUseCases`；`execute_tool` override 里的 analyzer 拦截同步迁 | 现有 optimize/diagnosis 相关测试零改动过；JSON 容错解析函数带单测搬家 |
-| S4 | `think()` 判定逻辑 → `IntentRouter.decide()`；direct tool call 构造 → `ToolInvocationBuilder`；`think()` 变成 `decide → dispatch` 编排 | E2E 全路径 + 意图让权测试（test_intent_send_guard 13 条）零改动过 |
+| S3 | 诊断+优化+分析 → `ResumeUseCases`（analyzer 委托在 delegation/analysis 分支；`execute_tool` override 的 read-only 拦截**原地不动**） | 现有 optimize/diagnosis 相关测试零改动过；JSON 容错解析函数带单测搬家 |
+| S4-pre | `test_intent_send_guard.py` 中 inspect `Manus.think` 源码字符串的白盒断言 → 迁移为行为/决策表等价测试（red-green 证明等价，独立提交） | 迁移前后对同一组输入行为断言一致 |
+| S4 | `think()` 判定逻辑 → `IntentRouter.decide()`（async，typed variants）；direct tool call 构造 → `ToolInvocationBuilder`；`think()` 变成 `decide → dispatch` 编排 | E2E 全路径 + S4-pre 迁移后的行为测试零改动过 |
 
 ### 2b 两步
 
 | 步 | 动作 | 不变量锁 |
 |---|---|---|
-| B1 | `AgentStream.execute()` 主体整体搬 `stream_runtime.run_stream()`（先搬运不重写），AgentStream 变薄壳 | 协议快照测试 + E2E 事件序列一致 |
+| B0 | 先补**事件序列快照测试**（Codex review 建议 3）：普通回答 / tool_call+tool_result / queued resume_patch / `pending_immediate_stream` 诊断流 / stop·session_switch / step-tail suggestions 六场景，mock agent 驱动 `AgentStream.execute()` 录制事件序列作为 golden | 快照建立在搬运之前 |
+| B1 | `AgentStream.execute()` 主体整体搬 `stream_runtime.run_stream(ctx)`（先搬运不重写），AgentStream 变薄壳 | B0 快照零改动过 + 协议快照测试 + E2E 事件序列一致 |
 | B2 | 去重/final answer/history 落盘归 runtime 内聚（消 `_should_skip_complete_answer` 类补丁的散布） | 同上 + suggestions 只发一次测试 |
 
 ### 2c 一步
 
-`session_manager` 增加 per-session 聚合条目（agent/resume_data/shared_state/jd/meta 同生命周期）；`ResumeDataStore` 静态方法改为查询 session_manager 的委托层，类级字典删除；工具侧 import 与调用签名零变化。锁：lifecycle 测试 11 条零改动过 + 新增"会话销毁后无任何残留"断言。
+`session_manager` 增加 per-session 聚合条目（agent/resume_data/shared_state/jd/meta 同生命周期）；`ResumeDataStore` 静态方法改为查询 session_manager 的委托层，**只删 session 级类字典**（`_data_by_session` / `_meta_by_session` / `_jd_by_session` / `_shared_state_by_session`）；**全局 `_data` 路径原样保留**（无 session_id 的读写语义与测试不动，仅加 deprecated 注释）。工具侧 import 与调用签名零变化。锁：lifecycle 测试 11 条零改动过 + 新增"会话销毁后无任何残留"断言。
 
 ## 4. Grill 压测 · 锁定决策
 
@@ -131,7 +164,8 @@ async def run_stream(agent, user_message, chat_history) -> AsyncIterator[StreamE
 - **D4 IntentRouter 输入为什么不直接给 memory？** 给 memory 就是把"编排壳"又做厚。RoutingContext 显式列出所需字段（last_user_input / resume_loaded / read_only / last_ai_message），router 可单测。
 - **D5 纯搬运会不会把坏味道一起搬？** 会，故意的。本波唯一目标是接缝；搬过去的 JSON 容错解析、文本清洗在新家有独立单测后，Wave 3+ 再简化。一次做两件事（搬+改）是重构事故的第一来源。
 - **D6 ~700 行 think() 拆完剩什么？** decide() 分发 + qwq 流参数装配（qwq streaming 本体在 use_cases）+ 兜底 super().think() 调用，目标 ≤150 行。
-- **D7 测试不够锁怎么办？** S2 用 golden 对拍（新旧同输出）；S4 前先补 IntentRouter 决策表测试（从现有 think() 行为反推 fixture，先写测试再搬代码——测试红说明理解错，比 E2E 才发现便宜得多）。
+- **D7 测试不够锁怎么办？** S2 用 golden 对拍（新旧同输出）；S4 分两步：S4-pre 先把 `test_intent_send_guard` 的白盒源码断言迁移为行为/决策表等价测试（red-green 证明等价、独立提交），再搬代码（Codex review 指出"零改测试"与"搬空 think"在白盒测试上不可兼得，故显式区分行为测试与白盒测试）。2b 用 B0 事件序列快照先锁再搬。
+- **D8 patch 队列在术语上不叫"单轮状态"**（Codex review）：`TurnExecutionState.pending_resume_patches` 是"轮内产生、发射时消费、异常残留跨轮"的队列，术语表已标注非严格单轮；命名保留在 TurnExecutionState 内是位置收拢，不是语义宣称。
 
 ## 5. 测试与验收
 

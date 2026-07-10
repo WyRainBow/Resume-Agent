@@ -13,7 +13,7 @@
 | **fast-path** | 不经 LLM 决策、由规则直接产生回复或工具调用的路径（Greeting / Load / Edit / 优化确认四条） | `Manus.think()` 内，Wave 2a-S4 迁 `intent_router.py` |
 | **LLM-first（让权）** | 与 fast-path 相对：把本轮决策权交给 LLM（走 super().think() 的工具调用循环） | 同上 |
 | **RouteDecision** | IntentRouter 的输出：`fast_path / direct_tool / llm_first / clarify` 四种去向之一 + payload | Wave 2a-S4 `intent_router.py` |
-| **TurnExecutionState** | 单轮执行状态对象，收拢原 5 个散落 flag（pending_immediate_stream / pending_edit_tool_call / pending_resume_patches / finish_after_load_resume_tool / read_only） | Wave 2a-S1 `turn_state.py` |
+| **TurnExecutionState** | 轮级执行状态对象，收拢原 5 个散落 flag（pending_immediate_stream / pending_edit_tool_call / pending_resume_patches / finish_after_load_resume_tool / read_only）；注意 patches 队列**非严格单轮**（见 patch 队列词条），收拢是位置归一不是语义宣称（D8） | Wave 2a-S1 `turn_state.py` |
 | **qwq 流（诊断流）** | 简历诊断场景的双通道流式输出（thinking + content 并行推送），fast-path 的一种 | `Manus.think()` 诊断分支 |
 | **直接工具调用（direct tool call）** | 后端替 LLM 构造 tool_call（不等模型输出），用于确定性场景 | `_handle_direct_tool_call`，Wave 2a-S4 迁 `tool_invocation_builder.py` |
 
