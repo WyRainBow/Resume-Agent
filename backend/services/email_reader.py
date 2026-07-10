@@ -19,6 +19,11 @@ IMAP_TIMEOUT_SECONDS = 20
 SENT_FOLDER = '"Sent Messages"'
 MAX_BODY_CHARS = 5000
 
+# imaplib 只允许发送注册过的命令(_command 会查 Commands[name]),
+# ID 是 RFC 2971 扩展、不在标准表里,必须先注册才能对 QQ 邮箱发送
+if "ID" not in imaplib.Commands:
+    imaplib.Commands["ID"] = ("NONAUTH", "AUTH", "SELECTED")
+
 
 def _decode(value: str) -> str:
     if not value:

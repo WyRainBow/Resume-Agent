@@ -59,7 +59,8 @@ def test_list_contains_four_presets_and_crud_roundtrip():
     assert r.status_code == 200
     data = r.json()
     assert [p["name"] for p in data["presets"]] == ["运营岗", "产品岗", "会计岗", "开发岗"]
-    assert all("{name}" in p["content"] for p in data["presets"])
+    # 按用户真实邮件风格:统一「同学你好」开场,不用 {name} 占位
+    assert all(p["content"].startswith("同学你好") for p in data["presets"])
     assert data["templates"] == []
 
     r = client.post("/api/email/templates", json={"name": "我的默认", "content": "{name}你好,这是我的底稿"})
