@@ -359,6 +359,16 @@ pytest backend/tests/<target_test>.py
 | `/bug-fix` | 结构化 Bug 修复流程 |
 | `/superpowers:dispatching-parallel-agents` | 并行开发多个独立子任务 |
 
+### 4.4 工程 Skills 配置（mattpocock）
+
+`triage` / `to-tickets` / `to-spec` / `domain-modeling` / `improve-codebase-architecture` 等 skill 依赖下列配置，细节见对应文件：
+
+| 配置项 | 取值 | 详情 |
+|---|---|---|
+| Issue tracker | GitHub Issues（`WyRainBow/Resume-Agent`），PR 暂不作为 triage 入口 | `docs/agents/issue-tracker.md` |
+| Triage 标签 | 默认五个：`needs-triage` / `needs-info` / `ready-for-agent` / `ready-for-human` / `wontfix` | `docs/agents/triage-labels.md` |
+| 领域文档 | single-context，`CONTEXT.md` + `docs/adr/`（尚未创建，`domain-modeling` 首次用到时再建） | `docs/agents/domain.md` |
+
 ---
 
 ## 5. 待开发功能
