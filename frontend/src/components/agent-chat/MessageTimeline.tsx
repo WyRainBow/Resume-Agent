@@ -9,9 +9,10 @@ import ThoughtProcess from "@/components/chat/ThoughtProcess";
 import DiagnosisToolCards, {
   type DiagnosisToolStructuredData,
 } from "@/components/agent-chat/DiagnosisToolCards";
-import SendEmailConfirmCard, {
-  type SendEmailConfirmStructuredData,
-} from "@/components/agent-chat/SendEmailConfirmCard";
+import {
+  StructuredCards,
+  type StructuredEventData,
+} from "@/components/agent-chat/StructuredCardRegistry";
 import { ResumeDiffCard, ApplyAllPatchesBar } from "@/components/agent-chat/ResumeDiffCard";
 import { AssistantPaperCard } from "@/components/agent-chat/AssistantPaperCard";
 import { ParseImportTimerBadge } from "@/components/agent-chat/ParseImportTimerBadge";
@@ -60,9 +61,9 @@ interface DiagnosisToolEntry {
   data: DiagnosisToolStructuredData;
 }
 
-interface EmailConfirmEntry {
+interface StructuredEventEntry {
   messageId: string;
-  data: SendEmailConfirmStructuredData;
+  data: StructuredEventData;
 }
 
 interface MessageTimelineProps {
@@ -71,9 +72,7 @@ interface MessageTimelineProps {
   searchResults: SearchResultEntry[];
   resumeEditDiffs: ResumeEditDiffEntry[];
   diagnosisToolEvents: DiagnosisToolEntry[];
-  emailConfirmEvents: EmailConfirmEntry[];
-  onConfirmEmailSend: () => void;
-  onCancelEmailSend: () => void;
+  structuredEvents: StructuredEventEntry[];
   /** 所有 patch（pending / applied / rejected / superseded）按 message_id 渲染到对应历史消息下方。 */
   pendingPatches?: PendingPatch[];
   copiedId: string | null;
@@ -152,9 +151,7 @@ export default function MessageTimeline({
   searchResults,
   resumeEditDiffs,
   diagnosisToolEvents,
-  emailConfirmEvents,
-  onConfirmEmailSend,
-  onCancelEmailSend,
+  structuredEvents,
   pendingPatches,
   copiedId,
   stripResumeEditMarkdown,
@@ -191,10 +188,11 @@ export default function MessageTimeline({
         const diagnosisForMessage = diagnosisToolEvents
           .filter((item) => item.messageId === msg.id)
           .map((item) => item.data);
-        const emailConfirmForMessage = emailConfirmEvents
+        const structuredForMessage = structuredEvents
           .filter((item) => item.messageId === msg.id)
           .map((item) => item.data);
-        const hasEmailConfirmCard = emailConfirmForMessage.length > 0;
+        // 确认卡是本条消息的交互主体:存在时压制 LLM 的复述文字,只留卡片
+        const hasApprovalCard = structuredForMessage.some((d) => d.type === "approval_request");
         const rawThought = (msg.thought || "").trim();
         // 整份优化的进度（正在逐段优化…）是临时加载信息，优化完成后不该以「思考过程」折叠框残留在历史里
         const thoughtContent =
@@ -209,7 +207,7 @@ export default function MessageTimeline({
             : msg.content || "",
           { suppressWhenPatchCard: hasPatchCards },
         );
-        const effectiveContent = hasPatchCards || hasEmailConfirmCard
+        const effectiveContent = hasPatchCards || hasApprovalCard
           ? ""
           : getDiffFallbackResponse(
               Boolean(effectiveDiff),
@@ -324,7 +322,7 @@ export default function MessageTimeline({
 
         const hasAssistantContent =
           diagnosisForMessage.length > 0 ||
-          hasEmailConfirmCard ||
+          structuredForMessage.length > 0 ||
           searchForMessage ||
           effectiveContent ||
           effectiveDiff ||
@@ -352,13 +350,8 @@ export default function MessageTimeline({
                     <DiagnosisToolCards items={diagnosisForMessage} className="mb-4" />
                   )}
 
-                  {hasEmailConfirmCard && (
-                    <SendEmailConfirmCard
-                      items={emailConfirmForMessage}
-                      onConfirm={onConfirmEmailSend}
-                      onCancel={onCancelEmailSend}
-                      className="mb-4"
-                    />
+                  {structuredForMessage.length > 0 && (
+                    <StructuredCards items={structuredForMessage} className="mb-4" />
                   )}
 
                   {searchForMessage && (
