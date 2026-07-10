@@ -21,7 +21,13 @@ from backend.agent.utils.experience_entry import (
     OptimizeTarget,
     build_optimization_resume_patch,
     build_optimize_clarification_suggestions,
+    build_optimize_plan_overview,
+    detect_optimize_section_kind,
+    detect_whole_optimize_mode,
+    is_generic_optimize_section_query,
     list_optimize_targets,
+    resolve_optimize_target,
+    resolve_optimize_target_from_input,
 )
 from backend.agent.utils.resume_richtext import html_to_context_text, normalize_editor_value
 from backend.core.logger import get_logger
@@ -898,3 +904,181 @@ class ResumeUseCases:
         suggestions_json = json.dumps(items, ensure_ascii=False)
         lead = intro or "好的！在优化之前，请问您想优化哪一段？"
         return f"{lead}\n\n%%SUGGESTIONS%%{suggestions_json}%%END%%"
+
+    async def route_optimize_section(
+        self,
+        user_input: str,
+        resume_snapshot: Dict[str, Any],
+        recent_assistant: List[str],
+    ) -> str:
+        """OPTIMIZE_SECTION 6 步路由（Wave 2a-S4c-2，从 Manus.think() 纯搬运）。
+
+        返回给用户的回复文案；由调用方（Manus）负责落 memory + 置 FINISHED。原
+        think() 内 _finish_optimize 闭包（写 memory + state=FINISHED + return False）
+        改为「返回文案」，副作用回交 Manus，判定/文案逐行不变。"""
+        # 会话级 JD 记忆：消息里带目标岗位 JD 就记下来，本会话后续优化都自动对齐
+        if "【目标岗位 JD】" in (user_input or ""):
+            jd_text = user_input.split("【目标岗位 JD】", 1)[1].strip()
+            if jd_text:
+                ResumeDataStore.set_session_jd(self._session_id, jd_text)
+                logger.info("📌 已记录会话 JD（%d 字）", len(jd_text))
+
+        # 1. 整份优化按明确程度分两档（过程透明）：
+        #    explicit（整份/全部/一起优化）→ 直接执行；
+        #    soft（优化简历/我的简历）→ 先回「优化计划」清单让用户选。
+        whole_mode = detect_whole_optimize_mode(user_input)
+        if whole_mode == "explicit":
+            whole_reply, _ = await self._optimize_whole_resume(
+                user_input, resume_snapshot
+            )
+            logger.info("🎯 OPTIMIZE_SECTION: whole-resume optimize (explicit)")
+            return whole_reply
+        if whole_mode == "soft":
+            plan_summary, plan_items, plan_total = build_optimize_plan_overview(
+                resume_snapshot
+            )
+            if plan_total <= 0:
+                return (
+                    "当前简历里还没有可优化的内容，先导入简历或补一段经历，"
+                    "我再帮你优化。"
+                )
+            logger.info("🎯 OPTIMIZE_SECTION: whole-optimize plan (soft)")
+            return (
+                f"我看了你的简历，可优化的部分有：{plan_summary}（共 {plan_total} 处）。"
+                "想全部一起优化、还是先从某一部分开始？\n\n"
+                f"%%SUGGESTIONS%%{json.dumps(plan_items, ensure_ascii=False)}%%END%%"
+            )
+
+        # 2. 精确命中某段（公司/项目名）。
+        # 用户点名了 section 类型（如「优化荣誉奖项」）时只做输入内精确匹配，
+        # 不做上下文推断——避免被上一轮讨论的其它段落劫持。
+        section_kind = detect_optimize_section_kind(user_input)
+        if section_kind is None:
+            optimize_target = resolve_optimize_target(
+                user_input, recent_assistant, resume_snapshot
+            )
+        else:
+            optimize_target = resolve_optimize_target_from_input(
+                user_input, resume_snapshot
+            )
+        if optimize_target is not None:
+            section_kind = None
+
+        # 3. 技能 / 自我评价：单字段优化（Bug 2）
+        if optimize_target is None and section_kind in ("skills", "selfEvaluation"):
+            field, field_label = (
+                ("skillContent", "专业技能")
+                if section_kind == "skills"
+                else ("selfEvaluation", "自我评价")
+            )
+            field_val = resume_snapshot.get(field)
+            if not (isinstance(field_val, str) and field_val.strip()):
+                return (
+                    f"当前简历里还没有{field_label}内容，先补一段，我再帮你优化～"
+                )
+            field_sugg = await self._llm_optimize_field_patch(
+                user_input, resume_snapshot, field, field_label
+            )
+            items = (field_sugg or {}).get("optimization_suggestions") or []
+            patch_count = self._queue_optimization_patches(items)
+            logger.info("🎯 OPTIMIZE_SECTION: field optimize field=%s", field)
+            return self._optimization_assistant_reply(
+                field_sugg or {"optimization_suggestions": []},
+                patch_count=patch_count,
+                default_label=field_label,
+                with_next=True,
+            )
+
+        # 4. section 类型收窄（实习/项目/开源/教育/奖项）——Bug 1：优化实习就只列实习
+        if optimize_target is None and section_kind in (
+            "experience",
+            "projects",
+            "opensource",
+            "education",
+            "awards",
+        ):
+            kind_targets = list_optimize_targets(resume_snapshot, section_kind)
+            section_cn = {
+                "experience": "实习/工作经历",
+                "projects": "项目经历",
+                "opensource": "开源经历",
+                "education": "教育经历",
+                "awards": "荣誉奖项",
+            }[section_kind]
+            if not kind_targets:
+                if section_kind in ("education", "awards"):
+                    return (
+                        f"当前简历的{section_cn}还没有填写描述内容，"
+                        "先在编辑器里补一段描述，我再帮你润色～"
+                    )
+                return (
+                    f"当前简历里还没有可优化的{section_cn}。先导入或补一段，我再帮你优化～"
+                )
+            if len(kind_targets) == 1:
+                optimize_target = kind_targets[0]
+            else:
+                logger.info(
+                    "🎯 OPTIMIZE_SECTION: scoped clarification kind=%s", section_kind
+                )
+                return self._build_optimize_target_clarification_message(
+                    resume_snapshot,
+                    intro=f"你有 {len(kind_targets)} 段{section_cn}，想先优化哪一段？",
+                    section_kind=section_kind,
+                )
+
+        # 5. 泛化（优化经历/优化）或未匹配 → 全部 targets 判断
+        all_targets = list_optimize_targets(resume_snapshot)
+        if optimize_target is None:
+            if not all_targets:
+                return (
+                    "当前简历里还没有可优化的实习/工作、项目或开源经历。"
+                    "您可以先导入一段，再让我帮您优化表述。"
+                )
+            if len(all_targets) > 1:
+                if is_generic_optimize_section_query(user_input):
+                    intro = "好的！想先优化哪一段？也可以直接优化整份："
+                else:
+                    from backend.agent.utils.experience_entry import (
+                        _clean_experience_query_fragment,
+                        _normalize_optimize_query_text,
+                    )
+
+                    core = _clean_experience_query_fragment(
+                        _normalize_optimize_query_text(user_input or "")
+                    )
+                    label = re.sub(r"\*+", "", core).strip() or "该段"
+                    intro = f"没精准找到「{label}」，你可以从下面选，或直接优化整份："
+                logger.info("✅ OPTIMIZE_SECTION: clarification (all)")
+                return self._build_optimize_target_clarification_message(
+                    resume_snapshot, intro=intro
+                )
+            optimize_target = all_targets[0]
+
+        # 6. 优化选定的单段 + 引导下一步
+        logger.info(
+            "🎯 OPTIMIZE_SECTION: target=%s[%s].%s kind=%s",
+            optimize_target.array_path,
+            optimize_target.index,
+            optimize_target.value_field,
+            optimize_target.section_kind,
+        )
+        suggestions = await self._llm_optimize_section_patch(
+            user_input, resume_snapshot, optimize_target
+        )
+        suggestions_list = (suggestions or {}).get("optimization_suggestions") or []
+        patch_count = self._queue_optimization_patches(suggestions_list)
+        refine_section_cn = {
+            "experience": "实习经历",
+            "projects": "项目经历",
+            "opensource": "开源经历",
+            "education": "教育经历",
+            "awards": "荣誉奖项",
+        }.get(optimize_target.section_kind, "实习经历")
+        return self._optimization_assistant_reply(
+            suggestions or {"optimization_suggestions": []},
+            patch_count=patch_count,
+            default_label=optimize_target.label or "该段经历",
+            with_next=True,
+            refine_label=optimize_target.label or "",
+            refine_section_cn=refine_section_cn,
+        )

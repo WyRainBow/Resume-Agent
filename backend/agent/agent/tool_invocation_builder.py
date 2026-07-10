@@ -43,6 +43,19 @@ class ToolInvocation:
     just_applied_optimization: bool = False
 
 
+@dataclass
+class StagedEditPlan:
+    """EDIT_CV 按值替换快路径的构造结果（Wave 2a-S4c-2）。
+
+    该快路径不立即执行工具（不产 ToolCall / 不改 self.tool_calls），而是先写一条
+    可见 Thought/Response、把工具调用挂到 pending_edit_tool_call 留到下一步执行，
+    故不复用 ToolInvocation / _apply_invocation，由 Manus 直接落地这三项副作用。"""
+
+    memory_message: Message
+    pending_edit_tool_call: Dict[str, Any]
+    last_intent_info: Dict[str, Any]
+
+
 class ToolInvocationBuilder:
     """无状态工具调用构造器：每个 build_* 是纯函数，返回 ToolInvocation。"""
 
@@ -214,6 +227,28 @@ class ToolInvocationBuilder:
             memory_messages=memory,
             outcome=DispatchOutcome.CONTINUE,
             finish_after_load_resume=finish_after_load_resume,
+        )
+
+    # ── EDIT_CV 按值替换快路径构造（原 manus.py think() staged-edit 段）──
+    def build_staged_edit(
+        self, intent: "Intent", tool: str, tool_args: dict
+    ) -> StagedEditPlan:
+        message = Message.assistant_message(
+            "Thought: 我识别到你要做简历字段修改，将进行字段定位并调用工具执行更新。"
+            "Response: 收到，正在修改。完成后我会给你“修改前 / 修改后”的对比结果。"
+        )
+        return StagedEditPlan(
+            memory_message=message,
+            pending_edit_tool_call={
+                "tool": tool,
+                "tool_args": tool_args,
+                "intent": intent,
+            },
+            last_intent_info={
+                "intent": intent.value if hasattr(intent, "value") else str(intent),
+                "intent_source": "fast_rule_value_replace",
+                "trigger": "simple_edit_intent",
+            },
         )
 
     # ── 应用优化建议 → cv_editor_agent（原 _handle_optimize_confirm:1483-1502）──

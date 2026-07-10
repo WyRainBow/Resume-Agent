@@ -15,7 +15,6 @@ logger = get_logger(__name__)
 from backend.agent.prompt.manus import (
     GREETING_FAST_PATH_PROMPT,
     NEXT_STEP_PROMPT,
-    OPTIMIZE_SECTION_LLM_ADDENDUM,
     SYSTEM_PROMPT,
 )
 from backend.agent.utils.resume_richtext import html_to_context_text, normalize_editor_value
@@ -31,18 +30,6 @@ from backend.agent.memory import (
 from backend.agent.application.conversation.conversation_state import (
     is_add_experience_query,
     is_read_only_query,
-)
-from backend.agent.utils.experience_entry import (
-    OptimizeTarget,
-    build_optimization_resume_patch,
-    build_optimize_clarification_suggestions,
-    build_optimize_plan_overview,
-    detect_optimize_section_kind,
-    detect_whole_optimize_mode,
-    is_generic_optimize_section_query,
-    list_optimize_targets,
-    resolve_optimize_target,
-    resolve_optimize_target_from_input,
 )
 from backend.agent.schema import Message, Role, ToolCall
 from backend.agent.agent.shared_state import AgentSharedState
@@ -382,27 +369,6 @@ class Manus(ToolCallAgent):
         elif is_add_experience_query(user_input):
             logger.info("📎 新增经历轮次：允许 cv_editor_agent")
 
-    @staticmethod
-    def _extract_replace_request(user_input: str) -> Optional[tuple[str, str]]:
-        text = (user_input or "").strip()
-        if not text:
-            return None
-        # 示例:
-        # - 把我的简历的腾讯改成字节跳动
-        # - 把“腾讯”改为“字节跳动”
-        match = re.search(
-            r"把(?:我的)?(?:简历(?:里|中|上的?)?(?:的)?)?(.+?)\s*(?:改成|改为|变成)\s*[\"“”']?(.+?)[\"“”']?$",
-            text,
-            re.IGNORECASE,
-        )
-        if not match:
-            return None
-        old_value = (match.group(1) or "").strip().strip("\"'“”")
-        new_value = (match.group(2) or "").strip().strip("\"'“”")
-        if not old_value or not new_value:
-            return None
-        return old_value, new_value
-
     def _resolve_company_path_by_value(self, source_value: str) -> Optional[str]:
         resume_data = ResumeDataStore.get_data(self.session_id) or {}
         needle = (source_value or "").strip().lower()
@@ -740,52 +706,28 @@ class Manus(ToolCallAgent):
             )
 
         # EDIT_CV（按值替换）使用规则解析 + 路径解析，直接调用工具。
+        # 判定收口 IntentRouter.decide_staged_edit、构造收口 ToolInvocationBuilder;
         # 为避免“硬编码秒回”观感，先输出可见 Thought/Response，再下一步执行工具。
-        replace_req = self._extract_replace_request(user_input)
-        # LLM-first 路由下前置快路径整体退役;规则模式下让权守卫仍覆盖复合/发送语义
-        if replace_req and (_llm_first_routing_enabled() or _rule_intent_yield_reason(user_input)):
-            logger.info("🧭 staged-edit 快路径让权,交给 LLM 工具循环")
-            replace_req = None
-        if replace_req and (
-            self._conversation_state.context.resume_loaded or self._has_resume_data_in_store()
-        ):
-            source_value, target_value = replace_req
-            mapped_path = self._resolve_company_path_by_value(source_value)
-            if mapped_path and mapped_path.endswith(".company"):
-                logger.info(
-                    "🧭 replace request mapped for direct edit: %s -> %s (path=%s)",
-                    source_value,
-                    target_value,
-                    mapped_path,
-                )
-                intent = Intent.EDIT_CV
-                tool = "cv_editor_agent"
-                tool_args = {
-                    "path": mapped_path,
-                    "action": "update",
-                    "value": target_value,
-                }
-                self._last_intent_info = {
-                    "intent": intent.value if hasattr(intent, "value") else str(intent),
-                    "intent_source": "fast_rule_value_replace",
-                    "trigger": "simple_edit_intent",
-                }
-                self.memory.add_message(
-                    Message.assistant_message(
-                        "Thought: 我识别到你要做简历字段修改，将进行字段定位并调用工具执行更新。"
-                        "Response: 收到，正在修改。完成后我会给你“修改前 / 修改后”的对比结果。"
-                    )
-                )
-                self._turn.pending_edit_tool_call = {
-                    "tool": tool,
-                    "tool_args": tool_args,
-                    "intent": intent,
-                }
-                logger.info(
-                    "🧭 staged edit prepared, tool call moved to next step: %s",
-                    tool_args,
-                )
-                return True
+        staged = self._intent_router.decide_staged_edit(
+            user_input,
+            resume_available=(
+                self._conversation_state.context.resume_loaded
+                or self._has_resume_data_in_store()
+            ),
+            path_resolver=self._resolve_company_path_by_value,
+        )
+        if staged is not None:
+            plan = self._tool_builder.build_staged_edit(
+                staged.intent, staged.tool, staged.tool_args
+            )
+            self._last_intent_info = plan.last_intent_info
+            self.memory.add_message(plan.memory_message)
+            self._turn.pending_edit_tool_call = plan.pending_edit_tool_call
+            logger.info(
+                "🧭 staged edit prepared, tool call moved to next step: %s",
+                staged.tool_args,
+            )
+            return True
 
         # LOAD_RESUME 快路径是一次性工具调用；
         # 工具结果落库后在下一步收敛，避免重复触发同一工具直到 max_steps。
@@ -969,47 +911,9 @@ class Manus(ToolCallAgent):
                     return False
 
                 if intent == Intent.OPTIMIZE_SECTION:
-                    resume_snapshot = resume_data_snapshot or {}
-                    from backend.agent.schema import AgentState
-
-                    # 会话级 JD 记忆：消息里带目标岗位 JD 就记下来，本会话后续优化都自动对齐
-                    if "【目标岗位 JD】" in (user_input or ""):
-                        jd_text = user_input.split("【目标岗位 JD】", 1)[1].strip()
-                        if jd_text:
-                            ResumeDataStore.set_session_jd(self.session_id, jd_text)
-                            logger.info("📌 已记录会话 JD（%d 字）", len(jd_text))
-
-                    def _finish_optimize(msg: str) -> bool:
-                        self.memory.add_message(Message.assistant_message(msg))
-                        self.state = AgentState.FINISHED
-                        return False
-
-                    # 1. 整份优化按明确程度分两档（过程透明）：
-                    #    explicit（整份/全部/一起优化）→ 直接执行；
-                    #    soft（优化简历/我的简历）→ 先回「优化计划」清单让用户选。
-                    whole_mode = detect_whole_optimize_mode(user_input)
-                    if whole_mode == "explicit":
-                        whole_reply, _ = await self._use_cases._optimize_whole_resume(
-                            user_input, resume_snapshot
-                        )
-                        logger.info("🎯 OPTIMIZE_SECTION: whole-resume optimize (explicit)")
-                        return _finish_optimize(whole_reply)
-                    if whole_mode == "soft":
-                        plan_summary, plan_items, plan_total = build_optimize_plan_overview(
-                            resume_snapshot
-                        )
-                        if plan_total <= 0:
-                            return _finish_optimize(
-                                "当前简历里还没有可优化的内容，先导入简历或补一段经历，"
-                                "我再帮你优化。"
-                            )
-                        logger.info("🎯 OPTIMIZE_SECTION: whole-optimize plan (soft)")
-                        return _finish_optimize(
-                            f"我看了你的简历，可优化的部分有：{plan_summary}（共 {plan_total} 处）。"
-                            "想全部一起优化、还是先从某一部分开始？\n\n"
-                            f"%%SUGGESTIONS%%{json.dumps(plan_items, ensure_ascii=False)}%%END%%"
-                        )
-
+                    # OPTIMIZE_SECTION 6 步路由整体收口 ResumeUseCases.route_optimize_section
+                    # (Wave 2a-S4c-2 纯搬运)。返回文案,原 _finish_optimize 的 memory + FINISHED
+                    # 副作用回交此处落地;recent_assistant 的 memory 反扫留在 Manus。
                     recent_assistant = [
                         (m.content or "")
                         for m in self.memory.messages
@@ -1017,148 +921,13 @@ class Manus(ToolCallAgent):
                             m.role if isinstance(m.role, str) else m.role.value
                         ) == "assistant"
                     ][-5:]
-
-                    # 2. 精确命中某段（公司/项目名）。
-                    # 用户点名了 section 类型（如「优化荣誉奖项」）时只做输入内精确匹配，
-                    # 不做上下文推断——避免被上一轮讨论的其它段落劫持。
-                    section_kind = detect_optimize_section_kind(user_input)
-                    if section_kind is None:
-                        optimize_target = resolve_optimize_target(
-                            user_input, recent_assistant, resume_snapshot
-                        )
-                    else:
-                        optimize_target = resolve_optimize_target_from_input(
-                            user_input, resume_snapshot
-                        )
-                    if optimize_target is not None:
-                        section_kind = None
-
-                    # 3. 技能 / 自我评价：单字段优化（Bug 2）
-                    if optimize_target is None and section_kind in ("skills", "selfEvaluation"):
-                        field, field_label = (
-                            ("skillContent", "专业技能")
-                            if section_kind == "skills"
-                            else ("selfEvaluation", "自我评价")
-                        )
-                        field_val = resume_snapshot.get(field)
-                        if not (isinstance(field_val, str) and field_val.strip()):
-                            return _finish_optimize(
-                                f"当前简历里还没有{field_label}内容，先补一段，我再帮你优化～"
-                            )
-                        field_sugg = await self._use_cases._llm_optimize_field_patch(
-                            user_input, resume_snapshot, field, field_label
-                        )
-                        items = (field_sugg or {}).get("optimization_suggestions") or []
-                        patch_count = self._use_cases._queue_optimization_patches(items)
-                        logger.info("🎯 OPTIMIZE_SECTION: field optimize field=%s", field)
-                        return _finish_optimize(
-                            self._use_cases._optimization_assistant_reply(
-                                field_sugg or {"optimization_suggestions": []},
-                                patch_count=patch_count,
-                                default_label=field_label,
-                                with_next=True,
-                            )
-                        )
-
-                    # 4. section 类型收窄（实习/项目/开源/教育/奖项）——Bug 1：优化实习就只列实习
-                    if optimize_target is None and section_kind in (
-                        "experience",
-                        "projects",
-                        "opensource",
-                        "education",
-                        "awards",
-                    ):
-                        kind_targets = list_optimize_targets(resume_snapshot, section_kind)
-                        section_cn = {
-                            "experience": "实习/工作经历",
-                            "projects": "项目经历",
-                            "opensource": "开源经历",
-                            "education": "教育经历",
-                            "awards": "荣誉奖项",
-                        }[section_kind]
-                        if not kind_targets:
-                            if section_kind in ("education", "awards"):
-                                return _finish_optimize(
-                                    f"当前简历的{section_cn}还没有填写描述内容，"
-                                    "先在编辑器里补一段描述，我再帮你润色～"
-                                )
-                            return _finish_optimize(
-                                f"当前简历里还没有可优化的{section_cn}。先导入或补一段，我再帮你优化～"
-                            )
-                        if len(kind_targets) == 1:
-                            optimize_target = kind_targets[0]
-                        else:
-                            logger.info(
-                                "🎯 OPTIMIZE_SECTION: scoped clarification kind=%s", section_kind
-                            )
-                            return _finish_optimize(
-                                self._use_cases._build_optimize_target_clarification_message(
-                                    resume_snapshot,
-                                    intro=f"你有 {len(kind_targets)} 段{section_cn}，想先优化哪一段？",
-                                    section_kind=section_kind,
-                                )
-                            )
-
-                    # 5. 泛化（优化经历/优化）或未匹配 → 全部 targets 判断
-                    all_targets = list_optimize_targets(resume_snapshot)
-                    if optimize_target is None:
-                        if not all_targets:
-                            return _finish_optimize(
-                                "当前简历里还没有可优化的实习/工作、项目或开源经历。"
-                                "您可以先导入一段，再让我帮您优化表述。"
-                            )
-                        if len(all_targets) > 1:
-                            if is_generic_optimize_section_query(user_input):
-                                intro = "好的！想先优化哪一段？也可以直接优化整份："
-                            else:
-                                from backend.agent.utils.experience_entry import (
-                                    _clean_experience_query_fragment,
-                                    _normalize_optimize_query_text,
-                                )
-
-                                core = _clean_experience_query_fragment(
-                                    _normalize_optimize_query_text(user_input or "")
-                                )
-                                label = re.sub(r"\*+", "", core).strip() or "该段"
-                                intro = f"没精准找到「{label}」，你可以从下面选，或直接优化整份："
-                            logger.info("✅ OPTIMIZE_SECTION: clarification (all)")
-                            return _finish_optimize(
-                                self._use_cases._build_optimize_target_clarification_message(
-                                    resume_snapshot, intro=intro
-                                )
-                            )
-                        optimize_target = all_targets[0]
-
-                    # 6. 优化选定的单段 + 引导下一步
-                    logger.info(
-                        "🎯 OPTIMIZE_SECTION: target=%s[%s].%s kind=%s",
-                        optimize_target.array_path,
-                        optimize_target.index,
-                        optimize_target.value_field,
-                        optimize_target.section_kind,
+                    reply = await self._use_cases.route_optimize_section(
+                        user_input, resume_data_snapshot or {}, recent_assistant
                     )
-                    suggestions = await self._use_cases._llm_optimize_section_patch(
-                        user_input, resume_snapshot, optimize_target
-                    )
-                    suggestions_list = (suggestions or {}).get("optimization_suggestions") or []
-                    patch_count = self._use_cases._queue_optimization_patches(suggestions_list)
-                    refine_section_cn = {
-                        "experience": "实习经历",
-                        "projects": "项目经历",
-                        "opensource": "开源经历",
-                        "education": "教育经历",
-                        "awards": "荣誉奖项",
-                    }.get(optimize_target.section_kind, "实习经历")
-                    return _finish_optimize(
-                        self._use_cases._optimization_assistant_reply(
-                            suggestions or {"optimization_suggestions": []},
-                            patch_count=patch_count,
-                            default_label=optimize_target.label or "该段经历",
-                            with_next=True,
-                            refine_label=optimize_target.label or "",
-                            refine_section_cn=refine_section_cn,
-                        )
-                    )
+                    self.memory.add_message(Message.assistant_message(reply))
+                    from backend.agent.schema import AgentState
+                    self.state = AgentState.FINISHED
+                    return False
 
                 if intent == Intent.FULL_OPTIMIZE:
                     # 「全面/整体/全局优化」走整份优化：覆盖所有实习/工作、项目、开源 + 技能 + 自我评价，
