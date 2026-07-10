@@ -238,6 +238,34 @@ def test_unknown_or_expired_pending_404(db_session):
     assert resp.status_code == 404
 
 
+# ---------- 正文 AI 润色 ----------
+
+def test_polish_rewrites_body(db_session):
+    user = seed_admin_with_credential(db_session)
+    client = make_client(user)
+
+    class FakeLLM:
+        async def ask(self, messages, system_msgs=None, stream=True):
+            assert "更正式" in messages[0]["content"]
+            return "尊敬的张三:您好,已为您完成简历优化……"
+
+    with patch("backend.agent.llm.LLM", FakeLLM):
+        resp = client.post("/api/agent/approval/polish", json={
+            "text": "张三你好,帮你改了实习经历~",
+            "instruction": "更正式",
+        })
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["ok"] is True and body["text"].startswith("尊敬的张三")
+
+
+def test_polish_rejects_empty(db_session):
+    user = seed_admin_with_credential(db_session)
+    client = make_client(user)
+    assert client.post("/api/agent/approval/polish", json={"text": "", "instruction": "x"}).status_code == 400
+    assert client.post("/api/agent/approval/polish", json={"text": "x", "instruction": ""}).status_code == 400
+
+
 # ---------- execute 本体的护栏保留 ----------
 
 def test_rate_limit_preserved(db_session):

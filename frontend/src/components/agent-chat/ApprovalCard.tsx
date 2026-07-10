@@ -4,7 +4,7 @@
  * 发出的就是改后版本;取消则丢弃挂起。结果同步返回,直接更新卡片状态。
  */
 import { useState } from "react";
-import { Loader2, Mail, Paperclip } from "lucide-react";
+import { Loader2, Mail, Paperclip, Sparkles, X } from "lucide-react";
 import { AgentSpecialCard } from "@/components/agent-chat/AgentSpecialCard";
 import type { StructuredCardProps } from "@/components/agent-chat/StructuredCardRegistry";
 import { getApiBaseUrl } from "@/lib/runtimeEnv";
@@ -29,6 +29,104 @@ function buildAuthHeaders(token: string | null): Record<string, string> {
 const inputClass =
   "w-full rounded-none border border-black bg-white px-2 py-1.5 text-sm text-chat-ink outline-none focus:border-chat-accent-deep disabled:opacity-60 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100";
 
+const POLISH_PRESETS = ["更正式", "更简洁", "更热情", "补充细节"];
+
+/** 正文的 AI 润色浮窗:快捷指令或自由输入 → 调润色端点 → 结果替换正文(可继续手改) */
+function PolishPopover({
+  token,
+  currentText,
+  onPolished,
+  onClose,
+}: {
+  token: string | null;
+  currentText: string;
+  onPolished: (text: string) => void;
+  onClose: () => void;
+}) {
+  const [instruction, setInstruction] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const run = async (inst: string) => {
+    if (!inst.trim() || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const resp = await fetch(`${getApiBaseUrl()}/api/agent/approval/polish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...buildAuthHeaders(token ?? "") },
+        body: JSON.stringify({ text: currentText, instruction: inst.trim() }),
+      });
+      const json = await resp.json().catch(() => ({}));
+      if (!resp.ok || !json.ok) {
+        setError(json.detail || json.message || "润色失败,请重试。");
+        return;
+      }
+      onPolished(String(json.text));
+      onClose();
+    } catch {
+      setError("网络异常,请重试。");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="absolute right-0 top-7 z-20 w-72 rounded-none border-2 border-black bg-white p-3 shadow-[3px_3px_0px_0px_#000000] dark:border-white dark:bg-slate-900 dark:shadow-[3px_3px_0px_0px_#ffffff]">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="flex items-center gap-1 text-xs font-bold text-chat-ink dark:text-slate-100">
+          <Sparkles className="size-3.5 text-chat-accent" />
+          AI 润色正文
+        </span>
+        <button type="button" onClick={onClose} aria-label="关闭润色" className="p-0.5 text-chat-ink-muted hover:text-chat-ink">
+          <X className="size-3.5" />
+        </button>
+      </div>
+      <div className="mb-2 flex flex-wrap gap-1.5">
+        {POLISH_PRESETS.map((preset) => (
+          <button
+            key={preset}
+            type="button"
+            disabled={busy}
+            onClick={() => run(preset)}
+            className="rounded-none border border-black px-2 py-1 text-xs text-chat-ink transition-colors hover:bg-chat-user-bubble disabled:opacity-50 dark:border-slate-500 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            {preset}
+          </button>
+        ))}
+      </div>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="text"
+          value={instruction}
+          disabled={busy}
+          autoFocus
+          onChange={(e) => setInstruction(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              void run(instruction);
+            }
+          }}
+          placeholder="或输入要求,如:再提一下项目经历"
+          className="h-8 min-w-0 flex-1 rounded-none border border-black bg-white px-2 text-xs outline-none focus:border-chat-accent-deep dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100"
+        />
+        <button
+          type="button"
+          disabled={busy || !instruction.trim()}
+          onClick={() => run(instruction)}
+          className="flex h-8 shrink-0 items-center gap-1 rounded-none border border-black bg-chat-accent px-2.5 text-xs font-semibold text-white hover:bg-chat-accent-deep disabled:opacity-50 dark:border-white"
+        >
+          {busy ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3" />}
+          润色
+        </button>
+      </div>
+      {busy && <p className="mt-1.5 text-[11px] text-chat-ink-muted">正在改写,几秒钟…</p>}
+      {error && <p className="mt-1.5 text-[11px] text-red-600 dark:text-red-400">{error}</p>}
+    </div>
+  );
+}
+
 export default function ApprovalCard({ data }: StructuredCardProps) {
   const { token } = useAuth();
   const payload = (data.payload ?? {}) as unknown as ApprovalPayload;
@@ -39,6 +137,7 @@ export default function ApprovalCard({ data }: StructuredCardProps) {
   const [body, setBody] = useState(String(args.body ?? ""));
   const [status, setStatus] = useState<CardStatus>("pending");
   const [resultMessage, setResultMessage] = useState("");
+  const [polishOpen, setPolishOpen] = useState(false);
 
   const disabled = status !== "pending" && status !== "error";
 
@@ -137,8 +236,29 @@ export default function ApprovalCard({ data }: StructuredCardProps) {
             className={inputClass}
           />
         </div>
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-chat-ink-muted">正文(优化说明与建议)</label>
+        <div className="relative">
+          <div className="mb-1 flex items-center justify-between">
+            <label className="text-xs font-semibold text-chat-ink-muted">正文(优化说明与建议)</label>
+            {!disabled && (
+              <button
+                type="button"
+                onClick={() => setPolishOpen((v) => !v)}
+                className="flex items-center gap-1 rounded-none border border-black px-1.5 py-0.5 text-[11px] font-semibold text-chat-accent-deep transition-colors hover:bg-chat-user-bubble dark:border-slate-500 dark:text-blue-300 dark:hover:bg-slate-800"
+                title="让 AI 按你的要求改写正文"
+              >
+                <Sparkles className="size-3" />
+                AI 润色
+              </button>
+            )}
+          </div>
+          {polishOpen && !disabled && (
+            <PolishPopover
+              token={token}
+              currentText={body}
+              onPolished={setBody}
+              onClose={() => setPolishOpen(false)}
+            />
+          )}
           <textarea
             value={body}
             disabled={disabled}
