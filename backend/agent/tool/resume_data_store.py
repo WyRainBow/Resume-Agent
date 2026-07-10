@@ -104,6 +104,7 @@ class ResumeDataStore:
         if session_id:
             cls._data_by_session.pop(session_id, None)
             cls._meta_by_session.pop(session_id, None)
+            cls._jd_by_session.pop(session_id, None)
             shared_state = cls._shared_state_by_session.pop(session_id, None)
             if shared_state:
                 shared_state.delete("resume_data")

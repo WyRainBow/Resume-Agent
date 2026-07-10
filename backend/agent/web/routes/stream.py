@@ -175,15 +175,20 @@ def _get_or_create_session(
             if hasattr(agent, "_conversation_state") and agent._conversation_state:
                 agent._conversation_state.update_resume_loaded(True)
 
+        now = datetime.now()
         _active_sessions[conversation_id] = {
             "agent": agent,
             "chat_history": chat_history,
             "resume_path": resume_path,
-            "created_at": datetime.now(),
+            "created_at": now,
+            # TTL 回收按活跃时间判定（created_at 仅保留作诊断），见 _cleanup_session
+            "last_accessed": now,
             "user_id": user.id,
         }
         logger.info(f"[SSE] Created new session: {conversation_id}")
     else:
+        # 复用已有会话即视为活跃，touch 防止长对话被 TTL 误回收
+        _active_sessions[conversation_id]["last_accessed"] = datetime.now()
         # Update resume path if provided
         if resume_path:
             _active_sessions[conversation_id]["resume_path"] = resume_path
@@ -217,15 +222,25 @@ def clear_active_sessions_for_user(user_id: int) -> None:
 def _cleanup_session(conversation_id: str) -> None:
     """Cleanup session after completion.
 
-    Evicts sessions older than _SESSION_TTL_SECONDS to prevent unbounded growth.
+    Evicts sessions idle longer than _SESSION_TTL_SECONDS to prevent unbounded
+    growth. 判据是 last_accessed（活跃时间）而非 created_at，避免单次运行超过
+    TTL 的长流、或持续对话的长会话被误回收。
     """
     from backend.agent.tool.resume_data_store import ResumeDataStore
 
     now = datetime.now()
+    # 当前会话的 stream 刚结束，本身就是活跃证据：先 touch 再清扫，
+    # 保证本会话不会在自己的 finally 里被回收
+    current = _active_sessions.get(conversation_id)
+    if current is not None:
+        current["last_accessed"] = now
     stale = [
         cid
         for cid, sess in list(_active_sessions.items())
-        if (now - sess.get("created_at", now)).total_seconds() > _SESSION_TTL_SECONDS
+        if (
+            now - (sess.get("last_accessed") or sess.get("created_at", now))
+        ).total_seconds()
+        > _SESSION_TTL_SECONDS
     ]
     for cid in stale:
         old = _active_sessions.pop(cid, None)
