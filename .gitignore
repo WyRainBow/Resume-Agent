@@ -170,3 +170,9 @@ CODEX.md
 CLAUDE.md
 AGENTS.md
 skills-lock.json
+
+# --- 领域术语表（内部文档，含代码架构锚点）---
+CONTEXT.md
+
+# --- 竞品调研文档（含产品设计/调研记录）---
+reference/
