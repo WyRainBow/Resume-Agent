@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/LaTeX-008080?logo=latex&logoColor=white" />
 </p>
 
-<img src="https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/readme/2026-03-27-home.png" alt="首页" width="90%" />
+<img src="assets/readme/2026-03-27-home.png" alt="首页" width="90%" />
 
 </div>
 
@@ -47,11 +47,11 @@
 
 <table>
 <tr>
-<td width="50%"><b>Dashboard 简历管理</b><br/><img src="https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/readme/2026-03-27-dashboard.png" alt="Dashboard" /></td>
-<td width="50%"><b>工作区</b><br/><img src="https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/readme/2026-03-27-workspace.png" alt="工作区" /></td>
+<td width="50%"><b>Dashboard 简历管理</b><br/><img src="assets/readme/2026-03-27-dashboard.png" alt="Dashboard" /></td>
+<td width="50%"><b>工作区</b><br/><img src="assets/readme/2026-03-27-workspace.png" alt="工作区" /></td>
 </tr>
 <tr>
-<td width="50%"><b>AI 对话</b><br/><img src="https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/readme/2026-05-23-agent-chat.png" alt="AI 对话" /></td>
+<td width="50%"><b>AI 对话</b><br/><img src="assets/readme/2026-05-23-agent-chat.png" alt="AI 对话" /></td>
 <td width="50%" valign="middle" align="center">👉 <a href="https://resumegenkk.xyz">在线体验完整功能</a></td>
 </tr>
 </table>
