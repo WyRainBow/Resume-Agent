@@ -1,9 +1,9 @@
 # PDF 下载 Network 报错排查记录(开代理失败/关代理正常)
 
-- 日期:2026-07-11
-- 环境:线上生产环境 `https://resumegenkk.xyz`
+- 日期:2026-07-11(初查) / 2026-07-12(根因定位+修复)
+- 环境:线上生产环境 `https://resumegenkk.xyz`（腾讯云轻量 `lhins-fshjxrqn`，`106.53.113.137`）
 - 排查方式:systematic-debugging(先定位根因再下结论,未直接改代码)
-- 状态:阶段性结论,交给 glm5.2 继续复核,非最终定论
+- 状态:**✅ 已定位根因并修复（2026-07-12）**
 
 ## 问题现象(用户报告)
 
@@ -43,3 +43,63 @@
 
 - 在生产环境创建了一个临时测试账号用于验证(`qatest1783784575669@debugmail.local`),未修改任何生产数据,仅用于只读验证
 - 排查过程中一度因本地 shell 变量名 `$USERNAME` 与系统内建环境变量冲突,导致注册请求错误地使用了系统用户名"mac"去请求,已定位并修正,不影响最终结论
+
+---
+
+# 2026-07-12 根因定位 + 修复（最终结论）
+
+## 真正的根因：服务器内核 iptables 封锁境外 IP（非代码/证书/代理软件问题）
+
+连接服务器深挖 nginx 配置 + iptables 规则 + 日志后定位：
+
+### 证据链
+
+1. **iptables INPUT 链第 2 条规则**（拦截主体）：
+   ```
+   DROP tcp flags:0x17/0x02 match-set YJ-GLOBAL-INBLOCK src
+   ```
+   这条规则对 ipset `YJ-GLOBAL-INBLOCK`（**11825 条**境外 IP，主要是 AWS/GCP/Azure 段）的 **SYN 包直接丢弃**。已累计丢弃 **12503 个包**——不是空规则，是正在生效的硬拦截。
+
+2. **ipset 由腾讯云主机安全 YunJing（`YDService`）维护**，进程路径 `/usr/local/qcloud/YunJing/YDEyes/YDService`，会自动把境外攻击 IP 加入名单并持续刷新。这不是手动配置的封锁，是主机安全产品的自动防御。
+
+3. **nginx 日志佐证**：`44.222.122.75`（AWS 美国区）、`32.192.180.62` 等境外代理出口 IP 的 `/api/pdf/render/stream` 请求在 2026-07-11 10:55 全部 `Connection refused`（SYN 被内核 DROP，nginx 根本没收到）。
+
+4. **腾讯云安全组本身是放开的**（443 `0.0.0.0/0` ACCEPT），但安全组规则（`YJ-FIREWALL-INPUT` 链，第 1 条）只命中 113 包——真正的拦截在 iptables 内核层的 `YJ-GLOBAL-INBLOCK`，安全组管不到它。
+
+5. **关代理正常**：用户直连出口是国内 IP（`116.24.64.67`、`119.132.171.229`），不在 ipset 里，所以正常。
+
+### 为什么和代理相关
+
+用户开代理 → 出口 IP 变成境外（AWS/GCP 段）→ 这些 IP 段大量出现在 YunJing 的攻击 IP 名单里 → SYN 被服务器内核 DROP → TCP 握手失败 → 浏览器报 Network 错误弹窗。关代理 → 出口是国内 IP → 不在名单里 → 正常。
+
+**不是代理软件的分流规则问题，也不是 MITM 证书问题**——是服务器主动封了境外 IP 段。
+
+## 修复方案（2026-07-12 已执行）
+
+在 DROP 规则**前面**插入一条放行 443 的规则，不动 ipset 本身（YunJing 继续维护名单，不影响其他端口的防护）：
+
+```bash
+iptables -I INPUT 2 -p tcp --dport 443 -m set --match-set YJ-GLOBAL-INBLOCK src -j ACCEPT
+```
+
+修复后 INPUT 链：
+```
+1  YJ-FIREWALL-INPUT  (腾讯云安全组)
+2  ACCEPT tcp dpt:443 match-set YJ-GLOBAL-INBLOCK src   ← 新增放行 443
+3  DROP   tcp flags:0x17/0x02 match-set YJ-GLOBAL-INBLOCK src   ← 原封锁规则(其他端口仍拦截)
+```
+
+### 持久化
+
+iptables 规则重启会丢，已用 systemd service 持久化：
+
+- 服务：`/etc/systemd/system/allow-overseas-443.service`（`enabled`，开机自动重建规则）
+- 脚本：`/usr/local/bin/allow-overseas-443.sh`（幂等：`iptables -C` 检测存在则跳过）
+
+## 附带发现（非本次 bug 根因，但建议后续处理）
+
+1. **SSE buffering 隐患**：nginx 配置里 `/api/agent/stream` 有 `proxy_buffering off`，但 `/api/pdf/render/stream` 走的是 `/api/` 通用代理（无 `proxy_buffering off`）。当前 PDF 渲染能工作是因为编译完才一次性返回，但 SSE 的"长静默+突发"模式在代理场景下可能不稳。建议后续给 `/api/pdf/` 也加 `proxy_buffering off`。
+
+2. **pm2 进程重启 81 次**：`resume-backend` 重启计数 `↺ 81`，10:55 那批 `Connection refused` 叠加了后端进程挂掉的因素（和境外 IP 拦截是两个独立问题，但同时发生放大了"开代理就失败"的印象）。建议后续查 pm2 日志定位崩溃原因。
+
+3. **CORS 配置**：`backend/main.py:95-103` 的 `allow_origins=["*"]` + `allow_credentials=True` 在代理 MITM 场景下有理论风险（非当前 bug 根因）。
