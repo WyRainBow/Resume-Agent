@@ -12,7 +12,6 @@ from backend.agent.tool.cv_reader_agent_tool import CVReaderAgentTool
 from backend.agent.tool.cv_reader_tool import ReadCVContext
 from backend.agent.tool.planning import PlanningTool
 from backend.agent.tool.generate_resume_tool import GenerateResumeTool
-from backend.agent.tool.send_resume_email_tool import SendResumeEmailTool
 from backend.agent.tool.show_resume_tool import ShowResumeTool
 from backend.agent.tool.str_replace_editor import StrReplaceEditor
 from backend.agent.tool.terminate import Terminate
@@ -32,7 +31,6 @@ __all__ = [
     "CVEditorAgentTool",
     "ShowResumeTool",
     "GenerateResumeTool",
-    "SendResumeEmailTool",
 ]
 
 if BrowserUseTool:

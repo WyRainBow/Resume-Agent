@@ -4,8 +4,8 @@
 2026-07-11 LLM-first 一次性了断后，路由收敛为单一契约（无回退开关）：
 - decide() 每轮恰好调用 conversation_state.process_input() 一次；其状态副作用
   （turn_count 推进、意图历史）归属 decide()，调用方不得重复调用
-- 所有业务意图一律让权给 ReAct loop，由 LLM 看工具列表自主编排；发送/复合
-  语义守卫先于 LLM-first 判定，仅影响让权原因标注与复合请求提示
+- 所有业务意图一律让权给 ReAct loop，由 LLM 看工具列表自主编排；复合请求
+  守卫先于 LLM-first 判定，仅影响让权原因标注与复合请求提示
 - GREETING 保留专用轻通道（本身就是 LLM 生成，只是不挂工具、更快）
 - enhanced_query 清洗：规则的 /[tool:] 改写一律丢弃回原始输入（规则识别
   结果只做日志参考，不许暗中给 LLM 指路）
@@ -19,19 +19,6 @@ from backend.agent.application.conversation.conversation_state import Intent
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
-
-
-# 让权守卫:消息同时含「发送动词 + 邮箱地址」时,规则意图一律弃权交还 LLM 工具循环。
-# 规则层没有"发送"概念,历史上会把「把优化好的简历发给 xx@qq.com」里的"优化"抢注进
-# OPTIMIZE/EDIT 分支(2026-07-10 审计 I8"组合请求被拆丢"的实锤案例)。
-# 注意动词表刻意不含"改成/改为"——「把邮箱改成 new@qq.com」是合法的字段编辑,不让权。
-_SEND_EMAIL_VERB_RE = re.compile(r"(发给|发送|发到|寄给|寄到|投递|投给|邮给|发邮件)")
-_EMAIL_ADDR_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
-
-
-def _has_send_email_intent(text: str) -> bool:
-    t = text or ""
-    return bool(_SEND_EMAIL_VERB_RE.search(t) and _EMAIL_ADDR_RE.search(t))
 
 
 # 复合请求让权:规则意图只有单一出口,「优化第二段然后翻译成英文」这类组合请求
@@ -57,8 +44,6 @@ def _looks_like_compound_request(text: str) -> bool:
 def _rule_intent_yield_reason(text: str) -> Optional[str]:
     """规则意图的统一让权判定:返回让权原因,None 表示规则可以保留决定权。
     这是方案 §8.2「规则从拦截降级」的守卫集合,只做弃权、不做认领。"""
-    if _has_send_email_intent(text):
-        return "发送语义"
     if _looks_like_compound_request(text):
         return "复合请求"
     return None
@@ -108,7 +93,7 @@ class IntentRouter:
             logger.info("🧭 触发诊断关键词兜底拦截: intent UNKNOWN -> ANALYZE_RESUME")
             intent = Intent.ANALYZE_RESUME
 
-        # 让权守卫(在一切意图覆盖之后):发送语义/复合请求先标注具体原因,
+        # 让权守卫(在一切意图覆盖之后):复合请求先标注具体原因,
         # 其余业务意图一律以 LLM-first 让权——规则识别结果仅作日志参考
         yield_reason = _rule_intent_yield_reason(user_input) if intent != Intent.UNKNOWN else None
         if yield_reason is None and intent not in (

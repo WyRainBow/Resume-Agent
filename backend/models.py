@@ -181,33 +181,6 @@ class Resume(Base):
     )
 
 
-class EmailCredential(Base):
-    """用户邮箱发信凭证（QQ 邮箱 SMTP 授权码,Fernet 加密存储,仅管理员功能使用）"""
-    __tablename__ = "email_credentials"
-    __table_args__ = {'extend_existing': True}
-
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False, index=True)
-    email_address = Column(String(255), nullable=False)
-    encrypted_auth_code = Column(String(512), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-
-class EmailTemplate(Base):
-    """邮件正文模板(仅管理员功能使用):发送简历邮件时一键套用的常用底稿,
-    正文内可用 {name} 占位符,套用时替换为简历主人姓名。"""
-    __tablename__ = "email_templates"
-    __table_args__ = {'extend_existing': True}
-
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    name = Column(String(64), nullable=False)
-    content = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-
 class Member(Base):
     """平台内部成员模型"""
     __tablename__ = "members"

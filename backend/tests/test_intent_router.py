@@ -75,15 +75,6 @@ def test_business_intent_always_yields_llm_first():
     assert out.tool is None
 
 
-def test_send_semantics_guard_wins_over_rule_intent():
-    router, _ = make_router(
-        {**BASE, "intent": Intent.OPTIMIZE_SECTION, "tool": "cv_editor_agent"},
-    )
-    out = run(router.decide("把优化好的简历发给 a@qq.com", ctx()))
-    assert out.intent == Intent.UNKNOWN
-    assert out.yield_reason == "发送语义"
-
-
 def test_compound_request_sets_hint():
     router, _ = make_router({**BASE, "intent": Intent.OPTIMIZE_SECTION})
     out = run(router.decide("优化第二段实习经历,然后翻译成英文", ctx()))

@@ -16,7 +16,7 @@ from backend.agent.prompt.manus import (
     SYSTEM_PROMPT,
 )
 from backend.agent.utils.resume_richtext import html_to_context_text, normalize_editor_value
-from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, GenerateResumeTool, SendResumeEmailTool, ShowResumeTool, Terminate, ToolCollection
+from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, GenerateResumeTool, ShowResumeTool, Terminate, ToolCollection
 from backend.agent.tool.ask_human import AskHuman
 from backend.agent.memory import (
     ChatHistoryManager,
@@ -53,7 +53,7 @@ class Manus(ToolCallAgent):
     next_step_prompt: str = ""
     session_id: Optional[str] = None
     capability: Optional[str] = None
-    # 管理员会话标识:仅 admin 会话注册 send_resume_email 等管理员专属工具
+    # 管理员会话标识:保留供管理员专属工具注册使用(邮件功能下线后暂无消费者)
     is_admin: bool = False
     # 当前会话所属用户 id,注入给需要按用户查库的工具(如邮箱凭证)
     user_id: Optional[int] = None
@@ -136,8 +136,6 @@ class Manus(ToolCallAgent):
             CVEditorAgentTool(),
             GenerateResumeTool(),
         ]
-        if self.is_admin:
-            domain_tools.append(SendResumeEmailTool())
 
         capability: ResumeCapability = CapabilityRegistry.get(self.capability)
         if not capability.tool_whitelist:
