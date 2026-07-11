@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
+import { BetaBadge } from '@/components/BetaBadge'
 
 type LegalLayoutProps = {
   title: string
@@ -31,6 +32,7 @@ export function LegalLayout({ title, lastUpdated, children }: LegalLayoutProps) 
               <span className="text-white font-black text-[10px] italic">RA</span>
             </div>
             <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Resume.AI</span>
+            <BetaBadge className="translate-y-[-5px]" />
           </div>
         </div>
       </header>

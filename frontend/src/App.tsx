@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { AuthModal } from './components/AuthModal'
 import { ChangelogModal } from './components/ChangelogModal'
+import { BetaNoticeModal } from './components/BetaNoticeModal'
 import { ThemeInit } from './components/ThemeInit'
 import { SkinInit } from './components/SkinInit'
 import ErrorBoundary from './ErrorBoundary'
@@ -115,6 +116,7 @@ function App() {
           <ConfirmHost />
           <AuthModal />
           <ChangelogModal />
+          <BetaNoticeModal />
         </BrowserRouter>
         </ResumeProvider>
       </ErrorBoundary>

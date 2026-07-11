@@ -20,6 +20,7 @@ import { cn } from "../../../../lib/utils";
 import FileUploadZone from "./FileUploadZone";
 import { getApiBaseUrl } from "@/lib/runtimeEnv";
 import { FetchTimeoutError, fetchWithTimeout } from "@/lib/fetchWithTimeout";
+import { BetaBadge } from "@/components/BetaBadge";
 
 // 简历解析走大模型，耗时较长，给一个宽松上限避免后端挂死时前端一直卡在"解析中"
 const PARSE_TIMEOUT_MS = 150_000;
@@ -438,7 +439,8 @@ export function AIImportModal({
         {/* 头部(照搬 Resume-Matcher upload-dialog:纯文字大写标题,无图标方块,关闭按钮极简) */}
         <div className="flex items-center justify-between p-6 border-b-2 border-black bg-white dark:bg-[#1C1C1C]">
           <div>
-            <h3 className="text-2xl font-serif font-bold uppercase tracking-tight text-black dark:text-white">
+            <div className="flex items-center gap-2">
+              <h3 className="text-2xl font-serif font-bold uppercase tracking-tight text-black dark:text-white">
               {parsing
                 ? "正在解析内容"
                 : currentStep === "results"
@@ -447,6 +449,8 @@ export function AIImportModal({
                     ? "导入简历"
                     : `AI 导入 - ${sectionTitle}`}
             </h3>
+              <BetaBadge />
+            </div>
             <p className="text-sm font-mono text-[#878E99] dark:text-neutral-400 mt-0.5">
               {parsing
                 ? "AI 正在处理您的请求，请稍候..."
@@ -495,7 +499,11 @@ export function AIImportModal({
                   <label className="text-sm font-mono uppercase tracking-wide font-bold text-black">
                     选择 AI 模型
                   </label>
-                  <button
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-red-600 font-mono">
+                      PDF 上传速度慢～约两分钟(对不起🙇‍♂️我会优化的)建议用图片上传
+                    </span>
+                    <button
                     type="button"
                     disabled={testKeysLoading}
                     onClick={async () => {
@@ -524,7 +532,8 @@ export function AIImportModal({
                     )}
                   >
                     {testKeysLoading ? "检测中…" : "测试 AI"}
-                  </button>
+                    </button>
+                  </div>
                 </div>
                 {testKeysResult && !("_" in testKeysResult) && (
                   <div className="mb-2 text-xs font-mono text-black space-y-1">
@@ -701,9 +710,6 @@ export function AIImportModal({
                     >
                       <File className="w-4 h-4" />
                       PDF 上传
-                      <span className="absolute -top-2 -right-1 px-1.5 py-0.5 text-[9px] font-bold rounded-none bg-amber-500 text-white border border-black leading-none">
-                        速度慢；约两分钟
-                      </span>
                     </button>
                     <button
                       onClick={() => setImportMode("text")}
