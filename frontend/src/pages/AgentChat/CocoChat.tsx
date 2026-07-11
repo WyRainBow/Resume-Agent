@@ -33,7 +33,7 @@ import {
 } from "@/pages/Workspace/v2/types";
 import { getResume, getAllResumes, saveResume, setCurrentResumeId } from "@/services/resumeStorage";
 import { parseResumeText } from "@/services/resumeParse";
-import { highlightsToHtml, skillsToHtml } from "@/utils/resumeRichtext";
+import { highlightsToHtml, groupedHighlightsToHtml, skillsToHtml } from "@/utils/resumeRichtext";
 import type { SavedResume } from "@/services/storage/StorageAdapter";
 import {
   renderPDFStream,
@@ -243,7 +243,7 @@ function normalizeImportedResumeToCanonical(
     const baseDescription = toText(item?.description);
     const description = [
       baseDescription ? `<p>${baseDescription}</p>` : "",
-      repoItems.length ? highlightsToHtml(repoItems) : "",
+      repoItems.length ? groupedHighlightsToHtml(repoItems) : "",
     ]
       .filter(Boolean)
       .join("");

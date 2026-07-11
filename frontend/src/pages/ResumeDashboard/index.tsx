@@ -14,7 +14,7 @@ import AIImportModal from '@/pages/Workspace/v2/shared/AIImportModal'
 import { saveResume, setCurrentResumeId } from '@/services/resumeStorage'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
 import { matchCompanyLogo } from '@/pages/Workspace/v2/constants/companyLogos'
-import { highlightsToHtml, skillsToHtml } from '@/utils/resumeRichtext'
+import { highlightsToHtml, groupedHighlightsToHtml, skillsToHtml } from '@/utils/resumeRichtext'
 
 const ResumeDashboard = () => {
   const navigate = useNavigate()
@@ -141,7 +141,7 @@ const ResumeDashboard = () => {
         role: o.subtitle || o.role || '',
         repo: o.repoUrl || o.repo || '',
         date: o.date || '',
-        description: o.items?.length > 0 ? highlightsToHtml(o.items) : o.description || '',
+        description: o.items?.length > 0 ? groupedHighlightsToHtml(o.items) : o.description || '',
         visible: true,
       })) || [],
       awards: data.awards?.map((a: any, i: number) => ({

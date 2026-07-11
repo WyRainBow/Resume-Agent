@@ -5,7 +5,7 @@ import { useState, useCallback } from 'react'
 import type { ResumeData } from '../types'
 import { matchCompanyLogo } from '../constants/companyLogos'
 import { matchSchoolLogo } from '../constants/schoolLogos'
-import { highlightsToHtml, skillsToHtml } from '@/utils/resumeRichtext'
+import { highlightsToHtml, groupedHighlightsToHtml, skillsToHtml, dropNonSkillEntries } from '@/utils/resumeRichtext'
 
 /** AI 导入时公司名默认加粗：用 ** 包裹，与编辑区 BoldInput 一致，导出/预览也会加粗 */
 function defaultBoldCompany(s: string): string {
@@ -73,7 +73,7 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
           date: o.date || '',
           // 使用支持嵌套层级的函数渲染 items（支持 **标题** 格式）
           description: o.items && o.items.length > 0
-            ? highlightsToHtml(o.items)
+            ? groupedHighlightsToHtml(o.items)
             : o.description || '',
           visible: true,
         }))
@@ -176,8 +176,9 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
         selfEvaluation: typeof data.summary === 'string' && data.summary.trim()
           ? `<p>${data.summary}</p>`
           : prev.selfEvaluation,
-        // 专业技能统一转成无序列表 HTML（与 Agent 编辑链路一致）
-        skillContent: skillsToHtml(data.skills) || prev.skillContent,
+        // 专业技能统一转成无序列表 HTML（与 Agent 编辑链路一致）。
+        // AI 解析导入专属：先剔除明显混入技能区的项目描述条目（其它导入路径不过滤）。
+        skillContent: skillsToHtml(dropNonSkillEntries(data.skills)) || prev.skillContent,
       }))
     } else {
       // 分模块导入
@@ -307,8 +308,9 @@ function handleSectionImport(
       break
 
     case 'skills': {
-      // 专业技能统一转成无序列表 HTML（对象数组 / 字符串都走同一个共享转换）
-      const skillHtml = skillsToHtml(data)
+      // 专业技能统一转成无序列表 HTML（对象数组 / 字符串都走同一个共享转换）。
+      // AI 解析导入专属：先剔除明显混入技能区的项目描述条目（其它导入路径不过滤）。
+      const skillHtml = skillsToHtml(dropNonSkillEntries(data))
       if (skillHtml) {
         setResumeData((prev) => ({
           ...prev,
@@ -341,7 +343,7 @@ function handleSectionImport(
           date: o.date || '',
           // 使用支持嵌套层级的函数渲染 items（支持 **标题** 格式）
           description: o.items && o.items.length > 0
-            ? highlightsToHtml(o.items)
+            ? groupedHighlightsToHtml(o.items)
             : o.description || '',
           visible: true,
         }))
