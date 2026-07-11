@@ -143,3 +143,36 @@ data/conversations/
 # 本地运维文档（含服务器连接信息），不入库
 *.local.md
 .playwright-mcp/shots/
+
+# ============ 安全与隐私（2026-07-11 安全审计）============
+# 以下目录含密钥/用户数据/服务器信息/AI私有配置/个人内容，一律不入库。
+# 本地保留、远程移除。历史清理待单独处理。
+
+# --- 敏感凭据 / 令牌 ---
+.browser-fast/
+*.env.secret
+*.secret
+
+# --- 真实用户数据（对话记录、上传内容等）---
+backend/data/conversations/
+
+# --- 知识库（含服务器IP/域名/部署运维细节，本地保留）---
+knowledge-base/
+
+# --- 服务器远程工具（含 SSH 连接信息）---
+remote/
+
+# --- AI 编码工具私有配置（skills/prompts/偏好）---
+.agents/
+.claude/
+.cursor/
+.zcode/
+
+# --- IDE 自动生成的 wiki / 索引 ---
+.qoder/
+
+# --- 与产品无关的个人内容 ---
+LeetCode/
+
+# --- 内部测试工具（非开源内容）---
+agent-harness/

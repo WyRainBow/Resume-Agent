@@ -1,6 +1,0 @@
-{
-  "slug": "sliding-window-minimum",
-  "language": "go",
-  "code": "package main\n\nfunc slidingWindowMin(nums []int, k int) []int {\n\treturn []int{}\n}\n",
-  "updatedAt": "2026-05-10T08:06:43.796723Z"
-}

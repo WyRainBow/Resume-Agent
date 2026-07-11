@@ -1,6 +1,0 @@
-{
-  "slug": "permutations-string",
-  "language": "go",
-  "code": "package main\n\nimport \"sort\"\n\nfunc permute(s string) []string {\n\treturn nil\n}\n",
-  "updatedAt": "2026-05-10T08:03:30.892078Z"
-}
