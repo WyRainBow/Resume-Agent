@@ -498,9 +498,16 @@ async def stream_events(
     )
 
     # 🚨 增加防护：同一 sessionId 正在运行时，停止旧的 stream。
-    # 这样可以防止多个 tab 或快速切换导致并发冲突，同时能通过 reason 区分是“新请求打断”还是“手动停止”。
+    # 这样可以防止多个 tab 或快速切换导致并发冲突，同时能通过 reason 区分是"新请求打断"还是"手动停止"。
     if stream_processor.has_active_stream(conversation_id):
         logger.info(f"[SSE] Active stream found for {conversation_id}, stopping it first (reason: session_switch)")
+        # 停止旧流前先尝试落盘，保护内存里未持久化的修改
+        try:
+            from backend.agent.tool.resume_data_store import ResumeDataStore
+            if ResumeDataStore.persist_data(conversation_id):
+                logger.info(f"[SSE] Persisted resume before stopping stream (conv={conversation_id})")
+        except Exception:
+            logger.warning(f"[SSE] Failed to persist before session_switch (conv={conversation_id})")
         await stream_processor.stop_stream(conversation_id, reason="session_switch")
         # 给一点点时间让旧流退出
         await asyncio.sleep(0.3)
