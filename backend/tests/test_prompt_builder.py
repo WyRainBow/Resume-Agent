@@ -69,7 +69,16 @@ def test_prompt_output_matches_golden(case, golden):
             agent._generate_dynamic_prompts(case["input"], intent)
         )
         expected = golden[case["key"]]
-        assert system_prompt == expected["system"], f"{case['key']} system prompt 漂移"
-        assert next_step == expected["next_step"], f"{case['key']} next_step 漂移"
+        # normalize: prompt 含 WORKSPACE_ROOT 绝对路径,不同机器路径不同
+        # golden 录制于 /Users/mac/开源工具/ResumeAgent,本地可能是任意路径
+        # 统一把 "xxx/ResumeAgent/docs/openmanus" 和 "xxx/Resume-Agent/docs/openmanus" 归一
+        import re
+        _norm = lambda s: re.sub(
+            r"[^\s]+/(?:ResumeAgent|Resume-Agent)/docs/openmanus",
+            "<WORKSPACE_ROOT>",
+            s,
+        )
+        assert _norm(system_prompt) == _norm(expected["system"]), f"{case['key']} system prompt 漂移"
+        assert _norm(next_step) == _norm(expected["next_step"]), f"{case['key']} next_step 漂移"
     finally:
         ResumeDataStore.clear_data(SESSION)
