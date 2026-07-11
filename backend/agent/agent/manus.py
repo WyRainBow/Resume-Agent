@@ -33,54 +33,8 @@ from backend.agent.agent.shared_state import AgentSharedState
 from backend.agent.agent.turn_state import TurnExecutionState
 from backend.agent.agent.prompt_builder import PromptBuilder
 from backend.agent.agent.intent_router import IntentRouter, RoutingContext
-from backend.agent.agent.tool_invocation_builder import (
-    ToolInvocation,
-    ToolInvocationBuilder,
-)
 from backend.agent.agent.capability import CapabilityRegistry, ResumeCapability
 from backend.agent.tool.resume_data_store import ResumeDataStore
-
-# 让权守卫:消息同时含「发送动词 + 邮箱地址」时,规则意图一律弃权交还 LLM 工具循环。
-# 规则层没有"发送"概念,历史上会把「把优化好的简历发给 xx@qq.com」里的"优化"抢注进
-# OPTIMIZE/EDIT 分支(2026-07-10 审计 I8"组合请求被拆丢"的实锤案例)。
-# 注意动词表刻意不含"改成/改为"——「把邮箱改成 new@qq.com」是合法的字段编辑,不让权。
-_SEND_EMAIL_VERB_RE = re.compile(r"(发给|发送|发到|寄给|寄到|投递|投给|邮给|发邮件)")
-_EMAIL_ADDR_RE = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
-
-
-def _has_send_email_intent(text: str) -> bool:
-    t = text or ""
-    return bool(_SEND_EMAIL_VERB_RE.search(t) and _EMAIL_ADDR_RE.search(t))
-
-
-# 复合请求让权:规则意图只有单一出口,「优化第二段然后翻译成英文」这类组合请求
-# 命中规则后后半句会被静默丢弃(审计 I8)。判定:按连接词切句,若 ≥2 段各含
-# 动作动词则视为复合请求,规则弃权交 LLM 工具循环。
-# 判定偏保守:只有连接词前后都出现动作动词才让权——"再优化一下"(连接词前
-# 无动词的延续性单指令)不受影响。
-_COMPOUND_CONJ_RE = re.compile(r"(然后|接着|顺便|并且|同时|之后再|完了再|[,，]\s*再|[,，]\s*帮我)")
-_ACTION_VERB_RE = re.compile(
-    r"(优化|润色|修改|改成|改为|改一下|翻译|分析|诊断|评分|生成|创建|新建|导出|下载|发送|发给|发到|寄给|投递|删除|删掉)"
-)
-
-
-def _looks_like_compound_request(text: str) -> bool:
-    t = (text or "").strip()
-    if not t or not _COMPOUND_CONJ_RE.search(t):
-        return False
-    segments = [seg for seg in _COMPOUND_CONJ_RE.split(t) if seg and not _COMPOUND_CONJ_RE.fullmatch(seg)]
-    hits = sum(1 for seg in segments if _ACTION_VERB_RE.search(seg))
-    return hits >= 2
-
-
-def _rule_intent_yield_reason(text: str) -> Optional[str]:
-    """规则意图的统一让权判定:返回让权原因,None 表示规则可以保留决定权。
-    这是方案 §8.2「规则从拦截降级」的守卫集合,只做弃权、不做认领。"""
-    if _has_send_email_intent(text):
-        return "发送语义"
-    if _looks_like_compound_request(text):
-        return "复合请求"
-    return None
 
 
 class Manus(ToolCallAgent):
@@ -123,7 +77,6 @@ class Manus(ToolCallAgent):
     _skills_cache: Dict[str, str] = PrivateAttr(default_factory=dict)
     _prompt_builder: PromptBuilder = PrivateAttr(default=None)
     _intent_router: IntentRouter = PrivateAttr(default=None)
-    _tool_builder: ToolInvocationBuilder = PrivateAttr(default=None)
     # Wave 2a-S1:原 5 个散落 flag 收拢进 TurnExecutionState。S4c-1 起内部直接读写
     # self._turn.*;仅保留 _pending_immediate_stream 委托(AgentStream 直读,
     # 保留到 2b-B1,见 spec D2)
@@ -161,26 +114,10 @@ class Manus(ToolCallAgent):
             capability=self.capability,
             skills_cache=self._skills_cache,
         )
-        # Wave 2a-S4a:意图识别+让权守卫收口 IntentRouter。让权规则函数注入
-        # (仍定义在本模块级,S4c 收口后平移)
-        self._intent_router = IntentRouter(
-            self._conversation_state,
-            yield_reason_fn=_rule_intent_yield_reason,
-            compound_request_fn=_looks_like_compound_request,
-        )
-        # Wave 2a-S4b:手工构造 ToolCall 的纯构造收口 ToolInvocationBuilder
-        # (LLM-first 了断后仅剩 optimize-confirm 的 build_apply_optimization)
-        self._tool_builder = ToolInvocationBuilder()
+        # Wave 2a-S4a:意图识别+让权守卫收口 IntentRouter(守卫规则函数已平移进
+        # intent_router 模块级,不再从 manus 注入)
+        self._intent_router = IntentRouter(self._conversation_state)
         return self
-
-    def _apply_invocation(self, inv: ToolInvocation) -> bool:
-        """统一落地 ToolInvocation 的副作用：写 memory、tool_calls 与优化确认 flag。"""
-        for msg in inv.memory_messages:
-            self.memory.add_message(msg)
-        self.tool_calls = inv.tool_calls
-        if inv.just_applied_optimization:
-            self._just_applied_optimization = True
-        return True
 
     def _build_tool_collection(self) -> ToolCollection:
         """Build tool collection based on capability settings."""
@@ -676,6 +613,27 @@ class Manus(ToolCallAgent):
             return has_confirm and has_apply
         return False
 
+    @staticmethod
+    def _build_apply_optimization(
+        edit_path: str, edit_value: str, suggestion_title: str
+    ) -> tuple[ToolCall, Message]:
+        """应用优化建议 → cv_editor_agent 的纯构造(optimize-confirm 快路径)：
+        组装固定 id 的 ToolCall 与配套 memory 消息,不产生副作用。"""
+        manual_tool_call = ToolCall(
+            id="call_apply_optimization",
+            function={
+                "name": "cv_editor_agent",
+                "arguments": json.dumps(
+                    {"path": edit_path, "action": "update", "value": edit_value}
+                ),
+            },
+        )
+        memory_message = Message.from_tool_calls(
+            content=f"✅ 正在应用优化：{suggestion_title}\n路径：{edit_path}",
+            tool_calls=[manual_tool_call],
+        )
+        return manual_tool_call, memory_message
+
     async def _handle_optimize_confirm(self) -> bool:
         """处理用户确认优化意图"""
         import re
@@ -710,13 +668,14 @@ class Manus(ToolCallAgent):
                             and self._is_actionable_optimization_text(str(edit_value))
                             and self._is_reasonable_optimization_text(str(edit_value))
                         ):
-                            result = self._apply_invocation(
-                                self._tool_builder.build_apply_optimization(
-                                    edit_path, edit_value, suggestion_title
-                                )
+                            tool_call, memory_message = self._build_apply_optimization(
+                                edit_path, edit_value, suggestion_title
                             )
+                            self.memory.add_message(memory_message)
+                            self.tool_calls = [tool_call]
+                            self._just_applied_optimization = True
                             logger.info(f"🔧 应用优化: {edit_path} = {edit_value}")
-                            return result
+                            return True
                 except (json.JSONDecodeError, KeyError) as e:
                     logger.debug(f"解析优化建议失败: {e}")
                     continue

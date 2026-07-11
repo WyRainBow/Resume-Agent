@@ -19,10 +19,6 @@ setup_logging(False, "INFO", "logs/test")
 
 import backend.agent.agent.manus as manus_module  # noqa: F401 包初始化
 from backend.agent.agent.intent_router import IntentRouter, RoutingContext
-from backend.agent.agent.manus import (
-    _looks_like_compound_request,
-    _rule_intent_yield_reason,
-)
 from backend.agent.application.conversation.conversation_state import Intent
 
 
@@ -40,11 +36,7 @@ class FakeConversationState:
 
 def make_router(rule_result):
     state = FakeConversationState(rule_result)
-    router = IntentRouter(
-        state,
-        yield_reason_fn=_rule_intent_yield_reason,
-        compound_request_fn=_looks_like_compound_request,
-    )
+    router = IntentRouter(state)
     return router, state
 
 

@@ -12,8 +12,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from backend.core.logger import setup_logging
 setup_logging(False, "INFO", "logs/test")
 
-import backend.agent.agent.manus as manus_module
-from backend.agent.agent.manus import (
+import backend.agent.agent.manus as manus_module  # noqa: F401 包初始化
+from backend.agent.agent.intent_router import (
     _has_send_email_intent,
     _looks_like_compound_request,
     _rule_intent_yield_reason,
