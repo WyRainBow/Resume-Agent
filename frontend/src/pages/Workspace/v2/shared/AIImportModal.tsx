@@ -107,20 +107,16 @@ export function AIImportModal({
   const [parsedData, setParsedData] = useState<any>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [finalTime, setFinalTime] = useState<number | null>(null);
-  const [selectedModel, setSelectedModel] = useState("deepseek-v4-flash");
+  const [selectedModel, setSelectedModel] = useState("claude-sonnet-4-6");
   const [selectedVisionModel, setSelectedVisionModel] = useState("glm-ocr");
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedImage2, setSelectedImage2] = useState<File | null>(null);
   const [copied, setCopied] = useState(false);
-  const [importMode, setImportMode] = useState<"pdf" | "image" | "text">("image");
+  const [importMode, setImportMode] = useState<"pdf" | "image" | "text">("pdf");
   const [currentStep, setCurrentStep] = useState<"input" | "results">("input");
   const [awardsListType, setAwardsListType] = useState<'unordered' | 'ordered'>('unordered');
-  const [testKeysLoading, setTestKeysLoading] = useState(false);
-  const [testKeysResult, setTestKeysResult] = useState<Record<
-    string,
-    { configured: boolean; ok?: boolean; error?: string }
-  > | null>(null);
+  const [showTipQr, setShowTipQr] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -171,7 +167,7 @@ export function AIImportModal({
       setFinalTime(null);
       setSelectedFile(null);
       setSelectedImage2(null);
-      setImportMode("image");
+      setImportMode("pdf");
       setCurrentStep("input");
       setAwardsListType('unordered');
     }
@@ -489,68 +485,7 @@ export function AIImportModal({
                   <label className="text-sm font-mono uppercase tracking-wide font-bold text-black">
                     选择 AI 模型
                   </label>
-                  <button
-                    type="button"
-                    disabled={testKeysLoading}
-                    onClick={async () => {
-                      setTestKeysLoading(true);
-                      setTestKeysResult(null);
-                      try {
-                        const res = await fetch(`${getApiBaseUrl()}/api/ai/test-keys`);
-                        const data = await res.json();
-                        if (res.ok) setTestKeysResult(data);
-                        else setTestKeysResult({ _: { configured: false, ok: false, error: "请求失败" } });
-                      } catch (e) {
-                        setTestKeysResult({
-                          _: { configured: false, ok: false, error: (e as Error).message },
-                        });
-                      } finally {
-                        setTestKeysLoading(false);
-                      }
-                    }}
-                    className={cn(
-                      "text-xs px-3 py-1.5 rounded-none border border-black font-mono uppercase tracking-wide font-bold",
-                      "bg-[#F0F0E8] text-black shadow-[2px_2px_0px_0px_#000000]",
-                      "hover:bg-[#E5E5E0] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none",
-                      "active:translate-y-[2px] active:translate-x-[2px]",
-                      "transition-[transform,box-shadow,background-color] duration-100 ease-out",
-                      testKeysLoading && "opacity-60 pointer-events-none",
-                    )}
-                  >
-                    {testKeysLoading ? "检测中…" : "测试 AI"}
-                  </button>
                 </div>
-                {testKeysResult && !("_" in testKeysResult) && (
-                  <div className="mb-2 text-xs font-mono text-black space-y-1">
-                    {(["zhipu", "doubao", "deepseek"] as const).map((key) => {
-                      const r = testKeysResult[key];
-                      if (!r) return null;
-                      const label = { zhipu: "智谱", doubao: "豆包", deepseek: "DeepSeek" }[key];
-                      const text = !r.configured
-                        ? `${label}: 未配置`
-                        : r.ok
-                          ? `${label}: 可用`
-                          : `${label}: 不可用${r.error ? ` (${r.error})` : ""}`;
-                      return (
-                        <div
-                          key={key}
-                          className={cn(
-                            !r.configured && "text-[#878E99]",
-                            r.configured && r.ok && "text-green-700",
-                            r.configured && !r.ok && "text-amber-700",
-                          )}
-                        >
-                          {text}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {testKeysResult && "_" in testKeysResult && (
-                  <div className="mb-2 text-xs font-mono text-amber-700">
-                    检测失败: {(testKeysResult as Record<string, { error?: string }>)._?.error ?? "未知错误"}
-                  </div>
-                )}
                 <div className="relative">
                   <button
                     type="button"
@@ -898,6 +833,21 @@ export function AIImportModal({
                         </button>
                       </div>
                     )}
+
+                    {/* 赞赏码 */}
+                    <div className="flex-shrink-0 flex items-center gap-3 rounded-none border-2 border-black bg-[#F0F0E8] p-3 shadow-[4px_4px_0px_0px_#000000]">
+                      <div className="flex-1 text-xs text-[#878E99] leading-relaxed">
+                        <span className="font-bold text-black">支持作者</span>
+                        <br />
+                        网站用的 AI 都是我自费的 Token、如果觉得有用、可以帮我加一点 Token 🙏
+                      </div>
+                      <img
+                        src="https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/tip-qr.jpg"
+                        alt="赞赏码"
+                        onClick={() => setShowTipQr(true)}
+                        className="w-20 h-20 object-contain border border-black flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                      />
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -1191,6 +1141,31 @@ export function AIImportModal({
           )}
         </div>
       </div>
+
+      {/* 赞赏码放大弹窗 */}
+      {showTipQr && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70"
+          onClick={() => setShowTipQr(false)}
+        >
+          <div className="relative max-w-[80vw] max-h-[80vh]">
+            <img
+              src="https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/tip-qr.jpg"
+              alt="赞赏码"
+              className="max-w-full max-h-[80vh] object-contain border-2 border-white shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              type="button"
+              onClick={() => setShowTipQr(false)}
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white border-2 border-black flex items-center justify-center font-bold text-black shadow-lg"
+              aria-label="关闭"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
