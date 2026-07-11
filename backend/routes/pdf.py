@@ -316,7 +316,9 @@ async def compile_latex(
             from backend.latex_compiler import compile_latex_raw
         except ImportError:
             from latex_compiler import compile_latex_raw
-        pdf_io = compile_latex_raw(body.latex_content)
+        # subprocess.run(timeout=180) 是重阻塞，必须放线程池，否则冻结事件循环，
+        # 连带同进程所有 asyncio.to_thread 结果回调（如 PDF 导入结构化）一起卡住。
+        pdf_io = await run_in_threadpool(compile_latex_raw, body.latex_content)
 
         render_time = time.time() - start_time
         print(f"[LaTeX 编译] 完成，耗时: {render_time:.2f}秒, user_id={current_user.id}")
@@ -356,7 +358,8 @@ async def compile_latex_stream(
                 from latex_compiler import compile_latex_raw
             yield dict(event="progress", data="正在编译 PDF（可能需要几秒）...")
 
-            pdf_io = compile_latex_raw(body.latex_content)
+            # 同 /pdf/compile-latex：subprocess.run 必须放线程池，避免冻结事件循环。
+            pdf_io = await run_in_threadpool(compile_latex_raw, body.latex_content)
             compile_time = time.time() - compile_start
 
             yield dict(event="progress", data=f"PDF 编译完成 ({compile_time:.1f}s)")

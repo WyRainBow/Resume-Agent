@@ -372,7 +372,7 @@ async def grammar_check(body: GrammarCheckRequest):
     )
 
     try:
-        raw = call_llm(provider, prompt)
+        raw = await asyncio.to_thread(call_llm, provider, prompt)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
 
@@ -560,7 +560,7 @@ async def jd_optimize(body: JdOptimizeRequest):
     prompt = _build_jd_optimize_prompt(jd_text=jd, fields=fields, locale=body.locale or "zh")
 
     try:
-        raw = call_llm(provider, prompt)
+        raw = await asyncio.to_thread(call_llm, provider, prompt)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
 
@@ -647,7 +647,7 @@ async def jd_keyword_integrate(body: JdKeywordIntegrateRequest):
     prompt = _build_jd_keyword_integrate_prompt(keyword=keyword, jd_text=(body.jd_text or "").strip(), fields=fields)
 
     try:
-        raw = call_llm(provider, prompt)
+        raw = await asyncio.to_thread(call_llm, provider, prompt)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
 
@@ -732,7 +732,7 @@ async def resume_health_check(body: HealthCheckRequest):
     prompt = _build_health_check_prompt(fields=fields, locale=body.locale or "zh")
 
     try:
-        raw = call_llm(provider, prompt)
+        raw = await asyncio.to_thread(call_llm, provider, prompt)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
 
@@ -795,7 +795,7 @@ async def generate_resume(body: ResumeGenerateRequest):
     """一句话 → 结构化简历 JSON"""
     prompt = build_resume_prompt(body.instruction, body.locale)
     try:
-        raw = call_llm(body.provider, prompt)
+        raw = await asyncio.to_thread(call_llm, body.provider, prompt)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
 
@@ -844,7 +844,7 @@ async def generate_resume_stream(body: ResumeGenerateRequest):
             yield f"data: {_json.dumps({'type': 'status', 'content': 'parsing'}, ensure_ascii=False)}\n\n"
 
             # 调用 LLM 生成 JSON
-            raw_json = call_llm(body.provider, json_prompt)
+            raw_json = await asyncio.to_thread(call_llm, body.provider, json_prompt)
             cleaned = clean_llm_response(raw_json)
 
             # 修复常见的 JSON 格式错误
@@ -1210,7 +1210,7 @@ async def _parse_resume_serial(body: ResumeParseRequest):
 {chunk['content']}
 {schema_desc}"""
             try:
-                raw = call_llm(provider, chunk_prompt, model=model)
+                raw = await asyncio.to_thread(call_llm, provider, chunk_prompt, model=model)
             except Exception as e:
                 logger.warning(f"分块 {i+1} 解析失败: {e}")
                 write_llm_debug(f"Chunk {i+1} Error: {e}")
@@ -1274,7 +1274,7 @@ async def _parse_resume_serial(body: ResumeParseRequest):
 {schema_desc}"""
 
         try:
-            raw = call_llm(provider, prompt, model=model)
+            raw = await asyncio.to_thread(call_llm, provider, prompt, model=model)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
 
@@ -1390,7 +1390,7 @@ async def parse_section_text(body: SectionParseRequest):
 {body.text}"""
 
     try:
-        raw = call_llm(provider, prompt, model=model)
+        raw = await asyncio.to_thread(call_llm, provider, prompt, model=model)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM 调用失败: {e}")
 
@@ -1425,7 +1425,7 @@ async def rewrite_resume(body: RewriteRequest):
 
     prompt = build_rewrite_prompt(body.path, cur_value, body.instruction, body.locale, body.history)
     try:
-        raw = call_llm(body.provider, prompt)
+        raw = await asyncio.to_thread(call_llm, body.provider, prompt)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM 调用失败：{e}")
 

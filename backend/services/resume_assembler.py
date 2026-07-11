@@ -16,11 +16,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from typing import Dict, Any, Optional
 
 from openai import OpenAI
+
+logger = logging.getLogger(__name__)
 
 try:
     from backend.prompts_pdf_parser import (
@@ -81,7 +84,15 @@ def _get_client() -> OpenAI:
     if not key:
         raise ValueError("DASHSCOPE_API_KEY 未配置")
     if _deepseek_client is None or _last_key != key:
-        _deepseek_client = OpenAI(api_key=key, base_url=DEEPSEEK_BASE_URL)
+        # 显式 timeout + 关闭 SDK 默认指数退避重试：
+        # SDK 默认 timeout=600s + 重试 2 次(0.8→1.6→3.8s)，一次 DashScope 抖动会被放大到 10s+。
+        # 这里 60s 超时 + 不重试，失败快速抛出，交给上层 EASY/EXP 并发 + _serial 回退处理。
+        _deepseek_client = OpenAI(
+            api_key=key,
+            base_url=DEEPSEEK_BASE_URL,
+            timeout=60.0,
+            max_retries=0,
+        )
         _last_key = key
     return _deepseek_client
 
@@ -518,6 +529,22 @@ async def assemble_resume_data_fast(
     # EXP（实习+项目）是核心且不可从 EASY 补，失败/全空 → 整体回退单次
     exp_ok = isinstance(exp_r, dict) and (exp_r.get("internships") or exp_r.get("projects"))
     if not exp_ok:
+        # 之前这里静默回退，排查时无法区分「并发路径慢」和「回退到更慢的单次路径」。
+        # 现在记录 EXP 组返回内容 + 是否异常，便于定位是超时、限流还是模型返回空。
+        exp_detail = (
+            f"exception={type(exp_r).__name__}: {str(exp_r)[:200]}"
+            if isinstance(exp_r, Exception)
+            else f"empty result keys={list(exp_r.keys()) if isinstance(exp_r, dict) else 'N/A'}"
+        )
+        easy_detail = (
+            f"exception={type(easy_r).__name__}"
+            if isinstance(easy_r, Exception)
+            else f"keys={list(easy_r.keys()) if isinstance(easy_r, dict) else 'N/A'}"
+        )
+        logger.warning(
+            "[结构化] EXP组为空或异常, 回退单次路径。exp=%s, easy=%s, ocr_chars=%d",
+            exp_detail, easy_detail, len(ocr_text),
+        )
         return await _serial()
 
     merged: Dict[str, Any] = {}

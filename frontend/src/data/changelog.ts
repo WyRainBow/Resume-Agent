@@ -15,6 +15,13 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    version: '3.2.3',
+    date: '2026-07-12',
+    fixed: [
+      '修复多人同时使用时简历导入偶发卡住两三分钟的问题',
+    ],
+  },
+  {
     version: '3.2.2',
     date: '2026-07-11 10:48',
     fixed: [
