@@ -15,13 +15,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '3.2.3',
+    version: '3.2.4',
     date: '2026-07-12',
     fixed: [
       '修复多人同时使用时简历导入偶发卡住两三分钟的问题',
+      '修复 AI 优化简历到一半断连、修改丢失的问题',
+      '修复 AI 对话偶发一直转圈不结束的问题',
     ],
     added: [
-      '简历导入新增 Claude Sonnet 4.6 模型（仅 PDF），AI 对话也支持切换 Claude',
+      '简历导入新增 Claude Sonnet 4.6 模型（仅 PDF）',
     ],
   },
   {
