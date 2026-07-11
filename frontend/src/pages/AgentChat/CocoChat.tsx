@@ -4136,6 +4136,30 @@ function CocoChatContent() {
       // 静默触发一条 Agent 轮(不渲染用户气泡):让 Coco 基于本轮真实 diff
       // 说收尾话 + 给贴合改动的动态建议,替代原先写死的三个打磨 chip
       if (!isProcessing) {
+        // 静默轮同样必须走完整的新轮初始化:此前裸调 sendMessage 导致
+        // streamRunRef 不推进,finalizeMessage 的同 run 判重把收尾轮的
+        // finalize 直接吞掉,总结正文永远落不进时间线(2026-07-10 实测)。
+        isFinalizedRef.current = false;
+        pendingFinalizeAfterTypewriterRef.current = false;
+        finalizeRetryAttemptsRef.current = 0;
+        if (finalizeRetryTimerRef.current !== null) {
+          window.clearTimeout(finalizeRetryTimerRef.current);
+          finalizeRetryTimerRef.current = null;
+        }
+        const nextRunId = startNewRun();
+        setActiveRunId(nextRunId);
+        lastDoneRunRef.current = -1;
+        currentThoughtRef.current = "";
+        currentAnswerRef.current = "";
+        currentRunUserInputRef.current = "";
+        hasPatchInCurrentStreamRef.current = false;
+        currentAssistantMessageIdRef.current = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        setCurrentSuggestions([]);
+        setSearchResults((prev) => prev.filter((item) => item.messageId !== "current"));
+        setLoadedResumes((prev) => prev.filter((item) => item.messageId !== "current"));
+        setResumeEditDiffs((prev) => prev.filter((item) => item.messageId !== "current"));
+        setDiagnosisToolEvents((prev) => prev.filter((item) => item.messageId !== "current"));
+        setStructuredEvents((prev) => prev.filter((item) => item.messageId !== "current"));
         void sendMessage(
           `[系统内部提示,不要向用户复述本条] 用户刚刚应用了 ${appliedCount} 处简历修改(内容是你此前给出的修改)。` +
             "你的回复必须以「Response: 」开头,包含两部分,顺序固定:" +
@@ -4148,6 +4172,7 @@ function CocoChatContent() {
       }
     }
     prevPendingCountRef.current = pendingCount;
+    // startNewRun/setter 均只操作 ref 或为稳定引用,不列入 deps 避免每渲染重跑
   }, [pendingPatches, conversationId, currentSessionId, persistSessionSnapshot, isProcessing, sendMessage]);
 
   const heroInitialConsumedRef = useRef(false);

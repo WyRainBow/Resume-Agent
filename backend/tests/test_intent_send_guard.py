@@ -12,8 +12,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 from backend.core.logger import setup_logging
 setup_logging(False, "INFO", "logs/test")
 
-import backend.agent.agent.manus as manus_module
-from backend.agent.agent.manus import (
+import backend.agent.agent.manus as manus_module  # noqa: F401 包初始化
+from backend.agent.agent.intent_router import (
     _has_send_email_intent,
     _looks_like_compound_request,
     _rule_intent_yield_reason,
@@ -90,21 +90,11 @@ def test_greeting_prompt_interpolation_locked():
     assert GREETING_STYLE_GUIDANCE in GREETING_FAST_PATH_PROMPT
 
 
-def test_llm_first_routing_switch(monkeypatch):
-    from backend.agent.agent.manus import _llm_first_routing_enabled
-
-    monkeypatch.delenv("AGENT_LLM_FIRST_ROUTING", raising=False)
-    assert _llm_first_routing_enabled() is True  # 默认开启
-    monkeypatch.setenv("AGENT_LLM_FIRST_ROUTING", "false")
-    assert _llm_first_routing_enabled() is False
-    monkeypatch.setenv("AGENT_LLM_FIRST_ROUTING", "true")
-    assert _llm_first_routing_enabled() is True
-
-
 def test_llm_first_yields_rule_route_and_blocks_query_rewrite(monkeypatch):
     """行为级白盒(Codex review):规则给出 LOAD_RESUME+tool+带 /[tool:] 标记的
-    enhanced_query 时,LLM-first 必须 ①落到 super().think()(不直调工具)
-    ②不把工具标记写回 memory(规则只做日志参考,不许暗中遥控)。"""
+    enhanced_query 时,LLM-first(2026-07-11 起唯一路径,无回退开关)必须
+    ①落到 super().think()(不直调工具)②不把工具标记写回 memory(规则只做
+    日志参考,不许暗中遥控)。"""
     import asyncio
 
     from backend.agent.agent.manus import Manus
@@ -112,7 +102,6 @@ def test_llm_first_yields_rule_route_and_blocks_query_rewrite(monkeypatch):
     from backend.agent.application.conversation.conversation_state import Intent
     from backend.agent.schema import Message, Role
 
-    monkeypatch.setenv("AGENT_LLM_FIRST_ROUTING", "true")
     agent = Manus(session_id="s-llmfirst-test", is_admin=False, user_id=1)
     original_input = "帮我加载一下我的简历"
     agent.memory.add_message(Message.user_message(original_input))
@@ -144,22 +133,3 @@ def test_llm_first_yields_rule_route_and_blocks_query_rewrite(monkeypatch):
     assert user_msgs and "/[tool:" not in (user_msgs[-1].content or ""), \
         "规则的 enhanced_query 工具标记不得写回 memory"
     assert not agent.tool_calls, "不得由规则手工构造工具调用"
-
-
-def test_llm_first_wired_into_think_source():
-    import inspect
-
-    src = inspect.getsource(manus_module.Manus.think)
-    assert "LLM-first" in src
-    assert "_llm_first_routing_enabled" in src
-
-
-def test_guard_wired_into_think_source():
-    """守卫必须接在意图消费入口(白盒:防止后续重构悄悄摘掉)"""
-    import inspect
-
-    src = inspect.getsource(manus_module.Manus.think)
-    assert "_rule_intent_yield_reason" in src
-    assert "让权" in src
-    # staged-edit 前置快路径同样要被守卫覆盖
-    assert src.index("staged-edit 快路径让权") < src.index("_extract_replace_request(user_input)\n") + 2000

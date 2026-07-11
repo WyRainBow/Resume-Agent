@@ -68,6 +68,18 @@ class StreamEvent:
     timestamp: float = field(default_factory=lambda: datetime.now().timestamp())
     session_id: str | None = None
 
+    def _envelope(self) -> dict[str, Any]:
+        """统一事件公共外壳(Wave 1.2):所有事件的 to_dict 必含 type/session_id/timestamp。
+
+        业务字段由各事件扁平铺在外壳之上(前端按扁平字段消费);完整 canonical
+        envelope(run_id/seq/data 收拢)留给 Wave 2 配合 run_stream 重构。
+        """
+        return {
+            "type": self.event_type.value,
+            "session_id": self.session_id,
+            "timestamp": self.timestamp,
+        }
+
     def to_dict(self) -> dict[str, Any]:
         """Convert event to dictionary for JSON serialization."""
         return {
@@ -105,10 +117,9 @@ class ThoughtEvent(StreamEvent):
 
     def to_dict(self) -> dict[str, Any]:
         """Override to return frontend-compatible format."""
-        return {
-            "type": self.event_type.value,
-            "content": self.data["content"],
-        }
+        result = self._envelope()
+        result["content"] = self.data["content"]
+        return result
 
 
 @dataclass
@@ -143,11 +154,9 @@ class ToolCallEvent(StreamEvent):
 
     def to_dict(self) -> dict[str, Any]:
         """Override to return frontend-compatible format."""
-        result = {
-            "type": self.event_type.value,
-            "tool": self.data["tool"],
-            "args": self.data["args"],
-        }
+        result = self._envelope()
+        result["tool"] = self.data["tool"]
+        result["args"] = self.data["args"]
         # ✅ 只有存在 tool_call_id 时才添加该字段
         if self.data.get("tool_call_id"):
             result["tool_call_id"] = self.data["tool_call_id"]
@@ -190,11 +199,9 @@ class ToolResultEvent(StreamEvent):
 
     def to_dict(self) -> dict[str, Any]:
         """Override to return frontend-compatible format."""
-        result = {
-            "type": self.event_type.value,
-            "tool": self.data["tool"],
-            "result": self.data["result"],
-        }
+        result = self._envelope()
+        result["tool"] = self.data["tool"]
+        result["result"] = self.data["result"]
         # ✅ 只有存在 tool_call_id 时才添加该字段
         if self.data.get("tool_call_id"):
             result["tool_call_id"] = self.data["tool_call_id"]
@@ -232,13 +239,12 @@ class AnswerEvent(StreamEvent):
 
     def to_dict(self) -> dict[str, Any]:
         """Override to return frontend-compatible format."""
-        return {
-            "type": self.event_type.value,
-            "content": self.data["content"],
-            "is_complete": self.data.get("is_complete", True),
-            "delta": self.data.get("delta"),
-            "event_seq": self.data.get("event_seq"),
-        }
+        result = self._envelope()
+        result["content"] = self.data["content"]
+        result["is_complete"] = self.data.get("is_complete", True)
+        result["delta"] = self.data.get("delta")
+        result["event_seq"] = self.data.get("event_seq")
+        return result
 
 
 @dataclass
@@ -323,10 +329,9 @@ class ResumeUpdatedEvent(StreamEvent):
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "type": "resume_updated",
-            "resume_data": self.data["resume_data"],
-        }
+        result = self._envelope()
+        result["resume_data"] = self.data["resume_data"]
+        return result
 
 
 @dataclass
@@ -356,6 +361,13 @@ class ResumePatchEvent(StreamEvent):
             session_id=session_id,
         )
 
+    def to_dict(self) -> dict[str, Any]:
+        """业务字段扁平输出，消除基类 data.data 双层嵌套
+        (前端 CocoChat 的 `outerData.data ?? outerData` 两种形状均兼容)。"""
+        result = self._envelope()
+        result.update(self.data)
+        return result
+
 
 @dataclass
 class ResumeGeneratedEvent(StreamEvent):
@@ -367,6 +379,12 @@ class ResumeGeneratedEvent(StreamEvent):
             data={"resume": resume, "summary": summary},
             session_id=session_id,
         )
+
+    def to_dict(self) -> dict[str, Any]:
+        """业务字段扁平输出，消除基类 data.data 双层嵌套。"""
+        result = self._envelope()
+        result.update(self.data)
+        return result
 
 
 @dataclass
@@ -408,7 +426,6 @@ class SuggestionsEvent(StreamEvent):
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {
-            "type": self.event_type.value,
-            "items": self.data["items"],
-        }
+        result = self._envelope()
+        result["items"] = self.data["items"]
+        return result

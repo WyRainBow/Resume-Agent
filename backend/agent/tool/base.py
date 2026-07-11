@@ -44,6 +44,9 @@ class ToolResult(BaseModel):
     error: Optional[str] = Field(default=None)
     base64_image: Optional[str] = Field(default=None)
     system: Optional[str] = Field(default=None)
+    # 结构化数据显式通道:优先于 system JSON 旁路被消费
+    # (兼容迁移,见 toolcall._store_structured_tool_result;system JSON 仍作 fallback)
+    structured_data: Optional[Dict[str, Any]] = Field(default=None)
 
     class Config:
         arbitrary_types_allowed = True
@@ -66,6 +69,9 @@ class ToolResult(BaseModel):
             error=combine_fields(self.error, other.error),
             base64_image=combine_fields(self.base64_image, other.base64_image, False),
             system=combine_fields(self.system, other.system),
+            structured_data=combine_fields(
+                self.structured_data, other.structured_data, False
+            ),
         )
 
     def __str__(self):

@@ -263,6 +263,8 @@ class AgentStream:
         self._answer_event_seq: int = 0
         self._emitted_answer_fingerprints: set[str] = set()
         self._final_answer_sent: bool = False
+        # Wave 1.2: suggestions 只发一次(step-tail 与 post-loop 两个提取点都可能命中同一标记)
+        self._suggestions_emitted: bool = False
         self._current_step_stream_state: Optional[StepStreamState] = None
         self._stream_cancel_event: Optional[asyncio.Event] = None
 
@@ -367,6 +369,17 @@ class AgentStream:
         # 导致收尾 answer 永远发不出、正文只在流式区闪现(2026-07-10 实测)
         normalized = self._normalize_text(content)
         return bool(normalized) and normalized == self._normalize_text(state.last_stream_response)
+
+    def _make_suggestions_event(self, items: list[dict]) -> Optional[SuggestionsEvent]:
+        """构造 suggestions 事件并保证整个 run 只发一次。
+
+        Wave 1.2:step-tail 与 post-loop 两个提取点可能命中同一份标记
+        (step-tail 发射后内容仍持久化在 memory,post-loop 会再次提取)。
+        """
+        if not items or self._suggestions_emitted:
+            return None
+        self._suggestions_emitted = True
+        return SuggestionsEvent(items=items, session_id=self._session_id)
 
     def _extract_suggestions(self, content: str) -> tuple[str, list[dict]]:
         """Parse %%SUGGESTIONS%%[...]%%END%% marker from content.
@@ -781,8 +794,9 @@ class AgentStream:
                             )
                             if final_event:
                                 yield final_event
-                            if suggestion_items:
-                                yield SuggestionsEvent(items=suggestion_items, session_id=self._session_id)
+                            suggestions_event = self._make_suggestions_event(suggestion_items)
+                            if suggestions_event:
+                                yield suggestions_event
 
                             # 持久化到 memory
                             final_msg = f"Thought: {full_thought}\nResponse: {full_content}"
@@ -846,15 +860,24 @@ class AgentStream:
                                 # Ensure final visible answer is persisted even when
                                 # assistant memory only contains intermediate/tool messages.
                                 self._ensure_assistant_message(final_answer_content)
-                                step_state.last_stream_response = final_answer_content
+                                # Wave 1.2:此路径此前不提取 %%SUGGESTIONS%%,标记会以正文
+                                # 发给前端(靠前端 strip 兜底、按钮依赖 post-loop 二次提取)。
+                                # 现在保证后端出口即干净正文 + 结构化 suggestions 事件。
+                                clean_answer, tail_suggestions = self._extract_suggestions(
+                                    final_answer_content
+                                )
+                                step_state.last_stream_response = clean_answer
                                 # 🚨 立即流式补发：_pending_immediate_stream 先发了 pre-thought，
                                 # 这里补发完整 final_answer（含真实诊断内容，is_complete=True）
                                 final_event = self._build_answer_event(
-                                    content=final_answer_content,
+                                    content=clean_answer,
                                     is_complete=True,
                                 )
                                 if final_event:
                                     yield final_event
+                                suggestions_event = self._make_suggestions_event(tail_suggestions)
+                                if suggestions_event:
+                                    yield suggestions_event
 
                     # 🔍 调试：检查状态变化
                     # 单一路径：循环内只发 delta，不发 complete。complete 只在循环结束后发一次。
@@ -1217,8 +1240,9 @@ class AgentStream:
                 if answer_event:
                     yield answer_event
 
-            if suggestion_items:
-                yield SuggestionsEvent(items=suggestion_items, session_id=self._session_id)
+            suggestions_event = self._make_suggestions_event(suggestion_items)
+            if suggestions_event:
+                yield suggestions_event
 
             # 保存到历史记录 - 保存所有类型的消息（包括 Tool 消息）
             if self._chat_history_manager:
