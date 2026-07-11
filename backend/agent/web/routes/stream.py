@@ -35,6 +35,7 @@ from backend.agent.web.streaming.state_machine import AgentStateMachine
 from backend.agent.web.streaming.events import StreamEvent
 from backend.agent.cltp.storage.factory import get_conversation_storage
 from backend.agent.memory.conversation_manager import ConversationManager
+from backend.agent.web import session_manager
 
 router = APIRouter()
 
@@ -42,9 +43,6 @@ router = APIRouter()
 stream_processor = StreamProcessor()
 storage = get_conversation_storage()
 conversation_manager = ConversationManager(storage=storage)
-
-# Store active sessions (conversation_id -> agent instance)
-_active_sessions: dict[str, dict] = {}
 
 # 允许前端按请求切换的 agent 模型白名单（均经 DashScope，支持工具调用）
 _ALLOWED_AGENT_MODELS = {"deepseek-v4-flash", "deepseek-v3", "qwen-max"}
@@ -60,11 +58,8 @@ HEARTBEAT_V2_ENABLED = (
 
 
 def get_active_agent(conversation_id: str):
-    """按会话取仍在内存中的 agent 实例(可能已被 TTL 回收,返回 None)。
-    供 approval 等旁路端点把执行结果回写进 agent.memory,让 LLM 后续轮次
-    知道邮件到底发没发、发了什么(审查 #24)。"""
-    session = _active_sessions.get(conversation_id)
-    return session.get("agent") if session else None
+    """薄委托，保持 approval 等既有 import 路径可用；实现在 session_manager。"""
+    return session_manager.get_active_agent(conversation_id)
 
 
 def _is_admin(user: User) -> bool:
@@ -97,8 +92,9 @@ def _get_or_create_session(
     _assert_session_access(conversation_id, user)
 
     # Check if session exists in memory but file has been deleted
-    if conversation_id in _active_sessions:
-        session_user_id = _active_sessions[conversation_id].get("user_id")
+    existing_session = session_manager.get_session(conversation_id)
+    if existing_session is not None:
+        session_user_id = existing_session.get("user_id")
         if session_user_id not in (None, user.id) and not _is_admin(user):
             raise HTTPException(status_code=403, detail="无权访问该会话")
         # Verify file still exists in storage
@@ -114,16 +110,10 @@ def _get_or_create_session(
                 f"[SSE] Session {conversation_id} exists in memory but file deleted, "
                 "cleaning up and creating new session"
             )
-            # Clear agent memory before deleting session
-            old_session = _active_sessions.get(conversation_id)
-            if old_session and "agent" in old_session:
-                old_agent = old_session["agent"]
-                if hasattr(old_agent, "memory") and old_agent.memory:
-                    old_agent.memory.messages.clear()
-                    logger.info(f"[SSE] Cleared memory for session: {conversation_id}")
-            del _active_sessions[conversation_id]
+            # 原地重建：只重置 agent 记忆，简历数据是否保留由重建后的请求决定
+            session_manager.discard_session(conversation_id, clear_resume_data=False)
 
-    if conversation_id not in _active_sessions:
+    if session_manager.get_session(conversation_id) is None:
         from backend.agent.memory import ChatHistoryManager
         from backend.agent.tool.resume_data_store import ResumeDataStore
 
@@ -175,23 +165,29 @@ def _get_or_create_session(
             if hasattr(agent, "_conversation_state") and agent._conversation_state:
                 agent._conversation_state.update_resume_loaded(True)
 
-        _active_sessions[conversation_id] = {
-            "agent": agent,
-            "chat_history": chat_history,
-            "resume_path": resume_path,
-            "created_at": datetime.now(),
-            "user_id": user.id,
-        }
+        # created_at / last_accessed 由 register_session 统一补齐
+        session_manager.register_session(
+            conversation_id,
+            {
+                "agent": agent,
+                "chat_history": chat_history,
+                "resume_path": resume_path,
+                "user_id": user.id,
+            },
+        )
         logger.info(f"[SSE] Created new session: {conversation_id}")
     else:
+        # 复用已有会话即视为活跃，touch 防止长对话被 TTL 误回收
+        session_manager.touch(conversation_id)
+        session = session_manager.get_session(conversation_id)
         # Update resume path if provided
         if resume_path:
-            _active_sessions[conversation_id]["resume_path"] = resume_path
+            session["resume_path"] = resume_path
         if resume_data:
             from backend.agent.tool.resume_data_store import ResumeDataStore
 
             ResumeDataStore.set_data(resume_data, session_id=conversation_id)
-            agent = _active_sessions[conversation_id].get("agent")
+            agent = session.get("agent")
             if (
                 agent
                 and hasattr(agent, "_conversation_state")
@@ -199,45 +195,17 @@ def _get_or_create_session(
             ):
                 agent._conversation_state.update_resume_loaded(True)
 
-    return _active_sessions[conversation_id]
+    return session_manager.get_session(conversation_id)
 
 
 def clear_active_sessions_for_user(user_id: int) -> None:
-    """Remove in-memory agent sessions owned by a user."""
-    stale_ids = [
-        conversation_id
-        for conversation_id, session in list(_active_sessions.items())
-        if session.get("user_id") == user_id
-    ]
-    for conversation_id in stale_ids:
-        del _active_sessions[conversation_id]
-        logger.info(f"[SSE] Cleared active session for user {user_id}: {conversation_id}")
+    """薄委托；session_manager 版本会同步清理 ResumeDataStore（防简历/JD 泄漏）。"""
+    session_manager.clear_sessions_for_user(user_id)
 
 
 def _cleanup_session(conversation_id: str) -> None:
-    """Cleanup session after completion.
-
-    Evicts sessions older than _SESSION_TTL_SECONDS to prevent unbounded growth.
-    """
-    from backend.agent.tool.resume_data_store import ResumeDataStore
-
-    now = datetime.now()
-    stale = [
-        cid
-        for cid, sess in list(_active_sessions.items())
-        if (now - sess.get("created_at", now)).total_seconds() > _SESSION_TTL_SECONDS
-    ]
-    for cid in stale:
-        old = _active_sessions.pop(cid, None)
-        if old and "agent" in old:
-            try:
-                agent = old["agent"]
-                if hasattr(agent, "memory") and agent.memory:
-                    agent.memory.messages.clear()
-            except Exception:
-                pass
-        ResumeDataStore.clear_data(cid)
-        logger.info(f"[SSE] Evicted stale session: {cid}")
+    """Cleanup session after completion（touch-then-sweep TTL 回收，见 session_manager）。"""
+    session_manager.evict_idle_sessions(conversation_id, _SESSION_TTL_SECONDS)
 
 
 async def _stream_event_generator(
@@ -609,13 +577,10 @@ async def clear_session(
     Returns:
         Status message
     """
-    from backend.agent.tool.resume_data_store import ResumeDataStore
-
     _assert_session_access(conversation_id, current_user)
 
-    ResumeDataStore.clear_data(conversation_id)
-    if conversation_id in _active_sessions:
-        del _active_sessions[conversation_id]
+    # discard_session 无论条目是否在内存都会清 ResumeDataStore
+    if session_manager.discard_session(conversation_id):
         logger.info(f"[SSE] Cleared session: {conversation_id}")
         return {"status": "cleared", "conversation_id": conversation_id}
     logger.info(f"[SSE] Session not found (already cleared): {conversation_id}")

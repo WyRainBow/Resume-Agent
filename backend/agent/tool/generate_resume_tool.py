@@ -80,9 +80,11 @@ class GenerateResumeTool(BaseTool):
                 "resume": resume_dict,
                 "summary": summary,
             }
+            # structured_data 走显式通道;system JSON 双写保留兼容(Wave 1.1 迁移期)
             return ToolResult(
                 output=summary,
                 system=json.dumps(structured_data, ensure_ascii=False),
+                structured_data=structured_data,
             )
         except json.JSONDecodeError as e:
             logger.error(f"[GenerateResumeTool] JSON 解析失败: {e}")

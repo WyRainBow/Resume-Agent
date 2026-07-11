@@ -163,12 +163,8 @@ async def clear_history(
         HistoryClearResponse with confirmation
     """
     try:
-        # Import _active_sessions from stream module to clean up active session
-        from backend.agent.web.routes.stream import (
-            _active_sessions,
-            clear_active_sessions_for_user,
-        )
-        
+        from backend.agent.web import session_manager
+
         session_data = storage.load_session(session_id, user_id=current_user.id)
         if not session_data:
             raise HTTPException(status_code=404, detail="Session not found")
@@ -178,10 +174,9 @@ async def clear_history(
         deleted = conversation_manager.delete_session(session_id, user_id=current_user.id)
         if not deleted:
             raise HTTPException(status_code=404, detail="Session not found")
-        
-        # Clean up active session in memory
-        if session_id in _active_sessions:
-            del _active_sessions[session_id]
+
+        # Clean up active session in memory（含 ResumeDataStore，防简历/JD 泄漏）
+        if session_manager.discard_session(session_id):
             logger.info(f"[History] Cleared active session: {session_id}")
 
         return HistoryClearResponse(
@@ -626,20 +621,15 @@ async def batch_delete_sessions(
         dict with deleted_count
     """
     try:
-        # Import _active_sessions from stream module to clean up active sessions
-        from backend.agent.web.routes.stream import (
-            _active_sessions,
-            clear_active_sessions_for_user,
-        )
-        
+        from backend.agent.web import session_manager
+
         deleted_count = conversation_manager.delete_sessions(
             request.session_ids, user_id=current_user.id
         )
-        
-        # Clean up active sessions in memory
+
+        # Clean up active sessions in memory（含 ResumeDataStore，防简历/JD 泄漏）
         for session_id in request.session_ids:
-            if session_id in _active_sessions:
-                del _active_sessions[session_id]
+            if session_manager.discard_session(session_id):
                 logger.info(f"[History] Cleared active session: {session_id}")
         
         logger.info(f"Batch deleted {deleted_count}/{len(request.session_ids)} sessions")
@@ -664,20 +654,17 @@ async def delete_all_sessions(
         dict with deleted_count
     """
     try:
-        # Import _active_sessions from stream module to clean up active sessions
-        from backend.agent.web.routes.stream import (
-            _active_sessions,
-            clear_active_sessions_for_user,
-        )
-        
+        from backend.agent.web import session_manager
+
         # Get all session IDs before deletion
         all_sessions = conversation_manager.list_sessions(user_id=current_user.id)
         session_ids = [meta.session_id for meta in all_sessions]
-        
+
         deleted_count = conversation_manager.delete_all_sessions(user_id=current_user.id)
-        
+
         # Clean up active sessions in memory for current user only
-        clear_active_sessions_for_user(current_user.id)
+        # （session_manager 版本会同步清理 ResumeDataStore，防简历/JD 泄漏）
+        session_manager.clear_sessions_for_user(current_user.id)
         logger.info(
             f"[History] Cleared active sessions for user {current_user.id} "
             f"(deleted {deleted_count} persisted sessions)"
