@@ -14,6 +14,7 @@ import AIImportModal from '@/pages/Workspace/v2/shared/AIImportModal'
 import { saveResume, setCurrentResumeId } from '@/services/resumeStorage'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
 import { matchCompanyLogo } from '@/pages/Workspace/v2/constants/companyLogos'
+import { highlightsToHtml, groupedHighlightsToHtml, skillsToHtml } from '@/utils/resumeRichtext'
 
 const ResumeDashboard = () => {
   const navigate = useNavigate()
@@ -99,7 +100,8 @@ const ResumeDashboard = () => {
           degree: e.degree || '',
           startDate,
           endDate,
-          description: e.details?.join('\n') || '',
+          // 补充说明是富文本编辑器字段，统一转成无序列表 HTML（与 Agent 编辑链路一致）
+          description: e.details?.length > 0 ? highlightsToHtml(e.details) : '',
           visible: true,
         }
       }) || [],
@@ -112,7 +114,7 @@ const ResumeDashboard = () => {
           company,
           position: e.subtitle || '',
           date: e.date || '',
-          details: formatHighlightsToHtml(e.highlights),
+          details: highlightsToHtml(e.highlights),
           visible: true,
           ...(logoKey ? { companyLogo: logoKey } : {}),
         }
@@ -120,7 +122,7 @@ const ResumeDashboard = () => {
       projects: data.projects?.map((p: any, i: number) => {
         let description = p.description || ''
         if (p.highlights && p.highlights.length > 0) {
-          const highlightsList = formatHighlightsToHtml(p.highlights)
+          const highlightsList = highlightsToHtml(p.highlights)
           description = description ? description + highlightsList : highlightsList
         }
         description = description.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
@@ -139,7 +141,7 @@ const ResumeDashboard = () => {
         role: o.subtitle || o.role || '',
         repo: o.repoUrl || o.repo || '',
         date: o.date || '',
-        description: o.items?.length > 0 ? formatHighlightsToHtml(o.items) : o.description || '',
+        description: o.items?.length > 0 ? groupedHighlightsToHtml(o.items) : o.description || '',
         visible: true,
       })) || [],
       awards: data.awards?.map((a: any, i: number) => ({
@@ -153,28 +155,8 @@ const ResumeDashboard = () => {
       selfEvaluation: typeof data.summary === 'string' && data.summary.trim()
         ? `<p>${data.summary}</p>`
         : '',
-      skillContent: (() => {
-        if (data.skills && data.skills.length > 0) {
-          const allItems: string[] = []
-          for (const s of data.skills) {
-            const category = s.category?.trim() || ''
-            const details = s.details?.trim() || ''
-            if (!details && !category) continue
-            if (category) {
-              allItems.push(`<li><p><strong>${category}</strong>：${details}</p></li>`)
-            } else if (details) {
-              const match = details.match(/^([^：:]{1,15})[：:](.+)$/)
-              if (match) {
-                allItems.push(`<li><p><strong>${match[1].trim()}</strong>：${match[2].trim()}</p></li>`)
-              } else {
-                allItems.push(`<li><p>${details}</p></li>`)
-              }
-            }
-          }
-          return allItems.length > 0 ? `<ul class="custom-list">${allItems.join('')}</ul>` : ''
-        }
-        return ''
-      })(),
+      // 专业技能统一转成无序列表 HTML（与 Agent 编辑链路一致）
+      skillContent: skillsToHtml(data.skills),
       templateType: 'latex',
     }
 
@@ -192,22 +174,6 @@ const ResumeDashboard = () => {
     // 跳转到统一工作区编辑
     navigate(`/workspace/${saved.id}`)
   }, [navigate, loadResumes])
-
-  // 格式化 highlights 为 HTML
-  function formatHighlightsToHtml(highlights: any): string {
-    if (!highlights) return ''
-    const items = Array.isArray(highlights)
-      ? highlights
-      : typeof highlights === 'string'
-        ? highlights.split('\n').filter((line: string) => line.trim())
-        : []
-    if (!items.length) return ''
-    const highlightsHtml = items.map((h: string) => {
-      const formatted = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      return `<li>${formatted}</li>`
-    }).join('')
-    return `<ul class="custom-list">${highlightsHtml}</ul>`
-  }
 
   return (
     <WorkspaceLayout>

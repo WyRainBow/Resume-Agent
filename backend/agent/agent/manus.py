@@ -16,7 +16,7 @@ from backend.agent.prompt.manus import (
     SYSTEM_PROMPT,
 )
 from backend.agent.utils.resume_richtext import html_to_context_text, normalize_editor_value
-from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, GenerateResumeTool, SendResumeEmailTool, ShowResumeTool, Terminate, ToolCollection
+from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, GenerateResumeTool, ShowResumeTool, Terminate, ToolCollection
 from backend.agent.tool.ask_human import AskHuman
 from backend.agent.memory import (
     ChatHistoryManager,
@@ -53,7 +53,7 @@ class Manus(ToolCallAgent):
     next_step_prompt: str = ""
     session_id: Optional[str] = None
     capability: Optional[str] = None
-    # 管理员会话标识:仅 admin 会话注册 send_resume_email 等管理员专属工具
+    # 管理员会话标识:保留供管理员专属工具注册使用(邮件功能下线后暂无消费者)
     is_admin: bool = False
     # 当前会话所属用户 id,注入给需要按用户查库的工具(如邮箱凭证)
     user_id: Optional[int] = None
@@ -136,8 +136,6 @@ class Manus(ToolCallAgent):
             CVEditorAgentTool(),
             GenerateResumeTool(),
         ]
-        if self.is_admin:
-            domain_tools.append(SendResumeEmailTool())
 
         capability: ResumeCapability = CapabilityRegistry.get(self.capability)
         if not capability.tool_whitelist:
@@ -388,62 +386,6 @@ class Manus(ToolCallAgent):
         # 有实质性内容，自动终止
         return True
 
-    def _check_edit_completion_finish(self) -> bool:
-        """防止直接编辑工具在同一轮执行后被重复触发。返回是否已终止。"""
-        # 兼容 role 可能是 Role 枚举或字符串 "tool"
-        if not self.memory.messages:
-            return False
-        latest_assistant = self.memory.messages[-1]
-        latest_assistant_role = (
-            latest_assistant.role.value
-            if hasattr(latest_assistant.role, "value")
-            else str(latest_assistant.role)
-        )
-        if (
-            latest_assistant_role == "assistant"
-            and "已完成这次简历字段修改" in (latest_assistant.content or "")
-        ):
-            from backend.agent.schema import AgentState
-
-            self.state = AgentState.FINISHED
-            return True
-
-        # 仅在“本轮用户输入之后”确实出现了 cv_editor_agent 工具结果时才收敛，
-        # 避免下一轮新用户输入误复用上一轮旧编辑结果。
-        last_user_idx = -1
-        for idx in range(len(self.memory.messages) - 1, -1, -1):
-            role_val = (
-                self.memory.messages[idx].role.value
-                if hasattr(self.memory.messages[idx].role, "value")
-                else str(self.memory.messages[idx].role)
-            )
-            if role_val == "user":
-                last_user_idx = idx
-                break
-
-        recent_editor_tool_msg = None
-        for idx in range(len(self.memory.messages) - 1, -1, -1):
-            msg = self.memory.messages[idx]
-            role_val = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
-            if (
-                role_val == "tool"
-                and (msg.name or "") == "cv_editor_agent"
-                and idx > last_user_idx
-            ):
-                recent_editor_tool_msg = msg
-                break
-
-        if recent_editor_tool_msg is not None and not self._turn.read_only:
-            logger.info("✅ cv_editor_agent 已执行，直接结束避免重复调用工具")
-            # After cv_editor_agent runs, emit a short confirmation via answer
-            # and stop — do NOT return True (which would let LLM pick tools again).
-            confirmation = "✅ 修改已完成，请查看右侧简历预览确认效果。如需继续优化，请告诉我。"
-            self.memory.add_message(Message.assistant_message(confirmation))
-            from backend.agent.schema import AgentState
-            self.state = AgentState.FINISHED
-            return True
-        return False
-
     def _apply_enhanced_query(self, enhanced_query: str, user_input: str) -> None:
         """查询被增强（含工具标记）时，更新最后一条用户消息为增强查询。"""
         if enhanced_query != user_input and self.memory.messages:
@@ -507,10 +449,6 @@ class Manus(ToolCallAgent):
         user_input = self._get_last_user_input()
         self._sync_turn_read_only_flag(user_input)
         self._sync_resume_loaded_state()
-
-        # 防止直接编辑工具在同一轮执行后被重复触发，导致多次修改
-        if self._check_edit_completion_finish():
-            return False
 
         # 确保 ConversationStateManager 有 LLM 实例
         self._ensure_conversation_state_llm()

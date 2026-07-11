@@ -26,19 +26,6 @@ class ApprovalActionRequest(BaseModel):
     params: Optional[Dict[str, Any]] = None
 
 
-class PolishRequest(BaseModel):
-    text: str
-    instruction: str
-
-
-POLISH_SYSTEM_PROMPT = (
-    "你是邮件正文润色助手。用户会给你一段邮件正文和一条修改指令。"
-    "严格遵守:①按指令改写;②保留正文中的事实内容(改了哪些简历内容、具体建议),"
-    "不得编造新事实;③保留称呼与署名结构;④只输出改写后的正文本身,"
-    "不要任何解释、前后缀或 markdown 代码块。"
-)
-
-
 def _write_back_to_agent_memory(session_id: str, text: str) -> None:
     """把审批结果增量追加进对应会话的 agent 记忆:否则用户之后问「刚才那封
     发出去了吗/发的什么」,模型上下文里完全没有依据(审查 #24)。
@@ -52,15 +39,8 @@ def _write_back_to_agent_memory(session_id: str, text: str) -> None:
 
 
 def _build_tool(tool_name: str, pending: Dict[str, Any]):
-    """按挂起记录重建工具实例并注入上下文。目前唯一的 requires_approval 工具
-    是 send_resume_email;新增工具时在此登记(工具本身零白名单,只有执行侧需要映射)。"""
-    if tool_name == "send_resume_email":
-        from backend.agent.tool.send_resume_email_tool import SendResumeEmailTool
-
-        tool = SendResumeEmailTool()
-        tool.session_id = pending["session_id"]
-        tool.user_id = pending["user_id"]
-        return tool
+    """按挂起记录重建工具实例并注入上下文。邮件功能下线后当前无 requires_approval
+    工具消费者,通用审批端点保留休眠;新增敏感工具时在此登记执行侧映射。"""
     return None
 
 
@@ -120,64 +100,3 @@ async def handle_approval(
         "(用户可能在确认卡中编辑过内容,以上为最终发出的版本)",
     )
     return {"ok": True, "message": str(getattr(result, "output", None) or "已完成。")}
-
-
-# 润色限频:同一用户每小时最多 20 次(独立于发送限频;审查 #26)
-_POLISH_RATE_LIMIT = 20
-_POLISH_WINDOW_SECONDS = 3600
-_polish_attempts: Dict[int, list] = {}
-
-
-def _check_polish_rate_limit(user_id: int) -> bool:
-    import time
-
-    now = time.time()
-    attempts = [t for t in _polish_attempts.get(user_id, []) if now - t < _POLISH_WINDOW_SECONDS]
-    if len(attempts) >= _POLISH_RATE_LIMIT:
-        _polish_attempts[user_id] = attempts
-        return False
-    attempts.append(now)
-    _polish_attempts[user_id] = attempts
-    return True
-
-
-@router.post("/approval/polish")
-async def polish_text(
-    payload: PolishRequest,
-    current_user: User = Depends(get_current_user),
-):
-    """确认卡内的 AI 润色:按指令改写邮件正文,一次轻量 LLM 调用,同步返回。
-    仅管理员可用(与邮件功能同门禁),防被当成免费通用改写服务。"""
-    if getattr(current_user, "role", None) != "admin":
-        raise HTTPException(status_code=403, detail="仅管理员可使用润色功能")
-    if not _check_polish_rate_limit(current_user.id):
-        raise HTTPException(status_code=429, detail="润色太频繁(每小时最多 20 次),请稍后再试")
-    text = (payload.text or "").strip()
-    instruction = (payload.instruction or "").strip()
-    if not text:
-        raise HTTPException(status_code=400, detail="正文为空,没有可润色的内容。")
-    if not instruction:
-        raise HTTPException(status_code=400, detail="请告诉我想怎么改(如:更正式、更简洁)。")
-    if len(text) > 8000 or len(instruction) > 500:
-        raise HTTPException(status_code=400, detail="内容过长,无法润色。")
-
-    from backend.agent.llm import LLM
-
-    try:
-        llm = LLM()
-        polished = await llm.ask(
-            messages=[{
-                "role": "user",
-                "content": f"修改指令:{instruction}\n\n邮件正文:\n{text}",
-            }],
-            system_msgs=[{"role": "system", "content": POLISH_SYSTEM_PROMPT}],
-            stream=False,
-        )
-    except Exception as exc:
-        logger.exception("[approval] 润色失败")
-        return {"ok": False, "message": f"润色失败:{exc}"}
-
-    polished = (polished or "").strip()
-    if not polished:
-        return {"ok": False, "message": "润色结果为空,请换个说法再试。"}
-    return {"ok": True, "text": polished}

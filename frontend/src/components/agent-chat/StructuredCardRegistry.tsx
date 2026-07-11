@@ -7,7 +7,6 @@
  */
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Puzzle } from "lucide-react";
-import ApprovalCard from "@/components/agent-chat/ApprovalCard";
 
 export interface StructuredEventData {
   type: string;
@@ -41,9 +40,9 @@ function FallbackJsonCard({ data }: StructuredCardProps) {
   );
 }
 
-const REGISTRY: Record<string, React.FC<StructuredCardProps>> = {
-  approval_request: ApprovalCard,
-};
+// 通用结构化透传注册表:邮件确认卡(approval_request → ApprovalCard)下线后暂无
+// 已注册类型,保留空表(休眠),未注册 type 走 FallbackJsonCard 兜底不静默丢弃。
+const REGISTRY: Record<string, React.FC<StructuredCardProps>> = {};
 
 export function StructuredCards({
   items,

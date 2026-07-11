@@ -26,6 +26,7 @@ import { useEffect, useState, useRef } from 'react'
 import type { ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Avatar } from '@/components/Avatar'
+import { BetaBadge } from '@/components/BetaBadge'
 import { useAuth } from '@/contexts/AuthContext'
 import { useTheme } from '@/hooks/useTheme'
 import { canUseAdminFeature, isAgentEnabled } from '@/lib/runtimeEnv'
@@ -388,6 +389,7 @@ export default function LandingPage() {
               <span className="text-white font-mono fresh:font-sans font-black text-sm italic">RA</span>
             </div>
             <span className="text-black font-mono fresh:font-sans font-bold text-base uppercase fresh:normal-case tracking-wide fresh:tracking-normal">Resume.AI</span>
+            <BetaBadge className="-ml-1 translate-y-[-6px]" />
           </div>
 
           <div className="flex items-center gap-1">
@@ -875,6 +877,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 fresh:border bord
               <span className="text-white font-mono fresh:font-sans font-black text-xs italic">RA</span>
             </div>
             <span className="text-sm font-mono fresh:font-sans font-bold text-black dark:text-white">Resume.AI</span>
+            <BetaBadge className="-ml-0.5 translate-y-[-5px]" />
             <span className="text-sm text-slate-500 dark:text-slate-400">公益 AI 简历制作</span>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">

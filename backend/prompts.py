@@ -58,6 +58,45 @@ def build_resume_prompt(instruction: str, locale: str = "zh") -> str:
     return prompt
 
 
+def build_skill_ainative_context(original_value: Any) -> str:
+    """
+    构造「技能模块 AI Native 分角色润色」的专属上下文。
+    仅用于 path 含 skill 的场景，引导 LLM：
+    1. 自动判断用户职业方向（开发/产品/运营/设计）
+    2. 保留原有技能 + 按角色补充 AI Native 能力
+    3. 统一无序列表 HTML 输出，成熟工程师风格
+    """
+    return """这是「专业技能」部分。请在保留用户原有技能的基础上，自动升级为更具竞争力、符合 AI Native 趋势的表达，并按用户职业方向补充 AI 相关能力。
+
+## 核心任务
+
+1. **自动判断职业方向**：根据现有技能内容判断用户属于【开发 / 产品 / 运营 / 设计】哪个方向，无法明确判断时默认按「开发」处理。用户若在指令中指定方向，以用户指定为准。
+
+2. **保留原有技能**：不要删除用户已有的技能项，在其基础上升级表达（从「会用」升级到「能解决问题」），增加结果导向（性能提升、效率提升、系统稳定性等）。
+
+3. **按方向补充 AI Native 能力**（在原有技能之后追加，不要替换）：判断方向后，结合该方向当下主流的 AI Native 能力，挑真正契合这份简历经历的补充进去，不要机械罗列下面的每一项。以下按方向给出参考举例（帮你把握大致范围，按需选用即可）：
+
+   - **开发方向**：AI 编程工具（如 Claude Code、Cursor、Codex）提效；SDD / Spec 驱动开发将需求结构化为 prompt 生成代码；LLM API（OpenAI / Claude / Gemini 等）集成；Prompt 设计与调优；AI + 后端/前端结合（Agent、Workflow、自动化处理流程）。
+   - **产品方向**：AI 工具进行自动化运营提效；搭建 AI 驱动的内容生成 / 用户触达 / 数据分析流程；AI Native 产品思路（从功能到 workflow）；利用 AI 做增长、转化优化或流程自动化。
+   - **运营方向**：AI 自动化运营流程搭建；AI 内容生成与分发；AI 数据分析与用户洞察；AI 增长黑客与转化优化。
+   - **设计方向**：Figma 等 AI 辅助设计工具；AI 生成 UI / 设计稿迭代 / 文案生成；AI 产品交互设计（对话式界面、Agent 体验）；AI Native 设计思维（从静态页面到动态交互）。
+
+## 输出格式（强制）
+
+- 必须用**无序列表**：`<ul class="custom-list"><li><p><strong>能力类别</strong>：具体描述</p></li></ul>`
+- 每条是一类能力（如 后端 / AI / 工程化 / 设计 / 运营等），每条内部是完整的一到两句话，不要拆碎
+- **小标题不要带序号**（写 `<strong>后端</strong>`，不要 `<strong>1. 后端</strong>`）
+- 保留原文已有的 HTML 标签结构，不要改为 Markdown
+
+## 风格要求（非常重要）
+
+- 不要出现「我具备…」「本人熟悉…」这种学生表达
+- 不要过度夸张（如「精通所有」「全栈专家」）
+- 用自然表达，如「熟悉…并能在实际项目中…」「能够基于…实现…」「在…场景下完成…优化」
+- 不要堆砌工具名，要体现使用场景
+- 整体语气偏成熟工程师，而不是学生或教科书"""
+
+
 def build_rewrite_prompt(path: str, original_value: Any, instruction: str, locale: str = "zh",
                          history: list[dict] | None = None) -> str:
     """
@@ -72,12 +111,13 @@ def build_rewrite_prompt(path: str, original_value: Any, instruction: str, local
 
     # 字段类型上下文
     path_lower = path.lower()
+    is_skill = 'skill' in path_lower
     if 'project' in path_lower:
         field_context = "这是「项目经历」的描述。请突出技术深度、量化成果，使用 STAR 法则（情境-任务-行动-结果），以动词开头。"
     elif 'experience' in path_lower or 'internship' in path_lower:
         field_context = "这是「工作/实习经历」的描述。请突出业务影响和成长轨迹，量化成果，以动词开头。"
-    elif 'skill' in path_lower:
-        field_context = "这是「专业技能」部分。请分类清晰，体现技术广度和深度。"
+    elif is_skill:
+        field_context = build_skill_ainative_context(original_value)
     elif 'opensource' in path_lower or 'open_source' in path_lower:
         field_context = "这是「开源贡献」的描述。请突出社区影响和技术能力。"
     else:
@@ -86,7 +126,11 @@ def build_rewrite_prompt(path: str, original_value: Any, instruction: str, local
     # 默认润色指令（如果用户没有提供具体指令）
     default_polish_instruction = get_rewrite_default_instruction()
 
-    final_instruction = instruction.strip() if instruction.strip() else default_polish_instruction
+    # 技能模块走 AI Native 专属默认指令；其他模块沿用通用润色指令
+    if is_skill and not instruction.strip():
+        final_instruction = "请按上述规则对技能模块进行 AI Native 分角色升级润色。"
+    else:
+        final_instruction = instruction.strip() if instruction.strip() else default_polish_instruction
 
     # 构建多轮对话上下文
     history_section = ""

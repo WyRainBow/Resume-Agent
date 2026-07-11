@@ -1,8 +1,7 @@
-"""发送语义让权守卫:含「发送动词+邮箱地址」的请求,规则意图必须弃权给 LLM。
+"""复合请求让权守卫:「优化第二段然后翻译成英文」这类组合请求,规则意图必须弃权给 LLM。
 
-回归背景:2026-07-10 实测「把优化好的简历发给 3919720991@qq.com,告诉他我改了什么」
-被"优化"关键词劫持进 OPTIMIZE 分支,send_resume_email 工具无缘被调用。
-这组用例同时是意图路由评测集的第一批(方案 §8.3 评测集前置)。
+原「发送语义让权」用例随「AI 发送简历到邮箱」功能下线一并移除(守卫函数
+_has_send_email_intent 已删);本文件现只覆盖复合请求让权(审计 I8 的通用解)。
 """
 import sys
 import os
@@ -14,44 +13,9 @@ setup_logging(False, "INFO", "logs/test")
 
 import backend.agent.agent.manus as manus_module  # noqa: F401 包初始化
 from backend.agent.agent.intent_router import (
-    _has_send_email_intent,
     _looks_like_compound_request,
     _rule_intent_yield_reason,
 )
-
-
-# --- 必须让权(发送语义) ---
-
-def test_hijacked_sentence_from_field_report():
-    assert _has_send_email_intent(
-        "把优化好的简历发给 3919720991@qq.com,告诉他我改了什么"
-    )
-
-
-def test_send_variants():
-    assert _has_send_email_intent("发送到 hr@company.com")
-    assert _has_send_email_intent("帮我诊断一下然后投递到 hr@x.com")
-    assert _has_send_email_intent("寄给他 a.b-c@mail.co,顺便附上建议")
-    assert _has_send_email_intent("发邮件给 someone@qq.com")
-
-
-# --- 不得让权(规则层的合法领地) ---
-
-def test_field_edit_of_email_is_not_send():
-    """「把邮箱改成 new@qq.com」是字段编辑,不含发送动词,规则层保留"""
-    assert not _has_send_email_intent("把邮箱改成 new@qq.com")
-    assert not _has_send_email_intent("我的邮箱是 me@qq.com,帮我更新到简历里")
-
-
-def test_optimize_without_address_untouched():
-    assert not _has_send_email_intent("优化第二段实习经历")
-    assert not _has_send_email_intent("把优化好的简历再润色一下")
-
-
-def test_send_talk_without_address_untouched():
-    """只聊"发送"但没有具体地址:信息不足,交给规则/LLM 原有路径去追问"""
-    assert not _has_send_email_intent("介绍一下发送简历的技巧")
-    assert not _has_send_email_intent("怎么把简历发给 HR 比较礼貌")
 
 
 # --- 复合请求让权(审计 I8 的通用解) ---
@@ -75,7 +39,6 @@ def test_single_intent_requests_do_not_yield():
 
 
 def test_yield_reason_aggregation():
-    assert _rule_intent_yield_reason("把优化好的简历发给 a@qq.com") == "发送语义"
     assert _rule_intent_yield_reason("优化第二段,然后翻译成英文") == "复合请求"
     assert _rule_intent_yield_reason("优化第二段实习经历") is None
     assert _rule_intent_yield_reason("") is None

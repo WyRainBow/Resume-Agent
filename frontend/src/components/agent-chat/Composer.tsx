@@ -6,7 +6,6 @@ import {
   Square,
   X,
 } from "lucide-react";
-import EmailConnectButton from "./EmailConnectButton";
 
 interface ComposerProps {
   input: string;
@@ -170,9 +169,6 @@ export default function Composer({
               <FileText className="size-4" />
               <span className="text-sm font-medium">展示简历</span>
             </button>
-
-            {/* 连接 QQ 邮箱(仅管理员可见,组件内部自判权限) */}
-            <EmailConnectButton />
           </div>
 
           {isProcessing && onStop ? (
