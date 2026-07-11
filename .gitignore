@@ -177,7 +177,9 @@ LeetCode/
 # --- 内部测试工具（非开源内容）---
 agent-harness/
 
-# --- AI 工具规则文件（Cursor / Codex 规则 + skills 锁）---
+# --- AI 工具规则文件（Cursor / Codex / Claude / ZCode 规则 + skills 锁）---
 .cursorrules
 CODEX.md
+CLAUDE.md
+AGENTS.md
 skills-lock.json
