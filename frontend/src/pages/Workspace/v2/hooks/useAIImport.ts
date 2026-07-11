@@ -276,7 +276,11 @@ export function useAIImport({ setResumeData }: UseAIImportProps) {
             degree: e.degree || '',
             startDate,
             endDate,
-            description: e.details?.join('\n') || '',
+            // 补充说明是富文本编辑器字段，统一转成无序列表 HTML（与 Agent 编辑链路一致），
+            // 避免解析结果渲染成纯文本换行
+            description: e.details && e.details.length > 0
+              ? formatHighlightsToHtml(e.details, 'bullet')
+              : '',
             visible: true,
             ...(schoolLogoKey ? { schoolLogo: schoolLogoKey } : {}),
           }
@@ -425,7 +429,10 @@ function handleSectionImport(
             degree: e.degree || '',
             startDate,
             endDate,
-            description: e.details?.join('\n') || '',
+            // 补充说明是富文本编辑器字段，统一转成无序列表 HTML（与 Agent 编辑链路一致）
+            description: e.details && e.details.length > 0
+              ? formatHighlightsToHtmlModule(e.details, 'bullet')
+              : '',
             visible: true,
             ...(schoolLogoKey ? { schoolLogo: schoolLogoKey } : {}),
           }

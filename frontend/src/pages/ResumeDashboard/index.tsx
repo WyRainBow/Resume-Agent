@@ -99,7 +99,8 @@ const ResumeDashboard = () => {
           degree: e.degree || '',
           startDate,
           endDate,
-          description: e.details?.join('\n') || '',
+          // 补充说明是富文本编辑器字段，统一转成无序列表 HTML（与 Agent 编辑链路一致）
+          description: e.details?.length > 0 ? formatHighlightsToHtml(e.details) : '',
           visible: true,
         }
       }) || [],
