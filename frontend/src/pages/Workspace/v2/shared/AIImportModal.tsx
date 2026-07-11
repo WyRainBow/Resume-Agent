@@ -1146,7 +1146,10 @@ export function AIImportModal({
       {showTipQr && (
         <div
           className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70"
-          onClick={() => setShowTipQr(false)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowTipQr(false);
+          }}
         >
           <div className="relative max-w-[80vw] max-h-[80vh]">
             <img
@@ -1157,7 +1160,10 @@ export function AIImportModal({
             />
             <button
               type="button"
-              onClick={() => setShowTipQr(false)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowTipQr(false);
+              }}
               className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white border-2 border-black flex items-center justify-center font-bold text-black shadow-lg"
               aria-label="关闭"
             >
