@@ -45,13 +45,11 @@ storage = get_conversation_storage()
 conversation_manager = ConversationManager(storage=storage)
 
 # 允许前端按请求切换的 agent 模型白名单
-_ALLOWED_AGENT_MODELS = {"qwen-max", "claude-sonnet-4-6"}
+_ALLOWED_AGENT_MODELS = {"qwen-max"}
 
 # 模型 → LLM 通道路由表（base_url, api_key 环境变量名）
-# qwen 走 DashScope，claude 走 RuoLi 中转（OpenAI 兼容）
 _MODEL_CHANNELS = {
     "qwen-max": ("https://dashscope.aliyuncs.com/compatible-mode/v1", "DASHSCOPE_API_KEY"),
-    "claude-sonnet-4-6": ("https://ruoli.dev/v1", "RUOLI_API_KEY"),
 }
 
 # In-memory session TTL — evict idle agent sessions to cap memory growth

@@ -4,7 +4,6 @@ import PortalDropdown from "@/components/common/PortalDropdown";
 /** Agent 可选模型（与后端 _ALLOWED_AGENT_MODELS 白名单一致） */
 export const AGENT_MODELS = [
   { value: "qwen-max", label: "Qwen Max", hint: "强力 · 复杂任务 · 深度优化" },
-  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", hint: "均衡 · 综合能力强 · 结构化精准" },
 ];
 
 export const DEFAULT_AGENT_MODEL = "qwen-max";
@@ -16,6 +15,9 @@ interface ModelSelectorProps {
 
 /** 对话页模型选择器（参考 Manus 顶部模型下拉），复用 PortalDropdown */
 export default function ModelSelector({ value, onChange }: ModelSelectorProps) {
+  // 只有一个模型时不显示选择器
+  if (AGENT_MODELS.length <= 1) return null;
+
   return (
     <div className="w-[13rem] shrink-0">
       <PortalDropdown
