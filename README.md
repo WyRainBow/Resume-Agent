@@ -58,51 +58,102 @@
 
 ## 🛠️ 技术架构
 
-**前端** &nbsp;·&nbsp; React 18 · TypeScript · Vite
-**后端** &nbsp;·&nbsp; FastAPI · Python · LaTeX PDF 渲染
+| 层 | 技术栈 | 说明 |
+|:--|:--|:--|
+| **前端** | React 18 · TypeScript · Vite | 可视化编辑器 + 实时预览 |
+| **后端** | FastAPI · Python | API 服务 + AI Agent（LLM 工具调用） |
+| **PDF 渲染** | XeLaTeX | 服务器端编译，中英文混排 |
+| **AI 模型** | DashScope（DeepSeek / Qwen）· 智谱 GLM | 对话 / 结构化 / OCR，按需接入 |
 
-## 🚀 快速开始
+## 🚀 本地部署
 
-### 环境要求
+### 1. 环境要求
 
-- Python 3.12+
-- Node.js 16+
-- XeLaTeX
-- 中文字体（Linux 建议安装 Noto CJK）
+- **Python** 3.12+
+- **Node.js** 16+
+- **XeLaTeX**（PDF 导出必需，`sudo apt install texlive-xetex` 或 [MacTeX](https://www.tug.org/mactex/)）
+- **中文字体**（Linux 建议 `sudo apt install fonts-noto-cjk`）
 
-### 安装与启动
+### 2. 克隆与安装
 
 ```bash
-# 1. 克隆项目
 git clone https://github.com/WyRainBow/Resume-Agent.git
 cd Resume-Agent
 
-# 2. 安装依赖
+# 后端依赖（推荐用 uv，也可用 pip）
+pip install uv
 uv pip install -r requirements.txt
-cd frontend && npm install && cd ..
 
-# 3. 启动后端
+# 前端依赖
+cd frontend && npm install && cd ..
+```
+
+### 3. 配置 API Key
+
+复制环境变量模板，填入你自己的 key：
+
+```bash
+cp .env.example .env
+```
+
+编辑 `.env`，至少填一个 LLM key + 一个 OCR key：
+
+```ini
+# —— 必填（二选一即可驱动 AI 对话，建议都填）——
+# DashScope（阿里云百炼）：驱动 DeepSeek / Qwen，对话与结构化都用它
+# 申请地址：https://bailian.console.aliyun.com/ → API-KEY 管理
+DASHSCOPE_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxx
+
+# 智谱 GLM：PDF / 图片导入时的 OCR 与视觉识别
+# 申请地址：https://open.bigmodel.cn/ → API Keys
+ZHIPU_API_KEY=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+# —— 本地必填（随便填一串随机字符即可）——
+JWT_SECRET_KEY=any-random-string-here
+```
+
+> 💡 其余字段（`DOUBAO_API_KEY`、`COS_SECRET_KEY`、PostgreSQL 等）都是可选的，留空不影响核心功能。
+
+<details>
+<summary><b>前端环境变量（可选）</b></summary>
+
+```bash
+cp frontend/.env.example frontend/.env.local
+```
+
+默认指向本地后端 `http://127.0.0.1:9000`，一般不用改。
+
+</details>
+
+### 4. 启动服务
+
+```bash
+# 终端 1：后端
 python -m uvicorn backend.main:app --host 127.0.0.1 --port 9000
 
-# 4. 启动前端（另开终端）
+# 终端 2：前端
 cd frontend && npm run dev
 ```
 
-### 访问地址
+### 5. 访问
 
 | 服务 | 地址 |
 |:--|:--|
-| 前端 | http://localhost:5173 |
-| 后端 API | http://127.0.0.1:9000 |
-| OpenAPI 文档 | http://127.0.0.1:9000/docs |
+| 🖥️ 前端 | http://localhost:5173 |
+| ⚙️ 后端 API | http://127.0.0.1:9000 |
+| 📖 API 文档 | http://127.0.0.1:9000/docs |
+
+打开 http://localhost:5173 ，开始用对话生成你的第一份简历。
 
 ### 开发验证
 
 ```bash
+# 前端构建检查
 cd frontend && npm run build
-```
 
-> 后端建议先跑目标模块测试，再按需执行 `pytest`。
+# 后端测试（Agent 相关）
+python -m pytest backend/tests/ -q
+```
 
 ## 🤝 贡献
 
