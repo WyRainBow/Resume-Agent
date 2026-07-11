@@ -107,25 +107,8 @@ feishu-clipper/
 # 项目根目录
 README.md
 
-# 文档目录（但保留图片和截图以及配置文档）
-docs/**
-!docs/
-
-
-
-!docs/images/**
-!docs/screenshots/
-!docs/screenshots/**
-!docs/*-setup.md
-
-# 领域文档进 Git：ADR + 工程 skill 配置（CLAUDE.md §4.0/§4.4）
-!docs/adr/
-!docs/adr/**
-!docs/agents/
-!docs/agents/**
-!docs/*-guide.md
-!docs/ENVIRONMENT_SETUP.md
-!docs/agent-repo-extraction.md
+# 文档目录（AI 工具配置 + 内部架构文档，本地保留）
+docs/
 
 # Local-only files
 config/
