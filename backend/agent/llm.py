@@ -274,6 +274,29 @@ class LLM:
             else:
                 self.token_counter = None
 
+    def update_model(self, model: str, base_url: str, api_key: str) -> None:
+        """运行时切换模型 + 通道（base_url / api_key / client 全部重建）。
+
+        用于 agent 对话按用户选择的模型动态切通道：
+        - qwen-* → DashScope
+        - claude-* → RuoLi 中转
+
+        ask / ask_tool / ask_tool_stream 每次调用读 self.model 和 self.client，
+        所以切换后下一次调用即时生效。
+        """
+        self.model = model
+        self.base_url = base_url
+        self.api_key = api_key
+        timeout = httpx.Timeout(
+            connect=30.0, read=300.0, write=30.0, pool=30.0,
+        )
+        self.client = AsyncOpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=timeout,
+            max_retries=3,
+        )
+
     def count_tokens(self, text: str) -> int:
         """Calculate the number of tokens in a text"""
         if not text:

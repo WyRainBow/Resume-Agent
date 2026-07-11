@@ -1,14 +1,13 @@
 import { Sparkles } from "lucide-react";
 import PortalDropdown from "@/components/common/PortalDropdown";
 
-/** Agent 可选模型（与后端 _ALLOWED_AGENT_MODELS 白名单一致，均经 DashScope、支持工具调用） */
+/** Agent 可选模型（与后端 _ALLOWED_AGENT_MODELS 白名单一致） */
 export const AGENT_MODELS = [
-  { value: "deepseek-v4-flash", label: "DeepSeek V4 Flash", hint: "极速 · 轻量快速 · 日常简历任务" },
-  { value: "deepseek-v3", label: "DeepSeek V3", hint: "均衡 · 综合能力更强" },
   { value: "qwen-max", label: "Qwen Max", hint: "强力 · 复杂任务 · 深度优化" },
+  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", hint: "均衡 · 综合能力强 · 结构化精准" },
 ];
 
-export const DEFAULT_AGENT_MODEL = "deepseek-v4-flash";
+export const DEFAULT_AGENT_MODEL = "qwen-max";
 
 interface ModelSelectorProps {
   value: string;

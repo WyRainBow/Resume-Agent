@@ -54,6 +54,9 @@ except ImportError:
 DEEPSEEK_MODEL = "deepseek-v4-flash"
 DEEPSEEK_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
+# Claude 走 RuoLi 中转（OpenAI 兼容），与 DashScope 通道独立。
+RUOLI_BASE_URL = os.getenv("RUOLI_BASE_URL", "https://ruoli.dev/v1").strip()
+
 # 结构化默认模型：qwen-plus-latest（实测比 deepseek-v4-flash 输出 token 少约一半、更快更稳，
 # 与 deepseek 同走 DashScope 兼容通道，仅换 model 名、不改 base_url / key）。
 # 可用环境变量 ASSEMBLER_MODEL 覆盖。
@@ -75,10 +78,34 @@ def resolve_assembler_model(model: Optional[str]) -> str:
 
 _deepseek_client: Optional[OpenAI] = None
 _last_key: Optional[str] = None
+# Claude 中转 client 独立缓存，不污染 DashScope 单例
+_ruoli_client: Optional[OpenAI] = None
+_last_ruoli_key: Optional[str] = None
 
 
-def _get_client() -> OpenAI:
-    """仅从根目录 .env 读取 DASHSCOPE_API_KEY（main 启动时已 load_dotenv）"""
+def _get_client(model_name: Optional[str] = None) -> OpenAI:
+    """按模型名选 LLM 通道：
+    - claude-* → RuoLi 中转（RUOLI_API_KEY + RUOLI_BASE_URL）
+    - 其它    → DashScope（DASHSCOPE_API_KEY + DEEPSEEK_BASE_URL）
+    main 启动时已 load_dotenv。
+    """
+    # ---- Claude 走中转 ----
+    if model_name and model_name.startswith("claude-"):
+        global _ruoli_client, _last_ruoli_key
+        key = os.getenv("RUOLI_API_KEY", "").strip()
+        if not key:
+            raise ValueError("RUOLI_API_KEY 未配置（claude 模型需要中转 key）")
+        if _ruoli_client is None or _last_ruoli_key != key:
+            _ruoli_client = OpenAI(
+                api_key=key,
+                base_url=RUOLI_BASE_URL,
+                timeout=60.0,
+                max_retries=0,
+            )
+            _last_ruoli_key = key
+        return _ruoli_client
+
+    # ---- DashScope 通道（qwen / deepseek）----
     global _deepseek_client, _last_key
     key = os.getenv("DASHSCOPE_API_KEY", "").strip()
     if not key:
@@ -398,7 +425,7 @@ def assemble_resume_data(
     system_msg = SYSTEM_PROMPT.format()
     model_name = resolve_assembler_model(model)
 
-    client = _get_client()
+    client = _get_client(model_name)
     response = client.chat.completions.create(
         model=model_name,
         messages=[
@@ -470,7 +497,7 @@ def _extract_sections(
         f"输出格式：\n{schema}\n\n"
         f"简历原文：\n{ocr_text}"
     )
-    client = _get_client()
+    client = _get_client(model_name)
     for attempt in range(2):
         user = base_user if attempt == 0 else (
             base_user + "\n\n【重要】请严格输出**合法** JSON：字符串内双引号转义、无多余逗号、不要截断。"

@@ -37,20 +37,14 @@ const AI_MODELS = [
     logoUrl: DEEPSEEK_LOGO_URL,
   },
   {
-    id: "deepseek-v3.2",
-    name: "DeepSeek V3.2",
-    description: "智能解析简历内容",
-    logoUrl: DEEPSEEK_LOGO_URL,
+    id: "claude-sonnet-4-6",
+    name: "Claude Sonnet 4.6",
+    description: "智能解析简历内容（仅 PDF）",
   },
 ];
 
 // 视觉模型（图片识别），上传图片时由用户选择
 const VISION_MODELS = [
-  {
-    id: "qwen-vl-max",
-    name: "通义千问 VL",
-    description: "图片识别",
-  },
   {
     id: "glm-ocr",
     name: "智谱 GLM-OCR",
@@ -607,7 +601,9 @@ export function AIImportModal({
                   {/* 下拉菜单 */}
                   {showModelDropdown && (
                     <div className="absolute z-10 w-full mt-2 rounded-none bg-white border-2 border-black shadow-[4px_4px_0px_0px_#000000] overflow-hidden">
-                      {AI_MODELS.map((model) => (
+                      {AI_MODELS
+                        .filter((m) => importMode === "pdf" || m.id !== "claude-sonnet-4-6")
+                        .map((model) => (
                         <button
                           key={model.id}
                           type="button"
@@ -676,7 +672,12 @@ export function AIImportModal({
                   {/* Tab 切换：图片上传（推荐）放第一，PDF 上传第二，文本粘贴第三 */}
                   <div className="flex gap-2 p-1 flex-shrink-0">
                     <button
-                      onClick={() => setImportMode("image")}
+                      onClick={() => {
+                        setImportMode("image");
+                        if (selectedModel === "claude-sonnet-4-6") {
+                          setSelectedModel("deepseek-v4-flash");
+                        }
+                      }}
                       className={cn(
                         "relative flex-1 flex items-center justify-center gap-2 py-2 text-sm font-mono uppercase tracking-wide font-bold rounded-none border border-black transition-all",
                         importMode === "image"
@@ -706,7 +707,13 @@ export function AIImportModal({
                       </span>
                     </button>
                     <button
-                      onClick={() => setImportMode("text")}
+                      onClick={() => {
+                        setImportMode("text");
+                        // claude 仅支持 PDF 导入，切到文本模式时回退默认模型
+                        if (selectedModel === "claude-sonnet-4-6") {
+                          setSelectedModel("deepseek-v4-flash");
+                        }
+                      }}
                       className={cn(
                         "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-mono uppercase tracking-wide font-bold rounded-none border border-black transition-all",
                         importMode === "text"
@@ -784,6 +791,7 @@ export function AIImportModal({
                             />
                           </div>
                         )}
+                        {VISION_MODELS.length > 1 && (
                         <div className="flex-shrink-0 space-y-2">
                           <div className="text-xs font-mono uppercase tracking-wide font-bold text-black">
                             选择识别模型
@@ -811,6 +819,7 @@ export function AIImportModal({
                             ))}
                           </div>
                         </div>
+                        )}
                         <button
                           type="button"
                           onClick={handleImageUpload}

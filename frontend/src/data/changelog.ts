@@ -20,6 +20,9 @@ export const CHANGELOG: ChangelogEntry[] = [
     fixed: [
       '修复多人同时使用时简历导入偶发卡住两三分钟的问题',
     ],
+    added: [
+      '简历导入新增 Claude Sonnet 4.6 模型（仅 PDF），AI 对话也支持切换 Claude',
+    ],
   },
   {
     version: '3.2.2',
