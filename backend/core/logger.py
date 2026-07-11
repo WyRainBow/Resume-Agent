@@ -152,14 +152,14 @@ class LoggingConfig:
             logger.add(
                 sys.stdout,
                 level=self.log_level,
-                colorize=True,
+                colorize=False,
                 format=safe_format,
                 filter=lambda record: record["level"].name not in ["ERROR", "CRITICAL"],
             )
             logger.add(
                 sys.stderr,
                 level="ERROR",
-                colorize=True,
+                colorize=False,
                 format=safe_format,
             )
 
