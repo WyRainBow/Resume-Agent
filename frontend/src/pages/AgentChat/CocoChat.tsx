@@ -33,6 +33,7 @@ import {
 } from "@/pages/Workspace/v2/types";
 import { getResume, getAllResumes, saveResume, setCurrentResumeId } from "@/services/resumeStorage";
 import { parseResumeText } from "@/services/resumeParse";
+import { highlightsToHtml, skillsToHtml } from "@/utils/resumeRichtext";
 import type { SavedResume } from "@/services/storage/StorageAdapter";
 import {
   renderPDFStream,
@@ -120,11 +121,6 @@ function toStringList(value: unknown): string[] {
   return text ? [text] : [];
 }
 
-function listToHtml(items: string[]): string {
-  if (!items.length) return "";
-  return `<ul>${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
-}
-
 function splitDateRange(rawDate: string): {
   startDate: string;
   endDate: string;
@@ -195,7 +191,7 @@ function normalizeImportedResumeToCanonical(
       startDate: range.startDate || toText(item?.startDate),
       endDate: range.endDate || toText(item?.endDate),
       description: details.length
-        ? listToHtml(details)
+        ? highlightsToHtml(details)
         : descriptionText
           ? `<p>${descriptionText}</p>`
           : "",
@@ -213,7 +209,7 @@ function normalizeImportedResumeToCanonical(
       company,
       position,
       date,
-      details: listToHtml(highlights),
+      details: highlightsToHtml(highlights),
       visible: true,
       companyLogo: toText(item?.logo) || undefined,
       companyLogoSize:
@@ -229,7 +225,7 @@ function normalizeImportedResumeToCanonical(
     const description = toText(item?.description);
     const htmlParts = [
       description ? `<p>${description}</p>` : "",
-      highlights.length ? listToHtml(highlights) : "",
+      highlights.length ? highlightsToHtml(highlights) : "",
     ].filter(Boolean);
     return {
       id: item?.id || `proj_${opts.resumeId}_${index}`,
@@ -247,7 +243,7 @@ function normalizeImportedResumeToCanonical(
     const baseDescription = toText(item?.description);
     const description = [
       baseDescription ? `<p>${baseDescription}</p>` : "",
-      repoItems.length ? listToHtml(repoItems) : "",
+      repoItems.length ? highlightsToHtml(repoItems) : "",
     ]
       .filter(Boolean)
       .join("");
@@ -283,19 +279,11 @@ function normalizeImportedResumeToCanonical(
     };
   });
 
-  const skillContentFromArray = skillsRaw
-    .map((item: any) => {
-      if (typeof item === "string") return `<p>${item}</p>`;
-      const category = toText(item?.category || item?.name);
-      const details = toText(item?.details || item?.description);
-      if (category && details)
-        return `<p><strong>${category}：</strong>${details}</p>`;
-      if (details) return `<p>${details}</p>`;
-      if (category) return `<p>${category}</p>`;
-      return "";
-    })
-    .filter(Boolean)
-    .join("");
+  // 专业技能统一转成无序列表 HTML（对象数组 / 字符串都走同一个共享转换，
+  // 与其它导入路径 / Agent 编辑链路一致）
+  const skillContentFromArray = skillsToHtml(
+    skillsRaw.length ? skillsRaw : source.skills,
+  );
 
   return {
     id: opts.resumeId,
@@ -320,10 +308,7 @@ function normalizeImportedResumeToCanonical(
     selfEvaluation: toText(source.selfEvaluation)
       ? toText(source.selfEvaluation)
       : (toText(source.summary) ? `<p>${toText(source.summary)}</p>` : ""),
-    skillContent:
-      toText(source.skillContent) ||
-      toText(source.skills) ||
-      skillContentFromArray,
+    skillContent: toText(source.skillContent) || skillContentFromArray,
     activeSection: "basic",
     draggingProjectId: null,
     menuSections: DEFAULT_MENU_SECTIONS.map((section, index) => ({
