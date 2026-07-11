@@ -72,10 +72,17 @@ class PromptBuilder:
             system_prompt = f"{system_prompt}\n\n{skills_addendum}"
 
         # Hybrid: 注入简历内容到 system prompt
-        resume_text = self.format_resume_for_context()
+        # 整份优化场景下过滤隐私信息（phone/email/location），只保留求职相关信息
+        is_full_optimize = bool(user_input and any(
+            kw in user_input for kw in ["整份", "全面优化", "整体优化", "全部优化", "优化整份", "优化我的简历"]
+        ))
+        resume_text = self.format_resume_for_context(mask_pii=is_full_optimize)
         if resume_text:
             system_prompt = f"{system_prompt}\n\n{resume_text}"
-            logger.info("📋 简历内容已注入 system prompt（Hybrid 模式）")
+            if is_full_optimize:
+                logger.info("📋 简历内容已注入 system prompt（整份优化模式，已过滤隐私信息）")
+            else:
+                logger.info("📋 简历内容已注入 system prompt（Hybrid 模式）")
 
         if is_read_only_query(user_input or ""):
             system_prompt = (
@@ -103,11 +110,14 @@ class PromptBuilder:
         logger.info(f"💭 提示词已生成，当前状态: {context}")
         return system_prompt, next_step
 
-    def format_resume_for_context(self) -> str:
+    def format_resume_for_context(self, mask_pii: bool = False) -> str:
         """将当前简历格式化为可注入 system prompt 的文本。
 
         使用 ReadCVContext 复用已有的格式化逻辑（含索引标记和 path 提示），
         确保 LLM 看到的和 cv_editor_agent 操作的是同一份数据。
+
+        Args:
+            mask_pii: 为 True 时过滤电话/邮箱/住址等隐私信息（用于整份优化场景）。
         """
         resume_data = ResumeDataStore.get_data(self._session_id)
         if not resume_data:
@@ -116,7 +126,7 @@ class PromptBuilder:
             from backend.agent.tool.cv_reader_tool import ReadCVContext
             reader = ReadCVContext()
             reader.set_resume_data(resume_data)
-            return reader._format_full_resume()
+            return reader._format_full_resume(mask_pii=mask_pii)
         except Exception as exc:
             logger.warning(f"格式化简历注入 context 失败: {exc}")
             return ""

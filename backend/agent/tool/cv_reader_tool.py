@@ -74,8 +74,13 @@ Returns the resume content in a structured, readable format."""
             return self._format_full_resume()
         return self._format_section(section)
 
-    def _format_full_resume(self) -> str:
-        """格式化完整简历，带索引标记方便 AI 定位 path"""
+    def _format_full_resume(self, mask_pii: bool = False) -> str:
+        """格式化完整简历，带索引标记方便 AI 定位 path
+
+        Args:
+            mask_pii: 整份优化场景下为 True，过滤电话/邮箱/住址等隐私信息，
+                      只保留 name + title + summary 供 LLM 优化参考。
+        """
         resume = self._resume_data
         lines = ["# CV/Resume Context\n"]
 
@@ -88,12 +93,13 @@ Returns the resume content in a structured, readable format."""
             lines.append("## Basic Information  (path prefix: basic.*)")
             lines.append(f"Name: {basic.get('name', 'N/A')}")
             lines.append(f"Target Position: {basic.get('title', 'N/A')}")
-            if basic.get('email'):
-                lines.append(f"Email: {basic.get('email')}")
-            if basic.get('phone'):
-                lines.append(f"Phone: {basic.get('phone')}")
-            if basic.get('location'):
-                lines.append(f"Location: {basic.get('location')}")
+            if not mask_pii:
+                if basic.get('email'):
+                    lines.append(f"Email: {basic.get('email')}")
+                if basic.get('phone'):
+                    lines.append(f"Phone: {basic.get('phone')}")
+                if basic.get('location'):
+                    lines.append(f"Location: {basic.get('location')}")
             if basic.get('summary'):
                 lines.append(f"Summary: {strip_html(basic.get('summary'))}")
             lines.append("")
