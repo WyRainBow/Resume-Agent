@@ -144,10 +144,6 @@ data/conversations/
 # --- 真实用户数据（对话记录、上传内容等）---
 backend/data/conversations/
 
-# --- 知识库（含服务器IP/域名/部署运维细节，本地保留；symlink → internal）---
-knowledge-base
-knowledge-base/
-
 # --- 服务器远程工具（含 SSH 连接信息；symlink → internal）---
 remote
 remote/

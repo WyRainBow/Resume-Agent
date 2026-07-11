@@ -16,11 +16,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 from typing import Dict, Any, Optional
 
 from openai import OpenAI
+
+logger = logging.getLogger(__name__)
 
 try:
     from backend.prompts_pdf_parser import (
@@ -51,6 +54,9 @@ except ImportError:
 DEEPSEEK_MODEL = "deepseek-v4-flash"
 DEEPSEEK_BASE_URL = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
+# Claude 走 RuoLi 中转（OpenAI 兼容），与 DashScope 通道独立。
+RUOLI_BASE_URL = os.getenv("RUOLI_BASE_URL", "https://ruoli.dev/v1").strip()
+
 # 结构化默认模型：qwen-plus-latest（实测比 deepseek-v4-flash 输出 token 少约一半、更快更稳，
 # 与 deepseek 同走 DashScope 兼容通道，仅换 model 名、不改 base_url / key）。
 # 可用环境变量 ASSEMBLER_MODEL 覆盖。
@@ -72,16 +78,48 @@ def resolve_assembler_model(model: Optional[str]) -> str:
 
 _deepseek_client: Optional[OpenAI] = None
 _last_key: Optional[str] = None
+# Claude 中转 client 独立缓存，不污染 DashScope 单例
+_ruoli_client: Optional[OpenAI] = None
+_last_ruoli_key: Optional[str] = None
 
 
-def _get_client() -> OpenAI:
-    """仅从根目录 .env 读取 DASHSCOPE_API_KEY（main 启动时已 load_dotenv）"""
+def _get_client(model_name: Optional[str] = None) -> OpenAI:
+    """按模型名选 LLM 通道：
+    - claude-* → RuoLi 中转（RUOLI_API_KEY + RUOLI_BASE_URL）
+    - 其它    → DashScope（DASHSCOPE_API_KEY + DEEPSEEK_BASE_URL）
+    main 启动时已 load_dotenv。
+    """
+    # ---- Claude 走中转 ----
+    if model_name and model_name.startswith("claude-"):
+        global _ruoli_client, _last_ruoli_key
+        key = os.getenv("RUOLI_API_KEY", "").strip()
+        if not key:
+            raise ValueError("RUOLI_API_KEY 未配置（claude 模型需要中转 key）")
+        if _ruoli_client is None or _last_ruoli_key != key:
+            _ruoli_client = OpenAI(
+                api_key=key,
+                base_url=RUOLI_BASE_URL,
+                timeout=60.0,
+                max_retries=0,
+            )
+            _last_ruoli_key = key
+        return _ruoli_client
+
+    # ---- DashScope 通道（qwen / deepseek）----
     global _deepseek_client, _last_key
     key = os.getenv("DASHSCOPE_API_KEY", "").strip()
     if not key:
         raise ValueError("DASHSCOPE_API_KEY 未配置")
     if _deepseek_client is None or _last_key != key:
-        _deepseek_client = OpenAI(api_key=key, base_url=DEEPSEEK_BASE_URL)
+        # 显式 timeout + 关闭 SDK 默认指数退避重试：
+        # SDK 默认 timeout=600s + 重试 2 次(0.8→1.6→3.8s)，一次 DashScope 抖动会被放大到 10s+。
+        # 这里 60s 超时 + 不重试，失败快速抛出，交给上层 EASY/EXP 并发 + _serial 回退处理。
+        _deepseek_client = OpenAI(
+            api_key=key,
+            base_url=DEEPSEEK_BASE_URL,
+            timeout=60.0,
+            max_retries=0,
+        )
         _last_key = key
     return _deepseek_client
 
@@ -387,7 +425,7 @@ def assemble_resume_data(
     system_msg = SYSTEM_PROMPT.format()
     model_name = resolve_assembler_model(model)
 
-    client = _get_client()
+    client = _get_client(model_name)
     response = client.chat.completions.create(
         model=model_name,
         messages=[
@@ -459,7 +497,7 @@ def _extract_sections(
         f"输出格式：\n{schema}\n\n"
         f"简历原文：\n{ocr_text}"
     )
-    client = _get_client()
+    client = _get_client(model_name)
     for attempt in range(2):
         user = base_user if attempt == 0 else (
             base_user + "\n\n【重要】请严格输出**合法** JSON：字符串内双引号转义、无多余逗号、不要截断。"
@@ -518,6 +556,22 @@ async def assemble_resume_data_fast(
     # EXP（实习+项目）是核心且不可从 EASY 补，失败/全空 → 整体回退单次
     exp_ok = isinstance(exp_r, dict) and (exp_r.get("internships") or exp_r.get("projects"))
     if not exp_ok:
+        # 之前这里静默回退，排查时无法区分「并发路径慢」和「回退到更慢的单次路径」。
+        # 现在记录 EXP 组返回内容 + 是否异常，便于定位是超时、限流还是模型返回空。
+        exp_detail = (
+            f"exception={type(exp_r).__name__}: {str(exp_r)[:200]}"
+            if isinstance(exp_r, Exception)
+            else f"empty result keys={list(exp_r.keys()) if isinstance(exp_r, dict) else 'N/A'}"
+        )
+        easy_detail = (
+            f"exception={type(easy_r).__name__}"
+            if isinstance(easy_r, Exception)
+            else f"keys={list(easy_r.keys()) if isinstance(easy_r, dict) else 'N/A'}"
+        )
+        logger.warning(
+            "[结构化] EXP组为空或异常, 回退单次路径。exp=%s, easy=%s, ocr_chars=%d",
+            exp_detail, easy_detail, len(ocr_text),
+        )
         return await _serial()
 
     merged: Dict[str, Any] = {}

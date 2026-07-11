@@ -44,8 +44,15 @@ stream_processor = StreamProcessor()
 storage = get_conversation_storage()
 conversation_manager = ConversationManager(storage=storage)
 
-# 允许前端按请求切换的 agent 模型白名单（均经 DashScope，支持工具调用）
-_ALLOWED_AGENT_MODELS = {"deepseek-v4-flash", "deepseek-v3", "qwen-max"}
+# 允许前端按请求切换的 agent 模型白名单
+_ALLOWED_AGENT_MODELS = {"qwen-max", "claude-sonnet-4-6"}
+
+# 模型 → LLM 通道路由表（base_url, api_key 环境变量名）
+# qwen 走 DashScope，claude 走 RuoLi 中转（OpenAI 兼容）
+_MODEL_CHANNELS = {
+    "qwen-max": ("https://dashscope.aliyuncs.com/compatible-mode/v1", "DASHSCOPE_API_KEY"),
+    "claude-sonnet-4-6": ("https://ruoli.dev/v1", "RUOLI_API_KEY"),
+}
 
 # In-memory session TTL — evict idle agent sessions to cap memory growth
 _SESSION_TTL_SECONDS = int(os.getenv("AGENT_SESSION_TTL_SECONDS", "3600"))
@@ -245,13 +252,25 @@ async def _stream_event_generator(
         chat_history = session["chat_history"]
         logger.info(f"[SSE Generator] Session created/retrieved successfully")
 
-        # 按请求覆盖 LLM 模型（白名单防注入）；运行时改 self.model 即生效（ask 方法每次按调用读取）
+        # 按请求覆盖 LLM 模型（白名单防注入）；按模型动态切通道(base_url/api_key/client)
+        # qwen 走 DashScope，claude 走 RuoLi 中转，ask 方法每次读 self.model + self.client 即时生效
         if model and model in _ALLOWED_AGENT_MODELS and getattr(agent, "llm", None) is not None:
             if agent.llm.model != model:
-                logger.info(
-                    f"[SSE] 切换模型 {agent.llm.model} -> {model} (conv={conversation_id})"
-                )
-                agent.llm.model = model
+                channel = _MODEL_CHANNELS.get(model)
+                if channel:
+                    base_url, key_env = channel
+                    api_key = os.getenv(key_env, "").strip()
+                    if api_key:
+                        logger.info(
+                            f"[SSE] 切换模型 {agent.llm.model} -> {model} (conv={conversation_id}, channel={base_url})"
+                        )
+                        agent.llm.update_model(model, base_url, api_key)
+                    else:
+                        logger.warning(f"[SSE] 模型 {model} 的通道 key {key_env} 未配置，跳过切换")
+                else:
+                    # 无通道路由的模型仅改 model 名（向后兼容）
+                    logger.info(f"[SSE] 切换模型 {agent.llm.model} -> {model} (conv={conversation_id})")
+                    agent.llm.model = model
 
         # Create state machine for this execution
         state_machine = AgentStateMachine(conversation_id)

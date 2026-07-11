@@ -453,7 +453,7 @@ export default function LandingPage() {
                     </div>
                     <div className="p-4">
                       <img
-                        src="/contact-wechat-qr.jpg"
+                        src="https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/contact-qr.jpg"
                         alt="微信二维码"
                         className="w-full object-cover"
                       />

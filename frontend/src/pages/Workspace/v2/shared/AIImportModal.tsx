@@ -37,20 +37,14 @@ const AI_MODELS = [
     logoUrl: DEEPSEEK_LOGO_URL,
   },
   {
-    id: "deepseek-v3.2",
-    name: "DeepSeek V3.2",
-    description: "智能解析简历内容",
-    logoUrl: DEEPSEEK_LOGO_URL,
+    id: "claude-sonnet-4-6",
+    name: "Claude Sonnet 4.6",
+    description: "智能解析简历内容（仅 PDF）",
   },
 ];
 
 // 视觉模型（图片识别），上传图片时由用户选择
 const VISION_MODELS = [
-  {
-    id: "qwen-vl-max",
-    name: "通义千问 VL",
-    description: "图片识别",
-  },
   {
     id: "glm-ocr",
     name: "智谱 GLM-OCR",
@@ -113,20 +107,16 @@ export function AIImportModal({
   const [parsedData, setParsedData] = useState<any>(null);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [finalTime, setFinalTime] = useState<number | null>(null);
-  const [selectedModel, setSelectedModel] = useState("deepseek-v4-flash");
+  const [selectedModel, setSelectedModel] = useState("claude-sonnet-4-6");
   const [selectedVisionModel, setSelectedVisionModel] = useState("glm-ocr");
   const [showModelDropdown, setShowModelDropdown] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedImage2, setSelectedImage2] = useState<File | null>(null);
   const [copied, setCopied] = useState(false);
-  const [importMode, setImportMode] = useState<"pdf" | "image" | "text">("image");
+  const [importMode, setImportMode] = useState<"pdf" | "image" | "text">("pdf");
   const [currentStep, setCurrentStep] = useState<"input" | "results">("input");
   const [awardsListType, setAwardsListType] = useState<'unordered' | 'ordered'>('unordered');
-  const [testKeysLoading, setTestKeysLoading] = useState(false);
-  const [testKeysResult, setTestKeysResult] = useState<Record<
-    string,
-    { configured: boolean; ok?: boolean; error?: string }
-  > | null>(null);
+  const [showTipQr, setShowTipQr] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startTimeRef = useRef<number>(0);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -177,7 +167,7 @@ export function AIImportModal({
       setFinalTime(null);
       setSelectedFile(null);
       setSelectedImage2(null);
-      setImportMode("image");
+      setImportMode("pdf");
       setCurrentStep("input");
       setAwardsListType('unordered');
     }
@@ -453,7 +443,7 @@ export function AIImportModal({
                 : currentStep === "results"
                   ? "请检查解析出的数据是否准确，点击下方按钮填充到表单"
                   : sectionType === "all"
-                    ? "上传或粘贴简历内容，系统将自动解析并导入"
+                    ? "上传或粘贴简历内容、系统将自动解析并导入"
                     : "粘贴或输入该模块的文本内容：AI 将自动解析并填充"}
             </p>
           </div>
@@ -495,68 +485,7 @@ export function AIImportModal({
                   <label className="text-sm font-mono uppercase tracking-wide font-bold text-black">
                     选择 AI 模型
                   </label>
-                  <button
-                    type="button"
-                    disabled={testKeysLoading}
-                    onClick={async () => {
-                      setTestKeysLoading(true);
-                      setTestKeysResult(null);
-                      try {
-                        const res = await fetch(`${getApiBaseUrl()}/api/ai/test-keys`);
-                        const data = await res.json();
-                        if (res.ok) setTestKeysResult(data);
-                        else setTestKeysResult({ _: { configured: false, ok: false, error: "请求失败" } });
-                      } catch (e) {
-                        setTestKeysResult({
-                          _: { configured: false, ok: false, error: (e as Error).message },
-                        });
-                      } finally {
-                        setTestKeysLoading(false);
-                      }
-                    }}
-                    className={cn(
-                      "text-xs px-3 py-1.5 rounded-none border border-black font-mono uppercase tracking-wide font-bold",
-                      "bg-[#F0F0E8] text-black shadow-[2px_2px_0px_0px_#000000]",
-                      "hover:bg-[#E5E5E0] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none",
-                      "active:translate-y-[2px] active:translate-x-[2px]",
-                      "transition-[transform,box-shadow,background-color] duration-100 ease-out",
-                      testKeysLoading && "opacity-60 pointer-events-none",
-                    )}
-                  >
-                    {testKeysLoading ? "检测中…" : "测试 AI"}
-                  </button>
                 </div>
-                {testKeysResult && !("_" in testKeysResult) && (
-                  <div className="mb-2 text-xs font-mono text-black space-y-1">
-                    {(["zhipu", "doubao", "deepseek"] as const).map((key) => {
-                      const r = testKeysResult[key];
-                      if (!r) return null;
-                      const label = { zhipu: "智谱", doubao: "豆包", deepseek: "DeepSeek" }[key];
-                      const text = !r.configured
-                        ? `${label}: 未配置`
-                        : r.ok
-                          ? `${label}: 可用`
-                          : `${label}: 不可用${r.error ? ` (${r.error})` : ""}`;
-                      return (
-                        <div
-                          key={key}
-                          className={cn(
-                            !r.configured && "text-[#878E99]",
-                            r.configured && r.ok && "text-green-700",
-                            r.configured && !r.ok && "text-amber-700",
-                          )}
-                        >
-                          {text}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {testKeysResult && "_" in testKeysResult && (
-                  <div className="mb-2 text-xs font-mono text-amber-700">
-                    检测失败: {(testKeysResult as Record<string, { error?: string }>)._?.error ?? "未知错误"}
-                  </div>
-                )}
                 <div className="relative">
                   <button
                     type="button"
@@ -607,7 +536,9 @@ export function AIImportModal({
                   {/* 下拉菜单 */}
                   {showModelDropdown && (
                     <div className="absolute z-10 w-full mt-2 rounded-none bg-white border-2 border-black shadow-[4px_4px_0px_0px_#000000] overflow-hidden">
-                      {AI_MODELS.map((model) => (
+                      {AI_MODELS
+                        .filter((m) => importMode === "pdf" || m.id !== "claude-sonnet-4-6")
+                        .map((model) => (
                         <button
                           key={model.id}
                           type="button"
@@ -673,10 +604,30 @@ export function AIImportModal({
 
               {sectionType === "all" ? (
                 <div className="space-y-4 flex-1 flex flex-col">
-                  {/* Tab 切换：图片上传（推荐）放第一，PDF 上传第二，文本粘贴第三 */}
+                  {/* Tab 切换：PDF 上传放第一，图片上传第二，文本粘贴第三 */}
                   <div className="flex gap-2 p-1 flex-shrink-0">
                     <button
-                      onClick={() => setImportMode("image")}
+                      onClick={() => setImportMode("pdf")}
+                      className={cn(
+                        "relative flex-1 flex items-center justify-center gap-2 py-2 text-sm font-mono uppercase tracking-wide font-bold rounded-none border border-black transition-all",
+                        importMode === "pdf"
+                          ? "bg-blue-700 text-white shadow-[2px_2px_0px_0px_#000000]"
+                          : "bg-[#F0F0E8] text-black hover:bg-[#E5E5E0]",
+                      )}
+                    >
+                      <File className="w-4 h-4" />
+                      PDF 上传
+                      <span className="absolute -top-2 -right-1 px-1.5 py-0.5 text-[9px] font-bold rounded-none bg-amber-500 text-white border border-black leading-none">
+                        速度慢
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setImportMode("image");
+                        if (selectedModel === "claude-sonnet-4-6") {
+                          setSelectedModel("deepseek-v4-flash");
+                        }
+                      }}
                       className={cn(
                         "relative flex-1 flex items-center justify-center gap-2 py-2 text-sm font-mono uppercase tracking-wide font-bold rounded-none border border-black transition-all",
                         importMode === "image"
@@ -691,22 +642,13 @@ export function AIImportModal({
                       </span>
                     </button>
                     <button
-                      onClick={() => setImportMode("pdf")}
-                      className={cn(
-                        "relative flex-1 flex items-center justify-center gap-2 py-2 text-sm font-mono uppercase tracking-wide font-bold rounded-none border border-black transition-all",
-                        importMode === "pdf"
-                          ? "bg-blue-700 text-white shadow-[2px_2px_0px_0px_#000000]"
-                          : "bg-[#F0F0E8] text-black hover:bg-[#E5E5E0]",
-                      )}
-                    >
-                      <File className="w-4 h-4" />
-                      PDF 上传
-                      <span className="absolute -top-2 -right-1 px-1.5 py-0.5 text-[9px] font-bold rounded-none bg-amber-500 text-white border border-black leading-none">
-                        速度慢；约两分钟
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => setImportMode("text")}
+                      onClick={() => {
+                        setImportMode("text");
+                        // claude 仅支持 PDF 导入，切到文本模式时回退默认模型
+                        if (selectedModel === "claude-sonnet-4-6") {
+                          setSelectedModel("deepseek-v4-flash");
+                        }
+                      }}
                       className={cn(
                         "flex-1 flex items-center justify-center gap-2 py-2 text-sm font-mono uppercase tracking-wide font-bold rounded-none border border-black transition-all",
                         importMode === "text"
@@ -751,7 +693,7 @@ export function AIImportModal({
                           {parsing ? "解析中..." : "上传解析 PDF"}
                         </button>
                         <p className="text-xs text-[#878E99] text-center flex-shrink-0">
-                          由于用的是我自己的 key，速度慢请见谅
+                          由于用的是我自己的 key、速度慢请见谅
                         </p>
                       </div>
                     )}
@@ -784,6 +726,7 @@ export function AIImportModal({
                             />
                           </div>
                         )}
+                        {VISION_MODELS.length > 1 && (
                         <div className="flex-shrink-0 space-y-2">
                           <div className="text-xs font-mono uppercase tracking-wide font-bold text-black">
                             选择识别模型
@@ -811,6 +754,7 @@ export function AIImportModal({
                             ))}
                           </div>
                         </div>
+                        )}
                         <button
                           type="button"
                           onClick={handleImageUpload}
@@ -889,6 +833,21 @@ export function AIImportModal({
                         </button>
                       </div>
                     )}
+
+                    {/* 赞赏码 */}
+                    <div className="flex-shrink-0 flex items-center gap-3 rounded-none border-2 border-black bg-[#F0F0E8] p-3 shadow-[4px_4px_0px_0px_#000000]">
+                      <div className="flex-1 text-xs text-[#878E99] leading-relaxed">
+                        <span className="font-bold text-black">支持作者</span>
+                        <br />
+                        网站用的 AI 都是我自费的 Token、如果觉得有用、可以帮我加一点 Token 🙏
+                      </div>
+                      <img
+                        src="https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/tip-qr.jpg"
+                        alt="赞赏码"
+                        onClick={() => setShowTipQr(true)}
+                        className="w-20 h-20 object-contain border border-black flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                      />
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -1182,6 +1141,31 @@ export function AIImportModal({
           )}
         </div>
       </div>
+
+      {/* 赞赏码放大弹窗 */}
+      {showTipQr && (
+        <div
+          className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/70"
+          onClick={() => setShowTipQr(false)}
+        >
+          <div className="relative max-w-[80vw] max-h-[80vh]">
+            <img
+              src="https://resumecos-1327706280.cos.ap-guangzhou.myqcloud.com/tip-qr.jpg"
+              alt="赞赏码"
+              className="max-w-full max-h-[80vh] object-contain border-2 border-white shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              type="button"
+              onClick={() => setShowTipQr(false)}
+              className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-white border-2 border-black flex items-center justify-center font-bold text-black shadow-lg"
+              aria-label="关闭"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
