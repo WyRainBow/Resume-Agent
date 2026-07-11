@@ -15,11 +15,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
-    version: '3.2.1',
-    date: '2026-07-11 00:47',
+    version: '3.2.2',
+    date: '2026-07-11 10:48',
     fixed: [
       '修复点击「导出」时格式选择弹窗被压缩、看不见的问题',
       '多段项目经历之间的间距默认改为 1ex，多段时不再挤在一起',
+    ],
+    added: [
+      '导入简历时图片上传移到首位并标「推荐（速度快）」，PDF 上传标注「速度慢；约两分钟」',
     ],
   },
   {
