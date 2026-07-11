@@ -72,10 +72,9 @@ class PromptBuilder:
             system_prompt = f"{system_prompt}\n\n{skills_addendum}"
 
         # Hybrid: 注入简历内容到 system prompt
-        # 整份优化场景下过滤隐私信息（phone/email/location），只保留求职相关信息
-        is_full_optimize = bool(user_input and any(
-            kw in user_input for kw in ["整份", "全面优化", "整体优化", "全部优化", "优化整份", "优化我的简历"]
-        ))
+        # 整份优化场景下过滤隐私信息（phone/email/location），只保留求职相关信息。
+        # 复用已有的 intent 判定（conversation_state 那套意图识别），避免关键词清单与之不一致。
+        is_full_optimize = intent == Intent.FULL_OPTIMIZE
         resume_text = self.format_resume_for_context(mask_pii=is_full_optimize)
         if resume_text:
             system_prompt = f"{system_prompt}\n\n{resume_text}"

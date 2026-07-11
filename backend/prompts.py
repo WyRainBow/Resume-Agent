@@ -74,12 +74,12 @@ def build_skill_ainative_context(original_value: Any) -> str:
 
 2. **保留原有技能**：不要删除用户已有的技能项，在其基础上升级表达（从「会用」升级到「能解决问题」），增加结果导向（性能提升、效率提升、系统稳定性等）。
 
-3. **按方向补充 AI Native 能力**（在原有技能之后追加，不要替换）：
+3. **按方向补充 AI Native 能力**（在原有技能之后追加，不要替换）：判断方向后，结合该方向当下主流的 AI Native 能力，挑真正契合这份简历经历的补充进去，不要机械罗列下面的每一项。以下按方向给出参考举例（帮你把握大致范围，按需选用即可）：
 
-   - **开发方向**：补充 AI 编程工具（如 Claude Code、Cursor、Codex）提效；SDD / Spec 驱动开发将需求结构化为 prompt 生成代码；LLM API（OpenAI / Claude / Gemini 等）集成；Prompt 设计与调优；AI + 后端/前端结合（Agent、Workflow、自动化处理流程）。
-   - **产品方向**：补充 AI 工具进行自动化运营提效；搭建 AI 驱动的内容生成 / 用户触达 / 数据分析流程；AI Native 产品思路（从功能到 workflow）；利用 AI 做增长、转化优化或流程自动化。
-   - **运营方向**：补充 AI 自动化运营流程搭建；AI 内容生成与分发；AI 数据分析与用户洞察；AI 增长黑客与转化优化。
-   - **设计方向**：补充 Figma 等 AI 辅助设计工具；AI 生成 UI / 设计稿迭代 / 文案生成；AI 产品交互设计（对话式界面、Agent 体验）；AI Native 设计思维（从静态页面到动态交互）。
+   - **开发方向**：AI 编程工具（如 Claude Code、Cursor、Codex）提效；SDD / Spec 驱动开发将需求结构化为 prompt 生成代码；LLM API（OpenAI / Claude / Gemini 等）集成；Prompt 设计与调优；AI + 后端/前端结合（Agent、Workflow、自动化处理流程）。
+   - **产品方向**：AI 工具进行自动化运营提效；搭建 AI 驱动的内容生成 / 用户触达 / 数据分析流程；AI Native 产品思路（从功能到 workflow）；利用 AI 做增长、转化优化或流程自动化。
+   - **运营方向**：AI 自动化运营流程搭建；AI 内容生成与分发；AI 数据分析与用户洞察；AI 增长黑客与转化优化。
+   - **设计方向**：Figma 等 AI 辅助设计工具；AI 生成 UI / 设计稿迭代 / 文案生成；AI 产品交互设计（对话式界面、Agent 体验）；AI Native 设计思维（从静态页面到动态交互）。
 
 ## 输出格式（强制）
 
