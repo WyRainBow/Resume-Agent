@@ -259,7 +259,8 @@ async def detect_rewrite_text_intent(body: RewriteIntentRequest):
     locale = body.locale or "zh"
 
     rule_intents, rule_confidence = _rule_detect_rewrite_intents(instruction)
-    llm_intents, llm_confidence = _llm_detect_rewrite_intent(
+    llm_intents, llm_confidence = await asyncio.to_thread(
+        _llm_detect_rewrite_intent,
         provider=provider,
         instruction=instruction,
         source_text=source_text,

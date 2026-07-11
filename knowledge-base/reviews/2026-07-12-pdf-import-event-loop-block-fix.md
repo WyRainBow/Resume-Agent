@@ -103,3 +103,54 @@ SDK 默认 `timeout=600s` + 重试 2 次(0.8→1.6→3.8s 指数退避),一次 D
 3. **resume_assembler.py L93-94**:`timeout=60.0` 是否合理(单次结构化实测 5-15s,60s 足够);`max_retries=0` 失败后上层有 `_serial` 回退兜底。
 4. **回退日志 L545**:异常类型 + 返回内容截断 200 字,不会泄露敏感信息。
 5. **changelog**:3.2.3,日期 2026-07-12(只日期,无时间,符合规范)。
+
+---
+
+## 五、补丁:detect_rewrite_text_intent 遗漏修复
+
+### 背景:这是 review 阶段发现的一处遗漏
+
+前面第一节表格里,原始修复只覆盖了 10 处**直接**裸调用 `call_llm(` 的 async 路由——因为定位手段就是 grep `call_llm(` 再判断所在函数是不是 async。这个手段漏掉了**隔了一层同步辅助函数**的阻塞链:
+
+- `backend/routes/resume.py:250` `detect_rewrite_text_intent`(`async def`,路由 `POST /resume/rewrite-text/intent`)
+- 在 L262 **直接同步调用** `_llm_detect_rewrite_intent(...)`(L200,普通 `def` 辅助函数)
+- 而 `_llm_detect_rewrite_intent` 内部 L230 又同步调用了阻塞的 `call_llm(provider, prompt)`
+
+所以真实的阻塞链是 `async 路由 → 同步 def → call_llm → requests.post`,和已修的 10 处性质完全一样,只是中间多套了一层 `_llm_detect_rewrite_intent`,grep `call_llm(` 时它落在同步函数体内(L230),被当作"同步函数里的调用,正确不改"放过,从而漏掉了外层 async 路由这条真正需要 to_thread 的调用。
+
+**诚实说明**:第一节"未改"里其实已经点到了 L230 这个同步函数"被 async 函数调用时,调用方应自行用 `to_thread` 包裹",但当时以"本次不改调用方,避免扩大 diff"为由留下了。本补丁就是在 review 时把这条被主动推迟的调用方阻塞真正补上——它确实是上一轮遗漏/未完成的部分。
+
+### 改法(最小 diff,不动辅助函数本身)
+
+`_llm_detect_rewrite_intent` 保持同步 `def` 不变(它本身不是 async,不能加 await;签名、函数体一字不动),只把 L262 的调用点用 `asyncio.to_thread` 包一层,关键字参数原样透传:
+
+```python
+# 改前(L262,async 路由里直接同步调用,阻塞事件循环)
+llm_intents, llm_confidence = _llm_detect_rewrite_intent(
+    provider=provider,
+    instruction=instruction,
+    source_text=source_text,
+    path_hint=path_hint,
+    locale=locale,
+)
+# 改后(卸载到线程池,不冻结事件循环)
+llm_intents, llm_confidence = await asyncio.to_thread(
+    _llm_detect_rewrite_intent,
+    provider=provider,
+    instruction=instruction,
+    source_text=source_text,
+    path_hint=path_hint,
+    locale=locale,
+)
+```
+
+写法与本文件已确立的 12 处 `await asyncio.to_thread(call_llm, ...)` 一致;`asyncio` 已在 L9 模块级导入,无需新增 import。仅一处改动(L262),全仓 grep `_llm_detect_rewrite_intent(` 确认调用点唯一(L200 定义 + L262 调用,无其他调用者)。
+
+### 验证
+
+| 项 | 方式 | 结果 |
+|---|---|---|
+| 调用点唯一性 | `grep -rn "_llm_detect_rewrite_intent" backend/` | ✓ 仅 L200 定义 + L262 调用,无遗漏/无改错 |
+| 语法 | `python3 -c "import ast; ast.parse(open('backend/routes/resume.py').read())"` | ✓ SYNTAX OK |
+| 遗漏复查 | `grep -n "call_llm(" backend/routes/resume.py` | ✓ 唯一剩下的裸调用只在 L230(`_llm_detect_rewrite_intent` 函数体内,本身是同步函数,内部调用无需 to_thread——阻塞已被外层 L262 的 `asyncio.to_thread` 解决);已无任何"async 路由直接调同步阻塞函数、没有 to_thread"的情况 |
+| pytest / npm build | 未跑 | 纯后端最小 diff,靠语法 + 调用链核对;非本轮重点 |
