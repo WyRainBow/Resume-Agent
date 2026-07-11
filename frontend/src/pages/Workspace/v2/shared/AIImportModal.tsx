@@ -447,7 +447,7 @@ export function AIImportModal({
                 : currentStep === "results"
                   ? "请检查解析出的数据是否准确，点击下方按钮填充到表单"
                   : sectionType === "all"
-                    ? "上传或粘贴简历内容，系统将自动解析并导入"
+                    ? "上传或粘贴简历内容、系统将自动解析并导入"
                     : "粘贴或输入该模块的文本内容：AI 将自动解析并填充"}
             </p>
           </div>
@@ -669,8 +669,23 @@ export function AIImportModal({
 
               {sectionType === "all" ? (
                 <div className="space-y-4 flex-1 flex flex-col">
-                  {/* Tab 切换：图片上传（推荐）放第一，PDF 上传第二，文本粘贴第三 */}
+                  {/* Tab 切换：PDF 上传放第一，图片上传第二，文本粘贴第三 */}
                   <div className="flex gap-2 p-1 flex-shrink-0">
+                    <button
+                      onClick={() => setImportMode("pdf")}
+                      className={cn(
+                        "relative flex-1 flex items-center justify-center gap-2 py-2 text-sm font-mono uppercase tracking-wide font-bold rounded-none border border-black transition-all",
+                        importMode === "pdf"
+                          ? "bg-blue-700 text-white shadow-[2px_2px_0px_0px_#000000]"
+                          : "bg-[#F0F0E8] text-black hover:bg-[#E5E5E0]",
+                      )}
+                    >
+                      <File className="w-4 h-4" />
+                      PDF 上传
+                      <span className="absolute -top-2 -right-1 px-1.5 py-0.5 text-[9px] font-bold rounded-none bg-amber-500 text-white border border-black leading-none">
+                        速度慢
+                      </span>
+                    </button>
                     <button
                       onClick={() => {
                         setImportMode("image");
@@ -689,21 +704,6 @@ export function AIImportModal({
                       图片上传
                       <span className="absolute -top-2 -right-1 px-1.5 py-0.5 text-[9px] font-bold rounded-none bg-emerald-500 text-white border border-black leading-none">
                         推荐（速度快）
-                      </span>
-                    </button>
-                    <button
-                      onClick={() => setImportMode("pdf")}
-                      className={cn(
-                        "relative flex-1 flex items-center justify-center gap-2 py-2 text-sm font-mono uppercase tracking-wide font-bold rounded-none border border-black transition-all",
-                        importMode === "pdf"
-                          ? "bg-blue-700 text-white shadow-[2px_2px_0px_0px_#000000]"
-                          : "bg-[#F0F0E8] text-black hover:bg-[#E5E5E0]",
-                      )}
-                    >
-                      <File className="w-4 h-4" />
-                      PDF 上传
-                      <span className="absolute -top-2 -right-1 px-1.5 py-0.5 text-[9px] font-bold rounded-none bg-amber-500 text-white border border-black leading-none">
-                        速度慢；约两分钟
                       </span>
                     </button>
                     <button
@@ -758,7 +758,7 @@ export function AIImportModal({
                           {parsing ? "解析中..." : "上传解析 PDF"}
                         </button>
                         <p className="text-xs text-[#878E99] text-center flex-shrink-0">
-                          由于用的是我自己的 key，速度慢请见谅
+                          由于用的是我自己的 key、速度慢请见谅
                         </p>
                       </div>
                     )}
