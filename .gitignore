@@ -86,6 +86,10 @@ test_api.sh
 !scripts/dev-auth-web.sh
 !scripts/smoke-auth-stack.sh
 
+# browser-fast 脚本(依赖已移除的 DOMShell,本地保留)
+scripts/browser-fast*.sh
+scripts/browser-resume-flow.py
+
 
 
 # 测试目录
