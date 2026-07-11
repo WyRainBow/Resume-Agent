@@ -146,14 +146,24 @@ class ResumeDataStore:
                     Resume.id == resume_id, Resume.user_id == user_id
                 ).first()
                 if not resume:
-                    logger.warning(
-                        "[ResumeDataStore] Resume not found: "
-                        f"resume_id={resume_id}, user_id={user_id}"
+                    # resume_id 不在 DB 里（如 LaTeX 简历前端创建后未入库），
+                    # 自动创建一条记录，避免修改只在内存生效、断连后丢失。
+                    name = cls._extract_name(resume_data) or "未命名简历"
+                    resume = Resume(
+                        id=resume_id,
+                        user_id=user_id,
+                        name=name,
+                        data=resume_data,
                     )
-                    return False
+                    db.add(resume)
+                    logger.info(
+                        "[ResumeDataStore] Auto-created resume: "
+                        f"resume_id={resume_id}, name={name}"
+                    )
+                else:
+                    resume.name = cls._extract_name(resume_data) or resume.name
+                    resume.data = resume_data
 
-                resume.name = cls._extract_name(resume_data) or resume.name
-                resume.data = resume_data
                 db.commit()
                 logger.info(
                     "[ResumeDataStore] Successfully persisted resume: "
