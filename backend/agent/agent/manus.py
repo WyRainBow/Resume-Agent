@@ -386,62 +386,6 @@ class Manus(ToolCallAgent):
         # 有实质性内容，自动终止
         return True
 
-    def _check_edit_completion_finish(self) -> bool:
-        """防止直接编辑工具在同一轮执行后被重复触发。返回是否已终止。"""
-        # 兼容 role 可能是 Role 枚举或字符串 "tool"
-        if not self.memory.messages:
-            return False
-        latest_assistant = self.memory.messages[-1]
-        latest_assistant_role = (
-            latest_assistant.role.value
-            if hasattr(latest_assistant.role, "value")
-            else str(latest_assistant.role)
-        )
-        if (
-            latest_assistant_role == "assistant"
-            and "已完成这次简历字段修改" in (latest_assistant.content or "")
-        ):
-            from backend.agent.schema import AgentState
-
-            self.state = AgentState.FINISHED
-            return True
-
-        # 仅在“本轮用户输入之后”确实出现了 cv_editor_agent 工具结果时才收敛，
-        # 避免下一轮新用户输入误复用上一轮旧编辑结果。
-        last_user_idx = -1
-        for idx in range(len(self.memory.messages) - 1, -1, -1):
-            role_val = (
-                self.memory.messages[idx].role.value
-                if hasattr(self.memory.messages[idx].role, "value")
-                else str(self.memory.messages[idx].role)
-            )
-            if role_val == "user":
-                last_user_idx = idx
-                break
-
-        recent_editor_tool_msg = None
-        for idx in range(len(self.memory.messages) - 1, -1, -1):
-            msg = self.memory.messages[idx]
-            role_val = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
-            if (
-                role_val == "tool"
-                and (msg.name or "") == "cv_editor_agent"
-                and idx > last_user_idx
-            ):
-                recent_editor_tool_msg = msg
-                break
-
-        if recent_editor_tool_msg is not None and not self._turn.read_only:
-            logger.info("✅ cv_editor_agent 已执行，直接结束避免重复调用工具")
-            # After cv_editor_agent runs, emit a short confirmation via answer
-            # and stop — do NOT return True (which would let LLM pick tools again).
-            confirmation = "✅ 修改已完成，请查看右侧简历预览确认效果。如需继续优化，请告诉我。"
-            self.memory.add_message(Message.assistant_message(confirmation))
-            from backend.agent.schema import AgentState
-            self.state = AgentState.FINISHED
-            return True
-        return False
-
     def _apply_enhanced_query(self, enhanced_query: str, user_input: str) -> None:
         """查询被增强（含工具标记）时，更新最后一条用户消息为增强查询。"""
         if enhanced_query != user_input and self.memory.messages:
@@ -505,10 +449,6 @@ class Manus(ToolCallAgent):
         user_input = self._get_last_user_input()
         self._sync_turn_read_only_flag(user_input)
         self._sync_resume_loaded_state()
-
-        # 防止直接编辑工具在同一轮执行后被重复触发，导致多次修改
-        if self._check_edit_completion_finish():
-            return False
 
         # 确保 ConversationStateManager 有 LLM 实例
         self._ensure_conversation_state_llm()
