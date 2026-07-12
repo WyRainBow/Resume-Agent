@@ -102,7 +102,10 @@ scripts/browser-resume-flow.py
 reference/projects/
 knowledge/
 
-# 含服务器 IP / 数据库地址的运维文档，只留本地不入库
+# knowledge-base 整目录只留本地不入库（设计文档/review 迁移到 internal 仓库维护）
+knowledge-base/
+
+# 含服务器 IP / 数据库地址的运维文档，只留本地不入库（已含在上一条，保留以防顺序变化）
 knowledge-base/specs/2026-07-09-域名迁移resumegenkk-to-cococv.md
 
 # 飞书剪藏等本地工具目录
