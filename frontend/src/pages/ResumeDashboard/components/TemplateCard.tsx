@@ -40,7 +40,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
       <Card
         className={cn(
           "border border-black transition-[box-shadow,transform] duration-100 h-[440px] flex flex-col",
-          "group-hover:shadow-none"
+          "group-hover:shadow-none fresh:group-hover:shadow-md"
         )}
       >
         {/* 顶部装饰 */}
@@ -49,7 +49,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
         <CardContent className="relative flex-1 pt-4 pb-2 text-center flex flex-col items-center min-w-0 overflow-hidden">
           {/* 模板预览图 */}
           {imageSrc ? (
-            <div className="mb-4 w-full h-[260px] rounded-none overflow-hidden bg-[#E5E5E0] border-2 border-black relative flex-shrink-0 transition-all duration-300">
+            <div className="mb-4 w-full h-[260px] rounded-none overflow-hidden bg-[#E5E5E0] border-2 border-black relative flex-shrink-0 transition-all duration-300 fresh:rounded-lg fresh:bg-slate-100 fresh:border-slate-200">
               <img
                 src={imageSrc}
                 alt={template.name}
@@ -66,7 +66,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
             </div>
           ) : (
             <motion.div
-              className="mb-4 p-6 rounded-none bg-[#4285F4] text-white border-2 border-black shadow-[2px_2px_0px_0px_#000000] flex-shrink-0 transition-all duration-300"
+              className="mb-4 p-6 rounded-none bg-[#4285F4] text-white border-2 border-black shadow-[2px_2px_0px_0px_#000000] flex-shrink-0 transition-all duration-300 fresh:rounded-lg fresh:border-blue-500 fresh:shadow-sm"
               whileHover={{ x: 1, y: 1 }}
               transition={{ duration: 0.2 }}
             >
@@ -88,7 +88,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
                 {template.tags.slice(0, 2).map((tag, index) => (
                   <span
                     key={index}
-                    className="px-3 py-1 text-xs font-mono uppercase tracking-wide rounded-none bg-[#E5E5E0] text-[#3367D6] whitespace-nowrap flex-shrink-0 border border-black"
+                    className="px-3 py-1 text-xs font-mono uppercase tracking-wide rounded-none bg-[#E5E5E0] text-[#3367D6] whitespace-nowrap flex-shrink-0 border border-black fresh:font-sans fresh:normal-case fresh:tracking-normal fresh:rounded-full fresh:bg-blue-50 fresh:border-blue-200 fresh:text-blue-600"
                   >
                     {tag}
                   </span>
@@ -98,7 +98,7 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({
           </div>
         </CardContent>
 
-        <CardFooter className="pt-3 pb-4 px-4 flex-shrink-0 border-t border-black">
+        <CardFooter className="pt-3 pb-4 px-4 flex-shrink-0 border-t border-black fresh:border-slate-200">
           <div className="w-full">
             <Button
               className="w-full"

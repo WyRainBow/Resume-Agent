@@ -4,19 +4,19 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-none text-sm font-medium font-mono uppercase tracking-wide ring-offset-background transition-[transform,box-shadow,background-color] duration-100 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3367D6] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-none fresh:rounded-md text-sm font-medium font-mono fresh:font-sans uppercase fresh:normal-case tracking-wide fresh:tracking-normal ring-offset-background transition-[transform,box-shadow,background-color] duration-100 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#3367D6] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
         default:
-          "bg-[#4285F4] text-white border border-black shadow-[2px_2px_0px_0px_#000000] hover:bg-[#3367D6] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none active:translate-y-[2px] active:translate-x-[2px]",
+          "bg-[#4285F4] text-white border border-black shadow-[2px_2px_0px_0px_#000000] fresh:border-blue-600 fresh:shadow-sm hover:bg-[#3367D6] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none active:translate-y-[2px] active:translate-x-[2px]",
         destructive:
-          "bg-red-700 text-white border border-black shadow-[2px_2px_0px_0px_#000000] hover:bg-red-800 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none active:translate-y-[2px] active:translate-x-[2px]",
+          "bg-red-700 text-white border border-black shadow-[2px_2px_0px_0px_#000000] fresh:border-red-700 fresh:shadow-sm hover:bg-red-800 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none active:translate-y-[2px] active:translate-x-[2px]",
         outline:
-          "bg-[#F0F0E8] text-black border border-black shadow-[2px_2px_0px_0px_#000000] hover:bg-[#E5E5E0] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none active:translate-y-[2px] active:translate-x-[2px]",
+          "bg-[#F0F0E8] text-black border border-black shadow-[2px_2px_0px_0px_#000000] fresh:bg-white fresh:border-slate-200 fresh:shadow-sm fresh:hover:bg-slate-100 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none active:translate-y-[2px] active:translate-x-[2px]",
         secondary:
-          "bg-[#E5E5E0] text-black border border-black shadow-[2px_2px_0px_0px_#000000] hover:bg-[#D8D8D2] hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none active:translate-y-[2px] active:translate-x-[2px]",
-        ghost: "bg-transparent text-black hover:bg-[#E5E5E0] active:bg-[#E5E5E0]",
+          "bg-[#E5E5E0] text-black border border-black shadow-[2px_2px_0px_0px_#000000] fresh:bg-slate-100 fresh:border-slate-200 fresh:shadow-sm fresh:hover:bg-slate-200 hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none active:translate-y-[2px] active:translate-x-[2px]",
+        ghost: "bg-transparent text-black hover:bg-[#E5E5E0] fresh:hover:bg-slate-100 active:bg-[#E5E5E0]",
         link: "text-[#3367D6] underline-offset-4 hover:underline",
       },
       size: {
