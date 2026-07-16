@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef } from "react";
 import type { SSEEvent } from "@/transports/SSETransport";
 import { extractResumeEditDiff } from "@/utils/resumePatch";
+import { isAgentStructuredEventEnabled } from "@/lib/runtimeEnv";
+import { isResumeDiagnosisStructuredData } from "@/types/resumeDiagnosis";
+import { classifyStructuredToolPresentation } from "@/utils/toolPresentation";
 
 interface UseToolEventRouterParams<TSearch, TResume, TEdit, TDiagnosis, TStructured> {
   runId: number;
@@ -46,6 +49,7 @@ export function useToolEventRouter<
   const handledDiagnosisKeysRef = useRef<Set<string>>(new Set());
   const handledStructuredKeysRef = useRef<Set<string>>(new Set());
   const pendingEditDiffRef = useRef<TEdit | null>(null);
+  const pendingShowResumeRef = useRef(false);
 
   useEffect(() => {
     handledResumeSelectorKeysRef.current.clear();
@@ -53,6 +57,7 @@ export function useToolEventRouter<
     handledDiagnosisKeysRef.current.clear();
     handledStructuredKeysRef.current.clear();
     pendingEditDiffRef.current = null;
+    pendingShowResumeRef.current = false;
   }, [runId]);
 
   const handleSSEEvent = useCallback(
@@ -75,6 +80,12 @@ export function useToolEventRouter<
           pendingEditDiffRef.current = null;
         }
         onDone();
+        if (pendingShowResumeRef.current) {
+          pendingShowResumeRef.current = false;
+          window.setTimeout(() => {
+            onShowResumeSelector();
+          }, 0);
+        }
         return;
       }
 
@@ -107,25 +118,52 @@ export function useToolEventRouter<
         `${toolName || "unknown"}:${String(event.data?.content || "")}`;
       const dedupeKey = `${runId}:${keySeed}`;
 
-      if (
-        toolName === "show_resume" &&
-        (!structured || typeof structured !== "object")
-      ) {
+      // show_resume 是"工具名驱动"的效果（只弹选择面板，不渲染任何卡片），
+      // 必须在 structured/classify 各早退之前处理：其 structured
+      // （resume_selector/resume）已归 process_only 或不消费，若放在
+      // classify 早退之后会被吞掉、面板永远弹不出——2026-07-15 实际发生
+      // 过一次（8de17bd3 回归，见 reviews/2026-07-15-选择面板不弹-C修复回归.md）。
+      if (toolName === "show_resume") {
         if (!handledResumeSelectorKeysRef.current.has(dedupeKey)) {
           handledResumeSelectorKeysRef.current.add(dedupeKey);
-          onShowResumeSelector();
+          pendingShowResumeRef.current = true;
         }
         return;
       }
 
       if (!structured || typeof structured !== "object") return;
 
+      // Asking 模式默认关闭：即使旧后端或历史事件仍发出 ask_question，
+      // 也不把它写入当前 UI 状态。卡片组件和路由代码完整保留供后续灰度。
       if (
-        toolName === "get_resume_detail" ||
+        typeof (structured as any).type === "string" &&
+        !isAgentStructuredEventEnabled((structured as any).type)
+      ) {
+        return;
+      }
+
+      // 工具执行过程统一由 AgentProcessTimeline 展示。列表查询没有额外业务
+      // 产物，不能再进入 StructuredCardRegistry 形成第二张深色成功卡。
+      const structuredType = String((structured as any).type || "");
+      if (classifyStructuredToolPresentation(structuredType) === "process_only") {
+        return;
+      }
+
+      // 注:get_resume_detail 工具名已从本分支移除(Codex review P0)——它是
+      // 主动读简历链路的新工具,structured type=resume_loaded 走通用注册表
+      // (节点卡+右侧展开);此处按 type 匹配仍兜住老的 resume_detail 数据。
+      if (
         toolName === "resume-diagnosis" ||
         (structured as any).type === "resume_detail" ||
         (structured as any).type === "resume_diagnosis"
       ) {
+        if (
+          (structured as any).type === "resume_diagnosis" &&
+          !isResumeDiagnosisStructuredData(structured)
+        ) {
+          console.warn("[ToolEventRouter] Invalid resume_diagnosis payload ignored");
+          return;
+        }
         if (handledDiagnosisKeysRef.current.has(dedupeKey)) {
           return;
         }
@@ -139,10 +177,12 @@ export function useToolEventRouter<
       // 新工具/新卡片零路由改动。
       const LEGACY_ROUTED_TOOLS = new Set([
         "web_search", "show_resume", "CVReader", "cv_reader",
-        "cv_editor_agent", "get_resume_detail", "resume-diagnosis",
+        "cv_editor_agent", "resume-diagnosis",
         // generate_resume 走独立的 resume_generated SSE 事件,tool_result 里的
         // 同名 structured 不进通用管线,避免双渲染
         "generate_resume",
+        // list_resumes 已在上方归为 process_only；get_resume_detail 仍需进入
+        // callback 完成右侧简历加载，但不会持久化为重复卡片。
       ]);
       if (
         !LEGACY_ROUTED_TOOLS.has(String(toolName)) &&
@@ -168,17 +208,6 @@ export function useToolEventRouter<
           metadata: structured.metadata || {},
         } as TSearch;
         upsertSearchResult("current", normalized);
-        return;
-      }
-
-      if (toolName === "show_resume") {
-        if (handledResumeSelectorKeysRef.current.has(dedupeKey)) {
-          return;
-        }
-        // 统一 show_resume 行为：只打开"加载简历"选择面板，
-        // 不再自动挂载简历卡片，避免和用户手动选择流程冲突。
-        handledResumeSelectorKeysRef.current.add(dedupeKey);
-        onShowResumeSelector();
         return;
       }
 

@@ -176,11 +176,27 @@ You can edit this resume using update, add, or delete operations.
                 "error_type": "UPDATE_ERROR"
             }
 
+    # 顶层标量字符串字段：add 到这些字段时应视为"设置值"，不能转成数组——
+    # 否则下游格式化（cv_reader_tool.strip_html）拿到 list 会直接抛 TypeError。
+    _SCALAR_STRING_FIELDS = {"selfEvaluation", "skillContent"}
+
     def _add(self, path: str, value: Any) -> Dict[str, Any]:
         """添加操作"""
+        leaf = path.split(".")[-1].split("[")[0]
         try:
             parts = parse_path(path)
             _, _, target = get_by_path(self._resume_data, parts)
+
+            if isinstance(target, str):
+                # 字段已存在且当前是字符串（如空的 selfEvaluation）：
+                # add 语义退化为"设置该值"，不转数组。
+                set_by_path(self._resume_data, path, value)
+                return {
+                    "success": True,
+                    "message": f"Successfully set: {path}",
+                    "path": path,
+                    "new_value": value,
+                }
 
             if not isinstance(target, list):
                 # 创建新数组
@@ -196,6 +212,15 @@ You can edit this resume using update, add, or delete operations.
                 "new_index": len(target) - 1
             }
         except ValueError:
+            if leaf in self._SCALAR_STRING_FIELDS:
+                # 字段此前完全不存在（未初始化）：仍按标量语义直接赋值。
+                set_by_path(self._resume_data, path, value)
+                return {
+                    "success": True,
+                    "message": f"Successfully set: {path}",
+                    "path": path,
+                    "new_value": value,
+                }
             # 创建新数组并添加
             set_by_path(self._resume_data, path, [value])
             return {

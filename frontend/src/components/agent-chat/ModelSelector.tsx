@@ -3,10 +3,12 @@ import PortalDropdown from "@/components/common/PortalDropdown";
 
 /** Agent 可选模型（与后端 _ALLOWED_AGENT_MODELS 白名单一致） */
 export const AGENT_MODELS = [
+  { value: "deepseek-v4-flash", label: "DeepSeek V4 Flash", hint: "快速 · 高性价比 · 默认推荐" },
   { value: "qwen-max", label: "Qwen Max", hint: "强力 · 复杂任务 · 深度优化" },
+  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", hint: "智能 · 结构化精准 · 长上下文" },
 ];
 
-export const DEFAULT_AGENT_MODEL = "qwen-max";
+export const DEFAULT_AGENT_MODEL = "deepseek-v4-flash";
 
 interface ModelSelectorProps {
   value: string;

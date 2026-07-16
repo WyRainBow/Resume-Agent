@@ -2,6 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* chat-* 语义 token 换肤（与 tailwind.config.js 的 var(--chat-*) 对应）。
+   NEO 默认值由 config 的 fallback 提供；清新皮肤在这里改写变量，
+   AI 助手 / 我的简历等所有用 chat-* 类的界面一次生效。 */
+[data-skin='fresh'] {
+  --chat-canvas: #f8fafc; /* slate-50 */
+  --chat-ink: #0f172a; /* slate-900 */
+  --chat-ink-muted: #64748b; /* slate-500 */
+  --chat-accent: #4285f4;
+  --chat-accent-deep: #3367d6;
+  --chat-user-bubble: #dbeafe; /* blue-100 */
+  --chat-surface: #ffffff;
+  --chat-border: #e2e8f0; /* slate-200，替代 NEO 的纯黑边 */
+}
+
 /* 隐藏滚动条 */
 .progress-nav-scroll::-webkit-scrollbar {
   display: none;

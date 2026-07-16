@@ -7,6 +7,7 @@ import asyncio
 import json
 import os
 import sys
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
@@ -82,3 +83,48 @@ def test_prompt_output_matches_golden(case, golden):
         assert _norm(next_step) == _norm(expected["next_step"]), f"{case['key']} next_step 漂移"
     finally:
         ResumeDataStore.clear_data(SESSION)
+
+
+def test_broad_optimize_loads_full_resume_guidance_skills():
+    agent = Manus(session_id="resume-guidance-skills")
+
+    guidance = agent._prompt_builder.build_skill_addendum("我要优化简历")
+
+    assert "[Skill: resume-diagnosis]" in guidance
+    assert "[Skill: resume-suggest]" in guidance
+    assert "一次诊断同时产出诊断结论和只读修改建议" in guidance
+    assert "缺少真实事实时不得生成示例值" in guidance
+
+
+def test_specific_field_edit_does_not_load_diagnosis_skills():
+    agent = Manus(session_id="resume-guidance-skills-specific-edit")
+
+    guidance = agent._prompt_builder.build_skill_addendum(
+        "把邮箱改成 new@example.com"
+    )
+
+    assert "resume-diagnosis" not in guidance
+    assert "resume-suggest" not in guidance
+
+
+def test_required_resume_skill_missing_fails_fast(tmp_path: Path):
+    agent = Manus(session_id="resume-guidance-skills-missing")
+
+    with pytest.raises(RuntimeError, match="Required resume Skill"):
+        agent._prompt_builder.read_skill(tmp_path / "missing" / "SKILL.md")
+
+
+def test_broad_optimize_does_not_resume_an_existing_write_progress():
+    session_id = "broad-diagnosis-does-not-resume-write-progress"
+    ResumeDataStore.clear_data(session_id)
+    agent = Manus(session_id=session_id)
+    ResumeDataStore.set_data(dict(RESUME), session_id=session_id)
+    ResumeDataStore.init_progress(session_id, RESUME)
+
+    system_prompt, _ = asyncio.run(
+        agent._generate_dynamic_prompts("我要优化简历", Intent.UNKNOWN)
+    )
+
+    assert "## 整份优化进度" not in system_prompt
+    assert "## Work Experience" in system_prompt
+    ResumeDataStore.clear_data(session_id)

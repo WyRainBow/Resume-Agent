@@ -17,16 +17,12 @@ from backend.core.logger import get_logger
 from backend.agent.domain.intent.edit_rules import parse_fast_simple_edit_text
 from backend.agent.domain.intent.greeting_rules import is_fast_greeting_text
 from backend.agent.domain.intent.load_resume_rules import (
-    is_fast_load_resume_text,
     is_pasted_resume_import_text,
 )
 
 logger = get_logger(__name__)
 FAST_GREETING_ENABLED = (
     os.getenv("AGENT_FAST_GREETING_ENABLED", "true").strip().lower() != "false"
-)
-FAST_LOAD_RESUME_ENABLED = (
-    os.getenv("AGENT_FAST_LOAD_RESUME_ENABLED", "true").strip().lower() != "false"
 )
 FAST_SIMPLE_EDIT_ENABLED = (
     os.getenv("AGENT_FAST_SIMPLE_EDIT_ENABLED", "true").strip().lower() != "false"
@@ -36,9 +32,22 @@ FAST_SIMPLE_EDIT_ENABLED = (
 _READ_ONLY_QUERY_RE = re.compile(
     r"(读取|查看|展示|显示|列出|看看|给我看|告诉我|说一下|发我)"
 )
-_WRITE_QUERY_RE = re.compile(
-    r"(优化|修改|更新|添加|删除|导入|新增|录入|插入|改成|改为|润色|改写|写入|应用|替换|设置|编辑)"
+_OPTIMIZE_VERB_PATTERN = (
+    r"优化|润色|完善|改进|提升|调整|打磨|修改|改写|重写|改一改|改改|"
+    r"改得更好|写得更好|写得更专业|改好|改短|改成|改为|精简|改"
 )
+_NEGATED_EDIT_RE = re.compile(
+    rf"(?:别|不要|不用|无需|先别|暂时别)[^，。；,!;]{{0,24}}"
+    rf"(?:{_OPTIMIZE_VERB_PATTERN})"
+)
+_WRITE_QUERY_RE = re.compile(
+    rf"(?:{_OPTIMIZE_VERB_PATTERN}|更新|添加|删除|导入|新增|录入|插入|"
+    r"写入|应用|替换|设置|编辑)"
+)
+
+
+def _is_negated_edit_read_only(text: str) -> bool:
+    return bool(_NEGATED_EDIT_RE.search(text) and _READ_ONLY_QUERY_RE.search(text))
 
 
 def is_read_only_query(user_input: str) -> bool:
@@ -46,6 +55,8 @@ def is_read_only_query(user_input: str) -> bool:
     text = (user_input or "").strip()
     if not text:
         return False
+    if _is_negated_edit_read_only(text):
+        return True
     if _WRITE_QUERY_RE.search(text):
         return False
     return bool(_READ_ONLY_QUERY_RE.search(text))
@@ -60,6 +71,198 @@ _ADD_EXPERIENCE_RE = re.compile(
 def is_add_experience_query(user_input: str) -> bool:
     """用户是否在新增/导入一段经历（应走 add，禁止 STAR 兜底写回）。"""
     return bool(_ADD_EXPERIENCE_RE.search((user_input or "").strip()))
+
+
+# 整份优化：判断"要不要在注入 system prompt 前脱敏隐私字段"。
+# 故意不依赖 Intent.FULL_OPTIMIZE——LLM-first 让权守卫（intent_router.py:99-107）
+# 把除 GREETING/UNKNOWN 外的所有意图统一清空成 UNKNOWN 再交给 LLM 判断，
+# FULL_OPTIMIZE 这个分支自 2026-07-11 LLM-first 重构后就再没有真正传到过
+# prompt_builder（501 行生产日志实测验证：零命中 intent=full_optimize）。
+# 脱敏与否是安全边界判断，不能依赖一个会被路由层清空的信号，必须直接对
+# 用户原始文本判断。
+#
+# 独立 review 用同一份生产日志实测出：穷举"全面/整体/全局优化"这类强
+# 关键词覆盖不住"我要优化简历"这种真实生产原话——这句话不含任何强关键词，
+# 但 Agent 会自主展开成跨多模块的全篇优化，穷举关键词的路子治标不治本。
+# 改成语义路由：用户说「改/优化/润色/完善简历」但没有给出具体模块或字段时，
+# 统一视为宽泛优化；指定模块/字段时才视为局部修改。这个判断同时服务于诊断
+# 调度、上下文脱敏和整份优化进度，避免三处各维护一套近义词。
+_OPTIMIZE_VERB_RE = re.compile(
+    rf"(?:{_OPTIMIZE_VERB_PATTERN})"
+)
+_SPECIFIC_SECTION_RE = re.compile(
+    r"(工作经历|工作经验|实习经历|实习|教育背景|教育经历|技能|技术栈|"
+    r"项目经历|项目|自我评价|开源经历|基本信息|求职意向|姓名|标题|电话|"
+    r"手机号|邮箱|联系方式|地址|学校|"
+    r"专业(?:名称|方向|字段|改成|改为)|(?:修改|更新|填写|设置).{0,4}专业|"
+    r"GPA|绩点|奖项|错别字|排版|格式|"
+    r"第[一二三四五六七八九十0-9]+(?:段|条|项)|这(?:句|段|条)|"
+    r"(?:experience|projects?|education|basic)\s*\[?\d*)"
+)
+_WHOLE_RESUME_RE = re.compile(
+    r"((整份|通篇|全篇|整体|全面|全局|全部).{0,4}(简历|履历))|"
+    r"((简历|履历).{0,4}(整体|全面|全局|全部))|"
+    r"^(?:请|帮我|我要|给我|把)?(?:整体|全面|全局)优化(?:一下)?"
+    r"(?:我的|这份)?(?:简历|履历)?[吧。！!？?]*$"
+)
+_DIAGNOSIS_RE = re.compile(
+    r"((诊断|评估|分析).{0,10}(简历|履历))|"
+    r"((简历|履历).{0,10}(诊断|评估|分析|质量|问题|毛病|不足|短板|打分|评分))|"
+    r"((简历|履历).{0,8}(怎么样|如何|能打几分))|"
+    r"((招聘者|面试官|HR).{0,8}角度.{0,10}(简历|履历))"
+)
+_DIAGNOSIS_VERB_RE = re.compile(r"(诊断|评估|分析|检查)")
+_TARGET_PROBLEM_RE = re.compile(
+    r"(工作|实习|项目|教育|技能|自我评价|开源).{0,12}"
+    r"(问题|毛病|不足|短板|怎么样|如何)"
+)
+_GENERIC_RESUME_REVIEW_RE = re.compile(
+    r"^(?:请|麻烦)?(?:帮我)?(?:整体|全面)?看(?:看|一下|下)?"
+    r"(?:我的|这份|当前)?简历(?:吧|怎么样|如何)?[。！!？?]*$"
+)
+_NARROW_TARGET_RE = re.compile(r"(简历|履历)(?:里|内|中)(?:面)?(?:的)?")
+_DIRECT_EDIT_RE = re.compile(r"(改成|改为|替换|删除|添加|新增|填写|设置)")
+_GENERIC_WHOLE_EDIT_RE = re.compile(
+    r"((简历|履历)(?:里|内|中)(?:面)?(?:的)?(?:全部|所有|整体|通篇)?"
+    r"(?:内容|文字|表述|措辞|表达))|"
+    r"((简历|履历)(?:改成|改为|写成)(?:一份|一个)?(?:更|更加)?"
+    r"(?:专业|优秀|有竞争力|更好)(?:的)?(?:版本)?)"
+)
+_JD_EDIT_RE = re.compile(
+    r"((按|根据|针对).{0,12}(JD|目标岗位|职位描述|岗位描述|招聘要求|岗位要求))|"
+    r"((JD|职位描述|岗位描述|招聘要求|岗位要求).{0,12}(优化|改写|定制))",
+    re.IGNORECASE,
+)
+
+
+class ResumeRequestRoute(str, Enum):
+    """简历请求的稳定产品路由，不替代 LLM 对具体操作参数的判断。"""
+
+    BROAD_OPTIMIZE = "broad_optimize"
+    DIAGNOSE = "diagnose"
+    SPECIFIC_EDIT = "specific_edit"
+    OTHER = "other"
+
+
+def classify_resume_request(user_input: str) -> ResumeRequestRoute:
+    """把近义表达归一为诊断入口、局部编辑或普通请求。
+
+    宽泛优化只决定「先诊断」这一产品阶段；进入具体修改后，字段和工具仍由
+    Agent 基于上下文决定。明确的模块/字段修改优先，不被整份诊断阻塞。
+    """
+    text = re.sub(r"\s+", "", (user_input or "").strip())
+    if not text:
+        return ResumeRequestRoute.OTHER
+    if text == "针对诊断结果逐项修改":
+        return ResumeRequestRoute.BROAD_OPTIMIZE
+    if is_add_experience_query(text):
+        return ResumeRequestRoute.SPECIFIC_EDIT
+
+    has_edit_verb = bool(_OPTIMIZE_VERB_RE.search(text))
+    has_named_target = bool(
+        _SPECIFIC_SECTION_RE.search(text) or _JD_EDIT_RE.search(text)
+    )
+    has_specific_target = bool(
+        has_named_target
+        or _NARROW_TARGET_RE.search(text)
+        or _DIRECT_EDIT_RE.search(text)
+    )
+    has_whole_scope = bool(_WHOLE_RESUME_RE.search(text))
+    mentions_resume = "简历" in text or "履历" in text
+
+    if (
+        _DIAGNOSIS_RE.search(text)
+        or _TARGET_PROBLEM_RE.search(text)
+        or (
+            _DIAGNOSIS_VERB_RE.search(text)
+            and (mentions_resume or has_specific_target or has_whole_scope)
+        )
+        or _GENERIC_RESUME_REVIEW_RE.fullmatch(text)
+    ):
+        return ResumeRequestRoute.DIAGNOSE
+
+    if _is_negated_edit_read_only(text):
+        return ResumeRequestRoute.OTHER
+
+    negated_edit = _NEGATED_EDIT_RE.search(text)
+    if negated_edit and not _OPTIMIZE_VERB_RE.search(
+        _NEGATED_EDIT_RE.sub("", text)
+    ):
+        return ResumeRequestRoute.OTHER
+
+    if (
+        has_edit_verb
+        and _GENERIC_WHOLE_EDIT_RE.search(text)
+        and not has_named_target
+    ):
+        return ResumeRequestRoute.BROAD_OPTIMIZE
+
+    if has_edit_verb and has_specific_target:
+        return ResumeRequestRoute.SPECIFIC_EDIT
+
+    if has_edit_verb and (mentions_resume or has_whole_scope):
+        return ResumeRequestRoute.BROAD_OPTIMIZE
+
+    return ResumeRequestRoute.OTHER
+
+
+def is_full_optimize_query(user_input: str) -> bool:
+    """宽泛优化进入只读诊断入口；不代表已经授权自动写简历。"""
+    return classify_resume_request(user_input) is ResumeRequestRoute.BROAD_OPTIMIZE
+
+
+# 诊断后的显式应用文案：覆盖诊断卡/建议 chip 的真实措辞（"针对诊断结果逐项修改"
+# "按建议帮我修改""按照诊断建议帮我修改简历""帮我处理简历诊断中的问题"
+# "开始优化简历"），不含"我要优化简历"这类未引用诊断的泛优化——那仍走先诊断。
+_DIAGNOSIS_APPLY_RE = re.compile(
+    # 引用介词 + 诊断/建议 + 动手动词："针对诊断结果逐项修改""按照诊断建议帮我修改简历"
+    r"(?:针对|按照?|根据|依照)[^，。;！!？?]{0,8}(?:诊断|建议)"
+    r"[^，。;！!？?]{0,12}(?:修改|优化|修复|处理|改)"
+    # 诊断/建议在前 + 动手动词："诊断建议帮我修改""建议直接优化"
+    r"|(?:诊断|建议)[^，。;！!？?]{0,10}(?:帮我|给我|直接)?(?:逐项)?(?:修改|优化|修复|处理)"
+    # 处理诊断中的问题："帮我处理简历内容诊断中的问题"
+    r"|处理[^，。;！!？?]{0,16}诊断[^，。;！!？?]{0,10}(?:问题|建议)"
+    # 明确启动语："开始优化简历""开始帮我优化简历"
+    r"|开始(?:帮我)?(?:优化|修改)(?:我的|这份|一下)?(?:简历|履历)"
+)
+
+
+# 只读查看修改建议的文案（2026-07-16 诊断/建议拆分）：诊断卡「查看修改建议」
+# chip 及同义说法。"查看"类是读，不是改——必须先于 apply 判定拦截，否则
+# "查看这次诊断的修改建议"会被 _DIAGNOSIS_APPLY_RE 的"建议…修改"分支误判为
+# 写入轮（实测 agent 直接动手改简历）。
+_VIEW_SUGGESTIONS_RE = re.compile(
+    r"(?:查看|看看|看一下|看下|展示|给我看|列出)"
+    r"[^，。;！!？?]{0,16}(?:修改)?建议"
+)
+
+
+def is_view_suggestions_query(user_input: str) -> bool:
+    """用户是否在请求查看诊断的修改建议（只读，不修改简历）。"""
+    text = re.sub(r"\s+", "", (user_input or "").strip())
+    if not text:
+        return False
+    return bool(_VIEW_SUGGESTIONS_RE.search(text))
+
+
+def is_diagnosis_apply_query(user_input: str) -> bool:
+    """用户是否显式要求按诊断/建议动手修改（Phase 3 写入入口）。
+
+    只判文本；「本会话确实已产出诊断」由 Manus 侧结合
+    `resume_diagnosis_completed_for` 会话状态把关（见
+    `_diagnosis_completed_for_loaded_resume`），两者同时成立才解除
+    diagnosis_only 只读闸。
+    """
+    text = re.sub(r"\s+", "", (user_input or "").strip())
+    if not text:
+        return False
+    # "先别按建议改"之类的否定表达不算 apply
+    if _NEGATED_EDIT_RE.search(text):
+        return False
+    # "查看修改建议"类是读不是改，优先归 view（见 is_view_suggestions_query）
+    if _VIEW_SUGGESTIONS_RE.search(text):
+        return False
+    return bool(_DIAGNOSIS_APPLY_RE.search(text))
 
 # 可选导入新的意图识别系统
 try:
@@ -169,12 +372,6 @@ class ConversationStateManager:
         if not FAST_GREETING_ENABLED:
             return False
         return is_fast_greeting_text(user_input)
-
-    def is_fast_load_resume(self, user_input: str) -> bool:
-        """本地快速识别「加载我的简历」相关意图，不触发 LLM。"""
-        if not FAST_LOAD_RESUME_ENABLED:
-            return False
-        return is_fast_load_resume_text(user_input)
 
     def parse_fast_simple_edit(self, user_input: str) -> Optional[Dict[str, Any]]:
         """本地快速解析简单编辑意图（改名字 / 改实习公司N）。"""
@@ -409,23 +606,6 @@ class ConversationStateManager:
                 "intent": Intent.GREETING,
                 "tool": None,
                 "tool_args": {},
-                "context_prompt": "",
-                "should_skip_llm": True,
-                "enhanced_query": user_input,
-                "intent_result": None,
-                "intent_source": "fast_rule",
-            }
-
-        # 🚀 快速加载简历路径：本地规则优先，不走 LLM 意图分类
-        # 但如果简历已加载，跳过此快路径，让 Hybrid + LLM 直接回答
-        if self.is_fast_load_resume(user_input) and not self.context.resume_loaded:
-            file_path = self._extract_resume_file_path(user_input)
-            tool_name = "cv_reader_agent" if file_path else "show_resume"
-            tool_args = {"file_path": file_path} if file_path else {}
-            return {
-                "intent": Intent.LOAD_RESUME,
-                "tool": tool_name,
-                "tool_args": tool_args,
                 "context_prompt": "",
                 "should_skip_llm": True,
                 "enhanced_query": user_input,

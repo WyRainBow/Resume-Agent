@@ -56,8 +56,9 @@ const REPO_URL = 'https://github.com/kkooww77/Resume-Agent'
 const JD_OPTIMIZE_CHIP = '按目标岗位 JD 帮我改简历'
 const HERO_CHIPS = [
   '我是应届生、帮我做一份简历',
-  JD_OPTIMIZE_CHIP,
-  '帮我把经历写得更专业',
+  // 暂时下掉这两个入口（前端先不展示），代码保留方便以后恢复
+  // JD_OPTIMIZE_CHIP,
+  // '帮我把经历写得更专业',
 ]
 
 // 简历制作核心能力（均为现有产品功能，不含面试类）
@@ -720,7 +721,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 fresh:border bord
                   }`}
                 >
                   <div className={`flex items-center justify-center w-10 h-10 border-2 fresh:border border-black fresh:border-slate-200 mb-4 ${
-                    isHero ? 'bg-[#4285F4] text-white border-black fresh:bg-[#4285F4] fresh:text-white fresh:border-slate-200' : 'bg-[#4285F4] text-white border-black fresh:border-slate-200'
+                    isHero ? 'bg-black text-[#1a73e8] border-black fresh:border-slate-200' : 'bg-[#4285F4] text-white border-black fresh:border-slate-200'
                   }`}>
                     <Icon className="w-5 h-5" strokeWidth={2.5} />
                   </div>
@@ -838,7 +839,7 @@ className="hidden md:flex items-center gap-2 h-9 px-3 border-2 fresh:border bord
           className="max-w-5xl mx-auto border-2 fresh:border border-black fresh:border-slate-200 bg-[#D7E7FF] shadow-[6px_6px_0px_0px_#000000] fresh:shadow-lg"
         >
           <div className="p-10 sm:p-14 text-center">
-            <div className="mb-3 inline-flex bg-white px-2 py-1 text-[10px] font-bold uppercase fresh:normal-case tracking-[0.06em] text-blue-700 border border-slate-200">
+            <div className="mb-3 inline-flex bg-black px-2 py-1 text-[10px] font-black uppercase fresh:normal-case tracking-[0.06em] text-[#1a73e8]">
               // READY?
             </div>
             <h2 className="text-3xl sm:text-4xl font-serif font-bold tracking-tight text-black">

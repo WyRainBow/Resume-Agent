@@ -31,14 +31,20 @@ import {
   DEFAULT_MENU_SECTIONS,
   type ResumeData,
 } from "@/pages/Workspace/v2/types";
-import { getResume, getAllResumes, saveResume, setCurrentResumeId } from "@/services/resumeStorage";
+import {
+  getResume,
+  getAllResumes,
+  saveResume,
+  setCurrentResumeId,
+  syncLocalResumesToCurrentAccount,
+} from "@/services/resumeStorage";
 import { parseResumeText } from "@/services/resumeParse";
 import { highlightsToHtml, groupedHighlightsToHtml, skillsToHtml } from "@/utils/resumeRichtext";
 import type { SavedResume } from "@/services/storage/StorageAdapter";
 import {
   renderPDFStream,
 } from "@/services/api";
-import { Message, MessageMeta } from "@/types/chat";
+import { Message, MessageMeta, type AgentProcessNode } from "@/types/chat";
 import type { SSEEvent } from "@/transports/SSETransport";
 import {
   Sparkles,
@@ -46,7 +52,7 @@ import {
   Bot,
 } from "lucide-react";
 import ChatEmptyState from "@/components/agent-chat/ChatEmptyState";
-import ModelSelector, { DEFAULT_AGENT_MODEL } from "@/components/agent-chat/ModelSelector";
+import ModelSelector, { AGENT_MODELS, DEFAULT_AGENT_MODEL } from "@/components/agent-chat/ModelSelector";
 import React, {
   useCallback,
   useEffect,
@@ -58,8 +64,14 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import EnhancedMarkdown from "@/components/chat/EnhancedMarkdown";
 import Composer from "@/components/agent-chat/Composer";
 import MessageTimeline from "@/components/agent-chat/MessageTimeline";
-import StreamingLane from "@/components/agent-chat/StreamingLane";
+import ConversationFeedbackBar from "@/components/agent-chat/ConversationFeedbackBar";
+import { buildApplyDecisionCopy, buildRejectDecisionCopy } from "@/pages/AgentChat/applyDecisionCopy";
+import StreamingLane, {
+  buildVisibleConversationRun,
+} from "@/components/agent-chat/StreamingLane";
 import type { StructuredEventData } from "@/components/agent-chat/StructuredCardRegistry";
+import type { DiagnosisToolStructuredData } from "@/types/resumeDiagnosis";
+import type { AskQuestionAnswer } from "@/components/agent-chat/AskQuestionContext";
 import { useTextStream } from "@/hooks/useTextStream";
 import { useToolEventRouter } from "@/hooks/agent-chat/useToolEventRouter";
 import { useStreamRunController } from "@/hooks/agent-chat/useStreamRunController";
@@ -69,12 +81,20 @@ import {
   normalizeResumePatchValue,
   stripResumeEditMarkdown,
 } from "@/utils/resumePatch";
+import { classifyStructuredToolPresentation } from "@/utils/toolPresentation";
+import {
+  buildConversationTurnSnapshot,
+  parseConversationTurnSnapshotMap,
+} from "@/agent-presentation/ConversationSnapshotAdapter";
+import type {
+  ConversationRunState,
+  ConversationTurnSnapshot,
+} from "@/agent-presentation/model";
+import { projectLegacyProcessNodes } from "@/agent-presentation/LegacyPresentationAdapter";
 
 import WorkspaceLayout from "@/pages/WorkspaceLayout";
 import CustomScrollbar from "@/components/common/CustomScrollbar";
 import { useResumeContext, type PendingPatch } from '../../contexts/ResumeContext';
-import { ResumeDiffCard, ApplyAllPatchesBar } from '../../components/agent-chat/ResumeDiffCard';
-import { ResumeGeneratedCard } from '../../components/agent-chat/ResumeGeneratedCard';
 import AIImportModal from "@/pages/Workspace/v2/shared/AIImportModal";
 
 // 报告内容视图组件
@@ -83,6 +103,11 @@ import AIImportModal from "@/pages/Workspace/v2/shared/AIImportModal";
 // ============================================================================
 
 const SSE_HEARTBEAT_TIMEOUT = 60000; // 60 seconds
+// 业务静默超时：多久没收到任何真实业务事件（thought/answer/tool 等，
+// 不含后端心跳字节）就判定"LLM 迟迟不返回"并主动断开。整份优化场景下
+// token 膨胀会拉长 qwen-max 首字节延迟，实测日志里正常返回也有 55s 的
+// case，120s 留出比原方案更宽松的余量，避免误伤慢但正常的响应。
+const SSE_MEANINGFUL_TIMEOUT = 120000; // 120 seconds
 const HISTORY_APPEND_MODE =
   String(import.meta.env.VITE_AGENT_HISTORY_APPEND_MODE ?? "true").toLowerCase() !==
   "false";
@@ -339,6 +364,7 @@ function isCreateResumeIntentText(text: string): boolean {
   );
 }
 
+
 function isSelectExistingResumeIntentText(text: string): boolean {
   const normalized = (text || "").trim();
   if (!normalized || isCreateResumeIntentText(normalized)) return false;
@@ -470,30 +496,13 @@ interface ResumeEditDiffStructuredData {
   };
 }
 
-interface DiagnosisToolStructuredData {
-  type: "resume_detail" | "resume_diagnosis";
-  status?: string;
-  tool?: string;
-  resume?: {
-    id?: string;
-    name?: string;
-    updated_at?: string;
-    language?: string;
-  };
-  summary?: {
-    screening_probability?: number;
-    quality_score?: number;
-    competitiveness_score?: number;
-    matching_score?: number | null;
-  };
-}
-
 // 简历导入/解析成功卡片下方的「下一步」建议 chip（点击即发送）。
 // 首位放整份优化：导入 → 一键整份优化 → 全部应用，是最短的价值闭环。
 const IMPORT_NEXT_STEP_SUGGESTIONS = [
   "优化我的整份简历",
-  "按目标岗位 JD 帮我改简历",
-  "帮我把经历写得更专业",
+  // 暂时下掉这两个入口（前端先不展示），代码保留方便以后恢复
+  // "按目标岗位 JD 帮我改简历",
+  // "帮我把经历写得更专业",
 ];
 
 // 历史消息的稳定 ID：基于 (role, content, index) 的确定性哈希（FNV-1a 变体）。
@@ -508,6 +517,18 @@ function stableMessageId(content: string, role: string, index: number): string {
       (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
   }
   return `msg-${(hash >>> 0).toString(16).slice(0, 12)}`;
+}
+
+/**
+ * 从 ConversationRunState.process 提取 Thought 正文。
+ * currentThought 的实时派生与 finalize 时的权威读取共用同一投影，避免两处漂移。
+ */
+function deriveThoughtText(process: ConversationRunState["process"]): string {
+  return process
+    .filter((node) => node.kind === "thought")
+    .map((node) => node.content.trim())
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 // ============================================================================
@@ -528,6 +549,16 @@ function CocoChatContent() {
   const { user, isAuthenticated, openModal } = useAuth();
   const { apiBaseUrl } = useEnvironment();
   const loginPromptedRef = useRef(false);
+
+  // 本地↔数据库简历兜底同步:agent 的 list_resumes 只能看见数据库,而
+  // 产品级 fallback(DB 写失败保留本地缓存)/后端宕机窗口会造成"Dashboard
+  // 看得见、agent 看不见"的分裂(2026-07-13 实测:「郭子」只在 localStorage,
+  // 库里 0 份)。既有 sync 只在登录/注册时触发(AuthContext),这里补"进入
+  // agent 页"时机;失败静默,不阻塞聊天。
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    void syncLocalResumesToCurrentAccount().catch(() => {});
+  }, [isAuthenticated]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -571,6 +602,10 @@ function CocoChatContent() {
   const [loadingResume, setLoadingResume] = useState(true);
   // 应用优化后短暂高亮预览面板（结果直接可见：引导视线看右侧更新）
   const [previewJustUpdated, setPreviewJustUpdated] = useState(false);
+  // 预览「视觉隐藏但保持渲染」（display:none 不卸载）：界面看起来是纯 AI
+  // 对话，PDF/缩放/滚动状态全保留，展开零等待。入口：面板头部「收起预览」，
+  // 恢复：输入框工具条的低调眼睛图标。
+  const [previewConcealed, setPreviewConcealed] = useState(false);
   const previewPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 简历卡片相关状态
@@ -624,10 +659,26 @@ function CocoChatContent() {
   const currentAssistantMessageIdRef = useRef<string | null>(null);
   // When resume_patch events are received, skip the old cv_editor_agent edit diff path
   const hasPatchInCurrentStreamRef = useRef(false);
+  // 整份优化任务：后端在本请求收尾时发 auto_continue（还有模块没处理完）。
+  // 只记下待续跑的 next_user_input，真正发起要等当前这轮完全 finalize
+  // 完（见下方 messages 变化触发的 effect）——finalize 期间还在读
+  // currentAnswerRef/typewriter，这时候调 sendMessage 会 disconnect 当前
+  // 流、把还没读完的内容截断。next_user_input 已经带了 AUTO_CONTINUE_PREFIX
+  // 协议前缀（见 optimize_progress.py），必须原样传给 sendMessage，不能再
+  // 包一层"系统内部提示"文案——后端靠 startswith 精确匹配这个前缀。
+  const pendingAutoContinueRef = useRef<string | null>(null);
+  // 防御性上限：后端 ResumeDataStore.MAX_CONTINUE_COUNT 已经会在到顶后停发
+  // auto_continue，这里只是兜底，防止后端出 bug 时前端把自己打成死循环。
+  const autoContinueFiredCountRef = useRef(0);
+  const AUTO_CONTINUE_FRONTEND_CAP = 12;
+  // isProcessing 的实时镜像：独立review发现，如果同一次 React commit 里
+  // pendingPatches 静默轮 effect 和 auto_continue 续跑 effect 都判定
+  // "isProcessing===false"该发，两个都会调 sendMessage——后发的那个会把
+  // 先发的流 disconnect 掉。auto_continue 触发时用这个 ref（而不是闭包里的
+  // isProcessing）做二次确认，见下方 effect。
+  const isProcessingRef = useRef(false);
 
-  const [streamDoneTick, setStreamDoneTick] = useState(0);
   const [activeRunId, setActiveRunId] = useState(0);
-  const [currentSuggestions, setCurrentSuggestions] = useState<Array<{ text: string; msg: string; template?: string }>>([]);
   const [activeSearchPanel, setActiveSearchPanel] =
     useState<SearchStructuredData | null>(null);
 
@@ -733,6 +784,8 @@ function CocoChatContent() {
 
   // 简历选择器状态
   const [showResumeSelector, setShowResumeSelector] = useState(false);
+  // Asking 模式:当前轮选择框是否已提交(防重复提交 + 提交后置灰按钮)
+  const [askQuestionSubmitted, setAskQuestionSubmitted] = useState(false);
   // 「按 JD 优化简历」交互卡（从首页 chip 进入时打开）
   const [showJdCard, setShowJdCard] = useState(false);
   // ResumeSelector 打开时的初始步骤（「选择已有」直达列表，其余从入口卡片进）
@@ -741,7 +794,11 @@ function CocoChatContent() {
   >("entry");
   const [aiImportModalOpen, setAiImportModalOpen] = useState(false);
   const currentRunUserInputRef = useRef("");
+  // show_resume 触发的"弹选择面板"请求:流式中只标记,回复完整落地后再弹(Bug:提前弹卡)
+  const pendingSelectorOpenRef = useRef(false);
   const [pendingResumeInput, setPendingResumeInput] = useState<string>(""); // 暂存用户输入，选择简历后继续处理
+  // replay 防重入:记录已发射过的暂存输入(见 replay effect 的守卫注释)
+  const replayFiredForInputRef = useRef<string | null>(null);
   const resumeDataRef = useRef<ResumeData | null>(null);
 
   const [isUploadingFile, setIsUploadingFile] = useState(false);
@@ -771,23 +828,17 @@ function CocoChatContent() {
   const appendDisabledBySessionRef = useRef<Record<string, boolean>>({});
   const historyApiUnavailableRef = useRef(false);
   const autoScrollTimerRef = useRef<number | null>(null);
-  const {
-    streamRunRef,
-    isFinalizedRef,
-    currentThoughtRef,
-    currentAnswerRef,
-    lastCompletedRef,
-    startNewRun,
-    captureCompletionSnapshot,
-    resolveFinalizedContent,
-  } = useStreamRunController();
+  const { streamRunRef, startNewRun } = useStreamRunController();
+  // 完成态去重锁：页面本地状态。其余完成态内容（thought / answer）一律以
+  // currentRunState 为权威，不再维护页面级镜像 ref 或完成快照。
+  const isFinalizedRef = useRef(false);
+  const currentProcessNodesRef = useRef<AgentProcessNode[]>([]);
+  const currentRunStateRef = useRef<ConversationRunState | null>(null);
   const lastHandledAnswerCompleteRef = useRef(0);
   const lastDoneRunRef = useRef<number>(-1);
   const lastFinalizedRunRef = useRef<number>(-1);
   const lastFinalizedSignatureRef = useRef("");
   const pendingFinalizeAfterTypewriterRef = useRef(false);
-  const finalizeRetryTimerRef = useRef<number | null>(null);
-  const finalizeRetryAttemptsRef = useRef(0);
   const prevRouteSessionIdRef = useRef<string | null>(null);
   const isCreatingNewSessionRef = useRef(false);
   const hasBootstrappedSessionRef = useRef(false);
@@ -1375,7 +1426,7 @@ function CocoChatContent() {
     runId: activeRunId,
     onDone: () => {
       lastDoneRunRef.current = streamRunRef.current;
-      setStreamDoneTick((prev) => prev + 1);
+      pendingFinalizeAfterTypewriterRef.current = true;
     },
     onError: (message) => setResumeError(message),
     onShowResumeSelector: () => {
@@ -1383,12 +1434,26 @@ function CocoChatContent() {
       if (isCreateResumeIntentText(text)) {
         return;
       }
-      if (text) {
+      // 「我要选择一份已有简历」「展示简历」这类纯"选择/看面板"意图不暂存：
+      // 它的完成形态就是选择动作本身，选完 replay 重发只会再次触发
+      // show_resume（Agent 答"面板已经打开了"，陷入循环）。选完后由
+      // handleResumeSelect 发起「我选择了「XX」」完整一轮自然衔接
+      // （2026-07-15 选择简历对话化）。带实质意图的输入（"帮我优化简历"）
+      // 仍暂存 replay。
+      const isPureSelectIntent =
+        isSelectExistingResumeIntentText(text) ||
+        /^(?:我要|我想|想要|帮我)?(?:选择?|挑|换|展示|看看)一?份?(?:已有|现有|保存的)?.{0,6}(?:简历|resume|cv)$/i.test(
+          text,
+        );
+      if (text && !isPureSelectIntent) {
+        // 新一发弹药装填:清除防重入记录(同文案的两次独立 show_resume 是合法场景)
+        replayFiredForInputRef.current = null;
         setPendingResumeInput(text);
       }
-      setResumeError(null);
-      setResumeSelectorInitialStep("entry");
-      setShowResumeSelector(true);
+      // show_resume 的 tool_result 到达时正文往往还在流式输出,此时立即弹面板
+      // 会"话没说完 UI 就跳"。这里只做标记,等本轮回复完整落地后(下方
+      // flushPendingResumeSelector 的 effect)再真正弹出。
+      pendingSelectorOpenRef.current = true;
     },
     onResumeUpdated: (resumeData) => {
       // 后端推送完整的更新后简历 JSON，更新 loadedResumes 本地副本（用于 PDF 渲染）。
@@ -1423,7 +1488,33 @@ function CocoChatContent() {
       upsertResumeEditDiff(messageId, data);
     },
     upsertDiagnosisToolEvent,
-    upsertStructuredEvent,
+    upsertStructuredEvent: (messageId: string, data: StructuredEventData) => {
+      if (data.type === "ask_question") {
+        setAskQuestionSubmitted(false);
+      }
+      // 主动读简历链路:get_resume_detail 加载简历后把简历展开到右侧预览。
+      // SSE 只携带 {id,name}(完整简历含 PII 不进
+      // 事件流/本地持久化,Codex review P2),前端凭 id 走已鉴权接口取详情,
+      // 再复用 applyResumeToChat 的选简历落地链路。
+      if (data.type === "resume_loaded") {
+        const r = (data as any).resume as
+          | { id?: string; name?: string }
+          | undefined;
+        if (r?.id) {
+          void (async () => {
+            try {
+              const saved = await getResume(r.id!);
+              if (saved) await applyResumeToChat(saved);
+            } catch (err) {
+              console.warn("[AgentChat] resume_loaded 取详情失败:", err);
+            }
+          })();
+        }
+        return;
+      }
+      if (classifyStructuredToolPresentation(data.type) === "process_only") return;
+      upsertStructuredEvent(messageId, data);
+    },
     applyResumeEditDiff: (data: ResumeEditDiffStructuredData) => {
       if (hasPatchInCurrentStreamRef.current) {
         console.log("[AgentChat] Skipping old applyEditDiff — resume_patch path is active");
@@ -1433,9 +1524,13 @@ function CocoChatContent() {
     },
   });
 
-  const [selectedModel, setSelectedModel] = useState<string>(
-    () => localStorage.getItem("agent_model") || DEFAULT_AGENT_MODEL,
-  );
+  const [selectedModel, setSelectedModel] = useState<string>(() => {
+    const saved = localStorage.getItem("agent_model");
+    // 记忆值必须仍在可选列表内，否则回默认（模型列表演进后防孤儿值）
+    return saved && AGENT_MODELS.some((m) => m.value === saved)
+      ? saved
+      : DEFAULT_AGENT_MODEL;
+  });
   const handleModelChange = useCallback((m: string) => {
     setSelectedModel(m);
     try {
@@ -1446,25 +1541,25 @@ function CocoChatContent() {
   }, []);
 
   const {
-    currentThought,
-    currentAnswer,
+    currentRunState,
     isProcessing,
     lastError,
     answerCompleteCount,
     sendMessage,
     finalizeStream,
+    cancelStream,
   } = useCLTP({
     conversationId,
     baseUrl: apiBaseUrl,
     heartbeatTimeout: SSE_HEARTBEAT_TIMEOUT,
+    meaningfulTimeout: SSE_MEANINGFUL_TIMEOUT,
     resumeData: normalizedResume,
     model: selectedModel,
     onSSEEvent: useCallback((event: SSEEvent) => {
       // Intercept resume_patch and resume_generated events before routing
       if ((event as any).type === 'resume_patch') {
         hasPatchInCurrentStreamRef.current = true;
-        const outerData = (event as any).data ?? {}
-        const patch = outerData.data ?? outerData
+        const patch = (event as any).data ?? {}
         pushPatch({
           patch_id:   patch.patch_id   ?? `patch-${Date.now()}`,
           // 与 resumeEditDiffs 一致，用 'current' 标记当前流式消息，
@@ -1479,24 +1574,88 @@ function CocoChatContent() {
         return;
       }
       if ((event as any).type === 'resume_generated') {
-        const outerData = (event as any).data ?? {}
-        const data = outerData.data ?? outerData
+        const data = (event as any).data ?? {}
         setGeneratedResume({ resume: data.resume, summary: data.summary ?? '' });
         return;
       }
       if ((event as any).type === 'suggestions') {
-        const outerData = (event as any).data ?? {}
-        const items = outerData.items ?? outerData.data?.items ?? []
-        setCurrentSuggestions(items);
+        return;
+      }
+      if ((event as any).type === 'auto_continue') {
+        // 只记录，不在这里发——本请求的收尾内容（AgentEndEvent/answer）还没
+        // 走完，现在调 sendMessage 会 disconnect 掉当前还没读完的流。
+        // 真正触发在下面 messages 变化的 effect 里，等这轮真正 finalize 完。
+        const payload = (event as any).data ?? {}
+        const nextInput =
+          typeof payload?.next_user_input === 'string' ? payload.next_user_input : '';
+        if (nextInput) {
+          pendingAutoContinueRef.current = nextInput;
+        }
         return;
       }
       handleSSEEvent(event);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [handleSSEEvent, pushPatch]),
   });
+  const currentThought = useMemo(
+    () => deriveThoughtText(currentRunState.process),
+    [currentRunState.process],
+  );
+  const currentProcessNodes = useMemo(
+    () => projectLegacyProcessNodes(currentRunState.process),
+    [currentRunState.process],
+  );
+  const currentAnswer = currentRunState.response.sourceText;
+
+  // 完成态权威读取：直接取最新 currentRunState（reducer 在 sourceCompleted 后
+  // 保留 process/response，直到下一轮 startNewRun 或 finalizeStream 才清空），
+  // 替代此前的 currentThoughtRef / currentAnswerRef 页面镜像。stable identity，
+  // 可安全用于其它 callback/effect 而不进依赖数组。
+  const readLiveThought = useCallback(
+    () =>
+      currentRunStateRef.current
+        ? deriveThoughtText(currentRunStateRef.current.process)
+        : "",
+    [],
+  );
+  const readLiveAnswer = useCallback(
+    () => currentRunStateRef.current?.response.sourceText ?? "",
+    [],
+  );
+
+  useEffect(() => {
+    isProcessingRef.current = isProcessing;
+  }, [isProcessing]);
 
   // 停止生成：通知后端中止当前流，并立即结束本地流式状态。
-  // 必须定义在 useCLTP 之后——deps 里的 finalizeStream 在其上方会触发 TDZ（生产构建崩溃）。
+  // 必须定义在 useCLTP 之后——deps 里的 cancelStream 在其上方会触发 TDZ。
+  // 弹出 show_resume 请求的简历选择面板。有存过简历就直达"选择已有"列表
+  // (独立review发现的老bug:以前无条件走"entry"入口页),查询失败保底 entry。
+  const flushPendingResumeSelector = useCallback(() => {
+    if (!pendingSelectorOpenRef.current) return;
+    pendingSelectorOpenRef.current = false;
+    setResumeError(null);
+    void (async () => {
+      let hasSavedResumes = false;
+      try {
+        const saved = await getAllResumes();
+        hasSavedResumes = saved.length > 0;
+      } catch (err) {
+        console.warn("[AgentChat] getAllResumes failed, fallback to entry step:", err);
+      }
+      setResumeSelectorInitialStep(hasSavedResumes ? "existing" : "entry");
+      setShowResumeSelector(true);
+    })();
+  }, []);
+
+  // 本轮流式收到 done 且不再 processing 后才弹面板;messages 变化(finalize
+  // 落消息、打字机播完)会再触发一次,保证面板出现在完整回复之后。
+  useEffect(() => {
+    if (isProcessing) return;
+    if (lastDoneRunRef.current !== streamRunRef.current) return;
+    flushPendingResumeSelector();
+  }, [isProcessing, messages, flushPendingResumeSelector]);
+
   const handleStopGeneration = useCallback(() => {
     const sid = currentSessionId || conversationId;
     if (sid) {
@@ -1505,8 +1664,8 @@ function CocoChatContent() {
         headers: getAuthHeaders(),
       }).catch(() => {});
     }
-    finalizeStream();
-  }, [apiBaseUrl, getAuthHeaders, currentSessionId, conversationId, finalizeStream]);
+    cancelStream("user_stop", "已停止生成。");
+  }, [apiBaseUrl, getAuthHeaders, currentSessionId, conversationId, cancelStream]);
 
   // 保存会话ID到 localStorage
   useEffect(() => {
@@ -1521,20 +1680,39 @@ function CocoChatContent() {
     // 所有会话（含前端生成的 conv-xxx）都持久化右侧简历展示状态，
     // 这样切走再切回同一会话时能恢复"正在展示的简历"，而不是变空白。
     if (!conversationId) return;
-    // 空状态不持久化：切换会话时 loadSession 会先清空右侧（selectedResumeId=null、loadedResumes=[]），
-    // 而此刻 conversationId 仍是上一个会话，若覆盖写入就会把上个会话已存的简历展示态抹成空，
-    // 导致切回来简历消失。所以没有简历可存时直接跳过。
-    if (!selectedResumeId && loadedResumes.length === 0) return;
+    // 切换会话时会先清空当前 UI，真正的全空态不能反向覆盖旧会话。
+    // 但“没有加载简历”的问候轮仍有 TurnSnapshot，必须持久化。
+    if (
+      !selectedResumeId &&
+      loadedResumes.length === 0 &&
+      messages.length === 0 &&
+      diagnosisToolEvents.length === 0 &&
+      structuredEvents.length === 0 &&
+      pendingPatches.length === 0
+    ) {
+      return;
+    }
 
     // 消息 meta（收尾卡/导入卡/chip）与 diff 卡按「稳定 id」持久化：
     // 活跃期消息 id 是临时随机值，恢复时会按 (role, content, index) 重新生成稳定 id，
     // 所以这里保存时就换算成稳定 id，恢复后才能挂回对应消息。
     const activeIdToStableId = new Map<string, string>();
     const messageMetas: Record<string, MessageMeta> = {};
+    const messageProcessNodes: Record<string, AgentProcessNode[]> = {};
+    const messageTurnSnapshots: Record<string, ConversationTurnSnapshot> = {};
     messages.forEach((msg, index) => {
       const stableId = stableMessageId(msg.content || "", msg.role, index);
       if (msg.id) activeIdToStableId.set(msg.id, stableId);
       if (msg.meta) messageMetas[stableId] = msg.meta;
+      if (msg.processNodes?.length) {
+        messageProcessNodes[stableId] = msg.processNodes;
+      }
+      if (msg.turnSnapshot) {
+        messageTurnSnapshots[stableId] = {
+          ...msg.turnSnapshot,
+          messageId: stableId,
+        };
+      }
     });
     const persistedPatches = pendingPatches
       .filter((p) => p.message_id !== "current") // 进行中的这轮由流式收尾 rebind 后再存
@@ -1554,6 +1732,8 @@ function CocoChatContent() {
       diagnosisToolEvents,
       structuredEvents,
       messageMetas,
+      messageProcessNodes,
+      messageTurnSnapshots,
       pendingPatches: persistedPatches,
     };
     try {
@@ -1733,6 +1913,8 @@ function CocoChatContent() {
 
         // 🔧 恢复 UI 数据（包含右侧选中态），避免“展示简历后又自动消失”。
         let savedMessageMetas: Record<string, MessageMeta> | null = null;
+        let savedMessageProcessNodes: Record<string, AgentProcessNode[]> | null = null;
+        let savedMessageTurnSnapshots: Record<string, ConversationTurnSnapshot> | null = null;
         try {
           const savedUiState = localStorage.getItem(
             `ui_state:${conversationId}`,
@@ -1744,6 +1926,8 @@ function CocoChatContent() {
               diagnosisToolEvents: savedDiagnosisToolEvents,
               structuredEvents: savedStructuredEvents,
               messageMetas: sMetas,
+              messageProcessNodes: sProcessNodes,
+              messageTurnSnapshots: sTurnSnapshots,
               pendingPatches: sPatches,
             } = JSON.parse(savedUiState);
             // 恢复已加载列表的元数据，数据会在后续逻辑中通过消息或重新加载补齐
@@ -1758,6 +1942,13 @@ function CocoChatContent() {
             }
             if (sMetas && typeof sMetas === "object") {
               savedMessageMetas = sMetas;
+            }
+            if (sProcessNodes && typeof sProcessNodes === "object") {
+              savedMessageProcessNodes = sProcessNodes;
+            }
+            if (sTurnSnapshots && typeof sTurnSnapshots === "object") {
+              savedMessageTurnSnapshots =
+                parseConversationTurnSnapshotMap(sTurnSnapshots);
             }
             // 恢复 diff 对比卡（含已应用/已拒绝终态），让历史会话能看到「改过什么」；
             // 同时把恢复的简历同步进 ResumeContext，pending 卡恢复后仍可正常「应用」
@@ -1807,6 +1998,8 @@ function CocoChatContent() {
               thought: m.thought || undefined,
               timestamp: new Date().toISOString(),
               meta: savedMessageMetas?.[id],
+              processNodes: savedMessageProcessNodes?.[id],
+              turnSnapshot: savedMessageTurnSnapshots?.[id],
             };
           },
         );
@@ -1979,12 +2172,12 @@ function CocoChatContent() {
   }, [showResumeSelector]);
 
   useEffect(() => {
-    currentThoughtRef.current = currentThought;
-  }, [currentThought]);
+    currentProcessNodesRef.current = currentProcessNodes;
+  }, [currentProcessNodes]);
 
   useEffect(() => {
-    currentAnswerRef.current = currentAnswer;
-  }, [currentAnswer]);
+    currentRunStateRef.current = currentRunState;
+  }, [currentRunState]);
 
   /**
    * Finalize current message and add to history
@@ -1999,8 +2192,8 @@ function CocoChatContent() {
       // 仅在没有活跃流内容时兜底释放，避免误清空下一条消息。
       if (
         !isProcessing &&
-        !currentThoughtRef.current.trim() &&
-        !currentAnswerRef.current.trim()
+        !readLiveThought().trim() &&
+        !readLiveAnswer().trim()
       ) {
         finalizeStream();
         window.setTimeout(() => {
@@ -2012,30 +2205,21 @@ function CocoChatContent() {
 
     isFinalizedRef.current = true;
 
+    // currentRunState 是完成态权威（reducer 在 sourceCompleted 后保留内容），
+    // 直接取最新 run state；闭包里的 currentThought/currentAnswer 作为同值兜底。
     const thoughtStateValue = currentThought.trim();
     const answerStateValue = currentAnswer.trim();
-    const fallback = lastCompletedRef.current;
-    const {
-      thought: resolvedThought,
-      answer,
-      canUseFallback,
-      fallbackRun,
-    } = resolveFinalizedContent(thoughtStateValue, answerStateValue);
+    const resolvedThought = readLiveThought().trim() || thoughtStateValue;
+    const answer = readLiveAnswer().trim() || answerStateValue;
     const thought =
       resolvedThought.trim() === "正在思考..." ? "" : resolvedThought;
 
     console.log("[AgentChat] finalizeMessage called", {
       thoughtLength: thought.length,
       answerLength: answer.length,
-      thoughtRefLength: currentThoughtRef.current.trim().length,
-      answerRefLength: currentAnswerRef.current.trim().length,
       thoughtStateLength: thoughtStateValue.length,
       answerStateLength: answerStateValue.length,
-      fallbackThoughtLength: fallback?.thought?.length || 0,
-      fallbackAnswerLength: fallback?.answer?.length || 0,
       streamRun: streamRunRef.current,
-      fallbackRun: fallbackRun ?? fallback?.run,
-      canUseFallback,
     });
 
     if (!thought && !answer) {
@@ -2043,11 +2227,7 @@ function CocoChatContent() {
         // 若已收到当前轮 done，但内容为空（常见于 agent_error），主动收口本轮，避免重复触发警告。
         if (lastDoneRunRef.current === streamRunRef.current) {
           pendingFinalizeAfterTypewriterRef.current = false;
-          finalizeRetryAttemptsRef.current = 0;
-          if (finalizeRetryTimerRef.current !== null) {
-            window.clearTimeout(finalizeRetryTimerRef.current);
-            finalizeRetryTimerRef.current = null;
-          }
+          lastFinalizedRunRef.current = streamRunRef.current;
           finalizeStream();
           window.setTimeout(() => {
             isFinalizedRef.current = false;
@@ -2061,11 +2241,7 @@ function CocoChatContent() {
       }
       console.log("[AgentChat] No content to finalize, just resetting state");
       pendingFinalizeAfterTypewriterRef.current = false;
-      finalizeRetryAttemptsRef.current = 0;
-      if (finalizeRetryTimerRef.current !== null) {
-        window.clearTimeout(finalizeRetryTimerRef.current);
-        finalizeRetryTimerRef.current = null;
-      }
+      lastFinalizedRunRef.current = streamRunRef.current;
       finalizeStream();
       setTimeout(() => {
         isFinalizedRef.current = false;
@@ -2116,11 +2292,6 @@ function CocoChatContent() {
         diffAfterValue,
       });
       pendingFinalizeAfterTypewriterRef.current = false;
-      finalizeRetryAttemptsRef.current = 0;
-      if (finalizeRetryTimerRef.current !== null) {
-        window.clearTimeout(finalizeRetryTimerRef.current);
-        finalizeRetryTimerRef.current = null;
-      }
       setSearchResults((prev) => prev.filter((item) => item.messageId !== "current"));
       setLoadedResumes((prev) => prev.filter((item) => item.messageId !== "current"));
       setResumeEditDiffs((prev) => prev.filter((item) => item.messageId !== "current"));
@@ -2138,11 +2309,6 @@ function CocoChatContent() {
     if (lastFinalizedSignatureRef.current === finalizeSignature) {
       console.log("[AgentChat] Duplicate finalize signature skipped");
       pendingFinalizeAfterTypewriterRef.current = false;
-      finalizeRetryAttemptsRef.current = 0;
-      if (finalizeRetryTimerRef.current !== null) {
-        window.clearTimeout(finalizeRetryTimerRef.current);
-        finalizeRetryTimerRef.current = null;
-      }
       finalizeStream();
       window.setTimeout(() => {
         isFinalizedRef.current = false;
@@ -2156,14 +2322,27 @@ function CocoChatContent() {
     // Use the pre-generated ID from sendUserTextMessage so resume patches can reference it
     const uniqueId = currentAssistantMessageIdRef.current ?? `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     currentAssistantMessageIdRef.current = null;
+    const completedAt = new Date().toISOString();
     const newMessage: Message = {
       id: uniqueId,
       role: "assistant",
       content: answer || "",
-      timestamp: new Date().toISOString(),
+      timestamp: completedAt,
     };
     if (thought) {
       newMessage.thought = thought;
+    }
+    if (currentProcessNodesRef.current.length > 0) {
+      newMessage.processNodes = currentProcessNodesRef.current;
+    }
+    if (currentRunStateRef.current) {
+      newMessage.turnSnapshot = buildConversationTurnSnapshot(
+        buildVisibleConversationRun(
+          currentRunStateRef.current,
+          stripResumeEditMarkdown,
+        ),
+        { messageId: uniqueId, completedAt },
+      );
     }
 
     setSearchResults((prev) => rebindCurrentMessageId(prev, uniqueId));
@@ -2197,11 +2376,6 @@ function CocoChatContent() {
 
     // Clear transient stream buffers only after message finalization work has been enqueued.
     pendingFinalizeAfterTypewriterRef.current = false;
-    finalizeRetryAttemptsRef.current = 0;
-    if (finalizeRetryTimerRef.current !== null) {
-      window.clearTimeout(finalizeRetryTimerRef.current);
-      finalizeRetryTimerRef.current = null;
-    }
 
     finalizeStream();
   }, [
@@ -2221,42 +2395,12 @@ function CocoChatContent() {
 
     pendingFinalizeAfterTypewriterRef.current = false;
 
-    if (finalizeRetryTimerRef.current !== null) {
-      window.clearTimeout(finalizeRetryTimerRef.current);
-      finalizeRetryTimerRef.current = null;
-    }
-
     finalizeMessage();
 
     window.setTimeout(() => {
       isFinalizedRef.current = false;
     }, 150);
   }, [finalizeMessage]);
-
-  useEffect(() => {
-    if (streamDoneTick === 0 || !isProcessing) {
-      return;
-    }
-    if (lastDoneRunRef.current !== streamRunRef.current) {
-      return;
-    }
-    if (pendingFinalizeAfterTypewriterRef.current) {
-      return;
-    }
-
-    pendingFinalizeAfterTypewriterRef.current = true;
-    finalizeAfterTypewriter();
-
-    const guardTimer = window.setTimeout(() => {
-      if (pendingFinalizeAfterTypewriterRef.current) {
-        finalizeAfterTypewriter();
-      }
-    }, 600);
-
-    return () => {
-      window.clearTimeout(guardTimer);
-    };
-  }, [streamDoneTick, isProcessing, finalizeAfterTypewriter]);
 
   const refreshSessions = useCallback(() => {
     setSessionsRefreshKey((prev) => prev + 1);
@@ -2722,7 +2866,7 @@ function CocoChatContent() {
   }, [conversationId, messages, schedulePersistSessionSnapshot]);
 
   const saveCurrentSession = useCallback(() => {
-    if (isProcessing || currentThoughtRef.current || currentAnswerRef.current) {
+    if (isProcessing || readLiveThought() || readLiveAnswer()) {
       pendingSaveRef.current = true;
       return;
     }
@@ -3021,6 +3165,8 @@ function CocoChatContent() {
 
       // 恢复会话级 UI 状态（包含右侧选中态）
       let savedMessageMetas: Record<string, MessageMeta> | null = null;
+      let savedMessageProcessNodes: Record<string, AgentProcessNode[]> | null = null;
+      let savedMessageTurnSnapshots: Record<string, ConversationTurnSnapshot> | null = null;
       try {
         const savedUiState = localStorage.getItem(`ui_state:${sessionId}`);
         if (savedUiState) {
@@ -3030,6 +3176,8 @@ function CocoChatContent() {
             diagnosisToolEvents: savedDiagnosisToolEvents,
             structuredEvents: savedStructuredEvents,
             messageMetas: sMetas,
+            messageProcessNodes: sProcessNodes,
+            messageTurnSnapshots: sTurnSnapshots,
             pendingPatches: sPatches,
           } = JSON.parse(savedUiState);
           if (Array.isArray(sLrs) && sLrs.length > 0) {
@@ -3043,6 +3191,13 @@ function CocoChatContent() {
           }
           if (sMetas && typeof sMetas === "object") {
             savedMessageMetas = sMetas;
+          }
+          if (sProcessNodes && typeof sProcessNodes === "object") {
+            savedMessageProcessNodes = sProcessNodes;
+          }
+          if (sTurnSnapshots && typeof sTurnSnapshots === "object") {
+            savedMessageTurnSnapshots =
+              parseConversationTurnSnapshotMap(sTurnSnapshots);
           }
           // 恢复 diff 对比卡（含已应用/已拒绝终态），让历史会话能看到「改过什么」；
           // 同时把恢复的简历同步进 ResumeContext，pending 卡恢复后仍可正常「应用」
@@ -3084,6 +3239,8 @@ function CocoChatContent() {
             thought: m.thought || undefined,
             timestamp: new Date().toISOString(),
             meta: savedMessageMetas?.[id],
+            processNodes: savedMessageProcessNodes?.[id],
+            turnSnapshot: savedMessageTurnSnapshots?.[id],
           };
         },
       );
@@ -3338,16 +3495,8 @@ function CocoChatContent() {
     navigate("/agent/new");
   }, [navigate]);
 
-  const handleResumeSelect = useCallback(
-    async (selectedResume: SavedResume) => {
-      await applyResumeToChat(selectedResume);
-
-      if (pendingResumeInput.trim() && isProcessing) {
-        finalizeStream();
-      }
-    },
-    [applyResumeToChat, pendingResumeInput, isProcessing, finalizeStream],
-  );
+  // handleResumeSelect 定义在 sendUserTextMessage 之后（依赖它，提前引用会 TDZ），
+  // 见下方「选择简历对话化」实现。
 
   // 取消简历选择
   const handleResumeSelectorCancel = useCallback(() => {
@@ -3890,13 +4039,27 @@ function CocoChatContent() {
       userMessage: string,
       attachments?: File[],
       resumeDataOverride?: ResumeData | null,
+      bypassProcessingGuard?: boolean,
+      // 静默用户气泡:replay 重发(选简历后带简历重跑原请求)是技术动作,
+      // 用户只说过一次话,时间线不该出现第二个一模一样的气泡
+      // (2026-07-13 实测截图追踪问题 2)
+      silentUserBubble?: boolean,
     ) => {
       if (
         (!userMessage.trim() && (!attachments || attachments.length === 0)) ||
-        isProcessing ||
-        isPasteImporting
+        (!bypassProcessingGuard && (isProcessing || isPasteImporting))
       )
         return;
+
+      // 真实用户主动发的一轮：清掉上一次整份优化任务遗留的自动续跑状态。
+      // 独立review发现：不清会导致 (a) 防御性计数跨任务累加，同一个标签页
+      // 里第2、3个整份优化任务提前撞上前端防御性上限，被早已收尾的旧任务
+      // "borrow"掉续跑额度；(b) 某次 auto_continue 因命中 finalizeMessage
+      // 的空内容分支而没被消费，错误地黏到下一条不相关的用户消息后触发。
+      // 放在函数最前面、早于所有分支 return，覆盖粘贴导入/创建简历等
+      // 不经过 agent stream 的分支。
+      pendingAutoContinueRef.current = null;
+      autoContinueFiredCountRef.current = 0;
 
       const trimmedMessage = userMessage.trim();
       const pasteResumeText =
@@ -3949,9 +4112,20 @@ function CocoChatContent() {
         setShowResumeSelector(false);
       }
 
+      // 独立review发现的真实bug：这条固定模板回复只按文本正则触发，从不检查
+      // 简历面板里是不是已经有简历——用户已经加载/上传过简历，再说一句带
+      // "创建/生成简历"字样的话（哪怕本意是别的），也会被这里硬生生打断成
+      // 一段罐头文案，完全绕过了后端 manus.py 里本来就有的、真正会检查
+      // "当前 context 中还没有简历内容"这个条件的 agent 推理。加一道同款的
+      // "面板里已有简历"判断——已经有简历就不走这条快捷方式，让消息正常
+      // 发给 agent，由它自己根据真实状态判断怎么回（用户明确要的效果）。
+      const hasResumeContextForCreateIntent =
+        !!resumeDataRef.current ||
+        loadedResumes.some((item) => !!item.resumeData);
       if (
         isCreateResumeIntentText(trimmedMessage) &&
-        (!attachments || attachments.length === 0)
+        (!attachments || attachments.length === 0) &&
+        !hasResumeContextForCreateIntent
       ) {
         const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
         const userMessageEntry: Message = {
@@ -3996,9 +4170,9 @@ function CocoChatContent() {
       const uniqueId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       currentRunUserInputRef.current = userMessage.trim();
       hasPatchInCurrentStreamRef.current = false;
+      pendingSelectorOpenRef.current = false;
       // 新一轮消息开始：把上一轮未处理的 pending patch 标记为 superseded
       supersedePendingPatches();
-      setCurrentSuggestions([]);
       setSearchResults((prev) =>
         prev.filter((item) => item.messageId !== "current"),
       );
@@ -4029,10 +4203,14 @@ function CocoChatContent() {
         timestamp: new Date().toISOString(),
         attachments: attachmentMeta,
       };
-      const nextMessages = [...messages, userMessageEntry];
+      const nextMessages = silentUserBubble
+        ? [...messages]
+        : [...messages, userMessageEntry];
       const isFirstMessage = messages.length === 0;
 
-      setMessages(nextMessages);
+      if (!silentUserBubble) {
+        setMessages(nextMessages);
+      }
       if (isFirstMessage) {
         // 保持当前会话，不创建新的 conversationId
         // 只有当确实没有 conversationId 时才创建新的
@@ -4051,16 +4229,10 @@ function CocoChatContent() {
 
       isFinalizedRef.current = false;
       pendingFinalizeAfterTypewriterRef.current = false;
-      finalizeRetryAttemptsRef.current = 0;
-      if (finalizeRetryTimerRef.current !== null) {
-        window.clearTimeout(finalizeRetryTimerRef.current);
-        finalizeRetryTimerRef.current = null;
-      }
       const nextRunId = startNewRun();
       setActiveRunId(nextRunId);
       lastDoneRunRef.current = -1;
-      currentThoughtRef.current = "";
-      currentAnswerRef.current = "";
+      currentProcessNodesRef.current = [];
       // Pre-generate a message ID for this run so resume patches can reference it
       currentAssistantMessageIdRef.current = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       setSearchResults((prev) =>
@@ -4095,15 +4267,115 @@ function CocoChatContent() {
     ],
   );
 
+  // Asking 模式提交：把用户逐项选择的结果拼成结构化文本，作为下一轮 prompt 发出去。
+  // agent 在新一轮里读到答案 + ResumeDataStore 里 progress 仍保留该模块 pending，
+  // 用答案改写模块或判定 skip，整份优化接着推进。必须放在 sendUserTextMessage
+  // 定义之后（依赖它），和上面 heroInput 首条消息同一处理由。
+  const handleAskQuestionSubmit = useCallback(
+    (answers: AskQuestionAnswer[]) => {
+      if (askQuestionSubmitted) return;
+      setAskQuestionSubmitted(true);
+      // 点击即对话 P2：气泡文案说人话（第一人称短句），LLM 同样读得懂；
+      // 原 `[选择框确认的信息]` 技术标记经核无任何前后端依赖，安全移除。
+      const lines = answers.map((a) => {
+        if (a.choice === "skip") return `${a.header} 跳过`;
+        return `${a.header} ${a.value || "(空)"}`;
+      });
+      const message = `我确认这些信息：${lines.join("；")}`;
+      // bypassProcessingGuard=true：选择框提交是"回复 agent 的提问"，此时
+      // isProcessing 可能还是 true（后端 FINISHED 但前端 SSE 收尾状态更新有
+      // 延迟），走正常 guard 会被挡住静默 return——用户实测"提交无反应"。
+      void sendUserTextMessage(message, undefined, undefined, true);
+    },
+    [askQuestionSubmitted, sendUserTextMessage],
+  );
+
+  // 选择简历对话化（2026-07-15 设计）：点选简历是用户的一次输出，以用户
+  // 气泡进入对话并触发 Agent 真实回应一轮，而非一条居中 assistant 回执。
+  // 必须定义在 sendUserTextMessage 之后（依赖它，提前引用会 TDZ）。
+  const handleResumeSelect = useCallback(
+    async (selectedResume: SavedResume) => {
+      // 注意不要在这里掐断进行中的流(此前 isProcessing 时调 finalizeStream,
+      // 会把尚未 finalize 的 AI 引导文案直接清空,历史上表现为"选完简历上一轮
+      // 消息消失")。暂存输入的重发由 replay effect 负责,其自带等流结束的守卫。
+      await applyResumeToChat(selectedResume);
+      const selectionText = `我选择了「${selectedResume.name || "这份简历"}」这份简历`;
+      if (pendingResumeInput.trim()) {
+        // 用户带着意图来（如先说"帮我优化简历"再选）：replay effect 会静默
+        // 重发原意图，已构成本次选择后的真实一轮——这里只补用户气泡记录
+        // 选择动作，不再另发一轮，避免双轮。
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `${Date.now()}-resume-selected`,
+            role: "user",
+            content: selectionText,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+        return;
+      }
+      // 直接点选（无暂存意图）：选择本身走完整一轮（用户气泡 + Agent 确认
+      // 与下一步引导）。简历数据已由 applyResumeToChat 同步写入
+      // resumeDataRef，随请求自动带上。bypassProcessingGuard 理由同上方
+      // AskQuestion 提交：面板动作可能撞上上一轮 SSE 收尾的尾态。
+      void sendUserTextMessage(selectionText, undefined, undefined, true);
+    },
+    [applyResumeToChat, pendingResumeInput, sendUserTextMessage],
+  );
+
   // 首页 hero 输入框带来的第一条消息：会话就绪后自动发出一次。
   // 复用 sendUserTextMessage（其内部会自动识别粘贴的简历文本并走解析），不新建平行链路。
   // 必须放在 sendUserTextMessage 定义之后，否则依赖数组会在 TDZ 中访问它而报错。
   // 优化对比卡收尾：本批全部处理完（无 pending）且至少应用了一处 → 插入收尾卡（下载 PDF / 去编辑器）
   const prevPendingCountRef = useRef(0);
+  // 已经记录进气泡的 patch_id：用来算「本批新处理」的 patch，避免气泡数字
+  // 用全会话累计（原来第二批点 1 处会显示「4 处」）+ 让气泡只描述本批改动。
+  const recordedPatchIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     const pendingCount = pendingPatches.filter((p) => p.status === "pending").length;
-    const appliedCount = pendingPatches.filter((p) => p.status === "applied").length;
-    if (prevPendingCountRef.current > 0 && pendingCount === 0 && appliedCount > 0) {
+    const newlyApplied = pendingPatches.filter(
+      (p) => p.status === "applied" && !recordedPatchIdsRef.current.has(p.patch_id),
+    );
+    const newlyRejected = pendingPatches.filter(
+      (p) => p.status === "rejected" && !recordedPatchIdsRef.current.has(p.patch_id),
+    );
+    // 点击即对话（specs/2026-07-15-点击即对话-统一交互原则 P1）：全部拒绝
+    // 也是用户完成的一个决定，留一条气泡记录（不发轮、不出收尾卡）。
+    if (
+      prevPendingCountRef.current > 0 &&
+      pendingCount === 0 &&
+      newlyApplied.length === 0 &&
+      newlyRejected.length > 0
+    ) {
+      const rejectedCount = newlyRejected.length;
+      newlyRejected.forEach((p) => recordedPatchIdsRef.current.add(p.patch_id));
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: `${Date.now()}-patches-rejected`,
+          role: "user",
+          content: buildRejectDecisionCopy(rejectedCount),
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    }
+    if (prevPendingCountRef.current > 0 && pendingCount === 0 && newlyApplied.length > 0) {
+      const appliedCount = newlyApplied.length;
+      const rejectedCount = newlyRejected.length;
+      const appliedSummaries = newlyApplied.map((p) => p.summary);
+      [...newlyApplied, ...newlyRejected].forEach((p) =>
+        recordedPatchIdsRef.current.add(p.patch_id),
+      );
+      // 点击即对话 P1：应用（含「全部应用」）是用户的决定，先落一条用户
+      // 气泡（复用 summary 说清具体改了什么），下面的收尾卡与 LLM 静默收尾
+      // 轮自然成为对它的回应。
+      const decisionMsg: Message = {
+        id: `${Date.now()}-patches-applied`,
+        role: "user",
+        content: buildApplyDecisionCopy(appliedSummaries, rejectedCount),
+        timestamp: new Date().toISOString(),
+      };
       // 瘦身版收尾卡:只留功能入口(下载/再优化/精修),"说什么"交给下面的 LLM 收尾轮
       const doneMsg: Message = {
         id: `${Date.now()}-apply-done`,
@@ -4113,7 +4385,7 @@ function CocoChatContent() {
         meta: { applyDone: { count: appliedCount } },
       };
       setMessages((prev) => {
-        const updated = [...prev, doneMsg];
+        const updated = [...prev, decisionMsg, doneMsg];
         const sid = conversationId?.trim() || currentSessionId;
         if (sid) void persistSessionSnapshot(sid, updated, false);
         return updated;
@@ -4126,27 +4398,20 @@ function CocoChatContent() {
         // finalize 直接吞掉,总结正文永远落不进时间线(2026-07-10 实测)。
         isFinalizedRef.current = false;
         pendingFinalizeAfterTypewriterRef.current = false;
-        finalizeRetryAttemptsRef.current = 0;
-        if (finalizeRetryTimerRef.current !== null) {
-          window.clearTimeout(finalizeRetryTimerRef.current);
-          finalizeRetryTimerRef.current = null;
-        }
         const nextRunId = startNewRun();
         setActiveRunId(nextRunId);
         lastDoneRunRef.current = -1;
-        currentThoughtRef.current = "";
-        currentAnswerRef.current = "";
+        currentProcessNodesRef.current = [];
         currentRunUserInputRef.current = "";
         hasPatchInCurrentStreamRef.current = false;
         currentAssistantMessageIdRef.current = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        setCurrentSuggestions([]);
         setSearchResults((prev) => prev.filter((item) => item.messageId !== "current"));
         setLoadedResumes((prev) => prev.filter((item) => item.messageId !== "current"));
         setResumeEditDiffs((prev) => prev.filter((item) => item.messageId !== "current"));
         setDiagnosisToolEvents((prev) => prev.filter((item) => item.messageId !== "current"));
         setStructuredEvents((prev) => prev.filter((item) => item.messageId !== "current"));
         void sendMessage(
-          `[系统内部提示,不要向用户复述本条] 用户刚刚应用了 ${appliedCount} 处简历修改(内容是你此前给出的修改)。` +
+          `[系统内部提示,不要向用户复述本条] 用户刚刚应用了 ${appliedCount} 处简历修改：${appliedSummaries.join("；")}。` +
             "你的回复必须以「Response: 」开头,包含两部分,顺序固定:" +
             "第一部分(必须有,禁止为空,禁止只输出建议标记):用 1-2 句自然的话告诉用户这次实际改好了什么" +
             "(基于会话里真实发生的修改点名具体段落,例如「美团那段的量化数据补上了,项目描述也更突出成果了」,不要泛泛而谈);" +
@@ -4159,6 +4424,76 @@ function CocoChatContent() {
     prevPendingCountRef.current = pendingCount;
     // startNewRun/setter 均只操作 ref 或为稳定引用,不列入 deps 避免每渲染重跑
   }, [pendingPatches, conversationId, currentSessionId, persistSessionSnapshot, isProcessing, sendMessage]);
+
+  // 整份优化任务续跑：上一轮真正 finalize 完（!isProcessing 且最后一条落进
+  // messages 的是 assistant 消息）之后，如果攒了 auto_continue 待续跑输入，
+  // 静默发起下一轮——不渲染用户气泡，用户感知不到这是"又发了一条消息"，
+  // 跟手动回复"继续优化"效果一样，只是自动做的。见设计方案七点五
+  // （前端消费 AutoContinueEvent，此前是已知缺口）。
+  //
+  // 注意：finalizeMessage 有几条"内容为空/重复签名/陈旧diff"分支会在不
+  // append messages 的情况下直接 finalizeStream()（isProcessing→false）；
+  // 命中这些分支时 last 仍是上一条 assistant 消息，下面的判断依然会放行
+  // 触发续跑——这是有意为之（真实发生过 auto_continue 的场景理应继续），
+  // 不是判断漏了这些分支。
+  useEffect(() => {
+    if (!pendingAutoContinueRef.current) return;
+    if (isProcessing) return;
+    const last = messages[messages.length - 1];
+    if (!last || last.role !== "assistant") return;
+
+    // 独立review发现的竞态：同一次 commit 里，如果 pendingPatches 静默轮
+    // effect 也判定该发（它先于本 effect 定义，会先跑），两边都读到
+    // isProcessing===false，都会调 sendMessage，后发的这个会把先发的流
+    // disconnect 掉。延后一个宏任务，让对方 sendMessage 里同步调用的
+    // setIsProcessing(true) 先落地，再用实时 ref 复核一次。
+    const timer = window.setTimeout(() => {
+      if (isProcessingRef.current) return; // 另一个静默轮已经在跑，这次让它，ref 留着下次重试
+      // 上一轮还有未落地的正文(打字机/finalize 定时器进行中):现在发新轮会
+      // resetStreamBuffers 把它截断——2026-07-13 实测丢字"…推进到下一个模"。
+      // pending 留着,finalize append 消息后本 effect 会因 messages 变化重跑。
+      // (内容为空时不拦:agent_error/空回答的续跑维持原"有意放行"语义)
+      if (
+        pendingFinalizeAfterTypewriterRef.current &&
+        (readLiveAnswer().trim() || readLiveThought().trim())
+      ) {
+        return;
+      }
+      if (autoContinueFiredCountRef.current >= AUTO_CONTINUE_FRONTEND_CAP) {
+        console.warn(
+          "[AgentChat] auto_continue 前端防御性上限触发，停止自动续跑",
+          { fired: autoContinueFiredCountRef.current },
+        );
+        pendingAutoContinueRef.current = null;
+        return;
+      }
+      const nextInput = pendingAutoContinueRef.current;
+      if (!nextInput) return;
+      pendingAutoContinueRef.current = null;
+      autoContinueFiredCountRef.current += 1;
+
+      // 静默轮同样必须走完整的新轮初始化（同上方 pendingPatches 静默轮的
+      // 教训：裸调 sendMessage 会导致 streamRunRef 不推进，finalize 被同
+      // run 判重吞掉）。
+      isFinalizedRef.current = false;
+      pendingFinalizeAfterTypewriterRef.current = false;
+      const nextRunId = startNewRun();
+      setActiveRunId(nextRunId);
+      lastDoneRunRef.current = -1;
+      currentProcessNodesRef.current = [];
+      currentRunUserInputRef.current = "";
+      hasPatchInCurrentStreamRef.current = false;
+      currentAssistantMessageIdRef.current = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      setSearchResults((prev) => prev.filter((item) => item.messageId !== "current"));
+      setLoadedResumes((prev) => prev.filter((item) => item.messageId !== "current"));
+      setResumeEditDiffs((prev) => prev.filter((item) => item.messageId !== "current"));
+      setDiagnosisToolEvents((prev) => prev.filter((item) => item.messageId !== "current"));
+      setStructuredEvents((prev) => prev.filter((item) => item.messageId !== "current"));
+      // next_user_input 已带 AUTO_CONTINUE_PREFIX，原样传给后端，不能再包装。
+      void sendMessage(nextInput, resumeDataRef.current);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [messages, isProcessing, sendMessage]);
 
   const heroInitialConsumedRef = useRef(false);
   useEffect(() => {
@@ -4459,9 +4794,17 @@ function CocoChatContent() {
     if (!pendingResumeInput.trim()) return;
     if (!resumeData) return;
     if (showResumeSelector || isProcessing) return;
+    // 同步 ref 守卫:setPendingResumeInput("") 是异步 state 更新,在嵌套
+    // commit / StrictMode 双跑等场景下,本 effect 可能带着旧的 pendingResumeInput
+    // 快照连续重入——2026-07-13 实测一次点击引发 48 连发 sendMessage、后端被
+    // 273 轮"我要优化简历"打爆(Maximum update depth @ useCLTP finally)。
+    // ref 同步生效,同一发弹药只允许发射一次。
+    if (replayFiredForInputRef.current === pendingResumeInput) return;
+    replayFiredForInputRef.current = pendingResumeInput;
     const replay = pendingResumeInput;
     setPendingResumeInput("");
-    void sendUserTextMessage(replay, undefined, resumeData);
+    // silentUserBubble:重发的是用户已说过的原话,不渲染重复气泡
+    void sendUserTextMessage(replay, undefined, resumeData, false, true);
   }, [
     pendingResumeInput,
     resumeData,
@@ -4477,74 +4820,15 @@ function CocoChatContent() {
     }
     isFinalizedRef.current = false;
     lastHandledAnswerCompleteRef.current = answerCompleteCount;
+    if (lastFinalizedRunRef.current === streamRunRef.current) {
+      pendingFinalizeAfterTypewriterRef.current = false;
+      return;
+    }
+    // 打字机播完 → 标记待 finalize。完成态内容由 currentRunState 保留至
+    // finalizeStream，不再抓页面级完成快照（captureCompletionSnapshot 已随
+    // 镜像 ref 一并移除）。
     pendingFinalizeAfterTypewriterRef.current = true;
-
-    const currentAnswerValue = currentAnswerRef.current.trim() || currentAnswer.trim();
-    const currentThoughtValue = currentThoughtRef.current.trim() || currentThought.trim();
-    const hasAnyContent = currentAnswerValue || currentThoughtValue;
-
-    if (hasAnyContent) {
-      captureCompletionSnapshot(currentThoughtValue, currentAnswerValue);
-    }
-
-    // Fallback: if打字机回调没有触发（例如空回答），短延时后兜底完成。
-    if (finalizeRetryTimerRef.current !== null) {
-      window.clearTimeout(finalizeRetryTimerRef.current);
-    }
-    finalizeRetryAttemptsRef.current = 0;
-    finalizeRetryTimerRef.current = window.setTimeout(() => {
-      if (!pendingFinalizeAfterTypewriterRef.current) {
-        finalizeRetryTimerRef.current = null;
-        return;
-      }
-
-      const fallbackAnswer = currentAnswerRef.current.trim() || currentAnswer.trim();
-      const fallbackThought = currentThoughtRef.current.trim() || currentThought.trim();
-      if (fallbackAnswer || fallbackThought) {
-        finalizeAfterTypewriter();
-      } else {
-        finalizeRetryAttemptsRef.current += 1;
-        if (finalizeRetryAttemptsRef.current <= 5) {
-          finalizeRetryTimerRef.current = window.setTimeout(() => {
-            if (!pendingFinalizeAfterTypewriterRef.current) {
-              finalizeRetryTimerRef.current = null;
-              return;
-            }
-            const retryAnswer =
-              currentAnswerRef.current.trim() || currentAnswer.trim();
-            const retryThought =
-              currentThoughtRef.current.trim() || currentThought.trim();
-            if (retryAnswer || retryThought) {
-              finalizeAfterTypewriter();
-              return;
-            }
-            if (finalizeRetryAttemptsRef.current >= 5) {
-              pendingFinalizeAfterTypewriterRef.current = false;
-              finalizeMessage();
-            }
-          }, 220);
-          return;
-        }
-        pendingFinalizeAfterTypewriterRef.current = false;
-        finalizeMessage();
-      }
-      finalizeRetryTimerRef.current = null;
-    }, 800);
-  }, [
-    answerCompleteCount,
-    currentAnswer,
-    currentThought,
-    finalizeAfterTypewriter,
-    finalizeMessage,
-  ]);
-
-  useEffect(() => {
-    return () => {
-      if (finalizeRetryTimerRef.current !== null) {
-        window.clearTimeout(finalizeRetryTimerRef.current);
-      }
-    };
-  }, []);
+  }, [answerCompleteCount]);
 
   /**
    * Send message to backend via SSE
@@ -4721,6 +5005,8 @@ function CocoChatContent() {
         setShowResumeSelector(true);
       }}
       onStop={handleStopGeneration}
+      previewConcealed={Boolean(selectedResumeId) && previewConcealed}
+      onRevealPreview={() => setPreviewConcealed(false)}
     />
   );
 
@@ -4739,12 +5025,12 @@ function CocoChatContent() {
         <div className="flex-1 flex overflow-hidden relative">
           {/* Left: Chat */}
           <section className="flex-1 min-w-0 flex flex-col h-full">
-            <div className="shrink-0 px-4 py-2 border-b-2 border-black dark:border-slate-800 flex items-center justify-between gap-3 bg-chat-canvas/80 dark:bg-slate-950/80">
+            <div className="shrink-0 px-4 py-2 border-b-2 border-black fresh:border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-chat-canvas/80 dark:bg-slate-950/80">
               <ModelSelector value={selectedModel} onChange={handleModelChange} />
               <div className="min-w-0 flex items-center gap-2 text-xs text-gray-400">
                 <span className="shrink-0">会话 ID</span>
                 <code
-                  className="truncate rounded-none border border-black/20 bg-slate-100 dark:bg-slate-900 px-2 py-0.5 text-[11px] text-slate-600 dark:text-slate-300 font-mono"
+                  className="truncate rounded-none fresh:rounded-lg border border-black fresh:border-slate-200/20 bg-slate-100 dark:bg-slate-900 px-2 py-0.5 text-[11px] text-slate-600 dark:text-slate-300 font-mono"
                   title={activeSessionId || undefined}
                 >
                   {activeSessionId || "—"}
@@ -4759,7 +5045,7 @@ function CocoChatContent() {
                   </div>
                 )}
                 {resumeError && (
-                  <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-950/30 border-2 border-black dark:border-red-900/50 rounded-none mb-4">
+                  <div className="flex items-start gap-3 p-3 bg-red-50 dark:bg-red-950/30 border-2 fresh:border border-black fresh:border-slate-200 fresh:border-slate-200 dark:border-red-900/50 rounded-none fresh:rounded-lg mb-4">
                     <span className="text-sm text-red-600 dark:text-red-400 flex-1">{resumeError}</span>
                     <button
                       onClick={() => {
@@ -4767,7 +5053,7 @@ function CocoChatContent() {
                         const lastUser = [...messages].reverse().find((m) => m.role === "user");
                         if (lastUser) void sendUserTextMessage(lastUser.content);
                       }}
-                      className="text-xs font-medium text-red-600 dark:text-red-300 border border-black dark:border-red-800 rounded-none px-2 py-1 hover:bg-red-100 dark:hover:bg-red-900/40 shrink-0"
+                      className="text-xs font-medium text-red-600 dark:text-red-300 border border-black fresh:border-slate-200 dark:border-red-800 rounded-none fresh:rounded-lg px-2 py-1 hover:bg-red-100 dark:hover:bg-red-900/40 shrink-0"
                     >
                       重新发送
                     </button>
@@ -4791,7 +5077,7 @@ function CocoChatContent() {
                 {isEmptyState &&
                   (carryResumePrompt ? (
                     <div className="w-full max-w-lg mx-auto px-4 flex-1 flex flex-col justify-center">
-                      <div className="rounded-none border-2 border-black bg-chat-surface p-6 text-center shadow-[3px_3px_0px_0px_#000000] dark:border-white dark:bg-slate-800/60 dark:shadow-[3px_3px_0px_0px_#ffffff]">
+                      <div className="rounded-none fresh:rounded-lg border-2 fresh:border border-black fresh:border-slate-200 fresh:border-slate-200 bg-chat-surface p-6 text-center shadow-[3px_3px_0px_0px_#000000] fresh:shadow-sm dark:border-white dark:bg-slate-800/60 dark:shadow-[3px_3px_0px_0px_#ffffff]">
                         <div className="mb-1 text-sm text-chat-ink-muted dark:text-slate-400">
                           从编辑页带来了
                         </div>
@@ -4802,14 +5088,14 @@ function CocoChatContent() {
                           <button
                             type="button"
                             onClick={handleContinueEditCarry}
-                            className="flex-1 rounded-none border-2 border-black bg-chat-accent px-4 py-2.5 text-sm font-semibold text-white shadow-[2px_2px_0px_0px_#000000] transition-all hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:border-white dark:bg-amber-500 dark:shadow-[2px_2px_0px_0px_#ffffff]"
+                            className="flex-1 rounded-none fresh:rounded-lg border-2 fresh:border border-black fresh:border-slate-200 fresh:border-slate-200 bg-chat-accent px-4 py-2.5 text-sm font-semibold text-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm transition-all hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:border-white dark:bg-amber-500 dark:shadow-[2px_2px_0px_0px_#ffffff]"
                           >
                             继续编辑这份
                           </button>
                           <button
                             type="button"
                             onClick={handleStartNewFromCarry}
-                            className="flex-1 rounded-none border-2 border-black bg-white px-4 py-2.5 text-sm font-semibold text-chat-ink-muted shadow-[2px_2px_0px_0px_#000000] transition-all hover:text-chat-ink hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300"
+                            className="flex-1 rounded-none fresh:rounded-lg border-2 fresh:border border-black fresh:border-slate-200 fresh:border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-chat-ink-muted shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm transition-all hover:text-chat-ink hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:border-slate-600 dark:bg-slate-900 dark:text-slate-300"
                           >
                             开启新会话
                           </button>
@@ -4852,84 +5138,33 @@ function CocoChatContent() {
                     setResumeSelectorInitialStep("entry");
                     setShowResumeSelector(true);
                   }}
-                  onRegenerate={() => {
-                    const userMessages = messages.filter((m) => m.role === "user");
-                    const lastUserMsg = userMessages[userMessages.length - 1];
-                    if (lastUserMsg) {
-                      void sendUserTextMessage(lastUserMsg.content);
-                    }
-                  }}
                   onSuggestionClick={(msg) => {
                     setInput("");
                     void sendUserTextMessage(msg);
                   }}
                   onDownloadPdf={handleDownloadPdf}
                   onGoEditor={handleGoEditor}
+                  askQuestionHandler={{
+                    onSubmit: handleAskQuestionSubmit,
+                    submitted: askQuestionSubmitted,
+                  }}
                 />
 
                 <StreamingLane
-                  currentThought={currentThought}
-                  currentAnswer={currentAnswer}
+                  conversationRun={currentRunState}
                   isProcessing={isProcessing}
-                  suggestions={currentSuggestions}
                   onSuggestionClick={(msg) => {
                     setInput("");
                     void sendUserTextMessage(msg);
                   }}
-                  shouldHideResponseInChat={pendingPatches.some(
-                    (p) => p.message_id === "current",
-                  )}
-                  hasPendingPatchCards={pendingPatches.some(
-                    (p) => p.message_id === "current",
-                  )}
-                  currentEditDiff={
-                    // 当前轮已经有任何 patch 卡片（无论状态），就不再走旧的 editDiff 路径
-                    pendingPatches.some(p => p.message_id === 'current')
-                      ? undefined
-                      : resumeEditDiffs.find((r) => r.messageId === "current")
-                  }
-                  currentSearch={searchResults.find((r) => r.messageId === "current")}
-                  currentDiagnosisTools={diagnosisToolEvents
-                    .filter((item) => item.messageId === "current")
-                    .map((item) => item.data)}
-                  currentStructured={structuredEvents
-                    .filter((item) => item.messageId === "current")
-                    .map((item) => item.data)}
                   stripResumeEditMarkdown={stripResumeEditMarkdown}
                   onOpenSearchPanel={setActiveSearchPanel}
                   onResponseTypewriterComplete={finalizeAfterTypewriter}
+                  askQuestionHandler={{
+                    onSubmit: handleAskQuestionSubmit,
+                    submitted: askQuestionSubmitted,
+                  }}
                 />
-
-                {/* 仅渲染当前流式消息 (message_id === 'current') 的 patch 卡片；
-                    历史消息的 patch 卡片由 MessageTimeline 按 message_id 关联渲染。 */}
-                {pendingPatches.some(p => p.message_id === 'current') && (
-                  <div className="px-4 py-1 space-y-2">
-                    <ApplyAllPatchesBar
-                      patches={pendingPatches.filter(p => p.message_id === 'current')}
-                    />
-                    {pendingPatches
-                      .filter(p => p.message_id === 'current')
-                      .map(patch => (
-                        <ResumeDiffCard
-                          key={patch.patch_id}
-                          patch={patch}
-                          defaultCollapsed={pendingPatches.filter(p => p.message_id === 'current' && p.status === 'pending').length >= 2}
-                        />
-                      ))
-                    }
-                  </div>
-                )}
-
-                {/* ResumeGeneratedCard */}
-                {generatedResume && (
-                  <div className="px-4 py-1">
-                    <ResumeGeneratedCard
-                      resume={generatedResume.resume}
-                      summary={generatedResume.summary}
-                      onDismiss={() => setGeneratedResume(null)}
-                    />
-                  </div>
-                )}
 
                 {/* 按 JD 优化简历交互卡（首页「按 JD 改简历」chip 进入） */}
                 {showJdCard && (
@@ -4958,6 +5193,20 @@ function CocoChatContent() {
                   />
                 )}
 
+                {/* 对话流唯一反馈栏：绑最后一条 assistant 回复，永远位于
+                    所有消息与面板之后（2026-07-15 问题 A：反馈上收）。 */}
+                <ConversationFeedbackBar
+                  messages={messages}
+                  isProcessing={isProcessing}
+                  onRegenerate={() => {
+                    const userMessages = messages.filter((m) => m.role === "user");
+                    const lastUserMsg = userMessages[userMessages.length - 1];
+                    if (lastUserMsg) {
+                      void sendUserTextMessage(lastUserMsg.content);
+                    }
+                  }}
+                />
+
                 {/* 处理中占位由 StreamingLane 内的星芒 ThinkingIndicator 统一负责，此处不再重复 */}
 
                 <div ref={messagesEndRef} />
@@ -4972,7 +5221,8 @@ function CocoChatContent() {
             )}
           </section>
 
-          {/* Right: Resume Preview - 只在有选中简历时显示 */}
+          {/* Right: Resume Preview - 只在有选中简历时显示；concealed 时
+              视觉隐藏但保持挂载渲染（对话区看起来是纯聊天，展开零等待） */}
           {selectedResumeId && (
             <AgentPdfPreviewPanel
               resumeName={selectedLoadedResume?.name}
@@ -4981,6 +5231,8 @@ function CocoChatContent() {
               progress={selectedResumePdfState.progress}
               error={selectedResumePdfState.error}
               justUpdated={previewJustUpdated}
+              concealed={previewConcealed}
+              onToggleConceal={() => setPreviewConcealed(true)}
               onRerender={() => {
                 if (selectedLoadedResume) {
                   void renderResumePdfPreview(selectedLoadedResume, true);

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Check, ChevronDown, ChevronUp, X, SkipForward } from 'lucide-react'
-import { useResumeContext, type PendingPatch } from '../../contexts/ResumeContext'
+import { useOptionalResumeContext, type PendingPatch } from '../../contexts/ResumeContext'
 import { formatPatchDiffSide, getPatchDiffDisplay } from '../../utils/resumePatch'
 import { AgentSpecialCard } from './AgentSpecialCard'
 import DiffRichContent from './DiffRichContent'
@@ -25,22 +25,22 @@ const COLLAPSE_THRESHOLD = 300
 
 const resolvedVariantStyles = {
   success: {
-    shell: "border-black bg-chat-surface",
-    header: "border-black/70 bg-blue-50/50",
+    shell: "border-black fresh:border-slate-200 bg-chat-surface",
+    header: "border-black fresh:border-slate-200/70 bg-blue-50/50",
     title: "text-blue-800",
     summary: "text-chat-ink-muted",
     icon: "text-blue-600",
   },
   default: {
-    shell: "border-black bg-chat-surface",
-    header: "border-black/70 bg-chat-canvas/60",
+    shell: "border-black fresh:border-slate-200 bg-chat-surface",
+    header: "border-black fresh:border-slate-200/70 bg-chat-canvas/60",
     title: "text-chat-ink",
     summary: "text-chat-ink-muted",
     icon: "text-chat-ink-muted",
   },
   muted: {
-    shell: "border-black/50 bg-chat-canvas/40",
-    header: "border-black/30 bg-chat-canvas/30",
+    shell: "border-black fresh:border-slate-200/50 bg-chat-canvas/40",
+    header: "border-black fresh:border-slate-200/30 bg-chat-canvas/30",
     title: "text-chat-ink-muted",
     summary: "text-chat-ink-muted/80",
     icon: "text-chat-ink-muted",
@@ -63,7 +63,7 @@ function ResolvedPatchCard({
   const styles = resolvedVariantStyles[variant]
 
   return (
-    <div className={`overflow-hidden rounded-none border-2 shadow-[2px_2px_0px_0px_#000000] ${styles.shell}`}>
+    <div className={`overflow-hidden rounded-none fresh:rounded-lg border-2 shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm ${styles.shell}`}>
       <div className={`flex items-center gap-2.5 px-4 py-2.5 ${styles.header}`}>
         <span className={`shrink-0 ${styles.icon}`}>{icon}</span>
         <span className={`shrink-0 text-sm font-semibold ${styles.title}`}>{label}</span>
@@ -165,14 +165,16 @@ function PatchDiffGrid({
 
 /** 「全部应用」条：同一批 ≥2 个待确认 patch 时显示，一键全部合并写回简历。置顶常驻（sticky），滚动浏览卡片时不消失。 */
 export function ApplyAllPatchesBar({ patches }: { patches: PendingPatch[] }) {
-  const { applyPatches } = useResumeContext()
+  // 用可选 context：ResumeProvider 缺失时（HMR context 失配、Provider 外渲染
+  // 如历史快照）优雅返回 null，而非抛错崩掉整棵卡片子树。
+  const ctx = useOptionalResumeContext()
   const pending = patches.filter(p => p.status === 'pending')
-  if (pending.length < 2) return null
+  if (!ctx || pending.length < 2) return null
   return (
     <button
       type="button"
-      onClick={() => applyPatches(pending.map(p => p.patch_id))}
-      className="sticky top-2 z-10 mb-1 flex w-full items-center justify-center gap-1.5 rounded-none border-2 border-black bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-[2px_2px_0px_0px_#000000] transition-all hover:bg-blue-700 hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]"
+      onClick={() => ctx.applyPatches(pending.map(p => p.patch_id))}
+      className="sticky top-2 z-10 mb-1 flex w-full items-center justify-center gap-1.5 rounded-none fresh:rounded-lg border-2 fresh:border border-black fresh:border-slate-200 fresh:border-slate-200 bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm transition-all hover:bg-blue-700 hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]"
     >
       <Check className="h-4 w-4" />
       全部应用（{pending.length} 处）
@@ -181,7 +183,11 @@ export function ApplyAllPatchesBar({ patches }: { patches: PendingPatch[] }) {
 }
 
 export function ResumeDiffCard({ patch, defaultCollapsed = false }: { patch: PendingPatch; defaultCollapsed?: boolean }) {
-  const { applyPatch, rejectPatch } = useResumeContext()
+  // 可选 context：缺失时卡片仍渲染（可读 diff），应用/拒绝按钮 no-op，
+  // 不抛错崩溃（对齐 ConversationArtifactStack 的 useOptionalResumeContext）。
+  const ctx = useOptionalResumeContext()
+  const applyPatch = ctx?.applyPatch
+  const rejectPatch = ctx?.rejectPatch
   const [expanded, setExpanded] = useState(false)
   const [collapsed, setCollapsed] = useState(defaultCollapsed)
 
@@ -219,7 +225,7 @@ export function ResumeDiffCard({ patch, defaultCollapsed = false }: { patch: Pen
   // 折叠态：一行摘要 + 小号应用/拒绝按钮，点摘要展开看 diff（整份优化多卡时降低 review 负担）
   if (collapsed) {
     return (
-      <div className="overflow-hidden rounded-none border-2 border-black bg-chat-surface shadow-[2px_2px_0px_0px_#000000]">
+      <div className="overflow-hidden rounded-none fresh:rounded-lg border-2 fresh:border border-black fresh:border-slate-200 fresh:border-slate-200 bg-chat-surface shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm">
         <div className="flex items-center gap-2 px-3 py-2">
           <button
             type="button"
@@ -235,16 +241,16 @@ export function ResumeDiffCard({ patch, defaultCollapsed = false }: { patch: Pen
           </button>
           <button
             type="button"
-            onClick={() => applyPatch(patch.patch_id)}
-            className="inline-flex shrink-0 items-center gap-1 rounded-none border border-black bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white transition-all hover:bg-blue-700"
+            onClick={() => applyPatch?.(patch.patch_id)}
+            className="inline-flex shrink-0 items-center gap-1 rounded-none fresh:rounded-lg border border-black fresh:border-slate-200 bg-blue-600 px-2.5 py-1 text-xs font-semibold text-white transition-all hover:bg-blue-700"
           >
             <Check className="h-3.5 w-3.5" />
             应用
           </button>
           <button
             type="button"
-            onClick={() => rejectPatch(patch.patch_id)}
-            className="inline-flex shrink-0 items-center rounded-none border border-black bg-white px-2 py-1 text-xs text-chat-ink transition-all hover:bg-chat-canvas dark:bg-slate-800 dark:hover:bg-slate-700"
+            onClick={() => rejectPatch?.(patch.patch_id)}
+            className="inline-flex shrink-0 items-center rounded-none fresh:rounded-lg border border-black fresh:border-slate-200 bg-white px-2 py-1 text-xs text-chat-ink transition-all hover:bg-chat-canvas dark:bg-slate-800 dark:hover:bg-slate-700"
             title="拒绝"
           >
             <X className="h-3.5 w-3.5" />
@@ -294,16 +300,16 @@ export function ResumeDiffCard({ patch, defaultCollapsed = false }: { patch: Pen
         <div className="flex gap-3">
           <button
             type="button"
-            onClick={() => applyPatch(patch.patch_id)}
-            className="flex-1 rounded-none border-2 border-black bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-[2px_2px_0px_0px_#000000] transition-all hover:bg-blue-700 hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]"
+            onClick={() => applyPatch?.(patch.patch_id)}
+            className="flex-1 rounded-none fresh:rounded-lg border-2 fresh:border border-black fresh:border-slate-200 fresh:border-slate-200 bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm transition-all hover:bg-blue-700 hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]"
           >
             <Check className="-mt-0.5 mr-1 inline-block h-4 w-4" />
             应用
           </button>
           <button
             type="button"
-            onClick={() => rejectPatch(patch.patch_id)}
-            className="flex-1 rounded-none border-2 border-black bg-white dark:bg-slate-800 py-2.5 text-sm font-medium text-chat-ink shadow-[2px_2px_0px_0px_#000000] transition-all hover:bg-chat-canvas hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:hover:bg-slate-700"
+            onClick={() => rejectPatch?.(patch.patch_id)}
+            className="flex-1 rounded-none fresh:rounded-lg border-2 fresh:border border-black fresh:border-slate-200 fresh:border-slate-200 bg-white dark:bg-slate-800 py-2.5 text-sm font-medium text-chat-ink shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm transition-all hover:bg-chat-canvas hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px] dark:hover:bg-slate-700"
           >
             <X className="-mt-0.5 mr-1 inline-block h-4 w-4" />
             拒绝

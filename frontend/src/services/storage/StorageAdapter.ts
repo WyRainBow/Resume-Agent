@@ -14,15 +14,19 @@ export interface SavedResume {
   updatedAt: number
 }
 
+export type StorageOperationContext = Readonly<{
+  signal?: AbortSignal
+}>
+
 export interface StorageAdapter {
-  getAllResumes(): Promise<SavedResume[]>
+  getAllResumes(context?: StorageOperationContext): Promise<SavedResume[]>
   getCurrentResumeId(): string | null
   setCurrentResumeId(id: string | null): void
-  getResume(id: string): Promise<SavedResume | null>
-  saveResume(resume: Resume | ResumeData, id?: string): Promise<SavedResume>
-  deleteResume(id: string): Promise<boolean>
-  renameResume(id: string, newName: string): Promise<boolean>
-  duplicateResume(id: string): Promise<SavedResume | null>
-  updateResumeAlias(id: string, alias: string): Promise<boolean>
-  updateResumePinned(id: string, pinned: boolean): Promise<boolean>
+  getResume(id: string, context?: StorageOperationContext): Promise<SavedResume | null>
+  saveResume(resume: Resume | ResumeData, id?: string, context?: StorageOperationContext): Promise<SavedResume>
+  deleteResume(id: string, context?: StorageOperationContext): Promise<boolean>
+  renameResume(id: string, newName: string, context?: StorageOperationContext): Promise<boolean>
+  duplicateResume(id: string, context?: StorageOperationContext): Promise<SavedResume | null>
+  updateResumeAlias(id: string, alias: string, context?: StorageOperationContext): Promise<boolean>
+  updateResumePinned(id: string, pinned: boolean, context?: StorageOperationContext): Promise<boolean>
 }

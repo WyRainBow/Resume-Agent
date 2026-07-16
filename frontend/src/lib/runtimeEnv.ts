@@ -4,6 +4,7 @@ const ENV_STORAGE_KEY = 'resume_agent_env'
 const AGENT_ENABLED_OVERRIDE_KEY = 'resume_agent_enabled_override'
 const DEFAULT_LOCAL_API_BASE = 'http://127.0.0.1:9000'
 const DEFAULT_REMOTE_API_BASE = 'https://resumegenkk.xyz'
+const TRUE_ENV_VALUES = new Set(['1', 'true', 'yes', 'on', 'enabled'])
 
 function normalizeBaseUrl(url: string): string {
   const raw = String(url || '').trim()
@@ -85,9 +86,6 @@ export function buildAuthWebUrl(path = '/account', returnTo?: string): string {
 }
 
 export function getAuthWebApiProxyBaseUrl(): string {
-  const enabled = String(import.meta.env.VITE_API_VIA_AUTH_WEB || '').trim().toLowerCase()
-  if (!['1', 'true', 'yes', 'on'].includes(enabled)) return ''
-
   const authBase = getAuthWebBaseUrl()
   if (!authBase) return ''
   return `${authBase}/api/fastapi/proxy`
@@ -114,6 +112,20 @@ export function isAgentEnabled(): boolean {
   // 默认开启 AI；仅在显式配置为 false 时关闭。
   const raw = String(import.meta.env.VITE_AGENT_ENABLED ?? 'true').trim().toLowerCase()
   return ['true', '1', 'on', 'yes'].includes(raw)
+}
+
+export function isAskingModeEnabled(): boolean {
+  return TRUE_ENV_VALUES.has(
+    String(import.meta.env.VITE_AGENT_ASKING_MODE_ENABLED ?? 'false').trim().toLowerCase(),
+  )
+}
+
+export function isAgentStructuredEventEnabled(type: string): boolean {
+  return type !== 'ask_question' || isAskingModeEnabled()
+}
+
+export function filterAgentStructuredEvents<T extends { type: string }>(items: T[]): T[] {
+  return items.filter((item) => isAgentStructuredEventEnabled(item.type))
 }
 
 export function setAgentEnabledOverride(enabled: boolean): void {

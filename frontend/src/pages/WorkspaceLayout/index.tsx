@@ -19,6 +19,7 @@ import {
   Sun,
   Moon,
   Zap,
+  Palette,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/Avatar";
@@ -27,6 +28,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/hooks/useTheme";
 import { getCurrentResumeId } from "@/services/resumeStorage";
 import { RecentSessions } from "@/components/sidebar/RecentSessions";
+import SkinPickerModal from "@/pages/Workspace/v2/components/SkinPickerModal";
 import { canUseAdminFeature, canUseAgentFeature, getApiBaseUrl, isAgentEnabled } from "@/lib/runtimeEnv";
 
 // 工作区类型
@@ -129,6 +131,8 @@ export default function WorkspaceLayout({
   const { isAuthenticated, user, logout, openModal } = useAuth();
   const { isDark, setTheme } = useTheme();
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
+  // 用户菜单「界面皮肤」入口：打开皮肤选择框（NEO / 清新）
+  const [showSkinPicker, setShowSkinPicker] = useState(false);
   const [sessionsRefreshKey, setSessionsRefreshKey] = useState(0);
   const logoutMenuRef = useRef<HTMLDivElement>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -216,7 +220,12 @@ export default function WorkspaceLayout({
     if (workspace === "settings") return "/settings";
     if (workspace === "admin") return "/admin";
     if (workspace === "templates") return "/templates";
-    return "/workspace";
+    // 「编辑简历」解析到具体简历：有 current 就带上 id 明确加载那一份，
+    // 没有则明确新建——不再走裸 /workspace 依赖全局草稿「猜」要显示啥
+    // （幽灵简历的温床）。current 若指向已删简历，编辑页加载失效兜底会
+    // 重置为空白（见 useResumeData.resetEditorToBlank），不会显示旧简历。
+    const editResumeId = getCurrentResumeId();
+    return editResumeId ? `/workspace/${editResumeId}` : "/workspace/new";
   };
 
   const handleWorkspaceChange = (
@@ -588,6 +597,20 @@ export default function WorkspaceLayout({
                         <Settings className="w-4 h-4 shrink-0" />
                         个人设置
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowLogoutMenu(false);
+                          setShowSkinPicker(true);
+                        }}
+                        className={cn(
+                          "w-full flex items-center gap-2.5 px-3 py-2 rounded-none fresh:rounded-md text-sm font-mono fresh:font-sans font-bold uppercase fresh:normal-case tracking-wide fresh:tracking-normal transition-all",
+                          "text-black dark:text-white hover:bg-[#E5E5E0] dark:hover:bg-[#2A2A2A]",
+                        )}
+                      >
+                        <Palette className="w-4 h-4 shrink-0" />
+                        界面皮肤
+                      </button>
                       {canUseAdmin && (
                         <button
                           type="button"
@@ -671,6 +694,13 @@ export default function WorkspaceLayout({
           </AnimatePresence>
         </div>
       </main>
+
+      {/* 用户菜单「界面皮肤」打开的皮肤选择框（portal 渲染，可点遮罩关闭） */}
+      <SkinPickerModal
+        open={showSkinPicker}
+        onPicked={() => setShowSkinPicker(false)}
+        onClose={() => setShowSkinPicker(false)}
+      />
     </div>
   );
 }

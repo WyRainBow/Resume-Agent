@@ -334,7 +334,7 @@ export default function WorkspaceV2() {
       {/* 装饰头(照搬 Builder 风格):大标题与「编辑模式+名字」同一行(返回 Dashboard 已去掉,左侧栏「我的简历」可回),纯展示,操作按钮在预览工具栏 */}
       <div className="border-b border-black fresh:border-slate-200 dark:border-white bg-[#F0F0E8] fresh:bg-slate-50 dark:bg-[#1C1C1C] px-6 py-3 md:px-8 shrink-0">
         <div className="flex items-baseline gap-4 flex-wrap">
-          <h1 className="font-serif text-2xl md:text-3xl text-black dark:text-white tracking-tight leading-none uppercase fresh:normal-case">
+          <h1 className="font-serif text-3xl md:text-4xl text-black dark:text-white tracking-tight leading-none uppercase fresh:normal-case">
             Resume Builder
           </h1>
           <div className="flex items-center gap-3">

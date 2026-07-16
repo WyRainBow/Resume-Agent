@@ -153,3 +153,7 @@ export function useResumeContext() {
   if (!ctx) throw new Error('useResumeContext must be used within ResumeProvider')
   return ctx
 }
+
+export function useOptionalResumeContext() {
+  return useContext(ResumeContext)
+}

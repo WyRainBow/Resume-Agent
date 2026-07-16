@@ -2,6 +2,8 @@
  * Chat 相关类型定义
  */
 
+import type { ConversationTurnSnapshot } from "@/agent-presentation/model";
+
 export interface MessageMeta {
   /** 对话粘贴导入解析中 */
   pasteImportParsing?: boolean;
@@ -27,11 +29,42 @@ export interface MessageMeta {
   suggestions?: string[];
 }
 
+export interface AgentToolProgress {
+  current: number;
+  total: number;
+  label: string;
+  summary: string;
+  stages: string[];
+}
+
+export type AgentProcessNode =
+  | {
+      id: string;
+      kind: "thought";
+      stepId: number;
+      content: string;
+    }
+  | {
+      id: string;
+      kind: "tool";
+      stepId: number;
+      toolCallId: string;
+      toolName: string;
+      label: string;
+      status: "running" | "success" | "error";
+      summary?: string;
+      progress?: AgentToolProgress;
+    };
+
 export interface Message {
   id?: string;
   role: 'user' | 'assistant';
   content: string;
   thought?: string;
+  /** 本轮 ReAct 的独立 thought / tool 时间线节点。 */
+  processNodes?: AgentProcessNode[];
+  /** 统一会话呈现快照；历史回放不持久化打字机等瞬时状态。 */
+  turnSnapshot?: ConversationTurnSnapshot;
   timestamp?: string;
   meta?: MessageMeta;
   attachments?: {
@@ -48,4 +81,3 @@ export interface ChatMessageProps {
   isStreaming?: boolean;
   onTypewriterComplete?: () => void;
 }
-

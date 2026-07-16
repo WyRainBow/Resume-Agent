@@ -1,5 +1,5 @@
 import React from 'react'
-import { useResumeContext } from '../../contexts/ResumeContext'
+import { useOptionalResumeContext } from '../../contexts/ResumeContext'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
 
 interface Props {
@@ -9,7 +9,8 @@ interface Props {
 }
 
 export function ResumeGeneratedCard({ resume, summary, onDismiss }: Props) {
-  const { setResume } = useResumeContext()
+  // 可选 context：缺失时「使用这份简历」按钮 no-op，不抛错崩溃
+  const ctx = useOptionalResumeContext()
 
   return (
     <div className="rounded-lg border border-purple-200 dark:border-purple-900/50 bg-white dark:bg-neutral-900 shadow-sm overflow-hidden my-2">
@@ -21,7 +22,7 @@ export function ResumeGeneratedCard({ resume, summary, onDismiss }: Props) {
       </div>
       <div className="flex gap-2 px-4 py-3">
         <button
-          onClick={() => { setResume(resume); onDismiss() }}
+          onClick={() => { ctx?.setResume(resume); onDismiss() }}
           className="flex-1 rounded-md bg-purple-600 text-white text-sm py-1.5 hover:bg-purple-700 active:scale-[0.98] transition-all"
         >
           导入到编辑器

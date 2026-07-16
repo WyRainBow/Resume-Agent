@@ -44,6 +44,7 @@ export interface SSEEventData {
   args?: Record<string, any>;
   result?: string;
   tool_call_id?: string;
+  step_id?: number;
   structured_data?: Record<string, any>;
 
   // Suggestion events
@@ -143,4 +144,3 @@ export function normalizeSSEEvent(event: SSEMessage): NormalizedMessage {
       };
   }
 }
-

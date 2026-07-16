@@ -36,6 +36,9 @@ CASES = [
     {"key": "resume_add_exp", "resume": True, "input": "帮我加一段在字节跳动的实习经历", "intent": "UNKNOWN"},
     {"key": "resume_office_pdf", "resume": True, "input": "帮我把简历处理成 pdf 文档", "intent": "UNKNOWN"},
     {"key": "greeting_next_step", "resume": True, "input": "你好", "intent": "GREETING"},
+    # 与 test_prompt_builder.py 矩阵对齐:有 current_resume_path 的组合
+    {"key": "resume_with_path", "resume": True, "input": "帮我优化简历",
+     "intent": "UNKNOWN", "resume_path": "/tmp/my_resume.pdf"},
 ]
 
 
@@ -47,6 +50,8 @@ async def main():
         if case["resume"]:
             ResumeDataStore.set_data(dict(RESUME), session_id=SESSION)
             agent._conversation_state.update_resume_loaded(True)
+        if case.get("resume_path"):
+            agent._current_resume_path = case["resume_path"]
         intent = getattr(Intent, case["intent"])
         system_prompt, next_step = await agent._generate_dynamic_prompts(
             case["input"], intent

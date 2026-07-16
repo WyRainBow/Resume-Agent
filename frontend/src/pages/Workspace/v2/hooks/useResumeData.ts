@@ -112,22 +112,31 @@ export function useResumeData() {
     })
   }, [setContextResume])
 
+  // 目标简历不存在时，把编辑器重置为空白默认模板并清掉全局草稿
+  // （resume_v2_data 是编辑页私有的自动存草稿，活在存储适配器体系之外，
+  // 删除简历不会清它；不重置就会显示一份数据库里已不存在的「幽灵简历」，
+  // 见 knowledge-base/reviews/2026-07-15-删简历后编辑页显示旧简历-根因与方案.md）
+  const resetEditorToBlank = useCallback(() => {
+    setCurrentResumeId(null)
+    setCurrentId(null)
+    localStorage.removeItem(STORAGE_KEY)
+    setResumeData(loadFromStorage())
+  }, [setResumeData])
+
   // 从 Dashboard 进入时加载对应简历
   useEffect(() => {
     const loadResume = async () => {
       // /workspace/new 始终按“新建默认模板”处理，避免旧缓存覆盖模板更新（原 /workspace/latex 语义）
       if (location.pathname === '/workspace/new' && !routeResumeId) {
-        setCurrentResumeId(null)
-        setCurrentId(null)
-        localStorage.removeItem(STORAGE_KEY)
-        setResumeData(loadFromStorage())
+        resetEditorToBlank()
         setIsDataLoaded(true)
         return
       }
 
       const id = routeResumeId || getCurrentResumeId()
       if (!id) {
-        // 没有 ID 表示新建简历，直接标记为已加载
+        // 无任何目标简历（裸 /workspace 且无 current）：重置空白，不沿用旧草稿
+        resetEditorToBlank()
         setIsDataLoaded(true)
         return
       }
@@ -166,13 +175,17 @@ export function useResumeData() {
           templateId: data.templateId || prev.templateId,  // 保留模板 ID
         }))
         setCurrentId(id)
+      } else {
+        // 有 id 但简历查不到（已删除 / 不存在）：不沿用旧草稿，重置为空白，
+        // 避免显示「幽灵简历」；清掉悬挂的 current id，后续保存走新建。
+        resetEditorToBlank()
       }
       // 标记数据已加载完成
       setIsDataLoaded(true)
     }
 
     loadResume()
-  }, [location.pathname, routeResumeId])
+  }, [location.pathname, routeResumeId, resetEditorToBlank])
 
   // 自动保存到 localStorage
   useEffect(() => {

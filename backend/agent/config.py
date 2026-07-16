@@ -62,6 +62,10 @@ class LLMSettings(BaseModel):
     temperature: float = Field(0.3, description="Sampling temperature")
     api_type: str = Field(..., description="Azure, Openai, or Ollama")
     api_version: str = Field(..., description="Azure Openai version if AzureOpenai")
+    extra_body: Optional[dict] = Field(
+        None,
+        description="Extra JSON body merged into every chat request (e.g. DashScope enable_thinking)",
+    )
 
 
 class ProxySettings(BaseModel):
@@ -365,6 +369,7 @@ class Config:
             "temperature": base_llm.get("temperature", 0.3),
             "api_type": base_llm.get("api_type", ""),
             "api_version": base_llm.get("api_version", ""),
+            "extra_body": base_llm.get("extra_body"),
         }
 
         # handle browser config.

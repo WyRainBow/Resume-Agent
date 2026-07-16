@@ -440,6 +440,19 @@ export function stripInternalMarkers(content: string): string {
   return content
     .replace(/%%SUGGESTIONS%%[\s\S]*?%%END%%/g, '')
     .replace(/%%SUGGESTIONS%%[\s\S]*/g, '')
+    // 整份优化进度协议标记(后端 strip 的前端兜底,治存量历史消息)。
+    // gi 与后端 _MODULE_DONE_RE 的 re.IGNORECASE 对齐(Codex review P2:
+    // [[module_done:experience]] 小写形态此前会漏)
+    .replace(/\[\[\s*MODULE_DONE\s*:\s*[A-Za-z]+\s*(?::\s*skip\s*)?\]\]/gi, '')
+    // Thought→Response 完整协议帧:保留 Response 后的正文,丢弃推理部分
+    // (Codex review P2:此前只删首个前缀,"Thought: 推理\nResponse: 答案"
+    // 会把推理和 "Response:" 一起泄漏进正文)
+    .replace(/^\s*Thought\s*[:：][\s\S]*?\n\s*Response\s*[:：]\s*/, '')
+    // 无 Thought 的单前缀残留(仅文本最开头;句中 "Response" 是简历正文
+    // 合法词汇不可全域剥;增量已由后端断源,这里兜历史存量)
+    .replace(/^\s*(?:Thought|Response)\s*[:：]\s*/, '')
+    // 标记独占一行删除后的多余空行收敛
+    .replace(/\n[ \t]*\n[ \t]*\n+/g, '\n\n')
     .trim()
 }
 

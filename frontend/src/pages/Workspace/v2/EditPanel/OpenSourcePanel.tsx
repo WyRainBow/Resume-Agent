@@ -3,10 +3,9 @@
  */
 import { useState } from 'react'
 import { motion, AnimatePresence, Reorder, useDragControls } from 'framer-motion'
-import { PlusCircle, ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
+import { PlusCircle, Wand2, ChevronDown, Eye, GripVertical, Trash2 } from 'lucide-react'
 import { cn } from '../../../../lib/utils'
 import type { OpenSource, GlobalSettings, ResumeData } from '../types'
-import { AIImportButton } from '@/components/common/AIImportButton'
 import Field from './Field'
 import { MonthYearRangePicker } from '../shared/MonthYearRangePicker'
 
@@ -275,11 +274,13 @@ export default function OpenSourcePanel({ openSources, onUpdate, onDelete, onReo
   return (
     <div className={cn('space-y-4 px-4 py-4 rounded-none fresh:rounded-md', 'bg-white dark:bg-neutral-900/30')}>
       {onAIImport && (
-        <AIImportButton
+        <button
           onClick={onAIImport}
-          text="AI 导入开源经历"
-          className="w-full"
-        />
+          className="w-full px-4 py-2 rounded-none fresh:rounded-md bg-white text-black border border-slate-300 hover:bg-slate-50 shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff] transition-all duration-300 flex items-center justify-center gap-2"
+        >
+          <Wand2 className="w-4 h-4" />
+          AI 导入开源经历
+        </button>
       )}
 
       <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-neutral-400 px-1">

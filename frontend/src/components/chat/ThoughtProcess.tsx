@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, Brain } from "lucide-react";
+import { useTemporalText } from "@/hooks/useTemporalText";
 
 function sanitizeThoughtDisplay(raw: string): string {
   if (!raw) return "";
@@ -19,6 +20,10 @@ export interface ThoughtProcessProps {
   defaultExpanded?: boolean;
   isLatest?: boolean;
   className?: string;
+  animateText?: boolean;
+  drain?: boolean;
+  onDrainComplete?: () => void;
+  onPresented?: () => void;
 }
 
 export default function ThoughtProcess({
@@ -27,8 +32,13 @@ export default function ThoughtProcess({
   defaultExpanded = true,
   isLatest,
   className = "",
-  onComplete,
+  animateText = false,
+  drain = false,
+  onDrainComplete,
+  onPresented,
 }: ThoughtProcessProps) {
+  const contentId = useId();
+  const presentedTextRef = useRef("");
   const [expanded, setExpanded] = useState(
     isLatest !== undefined ? isLatest : defaultExpanded,
   );
@@ -39,19 +49,38 @@ export default function ThoughtProcess({
     }
   }, [isLatest]);
 
-  const textToShow = sanitizeThoughtDisplay(content || "");
-  if (!textToShow) return null;
+  const sanitizedContent = sanitizeThoughtDisplay(content || "");
+  const temporalText = useTemporalText({
+    text: sanitizedContent,
+    active: animateText,
+    drain,
+    onDrainComplete,
+  });
+  const textToShow = temporalText.displayedText;
+  const showStreamingState = isStreaming && !temporalText.isCaughtUp;
+
+  useEffect(() => {
+    if (!sanitizedContent) return;
+    if (!temporalText.isCaughtUp) return;
+    if (presentedTextRef.current === sanitizedContent) return;
+    presentedTextRef.current = sanitizedContent;
+    onPresented?.();
+  }, [onPresented, sanitizedContent, temporalText.isCaughtUp]);
+
+  if (!sanitizedContent) return null;
 
   return (
     <div className={`mb-2 ${className}`}>
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
+        aria-controls={contentId}
         className="group inline-flex items-center gap-1.5 rounded-full border border-chat-border/60 bg-chat-canvas/60 px-2.5 py-1 text-chat-ink-muted transition-colors hover:bg-chat-canvas dark:border-slate-700/60 dark:bg-slate-800/50 dark:hover:bg-slate-800"
       >
         <Brain className="h-3.5 w-3.5 shrink-0 text-chat-accent/80" strokeWidth={2} />
         <span className="text-[13px] font-medium tracking-wide">思考过程</span>
-        {isStreaming ? (
+        {showStreamingState ? (
           <span className="ml-0.5 flex gap-0.5">
             <span className="h-1 w-1 animate-bounce rounded-full bg-chat-accent/60 [animation-delay:0ms]" />
             <span className="h-1 w-1 animate-bounce rounded-full bg-chat-accent/60 [animation-delay:120ms]" />
@@ -66,8 +95,17 @@ export default function ThoughtProcess({
       </button>
 
       {expanded && (
-        <div className="mt-2 border-l-2 border-chat-border/50 pl-3 text-sm font-normal leading-relaxed text-chat-ink-muted whitespace-pre-wrap break-words dark:border-slate-700/50">
-          {textToShow}
+        <div
+          id={contentId}
+          className="mt-2 border-l-2 border-chat-border/50 pl-3 text-sm font-normal leading-relaxed text-chat-ink-muted whitespace-pre-wrap break-words dark:border-slate-700/50"
+        >
+          <span>{textToShow}</span>
+          {animateText && !temporalText.isCaughtUp && (
+            <span
+              aria-hidden="true"
+              className="ml-0.5 inline-block h-[1em] w-px animate-pulse bg-current align-[-0.12em] opacity-60"
+            />
+          )}
         </div>
       )}
     </div>

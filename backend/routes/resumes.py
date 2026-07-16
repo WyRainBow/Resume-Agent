@@ -3,10 +3,13 @@
 """
 from typing import List, Optional, Dict, Any
 from uuid import uuid4
+import json
 import logging
+import re
 import time
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
@@ -259,3 +262,49 @@ def sync_resume_data(
         )
         for r in merged
     ]
+
+
+def _safe_filename(name: Optional[str], resume_id: str) -> str:
+    """简历名 → 安全文件名（去掉路径分隔符/非法字符，空名用 id 兜底）。"""
+    raw = (name or "").strip() or resume_id
+    # 去掉 Windows/macOS/Linux 文件名非法字符
+    cleaned = re.sub(r'[\\/:*?"<>|\r\n\t]', "_", raw)
+    return cleaned or resume_id
+
+
+@router.get("/{resume_id}/export")
+def export_resume_json(
+    resume_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """一键导出简历为 .json 文件下载（Content-Disposition: attachment）。
+
+    用途：攒一批样本简历 JSON，后续测试简历解析（/api/resume/parse）时直接
+    用这些 JSON 喂解析逻辑，不用每次都走 OCR。返回的是简历完整 data 字段，
+    浏览器/curl 会直接存成 `<简历名>.json`。
+    """
+    resume = db.query(Resume).filter(
+        Resume.id == resume_id, Resume.user_id == current_user.id
+    ).first()
+    if not resume:
+        raise HTTPException(status_code=404, detail="简历不存在")
+
+    payload = {
+        "id": resume.id,
+        "name": resume.name,
+        "alias": resume.alias,
+        "template_type": _extract_template_type(resume.data),
+        "data": resume.data,
+        "created_at": resume.created_at.isoformat() if resume.created_at else None,
+        "updated_at": resume.updated_at.isoformat() if resume.updated_at else None,
+    }
+    body = json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+    filename = _safe_filename(resume.name, resume.id)
+    return Response(
+        content=body,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}.json"; filename*=UTF-8\'\'{filename}.json'
+        },
+    )

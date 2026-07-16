@@ -11,12 +11,20 @@ from typing import Any, List, Optional
 from backend.agent.agent.capability import CapabilityRegistry
 from backend.agent.application.conversation.conversation_state import (
     is_add_experience_query,
+    is_diagnosis_apply_query,
+    is_full_optimize_query,
     is_read_only_query,
 )
+from backend.agent.application.resume_skill_resolver import ResumeSkillResolver
 from backend.agent.config import config
 from backend.agent.memory import Intent
 from backend.agent.prompt.manus import NEXT_STEP_PROMPT, SYSTEM_PROMPT
 from backend.agent.tool.resume_data_store import ResumeDataStore
+from backend.agent.utils.optimize_progress import (
+    is_optimize_continuation_message,
+    render_progress_checklist,
+    slice_resume_context_for_module,
+)
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -73,15 +81,54 @@ class PromptBuilder:
 
         # Hybrid: 注入简历内容到 system prompt
         # 整份优化场景下过滤隐私信息（phone/email/location），只保留求职相关信息。
-        # 复用已有的 intent 判定（conversation_state 那套意图识别），避免关键词清单与之不一致。
-        is_full_optimize = intent == Intent.FULL_OPTIMIZE
-        resume_text = self.format_resume_for_context(mask_pii=is_full_optimize)
+        # 不能用 intent == Intent.FULL_OPTIMIZE 判断——LLM-first 让权守卫会把这个
+        # 意图统一清空成 UNKNOWN 再交给 LLM，导致这条判断在生产环境从未真正生效过
+        # （2026-07-12 debug log 501 行实测：零命中 intent=full_optimize）。脱敏是
+        # 安全边界判断，改成直接对用户原始文本判断，不依赖会被路由层清空的 intent。
+        #
+        # **独立 review 发现并修复的真实 bug**：这里原来用"该会话有未完成任务"
+        # （has_active_task）单独触发脱敏/增量注入，跟 manus.py
+        # ._maybe_init_optimize_progress/_advance_optimize_progress 的相关性判据
+        # （is_full_optimize_query 或 is_optimize_continuation_message）不一致——
+        # 任务 alive 期间用户随口一句无关闲聊，也会被这里强制脱敏、且只看得到
+        # 当前模块全文（其他模块本轮被切掉），跟 manus.py 那边"无关轮次当普通
+        # 对话处理"的口径矛盾。改成跟 manus.py 用同一个相关性判据：本轮必须是
+        # 用户主动的整份优化措辞，或系统合成的续跑消息，脱敏/增量注入才生效；
+        # 无关轮次按普通 Hybrid 模式处理（不脱敏、给全量原文）。见设计方案七点二。
+        progress = ResumeDataStore.get_progress(self._session_id)
+        is_continuation = is_optimize_continuation_message(user_input or "")
+        is_progress_turn = is_diagnosis_apply_query(
+            user_input or ""
+        ) or is_continuation
+        is_diagnosis_turn = is_full_optimize_query(user_input or "")
+        mask_pii = is_diagnosis_turn or is_progress_turn
+        resume_text = self.format_resume_for_context(mask_pii=mask_pii)
         if resume_text:
+            # 增量注入（设计方案七点二/三点五）：optimizing 阶段、且本轮确实跟
+            # 整份优化相关时，只发当前模块全文，其他模块本轮延后发送（只给
+            # 标题，不是压缩）；无关轮次/reviewing/无活跃任务时保持全量注入。
+            if (
+                is_progress_turn
+                and progress
+                and progress.get("status") == "optimizing"
+                and progress.get("pending")
+            ):
+                resume_text = slice_resume_context_for_module(resume_text, progress["pending"][0])
             system_prompt = f"{system_prompt}\n\n{resume_text}"
-            if is_full_optimize:
-                logger.info("📋 简历内容已注入 system prompt（整份优化模式，已过滤隐私信息）")
+            if mask_pii:
+                logger.info("📋 简历内容已注入 system prompt（诊断/优化模式，已过滤隐私信息）")
             else:
                 logger.info("📋 简历内容已注入 system prompt（Hybrid 模式）")
+
+        # **独立 review round5 发现并修复的真实 bug**：这里原来只要 progress
+        # 存在就无条件渲染进度清单，跟上面 mask_pii/切片的相关性门槛不一致
+        # ——任务 alive 期间一句无关闲聊、甚至只读查看轮次，也会被塞进
+        # "当前模块：X ← 本轮只优化这一个模块……输出 [[MODULE_DONE:X]]"
+        # 这种明确引导 LLM 调用 cv_editor_agent 的指令，直接跟紧跟着注入的
+        # "禁止调用 cv_editor_agent"只读约束打架，也可能诱发一次跟本轮无关
+        # 的编辑。改成跟 mask_pii/切片用同一个 is_progress_turn 判据。
+        if progress and is_progress_turn:
+            system_prompt = f"{system_prompt}\n\n{render_progress_checklist(progress)}"
 
         if is_read_only_query(user_input or ""):
             system_prompt = (
@@ -127,7 +174,9 @@ class PromptBuilder:
             reader.set_resume_data(resume_data)
             return reader._format_full_resume(mask_pii=mask_pii)
         except Exception as exc:
-            logger.warning(f"格式化简历注入 context 失败: {exc}")
+            # 简历 context 注入失败会让 LLM 完全看不到简历内容、行为不可预测，
+            # 不能静默降级——提升为 error 保证被看到，同时仍返回空串避免整轮请求崩溃。
+            logger.error(f"格式化简历注入 context 失败: {exc}")
             return ""
 
     def build_skill_addendum(self, user_input: str) -> str:
@@ -135,6 +184,7 @@ class PromptBuilder:
         根据用户输入匹配 backend/agent/skills 下的技能文档，并注入指导。
 
         当前支持：
+        - resume-diagnosis / resume-suggest 完整技能
         - office-files 总入口
         - office-files 子技能：pdf/docx/pptx/xlsx
         """
@@ -142,64 +192,95 @@ class PromptBuilder:
         if not text:
             return ""
 
+        skills_base = Path(__file__).resolve().parents[1] / "skills"
+        resume_guidance_parts: list[str] = []
+        for skill_name in ResumeSkillResolver().resolve(user_input):
+            guidance = self.read_skill(skills_base / skill_name / "SKILL.md")
+            if guidance:
+                resume_guidance_parts.append(f"[Skill: {skill_name}]\n{guidance}")
+
         # 关键词触发：文档处理相关请求才加载 skills，避免污染普通对话
         office_keywords = [
             ".pdf", "pdf", "docx", ".docx", "ppt", ".pptx", "pptx",
             "xlsx", ".xlsx", "word", "excel", "powerpoint",
             "文档", "表格", "电子表格", "幻灯片", "演示文稿", "文件处理",
         ]
-        if not any(k in text for k in office_keywords):
-            return ""
+        office_guidance_parts: list[str] = []
+        if any(k in text for k in office_keywords):
+            skills_root = skills_base / "office-files"
 
-        skills_root = Path(__file__).resolve().parents[2] / "skills" / "office-files"
-        guidance_parts: list[str] = []
+            # 1) 先加载 office-files 总路由技能
+            root_guidance = self.read_skill_excerpt(skills_root / "SKILL.md", max_chars=1800)
+            if root_guidance:
+                office_guidance_parts.append(f"[Skill: office-files]\n{root_guidance}")
 
-        # 1) 先加载 office-files 总路由技能
-        root_guidance = self.read_skill_excerpt(skills_root / "SKILL.md", max_chars=1800)
-        if root_guidance:
-            guidance_parts.append(f"[Skill: office-files]\n{root_guidance}")
+            # 2) 再根据输入匹配子技能
+            sub_skill_map = {
+                "pdf": [".pdf", "pdf", "合并pdf", "拆分pdf", "提取pdf", "表单pdf"],
+                "docx": [".docx", "docx", "word", "文档"],
+                "pptx": [".pptx", "pptx", "ppt", "powerpoint", "幻灯片", "演示文稿"],
+                "xlsx": [".xlsx", "xlsx", "excel", "表格", "电子表格"],
+            }
+            for sub_skill, keys in sub_skill_map.items():
+                if any(k in text for k in keys):
+                    sub_guidance = self.read_skill_excerpt(
+                        skills_root / sub_skill / "SKILL.md",
+                        max_chars=2200,
+                    )
+                    if sub_guidance:
+                        office_guidance_parts.append(
+                            f"[Sub-Skill: {sub_skill}]\n{sub_guidance}"
+                        )
 
-        # 2) 再根据输入匹配子技能
-        sub_skill_map = {
-            "pdf": [".pdf", "pdf", "合并pdf", "拆分pdf", "提取pdf", "表单pdf"],
-            "docx": [".docx", "docx", "word", "文档"],
-            "pptx": [".pptx", "pptx", "ppt", "powerpoint", "幻灯片", "演示文稿"],
-            "xlsx": [".xlsx", "xlsx", "excel", "表格", "电子表格"],
-        }
+        sections: list[str] = []
+        if resume_guidance_parts:
+            sections.append(
+                "## Resume Skills Guidance\n"
+                "Follow these complete rules for the current read-only diagnosis turn:\n\n"
+                + "\n\n".join(resume_guidance_parts)
+            )
+        if office_guidance_parts:
+            sections.append(
+                "## Skills Guidance (from backend/agent/skills)\n"
+                "When handling office/document requests, follow the guidance below before choosing tools:\n\n"
+                + "\n\n".join(office_guidance_parts)
+            )
+        return "\n\n".join(sections)
 
-        for sub_skill, keys in sub_skill_map.items():
-            if any(k in text for k in keys):
-                sub_guidance = self.read_skill_excerpt(
-                    skills_root / sub_skill / "SKILL.md",
-                    max_chars=2200,
-                )
-                if sub_guidance:
-                    guidance_parts.append(f"[Sub-Skill: {sub_skill}]\n{sub_guidance}")
-
-        if not guidance_parts:
-            return ""
-
-        return (
-            "## Skills Guidance (from backend/agent/skills)\n"
-            "When handling office/document requests, follow the guidance below before choosing tools:\n\n"
-            + "\n\n".join(guidance_parts)
-        )
+    def read_skill(self, file_path: Path) -> str:
+        """Read a required, complete resume Skill and fail visibly if invalid."""
+        return self._read_skill(file_path, required=True)
 
     def read_skill_excerpt(self, file_path: Path, max_chars: int = 2000) -> str:
         """读取技能文档并做截断缓存，避免每轮重复 I/O。"""
-        key = str(file_path)
+        return self._read_skill(file_path, max_chars=max_chars, required=False)
+
+    def _read_skill(
+        self,
+        file_path: Path,
+        *,
+        max_chars: int | None = None,
+        required: bool,
+    ) -> str:
+        """Single cached Skill loader with explicit required/optional semantics."""
+        key = f"{file_path}|{max_chars or 'full'}"
         if key in self._skills_cache:
             return self._skills_cache[key]
-
         try:
             if not file_path.exists():
-                return ""
-            content = file_path.read_text(encoding="utf-8", errors="ignore").strip()
-            excerpt = content[:max_chars]
-            self._skills_cache[key] = excerpt
-            return excerpt
-        except Exception as e:
-            logger.warning(f"[Skills] Failed to read skill file {file_path}: {e}")
+                raise FileNotFoundError(file_path)
+            content = file_path.read_text(encoding="utf-8").strip()
+            if not content:
+                raise RuntimeError(f"Skill file is empty: {file_path}")
+            resolved = content if max_chars is None else content[:max_chars]
+            self._skills_cache[key] = resolved
+            return resolved
+        except (OSError, UnicodeError, RuntimeError) as exc:
+            if required:
+                raise RuntimeError(
+                    f"Required resume Skill could not be loaded: {file_path}"
+                ) from exc
+            logger.warning(f"[Skills] Failed to read optional skill {file_path}: {exc}")
             return ""
 
     async def generate_next_step_prompt(

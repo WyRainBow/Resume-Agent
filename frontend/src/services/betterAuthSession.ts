@@ -69,7 +69,7 @@ export function redirectToAuthWebLogin(returnTo = window.location.href) {
 /**
  * 经 Next 代理调用 legacy /api/auth/me，换取当前 BetterAuth 用户对应的真实
  * legacy User.id 与角色。代理会注入 trusted headers，后端 resolve_legacy_user 据此
- * 返回真实记录（含 role）。仅在 API 走 Next 代理（VITE_API_VIA_AUTH_WEB）时可用。
+ * 返回真实记录（含 role）。配置 VITE_AUTH_WEB_URL 后，业务 API 固定走该代理。
  */
 export async function fetchLegacyUserInfo(): Promise<{ id: number | null; role: string | null }> {
   const proxyBase = getAuthWebApiProxyBaseUrl()

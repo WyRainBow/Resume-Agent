@@ -9,6 +9,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { SSEEvent } from "@/transports/SSETransport";
 import { getApiBaseUrl, isAgentEnabled } from "@/lib/runtimeEnv";
 import { streamAgent, type AgentStreamEvent } from "@/services/agentStream";
+import { createAgentEventAdapter } from "@/agent-presentation/AgentEventAdapter";
+import {
+  createConversationRunState,
+  reduceConversationRun,
+} from "@/agent-presentation/ConversationRunReducer";
+import type { ConversationRunState } from "@/agent-presentation/model";
+import type { RunCancelReason } from "@/agent-presentation/events";
 
 function normalizeText(value: unknown): string {
   if (typeof value === "string") return value;
@@ -16,154 +23,26 @@ function normalizeText(value: unknown): string {
   return "";
 }
 
-function extractEventText(event: AgentStreamEvent): string {
-  const delta = normalizeText(event.data?.delta);
-  if (delta) return delta;
-  return (
-    normalizeText(event.data?.content) ||
-    normalizeText(event.data?.result) ||
-    normalizeText(event.data?.text) ||
-    ""
-  );
-}
-
 function extractStreamErrorMessage(event: AgentStreamEvent): string {
   const direct =
     normalizeText(event.data?.content) ||
     normalizeText(event.data?.error_details) ||
-    normalizeText(event.data?.error_message);
-  if (direct) return direct;
-
-  // Some SSE wrappers nest payload under data.data
-  const nested =
-    normalizeText(event.data?.data?.content) ||
-    normalizeText(event.data?.data?.error_details) ||
-    normalizeText(event.data?.data?.error_message) ||
+    normalizeText(event.data?.error_message) ||
     normalizeText(event.data?.message);
-  if (nested) return nested;
+  if (direct) return direct;
 
   return "流式请求失败，请稍后重试。";
 }
 
-function normalizeThoughtChunk(raw: string): string {
-  return raw
-    .replace(/^\s*thought\s*[:：]\s*/i, "")
-    .replace(/^\s*[:：-]?\s*response\s*[:：]?\s*/i, "");
-}
-
-function normalizeAnswerBuffer(raw: string): string {
-  if (!raw) return "";
-  const content = raw;
-  const responseMarker = /(?:^|\n)\s*response\s*[:：]\s*/i;
-  const responseMatch = responseMarker.exec(content);
-  if (responseMatch) {
-    const start = responseMatch.index + responseMatch[0].length;
-    return content.slice(start);
-  }
-
-  // 某些后端分支会先在 answer 通道输出 "Thought:" 前缀，未出现 Response 前不展示。
-  if (/^\s*thought\s*[:：]?/i.test(content.trimStart())) {
-    return "";
-  }
-
-  return content.replace(/^\s*[:：-]?\s*response\s*[:：]\s*/i, "");
-}
-
-function collapseDirectDuplicate(raw: string): string {
-  const text = raw || "";
-  if (!text) return text;
-
-  const len = text.length;
-  if (len >= 20 && len % 2 === 0) {
-    const half = len / 2;
-    const first = text.slice(0, half);
-    const second = text.slice(half);
-    if (first === second) return first;
-  }
-
-  // handle "<content>\\n<content>" or "<content> <content>"
-  for (const sep of ["\n\n", "\n", "  ", " "]) {
-    const idx = text.indexOf(sep);
-    if (idx <= 0) continue;
-    const first = text.slice(0, idx);
-    const second = text.slice(idx + sep.length);
-    if (first.length < 20) continue;
-    if (first === second) return first;
-  }
-
-  return text;
-}
-
-function appendChunk(prev: string, incoming: string): string {
-  if (!incoming) return prev;
-  if (!prev) return incoming;
-
-  // Case 1: incoming is a complete superset starting with prev
-  if (incoming.startsWith(prev)) {
-    const tail = incoming.slice(prev.length);
-    const compactTail = tail.trimStart();
-    const compactPrev = prev.trim();
-
-    // Check if this is just duplicate content
-    if (
-      tail === prev ||
-      compactTail === prev ||
-      compactTail === compactPrev ||
-      (compactPrev.length > 0 && compactTail.startsWith(compactPrev))
-    ) {
-      return prev;
-    }
-
-    // Check if the tail is meaningfully different (not just whitespace)
-    if (compactTail.length > 0 || tail.length > 0) {
-      return incoming;
-    }
-    return prev;
-  }
-
-  // Case 2: prev is a superset of incoming (already have this content)
-  if (prev.startsWith(incoming)) {
-    return prev;
-  }
-
-  // Case 3: Check for inclusion
-  if (prev.includes(incoming) && incoming.length > 20) {
-    return prev;
-  }
-
-  // Case 4: Handle overlapping chunks with proper boundary detection
-  const maxOverlap = Math.min(prev.length, incoming.length, 200); // Limit overlap check
-  for (let i = maxOverlap; i > 0; i -= 1) {
-    if (prev.slice(-i) === incoming.slice(0, i)) {
-      const merged = prev + incoming.slice(i);
-      return collapseDirectDuplicate(merged);
-    }
-  }
-
-  // Case 5: Handle "rewrite + append" style with anchor matching
-  const anchorSize = Math.min(100, prev.length); // Reduced anchor size
-  if (anchorSize >= 30) {
-    const anchor = prev.slice(-anchorSize);
-    const anchorPos = incoming.indexOf(anchor);
-    if (anchorPos >= 0 && anchorPos < incoming.length - anchorSize) {
-      const merged = prev + incoming.slice(anchorPos + anchor.length);
-      return collapseDirectDuplicate(merged);
-    }
-  }
-
-  // Case 6: Simple append as fallback
-  return collapseDirectDuplicate(prev + incoming);
-}
-
 export interface UseCLTPResult {
-  currentThought: string;
-  currentAnswer: string;
+  currentRunState: ConversationRunState;
   isProcessing: boolean;
   isConnected: boolean;
   lastError: string | null;
   answerCompleteCount: number;
   sendMessage: (message: string, resumeDataOverride?: any) => Promise<void>;
   finalizeStream: () => void;
+  cancelStream: (reason: RunCancelReason, message?: string) => void;
   disconnect: () => void;
 }
 
@@ -171,6 +50,9 @@ export interface UseCLTPOptions {
   conversationId?: string;
   baseUrl?: string;
   heartbeatTimeout?: number;
+  /** 业务静默超时（毫秒）：多久没收到任何可解析的业务事件就主动断开，
+   *  独立于 heartbeatTimeout（心跳字节不代表 LLM 真的有产出）。 */
+  meaningfulTimeout?: number;
   resumeData?: any;
   onSSEEvent?: (event: SSEEvent) => void;
   /** 本次会话使用的 LLM 模型（前端模型选择器），随请求透传给后端覆盖 */
@@ -185,11 +67,13 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
     resumeData,
     onSSEEvent,
     heartbeatTimeout = 0,
+    meaningfulTimeout = 0,
     model,
   } = options;
 
-  const [currentThought, setCurrentThought] = useState("");
-  const [currentAnswer, setCurrentAnswer] = useState("");
+  const [currentRunState, setCurrentRunState] = useState(() =>
+    createConversationRunState(`${conversationId || "conversation"}:idle-0`),
+  );
   const [isProcessing, setIsProcessing] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -199,6 +83,7 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
   const resumeDataRef = useRef<any>(resumeData);
   const onSSEEventRef = useRef<typeof onSSEEvent>(onSSEEvent);
   const modelRef = useRef<string | undefined>(model);
+  const runCounterRef = useRef(0);
 
   useEffect(() => {
     resumeDataRef.current = resumeData;
@@ -213,9 +98,13 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
   }, [onSSEEvent]);
 
   const resetStreamBuffers = useCallback(() => {
-    setCurrentThought("");
-    setCurrentAnswer("");
-  }, []);
+    runCounterRef.current += 1;
+    setCurrentRunState(
+      createConversationRunState(
+        `${conversationId || "conversation"}:idle-${runCounterRef.current}`,
+      ),
+    );
+  }, [conversationId]);
 
   const disconnect = useCallback(() => {
     if (abortRef.current) {
@@ -231,6 +120,30 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
     setIsProcessing(false);
   }, [resetStreamBuffers]);
 
+  const cancelStream = useCallback(
+    (reason: RunCancelReason, message = "已停止生成。") => {
+      if (abortRef.current) {
+        abortRef.current.abort();
+        abortRef.current = null;
+      }
+      setCurrentRunState((previous) =>
+        reduceConversationRun(previous, {
+          type: "run.cancelled",
+          eventId: crypto.randomUUID(),
+          runId: previous.runId,
+          seq: previous.lastSeq + 1,
+          sequenceSource: "arrival",
+          at: Date.now(),
+          reason,
+          message,
+        }),
+      );
+      setIsConnected(false);
+      setIsProcessing(false);
+    },
+    [],
+  );
+
   const sendMessage = useCallback(
     async (message: string, resumeDataOverride?: any) => {
       if (!agentEnabled) {
@@ -243,12 +156,15 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
 
       disconnect();
       setLastError(null);
-      resetStreamBuffers();
       setIsProcessing(true);
       setIsConnected(true);
 
       const controller = new AbortController();
       abortRef.current = controller;
+      runCounterRef.current += 1;
+      const runId = `${conversationId || "conversation"}:run-${runCounterRef.current}`;
+      const eventAdapter = createAgentEventAdapter();
+      setCurrentRunState(createConversationRunState(runId));
 
       // 每次发消息时读取最新 token，避免 useMemo 缓存导致 token 刷新后仍用旧值
       const token = localStorage.getItem("auth_token");
@@ -257,6 +173,25 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
         : {};
 
       let completed = false;
+      let failed = false;
+      let failureRecorded = false;
+
+      const recordFailure = (message: string) => {
+        failed = true;
+        if (failureRecorded) return;
+        failureRecorded = true;
+        setCurrentRunState((previous) =>
+          reduceConversationRun(previous, {
+            type: "run.failed",
+            eventId: crypto.randomUUID(),
+            runId,
+            seq: previous.lastSeq + 1,
+            sequenceSource: "arrival",
+            at: Date.now(),
+            message,
+          }),
+        );
+      };
 
       const emitToPage = (event: AgentStreamEvent) => {
         onSSEEventRef.current?.(event as unknown as SSEEvent);
@@ -272,48 +207,50 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
                 ? resumeDataOverride
                 : (resumeDataRef.current ?? null),
             model: modelRef.current || undefined,
+            run_id: runId,
           },
           {
             baseUrl,
             signal: controller.signal,
             headers: authHeaders,
             idleTimeoutMs: heartbeatTimeout,
+            meaningfulIdleTimeoutMs: meaningfulTimeout,
             onEvent: (event) => {
+              const canonicalEvents = eventAdapter.normalize(event);
+              setCurrentRunState((previous) =>
+                canonicalEvents.reduce(reduceConversationRun, previous),
+              );
+              const type = event.type;
+              if (type === "error" || type === "agent_error") {
+                failed = true;
+                failureRecorded = true;
+              }
+              if (type === "done" && (completed || failed)) return;
               emitToPage(event);
 
-              const type = event.type;
-              const text = extractEventText(event);
+              if (type === "answer_reset") {
+                return;
+              }
 
               if (type === "thought" || type === "thought_chunk") {
-                setCurrentThought((prev) =>
-                  collapseDirectDuplicate(
-                    appendChunk(prev, normalizeThoughtChunk(text)),
-                  ),
-                );
                 return;
               }
 
               if (type === "answer" || type === "answer_chunk") {
-                const isComplete = Boolean((event.data as any)?.is_complete);
-                if (isComplete) {
-                  const fullAnswer = normalizeAnswerBuffer(
-                    normalizeText((event.data as any)?.content) || text,
-                  );
-                  setCurrentAnswer((prev) =>
-                    collapseDirectDuplicate(fullAnswer || prev),
-                  );
-                  return;
-                }
-                setCurrentAnswer((prev) =>
-                  collapseDirectDuplicate(
-                    normalizeAnswerBuffer(appendChunk(prev, text)),
-                  ),
-                );
                 return;
               }
 
               if (type === "done") {
                 completed = true;
+                if (import.meta.env.DEV) {
+                  const shadow = canonicalEvents.length
+                    ? canonicalEvents[canonicalEvents.length - 1]
+                    : null;
+                  console.debug("[AgentPresentation]", {
+                    runId,
+                    terminalEvent: shadow?.type || "done",
+                  });
+                }
                 setAnswerCompleteCount((prev) => prev + 1);
                 return;
               }
@@ -330,10 +267,12 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
               }
             },
             onError: (error) => {
-              setLastError(error.message || "流式请求失败，请稍后重试。");
+              const message = error.message || "流式请求失败，请稍后重试。";
+              recordFailure(message);
+              setLastError(message);
             },
             onDone: () => {
-              if (!completed) {
+              if (!completed && !failed) {
                 completed = true;
                 setAnswerCompleteCount((prev) => prev + 1);
               }
@@ -343,23 +282,26 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
       } catch (error) {
         if (!(error instanceof Error && error.name === "AbortError")) {
           const msg = error instanceof Error ? error.message : "流式请求失败";
+          recordFailure(msg);
           setLastError(msg);
         }
       } finally {
         if (abortRef.current === controller) {
           abortRef.current = null;
+          setIsConnected(false);
+          // 正常 done 只表示网络源结束，Response 仍可能在做前端渐进呈现。
+          // 由上层在呈现完成后调用 finalizeStream；异常/中断则立即退出。
+          if (!completed || failed) setIsProcessing(false);
         }
-        setIsConnected(false);
-        setIsProcessing(false);
       }
     },
     [
       agentEnabled,
       disconnect,
-      resetStreamBuffers,
       conversationId,
       baseUrl,
       heartbeatTimeout,
+      meaningfulTimeout,
     ],
   );
 
@@ -373,14 +315,14 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
   }, []);
 
   return {
-    currentThought,
-    currentAnswer,
+    currentRunState,
     isProcessing,
     isConnected,
     lastError,
     answerCompleteCount,
     sendMessage,
     finalizeStream,
+    cancelStream,
     disconnect,
   };
 }

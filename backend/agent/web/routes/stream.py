@@ -45,11 +45,23 @@ storage = get_conversation_storage()
 conversation_manager = ConversationManager(storage=storage)
 
 # 允许前端按请求切换的 agent 模型白名单
-_ALLOWED_AGENT_MODELS = {"qwen-max"}
+_ALLOWED_AGENT_MODELS = {"deepseek-v4-flash", "qwen-max", "claude-sonnet-4-6"}
 
-# 模型 → LLM 通道路由表（base_url, api_key 环境变量名）
+# 模型 → LLM 通道路由表（base_url, api_key 环境变量名, extra_body）
+# extra_body 随模型走：deepseek-v4-flash 是推理模型，须 enable_thinking=false
+# 才支持 tool_choice=required（诊断/建议引擎依赖）；其它模型不带该参数
 _MODEL_CHANNELS = {
-    "qwen-max": ("https://dashscope.aliyuncs.com/compatible-mode/v1", "DASHSCOPE_API_KEY"),
+    "deepseek-v4-flash": (
+        "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "DASHSCOPE_API_KEY",
+        {"enable_thinking": False},
+    ),
+    "qwen-max": (
+        "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "DASHSCOPE_API_KEY",
+        None,
+    ),
+    "claude-sonnet-4-6": ("https://ruoli.dev/v1", "RUOLI_API_KEY", None),
 }
 
 # In-memory session TTL — evict idle agent sessions to cap memory growth
@@ -222,6 +234,7 @@ async def _stream_event_generator(
     cursor: Optional[str] = None,
     resume: bool = False,
     model: Optional[str] = None,
+    run_id: Optional[str] = None,
 ) -> AsyncGenerator[str, None]:
     """Generate SSE events from agent execution.
 
@@ -239,6 +252,31 @@ async def _stream_event_generator(
     Yields:
         SSE formatted strings
     """
+    canonical_run_id = run_id or f"run_{uuid.uuid4().hex}"
+    event_seq = 0
+
+    def wrap_event(event_type: str, data: dict) -> SSEEvent:
+        nonlocal event_seq
+        event_seq += 1
+        event_id = f"evt_{uuid.uuid4().hex}"
+        canonical = {
+            "id": event_id,
+            "type": event_type,
+            "session_id": conversation_id,
+            "run_id": canonical_run_id,
+            "seq": event_seq,
+            "timestamp": time.time(),
+            "data": data,
+        }
+        return SSEEvent(id=event_id, type=event_type, data=canonical)
+
+    def wrap_stream_event(event: StreamEvent) -> SSEEvent:
+        nonlocal event_seq
+        event_seq += 1
+        event.bind_envelope(run_id=canonical_run_id, seq=event_seq)
+        payload = event.to_dict()
+        return SSEEvent(id=event.event_id, type=event.event_type.value, data=payload)
+
     logger.info(
         f"[SSE Generator] Starting generator for conversation: {conversation_id}"
     )
@@ -256,13 +294,15 @@ async def _stream_event_generator(
             if agent.llm.model != model:
                 channel = _MODEL_CHANNELS.get(model)
                 if channel:
-                    base_url, key_env = channel
+                    base_url, key_env, channel_extra_body = channel
                     api_key = os.getenv(key_env, "").strip()
                     if api_key:
                         logger.info(
                             f"[SSE] 切换模型 {agent.llm.model} -> {model} (conv={conversation_id}, channel={base_url})"
                         )
-                        agent.llm.update_model(model, base_url, api_key)
+                        agent.llm.update_model(
+                            model, base_url, api_key, extra_body=channel_extra_body
+                        )
                     else:
                         logger.warning(f"[SSE] 模型 {model} 的通道 key {key_env} 未配置，跳过切换")
                 else:
@@ -279,9 +319,8 @@ async def _stream_event_generator(
 
         # Send initial status event
         logger.info(f"[SSE Generator] Preparing initial status event")
-        status_event = SSEEvent(
-            type="status",
-            data={"content": "processing", "conversation_id": conversation_id},
+        status_event = wrap_event(
+            "status", {"content": "processing", "conversation_id": conversation_id}
         )
         logger.info(f"[SSE Generator] Yielding initial status event")
         yield status_event.to_sse_format()
@@ -367,10 +406,7 @@ async def _stream_event_generator(
                     if item is _SENTINEL:
                         break
 
-                    event_dict = item.to_dict()
-                    sse_event = SSEEvent(
-                        type=event_dict.get("type", "unknown"), data=event_dict
-                    )
+                    sse_event = wrap_stream_event(item)
                     yield sse_event.to_sse_format()
                     now = time.time()
                     last_emit_time = now
@@ -392,10 +428,7 @@ async def _stream_event_generator(
                 user_message=prompt,
                 chat_history_manager=chat_history,
             ):
-                event_dict = event.to_dict()
-                sse_event = SSEEvent(
-                    type=event_dict.get("type", "unknown"), data=event_dict
-                )
+                sse_event = wrap_stream_event(event)
                 yield sse_event.to_sse_format()
                 now = time.time()
                 last_emit_time = now
@@ -403,14 +436,13 @@ async def _stream_event_generator(
                 await asyncio.sleep(0)
 
         # Send completion status
-        complete_event = SSEEvent(
-            type="status",
-            data={"content": "complete", "conversation_id": conversation_id},
+        complete_event = wrap_event(
+            "status", {"content": "complete", "conversation_id": conversation_id}
         )
         yield complete_event.to_sse_format()
-        done_event = SSEEvent(
-            type="done",
-            data={
+        done_event = wrap_event(
+            "done",
+            {
                 "conversation_id": conversation_id,
                 "last_emit_seconds_ago": round(time.time() - last_emit_time, 3),
                 "last_agent_event_seconds_ago": round(
@@ -422,9 +454,8 @@ async def _stream_event_generator(
 
     except asyncio.CancelledError:
         logger.info(f"[SSE] Stream cancelled for session: {conversation_id}")
-        cancel_event = SSEEvent(
-            type="status",
-            data={"content": "cancelled", "conversation_id": conversation_id},
+        cancel_event = wrap_event(
+            "status", {"content": "cancelled", "conversation_id": conversation_id}
         )
         yield cancel_event.to_sse_format()
 
@@ -435,7 +466,7 @@ async def _stream_event_generator(
             "error_type": type(e).__name__,
             "error_details": str(e),
         }
-        error_event = SSEEvent(type="error", data=error_payload)
+        error_event = wrap_event("error", error_payload)
         yield error_event.to_sse_format()
     except Exception as e:
         logger.exception(f"[SSE] Error in stream for session {conversation_id}: {e}")
@@ -459,7 +490,7 @@ async def _stream_event_generator(
             }
         else:
             error_payload = {"content": error_msg, "error_type": type(e).__name__}
-        error_event = SSEEvent(type="error", data=error_payload)
+        error_event = wrap_event("error", error_payload)
         yield error_event.to_sse_format()
 
     finally:
@@ -543,6 +574,7 @@ async def stream_events(
             cursor=request.cursor,
             resume=bool(request.resume),
             model=request.model,
+            run_id=request.run_id,
         ),
         media_type="text/event-stream",
         headers={

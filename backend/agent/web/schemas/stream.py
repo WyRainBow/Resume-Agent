@@ -23,6 +23,7 @@ class StreamRequest(BaseModel):
     resume_path: Optional[str] = Field(None, description="Path to resume file")
     resume_data: Optional[dict] = Field(None, description="Resume data payload")
     model: Optional[str] = Field(None, description="覆盖本次请求的 LLM 模型（白名单内）")
+    run_id: Optional[str] = Field(None, description="客户端为本轮分配的唯一运行 ID")
     cursor: Optional[str] = Field(None, description="Cursor for resume/reconnect")
     resume: Optional[bool] = Field(False, description="Whether this is a resume request")
 
@@ -78,6 +79,5 @@ class HeartbeatEvent(BaseModel):
             "timestamp": self.timestamp.isoformat(),
         }
         return f"id: {self.id}\ndata: {json.dumps(event_dict, ensure_ascii=False)}\n\n"
-
 
 

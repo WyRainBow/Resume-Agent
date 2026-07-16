@@ -6,6 +6,7 @@ from typing import Any, Awaitable, Callable, List, Optional, Union
 from pydantic import Field, PrivateAttr
 
 from backend.agent.agent.react import ReActAgent
+from backend.agent.application.public_reasoning import PublicReasoning
 from backend.agent.exceptions import TokenLimitExceeded
 from backend.core.logger import get_logger
 
@@ -13,6 +14,7 @@ logger = get_logger(__name__)
 from backend.agent.prompt.toolcall import NEXT_STEP_PROMPT, SYSTEM_PROMPT
 from backend.agent.schema import TOOL_CHOICE_TYPE, AgentState, Message, ToolCall, ToolChoice
 from backend.agent.tool import CreateChatCompletion, Terminate, ToolCollection
+from backend.agent.tool.base import ToolProgress
 
 
 TOOL_CALL_REQUIRED = "Tool calls required but none provided"
@@ -50,8 +52,17 @@ class ToolCallAgent(ReActAgent):
     _pending_next_step: bool = PrivateAttr(default=False)  # 是否有待处理的 next_step
     _tool_structured_results: dict[str, Any] = PrivateAttr(default_factory=dict)
     _halt_for_pending_approval: bool = PrivateAttr(default=False)
+    # Asking 模式:ask_user_question 执行后设此标志,act() 立刻终止本轮循环,
+    # 避免 agent 在同一请求里继续 think 把模块糊过去(用户还没填选择框)。
+    _halt_for_ask_question: bool = PrivateAttr(default=False)
     _stream_content_callback: Optional[Callable[[str], Awaitable[None]]] = PrivateAttr(default=None)
     _stream_cancel_event: Optional[asyncio.Event] = PrivateAttr(default=None)
+    _public_reasoning_callback: Optional[
+        Callable[[PublicReasoning], Awaitable[None]]
+    ] = PrivateAttr(default=None)
+    _tool_start_callback: Optional[
+        Callable[[ToolCall, dict[str, Any]], Awaitable[None]]
+    ] = PrivateAttr(default=None)
 
     def set_stream_content_callback(
         self,
@@ -64,6 +75,34 @@ class ToolCallAgent(ReActAgent):
     def clear_stream_content_callback(self) -> None:
         self._stream_content_callback = None
         self._stream_cancel_event = None
+
+    def set_public_reasoning_callback(
+        self,
+        callback: Optional[Callable[[PublicReasoning], Awaitable[None]]],
+    ) -> None:
+        self._public_reasoning_callback = callback
+
+    def clear_public_reasoning_callback(self) -> None:
+        self._public_reasoning_callback = None
+
+    def set_tool_start_callback(
+        self,
+        callback: Optional[Callable[[ToolCall, dict[str, Any]], Awaitable[None]]],
+    ) -> None:
+        """Register the stream handoff used before a tool starts executing."""
+        self._tool_start_callback = callback
+
+    def clear_tool_start_callback(self) -> None:
+        self._tool_start_callback = None
+
+    async def emit_tool_start(self, command: ToolCall, args: dict[str, Any]) -> None:
+        """Wait until the streaming layer has exposed the running tool card."""
+        if self._tool_start_callback:
+            await self._tool_start_callback(command, args)
+
+    async def emit_public_reasoning(self, update: PublicReasoning) -> None:
+        if self._public_reasoning_callback:
+            await self._public_reasoning_callback(update)
 
     @staticmethod
     def _sanitize_log_text(text: str) -> str:
@@ -373,9 +412,15 @@ class ToolCallAgent(ReActAgent):
                 return False
             raise
 
-        self.tool_calls = tool_calls = (
+        requested_tool_calls = (
             response.tool_calls if response and response.tool_calls else []
         )
+        if len(requested_tool_calls) > 1:
+            logger.warning(
+                "ReAct 每一步只允许一个工具；忽略同一步后续工具: {}",
+                [call.function.name for call in requested_tool_calls[1:]],
+            )
+        self.tool_calls = tool_calls = requested_tool_calls[:1]
         content = response.content if response and response.content else ""
 
         # Log response info
@@ -469,6 +514,28 @@ class ToolCallAgent(ReActAgent):
             self.memory.add_message(tool_msg)
             results.append(result)
 
+            # 等用户 UI 操作的工具,执行后立刻终止本轮循环:
+            # - ask_user_question:等用户填选择框(不终止的话 agent 会在同一请求里
+            #   继续 think,日志实测:调完工具 19 秒后自己说"用户没给信息,跳过"
+            #   把模块糊过去,选择框白弹)
+            # - show_resume:等用户在简历选择面板里选/导入(不终止的话工具结果回流,
+            #   LLM 会追加第二轮"面板已弹出~你可以:1…2…3…"罗列废话,且该文案渲染
+            #   在面板出现之前,时序错乱——用户实测截图)
+            # 用户后续操作会触发新一轮请求,那时再继续。跳过同轮剩余工具,补占位消息防报错。
+            if command.function.name in ("ask_user_question", "show_resume"):
+                self._halt_for_ask_question = True
+                skipped = self.tool_calls[index + 1:]
+                for skipped_command in skipped:
+                    logger.info(
+                        f"[{command.function.name}] 同轮后续工具已跳过(等用户在面板/选择框操作): {skipped_command.function.name}"
+                    )
+                    self.memory.add_message(Message.tool_message(
+                        content="已跳过:上一项在等用户于面板/选择框中操作,本轮不再执行其它工具。",
+                        tool_call_id=skipped_command.id,
+                        name=skipped_command.function.name,
+                    ))
+                break
+
             # 有工具挂起等确认:立刻跳过同轮剩余工具调用——挂起的安全语义是
             # "未经确认不执行副作用",若等循环跑完再终止,同轮的 sibling 工具
             # 仍会真实执行(审查发现的绕过口)。被跳过的 tool_call 仍须补一条
@@ -491,6 +558,11 @@ class ToolCallAgent(ReActAgent):
             self._halt_for_pending_approval = False
             self.state = AgentState.FINISHED
 
+        # Asking 模式:确定性终止本轮(不靠模型自觉),等用户填选择框提交答案
+        if self._halt_for_ask_question:
+            self._halt_for_ask_question = False
+            self.state = AgentState.FINISHED
+
         return "\n\n".join(results)
 
     async def execute_tool(self, command: ToolCall) -> str:
@@ -511,13 +583,51 @@ class ToolCallAgent(ReActAgent):
             # LLM 传入的 _approved 之类标记一律剥除,模型无法绕过这道门。
             if isinstance(args, dict):
                 args.pop("_approved", None)
+                # 部分模型会给无参数工具塞一个 `_noargs` 占位字段。它不是业务
+                # 参数，若原样传给 execute() 会先报一次 TypeError 再重试，拖慢
+                # list_resumes 等入口工具。
+                args.pop("_noargs", None)
             tool_obj = self.available_tools.tool_map.get(name)
             if tool_obj is not None and getattr(tool_obj, "requires_approval", False):
                 return self._suspend_for_approval(command.id, name, tool_obj, args)
 
+            # Hand the running state to the stream before execution starts.  The
+            # callback acknowledges only after ToolCallEvent has been yielded,
+            # so the UI timeline reflects the real lifecycle instead of replaying
+            # a completed call post-hoc.
+            await self.emit_tool_start(command, args)
+
             # Execute the tool
             logger.info(f"🔧 Activating tool: '{name}'...")
-            result = await self.available_tools.execute(name=name, tool_input=args)
+
+            async def _on_tool_progress(update: ToolProgress) -> None:
+                await self.emit_public_reasoning(
+                    PublicReasoning(
+                        content=update.content,
+                        phase=update.phase,
+                        node_id=(
+                            f"tool-progress:{command.id}:{update.node_id}"
+                            if update.node_id
+                            else f"tool-progress:{command.id}"
+                        ),
+                        is_complete=update.is_complete,
+                        tool_progress={
+                            "tool_call_id": command.id,
+                            "stage_id": update.node_id or "progress",
+                            "current": update.current,
+                            "total": update.total,
+                            "label": update.label,
+                            "summary": update.content,
+                            "stages": list(update.stages),
+                        },
+                    )
+                )
+
+            progress_token = tool_obj.set_progress_callback(_on_tool_progress)
+            try:
+                result = await self.available_tools.execute(name=name, tool_input=args)
+            finally:
+                tool_obj.clear_progress_callback(progress_token)
 
             # Handle special tools
             await self._handle_special_tool(name=name, result=result)
