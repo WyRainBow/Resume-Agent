@@ -35,8 +35,8 @@ def test_reset_keeps_patches():
 
 
 def test_reset_clears_flags():
+    # pending_immediate_stream 已随 qwq 死分支删除(Wave A-2/P0-3)
     turn = TurnExecutionState(
-        pending_immediate_stream={"x": 1},
         pending_edit_tool_call={"tool": "cv_editor_agent"},
         finish_after_load_resume_tool=True,
         read_only=True,
@@ -44,7 +44,6 @@ def test_reset_clears_flags():
 
     turn.reset_for_new_turn()
 
-    assert turn.pending_immediate_stream is None
     assert turn.pending_edit_tool_call is None
     assert turn.finish_after_load_resume_tool is False
     assert turn.read_only is False

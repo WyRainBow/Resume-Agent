@@ -1,18 +1,22 @@
-# Agent LLM 配置 - 使用 Qwen Max
+# Agent LLM 配置 - DeepSeek v4 Flash (DashScope 兼容模式)
 # API key 从环境变量读取，请在 .env 文件中配置
+# extra_body.enable_thinking=false：v4-flash 是推理模型，thinking 模式下
+# 不支持 tool_choice=required（诊断/建议引擎依赖）；关闭思维链后支持，
+# 且不产 reasoning token（更快），产品自有 thought 呈现体系不需要模型内置思维链
 [llm]
-model = "qwen-max"
+model = "deepseek-v4-flash"
 base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
 api_key = "${DASHSCOPE_API_KEY}"
 max_tokens = 8192
 temperature = 0.3
 api_type = "openai"
+extra_body = { enable_thinking = false }
 
 # Vision model (如果需要)
 [llm.vision]
-model = "qwen-max"
-base_url = "https://dashscope.aliyuncs.com/compatible-mode/v1"
-api_key = "${DASHSCOPE_API_KEY}"
+model = "claude-sonnet-4-6"
+base_url = "https://ruoli.dev/v1"
+api_key = "${RUOLI_API_KEY}"
 max_tokens = 8192
 temperature = 0.3
 api_type = "openai"

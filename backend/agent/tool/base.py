@@ -1,12 +1,31 @@
 import json
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Union
+from contextvars import ContextVar, Token
+from dataclasses import dataclass
+from typing import Any, Awaitable, Callable, Dict, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, PrivateAttr
 
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+@dataclass(frozen=True)
+class ToolProgress:
+    """A curated, user-visible progress update emitted by a running tool."""
+
+    content: str
+    phase: str = "tool_progress"
+    node_id: str = ""
+    is_complete: bool = True
+    current: int | None = None
+    total: int | None = None
+    label: str | None = None
+    stages: tuple[str, ...] = ()
+
+
+ToolProgressCallback = Callable[[ToolProgress], Awaitable[None]]
 
 
 # class BaseTool(ABC, BaseModel):
@@ -109,11 +128,36 @@ class BaseTool(ABC, BaseModel):
     # 这是运行时语义,模型无法绕过;approval_editable_fields 声明确认卡中可编辑的参数。
     requires_approval: bool = Field(default=False, exclude=True)
     approval_editable_fields: list = Field(default_factory=list, exclude=True)
+    _progress_callback: ContextVar[Optional[ToolProgressCallback]] = PrivateAttr(
+        default_factory=lambda: ContextVar("tool_progress_callback", default=None)
+    )
     # _schemas: Dict[str, List[ToolSchema]] = {}
 
     class Config:
         arbitrary_types_allowed = True
         underscore_attrs_are_private = False
+
+    def set_progress_callback(
+        self,
+        callback: Optional[ToolProgressCallback],
+    ) -> Token:
+        """Bind progress delivery to the current async context."""
+        return self._progress_callback.set(callback)
+
+    def clear_progress_callback(self, token: Token) -> None:
+        self._progress_callback.reset(token)
+
+    async def emit_progress(self, update: ToolProgress) -> None:
+        """Best-effort progress delivery; presentation failures must not fail tools."""
+        callback = self._progress_callback.get()
+        if not callback:
+            return
+        try:
+            await callback(update)
+        except Exception as exc:
+            logger.warning(
+                f"Tool progress callback failed for {self.name}: {type(exc).__name__}"
+            )
 
     # def __init__(self, **data):
     #     """Initialize tool with model validation and schema registration."""

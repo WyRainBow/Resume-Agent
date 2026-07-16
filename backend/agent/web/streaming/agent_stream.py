@@ -10,8 +10,50 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, AsyncIterator, Callable, Optional, Tuple, List, Set
+from typing import Any, AsyncIterator, Callable, Dict, Optional, Tuple, List, Set
 from datetime import datetime
+
+import openai
+from tenacity import RetryError
+
+
+def unwrap_retry_error(exc: BaseException) -> BaseException:
+    """tenacity RetryError 只是重试耗尽的包装，真实原因在 last_attempt 里。"""
+    if isinstance(exc, RetryError):
+        try:
+            inner = exc.last_attempt.exception()
+        except Exception:
+            inner = None
+        if inner is not None:
+            return inner
+    return exc
+
+
+def user_facing_error_message(exc: BaseException) -> Tuple[str, str]:
+    """把执行异常映射为用户可读文案 + 真实异常类型名。
+
+    背景（2026-07-16）：上游 LLM 网关 502 触发 tenacity 重试耗尽后，
+    `str(RetryError)` 的内部 repr（"RetryError[<Future at 0x... raised
+    InternalServerError>]"）被原样塞进 AgentErrorEvent.error_message，
+    前端（useCLTP）直接展示给了用户。用户永远不该看到内部异常 repr；
+    完整技术细节保留在 logger.exception 的日志里。
+    """
+    cause = unwrap_retry_error(exc)
+    if isinstance(cause, openai.APIError):
+        # 上游模型服务异常（502/超时/限流/凭据失效等），对用户统一为服务波动
+        return (
+            "AI 服务暂时不可用（上游接口异常），请稍等片刻再试一次。",
+            type(cause).__name__,
+        )
+    if isinstance(cause, (asyncio.TimeoutError, ConnectionError, OSError)):
+        return (
+            "网络连接不稳定，这一步没有完成，请稍后重试。",
+            type(cause).__name__,
+        )
+    return (
+        "刚才这一步运行出了点问题，请稍后重试。",
+        type(cause).__name__,
+    )
 
 
 def parse_thought_response(content: str) -> Tuple[Optional[str], Optional[str]]:
@@ -176,13 +218,15 @@ def parse_thought_response(content: str) -> Tuple[Optional[str], Optional[str]]:
     return None, content
 
 from backend.agent.agent.manus import Manus
-from backend.agent.schema import AgentState as SchemaAgentState, Message, Role
+from backend.agent.application.public_reasoning import PublicReasoning
+from backend.agent.schema import AgentState as SchemaAgentState, Message, Role, ToolCall
 from backend.agent.web.streaming.events import (
     EventType,
     StreamEvent,
     ThoughtEvent,
     ToolCallEvent,
     ToolResultEvent,
+    ToolProgressEvent,
     ResumeUpdatedEvent,
     AnswerEvent,
     AgentStartEvent,
@@ -190,9 +234,19 @@ from backend.agent.web.streaming.events import (
     AgentErrorEvent,
     SystemEvent,
     SuggestionsEvent,
+    AutoContinueEvent,
+    AnswerResetEvent,
 )
 from backend.agent.web.streaming.agent_state import AgentState, StateInfo
 from backend.agent.web.streaming.state_machine import AgentStateMachine
+from backend.agent.web.streaming.delta_filter import filter_streaming_markers
+from backend.agent.tool.resume_data_store import ResumeDataStore
+from backend.agent.utils.optimize_progress import (
+    AUTO_CONTINUE_PREFIX,
+    MODULE_LABEL,
+    strip_module_done_markers,
+    verify_facts_coverage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -211,6 +265,69 @@ ANALYSIS_RESULT_MARKERS = [
 ]
 
 
+def merge_visible_piece(parts: list, piece: str) -> None:
+    """把一步的可见正文并入本轮拼接列表,带与前端 useCLTP.appendChunk 对齐的
+    前缀/包含去重(Codex review P1:complete 是整体替换语义,流式侧 appendChunk
+    会合并"第二步重述第一步"的文本,后端无脑 join 会让 complete 出现重复段)。
+
+    规则(对齐 appendChunk Case 1/2/3,重叠合并 Case 4 不做——旁白场景的重复
+    形态是整段重述,不是 token 级重叠):
+    - piece 与已有某段完全相同 → 丢弃
+    - piece 以最后一段为前缀开头(累积式重述) → 用 piece 替换最后一段
+    - piece 被最后一段包含 → 丢弃
+    """
+    if not piece:
+        return
+    if parts:
+        last = parts[-1]
+        if piece == last:
+            return
+        if piece.startswith(last):
+            parts[-1] = piece
+            return
+        if piece in last:
+            return
+    if piece in parts:
+        return
+    parts.append(piece)
+
+
+def is_tool_error_content(content: str | None) -> bool:
+    """工具层用 ``Error:`` 作为失败契约，SSE 据此发 tool_error。"""
+    return bool(content and content.lstrip().startswith("Error:"))
+
+
+def split_turn_messages(messages) -> tuple[list[str], list[str]]:
+    """B层结构路由:按「这条 assistant 消息带不带 tool_calls」把本轮消息
+    分成旁白(narrations)与正文(answer_parts)。
+
+    - 带 tool_calls = ReAct 中间步,content 是"我接下来要做什么"的旁白
+      → 进思考折叠框,不进正文
+    - 不带 tool_calls = 收尾步,content 是给用户的正文
+    路由完全基于消息结构,不依赖 Thought:/Response: 文本协议(该协议
+    只在这里作为老会话历史数据的兼容清洗保留,不参与路由判定)。
+    """
+    narrations: list[str] = []
+    answer_parts: list[str] = []
+    for msg in messages:
+        role_val = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+        if role_val != "assistant" or not msg.content:
+            continue
+        content = msg.content
+        # 老会话兼容清洗:历史消息可能仍是 "Thought:...\nResponse:..." 全文
+        t_part, r_part = parse_thought_response(content)
+        cleaned = (r_part or (content if not t_part else "")).strip()
+        cleaned = strip_module_done_markers(cleaned)
+        if not cleaned:
+            continue
+        if getattr(msg, "tool_calls", None):
+            if not narrations or narrations[-1] != cleaned:
+                narrations.append(cleaned)
+        else:
+            merge_visible_piece(answer_parts, cleaned)
+    return narrations, answer_parts
+
+
 @dataclass
 class StepStreamState:
     step_id: int
@@ -218,7 +335,9 @@ class StepStreamState:
     last_stream_thought: str = ""
     last_stream_response: str = ""
     stream_emitted: bool = False
+    answer_emitted: bool = False
     final_emitted: bool = False
+    narration_promoted_before_tool: bool = False
 
 
 class AgentStream:
@@ -265,6 +384,11 @@ class AgentStream:
         self._final_answer_sent: bool = False
         # Wave 1.2: suggestions 只发一次(step-tail 与 post-loop 两个提取点都可能命中同一标记)
         self._suggestions_emitted: bool = False
+        # B层:本轮已收集的旁白(带工具步的 content),累计后以 ThoughtEvent 推前端
+        self._turn_narrations: list[str] = []
+        # B层·延迟定性:上一步的 (content, 是否流过delta)——下一步真开始才定性
+        # 为旁白;循环结束仍未 flush 的交给 post-loop 裁决(Codex review P1-1)
+        self._pending_step_narration: Optional[tuple] = None
         self._current_step_stream_state: Optional[StepStreamState] = None
         self._stream_cancel_event: Optional[asyncio.Event] = None
 
@@ -304,6 +428,10 @@ class AgentStream:
             session_id=self._session_id,
             event_seq=self._next_answer_event_seq(),
         )
+
+    def _build_complete_answer_event(self, content: str) -> Optional[AnswerEvent]:
+        """Single completion writer used by normal and recoverable-error exits."""
+        return self._build_answer_event(content=content, is_complete=True)
 
     def _ensure_assistant_message(self, content: Optional[str]) -> None:
         """Ensure the assistant message is present in memory for persistence."""
@@ -360,6 +488,25 @@ class AgentStream:
                 return msg.content
         return ""
 
+    def _is_pending_ask_question(self) -> bool:
+        """本轮 agent 是否调用了 ask_user_question 工具(弹出选择框等用户逐项确认)。
+
+        和 is_asking_question(问号启发式)是两套互补的暂停判据:问号启发式兜老
+        路径,这里兜结构化工具路径。扫最后一条带 tool_calls 的 assistant 消息,
+        看有没有 ask_user_question。"""
+        for msg in reversed(self.agent.memory.messages):
+            if msg.role != "assistant":
+                continue
+            if not msg.tool_calls:
+                continue
+            for tc in msg.tool_calls:
+                tool_name = getattr(getattr(tc, "function", None), "name", "") or ""
+                if tool_name == "ask_user_question":
+                    return True
+            # 只看最近一条带 tool_calls 的 assistant 消息即可
+            return False
+        return False
+
     def _should_skip_complete_answer(self, content: str) -> bool:
         state = self._current_step_stream_state
         if not state or not state.final_emitted:
@@ -369,6 +516,80 @@ class AgentStream:
         # 导致收尾 answer 永远发不出、正文只在流式区闪现(2026-07-10 实测)
         normalized = self._normalize_text(content)
         return bool(normalized) and normalized == self._normalize_text(state.last_stream_response)
+
+    def _build_optimize_progress_note(
+        self, progress: Optional[Dict[str, Any]], stuck: bool = False
+    ) -> Optional[str]:
+        """整份优化任务：把本请求收尾后的真实进度写成一句可见文案。
+
+        auto_continue 事件当前只有后端在发，前端还没接消费逻辑（已知缺口），
+        静默丢弃会让用户误以为整份优化已经全部完成。这里不依赖前端是否消费
+        该事件，直接把"还剩哪些模块""是否达上限"写进用户能看到的 answer 里。
+
+        **独立 review 发现**：`is_stuck()` 提前终止（`stuck=True`）时任务会被
+        强制 `finish_progress`，不会再自动续跑——这跟"本轮处理完、系统会自动
+        继续"是两码事，必须给单独的文案，否则复用下面的常规分支会说"系统将
+        自动继续"，而实际上不会，属于另一种误导性完成态。
+        """
+        if not progress:
+            return None
+        status = progress.get("status")
+        cnt = progress.get("continue_count", 0)
+        cap = ResumeDataStore.MAX_CONTINUE_COUNT
+        if stuck:
+            pending = progress.get("pending") or []
+            if status in ("optimizing", "reviewing") and (pending or status == "reviewing"):
+                labels = "、".join(MODULE_LABEL.get(k, k) for k in pending) or "最终一致性审阅"
+                return f"⚠️ 整份优化因未能继续推进已提前终止，以下部分尚未处理：{labels}。如需继续请回复「继续优化」（会重新发起整份优化，已完成的修改不会丢失，但会再过一遍）。"
+            return None
+        if status == "optimizing" and progress.get("pending"):
+            labels = "、".join(MODULE_LABEL.get(k, k) for k in progress["pending"])
+            if cnt >= cap:
+                return f"⚠️ 整份优化已达自动续跑上限，以下模块尚未处理：{labels}。如需继续请回复「继续优化」（会重新发起整份优化，已完成的修改不会丢失，但会再过一遍）。"
+            return f"📋 本轮已处理完成，剩余待优化模块：{labels}（系统将自动继续；若未自动继续，请回复「继续优化」）。"
+        if status == "reviewing" and not progress.get("review_dispatched"):
+            if cnt >= cap:
+                return "⚠️ 已达自动续跑上限，最终一致性审阅尚未执行。如需审阅请回复「继续优化」。"
+            return "📋 所有模块已处理完成，即将进行最终一致性审阅（若未自动进行，请回复「继续优化」）。"
+        return None
+
+    def _build_narration_thought_event(
+        self, text: str, step_id: int
+    ) -> Optional[ThoughtEvent]:
+        """把一次 ReAct step 的动作旁白发成独立 ThoughtEvent。"""
+        text = self._normalize_text(text)
+        if not text:
+            return None
+        thought_hash = hash(f"{step_id}|{text}")
+        if thought_hash in self._sent_thoughts:
+            return None
+        self._sent_thoughts.add(thought_hash)
+        return ThoughtEvent(
+            thought=text,
+            session_id=self._session_id,
+            step_id=step_id,
+        )
+
+    @staticmethod
+    def _diagnosis_completion_text(structured_data: Any) -> str:
+        details = (
+            structured_data.get("details")
+            if isinstance(structured_data, dict)
+            else None
+        )
+        source = details.get("diagnosis_source") if isinstance(details, dict) else None
+        if source == "heuristic_fallback":
+            return "深度诊断暂时没跑完，我先给你一版基础检查；本轮没有改动简历。"
+        return "诊断已经整理好，本轮没有改动简历。想看逐条修改建议，点评分卡上的「查看修改建议」。"
+
+    @staticmethod
+    def _is_hidden_diagnosis_guard_result(content: Optional[str]) -> bool:
+        """Hide rejected write/asking attempts from the public tool timeline."""
+        text = content or ""
+        return (
+            "本轮只做简历诊断和修改建议" in text
+            or "本轮为只读查看请求" in text
+        )
 
     def _make_suggestions_event(self, items: list[dict]) -> Optional[SuggestionsEvent]:
         """构造 suggestions 事件并保证整个 run 只发一次。
@@ -502,6 +723,9 @@ class AgentStream:
             StreamEvent instances during execution
         """
         start_memory_len = len(self.agent.memory.messages)
+        # 整份优化任务：is_stuck() 判定卡死提前退出时置位，收尾阶段据此跳过
+        # auto_continue（不能对一个已经卡死的会话还发起自动续跑，见下方接入点）。
+        optimize_stuck = False
         try:
             # Start state
             await self._state_machine.transition_to(
@@ -538,8 +762,21 @@ class AgentStream:
             # 重置 answer 发送标志
             self._answer_sent_in_loop = False
 
-            # 根据任务类型动态调整最大步数
-            if any(keyword in user_message.lower() for keyword in ["分析", "analyze", "深入", "详细"]):
+            # 根据任务类型动态调整最大步数。
+            # Wave A-3(P1-1):最终一致性审阅轮显式给 10 步——它要通读全篇、
+            # 核对事实、还可能调编辑工具修正,此前审阅的 AUTO_CONTINUE 输入
+            # ("进入最终一致性审阅")不含"分析/详细"关键词,只拿到 5 步预算,
+            # 修一半就被掐(2026-07-12 long-task spec 七点二欠账)。
+            _review_progress = ResumeDataStore.get_progress(self._session_id)
+            is_review_round = bool(
+                _review_progress
+                and _review_progress.get("status") == "reviewing"
+                and _review_progress.get("review_dispatched")
+            )
+            if is_review_round or any(
+                keyword in user_message.lower()
+                for keyword in ["分析", "analyze", "深入", "详细"]
+            ):
                 max_steps = 10
             else:
                 max_steps = 5
@@ -582,6 +819,10 @@ class AgentStream:
                     self._current_step_stream_state = step_state
                     # Keep ordered stream chunks to preserve true incremental output.
                     stream_queue: asyncio.Queue[str] = asyncio.Queue()
+                    reasoning_queue: asyncio.Queue[PublicReasoning] = asyncio.Queue()
+                    tool_start_queue: asyncio.Queue[
+                        tuple[ToolCall, dict[str, Any], asyncio.Future[None]]
+                    ] = asyncio.Queue()
                     self._stream_cancel_event = asyncio.Event()
 
                     async def _on_content_delta(content: str) -> None:
@@ -591,15 +832,40 @@ class AgentStream:
                             return
                         await stream_queue.put(content)
 
+                    async def _on_public_reasoning(update: PublicReasoning) -> None:
+                        if self._stream_cancel_event and self._stream_cancel_event.is_set():
+                            return
+                        await reasoning_queue.put(update)
+
+                    async def _on_tool_start(
+                        command: ToolCall, args: dict[str, Any]
+                    ) -> None:
+                        if self._stream_cancel_event and self._stream_cancel_event.is_set():
+                            return
+                        acknowledged: asyncio.Future[None] = (
+                            asyncio.get_running_loop().create_future()
+                        )
+                        await tool_start_queue.put((command, args, acknowledged))
+                        await acknowledged
+
                     if hasattr(self.agent, "set_stream_content_callback"):
                         self.agent.set_stream_content_callback(
                             _on_content_delta, self._stream_cancel_event
                         )
+                    if hasattr(self.agent, "set_public_reasoning_callback"):
+                        self.agent.set_public_reasoning_callback(_on_public_reasoning)
+                    if hasattr(self.agent, "set_tool_start_callback"):
+                        self.agent.set_tool_start_callback(_on_tool_start)
 
                     step_task = asyncio.create_task(self.agent.step())
                     step_result: Optional[str] = None
                     try:
-                        while not step_task.done() or not stream_queue.empty():
+                        while (
+                            not step_task.done()
+                            or not stream_queue.empty()
+                            or not reasoning_queue.empty()
+                            or not tool_start_queue.empty()
+                        ):
                             if self._state_machine.stop_requested:
                                 # 🚨 处理真流式执行中的停止
                                 stop_reason = self._state_machine.state_info.data.get("reason", "manual")
@@ -612,6 +878,72 @@ class AgentStream:
                                 if not step_task.done():
                                     step_task.cancel()
                                 break
+
+                            while not reasoning_queue.empty():
+                                update = reasoning_queue.get_nowait()
+                                content = self._normalize_text(update.content)
+                                if not content:
+                                    continue
+                                yield ThoughtEvent(
+                                    thought=content,
+                                    session_id=self._session_id,
+                                    step_id=self.agent.current_step,
+                                    node_id=update.node_id,
+                                    phase=update.phase,
+                                    is_complete=update.is_complete,
+                                )
+                                if update.tool_progress:
+                                    yield ToolProgressEvent(
+                                        **update.tool_progress,
+                                        session_id=self._session_id,
+                                    )
+
+                            # Content deltas have priority so the action narration
+                            # is fully visible before the running tool card.  The
+                            # tool itself is blocked on the acknowledgement below.
+                            if stream_queue.empty() and not tool_start_queue.empty():
+                                command, parsed_args, acknowledged = (
+                                    tool_start_queue.get_nowait()
+                                )
+                                try:
+                                    narration = self._normalize_text(
+                                        step_state.last_stream_text
+                                    )
+                                    thought_part, response_part = parse_thought_response(
+                                        narration
+                                    )
+                                    narration = self._normalize_text(
+                                        response_part
+                                        or (narration if not thought_part else thought_part)
+                                    )
+                                    narration_event = self._build_narration_thought_event(
+                                        narration, self.agent.current_step
+                                    )
+                                    if narration_event:
+                                        yield narration_event
+                                    if step_state.answer_emitted:
+                                        self._emitted_answer_fingerprints.clear()
+                                        yield AnswerResetEvent(session_id=self._session_id)
+                                    step_state.narration_promoted_before_tool = True
+
+                                    tool_name = command.function.name
+                                    tool_call_id = command.id
+                                    await self._state_machine.transition_to(
+                                        AgentState.TOOL_EXECUTING
+                                    )
+                                    if tool_call_id not in self._sent_tools:
+                                        self._sent_tools.add(tool_call_id)
+                                        yield ToolCallEvent(
+                                            tool_name=tool_name,
+                                            tool_args=parsed_args,
+                                            session_id=self._session_id,
+                                            tool_call_id=tool_call_id,
+                                            step_id=self.agent.current_step,
+                                        )
+                                finally:
+                                    if not acknowledged.done():
+                                        acknowledged.set_result(None)
+                                continue
 
                             try:
                                 streamed_content = await asyncio.wait_for(
@@ -651,13 +983,32 @@ class AgentStream:
                                     yield ThoughtEvent(
                                         thought=thought_part,
                                         session_id=self._session_id,
+                                        step_id=self.agent.current_step,
                                     )
 
+                                # Untagged tool narration cannot be classified as
+                                # an answer until the model response reveals
+                                # whether it contains a tool call.  Buffer it here;
+                                # the tool-start handoff promotes it to Thought,
+                                # while a no-tool turn is completed by the single
+                                # post-loop answer writer.  Explicit Response:
+                                # content remains eligible for incremental output.
+                                has_explicit_response_marker = bool(
+                                    re.search(
+                                        r"(?:Response|回复|Answer|Final\s*Answer|最终回复)\s*[:：]",
+                                        step_state.last_stream_text,
+                                        re.IGNORECASE,
+                                    )
+                                )
                                 stream_answer = (
                                     response_part
-                                    if response_part
-                                    else ("" if thought_part else step_state.last_stream_text)
+                                    if has_explicit_response_marker and response_part
+                                    else ""
                                 )
+                                # Wave A-4(P0-2):delta 出口协议标记滤波——完整标记
+                                # 删除、尾部未闭合/被切开的标记扣住(纯函数全量重算,
+                                # 幂等;流尾由 post-loop 净化 complete 整体替换兜底)
+                                stream_answer = filter_streaming_markers(stream_answer)
                                 if (
                                     stream_answer
                                     and self._normalize_text(stream_answer)
@@ -676,6 +1027,7 @@ class AgentStream:
                                             is_complete=False,
                                         )
                                         if answer_event:
+                                            step_state.answer_emitted = True
                                             yield answer_event
 
                         step_result = await step_task
@@ -697,12 +1049,30 @@ class AgentStream:
                     finally:
                         if hasattr(self.agent, "clear_stream_content_callback"):
                             self.agent.clear_stream_content_callback()
+                        if hasattr(self.agent, "clear_public_reasoning_callback"):
+                            self.agent.clear_public_reasoning_callback()
+                        if hasattr(self.agent, "clear_tool_start_callback"):
+                            self.agent.clear_tool_start_callback()
+                        while not tool_start_queue.empty():
+                            _command, _args, acknowledged = tool_start_queue.get_nowait()
+                            if not acknowledged.done():
+                                acknowledged.set_result(None)
                         self._stream_cancel_event = None
 
                     if hasattr(self.agent, "drain_resume_patches"):
                         from backend.agent.web.streaming.events import ResumePatchEvent
 
-                        for patch in self.agent.drain_resume_patches():
+                        queued_patches = self.agent.drain_resume_patches()
+                        diagnosis_only = bool(
+                            getattr(getattr(self.agent, "_turn", None), "diagnosis_only", False)
+                        )
+                        if diagnosis_only and queued_patches:
+                            logger.info(
+                                "[AgentStream] 诊断轮丢弃 %s 个跨轮残留 resume_patch",
+                                len(queued_patches),
+                            )
+                            queued_patches = []
+                        for patch in queued_patches:
                             logger.info(
                                 "[AgentStream] Emitting queued resume_patch: "
                                 f"patch_id={patch.get('patch_id', '')}, "
@@ -718,110 +1088,11 @@ class AgentStream:
                                 session_id=self._session_id,
                             )
 
-                    # 🚨 step_task 可能在 while 循环内就完成了（队列为空），在退出循环后检查 pending
-                    if hasattr(self.agent, "_pending_immediate_stream") and self.agent._pending_immediate_stream:
-                        pending = self.agent._pending_immediate_stream
-                        self.agent._pending_immediate_stream = None
-
-                        if pending.get("type") == "thinking_stream":
-                            # qwq-plus 真实 thinking 流 — 消费两个队列直到 sentinel
-                            thinking_q = pending["thinking_q"]
-                            content_q = pending["content_q"]
-                            sentinel = pending["sentinel"]
-                            fallback_thought = pending.get("fallback_thought", "")
-                            fallback_response = pending.get("fallback_response", "")
-                            qwq_task = pending.get("qwq_task")
-
-                            full_thought = ""
-                            full_content = ""
-                            thinking_done = False
-                            content_done = False
-
-                            import asyncio as _aio
-                            while not (thinking_done and content_done):
-                                # drain thinking
-                                if not thinking_done:
-                                    try:
-                                        piece = thinking_q.get_nowait()
-                                        if piece is sentinel:
-                                            thinking_done = True
-                                        else:
-                                            full_thought += piece
-                                            yield ThoughtEvent(
-                                                thought=full_thought,
-                                                session_id=self._session_id,
-                                            )
-                                    except Exception:
-                                        pass
-                                # drain content
-                                if not content_done:
-                                    try:
-                                        piece = content_q.get_nowait()
-                                        if piece is sentinel:
-                                            content_done = True
-                                        else:
-                                            full_content += piece
-                                            answer_event = self._build_answer_event(
-                                                content=full_content,
-                                                is_complete=False,
-                                                delta=piece,
-                                            )
-                                            if answer_event:
-                                                yield answer_event
-                                    except Exception:
-                                        pass
-                                if not thinking_done or not content_done:
-                                    await _aio.sleep(0.005)
-
-                            # 等待 qwq_task 完成
-                            if qwq_task and not qwq_task.done():
-                                try:
-                                    await _aio.wait_for(qwq_task, timeout=5)
-                                except Exception:
-                                    pass
-
-                            # 如果 qwq 没产生内容，fallback 用静态报告
-                            if not full_content.strip():
-                                full_thought = fallback_thought
-                                full_content = fallback_response
-                                yield ThoughtEvent(thought=full_thought, session_id=self._session_id)
-
-                            # 发送带 %%SUGGESTIONS%% 的最终完整答案
-                            clean_content, suggestion_items = self._extract_suggestions(full_content)
-                            final_event = self._build_answer_event(
-                                content=clean_content,
-                                is_complete=True,
-                            )
-                            if final_event:
-                                yield final_event
-                            suggestions_event = self._make_suggestions_event(suggestion_items)
-                            if suggestions_event:
-                                yield suggestions_event
-
-                            # 持久化到 memory
-                            final_msg = f"Thought: {full_thought}\nResponse: {full_content}"
-                            self._ensure_assistant_message(final_msg)
-                            step_state.stream_emitted = True
-                            step_state.last_stream_thought = full_thought
-                            step_state.last_stream_response = full_content
-                            step_state.last_stream_text = final_msg
-                            self._final_answer_sent = True
-
-                        else:
-                            # 旧式 answer pending
-                            pending_content = pending.get("content", "")
-                            pending_delta = pending.get("delta", "")
-                            pending_event = self._build_answer_event(
-                                content=pending_content,
-                                is_complete=pending.get("is_complete", False),
-                                delta=pending_delta,
-                            )
-                            if pending_event:
-                                yield pending_event
-                            step_state.stream_emitted = True
-                            thought_part, response_part = parse_thought_response(pending_content)
-                            step_state.last_stream_response = response_part or pending_delta or pending_content
-                            step_state.last_stream_text = pending_content
+                    # Wave A-2(P0-3):原 _pending_immediate_stream(qwq thinking 流)
+                    # 分支已整段删除——全仓无生产者的死代码(仅 turn_state 默认
+                    # None 与此处消费),且其持久化格式 f"Thought:...\nResponse:..."
+                    # 是文本协议污染源之一、其 is_complete 提前发射违反 complete
+                    # 单写者。2026-07-13 审查 R1-MAJOR-3。
 
                     safe_step = str(step_result).replace("<", r"\<").replace(">", r"\>")
                     logger.info(
@@ -829,55 +1100,54 @@ class AgentStream:
                         f"_answer_sent_in_loop: {self._answer_sent_in_loop}"
                     )
 
-                    # step 收尾：避免“流式末尾文本”与“memory 最终文本”不一致
-                    final_step_content = self._get_latest_assistant_content()
-                    if step_state.stream_emitted:
-                        # True-streaming single-writer policy:
-                        # do NOT emit answer in step-tail. The only writers are:
-                        # 1) delta in stream loop
-                        # 2) complete=true in FINISHED/fallback branch
-                        # Here we only align memory/state to avoid missing persistence.
-                        final_candidate = final_step_content or step_state.last_stream_text
-                        if final_candidate:
-                            thought_part, response_part = parse_thought_response(final_candidate)
-                            if (
-                                thought_part
-                                and self._normalize_text(thought_part)
-                                != self._normalize_text(step_state.last_stream_thought)
-                            ):
-                                step_state.last_stream_thought = thought_part
-                                yield ThoughtEvent(
-                                    thought=thought_part,
-                                    session_id=self._session_id,
-                                )
-
-                            final_answer_content = (
-                                response_part
-                                if response_part
-                                else (final_candidate if not thought_part else "")
+                    # step 收尾·B层结构路由(延迟定性,Codex review P1-1):
+                    # 带 tool_calls 的步 content 是旁白还是正文,要看「后面还有
+                    # 没有下一步」——FINISHED 只覆盖挂起类终点,步数耗尽/stuck
+                    # 等终点它看不见,立发旁白会与 post-loop 的'末旁白提升正文'
+                    # 兜底双份。故此处只暂存 pending,由下一轮循环开头 flush
+                    # (真有下一步才定性为旁白);循环结束仍未 flush 的,交给
+                    # post-loop 结构路由统一裁决,天然覆盖一切终点形态。
+                    last_step_msg = None
+                    for _m in reversed(self.agent.memory.messages):
+                        _role = _m.role.value if hasattr(_m.role, "value") else str(_m.role)
+                        if _role == "assistant":
+                            last_step_msg = _m
+                            break
+                    if (
+                        last_step_msg is not None
+                        and getattr(last_step_msg, "tool_calls", None)
+                        and (last_step_msg.content or "").strip()
+                    ):
+                        _piece = strip_module_done_markers(
+                            (last_step_msg.content or "").strip()
+                        )
+                        _t, _r = parse_thought_response(_piece)  # 老会话兼容清洗
+                        _piece = (_r or (_piece if not _t else "")).strip()
+                        if _piece:
+                            self._pending_step_narration = (
+                                _piece,
+                                step_state.answer_emitted,
                             )
-                            if final_answer_content:
-                                # Ensure final visible answer is persisted even when
-                                # assistant memory only contains intermediate/tool messages.
-                                self._ensure_assistant_message(final_answer_content)
-                                # Wave 1.2:此路径此前不提取 %%SUGGESTIONS%%,标记会以正文
-                                # 发给前端(靠前端 strip 兜底、按钮依赖 post-loop 二次提取)。
-                                # 现在保证后端出口即干净正文 + 结构化 suggestions 事件。
-                                clean_answer, tail_suggestions = self._extract_suggestions(
-                                    final_answer_content
-                                )
-                                step_state.last_stream_response = clean_answer
-                                # 🚨 立即流式补发：_pending_immediate_stream 先发了 pre-thought，
-                                # 这里补发完整 final_answer（含真实诊断内容，is_complete=True）
-                                final_event = self._build_answer_event(
-                                    content=clean_answer,
-                                    is_complete=True,
-                                )
-                                if final_event:
-                                    yield final_event
-                                suggestions_event = self._make_suggestions_event(tail_suggestions)
-                                if suggestions_event:
-                                    yield suggestions_event
+
+                    # tool step 的 content 在结构上已经确定是动作旁白，不再等到
+                    # 下一步才累计发射。先发本 step 的独立 thought，再发 tool
+                    # call/result，保证前端时间线严格呈现 think → tool → result。
+                    if self._pending_step_narration is not None:
+                        _piece, _had_stream = self._pending_step_narration
+                        self._pending_step_narration = None
+                        if _piece and (
+                            not self._turn_narrations
+                            or self._turn_narrations[-1] != _piece
+                        ):
+                            self._turn_narrations.append(_piece)
+                        narration_event = self._build_narration_thought_event(
+                            _piece, self.agent.current_step
+                        )
+                        if narration_event:
+                            yield narration_event
+                        if _had_stream and not step_state.narration_promoted_before_tool:
+                            self._emitted_answer_fingerprints.clear()
+                            yield AnswerResetEvent(session_id=self._session_id)
 
                     # 🔍 调试：检查状态变化
                     # 单一路径：循环内只发 delta，不发 complete。complete 只在循环结束后发一次。
@@ -886,6 +1156,13 @@ class AgentStream:
 
                     # 实时发送新增的消息
                     new_messages = self.agent.memory.messages[msg_count_before:]
+                    hidden_guard_call_ids = {
+                        msg.tool_call_id
+                        for msg in new_messages
+                        if msg.role == "tool"
+                        and msg.tool_call_id
+                        and self._is_hidden_diagnosis_guard_result(msg.content)
+                    }
 
                     # 检查是否有分析工具结果
                     has_recent_analysis_result = False
@@ -899,10 +1176,22 @@ class AgentStream:
                         if msg.role == "assistant":
                             # 先处理 tool_calls（assistant 消息可以同时有 content 和 tool_calls）
                             if msg.tool_calls:
-                                await self._state_machine.transition_to(AgentState.TOOL_EXECUTING)
+                                if (
+                                    self._state_machine.current_state
+                                    != AgentState.TOOL_EXECUTING
+                                ):
+                                    await self._state_machine.transition_to(
+                                        AgentState.TOOL_EXECUTING
+                                    )
                                 for tool_call in msg.tool_calls:
                                     tool_name = tool_call.function.name
                                     tool_call_id = tool_call.id  # ✅ 获取 tool_call_id
+                                    if tool_call_id in hidden_guard_call_ids:
+                                        logger.info(
+                                            "[诊断守卫] 不展示已拦截的工具调用: %s",
+                                            tool_name,
+                                        )
+                                        continue
 
                                     # 🚨 去重：使用 tool_call_id 而不是 step 作为键
                                     if tool_call_id in self._sent_tools:
@@ -918,6 +1207,7 @@ class AgentStream:
                                         tool_args=tool_args if isinstance(tool_args, (dict, str)) else {},
                                         session_id=self._session_id,
                                         tool_call_id=tool_call_id,  # ✅ 传递 tool_call_id
+                                        step_id=self.agent.current_step,
                                     )
 
                             # 再处理 content（如果有）
@@ -1016,6 +1306,7 @@ class AgentStream:
                                     yield ThoughtEvent(
                                         thought=thought_part,
                                         session_id=self._session_id,
+                                        step_id=self.agent.current_step,
                                     )
                                 else:
                                     # #region debug log (已禁用硬编码路径)
@@ -1044,14 +1335,23 @@ class AgentStream:
                                     yield ThoughtEvent(
                                         thought=msg.content,
                                         session_id=self._session_id,
+                                        step_id=self.agent.current_step,
                                     )
 
                         elif msg.tool_calls:
                             # 非 assistant 消息的 tool_calls（fallback）
-                            await self._state_machine.transition_to(AgentState.TOOL_EXECUTING)
+                            if (
+                                self._state_machine.current_state
+                                != AgentState.TOOL_EXECUTING
+                            ):
+                                await self._state_machine.transition_to(
+                                    AgentState.TOOL_EXECUTING
+                                )
                             for tool_call in msg.tool_calls:
                                 tool_name = tool_call.function.name
                                 tool_call_id = tool_call.id  # ✅ 获取 tool_call_id
+                                if tool_call_id in hidden_guard_call_ids:
+                                    continue
                                 # 🚨 去重：使用 tool_call_id 而不是 step 作为键
                                 if tool_call_id in self._sent_tools:
                                     logger.info(f"[跳过重复工具] {tool_name} (ID: {tool_call_id[:8]}...)")
@@ -1066,6 +1366,7 @@ class AgentStream:
                                     tool_args=tool_args if isinstance(tool_args, (dict, str)) else {},
                                     session_id=self._session_id,
                                     tool_call_id=tool_call_id,  # ✅ 传递 tool_call_id
+                                    step_id=self.agent.current_step,
                                 )
 
                         elif msg.role == "tool":
@@ -1075,6 +1376,8 @@ class AgentStream:
                             content = msg.content
                             tool_call_id = msg.tool_call_id  # ✅ 获取 tool_call_id
                             tool_name = msg.name or "unknown"
+                            if tool_call_id in hidden_guard_call_ids:
+                                continue
 
                             # 清理前缀
                             if content and content.startswith("Observed output of cmd `"):
@@ -1103,10 +1406,11 @@ class AgentStream:
                             yield ToolResultEvent(
                                 tool_name=tool_name,
                                 result=content or "",
-                                is_error=False,
+                                is_error=is_tool_error_content(content),
                                 session_id=self._session_id,
                                 tool_call_id=tool_call_id,  # ✅ 传递 tool_call_id
                                 structured_data=structured_data,
+                                step_id=self.agent.current_step,
                             )
 
                             # 简历编辑成功后，推送完整的更新后简历 JSON 给前端。
@@ -1114,7 +1418,16 @@ class AgentStream:
                             # 注意：resume_patch 流程由前端用户确认后应用，不应提前推送 resume_updated。
                             if tool_name == "cv_editor_agent" and structured_data and structured_data.get("type") == "resume_edit_diff":
                                 try:
-                                    from backend.agent.tool.resume_data_store import ResumeDataStore
+                                    # 不要在这里再 import ResumeDataStore——文件顶部（197行）已经
+                                    # module-level 导入过了。这个方法（execute）现在到处引用
+                                    # ResumeDataStore（本轮加的 progress/auto_continue 相关代码），
+                                    # 只要函数体里任何地方出现过 `ResumeDataStore = ...`/局部 import，
+                                    # Python 就会把 ResumeDataStore 当成整个函数作用域的局部变量——
+                                    # 这条工具调用分支没触发之前，前面任何一处引用都会直接
+                                    # UnboundLocalError，异常处理里再引用一次 ResumeDataStore 同样会炸，
+                                    # 导致连 AgentErrorEvent 都发不出去，前端表现为卡死在 loading。
+                                    # 真实生产 bug，2026-07-12 用户实测复现（"你好"/整份优化任务
+                                    # 到一半就断）。
                                     updated_resume = ResumeDataStore.get_data(self._session_id)
                                     if updated_resume:
                                         yield ResumeUpdatedEvent(
@@ -1158,6 +1471,7 @@ class AgentStream:
                     # 检查是否陷入循环
                     if self.agent.is_stuck():
                         logger.info("⚠️ Agent 检测到循环，终止执行")
+                        optimize_stuck = True
                         break
 
                     # 检查分析任务是否完成
@@ -1185,16 +1499,68 @@ class AgentStream:
                         logger.info("✅ Agent 状态已设置为 FINISHED，退出循环；complete 将在循环结束后统一发送")
                         break
 
+                    # 整份优化任务：全部模块刚在本步处理完（optimizing→reviewing
+                    # 相变发生在这一步），即使本请求预算还没用完也提前收尾，
+                    # 不在本请求里顺手插审阅——一致性审阅必须独占下一次全新请求
+                    # 的完整预算（设计方案七点二明确决策，五点六记录了这条不遵守
+                    # 就会导致的资源竞争）。本方法收尾阶段（下方 auto_continue
+                    # 触发逻辑）负责判断要不要发起那次独立的审阅请求。
+                    _progress = ResumeDataStore.get_progress(self._session_id)
+                    if (
+                        _progress
+                        and _progress.get("status") == "reviewing"
+                        and not _progress.get("review_dispatched")
+                    ):
+                        logger.info(
+                            "📋 整份优化全部模块已处理完，本请求提前收尾；"
+                            "一致性审阅将独占下一次自动续跑请求"
+                        )
+                        self.agent.state = SchemaAgentState.FINISHED
+                        break
+
             # 重置步骤计数
             self.agent.current_step = 0
             self.agent.state = SchemaAgentState.IDLE
 
-            # 单一路径：只在此处发一次 is_complete=True（流式阶段只发 delta）
-            final_answer = None
-            for msg in reversed(self.agent.memory.messages):
-                if msg.role == "assistant" and msg.content:
-                    final_answer = msg.content
-                    break
+            # 单写者：所有完整答案（含异常恢复）都经
+            # _build_complete_answer_event；流式阶段只发 delta。
+            # B层结构路由(替代 Wave A-1 的全量拼接):按消息结构分流——
+            # 带 tool_calls 的中间步 content=旁白(思考折叠框),不带=正文。
+            # 旁白不再进 complete,所以前端 complete 整体替换不会"吃掉旁白"
+            # (旁白在 thought 通道,FATAL-1 的前提已被结构路由消解)。
+            turn_messages = self.agent.memory.messages[start_memory_len:]
+            turn_narrations, turn_visible_parts = split_turn_messages(turn_messages)
+            if not turn_visible_parts and turn_narrations:
+                last_tool_message = next(
+                    (
+                        msg
+                        for msg in reversed(turn_messages)
+                        if msg.role == "tool" and msg.name
+                    ),
+                    None,
+                )
+                last_tool_name = last_tool_message.name if last_tool_message else None
+                if last_tool_name == "cv_analyzer_agent":
+                    # 诊断结果已由结构化卡片承载；动作旁白已经作为独立 thought
+                    # 发出，不能再整段提升为最终正文造成视觉重复。
+                    diagnosis_data = None
+                    if last_tool_message and hasattr(
+                        self.agent, "get_structured_tool_result"
+                    ):
+                        diagnosis_data = self.agent.get_structured_tool_result(
+                            last_tool_message.tool_call_id
+                        )
+                    turn_visible_parts = [
+                        self._diagnosis_completion_text(diagnosis_data)
+                    ]
+                else:
+                    # 兜底:整轮全是带工具步(ask_user_question/show_resume 挂起等
+                    # 等用户操作的场景)——最后一条旁白就是本轮可见正文
+                    # ("我弹个选择框跟你确认~"),提升为正文。
+                    turn_visible_parts = [turn_narrations.pop()]
+            # 以全量重算为准同步累计器(step-tail 增量收集可能有遗漏场景)
+            self._turn_narrations = turn_narrations
+            final_answer = "\n\n".join(turn_visible_parts) if turn_visible_parts else None
             if not final_answer:
                 has_terminate = any(
                     m.role == "tool" and m.name == "terminate"
@@ -1214,29 +1580,79 @@ class AgentStream:
             if not final_answer:
                 final_answer = "错误：Agent 执行过程中未生成有效回复、请检查任务配置或重试。"
 
-            # 解析 Thought/Response：在唯一收尾点补发 thought（若尚未发过）
-            thought_part, response_part = parse_thought_response(final_answer)
-            if thought_part:
-                thought_hash = hash(self._normalize_text(thought_part))
-                if thought_hash not in self._sent_thoughts:
-                    self._sent_thoughts.add(thought_hash)
-                    yield ThoughtEvent(
-                        thought=thought_part,
-                        session_id=self._session_id,
-                    )
-
-            # plain 仅取 response 正文，避免 thought 混入答案
-            final_content = (response_part or final_answer).strip() or final_answer
-            self._ensure_assistant_message(final_content)
+            # 拼接路径已逐条取 response 正文并 strip 过标记；fallback 文案再过
+            # 一遍 strip 是幂等保险。[[MODULE_DONE]] 只是内部协议信号，信号1
+            # 在 think() 阶段已读 memory 原文完成推进，展示层必须干净
+            # （2026-07-12/13 两次用户截图实测裸奔）。
+            final_content = strip_module_done_markers((final_answer or "").strip())
+            # m2 防双份：拼接结果是"合成大消息"，与 memory 里任何单条都不同，
+            # 无条件 _ensure 会 append 近似双份。仅当本轮 memory 没有任何可见
+            # assistant 正文（走了 fallback 文案）时才兜底补一条供持久化。
+            if not turn_visible_parts:
+                self._ensure_assistant_message(final_content)
 
             # 提取建议按钮标记
             clean_content, suggestion_items = self._extract_suggestions(final_content)
 
-            if not self._final_answer_sent and not self._should_skip_complete_answer(clean_content):
-                answer_event = self._build_answer_event(
-                    content=clean_content,
-                    is_complete=True,
+            # 独立review发现的真实bug（用户实测截图复现）：LLM本轮针对当前模块
+            # 向用户提了个澄清问题（等真人回答"有/没有"），这种情况下不该说
+            # "系统将自动继续"——本函数下面的 auto_continue 触发逻辑也会看这个
+            # 标志，命中就不自动续跑，这里先算出来，两处共用同一个判断结果。
+            is_asking_question = bool(clean_content and re.search(r"[?？]", clean_content))
+            # Asking 模式：本轮 agent 调了 ask_user_question 工具（前端弹选择框
+            # 逐项确认），同样要挂起 auto_continue，等用户点完选择框提交答案。
+            # 和问号启发式是两套互补判据，合并成 should_pause_optimize，避免写
+            # 两个 elif 互相吞。问号兜老路径（没接新工具时的自然语言提问），
+            # 工具兜结构化路径。
+            pending_ask_question = self._is_pending_ask_question()
+            should_pause_optimize = is_asking_question or pending_ask_question
+
+            # 整份优化任务：任务还没做完时，在可见 answer 里明确写清楚剩余模块，
+            # 不能只靠 auto_continue 事件——前端目前还没接消费逻辑（已知缺口，
+            # 见设计方案七点五），届时事件会被静默丢弃，用户看到的就是一条
+            # "回答完了"的普通消息，容易误以为整份优化已经全部做完。这里不管
+            # 前端接没接，都在文案上把真实进度说清楚（is_stuck 提前终止走单独
+            # 文案，见 _build_optimize_progress_note 的 stuck 分支）。本轮在
+            # 等用户回答问题时不追加这段提示——LLM 自己问的问题已经是最准确
+            # 的"接下来该做什么"，再补一句"系统将自动继续"反而误导（不会自动
+            # 继续，要等真人回答）。Asking 模式（调了 ask_user_question 工具）
+            # 同理，工具弹的选择框本身就是问题。
+            diagnosis_only = bool(
+                getattr(getattr(self.agent, "_turn", None), "diagnosis_only", False)
+            )
+            if not should_pause_optimize and not diagnosis_only:
+                _note_progress = ResumeDataStore.get_progress(self._session_id)
+                _note = self._build_optimize_progress_note(_note_progress, stuck=optimize_stuck)
+                if _note:
+                    clean_content = f"{clean_content}\n\n{_note}"
+
+            # Wave A-3(P1-1):审阅轮收尾前的确定性回验——审阅 prompt 只是
+            # "要求"LLM 核对事实,这里用代码核对 facts 是否仍在改后简历中,
+            # 结果写进可见回复。治"97% 被误删需补回"说完就丢、无人验证的
+            # 闭环缺口(审查乱象 5;facts 此前是全仓零消费的死数据)。
+            if is_review_round:
+                _review_missing = verify_facts_coverage(
+                    ResumeDataStore.get_progress(self._session_id) or {},
+                    ResumeDataStore.get_data(self._session_id) or {},
                 )
+                if _review_missing:
+                    _miss_lines = "；".join(
+                        f"{MODULE_LABEL.get(m, m)}：{'、'.join(items[:5])}"
+                        for m, items in _review_missing.items()
+                    )
+                    clean_content = (
+                        f"{clean_content}\n\n⚠️ 系统事实核对：以下原文关键信息"
+                        f"在当前简历中未找到——{_miss_lines}。若不是你主动要求"
+                        f"删除的，跟我说一声我帮你补回。"
+                    )
+                else:
+                    clean_content = (
+                        f"{clean_content}\n\n✅ 系统事实核对：原文关键数字与"
+                        f"专有名词已全部保留。"
+                    )
+
+            if not self._final_answer_sent and not self._should_skip_complete_answer(clean_content):
+                answer_event = self._build_complete_answer_event(clean_content)
                 if answer_event:
                     yield answer_event
 
@@ -1264,9 +1680,18 @@ class AgentStream:
                         has_tool_calls = msg.tool_calls and len(msg.tool_calls) > 0
 
                         if has_content or has_tool_calls:
+                            # P0-4 历史出口清洗:协议标记不入库(库里的内容会被
+                            # history 接口原样返回、前端加载零清洗直接显示)。
+                            # strip MODULE_DONE + %%SUGGESTIONS%% 标记(Codex review
+                            # P1-4 内容层:memory 原文里的建议标记此前会原样入库);
+                            # Thought:/Response: 前缀由 P0-3 断源治增量、前端兜底治存量。
+                            persist_content = msg.content
+                            if persist_content:
+                                persist_content = strip_module_done_markers(persist_content)
+                                persist_content, _ = self._extract_suggestions(persist_content)
                             self._chat_history_manager.add_message(Message(
                                 role=Role.ASSISTANT,
-                                content=msg.content,
+                                content=persist_content,
                                 tool_calls=msg.tool_calls
                             ), persist=False)
                         else:
@@ -1292,6 +1717,70 @@ class AgentStream:
                     f"总内存 {len(self.agent.memory.messages)} 条)"
                 )
 
+            # 整份优化任务：本请求收尾，检查任务是否还没做完，决定要不要提示
+            # 前端自动发起下一轮续跑。一致性审阅永远独占下一次全新请求，绝不
+            # 与模块处理共用本请求的步数预算（设计方案七点二明确决策）。
+            # continue_count 硬上限防死循环（方案七点一发现 D）。
+            progress = ResumeDataStore.get_progress(self._session_id)
+            _MAX_AUTO_CONTINUE = ResumeDataStore.MAX_CONTINUE_COUNT
+            # is_asking_question 复用上面（构造 answer 时）算好的同一个判断：
+            # LLM本轮针对当前模块问了个澄清问题（"有没有奖学金？GPA多少？"），
+            # 用户还没来得及回答，auto_continue不能自动发起下一轮把这个模块
+            # 糊过去——manus.py._advance_optimize_progress的信号3已经在同一个
+            # bug上做了修复（不自动判定skip），这里是配套的另一半：即使信号3
+            # 不再误判skip，只要pending还在，本函数原来的逻辑依然会无脑发起
+            # 下一轮自动续跑。命中就不自动续跑，让请求正常收尾，真等用户回复
+            # （用户下一句真实回复会走正常的新一轮请求，不是auto_continue
+            # 合成的那种）。
+            if diagnosis_only:
+                logger.info("🩺 只读诊断轮：保留旧优化进度，不自动续跑")
+            elif optimize_stuck and progress:
+                logger.warning("⚠️ 整份优化任务因 is_stuck 提前终止，不再自动续跑")
+                ResumeDataStore.finish_progress(self._session_id)
+            elif should_pause_optimize and progress and progress.get("status") in ("optimizing", "reviewing"):
+                if pending_ask_question:
+                    logger.info("💬 Asking 模式：本轮弹了选择框等用户逐项确认，暂不自动续跑")
+                else:
+                    logger.info("💬 本轮在等用户回答澄清问题，暂不自动续跑")
+            elif progress and progress.get("status") == "optimizing" and progress.get("pending"):
+                if progress.get("continue_count", 0) >= _MAX_AUTO_CONTINUE:
+                    done = progress.get("done") or []
+                    pending = progress.get("pending") or []
+                    logger.warning(
+                        f"⚠️ 整份优化续跑达上限({_MAX_AUTO_CONTINUE})，强制收尾："
+                        f"已完成 {len(done)} 个模块，剩余 {pending} 未处理"
+                    )
+                    ResumeDataStore.finish_progress(self._session_id)
+                else:
+                    ResumeDataStore.bump_continue_count(self._session_id)
+                    pending_labels = "、".join(progress["pending"])
+                    yield AutoContinueEvent(
+                        message=f"继续优化剩余模块：{pending_labels}",
+                        reason="optimizing",
+                        next_user_input=f"{AUTO_CONTINUE_PREFIX}继续优化剩余模块：{pending_labels}",
+                        session_id=self._session_id,
+                    )
+            elif progress and progress.get("status") == "reviewing":
+                if not progress.get("review_dispatched"):
+                    if progress.get("continue_count", 0) >= _MAX_AUTO_CONTINUE:
+                        logger.warning(
+                            "⚠️ 整份优化续跑达上限，跳过一致性审阅直接收尾"
+                        )
+                        ResumeDataStore.finish_progress(self._session_id)
+                    else:
+                        ResumeDataStore.mark_review_dispatched(self._session_id)
+                        ResumeDataStore.bump_continue_count(self._session_id)
+                        yield AutoContinueEvent(
+                            message="进入最终一致性审阅",
+                            reason="reviewing",
+                            next_user_input=f"{AUTO_CONTINUE_PREFIX}进入最终一致性审阅",
+                            session_id=self._session_id,
+                        )
+                else:
+                    # review_dispatched 已经是 True，说明这次请求本身就是那次
+                    # 独立派发的审阅请求，正常跑完，任务真正结束。
+                    ResumeDataStore.finish_progress(self._session_id)
+
             # Completed state
             await self._state_machine.transition_to(
                 AgentState.COMPLETED,
@@ -1307,12 +1796,44 @@ class AgentStream:
         except Exception as e:
             logger.exception(f"Error during agent execution: {e}")
             await self._state_machine.handle_error(e)
+            # 整份优化任务：本次请求循环内抛异常直接跳到这里，跳过了循环
+            # 之后的进度可见文案/auto_continue 判断——任务在 progress 里还是
+            # optimizing/reviewing，但用户只会看到一条"运行失败"，看不出
+            # 任务其实还活着、下次说"继续优化"能接着做（独立 review round5
+            # 发现：这是另一种误导性完成态，跟 stuck/达上限那两种是同类问题）。
+            # 不强制 finish_progress——异常大概率是这一步的瞬时问题，留着
+            # 任务状态，让用户下次明确说"继续优化"时能凭 progress 复原。
+            _err_progress = ResumeDataStore.get_progress(self._session_id)
+            _err_note = self._build_optimize_progress_note(_err_progress)
+            # 用户永远不该看到内部异常 repr（如 RetryError[<Future ...>]）——
+            # 映射为可读文案，真实异常类型进 error_type，完整堆栈已在上方
+            # logger.exception 里（2026-07-16 实测修复）。
+            error_message, real_error_type = user_facing_error_message(e)
+            if _err_note:
+                error_message = f"{error_message}\n\n{_err_note}"
+            friendly_error = "刚才这一步没有顺利跑完，我保留了当前进度。你可以稍后重试一次。"
+            if _err_note:
+                friendly_error = f"{friendly_error}\n\n{_err_note}"
+            recovery_step = max(1, self.agent.current_step)
+            yield ThoughtEvent(
+                thought=(
+                    "这一步没有拿到可靠结果，我先停在这里，避免把不完整内容当成完成。"
+                    "现有进度会保留，下一次可以从这里继续。"
+                ),
+                step_id=recovery_step,
+                session_id=self._session_id,
+                node_id=f"error-recovery:{recovery_step}",
+                phase="error_recovery",
+            )
+            complete_error = self._build_complete_answer_event(friendly_error)
+            if complete_error:
+                yield complete_error
             if self._chat_history_manager:
                 self._chat_history_manager.add_message(
-                    Message.assistant_message(f"Agent运行失败：{str(e)}")
+                    Message.assistant_message(friendly_error)
                 )
             yield AgentErrorEvent(
-                error_message=str(e),
+                error_message=error_message,
                 error_type=type(e).__name__,
                 session_id=self._session_id,
             )

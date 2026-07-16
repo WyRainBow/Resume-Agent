@@ -3,26 +3,21 @@ import { getAuthHeaders } from '@/lib/authHeaders'
 import { getApiBaseUrl } from '@/lib/runtimeEnv'
 import type { Resume } from '@/types/resume'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
-import type { SavedResume, StorageAdapter } from './StorageAdapter'
+import type { SavedResume, StorageAdapter, StorageOperationContext } from './StorageAdapter'
 
+// withCredentials:configureAuthWebRequests 只 patch 全局 axios/fetch,
+// axios.create 自建实例吃不到——走 auth-web(3000)代理时 BetterAuth cookie
+// 不随行,简历 CRUD 全部 401 并静默回退 local,造成"Dashboard 删了、数据库
+// 还在"的幽灵数据(2026-07-13 实测)。代理 CORS 已确认允许凭证。
 const apiClient = axios.create({
   baseURL: getApiBaseUrl(),
   timeout: 10000,
+  withCredentials: true,
 })
 
-const CURRENT_KEY = 'resume_current'
-const TOKEN_KEY = 'auth_token'
-
-apiClient.interceptors.response.use(
-  response => response,
-  error => {
-    if (error?.response?.status === 401) {
-      localStorage.removeItem(TOKEN_KEY)
-    }
-    return Promise.reject(error)
-  }
-)
-
+// 注意:不做"401 就删 auth_token"——适配器的偶发 401(cookie 未随行/瞬时
+// 网络)不能反手清掉用户会话凭证,否则适配器被永久打回 local 模式,本地与
+// 数据库从此分叉。真正的登出由 AuthContext 统一管理。
 apiClient.interceptors.request.use((config) => {
   config.baseURL = getApiBaseUrl()
   return config
@@ -43,33 +38,41 @@ function toSavedResume(payload: any): SavedResume {
 }
 
 export class DatabaseAdapter implements StorageAdapter {
-  async getAllResumes(): Promise<SavedResume[]> {
-    const { data } = await apiClient.get('/api/resumes', { headers: getAuthHeaders() })
+  async getAllResumes(context?: StorageOperationContext): Promise<SavedResume[]> {
+    const { data } = await apiClient.get('/api/resumes', {
+      headers: getAuthHeaders(),
+      signal: context?.signal,
+    })
     return Array.isArray(data) ? data.map(toSavedResume) : []
   }
 
   getCurrentResumeId(): string | null {
-    return localStorage.getItem(CURRENT_KEY)
+    // 当前编辑项属于前端会话 UI 状态，由 resumeStorage 按账号隔离管理。
+    return null
   }
 
-  setCurrentResumeId(id: string | null): void {
-    if (id) {
-      localStorage.setItem(CURRENT_KEY, id)
-    } else {
-      localStorage.removeItem(CURRENT_KEY)
-    }
+  setCurrentResumeId(_id: string | null): void {
+    // StorageAdapter 兼容方法；数据库适配器不写浏览器全局状态。
   }
 
-  async getResume(id: string): Promise<SavedResume | null> {
+  async getResume(id: string, context?: StorageOperationContext): Promise<SavedResume | null> {
     try {
-      const { data } = await apiClient.get(`/api/resumes/${id}`, { headers: getAuthHeaders() })
+      const { data } = await apiClient.get(`/api/resumes/${id}`, {
+        headers: getAuthHeaders(),
+        signal: context?.signal,
+      })
       return toSavedResume(data)
-    } catch {
-      return null
+    } catch (error: any) {
+      if (error?.response?.status === 404) return null
+      throw error
     }
   }
 
-  async saveResume(resume: Resume | ResumeData, id?: string): Promise<SavedResume> {
+  async saveResume(
+    resume: Resume | ResumeData,
+    id?: string,
+    context?: StorageOperationContext,
+  ): Promise<SavedResume> {
     const name = (resume as any).basic?.name || (resume as any).name || '未命名简历'
     // 从 ResumeData 中提取 templateType，默认为 'latex'
     const templateType = (resume as ResumeData).templateType || 'latex'
@@ -79,7 +82,7 @@ export class DatabaseAdapter implements StorageAdapter {
           const { data } = await apiClient.put(
             `/api/resumes/${id}`,
             { id, name, template_type: templateType, data: resume },
-            { headers: getAuthHeaders() }
+            { headers: getAuthHeaders(), signal: context?.signal }
           )
           return toSavedResume(data)
         } catch (error: any) {
@@ -91,9 +94,8 @@ export class DatabaseAdapter implements StorageAdapter {
           const { data } = await apiClient.post(
             '/api/resumes',
             { id, name, template_type: templateType, data: resume },
-            { headers: getAuthHeaders() }
+            { headers: getAuthHeaders(), signal: context?.signal }
           )
-          this.setCurrentResumeId(data.id)
           return toSavedResume(data)
         }
       }
@@ -101,9 +103,8 @@ export class DatabaseAdapter implements StorageAdapter {
       const { data } = await apiClient.post(
         '/api/resumes',
         { name, template_type: templateType, data: resume },
-        { headers: getAuthHeaders() }
+        { headers: getAuthHeaders(), signal: context?.signal }
       )
-      this.setCurrentResumeId(data.id)
       return toSavedResume(data)
     } catch (error: any) {
       console.error('保存到数据库失败:', error)
@@ -112,53 +113,69 @@ export class DatabaseAdapter implements StorageAdapter {
     }
   }
 
-  async deleteResume(id: string): Promise<boolean> {
+  async deleteResume(id: string, context?: StorageOperationContext): Promise<boolean> {
     try {
-      await apiClient.delete(`/api/resumes/${id}`, { headers: getAuthHeaders() })
-      if (this.getCurrentResumeId() === id) {
-        this.setCurrentResumeId(null)
-      }
+      await apiClient.delete(`/api/resumes/${id}`, {
+        headers: getAuthHeaders(),
+        signal: context?.signal,
+      })
       return true
-    } catch {
-      return false
+    } catch (error: any) {
+      if (error?.response?.status === 404) return false
+      throw error
     }
   }
 
-  async renameResume(id: string, newName: string): Promise<boolean> {
-    const resume = await this.getResume(id)
+  async renameResume(
+    id: string,
+    newName: string,
+    context?: StorageOperationContext,
+  ): Promise<boolean> {
+    const resume = await this.getResume(id, context)
     if (!resume) return false
     await apiClient.put(
       `/api/resumes/${id}`,
       { id, name: newName, data: resume.data },
-      { headers: getAuthHeaders() }
+      { headers: getAuthHeaders(), signal: context?.signal }
     )
     return true
   }
 
-  async duplicateResume(id: string): Promise<SavedResume | null> {
-    const original = await this.getResume(id)
+  async duplicateResume(id: string, context?: StorageOperationContext): Promise<SavedResume | null> {
+    const original = await this.getResume(id, context)
     if (!original) return null
-    const copied = JSON.parse(JSON.stringify(original.data)) as Resume
-    copied.name = `${original.name} (副本)`
-    return this.saveResume(copied)
+    const copied = JSON.parse(JSON.stringify(original.data)) as Resume | ResumeData
+    const copiedName = `${original.name} (副本)`
+    if ('basic' in copied && copied.basic) copied.basic.name = copiedName
+    else (copied as Resume).name = copiedName
+    return this.saveResume(copied, undefined, context)
   }
 
-  async updateResumeAlias(id: string, alias: string): Promise<boolean> {
-    const resume = await this.getResume(id)
+  async updateResumeAlias(
+    id: string,
+    alias: string,
+    context?: StorageOperationContext,
+  ): Promise<boolean> {
+    const resume = await this.getResume(id, context)
     if (!resume) return false
     try {
       await apiClient.put(
         `/api/resumes/${id}`,
         { id, name: resume.name, alias, data: resume.data },
-        { headers: getAuthHeaders() }
+        { headers: getAuthHeaders(), signal: context?.signal }
       )
       return true
-    } catch {
-      return false
+    } catch (error: any) {
+      if (error?.response?.status === 404) return false
+      throw error
     }
   }
 
-  async updateResumePinned(id: string, pinned: boolean): Promise<boolean> {
+  async updateResumePinned(
+    id: string,
+    pinned: boolean,
+    _context?: StorageOperationContext,
+  ): Promise<boolean> {
     // 置顶状态仅存储在本地，不同步到数据库
     // 通过 LocalStorageAdapter 实现
     return false

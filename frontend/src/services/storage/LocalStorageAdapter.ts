@@ -1,13 +1,13 @@
 import type { Resume } from '@/types/resume'
 import type { ResumeData } from '@/pages/Workspace/v2/types'
-import type { SavedResume, StorageAdapter } from './StorageAdapter'
+import type { SavedResume, StorageAdapter, StorageOperationContext } from './StorageAdapter'
 import { stripPhotoFromResumeData, stripPhotoFromSavedResume } from './sanitizeResume'
 
 const STORAGE_KEY = 'resume_resumes'
 const CURRENT_KEY = 'resume_current'
 
 export class LocalStorageAdapter implements StorageAdapter {
-  async getAllResumes(): Promise<SavedResume[]> {
+  private readAllResumes(): SavedResume[] {
     try {
       const data = localStorage.getItem(STORAGE_KEY)
       const parsed = data ? (JSON.parse(data) as SavedResume[]) : []
@@ -19,6 +19,10 @@ export class LocalStorageAdapter implements StorageAdapter {
     } catch {
       return []
     }
+  }
+
+  async getAllResumes(_context?: StorageOperationContext): Promise<SavedResume[]> {
+    return this.readAllResumes()
   }
 
   getCurrentResumeId(): string | null {
@@ -33,13 +37,17 @@ export class LocalStorageAdapter implements StorageAdapter {
     }
   }
 
-  async getResume(id: string): Promise<SavedResume | null> {
-    const resumes = await this.getAllResumes()
+  async getResume(id: string, _context?: StorageOperationContext): Promise<SavedResume | null> {
+    const resumes = this.readAllResumes()
     return resumes.find(r => r.id === id) || null
   }
 
-  async saveResume(resume: Resume | ResumeData, id?: string): Promise<SavedResume> {
-    const resumes = await this.getAllResumes()
+  async saveResume(
+    resume: Resume | ResumeData,
+    id?: string,
+    _context?: StorageOperationContext,
+  ): Promise<SavedResume> {
+    const resumes = this.readAllResumes()
     const now = Date.now()
     const resumeName = (resume as any).basic?.name || (resume as any).name || '未命名简历'
     // 从 ResumeData 中提取 templateType，默认为 'latex'
@@ -75,8 +83,8 @@ export class LocalStorageAdapter implements StorageAdapter {
     return newResume
   }
 
-  async deleteResume(id: string): Promise<boolean> {
-    const resumes = await this.getAllResumes()
+  async deleteResume(id: string, _context?: StorageOperationContext): Promise<boolean> {
+    const resumes = this.readAllResumes()
     const filtered = resumes.filter(r => r.id !== id)
     if (filtered.length !== resumes.length) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered))
@@ -88,8 +96,12 @@ export class LocalStorageAdapter implements StorageAdapter {
     return false
   }
 
-  async renameResume(id: string, newName: string): Promise<boolean> {
-    const resumes = await this.getAllResumes()
+  async renameResume(
+    id: string,
+    newName: string,
+    _context?: StorageOperationContext,
+  ): Promise<boolean> {
+    const resumes = this.readAllResumes()
     const index = resumes.findIndex(r => r.id === id)
     if (index >= 0) {
       resumes[index].name = newName
@@ -100,18 +112,24 @@ export class LocalStorageAdapter implements StorageAdapter {
     return false
   }
 
-  async duplicateResume(id: string): Promise<SavedResume | null> {
-    const original = await this.getResume(id)
+  async duplicateResume(id: string, context?: StorageOperationContext): Promise<SavedResume | null> {
+    const original = this.readAllResumes().find(r => r.id === id) || null
     if (original) {
-      const copied = JSON.parse(JSON.stringify(original.data)) as Resume
-      copied.name = `${original.name} (副本)`
-      return this.saveResume(copied)
+      const copied = JSON.parse(JSON.stringify(original.data)) as Resume | ResumeData
+      const copiedName = `${original.name} (副本)`
+      if ('basic' in copied && copied.basic) copied.basic.name = copiedName
+      else (copied as Resume).name = copiedName
+      return this.saveResume(copied, undefined, context)
     }
     return null
   }
 
-  async updateResumeAlias(id: string, alias: string): Promise<boolean> {
-    const resumes = await this.getAllResumes()
+  async updateResumeAlias(
+    id: string,
+    alias: string,
+    _context?: StorageOperationContext,
+  ): Promise<boolean> {
+    const resumes = this.readAllResumes()
     const index = resumes.findIndex(r => r.id === id)
     if (index >= 0) {
       resumes[index].alias = alias
@@ -122,8 +140,12 @@ export class LocalStorageAdapter implements StorageAdapter {
     return false
   }
 
-  async updateResumePinned(id: string, pinned: boolean): Promise<boolean> {
-    const resumes = await this.getAllResumes()
+  async updateResumePinned(
+    id: string,
+    pinned: boolean,
+    _context?: StorageOperationContext,
+  ): Promise<boolean> {
+    const resumes = this.readAllResumes()
     const index = resumes.findIndex(r => r.id === id)
     if (index >= 0) {
       resumes[index].pinned = pinned
@@ -131,5 +153,10 @@ export class LocalStorageAdapter implements StorageAdapter {
       return true
     }
     return false
+  }
+
+  clearAllResumes(): void {
+    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(CURRENT_KEY)
   }
 }

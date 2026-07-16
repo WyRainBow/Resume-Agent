@@ -52,15 +52,18 @@ export default {
         ],
       },
       colors: {
+        // chat-* 语义 token 变量化（2026-07-16 皮肤覆盖 AI 助手/我的简历页）：
+        // 默认值 = NEO 皮肤原值；[data-skin="fresh"] 在 tailwind.css 里改写
+        // 变量即可让 275+ 处 chat-* 类一次换肤，无需逐组件写 fresh: 变体
         chat: {
-          canvas: '#F0F0E8',
-          ink: '#0A0A0A',
-          'ink-muted': '#5C6368',
-          accent: '#4285F4',
-          'accent-deep': '#3367D6',
-          'user-bubble': '#D7E7FF',
-          surface: '#FFFFFF',
-          border: '#000000',
+          canvas: 'var(--chat-canvas, #F0F0E8)',
+          ink: 'var(--chat-ink, #0A0A0A)',
+          'ink-muted': 'var(--chat-ink-muted, #5C6368)',
+          accent: 'var(--chat-accent, #4285F4)',
+          'accent-deep': 'var(--chat-accent-deep, #3367D6)',
+          'user-bubble': 'var(--chat-user-bubble, #D7E7FF)',
+          surface: 'var(--chat-surface, #FFFFFF)',
+          border: 'var(--chat-border, #000000)',
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

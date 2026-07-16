@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 from datetime import datetime
+import uuid
 
 
 class EventType(str, Enum):
@@ -31,6 +32,7 @@ class EventType(str, Enum):
     TOOL_CALL = "tool_call"
     TOOL_RESULT = "tool_result"
     TOOL_ERROR = "tool_error"
+    TOOL_PROGRESS = "tool_progress"
 
     # Output events
     ANSWER_START = "answer_start"
@@ -45,6 +47,13 @@ class EventType(str, Enum):
 
     # Suggestion buttons (shown after agent response)
     SUGGESTIONS = "suggestions"
+
+    # 整份优化任务：服务端提示前端自动发起下一轮续跑请求（见设计方案七点二/七点五）
+    AUTO_CONTINUE = "auto_continue"
+
+    # B层结构路由：上一步是带工具的旁白步，通知前端清空流式答案缓冲
+    # （该段文本已作为 ThoughtEvent 归位思考框）
+    ANSWER_RESET = "answer_reset"
 
     # System events
     SYSTEM = "system"
@@ -67,27 +76,39 @@ class StreamEvent:
     data: dict[str, Any]
     timestamp: float = field(default_factory=lambda: datetime.now().timestamp())
     session_id: str | None = None
+    event_id: str = field(default_factory=lambda: f"evt_{uuid.uuid4().hex}")
+    run_id: str | None = None
+    seq: int | None = None
+
+    def bind_envelope(
+        self,
+        *,
+        run_id: str,
+        seq: int,
+        event_id: str | None = None,
+    ) -> "StreamEvent":
+        """Bind request-scoped ordering metadata immediately before emission."""
+        self.run_id = run_id
+        self.seq = seq
+        if event_id:
+            self.event_id = event_id
+        return self
 
     def _envelope(self) -> dict[str, Any]:
-        """统一事件公共外壳(Wave 1.2):所有事件的 to_dict 必含 type/session_id/timestamp。
-
-        业务字段由各事件扁平铺在外壳之上(前端按扁平字段消费);完整 canonical
-        envelope(run_id/seq/data 收拢)留给 Wave 2 配合 run_stream 重构。
-        """
+        """统一 canonical 外壳；业务字段只存放在 data 中。"""
         return {
+            "id": self.event_id,
             "type": self.event_type.value,
             "session_id": self.session_id,
+            "run_id": self.run_id,
+            "seq": self.seq,
             "timestamp": self.timestamp,
+            "data": self.data,
         }
 
     def to_dict(self) -> dict[str, Any]:
         """Convert event to dictionary for JSON serialization."""
-        return {
-            "type": self.event_type.value,
-            "data": self.data,
-            "timestamp": self.timestamp,
-            "session_id": self.session_id,
-        }
+        return self._envelope()
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "StreamEvent":
@@ -97,6 +118,9 @@ class StreamEvent:
             data=data["data"],
             timestamp=data.get("timestamp", 0),
             session_id=data.get("session_id"),
+            event_id=data.get("id") or f"evt_{uuid.uuid4().hex}",
+            run_id=data.get("run_id"),
+            seq=data.get("seq"),
         )
 
 
@@ -104,23 +128,33 @@ class StreamEvent:
 class ThoughtEvent(StreamEvent):
     """Event representing agent thinking/reasoning.
 
-    Format: {"type": "thought", "content": "..."}
+    Format: {"type": "thought", "content": "...", "step_id": 1}
     """
     # Deprecated: CLTP 已提供标准的 think content chunks（过渡期保留）
 
-    def __init__(self, thought: str, session_id: str | None = None):
+    def __init__(
+        self,
+        thought: str,
+        step_id: int,
+        session_id: str | None = None,
+        node_id: str | None = None,
+        phase: str | None = None,
+        is_complete: bool = True,
+    ):
+        data: dict[str, Any] = {
+            "content": thought,
+            "step_id": step_id,
+            "is_complete": is_complete,
+        }
+        if node_id:
+            data["node_id"] = node_id
+        if phase:
+            data["phase"] = phase
         super().__init__(
             event_type=EventType.THOUGHT,
-            data={"content": thought},
+            data=data,
             session_id=session_id,
         )
-
-    def to_dict(self) -> dict[str, Any]:
-        """Override to return frontend-compatible format."""
-        result = self._envelope()
-        result["content"] = self.data["content"]
-        return result
-
 
 @dataclass
 class ToolCallEvent(StreamEvent):
@@ -139,8 +173,9 @@ class ToolCallEvent(StreamEvent):
         self,
         tool_name: str,
         tool_args: dict[str, Any],
+        step_id: int,
+        tool_call_id: str,
         session_id: str | None = None,
-        tool_call_id: str | None = None,  # ✅ 添加 tool_call_id 用于上下文关联
     ):
         super().__init__(
             event_type=EventType.TOOL_CALL,
@@ -148,20 +183,10 @@ class ToolCallEvent(StreamEvent):
                 "tool": tool_name,
                 "args": tool_args,
                 "tool_call_id": tool_call_id,  # ✅ 保存 tool_call_id
+                "step_id": step_id,
             },
             session_id=session_id,
         )
-
-    def to_dict(self) -> dict[str, Any]:
-        """Override to return frontend-compatible format."""
-        result = self._envelope()
-        result["tool"] = self.data["tool"]
-        result["args"] = self.data["args"]
-        # ✅ 只有存在 tool_call_id 时才添加该字段
-        if self.data.get("tool_call_id"):
-            result["tool_call_id"] = self.data["tool_call_id"]
-        return result
-
 
 @dataclass
 class ToolResultEvent(StreamEvent):
@@ -180,9 +205,10 @@ class ToolResultEvent(StreamEvent):
         self,
         tool_name: str,
         result: str,
+        step_id: int,
+        tool_call_id: str,
         is_error: bool = False,
         session_id: str | None = None,
-        tool_call_id: str | None = None,  # ✅ 添加 tool_call_id 用于上下文关联
         structured_data: dict[str, Any] | None = None,
     ):
         super().__init__(
@@ -193,22 +219,40 @@ class ToolResultEvent(StreamEvent):
                 "is_error": is_error,
                 "tool_call_id": tool_call_id,  # ✅ 保存 tool_call_id
                 "structured_data": structured_data,
+                "step_id": step_id,
             },
             session_id=session_id,
         )
 
-    def to_dict(self) -> dict[str, Any]:
-        """Override to return frontend-compatible format."""
-        result = self._envelope()
-        result["tool"] = self.data["tool"]
-        result["result"] = self.data["result"]
-        # ✅ 只有存在 tool_call_id 时才添加该字段
-        if self.data.get("tool_call_id"):
-            result["tool_call_id"] = self.data["tool_call_id"]
-        if self.data.get("structured_data") is not None:
-            result["structured_data"] = self.data["structured_data"]
-        return result
+@dataclass
+class ToolProgressEvent(StreamEvent):
+    """Formal user-visible progress for one running tool call."""
 
+    def __init__(
+        self,
+        *,
+        tool_call_id: str,
+        stage_id: str,
+        current: int | None = None,
+        total: int | None = None,
+        label: str | None = None,
+        summary: str | None = None,
+        stages: list[str] | None = None,
+        session_id: str | None = None,
+    ):
+        super().__init__(
+            event_type=EventType.TOOL_PROGRESS,
+            data={
+                "tool_call_id": tool_call_id,
+                "stage_id": stage_id,
+                "current": current,
+                "total": total,
+                "label": label,
+                "summary": summary,
+                "stages": stages,
+            },
+            session_id=session_id,
+        )
 
 @dataclass
 class AnswerEvent(StreamEvent):
@@ -236,16 +280,6 @@ class AnswerEvent(StreamEvent):
             },
             session_id=session_id,
         )
-
-    def to_dict(self) -> dict[str, Any]:
-        """Override to return frontend-compatible format."""
-        result = self._envelope()
-        result["content"] = self.data["content"]
-        result["is_complete"] = self.data.get("is_complete", True)
-        result["delta"] = self.data.get("delta")
-        result["event_seq"] = self.data.get("event_seq")
-        return result
-
 
 @dataclass
 class AgentStartEvent(StreamEvent):
@@ -328,12 +362,6 @@ class ResumeUpdatedEvent(StreamEvent):
             session_id=session_id,
         )
 
-    def to_dict(self) -> dict[str, Any]:
-        result = self._envelope()
-        result["resume_data"] = self.data["resume_data"]
-        return result
-
-
 @dataclass
 class ResumePatchEvent(StreamEvent):
     """Agent 修改简历字段，携带 before/after diff"""
@@ -361,14 +389,6 @@ class ResumePatchEvent(StreamEvent):
             session_id=session_id,
         )
 
-    def to_dict(self) -> dict[str, Any]:
-        """业务字段扁平输出，消除基类 data.data 双层嵌套
-        (前端 CocoChat 的 `outerData.data ?? outerData` 两种形状均兼容)。"""
-        result = self._envelope()
-        result.update(self.data)
-        return result
-
-
 @dataclass
 class ResumeGeneratedEvent(StreamEvent):
     """Agent 全量生成简历"""
@@ -379,13 +399,6 @@ class ResumeGeneratedEvent(StreamEvent):
             data={"resume": resume, "summary": summary},
             session_id=session_id,
         )
-
-    def to_dict(self) -> dict[str, Any]:
-        """业务字段扁平输出，消除基类 data.data 双层嵌套。"""
-        result = self._envelope()
-        result.update(self.data)
-        return result
-
 
 @dataclass
 class SystemEvent(StreamEvent):
@@ -425,7 +438,56 @@ class SuggestionsEvent(StreamEvent):
             session_id=session_id,
         )
 
-    def to_dict(self) -> dict[str, Any]:
-        result = self._envelope()
-        result["items"] = self.data["items"]
-        return result
+@dataclass
+class AnswerResetEvent(StreamEvent):
+    """B层结构路由：上一步是带工具调用的旁白步，其流式文本已作为
+    ThoughtEvent 归位思考框——通知前端清空流式答案缓冲，让答案区只留
+    最终正文。仅作用于未提交的实时缓冲，不回收已落时间线的内容。
+
+    Format: {"type": "answer_reset"}
+    """
+
+    def __init__(self, session_id: str | None = None):
+        super().__init__(
+            event_type=EventType.ANSWER_RESET,
+            data={},
+            session_id=session_id,
+        )
+
+
+@dataclass
+class AutoContinueEvent(StreamEvent):
+    """整份优化任务：本请求已收尾，但任务还没做完，提示前端自动发起下一轮。
+
+    一致性审阅（reviewing）永远独占一次全新请求，绝不与模块处理（optimizing）
+    共用同一次请求的步数预算——见设计方案七点二明确决策、五点六记录的资源
+    竞争教训。这个事件只是"提示"，真正决定发不发、发几次由后端
+    `_progress_by_session.continue_count` 硬上限控制，前端只负责照做。
+
+    `message` 是给用户看的状态文案；`next_user_input` 是前端应该实际重新
+    提交的下一轮 user_input（带 `AUTO_CONTINUE_PREFIX` 前缀，见
+    optimize_progress.py），两者分开是因为不能把内部协议前缀展示给用户
+    ——独立 review 发现：早期版本只有 message 一个字段，会诱使前端直接
+    回显它当下一轮输入，那样用户就会在聊天记录里看到裸露的
+    `[[AUTO_CONTINUE_OPTIMIZE]]` 标记。
+
+    Format: {"type": "auto_continue", "message": "...", "next_user_input": "...",
+             "reason": "optimizing"|"reviewing"}
+    """
+
+    def __init__(
+        self,
+        message: str,
+        reason: str,
+        next_user_input: str,
+        session_id: str | None = None,
+    ):
+        super().__init__(
+            event_type=EventType.AUTO_CONTINUE,
+            data={
+                "message": message,
+                "reason": reason,
+                "next_user_input": next_user_input,
+            },
+            session_id=session_id,
+        )

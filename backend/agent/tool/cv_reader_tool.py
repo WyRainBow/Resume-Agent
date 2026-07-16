@@ -8,6 +8,7 @@ import re
 from typing import Any, Dict, Optional
 from backend.agent.tool.base import BaseTool
 from backend.agent.utils.experience_entry import coerce_tool_value
+from backend.agent.utils.resume_context import normalize_resume_for_context
 from backend.agent.utils.resume_richtext import html_to_context_text
 
 
@@ -22,10 +23,14 @@ def _as_record(item: Any) -> Dict[str, Any]:
     return {}
 
 
-def strip_html(html: str) -> str:
+def strip_html(html: Any) -> str:
     """简单的 HTML 标签移除，保留纯文本"""
     if not html:
         return ""
+    if isinstance(html, list):
+        html = "\n".join(str(item) for item in html)
+    elif not isinstance(html, str):
+        html = str(html)
     import re
     clean = re.sub(r'<[^>]+>', '', html)
     clean = re.sub(r'\s+', ' ', clean).strip()
@@ -82,14 +87,10 @@ Returns the resume content in a structured, readable format."""
                       email / phone / location 三个隐私字段；其余所有模块
                       （name、title、summary、教育、经历、项目、技能等）照常输出。
         """
-        resume = self._resume_data
+        resume = normalize_resume_for_context(self._resume_data)
         lines = ["# CV/Resume Context\n"]
 
         basic = resume.get("basic", {})
-        if isinstance(basic, str):
-            basic = {"name": basic}
-        elif not isinstance(basic, dict):
-            basic = {}
         if basic:
             lines.append("## Basic Information  (path prefix: basic.*)")
             lines.append(f"Name: {basic.get('name', 'N/A')}")
@@ -110,7 +111,6 @@ Returns the resume content in a structured, readable format."""
             seen = set()
             unique_education = []
             for edu in education:
-                edu = _as_record(edu)
                 school = edu.get('school', '')
                 degree = edu.get('degree', '')
                 key = f"{school}_{degree}"
@@ -136,15 +136,9 @@ Returns the resume content in a structured, readable format."""
         if experience:
             lines.append("## Work Experience  (path prefix: experience[N].*)")
             for i, exp in enumerate(experience):
-                exp = _as_record(exp)
-                company = exp.get("company") or exp.get("title") or "未知公司"
-                position = exp.get("position") or exp.get("subtitle") or ""
-                date = exp.get("date") or exp.get("period") or ""
-                details = exp.get("details") or exp.get("description") or ""
-                if isinstance(exp.get("highlights"), list) and exp["highlights"]:
-                    details = details or str(exp["highlights"][0])
-                lines.append(f"### [{i}] {company} | {position}")
-                lines.append(f"  Period: {date}")
+                details = exp.get("details", "")
+                lines.append(f"### [{i}] {exp.get('company')} | {exp.get('position', '')}")
+                lines.append(f"  Period: {exp.get('date', '')}")
                 if details:
                     lines.append("  Details:")
                     body = (
@@ -190,7 +184,7 @@ Returns the resume content in a structured, readable format."""
         skills = resume.get("skillContent", "")
         if skills:
             lines.append("## Skills  (path: skillContent)")
-            lines.append(strip_html(skills))
+            lines.append(strip_html(str(skills)))
             lines.append("")
 
         self_eval = resume.get("selfEvaluation", "")

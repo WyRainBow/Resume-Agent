@@ -3,10 +3,12 @@ import PortalDropdown from "@/components/common/PortalDropdown";
 
 /** Agent 可选模型（与后端 _ALLOWED_AGENT_MODELS 白名单一致） */
 export const AGENT_MODELS = [
-  { value: "qwen-max", label: "Qwen Max", hint: "强力 · 复杂任务 · 深度优化" },
+  // 2026-07-16 收敛:只保留 DeepSeek(qwen/claude 暂下线)。只剩一个模型时
+  // 选择器组件自动隐藏(见下方 length<=1 分支),顶栏不再显示模型下拉。
+  { value: "deepseek-v4-flash", label: "DeepSeek V4 Flash", hint: "快速 · 高性价比 · 默认推荐" },
 ];
 
-export const DEFAULT_AGENT_MODEL = "qwen-max";
+export const DEFAULT_AGENT_MODEL = "deepseek-v4-flash";
 
 interface ModelSelectorProps {
   value: string;

@@ -17,8 +17,13 @@ class ShowResumeTool(BaseTool):
 
     name: str = "show_resume"
     description: str = (
-        "Display current loaded resume for user preview. "
-        "Use when user asks to show/view/open resume content."
+        "Display current loaded resume for user preview, or open the resume "
+        "selection panel when no resume is loaded yet. "
+        "Use when user asks to show/view/open resume content, or when any "
+        "read/edit/optimize request arrives before a resume is loaded. "
+        "Calling this tool ends the current turn (the panel is shown and the "
+        "agent waits for the user), so say your one-sentence reply BEFORE the "
+        "call and do not plan any follow-up text."
     )
 
     parameters: dict = {
@@ -65,10 +70,13 @@ class ShowResumeTool(BaseTool):
                 return ToolResult(error=f"Failed to load resume from file: {str(e)}")
 
         if not resume_data:
+            # 事实陈述而非行动指引:此前的 "Please ask user to choose one..."
+            # 会教唆 LLM 在工具结果后再补一轮"面板已弹出~你可以:…"的罗列废话。
+            # 该结果只进 memory 供后续轮次了解发生过什么。
             return ToolResult(
                 output=(
-                    "No resume data loaded. "
-                    "Please ask user to choose one: create a new resume or select an existing resume."
+                    "Resume selection panel opened; waiting for the user to "
+                    "pick or import a resume in the panel. Turn ends here."
                 )
             )
 

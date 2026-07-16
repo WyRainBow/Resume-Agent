@@ -14,26 +14,26 @@ interface AgentSpecialCardProps {
 
 const variantStyles = {
   default: {
-    shell: "border-black bg-chat-surface",
-    header: "border-black/70 bg-chat-canvas/60",
+    shell: "border-black fresh:border-slate-200 bg-chat-surface",
+    header: "border-black fresh:border-slate-200/70 bg-chat-canvas/60",
     title: "text-chat-ink",
     subtitle: "text-chat-ink-muted",
   },
   accent: {
-    shell: "border-black bg-chat-surface",
-    header: "border-black/70 bg-chat-canvas/80",
+    shell: "border-black fresh:border-slate-200 bg-chat-surface",
+    header: "border-black fresh:border-slate-200/70 bg-chat-canvas/80",
     title: "text-chat-accent-deep",
     subtitle: "text-chat-ink-muted",
   },
   success: {
-    shell: "border-black bg-chat-surface",
-    header: "border-black/70 bg-blue-50/50",
+    shell: "border-black fresh:border-slate-200 bg-chat-surface",
+    header: "border-black fresh:border-slate-200/70 bg-blue-50/50",
     title: "text-blue-800",
     subtitle: "text-blue-700/80",
   },
   muted: {
-    shell: "border-black/50 bg-chat-canvas/40",
-    header: "border-black/30 bg-chat-canvas/30",
+    shell: "border-black fresh:border-slate-200/50 bg-chat-canvas/40",
+    header: "border-black fresh:border-slate-200/30 bg-chat-canvas/30",
     title: "text-chat-ink-muted",
     subtitle: "text-chat-ink-muted/80",
   },
@@ -55,7 +55,7 @@ export function AgentSpecialCard({
 
   return (
     <div
-      className={`overflow-hidden rounded-none border-2 shadow-[2px_2px_0px_0px_#000000] dark:shadow-[2px_2px_0px_0px_#ffffff] ${styles.shell} ${
+      className={`overflow-hidden rounded-none fresh:rounded-lg border-2 shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm dark:shadow-[2px_2px_0px_0px_#ffffff] ${styles.shell} ${
         interactive ? "cursor-pointer transition-all hover:shadow-none hover:translate-x-[1px] hover:translate-y-[1px]" : ""
       } ${className}`}
       onClick={onClick}

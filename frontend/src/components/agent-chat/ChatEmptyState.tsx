@@ -67,9 +67,9 @@ export default function ChatEmptyState({
               key={action.title}
               type="button"
               onClick={action.onClick}
-              className="group flex items-start gap-3 rounded-none border-2 border-black bg-chat-surface p-4 text-left shadow-[3px_3px_0px_0px_#000000] transition-all hover:shadow-[1px_1px_0px_0px_#000000] hover:translate-x-[2px] hover:translate-y-[2px] dark:border-white dark:bg-slate-800/60 dark:shadow-[3px_3px_0px_0px_#ffffff]"
+              className="group flex items-start gap-3 rounded-none fresh:rounded-lg border-2 fresh:border border-black fresh:border-slate-200 fresh:border-slate-200 bg-chat-surface p-4 text-left shadow-[3px_3px_0px_0px_#000000] fresh:shadow-sm transition-all hover:shadow-[1px_1px_0px_0px_#000000] hover:translate-x-[2px] hover:translate-y-[2px] dark:border-white dark:bg-slate-800/60 dark:shadow-[3px_3px_0px_0px_#ffffff]"
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-none border border-black bg-chat-accent/10 text-chat-accent dark:border-white dark:bg-amber-500/15 dark:text-amber-400">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-none fresh:rounded-lg border border-black fresh:border-slate-200 bg-chat-accent/10 text-chat-accent dark:border-white dark:bg-amber-500/15 dark:text-amber-400">
                 <Icon className="size-[18px]" strokeWidth={2} />
               </span>
               <span className="min-w-0">

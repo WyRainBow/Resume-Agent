@@ -29,12 +29,12 @@ def test_resume_patch_event_to_dict():
         operation="update",
     )
     d = evt.to_dict()
-    # Wave 1.2:业务字段扁平输出(消除 data.data 双层嵌套),公共外壳必含 session_id/timestamp
+    # Canonical 协议：公共外壳 + 唯一 data 业务载荷。
     assert d["type"] == "resume_patch"
-    assert d["patch_id"] == "p1"
-    assert d["paths"] == ["experience[0].details"]
-    assert d["summary"] == "量化工作经历"
-    assert d["operation"] == "update"
+    assert d["data"]["patch_id"] == "p1"
+    assert d["data"]["paths"] == ["experience[0].details"]
+    assert d["data"]["summary"] == "量化工作经历"
+    assert d["data"]["operation"] == "update"
     assert "timestamp" in d and "session_id" in d
 
 def test_resume_generated_event_to_dict():
@@ -43,10 +43,10 @@ def test_resume_generated_event_to_dict():
         summary="已生成后端工程师简历",
     )
     d = evt.to_dict()
-    # Wave 1.2:业务字段扁平输出(消除 data.data 双层嵌套)
+    # Canonical 协议：业务字段不再在外壳重复铺平。
     assert d["type"] == "resume_generated"
-    assert d["resume"]["basic"]["name"] == "张三"
-    assert d["summary"] == "已生成后端工程师简历"
+    assert d["data"]["resume"]["basic"]["name"] == "张三"
+    assert d["data"]["summary"] == "已生成后端工程师简历"
 
 def test_resume_patch_event_session_id():
     evt = ResumePatchEvent(

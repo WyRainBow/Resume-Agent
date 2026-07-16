@@ -104,19 +104,20 @@ export function SkinPickerModal({ open, onPicked, onClose }: SkinPickerModalProp
           选择工作台与首页的界面风格,随时可切换。
         </p>
         <div className="mt-4 flex gap-4">
-          <SkinCard
-            title="NEO"
-            desc="黑边直角、硬朗醒目"
-            preview={<NeoPreview />}
-            active={current === 'neo'}
-            onClick={() => pick('neo')}
-          />
+          {/* 清新在前(默认皮肤优先展示)，NEO 在后 */}
           <SkinCard
             title="清新"
             desc="圆角浅边、柔和简洁(默认)"
             preview={<FreshPreview />}
             active={current === 'fresh'}
             onClick={() => pick('fresh')}
+          />
+          <SkinCard
+            title="NEO"
+            desc="黑边直角、硬朗醒目"
+            preview={<NeoPreview />}
+            active={current === 'neo'}
+            onClick={() => pick('neo')}
           />
         </div>
       </div>

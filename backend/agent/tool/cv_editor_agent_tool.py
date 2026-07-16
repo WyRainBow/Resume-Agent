@@ -23,6 +23,7 @@ from backend.agent.utils.experience_entry import (
     to_internships_schema,
 )
 from backend.agent.utils.resume_richtext import is_richtext_path, normalize_editor_value
+from backend.agent.utils.coverage_check import check_coverage, check_invented
 from backend.agent.llm import LLM
 from backend.core.logger import get_logger
 
@@ -327,16 +328,39 @@ add 教育经历示例 value(path=education):
                             f"\n⚠️ **持久化失败**: 修改已应用在内存中，但未保存到数据库。"
                             f"请刷新页面确认，或稍后重试。"
                         )
+                # 工具结果里保留"修改后"内容的截断摘要（前 300 字符），
+                # 让 agent 能判断改了什么、还剩哪些模块没改——但不放完整的
+                # before/after 文本（before 是 token 膨胀最大来源且 agent 不需要）。
+                # 完整 before/after 已通过 structured_data 发给前端渲染。
+                _MAX_RESULT_PREVIEW = 300
                 if action == "update":
-                    output += (
-                        "\n\n修改前：\n```text\n"
-                        f"{self._stringify_value(old_val)}\n```\n"
-                        "修改后：\n```text\n"
-                        f"{self._stringify_value(new_val)}\n```"
-                    )
+                    new_str = self._stringify_value(new_val)[:_MAX_RESULT_PREVIEW]
+                    output += f"\n修改后:\n{new_str}"
+                    # 覆盖度回验：原文中的数字指标/专有技术名词，改写后是否还在——
+                    # 纯规则匹配，不过 LLM，堵"整段技术内容消失"这种信息保真度事故。
+                    # 只做数字/专有名词这个粗粒度子集，见 coverage_check.py 顶部说明。
+                    old_str = self._stringify_value(old_val)
+                    new_str_full = self._stringify_value(new_val)
+                    missing_facts = check_coverage(old_str, new_str_full)
+                    if missing_facts:
+                        preview = "、".join(f"「{m}」" for m in missing_facts[:8])
+                        output += (
+                            f"\n⚠️ 覆盖校验[漏删]：原文中的 {preview} 未出现在改写后文本，"
+                            f"可能被删减，如果不是有意去掉请补回。"
+                        )
+                    # 反向校验：改写后凭空多出的数字/量化声明，原文找不到依据——
+                    # 堵 LLM 量化包装时编造数字（"提升效率"→"提升35%"）。软提示，
+                    # 精确匹配自带假阳性（"70%"→"约70.0%"会误报），故不硬阻断。
+                    invented_facts = check_invented(old_str, new_str_full)
+                    if invented_facts:
+                        preview = "、".join(f"「{m}」" for m in invented_facts[:8])
+                        output += (
+                            f"\n⚠️ 疑似编造[新增数字]：改写后文本中的 {preview} 在原文中"
+                            f"找不到依据，如果不是用户明确提供的新信息，请核实或去掉。"
+                        )
                 elif "new_value" in result:
-                    new_val_str = self._stringify_value(new_val)
-                    output += f"\nNew value: {new_val_str}"
+                    new_str = self._stringify_value(new_val)[:_MAX_RESULT_PREVIEW]
+                    output += f"\n新内容:\n{new_str}"
                 if "new_index" in result:
                     output += f"\nIndex: {result['new_index']}"
                 patch_id = str(uuid.uuid4())

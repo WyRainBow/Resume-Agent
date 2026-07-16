@@ -1,5 +1,5 @@
-import React, { Fragment, useState } from "react";
-import { Check, Copy, FileText, RotateCcw, ThumbsUp, ThumbsDown } from "lucide-react";
+import React, { Fragment } from "react";
+import { Check, Copy, FileText, RotateCcw } from "lucide-react";
 import ResumeMarkdown from "@/components/agent-chat/ResumeMarkdown";
 import ResumeCard from "@/components/chat/ResumeCard";
 import ResumeEditDiffCard from "@/components/chat/ResumeEditDiffCard";
@@ -13,11 +13,15 @@ import {
   StructuredCards,
   type StructuredEventData,
 } from "@/components/agent-chat/StructuredCardRegistry";
+import { type AskQuestionContextValue } from "@/components/agent-chat/AskQuestionContext";
 import { ResumeDiffCard, ApplyAllPatchesBar } from "@/components/agent-chat/ResumeDiffCard";
 import { AssistantPaperCard } from "@/components/agent-chat/AssistantPaperCard";
 import { ParseImportTimerBadge } from "@/components/agent-chat/ParseImportTimerBadge";
 import { ThinkingIndicator } from "@/components/agent-chat/ThinkingIndicator";
 import { ImportSuccessCard, ApplyDoneCard } from "@/components/agent-chat/ImportSuccessCard";
+import AgentProcessTimeline from "@/components/agent-chat/AgentProcessTimeline";
+import ConversationTurnView from "@/components/agent-chat/ConversationTurnView";
+import { createHistoryConversationPresentation } from "@/agent-presentation/ConversationSnapshotAdapter";
 import type { PendingPatch } from "@/contexts/ResumeContext";
 import type { Message } from "@/types/chat";
 import type { ResumeData } from "@/pages/Workspace/v2/types";
@@ -81,7 +85,6 @@ interface MessageTimelineProps {
   onOpenSearchPanel: (data: SearchData) => void;
   onOpenResume: (resume: LoadedResumeItem) => void;
   onOpenResumeSelector: () => void;
-  onRegenerate: () => void;
   /** 导入解析失败消息的「重试」（重发同一份文件） */
   onImportRetry?: (msgId: string) => void;
   /** 成功卡片等的下一步建议 chip 点击（填入输入框） */
@@ -90,6 +93,10 @@ interface MessageTimelineProps {
   onDownloadPdf?: () => void;
   /** 收尾卡片：去编辑器精修 */
   onGoEditor?: () => void;
+  /** Asking 模式提交回调，透传给 StructuredCards → AskQuestionCard。
+   *  流结束后当前消息从 StreamingLane 转到这里渲染，选择框跟着过来，
+   *  没这个回调的话点提交 ctx 为 null 静默无效。 */
+  askQuestionHandler?: AskQuestionContextValue;
 }
 
 function splitEmbeddedResponseFromThought(thought: string): {
@@ -158,15 +165,12 @@ export default function MessageTimeline({
   onOpenSearchPanel,
   onOpenResume,
   onOpenResumeSelector,
-  onRegenerate,
   onSuggestionClick,
   onDownloadPdf,
   onGoEditor,
+  askQuestionHandler,
 }: MessageTimelineProps) {
   const isPlaceholderThought = (text: string) => text === "正在思考...";
-  const [feedback, setFeedback] = useState<Record<string, "like" | "dislike" | undefined>>({});
-  const ACTION_BTN =
-    "rounded-md p-1.5 transition-all duration-200 hover:bg-chat-user-bubble hover:text-chat-ink hover:scale-110 active:scale-90 dark:hover:bg-slate-800";
   return (
     <>
       {messages.map((msg, idx) => {
@@ -204,7 +208,9 @@ export default function MessageTimeline({
             : msg.content || "",
           { suppressWhenPatchCard: hasPatchCards },
         );
-        const effectiveContent = hasPatchCards || hasApprovalCard
+        // patch 卡消息不再压制正文:操作旁白(改什么/为什么)保留展示,
+        // 文字在上卡片在下;diff markdown 复述已被 strip。approval 卡仍压制。
+        const effectiveContent = hasApprovalCard
           ? ""
           : getDiffFallbackResponse(
               Boolean(effectiveDiff),
@@ -231,12 +237,12 @@ export default function MessageTimeline({
                             // 页面刷新后从持久化恢复时 objectURL 已失效，兜底隐藏避免裂图
                             e.currentTarget.style.display = "none";
                           }}
-                          className="max-h-44 max-w-[220px] rounded-none border border-black object-contain"
+                          className="max-h-44 max-w-[220px] rounded-none fresh:rounded-lg border border-black fresh:border-slate-200 object-contain"
                         />
                       ) : (
                         <div
                           key={i}
-                          className="flex items-center gap-2 rounded-none border border-black bg-chat-surface px-3 py-2 text-xs text-chat-ink-muted"
+                          className="flex items-center gap-2 rounded-none fresh:rounded-lg border border-black fresh:border-slate-200 bg-chat-surface px-3 py-2 text-xs text-chat-ink-muted"
                         >
                           <FileText className="size-4 text-chat-accent" />
                           <div className="flex flex-col">
@@ -250,8 +256,16 @@ export default function MessageTimeline({
                     )}
                   </div>
                 )}
-                <div className="whitespace-pre-wrap break-words rounded-none border border-black bg-chat-user-bubble px-4 py-3 text-chat-ink dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
-                  {msg.content.length >= 200 &&
+                <div className="whitespace-pre-wrap break-words rounded-none fresh:rounded-lg border border-black fresh:border-slate-200 bg-chat-user-bubble px-4 py-3 text-chat-ink dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100">
+                  {msg.content.includes("【目标岗位 JD】") ? (
+                    // 点击即对话 P3：JD 卡「开始优化」的消息含长指令+JD 全文，
+                    // 气泡折叠为一句话（消息本体不动，后端/会话恢复无损）
+                    <span className="inline-flex items-center gap-2 text-chat-ink-muted">
+                      <FileText className="size-4 shrink-0 text-chat-accent" />
+                      我提供了目标岗位 JD，请按它优化整份简历 ·{" "}
+                      {msg.content.length.toLocaleString()} 字
+                    </span>
+                  ) : msg.content.length >= 200 &&
                   /("company"\s*:|"details"\s*:|custom-list|<\/?strong>|<\/?p>)/.test(msg.content) ? (
                     <span className="inline-flex items-center gap-2 text-chat-ink-muted">
                       <FileText className="size-4 shrink-0 text-chat-accent" />
@@ -272,7 +286,7 @@ export default function MessageTimeline({
                       onSetCopiedId(msg.id || String(idx));
                       setTimeout(() => onSetCopiedId(null), 2000);
                     }}
-                    className="rounded-none p-1.5 text-chat-ink-muted transition-all hover:bg-chat-user-bubble hover:text-chat-ink dark:hover:bg-slate-800"
+                    className="rounded-none fresh:rounded-lg p-1.5 text-chat-ink-muted transition-all hover:bg-chat-user-bubble hover:text-chat-ink dark:hover:bg-slate-800"
                     title="复制"
                     aria-label="复制这条消息"
                   >
@@ -324,12 +338,51 @@ export default function MessageTimeline({
           resumeForMessage ||
           msg.content;
 
-        const actionMsgId = msg.id || String(idx);
-        const fb = feedback[actionMsgId];
+
+        if (msg.turnSnapshot) {
+          const snapshotPresentation = createHistoryConversationPresentation(
+            msg.turnSnapshot,
+          );
+          return (
+            <Fragment key={msg.id || idx}>
+              <ConversationTurnView
+                model={snapshotPresentation}
+                mode="history"
+                onAction={(action) => {
+                  if (action.type === "send_message") {
+                    onSuggestionClick?.(action.message);
+                  } else if (action.type === "search.open") {
+                    onOpenSearchPanel(action.data as unknown as SearchData);
+                  } else if (action.type === "resume.open") {
+                    const resume = action.data.resume as
+                      | { id?: string }
+                      | undefined;
+                    const target = loadedResumes.find(
+                      (item) => item.id === resume?.id,
+                    );
+                    if (target) onOpenResume(target);
+                  } else if (action.type === "resume.selector.open") {
+                    onOpenResumeSelector();
+                  }
+                }}
+                onPresentationSignal={() => {}}
+                askQuestionHandler={askQuestionHandler}
+              />
+              {/* 逐消息反馈按钮已上收为对话流底部的 ConversationFeedbackBar，
+                  多子轮优化不再每轮冒一排复制/赞/踩（2026-07-15 问题 A）。 */}
+            </Fragment>
+          );
+        }
 
         return (
           <Fragment key={msg.id || idx}>
-            {cleanedThought && (
+            {msg.processNodes && msg.processNodes.length > 0 ? (
+              <AgentProcessTimeline
+                nodes={msg.processNodes}
+                isProcessing={false}
+                className="mb-3"
+              />
+            ) : cleanedThought && (
               <ThoughtProcess
                 content={cleanedThought}
                 isStreaming={false}
@@ -340,30 +393,6 @@ export default function MessageTimeline({
 
             {hasAssistantContent && (
               <AssistantPaperCard>
-                  {diagnosisForMessage.length > 0 && (
-                    <DiagnosisToolCards items={diagnosisForMessage} className="mb-4" />
-                  )}
-
-                  {structuredForMessage.length > 0 && (
-                    <StructuredCards items={structuredForMessage} className="mb-4" />
-                  )}
-
-                  {searchForMessage && (
-                    <div className="my-4">
-                      <SearchCard
-                        query={searchForMessage.data.query}
-                        totalResults={searchForMessage.data.total_results}
-                        searchTime={searchForMessage.data.metadata?.search_time}
-                        onOpen={() => onOpenSearchPanel(searchForMessage.data)}
-                      />
-                      <SearchSummary
-                        query={searchForMessage.data.query}
-                        results={searchForMessage.data.results}
-                        searchTime={searchForMessage.data.metadata?.search_time}
-                      />
-                    </div>
-                  )}
-
                   {effectiveContent && (
                     <div className="mb-2 text-chat-ink dark:text-slate-100 font-chat tracking-wide leading-relaxed">
                       <div className="flex flex-wrap items-start gap-2">
@@ -416,6 +445,39 @@ export default function MessageTimeline({
                     </div>
                   )}
 
+                  {searchForMessage && (
+                    <div className="my-4">
+                      <SearchCard
+                        query={searchForMessage.data.query}
+                        totalResults={searchForMessage.data.total_results}
+                        searchTime={searchForMessage.data.metadata?.search_time}
+                        onOpen={() => onOpenSearchPanel(searchForMessage.data)}
+                      />
+                      <SearchSummary
+                        query={searchForMessage.data.query}
+                        results={searchForMessage.data.results}
+                        searchTime={searchForMessage.data.metadata?.search_time}
+                      />
+                    </div>
+                  )}
+
+                  {diagnosisForMessage.length > 0 && (
+                    <DiagnosisToolCards
+                      items={diagnosisForMessage}
+                      className="mb-4 mt-2"
+                      onActionClick={onSuggestionClick}
+                    />
+                  )}
+
+                  {structuredForMessage.length > 0 && (
+                    <StructuredCards
+                      items={structuredForMessage}
+                      className="mb-4 mt-2"
+                      askQuestionHandler={askQuestionHandler}
+                      onAction={onSuggestionClick}
+                    />
+                  )}
+
                   {effectiveDiff && (
                     <ResumeEditDiffCard
                       before={effectiveDiff.before || ""}
@@ -448,62 +510,7 @@ export default function MessageTimeline({
                     </div>
                   )}
 
-                  {msg.content && !msg.meta?.pasteImportParsing && (
-                    <div className="mt-2.5 flex items-center gap-0.5 text-chat-ink-muted/70">
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(msg.content);
-                          onSetCopiedId(actionMsgId);
-                          setTimeout(() => onSetCopiedId(null), 2000);
-                        }}
-                        className={ACTION_BTN}
-                        title="复制内容"
-                      >
-                        {copiedId === actionMsgId ? (
-                          <Check key="copied" className="h-4 w-4 text-emerald-600 animate-icon-pop" />
-                        ) : (
-                          <Copy className="h-4 w-4" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() =>
-                          setFeedback((p) => ({
-                            ...p,
-                            [actionMsgId]: p[actionMsgId] === "like" ? undefined : "like",
-                          }))
-                        }
-                        className={ACTION_BTN}
-                        title="赞"
-                      >
-                        <ThumbsUp
-                          key={`like-${fb === "like"}`}
-                          className={`h-4 w-4 transition-colors ${fb === "like" ? "fill-emerald-500/25 text-emerald-600 animate-icon-pop" : ""}`}
-                        />
-                      </button>
-                      <button
-                        onClick={() =>
-                          setFeedback((p) => ({
-                            ...p,
-                            [actionMsgId]: p[actionMsgId] === "dislike" ? undefined : "dislike",
-                          }))
-                        }
-                        className={ACTION_BTN}
-                        title="踩"
-                      >
-                        <ThumbsDown
-                          key={`dislike-${fb === "dislike"}`}
-                          className={`h-4 w-4 transition-colors ${fb === "dislike" ? "fill-rose-500/25 text-rose-600 animate-icon-pop" : ""}`}
-                        />
-                      </button>
-                      <button
-                        onClick={onRegenerate}
-                        className={`${ACTION_BTN} group/act`}
-                        title="重新生成"
-                      >
-                        <RotateCcw className="h-4 w-4 transition-transform duration-500 group-hover/act:-rotate-180" />
-                      </button>
-                    </div>
-                  )}
+                  {/* 逐消息反馈按钮已上收为 ConversationFeedbackBar（问题 A）。 */}
               </AssistantPaperCard>
             )}
           </Fragment>

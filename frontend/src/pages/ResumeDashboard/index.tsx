@@ -196,7 +196,7 @@ const ResumeDashboard = () => {
           {/* 方框(照搬 Builder Dashboard 外层容器):黑边 + 硬阴影,包裹全部内容;
               min-h 用 vh 直接算(不依赖父级 flex/百分比继承链,避免嵌套 flex-col 导致高度塌陷),
               内容少时方框仍撑满可视区域,不再露出画布背景 */}
-          <div className="border border-black dark:border-white bg-[#F6F3EC] dark:bg-[#1C1C1C] shadow-[8px_8px_0px_0px_#000000] dark:shadow-[8px_8px_0px_0px_#ffffff] min-h-[calc(100vh-2rem)] sm:min-h-[calc(100vh-4rem)] space-y-10 p-6 sm:p-10 fresh:border-slate-200 fresh:bg-white fresh:shadow-xl">
+          <div className="border border-black fresh:border-slate-200 dark:border-white bg-[#F6F3EC] fresh:bg-slate-50 dark:bg-[#1C1C1C] shadow-[8px_8px_0px_0px_#000000] fresh:shadow-md dark:shadow-[8px_8px_0px_0px_#ffffff] min-h-[calc(100vh-2rem)] sm:min-h-[calc(100vh-4rem)] space-y-10 p-6 sm:p-10">
           <motion.div
             className="flex w-full items-center justify-center"
             initial={{ y: 20, opacity: 0 }}
@@ -208,7 +208,7 @@ const ResumeDashboard = () => {
                 <AlertDescription className="flex items-center justify-center gap-3">
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-green-700 animate-pulse" />
-                    <span className="text-sm font-mono font-bold uppercase tracking-wide text-black fresh:font-sans fresh:normal-case fresh:tracking-normal">
+                    <span className="text-sm font-mono font-bold uppercase tracking-wide text-black">
                       {isAuthenticated
                         ? '数据已同步至云端'
                         : '数据保存在本地'}
@@ -216,7 +216,7 @@ const ResumeDashboard = () => {
                   </div>
                   {!isAuthenticated && (
                     <button
-                      className="text-sm font-mono font-bold uppercase tracking-wide text-[#3367D6] hover:underline underline-offset-4 fresh:font-sans fresh:normal-case fresh:tracking-normal"
+                      className="text-sm font-mono font-bold uppercase tracking-wide text-[#3367D6] hover:underline underline-offset-4"
                       onClick={() => openModal('login')}
                     >
                       立即登录同步

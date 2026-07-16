@@ -75,6 +75,9 @@ def discard_session(conversation_id: str, *, clear_resume_data: bool = True) -> 
             pass
     if clear_resume_data:
         ResumeDataStore.clear_data(conversation_id)
+    # 整份优化进度是任务级状态，不是简历数据：无论是否保留简历数据都要清，
+    # 放在 clear_resume_data 门外无条件调用（设计方案七点三）。
+    ResumeDataStore.clear_progress(conversation_id)
     return session is not None
 
 

@@ -11,12 +11,16 @@ from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
 from backend.agent.prompt.manus import (
+    DIAGNOSIS_APPLY_PROMPT,
+    VIEW_SUGGESTIONS_PROMPT,
     GREETING_FAST_PATH_PROMPT,
     NEXT_STEP_PROMPT,
     SYSTEM_PROMPT,
 )
+from backend.agent.prompt.greeting import build_greeting_message, greeting_fallback
+from backend.agent.prompt.voice import apply_visible_action_narration_guidance
 from backend.agent.utils.resume_richtext import html_to_context_text, normalize_editor_value
-from backend.agent.tool import CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, GenerateResumeTool, ShowResumeTool, Terminate, ToolCollection
+from backend.agent.tool import AskUserQuestionTool, CVAnalyzerAgentTool, CVEditorAgentTool, CVReaderAgentTool, CVSuggestionsAgentTool, GenerateResumeTool, GetResumeDetailTool, ListResumesTool, ShowResumeTool, Terminate, ToolCollection
 from backend.agent.tool.ask_human import AskHuman
 from backend.agent.memory import (
     ChatHistoryManager,
@@ -25,8 +29,19 @@ from backend.agent.memory import (
     Intent,
 )
 from backend.agent.application.conversation.conversation_state import (
+    ResumeRequestRoute,
+    classify_resume_request,
     is_add_experience_query,
+    is_diagnosis_apply_query,
+    is_view_suggestions_query,
+    is_full_optimize_query,
     is_read_only_query,
+)
+from backend.agent.application.public_reasoning import compose_turn_opening
+from backend.agent.utils.optimize_progress import (
+    is_optimize_continuation_message,
+    parse_module_done_markers,
+    resolve_module_from_path,
 )
 from backend.agent.schema import Message, Role, ToolCall
 from backend.agent.agent.shared_state import AgentSharedState
@@ -35,6 +50,29 @@ from backend.agent.agent.prompt_builder import PromptBuilder
 from backend.agent.agent.intent_router import IntentRouter, RoutingContext
 from backend.agent.agent.capability import CapabilityRegistry, ResumeCapability
 from backend.agent.tool.resume_data_store import ResumeDataStore
+from backend.agent.feature_flags import (
+    ASKING_MODE_DISABLED_PROMPT,
+    is_asking_mode_enabled,
+)
+
+# cv_editor_agent 执行失败/被拦截时的工具消息特征，跟成功输出区分开
+# （见 Manus._confirm_optimize_progress_from_results）。只读轮次拦截
+# （Manus.execute_tool override）直接返回这段纯文本，不经过 ToolResult，
+# 所以不带 "Error:" 前缀，必须单独识别。放在模块级而不是类属性——Manus
+# 是 pydantic BaseModel 子类，下划线开头的类属性会被当成 private attr
+# 描述符拦截，赋值成普通 tuple 在实例上取到的是 ModelPrivateAttr 而不是
+# 值本身（round5 review 修复时实测踩过这个坑）。
+_CV_EDITOR_FAILURE_MARKERS = (
+    "Error:",
+    "本轮为只读查看请求",
+    # 只读诊断轮拦截文案前缀（2026-07-16 起为"本轮只做简历诊断，不修改简历"，
+    # 旧文案"本轮只做简历诊断和修改建议"同样命中此前缀）
+    "本轮只做简历诊断",
+    # 查看建议轮拦截文案（2026-07-16 诊断/建议拆分）
+    "本轮只展示诊断的修改建议",
+    "已跳过：",
+    "已跳过:",
+)
 
 
 class Manus(ToolCallAgent):
@@ -64,7 +102,9 @@ class Manus(ToolCallAgent):
     # Add general-purpose tools to the tool collection
     available_tools: ToolCollection = Field(default_factory=ToolCollection)
 
-    special_tool_names: list[str] = Field(default_factory=lambda: [Terminate().name])
+    special_tool_names: list[str] = Field(
+        default_factory=lambda: [Terminate().name, "cv_analyzer_agent"]
+    )
 
     # Memory components - 使用 PrivateAttr 避免 pydantic 验证
     _conversation_state: ConversationStateManager = PrivateAttr(default=None)
@@ -72,23 +112,14 @@ class Manus(ToolCallAgent):
     _last_intent: Intent = PrivateAttr(default=None)
     _last_intent_info: Dict[str, Any] = PrivateAttr(default_factory=dict)
     _current_resume_path: Optional[str] = PrivateAttr(default=None)
-    _just_applied_optimization: bool = PrivateAttr(default=False)  # 标记是否刚应用了优化
     _shared_state: AgentSharedState = PrivateAttr(default=None)
     _skills_cache: Dict[str, str] = PrivateAttr(default_factory=dict)
     _prompt_builder: PromptBuilder = PrivateAttr(default=None)
     _intent_router: IntentRouter = PrivateAttr(default=None)
     # Wave 2a-S1:原 5 个散落 flag 收拢进 TurnExecutionState。S4c-1 起内部直接读写
-    # self._turn.*;仅保留 _pending_immediate_stream 委托(AgentStream 直读,
-    # 保留到 2b-B1,见 spec D2)
+    # self._turn.*。Wave A-2(P0-3):_pending_immediate_stream 委托已随
+    # AgentStream 死分支一并删除(全仓无生产者)。
     _turn: TurnExecutionState = PrivateAttr(default_factory=TurnExecutionState)
-
-    @property
-    def _pending_immediate_stream(self) -> Optional[Dict[str, Any]]:
-        return self._turn.pending_immediate_stream
-
-    @_pending_immediate_stream.setter
-    def _pending_immediate_stream(self, value: Optional[Dict[str, Any]]) -> None:
-        self._turn.pending_immediate_stream = value
 
     @model_validator(mode="after")
     def initialize_helper(self) -> "Manus":
@@ -131,11 +162,16 @@ class Manus(ToolCallAgent):
         ]
         domain_tools = [
             CVReaderAgentTool(),
+            ListResumesTool(),
+            GetResumeDetailTool(),
             ShowResumeTool(),
             CVAnalyzerAgentTool(),
+            CVSuggestionsAgentTool(),
             CVEditorAgentTool(),
             GenerateResumeTool(),
         ]
+        if is_asking_mode_enabled():
+            domain_tools.append(AskUserQuestionTool())
 
         capability: ResumeCapability = CapabilityRegistry.get(self.capability)
         if not capability.tool_whitelist:
@@ -175,7 +211,7 @@ class Manus(ToolCallAgent):
         return None
 
     async def execute_tool(self, command: ToolCall) -> str:
-        """只读查看轮次拦截误触发的简历编辑工具。"""
+        """只读查看/诊断轮次拦截误触发的写入与追问工具。"""
         name = ""
         if command and command.function:
             name = command.function.name or ""
@@ -188,6 +224,37 @@ class Manus(ToolCallAgent):
                 "错误：本轮为只读查看请求，禁止修改代码或简历。"
                 "请直接根据 system prompt 中已注入的「# CV/Resume Context」完整回答，"
                 "勿调用 cv_editor_agent、str_replace_editor 或任何文件编辑工具。"
+            )
+        if self._turn.view_suggestions and name in (
+            "cv_editor_agent",
+            "str_replace_editor",
+            "cv_analyzer_agent",
+            "ask_human",
+            "ask_user_question",
+        ):
+            logger.info(f"💡 查看建议轮次拦截 {name} 调用")
+            return (
+                "错误：本轮只展示诊断的修改建议，不修改简历，也不重新诊断。"
+                "请调用 cv_suggestions_agent 展示建议卡，然后结束本轮。"
+            )
+        if self._turn.diagnosis_only and name in (
+            "cv_editor_agent",
+            "str_replace_editor",
+            "ask_user_question",
+        ):
+            logger.info(f"🩺 只读诊断轮次拦截 {name} 调用")
+            return (
+                "错误：本轮只做简历诊断，不修改简历，也不进入追问补全流程。"
+                "请调用 cv_analyzer_agent，并在诊断卡生成后结束本轮。"
+            )
+        if self._turn.diagnosis_apply and name in (
+            "ask_human",
+            "ask_user_question",
+        ):
+            logger.info(f"📌 apply 轮拦截 {name} 调用（缺信息跳过，不提问）")
+            return (
+                "本轮为一次性应用诊断建议：缺少真实信息的建议直接跳过，"
+                "不向用户提问。请继续处理其余建议，收尾时在「需你补充」清单中列出跳过项。"
             )
         return await super().execute_tool(command)
 
@@ -247,106 +314,60 @@ class Manus(ToolCallAgent):
             self._turn.read_only = False
         else:
             self._turn.read_only = is_read_only_query(user_input)
+        route = classify_resume_request(user_input)
+        # Phase 3 写入解锁：显式 apply 文案（"按建议帮我修改"等）+ 当前简历
+        # 确实已产出诊断，两者同时成立才解除只读诊断闸；否则（含首轮泛优化、
+        # 未诊断就说 apply 话术）仍先走只读诊断，防止跳过诊断直接改。
+        is_apply_turn = bool(
+            is_diagnosis_apply_query(user_input)
+            and self._diagnosis_completed_for_loaded_resume()
+        )
+        # apply 轮 = 单轮出齐全部修改（不启动逐模块任务、不中途提问），
+        # 由 DIAGNOSIS_APPLY_PROMPT + execute_tool 的 ask 拦截共同保证。
+        self._turn.diagnosis_apply = is_apply_turn
+        # 查看建议轮（2026-07-16 诊断/建议拆分）：点「查看修改建议」只读展示
+        # 建议（cv_suggestions_agent），不重新诊断、不修改简历。要求本会话已
+        # 产出诊断——未诊断时说"查看建议"仍走只读诊断（先诊断才有建议可看）。
+        is_view_turn = bool(
+            not is_apply_turn
+            and is_view_suggestions_query(user_input)
+            and self._diagnosis_completed_for_loaded_resume()
+        )
+        self._turn.view_suggestions = is_view_turn
+        self._turn.diagnosis_only = bool(
+            route in {
+                ResumeRequestRoute.BROAD_OPTIMIZE,
+                ResumeRequestRoute.DIAGNOSE,
+            }
+            and not is_apply_turn
+            and not is_view_turn
+        )
 
         if self._turn.read_only:
             logger.info("📖 只读查看轮次：禁止 cv_editor_agent")
+        elif self._turn.view_suggestions:
+            logger.info("💡 查看建议轮次：只展示建议，禁止编辑与重新诊断")
+        elif self._turn.diagnosis_only:
+            logger.info("🩺 只读诊断轮次：禁止编辑、patch、Asking 和自动优化")
         elif is_add_experience_query(user_input):
             logger.info("📎 新增经历轮次：允许 cv_editor_agent")
 
-    @staticmethod
-    def _dedupe_lines(text: str) -> str:
-        """Drop duplicate lines while preserving order."""
-        lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
-        seen = set()
-        out: List[str] = []
-        for line in lines:
-            key = re.sub(r"\s+", " ", line)
-            if key in seen:
-                continue
-            seen.add(key)
-            out.append(line)
-        return "\n".join(out).strip()
-
-    def _sanitize_optimization_text(self, text: str) -> str:
-        """Sanitize optimization text before writing back to resume."""
-        body = self._extract_response_body(text)
-        body = re.sub(r"```(?:text|markdown|md)?", "", body, flags=re.IGNORECASE)
-        body = body.replace("```", "")
-        body = self._dedupe_lines(body)
-        return body.strip()
-
-    @staticmethod
-    def _is_reasonable_optimization_text(text: str) -> bool:
-        """Guardrail against writing repeated/oversized optimization blobs."""
-        body = (text or "").strip()
-        if len(body) < 80:
-            return False
-        if len(body) > 2600:
-            return False
-        # Avoid multi-round duplicated STAR blocks.
-        normalized = re.sub(r"\s+", " ", body)
-        for marker in (
-            "Situation（情境）",
-            "Task（任务）",
-            "Action（行动）",
-            "Result（结果）",
-            "Situation (情境)",
-            "Task (任务)",
-            "Action (行动)",
-            "Result (结果)",
-        ):
-            if normalized.count(marker) > 2:
-                return False
-        return True
-
-    @staticmethod
-    def _extract_response_body(content: str) -> str:
-        """从 Thought/Response 混合文本中提取可写回正文。"""
-        text = (content or "").strip()
-        if not text:
-            return ""
-        match = re.search(r"Response[:：]\s*([\s\S]+)$", text, re.IGNORECASE)
-        if match:
-            text = (match.group(1) or "").strip()
-        text = re.sub(r"^\s*Thought[:：][^\n]*\n?", "", text, flags=re.IGNORECASE)
-        return text.strip()
-
-    @staticmethod
-    def _is_actionable_optimization_text(text: str) -> bool:
-        """判定优化文本是否可直接写回（而不是反问用户补充信息）。"""
-        body = (text or "").strip()
-        if len(body) < 80:
-            return False
-        reject_markers = (
-            "请提供",
-            "请告诉我",
-            "我需要了解",
-            "请您分享",
-            "为了给您提供",
-            "您在腾讯参与的是什么项目",
-            "让我先",
-            "修改前：",
-            "修改后：",
-            "```",
-        )
-        if any(marker in body for marker in reject_markers):
-            return False
-        if body.count("？") + body.count("?") >= 2:
-            return False
-        return any(
-            keyword in body
-            for keyword in ("STAR", "Situation", "Action", "Result", "情境", "行动", "结果")
-        )
-
     async def _generate_dynamic_prompts(self, user_input: str, intent: "Intent" = None) -> tuple:
         """动态 prompt 构造已迁 PromptBuilder(Wave 2a-S2),此处保留薄委托。"""
-        return await self._prompt_builder.generate(
+        system_prompt, next_step_prompt = await self._prompt_builder.generate(
             user_input,
             intent,
             resume_loaded=self._conversation_state.context.resume_loaded,
             current_resume_path=self._current_resume_path,
             recent_messages=self.memory.messages,
         )
+        if not is_asking_mode_enabled():
+            system_prompt = f"{system_prompt}\n\n{ASKING_MODE_DISABLED_PROMPT}"
+        if self._turn.diagnosis_apply:
+            system_prompt = f"{system_prompt}\n\n{DIAGNOSIS_APPLY_PROMPT}"
+        if self._turn.view_suggestions:
+            system_prompt = f"{system_prompt}\n\n{VIEW_SUGGESTIONS_PROMPT}"
+        return system_prompt, next_step_prompt
 
     def should_auto_terminate(self, content: str, tool_calls: list) -> bool:
         """自定义自动终止逻辑
@@ -412,38 +433,13 @@ class Manus(ToolCallAgent):
             ),
         }
 
-    def _check_just_applied_finish(self) -> bool:
-        """刚应用优化后，若最近出现 cv_editor_agent 成功结果则终止本轮。返回是否已终止。"""
-        if not getattr(self, '_just_applied_optimization', False):
-            return False
-        self._just_applied_optimization = False
-        recent_messages = self.memory.messages[-5:]
-        has_editor_success = any(
-            (
-                (msg.role if isinstance(msg.role, str) else msg.role.value) == "tool"
-                and msg.name == "cv_editor_agent"
-                and "Successfully updated" in (msg.content or "")
-            )
-            for msg in recent_messages
-        )
-
-        if has_editor_success:
-            logger.info("✅ 优化已应用完成，终止执行")
-            self.memory.add_message(Message.assistant_message(
-                "✅ 优化已应用！如果需要继续优化其他项目，请告诉我。"
-            ))
-            from backend.agent.schema import AgentState
-            self.state = AgentState.FINISHED
-            return True
-        return False
-
     async def think(self) -> bool:
         """Process current state and decide next actions.
 
         LLM-first 唯一路径（2026-07-11 一次性了断）：
         1. GREETING 走专用轻通道（LLM 生成、不挂工具）
-        2. optimize-confirm 确认写回走 cv_editor_agent 快路径
-        3. 其余一律交给 LLM ReAct loop 自主选工具，依赖自动终止机制
+        2. 其余业务意图一律交给 LLM ReAct loop 自主选工具
+        3. 规则只保留只读、安全、幂等和步骤预算等边界约束
         """
         # 获取最后的用户输入；同一轮内锁定只读/可写模式
         user_input = self._get_last_user_input()
@@ -465,6 +461,14 @@ class Manus(ToolCallAgent):
         intent = route.intent
         intent_source = route.intent_source
         enhanced_query = route.enhanced_query
+        if self.current_step == 1:
+            opening = compose_turn_opening(
+                user_input=user_input,
+                intent=intent,
+                has_resume=self._has_resume_data_in_store(),
+                step_id=self.current_step,
+            )
+            await self.emit_public_reasoning(opening)
         if route.compound_hint:
             # 保险提示:复合请求让权后,防止 LLM 做完第一个子任务就提前收工
             self.memory.add_message(Message.system_message(
@@ -475,33 +479,16 @@ class Manus(ToolCallAgent):
         # 如果查询被增强（包含工具标记），更新最后一条用户消息
         self._apply_enhanced_query(enhanced_query, user_input)
 
-        # 优化确认快路径：仅当用户明确确认「应用/写回」上一轮优化建议时触发。
-        # 新增经历、只读查看不得进入此分支。
-        if (
-            not is_read_only_query(user_input)
-            and not is_add_experience_query(user_input)
-            and self._looks_like_optimize_confirm(user_input)
-        ):
-            if await self._handle_optimize_confirm():
-                logger.info("🧭 optimize confirmation mapped to cv_editor_agent")
-                return True
-
         # 存储本轮意图上下文，供工具结构化结果标注来源
         self._store_intent_info(intent, intent_source)
-
-        # 🔑 特殊处理：检查是否刚应用了优化
-        if self._check_just_applied_finish():
-            return False
 
         # 🎯 GREETING：直接调用 LLM，不传工具（减少 payload，速度更快）
         if intent == Intent.GREETING:
             logger.info("👋 GREETING: fast path without tools")
             base_system_prompt, _ = await self._generate_dynamic_prompts(user_input, intent)
             system_content = f"{base_system_prompt}\n\n{GREETING_FAST_PATH_PROMPT}"
-            greeting_fallback = (
-                "Thought: 用户打招呼，热情回应并介绍三种上手方式。\n"
-                "Response: 你好 👋 我是 coco。想做简历？说说你的经历我帮你生成，或导入现成简历，也能选一份已有的接着改。"
-            )
+            has_resume = self._has_resume_data_in_store()
+            fallback_text = greeting_fallback(has_resume)
             try:
                 raw = await self.llm.ask(
                     messages=[{"role": "user", "content": user_input}],
@@ -510,117 +497,42 @@ class Manus(ToolCallAgent):
                     temperature=0.8,  # 问候要有变化,拉高多样性
                 )
                 if raw and raw.strip():
-                    self.memory.add_message(Message.assistant_message(raw.strip()))
+                    greeting_message = build_greeting_message(raw.strip(), has_resume)
+                    self.memory.add_message(Message.assistant_message(greeting_message))
                     from backend.agent.schema import AgentState
                     self.state = AgentState.FINISHED
                     return False
             except Exception as _greeting_err:
                 logger.warning(f"👋 GREETING fast path failed, falling back: {_greeting_err}")
-            self.memory.add_message(Message.assistant_message(greeting_fallback))
+            self.memory.add_message(
+                Message.assistant_message(
+                    build_greeting_message(fallback_text, has_resume)
+                )
+            )
             from backend.agent.schema import AgentState
             self.state = AgentState.FINISHED
             return False
 
         # 🎯 其他意图一律交给 LLM ReAct loop（看工具列表自主编排）
+        # 整份优化任务内进度：先确保任务已初始化，动态 prompt 才能渲染出
+        # 正确的进度清单/增量注入（见设计方案七点二、七点六）
+        self._maybe_init_optimize_progress(user_input)
+
         # 动态生成提示词
         self.system_prompt, self.next_step_prompt = await self._generate_dynamic_prompts(user_input, intent)
+        self.system_prompt = apply_visible_action_narration_guidance(
+            self.system_prompt
+        )
 
         # 调用父类的 think 方法（会自动处理终止逻辑）
-        return await super().think()
+        should_act = await super().think()
 
-    @staticmethod
-    def _looks_like_optimize_confirm(text: str) -> bool:
-        """仅匹配用户明确确认应用上一轮优化建议的短句，避免正文里的「优化」「应用」误触发。"""
-        normalized = (text or "").strip().lower()
-        if not normalized or len(normalized) > 80:
-            return False
-        if is_add_experience_query(normalized) or is_read_only_query(normalized):
-            return False
-        explicit = (
-            r"^(可以|好的|同意|确认|请).{0,12}(应用|写回|更新|保存)",
-            r"^(应用|写回|确认应用).{0,12}(优化|修改|建议|吧|了)?$",
-            r"^就按.{0,8}(优化|建议|方案)",
-            r"^直接(应用|写回|更新)",
-        )
-        if any(re.search(p, normalized) for p in explicit):
-            return True
-        # 极短确认：≤12 字且同时含确认词 + 写回词（排除单字「行」）
-        if len(normalized) <= 12:
-            has_confirm = bool(re.search(r"(可以|好的|同意|确认|请|就按)", normalized))
-            has_apply = bool(re.search(r"(应用优化|写回|更新到|保存)", normalized))
-            return has_confirm and has_apply
-        return False
+        # 整份优化任务内进度推进：解析本步 assistant 回复里的 MODULE_DONE 标记
+        # （相变在存储层零步数触发）。必须紧跟 super().think() 之后调用，
+        # 不能放进 act()——见 _advance_optimize_progress docstring。
+        self._advance_optimize_progress()
 
-    @staticmethod
-    def _build_apply_optimization(
-        edit_path: str, edit_value: str, suggestion_title: str
-    ) -> tuple[ToolCall, Message]:
-        """应用优化建议 → cv_editor_agent 的纯构造(optimize-confirm 快路径)：
-        组装固定 id 的 ToolCall 与配套 memory 消息,不产生副作用。"""
-        manual_tool_call = ToolCall(
-            id="call_apply_optimization",
-            function={
-                "name": "cv_editor_agent",
-                "arguments": json.dumps(
-                    {"path": edit_path, "action": "update", "value": edit_value}
-                ),
-            },
-        )
-        memory_message = Message.from_tool_calls(
-            content=f"✅ 正在应用优化：{suggestion_title}\n路径：{edit_path}",
-            tool_calls=[manual_tool_call],
-        )
-        return manual_tool_call, memory_message
-
-    async def _handle_optimize_confirm(self) -> bool:
-        """处理用户确认优化意图"""
-        import re
-
-        # 从之前的分析结果中提取最推荐的优化
-        edit_path = None
-        edit_value = None
-        suggestion_title = None
-
-        for msg in reversed(self.memory.messages[-10:]):
-            role_val = msg.role if isinstance(msg.role, str) else msg.role.value
-            if role_val == "tool" and msg.name == 'cv_analyzer_agent':
-                content = msg.content
-                try:
-                    json_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)
-                    json_str = json_match.group(1) if json_match else content
-
-                    data = json.loads(json_str)
-                    suggestions = data.get("optimization_suggestions") or data.get("optimizationSuggestions", [])
-
-                    if suggestions and len(suggestions) > 0:
-                        first_suggestion = suggestions[0]
-                        edit_path = first_suggestion.get("apply_path")
-                        edit_value = self._sanitize_optimization_text(
-                            str(first_suggestion.get("optimized") or "")
-                        )
-                        suggestion_title = first_suggestion.get("title", "优化建议")
-
-                        if (
-                            edit_path
-                            and edit_value
-                            and self._is_actionable_optimization_text(str(edit_value))
-                            and self._is_reasonable_optimization_text(str(edit_value))
-                        ):
-                            tool_call, memory_message = self._build_apply_optimization(
-                                edit_path, edit_value, suggestion_title
-                            )
-                            self.memory.add_message(memory_message)
-                            self.tool_calls = [tool_call]
-                            self._just_applied_optimization = True
-                            logger.info(f"🔧 应用优化: {edit_path} = {edit_value}")
-                            return True
-                except (json.JSONDecodeError, KeyError) as e:
-                    logger.debug(f"解析优化建议失败: {e}")
-                    continue
-
-        # 无结构化优化建议时交给 LLM，禁止 STAR/通用模板兜底写回
-        logger.info("⚠️ optimize confirm: no actionable suggestion from analyzer, defer to LLM")
-        return False
+        return should_act
 
     def _get_last_ai_message(self) -> Optional[str]:
         """获取最后一条 AI 消息内容"""
@@ -648,9 +560,213 @@ class Manus(ToolCallAgent):
         self._conversation_state.update_resume_loaded(True)
         logger.info("📋 resume_loaded state synced from ResumeDataStore")
 
+    def _maybe_init_optimize_progress(self, user_input: str) -> None:
+        """整份优化任务初始化：本轮确实是整份优化相关时，确保
+        `_progress_by_session` 就绪，供本轮 prompt 渲染进度清单/增量注入。
+
+        必须在生成动态 prompt 之前调用。init_progress 本身幂等（有未完成任务
+        直接复用，不重置）。
+
+        **独立 review 发现并修复的真实 bug**：最初版本用"该会话已有未完成
+        任务"（has_active_task）单独作为触发条件，导致任务 alive
+        （status!=done）期间，用户中途随便发一条无关消息（不调工具、不是
+        续跑）也会被当成"这轮继续整份优化"处理——被迫套上增量注入裁剪、
+        强制 PII 脱敏，还会被 `_advance_optimize_progress` 的信号 3 误判成
+        "这轮判断不需要改"而错误 skip 掉一个模块。改成：本轮必须满足"用户
+        主动措辞命中 is_full_optimize_query" 或 "是系统合成的续跑消息"
+        （`is_optimize_continuation_message`，见 optimize_progress.py）
+        之一，任务状态才在本轮生效；否则这一轮当普通对话处理，
+        `_progress_by_session` 保持原状不变（不清空、不推进），下一轮用户
+        重新明确提及"继续优化"依然能恢复。见设计方案七点二、七点六。
+        """
+        if not self._has_resume_data_in_store():
+            return
+        # apply 形态 v2（2026-07-15 用户拍板）：诊断后的显式 apply 走"单轮
+        # 出齐全部 patch"（见 diagnosis_apply 轮约束），不再初始化逐模块
+        # 优化任务——原 is_diagnosis_apply_query 触发分支移除。逐模块任务
+        # 因此失去新的启动入口（有意为之）；continuation 分支保留，兼容
+        # 既有进行中任务的 auto_continue 续跑恢复。
+        if not is_optimize_continuation_message(user_input):
+            return
+        resume_data = ResumeDataStore.get_data(self.session_id)
+        if resume_data:
+            ResumeDataStore.init_progress(self.session_id, resume_data)
+
+    def _diagnosis_completed_for_loaded_resume(self) -> bool:
+        """当前会话已加载的简历是否已产出过诊断（cv_analyzer 完成时打标）。
+
+        与 `_sync_turn_read_only_flag` / `_maybe_init_optimize_progress` 共用，
+        是 Phase 3「诊断后显式 apply 才可写」闸门的会话状态半边。
+        """
+        resume_data = ResumeDataStore.get_data(self.session_id)
+        if not isinstance(resume_data, dict):
+            return False
+        meta = resume_data.get("_meta") or {}
+        resume_id = str(
+            resume_data.get("resume_id")
+            or resume_data.get("id")
+            or (meta.get("resume_id") if isinstance(meta, dict) else "")
+            or ""
+        )
+        diagnosed_for = (
+            self._shared_state.get("resume_diagnosis_completed_for", "")
+            if self._shared_state is not None
+            else ""
+        )
+        return bool(resume_id) and diagnosed_for == resume_id
+
+    def _advance_optimize_progress(self) -> None:
+        """整份优化任务：推进进度。
+
+        **实测发现（真实 LLM 端到端验证，qwen-max）**：单靠 LLM 输出
+        `[[MODULE_DONE:模块]]` 这个自定义协议标记不可靠——指令已经完整、清晰
+        地注入 system prompt，LLM 依然经常不遵循，倾向于走"跟用户对话式推进"
+        （比如停下来问用户要不要提供更多信息）而不是按格式协议输出标记。不能
+        把这个标记当成推进进度的唯一驱动力，否则 pending 永远不清空，
+        reviewing 相变永远不触发，整套任务内进度追踪形同虚设。
+
+        三层信号，优先级从高到低，任一命中就推进：
+        1. 显式标记 `[[MODULE_DONE:xxx]]`——LLM 确实输出了就优先采信（可能
+           比单看 path 更精确，比如一步改了多个字段但只想推进其中一个模块）。
+        2. **真实工具调用推断（主力）**：本步有 `cv_editor_agent` 调用且真的
+           执行成功，其 `path` 参数解析出的顶层模块命中 `pending`，视为该
+           模块已处理，自动推进——不依赖 LLM 主动"声明"，直接从它真实做了
+           什么反推状态，这是本仓库一贯的判据（规则该管确定性边界，不该
+           指望 LLM 遵守自定义协议）。**这一信号的判定放在 act() 之后**，
+           见 `_confirm_optimize_progress_from_results`，本函数不处理。
+        3. **无工具调用兜底**：本步纯文本回复、没有调用任何工具（即将
+           触发 `should_auto_terminate` 结束这轮），说明 LLM 这轮没打算动
+           `pending[0]`——自动把它标记为 skip 推进，避免任务卡死在同一个
+           模块；下一轮 auto_continue 会把清单重新给 LLM 看，它仍有机会
+           在后续轮次改这个模块（skip 不等于永久跳过，只是不卡在这一步）。
+
+        在 think() 里、super().think() 添加完 assistant 消息之后立即调用
+        （不新开一轮 LLM 调用）。信号 3 必须放在 think() 里——
+        ToolCallAgent.think() 在纯文本无 tool_calls 且命中 should_auto_terminate
+        时会直接 state=FINISHED 并 return False，此时 react.py 的 step() 根本
+        不会调用 act()，信号 3 的兜底就永远不会被检测到；think() 里紧跟
+        super().think() 之后调用则不受这个分支影响。只看最新一条 assistant
+        消息（不用往回扫），避免误触发更早、其实已经处理过的旧标记。
+        mark_module_done 幂等（重复/未知模块 no-op），相变 optimizing→reviewing
+        由其内部规则 len(pending)==0 触发，零 LLM 步数。见设计方案七点二。
+
+        **独立 review 发现并修复的真实 bug（只影响信号 3，不影响信号 1/2）**：
+        本函数原来只检查 `status == "optimizing"` 就会跑三层信号，任务 alive
+        期间只要用户某一轮没调用任何工具（哪怕是完全无关的闲聊），信号 3
+        兜底都会把 `pending[0]` 误判成"这轮判断不需要改"而错误 skip
+        掉——把"用户在聊别的"伪装成"任务在正常推进"。修法：信号 3 额外要求
+        本轮确实是整份优化相关（用户主动措辞或系统续跑消息）才触发；信号
+        1/2 不需要这层保护——它们本身就有实际证据支撑（LLM 真输出了标记 /
+        真调用了工具改了字段），不该因为"这轮判断跟整份优化无关"就被
+        一并拦住（比如用户中途简短回一句"继续"，没有命中任何措辞正则，
+        但 LLM 确实照常调用了 cv_editor_agent 处理了下一个模块——这种真实
+        发生的推进不该被拦下）。
+
+        **独立 review round5 发现并修复的真实 bug（信号 2 假阳性完成）**：
+        信号 2 原来跟信号 1/3 一起放在 think() 里，只看 `self.tool_calls`
+        ——那只是 LLM 这一步"决定调用"，此时 act() 还没跑，编辑到底成没成
+        根本不知道。工具真实执行时可能失败（cv_editor_agent 内部报错/校验
+        不通过）或被 `execute_tool` 的只读轮次拦截直接短路（见本类
+        `execute_tool` override），这些情况下模块已经被判定 done，
+        mark_module_done 幂等导致后续重试也不会再推进——一次没真正生效的
+        编辑被永久标记成"已完成"。修法：信号 2 挪到 act() 之后，凭工具真实
+        返回的结果确认成功了才推进，见 `_confirm_optimize_progress_from_results`。
+        """
+        progress = ResumeDataStore.get_progress(self.session_id)
+        if not progress or progress.get("status") != "optimizing":
+            return
+
+        last_assistant_content = None
+        for msg in reversed(self.memory.messages[-3:]):
+            role_val = msg.role.value if hasattr(msg.role, "value") else str(msg.role)
+            if role_val == "assistant":
+                last_assistant_content = msg.content
+                break
+
+        advanced = False
+
+        # 信号 1：显式标记。注意:只要解析到标记(即便模块已 done、mark 幂等
+        # no-op)就视为本轮有明确进度信号,阻断信号 3——否则 LLM 重复输出
+        # [[MODULE_DONE:basic]] 时(它对进度无知,风暴/重发场景实测),幂等
+        # no-op 导致 advanced=False,信号 3 把 pending[0](education 等)错误
+        # skip 掉,LLM 说 basic、进度却跳过 education 的错乱(2026-07-13 日志)。
+        if last_assistant_content:
+            for module, skip in parse_module_done_markers(last_assistant_content):
+                advanced = True
+                ResumeDataStore.mark_module_done(self.session_id, module, skip=skip)
+
+        # 信号 3：无工具调用兜底（本轮啥也没干，避免卡死在同一模块）。
+        # 这层没有实际证据（没标记也没工具调用），必须额外确认本轮确实
+        # 跟整份优化相关，否则会把"用户在聊别的"误判成"这轮决定跳过"。
+        #
+        # **独立 review 发现并修复的真实 bug（用户实测截图复现）**：LLM
+        # 针对当前模块向用户提了个澄清问题（比如"在校期间有获得过奖学金
+        # 吗？GPA 或专业排名情况如何？"），明确说了"你可以直接说'没有，
+        # 跳过'或者'有，[具体信息]'"——这一步没调用工具，命中信号 3 的
+        # "无工具调用"条件，本函数直接把这个模块判定成"跳过"往下推进，
+        # auto_continue 又紧接着把下一个模块的处理结果糊了上来——用户
+        # 压根没来得及回答，进度已经跳过这个模块走了，问题白问。信号 3
+        # 的"没调用工具=这轮决定跳过"这个假设，只对"LLM主动判断不需要
+        # 改"成立，对"LLM在等用户回答一个真问题"不成立，两者不能同等
+        # 处理。用一个粗但够用的启发式区分：本轮回复里出现问号，就当成
+        # "在等用户答复"，不触发自动跳过，让本轮正常结束、真等用户回复
+        # （而不是被 auto_continue 悄悄带着往下走）。
+        if not advanced and not self.tool_calls:
+            is_asking_question = bool(
+                last_assistant_content and re.search(r"[?？]", last_assistant_content)
+            )
+            if not is_asking_question:
+                last_user_input = self._get_last_user_input()
+                is_relevant_turn = is_full_optimize_query(
+                    last_user_input
+                ) or is_optimize_continuation_message(last_user_input)
+                if is_relevant_turn:
+                    pending = progress.get("pending") or []
+                    if pending:
+                        ResumeDataStore.mark_module_done(
+                            self.session_id, pending[0], skip=True
+                        )
+
+    def _confirm_optimize_progress_from_results(self) -> None:
+        """信号 2：act() 真实执行完 cv_editor_agent 后，凭工具返回结果确认
+        编辑是否真的成功，成功才推进对应模块——不能只凭 think() 阶段
+        "LLM 决定调用"就判定完成，见 `_advance_optimize_progress` 的
+        round5 bug 说明。必须在 `super().act()` 之后调用，此时对应的
+        ToolMessage 已经写进 `self.memory`。
+        """
+        progress = ResumeDataStore.get_progress(self.session_id)
+        if not progress or progress.get("status") != "optimizing":
+            return
+        if not self.tool_calls:
+            return
+        target_calls = {
+            call.id: call
+            for call in self.tool_calls
+            if getattr(call.function, "name", None) == "cv_editor_agent"
+        }
+        if not target_calls:
+            return
+        for msg in self.memory.messages[-len(self.tool_calls):]:
+            if msg.role != Role.TOOL or msg.tool_call_id not in target_calls:
+                continue
+            content = msg.content or ""
+            if any(marker in content for marker in _CV_EDITOR_FAILURE_MARKERS):
+                continue
+            call = target_calls[msg.tool_call_id]
+            try:
+                args = json.loads(call.function.arguments or "{}")
+            except (json.JSONDecodeError, TypeError):
+                continue
+            module = resolve_module_from_path(args.get("path", ""))
+            if module:
+                ResumeDataStore.mark_module_done(self.session_id, module, skip=False)
+
     async def act(self) -> str:
         """Execute tool calls and update conversation state."""
         result = await super().act()
+
+        # 整份优化任务内进度推进·信号 2：见 _confirm_optimize_progress_from_results。
+        self._confirm_optimize_progress_from_results()
 
         # 更新对话状态管理器
         if self.tool_calls:

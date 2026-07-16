@@ -44,10 +44,9 @@ export const SimpleTemplateCard: React.FC<SimpleTemplateCardProps> = ({
     >
       <div
         className={cn(
-          "bg-[#F0F0E8] rounded-none overflow-hidden",
-          "border border-black shadow-[4px_4px_0px_0px_#000000]",
-          "group-hover:shadow-none transition-[box-shadow,transform] duration-100",
-          "fresh:bg-white fresh:rounded-lg fresh:border-slate-200 fresh:shadow-sm fresh:group-hover:shadow-md"
+          "bg-[#F0F0E8] fresh:bg-slate-50 rounded-none fresh:rounded-lg overflow-hidden",
+          "border border-black fresh:border-slate-200 shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md",
+          "group-hover:shadow-none transition-[box-shadow,transform] duration-100"
         )}
       >
         {/* 模板预览图 */}
@@ -71,8 +70,8 @@ export const SimpleTemplateCard: React.FC<SimpleTemplateCardProps> = ({
         )}
         
         {/* 底部标签 */}
-        <div className="px-4 py-2 bg-[#E5E5E0] border-t border-black fresh:bg-slate-50 fresh:border-slate-200">
-          <p className="text-center text-sm font-mono uppercase tracking-wide text-black fresh:font-sans fresh:normal-case fresh:tracking-normal">
+        <div className="px-4 py-2 bg-[#E5E5E0] border-t border-black fresh:border-slate-200">
+          <p className="text-center text-sm font-mono uppercase tracking-wide text-black">
             {mainTag}
           </p>
         </div>

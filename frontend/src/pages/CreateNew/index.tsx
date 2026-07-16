@@ -38,7 +38,7 @@ export default function CreateNew() {
   const handleClose = () => navigate('/')
 
   return (
-    <div className="min-h-screen bg-[#F0F0E8] fresh:bg-slate-50 text-black font-sans overflow-hidden">
+    <div className="min-h-screen bg-[#F0F0E8] text-black font-sans overflow-hidden">
       {/* 格子纹理背景 */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -57,9 +57,9 @@ export default function CreateNew() {
           onClick={() => navigate('/')}
           className={cn(
             'inline-flex items-center gap-2',
-            'font-mono text-xs font-bold uppercase tracking-wide fresh:font-sans fresh:normal-case fresh:tracking-normal',
-            'border-2 border-black bg-[#F0F0E8] fresh:border-slate-200 fresh:bg-white',
-            'shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm',
+            'font-mono text-xs font-bold uppercase tracking-wide',
+            'border-2 border-black bg-[#F0F0E8]',
+            'shadow-[2px_2px_0px_0px_#000000]',
             'px-4 py-2 text-black',
             'hover:translate-y-[1px] hover:translate-x-[1px] hover:shadow-none',
             'transition-[transform,box-shadow,background-color] duration-100',
@@ -79,8 +79,8 @@ export default function CreateNew() {
           className={cn(
             'w-full max-w-3xl',
             'bg-white',
-            'border-2 border-black fresh:border-slate-200',
-            'shadow-[8px_8px_0px_0px_#000000] fresh:shadow-xl',
+            'border-2 border-black',
+            'shadow-[8px_8px_0px_0px_#000000]',
             'overflow-hidden',
           )}
         >
@@ -93,7 +93,7 @@ export default function CreateNew() {
             >
               ✕
             </button>
-            <div className="font-mono text-xs font-bold text-blue-700 uppercase tracking-wider fresh:font-sans fresh:normal-case fresh:tracking-normal mb-2">
+            <div className="font-mono text-xs font-bold text-blue-700 uppercase tracking-wider mb-2">
               // NEW RESUME
             </div>
             <h2 className="text-3xl md:text-4xl font-serif font-bold text-black leading-tight mb-2">
@@ -114,21 +114,21 @@ export default function CreateNew() {
             >
               <div
                 className={cn(
-                  'h-full border-2 border-black bg-white fresh:border-slate-200',
-                  'shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md',
+                  'h-full border-2 border-black bg-white',
+                  'shadow-[4px_4px_0px_0px_#000000]',
                   'group-hover:translate-y-[2px] group-hover:translate-x-[2px] group-hover:shadow-none',
                   'transition-[transform,box-shadow] duration-100',
                   'flex flex-col',
                 )}
               >
                 <div className="p-6 pb-2">
-                  <div className="w-14 h-14 flex items-center justify-center border-2 border-black bg-gray-100 shadow-[2px_2px_0px_0px_#000000] fresh:rounded-lg fresh:border-slate-200 fresh:bg-slate-100 fresh:shadow-sm">
+                  <div className="w-14 h-14 flex items-center justify-center border-2 border-black bg-gray-100 shadow-[2px_2px_0px_0px_#000000]">
                     <Upload className="w-7 h-7 text-black" strokeWidth={1.5} />
                   </div>
                 </div>
 
                 <div className="px-6 pb-3">
-                  <div className="text-xs font-mono text-gray-500 fresh:font-sans mb-1">已有简历文件</div>
+                  <div className="text-xs font-mono text-gray-500 mb-1">已有简历文件</div>
                   <h3 className="text-2xl font-serif font-bold text-black leading-tight">
                     从文件导入
                   </h3>
@@ -149,9 +149,9 @@ export default function CreateNew() {
                     }}
                     className={cn(
                       'w-full flex items-center justify-center gap-2 px-4 py-3',
-                      'border-2 border-black bg-white fresh:border-slate-200',
-                      'shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm',
-                      'font-mono text-sm font-bold uppercase tracking-wide text-black fresh:font-sans fresh:normal-case fresh:tracking-normal',
+                      'border-2 border-black bg-white',
+                      'shadow-[2px_2px_0px_0px_#000000]',
+                      'font-mono text-sm font-bold uppercase tracking-wide text-black',
                       'group-hover:translate-y-[1px] group-hover:translate-x-[1px] group-hover:shadow-none',
                       'transition-[transform,box-shadow] duration-100',
                     )}
@@ -170,21 +170,21 @@ export default function CreateNew() {
             >
               <div
                 className={cn(
-                  'h-full border-2 border-black bg-white fresh:border-slate-200',
-                  'shadow-[4px_4px_0px_0px_#000000] fresh:shadow-md',
+                  'h-full border-2 border-black bg-white',
+                  'shadow-[4px_4px_0px_0px_#000000]',
                   'group-hover:translate-y-[2px] group-hover:translate-x-[2px] group-hover:shadow-none',
                   'transition-[transform,box-shadow] duration-100',
                   'flex flex-col',
                 )}
               >
                 <div className="p-6 pb-2">
-                    <div className="w-14 h-14 flex items-center justify-center border-2 border-black bg-blue-700 shadow-[2px_2px_0px_0px_#000000] fresh:rounded-lg fresh:border-blue-600 fresh:shadow-sm">
+                    <div className="w-14 h-14 flex items-center justify-center border-2 border-black bg-blue-700 shadow-[2px_2px_0px_0px_#000000]">
                     <Wand2 className="w-7 h-7 text-white" strokeWidth={1.5} />
                   </div>
                 </div>
 
                 <div className="px-6 pb-3">
-                  <div className="text-xs font-mono text-blue-700 fresh:font-sans mb-1">AI 引导式创建</div>
+                  <div className="text-xs font-mono text-blue-700 mb-1">AI 引导式创建</div>
                   <h3 className="text-2xl font-serif font-bold text-black leading-tight">
                     AI 智能生成
                   </h3>
@@ -205,12 +205,12 @@ export default function CreateNew() {
                     }}
                     className={cn(
                       'w-full flex items-center justify-center gap-2 px-4 py-3',
-                      'border-2 border-black bg-blue-700 fresh:border-blue-600',
-                      'shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm',
-                      'font-mono text-sm font-bold uppercase tracking-wide text-white fresh:font-sans fresh:normal-case fresh:tracking-normal',
+                      'border-2 border-black bg-blue-700',
+                      'shadow-[2px_2px_0px_0px_#000000]',
+                      'font-mono text-sm font-bold uppercase tracking-wide text-white',
                       'group-hover:translate-y-[1px] group-hover:translate-x-[1px] group-hover:shadow-none',
                       'transition-[transform,box-shadow,background-color] duration-100',
-                      'hover:bg-blue-700',
+                    'hover:bg-blue-700',
                     )}
                   >
                     开始对话
@@ -225,7 +225,7 @@ export default function CreateNew() {
             <button
               onClick={handleBlank}
               className={cn(
-                'font-mono text-xs text-[#878E99] hover:text-black fresh:font-sans transition-colors',
+                'font-mono text-xs text-[#878E99] hover:text-black transition-colors',
                 'underline-offset-2 hover:underline',
               )}
             >

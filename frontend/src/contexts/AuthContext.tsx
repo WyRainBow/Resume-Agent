@@ -8,7 +8,10 @@ import {
   signOutBetterAuth,
   type BetterAuthSessionUser,
 } from '@/services/betterAuthSession'
-import { syncLocalToDatabase } from '@/services/syncService'
+import {
+  setResumeStorageSession,
+  syncLocalResumesToCurrentAccount,
+} from '@/services/resumeStorage'
 
 type User = {
   id: number
@@ -61,6 +64,21 @@ function isUnauthorizedError(err: unknown): boolean {
   return status === 401 || status === 403
 }
 
+function isLegacyUser(value: unknown): value is User {
+  if (!value || typeof value !== 'object') return false
+  const candidate = value as Partial<User>
+  return typeof candidate.id === 'number'
+    && candidate.id > 0
+    && typeof candidate.username === 'string'
+    && Boolean(candidate.username.trim())
+}
+
+function resumeStorageIdentity(user: User | null): string | null {
+  if (!user) return null
+  if (user.betterAuthUserId) return `better-auth:${user.betterAuthUserId}`
+  return user.id > 0 ? `legacy:${user.id}` : null
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [token, setToken] = useState<string | null>(localStorage.getItem(TOKEN_KEY))
@@ -68,26 +86,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'login' | 'register'>('login')
 
+  const applyAuthState = useCallback((nextUser: User | null, nextToken: string | null) => {
+    setResumeStorageSession(resumeStorageIdentity(nextUser))
+    setUser(nextUser)
+    setToken(nextToken)
+  }, [])
+
   useEffect(() => {
     const init = async () => {
+      applyAuthState(null, null)
       try {
         // 检查 URL 中是否携带 Legacy JWT token（从 Next.js 认证页回跳）
         const urlParams = new URLSearchParams(window.location.search)
         const legacyToken = urlParams.get('legacy_token')
-        const legacyUser = urlParams.get('legacy_user')
         if (legacyToken) {
           localStorage.setItem(TOKEN_KEY, legacyToken)
           setAuthToken(legacyToken)
-          if (legacyUser) {
-            try {
-              const parsed = JSON.parse(legacyUser) as User
-              localStorage.setItem(USER_KEY, JSON.stringify(parsed))
-              setUser(parsed)
-            } catch {
-              // JSON 解析失败，保留 token，后续走 /api/auth/me 补全
-            }
+          let resolvedUser: User | null = null
+          try {
+            // 回跳参数不作为认证事实，始终用后端验证 token 并返回真实用户。
+            resolvedUser = await getCurrentUser()
+          } catch {
+            localStorage.removeItem(TOKEN_KEY)
+            localStorage.removeItem(USER_KEY)
+            setAuthToken(null)
           }
-          setToken(legacyToken)
+          if (resolvedUser) {
+            localStorage.setItem(USER_KEY, JSON.stringify(resolvedUser))
+            applyAuthState(resolvedUser, legacyToken)
+          }
           // 清理地址栏参数
           urlParams.delete('legacy_token')
           urlParams.delete('legacy_user')
@@ -96,15 +123,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             ? `${window.location.pathname}?${cleanSearch}`
             : window.location.pathname
           window.history.replaceState({}, '', cleanUrl)
-          setLoading(false)
           return
         }
 
         if (isAuthWebEnabled()) {
           const sessionUser = await fetchBetterAuthSession()
           if (sessionUser) {
-            setUser(mapBetterAuthUser(sessionUser))
-            setToken(BETTER_AUTH_TOKEN)
+            applyAuthState(mapBetterAuthUser(sessionUser), BETTER_AUTH_TOKEN)
             // 异步回填真实 legacy user.id 与角色（经 proxy + trusted headers），不阻塞首屏；
             // 失败时保留 betterAuthUserId，id 维持 0，不影响登录态判断。
             void fetchLegacyUserInfo().then(({ id: legacyId, role }) => {
@@ -142,15 +167,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setAuthToken(savedToken)
 
-        // 优先使用本地缓存用户信息完成首屏鉴权态，避免刷新等待 /api/auth/me
+        // 缓存只做格式清理，不能作为认证事实；云端存储必须等 /api/auth/me 验证。
         if (savedUserRaw) {
           try {
-            const parsed = JSON.parse(savedUserRaw) as User
-            if (parsed && typeof parsed.id === 'number' && typeof parsed.username === 'string') {
-              setUser(parsed)
-              setToken(savedToken)
-              return
-            }
+            const parsed = JSON.parse(savedUserRaw) as unknown
+            if (!isLegacyUser(parsed)) localStorage.removeItem(USER_KEY)
           } catch {
             localStorage.removeItem(USER_KEY)
           }
@@ -158,16 +179,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         try {
           const currentUser = await getCurrentUser()
-          setUser(currentUser)
-          setToken(savedToken)
+          applyAuthState(currentUser, savedToken)
           localStorage.setItem(USER_KEY, JSON.stringify(currentUser))
         } catch (err) {
           if (isUnauthorizedError(err)) {
             localStorage.removeItem(TOKEN_KEY)
             localStorage.removeItem(USER_KEY)
             setAuthToken(null)
-            setUser(null)
-            setToken(null)
+            applyAuthState(null, null)
           }
         }
       } finally {
@@ -176,37 +195,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     void init()
-  }, [])
+  }, [applyAuthState])
 
   const login = useCallback(async (username: string, password: string) => {
     const result = await loginApi(username, password)
     localStorage.setItem(TOKEN_KEY, result.access_token)
     localStorage.setItem(USER_KEY, JSON.stringify(result.user))
     setAuthToken(result.access_token)
-    setUser(result.user)
-    setToken(result.access_token)
+    applyAuthState(result.user, result.access_token)
+    const storageIdentity = resumeStorageIdentity(result.user)
     // 登录成功后延迟同步本地数据，避免与仪表盘首屏请求抢占资源
     window.setTimeout(() => {
-      void syncLocalToDatabase().catch(() => {
+      void syncLocalResumesToCurrentAccount(storageIdentity).catch(() => {
         // 同步失败不影响登录流程
       })
     }, LOGIN_SYNC_DELAY_MS)
-  }, [])
+  }, [applyAuthState])
 
   const register = useCallback(async (username: string, password: string) => {
     const result = await registerApi(username, password)
     localStorage.setItem(TOKEN_KEY, result.access_token)
     localStorage.setItem(USER_KEY, JSON.stringify(result.user))
     setAuthToken(result.access_token)
-    setUser(result.user)
-    setToken(result.access_token)
+    applyAuthState(result.user, result.access_token)
+    const storageIdentity = resumeStorageIdentity(result.user)
     // 注册后同样延迟同步，降低首次进入页面时的并发压力
     window.setTimeout(() => {
-      void syncLocalToDatabase().catch(() => {
+      void syncLocalResumesToCurrentAccount(storageIdentity).catch(() => {
         // 同步失败不影响注册流程
       })
     }, LOGIN_SYNC_DELAY_MS)
-  }, [])
+  }, [applyAuthState])
 
   const refreshEntitlement = useCallback(async () => {
     try {
@@ -219,16 +238,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     void (async () => {
-      if (user?.betterAuthUserId) {
-        await signOutBetterAuth()
-      }
+      const shouldSignOutBetterAuth = Boolean(user?.betterAuthUserId)
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
       setAuthToken(null)
-      setUser(null)
-      setToken(null)
+      // 先关闭本地会话并中止在途简历请求，避免退出请求清 Cookie 的窗口里继续写云端。
+      applyAuthState(null, null)
+      if (shouldSignOutBetterAuth) {
+        await signOutBetterAuth()
+      }
     })()
-  }, [user?.betterAuthUserId])
+  }, [applyAuthState, user?.betterAuthUserId])
 
   const openModal = useCallback((mode: 'login' | 'register' = 'login') => {
     // BetterAuth 启用时，直接重定向到 Next.js 认证页（统一登录入口）

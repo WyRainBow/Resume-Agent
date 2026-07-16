@@ -19,15 +19,14 @@ export const CreateCard: React.FC<CreateCardProps> = ({ onClick }) => {
     >
       <Card
         className={cn(
-          "relative overflow-hidden cursor-pointer h-[380px] flex flex-col rounded-none border-2 border-dashed border-black transition-[box-shadow,transform] duration-100",
-          "bg-[#F0F0E8]",
-          "hover:bg-[#E5E5E0] group-hover:shadow-none",
-          "fresh:border-slate-300 fresh:hover:bg-slate-50 fresh:group-hover:shadow-md"
+          "relative overflow-hidden cursor-pointer h-[380px] flex flex-col rounded-none fresh:rounded-lg border-2 border-dashed border-black fresh:border-slate-200 transition-[box-shadow,transform] duration-100",
+          "bg-[#F0F0E8] fresh:bg-slate-50",
+          "hover:bg-[#E5E5E0] group-hover:shadow-none"
         )}
       >
         <CardContent className="flex-1 pt-6 text-center flex flex-col items-center justify-center h-full z-10">
           <motion.div
-            className="mb-6 p-6 rounded-none bg-[#4285F4] text-white shadow-[2px_2px_0px_0px_#000000] border-2 border-black fresh:rounded-lg fresh:border-blue-500 fresh:shadow-sm"
+            className="mb-6 p-6 rounded-none fresh:rounded-lg bg-[#4285F4] text-white shadow-[2px_2px_0px_0px_#000000] fresh:shadow-sm border-2 fresh:border border-black fresh:border-slate-200 fresh:border-slate-200"
             whileHover={{ x: 1, y: 1 }}
             transition={{ type: "spring", stiffness: 300, damping: 15 }}
           >

@@ -1,12 +1,23 @@
-"""
-CVAnalyzer Agent Tool - 将 CVAnalyzer Agent 包装成 Manus 可调用的工具
+"""CVAnalyzer Agent Tool - 输出可直接渲染的结构化简历诊断。"""
 
-参考 CVReaderAgentTool 的集成方式，这个工具内部使用 CVAnalyzer Agent 来处理简历深度分析任务。
-"""
+from typing import TYPE_CHECKING
 
-from typing import Optional
-from backend.agent.tool.base import BaseTool, ToolResult
+from backend.agent.tool.base import BaseTool, ToolProgress, ToolResult
 from backend.agent.tool.resume_data_store import ResumeDataStore
+from backend.core.logger import get_logger
+
+logger = get_logger(__name__)
+
+DIAGNOSIS_PROGRESS_STAGES = (
+    "结构完整度",
+    "成果证据",
+    "面试风险",
+    "岗位匹配",
+    "汇总建议",
+)
+
+if TYPE_CHECKING:
+    from backend.agent.application.resume_diagnosis_engine import DiagnosisProgress
 
 
 class CVAnalyzerAgentTool(BaseTool):
@@ -52,6 +63,24 @@ The CVAnalyzer Agent will:
     class Config:
         arbitrary_types_allowed = True
 
+    async def _report_progress(self, update: "DiagnosisProgress") -> None:
+        logger.info(
+            "[cv_analyzer_agent] diagnosis progress {}/{}",
+            update.index + 1,
+            update.total,
+        )
+        await self.emit_progress(
+            ToolProgress(
+                content=update.content,
+                phase="diagnosis_progress",
+                node_id=f"stage-{update.index + 1}",
+                current=update.index + 1,
+                total=update.total,
+                label=DIAGNOSIS_PROGRESS_STAGES[update.index],
+                stages=DIAGNOSIS_PROGRESS_STAGES,
+            )
+        )
+
     async def execute(self, question: str) -> ToolResult:
         """执行简历深度分析
 
@@ -63,28 +92,39 @@ The CVAnalyzer Agent will:
                 output="No resume data loaded. Please use cv_reader_agent tool first to read resume data."
             )
 
-        try:
-            # 确保 resume_data 是字典类型
-            if not isinstance(resume_data, dict):
-                return ToolResult(
-                    error=f"Invalid resume data type: {type(resume_data)}. Expected dict."
-                )
+        if not isinstance(resume_data, dict):
+            return ToolResult(
+                error=f"Invalid resume data type: {type(resume_data)}. Expected dict."
+            )
 
-            # 延迟导入避免循环依赖
-            from backend.agent.agent.cv_analyzer import CVAnalyzer
+        from backend.agent.application.resume_diagnosis_engine import (
+            ResumeGuidanceModule,
+        )
 
-            # 创建 CVAnalyzer Agent 实例
-            cv_analyzer = CVAnalyzer()
+        guidance = ResumeGuidanceModule()
+        structured = await guidance.assess(
+            resume_data,
+            question,
+            on_progress=self._report_progress,
+        )
+        diagnosis_source = (structured.get("details") or {}).get("diagnosis_source")
+        resume_id = str(
+            resume_data.get("resume_id")
+            or resume_data.get("id")
+            or (resume_data.get("_meta") or {}).get("resume_id")
+            or ""
+        )
+        if self.shared_state is not None:
+            self.shared_state.set("resume_guidance_assessment", structured)
+            if diagnosis_source == "llm":
+                self.shared_state.set("resume_diagnosis_completed_for", resume_id)
 
-            # 加载简历数据（确保传递的是字典）
-            cv_analyzer.load_resume(resume_data)
-
-            # 运行 CVAnalyzer Agent 处理问题
-            result = await cv_analyzer.chat(question)
-
-            return ToolResult(output=result)
-
-        except Exception as e:
-            import traceback
-            error_detail = traceback.format_exc()
-            return ToolResult(error=f"CVAnalyzer Agent error: {str(e)}\n{error_detail}")
+        output = (
+            "深度 LLM 诊断暂时未完成，已生成一版四维基础检查，结果见诊断卡。"
+            if diagnosis_source == "heuristic_fallback"
+            else (
+                "已从结构完整度、成果证据、面试风险和岗位匹配四个维度完成诊断，"
+                "结果见诊断卡。"
+            )
+        )
+        return ToolResult(output=output, structured_data=structured)
