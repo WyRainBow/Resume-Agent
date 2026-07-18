@@ -16,6 +16,15 @@ RICH_TEXT_FIELD_SUFFIXES = (
     "content",
 )
 
+# 经历/技能类字段：职责成果必须以无序列表呈现（2026-07-17 约定：散文段落也包成 li，不猜句子边界）。
+# selfEvaluation / summary 是段落体，刻意不在此列。
+BULLET_REQUIRED_FIELD_SUFFIXES = (
+    "details",
+    "description",
+    "highlights",
+    "skillContent",
+)
+
 _ORDERED_LINE_RE = re.compile(r"^\d+\.\s+")
 _BULLET_LINE_RE = re.compile(r"^[-•*]\s+")
 _BOLD_TITLE_RE = re.compile(r"^\*\*(.+?)\*\*$")
@@ -27,6 +36,14 @@ def is_richtext_path(path: str) -> bool:
         return False
     leaf = path.split(".")[-1].split("[")[0]
     return leaf in RICH_TEXT_FIELD_SUFFIXES
+
+
+def is_bullet_required_path(path: str) -> bool:
+    """经历/技能类富文本字段：最终形态必须是 custom-list 无序列表。"""
+    if not path:
+        return False
+    leaf = path.split(".")[-1].split("[")[0]
+    return leaf in BULLET_REQUIRED_FIELD_SUFFIXES
 
 
 def _inline_markup(text: str) -> str:
@@ -246,6 +263,35 @@ def plain_text_to_resume_html(text: str) -> str:
     return "".join(html_parts)
 
 
+def _wrap_paragraphs_as_list(html: str) -> str:
+    """段落体 HTML → custom-list 无序列表：每个 <p> 包成一条 li。
+
+    不猜句子边界——一个段落就是一条要点，多段落多条。已含 <li> 的内容
+    （包括「引导语 <p> + <ul>」结构）原样返回；混合结构整体包成一条，不丢内容。
+    """
+    if not html or "<li" in html.lower():
+        return html
+    stripped = html.strip()
+    if not stripped:
+        return html
+    paras = re.findall(r"<p[^>]*>(.*?)</p>", stripped, flags=re.I | re.S)
+    residue = re.sub(r"<p[^>]*>.*?</p>", "", stripped, flags=re.I | re.S)
+    residue = re.sub(r"<br\s*/?>|&nbsp;", " ", residue, flags=re.I).strip()
+    if paras and not residue:
+        items = [p.strip() for p in paras if p.strip()]
+        if not items:
+            return html
+        return (
+            '<ul class="custom-list">'
+            + "".join(f"<li><p>{p}</p></li>" for p in items)
+            + "</ul>"
+        )
+    if not re.search(r"<[a-z][^>]*>", stripped, flags=re.I):
+        return f'<ul class="custom-list"><li><p>{_inline_markup(stripped)}</p></li></ul>'
+    # 混合结构（p 之外还有别的标签且无 li）：整体包成一条，保证不丢内容
+    return f'<ul class="custom-list"><li>{stripped}</li></ul>'
+
+
 def normalize_editor_value(value: object, path: str = "") -> object:
     """写回前规范化富文本；非字符串或非富文本路径则原样返回。"""
     if not isinstance(value, str):
@@ -254,4 +300,8 @@ def normalize_editor_value(value: object, path: str = "") -> object:
         return value
     if not path and "<" not in value and "**" not in value:
         return value
-    return plain_text_to_resume_html(value)
+    html = plain_text_to_resume_html(value)
+    # 经历/技能类字段：散文段落也必须落成无序列表（selfEvaluation/summary 保持段落）
+    if isinstance(html, str) and is_bullet_required_path(path):
+        html = _wrap_paragraphs_as_list(html)
+    return html

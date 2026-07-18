@@ -100,7 +100,7 @@ def test_empty_resume_greeting_does_not_pretend_to_see_resume():
 def test_greeting_llm_error_uses_contextual_fallback_with_actions(monkeypatch):
     session_id = "soulful-greeting-fallback"
     ResumeDataStore.clear_data(session_id)
-    agent = Manus(session_id=session_id, user_id=1)
+    agent = Manus(session_id=session_id, user_id="uTest32CharBetterAuthIdXyz01")
     agent.memory.add_message(Message.user_message("你好"))
 
     async def fake_decide(*_args, **_kwargs):
@@ -139,7 +139,7 @@ def test_greeting_llm_error_uses_contextual_fallback_with_actions(monkeypatch):
 def test_greeting_stream_emits_public_thought_before_response(monkeypatch):
     session_id = "soulful-greeting-stream"
     ResumeDataStore.clear_data(session_id)
-    agent = Manus(session_id=session_id, user_id=1)
+    agent = Manus(session_id=session_id, user_id="uTest32CharBetterAuthIdXyz01")
 
     async def fake_decide(*_args, **_kwargs):
         return SimpleNamespace(

@@ -12,8 +12,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
 from fastapi.responses import FileResponse, JSONResponse
-from middleware.auth import require_admin_only
-from models import User
+from middleware.auth import AppUser, require_admin_only
+# User(users) 已退役(2026-07-17 身份统一),身份用 middleware.auth.AppUser
 
 router = APIRouter(prefix="/api", tags=["Logos"])
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ async def get_logos():
 @router.post("/logos/upload")
 async def upload_logo(
     file: UploadFile = File(...),
-    current_user: User = Depends(require_admin_only),
+    current_user: AppUser = Depends(require_admin_only),
 ):
     """
     上传自定义 Logo 到 COS
@@ -159,7 +159,7 @@ async def upload_logo(
 @router.delete("/logos")
 async def delete_logo(
     filename: str,
-    current_user: User = Depends(require_admin_only),
+    current_user: AppUser = Depends(require_admin_only),
 ):
     """删除公司 Logo：从 COS 删除对象 + 本地缓存，并清列表缓存。仅管理员。"""
     safe = Path(filename).name

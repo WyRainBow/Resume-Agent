@@ -133,19 +133,9 @@ export function setAgentEnabledOverride(enabled: boolean): void {
 }
 
 export function getStoredAuthRole(): string {
+  // 2026-07-17 身份统一：旧 JWT 解码分支已随 JWT 下架删除，角色唯一来源 = auth_user
+  // （AuthContext 从 /api/auth/me(entitlements) 回填后落盘）。
   try {
-    const token = localStorage.getItem('auth_token')
-    if (token) {
-      const payloadPart = token.split('.')[1]
-      if (payloadPart) {
-        const normalized = payloadPart.replace(/-/g, '+').replace(/_/g, '/')
-        const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
-        const payload = JSON.parse(atob(padded))
-        const tokenRole = String(payload?.role || '').toLowerCase()
-        if (tokenRole) return tokenRole
-      }
-    }
-
     const authUserRaw = localStorage.getItem('auth_user')
     if (authUserRaw) {
       const authUser = JSON.parse(authUserRaw)

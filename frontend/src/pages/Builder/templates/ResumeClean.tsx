@@ -17,6 +17,7 @@ import { Mail, Phone, MapPin, Globe, Linkedin, Github, ExternalLink } from 'luci
 import type { BuilderResumeData, Project, SectionMeta } from '../types'
 import { getSortedSections, formatDateRange } from '../types'
 import { SafeHtml, InlineBold } from './SafeHtml'
+import { TemplateLogo } from './TemplateLogo'
 import baseStyles from './styles/_base.module.css'
 import styles from './styles/clean.module.css'
 
@@ -96,7 +97,9 @@ export const ResumeClean: React.FC<ResumeCleanProps> = ({ data, showContactIcons
     role?: string,
     location?: string,
     dates?: string,
-    primaryWeightControlled?: boolean
+    primaryWeightControlled?: boolean,
+    logoUrl?: string,
+    logoSize?: number
   ) => {
     const meta = [location, dates ? formatDateRange(dates) : undefined].filter(Boolean).join(' | ')
     return (
@@ -104,6 +107,7 @@ export const ResumeClean: React.FC<ResumeCleanProps> = ({ data, showContactIcons
         className={`flex justify-between items-baseline gap-3 ${baseStyles['resume-row-tight']}`}
       >
         <span className="min-w-0">
+          <TemplateLogo url={logoUrl} size={logoSize} alt={primary} />
           <InlineBold as="span" className={styles.entryCompany} text={primary} weightControlled={primaryWeightControlled} />
           {role && (
             <>
@@ -231,7 +235,7 @@ export const ResumeClean: React.FC<ResumeCleanProps> = ({ data, showContactIcons
             <div className={baseStyles['resume-items']}>
               {workExperience.map((exp) => (
                 <div key={exp.id} className={baseStyles['resume-item']}>
-                  {renderEntryHeader(exp.company, exp.title, exp.location, exp.years, true)}
+                  {renderEntryHeader(exp.company, exp.title, exp.location, exp.years, true, exp.companyLogoUrl, exp.companyLogoSize)}
                   {renderBullets(exp.description)}
                 </div>
               ))}
@@ -265,7 +269,7 @@ export const ResumeClean: React.FC<ResumeCleanProps> = ({ data, showContactIcons
             <div className={baseStyles['resume-items']}>
               {education.map((edu) => (
                 <div key={edu.id} className={baseStyles['resume-item']}>
-                  {renderEntryHeader(edu.institution, edu.degree, undefined, edu.years)}
+                  {renderEntryHeader(edu.institution, edu.degree, undefined, edu.years, undefined, edu.schoolLogoUrl, edu.schoolLogoSize)}
                   {renderBullets(edu.description)}
                 </div>
               ))}
@@ -349,7 +353,9 @@ const DynamicResumeSectionClean: React.FC<{
     role?: string,
     location?: string,
     dates?: string,
-    primaryWeightControlled?: boolean
+    primaryWeightControlled?: boolean,
+    logoUrl?: string,
+    logoSize?: number
   ) => React.ReactNode
 }> = ({ sectionMeta, resumeData, renderBullets, renderEntryHeader }) => {
   const customSection = resumeData.customSections?.[sectionMeta.key]

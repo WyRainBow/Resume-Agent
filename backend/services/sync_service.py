@@ -5,9 +5,14 @@ from datetime import datetime
 from typing import List, Dict, Any
 import logging
 import time
+from typing import TYPE_CHECKING
+
 from sqlalchemy.orm import Session
 
-from models import Resume, User
+from models import Resume
+
+if TYPE_CHECKING:
+    from backend.middleware.auth import AppUser
 
 logger = logging.getLogger("backend")
 
@@ -22,7 +27,7 @@ def _parse_iso_datetime(value: str) -> datetime:
         return None
 
 
-def sync_resumes(db: Session, user: User, resumes: List[Dict[str, Any]]) -> List[Resume]:
+def sync_resumes(db: Session, user: "AppUser", resumes: List[Dict[str, Any]]) -> List[Resume]:
     """根据 updated_at 合并简历数据，返回合并后的数据库记录"""
     t0 = time.perf_counter()
     inserted = 0

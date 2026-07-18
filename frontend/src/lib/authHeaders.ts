@@ -1,22 +1,10 @@
 export const BETTER_AUTH_SESSION_TOKEN = 'better-auth-session'
 
+/**
+ * 2026-07-17 身份统一：旧 JWT 已全面下架，认证一律走 BetterAuth cookie
+ * （configureAuthWebRequests 给同源代理请求自动带 credentials）。
+ * 本函数保留签名兼容既有调用方，不再注入 Authorization Bearer。
+ */
 export function getAuthHeaders(extra: Record<string, string> = {}): Record<string, string> {
-  try {
-    const token = localStorage.getItem('auth_token')
-    if (!token || token === BETTER_AUTH_SESSION_TOKEN) {
-      return { ...extra }
-    }
-    return { Authorization: `Bearer ${token}`, ...extra }
-  } catch {
-    return { ...extra }
-  }
-}
-
-export function hasAuthenticatedSession(): boolean {
-  try {
-    const token = localStorage.getItem('auth_token')
-    return Boolean(token)
-  } catch {
-    return false
-  }
+  return { ...extra }
 }

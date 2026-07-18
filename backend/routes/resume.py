@@ -23,7 +23,6 @@ try:
         RewriteRequest,
         ScoreRequest,
         ScoreResponse,
-        User,
     )
     from llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
     from prompts import (
@@ -45,7 +44,7 @@ try:
     from services.vision_ocr import image_to_text, SUPPORTED_IMAGE_TYPES
     from json_normalizer import normalize_resume_json
     from database import get_db
-    from middleware.auth import get_current_user
+    from middleware.auth import AppUser, get_current_user
     from sqlalchemy.orm import Session
 except ImportError:
     # 确保 backend 目录在 sys.path 中
@@ -61,7 +60,6 @@ except ImportError:
         RewriteRequest,
         ScoreRequest,
         ScoreResponse,
-        User,
     )
     from backend.llm import call_llm, call_llm_stream, DEFAULT_AI_PROVIDER
     from backend.prompts import (
@@ -83,7 +81,7 @@ except ImportError:
     from backend.services.vision_ocr import image_to_text, SUPPORTED_IMAGE_TYPES
     from backend.json_normalizer import normalize_resume_json
     from backend.database import get_db
-    from backend.middleware.auth import get_current_user
+    from backend.middleware.auth import AppUser, get_current_user
     from sqlalchemy.orm import Session
 
 logger = get_logger(__name__)
@@ -457,6 +455,11 @@ class HealthCheckRequest(BaseModel):
 
 
 def _build_health_check_prompt(*, fields: list[JdOptimizeField], locale: str) -> str:
+    try:
+        from backend.ai_phrase_blacklist import build_ai_phrase_check_block
+    except ImportError:
+        from ai_phrase_blacklist import build_ai_phrase_check_block
+    ai_check_block = build_ai_phrase_check_block()
     fields_block = "\n".join(
         f'- key={f.key}｜{f.label or f.key}：{(f.content or "")[:1200]}' for f in fields
     )
@@ -468,6 +471,11 @@ def _build_health_check_prompt(*, fields: list[JdOptimizeField], locale: str) ->
 - 量化成果：是否用数字/结果证明价值
 - 关键词丰富度：是否覆盖目标方向的技术/能力关键词
 - 格式规范：结构、长度、表达是否清晰规范
+
+体检纪律（打分与建议都要执行）：
+- 六秒门：只看基本信息与排在最前的内容模块，六秒内能否看出目标角色、最强技术栈/领域、至少一个量化成果；看不出→在「完整度」「格式规范」酌情扣分，并给出把最强证据前置的建议。
+- 技术岗从严（仅当从内容判断求职方向为研发/算法/数据/测试/运维等技术岗时启用，非技术岗不套用）：技能须标注掌握程度分级（熟练掌握/熟悉/了解）并落到框架与深度，笼统的「熟悉 Java」算扣分点；项目须有能支撑面试追问（动机→方案→难点→数据效果）的技术亮点；量化须落到具体业务/性能指标（QPS/耗时/DAU/留存/转化率等）；表述不清视为硬伤重扣。
+{ai_check_block}
 
 简历字段（每条含唯一 key）：
 {fields_block}
@@ -1575,7 +1583,7 @@ async def resume_chat_stream(body: ChatStreamRequest):
 async def score_resume(
     request: ScoreRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
 ):
     """
     对简历进行JD匹配评分

@@ -24,7 +24,7 @@ from backend.agent.agent.manus import Manus
 from backend.agent.config import NetworkConfig, config
 from backend.core.logger import get_logger
 from backend.middleware.auth import get_current_user
-from backend.models import User
+from backend.middleware.auth import AppUser
 from backend.agent.cltp.storage.session_scope import SessionAccessError
 
 logger = get_logger(__name__)
@@ -79,11 +79,11 @@ def get_active_agent(conversation_id: str):
     return session_manager.get_active_agent(conversation_id)
 
 
-def _is_admin(user: User) -> bool:
+def _is_admin(user: AppUser) -> bool:
     return getattr(user, "role", None) == "admin"
 
 
-def _assert_session_access(conversation_id: str, user: User) -> None:
+def _assert_session_access(conversation_id: str, user: AppUser) -> None:
     owner_id = conversation_manager.get_session_owner(conversation_id)
     if owner_id is None:
         return
@@ -93,7 +93,7 @@ def _assert_session_access(conversation_id: str, user: User) -> None:
 
 def _get_or_create_session(
     conversation_id: str,
-    user: User,
+    user: AppUser,
     resume_path: Optional[str] = None,
     resume_data: Optional[dict] = None,
 ) -> dict:
@@ -215,7 +215,7 @@ def _get_or_create_session(
     return session_manager.get_session(conversation_id)
 
 
-def clear_active_sessions_for_user(user_id: int) -> None:
+def clear_active_sessions_for_user(user_id: str) -> None:
     """薄委托；session_manager 版本会同步清理 ResumeDataStore（防简历/JD 泄漏）。"""
     session_manager.clear_sessions_for_user(user_id)
 
@@ -228,7 +228,7 @@ def _cleanup_session(conversation_id: str) -> None:
 async def _stream_event_generator(
     conversation_id: str,
     prompt: str,
-    user: User,
+    user: AppUser,
     resume_path: Optional[str] = None,
     resume_data: Optional[dict] = None,
     cursor: Optional[str] = None,
@@ -500,7 +500,7 @@ async def _stream_event_generator(
 @router.post("/stream")
 async def stream_events(
     request: StreamRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
 ) -> StreamingResponse:
     """SSE streaming endpoint for agent interaction.
 
@@ -591,7 +591,7 @@ async def stream_events(
 async def stop_stream(
     conversation_id: str,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
 ) -> dict:
     """Stop an active stream.
 
@@ -623,7 +623,7 @@ async def stop_stream(
 @router.delete("/stream/session/{conversation_id}")
 async def clear_session(
     conversation_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
 ) -> dict:
     """Clear a conversation session.
 

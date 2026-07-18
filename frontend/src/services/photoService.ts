@@ -7,11 +7,10 @@ export type UploadPhotoResult = {
   key: string
 }
 
-/** BetterAuth 用户的 token 是占位符，不能当 Bearer 发（会顶掉代理侧的 cookie session）；
- * 该场景下省略 Authorization，纯靠 cookie 让 auth-web 代理注入可信头。 */
-function buildAuthHeaders(token: string): Record<string, string> {
-  if (!token || token === BETTER_AUTH_TOKEN) return {}
-  return { Authorization: `Bearer ${token}` }
+/** 2026-07-17 身份统一：JWT 已下架，认证纯靠 BetterAuth cookie（代理注入可信头），
+ * 不再注入 Authorization Bearer。保留签名兼容调用方。 */
+function buildAuthHeaders(_token: string): Record<string, string> {
+  return {}
 }
 
 export async function uploadUserPhoto(file: File, token: string): Promise<UploadPhotoResult> {

@@ -6,6 +6,7 @@ import {
   CircleAlert,
   Lightbulb,
   LockKeyhole,
+  PencilLine,
   Sparkles,
 } from "lucide-react";
 
@@ -48,10 +49,13 @@ const SEVERITY_META: Record<
 export default function ResumeSuggestionsCard({
   suggestions,
   onApply,
+  onApplyOne,
 }: {
   suggestions: ResumeSuggestion[];
-  /** 传入则在卡片底部显示「帮我按建议修改」chip，点击才触发按诊断建议改简历 */
+  /** 传入则显示「全部按建议修改」，点击触发按诊断建议整体改简历 */
   onApply?: () => void;
+  /** 传入则在 proposed 条显示「帮我改这条」，点击只改当前这一条（1-based 序号 + 标题） */
+  onApplyOne?: (index: number, title: string) => void;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const safeIndex = Math.min(activeIndex, Math.max(0, suggestions.length - 1));
@@ -105,15 +109,29 @@ export default function ResumeSuggestionsCard({
             下一条
             <ChevronRight className="size-3.5" />
           </button>
-          {onApply && (
-            <button
-              type="button"
-              onClick={onApply}
-              className="col-span-3 mt-1 inline-flex items-center justify-center gap-1.5 border-2 fresh:border border-black fresh:border-slate-200 fresh:border-slate-200 bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-all hover:bg-blue-700 active:translate-x-[1px] active:translate-y-[1px] dark:border-white"
-            >
-              <Sparkles className="size-4" />
-              帮我按建议修改
-            </button>
+          {(onApply || onApplyOne) && (
+            <div className="col-span-3 mt-1 flex gap-2">
+              {onApplyOne && active.status === "proposed" && (
+                <button
+                  type="button"
+                  onClick={() => onApplyOne(safeIndex + 1, active.title)}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 border-2 fresh:border border-black fresh:border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-chat-ink transition-all hover:bg-blue-50 active:translate-x-[1px] active:translate-y-[1px] dark:border-white dark:bg-slate-900 dark:text-slate-100"
+                >
+                  <PencilLine className="size-4" />
+                  帮我改这条
+                </button>
+              )}
+              {onApply && (
+                <button
+                  type="button"
+                  onClick={onApply}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 border-2 fresh:border border-black fresh:border-slate-200 bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-all hover:bg-blue-700 active:translate-x-[1px] active:translate-y-[1px] dark:border-white"
+                >
+                  <Sparkles className="size-4" />
+                  全部按建议修改
+                </button>
+              )}
+            </div>
           )}
         </div>
       }

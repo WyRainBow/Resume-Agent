@@ -17,6 +17,10 @@ import type {
   SectionType,
 } from './types'
 import { escapeText, inlineNodeHtml } from './templates/sanitizeHtml'
+import { getLogoUrl } from '../Workspace/v2/constants/companyLogos'
+import { getSchoolLogoUrl } from '../Workspace/v2/constants/schoolLogos'
+
+const DEFAULT_LOGO_SIZE = 20  // 与 globalSettings.companyLogoSize 默认一致
 
 /**
  * TipTap HTML → bullet 数组。
@@ -64,6 +68,7 @@ function toPersonalInfo(data: ResumeData): PersonalInfo {
 }
 
 function toWorkExperience(data: ResumeData): Experience[] {
+  const globalLogoSize = data.globalSettings?.companyLogoSize ?? DEFAULT_LOGO_SIZE
   return data.experience
     .filter((item) => item.visible !== false)
     .map((item, index) => ({
@@ -72,10 +77,14 @@ function toWorkExperience(data: ResumeData): Experience[] {
       title: item.position || undefined,
       years: item.date || undefined,
       description: htmlToBullets(item.details),
+      // Logo key → COS URL（未设 / 未加载则 undefined，模板条件渲染不出图，不报错）
+      companyLogoUrl: item.companyLogo ? getLogoUrl(item.companyLogo) || undefined : undefined,
+      companyLogoSize: item.companyLogoSize ?? globalLogoSize,
     }))
 }
 
 function toEducation(data: ResumeData): Education[] {
+  const globalLogoSize = data.globalSettings?.companyLogoSize ?? DEFAULT_LOGO_SIZE
   return data.education
     .filter((item) => item.visible !== false)
     .map((item, index) => {
@@ -88,6 +97,9 @@ function toEducation(data: ResumeData): Education[] {
         degree: withGpa || undefined,
         years: years || undefined,
         description: htmlToBullets(item.description),
+        // Logo key → COS URL（未设 / 未加载则 undefined）
+        schoolLogoUrl: item.schoolLogo ? getSchoolLogoUrl(item.schoolLogo) || undefined : undefined,
+        schoolLogoSize: item.schoolLogoSize ?? globalLogoSize,
       }
     })
 }

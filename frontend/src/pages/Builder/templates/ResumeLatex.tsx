@@ -16,6 +16,7 @@ import { Mail, Phone, Globe, Linkedin, Github, ExternalLink } from 'lucide-react
 import type { BuilderResumeData, Project, SectionMeta } from '../types'
 import { getSortedSections, formatDateRange } from '../types'
 import { SafeHtml, InlineBold } from './SafeHtml'
+import { TemplateLogo } from './TemplateLogo'
 import baseStyles from './styles/_base.module.css'
 import styles from './styles/latex.module.css'
 
@@ -95,11 +96,16 @@ export const ResumeLatex: React.FC<ResumeLatexProps> = ({ data, showContactIcons
     dates?: string,
     secondary?: string,
     location?: string,
-    primaryWeightControlled?: boolean
+    primaryWeightControlled?: boolean,
+    logoUrl?: string,
+    logoSize?: number
   ) => (
     <>
       <div className={`flex justify-between items-baseline ${baseStyles['resume-row-tight']}`}>
-        <InlineBold as="span" className={styles.entryPrimary} text={primary} weightControlled={primaryWeightControlled} />
+        <span className="inline-flex items-center min-w-0">
+          <TemplateLogo url={logoUrl} size={logoSize} alt={primary} />
+          <InlineBold as="span" className={styles.entryPrimary} text={primary} weightControlled={primaryWeightControlled} />
+        </span>
         {dates && <span className={`${styles.entryDates} ml-4`}>{formatDateRange(dates)}</span>}
       </div>
       {(secondary || location) && (
@@ -226,7 +232,7 @@ export const ResumeLatex: React.FC<ResumeLatexProps> = ({ data, showContactIcons
             <div className={baseStyles['resume-items']}>
               {workExperience.map((exp) => (
                 <div key={exp.id} className={baseStyles['resume-item']}>
-                  {renderEntryHeader(exp.company, exp.years, exp.title, exp.location, true)}
+                  {renderEntryHeader(exp.company, exp.years, exp.title, exp.location, true, exp.companyLogoUrl, exp.companyLogoSize)}
                   {renderBullets(exp.description)}
                 </div>
               ))}
@@ -260,7 +266,7 @@ export const ResumeLatex: React.FC<ResumeLatexProps> = ({ data, showContactIcons
             <div className={baseStyles['resume-items']}>
               {education.map((edu) => (
                 <div key={edu.id} className={baseStyles['resume-item']}>
-                  {renderEntryHeader(edu.institution, edu.years, edu.degree)}
+                  {renderEntryHeader(edu.institution, edu.years, edu.degree, undefined, undefined, edu.schoolLogoUrl, edu.schoolLogoSize)}
                   {renderBullets(edu.description)}
                 </div>
               ))}

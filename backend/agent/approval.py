@@ -27,7 +27,7 @@ def _evict_expired() -> None:
 
 def create(
     session_id: str,
-    user_id: Optional[int],
+    user_id: Optional[str],
     tool_name: str,
     args: Dict[str, Any],
 ) -> str:

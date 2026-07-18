@@ -33,7 +33,7 @@ class GetResumeDetailTool(BaseTool):
         },
         "required": ["resume_id"],
     }
-    user_id: Optional[int] = Field(default=None, exclude=True)
+    user_id: Optional[str] = Field(default=None, exclude=True)
 
     class Config:
         arbitrary_types_allowed = True

@@ -81,7 +81,7 @@ def discard_session(conversation_id: str, *, clear_resume_data: bool = True) -> 
     return session is not None
 
 
-def clear_sessions_for_user(user_id: int) -> int:
+def clear_sessions_for_user(user_id: str) -> int:
     """移除某用户全部内存会话（含 ResumeDataStore 清理），返回清理数量。"""
     stale_ids = [
         conversation_id

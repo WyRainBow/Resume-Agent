@@ -166,11 +166,8 @@ export function useCLTP(options: UseCLTPOptions = {}): UseCLTPResult {
       const eventAdapter = createAgentEventAdapter();
       setCurrentRunState(createConversationRunState(runId));
 
-      // 每次发消息时读取最新 token，避免 useMemo 缓存导致 token 刷新后仍用旧值
-      const token = localStorage.getItem("auth_token");
-      const authHeaders: Record<string, string> = token
-        ? { Authorization: `Bearer ${token}` }
-        : {};
+      // 2026-07-17 身份统一：JWT 下架，认证走 BetterAuth cookie，不再注入 Bearer。
+      const authHeaders: Record<string, string> = {};
 
       let completed = false;
       let failed = false;

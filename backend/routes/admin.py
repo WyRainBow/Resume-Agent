@@ -15,8 +15,8 @@ from sqlalchemy import func
 from sse_starlette.sse import EventSourceResponse
 
 from database import get_db
-from models import RenderPDFRequest, User
-from middleware.auth import require_admin_only
+from models import RenderPDFRequest
+from middleware.auth import AppUser, require_admin_only
 
 router = APIRouter(prefix="/api/admin", tags=["Admin"])
 logger = logging.getLogger("backend")
@@ -29,7 +29,7 @@ class PDFRenderModeLogRequest(BaseModel):
 
 @router.get("/stats/users")
 def get_user_stats(
-    _current_user: User = Depends(require_admin_only),
+    _current_user: AppUser = Depends(require_admin_only),
     db: Session = Depends(get_db),
 ):
     # 以 BetterAuth "user" 表为准（所有登录用户），与用户列表口径一致。
@@ -43,10 +43,10 @@ def get_user_stats(
 
 @router.get("/users")
 def list_users(
-    _current_user: User = Depends(require_admin_only),
+    _current_user: AppUser = Depends(require_admin_only),
     db: Session = Depends(get_db),
 ):
-    # 以 BetterAuth "user" 表为准（所有登录用户），role/pdf 从 legacy users 按 email 桥接。
+    # 以 BetterAuth "user" 表为准（所有登录用户），role/pdf 从 entitlements 读（2026-07-17 身份统一，legacy users 已退役）。
     from sqlalchemy import text
 
     rows = db.execute(
@@ -55,12 +55,18 @@ def list_users(
             SELECT bu.id,
                    bu.email,
                    bu.name,
-                   COALESCE(u.role, 'user')            AS role,
+                   COALESCE(e.role, 'user')             AS role,
                    bu."createdAt"                       AS created_at,
-                   COALESCE(u.pdf_download_count, 0)    AS pdf_download_count
+                   COALESCE(e.pdf_download_count, 0)    AS pdf_download_count,
+                   COALESCE(rc.resume_count, 0)         AS resume_count
             FROM "user" bu
-            LEFT JOIN users u ON LOWER(bu.email) = LOWER(u.email)
-            ORDER BY CASE COALESCE(u.role, 'user') WHEN 'admin' THEN 0 WHEN 'staff' THEN 1 WHEN 'member' THEN 2 ELSE 3 END,
+            LEFT JOIN better_auth_entitlements e ON e.better_auth_user_id = bu.id
+            LEFT JOIN (
+                SELECT user_id, COUNT(*) AS resume_count
+                FROM resumes
+                GROUP BY user_id
+            ) rc ON rc.user_id = bu.id
+            ORDER BY CASE COALESCE(e.role, 'user') WHEN 'admin' THEN 0 WHEN 'staff' THEN 1 WHEN 'member' THEN 2 ELSE 3 END,
                      bu."createdAt" ASC
             '''
         )
@@ -75,6 +81,7 @@ def list_users(
                 "role": r[3],
                 "created_at": str(r[4]) if r[4] else None,
                 "pdf_download_count": r[5],
+                "resume_count": r[6],
             }
             for r in rows
         ],
@@ -89,14 +96,13 @@ class SetRoleRequest(BaseModel):
 def set_user_role(
     better_auth_user_id: str,
     body: SetRoleRequest,
-    _current_user: User = Depends(require_admin_only),
+    _current_user: AppUser = Depends(require_admin_only),
     db: Session = Depends(get_db),
 ):
-    """给指定 BetterAuth 用户分配角色。role 存 legacy users（按 email 桥接），无记录则建。"""
-    import secrets
+    """给指定 BetterAuth 用户分配角色（role 直写 better_auth_entitlements，2026-07-17 身份统一）。"""
     from sqlalchemy import text
 
-    from backend.auth import hash_password
+    from models import BetterAuthEntitlement
 
     allowed = {"user", "member", "staff", "admin"}
     if body.role not in allowed:
@@ -110,25 +116,25 @@ def set_user_role(
         raise HTTPException(status_code=404, detail="用户不存在")
     email, name = row[0], row[1]
 
-    user = db.query(User).filter(User.email == email).first()
-    if user:
-        user.role = body.role
+    entitlement = (
+        db.query(BetterAuthEntitlement)
+        .filter(BetterAuthEntitlement.better_auth_user_id == better_auth_user_id)
+        .first()
+    )
+    if entitlement:
+        entitlement.role = body.role
     else:
-        username = (name or (email.split("@")[0] if email else "user"))[:64]
-        base, suffix = username, 1
-        while db.query(User).filter(User.username == username).first():
-            username = f"{base}-{suffix}"
-            suffix += 1
-        user = User(
-            username=username,
-            email=email,
-            password_hash=hash_password(f"better-auth:{better_auth_user_id}:{secrets.token_hex(8)}"),
-            role=body.role,
+        db.add(
+            BetterAuthEntitlement(
+                better_auth_user_id=better_auth_user_id,
+                email=email,
+                name=name,
+                role=body.role,
+            )
         )
-        db.add(user)
 
     db.commit()
-    logger.info("[Admin] role assigned user=%s -> %s by=%s", email, body.role, _current_user.username)
+    logger.info("[Admin] role assigned user=%s -> %s by=%s", email, body.role, _current_user.email)
     return {"ok": True, "email": email, "role": body.role}
 
 
@@ -136,11 +142,11 @@ def set_user_role(
 async def log_pdf_render_mode_change(
     body: PDFRenderModeLogRequest,
     request: Request,
-    current_user: User = Depends(require_admin_only),
+    current_user: AppUser = Depends(require_admin_only),
 ):
     logger.info(
         "[Admin PDF] render mode changed user=%s role=%s from=%s to=%s client=%s referer=%s",
-        current_user.username,
+        current_user.email,
         current_user.role,
         body.from_mode,
         body.to_mode,
@@ -198,7 +204,7 @@ async def _dispatch_local_pdf(
     path: str,
     body: RenderPDFRequest,
     request: Request,
-    current_user: User,
+    current_user: AppUser,
     db: Session,
 ):
     logger.info(
@@ -217,7 +223,7 @@ async def _proxy_remote_pdf(
     path: str,
     body: RenderPDFRequest,
     request: Request,
-    current_user: User,
+    current_user: AppUser,
     db: Session,
 ):
     base_url = _get_remote_pdf_render_base_url()
@@ -312,12 +318,12 @@ async def _proxy_remote_pdf(
 async def remote_render_pdf(
     body: RenderPDFRequest,
     request: Request,
-    current_user: User = Depends(require_admin_only),
+    current_user: AppUser = Depends(require_admin_only),
     db: Session = Depends(get_db),
 ):
     logger.info(
         "[Admin PDF] local request accepted user=%s role=%s mode=remote path=/api/admin/pdf/render trace_id=%s",
-        current_user.username,
+        current_user.email,
         current_user.role,
         request.headers.get("X-PDF-Trace-Id") or "-",
     )
@@ -334,12 +340,12 @@ async def remote_render_pdf(
 async def remote_render_pdf_stream(
     body: RenderPDFRequest,
     request: Request,
-    current_user: User = Depends(require_admin_only),
+    current_user: AppUser = Depends(require_admin_only),
     db: Session = Depends(get_db),
 ):
     logger.info(
         "[Admin PDF] local request accepted user=%s role=%s mode=remote path=/api/admin/pdf/render/stream trace_id=%s",
-        current_user.username,
+        current_user.email,
         current_user.role,
         request.headers.get("X-PDF-Trace-Id") or "-",
     )

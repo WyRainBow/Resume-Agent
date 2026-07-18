@@ -1,6 +1,5 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { buildAuthWebUrl, isAuthWebEnabled } from '@/lib/runtimeEnv'
-import { getCurrentUser, login as loginApi, register as registerApi, setAuthToken } from '@/services/authService'
 import { fetchUserEntitlement } from '@/services/api'
 import {
   fetchBetterAuthSession,
@@ -13,8 +12,11 @@ import {
   syncLocalResumesToCurrentAccount,
 } from '@/services/resumeStorage'
 
+// 2026-07-17 身份统一：id = BetterAuth "user".id（32 位字符串，唯一身份锚点）。
+// 旧 JWT 登录（用户名/密码表单、localStorage auth_token、legacy_token 回跳）已全面下架，
+// 登录唯一入口 = Next.js(BetterAuth)，本 Context 只承载 BetterAuth 会话态。
 type User = {
-  id: number
+  id: string
   username: string
   email?: string
   image?: string | null
@@ -29,8 +31,6 @@ type AuthContextValue = {
   token: string | null
   loading: boolean
   isAuthenticated: boolean
-  login: (username: string, password: string) => Promise<void>
-  register: (username: string, password: string) => Promise<void>
   logout: () => void
   refreshEntitlement: () => Promise<void>
   isModalOpen: boolean
@@ -41,7 +41,7 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
-const TOKEN_KEY = 'auth_token'
+const TOKEN_KEY = 'auth_token'   // 旧 JWT 存储键，仅用于启动时清理历史残留
 const USER_KEY = 'auth_user'
 /** BetterAuth 登录态的占位 token（非真实凭证）。
  * 把它当 Bearer 发出去会触发 auth-web 的 bearer 插件校验失败、连带 cookie session 一起判空，
@@ -51,7 +51,7 @@ const LOGIN_SYNC_DELAY_MS = 2500
 
 function mapBetterAuthUser(sessionUser: BetterAuthSessionUser): User {
   return {
-    id: 0,
+    id: sessionUser.id,
     username: sessionUser.name || sessionUser.email.split('@')[0],
     email: sessionUser.email,
     image: sessionUser.image,
@@ -59,29 +59,17 @@ function mapBetterAuthUser(sessionUser: BetterAuthSessionUser): User {
   }
 }
 
-function isUnauthorizedError(err: unknown): boolean {
-  const status = (err as any)?.response?.status
-  return status === 401 || status === 403
-}
-
-function isLegacyUser(value: unknown): value is User {
-  if (!value || typeof value !== 'object') return false
-  const candidate = value as Partial<User>
-  return typeof candidate.id === 'number'
-    && candidate.id > 0
-    && typeof candidate.username === 'string'
-    && Boolean(candidate.username.trim())
-}
-
 function resumeStorageIdentity(user: User | null): string | null {
   if (!user) return null
-  if (user.betterAuthUserId) return `better-auth:${user.betterAuthUserId}`
-  return user.id > 0 ? `legacy:${user.id}` : null
+  // 与身份统一前的 BetterAuth 用户 scoped key 保持一致（better-auth:<id>），
+  // 迁移后同一账号的本地缓存命名空间不变。
+  const id = user.betterAuthUserId || user.id
+  return id ? `better-auth:${id}` : null
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [token, setToken] = useState<string | null>(localStorage.getItem(TOKEN_KEY))
+  const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'login' | 'register'>('login')
@@ -96,135 +84,59 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const init = async () => {
       applyAuthState(null, null)
       try {
-        // 检查 URL 中是否携带 Legacy JWT token（从 Next.js 认证页回跳）
-        const urlParams = new URLSearchParams(window.location.search)
-        const legacyToken = urlParams.get('legacy_token')
-        if (legacyToken) {
-          localStorage.setItem(TOKEN_KEY, legacyToken)
-          setAuthToken(legacyToken)
-          let resolvedUser: User | null = null
-          try {
-            // 回跳参数不作为认证事实，始终用后端验证 token 并返回真实用户。
-            resolvedUser = await getCurrentUser()
-          } catch {
-            localStorage.removeItem(TOKEN_KEY)
-            localStorage.removeItem(USER_KEY)
-            setAuthToken(null)
-          }
-          if (resolvedUser) {
-            localStorage.setItem(USER_KEY, JSON.stringify(resolvedUser))
-            applyAuthState(resolvedUser, legacyToken)
-          }
-          // 清理地址栏参数
-          urlParams.delete('legacy_token')
-          urlParams.delete('legacy_user')
-          const cleanSearch = urlParams.toString()
-          const cleanUrl = cleanSearch
-            ? `${window.location.pathname}?${cleanSearch}`
-            : window.location.pathname
-          window.history.replaceState({}, '', cleanUrl)
+        // 清理旧 JWT 时代的本地残留（token 已无任何后端可用它）
+        localStorage.removeItem(TOKEN_KEY)
+
+        if (!isAuthWebEnabled()) {
+          // 未配置 BetterAuth（VITE_AUTH_WEB_URL 为空）时没有任何登录方式：
+          // 旧 JWT 已下架，独立部署必须启用 auth-web（.env.example 已注明）。
+          console.warn('[Auth] VITE_AUTH_WEB_URL 未配置，登录不可用（JWT 已下架）')
           return
         }
 
-        if (isAuthWebEnabled()) {
-          const sessionUser = await fetchBetterAuthSession()
-          if (sessionUser) {
-            applyAuthState(mapBetterAuthUser(sessionUser), BETTER_AUTH_TOKEN)
-            // 异步回填真实 legacy user.id 与角色（经 proxy + trusted headers），不阻塞首屏；
-            // 失败时保留 betterAuthUserId，id 维持 0，不影响登录态判断。
-            void fetchLegacyUserInfo().then(({ id: legacyId, role }) => {
-              setUser((prev) => {
-                if (!prev) return prev
-                const next: User = { ...prev }
-                if (legacyId) next.id = legacyId
-                if (role) next.role = role
-                // BetterAuth 模式无 legacy JWT，将角色落到 auth_user，
-                // 供 getStoredAuthRole / canUseAdminFeature 同步读取，恢复管理员功能门控。
-                try {
-                  localStorage.setItem(USER_KEY, JSON.stringify(next))
-                } catch {
-                  // 持久化失败不影响登录态
-                }
-                return next
-              })
-            })
-            // 异步拉取额度，不阻塞首屏
-            void fetchUserEntitlement().then((ent) => {
-              setUser((prev) =>
-                prev ? { ...prev, credits: ent.credits, plan: ent.plan } : prev,
-              )
-            }).catch(() => {/* 拉取失败不影响登录态 */})
-            return
-          }
-
-          // BetterAuth session 不存在时，回退到 legacy JWT（用户名/密码登录），
-          // 不再强制清除 legacy token，确保两套登录方式可以共存。
+        const sessionUser = await fetchBetterAuthSession()
+        if (!sessionUser) {
+          localStorage.removeItem(USER_KEY)
+          return
         }
 
-        const savedToken = localStorage.getItem(TOKEN_KEY)
-        const savedUserRaw = localStorage.getItem(USER_KEY)
-        if (!savedToken) return
+        applyAuthState(mapBetterAuthUser(sessionUser), BETTER_AUTH_TOKEN)
+        // 异步回填 role（经 proxy + trusted headers 从 entitlements 实时读），不阻塞首屏。
+        void fetchLegacyUserInfo().then(({ id, role }) => {
+          setUser((prev) => {
+            if (!prev) return prev
+            const next: User = { ...prev }
+            if (id) next.id = id
+            if (role) next.role = role
+            // 角色落到 auth_user，供 getStoredAuthRole / canUseAdminFeature 同步读取。
+            try {
+              localStorage.setItem(USER_KEY, JSON.stringify(next))
+            } catch {
+              // 持久化失败不影响登录态
+            }
+            return next
+          })
+        })
+        // 异步拉取额度，不阻塞首屏
+        void fetchUserEntitlement().then((ent) => {
+          setUser((prev) =>
+            prev ? { ...prev, credits: ent.credits, plan: ent.plan } : prev,
+          )
+        }).catch(() => {/* 拉取失败不影响登录态 */})
 
-        setAuthToken(savedToken)
-
-        // 缓存只做格式清理，不能作为认证事实；云端存储必须等 /api/auth/me 验证。
-        if (savedUserRaw) {
-          try {
-            const parsed = JSON.parse(savedUserRaw) as unknown
-            if (!isLegacyUser(parsed)) localStorage.removeItem(USER_KEY)
-          } catch {
-            localStorage.removeItem(USER_KEY)
-          }
-        }
-
-        try {
-          const currentUser = await getCurrentUser()
-          applyAuthState(currentUser, savedToken)
-          localStorage.setItem(USER_KEY, JSON.stringify(currentUser))
-        } catch (err) {
-          if (isUnauthorizedError(err)) {
-            localStorage.removeItem(TOKEN_KEY)
-            localStorage.removeItem(USER_KEY)
-            setAuthToken(null)
-            applyAuthState(null, null)
-          }
-        }
+        // 登录态就绪后延迟同步本地匿名简历到账号（原 JWT 登录后的同步时机平移到这里）
+        const storageIdentity = resumeStorageIdentity(mapBetterAuthUser(sessionUser))
+        window.setTimeout(() => {
+          void syncLocalResumesToCurrentAccount(storageIdentity).catch(() => {
+            // 同步失败不影响登录流程
+          })
+        }, LOGIN_SYNC_DELAY_MS)
       } finally {
         setLoading(false)
       }
     }
 
     void init()
-  }, [applyAuthState])
-
-  const login = useCallback(async (username: string, password: string) => {
-    const result = await loginApi(username, password)
-    localStorage.setItem(TOKEN_KEY, result.access_token)
-    localStorage.setItem(USER_KEY, JSON.stringify(result.user))
-    setAuthToken(result.access_token)
-    applyAuthState(result.user, result.access_token)
-    const storageIdentity = resumeStorageIdentity(result.user)
-    // 登录成功后延迟同步本地数据，避免与仪表盘首屏请求抢占资源
-    window.setTimeout(() => {
-      void syncLocalResumesToCurrentAccount(storageIdentity).catch(() => {
-        // 同步失败不影响登录流程
-      })
-    }, LOGIN_SYNC_DELAY_MS)
-  }, [applyAuthState])
-
-  const register = useCallback(async (username: string, password: string) => {
-    const result = await registerApi(username, password)
-    localStorage.setItem(TOKEN_KEY, result.access_token)
-    localStorage.setItem(USER_KEY, JSON.stringify(result.user))
-    setAuthToken(result.access_token)
-    applyAuthState(result.user, result.access_token)
-    const storageIdentity = resumeStorageIdentity(result.user)
-    // 注册后同样延迟同步，降低首次进入页面时的并发压力
-    window.setTimeout(() => {
-      void syncLocalResumesToCurrentAccount(storageIdentity).catch(() => {
-        // 同步失败不影响注册流程
-      })
-    }, LOGIN_SYNC_DELAY_MS)
   }, [applyAuthState])
 
   const refreshEntitlement = useCallback(async () => {
@@ -238,29 +150,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(() => {
     void (async () => {
-      const shouldSignOutBetterAuth = Boolean(user?.betterAuthUserId)
       localStorage.removeItem(TOKEN_KEY)
       localStorage.removeItem(USER_KEY)
-      setAuthToken(null)
       // 先关闭本地会话并中止在途简历请求，避免退出请求清 Cookie 的窗口里继续写云端。
       applyAuthState(null, null)
-      if (shouldSignOutBetterAuth) {
-        await signOutBetterAuth()
-      }
+      await signOutBetterAuth()
     })()
-  }, [applyAuthState, user?.betterAuthUserId])
+  }, [applyAuthState])
 
-  const openModal = useCallback((mode: 'login' | 'register' = 'login') => {
-    // BetterAuth 启用时，直接重定向到 Next.js 认证页（统一登录入口）
-    if (isAuthWebEnabled()) {
-      const url = buildAuthWebUrl('/account', `${window.location.origin}${window.location.pathname}${window.location.search}`)
-      if (url) {
-        window.location.assign(url)
-        return
-      }
+  const openModal = useCallback((_mode: 'login' | 'register' = 'login') => {
+    // 统一登录入口：重定向到 Next.js(BetterAuth) 认证页
+    const url = buildAuthWebUrl('/account', `${window.location.origin}${window.location.pathname}${window.location.search}`)
+    if (url) {
+      window.location.assign(url)
+      return
     }
-    setModalMode(mode)
-    setIsModalOpen(true)
+    console.warn('[Auth] VITE_AUTH_WEB_URL 未配置，无法打开登录页（JWT 已下架）')
   }, [])
 
   const closeModal = useCallback(() => {
@@ -272,9 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       token,
       loading,
-      isAuthenticated: Boolean(user && (token || user.betterAuthUserId)),
-      login,
-      register,
+      isAuthenticated: Boolean(user),
       logout,
       refreshEntitlement,
       isModalOpen,
@@ -282,7 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       closeModal,
       modalMode
     }),
-    [user, token, loading, login, register, logout, refreshEntitlement, isModalOpen, openModal, closeModal, modalMode]
+    [user, token, loading, logout, refreshEntitlement, isModalOpen, openModal, closeModal, modalMode]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

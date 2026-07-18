@@ -21,7 +21,8 @@ import JdOptimizeDialog from './shared/JdOptimizeDialog'
 import JdMatchDialog from './shared/JdMatchDialog'
 import TranslateDialog from './shared/TranslateDialog'
 import HealthCheckDialog from './shared/HealthCheckDialog'
-import AiAssistantChat from './shared/AiAssistantChat'
+// AI 助手悬浮气泡暂不开放（2026-07-17），恢复时连同下方渲染处一起取消注释
+// import AiAssistantChat from './shared/AiAssistantChat'
 import { scoreResume, type JdOptimizeField } from '@/services/api'
 import { stripHtmlTags } from './utils/textUtils'
 import { withSettingsDefaults } from '../../Builder/settings'
@@ -334,7 +335,7 @@ export default function WorkspaceV2() {
       {/* 装饰头(照搬 Builder 风格):大标题与「编辑模式+名字」同一行(返回 Dashboard 已去掉,左侧栏「我的简历」可回),纯展示,操作按钮在预览工具栏 */}
       <div className="border-b border-black fresh:border-slate-200 dark:border-white bg-[#F0F0E8] fresh:bg-slate-50 dark:bg-[#1C1C1C] px-6 py-3 md:px-8 shrink-0">
         <div className="flex items-baseline gap-4 flex-wrap">
-          <h1 className="font-serif text-3xl md:text-4xl text-black dark:text-white tracking-tight leading-none uppercase fresh:normal-case">
+          <h1 className="font-serif text-2xl md:text-3xl text-black dark:text-white tracking-tight leading-none uppercase fresh:normal-case">
             Resume Builder
           </h1>
           <div className="flex items-center gap-3">
@@ -445,8 +446,9 @@ export default function WorkspaceV2() {
         onApplyBatch={applyTextReplacements}
       />
 
-      {/* AI 助手 —— 右下角可拖拽悬浮气泡 + 对话窗口 */}
-      <AiAssistantChat
+      {/* AI 助手（右下角绿色悬浮气泡）暂不开放，先隐藏（2026-07-17 产品决定）。
+          恢复时取消下面注释即可，props 契约未变。 */}
+      {/* <AiAssistantChat
         resumeData={resumeData}
         onJdOptimize={() => setShowJdMatch(true)}
         jdReady={jdText.trim().length >= 10 && jdFields.length > 0}
@@ -454,7 +456,7 @@ export default function WorkspaceV2() {
         onTranslate={() => setShowTranslate(true)}
         onHealthCheck={() => setShowHealthCheck(true)}
         hasContent={jdFields.length > 0}
-      />
+      /> */}
 
       {/* 隐藏的文件输入（用于导入 JSON） */}
       <input

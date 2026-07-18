@@ -65,7 +65,7 @@ def test_llm_first_yields_rule_route_and_blocks_query_rewrite(monkeypatch):
     from backend.agent.application.conversation.conversation_state import Intent
     from backend.agent.schema import Message, Role
 
-    agent = Manus(session_id="s-llmfirst-test", is_admin=False, user_id=1)
+    agent = Manus(session_id="s-llmfirst-test", is_admin=False, user_id="uTest32CharBetterAuthIdXyz01")
     original_input = "帮我加载一下我的简历"
     agent.memory.add_message(Message.user_message(original_input))
 

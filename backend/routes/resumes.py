@@ -15,8 +15,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 
 from database import get_db
-from models import Resume, User, ResumeEmbedding
-from middleware.auth import get_current_user
+from models import Resume, ResumeEmbedding
+from middleware.auth import AppUser, get_current_user
 from services.sync_service import sync_resumes
 
 router = APIRouter(prefix="/api/resumes", tags=["Resumes"])
@@ -54,7 +54,7 @@ def _extract_template_type(data: Dict[str, Any]) -> str:
 
 @router.get("", response_model=List[ResumeResponse])
 def list_resumes(
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取当前用户所有简历"""
@@ -79,7 +79,7 @@ def list_resumes(
 @router.get("/{resume_id}", response_model=ResumeResponse)
 def get_resume(
     resume_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取单个简历"""
@@ -101,7 +101,7 @@ def get_resume(
 @router.post("", response_model=ResumeResponse)
 def create_resume(
     payload: ResumePayload,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """创建简历"""
@@ -139,7 +139,7 @@ def create_resume(
 def update_resume(
     resume_id: str,
     payload: ResumePayload,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """更新简历（不存在时自动创建）"""
@@ -201,7 +201,7 @@ def update_resume(
 @router.delete("/{resume_id}")
 def delete_resume(
     resume_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """删除简历"""
@@ -237,7 +237,7 @@ def delete_resume(
 @router.post("/sync", response_model=List[ResumeResponse])
 def sync_resume_data(
     payload: SyncRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """同步简历数据（localStorage ↔ 数据库）"""
@@ -275,7 +275,7 @@ def _safe_filename(name: Optional[str], resume_id: str) -> str:
 @router.get("/{resume_id}/export")
 def export_resume_json(
     resume_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """一键导出简历为 .json 文件下载（Content-Disposition: attachment）。

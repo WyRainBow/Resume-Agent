@@ -264,6 +264,22 @@ def is_diagnosis_apply_query(user_input: str) -> bool:
         return False
     return bool(_DIAGNOSIS_APPLY_RE.search(text))
 
+
+# 单条 apply（2026-07-17）：建议卡「帮我改这条」固定发"按建议第N条修改：<标题>"。
+_SUGGESTION_ITEM_APPLY_RE = re.compile(r"按建议第(\d+)条(?:修改|改|优化|处理)")
+
+
+def is_diagnosis_apply_single_query(user_input: str) -> Optional[int]:
+    """用户是否点了建议卡「帮我改这条」；命中返回 1-based 序号，否则 None。"""
+    text = re.sub(r"\s+", "", (user_input or "").strip())
+    if not text:
+        return None
+    if _NEGATED_EDIT_RE.search(text):
+        return None
+    m = _SUGGESTION_ITEM_APPLY_RE.search(text)
+    return int(m.group(1)) if m else None
+
+
 # 可选导入新的意图识别系统
 try:
     from backend.agent.domain.intent.intent_enhancer import AgentIntentEnhancer

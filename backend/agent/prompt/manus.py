@@ -10,6 +10,7 @@ from backend.agent.prompt.greeting import (
     GREETING_FAST_PATH_PROMPT,
     GREETING_TEMPLATE,
 )
+from backend.ai_phrase_blacklist import build_ai_phrase_rule_block
 
 # ============================================================================
 # System Prompt
@@ -329,6 +330,7 @@ SYSTEM_PROMPT = """## 你是谁：coco 的简历价值观
 
 场景：其他分析/建议/问答类回复后
 %%SUGGESTIONS%%[{"text": "帮我修改", "msg": "按照你的建议帮我修改简历"}, {"text": "继续分析", "msg": "继续分析简历的其他部分"}]%%END%%
+""" + build_ai_phrase_rule_block("zh") + """
 
 Current directory: {directory}
 Current state: {context}
@@ -371,9 +373,23 @@ ERROR_REMINDER = """⚠️ 工具调用遇到问题：
 - 确认文件路径是否存在
 - 检查简历是否已加载"""
 
-# Phase 3 apply 轮（诊断后用户显式"按建议修改"）：单轮出齐全部修改。
-# 由 Manus._generate_dynamic_prompts 在 turn.diagnosis_apply 时追加注入，
-# 与 ASKING_MODE_DISABLED_PROMPT 同款 append 模式。
+# Phase 3 apply 轮（诊断后用户显式"按建议修改"）。2026-07-17 v3：注入结构化
+# 建议清单 + 收尾按编号对账。由 Manus._generate_dynamic_prompts 在
+# turn.diagnosis_apply 时用 build_diagnosis_apply_prompt() 组装 {suggestions_block}。
+DIAGNOSIS_APPLY_PROMPT_V3 = """
+## 本轮约束（按诊断建议一次性修改）
+
+用户已确认按诊断建议修改简历。下面是本次诊断产出的结构化建议清单，请逐条落实：
+
+{suggestions_block}
+
+- 逐条调用 cv_editor_agent 完成上表中「可直接改」的建议（标了「参考改写」的优先采用其方向），可连续多次调用；全部处理完再收尾。
+- 标注「需补充」的建议缺少真实信息，直接跳过，不向用户提问、不编造数据。
+- 不要输出 [[MODULE_DONE:xxx]] 等任务协议标记，本轮不是逐模块任务。
+- 收尾按编号对账：先写一行「已改：[编号…] / 跳过：[编号(原因)…]」，再用 1-2 句话说明改了哪些地方。
+""".strip()
+
+# 无结构化建议（用户没点过「查看建议」，assessment 为空）时的回退版——依赖对话记忆里的诊断报告。
 DIAGNOSIS_APPLY_PROMPT = """
 ## 本轮约束（按诊断建议一次性修改）
 
@@ -383,6 +399,47 @@ DIAGNOSIS_APPLY_PROMPT = """
 - 缺少真实信息的建议（如 GPA、排名、量化数据）直接跳过，不向用户提问；禁止调用 ask_human / ask_user_question；绝不编造数据。
 - 不要输出 [[MODULE_DONE:xxx]] 等任务协议标记，本轮不是逐模块任务。
 - 收尾回复用 1-3 句话总结本轮实际改了哪些地方；若有跳过的建议，末尾列出「需你补充」清单（一行一项）。
+""".strip()
+
+# 单条 apply（2026-07-17，用户点建议卡「帮我改这条」）：只改指定的一条。
+# 由 build_single_apply_prompt() 注入 {item_block}。
+SINGLE_APPLY_PROMPT = """
+## 本轮约束（只改这一条建议）
+
+用户要求只按下面这一条建议修改简历：
+
+{item_block}
+
+- 只调用 cv_editor_agent 完成这一条修改（可为它多次调用以改全该条涉及的字段），改完即收尾，不要动其它模块。
+- 若这条缺少真实信息无法安全改写，说明缺什么、请用户补充，不要编造。
+- 收尾用 1-2 句话说明改了哪里。
+""".strip()
+
+# 单条 apply 但这条缺真实信息（2026-07-17）：前端只在 proposed 条给「帮我改这条」，
+# 此处是手动命中 needs_fact 的兜底——消除"承诺提问却不问、也不说跳过"的断层。
+SINGLE_APPLY_NEEDS_FACT_PROMPT = """
+## 本轮约束（这条建议缺少真实信息）
+
+用户点了改这一条，但它缺少只有用户才知道的真实信息，无法在不编造的前提下修改：
+
+{item_block}
+
+本轮不要调用 cv_editor_agent、也不要调用 ask_user_question。只用一两句话直接告诉用户：
+这条需要你先补充哪些信息（列出具体缺什么），补充后可以再来改这条。不要假装要提问、不要编造数据。
+""".strip()
+
+# 缺口收集轮（2026-07-17，一键 apply 前置）：诊断建议含「需补充信息」的条目时，
+# 先弹选择框问齐。由 build_gap_collect_prompt() 注入 {gap_block}。
+GAP_COLLECT_PROMPT = """
+## 本轮约束（先补齐缺失信息，再修改）
+
+用户要按诊断建议修改简历，但下列建议缺少只有用户才知道的真实信息：
+
+{gap_block}
+
+本轮你只做一件事：调用 ask_user_question 把这些缺口一次问清（每条缺口一个问题，header 用模块名，最多 4 个）。
+- 不要调用 cv_editor_agent，本轮不修改简历。
+- 提问后用一句话告诉用户：填完会自动继续按建议修改。
 """.strip()
 
 # 查看建议轮（2026-07-16 诊断/建议拆分）：用户点「查看修改建议」。

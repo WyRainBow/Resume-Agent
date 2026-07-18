@@ -39,6 +39,11 @@ AI_PHRASE_BLACKLIST_EN: set[str] = {
     "on a daily basis", "on a regular basis", "in a timely manner",
     "at this point in time", "due to the fact that", "in the event that",
     "in light of the fact that",
+    # Resume-cliché additions (2026-07-17)
+    "passionate about", "results-oriented", "results oriented",
+    "proven track record", "demonstrated ability to", "best practices",
+    "data-driven", "actionable insights", "seamless", "innovative",
+    "perfect fit", "north star",
 }
 
 # 英文替换映射（AI 味词 → 更朴素的说法）
@@ -108,6 +113,9 @@ AI_PHRASE_BLACKLIST_ZH: set[str] = {
     # 形容词堆砌
     "强大的", "丰富的", "完善的", "先进的", "卓越的", "优秀的",
     "一站式", "全方位", "多维度", "立体化",
+    # 无证据的简历套话 / AI 行文口癖（2026-07-17 补充）
+    "值得注意的是", "总而言之", "综上所述", "以结果为导向", "充满热情",
+    "良好的沟通能力", "团队协作精神", "较强的学习能力", "吃苦耐劳",
 }
 
 # 中文替换映射（部分词有明确替代；无明确替代的交给 LLM 重写）
@@ -187,6 +195,8 @@ def build_ai_phrase_rule_block(locale: str = "zh") -> str:
             "- 滥用的强动词：spearheaded / orchestrated / leveraged / pioneered / revolutionized\n"
             "- 企业黑话：synergy / paradigm / best-in-class / cutting-edge / holistic / robust / scalable\n"
             "- 空话套话：in order to / moving forward / at the end of the day\n"
+            "- 简历套话：passionate about / results-oriented / proven track record\n"
+            "- 否定排比：不要写 \"This isn't X. This is Y.\" / \"Not just X, but Y.\"——直接陈述正向主张\n"
             "原则：像一个真实的工程师在写自己的经历，而不是 LLM 在堆砌形容词。"
         )
     if locale == "both":
@@ -199,8 +209,30 @@ def build_ai_phrase_rule_block(locale: str = "zh") -> str:
         "- 虚词堆砌：有效地 / 高效地 / 全面地 / 进一步提升 / 进一步完善\n"
         "- 形容词堆砌：强大的 / 丰富的 / 完善的 / 先进的 / 一站式 / 全方位\n"
         "- 滥用强动词：致力于 / 专注于 / 深耕 / 打造 / 构建\n"
+        "- 行文口癖：值得注意的是 / 总而言之 / 综上所述\n"
+        "- 否定排比句式：禁止「不是X，而是Y」「真正重要的不是…而是…」——删掉否定铺垫，"
+        "直接说正向主张（这是 AI 文本最典型的破绽）\n"
         "原则：像一个真实的工程师在写自己的经历，而不是 LLM 在堆砌形容词。\n"
         "英文同理：避免 spearheaded / orchestrated / leveraged / synergy / paradigm 等词。"
+    )
+
+
+def build_ai_phrase_check_block() -> str:
+    """构造可拼接到诊断/体检 prompt 的「套话浓度」检查块。
+
+    与 build_ai_phrase_rule_block（生成时规避）相对：本块用于评估场景——
+    简历原文命中套话时作为「表达质量」类问题的证据，并在结论/建议里给出具体改法。
+    """
+    return (
+        "\n\n【套话浓度检查】\n"
+        "简历原文出现以下类型的套话 / AI 味表达时，视为表达质量问题的证据，"
+        "并给出更具体的改法（原则：具体优于抽象——「将 p95 延迟从 2.1 秒降到 380 毫秒」"
+        "远好于「显著提升系统性能」）：\n"
+        "- 互联网黑话：赋能 / 抓手 / 闭环 / 打通 / 沉淀 / 链路 / 落地 / 助力\n"
+        "- 无证据的自我评价套话：良好的沟通能力 / 团队协作精神 / 较强的学习能力 / 吃苦耐劳 / 充满热情\n"
+        "- 虚词与形容词堆砌：有效地 / 全面地 / 强大的 / 丰富的 / 一站式 / 全方位\n"
+        "- 否定排比句式：「不是…而是…」先否定再主张，应直接写正向事实\n"
+        "- 英文简历同理：passionate about / results-oriented / proven track record / leveraged / robust"
     )
 
 

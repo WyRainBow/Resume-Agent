@@ -28,10 +28,10 @@ class ConversationMeta:
     updated_at: str
     title: str
     message_count: int
-    user_id: Optional[int] = None
+    user_id: Optional[str] = None
 
 
-def _can_read_session_for_list(owner_id: Optional[int], user_id: int) -> bool:
+def _can_read_session_for_list(owner_id: Optional[int], user_id: str) -> bool:
     if owner_id is None:
         return False
     return owner_id == user_id
@@ -103,7 +103,7 @@ class FileConversationStorage:
         self,
         session_id: str,
         messages: List[Message],
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> ConversationMeta:
@@ -150,7 +150,7 @@ class FileConversationStorage:
     def load_session(
         self,
         session_id: str,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> Optional[Dict[str, Any]]:
@@ -165,7 +165,7 @@ class FileConversationStorage:
 
     def list_sessions(
         self,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         all_users: bool = False,
     ) -> List[ConversationMeta]:
@@ -187,7 +187,7 @@ class FileConversationStorage:
     def delete_session(
         self,
         session_id: str,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> bool:
@@ -206,7 +206,7 @@ class FileConversationStorage:
         self,
         session_id: str,
         title: str,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> Optional[ConversationMeta]:
@@ -229,7 +229,7 @@ class FileConversationStorage:
         session_id: str,
         export_path: str,
         fmt: str = "json",
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> str:
@@ -256,7 +256,7 @@ class FileConversationStorage:
     def load_messages(
         self,
         session_id: str,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> List[Message]:
@@ -276,7 +276,7 @@ class FileConversationStorage:
         session_id: str,
         base_seq: int,
         messages_delta: List[Message],
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> Dict[str, Any]:

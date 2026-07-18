@@ -240,7 +240,7 @@ class DBConversationStorage:
         return (title or "New Conversation")[:40]
 
     def _fetch_conversation_by_session(
-        self, db, session_id: str, user_id: Optional[int] = None
+        self, db, session_id: str, user_id: Optional[str] = None
     ) -> Optional[AgentConversation]:
         query = db.query(AgentConversation).filter(AgentConversation.session_id == session_id)
         if user_id is not None:
@@ -267,7 +267,7 @@ class DBConversationStorage:
     def _validate_conversation_owner(
         self,
         conversation: AgentConversation,
-        user_id: Optional[int],
+        user_id: Optional[str],
         *,
         is_admin: bool = False,
     ) -> None:
@@ -318,7 +318,7 @@ class DBConversationStorage:
         self,
         session_id: str,
         messages: List[Message],
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> ConversationMeta:
@@ -408,7 +408,7 @@ class DBConversationStorage:
         self,
         session_id: str,
         messages: List[Message],
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> ConversationMeta:
@@ -478,7 +478,7 @@ class DBConversationStorage:
         session_id: str,
         base_seq: int,
         messages_delta: List[Message],
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> Dict[str, Any]:
@@ -613,7 +613,7 @@ class DBConversationStorage:
         session_id: str,
         base_seq: int,
         messages_delta: List[Message],
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> Dict[str, Any]:
@@ -758,7 +758,7 @@ class DBConversationStorage:
     def load_session(
         self,
         session_id: str,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> Optional[Dict[str, Any]]:
@@ -811,7 +811,7 @@ class DBConversationStorage:
     def _load_session_legacy(
         self,
         session_id: str,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> Optional[Dict[str, Any]]:
@@ -861,7 +861,7 @@ class DBConversationStorage:
 
     def list_sessions(
         self,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         all_users: bool = False,
     ) -> List[ConversationMeta]:
@@ -895,7 +895,7 @@ class DBConversationStorage:
     def delete_session(
         self,
         session_id: str,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> bool:
@@ -920,7 +920,7 @@ class DBConversationStorage:
             db.close()
 
     def update_session_title(
-        self, session_id: str, title: str, user_id: Optional[int] = None
+        self, session_id: str, title: str, user_id: Optional[str] = None
     ) -> Optional[ConversationMeta]:
         db = SessionLocal()
         try:
@@ -954,7 +954,7 @@ class DBConversationStorage:
         session_id: str,
         export_path: str,
         fmt: str = "json",
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
     ) -> str:
         data = self.load_session(session_id, user_id=user_id)
         if not data:
@@ -979,7 +979,7 @@ class DBConversationStorage:
     def load_messages(
         self,
         session_id: str,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> List[Message]:

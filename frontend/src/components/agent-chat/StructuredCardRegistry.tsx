@@ -44,6 +44,11 @@ function ResumeSuggestionsStructuredCard({ data, onAction }: StructuredCardProps
       onApply={
         onAction ? () => onAction("按照诊断建议帮我修改简历") : undefined
       }
+      onApplyOne={
+        onAction
+          ? (index, title) => onAction(`按建议第${index}条修改：${title}`)
+          : undefined
+      }
     />
   );
 }

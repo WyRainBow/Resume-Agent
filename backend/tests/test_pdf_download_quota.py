@@ -1,4 +1,8 @@
-"""Tests for PDF download quota enforcement."""
+"""Tests for PDF download quota enforcement.
+
+2026-07-17 身份统一：配额计数存 better_auth_entitlements，入参为 AppUser
+（BetterAuth 非数字字符串 id——同时充当防 int() 假设复活的回归护栏）。
+"""
 
 import logging
 from types import SimpleNamespace
@@ -10,11 +14,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from backend.database import Base
-from backend.models import User
+from backend.models import BetterAuthEntitlement
 from backend.core.logger import setup_logging
 
 setup_logging(is_production=False, log_level="ERROR", log_dir=None)
 
+from backend.middleware.auth import AppUser
 from backend.routes import pdf as pdf_routes
 from backend.models import RenderPDFRequest
 from backend.services.pdf_download_quota import (
@@ -25,6 +30,15 @@ from backend.services.pdf_download_quota import (
     record_successful_pdf_download,
 )
 
+BA_ID = "jD8mNxK4tQw9RbY2eZ7cV5uH1aS6fG3p"  # 32 位非数字 BetterAuth id
+
+
+def _set_count(session, value: int) -> None:
+    session.query(BetterAuthEntitlement).filter(
+        BetterAuthEntitlement.better_auth_user_id == BA_ID
+    ).update({"pdf_download_count": value})
+    session.commit()
+
 
 @pytest.fixture()
 def db_session():
@@ -32,16 +46,23 @@ def db_session():
     Base.metadata.create_all(engine)
     Session = sessionmaker(bind=engine)
     session = Session()
-    user = User(
-        username="tester",
+    session.add(
+        BetterAuthEntitlement(
+            better_auth_user_id=BA_ID,
+            email="tester@example.com",
+            name="tester",
+            role="user",
+            pdf_download_count=0,
+        )
+    )
+    session.commit()
+    user = AppUser(
+        id=BA_ID,
         email="tester@example.com",
-        password_hash="hash",
+        name="tester",
         role="user",
         pdf_download_count=0,
     )
-    session.add(user)
-    session.commit()
-    session.refresh(user)
     try:
         yield session, user
     finally:
@@ -70,13 +91,18 @@ def test_record_successful_pdf_download_increments(db_session):
     record_successful_pdf_download(user, session)
     assert user.pdf_download_count == 1
     assert get_pdf_download_remaining(user) == PDF_DOWNLOAD_LIMIT - 1
+    stored = (
+        session.query(BetterAuthEntitlement.pdf_download_count)
+        .filter(BetterAuthEntitlement.better_auth_user_id == BA_ID)
+        .scalar()
+    )
+    assert stored == 1
 
 
 def test_limit_blocks_after_max(db_session):
     session, user = db_session
+    _set_count(session, PDF_DOWNLOAD_LIMIT)
     user.pdf_download_count = PDF_DOWNLOAD_LIMIT
-    session.commit()
-    session.refresh(user)
 
     with pytest.raises(HTTPException) as exc:
         assert_pdf_download_allowed(user)
@@ -89,9 +115,8 @@ def test_limit_blocks_after_max(db_session):
 
 def test_limit_exceeded_logs_quota_context(db_session, caplog):
     session, user = db_session
+    _set_count(session, PDF_DOWNLOAD_LIMIT)
     user.pdf_download_count = PDF_DOWNLOAD_LIMIT
-    session.commit()
-    session.refresh(user)
 
     with caplog.at_level(logging.WARNING, logger="backend"):
         with pytest.raises(HTTPException):
@@ -106,9 +131,8 @@ def test_limit_exceeded_logs_quota_context(db_session, caplog):
 @pytest.mark.anyio
 async def test_render_pdf_preview_does_not_consume_download_quota(db_session, monkeypatch):
     session, user = db_session
+    _set_count(session, PDF_DOWNLOAD_LIMIT)
     user.pdf_download_count = PDF_DOWNLOAD_LIMIT
-    session.commit()
-    session.refresh(user)
 
     monkeypatch.setattr(pdf_routes, "_prepare_latex_content", lambda *_args, **_kwargs: "latex")
     monkeypatch.setattr(pdf_routes, "_compile_pdf_bytes", lambda *_args, **_kwargs: b"%PDF-1.4\n")
@@ -130,3 +154,9 @@ async def test_render_pdf_preview_does_not_consume_download_quota(db_session, mo
 
     assert response.status_code == 200
     assert user.pdf_download_count == PDF_DOWNLOAD_LIMIT
+    stored = (
+        session.query(BetterAuthEntitlement.pdf_download_count)
+        .filter(BetterAuthEntitlement.better_auth_user_id == BA_ID)
+        .scalar()
+    )
+    assert stored == PDF_DOWNLOAD_LIMIT

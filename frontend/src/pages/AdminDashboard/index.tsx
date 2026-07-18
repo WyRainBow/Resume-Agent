@@ -16,6 +16,7 @@ type UserRow = {
   role: string
   created_at: string | null
   pdf_download_count: number
+  resume_count: number
 }
 
 const ROLE_OPTIONS: { value: string; label: string; desc: string; dot: string }[] = [
@@ -358,13 +359,14 @@ export default function AdminDashboardPage() {
                           <th className="px-6 py-3 font-medium">邮箱</th>
                           <th className="px-6 py-3 font-medium">角色</th>
                           <th className="px-6 py-3 font-medium">注册时间</th>
+                          <th className="px-6 py-3 font-medium">简历数</th>
                           <th className="px-6 py-3 font-medium">PDF 次数</th>
                         </tr>
                       </thead>
                       <tbody>
                         {users.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="px-6 py-8 text-center font-mono text-slate-400">
+                            <td colSpan={7} className="px-6 py-8 text-center font-mono text-slate-400">
                               暂无用户
                             </td>
                           </tr>
@@ -383,6 +385,7 @@ export default function AdminDashboardPage() {
                               <td className="px-6 py-3 text-slate-500 dark:text-slate-400">
                                 {u.created_at ? u.created_at.slice(0, 10) : '-'}
                               </td>
+                              <td className="px-6 py-3 tabular-nums text-slate-500 dark:text-slate-400">{u.resume_count ?? 0}</td>
                               <td className="px-6 py-3 tabular-nums text-slate-500 dark:text-slate-400">{u.pdf_download_count}</td>
                             </tr>
                           ))

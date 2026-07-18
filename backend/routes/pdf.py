@@ -13,18 +13,18 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 try:
-    from models import RenderPDFRequest, User
+    from models import RenderPDFRequest
     from database import get_db
-    from middleware.auth import get_current_user, get_current_user_optional
+    from middleware.auth import AppUser, get_current_user, get_current_user_optional
     from services.pdf_download_quota import (
         assert_pdf_download_allowed,
         build_quota_payload,
         record_successful_pdf_download,
     )
 except ImportError:
-    from backend.models import RenderPDFRequest, User
+    from backend.models import RenderPDFRequest
     from backend.database import get_db
-    from backend.middleware.auth import get_current_user, get_current_user_optional
+    from backend.middleware.auth import AppUser, get_current_user, get_current_user_optional
     from backend.services.pdf_download_quota import (
         assert_pdf_download_allowed,
         build_quota_payload,
@@ -75,7 +75,7 @@ class CompileLatexRequest(BaseModel):
 
 @router.get("/pdf/quota")
 async def get_pdf_download_quota(
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
 ):
     """查询当前用户 PDF 下载配额。"""
     return build_quota_payload(current_user)
@@ -83,7 +83,7 @@ async def get_pdf_download_quota(
 
 @router.post("/pdf/downloads/record")
 async def record_pdf_download(
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """记录一次真实 PDF 下载。预览/渲染不消耗下载次数。"""
@@ -91,7 +91,7 @@ async def record_pdf_download(
     logger.info(
         "[PDF DOWNLOAD][record_request] user_id=%s username=%s role=%s used=%s limit=%s remaining=%s",
         current_user.id,
-        current_user.username,
+        current_user.email,
         current_user.role,
         before_quota["used"],
         before_quota["limit"],
@@ -111,7 +111,7 @@ async def record_pdf_download(
             code or "-",
             message,
             current_user.id,
-            current_user.username,
+            current_user.email,
             current_user.role,
             before_quota["used"],
             before_quota["limit"],
@@ -126,7 +126,7 @@ async def record_pdf_download(
 async def render_pdf(
     body: RenderPDFRequest,
     request: Request,
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: Optional[AppUser] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
     """
@@ -188,7 +188,7 @@ async def render_pdf(
 async def render_pdf_stream(
     body: RenderPDFRequest,
     request: Request,
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: Optional[AppUser] = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ):
     """
@@ -302,7 +302,7 @@ async def render_pdf_stream(
 @router.post("/pdf/compile-latex")
 async def compile_latex(
     body: CompileLatexRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -339,7 +339,7 @@ async def compile_latex(
 @router.post("/pdf/compile-latex/stream")
 async def compile_latex_stream(
     body: CompileLatexRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """

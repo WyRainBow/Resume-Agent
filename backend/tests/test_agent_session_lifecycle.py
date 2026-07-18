@@ -78,7 +78,7 @@ def _seed_session(cid: str, created_delta: timedelta, accessed_delta: timedelta 
         "chat_history": None,
         "resume_path": None,
         "created_at": now - created_delta,
-        "user_id": 1,
+        "user_id": "uLifecycleBaIdAaaa000000000001",
     }
     if accessed_delta is not None:
         session["last_accessed"] = now - accessed_delta
@@ -137,7 +137,7 @@ def test_get_or_create_touches_last_accessed_on_reuse(monkeypatch):
     session = _seed_session(
         SESSION_ID, created_delta=timedelta(hours=2), accessed_delta=timedelta(hours=1)
     )
-    fake_user = SimpleNamespace(id=1, role="user")
+    fake_user = SimpleNamespace(id="uLifecycleBaIdAaaa000000000001", role="user")
     # 会话无 owner 记录 → 放行；storage 中消息仍在 → 走复用分支
     monkeypatch.setattr(
         stream_module.conversation_manager, "get_session_owner", lambda cid: None
@@ -194,11 +194,11 @@ def test_clear_sessions_for_user_clears_resume_data():
     """按用户清会话必须连 ResumeDataStore 一起清（原实现只删条目，简历/JD 泄漏）"""
     _seed_session(SESSION_ID, created_delta=timedelta(minutes=1), accessed_delta=timedelta(minutes=1))
     other_sid = "other-user-session"
-    session_manager._active_sessions[other_sid] = {"agent": None, "user_id": 2}
+    session_manager._active_sessions[other_sid] = {"agent": None, "user_id": "uLifecycleBaIdBbbb000000000002"}
     ResumeDataStore.set_data(dict(RESUME), session_id=SESSION_ID)
     ResumeDataStore.set_session_jd(SESSION_ID, "数据工程师")
 
-    cleared = session_manager.clear_sessions_for_user(1)
+    cleared = session_manager.clear_sessions_for_user("uLifecycleBaIdAaaa000000000001")
 
     assert cleared == 1
     assert SESSION_ID not in session_manager._active_sessions

@@ -21,14 +21,14 @@ class ConversationManager:
             self.storage = storage
 
     def list_sessions(
-        self, user_id: Optional[int] = None, *, all_users: bool = False
+        self, user_id: Optional[str] = None, *, all_users: bool = False
     ) -> List[ConversationMeta]:
         return self.storage.list_sessions(user_id=user_id, all_users=all_users)
 
     def get_history(
         self,
         session_id: str,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> List[Message]:
@@ -37,7 +37,7 @@ class ConversationManager:
         )
 
     def get_or_create_history(
-        self, session_id: str, user_id: Optional[int] = None, *, is_admin: bool = False
+        self, session_id: str, user_id: Optional[str] = None, *, is_admin: bool = False
     ) -> ChatHistoryManager:
         history = ChatHistoryManager(
             session_id=session_id,
@@ -56,7 +56,7 @@ class ConversationManager:
         self,
         session_id: str,
         history: ChatHistoryManager,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> ConversationMeta:
@@ -70,7 +70,7 @@ class ConversationManager:
     def delete_session(
         self,
         session_id: str,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> bool:
@@ -81,7 +81,7 @@ class ConversationManager:
     def delete_sessions(
         self,
         session_ids: List[str],
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> int:
@@ -102,7 +102,7 @@ class ConversationManager:
         return deleted_count
 
     def delete_all_sessions(
-        self, user_id: Optional[int] = None, *, is_admin: bool = False
+        self, user_id: Optional[str] = None, *, is_admin: bool = False
     ) -> int:
         """Delete all sessions.
 
@@ -117,7 +117,7 @@ class ConversationManager:
         self,
         session_id: str,
         title: str,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> Optional[ConversationMeta]:
@@ -130,7 +130,7 @@ class ConversationManager:
         session_id: str,
         export_path: str,
         fmt: str = "json",
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         *,
         is_admin: bool = False,
     ) -> str:

@@ -15,6 +15,10 @@ from backend.agent.application.resume_diagnosis import build_resume_diagnosis
 from backend.agent.llm import LLM
 from backend.agent.schema import ToolChoice
 from backend.agent.utils.resume_context import redact_resume_for_llm
+from backend.ai_phrase_blacklist import (
+    build_ai_phrase_check_block,
+    build_ai_phrase_rule_block,
+)
 from backend.core.logger import get_logger
 
 logger = get_logger(__name__)
@@ -142,7 +146,7 @@ _SUGGESTIONS_SYSTEM_PROMPT = """你是一名严谨、友善的资深招聘顾问
 2. 缺少院校、日期、邮箱、GPA、量化结果等事实时，requires_facts 写明需要用户补什么，proposed 留空；严禁用示例值冒充成品。
 3. proposed 只有在不新增事实、能直接基于原文安全改写时才填写。
 4. 不复述姓名、电话、邮箱等个人敏感信息，不虚构简历里没有的事实。
-5. 优先覆盖诊断结论中 must_fix / should_fix 指出的问题，调用 submit_resume_suggestions 提交。"""
+5. 优先覆盖诊断结论中 must_fix / should_fix 指出的问题，调用 submit_resume_suggestions 提交。""" + build_ai_phrase_rule_block("zh")
 
 _SYSTEM_PROMPT = """你是一名严谨、友善的资深招聘顾问。请基于给出的简历正文和结构基线做真实诊断。
 
@@ -152,7 +156,7 @@ _SYSTEM_PROMPT = """你是一名严谨、友善的资深招聘顾问。请基于
 3. public_trace 是给用户看的加工后诊断轨迹，不是原始思维链：每条只写“核对了什么 + 看到了什么证据/缺口 + 当前判断”，不要写自我辩论、概率猜测或内部指令。
 4. 不复述姓名、电话、邮箱等个人敏感信息，不虚构简历里没有的事实。
 5. 本轮只做诊断，不生成逐条修改建议（用户点「查看修改建议」时另行生成）。
-6. 分数由结构基线负责；你只提交有证据的定性结论，并调用 submit_resume_diagnosis。"""
+6. 分数由结构基线负责；你只提交有证据的定性结论，并调用 submit_resume_diagnosis。""" + build_ai_phrase_check_block()
 
 
 @lru_cache(maxsize=1)

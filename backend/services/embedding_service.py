@@ -9,7 +9,7 @@ from typing import List, Dict, Any, Optional
 from sqlalchemy.orm import Session
 from openai import OpenAI
 
-from models import Resume, ResumeEmbedding, User
+from models import Resume, ResumeEmbedding
 
 
 class EmbeddingService:

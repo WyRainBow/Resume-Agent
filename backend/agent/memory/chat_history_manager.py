@@ -35,7 +35,7 @@ class ChatHistoryManager:
         include_system: bool = True,
         session_id: Optional[str] = None,
         storage: Optional[Any] = None,
-        user_id: Optional[int] = None,
+        user_id: Optional[str] = None,
         is_admin: bool = False,
     ):
         """

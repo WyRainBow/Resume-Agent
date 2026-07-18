@@ -773,7 +773,12 @@ class AgentStream:
                 and _review_progress.get("status") == "reviewing"
                 and _review_progress.get("review_dispatched")
             )
-            if is_review_round or any(
+            # 诊断 apply 轮（按建议修改 / 单条改 / 缺口接力"我确认这些信息"）要逐条
+            # 改多个字段、最后还要产出编号对账收尾；5 步会被逐条编辑用满、掐掉收尾
+            # （2026-07-17 端到端实测：5 条缺口填完就没预算总结）——与审阅轮同理给 10 步。
+            _apply_anchors = ("按建议", "按照诊断", "诊断建议", "我确认这些信息")
+            is_apply_like = any(anchor in user_message for anchor in _apply_anchors)
+            if is_review_round or is_apply_like or any(
                 keyword in user_message.lower()
                 for keyword in ["分析", "analyze", "深入", "详细"]
             ):

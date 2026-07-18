@@ -67,7 +67,7 @@ describe("StructuredCards · resume_suggestions 建议卡（2026-07-16 拆分）
 
     // apply chip → 发真实一轮 apply 消息
     const applyChip = [...container.querySelectorAll("button")].find((b) =>
-      (b.textContent || "").includes("帮我按建议修改"),
+      (b.textContent || "").includes("全部按建议修改"),
     );
     expect(applyChip).toBeTruthy();
     act(() => applyChip!.click());

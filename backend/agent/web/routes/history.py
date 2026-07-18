@@ -21,7 +21,7 @@ from backend.agent.cltp.storage.session_limits import (
 )
 from backend.agent.schema import Message
 from backend.middleware.auth import get_current_user, require_admin_only
-from backend.models import User
+from backend.middleware.auth import AppUser
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +31,7 @@ conversation_manager = ConversationManager(storage=storage)
 _save_fingerprint_cache: dict[str, tuple[int, str]] = {}
 
 
-def _save_cache_key(user_id: int, session_id: str) -> str:
+def _save_cache_key(user_id: str, session_id: str) -> str:
     return f"{user_id}:{session_id}"
 
 
@@ -120,7 +120,7 @@ class SessionAppendRequest(BaseModel):
 
 @router.get("/{session_id}", response_model=HistoryResponse)
 async def get_history(
-    session_id: str, current_user: User = Depends(get_current_user)
+    session_id: str, current_user: AppUser = Depends(get_current_user)
 ) -> HistoryResponse:
     """Get chat history for a session.
 
@@ -152,7 +152,7 @@ async def get_history(
 
 @router.delete("/{session_id}", response_model=HistoryClearResponse)
 async def clear_history(
-    session_id: str, current_user: User = Depends(get_current_user)
+    session_id: str, current_user: AppUser = Depends(get_current_user)
 ) -> HistoryClearResponse:
     """Clear chat history for a session.
 
@@ -191,7 +191,7 @@ async def clear_history(
 
 @router.post("/{session_id}/restore")
 async def restore_history(
-    session_id: str, current_user: User = Depends(get_current_user)
+    session_id: str, current_user: AppUser = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Restore chat history from checkpoint.
 
@@ -227,7 +227,7 @@ async def restore_history(
 async def list_sessions(
     page: int = 1,
     page_size: int = 20,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     """List conversation sessions with pagination."""
     try:
@@ -279,7 +279,7 @@ async def list_sessions(
 async def admin_list_sessions(
     page: int = 1,
     page_size: int = 20,
-    current_user: User = Depends(require_admin_only),
+    current_user: AppUser = Depends(require_admin_only),
 ) -> dict[str, Any]:
     """管理员查看全部用户的历史会话。"""
     try:
@@ -328,7 +328,7 @@ async def get_session_messages(
     session_id: str,
     offset: int = 0,
     limit: int = 200,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get session history with pagination."""
     try:
@@ -357,7 +357,7 @@ async def get_session_messages(
 async def save_session_messages(
     session_id: str,
     request: SessionSaveRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Save session messages immediately."""
     try:
@@ -426,7 +426,7 @@ async def save_session_messages(
 async def append_session_messages(
     session_id: str,
     request: SessionAppendRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Append message delta incrementally.
 
@@ -539,7 +539,7 @@ async def append_session_messages(
 async def update_session_title(
     session_id: str,
     request: SessionTitleUpdateRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     title = request.title.strip()
     if not title:
@@ -562,7 +562,7 @@ async def update_session_title(
 
 @router.post("/sessions/{session_id}/load")
 async def load_session(
-    session_id: str, current_user: User = Depends(get_current_user)
+    session_id: str, current_user: AppUser = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Load a session and return its messages."""
     try:
@@ -588,7 +588,7 @@ async def load_session(
 async def export_session(
     session_id: str,
     fmt: str = "json",
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Export a session to a file (json/markdown)."""
     try:
@@ -610,7 +610,7 @@ async def export_session(
 
 @router.post("/sessions/batch-delete")
 async def batch_delete_sessions(
-    request: BatchDeleteRequest, current_user: User = Depends(get_current_user)
+    request: BatchDeleteRequest, current_user: AppUser = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Delete multiple sessions.
 
@@ -646,7 +646,7 @@ async def batch_delete_sessions(
 
 @router.delete("/sessions/all")
 async def delete_all_sessions(
-    current_user: User = Depends(get_current_user)
+    current_user: AppUser = Depends(get_current_user)
 ) -> dict[str, Any]:
     """Delete all sessions.
 

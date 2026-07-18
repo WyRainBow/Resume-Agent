@@ -24,6 +24,7 @@ import { Mail, Phone, MapPin, Globe, Linkedin, Github, ExternalLink } from 'luci
 import type { BuilderResumeData, Project, SectionMeta } from '../types'
 import { getSortedSections, formatDateRange } from '../types'
 import { SafeHtml, InlineBold } from './SafeHtml'
+import { TemplateLogo } from './TemplateLogo'
 import baseStyles from './styles/_base.module.css'
 import styles from './styles/vivid.module.css'
 
@@ -250,7 +251,7 @@ export const ResumeVivid: React.FC<ResumeVividProps> = ({ data, showContactIcons
                     className={`flex justify-between items-baseline ${baseStyles['resume-row-tight']}`}
                   >
                     <span>
-                      <InlineBold as="span" className={styles.entryCompany} text={exp.company} weightControlled />
+                      <TemplateLogo url={exp.companyLogoUrl} size={exp.companyLogoSize} alt={exp.company} /><InlineBold as="span" className={styles.entryCompany} text={exp.company} weightControlled />
                       {exp.title && (
                         <>
                           <span className={styles.entrySep}>|</span>
@@ -307,7 +308,7 @@ export const ResumeVivid: React.FC<ResumeVividProps> = ({ data, showContactIcons
                   <h4
                     className={`${baseStyles['resume-item-title-sm']} ${baseStyles['sidebar-text-wrap']}`}
                   >
-                    <InlineBold text={edu.institution} />
+                    <TemplateLogo url={edu.schoolLogoUrl} size={edu.schoolLogoSize} alt={edu.institution} /><InlineBold text={edu.institution} />
                   </h4>
                   <p className={baseStyles['resume-item-subtitle-sm']}>{edu.degree}</p>
                   {edu.years && (

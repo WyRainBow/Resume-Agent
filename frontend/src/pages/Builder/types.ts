@@ -23,6 +23,10 @@ export interface Experience {
   company?: string
   location?: string
   years?: string
+  /** 公司 Logo URL（adapter 用 getLogoUrl 把 companyLogo key 解析后传入，无则不渲染） */
+  companyLogoUrl?: string
+  /** 公司 Logo 尺寸(px)，条目优先，缺省取全局 companyLogoSize */
+  companyLogoSize?: number
   /** 每条 bullet 是一段行内 HTML(strong/em/u/a),由 SafeHtml 渲染 */
   description?: string[]
 }
@@ -32,6 +36,10 @@ export interface Education {
   institution?: string
   degree?: string
   years?: string
+  /** 学校 Logo URL（adapter 用 getSchoolLogoUrl 把 schoolLogo key 解析后传入，无则不渲染） */
+  schoolLogoUrl?: string
+  /** 学校 Logo 尺寸(px)，条目优先，缺省取全局 companyLogoSize */
+  schoolLogoSize?: number
   /** 与 RM 不同:改为 bullets(我方教育描述是富文本列表) */
   description?: string[]
 }

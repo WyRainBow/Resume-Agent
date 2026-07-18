@@ -12,6 +12,10 @@ from backend.core.logger import get_logger
 logger = get_logger(__name__)
 from backend.agent.prompt.manus import (
     DIAGNOSIS_APPLY_PROMPT,
+    DIAGNOSIS_APPLY_PROMPT_V3,
+    SINGLE_APPLY_PROMPT,
+    SINGLE_APPLY_NEEDS_FACT_PROMPT,
+    GAP_COLLECT_PROMPT,
     VIEW_SUGGESTIONS_PROMPT,
     GREETING_FAST_PATH_PROMPT,
     NEXT_STEP_PROMPT,
@@ -33,6 +37,7 @@ from backend.agent.application.conversation.conversation_state import (
     classify_resume_request,
     is_add_experience_query,
     is_diagnosis_apply_query,
+    is_diagnosis_apply_single_query,
     is_view_suggestions_query,
     is_full_optimize_query,
     is_read_only_query,
@@ -94,7 +99,7 @@ class Manus(ToolCallAgent):
     # 管理员会话标识:保留供管理员专属工具注册使用(邮件功能下线后暂无消费者)
     is_admin: bool = False
     # 当前会话所属用户 id,注入给需要按用户查库的工具(如邮箱凭证)
-    user_id: Optional[int] = None
+    user_id: Optional[str] = None
 
     max_observe: int = 10000
     max_steps: int = 20
@@ -256,6 +261,15 @@ class Manus(ToolCallAgent):
                 "本轮为一次性应用诊断建议：缺少真实信息的建议直接跳过，"
                 "不向用户提问。请继续处理其余建议，收尾时在「需你补充」清单中列出跳过项。"
             )
+        if self._turn.diagnosis_gap_collect and name in (
+            "cv_editor_agent",
+            "str_replace_editor",
+        ):
+            logger.info(f"📋 缺口收集轮拦截 {name}（先补齐信息再改）")
+            return (
+                "错误：本轮只收集缺失信息，不修改简历。"
+                "请调用 ask_user_question 逐项问清缺口，然后结束本轮。"
+            )
         return await super().execute_tool(command)
 
     def queue_resume_patch(self, patch: Dict[str, Any]) -> None:
@@ -318,20 +332,58 @@ class Manus(ToolCallAgent):
         # Phase 3 写入解锁：显式 apply 文案（"按建议帮我修改"等）+ 当前简历
         # 确实已产出诊断，两者同时成立才解除只读诊断闸；否则（含首轮泛优化、
         # 未诊断就说 apply 话术）仍先走只读诊断，防止跳过诊断直接改。
-        is_apply_turn = bool(
-            is_diagnosis_apply_query(user_input)
-            and self._diagnosis_completed_for_loaded_resume()
+        completed = self._diagnosis_completed_for_loaded_resume()
+        single_n = is_diagnosis_apply_single_query(user_input)
+        # pending 接力：上一轮弹了缺口选择框，本轮用户提交答案（前端 handleAskQuestionSubmit
+        # 固定前缀"我确认这些信息"）。非确认消息到来即丢弃 pending，不粘住后续对话。
+        pending = (
+            self._shared_state.get("diagnosis_apply_pending")
+            if self._shared_state is not None
+            else None
         )
-        # apply 轮 = 单轮出齐全部修改（不启动逐模块任务、不中途提问），
-        # 由 DIAGNOSIS_APPLY_PROMPT + execute_tool 的 ask 拦截共同保证。
+        resume_from_pending = (
+            isinstance(pending, dict) and "我确认这些信息" in (user_input or "")
+        )
+        if (
+            isinstance(pending, dict)
+            and not resume_from_pending
+            and self._shared_state is not None
+        ):
+            self._shared_state.set("diagnosis_apply_pending", None)
+            pending = None
+
+        # 单条 apply（建议卡「帮我改这条」）> pending 恢复 > 一键 apply（前置查缺口）
+        is_apply_turn = False
+        is_gap_turn = False
+        if completed and single_n:
+            is_apply_turn = True
+            self._turn.diagnosis_apply_single = single_n
+        elif completed and resume_from_pending:
+            is_apply_turn = True
+            self._turn.diagnosis_apply_single = pending.get("index")
+            if self._shared_state is not None:
+                self._shared_state.set("diagnosis_apply_pending", None)
+        elif completed and is_diagnosis_apply_query(user_input):
+            gap_items = self._needs_fact_suggestions()
+            if gap_items and is_asking_mode_enabled():
+                # 有缺口且 Asking 开：先弹选择框收集，写 pending 等答复接力
+                is_gap_turn = True
+                if self._shared_state is not None:
+                    self._shared_state.set(
+                        "diagnosis_apply_pending", {"mode": "all"}
+                    )
+            else:
+                is_apply_turn = True
+        # apply 轮 = 单轮出齐修改（由 prompt + ask 拦截保证）；gap 轮 = 先收集缺口再改
         self._turn.diagnosis_apply = is_apply_turn
+        self._turn.diagnosis_gap_collect = is_gap_turn
         # 查看建议轮（2026-07-16 诊断/建议拆分）：点「查看修改建议」只读展示
-        # 建议（cv_suggestions_agent），不重新诊断、不修改简历。要求本会话已
-        # 产出诊断——未诊断时说"查看建议"仍走只读诊断（先诊断才有建议可看）。
+        # 建议（cv_suggestions_agent），不重新诊断、不修改简历。
         is_view_turn = bool(
             not is_apply_turn
+            and not is_gap_turn
             and is_view_suggestions_query(user_input)
-            and self._diagnosis_completed_for_loaded_resume()
+            and completed
         )
         self._turn.view_suggestions = is_view_turn
         self._turn.diagnosis_only = bool(
@@ -340,11 +392,14 @@ class Manus(ToolCallAgent):
                 ResumeRequestRoute.DIAGNOSE,
             }
             and not is_apply_turn
+            and not is_gap_turn
             and not is_view_turn
         )
 
         if self._turn.read_only:
             logger.info("📖 只读查看轮次：禁止 cv_editor_agent")
+        elif self._turn.diagnosis_gap_collect:
+            logger.info("📋 缺口收集轮次：先弹选择框问齐 needs_fact，再按建议改")
         elif self._turn.view_suggestions:
             logger.info("💡 查看建议轮次：只展示建议，禁止编辑与重新诊断")
         elif self._turn.diagnosis_only:
@@ -363,8 +418,24 @@ class Manus(ToolCallAgent):
         )
         if not is_asking_mode_enabled():
             system_prompt = f"{system_prompt}\n\n{ASKING_MODE_DISABLED_PROMPT}"
-        if self._turn.diagnosis_apply:
-            system_prompt = f"{system_prompt}\n\n{DIAGNOSIS_APPLY_PROMPT}"
+        if self._turn.diagnosis_apply_single is not None:
+            item = self._suggestion_by_index(self._turn.diagnosis_apply_single)
+            if item is not None:
+                system_prompt = f"{system_prompt}\n\n{self._build_single_apply_prompt(item)}"
+            else:
+                # 越界/无结构化建议 → 降级为整体 apply
+                system_prompt = f"{system_prompt}\n\n{DIAGNOSIS_APPLY_PROMPT}"
+        elif self._turn.diagnosis_apply:
+            suggestions = self._guidance_suggestions()
+            if suggestions:
+                block = self._format_suggestions_block(suggestions)
+                system_prompt = f"{system_prompt}\n\n{DIAGNOSIS_APPLY_PROMPT_V3.format(suggestions_block=block)}"
+            else:
+                # 用户没点过「查看建议」，assessment 无结构化建议 → 回退读诊断报告
+                system_prompt = f"{system_prompt}\n\n{DIAGNOSIS_APPLY_PROMPT}"
+        elif self._turn.diagnosis_gap_collect:
+            block = self._format_gap_block(self._needs_fact_suggestions())
+            system_prompt = f"{system_prompt}\n\n{GAP_COLLECT_PROMPT.format(gap_block=block)}"
         if self._turn.view_suggestions:
             system_prompt = f"{system_prompt}\n\n{VIEW_SUGGESTIONS_PROMPT}"
         return system_prompt, next_step_prompt
@@ -614,6 +685,65 @@ class Manus(ToolCallAgent):
             else ""
         )
         return bool(resume_id) and diagnosed_for == resume_id
+
+    def _guidance_suggestions(self) -> List[Dict[str, Any]]:
+        """从 shared_state 诊断评估里取结构化建议列表（cv_suggestions_agent 写入；无则空）。"""
+        if self._shared_state is None:
+            return []
+        assessment = self._shared_state.get("resume_guidance_assessment")
+        if not isinstance(assessment, dict):
+            return []
+        suggestions = (assessment.get("details") or {}).get("suggestions") or []
+        return [s for s in suggestions if isinstance(s, dict)]
+
+    def _needs_fact_suggestions(self) -> List[Dict[str, Any]]:
+        """建议里 status=needs_fact（缺只有用户知道的真实信息）的条目。"""
+        return [s for s in self._guidance_suggestions() if s.get("status") == "needs_fact"]
+
+    def _suggestion_by_index(self, n: Optional[int]) -> Optional[Dict[str, Any]]:
+        """按 1-based 序号取单条建议（越界返回 None）。"""
+        if not n:
+            return None
+        suggestions = self._guidance_suggestions()
+        if 1 <= n <= len(suggestions):
+            return suggestions[n - 1]
+        return None
+
+    @staticmethod
+    def _format_suggestions_block(suggestions: List[Dict[str, Any]]) -> str:
+        """建议列表 → 注入 apply prompt 的编号清单（needs_fact 标注需补充，proposed 附参考改写）。"""
+        lines: List[str] = []
+        for i, s in enumerate(suggestions, 1):
+            section = s.get("section") or ""
+            title = s.get("title") or ""
+            if s.get("status") == "needs_fact":
+                facts = "、".join(s.get("requires_facts") or [])
+                lines.append(f"{i}. [{section}] {title} — 需补充：{facts}")
+            else:
+                rec = s.get("recommendation") or ""
+                proposed = s.get("proposed") or ""
+                tail = f"（参考改写：{proposed}）" if proposed else ""
+                lines.append(f"{i}. [{section}] {title} — {rec}{tail}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _format_gap_block(needs_fact_items: List[Dict[str, Any]]) -> str:
+        """needs_fact 建议 → 缺口收集 prompt 的清单。"""
+        lines: List[str] = []
+        for s in needs_fact_items:
+            section = s.get("section") or ""
+            facts = "、".join(s.get("requires_facts") or [])
+            lines.append(f"- [{section}] {s.get('title', '')}：需要 {facts}")
+        return "\n".join(lines)
+
+    @staticmethod
+    def _build_single_apply_prompt(item: Dict[str, Any]) -> str:
+        """单条 apply 的 prompt：proposed 条直接改；needs_fact 条不能改也不假装提问，
+        只说明缺什么让用户补充（消除"承诺提问却不问"的断层）。"""
+        block = Manus._format_suggestions_block([item])
+        if item.get("status") == "needs_fact":
+            return SINGLE_APPLY_NEEDS_FACT_PROMPT.format(item_block=block)
+        return SINGLE_APPLY_PROMPT.format(item_block=block)
 
     def _advance_optimize_progress(self) -> None:
         """整份优化任务：推进进度。

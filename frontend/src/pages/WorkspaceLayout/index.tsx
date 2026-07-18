@@ -41,8 +41,8 @@ type WorkspaceType =
   | "admin";
 
 function getAuthHeaders(extra: Record<string, string> = {}): Record<string, string> {
-  const token = localStorage.getItem("auth_token");
-  return token ? { ...extra, Authorization: `Bearer ${token}` } : { ...extra };
+  // 2026-07-17 身份统一：JWT 下架，认证走 BetterAuth cookie，不再注入 Bearer。
+  return { ...extra };
 }
 
 /** 复刻参考图：圆角矩形 + 内竖线（左窄右宽），细描边 */

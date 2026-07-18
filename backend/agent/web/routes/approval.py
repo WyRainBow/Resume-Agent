@@ -13,7 +13,7 @@ from backend.agent.schema import Message
 from backend.agent.web.routes.stream import get_active_agent
 from backend.core.logger import get_logger
 from backend.middleware.auth import get_current_user
-from backend.models import User
+from backend.middleware.auth import AppUser
 
 logger = get_logger(__name__)
 
@@ -47,7 +47,7 @@ def _build_tool(tool_name: str, pending: Dict[str, Any]):
 @router.post("/approval")
 async def handle_approval(
     payload: ApprovalActionRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: AppUser = Depends(get_current_user),
 ):
     pending = approval_store.get_valid(payload.approval_id)
     if not pending:

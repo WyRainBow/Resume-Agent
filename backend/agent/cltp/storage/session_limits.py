@@ -16,14 +16,14 @@ class SessionLimitExceeded(Exception):
         super().__init__(f"Session limit exceeded: {current}/{limit}")
 
 
-def count_user_sessions(storage: Any, user_id: int) -> int:
+def count_user_sessions(storage: Any, user_id: str) -> int:
     return len(storage.list_sessions(user_id=user_id))
 
 
 def user_owns_session(
     storage: Any,
     session_id: str,
-    user_id: int,
+    user_id: str,
     *,
     is_admin: bool = False,
 ) -> bool:
@@ -43,7 +43,7 @@ def user_owns_session(
 def ensure_can_create_session(
     storage: Any,
     session_id: str,
-    user_id: Optional[int],
+    user_id: Optional[str],
     *,
     is_admin: bool = False,
 ) -> None:
@@ -62,7 +62,7 @@ def ensure_can_create_session(
 
 
 def session_limit_status(
-    storage: Any, user_id: int, *, is_admin: bool = False
+    storage: Any, user_id: str, *, is_admin: bool = False
 ) -> dict[str, int | bool | None]:
     current = count_user_sessions(storage, user_id)
     if is_admin:

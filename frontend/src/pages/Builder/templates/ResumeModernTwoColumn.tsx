@@ -24,6 +24,7 @@ import { Mail, Phone, MapPin, Globe, Linkedin, Github, ExternalLink } from 'luci
 import type { BuilderResumeData, Project, SectionMeta } from '../types'
 import { getSortedSections, formatDateRange, DEFAULT_SECTION_META } from '../types'
 import { SafeHtml, InlineBold } from './SafeHtml'
+import { TemplateLogo } from './TemplateLogo'
 import baseStyles from './styles/_base.module.css'
 import styles from './styles/modern-two-column.module.css'
 
@@ -279,6 +280,7 @@ export const ResumeModernTwoColumn: React.FC<ResumeModernTwoColumnProps> = ({
                       className={`flex justify-between items-center ${baseStyles['resume-row-tight']} ${baseStyles['resume-item-subtitle-sm']}`}
                     >
                       <span>
+                        <TemplateLogo url={exp.companyLogoUrl} size={exp.companyLogoSize} alt={exp.company} />
                         <InlineBold text={exp.company} weightControlled />
                         {exp.location && <> • {exp.location}</>}
                       </span>
@@ -340,6 +342,7 @@ export const ResumeModernTwoColumn: React.FC<ResumeModernTwoColumnProps> = ({
                     <h4
                       className={`${baseStyles['resume-item-title-sm']} ${baseStyles['sidebar-text-wrap']}`}
                     >
+                      <TemplateLogo url={edu.schoolLogoUrl} size={edu.schoolLogoSize} alt={edu.institution} />
                       <InlineBold text={edu.institution} />
                       {edu.years && (
                         <span

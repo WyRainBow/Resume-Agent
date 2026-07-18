@@ -159,6 +159,57 @@ def test_invented_empty_new_returns_empty():
     assert check_invented("<p>原文</p>", None) == []
 
 
+# ---- 中文数字指标（2026-07-17 扩展）：翻了三倍/百分之四十/五万人 也要能抽取与比对 ----
+
+def test_cn_multiplier_extracted():
+    assert "三倍" in extract_number_facts("性能翻了三倍")
+
+
+def test_cn_percent_extracted():
+    assert "百分之四十" in extract_number_facts("成本降低了百分之四十")
+
+
+def test_cn_count_extracted():
+    facts = extract_number_facts("覆盖五万人，累计三千次调用")
+    assert "五万人" in facts and "三千次" in facts
+
+
+def test_cn_weak_unit_yi_not_extracted():
+    # "一次/一年"这类日常表达不算指标，避免噪音（强单位"一倍"仍算）
+    facts = extract_number_facts("参加了一次活动，一年内完成上线")
+    assert all("一次" not in f and "一年" not in f for f in facts)
+
+
+def test_invented_cn_multiplier_flagged():
+    # 原文没有量化，改写编出"翻了三倍"——中文数字幻觉也要报
+    old = "<p>重构数据链路，查询更快</p>"
+    new_bad = "<p>重构数据链路，查询速度翻了三倍</p>"
+    assert "三倍" in check_invented(old, new_bad)
+
+
+def test_cn_arabic_equivalence_not_invented():
+    # 原文 3倍 → 改写成 三倍：同一事实换写法，不算编造
+    old = "<p>QPS 提升3倍</p>"
+    assert check_invented(old, "<p>QPS 翻了三倍</p>") == []
+
+
+def test_arabic_to_cn_percent_not_missing():
+    # 已知局限修复：40% 改写成 百分之四十 不再误报"丢失"
+    old = "<p>成本降低40%</p>"
+    assert check_coverage(old, "<p>成本降低了百分之四十</p>") == []
+
+
+def test_cn_to_arabic_percent_not_invented():
+    old = "<p>成本降低了百分之四十</p>"
+    assert check_invented(old, "<p>成本降低40%</p>") == []
+
+
+def test_cn_big_unit_mixed_form_equivalent():
+    # 五万人 ↔ 5万人：数字+量级混写是简历里最常见的阿拉伯形态
+    old = "<p>活动覆盖五万人</p>"
+    assert check_coverage(old, "<p>活动覆盖5万人规模</p>") == []
+
+
 # ---- extract_number_facts：只出数字子集，不出专有技术名词 ----
 
 def test_extract_number_facts_excludes_tech_terms():

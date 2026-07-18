@@ -101,6 +101,25 @@ function DimensionCard({
   );
 }
 
+// 严重度只落在小徽标与圆点上，正文保持正常墨色——避免整块高饱和色底的"警报墙"观感
+const ISSUE_TONES = {
+  danger: {
+    badge:
+      "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300",
+    dot: "bg-red-500",
+  },
+  warning: {
+    badge:
+      "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300",
+    dot: "bg-amber-500",
+  },
+  neutral: {
+    badge:
+      "border-chat-border bg-chat-canvas/70 text-chat-ink-muted dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-400",
+    dot: "bg-slate-400",
+  },
+} as const;
+
 function IssueGroup({
   label,
   items,
@@ -111,20 +130,21 @@ function IssueGroup({
   tone: "danger" | "warning" | "neutral";
 }) {
   if (items.length === 0) return null;
-  const toneClasses = {
-    danger: "border-red-200 bg-red-50 text-red-900 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-200",
-    warning:
-      "border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200",
-    neutral:
-      "border-chat-border bg-chat-canvas/60 text-chat-ink-muted dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300",
-  };
+  const toneClass = ISSUE_TONES[tone];
   return (
-    <div className={`rounded-lg border p-3 ${toneClasses[tone]}`}>
-      <div className="mb-2 text-xs font-bold">{label}</div>
-      <div className="space-y-1.5">
+    <div className="px-3 py-2.5">
+      <span
+        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-bold ${toneClass.badge}`}
+      >
+        {label} · {items.length}
+      </span>
+      <div className="mt-2 space-y-1.5">
         {items.map((issue, index) => (
-          <div key={`${label}-${index}`} className="flex items-start gap-2 text-xs leading-5">
-            <span className="mt-2 size-1.5 shrink-0 rounded-full bg-current opacity-60" />
+          <div
+            key={`${label}-${index}`}
+            className="flex items-start gap-2 text-xs leading-5 text-chat-ink dark:text-slate-200"
+          >
+            <span className={`mt-[7px] size-1.5 shrink-0 rounded-full ${toneClass.dot}`} />
             <span>{issue}</span>
           </div>
         ))}
@@ -192,23 +212,29 @@ function DiagnosisBody({
       </div>
 
       {traceSteps.length > 0 && (
-        <div className="rounded-xl border border-chat-border/70 bg-chat-canvas/40 p-3 dark:border-slate-700 dark:bg-slate-900/50">
+        <div>
           <div className="mb-2 flex items-center gap-1.5 text-xs font-bold text-chat-ink dark:text-slate-100">
             <Stethoscope className="size-3.5 text-blue-600" />
             诊断轨迹
           </div>
           <div className="grid gap-2 sm:grid-cols-2">
             {traceSteps.map((step, index) => (
-              <div key={`${step.label}-${index}`} className="flex items-start gap-2">
-                <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-600" />
-                <div>
-                  <div className="text-xs font-semibold text-chat-ink dark:text-slate-200">
+              <div
+                key={`${step.label}-${index}`}
+                className="rounded-lg border border-chat-border/70 bg-white p-2.5 dark:border-slate-700 dark:bg-slate-900"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-black tabular-nums text-blue-600/70 dark:text-blue-400/80">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span className="truncate text-xs font-semibold text-chat-ink dark:text-slate-200">
                     {step.label}
-                  </div>
-                  <div className="mt-0.5 text-[11px] leading-4 text-chat-ink-muted">
-                    {step.summary}
-                  </div>
+                  </span>
+                  <CheckCircle2 className="ml-auto size-3.5 shrink-0 text-emerald-500" />
                 </div>
+                <p className="mt-1.5 text-[11px] leading-[1.7] text-chat-ink-muted">
+                  {step.summary}
+                </p>
               </div>
             ))}
           </div>
@@ -221,30 +247,38 @@ function DiagnosisBody({
             <Lightbulb className="size-3.5 text-emerald-600" />
             已有优势
           </div>
-          <div className="flex flex-wrap gap-2">
-            {details.strengths.map((strength, index) => (
-              <span
-                key={`strength-${index}`}
-                className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] leading-4 text-emerald-800 dark:border-emerald-900/60 dark:bg-emerald-950/30 dark:text-emerald-200"
-              >
-                {strength}
-              </span>
-            ))}
+          <div className="rounded-xl border border-emerald-200/60 bg-emerald-50/40 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+            <div className="space-y-1.5">
+              {details.strengths.map((strength, index) => (
+                <div
+                  key={`strength-${index}`}
+                  className="flex items-start gap-2 text-xs leading-5 text-chat-ink dark:text-slate-200"
+                >
+                  <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-500" />
+                  <span>{strength}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
 
-      <div>
+      {details.issues.must_fix.length +
+        details.issues.should_fix.length +
+        details.issues.optional.length >
+        0 && (
+        <div>
           <div className="mb-2 flex items-center gap-1.5 text-xs font-bold text-chat-ink dark:text-slate-100">
             <AlertTriangle className="size-3.5 text-amber-600" />
             诊断发现
           </div>
-          <div className="grid gap-2.5">
+          <div className="divide-y divide-chat-border/60 rounded-xl border border-chat-border/80 bg-white dark:divide-slate-700/70 dark:border-slate-700 dark:bg-slate-900">
             <IssueGroup label="优先处理" items={details.issues.must_fix} tone="danger" />
             <IssueGroup label="建议优化" items={details.issues.should_fix} tone="warning" />
             <IssueGroup label="可选提升" items={details.issues.optional} tone="neutral" />
           </div>
-      </div>
+        </div>
+      )}
 
       {actions.length > 0 && onActionClick && (
         <div className="border-t border-chat-border/70 pt-4 dark:border-slate-700">

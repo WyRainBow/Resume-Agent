@@ -64,7 +64,7 @@ def test_discard_session_clears_every_session_dict():
         getattr(ResumeDataStore, name)[sid] = _DuckDummy()
 
     # 也登记一条内存会话条目，走完整 discard 路径
-    session_manager.register_session(sid, {"user_id": 12345})
+    session_manager.register_session(sid, {"user_id": "uDictCleanup32CharBaId000001"})
 
     session_manager.discard_session(sid)
 

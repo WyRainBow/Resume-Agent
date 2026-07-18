@@ -9,6 +9,8 @@ import { PDFViewerSelector } from '../../../../components/PDFEditor'
 import ResumeRenderer from '../../../Builder/templates/ResumeRenderer'
 import { PaginatedPreview } from '../../../Builder/components/PaginatedPreview'
 import { toBuilderResumeData } from '../../../Builder/adapter'
+import { fetchLogos, onLogosLoaded } from '../constants/companyLogos'
+import { fetchSchoolLogos } from '../constants/schoolLogos'
 import { withSettingsDefaults } from '../../../Builder/settings'
 import { PAGE_DIMENSIONS } from '../../../Builder/pageDimensions'
 import type { ResumeData } from '../types'
@@ -63,6 +65,19 @@ export function PreviewPanel({
   const [scalePercentInput, setScalePercentInput] = useState('')
   const [numPages, setNumPages] = useState(0)
   const [showMargin, setShowMargin] = useState(false)
+
+  // Logo 加载时机：HTML 模板的公司/学校 Logo 由 adapter 用 getLogoUrl(key) 解析成 URL，
+  // 依赖 logos 已缓存。预览可能在"没进过编辑经历面板"时就渲染，此处主动拉取并在到货后
+  // bump 触发重渲（adapter 在渲染中内联调用，重渲即重新解析）。
+  const [, setLogosVersion] = useState(0)
+  useEffect(() => {
+    let alive = true
+    const bump = () => { if (alive) setLogosVersion((v) => v + 1) }
+    void fetchLogos().then(bump).catch(() => {})
+    void fetchSchoolLogos().then(bump).catch(() => {})
+    const off = onLogosLoaded(bump) // 覆盖"别处已触发加载"的场景
+    return () => { alive = false; off() }
+  }, [])
 
   const isHTMLTemplate = resumeData?.templateType === 'html'
   const marginIn = LATEX_MARGIN_INCHES[resumeData?.globalSettings?.latexMargin || 'standard']

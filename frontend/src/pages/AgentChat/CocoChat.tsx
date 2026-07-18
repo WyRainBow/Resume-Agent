@@ -23,7 +23,6 @@ import { JdOptimizeChatCard } from "@/components/agent-chat/JdOptimizeChatCard";
 import {
   getSessionLimitMessage,
   isSessionLimitExceededResponse,
-  parseSessionLimits,
 } from "@/utils/sessionLimits";
 import AgentPdfPreviewPanel from "@/components/agent-chat/AgentPdfPreviewPanel";
 import { convertToBackendFormat } from "@/pages/Workspace/v2/utils/convertToBackend";
@@ -344,7 +343,7 @@ function normalizeImportedResumeToCanonical(
   };
 }
 
-function isWorkspaceResumeData(data: unknown): data is ResumeData {
+export function isWorkspaceResumeData(data: unknown): data is ResumeData {
   if (!data || typeof data !== "object") return false;
   const candidate = data as Partial<ResumeData>;
   return (
@@ -353,6 +352,38 @@ function isWorkspaceResumeData(data: unknown): data is ResumeData {
     Array.isArray(candidate.experience) &&
     Array.isArray(candidate.projects) &&
     Array.isArray(candidate.menuSections)
+  );
+}
+
+/** 进入 loadedResumes / PDF 预览链路的简历统一成 canonical：
+ *  已是工作台格式则原样返回（normalize 对 canonical 有损——canonical 的
+ *  description 已是 HTML，重复转换会二次包 <p>，故必须守卫先行，不可无脑转换），
+ *  否则按 applyResumeToChat 同款范式补 menuSections 等字段。 */
+export function toCanonicalResumeData(
+  raw: Record<string, any>,
+  resumeId: string,
+  title: string,
+): ResumeData {
+  return isWorkspaceResumeData(raw)
+    ? raw
+    : normalizeImportedResumeToCanonical(raw, { resumeId, title });
+}
+
+/** 快照恢复清洗：把 localStorage 里历史坏 resumeData 逐条转 canonical。
+ *  两份 loadSession 恢复块共用，避免只改一处漂移；resumeData 缺失的条目原样保留。 */
+function cleanLoadedResumesSnapshot(sLrs: unknown): any[] {
+  if (!Array.isArray(sLrs)) return sLrs as any[];
+  return sLrs.map((r: any) =>
+    r?.resumeData
+      ? {
+          ...r,
+          resumeData: toCanonicalResumeData(
+            r.resumeData,
+            r.id,
+            r.name || "我的简历",
+          ),
+        }
+      : r,
   );
 }
 
@@ -570,10 +601,8 @@ function CocoChatContent() {
     openModal("login");
   }, [isAuthenticated, openModal]);
   const getAuthHeaders = useCallback((extra: Record<string, string> = {}) => {
-    const token = localStorage.getItem("auth_token");
-    return token
-      ? { ...extra, Authorization: `Bearer ${token}` }
-      : { ...extra };
+    // 2026-07-17 身份统一：JWT 下架，认证走 BetterAuth cookie，不再注入 Bearer。
+    return { ...extra };
   }, []);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -706,7 +735,6 @@ function CocoChatContent() {
     const params = new URLSearchParams(location.search);
     const explicitSessionId = params.get("sessionId");
     const hasExplicitId = !!explicitSessionId?.trim();
-    const token = localStorage.getItem("auth_token");
     const forceNew = (location.state as { forceNew?: number } | null)?.forceNew;
     // 从首页 hero 输入框进入（fromHome）时，也跳过「加载最近会话」，直接开一个新对话。
     const fromHome = (location.state as { fromHome?: number } | null)?.fromHome;
@@ -729,54 +757,11 @@ function CocoChatContent() {
       };
     }
 
-    if (!token) {
-      hasBootstrappedSessionRef.current = true;
-      setInitialSessionResolved(true);
-      return () => {
-        mounted = false;
-      };
-    }
-
-    const bootstrapLatestSession = async () => {
-      try {
-        const resp = await fetch(
-          `${apiBaseUrl}/api/agent/history/sessions/list?page=1&page_size=1`,
-          {
-            headers: getAuthHeaders(),
-          },
-        );
-        if (!mounted) return;
-        if (resp.status === 401) {
-          return;
-        }
-        if (resp.status === 404) {
-          historyApiUnavailableRef.current = true;
-          return;
-        }
-        if (resp.ok) {
-          const data = await resp.json();
-          const latest = Array.isArray(data?.sessions)
-            ? data.sessions[0]
-            : null;
-          const latestId =
-            typeof latest?.session_id === "string" ? latest.session_id : "";
-          if (latestId && !isCreatingNewSessionRef.current) {
-            setConversationId(latestId);
-            navigate(`/agent/new?sessionId=${latestId}`, { replace: true });
-          }
-        }
-      } catch (error) {
-        console.error("[AgentChat] Failed to bootstrap latest session:", error);
-      } finally {
-        if (mounted) {
-          hasBootstrappedSessionRef.current = true;
-          setInitialSessionResolved(true);
-        }
-      }
-    };
-
-    void bootstrapLatestSession();
-
+    // 2026-07-17 身份统一：旧「按 legacy token 自动加载最近会话」路径退役——
+    // BetterAuth（cookie 登录）用户此前本就恒走本分支（auth_token 恒空），行为不变：
+    // 无显式 sessionId 一律从新对话开始。
+    hasBootstrappedSessionRef.current = true;
+    setInitialSessionResolved(true);
     return () => {
       mounted = false;
     };
@@ -926,7 +911,16 @@ function CocoChatContent() {
       }, renderTimeoutMs);
 
       try {
-      if (!isWorkspaceResumeData(resumeEntry.resumeData)) {
+      // 守卫改「先修复再渲染」（2026-07-18）：loadedResumes 写入点有 20 处、
+      // 逐入口补 canonical 转换屡漏屡复发——非工作台格式在此咽喉统一转
+      // （toCanonicalResumeData 对已 canonical 原样返回，无二次转换损耗），
+      // 转完仍不合格才报「不支持」。
+      const canonicalData = toCanonicalResumeData(
+        resumeEntry.resumeData,
+        resumeEntry.id,
+        "我的简历",
+      );
+      if (!isWorkspaceResumeData(canonicalData)) {
         updateResumePdfState(resumeEntry.id, {
           blob: null,
           loading: false,
@@ -941,7 +935,7 @@ function CocoChatContent() {
         progress: "正在渲染 PDF...",
         error: null,
       });
-        const backendData = convertToBackendFormat(resumeEntry.resumeData);
+        const backendData = convertToBackendFormat(canonicalData);
         const renderSessionId = currentSessionId || conversationId;
         const traceId = `sophia-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         console.log("[PDF TRACE] 准备渲染PDF", {
@@ -1042,6 +1036,13 @@ function CocoChatContent() {
         typeof payload.name === "string" && payload.name.trim().length > 0
           ? payload.name
           : "我的简历";
+      // 工具 structured 事件（cv_reader 等）可能带无 menuSections 的 agent 内部格式，
+      // 入库前统一归一成 canonical，避免右侧 PDF 预览格式守卫拦截。
+      const canonical = toCanonicalResumeData(
+        resumeData as Record<string, any>,
+        resumeId,
+        resumeName,
+      );
 
       setLoadedResumes((prev) => {
         const existingIndex = prev.findIndex(
@@ -1051,7 +1052,7 @@ function CocoChatContent() {
           id: resumeId,
           name: resumeName,
           messageId,
-          resumeData,
+          resumeData: canonical,
         };
         if (existingIndex >= 0) {
           const updated = [...prev];
@@ -1458,12 +1459,21 @@ function CocoChatContent() {
     onResumeUpdated: (resumeData) => {
       // 后端推送完整的更新后简历 JSON，更新 loadedResumes 本地副本（用于 PDF 渲染）。
       // ResumeContext 已通过 resume_patch 事件独立处理字段更新，无需重复合并。
+      // 后端 store 数据可能是无 menuSections 的 agent 内部格式，入口统一归一成
+      // canonical，避免右侧 PDF 预览的格式守卫拦截报「不支持 PDF 预览」。
       setLoadedResumes((prev) => {
         if (prev.length === 0) return prev;
         const targetId = selectedResumeId || prev[0]?.id;
         return prev.map((item) =>
           item.id === targetId
-            ? { ...item, resumeData: resumeData as unknown as ResumeData }
+            ? {
+                ...item,
+                resumeData: toCanonicalResumeData(
+                  resumeData as Record<string, any>,
+                  item.id,
+                  item.name,
+                ),
+              }
             : item,
         );
       });
@@ -1930,9 +1940,11 @@ function CocoChatContent() {
               messageTurnSnapshots: sTurnSnapshots,
               pendingPatches: sPatches,
             } = JSON.parse(savedUiState);
-            // 恢复已加载列表的元数据，数据会在后续逻辑中通过消息或重新加载补齐
-            if (Array.isArray(sLrs) && sLrs.length > 0) {
-              setLoadedResumes(sLrs);
+            // 恢复已加载列表的元数据，数据会在后续逻辑中通过消息或重新加载补齐；
+            // 清洗历史坏快照：上线前落盘的 agent 格式 resumeData 恢复时转 canonical
+            const cleanedLrs = cleanLoadedResumesSnapshot(sLrs);
+            if (Array.isArray(cleanedLrs) && cleanedLrs.length > 0) {
+              setLoadedResumes(cleanedLrs);
             }
             if (Array.isArray(savedDiagnosisToolEvents)) {
               setDiagnosisToolEvents(savedDiagnosisToolEvents);
@@ -1955,9 +1967,9 @@ function CocoChatContent() {
             if (Array.isArray(sPatches) && sPatches.length > 0) {
               restorePatches(sPatches);
               const sel =
-                (Array.isArray(sLrs) &&
-                  (sLrs.find((r: any) => r.id === savedSelectedResumeId) ||
-                    sLrs[sLrs.length - 1])) ||
+                (Array.isArray(cleanedLrs) &&
+                  (cleanedLrs.find((r: any) => r.id === savedSelectedResumeId) ||
+                    cleanedLrs[cleanedLrs.length - 1])) ||
                 null;
               if (sel?.resumeData) setResume(sel.resumeData);
             }
@@ -2407,29 +2419,11 @@ function CocoChatContent() {
   }, []);
 
   const checkCanCreateSession = useCallback(async (): Promise<boolean> => {
-    const token = localStorage.getItem("auth_token");
-    if (!token) {
-      return true;
-    }
-    try {
-      const resp = await fetch(
-        `${apiBaseUrl}/api/agent/history/sessions/list?page=1&page_size=1`,
-        { headers: getAuthHeaders() },
-      );
-      if (!resp.ok) {
-        return true;
-      }
-      const data = await resp.json();
-      const limits = parseSessionLimits(data);
-      if (!limits.can_create) {
-        toast.error(getSessionLimitMessage(limits));
-        return false;
-      }
-      return true;
-    } catch {
-      return true;
-    }
-  }, [apiBaseUrl, getAuthHeaders]);
+    // 2026-07-17 身份统一：该客户端预检原本仅对 legacy JWT 用户生效（BetterAuth
+    // 用户 auth_token 恒空、恒直接放行），行为保持不变；会话上限由后端
+    // session_limits 权威兜底。
+    return true;
+  }, []);
 
   // 检测并加载简历
   const detectAndLoadResume = useCallback(
@@ -3180,8 +3174,10 @@ function CocoChatContent() {
             messageTurnSnapshots: sTurnSnapshots,
             pendingPatches: sPatches,
           } = JSON.parse(savedUiState);
-          if (Array.isArray(sLrs) && sLrs.length > 0) {
-            setLoadedResumes(sLrs);
+          // 清洗历史坏快照（与刷新恢复块同款）：agent 格式 resumeData 转 canonical
+          const cleanedLrs = cleanLoadedResumesSnapshot(sLrs);
+          if (Array.isArray(cleanedLrs) && cleanedLrs.length > 0) {
+            setLoadedResumes(cleanedLrs);
           }
           if (Array.isArray(savedDiagnosisToolEvents)) {
             setDiagnosisToolEvents(savedDiagnosisToolEvents);
@@ -3204,9 +3200,9 @@ function CocoChatContent() {
           if (Array.isArray(sPatches) && sPatches.length > 0) {
             restorePatches(sPatches);
             const sel =
-              (Array.isArray(sLrs) &&
-                (sLrs.find((r: any) => r.id === savedSelectedResumeId) ||
-                  sLrs[sLrs.length - 1])) ||
+              (Array.isArray(cleanedLrs) &&
+                (cleanedLrs.find((r: any) => r.id === savedSelectedResumeId) ||
+                  cleanedLrs[cleanedLrs.length - 1])) ||
               null;
             if (sel?.resumeData) setResume(sel.resumeData);
           }
@@ -4562,6 +4558,48 @@ function CocoChatContent() {
     async (userMessage: string, attachmentsToProcess: File[]) => {
       setResumeError(null);
       setIsUploadingFile(true);
+
+      // 先立即进对话视图：上用户气泡（带文件卡）+ 解析占位，再做慢解析。
+      // 原实现把 PDF 解析（glm-ocr + 结构化，实测 15-40s）同步 await 在
+      // sendUserTextMessage 之前，期间既不进对话也不上气泡，用户停在落地页
+      // 干等、看着像卡死。复用 importResumeFileInChat 的「先进对话再解析」范式。
+      const userBubbleId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const attachmentMeta = attachmentsToProcess.map((file) => ({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+      }));
+      const userBubble: Message = {
+        id: userBubbleId,
+        role: "user",
+        content: userMessage || "解析这份简历",
+        timestamp: new Date().toISOString(),
+        attachments: attachmentMeta,
+      };
+      const nextMessages = [...messages, userBubble];
+      const isFirstMessage = messages.length === 0;
+      setMessages(nextMessages);
+
+      let validConversationId = conversationId;
+      if (!validConversationId || validConversationId.trim() === "") {
+        validConversationId = `conv-${Date.now()}`;
+        setConversationId(validConversationId);
+      }
+      if (!currentSessionId) setCurrentSessionId(validConversationId);
+
+      const parsingMsgId = `${userBubbleId}-parsing`;
+      const parseStartedAt = Date.now();
+      const parsingMsg: Message = {
+        id: parsingMsgId,
+        role: "assistant",
+        content: "正在解析简历文件、请稍候…",
+        timestamp: new Date().toISOString(),
+        meta: { pasteImportParsing: true, parseStartedAt },
+      };
+      const withParsing = [...nextMessages, parsingMsg];
+      setMessages(withParsing);
+      await persistSessionSnapshot(validConversationId, withParsing, isFirstMessage);
+
       try {
         const attachmentBlocks: string[] = [];
         let latestResumeDataForRequest: ResumeData | null = null;
@@ -4705,17 +4743,42 @@ function CocoChatContent() {
         const finalMessage = attachmentBlocks.length
           ? `${baseMessage}\n\n${attachmentBlocks.join("\n\n")}`
           : baseMessage;
+        // 解析完成：移除解析占位，触发 Agent 真实一轮。用户气泡已在上方展示，
+        // silentUserBubble=true 让 sendUserTextMessage 不再重复上气泡。
+        setMessages((prev) => prev.filter((m) => m.id !== parsingMsgId));
         await sendUserTextMessage(
           finalMessage,
           attachmentsToProcess,
           latestResumeDataForRequest,
+          false,
+          true,
         );
       } catch (error) {
         console.error("[AgentChat] Failed to send message:", error);
-        setResumeError(
-          error instanceof Error ? error.message : "文件上传失败，请稍后重试",
+        const errText =
+          error instanceof Error ? error.message : "文件上传失败，请稍后重试";
+        setResumeError(errText);
+        // 解析占位转失败态 + 存重试闭包（与图片/文件导入同款，失败不静默、一键可重试）
+        importRetryMapRef.current.set(parsingMsgId, () => {
+          void submitMessageWithAttachments(userMessage, attachmentsToProcess);
+        });
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === parsingMsgId
+              ? {
+                  ...m,
+                  content: `简历解析失败：${errText}`,
+                  timestamp: new Date().toISOString(),
+                  meta: {
+                    pasteImportParsing: false,
+                    parseStartedAt,
+                    parseElapsedMs: Date.now() - parseStartedAt,
+                    importRetry: true,
+                  },
+                }
+              : m,
+          ),
         );
-        throw error;
       } finally {
         setIsUploadingFile(false);
       }
@@ -4723,6 +4786,10 @@ function CocoChatContent() {
     [
       apiBaseUrl,
       user?.id,
+      messages,
+      conversationId,
+      currentSessionId,
+      persistSessionSnapshot,
       sendUserTextMessage,
       updateResumePdfState,
       setResumeData,

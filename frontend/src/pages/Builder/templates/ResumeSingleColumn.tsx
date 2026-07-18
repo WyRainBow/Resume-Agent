@@ -19,6 +19,7 @@ import { Mail, Phone, MapPin, Globe, Linkedin, Github, ExternalLink } from 'luci
 import type { BuilderResumeData, Project, SectionMeta } from '../types'
 import { getSortedSections, formatDateRange } from '../types'
 import { SafeHtml, InlineBold } from './SafeHtml'
+import { TemplateLogo } from './TemplateLogo'
 import baseStyles from './styles/_base.module.css'
 import styles from './styles/swiss-single.module.css'
 
@@ -218,7 +219,7 @@ export const ResumeSingleColumn: React.FC<ResumeSingleColumnProps> = ({
                   <div
                     className={`flex justify-between items-center ${baseStyles['resume-row']} ${baseStyles['resume-item-subtitle']}`}
                   >
-                    <InlineBold as="span" text={exp.company} weightControlled />
+                    <TemplateLogo url={exp.companyLogoUrl} size={exp.companyLogoSize} alt={exp.company} /><InlineBold as="span" text={exp.company} weightControlled />
                     {exp.location && <span>{exp.location}</span>}
                   </div>
                   {renderBullets(exp.description)}
@@ -257,7 +258,7 @@ export const ResumeSingleColumn: React.FC<ResumeSingleColumnProps> = ({
                   <div
                     className={`flex justify-between items-baseline ${baseStyles['resume-row-tight']}`}
                   >
-                    <h4 className={baseStyles['resume-item-title']}><InlineBold text={edu.institution} /></h4>
+                    <h4 className={baseStyles['resume-item-title']}><TemplateLogo url={edu.schoolLogoUrl} size={edu.schoolLogoSize} alt={edu.institution} /><InlineBold text={edu.institution} /></h4>
                     <span className={`${baseStyles['resume-date']} ml-4`}>
                       {formatDateRange(edu.years)}
                     </span>

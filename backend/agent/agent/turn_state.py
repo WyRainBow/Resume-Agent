@@ -36,6 +36,12 @@ class TurnExecutionState:
     # 查看建议轮（2026-07-16 诊断/建议拆分）：用户点「查看修改建议」——只读，
     # 调 cv_suggestions_agent 展示建议；拦截编辑工具，不重新诊断
     view_suggestions: bool = False
+    # 单条 apply（2026-07-17）：用户点建议卡「帮我改这条」，只改第 N 条建议
+    # （1-based）。与 diagnosis_apply 同时为真，但 prompt 只注入该条。
+    diagnosis_apply_single: Optional[int] = None
+    # 缺口收集轮（2026-07-17）：一键 apply 前置——诊断建议含 needs_fact 条目时，
+    # 本轮先弹 ask_user_question 问齐缺口，禁止 cv_editor，不改简历
+    diagnosis_gap_collect: bool = False
 
     def queue_patch(self, patch: Dict[str, Any]) -> None:
         self.pending_resume_patches.append(patch)
@@ -52,4 +58,6 @@ class TurnExecutionState:
         self.diagnosis_only = False
         self.diagnosis_apply = False
         self.view_suggestions = False
+        self.diagnosis_apply_single = None
+        self.diagnosis_gap_collect = False
         # patches 不清：保持现状跨轮残留语义（D3）

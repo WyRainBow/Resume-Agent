@@ -6,7 +6,6 @@ from pydantic import BaseModel, Field
 from typing import Optional, Literal, List, Dict, Any
 from sqlalchemy import Column, Integer, String, DateTime, Date, ForeignKey, JSON, Text, Boolean, Float, UniqueConstraint
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
 
 # 统一模块别名，避免同一文件被以 `models` 和 `backend.models` 重复加载，
 # 进而生成两套 SQLAlchemy mapper（会导致关系同步异常）。
@@ -108,33 +107,8 @@ class ResumeParseRequest(BaseModel):
 # SQLAlchemy ORM 模型
 # ======================
 
-class User(Base):
-    """用户模型"""
-    __tablename__ = "users"
-    __table_args__ = {'extend_existing': True}
-
-    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    username = Column(String(255), unique=True, nullable=False, index=True)
-    email = Column(String(255), unique=True, nullable=False, index=True)
-    password_hash = Column(String(255), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), index=True)
-
-    # 管理用字段：最近登录 IP、API 额度、角色权限
-    last_login_ip = Column(String(45), nullable=True, index=True)   # 最近一次登录 IP，IPv6 最长约 45 字符
-    api_quota = Column(Integer, nullable=True)         # API 调用额度上限，NULL 表示不限制
-    role = Column(String(32), nullable=False, server_default="user", index=True)  # 角色：user / admin 等
-    pdf_download_count = Column(Integer, nullable=False, server_default="0")  # 已成功生成 PDF 次数
-
-    resumes = relationship(
-        lambda: Resume,
-        back_populates="user",
-        cascade="all, delete-orphan",
-        lazy="select",
-        overlaps="user,resumes",
-    )
-
-
+# 旧 JWT 用户表 User(users) 已于 2026-07-17 身份统一时退役：
+# 身份唯一锚点 = BetterAuth "user".id（32 位字符串），app 侧 profile 见 BetterAuthEntitlement。
 class BetterAuthEntitlement(Base):
     """BetterAuth 用户的商业化权益模型。"""
     __tablename__ = "better_auth_entitlements"
@@ -151,6 +125,10 @@ class BetterAuthEntitlement(Base):
     daily_usage_count = Column(Integer, nullable=False, server_default="0")
     last_usage_reset_at = Column(DateTime(timezone=True), nullable=True)
 
+    # app 侧身份 profile（原 users 表迁入，2026-07-17 身份统一）
+    role = Column(String(32), nullable=False, server_default="user", index=True)  # user/member/staff/admin
+    pdf_download_count = Column(Integer, nullable=False, server_default="0")      # 已成功生成 PDF 次数
+
     subscription_status = Column(String(64), nullable=False, server_default="free", index=True)
     provider_customer_id = Column(String(255), nullable=True, index=True)
     provider_subscription_id = Column(String(255), nullable=True, index=True)
@@ -166,19 +144,14 @@ class Resume(Base):
     __table_args__ = {'extend_existing': True}
 
     id = Column(String(255), primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    # BetterAuth "user".id（字符串）；不声明跨工具 FK——"user" 表由 better-auth CLI 管理，
+    # 声明硬 FK 会让 create_all 依赖建表顺序（真实库可由迁移脚本 --with-fk 补库级约束）
+    user_id = Column(String(255), nullable=False, index=True)
     name = Column(String(255), nullable=False)
     alias = Column(String(255), nullable=True)  # 备注/别名，用于标识简历用途
     data = Column(JSON, nullable=False)  # MySQL JSON 类型，存储完整简历数据
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-    user = relationship(
-        lambda: User,
-        back_populates="resumes",
-        lazy="select",
-        overlaps="user,resumes",
-    )
 
 
 class Member(Base):
@@ -192,7 +165,7 @@ class Member(Base):
     position = Column(String(128), nullable=True)
     team = Column(String(128), nullable=True)
     status = Column(String(32), nullable=False, server_default="active")
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(String(255), nullable=True, index=True)  # BetterAuth "user".id（无跨工具 FK）
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -209,7 +182,7 @@ class APIRequestLog(Base):
     path = Column(String(512), nullable=False, index=True)
     status_code = Column(Integer, nullable=False)
     latency_ms = Column(Float, nullable=False, default=0)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(String(255), nullable=True, index=True)  # BetterAuth "user".id（无跨工具 FK）
     ip = Column(String(64), nullable=True, index=True)
     user_agent = Column(String(512), nullable=True)
     request_size = Column(Integer, nullable=True)
@@ -256,8 +229,8 @@ class PermissionAuditLog(Base):
     __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    operator_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
-    target_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    operator_user_id = Column(String(255), nullable=True, index=True)  # BetterAuth "user".id
+    target_user_id = Column(String(255), nullable=True, index=True)    # BetterAuth "user".id
     from_role = Column(String(32), nullable=True)
     to_role = Column(String(32), nullable=True)
     action = Column(String(128), nullable=False)
@@ -271,7 +244,7 @@ class AgentConversation(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     session_id = Column(String(255), nullable=False, unique=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id = Column(String(255), nullable=True, index=True)  # BetterAuth "user".id（无跨工具 FK）
     title = Column(String(255), nullable=False, default="New Conversation")
     message_count = Column(Integer, nullable=False, default=0)
     meta = Column(JSON, nullable=True)
@@ -314,7 +287,7 @@ class ResumeEmbedding(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     resume_id = Column(String(255), ForeignKey("resumes.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String(255), nullable=False, index=True)  # BetterAuth "user".id（无跨工具 FK）
 
     # 向量维度（1536 对应 OpenAI text-embedding-ada-002）
     embedding = Column(JSON, nullable=False)  # PostgreSQL 中将使用 vector(1536) 类型
@@ -361,7 +334,7 @@ class ScoreResult(Base):
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     resume_id = Column(String(255), ForeignKey("resumes.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(String(255), nullable=False, index=True)  # BetterAuth "user".id（无跨工具 FK）
     jd_text = Column(Text, nullable=False)  # 原始JD文本
     overall_score = Column(Float, nullable=False)
     skill_experience_score = Column(Float, nullable=False)  # 技能与经验匹配

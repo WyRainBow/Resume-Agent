@@ -24,6 +24,7 @@ import { Mail, Phone, MapPin, Globe, Linkedin, Github, ExternalLink } from 'luci
 import type { BuilderResumeData, Project, SectionMeta } from '../types'
 import { getSortedSections, formatDateRange, DEFAULT_SECTION_META } from '../types'
 import { SafeHtml, InlineBold } from './SafeHtml'
+import { TemplateLogo } from './TemplateLogo'
 import baseStyles from './styles/_base.module.css'
 import styles from './styles/swiss-two-column.module.css'
 
@@ -309,7 +310,7 @@ export const ResumeTwoColumn: React.FC<ResumeTwoColumnProps> = ({
                       className={`flex justify-between items-center ${baseStyles['resume-row-tight']} ${baseStyles['resume-item-subtitle-sm']}`}
                     >
                       <span>
-                        <InlineBold text={exp.company} weightControlled />
+                        <TemplateLogo url={exp.companyLogoUrl} size={exp.companyLogoSize} alt={exp.company} /><InlineBold text={exp.company} weightControlled />
                         {exp.location && <> • {exp.location}</>}
                       </span>
                     </div>
@@ -367,7 +368,7 @@ export const ResumeTwoColumn: React.FC<ResumeTwoColumnProps> = ({
                     <h4
                       className={`${baseStyles['resume-item-title-sm']} ${baseStyles['sidebar-text-wrap']}`}
                     >
-                      <InlineBold text={edu.institution} />
+                      <TemplateLogo url={edu.schoolLogoUrl} size={edu.schoolLogoSize} alt={edu.institution} /><InlineBold text={edu.institution} />
                       {edu.years && (
                         <span
                           className={`font-normal ${baseStyles['resume-date']} ${baseStyles['text-muted']}`}

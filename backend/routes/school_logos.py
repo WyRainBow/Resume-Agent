@@ -12,8 +12,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, UploadFile, File, Depends, Form
 from fastapi.responses import FileResponse, JSONResponse
-from middleware.auth import require_admin_only
-from models import User
+from middleware.auth import AppUser, require_admin_only
+# User(users) 已退役(2026-07-17 身份统一),身份用 middleware.auth.AppUser
 
 router = APIRouter(prefix="/api", tags=["SchoolLogos"])
 
@@ -62,7 +62,7 @@ async def get_school_logos():
 async def upload_school_logo(
     file: UploadFile = File(...),
     group: str = Form(...),
-    current_user: User = Depends(require_admin_only),
+    current_user: AppUser = Depends(require_admin_only),
 ):
     if not file.filename:
         raise HTTPException(status_code=400, detail="缺少文件名")
@@ -136,7 +136,7 @@ async def upload_school_logo(
 async def delete_school_logo(
     filename: str,
     group: str,
-    current_user: User = Depends(require_admin_only),
+    current_user: AppUser = Depends(require_admin_only),
 ):
     """删除学校 Logo：从 COS 删除对象 + 本地缓存，并清列表缓存。仅管理员。"""
     safe = Path(filename).name

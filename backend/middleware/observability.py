@@ -1,6 +1,7 @@
 """可观测性中间件：请求日志、错误日志、链路 span。"""
 from __future__ import annotations
 
+import os
 import time
 import traceback
 import threading
@@ -11,7 +12,6 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from auth import decode_access_token
 from database import SessionLocal
 from models import APIErrorLog, APIRequestLog, APITraceSpan
 
@@ -60,27 +60,28 @@ class RequestObservabilityMiddleware(BaseHTTPMiddleware):
                 response.headers["X-Request-Id"] = request_id
 
 
-def _extract_user_id(request: Request) -> int | None:
-    authz = request.headers.get("authorization")
-    if not authz or not authz.startswith("Bearer "):
+def _extract_user_id(request: Request) -> str | None:
+    """请求归因：取 BetterAuth 可信头的用户 id（2026-07-17 身份统一，旧 JWT 解码归因下架）。
+
+    仅当同请求带合法 X-Internal-Auth-Secret（web 代理注入）才采信
+    X-Better-Auth-User-Id，防伪造归因。顺带修复旧实现只认 JWT 导致
+    BetterAuth 请求 99% user_id=NULL 的观测盲区。
+    """
+    secret = (request.headers.get("x-internal-auth-secret") or "").strip()
+    if not secret:
         return None
-    token = authz.split(" ", 1)[1].strip()
-    payload = decode_access_token(token)
-    if not payload:
+    expected = os.getenv("FASTAPI_INTERNAL_AUTH_SECRET", "").strip()
+    if not expected or secret != expected:
         return None
-    user_id = payload.get("sub")
-    if isinstance(user_id, str) and user_id.isdigit():
-        return int(user_id)
-    if isinstance(user_id, int):
-        return user_id
-    return None
+    user_id = (request.headers.get("x-better-auth-user-id") or "").strip()
+    return user_id or None
 
 
 def _persist_observability(
     *,
     request: Request,
     response,
-    user_id: int | None,
+    user_id: str | None,
     trace_id: str,
     request_id: str,
     start_at: datetime,

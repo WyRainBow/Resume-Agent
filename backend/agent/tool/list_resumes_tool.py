@@ -24,7 +24,7 @@ class ListResumesTool(BaseTool):
     )
     parameters: dict = {"type": "object", "properties": {}, "required": []}
     # 由 Manus._inject_tool_context 注入(hasattr 检测,必须显式声明)
-    user_id: Optional[int] = Field(default=None, exclude=True)
+    user_id: Optional[str] = Field(default=None, exclude=True)
 
     class Config:
         arbitrary_types_allowed = True

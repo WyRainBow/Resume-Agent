@@ -1,8 +1,13 @@
 """
-JWT / BetterAuth 统一认证依赖
+BetterAuth 统一认证依赖。
+
+2026-07-17 身份统一：旧 JWT 通道与 users 表退役——身份唯一锚点 = BetterAuth
+"user".id（32 位字符串），app 侧 profile（role / pdf_download_count）由
+better_auth_entitlements 承载，经 get_or_create_entitlement 单点解析。
 """
 import logging
 import os
+from dataclasses import dataclass
 from time import sleep
 from typing import Optional
 
@@ -12,78 +17,30 @@ from sqlalchemy.exc import (
     DisconnectionError,
     InterfaceError,
     OperationalError,
-    SQLAlchemyError,
 )
-from sqlalchemy.orm import Session, load_only
+from sqlalchemy.orm import Session
 
-from auth import decode_access_token
 from backend.better_auth import BetterAuthUser, verify_better_auth_token
-from backend.services.better_auth_users import resolve_legacy_user
+from backend.services.better_auth_entitlements import get_or_create_entitlement
 from database import get_db
-from models import User
 
 logger = logging.getLogger("backend")
 MAX_AUTH_DB_RETRIES = 4
 
-_USER_LOAD_OPTIONS = load_only(
-    User.id,
-    User.username,
-    User.email,
-    User.role,
-    User.last_login_ip,
-    User.api_quota,
-    User.pdf_download_count,
-    User.created_at,
-    User.updated_at,
-)
 
+@dataclass
+class AppUser:
+    """当前请求身份：BetterAuth user.id 为唯一锚点，app 侧字段来自 entitlements。
 
-def _load_user_by_id(db: Session, user_id: object) -> User:
-    if isinstance(user_id, str):
-        try:
-            user_id = int(user_id)
-        except ValueError:
-            raise HTTPException(status_code=401, detail="Token 格式错误")
+    属性名与旧 ORM User 对齐（id/email/role），路由层 current_user.id /
+    current_user.role 用法不变；id 语义为字符串（BetterAuth "user".id）。
+    """
 
-    user = None
-    db_error: Optional[Exception] = None
-    for attempt in range(1, MAX_AUTH_DB_RETRIES + 1):
-        try:
-            user = (
-                db.query(User)
-                .options(_USER_LOAD_OPTIONS)
-                .filter(User.id == user_id)
-                .first()
-            )
-            db_error = None
-            break
-        except (OperationalError, InterfaceError, DisconnectionError, DBAPIError) as exc:
-            db_error = exc
-            try:
-                db.rollback()
-            except Exception:
-                pass
-            try:
-                db.invalidate()
-            except Exception:
-                pass
-            logger.warning(
-                f"[鉴权] get_current_user 数据库连接异常，重试 {attempt}/{MAX_AUTH_DB_RETRIES}: {exc}"
-            )
-            if attempt < MAX_AUTH_DB_RETRIES:
-                sleep(0.15 * attempt)
-                continue
-        except SQLAlchemyError as exc:
-            db_error = exc
-            db.rollback()
-            logger.error(f"[鉴权] get_current_user 数据库查询失败: {exc}")
-            break
-
-    if db_error is not None:
-        raise HTTPException(status_code=503, detail="数据库连接异常、请稍后重试")
-    if not user:
-        raise HTTPException(status_code=401, detail="用户不存在")
-    return user
+    id: str
+    email: Optional[str]
+    name: Optional[str]
+    role: str
+    pdf_download_count: int
 
 
 def _resolve_trusted_better_auth_user(
@@ -110,6 +67,38 @@ def _resolve_trusted_better_auth_user(
     )
 
 
+def _resolve_app_user(db: Session, better_user: BetterAuthUser) -> AppUser:
+    """BetterAuth 身份 → entitlements（get-or-create）→ AppUser。
+
+    保留原鉴权链路的瞬时 DB 异常重试（get-or-create 幂等，重试安全）。
+    """
+    for attempt in range(1, MAX_AUTH_DB_RETRIES + 1):
+        try:
+            entitlement = get_or_create_entitlement(db, better_user)
+            return AppUser(
+                id=better_user.id,
+                email=better_user.email or entitlement.email,
+                name=better_user.name or entitlement.name,
+                role=entitlement.role or "user",
+                pdf_download_count=entitlement.pdf_download_count or 0,
+            )
+        except (OperationalError, InterfaceError, DisconnectionError, DBAPIError) as exc:
+            try:
+                db.rollback()
+            except Exception:
+                pass
+            try:
+                db.invalidate()
+            except Exception:
+                pass
+            logger.warning(
+                f"[鉴权] entitlements 读写数据库异常，重试 {attempt}/{MAX_AUTH_DB_RETRIES}: {exc}"
+            )
+            if attempt < MAX_AUTH_DB_RETRIES:
+                sleep(0.15 * attempt)
+    raise HTTPException(status_code=503, detail="数据库连接异常、请稍后重试")
+
+
 async def get_current_user(
     authorization: Optional[str] = Header(default=None),
     x_internal_auth_secret: Optional[str] = Header(default=None),
@@ -118,8 +107,8 @@ async def get_current_user(
     x_better_auth_user_name: Optional[str] = Header(default=None),
     x_better_auth_user_image: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
-) -> User:
-    """从 trusted headers、BetterAuth Bearer 或 JWT 获取当前用户。"""
+) -> AppUser:
+    """从 trusted headers 或 BetterAuth Bearer 获取当前用户（旧 JWT 通道已下架）。"""
     trusted_user = _resolve_trusted_better_auth_user(
         x_internal_auth_secret,
         x_better_auth_user_id,
@@ -128,7 +117,7 @@ async def get_current_user(
         x_better_auth_user_image,
     )
     if trusted_user:
-        return resolve_legacy_user(db, trusted_user)
+        return _resolve_app_user(db, trusted_user)
 
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="未提供有效的认证信息")
@@ -137,12 +126,8 @@ async def get_current_user(
     if not token:
         raise HTTPException(status_code=401, detail="未提供有效的认证信息")
 
-    payload = decode_access_token(token)
-    if payload and "sub" in payload:
-        return _load_user_by_id(db, payload.get("sub"))
-
     better_user = await verify_better_auth_token(token)
-    return resolve_legacy_user(db, better_user)
+    return _resolve_app_user(db, better_user)
 
 
 async def get_current_user_optional(
@@ -153,7 +138,7 @@ async def get_current_user_optional(
     x_better_auth_user_name: Optional[str] = Header(default=None),
     x_better_auth_user_image: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
-) -> Optional[User]:
+) -> Optional[AppUser]:
     """与 get_current_user 相同，但无有效认证时返回 None 而非 401。
 
     用于匿名可访问的端点（如 PDF 渲染预览）：登录与否都能渲染，
@@ -174,8 +159,8 @@ async def get_current_user_optional(
 
 
 def require_admin_only(
-    current_user: User = Depends(get_current_user),
-) -> User:
+    current_user: AppUser = Depends(get_current_user),
+) -> AppUser:
     """仅允许 admin 角色访问（后台/运营接口统一用这一档；staff/member 均无后台权限）。"""
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="仅管理员可访问")
