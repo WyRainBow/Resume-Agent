@@ -325,7 +325,7 @@ class DBConversationStorage:
         if not self._schema_supports_message_hash():
             logger.warning(
                 "[AgentStorage] DB schema missing agent_messages.message_hash; using legacy save path. "
-                "Please run: alembic upgrade head"
+                "Please run: python backend/create_tables.py"
             )
             return self._save_session_legacy(
                 session_id, messages, user_id=user_id, is_admin=is_admin
@@ -394,7 +394,7 @@ class DBConversationStorage:
             if self._is_message_hash_missing_error(exc):
                 logger.warning(
                     "[AgentStorage] save_session hit missing message_hash column; retrying legacy path. "
-                    "Please run: alembic upgrade head"
+                    "Please run: python backend/create_tables.py"
                 )
                 self._supports_message_hash = False
                 return self._save_session_legacy(
@@ -485,7 +485,7 @@ class DBConversationStorage:
         if not self._schema_supports_message_hash():
             logger.warning(
                 "[AgentStorage] DB schema missing agent_messages.message_hash; using legacy append path. "
-                "Please run: alembic upgrade head"
+                "Please run: python backend/create_tables.py"
             )
             return self._append_session_messages_legacy(
                 session_id, base_seq, messages_delta, user_id=user_id, is_admin=is_admin
@@ -598,7 +598,7 @@ class DBConversationStorage:
             if self._is_message_hash_missing_error(exc):
                 logger.warning(
                     "[AgentStorage] append_session_messages hit missing message_hash column; "
-                    "retrying legacy path. Please run: alembic upgrade head"
+                    "retrying legacy path. Please run: python backend/create_tables.py"
                 )
                 self._supports_message_hash = False
                 return self._append_session_messages_legacy(
@@ -798,7 +798,7 @@ class DBConversationStorage:
             if self._is_message_hash_missing_error(exc):
                 logger.warning(
                     "[AgentStorage] load_session hit missing message_hash column; "
-                    "switching to legacy read path. Please run: alembic upgrade head"
+                    "switching to legacy read path. Please run: python backend/create_tables.py"
                 )
                 self._supports_message_hash = False
                 return self._load_session_legacy(

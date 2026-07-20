@@ -268,6 +268,11 @@ def is_diagnosis_apply_query(user_input: str) -> bool:
 # 单条 apply（2026-07-17）：建议卡「帮我改这条」固定发"按建议第N条修改：<标题>"。
 _SUGGESTION_ITEM_APPLY_RE = re.compile(r"按建议第(\d+)条(?:修改|改|优化|处理)")
 
+# 单条缺口收集（2026-07-19 P2）：建议卡 needs_fact 条「补充信息并修改」
+# 固定发"补充第N条建议需要的信息：<标题>"。锚在「条建议」上，
+# 不与"补充第二段经历"这类普通编辑表达冲突。
+_SUGGESTION_FACTS_RE = re.compile(r"补充第(\d+)条建议")
+
 
 def is_diagnosis_apply_single_query(user_input: str) -> Optional[int]:
     """用户是否点了建议卡「帮我改这条」；命中返回 1-based 序号，否则 None。"""
@@ -277,6 +282,21 @@ def is_diagnosis_apply_single_query(user_input: str) -> Optional[int]:
     if _NEGATED_EDIT_RE.search(text):
         return None
     m = _SUGGESTION_ITEM_APPLY_RE.search(text)
+    return int(m.group(1)) if m else None
+
+
+def is_suggestion_facts_query(user_input: str) -> Optional[int]:
+    """用户是否点了建议卡「补充信息并修改」（needs_fact 单条缺口收集）；
+    命中返回 1-based 序号，否则 None。"""
+    text = re.sub(r"\s+", "", (user_input or "").strip())
+    if not text:
+        return None
+    # _NEGATED_EDIT_RE 的动词表不含「补充」，此处局部补否定
+    if _NEGATED_EDIT_RE.search(text) or re.search(
+        r"(?:别|不要|不用|无需|先别|暂时别)[^，。；,!;]{0,12}补充", text
+    ):
+        return None
+    m = _SUGGESTION_FACTS_RE.search(text)
     return int(m.group(1)) if m else None
 
 

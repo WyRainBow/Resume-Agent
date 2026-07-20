@@ -49,6 +49,11 @@ function ResumeSuggestionsStructuredCard({ data, onAction }: StructuredCardProps
           ? (index, title) => onAction(`按建议第${index}条修改：${title}`)
           : undefined
       }
+      onCollectFacts={
+        onAction
+          ? (index, title) => onAction(`补充第${index}条建议需要的信息：${title}`)
+          : undefined
+      }
     />
   );
 }

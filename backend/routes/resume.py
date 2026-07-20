@@ -475,6 +475,7 @@ def _build_health_check_prompt(*, fields: list[JdOptimizeField], locale: str) ->
 体检纪律（打分与建议都要执行）：
 - 六秒门：只看基本信息与排在最前的内容模块，六秒内能否看出目标角色、最强技术栈/领域、至少一个量化成果；看不出→在「完整度」「格式规范」酌情扣分，并给出把最强证据前置的建议。
 - 技术岗从严（仅当从内容判断求职方向为研发/算法/数据/测试/运维等技术岗时启用，非技术岗不套用）：技能须标注掌握程度分级（熟练掌握/熟悉/了解）并落到框架与深度，笼统的「熟悉 Java」算扣分点；项目须有能支撑面试追问（动机→方案→难点→数据效果）的技术亮点；量化须落到具体业务/性能指标（QPS/耗时/DAU/留存/转化率等）；表述不清视为硬伤重扣。
+- 应届/社招分口径：从教育时间线与经历年限判断候选人属应届（校招）还是社招——应届重潜力与基础（竞赛/课程/实习可补位），社招重即战力与业务结果；按对应口径打分与给建议，不混用。
 {ai_check_block}
 
 简历字段（每条含唯一 key）：
@@ -541,6 +542,9 @@ def _build_jd_optimize_prompt(*, jd_text: str, fields: list[JdOptimizeField], lo
 4. keywordMatches 列出 JD 要求且简历**已命中**的关键词；missingKeywords 列出 JD 要求但简历**明显缺失**的关键词（两者不重叠）。
 5. matchScore 为当前简历与 JD 的总体匹配度（0-100）。
 6. atsScore 为简历对 ATS（招聘方简历筛选系统）的兼容/通过度（0-100）：关键词覆盖、术语规范、可被机器解析的清晰表述越好分越高。
+7. 关键词改写铁律：**绝不添加候选人不具备的技能**——只用 JD 的原词重述简历里真实存在的经历。范式（同一事实换用 JD 词汇）：JD 说「RAG 检索管线」、简历写「基于向量检索的 LLM 工作流」→ 改成「RAG 检索管线设计与 LLM 编排」。
+8. 关键词落位优先级：目标关键词优先落到 ①摘要/自我评价前部 ②最相关经历的**第一条要点** ③技能区；不要生硬堆进无关段落。
+9. atsChecklist 逐条输出 ATS 兼容检查。status 取值：pass=达标 / fail=不达标（note 写怎么改）/ template=由本产品 LaTeX 模板天然保证。必查项：标准小标题命名、关键词覆盖摘要、关键词落位经历首条要点、技能区覆盖目标关键词、表述可被机器解析（无图片文字/生僻符号）；「单栏布局」「无嵌套表格」「正文文本可选中」三项直接输出 status=template。
 
 只输出 JSON，不要任何额外文字或代码块：
 {{
@@ -548,6 +552,9 @@ def _build_jd_optimize_prompt(*, jd_text: str, fields: list[JdOptimizeField], lo
   "atsScore": 0,
   "keywordMatches": ["..."],
   "missingKeywords": ["..."],
+  "atsChecklist": [
+    {{"item": "检查项", "status": "pass|fail|template", "note": "一句话说明"}}
+  ],
   "suggestions": [
     {{"key": "字段key", "original": "原片段", "suggested": "改进后片段", "reason": "为何更匹配JD"}}
   ]
@@ -610,11 +617,25 @@ async def jd_optimize(body: JdOptimizeRequest):
         except (TypeError, ValueError):
             return None
 
+    checklist = []
+    for item in (data.get("atsChecklist") or []):
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("item", "")).strip()
+        status = str(item.get("status", "")).strip()
+        if name and status in {"pass", "fail", "template"}:
+            checklist.append({
+                "item": name,
+                "status": status,
+                "note": str(item.get("note", "")).strip(),
+            })
+
     return {
         "matchScore": _clamp_score(data.get("matchScore")),
         "atsScore": _clamp_score(data.get("atsScore")),
         "keywordMatches": matched,
         "missingKeywords": missing,
+        "atsChecklist": checklist,
         "suggestions": suggestions,
     }
 
@@ -636,6 +657,8 @@ def _build_jd_keyword_integrate_prompt(*, keyword: str, jd_text: str, fields: li
 2. 只挑**一个最相关**的字段：给出该字段内**逐字出现的连续原片段** original，与融入关键词后的 suggested；original 必须能在对应 key 的内容里精确匹配以便程序替换。
 3. 融入要自然贴合上下文、与已有事实一致，**不得编造**未发生的经历或数据；若该关键词无法真实自然地融入任何字段，则返回空对象 {{}}。
 4. suggested 应当真实体现该关键词或其等价表述，并尽量保留原片段的量化与结果。
+5. 改写铁律：绝不添加候选人不具备的技能——只是**换用 JD 的原词重述真实经历**（范式：简历写「基于向量检索的 LLM 工作流」、JD 说「RAG 检索管线」→「RAG 检索管线设计与 LLM 编排」）。
+6. 落位优先级：优先融入 ①最相关经历的第一条要点 ②技能区 ③摘要前部；同等相关时选更靠前的位置。
 
 只输出 JSON，不要任何额外文字或代码块：
 {{"key": "字段key", "original": "原片段", "suggested": "融入关键词后的片段", "reason": "为何这样融入更匹配JD"}}

@@ -50,12 +50,15 @@ export default function ResumeSuggestionsCard({
   suggestions,
   onApply,
   onApplyOne,
+  onCollectFacts,
 }: {
   suggestions: ResumeSuggestion[];
   /** 传入则显示「全部按建议修改」，点击触发按诊断建议整体改简历 */
   onApply?: () => void;
   /** 传入则在 proposed 条显示「帮我改这条」，点击只改当前这一条（1-based 序号 + 标题） */
   onApplyOne?: (index: number, title: string) => void;
+  /** 传入则在 needs_fact 条显示「补充信息并修改」，点击弹选择框收集该条缺口后只改这一条（P2） */
+  onCollectFacts?: (index: number, title: string) => void;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const safeIndex = Math.min(activeIndex, Math.max(0, suggestions.length - 1));
@@ -119,6 +122,16 @@ export default function ResumeSuggestionsCard({
                 >
                   <PencilLine className="size-4" />
                   帮我改这条
+                </button>
+              )}
+              {onCollectFacts && active.status === "needs_fact" && (
+                <button
+                  type="button"
+                  onClick={() => onCollectFacts(safeIndex + 1, active.title)}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 border-2 fresh:border border-black fresh:border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-chat-ink transition-all hover:bg-amber-50 active:translate-x-[1px] active:translate-y-[1px] dark:border-white dark:bg-slate-900 dark:text-slate-100"
+                >
+                  <PencilLine className="size-4" />
+                  补充信息并修改
                 </button>
               )}
               {onApply && (

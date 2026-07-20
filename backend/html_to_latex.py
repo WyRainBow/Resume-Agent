@@ -16,6 +16,11 @@ import re
 from html.parser import HTMLParser
 from typing import List, Tuple
 
+try:
+    from backend.ats_normalize import normalize_ats_text
+except ImportError:  # 兼容以 backend 为 cwd 的脚本场景
+    from ats_normalize import normalize_ats_text
+
 
 def _markdown_to_html(text: str) -> str:
     """Convert basic Markdown to HTML so html_to_latex can process it.
@@ -213,15 +218,18 @@ def escape_latex(text: str) -> str:
 def html_to_latex(html: str) -> str:
     """
     将 HTML 转换为 LaTeX
-    
+
     Args:
         html: TipTap 输出的 HTML 字符串
-        
+
     Returns:
         LaTeX 格式的字符串
     """
     if not html or not html.strip():
         return ''
+
+    # ATS 归一化（弯引号/em-dash/零宽等，仅 ASCII 上下文）——必须在 LaTeX 转义之前
+    html = normalize_ats_text(html)
 
     # 预处理：移除多余空白
     html = html.strip()
@@ -274,7 +282,9 @@ def html_to_latex_items(html: str) -> List[str]:
     """
     if not html or not html.strip():
         return []
-    
+
+    html = normalize_ats_text(html)
+
     # 提取列表项
     items = []
     

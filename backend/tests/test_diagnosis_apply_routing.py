@@ -19,6 +19,7 @@ from backend.agent.agent.turn_state import TurnExecutionState
 from backend.agent.application.conversation.conversation_state import (
     is_diagnosis_apply_single_query,
     is_diagnosis_apply_query,
+    is_suggestion_facts_query,
     is_view_suggestions_query,
 )
 
@@ -78,6 +79,38 @@ def test_single_apply_regex_extracts_index(text, expected):
 )
 def test_single_apply_regex_rejects_non_single(text):
     assert is_diagnosis_apply_single_query(text) is None
+
+
+# ---- P2 单条缺口收集正则(补充第N条建议) ----
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("补充第1条建议需要的信息：教育经历缺少起止时间", 1),
+        ("补充第3条建议需要的信息", 3),
+    ],
+)
+def test_facts_regex_extracts_index(text, expected):
+    assert is_suggestion_facts_query(text) == expected
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "补充第二段经历",          # 普通编辑表达,无「条建议」锚
+        "帮我补充一下教育经历",
+        "先别补充第1条建议",       # 否定
+        "按建议第2条修改：xxx",    # 单条 apply,不是缺口收集
+    ],
+)
+def test_facts_regex_rejects_non_facts(text):
+    assert is_suggestion_facts_query(text) is None
+
+
+def test_facts_and_single_apply_disjoint():
+    # 两个入口消息互不误伤
+    assert is_diagnosis_apply_single_query("补充第2条建议需要的信息：xxx") is None
+    assert is_suggestion_facts_query("按建议第2条修改：xxx") is None
 
 
 def test_apply_and_view_stay_mutually_exclusive():

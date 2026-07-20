@@ -216,6 +216,30 @@ export default function JdOptimizeDialog({
 
           {!loading && !error && result && (
             <>
+              {(result.atsChecklist?.length ?? 0) > 0 && (
+                <div className="mb-3">
+                  <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1.5" title="ATS（招聘方简历筛选系统）逐条兼容检查">ATS 兼容检查</p>
+                  <div className="space-y-1">
+                    {result.atsChecklist!.map((c, i) => (
+                      <div key={i} className="flex items-start gap-2 text-xs leading-5">
+                        <span className={cn(
+                          'mt-0.5 shrink-0 rounded-full px-1.5 py-px text-[10px] font-semibold border',
+                          c.status === 'pass' && 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-900/50',
+                          c.status === 'fail' && 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-900/50',
+                          c.status === 'template' && 'bg-neutral-100 text-neutral-500 border-neutral-200 dark:bg-neutral-800 dark:text-neutral-400 dark:border-neutral-700',
+                        )}>
+                          {c.status === 'pass' ? '达标' : c.status === 'fail' ? '待改' : '模板保证'}
+                        </span>
+                        <span className="text-neutral-700 dark:text-neutral-300">
+                          {c.item}
+                          {c.note && <span className="text-neutral-400 dark:text-neutral-500">｜{c.note}</span>}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {result.keywordMatches.length > 0 && (
                 <div className="mb-3">
                   <p className="text-xs font-medium text-neutral-500 dark:text-neutral-400 mb-1.5">已命中的 JD 关键词</p>

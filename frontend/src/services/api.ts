@@ -1041,11 +1041,19 @@ export interface JdSuggestion {
   reason: string
 }
 
+export interface JdAtsCheckItem {
+  item: string
+  /** pass=达标 fail=不达标需改 template=由 LaTeX 模板天然保证 */
+  status: 'pass' | 'fail' | 'template'
+  note: string
+}
+
 export interface JdOptimizeResult {
   matchScore: number | null
   atsScore: number | null
   keywordMatches: string[]
   missingKeywords: string[]
+  atsChecklist?: JdAtsCheckItem[]
   suggestions: JdSuggestion[]
 }
 

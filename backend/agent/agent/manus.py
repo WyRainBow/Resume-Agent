@@ -38,6 +38,7 @@ from backend.agent.application.conversation.conversation_state import (
     is_add_experience_query,
     is_diagnosis_apply_query,
     is_diagnosis_apply_single_query,
+    is_suggestion_facts_query,
     is_view_suggestions_query,
     is_full_optimize_query,
     is_read_only_query,
@@ -353,9 +354,29 @@ class Manus(ToolCallAgent):
             pending = None
 
         # 单条 apply（建议卡「帮我改这条」）> pending 恢复 > 一键 apply（前置查缺口）
+        facts_n = is_suggestion_facts_query(user_input)
         is_apply_turn = False
         is_gap_turn = False
-        if completed and single_n:
+        if completed and facts_n is not None:
+            # P2(2026-07-19):needs_fact 条「补充信息并修改」→ 单条缺口收集轮。
+            # asking 关闭或该条并非 needs_fact 时,降级为单条 apply
+            # (needs_fact 会命中 SINGLE_APPLY_NEEDS_FACT_PROMPT 的清晰话术)。
+            item = self._suggestion_by_index(facts_n)
+            if (
+                item is not None
+                and item.get("status") == "needs_fact"
+                and is_asking_mode_enabled()
+            ):
+                is_gap_turn = True
+                if self._shared_state is not None:
+                    self._shared_state.set(
+                        "diagnosis_apply_pending",
+                        {"mode": "single", "index": facts_n},
+                    )
+            elif item is not None:
+                is_apply_turn = True
+                self._turn.diagnosis_apply_single = facts_n
+        elif completed and single_n:
             is_apply_turn = True
             self._turn.diagnosis_apply_single = single_n
         elif completed and resume_from_pending:
@@ -434,7 +455,18 @@ class Manus(ToolCallAgent):
                 # 用户没点过「查看建议」，assessment 无结构化建议 → 回退读诊断报告
                 system_prompt = f"{system_prompt}\n\n{DIAGNOSIS_APPLY_PROMPT}"
         elif self._turn.diagnosis_gap_collect:
-            block = self._format_gap_block(self._needs_fact_suggestions())
+            # P2:pending mode=single 时只问该条的缺口;否则问全部 needs_fact
+            pending = (
+                self._shared_state.get("diagnosis_apply_pending")
+                if self._shared_state is not None
+                else None
+            )
+            if isinstance(pending, dict) and pending.get("mode") == "single":
+                single_item = self._suggestion_by_index(pending.get("index"))
+                gap_items = [single_item] if single_item else self._needs_fact_suggestions()
+            else:
+                gap_items = self._needs_fact_suggestions()
+            block = self._format_gap_block(gap_items)
             system_prompt = f"{system_prompt}\n\n{GAP_COLLECT_PROMPT.format(gap_block=block)}"
         if self._turn.view_suggestions:
             system_prompt = f"{system_prompt}\n\n{VIEW_SUGGESTIONS_PROMPT}"

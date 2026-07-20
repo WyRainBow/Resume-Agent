@@ -102,6 +102,39 @@ describe("ResumeSuggestionsCard · 逐条改 / 一键改 三态按钮", () => {
     expect(container.textContent).toContain("院校全称");
   });
 
+  it("P2: needs_fact 条渲染「补充信息并修改」并回传序号+标题", () => {
+    const calls: Array<[number, string]> = [];
+    act(() => {
+      root.render(
+        <ResumeSuggestionsCard
+          suggestions={[NEEDS_FACT]}
+          onApply={() => {}}
+          onApplyOne={() => {}}
+          onCollectFacts={(i, t) => calls.push([i, t])}
+        />,
+      );
+    });
+    const btn = findButton(container, "补充信息并修改");
+    expect(btn).toBeTruthy();
+    act(() => btn!.click());
+    expect(calls).toEqual([[1, "教育经历缺院校"]]);
+  });
+
+  it("P2: proposed 条不渲染「补充信息并修改」", () => {
+    act(() => {
+      root.render(
+        <ResumeSuggestionsCard
+          suggestions={[PROPOSED]}
+          onApply={() => {}}
+          onApplyOne={() => {}}
+          onCollectFacts={() => {}}
+        />,
+      );
+    });
+    expect(findButton(container, "补充信息并修改")).toBeFalsy();
+    expect(findButton(container, "帮我改这条")).toBeTruthy();
+  });
+
   it("翻到 needs_fact 条时「帮我改这条」按钮消失（按当前分页条 status）", () => {
     act(() => {
       root.render(

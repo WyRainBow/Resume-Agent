@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from models import ScoreResult, Resume
 from services.embedding_service import EmbeddingService
+from services.reason_quotes import mark_unverified_quotes as _mark_unverified_quotes
 from llm import call_llm
 
 
@@ -99,17 +100,20 @@ class ScoringService:
 请以JSON格式输出评估结果：
 {{
     "score": 0-100的分数,
-    "reasons": ["匹配点1", "不匹配点1", "改进建议1"]
+    "reasons": ["匹配：结论（依据：『简历原文逐字片段，≤30字』）", "不匹配：结论（依据：『相关原文片段』或写明简历未提及）", "建议：可执行的改进动作"]
 }}
+
+引用铁律：『』内必须是上面简历内容里**逐字出现的连续片段**（含标点），禁止改写、翻译或概括；没有可引用的原文就写明"简历未提及"，不要伪造引用。
 
 只输出JSON，不要其他内容。"""
 
         try:
             result = call_llm("deepseek", prompt)
             data = json.loads(result)
+            source_text = json.dumps(resume_data, ensure_ascii=False)
             return {
                 "score": float(data.get("score", 0)),
-                "reasons": data.get("reasons", [])
+                "reasons": _mark_unverified_quotes(data.get("reasons", []), source_text)
             }
         except Exception as e:
             print(f"[ERROR] Skill/experience scoring failed: {e}")
@@ -130,17 +134,20 @@ class ScoringService:
 请以JSON格式输出评估结果：
 {{
     "score": 0-100的分数,
-    "reasons": ["匹配点1", "不匹配点1", "改进建议1"]
+    "reasons": ["匹配：结论（依据：『简历原文逐字片段，≤30字』）", "不匹配：结论（依据：『相关原文片段』或写明简历未提及）", "建议：可执行的改进动作"]
 }}
+
+引用铁律：『』内必须是上面简历内容里**逐字出现的连续片段**（含标点），禁止改写、翻译或概括；没有可引用的原文就写明"简历未提及"，不要伪造引用。
 
 只输出JSON，不要其他内容。"""
 
         try:
             result = call_llm("deepseek", prompt)
             data = json.loads(result)
+            source_text = json.dumps(resume_data, ensure_ascii=False)
             return {
                 "score": float(data.get("score", 0)),
-                "reasons": data.get("reasons", [])
+                "reasons": _mark_unverified_quotes(data.get("reasons", []), source_text)
             }
         except Exception as e:
             print(f"[ERROR] Education scoring failed: {e}")
@@ -173,8 +180,10 @@ class ScoringService:
 请以JSON格式输出评估结果：
 {{
     "score": 0-100的分数（综合项目相关性和整体匹配度）,
-    "reasons": ["匹配点1", "不匹配点1", "改进建议1"]
+    "reasons": ["匹配：结论（依据：『简历原文逐字片段，≤30字』）", "不匹配：结论（依据：『相关原文片段』或写明简历未提及）", "建议：可执行的改进动作"]
 }}
+
+引用铁律：『』内必须是上面简历内容里**逐字出现的连续片段**（含标点），禁止改写、翻译或概括；没有可引用的原文就写明"简历未提及"，不要伪造引用。
 
 只输出JSON，不要其他内容。"""
 
@@ -183,9 +192,10 @@ class ScoringService:
             data = json.loads(llm_result)
             llm_score = float(data.get("score", 0))
             final_score = embedding_score * 0.4 + llm_score * 0.6
+            source_text = json.dumps(resume.data, ensure_ascii=False)
             return {
                 "score": round(final_score, 1),
-                "reasons": data.get("reasons", [])
+                "reasons": _mark_unverified_quotes(data.get("reasons", []), source_text)
             }
         except Exception as e:
             print(f"[ERROR] Project/overall scoring failed: {e}")

@@ -212,6 +212,8 @@ def build_ai_phrase_rule_block(locale: str = "zh") -> str:
         "- 行文口癖：值得注意的是 / 总而言之 / 综上所述\n"
         "- 否定排比句式：禁止「不是X，而是Y」「真正重要的不是…而是…」——删掉否定铺垫，"
         "直接说正向主张（这是 AI 文本最典型的破绽）\n"
+        "中文语感：多用短句、主动语态，避免西式被动句；通用技术术语"
+        "（stack / pipeline / embedding / RAG 等）保留英文，不硬译成汉语。\n"
         "原则：像一个真实的工程师在写自己的经历，而不是 LLM 在堆砌形容词。\n"
         "英文同理：避免 spearheaded / orchestrated / leveraged / synergy / paradigm 等词。"
     )
